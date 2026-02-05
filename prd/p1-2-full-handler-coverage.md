@@ -1,13 +1,13 @@
 # P1-2: Full Handler Coverage
 
-## Status: In Progress (Phase 1 Complete)
+## Status: Near Complete (17/18 check, 22/23 remediation)
 
 ## Problem
 V0 implements 7 of 17 check methods and 8 of 23 remediation mechanisms defined in the schema. As we write more rules, we'll need the remaining handlers.
 
 ## Current State
 
-### Check Handlers (12/17 implemented)
+### Check Handlers (17/18 implemented)
 | Method | Status | Notes |
 |--------|--------|-------|
 | config_value | Done | |
@@ -22,19 +22,20 @@ V0 implements 7 of 17 check methods and 8 of 23 remediation mechanisms defined i
 | kernel_module_state | Done | |
 | package_state | Done | |
 | service_state | Done | systemctl is-enabled/is-active |
-| mount_option | **TODO** | findmnt + option check |
-| audit_rule_exists | **TODO** | auditctl -l grep |
-| grub_parameter | **TODO** | grubby --info or grub2-editenv |
-| selinux_boolean | **TODO** | getsebool |
-| selinux_state | **TODO** | getenforce |
+| selinux_state | Done | getenforce |
+| selinux_boolean | Done | getsebool |
+| audit_rule_exists | Done | auditctl -l grep |
+| mount_option | Done | findmnt + option check |
+| grub_parameter | Done | grubby --info |
 | pam_module | **TODO** | grep PAM stack files |
 
-### Remediation Handlers (15/23 implemented)
+### Remediation Handlers (22/23 implemented)
 | Mechanism | Status | Notes |
 |-----------|--------|-------|
 | config_set | Done | |
 | config_set_dropin | Done | |
 | config_remove | Done | Delete key from file |
+| config_block | Done | Multiline block with markers |
 | command_exec | Done | |
 | file_permissions | Done | With glob support |
 | file_content | Done | Write full file content |
@@ -44,17 +45,16 @@ V0 implements 7 of 17 check methods and 8 of 23 remediation mechanisms defined i
 | package_absent | Done | dnf remove -y |
 | kernel_module_disable | Done | |
 | manual | Done | |
-| service_enabled | Done | systemctl enable --now |
-| service_disabled | Done | systemctl disable --now |
+| service_enabled | Done | systemctl enable |
+| service_disabled | Done | systemctl disable |
 | service_masked | Done | systemctl mask |
-| config_block | **TODO** | Multiline block with markers |
-| grub_parameter_set | **TODO** | grubby --update-kernel |
-| grub_parameter_remove | **TODO** | grubby --remove-args |
-| mount_option_set | **TODO** | Edit fstab + remount |
+| selinux_boolean_set | Done | setsebool -P |
+| audit_rule_set | Done | auditctl + persist |
+| mount_option_set | Done | Edit fstab + remount |
+| grub_parameter_set | Done | grubby --update-kernel |
+| grub_parameter_remove | Done | grubby --remove-args |
+| cron_job | Done | Write to /etc/cron.d/ |
 | pam_module_configure | **TODO** | authselect or direct PAM edit |
-| audit_rule_set | **TODO** | auditctl + persist |
-| selinux_boolean_set | **TODO** | setsebool -P |
-| cron_job | **TODO** | Write crontab or systemd timer |
 
 ## Technical Approach
 
@@ -67,16 +67,16 @@ Implement in priority order based on which rules need them:
 4. ✓ `file_not_exists` check + `file_absent` remediation
 5. ✓ `package_absent` remediation
 
-### Phase 2 — Security Features
-6. `selinux_state` / `selinux_boolean` checks + `selinux_boolean_set` remediation
-7. `pam_module` check + `pam_module_configure` remediation
-8. `audit_rule_exists` check + `audit_rule_set` remediation
+### Phase 2 — Security Features ✓ COMPLETE
+6. ✓ `selinux_state` / `selinux_boolean` checks + `selinux_boolean_set` remediation
+7. ✓ `audit_rule_exists` check + `audit_rule_set` remediation
+8. `pam_module` check + `pam_module_configure` remediation — **REMAINING**
 
-### Phase 3 — System Configuration
-9. `mount_option` check + `mount_option_set` remediation
-10. `grub_parameter` check + `grub_parameter_set`/`grub_parameter_remove` remediation
-11. `config_block` remediation
-12. `cron_job` remediation
+### Phase 3 — System Configuration ✓ COMPLETE
+9. ✓ `mount_option` check + `mount_option_set` remediation
+10. ✓ `grub_parameter` check + `grub_parameter_set`/`grub_parameter_remove` remediation
+11. ✓ `config_block` remediation
+12. ✓ `cron_job` remediation
 
 ## Acceptance Criteria
 - [ ] Each new handler has unit tests against mock SSH
