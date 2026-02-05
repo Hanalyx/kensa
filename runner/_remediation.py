@@ -121,6 +121,31 @@ def _remediate_config_set_dropin(
     return True, f"Wrote '{line}' to {full_path}"
 
 
+def _remediate_config_remove(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Remove a key from a config file."""
+    path = r["path"]
+    key = r["key"]
+
+    # Check if key exists
+    check = ssh.run(f"grep -q '^ *{key}' {shlex.quote(path)} 2>/dev/null")
+    if not check.ok:
+        return True, f"{key} not found in {path} (already absent)"
+
+    if dry_run:
+        return True, f"Would remove '{key}' from {path}"
+
+    # Remove lines matching the key
+    cmd = f"sed -i '/^ *{key}/d' {shlex.quote(path)}"
+    result = ssh.run(cmd)
+    if not result.ok:
+        return False, f"Failed to remove {key} from {path}: {result.stderr}"
+
+    _reload_service(ssh, r)
+    return True, f"Removed '{key}' from {path}"
+
+
 def _remediate_command_exec(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
@@ -218,6 +243,26 @@ def _remediate_package_present(
     return True, f"Installed {name}"
 
 
+def _remediate_package_absent(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Remove a package via dnf."""
+    name = r["name"]
+
+    # Check if package is installed
+    check = ssh.run(f"rpm -q {shlex.quote(name)} 2>/dev/null")
+    if not check.ok:
+        return True, f"{name}: already not installed"
+
+    if dry_run:
+        return True, f"Would remove {name}"
+
+    result = ssh.run(f"dnf remove -y {shlex.quote(name)}", timeout=300)
+    if not result.ok:
+        return False, f"dnf remove failed: {result.stderr}"
+    return True, f"Removed {name}"
+
+
 def _remediate_kernel_module_disable(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
@@ -246,6 +291,133 @@ def _remediate_manual(
     return False, f"MANUAL: {note}"
 
 
+def _remediate_file_content(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Write or replace file content."""
+    path = r["path"]
+    content = r["content"]
+    owner = r.get("owner")
+    group = r.get("group")
+    mode = r.get("mode")
+
+    if dry_run:
+        return True, f"Would write content to {path}"
+
+    # Write content
+    result = ssh.run(f"printf %s {shlex.quote(content)} > {shlex.quote(path)}")
+    if not result.ok:
+        return False, f"Failed to write {path}: {result.stderr}"
+
+    # Set permissions if specified
+    if owner or group:
+        chown_spec = f"{owner or ''}:{group or ''}"
+        ssh.run(f"chown {chown_spec} {shlex.quote(path)}")
+    if mode:
+        ssh.run(f"chmod {mode} {shlex.quote(path)}")
+
+    return True, f"Wrote content to {path}"
+
+
+def _remediate_file_absent(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Ensure a file does not exist."""
+    path = r["path"]
+
+    # Check if file exists
+    exists = ssh.run(f"test -e {shlex.quote(path)}")
+    if not exists.ok:
+        return True, f"{path}: already absent"
+
+    if dry_run:
+        return True, f"Would remove {path}"
+
+    result = ssh.run(f"rm -f {shlex.quote(path)}")
+    if not result.ok:
+        return False, f"Failed to remove {path}: {result.stderr}"
+    return True, f"Removed {path}"
+
+
+def _remediate_service_enabled(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Enable and optionally start a systemd service."""
+    name = r["name"]
+    start = r.get("start", True)
+
+    if dry_run:
+        action = "enable and start" if start else "enable"
+        return True, f"Would {action} {name}"
+
+    # Enable the service
+    result = ssh.run(f"systemctl enable {shlex.quote(name)}")
+    if not result.ok:
+        return False, f"Failed to enable {name}: {result.stderr}"
+
+    # Start if requested
+    if start:
+        result = ssh.run(f"systemctl start {shlex.quote(name)}")
+        if not result.ok:
+            return False, f"Enabled {name} but failed to start: {result.stderr}"
+        return True, f"Enabled and started {name}"
+
+    return True, f"Enabled {name}"
+
+
+def _remediate_service_disabled(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Disable and optionally stop a systemd service."""
+    name = r["name"]
+    stop = r.get("stop", True)
+
+    if dry_run:
+        action = "disable and stop" if stop else "disable"
+        return True, f"Would {action} {name}"
+
+    # Stop if requested (before disabling)
+    if stop:
+        result = ssh.run(f"systemctl stop {shlex.quote(name)}")
+        if not result.ok:
+            # Service might not be running, continue anyway
+            pass
+
+    # Disable the service
+    result = ssh.run(f"systemctl disable {shlex.quote(name)}")
+    if not result.ok:
+        return False, f"Failed to disable {name}: {result.stderr}"
+
+    if stop:
+        return True, f"Stopped and disabled {name}"
+    return True, f"Disabled {name}"
+
+
+def _remediate_service_masked(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Mask a systemd service (prevent it from starting)."""
+    name = r["name"]
+    stop = r.get("stop", True)
+
+    if dry_run:
+        action = "stop and mask" if stop else "mask"
+        return True, f"Would {action} {name}"
+
+    # Stop if requested (before masking)
+    if stop:
+        ssh.run(f"systemctl stop {shlex.quote(name)}")
+
+    # Mask the service
+    result = ssh.run(f"systemctl mask {shlex.quote(name)}")
+    if not result.ok:
+        return False, f"Failed to mask {name}: {result.stderr}"
+
+    if stop:
+        return True, f"Stopped and masked {name}"
+    return True, f"Masked {name}"
+
+
 def _reload_service(ssh: SSHSession, r: dict) -> None:
     """Reload or restart a service if specified in the remediation."""
     if "reload" in r:
@@ -257,10 +429,17 @@ def _reload_service(ssh: SSHSession, r: dict) -> None:
 REMEDIATION_HANDLERS = {
     "config_set": _remediate_config_set,
     "config_set_dropin": _remediate_config_set_dropin,
+    "config_remove": _remediate_config_remove,
     "command_exec": _remediate_command_exec,
     "file_permissions": _remediate_file_permissions,
+    "file_content": _remediate_file_content,
+    "file_absent": _remediate_file_absent,
     "sysctl_set": _remediate_sysctl_set,
     "package_present": _remediate_package_present,
+    "package_absent": _remediate_package_absent,
     "kernel_module_disable": _remediate_kernel_module_disable,
     "manual": _remediate_manual,
+    "service_enabled": _remediate_service_enabled,
+    "service_disabled": _remediate_service_disabled,
+    "service_masked": _remediate_service_masked,
 }

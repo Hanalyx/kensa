@@ -70,6 +70,28 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
     return CheckResult(passed=False, detail=f"{key}={actual} (expected {expected})")
 
 
+def _check_config_absent(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check that a key is NOT present in a config file."""
+    path = c["path"]
+    key = c["key"]
+
+    # If path is a directory, scan files matching pattern
+    scan_pattern = c.get("scan_pattern", "*.conf")
+    result = ssh.run(f"test -d {shlex.quote(path)}")
+    if result.ok:
+        # Directory mode: grep across files
+        cmd = f"grep -rh '^ *{key}' {shlex.quote(path)}/{scan_pattern} 2>/dev/null"
+    else:
+        cmd = f"grep -h '^ *{key}' {shlex.quote(path)} 2>/dev/null"
+
+    result = ssh.run(cmd)
+    if not result.ok or not result.stdout.strip():
+        return CheckResult(passed=True, detail=f"{key} not found in {path} (as required)")
+
+    # Key was found — that's a failure
+    return CheckResult(passed=False, detail=f"{key} found in {path} (should be absent)")
+
+
 def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
     """Check file ownership and mode. Supports glob paths."""
     path = c["path"]
@@ -203,12 +225,106 @@ def _check_file_exists(ssh: SSHSession, c: dict) -> CheckResult:
     return CheckResult(passed=False, detail=f"{path}: not found")
 
 
+def _check_file_not_exists(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check that a file does NOT exist."""
+    path = c["path"]
+    result = ssh.run(f"test -f {shlex.quote(path)}")
+    if not result.ok:
+        return CheckResult(passed=True, detail=f"{path}: not present (as required)")
+    return CheckResult(passed=False, detail=f"{path}: exists (should be absent)")
+
+
+def _check_file_content_match(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check that file content matches a pattern."""
+    path = c["path"]
+    pattern = c["pattern"]
+
+    # Check file exists first
+    exists = ssh.run(f"test -f {shlex.quote(path)}")
+    if not exists.ok:
+        return CheckResult(passed=False, detail=f"{path}: not found")
+
+    # Grep for pattern
+    result = ssh.run(f"grep -qE {shlex.quote(pattern)} {shlex.quote(path)}")
+    if result.ok:
+        return CheckResult(passed=True, detail=f"{path}: contains pattern")
+    return CheckResult(passed=False, detail=f"{path}: pattern not found")
+
+
+def _check_file_content_no_match(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check that file content does NOT match a pattern."""
+    path = c["path"]
+    pattern = c["pattern"]
+
+    # Check file exists first
+    exists = ssh.run(f"test -f {shlex.quote(path)}")
+    if not exists.ok:
+        # File doesn't exist = pattern definitely not in it
+        return CheckResult(passed=True, detail=f"{path}: not found (pattern cannot exist)")
+
+    # Grep for pattern — we want it to NOT be found
+    result = ssh.run(f"grep -qE {shlex.quote(pattern)} {shlex.quote(path)}")
+    if not result.ok:
+        return CheckResult(passed=True, detail=f"{path}: pattern not found (as required)")
+    return CheckResult(passed=False, detail=f"{path}: contains prohibited pattern")
+
+
+def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check systemd service enabled/active state."""
+    name = c["name"]
+    failures = []
+    details = []
+
+    # Check enabled state if specified
+    if "enabled" in c:
+        result = ssh.run(f"systemctl is-enabled {shlex.quote(name)} 2>/dev/null")
+        actual_enabled = result.stdout.strip()
+        expected_enabled = c["enabled"]
+
+        if expected_enabled:
+            if actual_enabled != "enabled":
+                failures.append(f"enabled={actual_enabled} (expected enabled)")
+            else:
+                details.append("enabled")
+        else:
+            if actual_enabled == "enabled":
+                failures.append(f"enabled={actual_enabled} (expected disabled)")
+            else:
+                details.append(f"not enabled ({actual_enabled})")
+
+    # Check active state if specified
+    if "active" in c:
+        result = ssh.run(f"systemctl is-active {shlex.quote(name)} 2>/dev/null")
+        actual_active = result.stdout.strip()
+        expected_active = c["active"]
+
+        if expected_active:
+            if actual_active != "active":
+                failures.append(f"active={actual_active} (expected active)")
+            else:
+                details.append("active")
+        else:
+            if actual_active == "active":
+                failures.append(f"active={actual_active} (expected inactive)")
+            else:
+                details.append(f"not active ({actual_active})")
+
+    if failures:
+        return CheckResult(passed=False, detail=f"{name}: {'; '.join(failures)}")
+    return CheckResult(passed=True, detail=f"{name}: {', '.join(details)}")
+
+
 CHECK_HANDLERS = {
     "config_value": _check_config_value,
+    "config_absent": _check_config_absent,
     "file_permission": _check_file_permission,
     "command": _check_command,
     "sysctl_value": _check_sysctl_value,
     "kernel_module_state": _check_kernel_module_state,
     "package_state": _check_package_state,
     "file_exists": _check_file_exists,
+    "file_not_exists": _check_file_not_exists,
+    "file_content_match": _check_file_content_match,
+    "file_content_no_match": _check_file_content_no_match,
+    "service_state": _check_service_state,
 }

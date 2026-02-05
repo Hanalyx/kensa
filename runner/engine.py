@@ -41,12 +41,19 @@ from runner._remediation import (  # noqa: F401
 # ── Pre-state capture (used by tests) ─────────────────────────────────────
 from runner._capture import (  # noqa: F401
     _capture_command_exec,
+    _capture_config_remove,
     _capture_config_set,
     _capture_config_set_dropin,
+    _capture_file_absent,
+    _capture_file_content,
     _capture_file_permissions,
     _capture_kernel_module_disable,
     _capture_manual,
+    _capture_package_absent,
     _capture_package_present,
+    _capture_service_disabled,
+    _capture_service_enabled,
+    _capture_service_masked,
     _capture_sysctl_set,
 )
 
@@ -54,12 +61,19 @@ from runner._capture import (  # noqa: F401
 from runner._rollback import (  # noqa: F401
     _execute_rollback,
     _rollback_command_exec,
+    _rollback_config_remove,
     _rollback_config_set,
     _rollback_config_set_dropin,
+    _rollback_file_absent,
+    _rollback_file_content,
     _rollback_file_permissions,
     _rollback_kernel_module_disable,
     _rollback_manual,
+    _rollback_package_absent,
     _rollback_package_present,
+    _rollback_service_disabled,
+    _rollback_service_enabled,
+    _rollback_service_masked,
     _rollback_sysctl_set,
 )
 

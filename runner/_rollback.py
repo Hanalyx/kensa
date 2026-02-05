@@ -52,6 +52,26 @@ def _rollback_config_set_dropin(ssh: SSHSession, pre_state: PreState) -> tuple[b
     return True, detail
 
 
+def _rollback_config_remove(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore removed config lines."""
+    d = pre_state.data
+    path = d["path"]
+
+    if not d["existed"] or d["old_lines"] is None:
+        return True, f"No lines to restore in {path}"
+
+    # Append the old lines back
+    for line in d["old_lines"].splitlines():
+        result = ssh.run(f"echo {shlex.quote(line)} >> {shlex.quote(path)}")
+        if not result.ok:
+            return False, f"Failed to restore line in {path}: {result.stderr}"
+
+    if d.get("reload") or d.get("restart"):
+        _reload_service(ssh, {"reload": d.get("reload"), "restart": d.get("restart")})
+
+    return True, f"Restored removed lines in {path}"
+
+
 def _rollback_command_exec(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Cannot rollback arbitrary commands."""
     return False, "Cannot rollback arbitrary commands"
@@ -93,6 +113,17 @@ def _rollback_package_present(ssh: SSHSession, pre_state: PreState) -> tuple[boo
     return True, f"Removed {d['name']}"
 
 
+def _rollback_package_absent(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Re-install package if it was installed before."""
+    d = pre_state.data
+    if not d["was_installed"]:
+        return True, f"{d['name']} was not installed, nothing to restore"
+    result = ssh.run(f"dnf install -y {shlex.quote(d['name'])}", timeout=300)
+    if not result.ok:
+        return False, f"Failed to reinstall {d['name']}: {result.stderr}"
+    return True, f"Reinstalled {d['name']}"
+
+
 def _rollback_kernel_module_disable(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Restore modprobe conf and reload module if it was loaded."""
     d = pre_state.data
@@ -111,15 +142,135 @@ def _rollback_manual(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     return False, "Nothing to rollback"
 
 
+def _rollback_file_content(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore file to its previous content."""
+    d = pre_state.data
+    path = d["path"]
+
+    if not d["existed"]:
+        # File didn't exist before — remove it
+        result = ssh.run(f"rm -f {shlex.quote(path)}")
+        if not result.ok:
+            return False, f"Failed to remove {path}: {result.stderr}"
+        return True, f"Removed {path}"
+
+    # Restore old content
+    if d["old_content"] is not None:
+        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}")
+        if not result.ok:
+            return False, f"Failed to restore {path}: {result.stderr}"
+
+    # Restore permissions
+    if d["old_owner"] or d["old_group"]:
+        chown_spec = f"{d['old_owner'] or ''}:{d['old_group'] or ''}"
+        ssh.run(f"chown {chown_spec} {shlex.quote(path)}")
+    if d["old_mode"]:
+        ssh.run(f"chmod {d['old_mode']} {shlex.quote(path)}")
+
+    return True, f"Restored {path}"
+
+
+def _rollback_file_absent(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore a removed file."""
+    d = pre_state.data
+    path = d["path"]
+
+    if not d["existed"]:
+        return True, f"{path} was already absent, nothing to restore"
+
+    # Restore old content
+    if d["old_content"] is None:
+        return False, f"Cannot restore {path}: content not captured"
+
+    result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}")
+    if not result.ok:
+        return False, f"Failed to restore {path}: {result.stderr}"
+
+    # Restore permissions
+    if d["old_owner"] or d["old_group"]:
+        chown_spec = f"{d['old_owner'] or ''}:{d['old_group'] or ''}"
+        ssh.run(f"chown {chown_spec} {shlex.quote(path)}")
+    if d["old_mode"]:
+        ssh.run(f"chmod {d['old_mode']} {shlex.quote(path)}")
+
+    return True, f"Restored {path}"
+
+
+def _rollback_service_enabled(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore service to pre-enabled state."""
+    d = pre_state.data
+    name = d["name"]
+    was_enabled = d["was_enabled"]
+    was_active = d["was_active"]
+
+    # Restore enabled state
+    if was_enabled in ("disabled", "masked"):
+        ssh.run(f"systemctl disable {shlex.quote(name)}")
+    elif was_enabled == "masked":
+        ssh.run(f"systemctl mask {shlex.quote(name)}")
+
+    # Restore active state
+    if was_active in ("inactive", "failed", "unknown"):
+        ssh.run(f"systemctl stop {shlex.quote(name)}")
+
+    return True, f"Restored {name} to {was_enabled}/{was_active}"
+
+
+def _rollback_service_disabled(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore service to pre-disabled state."""
+    d = pre_state.data
+    name = d["name"]
+    was_enabled = d["was_enabled"]
+    was_active = d["was_active"]
+
+    # Restore enabled state
+    if was_enabled == "enabled":
+        ssh.run(f"systemctl enable {shlex.quote(name)}")
+
+    # Restore active state
+    if was_active == "active":
+        ssh.run(f"systemctl start {shlex.quote(name)}")
+
+    return True, f"Restored {name} to {was_enabled}/{was_active}"
+
+
+def _rollback_service_masked(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore service from masked state."""
+    d = pre_state.data
+    name = d["name"]
+    was_enabled = d["was_enabled"]
+    was_active = d["was_active"]
+
+    # Unmask first
+    ssh.run(f"systemctl unmask {shlex.quote(name)}")
+
+    # Restore enabled state
+    if was_enabled == "enabled":
+        ssh.run(f"systemctl enable {shlex.quote(name)}")
+
+    # Restore active state
+    if was_active == "active":
+        ssh.run(f"systemctl start {shlex.quote(name)}")
+
+    return True, f"Restored {name} to {was_enabled}/{was_active}"
+
+
 ROLLBACK_HANDLERS = {
     "config_set": _rollback_config_set,
     "config_set_dropin": _rollback_config_set_dropin,
+    "config_remove": _rollback_config_remove,
     "command_exec": _rollback_command_exec,
     "file_permissions": _rollback_file_permissions,
+    "file_content": _rollback_file_content,
+    "file_absent": _rollback_file_absent,
     "sysctl_set": _rollback_sysctl_set,
     "package_present": _rollback_package_present,
+    "package_absent": _rollback_package_absent,
     "kernel_module_disable": _rollback_kernel_module_disable,
     "manual": _rollback_manual,
+    "service_enabled": _rollback_service_enabled,
+    "service_disabled": _rollback_service_disabled,
+    "service_masked": _rollback_service_masked,
 }
 
 

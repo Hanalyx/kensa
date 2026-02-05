@@ -50,6 +50,25 @@ def _capture_config_set_dropin(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_config_remove(ssh: SSHSession, r: dict) -> PreState:
+    """Capture config line before removal."""
+    path = r["path"]
+    key = r["key"]
+    result = ssh.run(f"grep '^ *{key}' {shlex.quote(path)} 2>/dev/null")
+    old_lines = result.stdout.strip() if result.ok and result.stdout.strip() else None
+    return PreState(
+        mechanism="config_remove",
+        data={
+            "path": path,
+            "key": key,
+            "old_lines": old_lines,
+            "existed": old_lines is not None,
+            "reload": r.get("reload"),
+            "restart": r.get("restart"),
+        },
+    )
+
+
 def _capture_command_exec(ssh: SSHSession, r: dict) -> PreState:
     """Command exec cannot capture pre-state."""
     return PreState(mechanism="command_exec", data={"note": "arbitrary command"}, capturable=False)
@@ -104,6 +123,20 @@ def _capture_package_present(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_package_absent(ssh: SSHSession, r: dict) -> PreState:
+    """Capture whether package is currently installed before removal."""
+    name = r["name"]
+    result = ssh.run(f"rpm -q {shlex.quote(name)} 2>/dev/null")
+    return PreState(
+        mechanism="package_absent",
+        data={
+            "name": name,
+            "was_installed": result.ok,
+            "version": result.stdout.strip() if result.ok else None,
+        },
+    )
+
+
 def _capture_kernel_module_disable(ssh: SSHSession, r: dict) -> PreState:
     """Capture kernel module conf and load state."""
     name = r["name"]
@@ -127,15 +160,129 @@ def _capture_manual(ssh: SSHSession, r: dict) -> PreState:
     return PreState(mechanism="manual", data={}, capturable=False)
 
 
+def _capture_file_content(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current file content before modification."""
+    path = r["path"]
+    exists = ssh.run(f"test -f {shlex.quote(path)}")
+    old_content = None
+    old_owner = None
+    old_group = None
+    old_mode = None
+
+    if exists.ok:
+        cat = ssh.run(f"cat {shlex.quote(path)}")
+        old_content = cat.stdout if cat.ok else None
+        stat = ssh.run(f"stat -c '%U %G %a' {shlex.quote(path)}")
+        if stat.ok:
+            parts = stat.stdout.strip().split()
+            if len(parts) >= 3:
+                old_owner, old_group, old_mode = parts[0], parts[1], parts[2]
+
+    return PreState(
+        mechanism="file_content",
+        data={
+            "path": path,
+            "existed": exists.ok,
+            "old_content": old_content,
+            "old_owner": old_owner,
+            "old_group": old_group,
+            "old_mode": old_mode,
+        },
+    )
+
+
+def _capture_file_absent(ssh: SSHSession, r: dict) -> PreState:
+    """Capture file state before removal."""
+    path = r["path"]
+    exists = ssh.run(f"test -f {shlex.quote(path)}")
+    old_content = None
+    old_owner = None
+    old_group = None
+    old_mode = None
+
+    if exists.ok:
+        cat = ssh.run(f"cat {shlex.quote(path)}")
+        old_content = cat.stdout if cat.ok else None
+        stat = ssh.run(f"stat -c '%U %G %a' {shlex.quote(path)}")
+        if stat.ok:
+            parts = stat.stdout.strip().split()
+            if len(parts) >= 3:
+                old_owner, old_group, old_mode = parts[0], parts[1], parts[2]
+
+    return PreState(
+        mechanism="file_absent",
+        data={
+            "path": path,
+            "existed": exists.ok,
+            "old_content": old_content,
+            "old_owner": old_owner,
+            "old_group": old_group,
+            "old_mode": old_mode,
+        },
+    )
+
+
+def _capture_service_enabled(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current service enabled/active state before enabling."""
+    name = r["name"]
+    enabled = ssh.run(f"systemctl is-enabled {shlex.quote(name)} 2>/dev/null")
+    active = ssh.run(f"systemctl is-active {shlex.quote(name)} 2>/dev/null")
+    return PreState(
+        mechanism="service_enabled",
+        data={
+            "name": name,
+            "was_enabled": enabled.stdout.strip() if enabled.ok else "unknown",
+            "was_active": active.stdout.strip() if active.ok else "unknown",
+        },
+    )
+
+
+def _capture_service_disabled(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current service enabled/active state before disabling."""
+    name = r["name"]
+    enabled = ssh.run(f"systemctl is-enabled {shlex.quote(name)} 2>/dev/null")
+    active = ssh.run(f"systemctl is-active {shlex.quote(name)} 2>/dev/null")
+    return PreState(
+        mechanism="service_disabled",
+        data={
+            "name": name,
+            "was_enabled": enabled.stdout.strip() if enabled.ok else "unknown",
+            "was_active": active.stdout.strip() if active.ok else "unknown",
+        },
+    )
+
+
+def _capture_service_masked(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current service enabled/active state before masking."""
+    name = r["name"]
+    enabled = ssh.run(f"systemctl is-enabled {shlex.quote(name)} 2>/dev/null")
+    active = ssh.run(f"systemctl is-active {shlex.quote(name)} 2>/dev/null")
+    return PreState(
+        mechanism="service_masked",
+        data={
+            "name": name,
+            "was_enabled": enabled.stdout.strip() if enabled.ok else "unknown",
+            "was_active": active.stdout.strip() if active.ok else "unknown",
+        },
+    )
+
+
 CAPTURE_HANDLERS = {
     "config_set": _capture_config_set,
     "config_set_dropin": _capture_config_set_dropin,
+    "config_remove": _capture_config_remove,
     "command_exec": _capture_command_exec,
     "file_permissions": _capture_file_permissions,
+    "file_content": _capture_file_content,
+    "file_absent": _capture_file_absent,
     "sysctl_set": _capture_sysctl_set,
     "package_present": _capture_package_present,
+    "package_absent": _capture_package_absent,
     "kernel_module_disable": _capture_kernel_module_disable,
     "manual": _capture_manual,
+    "service_enabled": _capture_service_enabled,
+    "service_disabled": _capture_service_disabled,
+    "service_masked": _capture_service_masked,
 }
 
 
