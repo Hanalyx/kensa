@@ -196,6 +196,48 @@ def _rollback_file_absent(ssh: SSHSession, pre_state: PreState) -> tuple[bool, s
     return True, f"Restored {path}"
 
 
+def _rollback_config_block(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore file to state before block was added."""
+    d = pre_state.data
+    path = d["path"]
+
+    if not d["existed"]:
+        # File didn't exist - remove it
+        ssh.run(f"rm -f {shlex.quote(path)}")
+        return True, f"Removed {path}"
+
+    if d["old_content"] is not None:
+        # Restore old content
+        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}")
+        if not result.ok:
+            return False, f"Failed to restore {path}: {result.stderr}"
+
+    if d.get("reload") or d.get("restart"):
+        _reload_service(ssh, {"reload": d.get("reload"), "restart": d.get("restart")})
+
+    return True, f"Restored {path}"
+
+
+def _rollback_cron_job(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore or remove cron file."""
+    d = pre_state.data
+    cron_file = d["cron_file"]
+
+    if not d["existed"]:
+        # File didn't exist - remove it
+        ssh.run(f"rm -f {shlex.quote(cron_file)}")
+        return True, f"Removed {cron_file}"
+
+    if d["old_content"] is not None:
+        # Restore old content
+        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(cron_file)}")
+        if not result.ok:
+            return False, f"Failed to restore {cron_file}: {result.stderr}"
+        return True, f"Restored {cron_file}"
+
+    return True, f"Cron file restored"
+
+
 def _rollback_mount_option_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Restore fstab line to previous state."""
     d = pre_state.data
@@ -345,6 +387,8 @@ ROLLBACK_HANDLERS = {
     "mount_option_set": _rollback_mount_option_set,
     "grub_parameter_set": _rollback_grub_parameter_set,
     "grub_parameter_remove": _rollback_grub_parameter_remove,
+    "config_block": _rollback_config_block,
+    "cron_job": _rollback_cron_job,
 }
 
 

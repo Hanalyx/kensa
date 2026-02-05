@@ -222,6 +222,56 @@ def _capture_file_absent(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_config_block(ssh: SSHSession, r: dict) -> PreState:
+    """Capture file content before writing block."""
+    path = r["path"]
+    marker = r.get("marker", "# AEGIS MANAGED BLOCK")
+    begin_marker = f"# BEGIN {marker}"
+
+    exists = ssh.run(f"test -f {shlex.quote(path)}")
+    old_content = None
+    if exists.ok:
+        cat = ssh.run(f"cat {shlex.quote(path)}")
+        old_content = cat.stdout if cat.ok else None
+
+    # Check if block already exists
+    block_exists = ssh.run(f"grep -qF {shlex.quote(begin_marker)} {shlex.quote(path)} 2>/dev/null")
+
+    return PreState(
+        mechanism="config_block",
+        data={
+            "path": path,
+            "existed": exists.ok,
+            "old_content": old_content,
+            "block_existed": block_exists.ok,
+            "marker": marker,
+            "reload": r.get("reload"),
+            "restart": r.get("restart"),
+        },
+    )
+
+
+def _capture_cron_job(ssh: SSHSession, r: dict) -> PreState:
+    """Capture cron file state before creation."""
+    name = r.get("name", "aegis-managed")
+    cron_file = f"/etc/cron.d/{name}"
+
+    exists = ssh.run(f"test -f {shlex.quote(cron_file)}")
+    old_content = None
+    if exists.ok:
+        cat = ssh.run(f"cat {shlex.quote(cron_file)}")
+        old_content = cat.stdout if cat.ok else None
+
+    return PreState(
+        mechanism="cron_job",
+        data={
+            "cron_file": cron_file,
+            "existed": exists.ok,
+            "old_content": old_content,
+        },
+    )
+
+
 def _capture_mount_option_set(ssh: SSHSession, r: dict) -> PreState:
     """Capture current mount options before modification."""
     mount_point = r["mount_point"]
@@ -381,6 +431,8 @@ CAPTURE_HANDLERS = {
     "mount_option_set": _capture_mount_option_set,
     "grub_parameter_set": _capture_grub_parameter_set,
     "grub_parameter_remove": _capture_grub_parameter_remove,
+    "config_block": _capture_config_block,
+    "cron_job": _capture_cron_job,
 }
 
 

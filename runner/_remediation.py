@@ -339,6 +339,63 @@ def _remediate_file_absent(
     return True, f"Removed {path}"
 
 
+def _remediate_config_block(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Write a block of content with begin/end markers."""
+    path = r["path"]
+    block = r["block"]
+    marker = r.get("marker", "# AEGIS MANAGED BLOCK")
+    begin_marker = f"# BEGIN {marker}"
+    end_marker = f"# END {marker}"
+
+    if dry_run:
+        return True, f"Would write block to {path} with marker '{marker}'"
+
+    # Check if block already exists
+    check = ssh.run(f"grep -qF {shlex.quote(begin_marker)} {shlex.quote(path)} 2>/dev/null")
+    if check.ok:
+        # Block exists - replace it
+        # Use sed to delete between markers and insert new content
+        cmd = f"sed -i '/{begin_marker.replace('/', '\\/')}/,/{end_marker.replace('/', '\\/')}/d' {shlex.quote(path)}"
+        ssh.run(cmd)
+
+    # Append the new block
+    full_block = f"{begin_marker}\n{block}\n{end_marker}"
+    result = ssh.run(f"printf %s {shlex.quote(full_block)} >> {shlex.quote(path)}")
+    if not result.ok:
+        return False, f"Failed to write block: {result.stderr}"
+
+    _reload_service(ssh, r)
+    return True, f"Wrote block to {path}"
+
+
+def _remediate_cron_job(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Add a cron job entry."""
+    schedule = r["schedule"]  # e.g., "0 5 * * *"
+    command = r["command"]
+    user = r.get("user", "root")
+    name = r.get("name", "aegis-managed")
+
+    cron_file = f"/etc/cron.d/{name}"
+    cron_line = f"{schedule} {user} {command}"
+
+    if dry_run:
+        return True, f"Would create {cron_file} with: {cron_line}"
+
+    # Write cron file
+    result = ssh.run(f"echo {shlex.quote(cron_line)} > {shlex.quote(cron_file)}")
+    if not result.ok:
+        return False, f"Failed to create cron job: {result.stderr}"
+
+    # Set correct permissions
+    ssh.run(f"chmod 644 {shlex.quote(cron_file)}")
+
+    return True, f"Created cron job: {cron_file}"
+
+
 def _remediate_mount_option_set(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
@@ -573,4 +630,6 @@ REMEDIATION_HANDLERS = {
     "mount_option_set": _remediate_mount_option_set,
     "grub_parameter_set": _remediate_grub_parameter_set,
     "grub_parameter_remove": _remediate_grub_parameter_remove,
+    "config_block": _remediate_config_block,
+    "cron_job": _remediate_cron_job,
 }
