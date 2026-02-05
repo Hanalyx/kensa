@@ -222,6 +222,56 @@ def _capture_file_absent(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_mount_option_set(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current mount options before modification."""
+    mount_point = r["mount_point"]
+
+    # Get current fstab line
+    fstab_result = ssh.run(f"grep -E '\\s{shlex.quote(mount_point)}\\s' /etc/fstab")
+    old_fstab_line = fstab_result.stdout.strip() if fstab_result.ok else None
+
+    # Get current mount options
+    mount_result = ssh.run(f"findmnt -n -o OPTIONS {shlex.quote(mount_point)} 2>/dev/null")
+    old_options = mount_result.stdout.strip() if mount_result.ok else None
+
+    return PreState(
+        mechanism="mount_option_set",
+        data={
+            "mount_point": mount_point,
+            "old_fstab_line": old_fstab_line,
+            "old_options": old_options,
+        },
+    )
+
+
+def _capture_grub_parameter_set(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current GRUB kernel args before modification."""
+    result = ssh.run("grubby --info=DEFAULT 2>/dev/null | grep -E 'args='")
+    old_args = result.stdout.strip() if result.ok else None
+    return PreState(
+        mechanism="grub_parameter_set",
+        data={
+            "key": r["key"],
+            "old_args": old_args,
+        },
+        capturable=False,  # GRUB changes are complex to rollback
+    )
+
+
+def _capture_grub_parameter_remove(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current GRUB kernel args before removal."""
+    result = ssh.run("grubby --info=DEFAULT 2>/dev/null | grep -E 'args='")
+    old_args = result.stdout.strip() if result.ok else None
+    return PreState(
+        mechanism="grub_parameter_remove",
+        data={
+            "key": r["key"],
+            "old_args": old_args,
+        },
+        capturable=False,  # GRUB changes are complex to rollback
+    )
+
+
 def _capture_audit_rule_set(ssh: SSHSession, r: dict) -> PreState:
     """Capture audit rule state before adding."""
     rule = r["rule"]
@@ -328,6 +378,9 @@ CAPTURE_HANDLERS = {
     "service_masked": _capture_service_masked,
     "selinux_boolean_set": _capture_selinux_boolean_set,
     "audit_rule_set": _capture_audit_rule_set,
+    "mount_option_set": _capture_mount_option_set,
+    "grub_parameter_set": _capture_grub_parameter_set,
+    "grub_parameter_remove": _capture_grub_parameter_remove,
 }
 
 

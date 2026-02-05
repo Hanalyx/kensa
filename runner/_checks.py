@@ -314,6 +314,56 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
     return CheckResult(passed=True, detail=f"{name}: {', '.join(details)}")
 
 
+def _check_mount_option(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check if a mount point has required options."""
+    mount_point = c["mount_point"]
+    required_options = c.get("options", [])
+
+    # Get current mount options
+    result = ssh.run(f"findmnt -n -o OPTIONS {shlex.quote(mount_point)} 2>/dev/null")
+    if not result.ok or not result.stdout.strip():
+        return CheckResult(passed=False, detail=f"{mount_point}: not mounted")
+
+    current_options = set(result.stdout.strip().split(","))
+    missing = []
+    for opt in required_options:
+        if opt not in current_options:
+            missing.append(opt)
+
+    if missing:
+        return CheckResult(passed=False, detail=f"{mount_point}: missing options: {', '.join(missing)}")
+    return CheckResult(passed=True, detail=f"{mount_point}: has required options")
+
+
+def _check_grub_parameter(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check if a kernel parameter is set in GRUB."""
+    key = c["key"]
+    expected = c.get("expected")
+
+    # Try grubby first (RHEL/Fedora)
+    result = ssh.run(f"grubby --info=DEFAULT 2>/dev/null | grep -E 'args='")
+    if result.ok:
+        args_line = result.stdout.strip()
+        # Parse the kernel args
+        if f"{key}=" in args_line:
+            # Extract value
+            import re
+            match = re.search(rf'{key}=(\S+)', args_line)
+            if match:
+                actual = match.group(1).strip('"')
+                if expected is None or actual == expected:
+                    return CheckResult(passed=True, detail=f"{key}={actual}")
+                return CheckResult(passed=False, detail=f"{key}={actual} (expected {expected})")
+        elif key in args_line:
+            # Boolean parameter (no value)
+            if expected is None or expected == "":
+                return CheckResult(passed=True, detail=f"{key} present")
+            return CheckResult(passed=False, detail=f"{key} present but expected value {expected}")
+        return CheckResult(passed=False, detail=f"{key} not found in kernel args")
+
+    return CheckResult(passed=False, detail="grubby not available")
+
+
 def _check_audit_rule_exists(ssh: SSHSession, c: dict) -> CheckResult:
     """Check if an audit rule exists."""
     rule = c["rule"]
@@ -380,4 +430,6 @@ CHECK_HANDLERS = {
     "selinux_state": _check_selinux_state,
     "selinux_boolean": _check_selinux_boolean,
     "audit_rule_exists": _check_audit_rule_exists,
+    "mount_option": _check_mount_option,
+    "grub_parameter": _check_grub_parameter,
 }

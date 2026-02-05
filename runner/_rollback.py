@@ -196,6 +196,37 @@ def _rollback_file_absent(ssh: SSHSession, pre_state: PreState) -> tuple[bool, s
     return True, f"Restored {path}"
 
 
+def _rollback_mount_option_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore fstab line to previous state."""
+    d = pre_state.data
+    mount_point = d["mount_point"]
+
+    if d["old_fstab_line"] is None:
+        return False, f"{mount_point}: no previous fstab line captured"
+
+    # Restore the old fstab line
+    escaped_mount = mount_point.replace("/", "\\/")
+    old_line_escaped = d["old_fstab_line"].replace("/", "\\/")
+    cmd = f"sed -i 's|.*\\s{escaped_mount}\\s.*|{old_line_escaped}|' /etc/fstab"
+    result = ssh.run(cmd)
+    if not result.ok:
+        return False, f"Failed to restore fstab: {result.stderr}"
+
+    # Remount
+    ssh.run(f"mount -o remount {shlex.quote(mount_point)}")
+    return True, f"Restored {mount_point} options"
+
+
+def _rollback_grub_parameter_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Cannot rollback GRUB parameter changes safely."""
+    return False, "GRUB changes cannot be automatically rolled back"
+
+
+def _rollback_grub_parameter_remove(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Cannot rollback GRUB parameter removal safely."""
+    return False, "GRUB changes cannot be automatically rolled back"
+
+
 def _rollback_audit_rule_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Remove audit rule if it didn't exist before."""
     d = pre_state.data
@@ -311,6 +342,9 @@ ROLLBACK_HANDLERS = {
     "service_masked": _rollback_service_masked,
     "selinux_boolean_set": _rollback_selinux_boolean_set,
     "audit_rule_set": _rollback_audit_rule_set,
+    "mount_option_set": _rollback_mount_option_set,
+    "grub_parameter_set": _rollback_grub_parameter_set,
+    "grub_parameter_remove": _rollback_grub_parameter_remove,
 }
 
 

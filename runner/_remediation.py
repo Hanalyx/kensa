@@ -339,6 +339,83 @@ def _remediate_file_absent(
     return True, f"Removed {path}"
 
 
+def _remediate_mount_option_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Add mount option to fstab and remount."""
+    mount_point = r["mount_point"]
+    options = r["options"]
+
+    if dry_run:
+        return True, f"Would add options {options} to {mount_point} in fstab and remount"
+
+    # Get current fstab line
+    result = ssh.run(f"grep -E '\\s{shlex.quote(mount_point)}\\s' /etc/fstab")
+    if not result.ok:
+        return False, f"{mount_point}: not found in /etc/fstab"
+
+    # Parse current options and add new ones
+    fstab_line = result.stdout.strip()
+    parts = fstab_line.split()
+    if len(parts) < 4:
+        return False, f"Invalid fstab line for {mount_point}"
+
+    current_opts = set(parts[3].split(","))
+    for opt in options:
+        current_opts.add(opt)
+    new_opts = ",".join(sorted(current_opts))
+
+    # Update fstab (replace options field)
+    escaped_mount = mount_point.replace("/", "\\/")
+    cmd = f"sed -i 's|\\(\\s{escaped_mount}\\s\\+\\S\\+\\s\\+\\)\\S\\+|\\1{new_opts}|' /etc/fstab"
+    result = ssh.run(cmd)
+    if not result.ok:
+        return False, f"Failed to update fstab: {result.stderr}"
+
+    # Remount
+    result = ssh.run(f"mount -o remount {shlex.quote(mount_point)}")
+    if not result.ok:
+        return False, f"Remount failed: {result.stderr}"
+
+    return True, f"Added options {options} to {mount_point}"
+
+
+def _remediate_grub_parameter_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Set a kernel parameter in GRUB."""
+    key = r["key"]
+    value = r.get("value")
+    arg = f"{key}={value}" if value else key
+
+    if dry_run:
+        return True, f"Would set kernel arg: {arg}"
+
+    # Use grubby to update all kernels
+    result = ssh.run(f"grubby --update-kernel=ALL --args={shlex.quote(arg)}")
+    if not result.ok:
+        return False, f"grubby failed: {result.stderr}"
+
+    return True, f"Set kernel arg: {arg}"
+
+
+def _remediate_grub_parameter_remove(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Remove a kernel parameter from GRUB."""
+    key = r["key"]
+
+    if dry_run:
+        return True, f"Would remove kernel arg: {key}"
+
+    # Use grubby to remove from all kernels
+    result = ssh.run(f"grubby --update-kernel=ALL --remove-args={shlex.quote(key)}")
+    if not result.ok:
+        return False, f"grubby failed: {result.stderr}"
+
+    return True, f"Removed kernel arg: {key}"
+
+
 def _remediate_audit_rule_set(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
@@ -493,4 +570,7 @@ REMEDIATION_HANDLERS = {
     "service_masked": _remediate_service_masked,
     "selinux_boolean_set": _remediate_selinux_boolean_set,
     "audit_rule_set": _remediate_audit_rule_set,
+    "mount_option_set": _remediate_mount_option_set,
+    "grub_parameter_set": _remediate_grub_parameter_set,
+    "grub_parameter_remove": _remediate_grub_parameter_remove,
 }
