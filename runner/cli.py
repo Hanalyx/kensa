@@ -17,6 +17,42 @@ console = Console()
 verbose_mode = False
 
 
+def _parse_capability_overrides(flags: tuple[str, ...]) -> dict[str, bool]:
+    """Parse -C key=value flags into a dict."""
+    overrides = {}
+    for flag in flags:
+        if "=" not in flag:
+            console.print(f"[red]Error:[/red] Invalid capability format: {flag} (expected KEY=VALUE)")
+            sys.exit(1)
+        key, value = flag.split("=", 1)
+        if value.lower() == "true":
+            overrides[key] = True
+        elif value.lower() == "false":
+            overrides[key] = False
+        else:
+            console.print(f"[red]Error:[/red] Invalid capability value: {value} (expected true/false)")
+            sys.exit(1)
+    return overrides
+
+
+def _apply_capability_overrides(
+    detected: dict[str, bool],
+    overrides: dict[str, bool],
+) -> dict[str, bool]:
+    """Apply manual overrides to detected capabilities."""
+    if not overrides:
+        return detected
+
+    result = detected.copy()
+    for key, value in overrides.items():
+        if key not in detected:
+            console.print(f"[yellow]Warning:[/yellow] Unknown capability '{key}'")
+        if verbose_mode and detected.get(key) != value:
+            console.print(f"    [magenta]override:[/magenta] {key} = {value} (detected: {detected.get(key)})")
+        result[key] = value
+    return result
+
+
 # ── Shared options ──────────────────────────────────────────────────────────
 
 def target_options(f):
@@ -30,6 +66,8 @@ def target_options(f):
     f = click.option("--port", "-P", default=22, type=int, help="SSH port (default: 22)")(f)
     f = click.option("--verbose", "-v", is_flag=True, help="Show capability detection and implementation selection")(f)
     f = click.option("--sudo", is_flag=True, help="Run all remote commands via sudo")(f)
+    f = click.option("--capability", "-C", multiple=True, metavar="KEY=VALUE",
+                     help="Override detected capability (e.g., -C sshd_config_d=false)")(f)
     return f
 
 
@@ -58,18 +96,20 @@ def main():
 
 @main.command()
 @target_options
-def detect(host, inventory, limit, user, key, password, port, verbose, sudo):
+def detect(host, inventory, limit, user, key, password, port, verbose, sudo, capability):
     """Probe capabilities on target hosts."""
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
+    overrides = _parse_capability_overrides(capability)
 
     for hi in hosts:
         console.rule(f"[bold]Host: {hi.hostname}[/bold]")
         try:
             with _connect(hi, password, sudo=sudo) as ssh:
                 platform = detect_platform(ssh)
-                caps = detect_capabilities(ssh, verbose=verbose_mode)
+                detected_caps = detect_capabilities(ssh, verbose=verbose_mode)
+                caps = _apply_capability_overrides(detected_caps, overrides)
         except Exception as exc:
             console.print(f"  [red]Connection failed:[/red] {exc}")
             continue
@@ -81,7 +121,11 @@ def detect(host, inventory, limit, user, key, password, port, verbose, sudo):
         table.add_column("Available", justify="center")
 
         for name, available in sorted(caps.items()):
-            mark = "[green]yes[/green]" if available else "[dim]no[/dim]"
+            is_override = name in overrides and overrides[name] != detected_caps.get(name)
+            if is_override:
+                mark = f"[magenta]{'yes' if available else 'no'}[/magenta] (override)"
+            else:
+                mark = "[green]yes[/green]" if available else "[dim]no[/dim]"
             table.add_row(name, mark)
 
         console.print(table)
@@ -94,12 +138,13 @@ def detect(host, inventory, limit, user, key, password, port, verbose, sudo):
 @main.command()
 @target_options
 @rule_options
-def check(host, inventory, limit, user, key, password, port, verbose, sudo, rules, rule, severity, tag, category):
+def check(host, inventory, limit, user, key, password, port, verbose, sudo, capability, rules, rule, severity, tag, category):
     """Run compliance checks on target hosts."""
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list = _load_rule_list(rules, rule, severity, tag, category)
+    overrides = _parse_capability_overrides(capability)
 
     total_pass = 0
     total_fail = 0
@@ -112,7 +157,8 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, rule
         try:
             with _connect(hi, password, sudo=sudo) as ssh:
                 platform = detect_platform(ssh)
-                caps = detect_capabilities(ssh, verbose=verbose_mode)
+                detected_caps = detect_capabilities(ssh, verbose=verbose_mode)
+                caps = _apply_capability_overrides(detected_caps, overrides)
                 _print_platform(platform)
                 _print_caps_verbose(caps)
                 host_pass, host_fail, host_skip = _run_checks(ssh, rule_list, caps, platform)
@@ -181,12 +227,13 @@ def _run_checks(ssh, rule_list, caps, platform):
 @rule_options
 @click.option("--dry-run", is_flag=True, help="Show what would be done without making changes")
 @click.option("--rollback-on-failure", is_flag=True, help="Auto-rollback changes if remediation or post-check fails")
-def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, rules, rule, severity, tag, category, dry_run, rollback_on_failure):
+def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, capability, rules, rule, severity, tag, category, dry_run, rollback_on_failure):
     """Check rules and remediate failures on target hosts."""
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list = _load_rule_list(rules, rule, severity, tag, category)
+    overrides = _parse_capability_overrides(capability)
 
     if dry_run:
         console.print("[yellow]DRY RUN — no changes will be made[/yellow]\n")
@@ -204,7 +251,8 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
         try:
             with _connect(hi, password, sudo=sudo) as ssh:
                 platform = detect_platform(ssh)
-                caps = detect_capabilities(ssh, verbose=verbose_mode)
+                detected_caps = detect_capabilities(ssh, verbose=verbose_mode)
+                caps = _apply_capability_overrides(detected_caps, overrides)
                 _print_platform(platform)
                 _print_caps_verbose(caps)
                 host_pass, host_fail, host_fixed, host_skip, host_rolled_back = _run_remediation(
