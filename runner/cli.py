@@ -180,7 +180,8 @@ def _run_checks(ssh, rule_list, caps, platform):
 @target_options
 @rule_options
 @click.option("--dry-run", is_flag=True, help="Show what would be done without making changes")
-def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, rules, rule, severity, tag, category, dry_run):
+@click.option("--rollback-on-failure", is_flag=True, help="Auto-rollback changes if remediation or post-check fails")
+def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, rules, rule, severity, tag, category, dry_run, rollback_on_failure):
     """Check rules and remediate failures on target hosts."""
     global verbose_mode
     verbose_mode = verbose
@@ -194,6 +195,7 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
     total_fail = 0
     total_fixed = 0
     total_skip = 0
+    total_rolled_back = 0
     host_count = 0
 
     for hi in hosts:
@@ -205,8 +207,9 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
                 caps = detect_capabilities(ssh, verbose=verbose_mode)
                 _print_platform(platform)
                 _print_caps_verbose(caps)
-                host_pass, host_fail, host_fixed, host_skip = _run_remediation(
-                    ssh, rule_list, caps, platform, dry_run=dry_run
+                host_pass, host_fail, host_fixed, host_skip, host_rolled_back = _run_remediation(
+                    ssh, rule_list, caps, platform, dry_run=dry_run,
+                    rollback_on_failure=rollback_on_failure,
                 )
         except Exception as exc:
             console.print(f"  [red]Connection failed:[/red] {exc}")
@@ -217,34 +220,43 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
         total_fail += host_fail
         total_fixed += host_fixed
         total_skip += host_skip
+        total_rolled_back += host_rolled_back
 
         total = host_pass + host_fail + host_fixed + host_skip
-        console.print(
+        summary = (
             f"  [bold]{total} rules[/bold] | "
             f"[green]{host_pass} pass[/green] | "
             f"[yellow]{host_fixed} fixed[/yellow] | "
             f"[red]{host_fail} fail[/red]"
-            + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
         )
+        if host_skip:
+            summary += f" | [dim]{host_skip} skip[/dim]"
+        if host_rolled_back:
+            summary += f" | [magenta]{host_rolled_back} rolled back[/magenta]"
+        console.print(summary)
 
     if host_count > 1:
         console.print()
         console.rule("[bold]Summary[/bold]")
         grand_total = total_pass + total_fail + total_fixed + total_skip
-        console.print(
+        summary = (
             f"  {host_count} hosts | "
             f"{grand_total} total checks | "
             f"[green]{total_pass} pass[/green] | "
             f"[yellow]{total_fixed} fixed[/yellow] | "
             f"[red]{total_fail} fail[/red]"
-            + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
         )
+        if total_skip:
+            summary += f" | [dim]{total_skip} skip[/dim]"
+        if total_rolled_back:
+            summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
+        console.print(summary)
     console.print()
 
 
-def _run_remediation(ssh, rule_list, caps, platform, *, dry_run):
-    """Run remediation for a single host. Returns (pass, fail, fixed, skip) counts."""
-    host_pass = host_fail = host_fixed = host_skip = 0
+def _run_remediation(ssh, rule_list, caps, platform, *, dry_run, rollback_on_failure=False):
+    """Run remediation for a single host. Returns (pass, fail, fixed, skip, rolled_back) counts."""
+    host_pass = host_fail = host_fixed = host_skip = host_rolled_back = 0
     for r in rule_list:
         if platform and not rule_applies_to_platform(r, platform.family, platform.version):
             host_skip += 1
@@ -254,7 +266,9 @@ def _run_remediation(ssh, rule_list, caps, platform, *, dry_run):
             )
             continue
         _print_impl_verbose(r, caps)
-        result = remediate_rule(ssh, r, caps, dry_run=dry_run)
+        result = remediate_rule(
+            ssh, r, caps, dry_run=dry_run, rollback_on_failure=rollback_on_failure,
+        )
         if result.skipped:
             host_skip += 1
             console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
@@ -268,9 +282,22 @@ def _run_remediation(ssh, rule_list, caps, platform, *, dry_run):
             console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
         else:
             host_fail += 1
+            suffix = "  [magenta](rolled back)[/magenta]" if result.rolled_back else ""
             detail = f"  [dim]{result.remediation_detail or result.detail}[/dim]" if (result.remediation_detail or result.detail) else ""
-            console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}")
-    return host_pass, host_fail, host_fixed, host_skip
+            console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}")
+            if result.rolled_back:
+                host_rolled_back += 1
+            # Verbose: show step detail and rollback detail
+            if verbose_mode and result.step_results:
+                total_steps = len(result.step_results)
+                for sr in result.step_results:
+                    status = "[green]ok[/green]" if sr.success else "[red]FAIL[/red]"
+                    console.print(f"    step {sr.step_index + 1}/{total_steps}: {sr.mechanism}  [{status}]  {sr.detail[:80]}")
+                if result.rollback_results:
+                    for rb in result.rollback_results:
+                        status = "[green]ok[/green]" if rb.success else "[dim]skipped[/dim]"
+                        console.print(f"    rollback step {rb.step_index}: {rb.mechanism}  [{status}]  {rb.detail[:80]}")
+    return host_pass, host_fail, host_fixed, host_skip, host_rolled_back
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────

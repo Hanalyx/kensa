@@ -175,6 +175,47 @@ def sample_rule_gated():
 
 
 @pytest.fixture
+def sample_rule_multistep():
+    """Rule with a 2-step remediation (config_set + command_exec)."""
+    return {
+        "id": "test-multistep-rule",
+        "title": "Test multistep rule",
+        "description": "A test rule with multi-step remediation.",
+        "rationale": "Testing.",
+        "severity": "high",
+        "category": "access-control",
+        "tags": ["pam", "test"],
+        "platforms": [{"family": "rhel", "min_version": 8}],
+        "implementations": [
+            {
+                "default": True,
+                "check": {
+                    "method": "config_value",
+                    "path": "/etc/security/faillock.conf",
+                    "key": "deny",
+                    "expected": "5",
+                },
+                "remediation": {
+                    "steps": [
+                        {
+                            "mechanism": "config_set",
+                            "path": "/etc/security/faillock.conf",
+                            "key": "deny",
+                            "value": "5",
+                            "separator": " = ",
+                        },
+                        {
+                            "mechanism": "command_exec",
+                            "run": "authselect apply-changes",
+                        },
+                    ]
+                },
+            }
+        ],
+    }
+
+
+@pytest.fixture
 def tmp_rule_file(tmp_path):
     """Factory: write a rule dict to a temp YAML file, return path."""
     def _factory(rule: dict, filename: str | None = None) -> Path:

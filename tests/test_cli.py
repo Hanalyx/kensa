@@ -40,6 +40,7 @@ class TestCLIHelp:
         result = runner.invoke(main, ["remediate", "--help"])
         assert result.exit_code == 0
         assert "--dry-run" in result.output
+        assert "--rollback-on-failure" in result.output
 
 
 class TestCLIErrors:
@@ -292,3 +293,53 @@ class TestCLIPlatformSkip:
         assert "SKIP" in result.output
         assert "rhel9-only-rule" in result.output
         assert "1 skip" in result.output
+
+
+class TestCLIRollbackFlag:
+    @patch("runner.cli.SSHSession")
+    def test_rollback_on_failure_shows_rolled_back(self, mock_session_cls, tmp_path):
+        """--rollback-on-failure should produce 'rolled back' in output when triggered."""
+        mock_ssh = MagicMock()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.__enter__ = MagicMock(return_value=mock_ssh)
+        mock_ssh.__exit__ = MagicMock(return_value=False)
+
+        call_count = {"sysctl_n": 0}
+
+        def mock_run(cmd, *, timeout=None):
+            if "sysctl -n" in cmd:
+                call_count["sysctl_n"] += 1
+                # Always return wrong value so check and re-check fail
+                return Result(exit_code=0, stdout="1", stderr="")
+            if "sysctl -w" in cmd:
+                return Result(exit_code=0, stdout="", stderr="")
+            if "echo" in cmd:
+                return Result(exit_code=0, stdout="", stderr="")
+            return Result(exit_code=0, stdout="", stderr="")
+
+        mock_ssh.run = mock_run
+
+        rule_file = tmp_path / "test-rule.yml"
+        rule_file.write_text(
+            "id: test-rule\n"
+            "title: Test rule\n"
+            "severity: medium\n"
+            "category: kernel\n"
+            "implementations:\n"
+            "  - default: true\n"
+            "    check:\n"
+            "      method: sysctl_value\n"
+            "      key: net.ipv4.ip_forward\n"
+            "      expected: '0'\n"
+            "    remediation:\n"
+            "      mechanism: sysctl_set\n"
+            "      key: net.ipv4.ip_forward\n"
+            "      value: '0'\n"
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(main, [
+            "remediate", "--rollback-on-failure", "--host", "10.0.0.1",
+            "--rule", str(rule_file),
+        ])
+        assert "rolled back" in result.output
