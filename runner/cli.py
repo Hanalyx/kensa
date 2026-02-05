@@ -1,0 +1,382 @@
+"""Aegis CLI — detect, check, and remediate compliance rules over SSH."""
+
+from __future__ import annotations
+
+import sys
+
+import click
+from rich.console import Console
+from rich.table import Table
+
+from runner.detect import detect_capabilities, detect_platform
+from runner.engine import evaluate_rule, load_rules, remediate_rule, rule_applies_to_platform, select_implementation
+from runner.inventory import HostInfo, resolve_targets
+from runner.ssh import SSHSession
+
+console = Console()
+verbose_mode = False
+
+
+# ── Shared options ──────────────────────────────────────────────────────────
+
+def target_options(f):
+    """Common target/connection options for all subcommands."""
+    f = click.option("--host", "-h", default=None, help="Target host(s), comma-separated")(f)
+    f = click.option("--inventory", "-i", default=None, help="Ansible inventory file (INI/YAML) or host list")(f)
+    f = click.option("--limit", "-l", default=None, help="Limit to group or host glob pattern")(f)
+    f = click.option("--user", "-u", default=None, help="SSH username")(f)
+    f = click.option("--key", "-k", default=None, help="SSH private key path")(f)
+    f = click.option("--password", "-p", default=None, help="SSH password")(f)
+    f = click.option("--port", "-P", default=22, type=int, help="SSH port (default: 22)")(f)
+    f = click.option("--verbose", "-v", is_flag=True, help="Show capability detection and implementation selection")(f)
+    f = click.option("--sudo", is_flag=True, help="Run all remote commands via sudo")(f)
+    return f
+
+
+def rule_options(f):
+    """Rule selection options for check/remediate."""
+    f = click.option("--rules", "-r", default=None, help="Path to rules directory (recursive)")(f)
+    f = click.option("--rule", default=None, help="Path to single rule file")(f)
+    f = click.option("--severity", "-s", multiple=True, help="Filter by severity (repeatable)")(f)
+    f = click.option("--tag", "-t", multiple=True, help="Filter by tag (repeatable)")(f)
+    f = click.option("--category", "-c", default=None, help="Filter by category")(f)
+    return f
+
+
+# ── CLI group ───────────────────────────────────────────────────────────────
+
+
+@click.group()
+@click.version_option(version="0.1.0", prog_name="aegis")
+def main():
+    """Aegis — SSH-based compliance test runner."""
+    pass
+
+
+# ── detect ──────────────────────────────────────────────────────────────────
+
+
+@main.command()
+@target_options
+def detect(host, inventory, limit, user, key, password, port, verbose, sudo):
+    """Probe capabilities on target hosts."""
+    global verbose_mode
+    verbose_mode = verbose
+    hosts = _resolve_hosts(host, inventory, limit, user, key, port)
+
+    for hi in hosts:
+        console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+        try:
+            with _connect(hi, password, sudo=sudo) as ssh:
+                platform = detect_platform(ssh)
+                caps = detect_capabilities(ssh, verbose=verbose_mode)
+        except Exception as exc:
+            console.print(f"  [red]Connection failed:[/red] {exc}")
+            continue
+
+        _print_platform(platform)
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Capability", min_width=28)
+        table.add_column("Available", justify="center")
+
+        for name, available in sorted(caps.items()):
+            mark = "[green]yes[/green]" if available else "[dim]no[/dim]"
+            table.add_row(name, mark)
+
+        console.print(table)
+        console.print()
+
+
+# ── check ───────────────────────────────────────────────────────────────────
+
+
+@main.command()
+@target_options
+@rule_options
+def check(host, inventory, limit, user, key, password, port, verbose, sudo, rules, rule, severity, tag, category):
+    """Run compliance checks on target hosts."""
+    global verbose_mode
+    verbose_mode = verbose
+    hosts = _resolve_hosts(host, inventory, limit, user, key, port)
+    rule_list = _load_rule_list(rules, rule, severity, tag, category)
+
+    total_pass = 0
+    total_fail = 0
+    total_skip = 0
+    host_count = 0
+
+    for hi in hosts:
+        console.print()
+        console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+        try:
+            with _connect(hi, password, sudo=sudo) as ssh:
+                platform = detect_platform(ssh)
+                caps = detect_capabilities(ssh, verbose=verbose_mode)
+                _print_platform(platform)
+                _print_caps_verbose(caps)
+                host_pass, host_fail, host_skip = _run_checks(ssh, rule_list, caps, platform)
+        except Exception as exc:
+            console.print(f"  [red]Connection failed:[/red] {exc}")
+            continue
+
+        host_count += 1
+        total_pass += host_pass
+        total_fail += host_fail
+        total_skip += host_skip
+
+        total = host_pass + host_fail + host_skip
+        console.print(
+            f"  [bold]{total} rules[/bold] | "
+            f"[green]{host_pass} pass[/green] | "
+            f"[red]{host_fail} fail[/red]"
+            + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
+        )
+
+    if host_count > 1:
+        console.print()
+        console.rule("[bold]Summary[/bold]")
+        grand_total = total_pass + total_fail + total_skip
+        console.print(
+            f"  {host_count} hosts | "
+            f"{grand_total} total checks | "
+            f"[green]{total_pass} pass[/green] | "
+            f"[red]{total_fail} fail[/red]"
+            + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
+        )
+    console.print()
+
+
+def _run_checks(ssh, rule_list, caps, platform):
+    """Run checks for a single host and print results. Returns (pass, fail, skip) counts."""
+    host_pass = host_fail = host_skip = 0
+    for r in rule_list:
+        if platform and not rule_applies_to_platform(r, platform.family, platform.version):
+            host_skip += 1
+            console.print(
+                f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+            )
+            continue
+        _print_impl_verbose(r, caps)
+        result = evaluate_rule(ssh, r, caps)
+        if result.skipped:
+            host_skip += 1
+            console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
+        elif result.passed:
+            host_pass += 1
+            console.print(f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}")
+        else:
+            host_fail += 1
+            detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
+            console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}")
+    return host_pass, host_fail, host_skip
+
+
+# ── remediate ───────────────────────────────────────────────────────────────
+
+
+@main.command()
+@target_options
+@rule_options
+@click.option("--dry-run", is_flag=True, help="Show what would be done without making changes")
+def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, rules, rule, severity, tag, category, dry_run):
+    """Check rules and remediate failures on target hosts."""
+    global verbose_mode
+    verbose_mode = verbose
+    hosts = _resolve_hosts(host, inventory, limit, user, key, port)
+    rule_list = _load_rule_list(rules, rule, severity, tag, category)
+
+    if dry_run:
+        console.print("[yellow]DRY RUN — no changes will be made[/yellow]\n")
+
+    total_pass = 0
+    total_fail = 0
+    total_fixed = 0
+    total_skip = 0
+    host_count = 0
+
+    for hi in hosts:
+        console.print()
+        console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+        try:
+            with _connect(hi, password, sudo=sudo) as ssh:
+                platform = detect_platform(ssh)
+                caps = detect_capabilities(ssh, verbose=verbose_mode)
+                _print_platform(platform)
+                _print_caps_verbose(caps)
+                host_pass, host_fail, host_fixed, host_skip = _run_remediation(
+                    ssh, rule_list, caps, platform, dry_run=dry_run
+                )
+        except Exception as exc:
+            console.print(f"  [red]Connection failed:[/red] {exc}")
+            continue
+
+        host_count += 1
+        total_pass += host_pass
+        total_fail += host_fail
+        total_fixed += host_fixed
+        total_skip += host_skip
+
+        total = host_pass + host_fail + host_fixed + host_skip
+        console.print(
+            f"  [bold]{total} rules[/bold] | "
+            f"[green]{host_pass} pass[/green] | "
+            f"[yellow]{host_fixed} fixed[/yellow] | "
+            f"[red]{host_fail} fail[/red]"
+            + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
+        )
+
+    if host_count > 1:
+        console.print()
+        console.rule("[bold]Summary[/bold]")
+        grand_total = total_pass + total_fail + total_fixed + total_skip
+        console.print(
+            f"  {host_count} hosts | "
+            f"{grand_total} total checks | "
+            f"[green]{total_pass} pass[/green] | "
+            f"[yellow]{total_fixed} fixed[/yellow] | "
+            f"[red]{total_fail} fail[/red]"
+            + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
+        )
+    console.print()
+
+
+def _run_remediation(ssh, rule_list, caps, platform, *, dry_run):
+    """Run remediation for a single host. Returns (pass, fail, fixed, skip) counts."""
+    host_pass = host_fail = host_fixed = host_skip = 0
+    for r in rule_list:
+        if platform and not rule_applies_to_platform(r, platform.family, platform.version):
+            host_skip += 1
+            console.print(
+                f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+            )
+            continue
+        _print_impl_verbose(r, caps)
+        result = remediate_rule(ssh, r, caps, dry_run=dry_run)
+        if result.skipped:
+            host_skip += 1
+            console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
+        elif result.passed and not result.remediated:
+            host_pass += 1
+            console.print(f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}")
+        elif result.passed and result.remediated:
+            host_fixed += 1
+            detail = f"  [dim]{result.remediation_detail}[/dim]" if result.remediation_detail else ""
+            tag = "[yellow]DRY [/yellow]" if dry_run else "[yellow]FIXED[/yellow]"
+            console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
+        else:
+            host_fail += 1
+            detail = f"  [dim]{result.remediation_detail or result.detail}[/dim]" if (result.remediation_detail or result.detail) else ""
+            console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}")
+    return host_pass, host_fail, host_fixed, host_skip
+
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def _print_platform(platform) -> None:
+    """Print detected platform info."""
+    if platform is None:
+        console.print("  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]")
+    else:
+        console.print(f"  Platform: {platform.family.upper()} {platform.version}")
+
+
+def _platform_constraint_str(rule: dict) -> str:
+    """Format a rule's platforms: field for display in skip messages."""
+    platforms = rule.get("platforms", [])
+    parts = []
+    for p in platforms:
+        fam = p.get("family", "?")
+        min_v = p.get("min_version")
+        max_v = p.get("max_version")
+        if min_v is not None and max_v is not None:
+            parts.append(f"{fam} {min_v}-{max_v}")
+        elif min_v is not None:
+            parts.append(f"{fam} >={min_v}")
+        elif max_v is not None:
+            parts.append(f"{fam} <={max_v}")
+        else:
+            parts.append(fam)
+    return ", ".join(parts) if parts else "unknown"
+
+
+def _print_caps_verbose(caps: dict[str, bool]) -> None:
+    """In verbose mode, print which capabilities were detected."""
+    if not verbose_mode:
+        return
+    active = sorted(k for k, v in caps.items() if v)
+    if active:
+        console.print(f"  [dim]capabilities: {', '.join(active)}[/dim]")
+    else:
+        console.print("  [dim]capabilities: (none detected)[/dim]")
+
+
+def _print_impl_verbose(rule: dict, caps: dict[str, bool]) -> None:
+    """In verbose mode, print which implementation was selected for a rule."""
+    if not verbose_mode:
+        return
+    impl = select_implementation(rule, caps)
+    rule_id = rule["id"]
+    if impl is None:
+        console.print(f"  [dim]  {rule_id}: no matching implementation[/dim]")
+    elif impl.get("default"):
+        console.print(f"  [dim]  {rule_id}: using default implementation[/dim]")
+    else:
+        gate = impl.get("when", "?")
+        console.print(f"  [dim]  {rule_id}: matched gate [bold]{gate}[/bold][/dim]")
+
+
+def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:
+    """Resolve target hosts from CLI flags."""
+    try:
+        return resolve_targets(
+            host=host,
+            inventory=inventory,
+            limit=limit,
+            default_user=user,
+            default_key=key,
+            default_port=port,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+def _connect(hi: HostInfo, password: str | None, *, sudo: bool = False) -> SSHSession:
+    """Create an SSHSession from a HostInfo."""
+    return SSHSession(
+        hostname=hi.hostname,
+        port=hi.port,
+        user=hi.user,
+        key_path=hi.key_path,
+        password=password,
+        sudo=sudo,
+    )
+
+
+def _load_rule_list(rules, rule, severity, tag, category):
+    """Load and filter rules from CLI options."""
+    rule_path = rule or rules
+    if not rule_path:
+        console.print("[red]Error:[/red] Specify --rules or --rule")
+        sys.exit(1)
+
+    try:
+        rule_list = load_rules(
+            rule_path,
+            severity=list(severity) if severity else None,
+            tags=list(tag) if tag else None,
+            category=category,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    if not rule_list:
+        console.print("[yellow]No rules matched the given filters.[/yellow]")
+        sys.exit(0)
+
+    return rule_list
