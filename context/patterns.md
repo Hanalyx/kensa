@@ -4,7 +4,7 @@ Concrete templates for the most common development tasks in Aegis. Copy, adapt, 
 
 ## Adding a Check Handler
 
-Check handlers live in `runner/engine.py`. Each takes an `SSHSession` and a check dict (from the rule YAML), returns a `CheckResult`.
+Check handlers live in `runner/_checks.py`. Each takes an `SSHSession` and a check dict (from the rule YAML), returns a `CheckResult`.
 
 ### Template
 
@@ -51,7 +51,7 @@ CHECK_HANDLERS = {
 
 ## Adding a Remediation Handler
 
-Remediation handlers also live in `runner/engine.py`. They take an `SSHSession`, a remediation dict, and a `dry_run` flag. Return `(success: bool, detail: str)`.
+Remediation handlers live in `runner/_remediation.py`. They take an `SSHSession`, a remediation dict, and a `dry_run` flag. Return `(success: bool, detail: str)`.
 
 ### Template
 
@@ -258,4 +258,81 @@ when: { all: [authselect, pam_faillock] } # All must be true
 when: { any: [grub_bls, grub_legacy] }   # At least one true
 ```
 
-The `evaluate_when()` function in engine.py handles all three. When adding a new capability, just add the probe — no changes needed to the gate evaluator.
+The `evaluate_when()` function in `runner/_selection.py` handles all three. When adding a new capability, just add the probe — no changes needed to the gate evaluator.
+
+
+## Adding a Capture Handler
+
+Capture handlers live in `runner/_capture.py`. Each takes an `SSHSession` and a remediation dict, returns a `PreState`. They run **read-only** SSH commands to snapshot the host's current state before a remediation step modifies it.
+
+### Template
+
+```python
+def _capture_service_enabled(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current service enable/active state."""
+    name = r["name"]
+    enabled = ssh.run(f"systemctl is-enabled {shlex.quote(name)} 2>/dev/null")
+    active = ssh.run(f"systemctl is-active {shlex.quote(name)} 2>/dev/null")
+    return PreState(
+        mechanism="service_enabled",
+        data={
+            "name": name,
+            "was_enabled": enabled.stdout.strip() if enabled.ok else None,
+            "was_active": active.stdout.strip() if active.ok else None,
+        },
+    )
+```
+
+### Registration
+
+```python
+CAPTURE_HANDLERS = {
+    # ... existing handlers ...
+    "service_enabled": _capture_service_enabled,
+}
+```
+
+### Conventions
+
+- Function name: `_capture_<mechanism_name>` — matches the remediation mechanism
+- **Read-only**: capture handlers must never modify host state
+- Return `PreState(mechanism=..., data={...})` with enough info to rollback
+- Store `reload`/`restart` keys from the remediation dict in `data` so rollback can call `_reload_service`
+- Set `capturable=False` for mechanisms where pre-state cannot be meaningfully captured (e.g., `command_exec`, `manual`)
+- Keep commands fast — capture runs before every remediation step
+
+
+## Adding a Rollback Handler
+
+Rollback handlers live in `runner/_rollback.py`. Each takes an `SSHSession` and a `PreState`, returns `(success: bool, detail: str)`. They restore the host to the state captured before remediation.
+
+### Template
+
+```python
+def _rollback_service_enabled(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore service to its previous enable/active state."""
+    d = pre_state.data
+    name = d["name"]
+    if d["was_enabled"] and d["was_enabled"] != "enabled":
+        ssh.run(f"systemctl disable {shlex.quote(name)}")
+    if d["was_active"] and d["was_active"] != "active":
+        ssh.run(f"systemctl stop {shlex.quote(name)}")
+    return True, f"Restored {name} to previous state"
+```
+
+### Registration
+
+```python
+ROLLBACK_HANDLERS = {
+    # ... existing handlers ...
+    "service_enabled": _rollback_service_enabled,
+}
+```
+
+### Conventions
+
+- Function name: `_rollback_<mechanism_name>` — matches the capture/remediation mechanism
+- Read `PreState.data` to determine what to restore
+- Return `(False, "reason")` for mechanisms that cannot be rolled back (e.g., `command_exec`)
+- Call `_reload_service(ssh, {"reload": d.get("reload"), "restart": d.get("restart")})` after restoring config files
+- Rollback handlers are called in **reverse order** by `_execute_rollback` — only successful, capturable steps are rolled back

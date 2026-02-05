@@ -64,12 +64,18 @@ CLI flags (--host, --inventory, --rules, --sudo, ...)
 - Results feed into `select_implementation()` for rule evaluation
 - Probes are read-only and side-effect free
 
-### engine.py — Rule Engine
-- **Loading:** YAML files from a single file or directory (recursive), with optional severity/tag/category filters
-- **Selection:** `select_implementation()` evaluates `when:` gates against capabilities, first match wins, falls back to `default: true`
-- **Checking:** `run_check()` dispatches to typed handlers, supports multi-condition checks (AND semantics via `checks:` list)
-- **Remediation:** `run_remediation()` dispatches to typed handlers, supports multi-step (sequential via `steps:` list), respects `dry_run`, handles `unless`/`onlyif` guards
-- **Result types:** `CheckResult` (pass/fail + detail), `RuleResult` (full evaluation outcome including skip/remediate state)
+### engine.py — Rule Engine (re-export facade + sub-modules)
+`engine.py` is a thin re-export facade. All logic lives in underscore-prefixed sub-modules under `runner/`:
+- **`_types.py`:** Result dataclasses — `CheckResult`, `PreState`, `StepResult`, `RollbackResult`, `RuleResult`
+- **`_loading.py`:** YAML files from a single file or directory (recursive), with optional severity/tag/category/platform filters
+- **`_selection.py`:** `evaluate_when()` and `select_implementation()` — capability gate evaluation, first match wins, falls back to `default: true`
+- **`_checks.py`:** `run_check()` dispatches to typed handlers, supports multi-condition checks (AND semantics via `checks:` list)
+- **`_remediation.py`:** `run_remediation()` dispatches to typed handlers, supports multi-step (sequential via `steps:` list), respects `dry_run`, handles `unless`/`onlyif` guards; also owns `_reload_service()`
+- **`_capture.py`:** Pre-state capture handlers — snapshot host state before remediation for rollback support
+- **`_rollback.py`:** Rollback handlers — restore host to pre-remediation state; `_execute_rollback()` processes steps in reverse
+- **`_orchestration.py`:** `evaluate_rule()` and `remediate_rule()` — top-level rule evaluation and remediation with re-check and rollback-on-failure
+
+All public imports go through `from runner.engine import ...` for backward compatibility.
 
 ### cli.py — User Interface
 - Three subcommands: `detect`, `check`, `remediate`

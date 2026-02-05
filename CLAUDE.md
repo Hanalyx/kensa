@@ -14,7 +14,15 @@ aegis/
     ssh.py               # SSHSession wrapper around paramiko
     inventory.py          # Ansible inventory parser + host list
     detect.py             # Capability probes (name -> shell command)
-    engine.py             # Rule loading, check/remediate dispatch
+    engine.py             # Re-export facade (backward compat)
+    _types.py            # CheckResult, PreState, StepResult, RollbackResult, RuleResult
+    _loading.py          # load_rules(), rule_applies_to_platform()
+    _selection.py        # evaluate_when(), select_implementation()
+    _checks.py           # Check handlers + dispatch
+    _remediation.py      # Remediation handlers + _reload_service
+    _capture.py          # Pre-state capture handlers
+    _rollback.py         # Rollback handlers + _execute_rollback
+    _orchestration.py    # evaluate_rule(), remediate_rule()
   rules/                  # Canonical YAML rules (the content)
     access-control/       # SSH, PAM, authentication
     audit/                # AIDE, auditd
@@ -57,7 +65,15 @@ aegis/
 | `ssh.py` | Connection lifecycle, command execution, sudo prefixing | Anything about rules or results |
 | `inventory.py` | Target resolution from all sources, host filtering | SSH connections |
 | `detect.py` | Capability probe definitions and execution | Rule evaluation |
-| `engine.py` | Rule loading, filtering, check/remediate dispatch, result types | CLI output, SSH connections |
+| `engine.py` | Re-export facade — all public access stays through `from runner.engine import ...` | Everything (delegates to `_*.py` sub-modules) |
+| `_types.py` | Result dataclasses (CheckResult, PreState, StepResult, RollbackResult, RuleResult) | Any logic |
+| `_loading.py` | Rule loading from YAML, severity/tag/category filters, platform filtering | Rule evaluation |
+| `_selection.py` | Capability gate evaluation, implementation selection | Rule loading, checks |
+| `_checks.py` | Check handlers + dispatch (run_check, CHECK_HANDLERS) | Remediation, SSH connections |
+| `_remediation.py` | Remediation handlers + dispatch + _reload_service (REMEDIATION_HANDLERS) | Orchestration |
+| `_capture.py` | Pre-state capture handlers (CAPTURE_HANDLERS) | Rollback logic |
+| `_rollback.py` | Rollback handlers + _execute_rollback (ROLLBACK_HANDLERS) | Check logic |
+| `_orchestration.py` | evaluate_rule(), remediate_rule() — top-level rule evaluation | CLI output, SSH connections |
 | `cli.py` | CLI flags, orchestration flow, rich output formatting | Rule logic, SSH internals |
 
 ## Security Rules
@@ -83,13 +99,13 @@ This project runs arbitrary shell commands on remote hosts. Shell injection is t
 ## How to Add Things
 
 ### New Check Handler
-1. Add function `_check_<name>(ssh, c) -> CheckResult` in `engine.py`
-2. Register in `CHECK_HANDLERS` dict
+1. Add function `_check_<name>(ssh, c) -> CheckResult` in `runner/_checks.py`
+2. Register in `CHECK_HANDLERS` dict in `runner/_checks.py`
 3. See `context/patterns.md` for template
 
 ### New Remediation Handler
-1. Add function `_remediate_<name>(ssh, r, *, dry_run) -> tuple[bool, str]` in `engine.py`
-2. Register in `REMEDIATION_HANDLERS` dict
+1. Add function `_remediate_<name>(ssh, r, *, dry_run) -> tuple[bool, str]` in `runner/_remediation.py`
+2. Register in `REMEDIATION_HANDLERS` dict in `runner/_remediation.py`
 3. Call `_reload_service(ssh, r)` if the mechanism supports `reload`/`restart`
 4. See `context/patterns.md` for template
 
