@@ -196,6 +196,44 @@ def _rollback_file_absent(ssh: SSHSession, pre_state: PreState) -> tuple[bool, s
     return True, f"Restored {path}"
 
 
+def _rollback_audit_rule_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Remove audit rule if it didn't exist before."""
+    d = pre_state.data
+    rule = d["rule"]
+    persist_file = d["persist_file"]
+
+    if d["rule_existed"]:
+        return True, "Rule already existed, nothing to rollback"
+
+    # Remove from running config
+    # auditctl -d removes a rule (same syntax as -a but with -d)
+    delete_rule = rule.replace("-a ", "-d ", 1).replace("-w ", "-W ", 1)
+    ssh.run(f"auditctl {delete_rule} 2>/dev/null")
+
+    # Restore persist file
+    if d["persist_existed"] and d["old_persist_content"] is not None:
+        ssh.run(f"printf %s {shlex.quote(d['old_persist_content'])} > {shlex.quote(persist_file)}")
+    elif not d["persist_existed"]:
+        ssh.run(f"rm -f {shlex.quote(persist_file)}")
+
+    return True, f"Removed audit rule"
+
+
+def _rollback_selinux_boolean_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore SELinux boolean to previous value."""
+    d = pre_state.data
+    name = d["name"]
+    if d["old_value"] is None:
+        return False, f"{name}: could not determine previous value"
+
+    value_str = "on" if d["old_value"] else "off"
+    cmd = f"setsebool {'-P ' if d['persistent'] else ''}{shlex.quote(name)} {value_str}"
+    result = ssh.run(cmd, timeout=60)
+    if not result.ok:
+        return False, f"Failed to restore {name}: {result.stderr}"
+    return True, f"Restored {name} = {value_str}"
+
+
 def _rollback_service_enabled(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Restore service to pre-enabled state."""
     d = pre_state.data
@@ -271,6 +309,8 @@ ROLLBACK_HANDLERS = {
     "service_enabled": _rollback_service_enabled,
     "service_disabled": _rollback_service_disabled,
     "service_masked": _rollback_service_masked,
+    "selinux_boolean_set": _rollback_selinux_boolean_set,
+    "audit_rule_set": _rollback_audit_rule_set,
 }
 
 

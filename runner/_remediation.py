@@ -339,6 +339,55 @@ def _remediate_file_absent(
     return True, f"Removed {path}"
 
 
+def _remediate_audit_rule_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Add an audit rule and persist it."""
+    rule = r["rule"]
+    persist_file = r.get("persist_file", "/etc/audit/rules.d/99-aegis.rules")
+
+    if dry_run:
+        return True, f"Would add audit rule and persist to {persist_file}"
+
+    # Add rule to running config
+    result = ssh.run(f"auditctl {rule}")
+    if not result.ok and "already exists" not in result.stderr.lower():
+        return False, f"auditctl failed: {result.stderr}"
+
+    # Persist the rule
+    # Check if rule already in file
+    check = ssh.run(f"grep -qF {shlex.quote(rule)} {shlex.quote(persist_file)} 2>/dev/null")
+    if not check.ok:
+        # Append the rule
+        result = ssh.run(f"echo {shlex.quote(rule)} >> {shlex.quote(persist_file)}")
+        if not result.ok:
+            return False, f"Failed to persist rule: {result.stderr}"
+
+    return True, f"Added audit rule, persisted to {persist_file}"
+
+
+def _remediate_selinux_boolean_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Set SELinux boolean value persistently."""
+    name = r["name"]
+    value = r.get("value", True)
+    value_str = "on" if value else "off"
+    persistent = r.get("persistent", True)
+
+    if dry_run:
+        flag = "-P " if persistent else ""
+        return True, f"Would run: setsebool {flag}{name} {value_str}"
+
+    # Set the boolean (with -P for persistent)
+    cmd = f"setsebool {'-P ' if persistent else ''}{shlex.quote(name)} {value_str}"
+    result = ssh.run(cmd, timeout=60)
+    if not result.ok:
+        return False, f"setsebool failed: {result.stderr}"
+
+    return True, f"Set {name} = {value_str}{' (persistent)' if persistent else ''}"
+
+
 def _remediate_service_enabled(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
@@ -442,4 +491,6 @@ REMEDIATION_HANDLERS = {
     "service_enabled": _remediate_service_enabled,
     "service_disabled": _remediate_service_disabled,
     "service_masked": _remediate_service_masked,
+    "selinux_boolean_set": _remediate_selinux_boolean_set,
+    "audit_rule_set": _remediate_audit_rule_set,
 }

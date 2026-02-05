@@ -314,6 +314,56 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
     return CheckResult(passed=True, detail=f"{name}: {', '.join(details)}")
 
 
+def _check_audit_rule_exists(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check if an audit rule exists."""
+    rule = c["rule"]
+
+    # Check if auditd is running
+    result = ssh.run("auditctl -l 2>/dev/null")
+    if not result.ok:
+        return CheckResult(passed=False, detail="auditctl failed - auditd may not be running")
+
+    # Search for the rule (or key components)
+    if rule in result.stdout:
+        return CheckResult(passed=True, detail=f"Audit rule found")
+    return CheckResult(passed=False, detail=f"Audit rule not found: {rule[:50]}...")
+
+
+def _check_selinux_state(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check SELinux enforcement state."""
+    expected = c.get("state", "Enforcing")
+
+    result = ssh.run("getenforce 2>/dev/null")
+    if not result.ok:
+        return CheckResult(passed=False, detail="getenforce failed - SELinux may not be installed")
+
+    actual = result.stdout.strip()
+    if actual.lower() == expected.lower():
+        return CheckResult(passed=True, detail=f"SELinux: {actual}")
+    return CheckResult(passed=False, detail=f"SELinux: {actual} (expected {expected})")
+
+
+def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check SELinux boolean value."""
+    name = c["name"]
+    expected = c.get("value", True)
+    expected_str = "on" if expected else "off"
+
+    result = ssh.run(f"getsebool {shlex.quote(name)} 2>/dev/null")
+    if not result.ok:
+        return CheckResult(passed=False, detail=f"{name}: not found or SELinux disabled")
+
+    # Output is like "httpd_can_network_connect --> on"
+    parts = result.stdout.strip().split()
+    if len(parts) < 3:
+        return CheckResult(passed=False, detail=f"{name}: unexpected output format")
+
+    actual = parts[-1]
+    if actual.lower() == expected_str:
+        return CheckResult(passed=True, detail=f"{name} = {actual}")
+    return CheckResult(passed=False, detail=f"{name} = {actual} (expected {expected_str})")
+
+
 CHECK_HANDLERS = {
     "config_value": _check_config_value,
     "config_absent": _check_config_absent,
@@ -327,4 +377,7 @@ CHECK_HANDLERS = {
     "file_content_match": _check_file_content_match,
     "file_content_no_match": _check_file_content_no_match,
     "service_state": _check_service_state,
+    "selinux_state": _check_selinux_state,
+    "selinux_boolean": _check_selinux_boolean,
+    "audit_rule_exists": _check_audit_rule_exists,
 }

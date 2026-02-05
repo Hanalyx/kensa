@@ -53,6 +53,8 @@ from runner._capture import (  # noqa: F401
     _capture_package_present,
     _capture_service_disabled,
     _capture_service_enabled,
+    _capture_audit_rule_set,
+    _capture_selinux_boolean_set,
     _capture_service_masked,
     _capture_sysctl_set,
 )
@@ -73,6 +75,8 @@ from runner._rollback import (  # noqa: F401
     _rollback_package_present,
     _rollback_service_disabled,
     _rollback_service_enabled,
+    _rollback_audit_rule_set,
+    _rollback_selinux_boolean_set,
     _rollback_service_masked,
     _rollback_sysctl_set,
 )

@@ -222,6 +222,49 @@ def _capture_file_absent(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_audit_rule_set(ssh: SSHSession, r: dict) -> PreState:
+    """Capture audit rule state before adding."""
+    rule = r["rule"]
+    persist_file = r.get("persist_file", "/etc/audit/rules.d/99-aegis.rules")
+
+    # Check if rule already exists in running config
+    result = ssh.run("auditctl -l 2>/dev/null")
+    rule_existed = result.ok and rule in result.stdout
+
+    # Check persist file state
+    persist_result = ssh.run(f"cat {shlex.quote(persist_file)} 2>/dev/null")
+
+    return PreState(
+        mechanism="audit_rule_set",
+        data={
+            "rule": rule,
+            "persist_file": persist_file,
+            "rule_existed": rule_existed,
+            "old_persist_content": persist_result.stdout if persist_result.ok else None,
+            "persist_existed": persist_result.ok,
+        },
+    )
+
+
+def _capture_selinux_boolean_set(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current SELinux boolean value."""
+    name = r["name"]
+    result = ssh.run(f"getsebool {shlex.quote(name)} 2>/dev/null")
+    old_value = None
+    if result.ok:
+        parts = result.stdout.strip().split()
+        if len(parts) >= 3:
+            old_value = parts[-1].lower() == "on"
+    return PreState(
+        mechanism="selinux_boolean_set",
+        data={
+            "name": name,
+            "old_value": old_value,
+            "persistent": r.get("persistent", True),
+        },
+    )
+
+
 def _capture_service_enabled(ssh: SSHSession, r: dict) -> PreState:
     """Capture current service enabled/active state before enabling."""
     name = r["name"]
@@ -283,6 +326,8 @@ CAPTURE_HANDLERS = {
     "service_enabled": _capture_service_enabled,
     "service_disabled": _capture_service_disabled,
     "service_masked": _capture_service_masked,
+    "selinux_boolean_set": _capture_selinux_boolean_set,
+    "audit_rule_set": _capture_audit_rule_set,
 }
 
 
