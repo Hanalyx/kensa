@@ -61,3 +61,4 @@ class RuleResult:
     step_results: list[StepResult] = field(default_factory=list)
     rolled_back: bool = False
     rollback_results: list[RollbackResult] = field(default_factory=list)
+    framework_section: str | None = None

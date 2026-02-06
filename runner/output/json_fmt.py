@@ -31,7 +31,7 @@ Example:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from runner.output import RunResult
@@ -69,7 +69,7 @@ def format_json(run_result: RunResult) -> str:
         - results[].rolled_back: Whether changes were rolled back
 
     """
-    data = {
+    data: dict[str, Any] = {
         "timestamp": run_result.timestamp.isoformat(),
         "command": run_result.command,
         "hosts": [],
@@ -88,7 +88,7 @@ def format_json(run_result: RunResult) -> str:
         data["summary"]["fixed"] = run_result.total_fixed
 
     for host in run_result.hosts:
-        host_data = {
+        host_data: dict[str, Any] = {
             "hostname": host.hostname,
             "platform": {
                 "family": host.platform_family,
@@ -124,6 +124,10 @@ def format_json(run_result: RunResult) -> str:
 
             if result.skipped:
                 result_data["skip_reason"] = result.skip_reason
+
+            # Include framework section if present (when --framework was used)
+            if result.framework_section:
+                result_data["framework_section"] = result.framework_section
 
             # Include implementation if available
             if hasattr(result, "implementation") and result.implementation:

@@ -283,19 +283,32 @@ def _build_results_table(results: list):
         Configured Table with color-coded status cells.
 
     """
-    data = [["Rule ID", "Status", "Severity", "Title"]]
+    # Check if any results have framework_section (i.e., --framework was used)
+    has_framework = any(getattr(r, "framework_section", None) for r in results)
 
-    for result in results:
-        status = _get_status_label(result)
-        title = _truncate_title(result.title, max_length=50)
-        data.append([result.rule_id, status, result.severity or "", title])
+    if has_framework:
+        data = [["Section", "Rule ID", "Status", "Severity", "Title"]]
+        for result in results:
+            status = _get_status_label(result)
+            title = _truncate_title(result.title, max_length=45)
+            section = getattr(result, "framework_section", None) or ""
+            data.append([section, result.rule_id, status, result.severity or "", title])
+        table = Table(
+            data,
+            colWidths=[0.7 * inch, 2.2 * inch, 0.6 * inch, 0.7 * inch, 3.2 * inch],
+        )
+    else:
+        data = [["Rule ID", "Status", "Severity", "Title"]]
+        for result in results:
+            status = _get_status_label(result)
+            title = _truncate_title(result.title, max_length=50)
+            data.append([result.rule_id, status, result.severity or "", title])
+        table = Table(
+            data,
+            colWidths=[2.5 * inch, 0.6 * inch, 0.8 * inch, 3.5 * inch],
+        )
 
-    table = Table(
-        data,
-        colWidths=[2.5 * inch, 0.6 * inch, 0.8 * inch, 3.5 * inch],
-    )
-
-    style = _build_table_style(data)
+    style = _build_table_style(data, has_framework=has_framework)
     table.setStyle(TableStyle(style))
 
     return table
@@ -335,21 +348,26 @@ def _truncate_title(title: str, max_length: int) -> str:
     return title
 
 
-def _build_table_style(data: list) -> list:
+def _build_table_style(data: list, *, has_framework: bool = False) -> list:
     """Build table style with color-coded status cells.
 
     Args:
         data: Table data including header row.
+        has_framework: Whether the Section column is present.
 
     Returns:
         List of TableStyle tuples.
 
     """
+    # Status column is at index 2 if has_framework (Section, Rule ID, Status),
+    # otherwise at index 1 (Rule ID, Status)
+    status_col = 2 if has_framework else 1
+
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("ALIGN", (1, 0), (1, -1), "CENTER"),
+        ("ALIGN", (status_col, 0), (status_col, -1), "CENTER"),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
@@ -358,12 +376,18 @@ def _build_table_style(data: list) -> list:
 
     # Color-code status cells based on value
     for i, row in enumerate(data[1:], start=1):
-        status = row[1]
+        status = row[status_col]
         if status == "PASS":
-            style.append(("BACKGROUND", (1, i), (1, i), colors.lightgreen))
+            style.append(
+                ("BACKGROUND", (status_col, i), (status_col, i), colors.lightgreen)
+            )
         elif status == "FAIL":
-            style.append(("BACKGROUND", (1, i), (1, i), colors.lightcoral))
+            style.append(
+                ("BACKGROUND", (status_col, i), (status_col, i), colors.lightcoral)
+            )
         else:  # SKIP
-            style.append(("BACKGROUND", (1, i), (1, i), colors.lightgrey))
+            style.append(
+                ("BACKGROUND", (status_col, i), (status_col, i), colors.lightgrey)
+            )
 
     return style

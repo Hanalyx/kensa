@@ -79,7 +79,12 @@ def remediate_rule(
         return result
 
     impl = select_implementation(rule, capabilities)
-    remediation = impl.get("remediation") if impl else None
+    if impl is None:
+        result.remediation_detail = "No matching implementation"
+        return result
+
+    assert impl is not None  # mypy type narrowing
+    remediation = impl.get("remediation")
     if remediation is None:
         result.remediation_detail = "No remediation defined"
         return result

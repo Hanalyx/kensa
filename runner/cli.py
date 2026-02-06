@@ -21,6 +21,7 @@ from runner.engine import (
     select_implementation,
 )
 from runner.inventory import HostInfo, resolve_targets
+from runner.ordering import format_ordering_issues, order_rules, should_skip_rule
 from runner.output import HostResult, RunResult, parse_output_spec, write_output
 from runner.ssh import SSHSession
 
@@ -200,6 +201,12 @@ def rule_options(f):
     )(f)
     f = click.option("--tag", "-t", multiple=True, help="Filter by tag (repeatable)")(f)
     f = click.option("--category", "-c", default=None, help="Filter by category")(f)
+    f = click.option(
+        "--framework",
+        "-f",
+        default=None,
+        help="Filter to rules in framework mapping (e.g., cis-rhel9-v2.0.0)",
+    )(f)
     return f
 
 
@@ -427,6 +434,9 @@ def _print_detect_result(result: HostDetectResult, overrides: dict[str, bool]) -
 @target_options
 @rule_options
 @output_options
+@click.option(
+    "--store", is_flag=True, help="Store results in local database for history"
+)
 def check(
     host,
     inventory,
@@ -444,14 +454,18 @@ def check(
     severity,
     tag,
     category,
+    framework,
     outputs,
     quiet,
+    store,
 ):
     """Run compliance checks on target hosts."""
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
-    rule_list = _load_rule_list(rules, rule, severity, tag, category)
+    rule_list, ordering, rule_to_section = _load_rule_list(
+        rules, rule, severity, tag, category, framework=framework, quiet=quiet
+    )
     overrides = _parse_capability_overrides(capability)
 
     # Collect results for output formatting
@@ -483,7 +497,12 @@ def check(
                     )
                     host_result.capabilities = caps
                     host_pass, host_fail, host_skip, rule_results = _run_checks(
-                        ssh, rule_list, caps, platform, quiet=quiet
+                        ssh,
+                        rule_list,
+                        caps,
+                        platform,
+                        rule_to_section=rule_to_section,
+                        quiet=quiet,
                     )
                     host_result.results = rule_results
             except Exception as exc:
@@ -528,7 +547,14 @@ def check(
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
                 pool.submit(
-                    _check_host, hi, password, sudo, overrides, rule_list, verbose
+                    _check_host,
+                    hi,
+                    password,
+                    sudo,
+                    overrides,
+                    rule_list,
+                    verbose,
+                    rule_to_section,
                 ): hi
                 for hi in hosts
             }
@@ -575,6 +601,38 @@ def check(
     # Write outputs
     _write_outputs(run_result, outputs)
 
+    # Store results if requested
+    if store:
+        _store_results(run_result, hosts, rules or rule)
+
+
+def _store_results(run_result: RunResult, hosts: list, rules_path: str) -> None:
+    """Store check results in local database."""
+    from runner.storage import ResultStore
+
+    store = ResultStore()
+    try:
+        hostnames = [h.hostname for h in hosts]
+        session_id = store.create_session(
+            hosts=hostnames,
+            rules_path=rules_path,
+        )
+
+        for host_result in run_result.hosts:
+            for rule_result in host_result.results:
+                store.record_result(
+                    session_id=session_id,
+                    host=host_result.hostname,
+                    rule_id=rule_result.rule_id,
+                    passed=rule_result.passed,
+                    detail=rule_result.detail or "",
+                    remediated=getattr(rule_result, "remediated", False),
+                )
+
+        console.print(f"[dim]Stored results in session {session_id}[/dim]")
+    finally:
+        store.close()
+
 
 def _check_host(
     hi: HostInfo,
@@ -583,6 +641,7 @@ def _check_host(
     overrides: dict[str, bool],
     rule_list: list[dict],
     verbose: bool,
+    rule_to_section: dict[str, str] | None = None,
 ) -> HostCheckResult:
     """Run checks on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -619,7 +678,13 @@ def _check_host(
 
             # Run checks
             host_pass, host_fail, host_skip, rule_results = _run_checks_buffered(
-                ssh, rule_list, caps, platform, buf_console, verbose
+                ssh,
+                rule_list,
+                caps,
+                platform,
+                buf_console,
+                verbose,
+                rule_to_section=rule_to_section,
             )
     except Exception as exc:
         buf_console.print(f"  [red]Connection failed:[/red] {exc}")
@@ -659,36 +724,73 @@ def _print_check_result(result: HostCheckResult) -> None:
     sys.stdout.flush()
 
 
-def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
+def _run_checks_buffered(
+    ssh,
+    rule_list,
+    caps,
+    platform,
+    buf_console,
+    verbose,
+    *,
+    rule_to_section: dict[str, str] | None = None,
+):
     """Run checks for a single host with buffered output. Returns (pass, fail, skip, rule_results)."""
     from runner._types import RuleResult
 
     host_pass = host_fail = host_skip = 0
     rule_results = []
+    failed_rules: set[str] = set()  # Track failed rule IDs for dependency checking
+    rule_to_section = rule_to_section or {}
+
     for r in rule_list:
+        rule_id = r["id"]
+
+        # Check if dependencies failed
+        skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
+        if skip:
+            host_skip += 1
+            buf_console.print(
+                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                f"[dim]({skip_reason})[/dim]"
+            )
+            rule_results.append(
+                RuleResult(
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=skip_reason,
+                    framework_section=rule_to_section.get(rule_id),
+                )
+            )
+            failed_rules.add(rule_id)
+            continue
+
         if platform and not rule_applies_to_platform(
             r, platform.family, platform.version
         ):
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                 f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
             )
             rule_results.append(
                 RuleResult(
-                    rule_id=r["id"],
-                    title=r.get("title", r["id"]),
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
                     severity=r.get("severity", "medium"),
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                    framework_section=rule_to_section.get(rule_id),
                 )
             )
             continue
+
         # Verbose implementation selection
         if verbose:
             impl = select_implementation(r, caps)
-            rule_id = r["id"]
             if impl is None:
                 buf_console.print(
                     f"  [dim]  {rule_id}: no matching implementation[/dim]"
@@ -704,6 +806,7 @@ def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
                 )
 
         result = evaluate_rule(ssh, r, caps)
+        result.framework_section = rule_to_section.get(rule_id)
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
@@ -717,6 +820,7 @@ def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
             )
         else:
             host_fail += 1
+            failed_rules.add(rule_id)
             detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
             buf_console.print(
                 f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
@@ -724,36 +828,76 @@ def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
     return host_pass, host_fail, host_skip, rule_results
 
 
-def _run_checks(ssh, rule_list, caps, platform, *, quiet=False):
+def _run_checks(
+    ssh,
+    rule_list,
+    caps,
+    platform,
+    *,
+    rule_to_section: dict[str, str] | None = None,
+    quiet=False,
+):
     """Run checks for a single host and print results. Returns (pass, fail, skip, rule_results)."""
     from runner._types import RuleResult
 
     host_pass = host_fail = host_skip = 0
     rule_results = []
+    failed_rules: set[str] = set()  # Track failed rule IDs for dependency checking
+    rule_to_section = rule_to_section or {}
+
     for r in rule_list:
+        rule_id = r["id"]
+
+        # Check if dependencies failed
+        should_skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
+        if should_skip:
+            host_skip += 1
+            if not quiet:
+                console.print(
+                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                    f"[dim]({skip_reason})[/dim]"
+                )
+            rule_results.append(
+                RuleResult(
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=skip_reason,
+                    framework_section=rule_to_section.get(rule_id),
+                )
+            )
+            # Mark as failed so transitive deps also skip
+            failed_rules.add(rule_id)
+            continue
+
         if platform and not rule_applies_to_platform(
             r, platform.family, platform.version
         ):
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                     f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
                 )
             rule_results.append(
                 RuleResult(
-                    rule_id=r["id"],
-                    title=r.get("title", r["id"]),
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
                     severity=r.get("severity", "medium"),
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                    framework_section=rule_to_section.get(rule_id),
                 )
             )
             continue
+
         if not quiet:
             _print_impl_verbose(r, caps)
         result = evaluate_rule(ssh, r, caps)
+        result.framework_section = rule_to_section.get(rule_id)
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
@@ -769,6 +913,7 @@ def _run_checks(ssh, rule_list, caps, platform, *, quiet=False):
                 )
         else:
             host_fail += 1
+            failed_rules.add(rule_id)  # Track for dependency checking
             if not quiet:
                 detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
                 console.print(
@@ -792,6 +937,11 @@ def _run_checks(ssh, rule_list, caps, platform, *, quiet=False):
     is_flag=True,
     help="Auto-rollback changes if remediation or post-check fails",
 )
+@click.option(
+    "--allow-conflicts",
+    is_flag=True,
+    help="Proceed despite detected conflicts (last rule wins)",
+)
 def remediate(
     host,
     inventory,
@@ -809,16 +959,20 @@ def remediate(
     severity,
     tag,
     category,
+    framework,
     outputs,
     quiet,
     dry_run,
     rollback_on_failure,
+    allow_conflicts,
 ):
     """Check rules and remediate failures on target hosts."""
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
-    rule_list = _load_rule_list(rules, rule, severity, tag, category)
+    rule_list, ordering, rule_to_section = _load_rule_list(
+        rules, rule, severity, tag, category, framework=framework, quiet=quiet
+    )
     overrides = _parse_capability_overrides(capability)
 
     # Collect results for output formatting
@@ -826,6 +980,19 @@ def remediate(
 
     if dry_run and not quiet:
         console.print("[yellow]DRY RUN — no changes will be made[/yellow]\n")
+
+    # Check for conflicts (preliminary check with empty capabilities)
+    # Full per-host check happens during processing
+    from runner.conflicts import detect_conflicts, format_conflicts
+
+    preliminary_conflicts = detect_conflicts(rule_list, {})
+    if preliminary_conflicts and not allow_conflicts:
+        console.print(format_conflicts(preliminary_conflicts))
+        sys.exit(1)
+    elif preliminary_conflicts and not quiet:
+        console.print(
+            "[yellow]WARNING:[/yellow] Conflicts detected, proceeding anyway (--allow-conflicts)\n"
+        )
 
     if workers == 1:
         # Sequential execution - use direct console output (original behavior)
@@ -868,6 +1035,7 @@ def remediate(
                         platform,
                         dry_run=dry_run,
                         rollback_on_failure=rollback_on_failure,
+                        rule_to_section=rule_to_section,
                         quiet=quiet,
                     )
                     host_result.results = rule_results
@@ -934,6 +1102,7 @@ def remediate(
                     verbose,
                     dry_run,
                     rollback_on_failure,
+                    rule_to_section,
                 ): hi
                 for hi in hosts
             }
@@ -997,6 +1166,7 @@ def _remediate_host(
     verbose: bool,
     dry_run: bool,
     rollback_on_failure: bool,
+    rule_to_section: dict[str, str] | None = None,
 ) -> HostRemediateResult:
     """Run remediation on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -1048,6 +1218,7 @@ def _remediate_host(
                 verbose,
                 dry_run=dry_run,
                 rollback_on_failure=rollback_on_failure,
+                rule_to_section=rule_to_section,
             )
     except Exception as exc:
         buf_console.print(f"  [red]Connection failed:[/red] {exc}")
@@ -1095,34 +1266,73 @@ def _print_remediate_result(result: HostRemediateResult) -> None:
 
 
 def _run_remediation(
-    ssh, rule_list, caps, platform, *, dry_run, rollback_on_failure=False, quiet=False
+    ssh,
+    rule_list,
+    caps,
+    platform,
+    *,
+    dry_run,
+    rollback_on_failure=False,
+    rule_to_section: dict[str, str] | None = None,
+    quiet=False,
 ):
     """Run remediation for a single host. Returns (pass, fail, fixed, skip, rolled_back, rule_results)."""
     from runner._types import RuleResult
 
     host_pass = host_fail = host_fixed = host_skip = host_rolled_back = 0
     rule_results = []
+    failed_rules: set[str] = set()  # Track failed rule IDs for dependency checking
+    rule_to_section = rule_to_section or {}
+
     for r in rule_list:
+        rule_id = r["id"]
+
+        # Check if dependencies failed
+        skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
+        if skip:
+            host_skip += 1
+            if not quiet:
+                console.print(
+                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                    f"[dim]({skip_reason})[/dim]"
+                )
+            rule_results.append(
+                RuleResult(
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=skip_reason,
+                    framework_section=rule_to_section.get(rule_id),
+                )
+            )
+            # Mark as failed so transitive deps also skip
+            failed_rules.add(rule_id)
+            continue
+
         if platform and not rule_applies_to_platform(
             r, platform.family, platform.version
         ):
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                     f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
                 )
             rule_results.append(
                 RuleResult(
-                    rule_id=r["id"],
-                    title=r.get("title", r["id"]),
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
                     severity=r.get("severity", "medium"),
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                    framework_section=rule_to_section.get(rule_id),
                 )
             )
             continue
+
         if not quiet:
             _print_impl_verbose(r, caps)
         result = remediate_rule(
@@ -1132,6 +1342,7 @@ def _run_remediation(
             dry_run=dry_run,
             rollback_on_failure=rollback_on_failure,
         )
+        result.framework_section = rule_to_section.get(rule_id)
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
@@ -1157,6 +1368,7 @@ def _run_remediation(
                 console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
         else:
             host_fail += 1
+            failed_rules.add(rule_id)  # Track for dependency checking
             if not quiet:
                 suffix = (
                     "  [magenta](rolled back)[/magenta]" if result.rolled_back else ""
@@ -1200,36 +1412,65 @@ def _run_remediation_buffered(
     *,
     dry_run,
     rollback_on_failure=False,
+    rule_to_section: dict[str, str] | None = None,
 ):
     """Run remediation for a single host with buffered output. Returns (pass, fail, fixed, skip, rolled_back, rule_results)."""
     from runner._types import RuleResult
 
     host_pass = host_fail = host_fixed = host_skip = host_rolled_back = 0
     rule_results = []
+    failed_rules: set[str] = set()  # Track failed rule IDs for dependency checking
+    rule_to_section = rule_to_section or {}
+
     for r in rule_list:
+        rule_id = r["id"]
+
+        # Check if dependencies failed
+        skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
+        if skip:
+            host_skip += 1
+            buf_console.print(
+                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                f"[dim]({skip_reason})[/dim]"
+            )
+            rule_results.append(
+                RuleResult(
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=skip_reason,
+                    framework_section=rule_to_section.get(rule_id),
+                )
+            )
+            failed_rules.add(rule_id)
+            continue
+
         if platform and not rule_applies_to_platform(
             r, platform.family, platform.version
         ):
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                 f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
             )
             rule_results.append(
                 RuleResult(
-                    rule_id=r["id"],
-                    title=r.get("title", r["id"]),
+                    rule_id=rule_id,
+                    title=r.get("title", rule_id),
                     severity=r.get("severity", "medium"),
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                    framework_section=rule_to_section.get(rule_id),
                 )
             )
             continue
+
         # Verbose implementation selection
         if verbose:
             impl = select_implementation(r, caps)
-            rule_id = r["id"]
             if impl is None:
                 buf_console.print(
                     f"  [dim]  {rule_id}: no matching implementation[/dim]"
@@ -1251,6 +1492,7 @@ def _run_remediation_buffered(
             dry_run=dry_run,
             rollback_on_failure=rollback_on_failure,
         )
+        result.framework_section = rule_to_section.get(rule_id)
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
@@ -1273,6 +1515,7 @@ def _run_remediation_buffered(
             buf_console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
         else:
             host_fail += 1
+            failed_rules.add(rule_id)  # Track for dependency checking
             suffix = "  [magenta](rolled back)[/magenta]" if result.rolled_back else ""
             detail = (
                 f"  [dim]{result.remediation_detail or result.detail}[/dim]"
@@ -1389,8 +1632,16 @@ def _connect(hi: HostInfo, password: str | None, *, sudo: bool = False) -> SSHSe
     )
 
 
-def _load_rule_list(rules, rule, severity, tag, category):
-    """Load and filter rules from CLI options."""
+def _load_rule_list(
+    rules, rule, severity, tag, category, *, framework=None, quiet=False
+):
+    """Load, filter, and order rules from CLI options.
+
+    Returns:
+        Tuple of (ordered_rules, ordering_result, rule_to_section).
+        rule_to_section maps rule_id to framework section_id when --framework is used.
+
+    """
     rule_path = rule or rules
     if not rule_path:
         console.print("[red]Error:[/red] Specify --rules or --rule")
@@ -1411,7 +1662,57 @@ def _load_rule_list(rules, rule, severity, tag, category):
         console.print("[yellow]No rules matched the given filters.[/yellow]")
         sys.exit(0)
 
-    return rule_list
+    # Apply framework filter if specified
+    rule_to_section: dict[str, str] = {}
+    if framework:
+        from runner.mappings import (
+            build_rule_to_section_map,
+            load_all_mappings,
+            rules_for_framework,
+        )
+
+        mappings = load_all_mappings()
+        if framework not in mappings:
+            console.print(f"[red]Error:[/red] Unknown framework: {framework}")
+            console.print(f"Available: {', '.join(sorted(mappings.keys()))}")
+            sys.exit(1)
+
+        mapping = mappings[framework]
+        rule_list = rules_for_framework(mapping, rule_list)
+        rule_to_section = build_rule_to_section_map(mapping)
+        if not quiet:
+            console.print(f"[dim]Framework: {mapping.title}[/dim]")
+            console.print(
+                f"[dim]Sections: {mapping.implemented_count} implemented[/dim]"
+            )
+
+        if not rule_list:
+            console.print(
+                f"[yellow]No rules from {framework} matched the given filters.[/yellow]"
+            )
+            sys.exit(0)
+
+    # Order rules by dependencies
+    ordering_result = order_rules(rule_list)
+
+    # Print ordering issues
+    if not quiet:
+        for msg in format_ordering_issues(ordering_result):
+            if msg.startswith("[ERROR]"):
+                console.print(f"[red]{msg}[/red]")
+            elif msg.startswith("[WARNING]"):
+                console.print(f"[yellow]{msg}[/yellow]")
+            else:
+                console.print(f"[dim]{msg}[/dim]")
+
+    # Abort on cycles
+    if ordering_result.cycles:
+        console.print(
+            "[red]Error:[/red] Circular dependencies detected. Cannot proceed."
+        )
+        sys.exit(1)
+
+    return ordering_result.ordered, ordering_result, rule_to_section
 
 
 def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
@@ -1428,3 +1729,434 @@ def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
         except ValueError as exc:
             console.print(f"[red]Error:[/red] {exc}")
             sys.exit(1)
+
+
+# ── history ─────────────────────────────────────────────────────────────────
+
+
+@main.command()
+@click.option("--host", "-h", default=None, help="Filter by host")
+@click.option("--rule", "-r", default=None, help="Filter by rule ID")
+@click.option("--sessions", "-s", is_flag=True, help="List sessions instead of results")
+@click.option("--session-id", "-S", type=int, help="Show results for specific session")
+@click.option("--limit", "-n", default=20, type=int, help="Max entries to show")
+@click.option("--stats", is_flag=True, help="Show database statistics")
+@click.option(
+    "--prune", type=int, metavar="DAYS", help="Remove results older than N days"
+)
+def history(host, rule, sessions, session_id, limit, stats, prune):
+    """Query compliance scan history.
+
+    Examples:
+      aegis history --host 192.168.1.100
+      aegis history --sessions
+      aegis history --session-id 5
+      aegis history --stats
+      aegis history --prune 30
+    """
+    from runner.storage import ResultStore
+
+    store = ResultStore()
+
+    try:
+        if stats:
+            db_stats = store.get_stats()
+            table = Table(title="Database Statistics")
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green")
+            table.add_row("Sessions", str(db_stats["session_count"]))
+            table.add_row("Results", str(db_stats["result_count"]))
+            table.add_row("Oldest Session", db_stats["oldest_session"] or "N/A")
+            table.add_row("Newest Session", db_stats["newest_session"] or "N/A")
+            table.add_row("Database Path", db_stats["db_path"])
+            console.print(table)
+            return
+
+        if prune is not None:
+            deleted = store.prune_old_results(prune)
+            console.print(f"Deleted {deleted} sessions older than {prune} days")
+            return
+
+        if session_id:
+            session = store.get_session(session_id)
+            if session is None:
+                console.print(f"[red]Session {session_id} not found[/red]")
+                sys.exit(1)
+
+            console.print(f"[bold]Session {session_id}[/bold]")
+            console.print(f"  Timestamp: {session.timestamp}")
+            console.print(f"  Hosts: {', '.join(session.hosts)}")
+            console.print(f"  Rules Path: {session.rules_path}")
+            console.print()
+
+            results = store.get_results(session_id)
+            if not results:
+                console.print("[yellow]No results for this session[/yellow]")
+                return
+
+            table = Table(title="Results")
+            table.add_column("Host", style="cyan")
+            table.add_column("Rule", style="white")
+            table.add_column("Status", style="green")
+            table.add_column("Remediated", style="yellow")
+            table.add_column("Detail", style="dim")
+
+            for r in results:
+                status = "[green]PASS[/green]" if r.passed else "[red]FAIL[/red]"
+                remediated = "Yes" if r.remediated else ""
+                detail = r.detail[:50] + "..." if len(r.detail) > 50 else r.detail
+                table.add_row(r.host, r.rule_id, status, remediated, detail)
+
+            console.print(table)
+            return
+
+        if sessions:
+            session_list = store.list_sessions(host=host, limit=limit)
+            if not session_list:
+                console.print("[yellow]No sessions found[/yellow]")
+                return
+
+            table = Table(title="Scan Sessions")
+            table.add_column("ID", style="cyan")
+            table.add_column("Timestamp", style="white")
+            table.add_column("Hosts", style="green")
+            table.add_column("Rules Path", style="dim")
+
+            for s in session_list:
+                hosts_str = ", ".join(s.hosts[:3])
+                if len(s.hosts) > 3:
+                    hosts_str += f" (+{len(s.hosts) - 3})"
+                table.add_row(str(s.id), str(s.timestamp), hosts_str, s.rules_path)
+
+            console.print(table)
+            return
+
+        # Default: show result history
+        if not host:
+            console.print(
+                "[red]Error:[/red] Specify --host for result history, or use --sessions"
+            )
+            sys.exit(1)
+
+        entries = store.get_history(host, rule_id=rule, limit=limit)
+        if not entries:
+            console.print(f"[yellow]No history for host {host}[/yellow]")
+            return
+
+        table = Table(title=f"History for {host}")
+        table.add_column("Session", style="cyan")
+        table.add_column("Timestamp", style="white")
+        table.add_column("Rule", style="white")
+        table.add_column("Status", style="green")
+        table.add_column("Remediated", style="yellow")
+
+        for e in entries:
+            status = "[green]PASS[/green]" if e.passed else "[red]FAIL[/red]"
+            remediated = "Yes" if e.remediated else ""
+            table.add_row(
+                str(e.session_id), str(e.timestamp), e.rule_id, status, remediated
+            )
+
+        console.print(table)
+
+    finally:
+        store.close()
+
+
+# ── diff ────────────────────────────────────────────────────────────────────
+
+
+@main.command()
+@click.argument("session1", type=int)
+@click.argument("session2", type=int)
+@click.option("--host", "-h", default=None, help="Filter by host")
+@click.option("--show-unchanged", is_flag=True, help="Include unchanged results")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+def diff(session1, session2, host, show_unchanged, json_output):
+    """Compare two scan sessions to show drift.
+
+    Shows what changed between SESSION1 (older) and SESSION2 (newer):
+    - Regressions: rules that were passing but now fail
+    - Resolved: rules that were failing but now pass
+    - New failures: rules new in session2 that fail
+    - New passes: rules new in session2 that pass
+
+    Examples:
+      aegis diff 1 5
+      aegis diff 1 5 --host 192.168.1.100
+      aegis diff 1 5 --json
+    """
+    from runner.storage import ResultStore, diff_sessions
+
+    store = ResultStore()
+
+    try:
+        report = diff_sessions(store, session1, session2)
+
+        if json_output:
+            import json
+
+            output = {
+                "session1": {
+                    "id": report.session1_id,
+                    "timestamp": report.session1_timestamp.isoformat(),
+                },
+                "session2": {
+                    "id": report.session2_id,
+                    "timestamp": report.session2_timestamp.isoformat(),
+                },
+                "summary": report.summary(),
+                "changes": [
+                    {
+                        "host": e.host,
+                        "rule_id": e.rule_id,
+                        "status": e.status,
+                        "old_passed": e.old_passed,
+                        "new_passed": e.new_passed,
+                    }
+                    for e in report.entries
+                    if show_unchanged or e.status != "unchanged"
+                ],
+            }
+            print(json.dumps(output, indent=2))
+            return
+
+        # Filter by host if specified
+        entries = report.entries
+        if host:
+            entries = [e for e in entries if e.host == host]
+
+        if not show_unchanged:
+            entries = [e for e in entries if e.status != "unchanged"]
+
+        console.print(f"[bold]Diff: Session {session1} → Session {session2}[/bold]")
+        console.print(f"  {report.session1_timestamp} → {report.session2_timestamp}")
+        console.print()
+
+        summary = report.summary()
+        console.print("[bold]Summary:[/bold]")
+        if summary["regressions"]:
+            console.print(f"  [red]Regressions: {summary['regressions']}[/red]")
+        if summary["resolved"]:
+            console.print(f"  [green]Resolved: {summary['resolved']}[/green]")
+        if summary["new_failures"]:
+            console.print(f"  [red]New Failures: {summary['new_failures']}[/red]")
+        if summary["new_passes"]:
+            console.print(f"  [green]New Passes: {summary['new_passes']}[/green]")
+        if show_unchanged:
+            console.print(f"  [dim]Unchanged: {summary['unchanged']}[/dim]")
+        console.print()
+
+        if not entries:
+            console.print("[green]No changes between sessions[/green]")
+            return
+
+        # Group by status
+        status_order = [
+            "regression",
+            "new_failure",
+            "resolved",
+            "new_pass",
+            "unchanged",
+        ]
+        status_labels = {
+            "regression": ("[red]REGRESSION[/red]", "Was passing, now failing"),
+            "new_failure": ("[red]NEW FAIL[/red]", "New rule, failing"),
+            "resolved": ("[green]RESOLVED[/green]", "Was failing, now passing"),
+            "new_pass": ("[green]NEW PASS[/green]", "New rule, passing"),
+            "unchanged": ("[dim]UNCHANGED[/dim]", "No change"),
+        }
+
+        table = Table(title="Changes")
+        table.add_column("Status", style="white")
+        table.add_column("Host", style="cyan")
+        table.add_column("Rule", style="white")
+        table.add_column("Old", style="dim")
+        table.add_column("New", style="white")
+
+        for status in status_order:
+            status_entries = [e for e in entries if e.status == status]
+            if not status_entries:
+                continue
+
+            label, _ = status_labels[status]
+            for e in status_entries:
+                old_status = (
+                    "PASS"
+                    if e.old_passed
+                    else "FAIL"
+                    if e.old_passed is not None
+                    else "-"
+                )
+                new_status = (
+                    "PASS"
+                    if e.new_passed
+                    else "FAIL"
+                    if e.new_passed is not None
+                    else "-"
+                )
+                table.add_row(label, e.host, e.rule_id, old_status, new_status)
+
+        console.print(table)
+
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
+    finally:
+        store.close()
+
+
+# ── coverage ─────────────────────────────────────────────────────────────────
+
+
+@main.command()
+@click.option(
+    "--framework",
+    "-f",
+    required=True,
+    help="Framework mapping ID (e.g., cis-rhel9-v2.0.0)",
+)
+@click.option("--rules", "-r", default="rules/", help="Path to rules directory")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+def coverage(framework, rules, json_output):
+    """Show coverage report for a framework mapping.
+
+    Reports which framework sections have rules, which are explicitly
+    unimplemented, and which have missing rules.
+
+    Examples:
+      aegis coverage --framework cis-rhel9-v2.0.0
+      aegis coverage --framework cis-rhel9-v2.0.0 --json
+    """
+    from runner.mappings import check_coverage, load_all_mappings
+
+    # Load mappings
+    mappings = load_all_mappings()
+    if framework not in mappings:
+        console.print(f"[red]Error:[/red] Unknown framework: {framework}")
+        console.print(f"Available: {', '.join(sorted(mappings.keys()))}")
+        sys.exit(1)
+
+    mapping = mappings[framework]
+
+    # Load rules
+    try:
+        rule_list = load_rules(rules)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    available_rules = {r["id"] for r in rule_list}
+
+    # Check coverage
+    report = check_coverage(mapping, available_rules)
+
+    if json_output:
+        import json
+
+        output = {
+            "framework": {
+                "id": mapping.id,
+                "title": mapping.title,
+            },
+            "coverage": {
+                "total_controls": report.total_controls,
+                "implemented": report.implemented,
+                "unimplemented": report.unimplemented,
+                "unaccounted": len(report.unaccounted),
+                "coverage_percent": round(report.coverage_percent, 1),
+                "accounted_percent": round(report.accounted_percent, 1),
+                "is_complete": report.is_complete,
+                "has_manifest": report.has_manifest,
+            },
+            "unaccounted_controls": report.unaccounted,
+            "missing_rules": report.missing_rules,
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    console.print(f"[bold]{mapping.title}[/bold]")
+    console.print()
+
+    if not report.has_manifest:
+        console.print(
+            "[yellow]⚠ No control manifest - coverage is approximate[/yellow]"
+        )
+        console.print()
+
+    console.print("[bold]Coverage:[/bold]")
+    console.print(f"  Total controls: {report.total_controls}")
+    console.print(
+        f"  [green]Implemented: {report.implemented}[/green] (mapped to rules)"
+    )
+    console.print(
+        f"  [yellow]Unimplemented: {report.unimplemented}[/yellow] (need rules or manual)"
+    )
+    if report.has_manifest:
+        console.print(
+            f"  [red]Unaccounted: {len(report.unaccounted)}[/red] (need mapping)"
+        )
+    console.print()
+    console.print(f"  Rule coverage: [bold]{report.coverage_percent:.1f}%[/bold]")
+    if report.has_manifest:
+        console.print(
+            f"  Mapping complete: [bold]{'Yes' if report.is_complete else 'No'}[/bold]"
+        )
+
+    if report.unaccounted and len(report.unaccounted) <= 20:
+        console.print()
+        console.print(f"[red]Unaccounted controls ({len(report.unaccounted)}):[/red]")
+        for control_id in report.unaccounted[:20]:
+            console.print(f"    - {control_id}")
+    elif report.unaccounted:
+        console.print()
+        console.print(
+            f"[red]Unaccounted controls: {len(report.unaccounted)}[/red] "
+            "(use --json for full list)"
+        )
+
+    if report.missing_rules:
+        console.print()
+        console.print(f"[red]Missing rules ({len(report.missing_rules)}):[/red]")
+        console.print("  These rules are referenced in the mapping but don't exist:")
+        for rule_id in sorted(report.missing_rules):
+            console.print(f"    - {rule_id}")
+
+
+# ── list-frameworks ──────────────────────────────────────────────────────────
+
+
+@main.command("list-frameworks")
+def list_frameworks():
+    """List available framework mappings.
+
+    Shows all framework mapping files found in the mappings/ directory.
+    """
+    from runner.mappings import load_all_mappings
+
+    mappings = load_all_mappings()
+
+    if not mappings:
+        console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+        return
+
+    console.print(f"[bold]Available Frameworks ({len(mappings)}):[/bold]")
+    console.print()
+
+    for mapping_id in sorted(mappings.keys()):
+        mapping = mappings[mapping_id]
+        platform_str = ""
+        if mapping.platform:
+            platform_str = f" ({mapping.platform.family}"
+            if mapping.platform.min_version:
+                platform_str += f" >={mapping.platform.min_version}"
+            if mapping.platform.max_version:
+                platform_str += f" <={mapping.platform.max_version}"
+            platform_str += ")"
+
+        console.print(f"  [cyan]{mapping_id}[/cyan]")
+        console.print(f"    {mapping.title}{platform_str}")
+        console.print(
+            f"    Sections: {mapping.implemented_count} implemented, {mapping.unimplemented_count} skipped"
+        )
+        console.print()

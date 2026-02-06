@@ -46,13 +46,44 @@ repos:
         files: ^(runner|schema|tests)/
 
   # ==========================================================================
+  # Mypy - Static type checking
+  # ==========================================================================
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        files: ^(runner|schema)/
+        args:
+          - '--ignore-missing-imports'
+          - '--no-error-summary'
+        additional_dependencies:
+          - 'types-PyYAML'
+          - 'types-paramiko'
+
+  # ==========================================================================
+  # Pydocstyle - Docstring style enforcement (Google convention)
+  # ==========================================================================
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        files: ^(runner|schema)/
+        args:
+          - '--convention=google'
+          - '--add-ignore=D100,D104,D105,D107'
+          # D100 = Missing docstring in public module (too strict)
+          # D104 = Missing docstring in public package (__init__.py)
+          # D105 = Missing docstring in magic method
+          # D107 = Missing docstring in __init__
+
+  # ==========================================================================
   # YAML Schema validation for rules
   # ==========================================================================
   - repo: local
     hooks:
       - id: validate-rules
         name: Validate rule YAML against schema
-        entry: python3 schema/validate.py
+        entry: bash -c 'PYTHONPATH=. python3 schema/validate.py "$@"' --
         language: system
         files: ^rules/.*\.ya?ml$
         pass_filenames: true
