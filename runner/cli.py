@@ -177,13 +177,12 @@ def detect(host, inventory, limit, user, key, password, port, verbose, sudo, cap
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     overrides = _parse_capability_overrides(capability)
 
-    if workers == 1 or len(hosts) == 1:
-        # Sequential execution (original behavior)
+    if workers == 1:
+        # Sequential execution - use direct console output (original behavior)
         for hi in hosts:
-            result = _detect_host(hi, password, sudo, overrides, verbose)
-            _print_detect_result(result, overrides)
+            _detect_host_sequential(hi, password, sudo, overrides, verbose)
     else:
-        # Parallel execution
+        # Parallel execution - use buffered output
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
                 pool.submit(_detect_host, hi, password, sudo, overrides, verbose): hi
@@ -193,6 +192,43 @@ def detect(host, inventory, limit, user, key, password, port, verbose, sudo, cap
                 result = future.result()
                 with print_lock:
                     _print_detect_result(result, overrides)
+
+
+def _detect_host_sequential(
+    hi: HostInfo,
+    password: str | None,
+    sudo: bool,
+    overrides: dict[str, bool],
+    verbose: bool,
+) -> None:
+    """Run capability detection on a single host with direct console output."""
+    console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+
+    try:
+        with _connect(hi, password, sudo=sudo) as ssh:
+            platform = detect_platform(ssh)
+            detected_caps = detect_capabilities(ssh, verbose=verbose)
+            caps = _apply_capability_overrides(detected_caps, overrides)
+    except Exception as exc:
+        console.print(f"  [red]Connection failed:[/red] {exc}")
+        return
+
+    _print_platform(platform)
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Capability", min_width=28)
+    table.add_column("Available", justify="center")
+
+    for name, available in sorted(caps.items()):
+        is_override = name in overrides and overrides[name] != detected_caps.get(name)
+        if is_override:
+            mark = f"[magenta]{'yes' if available else 'no'}[/magenta] (override)"
+        else:
+            mark = "[green]yes[/green]" if available else "[dim]no[/dim]"
+        table.add_row(name, mark)
+
+    console.print(table)
+    console.print()
 
 
 def _detect_host(
@@ -255,7 +291,9 @@ def _detect_host(
 
 def _print_detect_result(result: HostDetectResult, overrides: dict[str, bool]) -> None:
     """Print buffered detect result to console."""
-    console.print(result.output, end="")
+    # Use sys.stdout.write for already-formatted ANSI output
+    sys.stdout.write(result.output)
+    sys.stdout.flush()
 
 
 # ── check ───────────────────────────────────────────────────────────────────
@@ -272,16 +310,57 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, capa
     rule_list = _load_rule_list(rules, rule, severity, tag, category)
     overrides = _parse_capability_overrides(capability)
 
-    results: list[HostCheckResult] = []
+    if workers == 1:
+        # Sequential execution - use direct console output (original behavior)
+        total_pass = 0
+        total_fail = 0
+        total_skip = 0
+        host_count = 0
 
-    if workers == 1 or len(hosts) == 1:
-        # Sequential execution (original behavior)
         for hi in hosts:
-            result = _check_host(hi, password, sudo, overrides, rule_list, verbose)
-            _print_check_result(result)
-            results.append(result)
+            console.print()
+            console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+            try:
+                with _connect(hi, password, sudo=sudo) as ssh:
+                    platform = detect_platform(ssh)
+                    detected_caps = detect_capabilities(ssh, verbose=verbose)
+                    caps = _apply_capability_overrides(detected_caps, overrides)
+                    _print_platform(platform)
+                    _print_caps_verbose(caps)
+                    host_pass, host_fail, host_skip = _run_checks(ssh, rule_list, caps, platform)
+            except Exception as exc:
+                console.print(f"  [red]Connection failed:[/red] {exc}")
+                continue
+
+            host_count += 1
+            total_pass += host_pass
+            total_fail += host_fail
+            total_skip += host_skip
+
+            total = host_pass + host_fail + host_skip
+            console.print(
+                f"  [bold]{total} rules[/bold] | "
+                f"[green]{host_pass} pass[/green] | "
+                f"[red]{host_fail} fail[/red]"
+                + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
+            )
+
+        if host_count > 1:
+            console.print()
+            console.rule("[bold]Summary[/bold]")
+            grand_total = total_pass + total_fail + total_skip
+            console.print(
+                f"  {host_count} hosts | "
+                f"{grand_total} total checks | "
+                f"[green]{total_pass} pass[/green] | "
+                f"[red]{total_fail} fail[/red]"
+                + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
+            )
+        console.print()
     else:
-        # Parallel execution
+        # Parallel execution - use buffered output
+        results: list[HostCheckResult] = []
+
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
                 pool.submit(_check_host, hi, password, sudo, overrides, rule_list, verbose): hi
@@ -293,25 +372,25 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, capa
                     _print_check_result(result)
                 results.append(result)
 
-    # Aggregate results
-    successful_results = [r for r in results if r.success]
-    total_pass = sum(r.pass_count for r in successful_results)
-    total_fail = sum(r.fail_count for r in successful_results)
-    total_skip = sum(r.skip_count for r in successful_results)
-    host_count = len(successful_results)
+        # Aggregate results
+        successful_results = [r for r in results if r.success]
+        total_pass = sum(r.pass_count for r in successful_results)
+        total_fail = sum(r.fail_count for r in successful_results)
+        total_skip = sum(r.skip_count for r in successful_results)
+        host_count = len(successful_results)
 
-    if host_count > 1:
+        if host_count > 1:
+            console.print()
+            console.rule("[bold]Summary[/bold]")
+            grand_total = total_pass + total_fail + total_skip
+            console.print(
+                f"  {host_count} hosts | "
+                f"{grand_total} total checks | "
+                f"[green]{total_pass} pass[/green] | "
+                f"[red]{total_fail} fail[/red]"
+                + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
+            )
         console.print()
-        console.rule("[bold]Summary[/bold]")
-        grand_total = total_pass + total_fail + total_skip
-        console.print(
-            f"  {host_count} hosts | "
-            f"{grand_total} total checks | "
-            f"[green]{total_pass} pass[/green] | "
-            f"[red]{total_fail} fail[/red]"
-            + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
-        )
-    console.print()
 
 
 def _check_host(
@@ -385,7 +464,9 @@ def _check_host(
 
 def _print_check_result(result: HostCheckResult) -> None:
     """Print buffered check result to console."""
-    console.print(result.output, end="")
+    # Use sys.stdout.write for already-formatted ANSI output
+    sys.stdout.write(result.output)
+    sys.stdout.flush()
 
 
 def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
@@ -470,18 +551,74 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
     if dry_run:
         console.print("[yellow]DRY RUN — no changes will be made[/yellow]\n")
 
-    results: list[HostRemediateResult] = []
+    if workers == 1:
+        # Sequential execution - use direct console output (original behavior)
+        total_pass = 0
+        total_fail = 0
+        total_fixed = 0
+        total_skip = 0
+        total_rolled_back = 0
+        host_count = 0
 
-    if workers == 1 or len(hosts) == 1:
-        # Sequential execution (original behavior)
         for hi in hosts:
-            result = _remediate_host(
-                hi, password, sudo, overrides, rule_list, verbose, dry_run, rollback_on_failure
+            console.print()
+            console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+            try:
+                with _connect(hi, password, sudo=sudo) as ssh:
+                    platform = detect_platform(ssh)
+                    detected_caps = detect_capabilities(ssh, verbose=verbose)
+                    caps = _apply_capability_overrides(detected_caps, overrides)
+                    _print_platform(platform)
+                    _print_caps_verbose(caps)
+                    host_pass, host_fail, host_fixed, host_skip, host_rolled_back = _run_remediation(
+                        ssh, rule_list, caps, platform, dry_run=dry_run,
+                        rollback_on_failure=rollback_on_failure,
+                    )
+            except Exception as exc:
+                console.print(f"  [red]Connection failed:[/red] {exc}")
+                continue
+
+            host_count += 1
+            total_pass += host_pass
+            total_fail += host_fail
+            total_fixed += host_fixed
+            total_skip += host_skip
+            total_rolled_back += host_rolled_back
+
+            total = host_pass + host_fail + host_fixed + host_skip
+            summary = (
+                f"  [bold]{total} rules[/bold] | "
+                f"[green]{host_pass} pass[/green] | "
+                f"[yellow]{host_fixed} fixed[/yellow] | "
+                f"[red]{host_fail} fail[/red]"
             )
-            _print_remediate_result(result)
-            results.append(result)
+            if host_skip:
+                summary += f" | [dim]{host_skip} skip[/dim]"
+            if host_rolled_back:
+                summary += f" | [magenta]{host_rolled_back} rolled back[/magenta]"
+            console.print(summary)
+
+        if host_count > 1:
+            console.print()
+            console.rule("[bold]Summary[/bold]")
+            grand_total = total_pass + total_fail + total_fixed + total_skip
+            summary = (
+                f"  {host_count} hosts | "
+                f"{grand_total} total checks | "
+                f"[green]{total_pass} pass[/green] | "
+                f"[yellow]{total_fixed} fixed[/yellow] | "
+                f"[red]{total_fail} fail[/red]"
+            )
+            if total_skip:
+                summary += f" | [dim]{total_skip} skip[/dim]"
+            if total_rolled_back:
+                summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
+            console.print(summary)
+        console.print()
     else:
-        # Parallel execution
+        # Parallel execution - use buffered output
+        results: list[HostRemediateResult] = []
+
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
                 pool.submit(
@@ -496,32 +633,32 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
                     _print_remediate_result(result)
                 results.append(result)
 
-    # Aggregate results
-    successful_results = [r for r in results if r.success]
-    total_pass = sum(r.pass_count for r in successful_results)
-    total_fail = sum(r.fail_count for r in successful_results)
-    total_fixed = sum(r.fixed_count for r in successful_results)
-    total_skip = sum(r.skip_count for r in successful_results)
-    total_rolled_back = sum(r.rolled_back_count for r in successful_results)
-    host_count = len(successful_results)
+        # Aggregate results
+        successful_results = [r for r in results if r.success]
+        total_pass = sum(r.pass_count for r in successful_results)
+        total_fail = sum(r.fail_count for r in successful_results)
+        total_fixed = sum(r.fixed_count for r in successful_results)
+        total_skip = sum(r.skip_count for r in successful_results)
+        total_rolled_back = sum(r.rolled_back_count for r in successful_results)
+        host_count = len(successful_results)
 
-    if host_count > 1:
+        if host_count > 1:
+            console.print()
+            console.rule("[bold]Summary[/bold]")
+            grand_total = total_pass + total_fail + total_fixed + total_skip
+            summary = (
+                f"  {host_count} hosts | "
+                f"{grand_total} total checks | "
+                f"[green]{total_pass} pass[/green] | "
+                f"[yellow]{total_fixed} fixed[/yellow] | "
+                f"[red]{total_fail} fail[/red]"
+            )
+            if total_skip:
+                summary += f" | [dim]{total_skip} skip[/dim]"
+            if total_rolled_back:
+                summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
+            console.print(summary)
         console.print()
-        console.rule("[bold]Summary[/bold]")
-        grand_total = total_pass + total_fail + total_fixed + total_skip
-        summary = (
-            f"  {host_count} hosts | "
-            f"{grand_total} total checks | "
-            f"[green]{total_pass} pass[/green] | "
-            f"[yellow]{total_fixed} fixed[/yellow] | "
-            f"[red]{total_fail} fail[/red]"
-        )
-        if total_skip:
-            summary += f" | [dim]{total_skip} skip[/dim]"
-        if total_rolled_back:
-            summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
-        console.print(summary)
-    console.print()
 
 
 def _remediate_host(
@@ -605,7 +742,9 @@ def _remediate_host(
 
 def _print_remediate_result(result: HostRemediateResult) -> None:
     """Print buffered remediate result to console."""
-    console.print(result.output, end="")
+    # Use sys.stdout.write for already-formatted ANSI output
+    sys.stdout.write(result.output)
+    sys.stdout.flush()
 
 
 def _run_remediation(ssh, rule_list, caps, platform, *, dry_run, rollback_on_failure=False):
