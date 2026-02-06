@@ -13,6 +13,7 @@ Remediation Handler Pattern:
     - Call _reload_service() for mechanisms that modify service configs
 
 Example:
+-------
     >>> from runner.ssh import SSHSession
     >>> from runner._remediation import run_remediation
     >>>
@@ -25,6 +26,7 @@ Example:
     ... }
     >>> success, detail, steps = run_remediation(ssh, remediation, dry_run=True)
     >>> print(detail)  # "Would set 'PermitRootLogin no' in /etc/ssh/sshd_config"
+
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ def run_remediation(
     for each step to enable rollback.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         remediation: Remediation definition dict from rule YAML. Must contain:
             - "mechanism": str for single-step, or
@@ -62,12 +65,14 @@ def run_remediation(
         check: Optional check definition for post-remediation verification.
 
     Returns:
+    -------
         Tuple of (success, detail, step_results):
             - success: True if all steps completed successfully
             - detail: Human-readable summary of actions taken
             - step_results: List of StepResult for each step (for rollback)
 
     Example:
+    -------
         Single-step remediation::
 
             remediation = {"mechanism": "config_set", "path": "...", "key": "...", "value": "..."}
@@ -82,6 +87,7 @@ def run_remediation(
                 ]
             }
             success, detail, steps = run_remediation(ssh, remediation)
+
     """
     # Multi-step remediation
     if "steps" in remediation:
@@ -133,6 +139,7 @@ def _remediate_config_set(
     Optionally reloads the associated service after modification.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - path (str): Config file path.
@@ -145,9 +152,11 @@ def _remediate_config_set(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -156,6 +165,7 @@ def _remediate_config_set(
               key: "PermitRootLogin"
               value: "no"
               reload: "sshd"
+
     """
     path = r["path"]
     key = r["key"]
@@ -193,6 +203,7 @@ def _remediate_config_set_dropin(
     Preferred for services that support drop-in configs (sshd, sysctl.d, etc.).
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - dir (str): Drop-in directory path (e.g., "/etc/ssh/sshd_config.d").
@@ -204,9 +215,11 @@ def _remediate_config_set_dropin(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -216,6 +229,7 @@ def _remediate_config_set_dropin(
               key: "PermitRootLogin"
               value: "no"
               reload: "sshd"
+
     """
     dir_path = r["dir"]
     filename = r["file"]
@@ -247,6 +261,7 @@ def _remediate_config_remove(
     Idempotent: succeeds if key is already absent.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - path (str): Config file path.
@@ -255,9 +270,11 @@ def _remediate_config_remove(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -265,6 +282,7 @@ def _remediate_config_remove(
               path: "/etc/ssh/sshd_config"
               key: "PermitEmptyPasswords"
               reload: "sshd"
+
     """
     path = r["path"]
     key = r["key"]
@@ -296,6 +314,7 @@ def _remediate_command_exec(
     Use sparingly - prefer specific mechanisms when available.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - run (str): Shell command to execute.
@@ -305,15 +324,18 @@ def _remediate_command_exec(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: command_exec
               run: "aide --init && mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz"
               unless: "test -f /var/lib/aide/aide.db.gz"
+
     """
     cmd = r["run"]
 
@@ -334,7 +356,10 @@ def _remediate_command_exec(
 
     result = ssh.run(cmd, timeout=120)
     if not result.ok:
-        return False, f"Command failed (exit {result.exit_code}): {result.stderr or result.stdout}"
+        return (
+            False,
+            f"Command failed (exit {result.exit_code}): {result.stderr or result.stdout}",
+        )
 
     _reload_service(ssh, r)
     return True, f"Executed: {cmd}"
@@ -349,6 +374,7 @@ def _remediate_file_permissions(
     Supports glob patterns to modify multiple files.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - path (str): File path or glob pattern.
@@ -359,9 +385,11 @@ def _remediate_file_permissions(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -371,6 +399,7 @@ def _remediate_file_permissions(
               group: "root"
               mode: "0600"
               glob: true
+
     """
     path = r["path"]
     is_glob = "glob" in r or any(ch in path for ch in "*?[")
@@ -405,6 +434,7 @@ def _remediate_sysctl_set(
     configuration file in /etc/sysctl.d/ for reboot persistence.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - key (str): Sysctl parameter name.
@@ -414,19 +444,24 @@ def _remediate_sysctl_set(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: sysctl_set
               key: "net.ipv4.tcp_syncookies"
               value: "1"
+
     """
     key = r["key"]
     value = r["value"]
-    persist_file = r.get("persist_file", f"/etc/sysctl.d/99-aegis-{key.replace('.', '-')}.conf")
+    persist_file = r.get(
+        "persist_file", f"/etc/sysctl.d/99-aegis-{key.replace('.', '-')}.conf"
+    )
 
     if dry_run:
         return True, f"Would set sysctl {key}={value} and persist to {persist_file}"
@@ -453,20 +488,24 @@ def _remediate_package_present(
     Uses dnf install -y with a 5-minute timeout for slow operations.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): Package name to install.
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: package_present
               name: "aide"
+
     """
     name = r["name"]
 
@@ -487,20 +526,24 @@ def _remediate_package_absent(
     Uses dnf remove -y. Idempotent: succeeds if package is already absent.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): Package name to remove.
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: package_absent
               name: "telnet-server"
+
     """
     name = r["name"]
 
@@ -527,20 +570,24 @@ def _remediate_kernel_module_disable(
     then unloads the module if currently loaded.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): Kernel module name.
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: kernel_module_disable
               name: "cramfs"
+
     """
     name = r["name"]
     conf_path = f"/etc/modprobe.d/{name}.conf"
@@ -567,6 +614,7 @@ def _remediate_manual(
     human judgment. Always returns failure with the specified note.
 
     Args:
+    ----
         ssh: Active SSH session to the target host (unused).
         r: Remediation definition with optional fields:
             - note (str, optional): Explanation of manual steps needed.
@@ -574,14 +622,17 @@ def _remediate_manual(
         dry_run: Ignored for manual remediations.
 
     Returns:
+    -------
         Tuple of (False, "MANUAL: <note>") - always fails.
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: manual
               note: "Review application logs and configure appropriate retention"
+
     """
     note = r.get("note", "Manual remediation required")
     return False, f"MANUAL: {note}"
@@ -596,6 +647,7 @@ def _remediate_file_content(
     sets ownership and permissions.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - path (str): File path to write.
@@ -606,9 +658,11 @@ def _remediate_file_content(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -619,6 +673,7 @@ def _remediate_file_content(
                 All activity is monitored and logged.
               owner: "root"
               mode: "0644"
+
     """
     path = r["path"]
     content = r["content"]
@@ -652,20 +707,24 @@ def _remediate_file_absent(
     Uses rm -f for safe removal. Idempotent: succeeds if file is already absent.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - path (str): File path to remove.
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: file_absent
               path: "/etc/hosts.equiv"
+
     """
     path = r["path"]
 
@@ -692,6 +751,7 @@ def _remediate_config_block(
     Useful for managing multi-line configuration sections.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - path (str): Config file path.
@@ -702,9 +762,11 @@ def _remediate_config_block(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -714,6 +776,7 @@ def _remediate_config_block(
               block: |
                 * hard core 0
                 * soft core 0
+
     """
     path = r["path"]
     block = r["block"]
@@ -725,7 +788,9 @@ def _remediate_config_block(
         return True, f"Would write block to {path} with marker '{marker}'"
 
     # Check if block already exists
-    check = ssh.run(f"grep -qF {shlex.quote(begin_marker)} {shlex.quote(path)} 2>/dev/null")
+    check = ssh.run(
+        f"grep -qF {shlex.quote(begin_marker)} {shlex.quote(path)} 2>/dev/null"
+    )
     if check.ok:
         # Block exists - replace it
         # Use sed to delete between markers and insert new content
@@ -750,6 +815,7 @@ def _remediate_cron_job(
     Creates a cron file with the specified schedule and command.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - schedule (str): Cron schedule (e.g., "0 5 * * *").
@@ -759,9 +825,11 @@ def _remediate_cron_job(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -770,6 +838,7 @@ def _remediate_cron_job(
               schedule: "0 5 * * *"
               command: "/usr/sbin/aide --check"
               user: "root"
+
     """
     schedule = r["schedule"]  # e.g., "0 5 * * *"
     command = r["command"]
@@ -802,6 +871,7 @@ def _remediate_mount_option_set(
     the filesystem to apply changes immediately.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - mount_point (str): Mount point path (e.g., "/tmp").
@@ -809,9 +879,11 @@ def _remediate_mount_option_set(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
@@ -821,12 +893,16 @@ def _remediate_mount_option_set(
                 - nodev
                 - nosuid
                 - noexec
+
     """
     mount_point = r["mount_point"]
     options = r["options"]
 
     if dry_run:
-        return True, f"Would add options {options} to {mount_point} in fstab and remount"
+        return (
+            True,
+            f"Would add options {options} to {mount_point} in fstab and remount",
+        )
 
     # Get current fstab line
     result = ssh.run(f"grep -E '\\s{shlex.quote(mount_point)}\\s' /etc/fstab")
@@ -867,6 +943,7 @@ def _remediate_grub_parameter_set(
     Uses grubby to update all kernel entries. Requires reboot to take effect.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - key (str): Parameter name.
@@ -875,15 +952,18 @@ def _remediate_grub_parameter_set(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: grub_parameter_set
               key: "audit"
               value: "1"
+
     """
     key = r["key"]
     value = r.get("value")
@@ -909,20 +989,24 @@ def _remediate_grub_parameter_remove(
     Requires reboot to take effect.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - key (str): Parameter name to remove.
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: grub_parameter_remove
               key: "quiet"
+
     """
     key = r["key"]
 
@@ -946,6 +1030,7 @@ def _remediate_audit_rule_set(
     and appends it to a rules file for persistence.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - rule (str): Audit rule (e.g., "-w /etc/passwd -p wa -k identity").
@@ -954,14 +1039,17 @@ def _remediate_audit_rule_set(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: audit_rule_set
               rule: "-w /etc/passwd -p wa -k identity"
+
     """
     rule = r["rule"]
     persist_file = r.get("persist_file", "/etc/audit/rules.d/99-aegis.rules")
@@ -976,7 +1064,9 @@ def _remediate_audit_rule_set(
 
     # Persist the rule
     # Check if rule already in file
-    check = ssh.run(f"grep -qF {shlex.quote(rule)} {shlex.quote(persist_file)} 2>/dev/null")
+    check = ssh.run(
+        f"grep -qF {shlex.quote(rule)} {shlex.quote(persist_file)} 2>/dev/null"
+    )
     if not check.ok:
         # Append the rule
         result = ssh.run(f"echo {shlex.quote(rule)} >> {shlex.quote(persist_file)}")
@@ -995,6 +1085,7 @@ def _remediate_selinux_boolean_set(
     the change with -P flag.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): SELinux boolean name.
@@ -1004,15 +1095,18 @@ def _remediate_selinux_boolean_set(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: selinux_boolean_set
               name: "httpd_can_network_connect"
               value: false
+
     """
     name = r["name"]
     value = r.get("value", True)
@@ -1041,6 +1135,7 @@ def _remediate_service_enabled(
     Optionally starts the service immediately.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): Service name.
@@ -1048,15 +1143,18 @@ def _remediate_service_enabled(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: service_enabled
               name: "auditd"
               start: true
+
     """
     name = r["name"]
     start = r.get("start", True)
@@ -1089,6 +1187,7 @@ def _remediate_service_disabled(
     Optionally stops the service immediately.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): Service name.
@@ -1096,15 +1195,18 @@ def _remediate_service_disabled(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: service_disabled
               name: "rpcbind"
               stop: true
+
     """
     name = r["name"]
     stop = r.get("stop", True)
@@ -1139,6 +1241,7 @@ def _remediate_service_masked(
     it from being started manually or as a dependency.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation definition with required fields:
             - name (str): Service name.
@@ -1146,15 +1249,18 @@ def _remediate_service_masked(
         dry_run: If True, return description without making changes.
 
     Returns:
+    -------
         Tuple of (success, detail).
 
     Example:
+    -------
         YAML rule definition::
 
             remediation:
               mechanism: service_masked
               name: "ctrl-alt-del.target"
               stop: true
+
     """
     name = r["name"]
     stop = r.get("stop", True)
@@ -1184,16 +1290,21 @@ def _reload_service(ssh: SSHSession, r: dict) -> None:
     Attempts reload first, falling back to restart if reload fails.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         r: Remediation dict. Checks for:
             - reload (str): Service to reload (tries reload, falls back to restart).
             - restart (str): Service to restart directly.
 
     Returns:
+    -------
         None. Errors are silently ignored (service may not be running).
+
     """
     if "reload" in r:
-        ssh.run(f"systemctl reload {shlex.quote(r['reload'])} 2>/dev/null || systemctl restart {shlex.quote(r['reload'])} 2>/dev/null")
+        ssh.run(
+            f"systemctl reload {shlex.quote(r['reload'])} 2>/dev/null || systemctl restart {shlex.quote(r['reload'])} 2>/dev/null"
+        )
     elif "restart" in r:
         ssh.run(f"systemctl restart {shlex.quote(r['restart'])} 2>/dev/null")
 

@@ -182,9 +182,7 @@ def _parse_yaml_inventory(text: str) -> list[HostInfo]:
     return list(hosts.values())
 
 
-def _walk_yaml_group(
-    data: dict, group_name: str, hosts: dict[str, HostInfo]
-) -> None:
+def _walk_yaml_group(data: dict, group_name: str, hosts: dict[str, HostInfo]) -> None:
     """Recursively walk YAML inventory groups."""
     if not isinstance(data, dict):
         return

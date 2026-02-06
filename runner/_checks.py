@@ -12,6 +12,7 @@ Check Handler Pattern:
     - Use shlex.quote() for all values from rule YAML (except glob paths)
 
 Example:
+-------
     >>> from runner.ssh import SSHSession
     >>> from runner._checks import run_check
     >>>
@@ -24,6 +25,7 @@ Example:
     >>> result = run_check(ssh, check)
     >>> if result.passed:
     ...     print(f"PASS: {result.detail}")
+
 """
 
 from __future__ import annotations
@@ -45,16 +47,19 @@ def run_check(ssh: SSHSession, check: dict) -> CheckResult:
     check to pass; evaluation short-circuits on first failure.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         check: Check definition dict from rule YAML. Must contain either:
             - "method": str - single check method name
             - "checks": list[dict] - multiple checks with AND semantics
 
     Returns:
+    -------
         CheckResult with passed=True if all conditions met, False otherwise.
         The detail field contains human-readable status information.
 
     Example:
+    -------
         Single check::
 
             check = {"method": "file_exists", "path": "/etc/aide.conf"}
@@ -69,6 +74,7 @@ def run_check(ssh: SSHSession, check: dict) -> CheckResult:
                 ]
             }
             result = run_check(ssh, check)
+
     """
     # Multi-condition check (AND semantics)
     if "checks" in check:
@@ -102,6 +108,7 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
     whitespace around separators.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): File path or directory to search.
@@ -111,10 +118,12 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
               Defaults to "*.conf".
 
     Returns:
+    -------
         CheckResult with passed=True if key exists with expected value.
         Detail shows actual value on mismatch.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
@@ -131,6 +140,7 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
               key: "MaxAuthTries"
               expected: "4"
               scan_pattern: "*.conf"
+
     """
     path = c["path"]
     key = c["key"]
@@ -155,7 +165,7 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
     # Extract value: handle both 'key value' and 'key=value' and 'key = value'
     line = result.stdout.strip()
     # Remove the key prefix, then separators
-    after_key = line[len(key):].strip() if key in line else line.split(None, 1)[-1]
+    after_key = line[len(key) :].strip() if key in line else line.split(None, 1)[-1]
     actual = after_key.lstrip("= \t").strip().strip('"').strip("'")
 
     if actual.lower() == expected.lower():
@@ -170,6 +180,7 @@ def _check_config_absent(ssh: SSHSession, c: dict) -> CheckResult:
     Used for ensuring deprecated or insecure options are removed.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): File path or directory to search.
@@ -178,15 +189,18 @@ def _check_config_absent(ssh: SSHSession, c: dict) -> CheckResult:
               Defaults to "*.conf".
 
     Returns:
+    -------
         CheckResult with passed=True if key is not found.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: config_absent
               path: "/etc/ssh/sshd_config"
               key: "PermitEmptyPasswords"
+
     """
     path = c["path"]
     key = c["key"]
@@ -202,7 +216,9 @@ def _check_config_absent(ssh: SSHSession, c: dict) -> CheckResult:
 
     result = ssh.run(cmd)
     if not result.ok or not result.stdout.strip():
-        return CheckResult(passed=True, detail=f"{key} not found in {path} (as required)")
+        return CheckResult(
+            passed=True, detail=f"{key} not found in {path} (as required)"
+        )
 
     # Key was found — that's a failure
     return CheckResult(passed=False, detail=f"{key} found in {path} (should be absent)")
@@ -215,6 +231,7 @@ def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
     glob patterns to check multiple files matching a pattern.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): File path or glob pattern.
@@ -225,10 +242,12 @@ def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
               if path contains *, ?, or [).
 
     Returns:
+    -------
         CheckResult with passed=True if all specified attributes match.
         For glob paths, all matching files must pass.
 
     Example:
+    -------
         Single file::
 
             check:
@@ -246,6 +265,7 @@ def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
               owner: "root"
               mode: "0600"
               glob: true
+
     """
     path = c["path"]
     is_glob = "glob" in c or any(ch in path for ch in "*?[")
@@ -293,6 +313,7 @@ def _check_command(ssh: SSHSession, c: dict) -> CheckResult:
     stdout content. Use for complex checks not covered by other handlers.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - run (str): Shell command to execute.
@@ -302,10 +323,12 @@ def _check_command(ssh: SSHSession, c: dict) -> CheckResult:
               in stdout.
 
     Returns:
+    -------
         CheckResult with passed=True if exit code matches and stdout
         contains expected string (if specified).
 
     Example:
+    -------
         Exit code check::
 
             check:
@@ -319,6 +342,7 @@ def _check_command(ssh: SSHSession, c: dict) -> CheckResult:
               method: command
               run: "sysctl kernel.randomize_va_space"
               expected_stdout: "= 2"
+
     """
     cmd = c["run"]
     result = ssh.run(cmd)
@@ -330,14 +354,15 @@ def _check_command(ssh: SSHSession, c: dict) -> CheckResult:
             detail=f"exit {result.exit_code} (expected {expected_exit}): {result.stderr or result.stdout}",
         )
 
-    if "expected_stdout" in c:
-        if c["expected_stdout"] not in result.stdout:
-            return CheckResult(
-                passed=False,
-                detail=f"stdout mismatch: got {result.stdout!r}",
-            )
+    if "expected_stdout" in c and c["expected_stdout"] not in result.stdout:
+        return CheckResult(
+            passed=False,
+            detail=f"stdout mismatch: got {result.stdout!r}",
+        )
 
-    return CheckResult(passed=True, detail=result.stdout[:200] if result.stdout else "ok")
+    return CheckResult(
+        passed=True, detail=result.stdout[:200] if result.stdout else "ok"
+    )
 
 
 def _check_sysctl_value(ssh: SSHSession, c: dict) -> CheckResult:
@@ -347,21 +372,25 @@ def _check_sysctl_value(ssh: SSHSession, c: dict) -> CheckResult:
     to the expected value.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - key (str): Sysctl parameter name (e.g., "net.ipv4.ip_forward").
             - expected (str): Expected value.
 
     Returns:
+    -------
         CheckResult with passed=True if current value matches expected.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: sysctl_value
               key: "net.ipv4.tcp_syncookies"
               expected: "1"
+
     """
     key = c["key"]
     expected = str(c["expected"])
@@ -383,6 +412,7 @@ def _check_kernel_module_state(ssh: SSHSession, c: dict) -> CheckResult:
     and that modprobe is configured to prevent loading.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - name (str): Kernel module name.
@@ -390,9 +420,11 @@ def _check_kernel_module_state(ssh: SSHSession, c: dict) -> CheckResult:
               "loaded". Defaults to "blacklisted".
 
     Returns:
+    -------
         CheckResult with passed=True if module is in the expected state.
 
     Example:
+    -------
         Ensure module is blacklisted::
 
             check:
@@ -406,6 +438,7 @@ def _check_kernel_module_state(ssh: SSHSession, c: dict) -> CheckResult:
               method: kernel_module_state
               name: "br_netfilter"
               state: "loaded"
+
     """
     name = c["name"]
     state = c.get("state", "blacklisted")
@@ -439,6 +472,7 @@ def _check_package_state(ssh: SSHSession, c: dict) -> CheckResult:
     Verifies whether a package is installed or absent using rpm -q.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - name (str): Package name.
@@ -446,9 +480,11 @@ def _check_package_state(ssh: SSHSession, c: dict) -> CheckResult:
               "absent". Defaults to "present".
 
     Returns:
+    -------
         CheckResult with passed=True if package is in the expected state.
 
     Example:
+    -------
         Ensure package is installed::
 
             check:
@@ -462,6 +498,7 @@ def _check_package_state(ssh: SSHSession, c: dict) -> CheckResult:
               method: package_state
               name: "telnet-server"
               state: "absent"
+
     """
     name = c["name"]
     state = c.get("state", "present")
@@ -474,7 +511,9 @@ def _check_package_state(ssh: SSHSession, c: dict) -> CheckResult:
         return CheckResult(passed=False, detail=f"{name}: not installed")
     elif state == "absent":
         if not result.ok:
-            return CheckResult(passed=True, detail=f"{name}: not installed (as required)")
+            return CheckResult(
+                passed=True, detail=f"{name}: not installed (as required)"
+            )
         return CheckResult(passed=False, detail=f"{name}: installed (should be absent)")
 
     return CheckResult(passed=False, detail=f"Unknown package state: {state}")
@@ -484,19 +523,23 @@ def _check_file_exists(ssh: SSHSession, c: dict) -> CheckResult:
     """Check that a file exists.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): Absolute path to the file.
 
     Returns:
+    -------
         CheckResult with passed=True if file exists.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: file_exists
               path: "/etc/security/pwquality.conf"
+
     """
     path = c["path"]
     result = ssh.run(f"test -f {shlex.quote(path)}")
@@ -511,19 +554,23 @@ def _check_file_not_exists(ssh: SSHSession, c: dict) -> CheckResult:
     Used for ensuring insecure or deprecated files have been removed.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): Absolute path that should not exist.
 
     Returns:
+    -------
         CheckResult with passed=True if file does not exist.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: file_not_exists
               path: "/etc/hosts.equiv"
+
     """
     path = c["path"]
     result = ssh.run(f"test -f {shlex.quote(path)}")
@@ -538,21 +585,25 @@ def _check_file_content_match(ssh: SSHSession, c: dict) -> CheckResult:
     Uses grep -E (extended regex) to search for the pattern.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): Absolute path to the file.
             - pattern (str): Extended regex pattern to match.
 
     Returns:
+    -------
         CheckResult with passed=True if pattern is found in file.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: file_content_match
               path: "/etc/security/limits.conf"
               pattern: "^\\*\\s+hard\\s+core\\s+0"
+
     """
     path = c["path"]
     pattern = c["pattern"]
@@ -576,21 +627,25 @@ def _check_file_content_no_match(ssh: SSHSession, c: dict) -> CheckResult:
     If the file does not exist, the check passes (pattern cannot exist).
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - path (str): Absolute path to the file.
             - pattern (str): Extended regex pattern that should not match.
 
     Returns:
+    -------
         CheckResult with passed=True if pattern is not found.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: file_content_no_match
               path: "/etc/ssh/sshd_config"
               pattern: "^\\s*PermitRootLogin\\s+yes"
+
     """
     path = c["path"]
     pattern = c["pattern"]
@@ -599,12 +654,16 @@ def _check_file_content_no_match(ssh: SSHSession, c: dict) -> CheckResult:
     exists = ssh.run(f"test -f {shlex.quote(path)}")
     if not exists.ok:
         # File doesn't exist = pattern definitely not in it
-        return CheckResult(passed=True, detail=f"{path}: not found (pattern cannot exist)")
+        return CheckResult(
+            passed=True, detail=f"{path}: not found (pattern cannot exist)"
+        )
 
     # Grep for pattern — we want it to NOT be found
     result = ssh.run(f"grep -qE {shlex.quote(pattern)} {shlex.quote(path)}")
     if not result.ok:
-        return CheckResult(passed=True, detail=f"{path}: pattern not found (as required)")
+        return CheckResult(
+            passed=True, detail=f"{path}: pattern not found (as required)"
+        )
     return CheckResult(passed=False, detail=f"{path}: contains prohibited pattern")
 
 
@@ -615,6 +674,7 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
     and/or active (currently running).
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - name (str): Systemd service name (with or without .service).
@@ -623,9 +683,11 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
             At least one of enabled/active should be specified.
 
     Returns:
+    -------
         CheckResult with passed=True if service matches all specified states.
 
     Example:
+    -------
         Ensure service is enabled and running::
 
             check:
@@ -640,6 +702,7 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
               method: service_state
               name: "rpcbind"
               enabled: false
+
     """
     name = c["name"]
     failures = []
@@ -690,15 +753,18 @@ def _check_mount_option(ssh: SSHSession, c: dict) -> CheckResult:
     Uses findmnt to check currently mounted options.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - mount_point (str): Mount point path (e.g., "/tmp", "/var").
             - options (list[str]): Required mount options (e.g., ["nodev", "nosuid"]).
 
     Returns:
+    -------
         CheckResult with passed=True if all options are present.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
@@ -708,6 +774,7 @@ def _check_mount_option(ssh: SSHSession, c: dict) -> CheckResult:
                 - nodev
                 - nosuid
                 - noexec
+
     """
     mount_point = c["mount_point"]
     required_options = c.get("options", [])
@@ -724,7 +791,9 @@ def _check_mount_option(ssh: SSHSession, c: dict) -> CheckResult:
             missing.append(opt)
 
     if missing:
-        return CheckResult(passed=False, detail=f"{mount_point}: missing options: {', '.join(missing)}")
+        return CheckResult(
+            passed=False, detail=f"{mount_point}: missing options: {', '.join(missing)}"
+        )
     return CheckResult(passed=True, detail=f"{mount_point}: has required options")
 
 
@@ -734,6 +803,7 @@ def _check_grub_parameter(ssh: SSHSession, c: dict) -> CheckResult:
     Uses grubby to inspect the default kernel's boot arguments.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - key (str): Kernel parameter name.
@@ -741,9 +811,11 @@ def _check_grub_parameter(ssh: SSHSession, c: dict) -> CheckResult:
               only checks for parameter presence (boolean flag).
 
     Returns:
+    -------
         CheckResult with passed=True if parameter exists with expected value.
 
     Example:
+    -------
         Parameter with value::
 
             check:
@@ -756,29 +828,35 @@ def _check_grub_parameter(ssh: SSHSession, c: dict) -> CheckResult:
             check:
               method: grub_parameter
               key: "audit_backlog_limit=8192"
+
     """
     key = c["key"]
     expected = c.get("expected")
 
     # Try grubby first (RHEL/Fedora)
-    result = ssh.run(f"grubby --info=DEFAULT 2>/dev/null | grep -E 'args='")
+    result = ssh.run("grubby --info=DEFAULT 2>/dev/null | grep -E 'args='")
     if result.ok:
         args_line = result.stdout.strip()
         # Parse the kernel args
         if f"{key}=" in args_line:
             # Extract value
             import re
-            match = re.search(rf'{key}=(\S+)', args_line)
+
+            match = re.search(rf"{key}=(\S+)", args_line)
             if match:
                 actual = match.group(1).strip('"')
                 if expected is None or actual == expected:
                     return CheckResult(passed=True, detail=f"{key}={actual}")
-                return CheckResult(passed=False, detail=f"{key}={actual} (expected {expected})")
+                return CheckResult(
+                    passed=False, detail=f"{key}={actual} (expected {expected})"
+                )
         elif key in args_line:
             # Boolean parameter (no value)
             if expected is None or expected == "":
                 return CheckResult(passed=True, detail=f"{key} present")
-            return CheckResult(passed=False, detail=f"{key} present but expected value {expected}")
+            return CheckResult(
+                passed=False, detail=f"{key} present but expected value {expected}"
+            )
         return CheckResult(passed=False, detail=f"{key} not found in kernel args")
 
     return CheckResult(passed=False, detail="grubby not available")
@@ -791,30 +869,36 @@ def _check_audit_rule_exists(ssh: SSHSession, c: dict) -> CheckResult:
     specified rule or rule components.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - rule (str): Full or partial audit rule to search for.
 
     Returns:
+    -------
         CheckResult with passed=True if rule is found in active rules.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: audit_rule_exists
               rule: "-w /etc/passwd -p wa -k identity"
+
     """
     rule = c["rule"]
 
     # Check if auditd is running
     result = ssh.run("auditctl -l 2>/dev/null")
     if not result.ok:
-        return CheckResult(passed=False, detail="auditctl failed - auditd may not be running")
+        return CheckResult(
+            passed=False, detail="auditctl failed - auditd may not be running"
+        )
 
     # Search for the rule (or key components)
     if rule in result.stdout:
-        return CheckResult(passed=True, detail=f"Audit rule found")
+        return CheckResult(passed=True, detail="Audit rule found")
     return CheckResult(passed=False, detail=f"Audit rule not found: {rule[:50]}...")
 
 
@@ -824,26 +908,32 @@ def _check_selinux_state(ssh: SSHSession, c: dict) -> CheckResult:
     Uses getenforce to check the current SELinux mode.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - state (str, optional): Expected mode - "Enforcing",
               "Permissive", or "Disabled". Defaults to "Enforcing".
 
     Returns:
+    -------
         CheckResult with passed=True if SELinux is in expected mode.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: selinux_state
               state: "Enforcing"
+
     """
     expected = c.get("state", "Enforcing")
 
     result = ssh.run("getenforce 2>/dev/null")
     if not result.ok:
-        return CheckResult(passed=False, detail="getenforce failed - SELinux may not be installed")
+        return CheckResult(
+            passed=False, detail="getenforce failed - SELinux may not be installed"
+        )
 
     actual = result.stdout.strip()
     if actual.lower() == expected.lower():
@@ -857,21 +947,25 @@ def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
     Uses getsebool to check the current value of a SELinux boolean.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - name (str): SELinux boolean name.
             - value (bool, optional): Expected value. Defaults to True (on).
 
     Returns:
+    -------
         CheckResult with passed=True if boolean has expected value.
 
     Example:
+    -------
         YAML rule definition::
 
             check:
               method: selinux_boolean
               name: "httpd_can_network_connect"
               value: false
+
     """
     name = c["name"]
     expected = c.get("value", True)
@@ -879,7 +973,9 @@ def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
 
     result = ssh.run(f"getsebool {shlex.quote(name)} 2>/dev/null")
     if not result.ok:
-        return CheckResult(passed=False, detail=f"{name}: not found or SELinux disabled")
+        return CheckResult(
+            passed=False, detail=f"{name}: not found or SELinux disabled"
+        )
 
     # Output is like "httpd_can_network_connect --> on"
     parts = result.stdout.strip().split()
@@ -889,7 +985,9 @@ def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
     actual = parts[-1]
     if actual.lower() == expected_str:
         return CheckResult(passed=True, detail=f"{name} = {actual}")
-    return CheckResult(passed=False, detail=f"{name} = {actual} (expected {expected_str})")
+    return CheckResult(
+        passed=False, detail=f"{name} = {actual} (expected {expected_str})"
+    )
 
 
 CHECK_HANDLERS = {

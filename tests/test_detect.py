@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from runner.detect import CAPABILITY_PROBES, RHEL_FAMILY, detect_capabilities, detect_platform
+from runner.detect import (
+    CAPABILITY_PROBES,
+    detect_capabilities,
+    detect_platform,
+)
 from runner.ssh import Result
 
 
@@ -12,6 +16,7 @@ class TestProbeDefinitions:
 
     def test_probe_names_are_valid(self):
         import re
+
         for name in CAPABILITY_PROBES:
             assert re.match(r"^[a-z][a-z0-9_]*$", name), f"Invalid probe name: {name}"
 
@@ -47,9 +52,13 @@ class TestDetectCapabilities:
         assert all(v is False for v in caps.values())
 
     def test_mixed_results(self, mock_ssh):
-        ssh = mock_ssh({
-            "systemctl is-active systemd-journald": Result(exit_code=0, stdout="active", stderr=""),
-        })
+        ssh = mock_ssh(
+            {
+                "systemctl is-active systemd-journald": Result(
+                    exit_code=0, stdout="active", stderr=""
+                ),
+            }
+        )
         caps = detect_capabilities(ssh)
         assert caps["journald_primary"] is True
         # Others should be False (default mock returns exit 1)
@@ -63,47 +72,95 @@ class TestDetectPlatform:
         return "\n".join(lines)
 
     def test_detect_rhel9(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("rhel", "9.3"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("rhel", "9.3"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
 
     def test_detect_rhel8(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("rhel", "8.9"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("rhel", "8.9"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 8
 
     def test_detect_rocky9(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("rocky", "9.4"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("rocky", "9.4"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
 
     def test_detect_almalinux(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("almalinux", "9.2"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("almalinux", "9.2"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
 
     def test_detect_centos_stream(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("centos", "9"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("centos", "9"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
 
     def test_detect_oracle_linux(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("ol", "8.7"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("ol", "8.7"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 8
 
     def test_detect_unreadable(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=1, stdout="", stderr="No such file")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=1, stdout="", stderr="No such file"
+                )
+            }
+        )
         assert detect_platform(ssh) is None
 
     def test_detect_unknown_distro(self, mock_ssh):
-        ssh = mock_ssh({"cat /etc/os-release": Result(exit_code=0, stdout=self._os_release("debian", "12"), stderr="")})
+        ssh = mock_ssh(
+            {
+                "cat /etc/os-release": Result(
+                    exit_code=0, stdout=self._os_release("debian", "12"), stderr=""
+                )
+            }
+        )
         p = detect_platform(ssh)
         assert p.family == "debian"
         assert p.version == 12

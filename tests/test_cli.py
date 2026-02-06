@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
@@ -53,7 +53,9 @@ class TestCLIHelp:
 class TestCLIErrors:
     def test_check_no_host(self):
         runner = CliRunner()
-        result = runner.invoke(main, ["check", "--rule", "rules/access-control/ssh-disable-root-login.yml"])
+        result = runner.invoke(
+            main, ["check", "--rule", "rules/access-control/ssh-disable-root-login.yml"]
+        )
         assert result.exit_code == 1
         assert "No target hosts" in result.output
 
@@ -102,13 +104,23 @@ class TestCLICheck:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "check", "--host", "10.0.0.1", "--user", "admin",
-            "--rule", str(rule_file),
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--user",
+                "admin",
+                "--rule",
+                str(rule_file),
+            ],
+        )
         assert "PASS" in result.output
         clean_output = strip_ansi(result.output)
-        assert "1 pass" in clean_output or ("1 rules" in clean_output and "pass" in clean_output)
+        assert "1 pass" in clean_output or (
+            "1 rules" in clean_output and "pass" in clean_output
+        )
 
     @patch("runner.cli.SSHSession")
     def test_check_fail(self, mock_session_cls, tmp_path):
@@ -142,24 +154,38 @@ class TestCLICheck:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "check", "--host", "10.0.0.1", "--user", "admin",
-            "--rule", str(rule_file),
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--user",
+                "admin",
+                "--rule",
+                str(rule_file),
+            ],
+        )
         assert "FAIL" in result.output
         clean_output = strip_ansi(result.output)
-        assert "1 fail" in clean_output or ("1 rules" in clean_output and "fail" in clean_output)
+        assert "1 fail" in clean_output or (
+            "1 rules" in clean_output and "fail" in clean_output
+        )
 
 
 class TestCLIVerbose:
     @patch("runner.cli.detect_platform")
     @patch("runner.cli.SSHSession")
-    def test_verbose_shows_capabilities(self, mock_session_cls, mock_detect_platform, tmp_path):
+    def test_verbose_shows_capabilities(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
         mock_ssh = MagicMock()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.__enter__ = MagicMock(return_value=mock_ssh)
         mock_ssh.__exit__ = MagicMock(return_value=False)
-        mock_ssh.run = MagicMock(return_value=Result(exit_code=0, stdout="0", stderr=""))
+        mock_ssh.run = MagicMock(
+            return_value=Result(exit_code=0, stdout="0", stderr="")
+        )
         mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
 
         rule_file = tmp_path / "test-rule.yml"
@@ -180,10 +206,17 @@ class TestCLIVerbose:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "check", "-v", "--host", "10.0.0.1",
-            "--rule", str(rule_file),
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "-v",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+            ],
+        )
         assert "capabilities" in result.output
         assert "default implementation" in result.output
 
@@ -225,10 +258,17 @@ class TestCLIRemediate:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "remediate", "--dry-run", "--host", "10.0.0.1",
-            "--rule", str(rule_file),
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--dry-run",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+            ],
+        )
         assert "DRY RUN" in result.output
 
 
@@ -239,7 +279,9 @@ class TestCLIFilters:
         mock_session_cls.return_value = mock_ssh
         mock_ssh.__enter__ = MagicMock(return_value=mock_ssh)
         mock_ssh.__exit__ = MagicMock(return_value=False)
-        mock_ssh.run = MagicMock(return_value=Result(exit_code=0, stdout="0", stderr=""))
+        mock_ssh.run = MagicMock(
+            return_value=Result(exit_code=0, stdout="0", stderr="")
+        )
 
         # Write two rules with different severities
         (tmp_path / "high-rule.yml").write_text(
@@ -254,10 +296,18 @@ class TestCLIFilters:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "check", "--host", "10.0.0.1",
-            "--rules", str(tmp_path), "--severity", "high",
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--rules",
+                str(tmp_path),
+                "--severity",
+                "high",
+            ],
+        )
         assert "high-rule" in result.output
         assert "low-rule" not in result.output
 
@@ -265,13 +315,17 @@ class TestCLIFilters:
 class TestCLIPlatformSkip:
     @patch("runner.cli.detect_platform")
     @patch("runner.cli.SSHSession")
-    def test_check_skips_platform_mismatch(self, mock_session_cls, mock_detect_platform, tmp_path):
+    def test_check_skips_platform_mismatch(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
         """Rules with min_version: 9 should be SKIP on a RHEL 8 host."""
         mock_ssh = MagicMock()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.__enter__ = MagicMock(return_value=mock_ssh)
         mock_ssh.__exit__ = MagicMock(return_value=False)
-        mock_ssh.run = MagicMock(return_value=Result(exit_code=0, stdout="0", stderr=""))
+        mock_ssh.run = MagicMock(
+            return_value=Result(exit_code=0, stdout="0", stderr="")
+        )
 
         # Host is RHEL 8
         mock_detect_platform.return_value = PlatformInfo(family="rhel", version=8)
@@ -295,14 +349,24 @@ class TestCLIPlatformSkip:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "check", "--host", "10.0.0.1", "--user", "admin",
-            "--rule", str(rule_file),
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--user",
+                "admin",
+                "--rule",
+                str(rule_file),
+            ],
+        )
         assert "SKIP" in result.output
         assert "rhel9-only-rule" in result.output
         clean_output = strip_ansi(result.output)
-        assert "1 skip" in clean_output or ("1 rules" in clean_output and "skip" in clean_output)
+        assert "1 skip" in clean_output or (
+            "1 rules" in clean_output and "skip" in clean_output
+        )
 
 
 class TestCLIRollbackFlag:
@@ -348,8 +412,15 @@ class TestCLIRollbackFlag:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "remediate", "--rollback-on-failure", "--host", "10.0.0.1",
-            "--rule", str(rule_file),
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--rollback-on-failure",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+            ],
+        )
         assert "rolled back" in result.output

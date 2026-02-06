@@ -71,7 +71,9 @@ def _capture_config_remove(ssh: SSHSession, r: dict) -> PreState:
 
 def _capture_command_exec(ssh: SSHSession, r: dict) -> PreState:
     """Command exec cannot capture pre-state."""
-    return PreState(mechanism="command_exec", data={"note": "arbitrary command"}, capturable=False)
+    return PreState(
+        mechanism="command_exec", data={"note": "arbitrary command"}, capturable=False
+    )
 
 
 def _capture_file_permissions(ssh: SSHSession, r: dict) -> PreState:
@@ -85,19 +87,23 @@ def _capture_file_permissions(ssh: SSHSession, r: dict) -> PreState:
         for line in result.stdout.strip().splitlines():
             parts = line.split()
             if len(parts) >= 4:
-                entries.append({
-                    "path": " ".join(parts[3:]),
-                    "owner": parts[0],
-                    "group": parts[1],
-                    "mode": parts[2],
-                })
+                entries.append(
+                    {
+                        "path": " ".join(parts[3:]),
+                        "owner": parts[0],
+                        "group": parts[1],
+                        "mode": parts[2],
+                    }
+                )
     return PreState(mechanism="file_permissions", data={"entries": entries})
 
 
 def _capture_sysctl_set(ssh: SSHSession, r: dict) -> PreState:
     """Capture current sysctl value and persist file state."""
     key = r["key"]
-    persist_file = r.get("persist_file", f"/etc/sysctl.d/99-aegis-{key.replace('.', '-')}.conf")
+    persist_file = r.get(
+        "persist_file", f"/etc/sysctl.d/99-aegis-{key.replace('.', '-')}.conf"
+    )
     result = ssh.run(f"sysctl -n {shlex.quote(key)} 2>/dev/null")
     old_value = result.stdout.strip() if result.ok else None
     persist_result = ssh.run(f"cat {shlex.quote(persist_file)} 2>/dev/null")
@@ -235,7 +241,9 @@ def _capture_config_block(ssh: SSHSession, r: dict) -> PreState:
         old_content = cat.stdout if cat.ok else None
 
     # Check if block already exists
-    block_exists = ssh.run(f"grep -qF {shlex.quote(begin_marker)} {shlex.quote(path)} 2>/dev/null")
+    block_exists = ssh.run(
+        f"grep -qF {shlex.quote(begin_marker)} {shlex.quote(path)} 2>/dev/null"
+    )
 
     return PreState(
         mechanism="config_block",
@@ -281,7 +289,9 @@ def _capture_mount_option_set(ssh: SSHSession, r: dict) -> PreState:
     old_fstab_line = fstab_result.stdout.strip() if fstab_result.ok else None
 
     # Get current mount options
-    mount_result = ssh.run(f"findmnt -n -o OPTIONS {shlex.quote(mount_point)} 2>/dev/null")
+    mount_result = ssh.run(
+        f"findmnt -n -o OPTIONS {shlex.quote(mount_point)} 2>/dev/null"
+    )
     old_options = mount_result.stdout.strip() if mount_result.ok else None
 
     return PreState(

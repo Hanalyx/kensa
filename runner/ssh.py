@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import io
-from dataclasses import dataclass
-
 import shlex
+from dataclasses import dataclass
 
 import paramiko
 
@@ -92,7 +90,9 @@ class SSHSession:
         stderr = stderr_ch.read().decode("utf-8", errors="replace")
         exit_code = stdout_ch.channel.recv_exit_status()
 
-        return Result(exit_code=exit_code, stdout=stdout.rstrip("\n"), stderr=stderr.rstrip("\n"))
+        return Result(
+            exit_code=exit_code, stdout=stdout.rstrip("\n"), stderr=stderr.rstrip("\n")
+        )
 
     def close(self) -> None:
         """Close the SSH connection."""

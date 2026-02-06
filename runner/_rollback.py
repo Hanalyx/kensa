@@ -31,7 +31,9 @@ def _rollback_config_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, st
     return True, f"Restored {key} in {path}"
 
 
-def _rollback_config_set_dropin(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_config_set_dropin(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Restore or remove drop-in file."""
     d = pre_state.data
     path = d["path"]
@@ -43,7 +45,9 @@ def _rollback_config_set_dropin(ssh: SSHSession, pre_state: PreState) -> tuple[b
         detail = f"Removed {path}"
     else:
         # Restore old content
-        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}")
+        result = ssh.run(
+            f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}"
+        )
         if not result.ok:
             return False, f"Failed to restore {path}: {result.stderr}"
         detail = f"Restored {path}"
@@ -77,7 +81,9 @@ def _rollback_command_exec(ssh: SSHSession, pre_state: PreState) -> tuple[bool, 
     return False, "Cannot rollback arbitrary commands"
 
 
-def _rollback_file_permissions(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_file_permissions(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Restore original file ownership and permissions."""
     entries = pre_state.data.get("entries", [])
     if not entries:
@@ -96,7 +102,9 @@ def _rollback_sysctl_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, st
     if d["old_value"] is not None:
         ssh.run(f"sysctl -w {shlex.quote(key)}={shlex.quote(d['old_value'])}")
     if d["persist_existed"] and d["old_persist"] is not None:
-        ssh.run(f"printf %s {shlex.quote(d['old_persist'])} > {shlex.quote(d['persist_file'])}")
+        ssh.run(
+            f"printf %s {shlex.quote(d['old_persist'])} > {shlex.quote(d['persist_file'])}"
+        )
     elif not d["persist_existed"]:
         ssh.run(f"rm -f {shlex.quote(d['persist_file'])}")
     return True, f"Restored {key}={d['old_value']}"
@@ -124,7 +132,9 @@ def _rollback_package_absent(ssh: SSHSession, pre_state: PreState) -> tuple[bool
     return True, f"Reinstalled {d['name']}"
 
 
-def _rollback_kernel_module_disable(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_kernel_module_disable(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Restore modprobe conf and reload module if it was loaded."""
     d = pre_state.data
     conf_path = d["conf_path"]
@@ -156,7 +166,9 @@ def _rollback_file_content(ssh: SSHSession, pre_state: PreState) -> tuple[bool, 
 
     # Restore old content
     if d["old_content"] is not None:
-        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}")
+        result = ssh.run(
+            f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}"
+        )
         if not result.ok:
             return False, f"Failed to restore {path}: {result.stderr}"
 
@@ -208,7 +220,9 @@ def _rollback_config_block(ssh: SSHSession, pre_state: PreState) -> tuple[bool, 
 
     if d["old_content"] is not None:
         # Restore old content
-        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}")
+        result = ssh.run(
+            f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(path)}"
+        )
         if not result.ok:
             return False, f"Failed to restore {path}: {result.stderr}"
 
@@ -230,15 +244,19 @@ def _rollback_cron_job(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]
 
     if d["old_content"] is not None:
         # Restore old content
-        result = ssh.run(f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(cron_file)}")
+        result = ssh.run(
+            f"printf %s {shlex.quote(d['old_content'])} > {shlex.quote(cron_file)}"
+        )
         if not result.ok:
             return False, f"Failed to restore {cron_file}: {result.stderr}"
         return True, f"Restored {cron_file}"
 
-    return True, f"Cron file restored"
+    return True, "Cron file restored"
 
 
-def _rollback_mount_option_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_mount_option_set(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Restore fstab line to previous state."""
     d = pre_state.data
     mount_point = d["mount_point"]
@@ -259,12 +277,16 @@ def _rollback_mount_option_set(ssh: SSHSession, pre_state: PreState) -> tuple[bo
     return True, f"Restored {mount_point} options"
 
 
-def _rollback_grub_parameter_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_grub_parameter_set(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Cannot rollback GRUB parameter changes safely."""
     return False, "GRUB changes cannot be automatically rolled back"
 
 
-def _rollback_grub_parameter_remove(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_grub_parameter_remove(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Cannot rollback GRUB parameter removal safely."""
     return False, "GRUB changes cannot be automatically rolled back"
 
@@ -285,14 +307,18 @@ def _rollback_audit_rule_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool
 
     # Restore persist file
     if d["persist_existed"] and d["old_persist_content"] is not None:
-        ssh.run(f"printf %s {shlex.quote(d['old_persist_content'])} > {shlex.quote(persist_file)}")
+        ssh.run(
+            f"printf %s {shlex.quote(d['old_persist_content'])} > {shlex.quote(persist_file)}"
+        )
     elif not d["persist_existed"]:
         ssh.run(f"rm -f {shlex.quote(persist_file)}")
 
-    return True, f"Removed audit rule"
+    return True, "Removed audit rule"
 
 
-def _rollback_selinux_boolean_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_selinux_boolean_set(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Restore SELinux boolean to previous value."""
     d = pre_state.data
     name = d["name"]
@@ -327,7 +353,9 @@ def _rollback_service_enabled(ssh: SSHSession, pre_state: PreState) -> tuple[boo
     return True, f"Restored {name} to {was_enabled}/{was_active}"
 
 
-def _rollback_service_disabled(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+def _rollback_service_disabled(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
     """Restore service to pre-disabled state."""
     d = pre_state.data
     name = d["name"]
@@ -399,11 +427,15 @@ def _execute_rollback(
     results = []
     for sr in reversed(step_results):
         if not sr.success or sr.pre_state is None or not sr.pre_state.capturable:
-            results.append(RollbackResult(sr.step_index, sr.mechanism, False, "skipped"))
+            results.append(
+                RollbackResult(sr.step_index, sr.mechanism, False, "skipped")
+            )
             continue
         handler = ROLLBACK_HANDLERS.get(sr.mechanism)
         if handler is None:
-            results.append(RollbackResult(sr.step_index, sr.mechanism, False, "no handler"))
+            results.append(
+                RollbackResult(sr.step_index, sr.mechanism, False, "no handler")
+            )
             continue
         ok, detail = handler(ssh, sr.pre_state)
         results.append(RollbackResult(sr.step_index, sr.mechanism, ok, detail))

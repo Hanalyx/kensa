@@ -117,6 +117,7 @@ class TestSSHSessionRun:
     def test_run_not_connected_raises(self):
         s = SSHSession(hostname="host")
         import pytest
+
         with pytest.raises(RuntimeError, match="Not connected"):
             s.run("cmd")
 

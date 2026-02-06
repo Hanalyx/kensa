@@ -88,7 +88,10 @@ def remediate_rule(
 
     try:
         ok, detail, step_results = run_remediation(
-            ssh, remediation, dry_run=dry_run, check=check,
+            ssh,
+            remediation,
+            dry_run=dry_run,
+            check=check,
         )
     except Exception as exc:
         result.remediation_detail = f"Error: {exc}"

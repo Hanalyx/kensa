@@ -17,6 +17,7 @@ Platform Detection:
     (Rocky, Alma, CentOS, Oracle Linux) are normalized to family "rhel".
 
 Example:
+-------
     >>> from runner.ssh import SSHSession
     >>> from runner.detect import detect_capabilities, detect_platform
     >>>
@@ -25,6 +26,7 @@ Example:
     ...     platform = detect_platform(ssh)
     ...     print(f"Platform: {platform.family} {platform.version}")
     ...     print(f"Has sshd_config.d: {caps['sshd_config_d']}")
+
 """
 
 from __future__ import annotations
@@ -62,18 +64,22 @@ def detect_platform(ssh: SSHSession) -> PlatformInfo | None:
     to family "rhel" so rules with `family: rhel` match all derivatives.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
 
     Returns:
+    -------
         PlatformInfo(family, version) on success, None if detection fails.
         Caller should warn and skip platform filtering if None is returned.
 
     Example:
+    -------
         >>> platform = detect_platform(ssh)
         >>> if platform:
         ...     print(f"Detected: {platform.family} {platform.version}")
         ... else:
         ...     print("Warning: Could not detect platform")
+
     """
     # Try /etc/os-release first (covers most modern distros)
     result = ssh.run("cat /etc/os-release 2>/dev/null")
@@ -98,6 +104,7 @@ def detect_platform(ssh: SSHSession) -> PlatformInfo | None:
     result = ssh.run("cat /etc/redhat-release 2>/dev/null")
     if result.ok and result.stdout.strip():
         import re
+
         content = result.stdout.strip().lower()
         version = 0
         match = re.search(r"(\d+)", content)
@@ -115,6 +122,7 @@ def detect_platform(ssh: SSHSession) -> PlatformInfo | None:
         return PlatformInfo(family="debian", version=version)
 
     return None
+
 
 # ── Capability probes ──────────────────────────────────────────────────────
 #
@@ -180,18 +188,22 @@ def detect_capabilities(ssh: SSHSession, *, verbose: bool = False) -> dict[str, 
     to choose capability-gated rule implementations.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         verbose: If True, print debug info for failed probes to stderr.
 
     Returns:
+    -------
         Dict mapping capability name to bool (True if present).
 
     Example:
+    -------
         >>> caps = detect_capabilities(ssh, verbose=True)
         >>> if caps["sshd_config_d"]:
         ...     print("Using drop-in config implementation")
         ... else:
         ...     print("Using main config file implementation")
+
     """
     caps = {}
     for name, cmd in CAPABILITY_PROBES.items():
@@ -199,5 +211,9 @@ def detect_capabilities(ssh: SSHSession, *, verbose: bool = False) -> dict[str, 
         caps[name] = result.ok
         if verbose and not result.ok:
             import sys
-            print(f"    [probe] {name}: exit={result.exit_code} stderr={result.stderr!r}", file=sys.stderr)
+
+            print(
+                f"    [probe] {name}: exit={result.exit_code} stderr={result.stderr!r}",
+                file=sys.stderr,
+            )
     return caps

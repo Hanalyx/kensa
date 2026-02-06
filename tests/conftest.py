@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -46,8 +44,10 @@ class MockSSHSession:
 @pytest.fixture
 def mock_ssh():
     """Factory fixture — returns a MockSSHSession with given responses."""
+
     def _factory(responses: dict[str, Result] | None = None) -> MockSSHSession:
         return MockSSHSession(responses)
+
     return _factory
 
 
@@ -218,20 +218,24 @@ def sample_rule_multistep():
 @pytest.fixture
 def tmp_rule_file(tmp_path):
     """Factory: write a rule dict to a temp YAML file, return path."""
+
     def _factory(rule: dict, filename: str | None = None) -> Path:
         name = filename or f"{rule['id']}.yml"
         p = tmp_path / name
         p.write_text(yaml.dump(rule, default_flow_style=False))
         return p
+
     return _factory
 
 
 @pytest.fixture
 def tmp_rule_dir(tmp_path):
     """Factory: write multiple rules to a temp directory, return dir path."""
+
     def _factory(rules: list[dict]) -> Path:
         for rule in rules:
             p = tmp_path / f"{rule['id']}.yml"
             p.write_text(yaml.dump(rule, default_flow_style=False))
         return tmp_path
+
     return _factory

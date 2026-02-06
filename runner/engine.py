@@ -10,6 +10,7 @@ This module also provides factory functions for common use cases:
 - quick_host_info(): Get capabilities and platform in one call
 
 Example:
+-------
     Quick single-rule check::
 
         from runner.ssh import SSHSession
@@ -27,6 +28,7 @@ Example:
             results = check_rules_from_path(ssh, "rules/", severity=["high", "critical"])
             for r in results:
                 print(f"{r.rule_id}: {'PASS' if r.passed else 'FAIL'}")
+
 """
 
 from __future__ import annotations
@@ -37,12 +39,35 @@ if TYPE_CHECKING:
     from runner.ssh import SSHSession
 
 # ── Data types ─────────────────────────────────────────────────────────────
-from runner._types import (  # noqa: F401
-    CheckResult,
-    PreState,
-    RollbackResult,
-    RuleResult,
-    StepResult,
+# ── Pre-state capture (used by tests) ─────────────────────────────────────
+from runner._capture import (  # noqa: F401
+    _capture_audit_rule_set,
+    _capture_command_exec,
+    _capture_config_block,
+    _capture_config_remove,
+    _capture_config_set,
+    _capture_config_set_dropin,
+    _capture_cron_job,
+    _capture_file_absent,
+    _capture_file_content,
+    _capture_file_permissions,
+    _capture_grub_parameter_remove,
+    _capture_grub_parameter_set,
+    _capture_kernel_module_disable,
+    _capture_manual,
+    _capture_mount_option_set,
+    _capture_package_absent,
+    _capture_package_present,
+    _capture_selinux_boolean_set,
+    _capture_service_disabled,
+    _capture_service_enabled,
+    _capture_service_masked,
+    _capture_sysctl_set,
+)
+
+# ── Check dispatch ─────────────────────────────────────────────────────────
+from runner._checks import (  # noqa: F401
+    run_check,
 )
 
 # ── Rule loading & platform filtering ──────────────────────────────────────
@@ -51,15 +76,10 @@ from runner._loading import (  # noqa: F401
     rule_applies_to_platform,
 )
 
-# ── Implementation selection ───────────────────────────────────────────────
-from runner._selection import (  # noqa: F401
-    evaluate_when,
-    select_implementation,
-)
-
-# ── Check dispatch ─────────────────────────────────────────────────────────
-from runner._checks import (  # noqa: F401
-    run_check,
+# ── Top-level orchestration ───────────────────────────────────────────────
+from runner._orchestration import (  # noqa: F401
+    evaluate_rule,
+    remediate_rule,
 )
 
 # ── Remediation dispatch ──────────────────────────────────────────────────
@@ -67,89 +87,75 @@ from runner._remediation import (  # noqa: F401
     run_remediation,
 )
 
-# ── Pre-state capture (used by tests) ─────────────────────────────────────
-from runner._capture import (  # noqa: F401
-    _capture_command_exec,
-    _capture_config_remove,
-    _capture_config_set,
-    _capture_config_set_dropin,
-    _capture_file_absent,
-    _capture_file_content,
-    _capture_file_permissions,
-    _capture_kernel_module_disable,
-    _capture_manual,
-    _capture_package_absent,
-    _capture_package_present,
-    _capture_service_disabled,
-    _capture_service_enabled,
-    _capture_audit_rule_set,
-    _capture_config_block,
-    _capture_cron_job,
-    _capture_grub_parameter_remove,
-    _capture_grub_parameter_set,
-    _capture_mount_option_set,
-    _capture_selinux_boolean_set,
-    _capture_service_masked,
-    _capture_sysctl_set,
-)
-
 # ── Rollback (used by tests) ──────────────────────────────────────────────
 from runner._rollback import (  # noqa: F401
     _execute_rollback,
+    _rollback_audit_rule_set,
     _rollback_command_exec,
+    _rollback_config_block,
     _rollback_config_remove,
     _rollback_config_set,
     _rollback_config_set_dropin,
+    _rollback_cron_job,
     _rollback_file_absent,
     _rollback_file_content,
     _rollback_file_permissions,
-    _rollback_kernel_module_disable,
-    _rollback_manual,
-    _rollback_package_absent,
-    _rollback_package_present,
-    _rollback_service_disabled,
-    _rollback_service_enabled,
-    _rollback_audit_rule_set,
-    _rollback_config_block,
-    _rollback_cron_job,
     _rollback_grub_parameter_remove,
     _rollback_grub_parameter_set,
+    _rollback_kernel_module_disable,
+    _rollback_manual,
     _rollback_mount_option_set,
+    _rollback_package_absent,
+    _rollback_package_present,
     _rollback_selinux_boolean_set,
+    _rollback_service_disabled,
+    _rollback_service_enabled,
     _rollback_service_masked,
     _rollback_sysctl_set,
 )
 
-# ── Top-level orchestration ───────────────────────────────────────────────
-from runner._orchestration import (  # noqa: F401
-    evaluate_rule,
-    remediate_rule,
+# ── Implementation selection ───────────────────────────────────────────────
+from runner._selection import (  # noqa: F401
+    evaluate_when,
+    select_implementation,
 )
-
+from runner._types import (  # noqa: F401
+    CheckResult,
+    PreState,
+    RollbackResult,
+    RuleResult,
+    StepResult,
+)
 
 # ── Convenience factory functions ─────────────────────────────────────────
 
 
-def quick_host_info(ssh: "SSHSession", *, verbose: bool = False) -> tuple[dict[str, bool], tuple | None]:
+def quick_host_info(
+    ssh: SSHSession, *, verbose: bool = False
+) -> tuple[dict[str, bool], tuple | None]:
     """Detect capabilities and platform information in one call.
 
     Convenience function that combines detect_capabilities() and
     detect_platform() for common setup patterns.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         verbose: If True, print debug info for failed probes.
 
     Returns:
+    -------
         Tuple of (capabilities_dict, platform_info):
             - capabilities: Dict mapping capability name to bool
             - platform: PlatformInfo(family, version) or None if detection failed
 
     Example:
+    -------
         >>> with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
         ...     caps, platform = quick_host_info(ssh)
         ...     print(f"Platform: {platform.family} {platform.version}")
         ...     print(f"Capabilities: {sum(caps.values())}/{len(caps)} detected")
+
     """
     from runner.detect import detect_capabilities, detect_platform
 
@@ -159,18 +165,19 @@ def quick_host_info(ssh: "SSHSession", *, verbose: bool = False) -> tuple[dict[s
 
 
 def check_single_rule(
-    ssh: "SSHSession",
+    ssh: SSHSession,
     rule_path: str,
     *,
     capabilities: dict[str, bool] | None = None,
     verbose: bool = False,
-) -> "RuleResult":
+) -> RuleResult:
     """Load and check a single rule file.
 
     Convenience function for checking one rule without manual loading
     and capability detection.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         rule_path: Path to a single rule YAML file.
         capabilities: Pre-detected capabilities dict. If None, detects
@@ -178,15 +185,18 @@ def check_single_rule(
         verbose: If True, print debug info for capability probes.
 
     Returns:
+    -------
         RuleResult with check outcome.
 
     Example:
+    -------
         >>> with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
         ...     result = check_single_rule(ssh, "rules/access-control/ssh-disable-root-login.yml")
         ...     if result.passed:
         ...         print(f"PASS: {result.detail}")
         ...     else:
         ...         print(f"FAIL: {result.detail}")
+
     """
     from runner.detect import detect_capabilities
 
@@ -208,7 +218,7 @@ def check_single_rule(
 
 
 def check_rules_from_path(
-    ssh: "SSHSession",
+    ssh: SSHSession,
     rules_path: str,
     *,
     capabilities: dict[str, bool] | None = None,
@@ -216,13 +226,14 @@ def check_rules_from_path(
     tags: list[str] | None = None,
     category: str | None = None,
     verbose: bool = False,
-) -> list["RuleResult"]:
+) -> list[RuleResult]:
     """Load and check all rules from a path with optional filtering.
 
     Convenience function for checking multiple rules with common
     filter options.
 
     Args:
+    ----
         ssh: Active SSH session to the target host.
         rules_path: Path to a rule file or directory of rules.
         capabilities: Pre-detected capabilities dict. If None, detects
@@ -233,9 +244,11 @@ def check_rules_from_path(
         verbose: If True, print debug info for capability probes.
 
     Returns:
+    -------
         List of RuleResult for each rule checked.
 
     Example:
+    -------
         >>> with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
         ...     results = check_rules_from_path(
         ...         ssh, "rules/",
@@ -244,6 +257,7 @@ def check_rules_from_path(
         ...     )
         ...     passed = sum(1 for r in results if r.passed)
         ...     print(f"{passed}/{len(results)} rules passed")
+
     """
     from runner.detect import detect_capabilities
 

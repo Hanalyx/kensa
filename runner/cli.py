@@ -13,8 +13,15 @@ from rich.console import Console
 from rich.table import Table
 
 from runner.detect import detect_capabilities, detect_platform
-from runner.engine import evaluate_rule, load_rules, remediate_rule, rule_applies_to_platform, select_implementation
+from runner.engine import (
+    evaluate_rule,
+    load_rules,
+    remediate_rule,
+    rule_applies_to_platform,
+    select_implementation,
+)
 from runner.inventory import HostInfo, resolve_targets
+from runner.output import HostResult, RunResult, parse_output_spec, write_output
 from runner.ssh import SSHSession
 
 console = Console()
@@ -37,6 +44,7 @@ class HostCheckResult:
     pass_count: int = 0
     fail_count: int = 0
     skip_count: int = 0
+    rule_results: list = field(default_factory=list)  # List of RuleResult
     output: str = ""  # Buffered console output
 
 
@@ -54,6 +62,7 @@ class HostRemediateResult:
     fixed_count: int = 0
     skip_count: int = 0
     rolled_back_count: int = 0
+    rule_results: list = field(default_factory=list)  # List of RuleResult
     output: str = ""  # Buffered console output
 
 
@@ -74,7 +83,9 @@ def _parse_capability_overrides(flags: tuple[str, ...]) -> dict[str, bool]:
     overrides = {}
     for flag in flags:
         if "=" not in flag:
-            console.print(f"[red]Error:[/red] Invalid capability format: {flag} (expected KEY=VALUE)")
+            console.print(
+                f"[red]Error:[/red] Invalid capability format: {flag} (expected KEY=VALUE)"
+            )
             sys.exit(1)
         key, value = flag.split("=", 1)
         if value.lower() == "true":
@@ -82,7 +93,9 @@ def _parse_capability_overrides(flags: tuple[str, ...]) -> dict[str, bool]:
         elif value.lower() == "false":
             overrides[key] = False
         else:
-            console.print(f"[red]Error:[/red] Invalid capability value: {value} (expected true/false)")
+            console.print(
+                f"[red]Error:[/red] Invalid capability value: {value} (expected true/false)"
+            )
             sys.exit(1)
     return overrides
 
@@ -100,7 +113,9 @@ def _apply_capability_overrides(
         if key not in detected:
             console.print(f"[yellow]Warning:[/yellow] Unknown capability '{key}'")
         if verbose_mode and detected.get(key) != value:
-            console.print(f"    [magenta]override:[/magenta] {key} = {value} (detected: {detected.get(key)})")
+            console.print(
+                f"    [magenta]override:[/magenta] {key} = {value} (detected: {detected.get(key)})"
+            )
         result[key] = value
     return result
 
@@ -120,38 +135,86 @@ def _apply_capability_overrides_quiet(
         if key not in detected:
             buf_console.print(f"[yellow]Warning:[/yellow] Unknown capability '{key}'")
         if verbose and detected.get(key) != value:
-            buf_console.print(f"    [magenta]override:[/magenta] {key} = {value} (detected: {detected.get(key)})")
+            buf_console.print(
+                f"    [magenta]override:[/magenta] {key} = {value} (detected: {detected.get(key)})"
+            )
         result[key] = value
     return result
 
 
 # ── Shared options ──────────────────────────────────────────────────────────
 
+
 def target_options(f):
     """Common target/connection options for all subcommands."""
-    f = click.option("--host", "-h", default=None, help="Target host(s), comma-separated")(f)
-    f = click.option("--inventory", "-i", default=None, help="Ansible inventory file (INI/YAML) or host list")(f)
-    f = click.option("--limit", "-l", default=None, help="Limit to group or host glob pattern")(f)
+    f = click.option(
+        "--host", "-h", default=None, help="Target host(s), comma-separated"
+    )(f)
+    f = click.option(
+        "--inventory",
+        "-i",
+        default=None,
+        help="Ansible inventory file (INI/YAML) or host list",
+    )(f)
+    f = click.option(
+        "--limit", "-l", default=None, help="Limit to group or host glob pattern"
+    )(f)
     f = click.option("--user", "-u", default=None, help="SSH username")(f)
     f = click.option("--key", "-k", default=None, help="SSH private key path")(f)
     f = click.option("--password", "-p", default=None, help="SSH password")(f)
-    f = click.option("--port", "-P", default=22, type=int, help="SSH port (default: 22)")(f)
-    f = click.option("--verbose", "-v", is_flag=True, help="Show capability detection and implementation selection")(f)
+    f = click.option(
+        "--port", "-P", default=22, type=int, help="SSH port (default: 22)"
+    )(f)
+    f = click.option(
+        "--verbose",
+        "-v",
+        is_flag=True,
+        help="Show capability detection and implementation selection",
+    )(f)
     f = click.option("--sudo", is_flag=True, help="Run all remote commands via sudo")(f)
-    f = click.option("--capability", "-C", multiple=True, metavar="KEY=VALUE",
-                     help="Override detected capability (e.g., -C sshd_config_d=false)")(f)
-    f = click.option("--workers", "-w", default=1, type=click.IntRange(1, 50),
-                     help="Number of parallel SSH connections (default: 1, max: 50)")(f)
+    f = click.option(
+        "--capability",
+        "-C",
+        multiple=True,
+        metavar="KEY=VALUE",
+        help="Override detected capability (e.g., -C sshd_config_d=false)",
+    )(f)
+    f = click.option(
+        "--workers",
+        "-w",
+        default=1,
+        type=click.IntRange(1, 50),
+        help="Number of parallel SSH connections (default: 1, max: 50)",
+    )(f)
     return f
 
 
 def rule_options(f):
     """Rule selection options for check/remediate."""
-    f = click.option("--rules", "-r", default=None, help="Path to rules directory (recursive)")(f)
+    f = click.option(
+        "--rules", "-r", default=None, help="Path to rules directory (recursive)"
+    )(f)
     f = click.option("--rule", default=None, help="Path to single rule file")(f)
-    f = click.option("--severity", "-s", multiple=True, help="Filter by severity (repeatable)")(f)
+    f = click.option(
+        "--severity", "-s", multiple=True, help="Filter by severity (repeatable)"
+    )(f)
     f = click.option("--tag", "-t", multiple=True, help="Filter by tag (repeatable)")(f)
     f = click.option("--category", "-c", default=None, help="Filter by category")(f)
+    return f
+
+
+def output_options(f):
+    """Output format options for check/remediate."""
+    f = click.option(
+        "--output",
+        "-o",
+        "outputs",
+        multiple=True,
+        help="Output format (csv, json, pdf). Add :path to write to file (e.g., -o json:results.json)",
+    )(f)
+    f = click.option(
+        "--quiet", "-q", is_flag=True, help="Suppress terminal output (useful with -o)"
+    )(f)
     return f
 
 
@@ -181,6 +244,14 @@ Rule Options (check/remediate):
   -c, --category TEXT      Filter by category
 
 \b
+Output Options (check/remediate):
+  -o, --output FORMAT      Output format: csv, json, pdf
+                           Add :path to write to file (e.g., -o json:report.json)
+                           PDF requires a filepath (e.g., -o pdf:report.pdf)
+                           Can be repeated for multiple outputs
+  -q, --quiet              Suppress terminal output (useful with -o)
+
+\b
 Remediation Options:
   --dry-run                Preview without changes
   --rollback-on-failure    Auto-rollback on failure
@@ -189,6 +260,8 @@ Remediation Options:
 Examples:
   aegis detect --host 192.168.1.100 -u admin --sudo
   aegis check -i hosts.ini --sudo -r rules/ -w 4
+  aegis check -i hosts.ini --sudo -r rules/ -o json -q
+  aegis check -i hosts.ini --sudo -r rules/ -o csv:results.csv -o pdf:report.pdf
   aegis remediate -i hosts.ini --sudo -r rules/ --dry-run
 """
 
@@ -205,7 +278,19 @@ def main():
 
 @main.command()
 @target_options
-def detect(host, inventory, limit, user, key, password, port, verbose, sudo, capability, workers):
+def detect(
+    host,
+    inventory,
+    limit,
+    user,
+    key,
+    password,
+    port,
+    verbose,
+    sudo,
+    capability,
+    workers,
+):
     """Probe capabilities on target hosts."""
     global verbose_mode
     verbose_mode = verbose
@@ -283,7 +368,9 @@ def _detect_host(
         with _connect(hi, password, sudo=sudo) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
-            caps = _apply_capability_overrides_quiet(detected_caps, overrides, buf_console, verbose)
+            caps = _apply_capability_overrides_quiet(
+                detected_caps, overrides, buf_console, verbose
+            )
     except Exception as exc:
         buf_console.print(f"  [red]Connection failed:[/red] {exc}")
         return HostDetectResult(
@@ -295,7 +382,9 @@ def _detect_host(
 
     # Build platform line
     if platform is None:
-        buf_console.print("  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]")
+        buf_console.print(
+            "  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]"
+        )
     else:
         buf_console.print(f"  Platform: {platform.family.upper()} {platform.version}")
 
@@ -337,13 +426,36 @@ def _print_detect_result(result: HostDetectResult, overrides: dict[str, bool]) -
 @main.command()
 @target_options
 @rule_options
-def check(host, inventory, limit, user, key, password, port, verbose, sudo, capability, workers, rules, rule, severity, tag, category):
+@output_options
+def check(
+    host,
+    inventory,
+    limit,
+    user,
+    key,
+    password,
+    port,
+    verbose,
+    sudo,
+    capability,
+    workers,
+    rules,
+    rule,
+    severity,
+    tag,
+    category,
+    outputs,
+    quiet,
+):
     """Run compliance checks on target hosts."""
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list = _load_rule_list(rules, rule, severity, tag, category)
     overrides = _parse_capability_overrides(capability)
+
+    # Collect results for output formatting
+    run_result = RunResult(command="check")
 
     if workers == 1:
         # Sequential execution - use direct console output (original behavior)
@@ -353,34 +465,50 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, capa
         host_count = 0
 
         for hi in hosts:
-            console.print()
-            console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+            if not quiet:
+                console.print()
+                console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+            host_result = HostResult(hostname=hi.hostname)
             try:
                 with _connect(hi, password, sudo=sudo) as ssh:
                     platform = detect_platform(ssh)
                     detected_caps = detect_capabilities(ssh, verbose=verbose)
                     caps = _apply_capability_overrides(detected_caps, overrides)
-                    _print_platform(platform)
-                    _print_caps_verbose(caps)
-                    host_pass, host_fail, host_skip = _run_checks(ssh, rule_list, caps, platform)
+                    if not quiet:
+                        _print_platform(platform)
+                        _print_caps_verbose(caps)
+                    host_result.platform_family = platform.family if platform else None
+                    host_result.platform_version = (
+                        platform.version if platform else None
+                    )
+                    host_result.capabilities = caps
+                    host_pass, host_fail, host_skip, rule_results = _run_checks(
+                        ssh, rule_list, caps, platform, quiet=quiet
+                    )
+                    host_result.results = rule_results
             except Exception as exc:
-                console.print(f"  [red]Connection failed:[/red] {exc}")
+                if not quiet:
+                    console.print(f"  [red]Connection failed:[/red] {exc}")
+                host_result.error = str(exc)
+                run_result.hosts.append(host_result)
                 continue
 
+            run_result.hosts.append(host_result)
             host_count += 1
             total_pass += host_pass
             total_fail += host_fail
             total_skip += host_skip
 
             total = host_pass + host_fail + host_skip
-            console.print(
-                f"  [bold]{total} rules[/bold] | "
-                f"[green]{host_pass} pass[/green] | "
-                f"[red]{host_fail} fail[/red]"
-                + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
-            )
+            if not quiet:
+                console.print(
+                    f"  [bold]{total} rules[/bold] | "
+                    f"[green]{host_pass} pass[/green] | "
+                    f"[red]{host_fail} fail[/red]"
+                    + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
+                )
 
-        if host_count > 1:
+        if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
             grand_total = total_pass + total_fail + total_skip
@@ -391,20 +519,24 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, capa
                 f"[red]{total_fail} fail[/red]"
                 + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
             )
-        console.print()
+        if not quiet:
+            console.print()
     else:
         # Parallel execution - use buffered output
         results: list[HostCheckResult] = []
 
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
-                pool.submit(_check_host, hi, password, sudo, overrides, rule_list, verbose): hi
+                pool.submit(
+                    _check_host, hi, password, sudo, overrides, rule_list, verbose
+                ): hi
                 for hi in hosts
             }
             for future in as_completed(futures):
                 result = future.result()
-                with print_lock:
-                    _print_check_result(result)
+                if not quiet:
+                    with print_lock:
+                        _print_check_result(result)
                 results.append(result)
 
         # Aggregate results
@@ -414,7 +546,19 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, capa
         total_skip = sum(r.skip_count for r in successful_results)
         host_count = len(successful_results)
 
-        if host_count > 1:
+        # Build RunResult from parallel results
+        for r in results:
+            host_result = HostResult(
+                hostname=r.hostname,
+                platform_family=r.platform.family if r.platform else None,
+                platform_version=r.platform.version if r.platform else None,
+                capabilities=r.capabilities,
+                results=r.rule_results,
+                error=r.error,
+            )
+            run_result.hosts.append(host_result)
+
+        if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
             grand_total = total_pass + total_fail + total_skip
@@ -425,7 +569,11 @@ def check(host, inventory, limit, user, key, password, port, verbose, sudo, capa
                 f"[red]{total_fail} fail[/red]"
                 + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
             )
-        console.print()
+        if not quiet:
+            console.print()
+
+    # Write outputs
+    _write_outputs(run_result, outputs)
 
 
 def _check_host(
@@ -447,13 +595,19 @@ def _check_host(
         with _connect(hi, password, sudo=sudo) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
-            caps = _apply_capability_overrides_quiet(detected_caps, overrides, buf_console, verbose)
+            caps = _apply_capability_overrides_quiet(
+                detected_caps, overrides, buf_console, verbose
+            )
 
             # Print platform info
             if platform is None:
-                buf_console.print("  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]")
+                buf_console.print(
+                    "  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]"
+                )
             else:
-                buf_console.print(f"  Platform: {platform.family.upper()} {platform.version}")
+                buf_console.print(
+                    f"  Platform: {platform.family.upper()} {platform.version}"
+                )
 
             # Print capabilities in verbose mode
             if verbose:
@@ -464,7 +618,7 @@ def _check_host(
                     buf_console.print("  [dim]capabilities: (none detected)[/dim]")
 
             # Run checks
-            host_pass, host_fail, host_skip = _run_checks_buffered(
+            host_pass, host_fail, host_skip, rule_results = _run_checks_buffered(
                 ssh, rule_list, caps, platform, buf_console, verbose
             )
     except Exception as exc:
@@ -493,6 +647,7 @@ def _check_host(
         pass_count=host_pass,
         fail_count=host_fail,
         skip_count=host_skip,
+        rule_results=rule_results,
         output=buf.getvalue(),
     )
 
@@ -505,14 +660,29 @@ def _print_check_result(result: HostCheckResult) -> None:
 
 
 def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
-    """Run checks for a single host with buffered output. Returns (pass, fail, skip) counts."""
+    """Run checks for a single host with buffered output. Returns (pass, fail, skip, rule_results)."""
+    from runner._types import RuleResult
+
     host_pass = host_fail = host_skip = 0
+    rule_results = []
     for r in rule_list:
-        if platform and not rule_applies_to_platform(r, platform.family, platform.version):
+        if platform and not rule_applies_to_platform(
+            r, platform.family, platform.version
+        ):
             host_skip += 1
             buf_console.print(
                 f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
                 f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+            )
+            rule_results.append(
+                RuleResult(
+                    rule_id=r["id"],
+                    title=r.get("title", r["id"]),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                )
             )
             continue
         # Verbose implementation selection
@@ -520,51 +690,91 @@ def _run_checks_buffered(ssh, rule_list, caps, platform, buf_console, verbose):
             impl = select_implementation(r, caps)
             rule_id = r["id"]
             if impl is None:
-                buf_console.print(f"  [dim]  {rule_id}: no matching implementation[/dim]")
+                buf_console.print(
+                    f"  [dim]  {rule_id}: no matching implementation[/dim]"
+                )
             elif impl.get("default"):
-                buf_console.print(f"  [dim]  {rule_id}: using default implementation[/dim]")
+                buf_console.print(
+                    f"  [dim]  {rule_id}: using default implementation[/dim]"
+                )
             else:
                 gate = impl.get("when", "?")
-                buf_console.print(f"  [dim]  {rule_id}: matched gate [bold]{gate}[/bold][/dim]")
+                buf_console.print(
+                    f"  [dim]  {rule_id}: matched gate [bold]{gate}[/bold][/dim]"
+                )
 
         result = evaluate_rule(ssh, r, caps)
+        rule_results.append(result)
         if result.skipped:
             host_skip += 1
-            buf_console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
+            buf_console.print(
+                f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+            )
         elif result.passed:
             host_pass += 1
-            buf_console.print(f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}")
+            buf_console.print(
+                f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+            )
         else:
             host_fail += 1
             detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
-            buf_console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}")
-    return host_pass, host_fail, host_skip
+            buf_console.print(
+                f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
+            )
+    return host_pass, host_fail, host_skip, rule_results
 
 
-def _run_checks(ssh, rule_list, caps, platform):
-    """Run checks for a single host and print results. Returns (pass, fail, skip) counts."""
+def _run_checks(ssh, rule_list, caps, platform, *, quiet=False):
+    """Run checks for a single host and print results. Returns (pass, fail, skip, rule_results)."""
+    from runner._types import RuleResult
+
     host_pass = host_fail = host_skip = 0
+    rule_results = []
     for r in rule_list:
-        if platform and not rule_applies_to_platform(r, platform.family, platform.version):
+        if platform and not rule_applies_to_platform(
+            r, platform.family, platform.version
+        ):
             host_skip += 1
-            console.print(
-                f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
-                f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+            if not quiet:
+                console.print(
+                    f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                    f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+                )
+            rule_results.append(
+                RuleResult(
+                    rule_id=r["id"],
+                    title=r.get("title", r["id"]),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                )
             )
             continue
-        _print_impl_verbose(r, caps)
+        if not quiet:
+            _print_impl_verbose(r, caps)
         result = evaluate_rule(ssh, r, caps)
+        rule_results.append(result)
         if result.skipped:
             host_skip += 1
-            console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
+            if not quiet:
+                console.print(
+                    f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+                )
         elif result.passed:
             host_pass += 1
-            console.print(f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}")
+            if not quiet:
+                console.print(
+                    f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+                )
         else:
             host_fail += 1
-            detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
-            console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}")
-    return host_pass, host_fail, host_skip
+            if not quiet:
+                detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
+                console.print(
+                    f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
+                )
+    return host_pass, host_fail, host_skip, rule_results
 
 
 # ── remediate ───────────────────────────────────────────────────────────────
@@ -573,9 +783,37 @@ def _run_checks(ssh, rule_list, caps, platform):
 @main.command()
 @target_options
 @rule_options
-@click.option("--dry-run", is_flag=True, help="Show what would be done without making changes")
-@click.option("--rollback-on-failure", is_flag=True, help="Auto-rollback changes if remediation or post-check fails")
-def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, capability, workers, rules, rule, severity, tag, category, dry_run, rollback_on_failure):
+@output_options
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be done without making changes"
+)
+@click.option(
+    "--rollback-on-failure",
+    is_flag=True,
+    help="Auto-rollback changes if remediation or post-check fails",
+)
+def remediate(
+    host,
+    inventory,
+    limit,
+    user,
+    key,
+    password,
+    port,
+    verbose,
+    sudo,
+    capability,
+    workers,
+    rules,
+    rule,
+    severity,
+    tag,
+    category,
+    outputs,
+    quiet,
+    dry_run,
+    rollback_on_failure,
+):
     """Check rules and remediate failures on target hosts."""
     global verbose_mode
     verbose_mode = verbose
@@ -583,7 +821,10 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
     rule_list = _load_rule_list(rules, rule, severity, tag, category)
     overrides = _parse_capability_overrides(capability)
 
-    if dry_run:
+    # Collect results for output formatting
+    run_result = RunResult(command="remediate")
+
+    if dry_run and not quiet:
         console.print("[yellow]DRY RUN — no changes will be made[/yellow]\n")
 
     if workers == 1:
@@ -596,23 +837,48 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
         host_count = 0
 
         for hi in hosts:
-            console.print()
-            console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+            if not quiet:
+                console.print()
+                console.rule(f"[bold]Host: {hi.hostname}[/bold]")
+            host_result = HostResult(hostname=hi.hostname)
             try:
                 with _connect(hi, password, sudo=sudo) as ssh:
                     platform = detect_platform(ssh)
                     detected_caps = detect_capabilities(ssh, verbose=verbose)
                     caps = _apply_capability_overrides(detected_caps, overrides)
-                    _print_platform(platform)
-                    _print_caps_verbose(caps)
-                    host_pass, host_fail, host_fixed, host_skip, host_rolled_back = _run_remediation(
-                        ssh, rule_list, caps, platform, dry_run=dry_run,
-                        rollback_on_failure=rollback_on_failure,
+                    if not quiet:
+                        _print_platform(platform)
+                        _print_caps_verbose(caps)
+                    host_result.platform_family = platform.family if platform else None
+                    host_result.platform_version = (
+                        platform.version if platform else None
                     )
+                    host_result.capabilities = caps
+                    (
+                        host_pass,
+                        host_fail,
+                        host_fixed,
+                        host_skip,
+                        host_rolled_back,
+                        rule_results,
+                    ) = _run_remediation(
+                        ssh,
+                        rule_list,
+                        caps,
+                        platform,
+                        dry_run=dry_run,
+                        rollback_on_failure=rollback_on_failure,
+                        quiet=quiet,
+                    )
+                    host_result.results = rule_results
             except Exception as exc:
-                console.print(f"  [red]Connection failed:[/red] {exc}")
+                if not quiet:
+                    console.print(f"  [red]Connection failed:[/red] {exc}")
+                host_result.error = str(exc)
+                run_result.hosts.append(host_result)
                 continue
 
+            run_result.hosts.append(host_result)
             host_count += 1
             total_pass += host_pass
             total_fail += host_fail
@@ -621,19 +887,20 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
             total_rolled_back += host_rolled_back
 
             total = host_pass + host_fail + host_fixed + host_skip
-            summary = (
-                f"  [bold]{total} rules[/bold] | "
-                f"[green]{host_pass} pass[/green] | "
-                f"[yellow]{host_fixed} fixed[/yellow] | "
-                f"[red]{host_fail} fail[/red]"
-            )
-            if host_skip:
-                summary += f" | [dim]{host_skip} skip[/dim]"
-            if host_rolled_back:
-                summary += f" | [magenta]{host_rolled_back} rolled back[/magenta]"
-            console.print(summary)
+            if not quiet:
+                summary = (
+                    f"  [bold]{total} rules[/bold] | "
+                    f"[green]{host_pass} pass[/green] | "
+                    f"[yellow]{host_fixed} fixed[/yellow] | "
+                    f"[red]{host_fail} fail[/red]"
+                )
+                if host_skip:
+                    summary += f" | [dim]{host_skip} skip[/dim]"
+                if host_rolled_back:
+                    summary += f" | [magenta]{host_rolled_back} rolled back[/magenta]"
+                console.print(summary)
 
-        if host_count > 1:
+        if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
             grand_total = total_pass + total_fail + total_fixed + total_skip
@@ -649,7 +916,8 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
             if total_rolled_back:
                 summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
             console.print(summary)
-        console.print()
+        if not quiet:
+            console.print()
     else:
         # Parallel execution - use buffered output
         results: list[HostRemediateResult] = []
@@ -657,15 +925,23 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
                 pool.submit(
-                    _remediate_host, hi, password, sudo, overrides, rule_list,
-                    verbose, dry_run, rollback_on_failure
+                    _remediate_host,
+                    hi,
+                    password,
+                    sudo,
+                    overrides,
+                    rule_list,
+                    verbose,
+                    dry_run,
+                    rollback_on_failure,
                 ): hi
                 for hi in hosts
             }
             for future in as_completed(futures):
                 result = future.result()
-                with print_lock:
-                    _print_remediate_result(result)
+                if not quiet:
+                    with print_lock:
+                        _print_remediate_result(result)
                 results.append(result)
 
         # Aggregate results
@@ -677,7 +953,19 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
         total_rolled_back = sum(r.rolled_back_count for r in successful_results)
         host_count = len(successful_results)
 
-        if host_count > 1:
+        # Build RunResult from parallel results
+        for r in results:
+            host_result = HostResult(
+                hostname=r.hostname,
+                platform_family=r.platform.family if r.platform else None,
+                platform_version=r.platform.version if r.platform else None,
+                capabilities=r.capabilities,
+                results=r.rule_results,
+                error=r.error,
+            )
+            run_result.hosts.append(host_result)
+
+        if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
             grand_total = total_pass + total_fail + total_fixed + total_skip
@@ -693,7 +981,11 @@ def remediate(host, inventory, limit, user, key, password, port, verbose, sudo, 
             if total_rolled_back:
                 summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
             console.print(summary)
-        console.print()
+        if not quiet:
+            console.print()
+
+    # Write outputs
+    _write_outputs(run_result, outputs)
 
 
 def _remediate_host(
@@ -717,13 +1009,19 @@ def _remediate_host(
         with _connect(hi, password, sudo=sudo) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
-            caps = _apply_capability_overrides_quiet(detected_caps, overrides, buf_console, verbose)
+            caps = _apply_capability_overrides_quiet(
+                detected_caps, overrides, buf_console, verbose
+            )
 
             # Print platform info
             if platform is None:
-                buf_console.print("  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]")
+                buf_console.print(
+                    "  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]"
+                )
             else:
-                buf_console.print(f"  Platform: {platform.family.upper()} {platform.version}")
+                buf_console.print(
+                    f"  Platform: {platform.family.upper()} {platform.version}"
+                )
 
             # Print capabilities in verbose mode
             if verbose:
@@ -734,9 +1032,22 @@ def _remediate_host(
                     buf_console.print("  [dim]capabilities: (none detected)[/dim]")
 
             # Run remediation
-            host_pass, host_fail, host_fixed, host_skip, host_rolled_back = _run_remediation_buffered(
-                ssh, rule_list, caps, platform, buf_console, verbose,
-                dry_run=dry_run, rollback_on_failure=rollback_on_failure,
+            (
+                host_pass,
+                host_fail,
+                host_fixed,
+                host_skip,
+                host_rolled_back,
+                rule_results,
+            ) = _run_remediation_buffered(
+                ssh,
+                rule_list,
+                caps,
+                platform,
+                buf_console,
+                verbose,
+                dry_run=dry_run,
+                rollback_on_failure=rollback_on_failure,
             )
     except Exception as exc:
         buf_console.print(f"  [red]Connection failed:[/red] {exc}")
@@ -771,6 +1082,7 @@ def _remediate_host(
         fixed_count=host_fixed,
         skip_count=host_skip,
         rolled_back_count=host_rolled_back,
+        rule_results=rule_results,
         output=buf.getvalue(),
     )
 
@@ -782,63 +1094,136 @@ def _print_remediate_result(result: HostRemediateResult) -> None:
     sys.stdout.flush()
 
 
-def _run_remediation(ssh, rule_list, caps, platform, *, dry_run, rollback_on_failure=False):
-    """Run remediation for a single host. Returns (pass, fail, fixed, skip, rolled_back) counts."""
+def _run_remediation(
+    ssh, rule_list, caps, platform, *, dry_run, rollback_on_failure=False, quiet=False
+):
+    """Run remediation for a single host. Returns (pass, fail, fixed, skip, rolled_back, rule_results)."""
+    from runner._types import RuleResult
+
     host_pass = host_fail = host_fixed = host_skip = host_rolled_back = 0
+    rule_results = []
     for r in rule_list:
-        if platform and not rule_applies_to_platform(r, platform.family, platform.version):
+        if platform and not rule_applies_to_platform(
+            r, platform.family, platform.version
+        ):
             host_skip += 1
-            console.print(
-                f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
-                f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+            if not quiet:
+                console.print(
+                    f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
+                    f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+                )
+            rule_results.append(
+                RuleResult(
+                    rule_id=r["id"],
+                    title=r.get("title", r["id"]),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                )
             )
             continue
-        _print_impl_verbose(r, caps)
+        if not quiet:
+            _print_impl_verbose(r, caps)
         result = remediate_rule(
-            ssh, r, caps, dry_run=dry_run, rollback_on_failure=rollback_on_failure,
+            ssh,
+            r,
+            caps,
+            dry_run=dry_run,
+            rollback_on_failure=rollback_on_failure,
         )
+        rule_results.append(result)
         if result.skipped:
             host_skip += 1
-            console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
+            if not quiet:
+                console.print(
+                    f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+                )
         elif result.passed and not result.remediated:
             host_pass += 1
-            console.print(f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}")
+            if not quiet:
+                console.print(
+                    f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+                )
         elif result.passed and result.remediated:
             host_fixed += 1
-            detail = f"  [dim]{result.remediation_detail}[/dim]" if result.remediation_detail else ""
-            tag = "[yellow]DRY [/yellow]" if dry_run else "[yellow]FIXED[/yellow]"
-            console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
+            if not quiet:
+                detail = (
+                    f"  [dim]{result.remediation_detail}[/dim]"
+                    if result.remediation_detail
+                    else ""
+                )
+                tag = "[yellow]DRY [/yellow]" if dry_run else "[yellow]FIXED[/yellow]"
+                console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
         else:
             host_fail += 1
-            suffix = "  [magenta](rolled back)[/magenta]" if result.rolled_back else ""
-            detail = f"  [dim]{result.remediation_detail or result.detail}[/dim]" if (result.remediation_detail or result.detail) else ""
-            console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}")
+            if not quiet:
+                suffix = (
+                    "  [magenta](rolled back)[/magenta]" if result.rolled_back else ""
+                )
+                detail = (
+                    f"  [dim]{result.remediation_detail or result.detail}[/dim]"
+                    if (result.remediation_detail or result.detail)
+                    else ""
+                )
+                console.print(
+                    f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}"
+                )
             if result.rolled_back:
                 host_rolled_back += 1
             # Verbose: show step detail and rollback detail
-            if verbose_mode and result.step_results:
+            if not quiet and verbose_mode and result.step_results:
                 total_steps = len(result.step_results)
                 for sr in result.step_results:
                     status = "[green]ok[/green]" if sr.success else "[red]FAIL[/red]"
-                    console.print(f"    step {sr.step_index + 1}/{total_steps}: {sr.mechanism}  [{status}]  {sr.detail[:80]}")
+                    console.print(
+                        f"    step {sr.step_index + 1}/{total_steps}: {sr.mechanism}  [{status}]  {sr.detail[:80]}"
+                    )
                 if result.rollback_results:
                     for rb in result.rollback_results:
-                        status = "[green]ok[/green]" if rb.success else "[dim]skipped[/dim]"
-                        console.print(f"    rollback step {rb.step_index}: {rb.mechanism}  [{status}]  {rb.detail[:80]}")
-    return host_pass, host_fail, host_fixed, host_skip, host_rolled_back
+                        status = (
+                            "[green]ok[/green]" if rb.success else "[dim]skipped[/dim]"
+                        )
+                        console.print(
+                            f"    rollback step {rb.step_index}: {rb.mechanism}  [{status}]  {rb.detail[:80]}"
+                        )
+    return host_pass, host_fail, host_fixed, host_skip, host_rolled_back, rule_results
 
 
 def _run_remediation_buffered(
-    ssh, rule_list, caps, platform, buf_console, verbose, *, dry_run, rollback_on_failure=False
+    ssh,
+    rule_list,
+    caps,
+    platform,
+    buf_console,
+    verbose,
+    *,
+    dry_run,
+    rollback_on_failure=False,
 ):
-    """Run remediation for a single host with buffered output. Returns (pass, fail, fixed, skip, rolled_back) counts."""
+    """Run remediation for a single host with buffered output. Returns (pass, fail, fixed, skip, rolled_back, rule_results)."""
+    from runner._types import RuleResult
+
     host_pass = host_fail = host_fixed = host_skip = host_rolled_back = 0
+    rule_results = []
     for r in rule_list:
-        if platform and not rule_applies_to_platform(r, platform.family, platform.version):
+        if platform and not rule_applies_to_platform(
+            r, platform.family, platform.version
+        ):
             host_skip += 1
             buf_console.print(
                 f"  [dim]SKIP[/dim]  {r['id']:<40s} {r.get('title', r['id'])}  "
                 f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
+            )
+            rule_results.append(
+                RuleResult(
+                    rule_id=r["id"],
+                    title=r.get("title", r["id"]),
+                    severity=r.get("severity", "medium"),
+                    passed=False,
+                    skipped=True,
+                    skip_reason=f"platform: requires {_platform_constraint_str(r)}",
+                )
             )
             continue
         # Verbose implementation selection
@@ -846,32 +1231,57 @@ def _run_remediation_buffered(
             impl = select_implementation(r, caps)
             rule_id = r["id"]
             if impl is None:
-                buf_console.print(f"  [dim]  {rule_id}: no matching implementation[/dim]")
+                buf_console.print(
+                    f"  [dim]  {rule_id}: no matching implementation[/dim]"
+                )
             elif impl.get("default"):
-                buf_console.print(f"  [dim]  {rule_id}: using default implementation[/dim]")
+                buf_console.print(
+                    f"  [dim]  {rule_id}: using default implementation[/dim]"
+                )
             else:
                 gate = impl.get("when", "?")
-                buf_console.print(f"  [dim]  {rule_id}: matched gate [bold]{gate}[/bold][/dim]")
+                buf_console.print(
+                    f"  [dim]  {rule_id}: matched gate [bold]{gate}[/bold][/dim]"
+                )
 
         result = remediate_rule(
-            ssh, r, caps, dry_run=dry_run, rollback_on_failure=rollback_on_failure,
+            ssh,
+            r,
+            caps,
+            dry_run=dry_run,
+            rollback_on_failure=rollback_on_failure,
         )
+        rule_results.append(result)
         if result.skipped:
             host_skip += 1
-            buf_console.print(f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]")
+            buf_console.print(
+                f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+            )
         elif result.passed and not result.remediated:
             host_pass += 1
-            buf_console.print(f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}")
+            buf_console.print(
+                f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+            )
         elif result.passed and result.remediated:
             host_fixed += 1
-            detail = f"  [dim]{result.remediation_detail}[/dim]" if result.remediation_detail else ""
+            detail = (
+                f"  [dim]{result.remediation_detail}[/dim]"
+                if result.remediation_detail
+                else ""
+            )
             tag = "[yellow]DRY [/yellow]" if dry_run else "[yellow]FIXED[/yellow]"
             buf_console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
         else:
             host_fail += 1
             suffix = "  [magenta](rolled back)[/magenta]" if result.rolled_back else ""
-            detail = f"  [dim]{result.remediation_detail or result.detail}[/dim]" if (result.remediation_detail or result.detail) else ""
-            buf_console.print(f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}")
+            detail = (
+                f"  [dim]{result.remediation_detail or result.detail}[/dim]"
+                if (result.remediation_detail or result.detail)
+                else ""
+            )
+            buf_console.print(
+                f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}"
+            )
             if result.rolled_back:
                 host_rolled_back += 1
             # Verbose: show step detail and rollback detail
@@ -879,12 +1289,18 @@ def _run_remediation_buffered(
                 total_steps = len(result.step_results)
                 for sr in result.step_results:
                     status = "[green]ok[/green]" if sr.success else "[red]FAIL[/red]"
-                    buf_console.print(f"    step {sr.step_index + 1}/{total_steps}: {sr.mechanism}  [{status}]  {sr.detail[:80]}")
+                    buf_console.print(
+                        f"    step {sr.step_index + 1}/{total_steps}: {sr.mechanism}  [{status}]  {sr.detail[:80]}"
+                    )
                 if result.rollback_results:
                     for rb in result.rollback_results:
-                        status = "[green]ok[/green]" if rb.success else "[dim]skipped[/dim]"
-                        buf_console.print(f"    rollback step {rb.step_index}: {rb.mechanism}  [{status}]  {rb.detail[:80]}")
-    return host_pass, host_fail, host_fixed, host_skip, host_rolled_back
+                        status = (
+                            "[green]ok[/green]" if rb.success else "[dim]skipped[/dim]"
+                        )
+                        buf_console.print(
+                            f"    rollback step {rb.step_index}: {rb.mechanism}  [{status}]  {rb.detail[:80]}"
+                        )
+    return host_pass, host_fail, host_fixed, host_skip, host_rolled_back, rule_results
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -893,7 +1309,9 @@ def _run_remediation_buffered(
 def _print_platform(platform) -> None:
     """Print detected platform info."""
     if platform is None:
-        console.print("  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]")
+        console.print(
+            "  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]"
+        )
     else:
         console.print(f"  Platform: {platform.family.upper()} {platform.version}")
 
@@ -994,3 +1412,19 @@ def _load_rule_list(rules, rule, severity, tag, category):
         sys.exit(0)
 
     return rule_list
+
+
+def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
+    """Write formatted outputs based on --output flags."""
+    for spec in outputs:
+        try:
+            fmt, filepath = parse_output_spec(spec)
+            output = write_output(run_result, fmt, filepath)
+            if filepath:
+                console.print(f"[dim]Wrote {fmt} output to {filepath}[/dim]")
+            else:
+                # Print to stdout
+                print(output)
+        except ValueError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            sys.exit(1)

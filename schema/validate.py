@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Aegis Rule Validator
+"""Aegis Rule Validator
 ====================
 Validates all .yml rule files under rules/ against:
   1. The JSON Schema at schema/rule.schema.json
@@ -12,7 +11,6 @@ Validates all .yml rule files under rules/ against:
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -26,7 +24,7 @@ RULES_DIR = Path(__file__).resolve().parent.parent / "rules"
 
 def load_schema() -> dict:
     """Load and return the JSON Schema."""
-    with open(SCHEMA_PATH, "r") as f:
+    with open(SCHEMA_PATH) as f:
         return json.load(f)
 
 
@@ -42,7 +40,11 @@ def validate_json_schema(data: dict, schema: dict) -> list:
     validator = validator_cls(schema)
     errors = []
     for error in sorted(validator.iter_errors(data), key=lambda e: list(e.path)):
-        path = " -> ".join(str(p) for p in error.absolute_path) if error.absolute_path else "(root)"
+        path = (
+            " -> ".join(str(p) for p in error.absolute_path)
+            if error.absolute_path
+            else "(root)"
+        )
         errors.append(f"[schema] {path}: {error.message}")
     return errors
 
@@ -104,13 +106,15 @@ def validate_file(filepath: Path, schema: dict) -> tuple:
 
     # Load YAML
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = yaml.safe_load(f)
     except yaml.YAMLError as exc:
         return False, [f"[yaml-parse] Failed to parse YAML: {exc}"]
 
     if not isinstance(data, dict):
-        return False, [f"[yaml-parse] File does not contain a YAML mapping (got {type(data).__name__})"]
+        return False, [
+            f"[yaml-parse] File does not contain a YAML mapping (got {type(data).__name__})"
+        ]
 
     # JSON Schema validation
     errors.extend(validate_json_schema(data, schema))

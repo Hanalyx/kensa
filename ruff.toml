@@ -1,0 +1,47 @@
+# Ruff configuration for Aegis
+# https://docs.astral.sh/ruff/configuration/
+
+# Target Python 3.10+
+target-version = "py310"
+
+# Line length matches Black default
+line-length = 88
+
+# Include runner, schema, and tests
+include = ["runner/**/*.py", "schema/**/*.py", "tests/**/*.py"]
+
+[lint]
+# Selected rules
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "UP",   # pyupgrade
+]
+
+# Ignored rules
+ignore = [
+    "E501",     # line length (handled by formatter)
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[lint.isort]
+# Sort imports consistently
+known-first-party = ["runner", "schema"]
+
+[format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Unix-style line endings
+line-ending = "lf"

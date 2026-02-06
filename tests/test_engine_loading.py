@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import pytest
-import yaml
 
-from runner.engine import evaluate_when, load_rules, rule_applies_to_platform, select_implementation
+from runner.engine import (
+    evaluate_when,
+    load_rules,
+    rule_applies_to_platform,
+    select_implementation,
+)
 
 
 class TestLoadRules:
@@ -37,7 +41,9 @@ class TestLoadRules:
         assert len(rules) == 1
         assert rules[0]["id"] == "test-gated-rule"
 
-    def test_filter_severity_multiple(self, tmp_rule_dir, sample_rule, sample_rule_gated):
+    def test_filter_severity_multiple(
+        self, tmp_rule_dir, sample_rule, sample_rule_gated
+    ):
         d = tmp_rule_dir([sample_rule, sample_rule_gated])
         rules = load_rules(str(d), severity=["high", "medium"])
         assert len(rules) == 2
@@ -48,7 +54,9 @@ class TestLoadRules:
         assert len(rules) == 1
         assert rules[0]["id"] == "test-gated-rule"
 
-    def test_filter_tags_or_semantics(self, tmp_rule_dir, sample_rule, sample_rule_gated):
+    def test_filter_tags_or_semantics(
+        self, tmp_rule_dir, sample_rule, sample_rule_gated
+    ):
         d = tmp_rule_dir([sample_rule, sample_rule_gated])
         rules = load_rules(str(d), tags=["sysctl", "ssh"])
         assert len(rules) == 2
@@ -92,13 +100,17 @@ class TestEvaluateWhen:
         assert evaluate_when("nonexistent", sample_caps) is False
 
     def test_all_true(self, sample_caps):
-        assert evaluate_when({"all": ["authselect", "pam_faillock"]}, sample_caps) is True
+        assert (
+            evaluate_when({"all": ["authselect", "pam_faillock"]}, sample_caps) is True
+        )
 
     def test_all_false(self, sample_caps):
         assert evaluate_when({"all": ["authselect", "fips_mode"]}, sample_caps) is False
 
     def test_any_true(self, sample_caps):
-        assert evaluate_when({"any": ["fips_mode", "sshd_config_d"]}, sample_caps) is True
+        assert (
+            evaluate_when({"any": ["fips_mode", "sshd_config_d"]}, sample_caps) is True
+        )
 
     def test_any_false(self, sample_caps):
         assert evaluate_when({"any": ["fips_mode", "tpm2"]}, sample_caps) is False
@@ -134,7 +146,10 @@ class TestSelectImplementation:
             "id": "multi-gate",
             "implementations": [
                 {"when": "fips_mode", "check": {"method": "command", "run": "fips"}},
-                {"when": "sshd_config_d", "check": {"method": "command", "run": "sshd"}},
+                {
+                    "when": "sshd_config_d",
+                    "check": {"method": "command", "run": "sshd"},
+                },
                 {"default": True, "check": {"method": "command", "run": "default"}},
             ],
         }
@@ -176,10 +191,12 @@ class TestRuleAppliesToPlatform:
         assert rule_applies_to_platform(rule, "rhel", 7) is False
 
     def test_multiple_platform_entries(self):
-        rule = {"platforms": [
-            {"family": "rhel", "min_version": 9},
-            {"family": "debian", "min_version": 12},
-        ]}
+        rule = {
+            "platforms": [
+                {"family": "rhel", "min_version": 9},
+                {"family": "debian", "min_version": 12},
+            ]
+        }
         assert rule_applies_to_platform(rule, "rhel", 9) is True
         assert rule_applies_to_platform(rule, "debian", 12) is True
         assert rule_applies_to_platform(rule, "rhel", 8) is False

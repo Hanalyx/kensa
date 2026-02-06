@@ -23,9 +23,7 @@ def evaluate_when(when, capabilities: dict[str, bool]) -> bool:
     return False
 
 
-def select_implementation(
-    rule: dict, capabilities: dict[str, bool]
-) -> dict | None:
+def select_implementation(rule: dict, capabilities: dict[str, bool]) -> dict | None:
     """Select the first matching implementation by capability gate.
 
     Non-default implementations are checked in order; the first whose `when`

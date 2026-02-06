@@ -184,6 +184,47 @@ with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
 - click (CLI framework)
 - rich (terminal output)
 - jsonschema (rule validation only)
+- reportlab (PDF output, optional)
+
+## Code Quality
+
+### Pre-commit Hooks
+
+Pre-commit is configured to enforce code quality. Install and run:
+
+```bash
+pip install pre-commit ruff
+pre-commit install           # Install hooks
+pre-commit run --all-files   # Run on all files
+```
+
+Hooks include:
+- **ruff**: Linting and auto-fixing (replaces flake8, isort, black)
+- **ruff-format**: Code formatting
+- **Trailing whitespace / EOF fixer**
+- **YAML/JSON validation**
+- **Rule schema validation**
+
+### Coding Standards
+
+- Use `from __future__ import annotations` at top of each file
+- Type hints on all function signatures
+- Dataclasses for structured data, not dicts
+- No classes where a function suffices
+- Functions should have docstrings (public APIs)
+- Use ruff for formatting — don't argue about style
+
+### Ruff Rules
+
+The project uses these ruff rule sets (see `ruff.toml`):
+- `E,F,W`: pycodestyle + pyflakes basics
+- `I`: isort (import sorting)
+- `B`: flake8-bugbear (common bugs)
+- `C4`: flake8-comprehensions
+- `SIM`: flake8-simplify
+- `UP`: pyupgrade (modern Python syntax)
+
+Run manually: `ruff check runner/ --fix && ruff format runner/`
 
 ## Conventions
 
@@ -192,3 +233,25 @@ with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
 - No classes where a function suffices
 - Error handling: per-rule, not per-run — one rule failing doesn't stop others
 - Parallel host execution with `--workers N` (default: 1, max: 50)
+
+## Output Formats
+
+The CLI supports multiple output formats for `check` and `remediate` commands:
+
+```bash
+# JSON to stdout
+./aegis check -i inventory.ini --sudo -r rules/ -o json -q
+
+# CSV to file
+./aegis check -i inventory.ini --sudo -r rules/ -o csv:results.csv
+
+# PDF report (requires reportlab)
+./aegis check -i inventory.ini --sudo -r rules/ -o pdf:report.pdf
+
+# Multiple outputs
+./aegis check -i inventory.ini --sudo -r rules/ -o json:r.json -o csv:r.csv -o pdf:report.pdf
+```
+
+Flags:
+- `-o, --output FORMAT[:PATH]`: Output format (csv, json, pdf). PDF requires a filepath.
+- `-q, --quiet`: Suppress terminal output (useful with -o)

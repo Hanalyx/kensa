@@ -1,0 +1,58 @@
+# Aegis pre-commit configuration
+# Install: pip install pre-commit && pre-commit install
+# Run all: pre-commit run --all-files
+
+default_language_version:
+  python: python3
+
+repos:
+  # ==========================================================================
+  # General file hygiene
+  # ==========================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom YAML tags in rules
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-case-conflict
+
+  # ==========================================================================
+  # Ruff - Fast Python linter and formatter (replaces flake8, isort, black)
+  # ==========================================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        files: ^(runner|schema|tests)/
+        args:
+          - '--fix'
+          - '--select=E,F,W,I,B,C4,SIM,UP'
+          # E,F,W = pyflakes + pycodestyle basics
+          # I = isort (import sorting)
+          # B = flake8-bugbear (common bugs)
+          # C4 = flake8-comprehensions
+          # SIM = simplify
+          # UP = pyupgrade (modern Python syntax)
+          - '--ignore=E501'
+          # E501 = line length (handled by formatter)
+      - id: ruff-format
+        files: ^(runner|schema|tests)/
+
+  # ==========================================================================
+  # YAML Schema validation for rules
+  # ==========================================================================
+  - repo: local
+    hooks:
+      - id: validate-rules
+        name: Validate rule YAML against schema
+        entry: python3 schema/validate.py
+        language: system
+        files: ^rules/.*\.ya?ml$
+        pass_filenames: true

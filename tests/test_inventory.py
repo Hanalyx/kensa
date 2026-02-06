@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runner.inventory import HostInfo, resolve_targets
+from runner.inventory import resolve_targets
 
 
 class TestHostFlag:
@@ -81,13 +81,7 @@ class TestAnsibleINI:
 
     def test_groups_tracked(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text(
-            "[web]\n"
-            "server1\n"
-            "\n"
-            "[app]\n"
-            "server1\n"
-        )
+        ini.write_text("[web]\n" "server1\n" "\n" "[app]\n" "server1\n")
         hosts = resolve_targets(inventory=str(ini))
         assert len(hosts) == 1
         assert set(hosts[0].groups) == {"web", "app"}
@@ -95,19 +89,14 @@ class TestAnsibleINI:
     def test_comments_ignored(self, tmp_path):
         ini = tmp_path / "inventory.ini"
         ini.write_text(
-            "# This is a comment\n"
-            "[servers]\n"
-            "host1  # inline comment\n"
+            "# This is a comment\n" "[servers]\n" "host1  # inline comment\n"
         )
         hosts = resolve_targets(inventory=str(ini))
         assert len(hosts) == 1
 
     def test_inventory_vars_override_defaults(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text(
-            "[servers]\n"
-            "host1 ansible_user=deploy\n"
-        )
+        ini.write_text("[servers]\n" "host1 ansible_user=deploy\n")
         hosts = resolve_targets(
             inventory=str(ini),
             default_user="admin",
@@ -117,10 +106,7 @@ class TestAnsibleINI:
 
     def test_defaults_fill_gaps(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text(
-            "[servers]\n"
-            "host1 ansible_user=deploy\n"
-        )
+        ini.write_text("[servers]\n" "host1 ansible_user=deploy\n")
         hosts = resolve_targets(
             inventory=str(ini),
             default_user="admin",
@@ -168,11 +154,7 @@ class TestAnsibleYAML:
     def test_yaml_groups(self, tmp_path):
         inv = tmp_path / "inventory.yml"
         inv.write_text(
-            "all:\n"
-            "  children:\n"
-            "    web:\n"
-            "      hosts:\n"
-            "        server1:\n"
+            "all:\n" "  children:\n" "    web:\n" "      hosts:\n" "        server1:\n"
         )
         hosts = resolve_targets(inventory=str(inv))
         assert "web" in hosts[0].groups
@@ -187,13 +169,7 @@ class TestPlainTextHostList:
 
     def test_blank_lines_and_comments(self, tmp_path):
         f = tmp_path / "hosts.txt"
-        f.write_text(
-            "# Servers\n"
-            "10.0.0.1\n"
-            "\n"
-            "10.0.0.2  # web\n"
-            "\n"
-        )
+        f.write_text("# Servers\n" "10.0.0.1\n" "\n" "10.0.0.2  # web\n" "\n")
         hosts = resolve_targets(inventory=str(f))
         assert len(hosts) == 2
 
@@ -228,18 +204,14 @@ class TestFormatAutoDetection:
 class TestLimit:
     def test_limit_by_group(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text(
-            "[web]\nweb1\nweb2\n\n[db]\ndb1\n"
-        )
+        ini.write_text("[web]\nweb1\nweb2\n\n[db]\ndb1\n")
         hosts = resolve_targets(inventory=str(ini), limit="web")
         assert len(hosts) == 2
         assert all("web" in h.groups for h in hosts)
 
     def test_limit_by_glob(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text(
-            "[servers]\nweb1\nweb2\ndb1\n"
-        )
+        ini.write_text("[servers]\nweb1\nweb2\ndb1\n")
         hosts = resolve_targets(inventory=str(ini), limit="web*")
         assert len(hosts) == 2
 
