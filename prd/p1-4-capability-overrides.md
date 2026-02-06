@@ -158,13 +158,13 @@ Future enhancement: per-host overrides via inventory variables.
 
 ## Acceptance Criteria
 
-- [ ] `-C key=true` and `-C key=false` override detection
-- [ ] Multiple `-C` flags can be combined
-- [ ] `--verbose` shows "OVERRIDE" annotation
-- [ ] Unknown capability names produce warning (not error)
-- [ ] Invalid values (not true/false) produce error
-- [ ] Overrides affect implementation selection
-- [ ] Overrides work with `detect`, `check`, and `remediate` subcommands
+- [x] `-C key=true` and `-C key=false` override detection
+- [x] Multiple `-C` flags can be combined
+- [x] `--verbose` shows "OVERRIDE" annotation
+- [x] Unknown capability names produce warning (not error)
+- [x] Invalid values (not true/false) produce error
+- [x] Overrides affect implementation selection
+- [x] Overrides work with `detect`, `check`, and `remediate` subcommands
 
 ## Future Extensions
 

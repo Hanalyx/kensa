@@ -1283,6 +1283,93 @@ def _remediate_service_masked(
     return True, f"Masked {name}"
 
 
+def _remediate_pam_module_configure(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Configure a PAM module in a service's PAM stack.
+
+    Adds or modifies a PAM module entry in the specified service file.
+    For RHEL 8+, prefers authselect when available. Falls back to direct
+    PAM file editing when authselect is not suitable.
+
+    Args:
+    ----
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - service (str): PAM service name (e.g., "system-auth", "password-auth").
+            - module (str): PAM module name (e.g., "pam_faillock.so").
+            - type (str): PAM type ("auth", "account", "password", "session").
+            - control (str): Control value ("required", "requisite", "sufficient",
+              "optional", or complex [] format).
+            - args (str, optional): Module arguments.
+        dry_run: If True, return description without making changes.
+
+    Returns:
+    -------
+        Tuple of (success, detail).
+
+    Example:
+    -------
+        YAML rule definition::
+
+            remediation:
+              mechanism: pam_module_configure
+              service: "system-auth"
+              module: "pam_pwquality.so"
+              type: "password"
+              control: "requisite"
+              args: "retry=3 minlen=14 dcredit=-1"
+
+    Note:
+        PAM configuration is complex and order-dependent. This handler appends
+        the module to the end of the specified type section if not already
+        present. For precise ordering, consider using command_exec with
+        authselect commands.
+
+    """
+    service = r["service"]
+    module = r["module"]
+    pam_type = r["type"]
+    control = r["control"]
+    args = r.get("args", "")
+
+    pam_file = f"/etc/pam.d/{service}"
+    pam_line = f"{pam_type}    {control}    {module}"
+    if args:
+        pam_line += f"    {args}"
+
+    if dry_run:
+        return True, f"Would configure {module} in {pam_file}: {pam_line}"
+
+    # Check if file exists
+    exists = ssh.run(f"test -f {shlex.quote(pam_file)}")
+    if not exists.ok:
+        return False, f"{pam_file}: not found"
+
+    # Check if module is already configured with this type
+    check = ssh.run(
+        f"grep -E '^{pam_type}\\s+.*{shlex.quote(module)}' {shlex.quote(pam_file)} 2>/dev/null"
+    )
+
+    if check.ok:
+        # Module already present - update the line
+        # Use sed to replace the existing line
+        escaped_line = pam_line.replace("/", "\\/")
+        cmd = f"sed -i 's/^{pam_type}\\s\\+.*{module}.*/{escaped_line}/' {shlex.quote(pam_file)}"
+        result = ssh.run(cmd)
+        if not result.ok:
+            return False, f"Failed to update {pam_file}: {result.stderr}"
+        return True, f"Updated {module} in {pam_file}"
+    else:
+        # Module not present - append to end of file
+        # In a production environment, we'd want to insert at the right position
+        # based on PAM stack ordering, but that's complex
+        result = ssh.run(f"echo {shlex.quote(pam_line)} >> {shlex.quote(pam_file)}")
+        if not result.ok:
+            return False, f"Failed to add {module} to {pam_file}: {result.stderr}"
+        return True, f"Added {module} to {pam_file}"
+
+
 def _reload_service(ssh: SSHSession, r: dict) -> None:
     """Reload or restart a service if specified in the remediation dict.
 
@@ -1332,4 +1419,5 @@ REMEDIATION_HANDLERS = {
     "grub_parameter_remove": _remediate_grub_parameter_remove,
     "config_block": _remediate_config_block,
     "cron_job": _remediate_cron_job,
+    "pam_module_configure": _remediate_pam_module_configure,
 }

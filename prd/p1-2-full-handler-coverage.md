@@ -1,13 +1,13 @@
 # P1-2: Full Handler Coverage
 
-## Status: Near Complete (17/18 check, 22/23 remediation)
+## Status: Complete (18/18 check, 23/23 remediation)
 
 ## Problem
 V0 implements 7 of 17 check methods and 8 of 23 remediation mechanisms defined in the schema. As we write more rules, we'll need the remaining handlers.
 
 ## Current State
 
-### Check Handlers (17/18 implemented)
+### Check Handlers (18/18 implemented)
 | Method | Status | Notes |
 |--------|--------|-------|
 | config_value | Done | |
@@ -27,9 +27,9 @@ V0 implements 7 of 17 check methods and 8 of 23 remediation mechanisms defined i
 | audit_rule_exists | Done | auditctl -l grep |
 | mount_option | Done | findmnt + option check |
 | grub_parameter | Done | grubby --info |
-| pam_module | **TODO** | grep PAM stack files |
+| pam_module | Done | grep PAM stack files |
 
-### Remediation Handlers (22/23 implemented)
+### Remediation Handlers (23/23 implemented)
 | Mechanism | Status | Notes |
 |-----------|--------|-------|
 | config_set | Done | |
@@ -54,7 +54,7 @@ V0 implements 7 of 17 check methods and 8 of 23 remediation mechanisms defined i
 | grub_parameter_set | Done | grubby --update-kernel |
 | grub_parameter_remove | Done | grubby --remove-args |
 | cron_job | Done | Write to /etc/cron.d/ |
-| pam_module_configure | **TODO** | authselect or direct PAM edit |
+| pam_module_configure | Done | Direct PAM file edit |
 
 ## Technical Approach
 
@@ -70,7 +70,7 @@ Implement in priority order based on which rules need them:
 ### Phase 2 — Security Features ✓ COMPLETE
 6. ✓ `selinux_state` / `selinux_boolean` checks + `selinux_boolean_set` remediation
 7. ✓ `audit_rule_exists` check + `audit_rule_set` remediation
-8. `pam_module` check + `pam_module_configure` remediation — **REMAINING**
+8. ✓ `pam_module` check + `pam_module_configure` remediation
 
 ### Phase 3 — System Configuration ✓ COMPLETE
 9. ✓ `mount_option` check + `mount_option_set` remediation

@@ -990,6 +990,129 @@ def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
     )
 
 
+def _check_pam_module(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check PAM module configuration in a service's PAM stack.
+
+    Verifies that a PAM module is present in a service's PAM configuration
+    with the expected type, control, and optional arguments.
+
+    Args:
+    ----
+        ssh: Active SSH session to the target host.
+        c: Check definition with required fields:
+            - service (str): PAM service name (e.g., "system-auth", "password-auth").
+            - module (str): PAM module name (e.g., "pam_faillock.so").
+            - type (str, optional): PAM type to check ("auth", "account",
+              "password", "session"). If omitted, any type matches.
+            - control (str, optional): Expected control value ("required",
+              "requisite", "sufficient", "optional", or complex []).
+            - args (str, optional): Expected arguments that must be present.
+
+    Returns:
+    -------
+        CheckResult with passed=True if module is configured as expected.
+
+    Example:
+    -------
+        Basic module presence check::
+
+            check:
+              method: pam_module
+              service: "system-auth"
+              module: "pam_faillock.so"
+
+        With type and control::
+
+            check:
+              method: pam_module
+              service: "password-auth"
+              module: "pam_faillock.so"
+              type: "auth"
+              control: "required"
+
+        With arguments::
+
+            check:
+              method: pam_module
+              service: "system-auth"
+              module: "pam_pwquality.so"
+              type: "password"
+              args: "retry=3"
+
+    """
+    service = c["service"]
+    module = c["module"]
+    expected_type = c.get("type")
+    expected_control = c.get("control")
+    expected_args = c.get("args")
+
+    # PAM files are typically in /etc/pam.d/
+    pam_file = f"/etc/pam.d/{service}"
+
+    # Check if file exists
+    exists = ssh.run(f"test -f {shlex.quote(pam_file)}")
+    if not exists.ok:
+        return CheckResult(passed=False, detail=f"{pam_file}: not found")
+
+    # Search for the module in the PAM file
+    # PAM format: type  control  module  [args...]
+    result = ssh.run(
+        f"grep -E '\\s{shlex.quote(module)}(\\s|$)' {shlex.quote(pam_file)} 2>/dev/null"
+    )
+    if not result.ok or not result.stdout.strip():
+        return CheckResult(passed=False, detail=f"{module} not found in {pam_file}")
+
+    # Parse the matching lines
+    for line in result.stdout.strip().splitlines():
+        line = line.strip()
+        # Skip comments
+        if line.startswith("#"):
+            continue
+
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+
+        # Handle -type prefix (e.g., "-auth" instead of "auth")
+        line_type = parts[0].lstrip("-")
+        line_control = parts[1]
+        line_module = parts[2]
+        line_args = " ".join(parts[3:]) if len(parts) > 3 else ""
+
+        # Check if this line matches our module
+        if module not in line_module:
+            continue
+
+        # Check type if specified
+        if expected_type and line_type != expected_type:
+            continue
+
+        # Check control if specified
+        if expected_control and line_control != expected_control:
+            continue
+
+        # Check args if specified - verify expected args are present
+        if expected_args and expected_args not in line_args:
+            continue
+
+        # Found a matching line
+        detail = f"{line_type} {line_control} {module}"
+        if line_args:
+            detail += f" ({line_args[:50]}{'...' if len(line_args) > 50 else ''})"
+        return CheckResult(passed=True, detail=detail)
+
+    # No matching line found
+    detail = f"{module} in {pam_file}: "
+    if expected_type:
+        detail += f"type={expected_type} "
+    if expected_control:
+        detail += f"control={expected_control} "
+    if expected_args:
+        detail += f"args containing '{expected_args}' "
+    detail += "not found"
+    return CheckResult(passed=False, detail=detail)
+
+
 CHECK_HANDLERS = {
     "config_value": _check_config_value,
     "config_absent": _check_config_absent,
@@ -1008,4 +1131,5 @@ CHECK_HANDLERS = {
     "audit_rule_exists": _check_audit_rule_exists,
     "mount_option": _check_mount_option,
     "grub_parameter": _check_grub_parameter,
+    "pam_module": _check_pam_module,
 }
