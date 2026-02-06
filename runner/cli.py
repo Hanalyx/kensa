@@ -157,8 +157,43 @@ def rule_options(f):
 
 # ── CLI group ───────────────────────────────────────────────────────────────
 
+MAIN_HELP_EPILOG = """
+\b
+Common Options (all commands):
+  -h, --host TEXT          Target host(s), comma-separated
+  -i, --inventory TEXT     Ansible inventory file (INI/YAML)
+  -l, --limit TEXT         Limit to group or hostname glob
+  -u, --user TEXT          SSH username
+  -k, --key TEXT           SSH private key path
+  -p, --password TEXT      SSH password
+  -P, --port INTEGER       SSH port (default: 22)
+  --sudo                   Run commands via sudo
+  -w, --workers INTEGER    Parallel connections (1-50, default: 1)
+  -v, --verbose            Show capability details
+  -C, --capability K=V     Override capability (repeatable)
 
-@click.group()
+\b
+Rule Options (check/remediate):
+  -r, --rules PATH         Rules directory
+  --rule PATH              Single rule file
+  -s, --severity TEXT      Filter by severity (repeatable)
+  -t, --tag TEXT           Filter by tag (repeatable)
+  -c, --category TEXT      Filter by category
+
+\b
+Remediation Options:
+  --dry-run                Preview without changes
+  --rollback-on-failure    Auto-rollback on failure
+
+\b
+Examples:
+  aegis detect --host 192.168.1.100 -u admin --sudo
+  aegis check -i hosts.ini --sudo -r rules/ -w 4
+  aegis remediate -i hosts.ini --sudo -r rules/ --dry-run
+"""
+
+
+@click.group(epilog=MAIN_HELP_EPILOG, context_settings={"max_content_width": 120})
 @click.version_option(version="0.1.0", prog_name="aegis")
 def main():
     """Aegis — SSH-based compliance test runner."""
