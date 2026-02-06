@@ -64,8 +64,8 @@ aegis/
 |--------|------|-------------|
 | `ssh.py` | Connection lifecycle, command execution, sudo prefixing | Anything about rules or results |
 | `inventory.py` | Target resolution from all sources, host filtering | SSH connections |
-| `detect.py` | Capability probe definitions and execution | Rule evaluation |
-| `engine.py` | Re-export facade — all public access stays through `from runner.engine import ...` | Everything (delegates to `_*.py` sub-modules) |
+| `detect.py` | Capability probes, platform detection (with fallback chain: os-release → redhat-release → debian_version) | Rule evaluation |
+| `engine.py` | Re-export facade + convenience functions (`check_single_rule`, `check_rules_from_path`, `quick_host_info`) | Everything (delegates to `_*.py` sub-modules) |
 | `_types.py` | Result dataclasses (CheckResult, PreState, StepResult, RollbackResult, RuleResult) | Any logic |
 | `_loading.py` | Rule loading from YAML, severity/tag/category filters, platform filtering | Rule evaluation |
 | `_selection.py` | Capability gate evaluation, implementation selection | Rule loading, checks |
@@ -120,6 +120,22 @@ This project runs arbitrary shell commands on remote hosts. Shell injection is t
 3. Validate: `python3 schema/validate.py rules/<category>/<id>.yml`
 4. Use existing check methods and remediation mechanisms — don't invent new ones without adding handlers
 
+## Inventory Files
+
+For repeated testing, create a local `inventory.ini` (gitignored):
+
+```ini
+# inventory.ini — Ansible INI format
+[test]
+192.168.1.100 ansible_user=admin
+192.168.1.101 ansible_user=admin
+
+[production]
+prod-server-1 ansible_user=deploy ansible_port=2222
+```
+
+Supports Ansible INI, YAML, or plain text (one host per line). Use `--limit` to filter by group or hostname glob.
+
 ## Testing
 
 Run from the `aegis/` directory:
@@ -134,6 +150,30 @@ python3 schema/validate.py rules/
 # Live test against a host (requires SSH access)
 ./aegis detect --sudo --host <ip> --user <user>
 ./aegis check --sudo --host <ip> --user <user> --rule rules/access-control/ssh-disable-root-login.yml
+
+# Using inventory file (recommended for repeated testing)
+./aegis detect --inventory inventory.ini --sudo
+./aegis check --inventory inventory.ini --sudo --category access-control
+./aegis check --inventory inventory.ini --sudo --limit 192.168.1.211 --rule rules/access-control/ssh-disable-root-login.yml
+```
+
+### Programmatic Usage
+
+The engine module provides convenience functions for scripting:
+
+```python
+from runner.ssh import SSHSession
+from runner.engine import check_single_rule, check_rules_from_path, quick_host_info
+
+with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
+    # Get host info in one call
+    caps, platform = quick_host_info(ssh)
+
+    # Check a single rule
+    result = check_single_rule(ssh, "rules/access-control/ssh-disable-root-login.yml")
+
+    # Check multiple rules with filtering
+    results = check_rules_from_path(ssh, "rules/", severity=["high", "critical"])
 ```
 
 ## Dependencies

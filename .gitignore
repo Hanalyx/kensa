@@ -31,3 +31,8 @@ extracted/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local inventory files (contain environment-specific IPs)
+inventory.ini
+inventory.yml
+inventory.yaml
