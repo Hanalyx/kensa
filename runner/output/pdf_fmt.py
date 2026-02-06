@@ -1,4 +1,33 @@
-"""PDF output formatter."""
+"""PDF output formatter for compliance results.
+
+Produces formatted PDF reports suitable for:
+- Executive summaries and management review
+- Audit documentation and compliance evidence
+- Printing and offline review
+- Formal reporting requirements
+
+Report Structure:
+    1. Title and timestamp
+    2. Summary table (hosts, pass/fail/skip counts)
+    3. Per-host sections with:
+       - Platform information
+       - Color-coded results table (PASS=green, FAIL=red, SKIP=grey)
+
+Requirements:
+    This formatter requires the reportlab library:
+        pip install reportlab
+
+    If reportlab is not installed, format_pdf() raises ImportError
+    with installation instructions.
+
+Example:
+-------
+    >>> from runner.output import RunResult, format_pdf
+    >>> result = RunResult(command="check")
+    >>> format_pdf(result, "compliance_report.pdf")
+    >>> # PDF file is written to disk
+
+"""
 
 from __future__ import annotations
 
@@ -7,7 +36,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from runner.output import RunResult
 
-# Check if reportlab is available
+
+# ── Optional dependency handling ───────────────────────────────────────────
+#
+# reportlab is optional - we detect its presence at import time and provide
+# a clear error message if it's missing when format_pdf() is called.
+
 try:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
@@ -26,19 +60,87 @@ except ImportError:
     REPORTLAB_AVAILABLE = False
 
 
+# ── Status colors ──────────────────────────────────────────────────────────
+#
+# Color coding for result status cells in the PDF table.
+# Using light variants for readability with black text.
+
+STATUS_COLORS = {
+    "PASS": "lightgreen",  # colors.lightgreen when reportlab loaded
+    "FAIL": "lightcoral",
+    "SKIP": "lightgrey",
+}
+
+
 def format_pdf(run_result: RunResult, filepath: str) -> None:
-    """Format results as PDF and write to file.
+    """Format compliance results as a PDF report.
 
-    Unlike other formatters, this writes directly to a file since PDF is binary.
+    Unlike text formatters, this writes directly to a file since PDF is
+    a binary format. The report includes a summary section and per-host
+    detail tables with color-coded status indicators.
 
-    Requires reportlab library. Install with: pip install reportlab
+    Args:
+        run_result: Aggregated results from a compliance run.
+        filepath: Path to write the PDF file.
+
+    Raises:
+        ImportError: If reportlab library is not installed.
+
+    Report Sections:
+        1. Header: "Aegis Compliance Report" title
+        2. Metadata: Timestamp and command type
+        3. Summary Table: Aggregate counts (hosts, pass, fail, skip, fixed)
+        4. Per-Host Details: For each host:
+           - Hostname heading
+           - Platform info (if detected)
+           - Results table with columns: Rule ID, Status, Severity, Title
+           - Status cells are color-coded (green/red/grey)
+
+    Note:
+        Long rule titles are truncated to 50 characters with "..." suffix
+        to maintain table formatting.
+
+    Example:
+    -------
+        >>> from runner.output import RunResult, format_pdf
+        >>> result = RunResult(command="check")
+        >>> # ... populate result ...
+        >>> format_pdf(result, "report.pdf")
+
     """
     if not REPORTLAB_AVAILABLE:
         raise ImportError(
             "PDF output requires the reportlab library. Install with: pip install reportlab"
         )
 
-    doc = SimpleDocTemplate(
+    doc = _create_document(filepath)
+    styles = _create_styles()
+    elements = []
+
+    # Title and metadata
+    elements.extend(_build_header(run_result, styles))
+
+    # Summary table
+    elements.extend(_build_summary_table(run_result))
+
+    # Per-host results
+    for host in run_result.hosts:
+        elements.extend(_build_host_section(host, run_result.command, styles))
+
+    doc.build(elements)
+
+
+def _create_document(filepath: str):
+    """Create a SimpleDocTemplate with standard margins.
+
+    Args:
+        filepath: Path for the output PDF.
+
+    Returns:
+        Configured SimpleDocTemplate instance.
+
+    """
+    return SimpleDocTemplate(
         filepath,
         pagesize=letter,
         rightMargin=0.5 * inch,
@@ -47,36 +149,63 @@ def format_pdf(run_result: RunResult, filepath: str) -> None:
         bottomMargin=0.5 * inch,
     )
 
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "Title",
-        parent=styles["Heading1"],
-        fontSize=18,
-        spaceAfter=12,
-    )
-    heading_style = ParagraphStyle(
-        "Heading",
-        parent=styles["Heading2"],
-        fontSize=14,
-        spaceAfter=6,
-    )
-    normal_style = styles["Normal"]
 
-    elements = []
+def _create_styles() -> dict:
+    """Create paragraph styles for the report.
 
-    # Title
-    elements.append(Paragraph("Aegis Compliance Report", title_style))
-    elements.append(Spacer(1, 0.2 * inch))
+    Returns:
+        Dict with 'title', 'heading', and 'normal' style objects.
 
-    # Summary info
-    elements.append(
-        Paragraph(f"Timestamp: {run_result.timestamp.isoformat()}", normal_style)
-    )
-    elements.append(Paragraph(f"Command: {run_result.command}", normal_style))
-    elements.append(Spacer(1, 0.1 * inch))
+    """
+    base_styles = getSampleStyleSheet()
+    return {
+        "title": ParagraphStyle(
+            "Title",
+            parent=base_styles["Heading1"],
+            fontSize=18,
+            spaceAfter=12,
+        ),
+        "heading": ParagraphStyle(
+            "Heading",
+            parent=base_styles["Heading2"],
+            fontSize=14,
+            spaceAfter=6,
+        ),
+        "normal": base_styles["Normal"],
+    }
 
-    # Summary table
-    summary_data = [
+
+def _build_header(run_result: RunResult, styles: dict) -> list:
+    """Build title and metadata elements.
+
+    Args:
+        run_result: The run results for timestamp/command info.
+        styles: Dict of paragraph styles.
+
+    Returns:
+        List of Paragraph and Spacer elements.
+
+    """
+    return [
+        Paragraph("Aegis Compliance Report", styles["title"]),
+        Spacer(1, 0.2 * inch),
+        Paragraph(f"Timestamp: {run_result.timestamp.isoformat()}", styles["normal"]),
+        Paragraph(f"Command: {run_result.command}", styles["normal"]),
+        Spacer(1, 0.1 * inch),
+    ]
+
+
+def _build_summary_table(run_result: RunResult) -> list:
+    """Build the summary statistics table.
+
+    Args:
+        run_result: The run results for aggregate counts.
+
+    Returns:
+        List containing the Table and a Spacer.
+
+    """
+    data = [
         ["Metric", "Value"],
         ["Hosts", str(run_result.host_count)],
         [
@@ -87,11 +216,12 @@ def format_pdf(run_result: RunResult, filepath: str) -> None:
         ["Failed", str(run_result.total_fail)],
         ["Skipped", str(run_result.total_skip)],
     ]
-    if run_result.command == "remediate":
-        summary_data.append(["Fixed", str(run_result.total_fixed)])
 
-    summary_table = Table(summary_data, colWidths=[2 * inch, 1.5 * inch])
-    summary_table.setStyle(
+    if run_result.command == "remediate":
+        data.append(["Fixed", str(run_result.total_fixed)])
+
+    table = Table(data, colWidths=[2 * inch, 1.5 * inch])
+    table.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
@@ -105,81 +235,135 @@ def format_pdf(run_result: RunResult, filepath: str) -> None:
             ]
         )
     )
-    elements.append(summary_table)
+
+    return [table, Spacer(1, 0.3 * inch)]
+
+
+def _build_host_section(host, command: str, styles: dict) -> list:
+    """Build the section for a single host.
+
+    Args:
+        host: HostResult object.
+        command: "check" or "remediate".
+        styles: Dict of paragraph styles.
+
+    Returns:
+        List of elements for this host's section.
+
+    """
+    elements = [Paragraph(f"Host: {host.hostname}", styles["heading"])]
+
+    if host.error:
+        elements.append(Paragraph(f"Error: {host.error}", styles["normal"]))
+        elements.append(Spacer(1, 0.2 * inch))
+        return elements
+
+    if host.platform_family:
+        elements.append(
+            Paragraph(
+                f"Platform: {host.platform_family} {host.platform_version or ''}",
+                styles["normal"],
+            )
+        )
+
+    if host.results:
+        elements.append(_build_results_table(host.results))
+
     elements.append(Spacer(1, 0.3 * inch))
+    return elements
 
-    # Per-host results
-    for host in run_result.hosts:
-        elements.append(Paragraph(f"Host: {host.hostname}", heading_style))
 
-        if host.error:
-            elements.append(Paragraph(f"Error: {host.error}", normal_style))
-            elements.append(Spacer(1, 0.2 * inch))
-            continue
+def _build_results_table(results: list):
+    """Build the results table for a host.
 
-        if host.platform_family:
-            elements.append(
-                Paragraph(
-                    f"Platform: {host.platform_family} {host.platform_version or ''}",
-                    normal_style,
-                )
-            )
+    Args:
+        results: List of RuleResult objects.
 
-        # Results table for this host
-        if host.results:
-            result_data = [["Rule ID", "Status", "Severity", "Title"]]
-            for result in host.results:
-                if result.skipped:
-                    status = "SKIP"
-                elif result.passed:
-                    status = "PASS"
-                else:
-                    status = "FAIL"
+    Returns:
+        Configured Table with color-coded status cells.
 
-                # Truncate title if too long
-                title = (
-                    result.title[:50] + "..."
-                    if len(result.title) > 50
-                    else result.title
-                )
-                result_data.append(
-                    [result.rule_id, status, result.severity or "", title]
-                )
+    """
+    data = [["Rule ID", "Status", "Severity", "Title"]]
 
-            result_table = Table(
-                result_data,
-                colWidths=[2.5 * inch, 0.6 * inch, 0.8 * inch, 3.5 * inch],
-            )
+    for result in results:
+        status = _get_status_label(result)
+        title = _truncate_title(result.title, max_length=50)
+        data.append([result.rule_id, status, result.severity or "", title])
 
-            # Color-code status cells
-            table_style = [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("ALIGN", (1, 0), (1, -1), "CENTER"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-            ]
+    table = Table(
+        data,
+        colWidths=[2.5 * inch, 0.6 * inch, 0.8 * inch, 3.5 * inch],
+    )
 
-            # Color status cells
-            for i, row in enumerate(result_data[1:], start=1):
-                status = row[1]
-                if status == "PASS":
-                    table_style.append(
-                        ("BACKGROUND", (1, i), (1, i), colors.lightgreen)
-                    )
-                elif status == "FAIL":
-                    table_style.append(
-                        ("BACKGROUND", (1, i), (1, i), colors.lightcoral)
-                    )
-                else:  # SKIP
-                    table_style.append(("BACKGROUND", (1, i), (1, i), colors.lightgrey))
+    style = _build_table_style(data)
+    table.setStyle(TableStyle(style))
 
-            result_table.setStyle(TableStyle(table_style))
-            elements.append(result_table)
+    return table
 
-        elements.append(Spacer(1, 0.3 * inch))
 
-    doc.build(elements)
+def _get_status_label(result) -> str:
+    """Get the status label for a result.
+
+    Args:
+        result: RuleResult object.
+
+    Returns:
+        "PASS", "FAIL", or "SKIP".
+
+    """
+    if result.skipped:
+        return "SKIP"
+    elif result.passed:
+        return "PASS"
+    else:
+        return "FAIL"
+
+
+def _truncate_title(title: str, max_length: int) -> str:
+    """Truncate a title to fit in the table column.
+
+    Args:
+        title: The full title string.
+        max_length: Maximum length before truncation.
+
+    Returns:
+        Original title or truncated with "..." suffix.
+
+    """
+    if len(title) > max_length:
+        return title[:max_length] + "..."
+    return title
+
+
+def _build_table_style(data: list) -> list:
+    """Build table style with color-coded status cells.
+
+    Args:
+        data: Table data including header row.
+
+    Returns:
+        List of TableStyle tuples.
+
+    """
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+    ]
+
+    # Color-code status cells based on value
+    for i, row in enumerate(data[1:], start=1):
+        status = row[1]
+        if status == "PASS":
+            style.append(("BACKGROUND", (1, i), (1, i), colors.lightgreen))
+        elif status == "FAIL":
+            style.append(("BACKGROUND", (1, i), (1, i), colors.lightcoral))
+        else:  # SKIP
+            style.append(("BACKGROUND", (1, i), (1, i), colors.lightgrey))
+
+    return style

@@ -207,12 +207,115 @@ Hooks include:
 
 ### Coding Standards
 
+**File Structure:**
 - Use `from __future__ import annotations` at top of each file
+- Use `TYPE_CHECKING` for import-only type hints
+- Group imports: stdlib, third-party, local (ruff handles this)
+- Use section headers (`# ── Section ───`) for visual organization
+
+**Type Hints:**
 - Type hints on all function signatures
+- Use `| None` instead of `Optional[]`
+- Use `list[]`, `dict[]` instead of `List[]`, `Dict[]`
+
+**Data Structures:**
 - Dataclasses for structured data, not dicts
 - No classes where a function suffices
-- Functions should have docstrings (public APIs)
+- Named tuples for simple immutable records
+
+**Code Style:**
 - Use ruff for formatting — don't argue about style
+- Extract helper functions for readability (prefix with `_` for private)
+- Keep functions focused and under ~50 lines
+
+### Documentation Standards
+
+**Module Docstrings (Required):**
+Every module must have a comprehensive docstring including:
+1. Purpose and what the module provides
+2. Key concepts or patterns used
+3. Usage example with doctest-style code
+
+```python
+"""Capability detection probes for remote hosts.
+
+This module detects host capabilities and platform information to enable
+capability-gated rule implementations. Probes are fast, read-only shell
+commands that determine what features are available on the target host.
+
+Example:
+-------
+    >>> with SSHSession("192.168.1.100", user="admin") as ssh:
+    ...     caps = detect_capabilities(ssh)
+    ...     print(f"Has sshd_config.d: {caps['sshd_config_d']}")
+
+"""
+```
+
+**Function Docstrings (Required for public APIs):**
+Use Google-style docstrings with:
+- Summary line (imperative mood)
+- Detailed description if non-obvious
+- Args section with types and descriptions
+- Returns section with type and description
+- Raises section if applicable
+- Example section for complex functions
+
+```python
+def detect_platform(ssh: SSHSession) -> PlatformInfo | None:
+    """Detect the remote host's OS family and version.
+
+    Uses a fallback chain to detect platform information:
+    1. /etc/os-release (preferred)
+    2. /etc/redhat-release (fallback for older RHEL)
+
+    Args:
+        ssh: Active SSH session to the target host.
+
+    Returns:
+        PlatformInfo(family, version) on success, None if detection fails.
+
+    Example:
+        >>> platform = detect_platform(ssh)
+        >>> if platform:
+        ...     print(f"Detected: {platform.family} {platform.version}")
+
+    """
+```
+
+**Dataclass/Class Docstrings:**
+Document attributes and properties:
+
+```python
+@dataclass
+class HostResult:
+    """Results from a single host.
+
+    Attributes:
+        hostname: The target host's address or hostname.
+        platform_family: Detected OS family (e.g., "rhel"), or None.
+        error: Connection error message, or None if successful.
+
+    Properties:
+        pass_count: Number of rules that passed.
+    """
+```
+
+**Comment Standards:**
+- Section headers for visual organization: `# ── Section name ───`
+- Explain "why" not "what" in inline comments
+- Document design decisions and non-obvious behavior
+- Add "how to extend" comments for extensible patterns
+
+```python
+# ── Capability probes ──────────────────────────────────────────────────
+#
+# Each probe maps a capability name to a shell command.
+# Adding a new probe:
+#   1. Add entry to this dict
+#   2. Use capability name in rule `when:` gates
+#   3. No code changes needed elsewhere
+```
 
 ### Ruff Rules
 

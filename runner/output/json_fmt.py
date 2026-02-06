@@ -1,4 +1,32 @@
-"""JSON output formatter."""
+"""JSON output formatter for compliance results.
+
+Produces structured JSON output suitable for:
+- Programmatic parsing by CI/CD pipelines
+- Integration with monitoring systems
+- Archival and audit trails
+- Custom reporting tools
+
+Output Structure:
+    {
+        "timestamp": "ISO-8601 datetime",
+        "command": "check" or "remediate",
+        "hosts": [...],
+        "summary": {totals}
+    }
+
+Each host entry contains platform info, capabilities, and per-rule results.
+The summary provides aggregate counts across all hosts.
+
+Example:
+-------
+    >>> from runner.output import RunResult, format_json
+    >>> result = RunResult(command="check")
+    >>> json_str = format_json(result)
+    >>> import json
+    >>> data = json.loads(json_str)
+    >>> print(data["summary"]["pass"])
+
+"""
 
 from __future__ import annotations
 
@@ -10,13 +38,36 @@ if TYPE_CHECKING:
 
 
 def format_json(run_result: RunResult) -> str:
-    """Format results as JSON.
+    """Format compliance results as JSON.
 
-    Produces a structured JSON document with:
-    - timestamp
-    - command (check/remediate)
-    - hosts[] with capabilities and results
-    - summary totals
+    Produces a structured JSON document with full details for each host
+    and rule. Includes capabilities, platform info, and summary statistics.
+
+    Args:
+        run_result: Aggregated results from a compliance run.
+
+    Returns:
+        Pretty-printed JSON string (2-space indent).
+
+    Output Structure:
+        - timestamp: ISO-8601 UTC timestamp of the run
+        - command: "check" or "remediate"
+        - hosts[]: Array of host results, each containing:
+            - hostname: Target host address
+            - platform: {family, version} or null
+            - capabilities: Dict of detected capabilities
+            - results[]: Array of rule results
+            - summary: Per-host counts
+            - error: Error message if connection failed
+        - summary: Aggregate counts across all hosts
+
+    Note:
+        For remediate command, includes additional fields:
+        - summary.fixed: Count of successfully remediated rules
+        - results[].remediated: Whether rule was remediated
+        - results[].remediation_detail: Details of remediation action
+        - results[].rolled_back: Whether changes were rolled back
+
     """
     data = {
         "timestamp": run_result.timestamp.isoformat(),
