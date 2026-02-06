@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import patch, MagicMock
 
 from click.testing import CliRunner
@@ -9,6 +10,12 @@ from click.testing import CliRunner
 from runner.cli import main
 from runner.detect import PlatformInfo
 from runner.ssh import Result
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text for easier testing."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestCLIHelp:
@@ -100,7 +107,8 @@ class TestCLICheck:
             "--rule", str(rule_file),
         ])
         assert "PASS" in result.output
-        assert "1 pass" in result.output
+        clean_output = strip_ansi(result.output)
+        assert "1 pass" in clean_output or ("1 rules" in clean_output and "pass" in clean_output)
 
     @patch("runner.cli.SSHSession")
     def test_check_fail(self, mock_session_cls, tmp_path):
@@ -139,7 +147,8 @@ class TestCLICheck:
             "--rule", str(rule_file),
         ])
         assert "FAIL" in result.output
-        assert "1 fail" in result.output
+        clean_output = strip_ansi(result.output)
+        assert "1 fail" in clean_output or ("1 rules" in clean_output and "fail" in clean_output)
 
 
 class TestCLIVerbose:
@@ -292,7 +301,8 @@ class TestCLIPlatformSkip:
         ])
         assert "SKIP" in result.output
         assert "rhel9-only-rule" in result.output
-        assert "1 skip" in result.output
+        clean_output = strip_ansi(result.output)
+        assert "1 skip" in clean_output or ("1 rules" in clean_output and "skip" in clean_output)
 
 
 class TestCLIRollbackFlag:

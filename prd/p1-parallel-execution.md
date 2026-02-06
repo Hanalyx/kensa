@@ -1,6 +1,6 @@
 # P1: Parallel Host Execution
 
-## Status: Not Started
+## Status: Complete
 
 ## Problem
 V0 executes hosts sequentially. A 35-rule scan across 50 hosts takes ~50x the time of a single host. Most time is spent waiting for SSH command responses — this is I/O-bound and parallelizable.
@@ -43,16 +43,16 @@ One host's connection failure or timeout must not affect other hosts. Each futur
 SSH connections consume file descriptors and remote sshd slots. The `--workers` flag caps parallelism. Default of 10 is conservative.
 
 ## Acceptance Criteria
-- [ ] `--workers 1` behaves identically to V0 sequential execution
-- [ ] `--workers 10` runs 10 hosts concurrently
-- [ ] One host timing out doesn't block or cancel other hosts
-- [ ] One host connection failure is reported, others continue
-- [ ] Output is complete (no interleaved partial lines)
-- [ ] Per-host sections are atomic (all results for one host printed together)
-- [ ] Summary totals are correct across all hosts
-- [ ] `--ordered` flag prints hosts in input order
-- [ ] Thread count doesn't exceed `--workers` value
-- [ ] No shared mutable state between threads (each has own SSHSession)
+- [x] `--workers 1` behaves identically to V0 sequential execution
+- [x] `--workers 10` runs 10 hosts concurrently
+- [x] One host timing out doesn't block or cancel other hosts
+- [x] One host connection failure is reported, others continue
+- [x] Output is complete (no interleaved partial lines)
+- [x] Per-host sections are atomic (all results for one host printed together)
+- [x] Summary totals are correct across all hosts
+- [ ] `--ordered` flag prints hosts in input order (deferred to future enhancement)
+- [x] Thread count doesn't exceed `--workers` value
+- [x] No shared mutable state between threads (each has own SSHSession)
 
 ## Test Plan
 - Unit test: mock multiple hosts, verify all are checked

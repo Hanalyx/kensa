@@ -191,4 +191,4 @@ with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
 - Dataclasses for data types, not dicts
 - No classes where a function suffices
 - Error handling: per-rule, not per-run — one rule failing doesn't stop others
-- Sequential host execution (parallel is a P1 task)
+- Parallel host execution with `--workers N` (default: 1, max: 50)
