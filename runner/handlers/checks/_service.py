@@ -70,3 +70,40 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
     if failures:
         return CheckResult(passed=False, detail=f"{name}: {'; '.join(failures)}")
     return CheckResult(passed=True, detail=f"{name}: {', '.join(details)}")
+
+
+def _check_systemd_target(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check the system's default systemd target.
+
+    Verifies whether the system's default target matches (or doesn't match)
+    the expected value. Commonly used to verify graphical.target vs
+    multi-user.target.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        c: Check definition with fields:
+            - expected (str): Expected default target (e.g., "multi-user.target").
+            - not_expected (str, optional): Target that should NOT be set.
+
+    Returns:
+        CheckResult with passed=True if the target matches expectations.
+
+    """
+    result = ssh.run("systemctl get-default 2>/dev/null")
+    actual = result.stdout.strip()
+
+    if "not_expected" in c:
+        not_expected = c["not_expected"]
+        if actual == not_expected:
+            return CheckResult(
+                passed=False,
+                detail=f"default target is {actual} (should not be {not_expected})",
+            )
+        return CheckResult(passed=True, detail=f"default target is {actual}")
+
+    expected = c.get("expected", "")
+    if actual != expected:
+        return CheckResult(
+            passed=False, detail=f"default target is {actual} (expected {expected})"
+        )
+    return CheckResult(passed=True, detail=f"default target is {actual}")

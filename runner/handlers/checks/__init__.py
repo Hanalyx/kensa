@@ -42,7 +42,7 @@ from runner.handlers.checks._security import (
     _check_selinux_boolean,
     _check_selinux_state,
 )
-from runner.handlers.checks._service import _check_service_state
+from runner.handlers.checks._service import _check_service_state, _check_systemd_target
 from runner.handlers.checks._system import (
     _check_grub_parameter,
     _check_kernel_module_state,
@@ -73,6 +73,7 @@ CHECK_HANDLERS = {
     "grub_parameter": _check_grub_parameter,
     # Service handlers
     "service_state": _check_service_state,
+    "systemd_target": _check_systemd_target,
     # Package handlers
     "package_state": _check_package_state,
     # Security handlers
