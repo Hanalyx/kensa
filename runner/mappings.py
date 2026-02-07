@@ -540,11 +540,21 @@ def check_coverage(
 
     """
     # Find missing rules (referenced but don't exist)
-    missing_rules = [
-        entry.rule_id
-        for entry in mapping.sections.values()
-        if entry.rule_id and entry.rule_id not in available_rules
-    ]
+    # Handle both NIST-style (rules in metadata) and CIS/STIG-style (single rule_id)
+    missing_rules = []
+    for entry in mapping.sections.values():
+        rule_list = entry.metadata.get("rules", [])
+        if rule_list:
+            # NIST format: check each rule in the list
+            for rule_id in rule_list:
+                if rule_id and rule_id not in available_rules:
+                    missing_rules.append(rule_id)
+        elif entry.rule_id and entry.rule_id not in available_rules:
+            # CIS/STIG format: single rule_id
+            missing_rules.append(entry.rule_id)
+
+    # Deduplicate missing rules
+    missing_rules = sorted(set(missing_rules))
 
     # Determine totals based on whether a manifest exists
     has_manifest = bool(mapping.controls)
@@ -565,3 +575,172 @@ def check_coverage(
         missing_rules=missing_rules,
         has_manifest=has_manifest,
     )
+
+
+# ── Cross-reference index ────────────────────────────────────────────────────
+
+
+@dataclass
+class FrameworkReference:
+    """A reference from a framework to a rule.
+
+    Attributes:
+        mapping_id: Framework mapping ID (e.g., "cis-rhel9-v2.0.0").
+        mapping_title: Human-readable framework title.
+        section_id: Section/control ID within the framework.
+        title: Section title from the framework.
+        metadata: Additional metadata (level, type, severity, etc.).
+
+    """
+
+    mapping_id: str
+    mapping_title: str
+    section_id: str
+    title: str
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class FrameworkIndex:
+    """Cross-reference index for framework mappings.
+
+    Provides fast lookups for:
+    - Which frameworks reference a rule
+    - Which rules implement a control
+
+    Example:
+        >>> mappings = load_all_mappings()
+        >>> index = FrameworkIndex.build(mappings)
+        >>> refs = index.query_by_rule("ssh-disable-root-login")
+        >>> for ref in refs:
+        ...     print(f"{ref.mapping_id}: {ref.section_id}")
+
+    """
+
+    # rule_id -> list of FrameworkReference
+    rules_to_frameworks: dict[str, list[FrameworkReference]]
+
+    # "mapping_id:section_id" -> list of rule_ids
+    controls_to_rules: dict[str, list[str]]
+
+    # All loaded mappings for metadata lookups
+    mappings: dict[str, FrameworkMapping]
+
+    @classmethod
+    def build(cls, mappings: dict[str, FrameworkMapping]) -> FrameworkIndex:
+        """Build cross-reference index from all mappings.
+
+        Args:
+            mappings: Dict of mapping_id -> FrameworkMapping.
+
+        Returns:
+            Populated FrameworkIndex.
+
+        """
+        rules_to_frameworks: dict[str, list[FrameworkReference]] = {}
+        controls_to_rules: dict[str, list[str]] = {}
+
+        for mapping_id, mapping in mappings.items():
+            for section_id, entry in mapping.sections.items():
+                # Build rule -> frameworks index
+                ref = FrameworkReference(
+                    mapping_id=mapping_id,
+                    mapping_title=mapping.title,
+                    section_id=section_id,
+                    title=entry.title,
+                    metadata=entry.metadata,
+                )
+
+                # Handle NIST-style many-to-many (rules in metadata)
+                # vs CIS/STIG-style one-to-one (single rule_id)
+                rule_list = entry.metadata.get("rules", [])
+                if rule_list:
+                    # NIST format: multiple rules per control
+                    for rule_id in rule_list:
+                        rules_to_frameworks.setdefault(rule_id, []).append(ref)
+                    control_key = f"{mapping_id}:{section_id}"
+                    controls_to_rules.setdefault(control_key, []).extend(rule_list)
+                elif entry.rule_id:
+                    # CIS/STIG format: single rule per section
+                    rules_to_frameworks.setdefault(entry.rule_id, []).append(ref)
+                    control_key = f"{mapping_id}:{section_id}"
+                    controls_to_rules.setdefault(control_key, []).append(entry.rule_id)
+
+        return cls(
+            rules_to_frameworks=rules_to_frameworks,
+            controls_to_rules=controls_to_rules,
+            mappings=mappings,
+        )
+
+    def query_by_rule(self, rule_id: str) -> list[FrameworkReference]:
+        """Find all framework references for a rule.
+
+        Args:
+            rule_id: Canonical rule ID.
+
+        Returns:
+            List of FrameworkReference objects, or empty list if not found.
+
+        """
+        return self.rules_to_frameworks.get(rule_id, [])
+
+    def query_by_control(
+        self, control_spec: str, *, prefix_match: bool = False
+    ) -> list[str]:
+        """Find rules implementing a control.
+
+        Args:
+            control_spec: Control specification in format "mapping_id:section_id"
+                or just "section_id" to search all mappings.
+            prefix_match: If True, match control_spec as a prefix
+                (e.g., "5.1" matches "5.1.1", "5.1.2", etc.).
+
+        Returns:
+            List of rule IDs implementing the control(s).
+
+        """
+        if ":" in control_spec:
+            # Exact or prefix match for "mapping_id:section_id"
+            if prefix_match:
+                results = []
+                for key, rules in self.controls_to_rules.items():
+                    if key.startswith(control_spec) or key.startswith(
+                        control_spec + "."
+                    ):
+                        results.extend(rules)
+                return list(set(results))
+            return self.controls_to_rules.get(control_spec, [])
+
+        # Search all mappings for section_id
+        results = []
+        for key, rules in self.controls_to_rules.items():
+            _, section = key.split(":", 1)
+            if prefix_match:
+                if section.startswith(control_spec) or section.startswith(
+                    control_spec + "."
+                ):
+                    results.extend(rules)
+            elif section == control_spec:
+                results.extend(rules)
+        return list(set(results))
+
+    def list_controls(
+        self, mapping_id: str | None = None
+    ) -> list[tuple[str, str, int]]:
+        """List all controls with rule counts.
+
+        Args:
+            mapping_id: Optional filter by mapping ID.
+
+        Returns:
+            List of (mapping_id, section_id, rule_count) tuples, sorted.
+
+        """
+        results = []
+        for key, rules in self.controls_to_rules.items():
+            mid, section = key.split(":", 1)
+            if mapping_id is None or mid == mapping_id:
+                results.append((mid, section, len(rules)))
+
+        # Sort by mapping_id, then section_id
+        return sorted(results, key=lambda x: (x[0], _parse_section_key(x[1])))

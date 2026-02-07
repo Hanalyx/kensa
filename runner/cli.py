@@ -2346,3 +2346,303 @@ def list_frameworks():
             f"    Sections: {mapping.implemented_count} implemented, {mapping.unimplemented_count} skipped"
         )
         console.print()
+
+
+# ── info ─────────────────────────────────────────────────────────────────────
+
+
+def _get_control_info(
+    control_spec: str,
+    mappings: dict,
+    prefix_match: bool = False,
+) -> list[dict]:
+    """Get control info (title, metadata) from mappings.
+
+    Args:
+        control_spec: Control specification (e.g., "cis-rhel9-v2.0.0:5.1.12").
+        mappings: Dict of mapping_id -> FrameworkMapping.
+        prefix_match: Whether to match as prefix.
+
+    Returns:
+        List of control info dicts with mapping_id, section_id, title, metadata.
+
+    """
+    results = []
+
+    if ":" in control_spec:
+        # Format: "mapping_id:section_id"
+        mapping_id, section_id = control_spec.split(":", 1)
+        if mapping_id in mappings:
+            mapping = mappings[mapping_id]
+            if prefix_match:
+                for sid, entry in mapping.sections.items():
+                    if sid.startswith(section_id) or sid.startswith(section_id + "."):
+                        results.append(
+                            {
+                                "mapping_id": mapping_id,
+                                "section_id": sid,
+                                "title": entry.title,
+                                "metadata": entry.metadata,
+                            }
+                        )
+            elif section_id in mapping.sections:
+                entry = mapping.sections[section_id]
+                results.append(
+                    {
+                        "mapping_id": mapping_id,
+                        "section_id": section_id,
+                        "title": entry.title,
+                        "metadata": entry.metadata,
+                    }
+                )
+    else:
+        # Search all mappings for section_id
+        for mapping_id, mapping in mappings.items():
+            if prefix_match:
+                for sid, entry in mapping.sections.items():
+                    if sid.startswith(control_spec) or sid.startswith(
+                        control_spec + "."
+                    ):
+                        results.append(
+                            {
+                                "mapping_id": mapping_id,
+                                "section_id": sid,
+                                "title": entry.title,
+                                "metadata": entry.metadata,
+                            }
+                        )
+            elif control_spec in mapping.sections:
+                entry = mapping.sections[control_spec]
+                results.append(
+                    {
+                        "mapping_id": mapping_id,
+                        "section_id": control_spec,
+                        "title": entry.title,
+                        "metadata": entry.metadata,
+                    }
+                )
+
+    return results
+
+
+@main.command()
+@click.option(
+    "--control",
+    "-c",
+    default=None,
+    help="Find rules implementing a control (e.g., cis-rhel9-v2.0.0:5.1.12 or just 5.1.12)",
+)
+@click.option(
+    "--rule",
+    "-r",
+    default=None,
+    help="Find framework references for a rule ID",
+)
+@click.option(
+    "--list-controls",
+    "-l",
+    is_flag=True,
+    help="List all controls with rule counts",
+)
+@click.option(
+    "--framework",
+    "-f",
+    default=None,
+    help="Filter by framework ID (for --list-controls)",
+)
+@click.option(
+    "--prefix-match",
+    "-p",
+    is_flag=True,
+    help="Match control as prefix (e.g., 5.1 matches 5.1.1, 5.1.2, etc.)",
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+def info(control, rule, list_controls, framework, prefix_match, json_output):
+    """Show detailed information about rules and framework controls.
+
+    Cross-reference rules and framework controls to understand coverage
+    and find relationships between compliance requirements and rules.
+
+    Examples:
+      aegis info --control cis-rhel9-v2.0.0:5.1.12
+      aegis info --control 5.1 --prefix-match
+      aegis info --rule ssh-disable-root-login
+      aegis info --list-controls --framework cis-rhel9-v2.0.0
+    """
+    from runner.mappings import FrameworkIndex, load_all_mappings
+
+    # Load mappings and build index
+    mappings = load_all_mappings()
+    if not mappings:
+        console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+        sys.exit(1)
+
+    index = FrameworkIndex.build(mappings)
+
+    # Validate options
+    options_count = sum([bool(control), bool(rule), list_controls])
+    if options_count == 0:
+        console.print("[red]Error:[/red] Specify --control, --rule, or --list-controls")
+        sys.exit(1)
+    if options_count > 1:
+        console.print(
+            "[red]Error:[/red] Only one of --control, --rule, --list-controls allowed"
+        )
+        sys.exit(1)
+
+    # Query by control
+    if control:
+        rules = index.query_by_control(control, prefix_match=prefix_match)
+
+        # Load rule metadata for detail display
+        from runner._loading import load_rules
+
+        try:
+            all_rules = load_rules("rules/")
+            rules_by_id = {r["id"]: r for r in all_rules}
+        except (ValueError, FileNotFoundError):
+            rules_by_id = {}
+
+        # Get control info from mapping
+        control_info = _get_control_info(control, mappings, prefix_match)
+
+        if json_output:
+            import json
+
+            # Build detailed rule info
+            detailed_rules = []
+            for rule_id in sorted(rules):
+                rule_data = rules_by_id.get(rule_id, {})
+                detailed_rules.append(
+                    {
+                        "rule_id": rule_id,
+                        "title": rule_data.get("title", ""),
+                        "severity": rule_data.get("severity", ""),
+                        "category": rule_data.get("category", ""),
+                    }
+                )
+
+            output = {
+                "query": {"control": control, "prefix_match": prefix_match},
+                "control_info": control_info,
+                "rules": detailed_rules,
+            }
+            print(json.dumps(output, indent=2))
+            return
+
+        if not rules:
+            console.print(f"[yellow]No rules found for control: {control}[/yellow]")
+            return
+
+        console.print(f"[bold]Rules implementing {control}:[/bold]")
+        if prefix_match:
+            console.print("[dim](prefix match enabled)[/dim]")
+
+        # Show control title if available
+        if control_info:
+            for info in control_info:
+                console.print(f"[dim]{info['mapping_id']}: {info['title']}[/dim]")
+        console.print()
+
+        for rule_id in sorted(rules):
+            rule_data = rules_by_id.get(rule_id, {})
+            title = rule_data.get("title", "")
+            severity = rule_data.get("severity", "")
+
+            console.print(f"  [cyan]{rule_id}[/cyan]")
+            if title:
+                console.print(f"    {title}")
+            if severity:
+                sev_color = {
+                    "critical": "red",
+                    "high": "red",
+                    "medium": "yellow",
+                    "low": "dim",
+                }.get(severity, "white")
+                console.print(f"    [{sev_color}]Severity: {severity}[/{sev_color}]")
+            console.print()
+
+        console.print(f"[dim]Total: {len(rules)} rules[/dim]")
+
+    # Query by rule
+    elif rule:
+        refs = index.query_by_rule(rule)
+        if json_output:
+            import json
+
+            output = {
+                "query": {"rule": rule},
+                "frameworks": [
+                    {
+                        "mapping_id": ref.mapping_id,
+                        "mapping_title": ref.mapping_title,
+                        "section_id": ref.section_id,
+                        "title": ref.title,
+                        "metadata": ref.metadata,
+                    }
+                    for ref in refs
+                ],
+            }
+            print(json.dumps(output, indent=2))
+            return
+
+        if not refs:
+            console.print(f"[yellow]Rule not found in any framework: {rule}[/yellow]")
+            return
+
+        console.print(f"[bold]Framework references for {rule}:[/bold]")
+        console.print()
+        for ref in refs:
+            console.print(f"  [cyan]{ref.mapping_id}[/cyan]: {ref.section_id}")
+            console.print(f"    {ref.title}")
+            if ref.metadata:
+                meta_str = ", ".join(f"{k}={v}" for k, v in ref.metadata.items())
+                console.print(f"    [dim]{meta_str}[/dim]")
+            console.print()
+        console.print(f"[dim]Total: {len(refs)} framework references[/dim]")
+
+    # List controls
+    elif list_controls:
+        controls = index.list_controls(mapping_id=framework)
+        if json_output:
+            import json
+
+            output = {
+                "query": {"list_controls": True, "framework": framework},
+                "controls": [
+                    {"mapping_id": mid, "section_id": sid, "rule_count": count}
+                    for mid, sid, count in controls
+                ],
+            }
+            print(json.dumps(output, indent=2))
+            return
+
+        if not controls:
+            if framework:
+                console.print(
+                    f"[yellow]No controls found for framework: {framework}[/yellow]"
+                )
+            else:
+                console.print("[yellow]No controls found[/yellow]")
+            return
+
+        title = f"Controls in {framework}" if framework else "All Controls"
+        console.print(f"[bold]{title}:[/bold]")
+        console.print()
+
+        # Group by mapping if showing all
+        current_mapping = None
+        for mid, sid, count in controls:
+            if not framework and mid != current_mapping:
+                if current_mapping is not None:
+                    console.print()
+                console.print(f"[cyan]{mid}[/cyan]")
+                current_mapping = mid
+
+            prefix = "  " if not framework else ""
+            console.print(
+                f"{prefix}  {sid:<15s} ({count} rule{'s' if count != 1 else ''})"
+            )
+
+        console.print()
+        console.print(f"[dim]Total: {len(controls)} controls[/dim]")
