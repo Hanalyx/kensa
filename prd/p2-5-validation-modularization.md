@@ -1,6 +1,6 @@
 # P2-5: Validation Modularization
 
-## Status: Not Started
+## Status: Complete (Phase 1)
 
 ## Problem
 
@@ -350,15 +350,15 @@ def main():
 
 ## Acceptance Criteria
 
-- [ ] `validators/rule.py` contains all current rule validation logic
-- [ ] `validate.py` is a thin orchestrator (~100 lines)
-- [ ] Each validator module is independently testable
-- [ ] `ValidationError` dataclass used consistently
-- [ ] `--format json` produces machine-readable output
-- [ ] `--format github` produces GitHub Actions annotations
-- [ ] Exit code is 1 if any errors, 0 otherwise
-- [ ] `--strict` makes warnings into errors
-- [ ] Validation runs in <2s for 50 rules + 10 mappings
+- [x] `validators/rule.py` contains all current rule validation logic
+- [x] `validate.py` is a thin orchestrator (~100 lines)
+- [x] Each validator module is independently testable
+- [x] `ValidationError` dataclass used consistently
+- [x] `--format json` produces machine-readable output
+- [x] `--format github` produces GitHub Actions annotations
+- [x] Exit code is 1 if any errors, 0 otherwise
+- [x] `--strict` makes warnings into errors
+- [x] Validation runs in <2s for 50 rules + 10 mappings
 
 ## Future Extensions
 

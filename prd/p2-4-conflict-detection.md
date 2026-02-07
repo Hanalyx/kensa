@@ -1,6 +1,6 @@
 # P2-4: Semantic Conflict Detection
 
-## Status: Not Started
+## Status: Complete
 
 ## Problem
 
@@ -167,16 +167,16 @@ elif conflicts:
 
 ## Acceptance Criteria
 
-- [ ] Config key conflicts detected (same file + key, different value)
-- [ ] Sysctl conflicts detected
-- [ ] Service state conflicts detected (enable vs disable)
-- [ ] Package state conflicts detected (present vs absent)
-- [ ] File permission conflicts detected (same path, different mode/owner)
-- [ ] Redundant operations (same value) are NOT flagged as conflicts
-- [ ] `--allow-conflicts` proceeds with warning
-- [ ] `--dry-run` shows conflicts inline with execution plan
-- [ ] Error message shows exactly which rules conflict and how
-- [ ] Exit code is non-zero when conflicts block execution
+- [x] Config key conflicts detected (same file + key, different value)
+- [x] Sysctl conflicts detected
+- [x] Service state conflicts detected (enable vs disable)
+- [x] Package state conflicts detected (present vs absent)
+- [x] File permission conflicts detected (same path, different mode/owner)
+- [x] Redundant operations (same value) are NOT flagged as conflicts
+- [x] `--allow-conflicts` proceeds with warning
+- [x] Error message shows exactly which rules conflict and how
+- [x] Exit code is non-zero when conflicts block execution
+- [ ] `--dry-run` shows conflicts inline with execution plan (deferred)
 
 ## Edge Cases
 

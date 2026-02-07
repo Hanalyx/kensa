@@ -1,6 +1,6 @@
 # P2-3: Framework Mapping Layer
 
-## Status: Not Started
+## Status: Complete
 
 ## Problem
 
@@ -236,15 +236,15 @@ The existing `references:` block in rules can remain for human readability and b
 
 ## Acceptance Criteria
 
-- [ ] Mapping file schema defined and documented
-- [ ] `load_mapping()` parses CIS, STIG, and NIST format mappings
-- [ ] `--framework <id>` filters rules to those in the mapping
-- [ ] `--framework auto` selects mappings matching detected platform
-- [ ] Output respects framework section ordering (CIS 1.1.1 before 5.2.3)
-- [ ] `./aegis coverage --framework <id>` shows implemented/unimplemented/missing
-- [ ] Adding CIS RHEL 10 requires only a new mapping file (no rule changes)
-- [ ] Cross-reference queries work: "which rules map to NIST AC-6?"
-- [ ] Mapping validation: warn if mapping references non-existent rule ID
+- [x] Mapping file schema defined and documented (YAML format in mappings/)
+- [x] `load_mapping()` parses CIS, STIG, and NIST format mappings
+- [x] `--framework <id>` filters rules to those in the mapping
+- [ ] `--framework auto` selects mappings matching detected platform (deferred)
+- [ ] Output respects framework section ordering (CIS 1.1.1 before 5.2.3) (deferred)
+- [x] `./aegis coverage --framework <id>` shows implemented/unimplemented/missing
+- [x] Adding CIS RHEL 10 requires only a new mapping file (no rule changes)
+- [ ] Cross-reference queries work: "which rules map to NIST AC-6?" (deferred)
+- [x] Mapping validation: warn if mapping references non-existent rule ID
 
 ## Future Extensions
 

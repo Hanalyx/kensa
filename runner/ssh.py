@@ -23,6 +23,7 @@ class Result:
 
     @property
     def ok(self) -> bool:
+        """Return True if command succeeded (exit code 0)."""
         return self.exit_code == 0
 
 

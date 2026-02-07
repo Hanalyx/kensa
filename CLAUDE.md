@@ -12,31 +12,51 @@ aegis/
   runner/
     cli.py               # Click CLI, rich output, orchestration
     ssh.py               # SSHSession wrapper around paramiko
-    inventory.py          # Ansible inventory parser + host list
-    detect.py             # Capability probes (name -> shell command)
-    engine.py             # Re-export facade (backward compat)
+    inventory.py         # Ansible inventory parser + host list
+    detect.py            # Capability probes (name -> shell command)
+    engine.py            # Re-export facade (backward compat)
+    shell_util.py        # Shared shell command utilities (quoting, file ops)
     _types.py            # CheckResult, PreState, StepResult, RollbackResult, RuleResult
     _loading.py          # load_rules(), rule_applies_to_platform()
     _selection.py        # evaluate_when(), select_implementation()
-    _checks.py           # Check handlers + dispatch
-    _remediation.py      # Remediation handlers + _reload_service
-    _capture.py          # Pre-state capture handlers
-    _rollback.py         # Rollback handlers + _execute_rollback
+    _checks.py           # Re-export: handlers from handlers/checks/
+    _remediation.py      # Re-export: handlers from handlers/remediation/
+    _capture.py          # Re-export: handlers from handlers/capture/
+    _rollback.py         # Re-export: handlers from handlers/rollback/
     _orchestration.py    # evaluate_rule(), remediate_rule()
-  rules/                  # Canonical YAML rules (the content)
-    access-control/       # SSH, PAM, authentication
-    audit/                # AIDE, auditd
-    filesystem/           # File permissions, mount options
-    kernel/               # Sysctl, kernel modules
-    logging/              # Journald, rsyslog
-    network/              # Firewall, network params
-    services/             # Service hardening
-    system/               # Crypto policy, bootloader
+    handlers/            # Modular handler packages
+      checks/            # Check handlers by domain
+        _config.py       # config_value, config_absent
+        _file.py         # file_permission, file_exists, etc.
+        _system.py       # sysctl_value, kernel_module_state, etc.
+        _service.py      # service_state
+        _package.py      # package_state
+        _security.py     # selinux_*, audit_rule_exists, pam_module
+        _command.py      # command
+      remediation/       # Remediation handlers by domain
+        _config.py       # config_set, config_set_dropin, etc.
+        _file.py         # file_permissions, file_content, file_absent
+        _system.py       # sysctl_set, kernel_module_disable, etc.
+        _service.py      # service_enabled/disabled/masked
+        _package.py      # package_present/absent
+        _security.py     # selinux_boolean_set, audit_rule_set, etc.
+        _command.py      # command_exec, manual
+      capture/           # Pre-state capture handlers (mirrors remediation)
+      rollback/          # Rollback handlers (mirrors remediation)
+  rules/                 # Canonical YAML rules (the content)
+    access-control/      # SSH, PAM, authentication
+    audit/               # AIDE, auditd
+    filesystem/          # File permissions, mount options
+    kernel/              # Sysctl, kernel modules
+    logging/             # Journald, rsyslog
+    network/             # Firewall, network params
+    services/            # Service hardening
+    system/              # Crypto policy, bootloader
   schema/
-    rule.schema.json      # JSON Schema — single source of truth for rule format
-    validate.py           # Schema + business rule validator
-  context/                # Architecture, patterns, security reference
-  prd/                    # Product requirements, prioritized task files
+    rule.schema.json     # JSON Schema — single source of truth for rule format
+    validate.py          # Schema + business rule validator
+  context/               # Architecture, patterns, security reference
+  prd/                   # Product requirements, prioritized task files
 ```
 
 ## Critical Invariants
@@ -66,13 +86,18 @@ aegis/
 | `inventory.py` | Target resolution from all sources, host filtering | SSH connections |
 | `detect.py` | Capability probes, platform detection (with fallback chain: os-release → redhat-release → debian_version) | Rule evaluation |
 | `engine.py` | Re-export facade + convenience functions (`check_single_rule`, `check_rules_from_path`, `quick_host_info`) | Everything (delegates to `_*.py` sub-modules) |
+| `shell_util.py` | Shared shell utilities: quoting, file ops, grep/sed helpers, service actions | Business logic |
 | `_types.py` | Result dataclasses (CheckResult, PreState, StepResult, RollbackResult, RuleResult) | Any logic |
 | `_loading.py` | Rule loading from YAML, severity/tag/category filters, platform filtering | Rule evaluation |
 | `_selection.py` | Capability gate evaluation, implementation selection | Rule loading, checks |
-| `_checks.py` | Check handlers + dispatch (run_check, CHECK_HANDLERS) | Remediation, SSH connections |
-| `_remediation.py` | Remediation handlers + dispatch + _reload_service (REMEDIATION_HANDLERS) | Orchestration |
-| `_capture.py` | Pre-state capture handlers (CAPTURE_HANDLERS) | Rollback logic |
-| `_rollback.py` | Rollback handlers + _execute_rollback (ROLLBACK_HANDLERS) | Check logic |
+| `_checks.py` | Re-exports CHECK_HANDLERS and run_check from handlers/checks/ | Handler implementations |
+| `_remediation.py` | Re-exports REMEDIATION_HANDLERS and run_remediation from handlers/remediation/ | Handler implementations |
+| `_capture.py` | Re-exports CAPTURE_HANDLERS from handlers/capture/ | Handler implementations |
+| `_rollback.py` | Re-exports ROLLBACK_HANDLERS and _execute_rollback from handlers/rollback/ | Handler implementations |
+| `handlers/checks/` | Check handler implementations by domain | Dispatch logic |
+| `handlers/remediation/` | Remediation handler implementations by domain | Dispatch logic |
+| `handlers/capture/` | Pre-state capture handler implementations | Rollback logic |
+| `handlers/rollback/` | Rollback handler implementations | Capture logic |
 | `_orchestration.py` | evaluate_rule(), remediate_rule() — top-level rule evaluation | CLI output, SSH connections |
 | `cli.py` | CLI flags, orchestration flow, rich output formatting | Rule logic, SSH internals |
 
@@ -81,9 +106,10 @@ aegis/
 This project runs arbitrary shell commands on remote hosts. Shell injection is the primary risk.
 
 ### Always
-- Use `shlex.quote()` on any value derived from rule YAML or user input before embedding in a shell command
-- Exception: paths with glob characters (`*`, `?`, `[`) must NOT be quoted — detect via `glob` field or character inspection
-- Sanitize all values before interpolating into `sed`, `grep`, or `echo` commands
+- Use `shell_util.quote()` (or `shlex.quote()`) on any value derived from rule YAML or user input
+- Use `shell_util.quote_path()` for file paths — automatically handles glob detection
+- Use `shell_util` helpers for file operations, grep, sed patterns
+- Exception: paths with glob characters (`*`, `?`, `[`) must NOT be quoted — use `shell_util.is_glob_path()` to detect
 
 ### Never
 - Never use f-strings to build commands with unquoted user input
@@ -99,15 +125,21 @@ This project runs arbitrary shell commands on remote hosts. Shell injection is t
 ## How to Add Things
 
 ### New Check Handler
-1. Add function `_check_<name>(ssh, c) -> CheckResult` in `runner/_checks.py`
-2. Register in `CHECK_HANDLERS` dict in `runner/_checks.py`
-3. See `context/patterns.md` for template
+1. Identify the domain module (`handlers/checks/_config.py`, `_file.py`, `_system.py`, etc.)
+2. Add function `_check_<name>(ssh, c) -> CheckResult` to the appropriate domain module
+3. Use `shell_util` for quoting and common operations
+4. Register in `CHECK_HANDLERS` dict in `handlers/checks/__init__.py`
+5. See `context/patterns.md` for template
 
 ### New Remediation Handler
-1. Add function `_remediate_<name>(ssh, r, *, dry_run) -> tuple[bool, str]` in `runner/_remediation.py`
-2. Register in `REMEDIATION_HANDLERS` dict in `runner/_remediation.py`
-3. Call `_reload_service(ssh, r)` if the mechanism supports `reload`/`restart`
-4. See `context/patterns.md` for template
+1. Identify the domain module (`handlers/remediation/_config.py`, `_file.py`, etc.)
+2. Add function `_remediate_<name>(ssh, r, *, dry_run) -> tuple[bool, str]` to the domain module
+3. Use `shell_util` for quoting and common operations
+4. Call `shell_util.service_action(ssh, r)` if the mechanism supports `reload`/`restart`
+5. Register in `REMEDIATION_HANDLERS` dict in `handlers/remediation/__init__.py`
+6. Add corresponding capture handler in `handlers/capture/` (same domain module)
+7. Add corresponding rollback handler in `handlers/rollback/` (same domain module)
+8. See `context/patterns.md` for template
 
 ### New Capability Probe
 1. Add entry to `CAPABILITY_PROBES` dict in `detect.py`
@@ -193,17 +225,29 @@ with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
 Pre-commit is configured to enforce code quality. Install and run:
 
 ```bash
-pip install pre-commit ruff
-pre-commit install           # Install hooks
-pre-commit run --all-files   # Run on all files
+# Install pre-commit (choose one method)
+pip install pre-commit        # In virtualenv
+pipx install pre-commit       # System-wide via pipx
+
+# Install git hooks (run once per clone)
+pre-commit install
+
+# Run all hooks manually
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run mypy --all-files
+pre-commit run ruff --all-files
 ```
 
-Hooks include:
+Hooks configured in `.pre-commit-config.yaml`:
 - **ruff**: Linting and auto-fixing (replaces flake8, isort, black)
 - **ruff-format**: Code formatting
+- **mypy**: Static type checking with type stubs for PyYAML and paramiko
+- **pydocstyle**: Docstring style enforcement (Google convention)
 - **Trailing whitespace / EOF fixer**
 - **YAML/JSON validation**
-- **Rule schema validation**
+- **Rule schema validation**: Validates rule YAML against `schema/rule.schema.json`
 
 ### Coding Standards
 
