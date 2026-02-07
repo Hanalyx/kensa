@@ -467,6 +467,7 @@ def check(
         rules, rule, severity, tag, category, framework=framework, quiet=quiet
     )
     overrides = _parse_capability_overrides(capability)
+    auto_framework_applied = False  # Track if auto framework has been applied
 
     # Collect results for output formatting
     run_result = RunResult(command="check")
@@ -491,6 +492,14 @@ def check(
                     if not quiet:
                         _print_platform(platform)
                         _print_caps_verbose(caps)
+
+                    # Apply auto framework selection on first host
+                    if framework == "auto" and not auto_framework_applied:
+                        rule_list, rule_to_section = _apply_auto_framework(
+                            rule_list, platform, quiet=quiet
+                        )
+                        auto_framework_applied = True
+
                     host_result.platform_family = platform.family if platform else None
                     host_result.platform_version = (
                         platform.version if platform else None
@@ -543,6 +552,22 @@ def check(
     else:
         # Parallel execution - use buffered output
         results: list[HostCheckResult] = []
+
+        # For auto framework, detect platform from first host before parallelizing
+        if framework == "auto" and hosts:
+            first_host = hosts[0]
+            try:
+                with _connect(first_host, password, sudo=sudo) as ssh:
+                    first_platform = detect_platform(ssh)
+                    rule_list, rule_to_section = _apply_auto_framework(
+                        rule_list, first_platform, quiet=quiet
+                    )
+            except Exception as exc:
+                if not quiet:
+                    console.print(
+                        f"[yellow]Warning: Could not detect platform from {first_host.hostname}: {exc}[/yellow]"
+                    )
+                    console.print("[yellow]Running with all rules[/yellow]")
 
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
@@ -991,6 +1016,7 @@ def remediate(
         rules, rule, severity, tag, category, framework=framework, quiet=quiet
     )
     overrides = _parse_capability_overrides(capability)
+    auto_framework_applied = False  # Track if auto framework has been applied
 
     # Collect results for output formatting
     run_result = RunResult(command="remediate")
@@ -1033,6 +1059,14 @@ def remediate(
                     if not quiet:
                         _print_platform(platform)
                         _print_caps_verbose(caps)
+
+                    # Apply auto framework selection on first host
+                    if framework == "auto" and not auto_framework_applied:
+                        rule_list, rule_to_section = _apply_auto_framework(
+                            rule_list, platform, quiet=quiet
+                        )
+                        auto_framework_applied = True
+
                     host_result.platform_family = platform.family if platform else None
                     host_result.platform_version = (
                         platform.version if platform else None
@@ -1106,6 +1140,22 @@ def remediate(
     else:
         # Parallel execution - use buffered output
         results: list[HostRemediateResult] = []
+
+        # For auto framework, detect platform from first host before parallelizing
+        if framework == "auto" and hosts:
+            first_host = hosts[0]
+            try:
+                with _connect(first_host, password, sudo=sudo) as ssh:
+                    first_platform = detect_platform(ssh)
+                    rule_list, rule_to_section = _apply_auto_framework(
+                        rule_list, first_platform, quiet=quiet
+                    )
+            except Exception as exc:
+                if not quiet:
+                    console.print(
+                        f"[yellow]Warning: Could not detect platform from {first_host.hostname}: {exc}[/yellow]"
+                    )
+                    console.print("[yellow]Running with all rules[/yellow]")
 
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
@@ -1694,6 +1744,9 @@ def _load_rule_list(
         Tuple of (ordered_rules, ordering_result, rule_to_section).
         rule_to_section maps rule_id to framework section_id when --framework is used.
 
+        When framework="auto", returns all rules without filtering. The caller
+        should call _apply_auto_framework() after detecting the platform.
+
     """
     rule_path = rule or rules
     if not rule_path:
@@ -1717,7 +1770,7 @@ def _load_rule_list(
 
     # Apply framework filter if specified
     rule_to_section: dict[str, str] = {}
-    if framework:
+    if framework and framework != "auto":
         from runner.mappings import (
             build_rule_to_section_map,
             load_all_mappings,
@@ -1727,7 +1780,7 @@ def _load_rule_list(
         mappings = load_all_mappings()
         if framework not in mappings:
             console.print(f"[red]Error:[/red] Unknown framework: {framework}")
-            console.print(f"Available: {', '.join(sorted(mappings.keys()))}")
+            console.print(f"Available: {', '.join(sorted(mappings.keys()))}, auto")
             sys.exit(1)
 
         mapping = mappings[framework]
@@ -1744,6 +1797,10 @@ def _load_rule_list(
                 f"[yellow]No rules from {framework} matched the given filters.[/yellow]"
             )
             sys.exit(0)
+    elif framework == "auto":
+        # Will be resolved after platform detection - see _apply_auto_framework()
+        if not quiet:
+            console.print("[dim]Framework: auto (will detect from platform)[/dim]")
 
     # Order rules by dependencies
     ordering_result = order_rules(rule_list)
@@ -1766,6 +1823,82 @@ def _load_rule_list(
         sys.exit(1)
 
     return ordering_result.ordered, ordering_result, rule_to_section
+
+
+def _apply_auto_framework(
+    rule_list: list[dict],
+    platform,
+    *,
+    quiet: bool = False,
+) -> tuple[list[dict], dict[str, str]]:
+    """Apply automatic framework selection based on detected platform.
+
+    Args:
+        rule_list: Full list of rules (unfiltered by framework).
+        platform: Detected PlatformInfo from host.
+        quiet: Suppress output.
+
+    Returns:
+        Tuple of (filtered_rules, rule_to_section mapping).
+        If no applicable frameworks found, returns original rules with empty mapping.
+
+    """
+    from runner.mappings import (
+        get_applicable_mappings,
+        load_all_mappings,
+    )
+    from runner.ordering import order_rules
+
+    if platform is None:
+        if not quiet:
+            console.print(
+                "[yellow]Warning: Could not detect platform, running all rules[/yellow]"
+            )
+        return rule_list, {}
+
+    mappings = load_all_mappings()
+    applicable = get_applicable_mappings(
+        mappings,
+        family=platform.family,
+        version=platform.version,
+    )
+
+    if not applicable:
+        if not quiet:
+            console.print(
+                f"[yellow]Warning: No frameworks found for {platform.family} {platform.version}[/yellow]"
+            )
+        return rule_list, {}
+
+    # Collect rules from all applicable frameworks (union, deduplicated)
+    framework_rule_ids: set[str] = set()
+    rule_to_section: dict[str, str] = {}
+
+    for mapping in applicable:
+        for section_id, entry in mapping.sections.items():
+            framework_rule_ids.add(entry.rule_id)
+            # First mapping wins for section assignment
+            if entry.rule_id not in rule_to_section:
+                rule_to_section[entry.rule_id] = section_id
+
+    # Filter rules to those in applicable frameworks
+    filtered_rules = [r for r in rule_list if r["id"] in framework_rule_ids]
+
+    if not quiet:
+        framework_names = ", ".join(m.id for m in applicable)
+        console.print(f"[dim]Auto-selected frameworks: {framework_names}[/dim]")
+        console.print(f"[dim]Matched {len(filtered_rules)} rules[/dim]")
+
+    if not filtered_rules:
+        if not quiet:
+            console.print(
+                "[yellow]Warning: No rules matched auto-selected frameworks[/yellow]"
+            )
+        return rule_list, {}
+
+    # Re-order by dependencies
+    ordering_result = order_rules(filtered_rules)
+    return ordering_result.ordered, rule_to_section
 
 
 def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
