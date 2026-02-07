@@ -598,6 +598,15 @@ def check(
         if not quiet:
             console.print()
 
+    # Sort results by framework section if framework is active
+    if framework:
+        from runner.mappings import order_results_by_section
+
+        for host_result in run_result.hosts:
+            host_result.results = order_results_by_section(
+                host_result.results, rule_to_section
+            )
+
     # Write outputs
     _write_outputs(run_result, outputs)
 
@@ -745,12 +754,16 @@ def _run_checks_buffered(
     for r in rule_list:
         rule_id = r["id"]
 
+        # Get section prefix for output
+        section = rule_to_section.get(rule_id)
+        section_prefix = _format_section_prefix(section)
+
         # Check if dependencies failed
         skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
         if skip:
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                 f"[dim]({skip_reason})[/dim]"
             )
             rule_results.append(
@@ -761,7 +774,7 @@ def _run_checks_buffered(
                     passed=False,
                     skipped=True,
                     skip_reason=skip_reason,
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             failed_rules.add(rule_id)
@@ -772,7 +785,7 @@ def _run_checks_buffered(
         ):
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                 f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
             )
             rule_results.append(
@@ -783,7 +796,7 @@ def _run_checks_buffered(
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             continue
@@ -806,24 +819,24 @@ def _run_checks_buffered(
                 )
 
         result = evaluate_rule(ssh, r, caps)
-        result.framework_section = rule_to_section.get(rule_id)
+        result.framework_section = section
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+                f"  {section_prefix}[dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
             )
         elif result.passed:
             host_pass += 1
             buf_console.print(
-                f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+                f"  {section_prefix}[green]PASS[/green]  {result.rule_id:<40s} {result.title}"
             )
         else:
             host_fail += 1
             failed_rules.add(rule_id)
             detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
             buf_console.print(
-                f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
+                f"  {section_prefix}[red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
             )
     return host_pass, host_fail, host_skip, rule_results
 
@@ -848,13 +861,17 @@ def _run_checks(
     for r in rule_list:
         rule_id = r["id"]
 
+        # Get section prefix for output
+        section = rule_to_section.get(rule_id)
+        section_prefix = _format_section_prefix(section)
+
         # Check if dependencies failed
         should_skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
         if should_skip:
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                    f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                     f"[dim]({skip_reason})[/dim]"
                 )
             rule_results.append(
@@ -865,7 +882,7 @@ def _run_checks(
                     passed=False,
                     skipped=True,
                     skip_reason=skip_reason,
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             # Mark as failed so transitive deps also skip
@@ -878,7 +895,7 @@ def _run_checks(
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                    f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                     f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
                 )
             rule_results.append(
@@ -889,7 +906,7 @@ def _run_checks(
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             continue
@@ -897,19 +914,19 @@ def _run_checks(
         if not quiet:
             _print_impl_verbose(r, caps)
         result = evaluate_rule(ssh, r, caps)
-        result.framework_section = rule_to_section.get(rule_id)
+        result.framework_section = section
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+                    f"  {section_prefix}[dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
                 )
         elif result.passed:
             host_pass += 1
             if not quiet:
                 console.print(
-                    f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+                    f"  {section_prefix}[green]PASS[/green]  {result.rule_id:<40s} {result.title}"
                 )
         else:
             host_fail += 1
@@ -917,7 +934,7 @@ def _run_checks(
             if not quiet:
                 detail = f"  [dim]{result.detail}[/dim]" if result.detail else ""
                 console.print(
-                    f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
+                    f"  {section_prefix}[red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
                 )
     return host_pass, host_fail, host_skip, rule_results
 
@@ -1153,6 +1170,15 @@ def remediate(
         if not quiet:
             console.print()
 
+    # Sort results by framework section if framework is active
+    if framework:
+        from runner.mappings import order_results_by_section
+
+        for host_result in run_result.hosts:
+            host_result.results = order_results_by_section(
+                host_result.results, rule_to_section
+            )
+
     # Write outputs
     _write_outputs(run_result, outputs)
 
@@ -1287,13 +1313,17 @@ def _run_remediation(
     for r in rule_list:
         rule_id = r["id"]
 
+        # Get section prefix for output
+        section = rule_to_section.get(rule_id)
+        section_prefix = _format_section_prefix(section)
+
         # Check if dependencies failed
         skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
         if skip:
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                    f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                     f"[dim]({skip_reason})[/dim]"
                 )
             rule_results.append(
@@ -1304,7 +1334,7 @@ def _run_remediation(
                     passed=False,
                     skipped=True,
                     skip_reason=skip_reason,
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             # Mark as failed so transitive deps also skip
@@ -1317,7 +1347,7 @@ def _run_remediation(
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                    f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                     f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
                 )
             rule_results.append(
@@ -1328,7 +1358,7 @@ def _run_remediation(
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             continue
@@ -1342,19 +1372,19 @@ def _run_remediation(
             dry_run=dry_run,
             rollback_on_failure=rollback_on_failure,
         )
-        result.framework_section = rule_to_section.get(rule_id)
+        result.framework_section = section
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
             if not quiet:
                 console.print(
-                    f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+                    f"  {section_prefix}[dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
                 )
         elif result.passed and not result.remediated:
             host_pass += 1
             if not quiet:
                 console.print(
-                    f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+                    f"  {section_prefix}[green]PASS[/green]  {result.rule_id:<40s} {result.title}"
                 )
         elif result.passed and result.remediated:
             host_fixed += 1
@@ -1365,7 +1395,9 @@ def _run_remediation(
                     else ""
                 )
                 tag = "[yellow]DRY [/yellow]" if dry_run else "[yellow]FIXED[/yellow]"
-                console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
+                console.print(
+                    f"  {section_prefix}{tag} {result.rule_id:<40s} {result.title}{detail}"
+                )
         else:
             host_fail += 1
             failed_rules.add(rule_id)  # Track for dependency checking
@@ -1379,7 +1411,7 @@ def _run_remediation(
                     else ""
                 )
                 console.print(
-                    f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}"
+                    f"  {section_prefix}[red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}"
                 )
             if result.rolled_back:
                 host_rolled_back += 1
@@ -1425,12 +1457,16 @@ def _run_remediation_buffered(
     for r in rule_list:
         rule_id = r["id"]
 
+        # Get section prefix for output
+        section = rule_to_section.get(rule_id)
+        section_prefix = _format_section_prefix(section)
+
         # Check if dependencies failed
         skip, skip_reason = should_skip_rule(rule_id, rule_list, failed_rules)
         if skip:
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                 f"[dim]({skip_reason})[/dim]"
             )
             rule_results.append(
@@ -1441,7 +1477,7 @@ def _run_remediation_buffered(
                     passed=False,
                     skipped=True,
                     skip_reason=skip_reason,
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             failed_rules.add(rule_id)
@@ -1452,7 +1488,7 @@ def _run_remediation_buffered(
         ):
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
+                f"  {section_prefix}[dim]SKIP[/dim]  {rule_id:<40s} {r.get('title', rule_id)}  "
                 f"[dim](platform: requires {_platform_constraint_str(r)})[/dim]"
             )
             rule_results.append(
@@ -1463,7 +1499,7 @@ def _run_remediation_buffered(
                     passed=False,
                     skipped=True,
                     skip_reason=f"platform: requires {_platform_constraint_str(r)}",
-                    framework_section=rule_to_section.get(rule_id),
+                    framework_section=section,
                 )
             )
             continue
@@ -1492,17 +1528,17 @@ def _run_remediation_buffered(
             dry_run=dry_run,
             rollback_on_failure=rollback_on_failure,
         )
-        result.framework_section = rule_to_section.get(rule_id)
+        result.framework_section = section
         rule_results.append(result)
         if result.skipped:
             host_skip += 1
             buf_console.print(
-                f"  [dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
+                f"  {section_prefix}[dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
             )
         elif result.passed and not result.remediated:
             host_pass += 1
             buf_console.print(
-                f"  [green]PASS[/green]  {result.rule_id:<40s} {result.title}"
+                f"  {section_prefix}[green]PASS[/green]  {result.rule_id:<40s} {result.title}"
             )
         elif result.passed and result.remediated:
             host_fixed += 1
@@ -1512,7 +1548,9 @@ def _run_remediation_buffered(
                 else ""
             )
             tag = "[yellow]DRY [/yellow]" if dry_run else "[yellow]FIXED[/yellow]"
-            buf_console.print(f"  {tag} {result.rule_id:<40s} {result.title}{detail}")
+            buf_console.print(
+                f"  {section_prefix}{tag} {result.rule_id:<40s} {result.title}{detail}"
+            )
         else:
             host_fail += 1
             failed_rules.add(rule_id)  # Track for dependency checking
@@ -1523,7 +1561,7 @@ def _run_remediation_buffered(
                 else ""
             )
             buf_console.print(
-                f"  [red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}"
+                f"  {section_prefix}[red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}{suffix}"
             )
             if result.rolled_back:
                 host_rolled_back += 1
@@ -1602,6 +1640,21 @@ def _print_impl_verbose(rule: dict, caps: dict[str, bool]) -> None:
     else:
         gate = impl.get("when", "?")
         console.print(f"  [dim]  {rule_id}: matched gate [bold]{gate}[/bold][/dim]")
+
+
+def _format_section_prefix(section: str | None) -> str:
+    """Format section prefix for terminal output.
+
+    Args:
+        section: Framework section ID (e.g., "5.1.12") or None.
+
+    Returns:
+        Formatted section prefix with padding, or empty string if no section.
+
+    """
+    if section:
+        return f"[dim]{section:<10s}[/dim]"
+    return ""
 
 
 def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:

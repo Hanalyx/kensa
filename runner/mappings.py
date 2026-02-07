@@ -414,6 +414,63 @@ def order_by_framework(
     return result
 
 
+def _parse_section_key(section: str | None) -> tuple:
+    """Parse a section ID into a sortable tuple.
+
+    Handles numeric and alphanumeric section IDs like "1.1.1", "5.2.3", "V-257947".
+
+    Args:
+        section: Section ID string or None.
+
+    Returns:
+        Tuple for sorting. None sections sort last.
+
+    """
+    if section is None:
+        # Return a tuple that sorts after any valid section
+        # (2, ...) sorts after (0, ...) numeric and (1, ...) alpha
+        return ((2, ""),)
+
+    parts: list[tuple[int, int | str]] = []
+    for part in section.replace("-", ".").split("."):
+        # Try to parse as int for numeric sorting
+        try:
+            parts.append((0, int(part)))  # Numeric parts sort first
+        except ValueError:
+            parts.append((1, part))  # Alpha parts sort after numerics
+    return tuple(parts)
+
+
+def order_results_by_section(
+    results: list,
+    rule_to_section: dict[str, str] | None = None,
+) -> list:
+    """Order RuleResult objects by framework section.
+
+    Args:
+        results: List of RuleResult objects.
+        rule_to_section: Optional mapping of rule_id to section_id.
+            If not provided, uses result.framework_section.
+
+    Returns:
+        New list of results sorted by section (1.1.1 < 1.1.2 < 5.2.3).
+        Results without sections are sorted to the end.
+
+    Example:
+        >>> from runner.mappings import order_results_by_section
+        >>> sorted_results = order_results_by_section(results)
+
+    """
+    rule_to_section = rule_to_section or {}
+
+    def section_key(result) -> tuple:
+        # Use provided mapping or fall back to result's framework_section
+        section = rule_to_section.get(result.rule_id) or result.framework_section
+        return _parse_section_key(section)
+
+    return sorted(results, key=section_key)
+
+
 @dataclass
 class CoverageReport:
     """Coverage report for a framework mapping.
