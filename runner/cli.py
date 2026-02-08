@@ -207,6 +207,14 @@ def rule_options(f):
         default=None,
         help="Filter to rules in framework mapping (e.g., cis-rhel9-v2.0.0)",
     )(f)
+    f = click.option(
+        "--var",
+        "-V",
+        "var",
+        multiple=True,
+        metavar="KEY=VALUE",
+        help="Override rule variable (e.g., -V pam_pwquality_minlen=20)",
+    )(f)
     return f
 
 
@@ -249,6 +257,8 @@ Rule Options (check/remediate):
   -s, --severity TEXT      Filter by severity (repeatable)
   -t, --tag TEXT           Filter by tag (repeatable)
   -c, --category TEXT      Filter by category
+  -f, --framework TEXT     Filter to framework (e.g., cis-rhel9-v2.0.0)
+  -V, --var KEY=VALUE      Override rule variable (repeatable)
 
 \b
 Output Options (check/remediate):
@@ -269,6 +279,7 @@ Examples:
   aegis check -i hosts.ini --sudo -r rules/ -w 4
   aegis check -i hosts.ini --sudo -r rules/ -o json -q
   aegis check -i hosts.ini --sudo -r rules/ -o csv:results.csv -o pdf:report.pdf
+  aegis check -i hosts.ini --sudo -r rules/ -V pam_pwquality_minlen=20
   aegis remediate -i hosts.ini --sudo -r rules/ --dry-run
 """
 
@@ -455,6 +466,7 @@ def check(
     tag,
     category,
     framework,
+    var,
     outputs,
     quiet,
     store,
@@ -464,7 +476,7 @@ def check(
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list, ordering, rule_to_section = _load_rule_list(
-        rules, rule, severity, tag, category, framework=framework, quiet=quiet
+        rules, rule, severity, tag, category, framework=framework, var=var, quiet=quiet
     )
     overrides = _parse_capability_overrides(capability)
     auto_framework_applied = False  # Track if auto framework has been applied
@@ -1002,6 +1014,7 @@ def remediate(
     tag,
     category,
     framework,
+    var,
     outputs,
     quiet,
     dry_run,
@@ -1013,7 +1026,7 @@ def remediate(
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list, ordering, rule_to_section = _load_rule_list(
-        rules, rule, severity, tag, category, framework=framework, quiet=quiet
+        rules, rule, severity, tag, category, framework=framework, var=var, quiet=quiet
     )
     overrides = _parse_capability_overrides(capability)
     auto_framework_applied = False  # Track if auto framework has been applied
@@ -1736,7 +1749,7 @@ def _connect(hi: HostInfo, password: str | None, *, sudo: bool = False) -> SSHSe
 
 
 def _load_rule_list(
-    rules, rule, severity, tag, category, *, framework=None, quiet=False
+    rules, rule, severity, tag, category, *, framework=None, var=(), quiet=False
 ):
     """Load, filter, and order rules from CLI options.
 
@@ -1748,10 +1761,22 @@ def _load_rule_list(
         should call _apply_auto_framework() after detecting the platform.
 
     """
+    from runner._config import load_config, parse_var_overrides, resolve_variables
+
     rule_path = rule or rules
     if not rule_path:
         console.print("[red]Error:[/red] Specify --rules or --rule")
         sys.exit(1)
+
+    # Parse CLI variable overrides
+    try:
+        cli_overrides = parse_var_overrides(var)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    # Load variable configuration
+    config = load_config(rule_path)
 
     try:
         rule_list = load_rules(
@@ -1761,6 +1786,22 @@ def _load_rule_list(
             category=category,
         )
     except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    # Apply variable substitution to all rules
+    try:
+        rule_list = [
+            resolve_variables(
+                r,
+                config,
+                framework=framework if framework != "auto" else None,
+                cli_overrides=cli_overrides,
+                strict=True,
+            )
+            for r in rule_list
+        ]
+    except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 

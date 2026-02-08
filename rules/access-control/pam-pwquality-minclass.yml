@@ -33,11 +33,11 @@ implementations:
       method: config_value
       path: "/etc/security/pwquality.conf"
       key: "minclass"
-      expected: "4"
+      expected: "{{ pam_pwquality_minclass }}"
       comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/security/pwquality.conf"
       key: "minclass"
-      value: "4"
+      value: "{{ pam_pwquality_minclass }}"
       separator: " = "

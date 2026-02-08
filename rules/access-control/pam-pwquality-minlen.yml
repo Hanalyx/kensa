@@ -32,11 +32,11 @@ implementations:
       method: config_value
       path: "/etc/security/pwquality.conf"
       key: "minlen"
-      expected: "14"
+      expected: "{{ pam_pwquality_minlen }}"
       comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/security/pwquality.conf"
       key: "minlen"
-      value: "14"
+      value: "{{ pam_pwquality_minlen }}"
       separator: " = "

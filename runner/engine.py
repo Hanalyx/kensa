@@ -70,6 +70,14 @@ from runner._checks import (  # noqa: F401
     run_check,
 )
 
+# ── Rule variable configuration ───────────────────────────────────────────
+from runner._config import (  # noqa: F401
+    RuleConfig,
+    load_config,
+    parse_var_overrides,
+    resolve_variables,
+)
+
 # ── Rule loading & platform filtering ──────────────────────────────────────
 from runner._loading import (  # noqa: F401
     load_rules,

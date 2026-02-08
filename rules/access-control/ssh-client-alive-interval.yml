@@ -46,14 +46,14 @@ implementations:
       method: config_value
       path: "/etc/ssh/sshd_config.d"
       key: "ClientAliveInterval"
-      expected: "600"
+      expected: "{{ ssh_client_alive_interval }}"
       scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
       file: "00-aegis-client-alive-interval.conf"
       key: "ClientAliveInterval"
-      value: "600"
+      value: "{{ ssh_client_alive_interval }}"
       reload: "sshd"
 
   - default: true
@@ -61,11 +61,11 @@ implementations:
       method: config_value
       path: "/etc/ssh/sshd_config"
       key: "ClientAliveInterval"
-      expected: "600"
+      expected: "{{ ssh_client_alive_interval }}"
     remediation:
       mechanism: config_set
       path: "/etc/ssh/sshd_config"
       key: "ClientAliveInterval"
-      value: "600"
+      value: "{{ ssh_client_alive_interval }}"
       separator: " "
       reload: "sshd"

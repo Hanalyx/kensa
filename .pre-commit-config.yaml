@@ -87,4 +87,5 @@ repos:
         entry: bash -c 'PYTHONPATH=. python3 schema/validate.py "$@"' --
         language: system
         files: ^rules/.*\.ya?ml$
+        exclude: ^rules/(defaults\.yml|rules\.d/)
         pass_filenames: true

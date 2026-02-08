@@ -298,6 +298,11 @@
             "path": { "type": "string" },
             "key": { "type": "string" },
             "expected": { "type": "string" },
+            "comparator": {
+              "type": "string",
+              "enum": [">=", "<=", ">", "<", "=="],
+              "description": "Comparison operator for expected value (default: ==)"
+            },
             "not_expected": { "type": "string" },
             "scan_pattern": { "type": "string" },
             "name": { "type": "string" },
@@ -336,6 +341,11 @@
                   "path": { "type": "string" },
                   "key": { "type": "string" },
                   "expected": { "type": "string" },
+                  "comparator": {
+                    "type": "string",
+                    "enum": [">=", "<=", ">", "<", "=="],
+                    "description": "Comparison operator for expected value (default: ==)"
+                  },
                   "not_expected": { "type": "string" },
                   "scan_pattern": { "type": "string" },
                   "name": { "type": "string" },

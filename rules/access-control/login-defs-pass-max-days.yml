@@ -32,10 +32,10 @@ implementations:
       method: config_value
       path: "/etc/login.defs"
       key: "PASS_MAX_DAYS"
-      expected: "365"
+      expected: "{{ login_defs_pass_max_days }}"
       comparator: "<="
     remediation:
       mechanism: config_set
       path: "/etc/login.defs"
       key: "PASS_MAX_DAYS"
-      value: "365"
+      value: "{{ login_defs_pass_max_days }}"

@@ -44,7 +44,7 @@ implementations:
         - method: config_value
           path: "/etc/security/faillock.conf"
           key: "deny"
-          expected: "3"
+          expected: "{{ pam_faillock_deny }}"
         - method: command
           run: "authselect current | grep with-faillock"
           expected_exit: 0
@@ -53,7 +53,7 @@ implementations:
         - mechanism: config_set
           path: "/etc/security/faillock.conf"
           key: "deny"
-          value: "3"
+          value: "{{ pam_faillock_deny }}"
           separator: " = "
         - mechanism: command_exec
           run: "authselect enable-feature with-faillock"
@@ -64,10 +64,10 @@ implementations:
       method: config_value
       path: "/etc/security/faillock.conf"
       key: "deny"
-      expected: "3"
+      expected: "{{ pam_faillock_deny }}"
     remediation:
       mechanism: config_set
       path: "/etc/security/faillock.conf"
       key: "deny"
-      value: "3"
+      value: "{{ pam_faillock_deny }}"
       separator: " = "

@@ -32,11 +32,11 @@ implementations:
       method: config_value
       path: "/etc/security/pwquality.conf"
       key: "difok"
-      expected: "8"
+      expected: "{{ pam_pwquality_difok }}"
       comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/security/pwquality.conf"
       key: "difok"
-      value: "8"
+      value: "{{ pam_pwquality_difok }}"
       separator: " = "

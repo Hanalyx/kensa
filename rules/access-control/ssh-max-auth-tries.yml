@@ -34,14 +34,14 @@ implementations:
       method: config_value
       path: "/etc/ssh/sshd_config.d"
       key: "MaxAuthTries"
-      expected: "4"
+      expected: "{{ ssh_max_auth_tries }}"
       scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
       file: "00-aegis-max-auth-tries.conf"
       key: "MaxAuthTries"
-      value: "4"
+      value: "{{ ssh_max_auth_tries }}"
       reload: "sshd"
 
   - default: true
@@ -49,11 +49,11 @@ implementations:
       method: config_value
       path: "/etc/ssh/sshd_config"
       key: "MaxAuthTries"
-      expected: "4"
+      expected: "{{ ssh_max_auth_tries }}"
     remediation:
       mechanism: config_set
       path: "/etc/ssh/sshd_config"
       key: "MaxAuthTries"
-      value: "4"
+      value: "{{ ssh_max_auth_tries }}"
       separator: " "
       reload: "sshd"

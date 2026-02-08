@@ -229,10 +229,25 @@ def validate_all_rules(
     Returns:
         Dict mapping file paths to their validation errors.
 
+    Note:
+        Excludes non-rule files:
+        - defaults.yml (variable configuration)
+        - rules.d/*.yml (user overrides)
+
     """
     results = {}
 
+    # Files and directories to exclude (not rules)
+    excluded_names = {"defaults.yml"}
+    excluded_dirs = {"rules.d"}
+
     for filepath in sorted(rules_dir.rglob("*.yml")):
+        # Skip excluded files
+        if filepath.name in excluded_names:
+            continue
+        # Skip files in excluded directories
+        if any(d in filepath.parts for d in excluded_dirs):
+            continue
         errors = validate_rule(filepath, schema)
         results[filepath] = errors
 

@@ -32,11 +32,11 @@ implementations:
       method: config_value
       path: "/etc/security/faillock.conf"
       key: "unlock_time"
-      expected: "900"
+      expected: "{{ pam_faillock_unlock_time }}"
       comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/security/faillock.conf"
       key: "unlock_time"
-      value: "900"
+      value: "{{ pam_faillock_unlock_time }}"
       separator: " = "
