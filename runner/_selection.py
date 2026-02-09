@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 
 def evaluate_when(when, capabilities: dict[str, bool]) -> bool:
     """Evaluate a capability gate.
@@ -23,18 +25,20 @@ def evaluate_when(when, capabilities: dict[str, bool]) -> bool:
     return False
 
 
-def select_implementation(rule: dict, capabilities: dict[str, bool]) -> dict | None:
+def select_implementation(
+    rule: dict, capabilities: dict[str, bool]
+) -> dict[str, Any] | None:
     """Select the first matching implementation by capability gate.
 
     Non-default implementations are checked in order; the first whose `when`
     gate passes wins.  If none match, the `default: true` implementation is
     returned.
     """
-    default_impl = None
+    default_impl: dict[str, Any] | None = None
     for impl in rule.get("implementations", []):
         if impl.get("default"):
-            default_impl = impl
+            default_impl = cast(dict[str, Any], impl)
             continue
         if evaluate_when(impl.get("when"), capabilities):
-            return impl
+            return cast(dict[str, Any], impl)
     return default_impl

@@ -1,0 +1,132 @@
+# Aegis - SSH-based compliance test runner
+# https://github.com/hanalyx/aegis
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Project metadata
+# ══════════════════════════════════════════════════════════════════════════════
+
+[project]
+name = "aegis"
+version = "0.1.0"
+description = "SSH-based compliance test runner for RHEL systems"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Hanalyx", email = "dev@hanalyx.com" }
+]
+keywords = ["compliance", "security", "ssh", "rhel", "cis", "stig"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+]
+
+dependencies = [
+    "paramiko>=3.0",
+    "PyYAML>=6.0",
+    "click>=8.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+pdf = ["reportlab>=4.0"]
+dev = [
+    "jsonschema>=4.0",
+    "pre-commit>=3.0",
+    "mypy>=1.0",
+    "ruff>=0.4",
+    "types-PyYAML",
+    "types-paramiko",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+aegis = "runner.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/hanalyx/aegis"
+Repository = "https://github.com/hanalyx/aegis"
+Issues = "https://github.com/hanalyx/aegis/issues"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Build configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+[tool.hatch.build.targets.wheel]
+packages = ["runner"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/runner",
+    "/rules",
+    "/schema",
+    "/pyproject.toml",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.hatch.build.targets.wheel.shared-data]
+# Install rules and schema as package data
+"rules" = "share/aegis/rules"
+"schema" = "share/aegis/schema"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Tool configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "SIM", "UP"]
+ignore = ["E501"]  # Line length handled by formatter
+
+[tool.ruff.lint.isort]
+known-first-party = ["runner"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Semantic Release configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+upload_to_pypi = false
+upload_to_release = true
+build_command = "pip install build && python -m build"
+commit_message = "chore(release): {version} [skip ci]"
+
+[tool.semantic_release.changelog]
+template_dir = ".github/templates"
+changelog_file = "CHANGELOG.md"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "style", "test"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]

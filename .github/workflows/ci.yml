@@ -1,0 +1,81 @@
+# Continuous Integration - runs on all PRs and pushes
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy types-PyYAML types-paramiko
+
+      - name: Ruff lint
+        run: ruff check runner/ schema/
+
+      - name: Ruff format check
+        run: ruff format --check runner/ schema/
+
+      - name: Mypy type check
+        run: mypy runner/ --ignore-missing-imports --explicit-package-bases
+
+  validate-rules:
+    name: Validate Rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema PyYAML
+
+      - name: Validate all rules
+        run: python schema/validate.py rules/
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [lint, validate-rules]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version detection
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build hatch hatch-vcs
+
+      - name: Build package
+        run: python -m build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

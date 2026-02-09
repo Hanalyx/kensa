@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from runner.ssh import SSHSession
 
+# ── Path utilities ────────────────────────────────────────────────────────
 # ── Data types ─────────────────────────────────────────────────────────────
 # ── Pre-state capture (used by tests) ─────────────────────────────────────
 from runner._capture import (  # noqa: F401
@@ -133,6 +134,11 @@ from runner._types import (  # noqa: F401
     RollbackResult,
     RuleResult,
     StepResult,
+)
+from runner.paths import (  # noqa: F401
+    get_rules_path,
+    get_schema_path,
+    get_version,
 )
 
 # ── Convenience factory functions ─────────────────────────────────────────

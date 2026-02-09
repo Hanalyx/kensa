@@ -204,7 +204,7 @@ def _substitute_string(
         elif strict:
             raise ValueError(f"Undefined variable: {var_name}")
         else:
-            return match.group(0)  # Leave unchanged
+            return str(match.group(0))  # Leave unchanged
 
     return VARIABLE_PATTERN.sub(replace_var, value)
 
