@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis.hanalyx.dev/schemas/evidence-export/1.0.0",
+  "title": "AEGIS Evidence Export",
+  "description": "Structured compliance evidence for OpenWatch integration and audit purposes",
+  "type": "object",
+  "required": ["version", "session", "host", "results"],
+  "properties": {
+    "version": {
+      "const": "1.0.0",
+      "description": "Evidence export schema version"
+    },
+    "session": {
+      "type": "object",
+      "description": "Scan session metadata",
+      "required": ["id", "timestamp", "rules_path"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique session identifier"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 timestamp when the scan started"
+        },
+        "rules_path": {
+          "type": "string",
+          "description": "Path to rules used for this scan"
+        },
+        "command": {
+          "type": "string",
+          "enum": ["check", "remediate"],
+          "description": "Command that was executed"
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "description": "Target host information",
+      "required": ["hostname"],
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "Target host address or hostname"
+        },
+        "ip": {
+          "type": "string",
+          "format": "ipv4",
+          "description": "IP address if available"
+        },
+        "platform": {
+          "type": "object",
+          "description": "Detected OS platform",
+          "properties": {
+            "family": {
+              "type": "string",
+              "description": "OS family (rhel, ubuntu, etc.)"
+            },
+            "version": {
+              "type": "integer",
+              "description": "Major OS version number"
+            }
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "description": "Detected host capabilities",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "description": "Host tags from inventory",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "description": "Per-rule check results with evidence",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "passed", "timestamp"],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "description": "Unique rule identifier"
+          },
+          "title": {
+            "type": "string",
+            "description": "Human-readable rule title"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Rule severity level"
+          },
+          "passed": {
+            "type": "boolean",
+            "description": "Whether the check passed"
+          },
+          "skipped": {
+            "type": "boolean",
+            "description": "Whether the rule was skipped"
+          },
+          "skip_reason": {
+            "type": "string",
+            "description": "Reason for skipping if skipped"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable result detail"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this check was executed"
+          },
+          "evidence": {
+            "type": "object",
+            "description": "Raw machine-verifiable evidence",
+            "properties": {
+              "method": {
+                "type": "string",
+                "description": "Check handler method name"
+              },
+              "command": {
+                "type": "string",
+                "description": "Shell command executed on target"
+              },
+              "stdout": {
+                "type": "string",
+                "description": "Standard output from command"
+              },
+              "stderr": {
+                "type": "string",
+                "description": "Standard error from command"
+              },
+              "exit_code": {
+                "type": "integer",
+                "description": "Command exit code"
+              },
+              "expected": {
+                "type": "string",
+                "description": "Expected value for comparison"
+              },
+              "actual": {
+                "type": "string",
+                "description": "Actual value found on system"
+              }
+            }
+          },
+          "frameworks": {
+            "type": "object",
+            "description": "Framework references (key=framework, value=reference)",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "remediated": {
+            "type": "boolean",
+            "description": "Whether remediation was applied"
+          },
+          "remediation_detail": {
+            "type": "string",
+            "description": "Remediation action details"
+          },
+          "rolled_back": {
+            "type": "boolean",
+            "description": "Whether remediation was rolled back"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Summary statistics for this host",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "description": "Total number of rules evaluated"
+        },
+        "pass": {
+          "type": "integer",
+          "description": "Number of rules that passed"
+        },
+        "fail": {
+          "type": "integer",
+          "description": "Number of rules that failed"
+        },
+        "skip": {
+          "type": "integer",
+          "description": "Number of rules skipped"
+        },
+        "fixed": {
+          "type": "integer",
+          "description": "Number of rules remediated (if applicable)"
+        }
+      }
+    }
+  }
+}

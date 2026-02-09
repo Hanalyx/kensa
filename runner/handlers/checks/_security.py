@@ -6,10 +6,11 @@ and PAM configuration.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from runner import shell_util
-from runner._types import CheckResult
+from runner._types import CheckResult, Evidence
 
 if TYPE_CHECKING:
     from runner.ssh import SSHSession
@@ -30,17 +31,46 @@ def _check_selinux_state(ssh: SSHSession, c: dict) -> CheckResult:
 
     """
     expected = c.get("state", "Enforcing")
+    check_time = datetime.now(timezone.utc)
+    cmd = "getenforce 2>/dev/null"
 
-    result = ssh.run("getenforce 2>/dev/null")
+    result = ssh.run(cmd)
     if not result.ok:
         return CheckResult(
-            passed=False, detail="getenforce failed - SELinux may not be installed"
+            passed=False,
+            detail="getenforce failed - SELinux may not be installed",
+            evidence=Evidence(
+                method="selinux_state",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected,
+                actual=None,
+                timestamp=check_time,
+            ),
         )
 
     actual = result.stdout.strip()
-    if actual.lower() == expected.lower():
-        return CheckResult(passed=True, detail=f"SELinux: {actual}")
-    return CheckResult(passed=False, detail=f"SELinux: {actual} (expected {expected})")
+    passed = actual.lower() == expected.lower()
+    detail = (
+        f"SELinux: {actual}" if passed else f"SELinux: {actual} (expected {expected})"
+    )
+
+    return CheckResult(
+        passed=passed,
+        detail=detail,
+        evidence=Evidence(
+            method="selinux_state",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=expected,
+            actual=actual,
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
@@ -61,22 +91,64 @@ def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
     name = c["name"]
     expected = c.get("value", True)
     expected_str = "on" if expected else "off"
+    check_time = datetime.now(timezone.utc)
+    cmd = f"getsebool {shell_util.quote(name)} 2>/dev/null"
 
-    result = ssh.run(f"getsebool {shell_util.quote(name)} 2>/dev/null")
+    result = ssh.run(cmd)
     if not result.ok:
         return CheckResult(
-            passed=False, detail=f"{name}: not found or SELinux disabled"
+            passed=False,
+            detail=f"{name}: not found or SELinux disabled",
+            evidence=Evidence(
+                method="selinux_boolean",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected_str,
+                actual=None,
+                timestamp=check_time,
+            ),
         )
 
     parts = result.stdout.strip().split()
     if len(parts) < 3:
-        return CheckResult(passed=False, detail=f"{name}: unexpected output format")
+        return CheckResult(
+            passed=False,
+            detail=f"{name}: unexpected output format",
+            evidence=Evidence(
+                method="selinux_boolean",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected_str,
+                actual=result.stdout.strip(),
+                timestamp=check_time,
+            ),
+        )
 
     actual = parts[-1]
-    if actual.lower() == expected_str:
-        return CheckResult(passed=True, detail=f"{name} = {actual}")
+    passed = actual.lower() == expected_str
+    detail = (
+        f"{name} = {actual}"
+        if passed
+        else f"{name} = {actual} (expected {expected_str})"
+    )
+
     return CheckResult(
-        passed=False, detail=f"{name} = {actual} (expected {expected_str})"
+        passed=passed,
+        detail=detail,
+        evidence=Evidence(
+            method="selinux_boolean",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=expected_str,
+            actual=actual,
+            timestamp=check_time,
+        ),
     )
 
 
@@ -96,16 +168,43 @@ def _check_audit_rule_exists(ssh: SSHSession, c: dict) -> CheckResult:
 
     """
     rule = c["rule"]
+    check_time = datetime.now(timezone.utc)
+    cmd = "auditctl -l 2>/dev/null"
 
-    result = ssh.run("auditctl -l 2>/dev/null")
+    result = ssh.run(cmd)
     if not result.ok:
         return CheckResult(
-            passed=False, detail="auditctl failed - auditd may not be running"
+            passed=False,
+            detail="auditctl failed - auditd may not be running",
+            evidence=Evidence(
+                method="audit_rule_exists",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=f"contains '{rule[:50]}'",
+                actual=None,
+                timestamp=check_time,
+            ),
         )
 
-    if rule in result.stdout:
-        return CheckResult(passed=True, detail="Audit rule found")
-    return CheckResult(passed=False, detail=f"Audit rule not found: {rule[:50]}...")
+    passed = rule in result.stdout
+    detail = "Audit rule found" if passed else f"Audit rule not found: {rule[:50]}..."
+
+    return CheckResult(
+        passed=passed,
+        detail=detail,
+        evidence=Evidence(
+            method="audit_rule_exists",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=f"contains '{rule[:50]}'",
+            actual="found" if passed else "not found",
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_pam_module(ssh: SSHSession, c: dict) -> CheckResult:
@@ -132,17 +231,54 @@ def _check_pam_module(ssh: SSHSession, c: dict) -> CheckResult:
     expected_type = c.get("type")
     expected_control = c.get("control")
     expected_args = c.get("args")
+    check_time = datetime.now(timezone.utc)
 
     pam_file = f"/etc/pam.d/{service}"
 
     if not shell_util.file_exists(ssh, pam_file):
-        return CheckResult(passed=False, detail=f"{pam_file}: not found")
+        return CheckResult(
+            passed=False,
+            detail=f"{pam_file}: not found",
+            evidence=Evidence(
+                method="pam_module",
+                command=f"test -e {pam_file}",
+                stdout="",
+                stderr="",
+                exit_code=1,
+                expected=f"{module} in {pam_file}",
+                actual="file not found",
+                timestamp=check_time,
+            ),
+        )
 
-    result = ssh.run(
-        f"grep -E '\\s{shell_util.quote(module)}(\\s|$)' {shell_util.quote(pam_file)} 2>/dev/null"
-    )
+    cmd = f"grep -E '\\s{shell_util.quote(module)}(\\s|$)' {shell_util.quote(pam_file)} 2>/dev/null"
+    result = ssh.run(cmd)
+
     if not result.ok or not result.stdout.strip():
-        return CheckResult(passed=False, detail=f"{module} not found in {pam_file}")
+        return CheckResult(
+            passed=False,
+            detail=f"{module} not found in {pam_file}",
+            evidence=Evidence(
+                method="pam_module",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=f"{module} in {pam_file}",
+                actual="not found",
+                timestamp=check_time,
+            ),
+        )
+
+    # Build expected string for evidence
+    expected_parts = [f"module={module}"]
+    if expected_type:
+        expected_parts.append(f"type={expected_type}")
+    if expected_control:
+        expected_parts.append(f"control={expected_control}")
+    if expected_args:
+        expected_parts.append(f"args contains '{expected_args}'")
+    expected_str = ", ".join(expected_parts)
 
     for line in result.stdout.strip().splitlines():
         line = line.strip()
@@ -170,7 +306,21 @@ def _check_pam_module(ssh: SSHSession, c: dict) -> CheckResult:
         detail = f"{line_type} {line_control} {module}"
         if line_args:
             detail += f" ({line_args[:50]}{'...' if len(line_args) > 50 else ''})"
-        return CheckResult(passed=True, detail=detail)
+
+        return CheckResult(
+            passed=True,
+            detail=detail,
+            evidence=Evidence(
+                method="pam_module",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected_str,
+                actual=line,
+                timestamp=check_time,
+            ),
+        )
 
     detail = f"{module} in {pam_file}: "
     if expected_type:
@@ -180,4 +330,18 @@ def _check_pam_module(ssh: SSHSession, c: dict) -> CheckResult:
     if expected_args:
         detail += f"args containing '{expected_args}' "
     detail += "not found"
-    return CheckResult(passed=False, detail=detail)
+
+    return CheckResult(
+        passed=False,
+        detail=detail,
+        evidence=Evidence(
+            method="pam_module",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=expected_str,
+            actual="no matching configuration",
+            timestamp=check_time,
+        ),
+    )

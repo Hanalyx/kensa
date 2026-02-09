@@ -6,10 +6,11 @@ absence, and values.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from runner import shell_util
-from runner._types import CheckResult
+from runner._types import CheckResult, Evidence
 
 if TYPE_CHECKING:
     from runner.ssh import SSHSession
@@ -113,6 +114,7 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
     expected = str(c["expected"])
     comparator = c.get("comparator", "==")
     scan_pattern = c.get("scan_pattern", "*.conf")
+    check_time = datetime.now(timezone.utc)
 
     # Validate comparator
     if comparator not in VALID_COMPARATORS:
@@ -122,9 +124,23 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
         )
 
     result = shell_util.grep_config_key(ssh, path, key, scan_pattern=scan_pattern)
+    cmd = result.command if hasattr(result, "command") else f"grep {key} {path}"
 
     if not result.ok or not result.stdout.strip():
-        return CheckResult(passed=False, detail=f"{key} not found in {path}")
+        return CheckResult(
+            passed=False,
+            detail=f"{key} not found in {path}",
+            evidence=Evidence(
+                method="config_value",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected,
+                actual=None,
+                timestamp=check_time,
+            ),
+        )
 
     line = result.stdout.strip()
     actual = shell_util.parse_config_value(line, key)
@@ -132,7 +148,20 @@ def _check_config_value(ssh: SSHSession, c: dict) -> CheckResult:
     passed = _compare_values(actual, expected, comparator)
     detail = _format_comparison_detail(key, actual, expected, comparator, passed)
 
-    return CheckResult(passed=passed, detail=detail)
+    return CheckResult(
+        passed=passed,
+        detail=detail,
+        evidence=Evidence(
+            method="config_value",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=expected,
+            actual=actual,
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_config_absent(ssh: SSHSession, c: dict) -> CheckResult:
@@ -155,12 +184,39 @@ def _check_config_absent(ssh: SSHSession, c: dict) -> CheckResult:
     path = c["path"]
     key = c["key"]
     scan_pattern = c.get("scan_pattern", "*.conf")
+    check_time = datetime.now(timezone.utc)
 
     result = shell_util.grep_config_key(ssh, path, key, scan_pattern=scan_pattern)
+    cmd = result.command if hasattr(result, "command") else f"grep {key} {path}"
 
     if not result.ok or not result.stdout.strip():
         return CheckResult(
-            passed=True, detail=f"{key} not found in {path} (as required)"
+            passed=True,
+            detail=f"{key} not found in {path} (as required)",
+            evidence=Evidence(
+                method="config_absent",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=None,
+                actual=None,
+                timestamp=check_time,
+            ),
         )
 
-    return CheckResult(passed=False, detail=f"{key} found in {path} (should be absent)")
+    actual = result.stdout.strip()
+    return CheckResult(
+        passed=False,
+        detail=f"{key} found in {path} (should be absent)",
+        evidence=Evidence(
+            method="config_absent",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=None,
+            actual=actual,
+            timestamp=check_time,
+        ),
+    )

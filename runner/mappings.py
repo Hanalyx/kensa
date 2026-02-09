@@ -257,6 +257,12 @@ def load_mapping(path: str | Path) -> FrameworkMapping:
     framework = data.get("framework", "")
     if framework == "nist_800_53":
         sections = _parse_nist_controls(data.get("controls"))
+    elif framework == "pci_dss":
+        # PCI-DSS uses "requirements" with rules lists (like NIST)
+        sections = _parse_nist_controls(data.get("requirements"))
+    elif framework == "fedramp":
+        # FedRAMP uses "controls" with rules lists (like NIST)
+        sections = _parse_nist_controls(data.get("controls"))
     elif framework == "stig":
         sections = _parse_sections(data.get("findings"))
     else:

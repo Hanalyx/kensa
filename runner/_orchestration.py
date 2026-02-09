@@ -14,6 +14,47 @@ if TYPE_CHECKING:
     from runner.ssh import SSHSession
 
 
+def _extract_framework_refs(rule: dict) -> dict[str, str]:
+    """Extract flattened framework references from a rule.
+
+    Converts nested reference structures into flat key-value pairs
+    for easy lookup and display. For example: "cis_rhel9_v2" -> "5.1.12",
+    "stig_rhel9_v2r7" -> "V-123456", "nist_800_53" -> "AU-2, AU-3".
+
+    Args:
+        rule: Rule definition with optional references section.
+
+    Returns:
+        Dict mapping framework keys to their primary identifiers.
+
+    """
+    refs: dict[str, str] = {}
+    references = rule.get("references", {})
+
+    for framework, value in references.items():
+        if framework == "nist_800_53" and isinstance(value, list):
+            # NIST controls are a flat list
+            refs["nist_800_53"] = ", ".join(value)
+        elif isinstance(value, dict):
+            # Nested framework (cis, stig, pci_dss, etc.)
+            for version, details in value.items():
+                key = f"{framework}_{version}"
+                if isinstance(details, dict):
+                    # Extract primary identifier
+                    if "section" in details:
+                        refs[key] = details["section"]
+                    elif "vuln_id" in details:
+                        refs[key] = details["vuln_id"]
+                    elif "requirement" in details:
+                        refs[key] = details["requirement"]
+                    elif "control" in details:
+                        refs[key] = details["control"]
+                elif isinstance(details, str):
+                    refs[key] = details
+
+    return refs
+
+
 def evaluate_rule(
     ssh: SSHSession, rule: dict, capabilities: dict[str, bool]
 ) -> RuleResult:
@@ -21,6 +62,7 @@ def evaluate_rule(
     rule_id = rule["id"]
     title = rule.get("title", rule_id)
     severity = rule.get("severity", "unknown")
+    framework_refs = _extract_framework_refs(rule)
 
     impl = select_implementation(rule, capabilities)
     if impl is None:
@@ -31,6 +73,7 @@ def evaluate_rule(
             passed=False,
             skipped=True,
             skip_reason="No matching implementation",
+            framework_refs=framework_refs,
         )
 
     check = impl.get("check")
@@ -42,6 +85,7 @@ def evaluate_rule(
             passed=False,
             skipped=True,
             skip_reason="Implementation has no check",
+            framework_refs=framework_refs,
         )
 
     try:
@@ -53,6 +97,7 @@ def evaluate_rule(
             severity=severity,
             passed=False,
             detail=f"Error: {exc}",
+            framework_refs=framework_refs,
         )
 
     return RuleResult(
@@ -61,6 +106,8 @@ def evaluate_rule(
         severity=severity,
         passed=cr.passed,
         detail=cr.detail,
+        evidence=cr.evidence,
+        framework_refs=framework_refs,
     )
 
 
@@ -121,6 +168,7 @@ def remediate_rule(
             cr = run_check(ssh, check)
             result.passed = cr.passed
             result.detail = cr.detail
+            result.evidence = cr.evidence
         except Exception as exc:
             result.detail = f"Re-check error: {exc}"
 

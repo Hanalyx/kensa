@@ -1,0 +1,698 @@
+# FedRAMP Moderate Baseline Mapping for Aegis
+#
+# This mapping associates FedRAMP Moderate baseline controls with Aegis rules.
+# FedRAMP builds on NIST SP 800-53 with additional parameters for cloud systems.
+#
+# FedRAMP Moderate is appropriate for systems where the loss of confidentiality,
+# integrity, or availability would have a serious adverse effect.
+#
+# Control families covered:
+#   AC  - Access Control
+#   AU  - Audit and Accountability
+#   CM  - Configuration Management
+#   IA  - Identification and Authentication
+#   SC  - System and Communications Protection
+#   SI  - System and Information Integrity
+
+id: fedramp-moderate
+framework: fedramp
+title: "FedRAMP Moderate Baseline"
+published: 2023-01-31
+baseline: moderate
+
+# FedRAMP parameters that differ from or extend NIST 800-53
+parameters:
+  AC-2:
+    inactive_days: 90
+  AC-7:
+    unsuccessful_attempts: 3
+    time_period: 15_minutes
+    lockout_duration: 60_minutes
+  AU-4:
+    storage_capacity: sufficient_for_retention
+  IA-5:
+    password_min_length: 12
+    password_complexity: "upper, lower, numeric, special"
+    password_lifetime_days: 60
+    password_history: 24
+  SC-7:
+    deny_by_default: true
+
+controls:
+  # ════════════════════════════════════════════════════════════════════════════
+  # ACCESS CONTROL (AC)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "AC-2":
+    title: "Account Management"
+    rules:
+      - accounts-no-uid-zero
+      - nologin-system-accounts
+      - inactive-password-lock
+      - root-gid
+      - default-group-root
+      - accounts-no-empty-passwords
+
+  "AC-2(1)":
+    title: "Account Management | Automated System Account Management"
+    rules:
+      - nologin-system-accounts
+      - inactive-password-lock
+
+  "AC-2(2)":
+    title: "Account Management | Automated Temporary and Emergency Account Management"
+    rules:
+      - inactive-password-lock
+
+  "AC-2(3)":
+    title: "Account Management | Disable Accounts"
+    rules:
+      - inactive-password-lock
+      - pam-faillock-deny
+      - pam-faillock-unlock-time
+
+  "AC-2(4)":
+    title: "Account Management | Automated Audit Actions"
+    rules:
+      - audit-user-group-changes
+      - audit-file-passwd
+      - audit-file-shadow
+      - audit-sudoers-changes
+
+  "AC-3":
+    title: "Access Enforcement"
+    rules:
+      - selinux-enforcing
+      - selinux-policy-targeted
+      - fs-permissions-etc-passwd
+      - fs-permissions-etc-shadow
+      - fs-permissions-etc-group
+      - fs-permissions-etc-gshadow
+      - sudo-use-pty
+      - su-require-wheel
+
+  "AC-3(4)":
+    title: "Access Enforcement | Discretionary Access Control"
+    rules:
+      - fs-permissions-etc-passwd
+      - fs-permissions-etc-passwd-backup
+      - fs-permissions-etc-shadow
+      - fs-permissions-etc-shadow-backup
+      - fs-permissions-etc-group
+      - fs-permissions-etc-group-backup
+      - fs-permissions-etc-gshadow
+      - fs-permissions-etc-gshadow-backup
+      - sticky-bit-world-writable
+
+  "AC-4":
+    title: "Information Flow Enforcement"
+    rules:
+      - service-enable-firewalld
+      - selinux-enforcing
+      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-net-ipv4-conf-default-accept-redirects
+      - sysctl-net-ipv4-conf-all-send-redirects
+      - sysctl-net-ipv4-conf-default-send-redirects
+
+  "AC-5":
+    title: "Separation of Duties"
+    rules:
+      - su-require-wheel
+      - sudo-require-auth
+      - accounts-no-uid-zero
+
+  "AC-6":
+    title: "Least Privilege"
+    rules:
+      - sudo-use-pty
+      - sudo-require-auth
+      - sudo-timeout
+      - su-require-wheel
+      - nologin-system-accounts
+      - selinux-enforcing
+
+  "AC-6(1)":
+    title: "Least Privilege | Authorize Access to Security Functions"
+    rules:
+      - su-require-wheel
+      - sudo-require-auth
+      - selinux-enforcing
+
+  "AC-6(2)":
+    title: "Least Privilege | Non-Privileged Access for Non-Security Functions"
+    rules:
+      - nologin-system-accounts
+      - accounts-no-uid-zero
+
+  "AC-6(5)":
+    title: "Least Privilege | Privileged Accounts"
+    rules:
+      - ssh-disable-root-login
+      - accounts-no-uid-zero
+      - su-require-wheel
+
+  "AC-6(9)":
+    title: "Least Privilege | Log Use of Privileged Functions"
+    rules:
+      - audit-privileged-commands
+      - audit-cmd-sudo
+      - audit-sudoers-changes
+      - sudo-logfile
+
+  "AC-6(10)":
+    title: "Least Privilege | Prohibit Non-Privileged Users from Executing Privileged Functions"
+    rules:
+      - sudo-require-auth
+      - su-require-wheel
+      - selinux-enforcing
+
+  "AC-7":
+    title: "Unsuccessful Logon Attempts"
+    rules:
+      - pam-faillock-deny
+      - pam-faillock-fail-interval
+      - pam-faillock-unlock-time
+      - pam-faillock-even-deny-root
+
+  "AC-8":
+    title: "System Use Notification"
+    rules:
+      - ssh-banner
+      - banner-ssh-dod
+      - banner-dod-consent
+
+  "AC-10":
+    title: "Concurrent Session Control"
+    rules:
+      - ssh-max-sessions
+
+  "AC-11":
+    title: "Device Lock"
+    rules:
+      - shell-timeout
+
+  "AC-11(1)":
+    title: "Device Lock | Pattern-Hiding Displays"
+    rules:
+      - shell-timeout
+
+  "AC-12":
+    title: "Session Termination"
+    rules:
+      - ssh-client-alive-interval
+      - ssh-client-alive-count-max
+      - shell-timeout
+
+  "AC-17":
+    title: "Remote Access"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - ssh-crypto-policy
+      - ssh-disable-root-login
+
+  "AC-17(1)":
+    title: "Remote Access | Monitoring and Control"
+    rules:
+      - audit-login-logout
+      - audit-session-initiation
+      - ssh-log-level
+
+  "AC-17(2)":
+    title: "Remote Access | Protection of Confidentiality and Integrity Using Encryption"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - crypto-policy-fips
+
+  "AC-17(4)":
+    title: "Remote Access | Privileged Commands and Access"
+    rules:
+      - audit-cmd-sudo
+      - audit-privileged-commands
+      - sudo-logfile
+
+  "AC-18":
+    title: "Wireless Access"
+    rules:
+      - wireless-disabled
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # AUDIT AND ACCOUNTABILITY (AU)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "AU-2":
+    title: "Event Logging"
+    rules:
+      - auditd-service-enabled
+      - audit-rules-immutable
+      - audit-login-logout
+      - audit-session-initiation
+      - audit-privileged-commands
+      - audit-user-group-changes
+
+  "AU-3":
+    title: "Content of Audit Records"
+    rules:
+      - auditd-service-enabled
+      - audit-time-change
+
+  "AU-3(1)":
+    title: "Content of Audit Records | Additional Audit Information"
+    rules:
+      - audit-time-change
+      - audit-user-group-changes
+
+  "AU-4":
+    title: "Audit Log Storage Capacity"
+    rules:
+      - auditd-max-log-file
+      - auditd-max-log-file-action
+      - auditd-space-action
+      - auditd-admin-space-action
+
+  "AU-5":
+    title: "Response to Audit Logging Process Failures"
+    rules:
+      - auditd-disk-full-action
+      - auditd-disk-error-action
+      - auditd-action-mail-acct
+
+  "AU-5(1)":
+    title: "Response to Audit Logging Process Failures | Storage Capacity Warning"
+    rules:
+      - auditd-space-action
+      - auditd-admin-space-action
+
+  "AU-6":
+    title: "Audit Record Review, Analysis, and Reporting"
+    rules:
+      - rsyslog-service-enabled
+      - pkg-rsyslog-present
+
+  "AU-8":
+    title: "Time Stamps"
+    rules:
+      - chrony-installed
+      - chrony-user
+      - audit-time-change
+
+  "AU-8(1)":
+    title: "Time Stamps | Synchronization with Authoritative Time Source"
+    rules:
+      - chrony-installed
+
+  "AU-9":
+    title: "Protection of Audit Information"
+    rules:
+      - audit-log-permissions
+      - audit-log-dir-permissions
+      - audit-config-permissions
+      - rsyslog-default-permissions
+
+  "AU-9(4)":
+    title: "Protection of Audit Information | Access by Subset of Privileged Users"
+    rules:
+      - audit-log-permissions
+      - audit-log-dir-permissions
+
+  "AU-11":
+    title: "Audit Record Retention"
+    rules:
+      - auditd-max-log-file
+      - auditd-max-log-file-action
+
+  "AU-12":
+    title: "Audit Record Generation"
+    rules:
+      - auditd-service-enabled
+      - audit-rules-immutable
+      - audit-privileged-commands
+      - audit-suid-files
+      - audit-sgid-files
+      - audit-kernel-modules
+      - audit-mount-operations
+      - audit-permission-changes
+      - audit-file-deletion
+      - audit-unsuccessful-access
+      - audit-unsuccessful-perm
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # CONFIGURATION MANAGEMENT (CM)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "CM-2":
+    title: "Baseline Configuration"
+    rules:
+      - aide-installed
+      - aide-cron-check
+      - repo-gpgcheck-enabled
+
+  "CM-3":
+    title: "Configuration Change Control"
+    rules:
+      - audit-sudoers-changes
+      - audit-network-changes
+      - audit-permission-changes
+
+  "CM-5":
+    title: "Access Restrictions for Change"
+    rules:
+      - sudo-require-auth
+      - su-require-wheel
+      - audit-sudoers-changes
+
+  "CM-6":
+    title: "Configuration Settings"
+    rules:
+      - ssh-disable-root-login
+      - ssh-permit-empty-passwords
+      - ssh-hostbased-authentication
+      - ssh-ignore-rhosts
+      - ssh-strict-modes
+      - sysctl-net-ipv4-conf-all-send-redirects
+      - sysctl-net-ipv4-conf-default-send-redirects
+      - aslr-enabled
+      - coredump-restricted
+      - ctrl-alt-del-disabled
+
+  "CM-6(1)":
+    title: "Configuration Settings | Automated Management, Application, and Verification"
+    rules:
+      - aide-installed
+      - aide-cron-check
+
+  "CM-7":
+    title: "Least Functionality"
+    rules:
+      - service-disable-cups
+      - service-disable-avahi-daemon
+      - service-disable-dhcpd
+      - service-disable-httpd
+      - service-disable-named
+      - service-disable-nfs
+      - service-disable-samba
+      - service-disable-squid
+      - service-disable-vsftpd
+      - service-disable-telnet
+      - service-disable-tftp
+      - package-telnet-removed
+      - package-ftp-removed
+
+  "CM-7(1)":
+    title: "Least Functionality | Periodic Review"
+    rules:
+      - aide-installed
+      - aide-cron-check
+
+  "CM-7(2)":
+    title: "Least Functionality | Prevent Program Execution"
+    rules:
+      - selinux-enforcing
+      - aslr-enabled
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # IDENTIFICATION AND AUTHENTICATION (IA)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "IA-2":
+    title: "Identification and Authentication (Organizational Users)"
+    rules:
+      - ssh-use-pam
+      - accounts-no-empty-passwords
+      - accounts-password-shadowed
+
+  "IA-2(1)":
+    title: "Identification and Authentication | Multi-Factor Authentication to Privileged Accounts"
+    rules:
+      - ssh-pubkey-authentication
+
+  "IA-2(2)":
+    title: "Identification and Authentication | Multi-Factor Authentication to Non-Privileged Accounts"
+    rules:
+      - ssh-pubkey-authentication
+
+  "IA-2(8)":
+    title: "Identification and Authentication | Access to Accounts - Replay Resistant"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+
+  "IA-2(12)":
+    title: "Identification and Authentication | Acceptance of PIV Credentials"
+    rules:
+      - ssh-pubkey-authentication
+      - crypto-policy-fips
+
+  "IA-3":
+    title: "Device Identification and Authentication"
+    rules:
+      - ssh-hostbased-authentication
+
+  "IA-5":
+    title: "Authenticator Management"
+    rules:
+      - pam-pwquality-minlen
+      - pam-pwquality-minclass
+      - pam-pwquality-dcredit
+      - pam-pwquality-ucredit
+      - pam-pwquality-lcredit
+      - pam-pwquality-ocredit
+      - password-remember
+      - accounts-no-empty-passwords
+
+  "IA-5(1)":
+    title: "Authenticator Management | Password-Based Authentication"
+    rules:
+      - pam-pwquality-minlen
+      - pam-pwquality-minclass
+      - pam-pwquality-maxrepeat
+      - pam-pwquality-maxclassrepeat
+      - pam-pwquality-dictcheck
+      - pam-pwquality-difok
+      - password-remember
+      - login-defs-pass-max-days
+
+  "IA-5(2)":
+    title: "Authenticator Management | PKI-Based Authentication"
+    rules:
+      - ssh-pubkey-authentication
+      - ssh-private-key-permissions
+      - ssh-public-key-permissions
+      - crypto-policy-fips
+
+  "IA-6":
+    title: "Authentication Feedback"
+    rules:
+      - ssh-permit-empty-passwords
+      - accounts-no-empty-passwords
+
+  "IA-7":
+    title: "Cryptographic Module Authentication"
+    rules:
+      - crypto-policy-fips
+      - fips-mode-enabled
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # SYSTEM AND COMMUNICATIONS PROTECTION (SC)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "SC-2":
+    title: "Separation of System and User Functionality"
+    rules:
+      - nologin-system-accounts
+      - accounts-no-uid-zero
+      - su-require-wheel
+
+  "SC-3":
+    title: "Security Function Isolation"
+    rules:
+      - selinux-enforcing
+      - selinux-policy-targeted
+      - aslr-enabled
+
+  "SC-4":
+    title: "Information in Shared System Resources"
+    rules:
+      - coredump-restricted
+      - coredump-suid-disabled
+
+  "SC-5":
+    title: "Denial-of-Service Protection"
+    rules:
+      - sysctl-net-ipv4-tcp-syncookies
+      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+      - sysctl-net-ipv4-icmp-ignore-bogus-error-responses
+
+  "SC-7":
+    title: "Boundary Protection"
+    rules:
+      - service-enable-firewalld
+      - firewalld-loopback
+
+  "SC-7(4)":
+    title: "Boundary Protection | External Telecommunications Services"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - crypto-policy-fips
+
+  "SC-7(5)":
+    title: "Boundary Protection | Deny by Default / Allow by Exception"
+    rules:
+      - service-enable-firewalld
+
+  "SC-8":
+    title: "Transmission Confidentiality and Integrity"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - crypto-policy-fips
+
+  "SC-8(1)":
+    title: "Transmission Confidentiality and Integrity | Cryptographic Protection"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - crypto-policy-fips
+      - fips-mode-enabled
+
+  "SC-10":
+    title: "Network Disconnect"
+    rules:
+      - ssh-client-alive-interval
+      - ssh-client-alive-count-max
+
+  "SC-12":
+    title: "Cryptographic Key Establishment and Management"
+    rules:
+      - ssh-private-key-permissions
+      - ssh-public-key-permissions
+      - ssh-config-permissions
+
+  "SC-13":
+    title: "Cryptographic Protection"
+    rules:
+      - crypto-policy-fips
+      - crypto-policy-no-weak
+      - fips-mode-enabled
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+
+  "SC-17":
+    title: "Public Key Infrastructure Certificates"
+    rules:
+      - ssh-pubkey-authentication
+      - crypto-policy-fips
+
+  "SC-23":
+    title: "Session Authenticity"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+
+  "SC-28":
+    title: "Protection of Information at Rest"
+    rules:
+      - fs-permissions-etc-shadow
+      - fs-permissions-etc-gshadow
+      - audit-log-permissions
+
+  "SC-28(1)":
+    title: "Protection of Information at Rest | Cryptographic Protection"
+    rules:
+      - crypto-policy-fips
+      - fips-mode-enabled
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # SYSTEM AND INFORMATION INTEGRITY (SI)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "SI-2":
+    title: "Flaw Remediation"
+    rules:
+      - repo-gpgcheck-enabled
+
+  "SI-3":
+    title: "Malicious Code Protection"
+    rules:
+      - aide-installed
+      - aide-cron-check
+      - selinux-enforcing
+
+  "SI-4":
+    title: "System Monitoring"
+    rules:
+      - auditd-service-enabled
+      - rsyslog-service-enabled
+      - audit-privileged-commands
+      - audit-unsuccessful-access
+
+  "SI-4(2)":
+    title: "System Monitoring | Automated Tools and Mechanisms for Real-Time Analysis"
+    rules:
+      - auditd-service-enabled
+      - rsyslog-service-enabled
+
+  "SI-4(4)":
+    title: "System Monitoring | Inbound and Outbound Communications Traffic"
+    rules:
+      - service-enable-firewalld
+      - audit-network-changes
+
+  "SI-4(5)":
+    title: "System Monitoring | System-Generated Alerts"
+    rules:
+      - auditd-action-mail-acct
+      - auditd-disk-full-action
+
+  "SI-6":
+    title: "Security and Privacy Function Verification"
+    rules:
+      - aide-installed
+      - aide-cron-check
+
+  "SI-7":
+    title: "Software, Firmware, and Information Integrity"
+    rules:
+      - aide-installed
+      - aide-cron-check
+      - aide-audit-tools
+      - repo-gpgcheck-enabled
+
+  "SI-7(1)":
+    title: "Software, Firmware, and Information Integrity | Integrity Checks"
+    rules:
+      - aide-installed
+      - aide-cron-check
+
+  "SI-7(7)":
+    title: "Software, Firmware, and Information Integrity | Integration of Detection and Response"
+    rules:
+      - aide-cron-check
+      - auditd-action-mail-acct
+
+  "SI-10":
+    title: "Information Input Validation"
+    rules:
+      - ssh-strict-modes
+      - ssh-permit-user-environment
+
+  "SI-11":
+    title: "Error Handling"
+    rules:
+      - auditd-disk-error-action
+      - auditd-disk-full-action
+
+  "SI-16":
+    title: "Memory Protection"
+    rules:
+      - aslr-enabled
+      - selinux-enforcing
+      - coredump-restricted

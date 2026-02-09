@@ -1,0 +1,440 @@
+# PCI DSS v4.0 Control Mapping for Aegis
+#
+# This mapping associates PCI DSS 4.0 requirements with Aegis rules.
+# PCI DSS requirements are mapped to technical controls that can be
+# verified through automated checks.
+#
+# Note: PCI DSS requirements are platform-agnostic. Platform-specific
+# implementation is handled by the rules themselves.
+#
+# Coverage focus:
+#   Requirement 2: Secure system components with secure configurations
+#   Requirement 5: Protect systems from malware
+#   Requirement 7: Restrict access based on need to know
+#   Requirement 8: Identify users and authenticate access
+#   Requirement 10: Log and monitor access
+
+id: pci-dss-v4.0
+framework: pci_dss
+title: "PCI DSS v4.0 Requirements"
+published: 2022-03-31
+
+requirements:
+  # ════════════════════════════════════════════════════════════════════════════
+  # Requirement 2: Apply Secure Configurations
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "2.2.1":
+    title: "Configuration standards for system components"
+    description: "System components are configured according to secure standards"
+    rules:
+      - ssh-disable-root-login
+      - ssh-permit-empty-passwords
+      - ssh-hostbased-authentication
+      - ssh-ignore-rhosts
+      - ssh-max-auth-tries
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - sysctl-net-ipv4-conf-all-send-redirects
+      - sysctl-net-ipv4-conf-default-send-redirects
+      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-net-ipv4-conf-default-accept-redirects
+      - sysctl-net-ipv4-conf-all-accept-source-route
+      - sysctl-net-ipv4-conf-default-accept-source-route
+      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+      - aslr-enabled
+      - coredump-restricted
+
+  "2.2.2":
+    title: "Vendor default accounts disabled or removed"
+    description: "Vendor default accounts removed or disabled if not necessary"
+    rules:
+      - ssh-disable-root-login
+      - accounts-no-uid-zero
+      - accounts-no-empty-passwords
+      - nologin-system-accounts
+
+  "2.2.3":
+    title: "Primary function per server"
+    description: "Each server performs only its primary function"
+    rules:
+      - service-disable-cups
+      - service-disable-avahi-daemon
+      - service-disable-dhcpd
+      - service-disable-httpd
+      - service-disable-named
+      - service-disable-nfs
+      - service-disable-samba
+      - service-disable-squid
+      - service-disable-vsftpd
+      - service-disable-telnet
+      - service-disable-tftp
+      - package-telnet-removed
+      - package-ftp-removed
+      - package-tftp-removed
+
+  "2.2.4":
+    title: "Only necessary services and protocols enabled"
+    description: "Only services, ports, protocols necessary for system function"
+    rules:
+      - service-disable-rpcbind
+      - service-disable-rsync
+      - service-disable-autofs
+      - service-disable-kdump
+      - service-disable-mcstrans
+      - service-enable-firewalld
+      - package-xinetd-removed
+      - pkg-telnet-server-absent
+      - pkg-vsftpd-absent
+      - pkg-nfs-utils-absent
+
+  "2.2.5":
+    title: "Security parameters configured"
+    description: "System security parameters set to prevent misuse"
+    rules:
+      - ssh-strict-modes
+      - ssh-permit-user-environment
+      - ssh-x11-use-localhost
+      - ssh-compression
+      - sudo-use-pty
+      - sudo-require-auth
+      - sudo-timeout
+      - su-require-wheel
+      - login-defs-umask
+      - shell-timeout
+      - ctrl-alt-del-disabled
+
+  "2.2.6":
+    title: "Insecure services configured securely"
+    description: "Insecure services have security features documented and implemented"
+    rules:
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - crypto-policy-no-weak
+      - crypto-policy-fips
+
+  "2.2.7":
+    title: "Administrative access over encrypted channel"
+    description: "All non-console admin access uses encrypted protocols"
+    rules:
+      - ssh-crypto-policy
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+      - crypto-policy-no-weak
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Requirement 5: Protect Against Malware
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "5.2.1":
+    title: "Anti-malware solution deployed"
+    description: "Anti-malware/AIDE deployed on systems commonly affected"
+    rules:
+      - aide-installed
+
+  "5.2.2":
+    title: "Anti-malware solution detects known malware"
+    description: "Solution detects all known types of malware"
+    rules:
+      - aide-installed
+      - aide-cron-check
+
+  "5.2.3":
+    title: "Anti-malware mechanisms active"
+    description: "Anti-malware mechanisms actively running and cannot be disabled"
+    rules:
+      - aide-cron-check
+      - auditd-service-enabled
+
+  "5.3.1":
+    title: "Anti-malware solution current"
+    description: "Anti-malware solution kept current via automatic updates"
+    rules:
+      - aide-cron-check
+      - repo-gpgcheck-enabled
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Requirement 7: Restrict Access
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "7.2.1":
+    title: "Access control model defined"
+    description: "Access control model covers all system components"
+    rules:
+      - selinux-enforcing
+      - selinux-policy-targeted
+      - fs-permissions-etc-passwd
+      - fs-permissions-etc-shadow
+      - fs-permissions-etc-group
+      - ssh-access-control
+
+  "7.2.2":
+    title: "Access assigned based on job classification"
+    description: "Access is assigned based on personnel job classification"
+    rules:
+      - su-require-wheel
+      - sudo-use-pty
+      - sudo-require-auth
+
+  "7.2.3":
+    title: "Required privileges documented and approved"
+    description: "Required privileges are documented and approved"
+    rules:
+      - sudo-logfile
+      - audit-sudoers-changes
+
+  "7.2.5":
+    title: "System and application accounts restricted"
+    description: "System and application accounts assigned minimal necessary"
+    rules:
+      - nologin-system-accounts
+      - accounts-no-uid-zero
+      - root-gid
+      - chrony-user
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Requirement 8: Identify and Authenticate Users
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "8.2.1":
+    title: "Unique IDs for all users"
+    description: "All users assigned unique ID before access is allowed"
+    rules:
+      - accounts-no-uid-zero
+
+  "8.2.2":
+    title: "Shared/group authentication prohibited"
+    description: "Group/shared authentication prohibited except specified"
+    rules:
+      - ssh-disable-root-login
+      - accounts-no-uid-zero
+
+  "8.2.3":
+    title: "Strong authentication for admin access"
+    description: "Strong cryptography used for admin authentication"
+    rules:
+      - ssh-pubkey-authentication
+      - ssh-permit-empty-passwords
+      - ssh-ciphers-fips
+      - ssh-macs-fips
+      - ssh-kex-fips
+
+  "8.2.4":
+    title: "MFA for administrative access"
+    description: "MFA implemented for all access into the CDE"
+    rules:
+      - ssh-pubkey-authentication
+
+  "8.2.6":
+    title: "Inactive accounts disabled"
+    description: "Inactive accounts removed or disabled within 90 days"
+    rules:
+      - inactive-password-lock
+
+  "8.3.1":
+    title: "Password/passphrase requirements"
+    description: "Minimum password length of at least 12 characters"
+    rules:
+      - pam-pwquality-minlen
+      - pam-pwquality-minclass
+      - pam-pwquality-dcredit
+      - pam-pwquality-ucredit
+      - pam-pwquality-lcredit
+      - pam-pwquality-ocredit
+
+  "8.3.2":
+    title: "Password complexity requirements"
+    description: "Both numeric and alphabetic characters required"
+    rules:
+      - pam-pwquality-minclass
+      - pam-pwquality-dcredit
+      - pam-pwquality-ucredit
+      - pam-pwquality-lcredit
+      - pam-pwquality-ocredit
+
+  "8.3.4":
+    title: "Account lockout after failed attempts"
+    description: "Lock account after not more than 10 invalid attempts"
+    rules:
+      - pam-faillock-deny
+      - pam-faillock-fail-interval
+      - pam-faillock-unlock-time
+      - pam-faillock-even-deny-root
+
+  "8.3.5":
+    title: "Lockout duration"
+    description: "Minimum 30-minute lockout or unlock by administrator"
+    rules:
+      - pam-faillock-unlock-time
+
+  "8.3.6":
+    title: "New passwords different from previous"
+    description: "New passwords differ from previous four passwords"
+    rules:
+      - password-remember
+
+  "8.3.7":
+    title: "Password change every 90 days"
+    description: "Passwords changed at least once every 90 days"
+    rules:
+      - login-defs-pass-max-days
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Requirement 10: Log and Monitor Access
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "10.2.1":
+    title: "Audit logs enabled and active"
+    description: "Audit logs enabled and active for all system components"
+    rules:
+      - auditd-service-enabled
+      - audit-rules-immutable
+
+  "10.2.1.1":
+    title: "Audit log all user access"
+    description: "Log all individual user access to cardholder data"
+    rules:
+      - audit-login-logout
+      - audit-session-initiation
+      - audit-privileged-commands
+
+  "10.2.1.2":
+    title: "Audit log all actions by admin"
+    description: "Log all actions taken by any with admin privileges"
+    rules:
+      - audit-sudoers-changes
+      - audit-cmd-sudo
+      - audit-cmd-su
+      - audit-user-group-changes
+
+  "10.2.1.3":
+    title: "Audit log all access to audit logs"
+    description: "Log all access to all audit trails"
+    rules:
+      - audit-log-permissions
+      - audit-log-dir-permissions
+      - audit-config-permissions
+
+  "10.2.1.4":
+    title: "Audit log invalid access attempts"
+    description: "Log invalid logical access attempts"
+    rules:
+      - audit-unsuccessful-access
+      - audit-unsuccessful-perm
+      - audit-file-faillock
+
+  "10.2.1.5":
+    title: "Audit log identification changes"
+    description: "Log all changes to identification and authentication"
+    rules:
+      - audit-user-group-changes
+      - audit-file-passwd
+      - audit-file-shadow
+      - audit-file-opasswd
+
+  "10.2.1.6":
+    title: "Audit log audit log changes"
+    description: "Log initialization, stopping, pausing of audit logs"
+    rules:
+      - audit-config-permissions
+      - auditd-disk-full-action
+      - auditd-disk-error-action
+
+  "10.2.1.7":
+    title: "Audit log system-level object changes"
+    description: "Log creation and deletion of system-level objects"
+    rules:
+      - audit-kernel-modules
+      - audit-file-deletion
+      - audit-mount-operations
+      - audit-permission-changes
+
+  "10.2.2":
+    title: "Audit log content requirements"
+    description: "Audit logs contain all required elements"
+    rules:
+      - auditd-service-enabled
+      - audit-time-change
+      - cron-logging
+
+  "10.3.1":
+    title: "Audit logs promptly backed up"
+    description: "Audit logs backed up promptly to secure central log server"
+    rules:
+      - rsyslog-service-enabled
+      - pkg-rsyslog-present
+
+  "10.3.2":
+    title: "Audit log files protected"
+    description: "Audit log files protected to prevent modifications"
+    rules:
+      - audit-log-permissions
+      - audit-log-dir-permissions
+      - rsyslog-default-permissions
+
+  "10.3.3":
+    title: "Audit logs protected from tampering"
+    description: "Audit logs are immediately backed up to protected location"
+    rules:
+      - auditd-max-log-file
+      - auditd-max-log-file-action
+      - auditd-space-action
+      - auditd-admin-space-action
+
+  "10.3.4":
+    title: "File integrity monitoring for logs"
+    description: "File integrity monitoring used on audit logs"
+    rules:
+      - aide-installed
+      - aide-audit-tools
+      - aide-cron-check
+
+  "10.4.1":
+    title: "Security event alerts"
+    description: "Alerts generated in response to security events"
+    rules:
+      - auditd-action-mail-acct
+      - auditd-disk-full-action
+
+  "10.5.1":
+    title: "Audit history retained"
+    description: "Audit log history retained for at least 12 months"
+    rules:
+      - auditd-max-log-file
+      - auditd-max-log-file-action
+
+  "10.6.1":
+    title: "Time synchronization"
+    description: "Time synchronization technology in use"
+    rules:
+      - chrony-installed
+      - chrony-user
+      - audit-time-change
+
+  "10.6.3":
+    title: "Time settings protected"
+    description: "Time data protected and changes logged"
+    rules:
+      - audit-time-change
+      - chrony-installed
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Requirement 11: Test Security
+  # ════════════════════════════════════════════════════════════════════════════
+
+  "11.5.1":
+    title: "Change detection mechanism"
+    description: "File integrity monitoring to alert personnel to changes"
+    rules:
+      - aide-installed
+      - aide-cron-check
+      - aide-audit-tools
+
+  "11.5.1.1":
+    title: "Change detection responds to alerts"
+    description: "Change detection responds to alerts within 24 hours"
+    rules:
+      - aide-cron-check

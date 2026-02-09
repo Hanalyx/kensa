@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from runner._types import Evidence
+
 if TYPE_CHECKING:
     pass
 
@@ -90,7 +92,7 @@ class ResultStore:
 
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(
         self,
@@ -156,15 +158,61 @@ class ResultStore:
             """
         )
 
-        # Set schema version if not exists
+        # Check current schema version and migrate if needed
         cursor = conn.execute("SELECT version FROM schema_version LIMIT 1")
-        if cursor.fetchone() is None:
+        row = cursor.fetchone()
+        current_version = row[0] if row else 0
+
+        if current_version < 2:
+            self._migrate_to_v2(conn)
+
+        # Set or update schema version
+        if row is None:
             conn.execute(
                 "INSERT INTO schema_version (version) VALUES (?)",
                 (self.SCHEMA_VERSION,),
             )
+        elif current_version < self.SCHEMA_VERSION:
+            conn.execute(
+                "UPDATE schema_version SET version = ?",
+                (self.SCHEMA_VERSION,),
+            )
 
         conn.commit()
+
+    def _migrate_to_v2(self, conn: sqlite3.Connection) -> None:
+        """Migrate database to schema version 2 (add evidence and framework_refs)."""
+        conn.executescript(
+            """
+            -- Evidence table for storing raw check evidence
+            CREATE TABLE IF NOT EXISTS evidence (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                result_id INTEGER NOT NULL,
+                method TEXT NOT NULL,
+                command TEXT,
+                stdout TEXT,
+                stderr TEXT,
+                exit_code INTEGER,
+                expected TEXT,
+                actual TEXT,
+                check_timestamp TEXT NOT NULL,
+                FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE
+            );
+
+            -- Framework references table
+            CREATE TABLE IF NOT EXISTS framework_refs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                result_id INTEGER NOT NULL,
+                framework TEXT NOT NULL,
+                reference TEXT NOT NULL,
+                FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_evidence_result ON evidence(result_id);
+            CREATE INDEX IF NOT EXISTS idx_framework_refs_result ON framework_refs(result_id);
+            CREATE INDEX IF NOT EXISTS idx_framework_refs_framework ON framework_refs(framework);
+            """
+        )
 
     def close(self) -> None:
         """Close the database connection."""
@@ -209,8 +257,10 @@ class ResultStore:
         detail: str = "",
         remediated: bool = False,
         rule_hash: str | None = None,
+        evidence: Evidence | None = None,
+        framework_refs: dict[str, str] | None = None,
     ) -> int:
-        """Record a rule result.
+        """Record a rule result with optional evidence and framework references.
 
         Args:
             session_id: Session ID from create_session().
@@ -220,6 +270,8 @@ class ResultStore:
             detail: Result detail message.
             remediated: Whether remediation was applied.
             rule_hash: Hash of rule content for change detection.
+            evidence: Raw evidence from the check (for audit).
+            framework_refs: Framework references (e.g., {"cis_rhel9_v2": "5.1.12"}).
 
         Returns:
             Result record ID.
@@ -241,8 +293,42 @@ class ResultStore:
                 rule_hash,
             ),
         )
+        result_id = cursor.lastrowid
+
+        # Store evidence if provided
+        if evidence is not None:
+            conn.execute(
+                """
+                INSERT INTO evidence (result_id, method, command, stdout, stderr,
+                                      exit_code, expected, actual, check_timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    result_id,
+                    evidence.method,
+                    evidence.command,
+                    evidence.stdout,
+                    evidence.stderr,
+                    evidence.exit_code,
+                    evidence.expected,
+                    evidence.actual,
+                    evidence.timestamp.isoformat(),
+                ),
+            )
+
+        # Store framework references if provided
+        if framework_refs:
+            for framework, reference in framework_refs.items():
+                conn.execute(
+                    """
+                    INSERT INTO framework_refs (result_id, framework, reference)
+                    VALUES (?, ?, ?)
+                    """,
+                    (result_id, framework, reference),
+                )
+
         conn.commit()
-        return cursor.lastrowid  # type: ignore
+        return result_id  # type: ignore
 
     def get_session(self, session_id: int) -> Session | None:
         """Get session by ID.
@@ -290,6 +376,126 @@ class ResultStore:
             """,
             (session_id,),
         )
+        return [
+            ResultRecord(
+                id=row["id"],
+                session_id=row["session_id"],
+                host=row["host"],
+                rule_id=row["rule_id"],
+                passed=bool(row["passed"]),
+                detail=row["detail"],
+                remediated=bool(row["remediated"]),
+                timestamp=datetime.fromisoformat(row["timestamp"]),
+                rule_hash=row["rule_hash"],
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def get_evidence(self, result_id: int) -> Evidence | None:
+        """Retrieve evidence for a specific result.
+
+        Args:
+            result_id: Result record ID.
+
+        Returns:
+            Evidence object or None if not found.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            SELECT method, command, stdout, stderr, exit_code, expected, actual, check_timestamp
+            FROM evidence
+            WHERE result_id = ?
+            """,
+            (result_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return Evidence(
+            method=row["method"],
+            command=row["command"],
+            stdout=row["stdout"] or "",
+            stderr=row["stderr"] or "",
+            exit_code=row["exit_code"] or 0,
+            expected=row["expected"],
+            actual=row["actual"],
+            timestamp=datetime.fromisoformat(row["check_timestamp"]),
+        )
+
+    def get_framework_refs(self, result_id: int) -> dict[str, str]:
+        """Retrieve all framework references for a result.
+
+        Args:
+            result_id: Result record ID.
+
+        Returns:
+            Dict mapping framework keys to their references.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            SELECT framework, reference
+            FROM framework_refs
+            WHERE result_id = ?
+            """,
+            (result_id,),
+        )
+        return {row["framework"]: row["reference"] for row in cursor.fetchall()}
+
+    def get_results_by_timerange(
+        self,
+        start: datetime,
+        end: datetime,
+        host: str | None = None,
+        rule_id: str | None = None,
+        framework: str | None = None,
+    ) -> list[ResultRecord]:
+        """Query results within a time range with optional filters.
+
+        Args:
+            start: Start of time range (inclusive).
+            end: End of time range (inclusive).
+            host: Filter by host (optional).
+            rule_id: Filter by rule ID (optional).
+            framework: Filter by framework (optional, requires join).
+
+        Returns:
+            List of result records matching the criteria.
+
+        """
+        conn = self._get_conn()
+
+        query = """
+            SELECT DISTINCT r.id, r.session_id, r.host, r.rule_id, r.passed,
+                   r.detail, r.remediated, r.timestamp, r.rule_hash
+            FROM results r
+        """
+        params: list = []
+
+        if framework:
+            query += " JOIN framework_refs f ON r.id = f.result_id"
+
+        query += " WHERE r.timestamp BETWEEN ? AND ?"
+        params.extend([start.isoformat(), end.isoformat()])
+
+        if host:
+            query += " AND r.host = ?"
+            params.append(host)
+
+        if rule_id:
+            query += " AND r.rule_id = ?"
+            params.append(rule_id)
+
+        if framework:
+            query += " AND f.framework = ?"
+            params.append(framework)
+
+        query += " ORDER BY r.timestamp DESC"
+
+        cursor = conn.execute(query, params)
         return [
             ResultRecord(
                 id=row["id"],

@@ -5,10 +5,11 @@ Handlers for verifying file state: existence, permissions, and content.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from runner import shell_util
-from runner._types import CheckResult
+from runner._types import CheckResult, Evidence
 
 if TYPE_CHECKING:
     from runner.ssh import SSHSession
@@ -35,13 +36,29 @@ def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
     """
     path = c["path"]
     is_glob = "glob" in c or shell_util.is_glob_path(path)
+    check_time = datetime.now(timezone.utc)
 
     result = shell_util.get_file_stat(ssh, path, allow_glob=is_glob)
+    cmd = result.command if hasattr(result, "command") else f"stat {path}"
 
     if not result.ok or not result.stdout.strip():
-        return CheckResult(passed=False, detail=f"{path}: not found or not accessible")
+        return CheckResult(
+            passed=False,
+            detail=f"{path}: not found or not accessible",
+            evidence=Evidence(
+                method="file_permission",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=f"owner={c.get('owner', '*')}, group={c.get('group', '*')}, mode={c.get('mode', '*')}",
+                actual=None,
+                timestamp=check_time,
+            ),
+        )
 
     all_failures = []
+    actual_parts = []
     for line in result.stdout.strip().splitlines():
         parts = line.split()
         if len(parts) < 4:
@@ -49,6 +66,9 @@ def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
         actual_owner, actual_group, actual_mode = parts[0], parts[1], parts[2]
         file_path = " ".join(parts[3:])
         failures = []
+        actual_parts.append(
+            f"{file_path}: owner={actual_owner}, group={actual_group}, mode={actual_mode}"
+        )
 
         if "owner" in c and actual_owner != c["owner"]:
             failures.append(f"owner={actual_owner} (expected {c['owner']})")
@@ -63,9 +83,38 @@ def _check_file_permission(ssh: SSHSession, c: dict) -> CheckResult:
         if failures:
             all_failures.append(f"{file_path}: {', '.join(failures)}")
 
+    expected_str = f"owner={c.get('owner', '*')}, group={c.get('group', '*')}, mode={c.get('mode', '*')}"
+    actual_str = "; ".join(actual_parts)
+
     if all_failures:
-        return CheckResult(passed=False, detail="; ".join(all_failures))
-    return CheckResult(passed=True, detail=f"{path}: ok")
+        return CheckResult(
+            passed=False,
+            detail="; ".join(all_failures),
+            evidence=Evidence(
+                method="file_permission",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected_str,
+                actual=actual_str,
+                timestamp=check_time,
+            ),
+        )
+    return CheckResult(
+        passed=True,
+        detail=f"{path}: ok",
+        evidence=Evidence(
+            method="file_permission",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=expected_str,
+            actual=actual_str,
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_file_exists(ssh: SSHSession, c: dict) -> CheckResult:
@@ -81,9 +130,39 @@ def _check_file_exists(ssh: SSHSession, c: dict) -> CheckResult:
 
     """
     path = c["path"]
-    if shell_util.file_exists(ssh, path):
-        return CheckResult(passed=True, detail=f"{path}: exists")
-    return CheckResult(passed=False, detail=f"{path}: not found")
+    check_time = datetime.now(timezone.utc)
+    cmd = f"test -e {shell_util.quote(path)}"
+    result = ssh.run(cmd)
+
+    if result.ok:
+        return CheckResult(
+            passed=True,
+            detail=f"{path}: exists",
+            evidence=Evidence(
+                method="file_exists",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected="exists",
+                actual="exists",
+                timestamp=check_time,
+            ),
+        )
+    return CheckResult(
+        passed=False,
+        detail=f"{path}: not found",
+        evidence=Evidence(
+            method="file_exists",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected="exists",
+            actual="not found",
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_file_not_exists(ssh: SSHSession, c: dict) -> CheckResult:
@@ -101,9 +180,39 @@ def _check_file_not_exists(ssh: SSHSession, c: dict) -> CheckResult:
 
     """
     path = c["path"]
-    if not shell_util.file_exists(ssh, path):
-        return CheckResult(passed=True, detail=f"{path}: not present (as required)")
-    return CheckResult(passed=False, detail=f"{path}: exists (should be absent)")
+    check_time = datetime.now(timezone.utc)
+    cmd = f"test -e {shell_util.quote(path)}"
+    result = ssh.run(cmd)
+
+    if not result.ok:
+        return CheckResult(
+            passed=True,
+            detail=f"{path}: not present (as required)",
+            evidence=Evidence(
+                method="file_not_exists",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected="absent",
+                actual="absent",
+                timestamp=check_time,
+            ),
+        )
+    return CheckResult(
+        passed=False,
+        detail=f"{path}: exists (should be absent)",
+        evidence=Evidence(
+            method="file_not_exists",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected="absent",
+            actual="exists",
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_file_content_match(ssh: SSHSession, c: dict) -> CheckResult:
@@ -123,14 +232,57 @@ def _check_file_content_match(ssh: SSHSession, c: dict) -> CheckResult:
     """
     path = c["path"]
     pattern = c["pattern"]
+    check_time = datetime.now(timezone.utc)
 
+    # First check if file exists
     if not shell_util.file_exists(ssh, path):
-        return CheckResult(passed=False, detail=f"{path}: not found")
+        return CheckResult(
+            passed=False,
+            detail=f"{path}: not found",
+            evidence=Evidence(
+                method="file_content_match",
+                command=f"test -e {path}",
+                stdout="",
+                stderr="",
+                exit_code=1,
+                expected=f"contains pattern '{pattern}'",
+                actual="file not found",
+                timestamp=check_time,
+            ),
+        )
 
-    result = ssh.run(f"grep -qE {shell_util.quote(pattern)} {shell_util.quote(path)}")
+    cmd = f"grep -qE {shell_util.quote(pattern)} {shell_util.quote(path)}"
+    result = ssh.run(cmd)
+
     if result.ok:
-        return CheckResult(passed=True, detail=f"{path}: contains pattern")
-    return CheckResult(passed=False, detail=f"{path}: pattern not found")
+        return CheckResult(
+            passed=True,
+            detail=f"{path}: contains pattern",
+            evidence=Evidence(
+                method="file_content_match",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=f"contains pattern '{pattern}'",
+                actual="pattern found",
+                timestamp=check_time,
+            ),
+        )
+    return CheckResult(
+        passed=False,
+        detail=f"{path}: pattern not found",
+        evidence=Evidence(
+            method="file_content_match",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=f"contains pattern '{pattern}'",
+            actual="pattern not found",
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_file_content_no_match(ssh: SSHSession, c: dict) -> CheckResult:
@@ -151,15 +303,53 @@ def _check_file_content_no_match(ssh: SSHSession, c: dict) -> CheckResult:
     """
     path = c["path"]
     pattern = c["pattern"]
+    check_time = datetime.now(timezone.utc)
 
     if not shell_util.file_exists(ssh, path):
         return CheckResult(
-            passed=True, detail=f"{path}: not found (pattern cannot exist)"
+            passed=True,
+            detail=f"{path}: not found (pattern cannot exist)",
+            evidence=Evidence(
+                method="file_content_no_match",
+                command=f"test -e {path}",
+                stdout="",
+                stderr="",
+                exit_code=1,
+                expected=f"does not contain pattern '{pattern}'",
+                actual="file not found",
+                timestamp=check_time,
+            ),
         )
 
-    result = ssh.run(f"grep -qE {shell_util.quote(pattern)} {shell_util.quote(path)}")
+    cmd = f"grep -qE {shell_util.quote(pattern)} {shell_util.quote(path)}"
+    result = ssh.run(cmd)
+
     if not result.ok:
         return CheckResult(
-            passed=True, detail=f"{path}: pattern not found (as required)"
+            passed=True,
+            detail=f"{path}: pattern not found (as required)",
+            evidence=Evidence(
+                method="file_content_no_match",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=f"does not contain pattern '{pattern}'",
+                actual="pattern not found",
+                timestamp=check_time,
+            ),
         )
-    return CheckResult(passed=False, detail=f"{path}: contains prohibited pattern")
+    return CheckResult(
+        passed=False,
+        detail=f"{path}: contains prohibited pattern",
+        evidence=Evidence(
+            method="file_content_no_match",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=f"does not contain pattern '{pattern}'",
+            actual="pattern found",
+            timestamp=check_time,
+        ),
+    )

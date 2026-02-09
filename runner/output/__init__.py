@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from runner._types import RuleResult
 
 from runner.output.csv_fmt import format_csv
+from runner.output.evidence_fmt import format_evidence, format_evidence_all
 from runner.output.json_fmt import format_json
 from runner.output.pdf_fmt import format_pdf
 
@@ -51,6 +52,8 @@ __all__ = [
     "format_json",
     "format_csv",
     "format_pdf",
+    "format_evidence",
+    "format_evidence_all",
     "write_output",
     "parse_output_spec",
 ]
@@ -237,6 +240,7 @@ def write_output(run_result: RunResult, fmt: str, filepath: str | None = None) -
     formatters = {
         "json": format_json,
         "csv": format_csv,
+        "evidence": format_evidence_all,
     }
 
     if fmt not in formatters:
