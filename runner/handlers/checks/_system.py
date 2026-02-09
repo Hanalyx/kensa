@@ -47,16 +47,17 @@ def _check_sysctl_value(ssh: SSHSession, c: dict) -> CheckResult:
 def _check_kernel_module_state(ssh: SSHSession, c: dict) -> CheckResult:
     """Check kernel module load state.
 
-    Verifies whether a kernel module is loaded or properly blacklisted.
-    For blacklisted modules, checks both that it's not currently loaded
+    Verifies whether a kernel module is loaded or properly disabled/blacklisted.
+    For disabled modules, checks both that it's not currently loaded
     and that modprobe is configured to prevent loading.
 
     Args:
         ssh: Active SSH session to the target host.
         c: Check definition with required fields:
             - name (str): Kernel module name.
-            - state (str, optional): Desired state - "blacklisted" or
-              "loaded". Defaults to "blacklisted".
+            - state (str, optional): Desired state - "blacklisted", "disabled",
+              or "loaded". Defaults to "blacklisted". "disabled" and
+              "blacklisted" are equivalent (both prevent module loading).
 
     Returns:
         CheckResult with passed=True if module is in the expected state.
@@ -65,12 +66,14 @@ def _check_kernel_module_state(ssh: SSHSession, c: dict) -> CheckResult:
     name = c["name"]
     state = c.get("state", "blacklisted")
 
-    if state == "blacklisted":
-        # Module should NOT be loaded and should be blacklisted
+    # "disabled" and "blacklisted" are equivalent - both prevent module loading
+    if state in ("blacklisted", "disabled"):
+        # Module should NOT be loaded and should be blacklisted/disabled
         loaded = ssh.run(f"lsmod | grep -q '^{name} '")
         if loaded.ok:
             return CheckResult(passed=False, detail=f"{name}: still loaded")
 
+        # Check for blacklist or install /bin/false|/bin/true directives
         blacklisted = ssh.run(
             f"modprobe -n -v {shell_util.quote(name)} 2>&1 | grep -q 'install /bin/true\\|install /bin/false\\|blacklist'"
         )

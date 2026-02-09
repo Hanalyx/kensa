@@ -25,11 +25,23 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grep -E '^OPTIONS=.*-u chrony' /etc/sysconfig/chronyd 2>/dev/null || grep -v '^#' /etc/chrony.conf 2>/dev/null | grep -E '^user\\s+chrony'"
+      # Operational check: verify chronyd runs as chrony user
+      # First try to check running process, then fall back to config if not running
+      run: |
+        if pgrep -x chronyd >/dev/null 2>&1; then
+          # Check actual running user (operational verification)
+          ps -o user= -C chronyd 2>/dev/null | head -1 | grep -qx 'chrony'
+        else
+          # Service not running - check if config specifies user
+          # RHEL 9+ runs as chrony by default, so also check if no override exists
+          grep -E '^OPTIONS=.*-u chrony' /etc/sysconfig/chronyd 2>/dev/null || \
+          grep -E '^\s*user\s+chrony' /etc/chrony.conf 2>/dev/null || \
+          ! grep -E '^\s*user\s+' /etc/chrony.conf 2>/dev/null
+        fi
       expected_exit: 0
     remediation:
       mechanism: config_set
       path: "/etc/sysconfig/chronyd"
       key: "OPTIONS"
-      value: "-u chrony"
+      value: '"-u chrony"'
       restart: "chronyd"

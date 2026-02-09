@@ -47,6 +47,7 @@ implementations:
       path: "/etc/ssh/sshd_config.d"
       key: "ClientAliveInterval"
       expected: "{{ ssh_client_alive_interval }}"
+      comparator: "<="
       scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
@@ -62,6 +63,7 @@ implementations:
       path: "/etc/ssh/sshd_config"
       key: "ClientAliveInterval"
       expected: "{{ ssh_client_alive_interval }}"
+      comparator: "<="
     remediation:
       mechanism: config_set
       path: "/etc/ssh/sshd_config"

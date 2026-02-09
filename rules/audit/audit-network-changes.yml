@@ -28,8 +28,13 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale"
+      method: command
+      # Check network environment syscalls are audited (flexible format matching)
+      run: |
+        rules=$(auditctl -l 2>/dev/null)
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*sethostname' && \
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*setdomainname'
+      expected_exit: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale"

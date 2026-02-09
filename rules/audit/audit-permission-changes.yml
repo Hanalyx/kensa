@@ -28,8 +28,15 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_mod"
+      method: command
+      # Check all DAC modification syscalls are audited (flexible format matching)
+      # Accepts comma-separated or individual rules, auid!=unset or auid!=4294967295
+      run: |
+        rules=$(auditctl -l 2>/dev/null)
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*chmod.*auid>=' && \
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*fchmod.*auid>=' && \
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*fchmodat.*auid>='
+      expected_exit: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_mod"

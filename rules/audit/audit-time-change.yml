@@ -28,8 +28,14 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change"
+      method: command
+      # Check all time-related syscalls are audited (flexible format matching)
+      run: |
+        rules=$(auditctl -l 2>/dev/null)
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*adjtimex' && \
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*settimeofday' && \
+        echo "$rules" | grep -qE '^-a always,exit.*-S.*clock_settime'
+      expected_exit: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change"

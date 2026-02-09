@@ -33,9 +33,10 @@ implementations:
       method: config_value
       path: "/etc/login.defs"
       key: "UMASK"
-      expected: "027"
+      expected: "{{ login_defs_umask }}"
+      comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/login.defs"
       key: "UMASK"
-      value: "027"
+      value: "{{ login_defs_umask }}"

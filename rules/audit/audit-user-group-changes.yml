@@ -28,8 +28,14 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-w /etc/passwd -p wa -k identity"
+      method: command
+      # Check all identity files are audited (flexible key name matching)
+      run: |
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/passwd.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/shadow.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/group.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/gshadow.*-p wa'
+      expected_exit: 0
     remediation:
       steps:
         - mechanism: audit_rule_set
