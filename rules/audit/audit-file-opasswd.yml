@@ -1,0 +1,33 @@
+id: audit-file-opasswd
+title: Audit modifications to /etc/security/opasswd
+description: >
+  Changes to /etc/security/opasswd must be audited. This file stores
+  password history used to prevent password reuse.
+rationale: >
+  Auditing changes to opasswd allows detection of attempts to
+  manipulate password history and bypass password reuse restrictions.
+severity: medium
+category: audit
+tags: [audit, auditd, password, opasswd]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258221"
+      stig_id: "RHEL-09-654355"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/security/opasswd -p wa -k identity"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/security/opasswd -p wa -k identity"
+      persist_file: "/etc/audit/rules.d/50-identity.rules"

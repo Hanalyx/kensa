@@ -1,0 +1,33 @@
+id: audit-file-passwd
+title: Audit modifications to /etc/passwd
+description: >
+  Changes to /etc/passwd must be audited. This file contains user
+  account information critical to system security.
+rationale: >
+  Auditing changes to passwd allows detection of unauthorized
+  user account creations, modifications, or deletions.
+severity: medium
+category: audit
+tags: [audit, auditd, accounts, passwd]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258222"
+      stig_id: "RHEL-09-654360"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/passwd -p wa -k identity"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/passwd -p wa -k identity"
+      persist_file: "/etc/audit/rules.d/50-identity.rules"

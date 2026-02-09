@@ -1,0 +1,33 @@
+id: audit-cmd-gpasswd
+title: Audit uses of the gpasswd command
+description: >
+  All uses of the gpasswd command must be audited. The gpasswd command
+  administers group passwords and membership, affecting access controls.
+rationale: >
+  Auditing gpasswd command usage allows detection of unauthorized
+  group membership changes that could grant elevated access.
+severity: medium
+category: audit
+tags: [audit, auditd, privileged, gpasswd]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258194"
+      stig_id: "RHEL-09-654220"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=unset -k privileged-gpasswd"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=unset -k privileged-gpasswd"
+      persist_file: "/etc/audit/rules.d/50-privileged.rules"

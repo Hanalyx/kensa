@@ -1042,6 +1042,11 @@ sections:
     level: L1
     type: Automated
     title: Ensure permissions on /etc/shadow are configured
+  6.2.2.2:
+    rule: journald-forward-syslog
+    level: L1
+    type: Automated
+    title: Ensure journald ForwardToSyslog is configured
   6.2.2.3:
     rule: journald-compress
     level: L1
@@ -1052,11 +1057,26 @@ sections:
     level: L1
     type: Automated
     title: Ensure journald Storage is configured
+  6.2.3.1:
+    rule: pkg-rsyslog-present
+    level: L1
+    type: Automated
+    title: Ensure rsyslog is installed
+  6.2.3.2:
+    rule: rsyslog-service-enabled
+    level: L1
+    type: Automated
+    title: Ensure rsyslog service is enabled and active
   6.2.3.4:
     rule: rsyslog-default-permissions
     level: L1
     type: Automated
     title: Ensure rsyslog log file creation mode is configured
+  6.2.3.7:
+    rule: rsyslog-no-remote-receive
+    level: L1
+    type: Automated
+    title: Ensure rsyslog is not configured to receive logs from a remote client
   6.3.1.1:
     rule: auditd-service-enabled
     level: L2
@@ -1804,18 +1824,9 @@ unimplemented:
     title: Ensure only one logging system is in use
     reason: Needs rule implementation
     type: Automated
-  6.2.2.2:
-    title: Ensure journald ForwardToSyslog is disabled
-    reason: Needs rule implementation
-    type: Automated
-  6.2.3.1:
-    title: Ensure rsyslog is installed
-    reason: Needs rule implementation
-    type: Automated
-  6.2.3.2:
-    title: Ensure rsyslog service is enabled and active
-    reason: Needs rule implementation
-    type: Automated
+  # 6.2.2.2: covered by journald-forward-syslog
+  # 6.2.3.1: covered by pkg-rsyslog-present
+  # 6.2.3.2: covered by rsyslog-service-enabled
   6.2.3.3:
     title: Ensure journald is configured to send logs to rsyslog
     reason: Needs rule implementation
@@ -1828,10 +1839,7 @@ unimplemented:
     title: Ensure rsyslog is configured to send logs to a remote log host
     reason: Manual check - requires human verification
     type: Manual
-  6.2.3.7:
-    title: Ensure rsyslog is not configured to receive logs from a remote client
-    reason: Needs rule implementation
-    type: Automated
+  # 6.2.3.7: covered by rsyslog-no-remote-receive
   6.2.3.8:
     title: Ensure rsyslog logrotate is configured
     reason: Manual check - requires human verification
