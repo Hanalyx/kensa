@@ -80,6 +80,36 @@ class RuleConfig:
 # ── Configuration loading ──────────────────────────────────────────────────
 
 
+def _find_defaults_file(start_dir: Path) -> Path | None:
+    """Search for defaults.yml in start_dir and parent directories.
+
+    This allows rules in subdirectories (e.g., rules/access-control/) to find
+    the defaults.yml in the rules root directory.
+
+    Args:
+        start_dir: Directory to start searching from.
+
+    Returns:
+        Path to defaults.yml if found, None otherwise.
+
+    """
+    current = start_dir.resolve()
+    # Limit search depth to avoid infinite loops
+    for _ in range(10):
+        defaults_path = current / "defaults.yml"
+        if defaults_path.exists():
+            return defaults_path
+        # Also check for rules.d directory as indicator of rules root
+        if (current / "rules.d").is_dir():
+            return defaults_path if defaults_path.exists() else None
+        parent = current.parent
+        if parent == current:
+            # Reached filesystem root
+            break
+        current = parent
+    return None
+
+
 def load_config(rules_path: str | None = None) -> RuleConfig:
     """Load rule configuration from defaults.yml and rules.d overrides.
 
@@ -101,9 +131,11 @@ def load_config(rules_path: str | None = None) -> RuleConfig:
 
     config = RuleConfig()
 
-    # Load defaults.yml
-    defaults_path = rules_dir / "defaults.yml"
-    if defaults_path.exists():
+    # Load defaults.yml - search up the directory tree to find it
+    defaults_path = _find_defaults_file(rules_dir)
+    rules_root = rules_dir  # Default to the given directory
+    if defaults_path is not None and defaults_path.exists():
+        rules_root = defaults_path.parent  # Use the directory containing defaults.yml
         try:
             data = yaml.safe_load(defaults_path.read_text())
             if isinstance(data, dict):
@@ -113,7 +145,7 @@ def load_config(rules_path: str | None = None) -> RuleConfig:
             pass  # Silently ignore malformed defaults
 
     # Load rules.d/*.yml overrides (alphabetically)
-    rules_d = rules_dir / "rules.d"
+    rules_d = rules_root / "rules.d"
     if rules_d.is_dir():
         for override_file in sorted(rules_d.glob("*.yml")):
             try:
