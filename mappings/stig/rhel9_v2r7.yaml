@@ -1545,6 +1545,191 @@ findings:
     rule: pkg-postfix-present
     severity: CAT II
     title: RHEL 9 must have the Postfix package installed.
+  # Additional package rules
+  V-257830:
+    rule: pkg-krb5-server-absent
+    severity: CAT II
+    title: RHEL 9 must not have the krb5-server package installed.
+  V-257831:
+    rule: pkg-krb5-workstation-absent
+    severity: CAT II
+    title: RHEL 9 must not have the krb5-workstation package installed.
+  V-257835:
+    rule: pkg-libnsl-absent
+    severity: CAT III
+    title: RHEL 9 must not have the libnsl package installed.
+  V-257837:
+    rule: pkg-telnet-server-absent
+    severity: CAT I
+    title: RHEL 9 must not have the telnet-server package installed.
+  # Kernel boot parameter rules
+  V-257792:
+    rule: grub-vsyscall-none
+    severity: CAT II
+    title: RHEL 9 must disable virtual system calls.
+  V-257793:
+    rule: grub-page-alloc-shuffle
+    severity: CAT II
+    title: RHEL 9 must clear the page allocator to prevent use-after-free attacks.
+  V-257794:
+    rule: grub-slub-debug
+    severity: CAT II
+    title: RHEL 9 must clear memory when it is freed to prevent use-after-free attacks.
+  V-257795:
+    rule: grub-processor-mitigations
+    severity: CAT III
+    title: RHEL 9 must enable mitigations against processor-based vulnerabilities.
+  V-257796:
+    rule: grub-audit-enabled
+    severity: CAT III
+    title: RHEL 9 must enable auditing of processes that start prior to the audit daemon.
+  # SSH rules
+  V-257983:
+    rule: ssh-pubkey-authentication
+    severity: CAT II
+    title: RHEL 9 SSHD must accept public key authentication.
+  V-257986:
+    rule: ssh-use-pam
+    severity: CAT I
+    title: RHEL 9 must enable the Pluggable Authentication Module (PAM) interface for SSHD.
+  V-258002:
+    rule: ssh-compression
+    severity: CAT II
+    title: RHEL 9 SSH daemon must not allow compression or must only allow compression after successful authentication.
+  V-258003:
+    rule: ssh-gssapi-authentication
+    severity: CAT II
+    title: RHEL 9 SSH daemon must not allow GSSAPI authentication.
+  V-258008:
+    rule: ssh-strict-modes
+    severity: CAT II
+    title: RHEL 9 SSH daemon must perform strict mode checking of home directory configuration files.
+  V-258009:
+    rule: ssh-print-last-log
+    severity: CAT II
+    title: RHEL 9 SSH daemon must display the date and time of the last successful account logon upon an SSH logon.
+  V-257996:
+    rule: ssh-client-alive-interval
+    severity: CAT II
+    title: RHEL 9 must be configured so that all network connections associated with SSH traffic are terminated after becoming unresponsive.
+  V-257997:
+    rule: ssh-config-permissions
+    severity: CAT II
+    title: RHEL 9 SSH server configuration file must be group-owned by root.
+  V-257998:
+    rule: ssh-config-permissions
+    severity: CAT II
+    title: RHEL 9 SSH server configuration file must be owned by root.
+  V-258001:
+    rule: ssh-public-key-permissions
+    severity: CAT II
+    title: RHEL 9 SSH public host key files must have mode 0644 or less permissive.
+  # Cron and audit permissions
+  V-257926:
+    rule: cron-permissions
+    severity: CAT II
+    title: RHEL 9 cron configuration files directory must be owned by root.
+  V-257927:
+    rule: cron-permissions
+    severity: CAT II
+    title: RHEL 9 cron configuration files directory must be group-owned by root.
+  V-257924:
+    rule: audit-binary-permissions
+    severity: CAT II
+    title: RHEL 9 audit tools must be owned by root.
+  V-257925:
+    rule: audit-binary-permissions
+    severity: CAT II
+    title: RHEL 9 audit tools must be group-owned by root.
+  # SELinux and umask rules
+  V-258078:
+    rule: selinux-enforcing
+    severity: CAT I
+    title: RHEL 9 must use a Linux Security Module configured to enforce limits on system services.
+  V-258074:
+    rule: login-defs-umask
+    severity: CAT II
+    title: RHEL 9 must define default permissions for all authenticated users.
+  V-258060:
+    rule: pam-faillock-unlock-time
+    severity: CAT II
+    title: RHEL 9 must ensure account lockouts persist.
+  V-257781:
+    rule: no-graphical-target
+    severity: CAT II
+    title: The graphical display manager must not be the default target on RHEL 9 unless approved.
+  # AIDE rules
+  V-258134:
+    rule: aide-installed
+    severity: CAT II
+    title: RHEL 9 must have the AIDE package installed.
+  V-258135:
+    rule: aide-cron-check
+    severity: CAT II
+    title: RHEL 9 must routinely check the baseline configuration for unauthorized changes.
+  V-258137:
+    rule: aide-audit-tools
+    severity: CAT II
+    title: RHEL 9 must use cryptographic mechanisms to protect the integrity of audit tools.
+  # Sudo rules
+  V-258085:
+    rule: sudo-require-auth
+    severity: CAT II
+    title: RHEL 9 must use the invoking user's password for privilege escalation when using sudo.
+  V-258086:
+    rule: sudo-timeout
+    severity: CAT II
+    title: RHEL 9 must require users to reauthenticate for privilege escalation.
+  V-258106:
+    rule: sudo-require-auth
+    severity: CAT II
+    title: RHEL 9 must require users to provide a password for privilege escalation.
+  V-258118:
+    rule: sudo-require-auth
+    severity: CAT II
+    title: RHEL 9 must not be configured to bypass password requirements for privilege escalation.
+  # Shadow password rules
+  V-258116:
+    rule: login-defs-encrypt-method
+    severity: CAT II
+    title: RHEL 9 must be configured so that user and group account administration utilities store only encrypted passwords.
+  V-258117:
+    rule: accounts-password-shadowed
+    severity: CAT II
+    title: RHEL 9 must be configured to use the shadow file to store only encrypted representations of passwords.
+  # Auditd configuration rules
+  V-258153:
+    rule: auditd-disk-error-action
+    severity: CAT II
+    title: RHEL 9 audit system must take appropriate action when an error writing to the audit storage volume occurs.
+  V-258154:
+    rule: auditd-disk-full-action
+    severity: CAT II
+    title: RHEL 9 audit system must take appropriate action when the audit storage volume is full.
+  V-258156:
+    rule: auditd-space-action
+    severity: CAT II
+    title: RHEL 9 must take action when allocated audit record storage volume reaches 75 percent.
+  V-258160:
+    rule: auditd-max-log-file-action
+    severity: CAT II
+    title: RHEL 9 audit system must take appropriate action when the audit files have reached maximum size.
+  V-258163:
+    rule: auditd-action-mail-acct
+    severity: CAT II
+    title: RHEL 9 SA/ISSO must be alerted of an audit processing failure event.
+  V-258165:
+    rule: audit-log-permissions
+    severity: CAT II
+    title: RHEL 9 audit logs must be group-owned by root.
+  V-258166:
+    rule: audit-log-dir-permissions
+    severity: CAT II
+    title: RHEL 9 audit log directory must be owned by root.
+  V-258167:
+    rule: audit-log-permissions
+    severity: CAT II
+    title: RHEL 9 audit logs file must have mode 0600 or less permissive.
 unimplemented:
   V-257777:
     title: RHEL 9 must be a vendor-supported release.
@@ -1554,10 +1739,7 @@ unimplemented:
     title: RHEL 9 vendor packaged system security patches and updates must be installed and up to date.
     severity: CAT II
     reason: Needs rule implementation
-  V-257781:
-    title: The graphical display manager must not be the default target on RHEL 9 unless approved.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-257781: covered by no-graphical-target
   V-257782:
     title: RHEL 9 must enable the hardware random number generator entropy gatherer service.
     severity: CAT III
@@ -1565,26 +1747,11 @@ unimplemented:
   # V-257783: covered by journald-service-enabled
   # V-257786: covered by debug-shell-disabled
   # V-257788: covered by interactive-boot-disabled
-  V-257792:
-    title: RHEL 9 must disable virtual system calls.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257793:
-    title: RHEL 9 must clear the page allocator to prevent use-after-free attacks.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257794:
-    title: RHEL 9 must clear memory when it is freed to prevent use-after-free attacks.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257795:
-    title: RHEL 9 must enable mitigations against processor-based vulnerabilities.
-    severity: CAT III
-    reason: Needs rule implementation
-  V-257796:
-    title: RHEL 9 must enable auditing of processes that start prior to the audit daemon.
-    severity: CAT III
-    reason: Needs rule implementation
+  # V-257792: covered by grub-vsyscall-none
+  # V-257793: covered by grub-page-alloc-shuffle
+  # V-257794: covered by grub-slub-debug
+  # V-257795: covered by grub-processor-mitigations
+  # V-257796: covered by grub-audit-enabled
   # V-257801: covered by kernel-hardlink-protect
   # V-257802: covered by kernel-symlink-protect
   # V-257804: covered by kmod-disable-atm
@@ -1602,23 +1769,11 @@ unimplemented:
   # V-257826: covered by pkg-vsftpd-absent
   # V-257827: covered by pkg-sendmail-absent
   # V-257828: covered by pkg-nfs-utils-absent
-  V-257830:
-    title: RHEL 9 must not have the krb5-server package installed.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257831:
-    title: RHEL 9 must not have the krb5-workstation package installed.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-257830: covered by pkg-krb5-server-absent
+  # V-257831: covered by pkg-krb5-workstation-absent
   # V-257834: covered by pkg-tuned-absent
-  V-257835:
-    title: RHEL 9 must not have the libnsl package installed.
-    severity: CAT III
-    reason: Needs rule implementation
-  V-257837:
-    title: RHEL 9 must not have the telnet-server package installed.
-    severity: CAT I
-    reason: Needs rule implementation
+  # V-257835: covered by pkg-libnsl-absent
+  # V-257837: covered by pkg-telnet-server-absent
   # V-257842: covered by pkg-s-nail-present
   V-257843:
     title: A separate RHEL 9 file system must be used for user home directories (such as /home or an equivalent).
@@ -1660,22 +1815,10 @@ unimplemented:
     title: RHEL 9 library directories must be group-owned by root or a system account.
     severity: CAT II
     reason: Needs rule implementation
-  V-257924:
-    title: RHEL 9 audit tools must be owned by root.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257925:
-    title: RHEL 9 audit tools must be group-owned by root.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257926:
-    title: RHEL 9 cron configuration files directory must be owned by root.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257927:
-    title: RHEL 9 cron configuration files directory must be group-owned by root.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-257924: covered by audit-binary-permissions
+  # V-257925: covered by audit-binary-permissions
+  # V-257926: covered by cron-permissions
+  # V-257927: covered by cron-permissions
   V-257932:
     title: RHEL 9 must be configured so that all system device files are correctly labeled to prevent unauthorized modification.
     severity: CAT II
@@ -1692,46 +1835,16 @@ unimplemented:
     reason: Needs rule implementation
   # V-257978: covered by pkg-openssh-server-present
   # V-257979: covered by pkg-openssh-server-present
-  V-257983:
-    title: RHEL 9 SSHD must accept public key authentication.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257986:
-    title: RHEL 9 must enable the Pluggable Authentication Module (PAM) interface for SSHD.
-    severity: CAT I
-    reason: Needs rule implementation
-  V-257996:
-    title: RHEL 9 must be configured so that all network connections associated with SSH traffic are terminated after 10 minutes of becoming unresponsive.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257997:
-    title: RHEL 9 SSH server configuration file must be group-owned by root.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-257998:
-    title: The RHEL 9 SSH server configuration file must be owned by root.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258001:
-    title: RHEL 9 SSH public host key files must have mode 0644 or less permissive.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258002:
-    title: RHEL 9 SSH daemon must not allow compression or must only allow compression after successful authentication.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258003:
-    title: RHEL 9 SSH daemon must not allow GSSAPI authentication.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258008:
-    title: RHEL 9 SSH daemon must perform strict mode checking of home directory configuration files.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258009:
-    title: RHEL 9 SSH daemon must display the date and time of the last successful account logon upon an SSH logon.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-257983: covered by ssh-pubkey-authentication
+  # V-257986: covered by ssh-use-pam
+  # V-257996: covered by ssh-client-alive-interval + ssh-client-alive-count-max
+  # V-257997: covered by ssh-config-permissions
+  # V-257998: covered by ssh-config-permissions
+  # V-258001: covered by ssh-public-key-permissions
+  # V-258002: covered by ssh-compression
+  # V-258003: covered by ssh-gssapi-authentication
+  # V-258008: covered by ssh-strict-modes
+  # V-258009: covered by ssh-print-last-log
   V-258012:
     title: RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access to the system via a graphical user logon.
     severity: CAT II
@@ -1856,10 +1969,7 @@ unimplemented:
     title: RHEL 9 must not have unauthorized accounts.
     severity: CAT II
     reason: Needs rule implementation
-  V-258060:
-    title: RHEL 9 must ensure account lockouts persist.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258060: covered by pam-faillock-unlock-time
   V-258061:
     title: RHEL 9 groups must have unique Group ID (GID).
     severity: CAT II
@@ -1884,18 +1994,12 @@ unimplemented:
     title: RHEL 9 must define default permissions for the c shell.
     severity: CAT II
     reason: Needs rule implementation
-  V-258074:
-    title: RHEL 9 must define default permissions for all authenticated users in such a way that the user can only read and modify their own files.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258074: covered by login-defs-umask
   V-258075:
     title: RHEL 9 must define default permissions for the system default profile.
     severity: CAT II
     reason: Needs rule implementation
-  V-258078:
-    title: RHEL 9 must use a Linux Security Module configured to enforce limits on system services.
-    severity: CAT I
-    reason: Needs rule implementation
+  # V-258078: covered by selinux-enforcing
   V-258080:
     title: RHEL 9 must configure SELinux context type to allow the use of a nondefault faillock tally directory.
     severity: CAT II
@@ -1903,14 +2007,8 @@ unimplemented:
   # V-258081: covered by pkg-policycoreutils-present
   # V-258082: covered by pkg-policycoreutils-python-utils-present
   # V-258083: covered by pkg-sudo-present
-  V-258085:
-    title: RHEL 9 must use the invoking user's password for privilege escalation when using "sudo".
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258086:
-    title: RHEL 9 must require users to reauthenticate for privilege escalation.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258085: covered by sudo-require-auth
+  # V-258086: covered by sudo-timeout
   V-258089:
     title: RHEL 9 fapolicy module must be installed.
     severity: CAT II
@@ -1951,22 +2049,10 @@ unimplemented:
     title: RHEL 9 must enforce password complexity rules for the root account.
     severity: CAT II
     reason: Needs rule implementation
-  V-258106:
-    title: RHEL 9 must require users to provide a password for privilege escalation.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258116:
-    title: RHEL 9 must be configured so that user and group account administration utilities are configured to store only encrypted representations of passwords.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258117:
-    title: RHEL 9 must be configured to use the shadow file to store only encrypted representations of passwords.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258118:
-    title: RHEL 9 must not be configured to bypass password requirements for privilege escalation.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258106: covered by sudo-require-auth
+  # V-258116: covered by login-defs-encrypt-method
+  # V-258117: covered by accounts-password-shadowed
+  # V-258118: covered by sudo-require-auth
   V-258121:
     title: RHEL 9 must use the common access card (CAC) smart card driver.
     severity: CAT II
@@ -2007,18 +2093,9 @@ unimplemented:
     title: RHEL 9 must prohibit the use of cached authenticators after one day.
     severity: CAT II
     reason: Needs rule implementation
-  V-258134:
-    title: RHEL 9 must have the AIDE package installed.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258135:
-    title: RHEL 9 must routinely check the baseline configuration for unauthorized changes and notify the system administrator when anomalies in the operation of any security functions are discovered.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258137:
-    title: RHEL 9 must use cryptographic mechanisms to protect the integrity of audit tools.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258134: covered by aide-installed
+  # V-258135: covered by aide-cron-check
+  # V-258137: covered by aide-audit-tools
   V-258138:
     title: RHEL 9 must be configured so that the file integrity tool verifies Access Control Lists (ACLs).
     severity: CAT III
@@ -2052,22 +2129,13 @@ unimplemented:
     severity: CAT II
     reason: Needs rule implementation
   # V-258150: covered by cron-logging
-  V-258153:
-    title: RHEL 9 audit system must take appropriate action when an error writing to the audit storage volume occurs.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258154:
-    title: RHEL 9 audit system must take appropriate action when the audit storage volume is full.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258153: covered by auditd-disk-error-action
+  # V-258154: covered by auditd-disk-full-action
   V-258155:
     title: RHEL 9 must allocate audit record storage capacity to store at least one week's worth of audit records.
     severity: CAT II
     reason: Needs rule implementation
-  V-258156:
-    title: RHEL 9 must take action when allocated audit record storage volume reaches 75 percent of the repository maximum audit record storage capacity.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258156: covered by auditd-space-action
   V-258157:
     title: RHEL 9 must notify the system administrator (SA) and information system security officer (ISSO) (at a minimum) when allocated audit record storage volume reaches 75 percent utilization.
     severity: CAT II
@@ -2080,10 +2148,7 @@ unimplemented:
     title: RHEL 9 must take action when allocated audit record storage volume reaches 95 percent of the repository maximum audit record storage capacity.
     severity: CAT II
     reason: Needs rule implementation
-  V-258160:
-    title: RHEL 9 audit system must take appropriate action when the audit files have reached maximum size.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258160: covered by auditd-max-log-file-action
   V-258161:
     title: RHEL 9 must label all offloaded audit logs before sending them to the central log server.
     severity: CAT II
@@ -2092,26 +2157,14 @@ unimplemented:
     title: RHEL 9 must take appropriate action when the internal event queue is full.
     severity: CAT II
     reason: Needs rule implementation
-  V-258163:
-    title: RHEL 9 System Administrator (SA) and/or information system security officer (ISSO) (at a minimum) must be alerted of an audit processing failure event.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258163: covered by auditd-action-mail-acct
   V-258164:
     title: RHEL 9 audit system must audit local events.
     severity: CAT II
     reason: Needs rule implementation
-  V-258165:
-    title: RHEL 9 audit logs must be group-owned by root or by a restricted logging group to prevent unauthorized read access.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258166:
-    title: RHEL 9 audit log directory must be owned by root to prevent unauthorized read access.
-    severity: CAT II
-    reason: Needs rule implementation
-  V-258167:
-    title: RHEL 9 audit logs file must have mode 0600 or less permissive to prevent unauthorized access to the audit log.
-    severity: CAT II
-    reason: Needs rule implementation
+  # V-258165: covered by audit-log-permissions
+  # V-258166: covered by audit-log-dir-permissions
+  # V-258167: covered by audit-log-permissions
   V-258168:
     title: RHEL 9 must periodically flush audit records to disk to prevent the loss of audit records.
     severity: CAT II
