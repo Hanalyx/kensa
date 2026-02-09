@@ -1252,6 +1252,43 @@ sections:
     level: L1
     type: Automated
     title: Ensure no duplicate GIDs exist
+  # Audit log/config/tool ownership controls (map to existing comprehensive rules)
+  6.3.4.3:
+    rule: audit-log-permissions
+    level: L2
+    type: Automated
+    title: Ensure audit log files owner is configured
+  6.3.4.4:
+    rule: audit-log-permissions
+    level: L2
+    type: Automated
+    title: Ensure audit log files group owner is configured
+  6.3.4.6:
+    rule: audit-config-permissions
+    level: L2
+    type: Automated
+    title: Ensure audit configuration files owner is configured
+  6.3.4.7:
+    rule: audit-config-permissions
+    level: L2
+    type: Automated
+    title: Ensure audit configuration files group owner is configured
+  6.3.4.9:
+    rule: audit-binary-permissions
+    level: L2
+    type: Automated
+    title: Ensure audit tools owner is configured
+  # Journal-upload controls
+  6.2.2.1.2:
+    rule: journald-upload-configured
+    level: L2
+    type: Automated
+    title: Ensure systemd-journal-upload is configured
+  6.2.2.1.3:
+    rule: journald-upload-enabled
+    level: L2
+    type: Automated
+    title: Ensure systemd-journal-upload is enabled
   # Phase 1: Controls already covered by existing rules
   1.3.1.1:
     rule: selinux-enforcing
@@ -1575,6 +1612,57 @@ sections:
     level: L1
     type: Automated
     title: Ensure /etc/shadow password fields are not empty
+  # New rules added for P3-2 coverage expansion
+  2.1.1:
+    rule: service-disable-autofs
+    level: L1
+    type: Automated
+    title: Ensure autofs services are not in use
+  1.3.1.2:
+    rule: grub-selinux-not-disabled
+    level: L1
+    type: Automated
+    title: Ensure SELinux is not disabled in bootloader configuration
+  1.3.1.4:
+    rule: selinux-not-disabled
+    level: L1
+    type: Automated
+    title: Ensure the SELinux mode is not disabled
+  3.1.2:
+    rule: wireless-disabled
+    level: L1
+    type: Automated
+    title: Ensure wireless interfaces are disabled
+  7.2.3:
+    rule: groups-in-passwd-exist
+    level: L1
+    type: Automated
+    title: Ensure all groups in /etc/passwd exist in /etc/group
+  7.2.6:
+    rule: no-duplicate-usernames
+    level: L1
+    type: Automated
+    title: Ensure no duplicate user names exist
+  7.2.7:
+    rule: no-duplicate-groupnames
+    level: L1
+    type: Automated
+    title: Ensure no duplicate group names exist
+  5.3.1.1:
+    rule: pam-latest-version
+    level: L1
+    type: Automated
+    title: Ensure latest version of pam is installed
+  5.3.1.2:
+    rule: authselect-latest-version
+    level: L1
+    type: Automated
+    title: Ensure latest version of authselect is installed
+  5.3.1.3:
+    rule: libpwquality-latest-version
+    level: L1
+    type: Automated
+    title: Ensure latest version of libpwquality is installed
 unimplemented:
   1.1.2.1:
     title: Ensure /tmp is a separate partition
@@ -1652,14 +1740,8 @@ unimplemented:
     title: Ensure updates, patches, and additional security software are installed
     reason: Manual check - requires human verification
     type: Manual
-  1.3.1.2:
-    title: Ensure SELinux is not disabled in bootloader configuration
-    reason: Needs rule implementation
-    type: Automated
-  1.3.1.4:
-    title: Ensure the SELinux mode is not disabled
-    reason: Needs rule implementation
-    type: Automated
+  # 1.3.1.2: covered by grub-selinux-not-disabled
+  # 1.3.1.4: covered by selinux-not-disabled
   1.3.1.6:
     title: Ensure no unconfined services exist
     reason: Manual check - requires human verification
@@ -1708,10 +1790,7 @@ unimplemented:
     title: Ensure XDMCP is not enabled
     reason: Needs rule implementation
     type: Automated
-  2.1.1:
-    title: Ensure autofs services are not in use
-    reason: Needs rule implementation
-    type: Automated
+  # 2.1.1: covered by service-disable-autofs
   2.1.22:
     title: Ensure only approved services are listening on a network interface
     reason: Manual check - requires human verification
@@ -1724,10 +1803,7 @@ unimplemented:
     title: Ensure IPv6 status is identified
     reason: Manual check - requires human verification
     type: Manual
-  3.1.2:
-    title: Ensure wireless interfaces are disabled
-    reason: Needs rule implementation
-    type: Automated
+  # 3.1.2: covered by wireless-disabled
   4.2.1:
     title: Ensure firewalld drops unnecessary services and ports
     reason: Manual check - requires human verification
@@ -1752,18 +1828,9 @@ unimplemented:
     title: Ensure sshd UsePAM is enabled
     reason: Needs rule implementation
     type: Automated
-  5.3.1.1:
-    title: Ensure latest version of pam is installed
-    reason: Needs rule implementation
-    type: Automated
-  5.3.1.2:
-    title: Ensure latest version of authselect is installed
-    reason: Needs rule implementation
-    type: Automated
-  5.3.1.3:
-    title: Ensure latest version of libpwquality is installed
-    reason: Needs rule implementation
-    type: Automated
+  # 5.3.1.1: covered by pam-latest-version
+  # 5.3.1.2: covered by authselect-latest-version
+  # 5.3.1.3: covered by libpwquality-latest-version
   5.3.2.1:
     title: Ensure active authselect profile includes pam modules
     reason: Needs rule implementation
@@ -1856,18 +1923,9 @@ unimplemented:
     title: Ensure events that modify the sudo log file are collected
     reason: Needs rule implementation
     type: Automated
-  7.2.3:
-    title: Ensure all groups in /etc/passwd exist in /etc/group
-    reason: Needs rule implementation
-    type: Automated
-  7.2.6:
-    title: Ensure no duplicate user names exist
-    reason: Needs rule implementation
-    type: Automated
-  7.2.7:
-    title: Ensure no duplicate group names exist
-    reason: Needs rule implementation
-    type: Automated
+  # 7.2.3: covered by groups-in-passwd-exist
+  # 7.2.6: covered by no-duplicate-usernames
+  # 7.2.7: covered by no-duplicate-groupnames
   7.2.8:
     title: Ensure local interactive user home directories are configured
     reason: Needs rule implementation
