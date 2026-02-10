@@ -2687,3 +2687,223 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
 
         console.print()
         console.print(f"[dim]Total: {len(controls)} controls[/dim]")
+
+
+# ── lookup ────────────────────────────────────────────────────────────────────
+
+
+@main.command()
+@click.argument("section", required=False)
+@click.option(
+    "--cis", "cis_section", default=None, help="CIS section number (e.g., 2.2.5)"
+)
+@click.option("--stig", "stig_id", default=None, help="STIG ID (e.g., V-257874)")
+@click.option(
+    "--nist", "nist_control", default=None, help="NIST 800-53 control (e.g., AC-3)"
+)
+@click.option(
+    "--rhel",
+    "rhel_version",
+    type=click.Choice(["8", "9", "10"]),
+    default=None,
+    help="Filter by RHEL version",
+)
+@click.option("--all", "show_all", is_flag=True, help="Show all RHEL versions")
+def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
+    r"""Look up rules by CIS section, STIG ID, or NIST control.
+
+    Searches all rules to find which ones implement a specific compliance control.
+
+    \b
+    Examples:
+      aegis lookup 2.2.5                  # CIS section (auto-detected)
+      aegis lookup --cis 2.2.5            # Explicit CIS lookup
+      aegis lookup --cis 5.1 --rhel 9     # CIS 5.1.x for RHEL 9 only
+      aegis lookup --stig V-257874        # STIG vulnerability ID
+      aegis lookup --nist AC-3            # NIST 800-53 control
+    """
+    from pathlib import Path
+
+    import yaml
+
+    # Determine what to search for
+    search_type = None
+    search_value = None
+
+    if cis_section:
+        search_type = "cis"
+        search_value = cis_section
+    elif stig_id:
+        search_type = "stig"
+        search_value = stig_id.upper()
+    elif nist_control:
+        search_type = "nist"
+        search_value = nist_control.upper()
+    elif section:
+        # Auto-detect type from format
+        if section.upper().startswith("V-"):
+            search_type = "stig"
+            search_value = section.upper()
+        elif "-" in section and section.replace("-", "").isalpha():
+            search_type = "nist"
+            search_value = section.upper()
+        else:
+            search_type = "cis"
+            search_value = section
+    else:
+        console.print(
+            "[red]Error:[/red] Specify a section number or use --cis/--stig/--nist"
+        )
+        console.print("\nExamples:")
+        console.print("  aegis lookup 2.2.5")
+        console.print("  aegis lookup --cis 5.1.12")
+        console.print("  aegis lookup --stig V-257874")
+        console.print("  aegis lookup --nist AC-3")
+        sys.exit(1)
+
+    # Load all rules and search
+    rules_dir = Path("rules")
+    if not rules_dir.exists():
+        console.print("[red]Error:[/red] rules/ directory not found")
+        sys.exit(1)
+
+    matches = []
+
+    for rule_path in sorted(rules_dir.rglob("*.yml")):
+        if rule_path.name == "defaults.yml":
+            continue
+        try:
+            with open(rule_path) as f:
+                rule = yaml.safe_load(f)
+            if not isinstance(rule, dict) or "id" not in rule:
+                continue
+        except Exception:
+            continue
+
+        refs = rule.get("references", {})
+        rule_id = rule["id"]
+        title = rule.get("title", "")
+        severity = rule.get("severity", "")
+
+        matched_refs = []
+
+        if search_type == "cis":
+            cis_refs = refs.get("cis", {})
+            for ref_key, ref_data in cis_refs.items():
+                ref_section = ref_data.get("section", "")
+                # Match exact or prefix
+                if ref_section == search_value or ref_section.startswith(
+                    search_value + "."
+                ):
+                    # Filter by RHEL version if specified
+                    if rhel_version and f"rhel{rhel_version}" not in ref_key:
+                        continue
+                    matched_refs.append(
+                        {
+                            "framework": ref_key,
+                            "section": ref_section,
+                            "level": ref_data.get("level", ""),
+                            "type": ref_data.get("type", ""),
+                        }
+                    )
+
+        elif search_type == "stig":
+            stig_refs = refs.get("stig", {})
+            for ref_key, ref_data in stig_refs.items():
+                vuln_id = ref_data.get("vuln_id", "")
+                stig_rule_id = ref_data.get("stig_id", "")
+                if (
+                    vuln_id.upper() == search_value
+                    or stig_rule_id.upper() == search_value
+                ):
+                    if rhel_version and f"rhel{rhel_version}" not in ref_key:
+                        continue
+                    matched_refs.append(
+                        {
+                            "framework": ref_key,
+                            "vuln_id": vuln_id,
+                            "stig_id": stig_rule_id,
+                            "severity": ref_data.get("severity", ""),
+                        }
+                    )
+
+        elif search_type == "nist":
+            nist_refs = refs.get("nist_800_53", [])
+            if isinstance(nist_refs, list):
+                for ctrl in nist_refs:
+                    if ctrl.upper() == search_value or ctrl.upper().startswith(
+                        search_value
+                    ):
+                        matched_refs.append({"control": ctrl})
+
+        if matched_refs:
+            matches.append(
+                {
+                    "rule_id": rule_id,
+                    "title": title,
+                    "severity": severity,
+                    "refs": matched_refs,
+                }
+            )
+
+    # Display results
+    if not matches:
+        console.print(
+            f"[yellow]No rules found for {search_type.upper()} {search_value}[/yellow]"
+        )
+        return
+
+    # Header
+    type_label = {"cis": "CIS", "stig": "STIG", "nist": "NIST 800-53"}[search_type]
+    console.print(f"[bold]{type_label} {search_value}[/bold]")
+    if rhel_version:
+        console.print(f"[dim]Filtered: RHEL {rhel_version}[/dim]")
+    console.print()
+
+    # Group by framework version if showing all
+    if search_type in ("cis", "stig") and (show_all or not rhel_version):
+        # Collect all framework versions
+        fw_rules: dict[str, list] = {}
+        for match in matches:
+            for ref in match["refs"]:
+                fw = ref.get("framework", "")
+                if fw not in fw_rules:
+                    fw_rules[fw] = []
+                fw_rules[fw].append(match)
+
+        for fw in sorted(fw_rules.keys()):
+            console.print(f"[cyan]{fw}:[/cyan]")
+            seen = set()
+            for match in fw_rules[fw]:
+                if match["rule_id"] in seen:
+                    continue
+                seen.add(match["rule_id"])
+                sev_color = {
+                    "critical": "red",
+                    "high": "red",
+                    "medium": "yellow",
+                    "low": "dim",
+                }.get(match["severity"], "white")
+                console.print(f"  [green]{match['rule_id']}[/green]")
+                console.print(f"    {match['title']}")
+                console.print(
+                    f"    [{sev_color}]Severity: {match['severity']}[/{sev_color}]"
+                )
+            console.print()
+    else:
+        # Simple list
+        for match in matches:
+            sev_color = {
+                "critical": "red",
+                "high": "red",
+                "medium": "yellow",
+                "low": "dim",
+            }.get(match["severity"], "white")
+            console.print(f"  [green]{match['rule_id']}[/green]")
+            console.print(f"    {match['title']}")
+            console.print(
+                f"    [{sev_color}]Severity: {match['severity']}[/{sev_color}]"
+            )
+            console.print()
+
+    console.print(f"[dim]Total: {len(matches)} rules[/dim]")

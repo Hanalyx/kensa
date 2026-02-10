@@ -14,6 +14,15 @@ from runner._types import CheckResult, Evidence
 if TYPE_CHECKING:
     from runner.ssh import SSHSession
 
+# Valid states for "enabled" services
+# - "enabled": explicitly enabled via systemctl enable
+# - "static": always enabled, no [Install] section (e.g., systemd-journald)
+# - "indirect": enabled via another unit's Also= directive
+ENABLED_STATES = frozenset({"enabled", "static", "indirect"})
+
+# Valid states for "disabled" services
+DISABLED_STATES = frozenset({"disabled", "masked", "not-found"})
+
 
 def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
     """Check systemd service enabled and/or active state.
@@ -54,12 +63,14 @@ def _check_service_state(ssh: SSHSession, c: dict) -> CheckResult:
         actual_parts.append(f"enabled={actual_enabled}")
 
         if expected_enabled:
-            if actual_enabled != "enabled":
+            # Accept enabled, static, or indirect as valid "enabled" states
+            if actual_enabled not in ENABLED_STATES:
                 failures.append(f"enabled={actual_enabled} (expected enabled)")
             else:
-                details.append("enabled")
+                details.append(f"enabled ({actual_enabled})")
         else:
-            if actual_enabled == "enabled":
+            # Service should be disabled/masked/not-found
+            if actual_enabled in ENABLED_STATES:
                 failures.append(f"enabled={actual_enabled} (expected disabled)")
             else:
                 details.append(f"not enabled ({actual_enabled})")
