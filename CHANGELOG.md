@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-02-10)
+
+### Bug Fixes
+
+- Search parent directories for defaults.yml
+  ([`841787e`](https://github.com/Hanalyx/aegis/commit/841787e8596cca2636de7e78fd38c59fd54a79b9))
+
+### Features
+
+- Add lookup command and fix service static state handling
+  ([`f16f902`](https://github.com/Hanalyx/aegis/commit/f16f90254560aac18084e546ad13c2ab9ab02a5d))
+
+
 ## v1.0.0 (2026-02-09)
 
 ### Features
