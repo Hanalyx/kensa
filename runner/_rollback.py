@@ -4,6 +4,8 @@ This module re-exports rollback handlers from runner.handlers.rollback for
 backward compatibility. All implementations are in the handlers subpackage.
 """
 
+from __future__ import annotations
+
 from runner.handlers.rollback import ROLLBACK_HANDLERS, _execute_rollback
 
 # Re-export individual handlers for backward compatibility

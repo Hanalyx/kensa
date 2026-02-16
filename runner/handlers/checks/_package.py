@@ -101,4 +101,17 @@ def _check_package_state(ssh: SSHSession, c: dict) -> CheckResult:
             ),
         )
 
-    return CheckResult(passed=False, detail=f"Unknown package state: {state}")
+    return CheckResult(
+        passed=False,
+        detail=f"Unknown package state: {state}",
+        evidence=Evidence(
+            method="error",
+            command=None,
+            stdout="",
+            stderr=f"Unknown package state: {state}",
+            exit_code=-1,
+            expected=state,
+            actual=None,
+            timestamp=check_time,
+        ),
+    )

@@ -10,6 +10,8 @@ Subpackages:
 
 """
 
+from __future__ import annotations
+
 from runner.handlers.checks import CHECK_HANDLERS, run_check
 
 __all__ = [

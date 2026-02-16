@@ -4,6 +4,8 @@ This module re-exports capture handlers from runner.handlers.capture for
 backward compatibility. All implementations are in the handlers subpackage.
 """
 
+from __future__ import annotations
+
 from runner.handlers.capture import CAPTURE_HANDLERS, _dispatch_capture
 
 # Re-export individual handlers for backward compatibility
