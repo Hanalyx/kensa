@@ -50,7 +50,7 @@ jobs:
           pip install jsonschema PyYAML
 
       - name: Validate all rules
-        run: python schema/validate.py rules/
+        run: python -m schema.validate rules/
 
   build:
     name: Build Package
