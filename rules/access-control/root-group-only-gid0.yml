@@ -1,0 +1,38 @@
+id: root-group-only-gid0
+title: Ensure group root is the only GID 0 group
+description: >
+  Only the root group should have GID 0. No other groups should be
+  assigned this privileged group ID.
+rationale: >
+  Multiple groups with GID 0 could lead to confusion about permissions
+  and unintended privilege escalation.
+severity: high
+category: access-control
+tags: [root, gid, groups, privilege]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.4.2.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Find groups with GID 0 that are not root
+        gid0_groups=$(awk -F: '$3 == 0 && $1 != "root" { print $1 }' /etc/group)
+        if [ -n "$gid0_groups" ]; then
+          echo "FAIL: Non-root groups with GID 0: $gid0_groups"
+          exit 1
+        fi
+        echo "OK: Only root group has GID 0"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Remove or reassign GID for groups with GID 0 that are not root"

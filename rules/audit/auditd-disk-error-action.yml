@@ -11,6 +11,8 @@ severity: medium
 category: audit
 tags: [audit, auditd, disk-error, stig]
 
+depends_on: [auditd-service-enabled]
+
 references:
   stig:
     rhel9_v2r7:

@@ -11,6 +11,8 @@ severity: low
 category: audit
 tags: [audit, notification, mail, configuration]
 
+depends_on: [auditd-service-enabled]
+
 references:
   cis:
     rhel9_v2:  { section: "6.3.2.4", level: "L2", type: "Automated" }

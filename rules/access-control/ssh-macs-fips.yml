@@ -10,6 +10,8 @@ severity: high
 category: access-control
 tags: [ssh, fips, macs, cryptography, stig]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   stig:
     rhel9_v2r7:

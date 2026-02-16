@@ -16,7 +16,7 @@ tags: [pam, authentication, account-lockout, brute-force]
 references:
   cis:
     rhel8_v4:  { section: "5.4.2.1", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.4.2",   level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "5.3.3.1.1",   level: "L1", type: "Automated" }
     rhel10_v1: { section: "5.3.3.1", level: "L1", type: "Automated" }
   stig:
     rhel8_v2r6:

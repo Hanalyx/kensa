@@ -1,0 +1,32 @@
+id: crypto-policy-no-sha1
+title: Ensure system wide crypto policy disables SHA1 hash and signature support
+description: >
+  The system-wide crypto policy should disable SHA1 for hashing and signatures
+  as it is considered cryptographically weak and vulnerable to collision attacks.
+rationale: >
+  SHA1 is no longer considered secure for cryptographic purposes. Collision
+  attacks have been demonstrated, making it unsuitable for digital signatures
+  and certificate validation.
+severity: medium
+category: system
+tags: [crypto-policy, sha1, security, cryptography]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.6.3", level: "L1", type: "Automated" }
+  nist_800_53: ["SC-13", "SC-12"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: "update-crypto-policies --show 2>/dev/null"
+      expected_pattern: "^(FUTURE|FIPS|FIPS:NO-SHA1|.*:NO-SHA1.*)$"
+      on_missing: fail
+    remediation:
+      mechanism: command_exec
+      command: "update-crypto-policies --set $(update-crypto-policies --show):NO-SHA1"

@@ -17,6 +17,8 @@ severity: low
 category: access-control
 tags: [ssh, compression, performance]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   stig:
     rhel9_v2r7:

@@ -17,6 +17,8 @@ severity: medium
 category: access-control
 tags: [ssh, authentication, kerberos]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   stig:
     rhel8_v2r6:

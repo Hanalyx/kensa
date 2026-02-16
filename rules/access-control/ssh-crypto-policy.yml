@@ -17,6 +17,8 @@ severity: medium
 category: access-control
 tags: [ssh, cryptography, crypto-policy]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   cis:
     rhel10_v1: { section: "1.6.4", level: "L1", type: "Automated" }

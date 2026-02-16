@@ -11,6 +11,7 @@ Handler Modules:
     - _service: service_state
     - _package: package_state
     - _security: selinux_state, selinux_boolean, audit_rule_exists, pam_module
+    - _ssh: sshd_effective_config
     - _command: command
 
 Example:
@@ -43,6 +44,7 @@ from runner.handlers.checks._security import (
     _check_selinux_state,
 )
 from runner.handlers.checks._service import _check_service_state, _check_systemd_target
+from runner.handlers.checks._ssh import _check_sshd_effective_config
 from runner.handlers.checks._system import (
     _check_grub_parameter,
     _check_kernel_module_state,
@@ -81,6 +83,8 @@ CHECK_HANDLERS = {
     "selinux_boolean": _check_selinux_boolean,
     "audit_rule_exists": _check_audit_rule_exists,
     "pam_module": _check_pam_module,
+    # SSH handlers
+    "sshd_effective_config": _check_sshd_effective_config,
     # Command handler
     "command": _check_command,
 }

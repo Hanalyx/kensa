@@ -10,6 +10,8 @@ severity: high
 category: audit
 tags: [audit, auditd, accounts, shadow]
 
+depends_on: [auditd-service-enabled]
+
 references:
   stig:
     rhel9_v2r7:

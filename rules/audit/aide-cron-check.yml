@@ -12,6 +12,8 @@ severity: medium
 category: audit
 tags: [aide, file-integrity, cron, intrusion-detection]
 
+depends_on: [aide-installed]
+
 references:
   cis:
     rhel9_v2:  { section: "6.1.2", level: "L1", type: "Automated" }

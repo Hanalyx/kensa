@@ -1,0 +1,48 @@
+id: auditd-tools-integrity
+title: Ensure cryptographic mechanisms are used to protect the integrity of audit tools
+description: >
+  AIDE or another file integrity monitoring tool should verify the
+  integrity of audit binaries to detect unauthorized modifications.
+rationale: >
+  Audit tools are critical for security. If an attacker modifies them,
+  they could hide malicious activity. Integrity checking ensures
+  tampering is detected.
+severity: high
+category: audit
+tags: [audit, integrity, aide, security]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.1.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-9"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check if AIDE is configured to monitor audit binaries
+        if [ -f /etc/aide.conf ]; then
+          if grep -qE '/sbin/auditctl|/sbin/aureport|/sbin/ausearch' /etc/aide.conf 2>/dev/null; then
+            echo "OK: AIDE monitors audit tools"
+            exit 0
+          fi
+        fi
+        echo "FAIL: Audit tool integrity monitoring not configured"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: >
+        Configure AIDE to monitor audit binaries. Add to /etc/aide.conf:
+        /sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512
+        /sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512
+        /sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512
+        /sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512
+        /sbin/auditd p+i+n+u+g+s+b+acl+xattrs+sha512

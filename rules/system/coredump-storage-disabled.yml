@@ -1,0 +1,37 @@
+id: coredump-storage-disabled
+title: Ensure core dump storage is disabled
+description: >
+  Core dumps should not be stored to prevent potential exposure of sensitive
+  data from application memory. The systemd-coredump service should be
+  configured to not store core dumps.
+rationale: >
+  Core dumps can contain sensitive information from application memory including
+  passwords, encryption keys, and other confidential data. Disabling storage
+  prevents this data from being written to disk where it could be accessed.
+severity: medium
+category: system
+tags: [coredump, security, memory, privacy]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.5.4", level: "L1", type: "Automated" }
+  nist_800_53: ["SC-4"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: "systemd-analyze cat-config systemd/coredump.conf 2>/dev/null | grep -E '^Storage=' | tail -1"
+      expected_pattern: "^Storage=none$"
+      on_missing: fail
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/systemd/coredump.conf.d"
+      file: "00-aegis-coredump.conf"
+      key: "Storage"
+      value: "none"
+      section: "[Coredump]"

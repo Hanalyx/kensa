@@ -1,0 +1,38 @@
+id: pam-unix-enabled
+title: Ensure pam_unix module is enabled
+description: >
+  The pam_unix module provides standard UNIX authentication and should
+  be enabled in the PAM configuration.
+rationale: >
+  pam_unix is the core authentication module that validates passwords
+  against /etc/shadow. It must be properly configured.
+severity: high
+category: access-control
+tags: [pam, authentication, unix, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.2.5", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check for pam_unix in auth and password stacks
+        if grep -qE '^auth.*pam_unix\.so' /etc/pam.d/system-auth 2>/dev/null && \
+           grep -qE '^password.*pam_unix\.so' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: pam_unix enabled in system-auth"
+          exit 0
+        fi
+        echo "FAIL: pam_unix not properly configured"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Ensure pam_unix.so is present in auth and password stacks of /etc/pam.d/system-auth"

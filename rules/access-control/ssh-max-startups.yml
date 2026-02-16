@@ -17,6 +17,8 @@ severity: medium
 category: access-control
 tags: [ssh, denial-of-service, connections]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   cis:
     rhel10_v1:  { section: "5.1.17", level: "L1", type: "Automated" }

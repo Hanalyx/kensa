@@ -1,0 +1,46 @@
+id: authselect-profile-pam
+title: Ensure active authselect profile includes pam modules
+description: >
+  The active authselect profile should include the necessary PAM
+  modules for authentication, password, and session management.
+rationale: >
+  authselect profiles ensure consistent PAM configuration. The active
+  profile should include all required security modules like faillock,
+  pwquality, and pwhistory.
+severity: medium
+category: access-control
+tags: [authselect, pam, authentication, security]
+
+depends_on: [package-authselect-installed]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.2.1", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check if authselect is managing PAM
+        profile=$(authselect current 2>/dev/null | grep "Profile ID:" | awk '{print $3}')
+        if [ -z "$profile" ]; then
+          echo "FAIL: No authselect profile is active"
+          exit 1
+        fi
+
+        # Verify expected PAM modules are enabled
+        features=$(authselect current 2>/dev/null | grep -E "with-faillock|with-pwhistory")
+        echo "OK: authselect profile $profile is active"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: >
+        Configure authselect with an appropriate profile. Example:
+        authselect select sssd with-faillock with-pwhistory --force

@@ -12,6 +12,8 @@ severity: medium
 category: services
 tags: [service, chrony, time, privilege]
 
+depends_on: [chrony-installed]
+
 references:
   cis:
     rhel9_v2:  { section: "2.3.3", level: "L1", type: "Automated" }

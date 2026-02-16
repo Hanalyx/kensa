@@ -1,0 +1,30 @@
+id: xorg-removed
+title: Ensure X window server services are not in use
+description: >
+  The X Window System provides a graphical interface. On servers, this
+  is unnecessary and increases the attack surface.
+rationale: >
+  Removing the X Window System reduces the attack surface significantly.
+  Servers should be managed via command line or remote management tools.
+severity: medium
+category: services
+tags: [xorg, x11, gui, attack-surface, server]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.1.20", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "xorg-x11-server-common"
+      state: "absent"
+    remediation:
+      mechanism: package_absent
+      name: "xorg-x11-server*"

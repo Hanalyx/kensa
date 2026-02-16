@@ -14,7 +14,7 @@ tags: [permissions, ownership, audit, security]
 references:
   cis:
     rhel8_v4:  { section: "6.1.10", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "6.1.10", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "7.1.12", level: "L1", type: "Automated" }
   nist_800_53: ["CM-8"]
 
 platforms:

@@ -1,0 +1,35 @@
+id: issue-permissions
+title: Ensure access to /etc/issue is configured
+description: >
+  The /etc/issue file should have appropriate permissions to prevent
+  unauthorized modification of the local login banner.
+rationale: >
+  If the /etc/issue file permissions are not restrictive, unauthorized
+  users could modify it to display misleading or malicious information.
+severity: low
+category: filesystem
+tags: [permissions, issue, banner, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.7.5", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/etc/issue"
+      max_mode: "0644"
+      owner: "root"
+      group: "root"
+    remediation:
+      mechanism: file_permissions
+      path: "/etc/issue"
+      mode: "0644"
+      owner: "root"
+      group: "root"

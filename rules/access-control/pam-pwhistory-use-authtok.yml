@@ -1,0 +1,41 @@
+id: pam-pwhistory-use-authtok
+title: Ensure pam_pwhistory includes use_authtok
+description: >
+  The pam_pwhistory module should use the use_authtok option to use
+  the password from the previous PAM module in the stack.
+rationale: >
+  The use_authtok option ensures password history checking uses the
+  password that was already validated by earlier PAM modules.
+severity: medium
+category: access-control
+tags: [pam, password, pwhistory, security]
+
+depends_on: [pam-pwhistory-enabled]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.3.3.3", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check if pam_pwhistory uses use_authtok
+        if grep -qE 'pam_pwhistory\.so.*use_authtok' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: pam_pwhistory includes use_authtok"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory does not include use_authtok"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: >
+        Configure pam_pwhistory with use_authtok in /etc/pam.d/system-auth.
+        Use authselect to manage PAM configuration consistently.

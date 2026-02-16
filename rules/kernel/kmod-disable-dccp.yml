@@ -12,6 +12,8 @@ category: kernel
 tags: [kernel-module, dccp, network, attack-surface, stig]
 
 references:
+  cis:
+    rhel9_v2: { section: "3.2.1", level: "L2", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257792"

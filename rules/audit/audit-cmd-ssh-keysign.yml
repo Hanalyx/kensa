@@ -10,6 +10,8 @@ severity: medium
 category: audit
 tags: [audit, auditd, privileged, ssh]
 
+depends_on: [auditd-service-enabled]
+
 references:
   stig:
     rhel9_v2r7:

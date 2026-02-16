@@ -11,6 +11,8 @@ severity: high
 category: access-control
 tags: [pam, faillock, root, account-lockout, stig]
 
+depends_on: [pam-faillock-deny]
+
 references:
   stig:
     rhel9_v2r7:

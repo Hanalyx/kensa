@@ -11,7 +11,11 @@ severity: medium
 category: audit
 tags: [audit, privileged, suid, sgid, stig]
 
+depends_on: [auditd-service-enabled]
+
 references:
+  cis:
+    rhel9_v2: { section: "6.3.3.6", level: "L2", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257801"
@@ -27,8 +31,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "auditctl -l | grep -E 'execve.*auid>=1000.*euid=0'"
-      expected_exit: 0
+      command: "auditctl -l | grep -E 'execve.*auid>=1000.*euid=0'"
+      expected_exit_code: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"

@@ -11,6 +11,8 @@ severity: medium
 category: audit
 tags: [audit, ownership, chown, stig]
 
+depends_on: [auditd-service-enabled]
+
 references:
   stig:
     rhel9_v2r7:

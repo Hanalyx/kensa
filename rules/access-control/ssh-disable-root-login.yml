@@ -13,6 +13,8 @@ severity: high
 category: access-control
 tags: [ssh, authentication, remote-access, privileged-access]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   cis:
     rhel8_v4:  { section: "5.1.22", level: "L1", type: "Automated" }
@@ -40,11 +42,9 @@ platforms:
 implementations:
   - when: sshd_config_d
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config.d"
-      key: "PermitRootLogin"
+      method: sshd_effective_config
+      key: "permitrootlogin"
       expected: "no"
-      scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
@@ -55,9 +55,8 @@ implementations:
 
   - default: true
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config"
-      key: "PermitRootLogin"
+      method: sshd_effective_config
+      key: "permitrootlogin"
       expected: "no"
     remediation:
       mechanism: config_set

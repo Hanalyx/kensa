@@ -10,6 +10,8 @@ severity: medium
 category: audit
 tags: [audit, auditd, lastlog, logins]
 
+depends_on: [auditd-service-enabled]
+
 references:
   stig:
     rhel9_v2r7:
