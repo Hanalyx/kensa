@@ -1,0 +1,46 @@
+id: root-umask
+title: Ensure root user umask is configured
+description: >
+  The root user's umask should be set to 027 or more restrictive to
+  ensure files created by root are not world-readable by default.
+rationale: >
+  A restrictive umask for root prevents sensitive configuration files
+  or logs from being accidentally created with permissive access.
+severity: medium
+category: access-control
+tags: [root, umask, permissions, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.4.2.6", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check root's effective umask from profile files
+        umask_val=$(grep -E '^\s*umask\s+[0-7]+' /root/.bashrc /root/.bash_profile /etc/profile /etc/bashrc 2>/dev/null | tail -1 | grep -oE '[0-7]+$')
+        if [ -z "$umask_val" ]; then
+          echo "FAIL: No umask configured for root"
+          exit 1
+        fi
+        # Check if umask is 027 or more restrictive (007 is most restrictive)
+        if [ "$umask_val" -lt 027 ] 2>/dev/null; then
+          echo "FAIL: Root umask ($umask_val) is less restrictive than 027"
+          exit 1
+        fi
+        echo "OK: Root umask is $umask_val"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: config_set
+      path: "/root/.bashrc"
+      key: "umask"
+      value: "027"
+      separator: " "

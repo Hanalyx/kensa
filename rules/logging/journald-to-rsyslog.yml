@@ -1,0 +1,51 @@
+id: journald-to-rsyslog
+title: Ensure journald is configured to send logs to rsyslog
+description: >
+  If rsyslog is used for log management, journald should be configured
+  to forward logs to rsyslog for centralized logging.
+rationale: >
+  Forwarding journald logs to rsyslog enables traditional log management,
+  rotation, and forwarding to remote log servers.
+severity: medium
+category: logging
+tags: [journald, rsyslog, logging, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.2.3.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-4", "AU-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - when: rsyslog_active
+    check:
+      method: command
+      command: |
+        # Check if ForwardToSyslog is enabled in journald
+        forward=$(systemd-analyze cat-config systemd/journald.conf 2>/dev/null | grep -E '^ForwardToSyslog=' | tail -1 | cut -d= -f2)
+        if [ "$forward" = "yes" ]; then
+          echo "OK: journald forwards to rsyslog"
+          exit 0
+        fi
+        echo "FAIL: journald ForwardToSyslog is not enabled"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/systemd/journald.conf.d"
+      file: "00-aegis-forward.conf"
+      key: "ForwardToSyslog"
+      value: "yes"
+      section: "[Journal]"
+
+  - default: true
+    check:
+      method: command
+      command: "echo 'OK: rsyslog not active, forwarding not required'; exit 0"
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Configure ForwardToSyslog=yes in journald.conf if rsyslog is used"

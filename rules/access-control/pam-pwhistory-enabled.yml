@@ -1,0 +1,57 @@
+id: pam-pwhistory-enabled
+title: Ensure pam_pwhistory module is enabled
+description: >
+  The pam_pwhistory module should be enabled to prevent password reuse
+  by maintaining a history of previously used passwords.
+rationale: >
+  Password history prevents users from cycling through a small set of
+  passwords, improving overall password security.
+severity: medium
+category: access-control
+tags: [pam, password, history, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.2.4", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - when: authselect
+    check:
+      method: command
+      command: |
+        # Check if pwhistory is in the authselect profile
+        if authselect current 2>/dev/null | grep -q with-pwhistory; then
+          echo "OK: pwhistory enabled via authselect"
+          exit 0
+        fi
+        # Check PAM files directly
+        if grep -qE '^password.*pam_pwhistory\.so' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: pam_pwhistory configured in system-auth"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory not enabled"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: command_exec
+      command: "authselect enable-feature with-pwhistory"
+
+  - default: true
+    check:
+      method: command
+      command: |
+        if grep -qE '^password.*pam_pwhistory\.so' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: pam_pwhistory configured"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory not enabled"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Add pam_pwhistory.so to /etc/pam.d/system-auth password stack"

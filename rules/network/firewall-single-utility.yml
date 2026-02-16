@@ -1,0 +1,45 @@
+id: firewall-single-utility
+title: Ensure a single firewall configuration utility is in use
+description: >
+  Only one firewall management utility should be active to prevent
+  conflicts and ensure consistent firewall rules.
+rationale: >
+  Running multiple firewall utilities can lead to conflicting rules
+  and unpredictable behavior. Either firewalld OR nftables should be
+  used, not both simultaneously.
+severity: medium
+category: network
+tags: [firewall, nftables, firewalld, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "4.1.2", level: "L1", type: "Automated" }
+  nist_800_53: ["SC-7", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Count active firewall services
+        count=0
+        systemctl is-active firewalld >/dev/null 2>&1 && count=$((count+1))
+        systemctl is-active nftables >/dev/null 2>&1 && count=$((count+1))
+
+        if [ $count -eq 0 ]; then
+          echo "FAIL: No firewall utility is active"
+          exit 1
+        elif [ $count -gt 1 ]; then
+          echo "FAIL: Multiple firewall utilities are active"
+          exit 1
+        fi
+        echo "OK: Single firewall utility in use"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Enable either firewalld or nftables, not both. Disable the unused service."

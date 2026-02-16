@@ -11,10 +11,12 @@ severity: medium
 category: access-control
 tags: [pam, authentication, account-lockout, faillock]
 
+depends_on: [pam-faillock-deny]
+
 references:
   cis:
     rhel8_v4:  { section: "5.4.2.2", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.4.2",   level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "5.3.3.1.2",   level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-258055"

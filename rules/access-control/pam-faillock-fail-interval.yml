@@ -11,6 +11,8 @@ severity: medium
 category: access-control
 tags: [pam, authentication, account-lockout, faillock]
 
+depends_on: [pam-faillock-deny]
+
 references:
   cis:
     rhel8_v4:  { section: "5.4.2.3", level: "L1", type: "Automated" }

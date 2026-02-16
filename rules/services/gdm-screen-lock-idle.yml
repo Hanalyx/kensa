@@ -1,0 +1,53 @@
+id: gdm-screen-lock-idle
+title: Ensure GDM screen locks when the user is idle
+description: >
+  If GNOME Display Manager is in use, the screen should lock
+  automatically after a period of inactivity.
+rationale: >
+  Automatic screen locking prevents unauthorized access when users
+  leave their workstations unattended.
+severity: medium
+category: services
+tags: [gdm, gnome, screen-lock, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.8.4", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-11"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - when: gdm_installed
+    check:
+      method: command
+      command: |
+        # Check if idle lock is configured
+        if grep -qr "idle-delay=uint32" /etc/dconf/db/local.d/ 2>/dev/null &&
+           grep -qr "lock-delay=uint32" /etc/dconf/db/local.d/ 2>/dev/null; then
+          echo "OK: GDM screen lock on idle is configured"
+          exit 0
+        fi
+        echo "FAIL: GDM screen lock on idle is not configured"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: >
+        Configure screen lock in /etc/dconf/db/local.d/00-screensaver:
+        [org/gnome/desktop/session]
+        idle-delay=uint32 900
+        [org/gnome/desktop/screensaver]
+        lock-delay=uint32 5
+        Then run: dconf update
+
+  - default: true
+    check:
+      method: command
+      command: "echo 'OK: GDM not installed'; exit 0"
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "GDM is not installed."

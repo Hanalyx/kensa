@@ -10,6 +10,8 @@ severity: medium
 category: services
 tags: [service, logging, rsyslog]
 
+depends_on: [pkg-rsyslog-present]
+
 references:
   cis:
     rhel9_v2:  { section: "6.2.3.2", level: "L1", type: "Automated" }

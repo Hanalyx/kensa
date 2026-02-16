@@ -1,0 +1,35 @@
+id: issue-net-permissions
+title: Ensure access to /etc/issue.net is configured
+description: >
+  The /etc/issue.net file should have appropriate permissions to prevent
+  unauthorized modification of the remote login banner.
+rationale: >
+  If the /etc/issue.net file permissions are not restrictive, unauthorized
+  users could modify it to display misleading or malicious information.
+severity: low
+category: filesystem
+tags: [permissions, issue.net, banner, security, ssh]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.7.6", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/etc/issue.net"
+      max_mode: "0644"
+      owner: "root"
+      group: "root"
+    remediation:
+      mechanism: file_permissions
+      path: "/etc/issue.net"
+      mode: "0644"
+      owner: "root"
+      group: "root"

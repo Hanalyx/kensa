@@ -10,7 +10,11 @@ severity: medium
 category: audit
 tags: [audit, auditd, privileged, acl]
 
+depends_on: [auditd-service-enabled]
+
 references:
+  cis:
+    rhel9_v2: { section: "6.3.3.16", level: "L2", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-258182"

@@ -11,6 +11,8 @@ severity: medium
 category: access-control
 tags: [pam, password, authentication, pwquality]
 
+depends_on: [package-libpwquality-installed]
+
 references:
   cis:
     rhel8_v4:  { section: "5.4.1.9", level: "L1", type: "Automated" }

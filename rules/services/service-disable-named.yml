@@ -13,7 +13,7 @@ tags: [service, networking, dns, attack-surface]
 references:
   cis:
     rhel8_v4:  { section: "2.2.6", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "2.2.6", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "2.1.4", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

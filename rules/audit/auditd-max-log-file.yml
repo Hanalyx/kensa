@@ -11,6 +11,8 @@ severity: low
 category: audit
 tags: [audit, logging, configuration, storage]
 
+depends_on: [auditd-service-enabled]
+
 references:
   cis:
     rhel9_v2:  { section: "6.3.2.1", level: "L2", type: "Automated" }

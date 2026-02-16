@@ -25,7 +25,7 @@ implementations:
     check:
       method: package_state
       name: "nftables"
-      state: "present"
+      state: "installed"
     remediation:
       mechanism: package_present
       name: "nftables"

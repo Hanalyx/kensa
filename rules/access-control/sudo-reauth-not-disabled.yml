@@ -1,0 +1,43 @@
+id: sudo-reauth-not-disabled
+title: Ensure re-authentication for privilege escalation is not disabled globally
+description: >
+  The sudo timestamp_timeout should not be set to a negative value, which
+  would disable re-authentication requirements entirely.
+rationale: >
+  Disabling sudo re-authentication by setting a negative timeout means
+  users only need to authenticate once per session, reducing security.
+severity: medium
+category: access-control
+tags: [sudo, authentication, timeout, privilege-escalation]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.2.5", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-11", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check for negative timestamp_timeout (disables re-auth)
+        timeout=$(sudo -V 2>/dev/null | grep -i 'timestamp timeout' | grep -oE '[-]?[0-9]+' || echo "5")
+        if [ "$timeout" -lt 0 ] 2>/dev/null; then
+          echo "FAIL: timestamp_timeout is negative ($timeout), re-auth disabled"
+          exit 1
+        fi
+        # Also check sudoers for !authenticate
+        if grep -rE '^\s*[^#].*!authenticate' /etc/sudoers /etc/sudoers.d/ 2>/dev/null; then
+          echo "FAIL: !authenticate found in sudoers"
+          exit 1
+        fi
+        echo "OK: Re-authentication not disabled (timeout: ${timeout})"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Remove negative timestamp_timeout values and !authenticate from sudoers"

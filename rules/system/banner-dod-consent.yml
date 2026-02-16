@@ -12,6 +12,8 @@ category: system
 tags: [banner, dod, compliance, stig]
 
 references:
+  cis:
+    rhel9_v2: { section: "1.7.2", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257799"
@@ -27,8 +29,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue 2>/dev/null"
-      expected_exit: 0
+      command: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue 2>/dev/null"
+      expected_exit_code: 0
     remediation:
       mechanism: manual
       description: >

@@ -397,6 +397,7 @@
         "selinux_boolean",
         "selinux_state",
         "pam_module",
+        "sshd_effective_config",
         "command"
       ]
     },

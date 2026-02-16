@@ -1,0 +1,30 @@
+id: package-pam-installed
+title: Ensure latest version of pam is installed
+description: >
+  The pam package provides the Pluggable Authentication Modules which
+  control authentication and account management.
+rationale: >
+  PAM is essential for system authentication. Keeping it up to date
+  ensures security vulnerabilities are patched.
+severity: medium
+category: access-control
+tags: [pam, authentication, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.1.1", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "pam"
+      state: "installed"
+    remediation:
+      mechanism: package_present
+      name: "pam"

@@ -16,6 +16,8 @@ severity: medium
 category: access-control
 tags: [ssh, authentication, known-hosts]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   stig:
     rhel8_v2r6:

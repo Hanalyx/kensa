@@ -13,7 +13,7 @@ tags: [service, networking, ftp, attack-surface]
 references:
   cis:
     rhel8_v4:  { section: "2.2.9", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "2.2.9", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "2.1.7", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257778"

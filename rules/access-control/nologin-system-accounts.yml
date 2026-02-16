@@ -14,7 +14,7 @@ tags: [user-accounts, system-accounts, shell, security]
 references:
   cis:
     rhel8_v4:  { section: "5.6.8", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.6.8", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "5.4.2.7", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6"]
 
 platforms:

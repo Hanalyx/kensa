@@ -1,0 +1,48 @@
+id: auditd-space-low-warning
+title: Ensure system warns when audit logs are low on space
+description: >
+  The audit system should be configured to warn administrators when
+  disk space for audit logs is running low.
+rationale: >
+  If audit logs fill the disk, new events cannot be recorded. Warning
+  before space runs out allows administrators to take corrective action.
+severity: medium
+category: audit
+tags: [audit, auditd, disk-space, security]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.2.4", level: "L2", type: "Automated" }
+  nist_800_53: ["AU-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check space_left_action in auditd.conf
+        action=$(grep -E '^space_left_action\s*=' /etc/audit/auditd.conf 2>/dev/null | awk -F= '{print $2}' | tr -d ' ')
+        case "$action" in
+          email|exec|single|halt|syslog)
+            echo "OK: space_left_action is set to $action"
+            exit 0
+            ;;
+          *)
+            echo "FAIL: space_left_action not properly configured (current: $action)"
+            exit 1
+            ;;
+        esac
+      expected_exit_code: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "space_left_action"
+      value: "email"
+      separator: " = "
+      reload: "systemctl restart auditd"

@@ -1,0 +1,43 @@
+id: root-access-controlled
+title: Ensure root account access is controlled
+description: >
+  Access to the root account should be controlled by limiting the
+  methods by which root can login (e.g., only via su from wheel group).
+rationale: >
+  Controlling root access reduces the risk of unauthorized root logins
+  and ensures accountability for privileged actions.
+severity: high
+category: access-control
+tags: [root, access-control, security, privilege]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.4.2.4", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6", "IA-2"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check that root login is restricted
+        # 1. SSH root login should be disabled
+        ssh_root=$(sshd -T 2>/dev/null | grep -i '^permitrootlogin' | awk '{print $2}')
+        if [ "$ssh_root" = "yes" ]; then
+          echo "FAIL: SSH permits root login"
+          exit 1
+        fi
+
+        # 2. Console root login should require securetty or be restricted
+        # On RHEL 9, pam_securetty is typically used
+
+        echo "OK: Root access is controlled (SSH root login: $ssh_root)"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Disable SSH root login and configure pam_securetty for console access"

@@ -1,0 +1,37 @@
+id: pam-unix-use-authtok
+title: Ensure pam_unix includes use_authtok
+description: >
+  The pam_unix module should include use_authtok to ensure the password
+  set by pam_pwquality is used rather than prompting again.
+rationale: >
+  Without use_authtok, users would be prompted for their password twice
+  and password quality checks could be bypassed.
+severity: medium
+category: access-control
+tags: [pam, password, authtok, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.3.4.4", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Check for use_authtok in pam_unix password line
+        if grep -E '^password.*pam_unix\.so.*use_authtok' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: pam_unix includes use_authtok"
+          exit 0
+        fi
+        echo "FAIL: pam_unix missing use_authtok"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Add use_authtok to pam_unix.so in password stack of /etc/pam.d/system-auth"

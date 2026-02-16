@@ -1,0 +1,31 @@
+id: crypto-policy-no-cbc-ssh
+title: Ensure system wide crypto policy disables CBC for SSH
+description: >
+  The system-wide crypto policy should disable Cipher Block Chaining (CBC)
+  mode ciphers for SSH connections as they are vulnerable to certain attacks.
+rationale: >
+  CBC mode ciphers in SSH are vulnerable to the BEAST attack and other
+  padding oracle attacks. Using CTR or GCM mode ciphers provides better
+  security.
+severity: medium
+category: system
+tags: [crypto-policy, ssh, cbc, security, cryptography]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.6.5", level: "L1", type: "Automated" }
+  nist_800_53: ["SC-13", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: "sshd -T 2>/dev/null | grep -i '^ciphers' | grep -qi 'cbc' && echo 'FAIL: CBC ciphers enabled' && exit 1 || echo 'OK: No CBC ciphers' && exit 0"
+      expected_exit_code: 0
+    remediation:
+      mechanism: command_exec
+      command: "update-crypto-policies --set $(update-crypto-policies --show):NO-CBC"

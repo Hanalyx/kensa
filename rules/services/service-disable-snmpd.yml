@@ -13,7 +13,7 @@ tags: [service, networking, snmp, attack-surface]
 references:
   cis:
     rhel8_v4:  { section: "2.2.13", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "2.2.13", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "2.1.14", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

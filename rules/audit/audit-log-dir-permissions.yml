@@ -11,6 +11,8 @@ severity: high
 category: audit
 tags: [audit, permissions, logging, security]
 
+depends_on: [auditd-service-enabled]
+
 references:
   cis:
     rhel9_v2:  { section: "6.3.4.1", level: "L2", type: "Automated" }

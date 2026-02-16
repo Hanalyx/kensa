@@ -14,7 +14,7 @@ tags: [shell, session, timeout, security]
 references:
   cis:
     rhel8_v4:  { section: "5.6.3", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.6.3", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "5.4.3.2", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-258100"

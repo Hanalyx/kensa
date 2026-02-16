@@ -10,6 +10,8 @@ severity: high
 category: services
 tags: [service, firewall, security]
 
+depends_on: [pkg-firewalld-present]
+
 references:
   cis:
     rhel8_v4:  { section: "3.4.1.1", level: "L1", type: "Automated" }

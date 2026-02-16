@@ -1,0 +1,50 @@
+id: accounts-locked-no-shell
+title: Ensure accounts without a valid login shell are locked
+description: >
+  Accounts that have a non-interactive shell (like nologin or false)
+  should also be locked to prevent any form of authentication.
+rationale: >
+  Even with a non-interactive shell, an unlocked account could potentially
+  be exploited through services that don't require a shell.
+severity: medium
+category: access-control
+tags: [accounts, shell, locked, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.4.2.8", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6", "IA-4"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      command: |
+        # Find accounts with nologin/false shell that are not locked
+        unlocked=""
+        while IFS=: read -r user _ uid _ _ _ shell; do
+          # Skip root and system accounts below UID 1000 that might need special handling
+          [ "$user" = "root" ] && continue
+          # Check if shell is nologin or false
+          if echo "$shell" | grep -qE '(nologin|false)$'; then
+            # Check if account is locked (password starts with ! or *)
+            passwd_entry=$(grep "^${user}:" /etc/shadow 2>/dev/null | cut -d: -f2)
+            if ! echo "$passwd_entry" | grep -qE '^[!*]'; then
+              unlocked="$unlocked $user"
+            fi
+          fi
+        done < /etc/passwd
+        if [ -n "$unlocked" ]; then
+          echo "FAIL: Accounts with nologin shell not locked:$unlocked"
+          exit 1
+        fi
+        echo "OK: All nologin accounts are locked"
+        exit 0
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "Lock accounts with nologin shell using: passwd -l <username>"

@@ -16,6 +16,8 @@ severity: medium
 category: access-control
 tags: [ssh, authentication, environment]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   cis:
     rhel10_v1:  { section: "5.1.21", level: "L1", type: "Automated" }

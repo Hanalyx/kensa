@@ -1,0 +1,52 @@
+id: gdm-automount-override
+title: Ensure GDM disabling automatic mounting of removable media is not overridden
+description: >
+  If GNOME Display Manager is in use, users should not be able to
+  override the automount disabled setting.
+rationale: >
+  Preventing users from enabling automount ensures the security policy
+  is enforced consistently across all users.
+severity: medium
+category: services
+tags: [gdm, gnome, automount, security]
+
+references:
+  cis:
+    rhel9_v2: { section: "1.8.7", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - when: gdm_installed
+    check:
+      method: command
+      command: |
+        # Check if automount setting is locked
+        if [ -f /etc/dconf/db/local.d/locks/00-media-automount ]; then
+          if grep -q "/org/gnome/desktop/media-handling/automount" /etc/dconf/db/local.d/locks/00-media-automount 2>/dev/null; then
+            echo "OK: GDM automount setting is locked"
+            exit 0
+          fi
+        fi
+        echo "FAIL: GDM automount setting can be overridden"
+        exit 1
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: >
+        Lock automount setting in /etc/dconf/db/local.d/locks/00-media-automount:
+        /org/gnome/desktop/media-handling/automount
+        /org/gnome/desktop/media-handling/automount-open
+        Then run: dconf update
+
+  - default: true
+    check:
+      method: command
+      command: "echo 'OK: GDM not installed'; exit 0"
+      expected_exit_code: 0
+    remediation:
+      mechanism: manual
+      description: "GDM is not installed."

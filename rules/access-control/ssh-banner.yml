@@ -17,6 +17,8 @@ severity: low
 category: access-control
 tags: [ssh, banner, notice]
 
+depends_on: [pkg-openssh-server-present]
+
 references:
   cis:
     rhel10_v1:  { section: "5.1.5", level: "L1", type: "Automated" }

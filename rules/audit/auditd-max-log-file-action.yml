@@ -12,6 +12,8 @@ severity: medium
 category: audit
 tags: [audit, logging, rotation, configuration]
 
+depends_on: [auditd-service-enabled]
+
 references:
   cis:
     rhel9_v2:  { section: "6.3.2.2", level: "L2", type: "Automated" }
