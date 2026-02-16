@@ -1,6 +1,6 @@
 # P3-1: Framework Mapping Enhancements
 
-## Status: Not Started
+## Status: Complete
 
 ## Problem
 
@@ -201,24 +201,32 @@ def write_output(
 ## Acceptance Criteria
 
 ### Framework-Ordered Output
-- [ ] Terminal output shows section column when `--framework` specified
-- [ ] Results ordered by section number (1.1.1 < 1.1.2 < 1.2.1 < 5.1.1)
-- [ ] JSON output includes `section` field per result
-- [ ] CSV output includes `section` column
-- [ ] PDF groups results by section with headers
+- [x] Terminal output shows section column when `--framework` specified
+- [x] Results ordered by section number (1.1.1 < 1.1.2 < 1.2.1 < 5.1.1)
+- [x] JSON output includes `section` field per result
+- [x] CSV output includes `section` column
+- [x] PDF groups results by section with headers
 
 ### Automatic Framework Selection
-- [ ] `--framework auto` detects platform and selects applicable mappings
-- [ ] Multiple applicable mappings: runs union of rules (deduplicated)
-- [ ] No applicable mappings: warns and runs without framework filter
-- [ ] Works with both `check` and `remediate` commands
+- [x] `--framework auto` detects platform and selects applicable mappings
+- [x] Multiple applicable mappings: runs union of rules (deduplicated)
+- [x] No applicable mappings: warns and runs without framework filter
+- [x] Works with both `check` and `remediate` commands
 
 ### Cross-Reference Queries
-- [ ] `aegis query --control "nist:AC-6"` lists implementing rules
-- [ ] `aegis query --control "cis-rhel9-v2.0.0:5.1"` lists section rules
-- [ ] `aegis query --rule <id>` shows all framework references
-- [ ] `aegis query --framework <id> --list-controls` shows control summary
-- [ ] JSON output option for all queries
+- [x] `aegis info --control "nist:AC-6"` lists implementing rules
+- [x] `aegis info --control "cis-rhel9-v2.0.0:5.1"` lists section rules
+- [x] `aegis info --rule <id>` shows all framework references
+- [x] `aegis info --framework <id> --list-controls` shows control summary
+- [x] JSON output option for all queries
+
+## Implementation Notes
+
+All features were implemented as part of earlier work:
+
+- **`runner/mappings.py`**: Contains `FrameworkIndex`, `order_results_by_section()`, `get_applicable_mappings()`
+- **`runner/cli.py`**: `info` command provides cross-reference queries; `_apply_auto_framework()` handles auto selection
+- **`runner/output/`**: All formatters (JSON, CSV, PDF) support `framework_section` field
 
 ## Dependencies
 
