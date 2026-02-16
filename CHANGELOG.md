@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-02-16)
+
+### Bug Fixes
+
+- Resolve P1/P2 tech debt items ([#3](https://github.com/Hanalyx/aegis/pull/3),
+  [`75b6217`](https://github.com/Hanalyx/aegis/commit/75b6217f9aebaa83357d2c02343a263207deb411))
+
+
 ## v1.2.0 (2026-02-16)
 
 ### Bug Fixes
