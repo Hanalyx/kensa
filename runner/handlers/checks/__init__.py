@@ -24,9 +24,10 @@ Example:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from runner._types import CheckResult
+from runner._types import CheckResult, Evidence
 from runner.handlers.checks._command import _check_command
 from runner.handlers.checks._config import _check_config_absent, _check_config_value
 from runner.handlers.checks._file import (
@@ -113,12 +114,18 @@ def run_check(ssh: SSHSession, check: dict) -> CheckResult:
     # Multi-condition check (AND semantics)
     if "checks" in check:
         details = []
+        last_result: CheckResult | None = None
         for sub in check["checks"]:
             r = _dispatch_check(ssh, sub)
             if not r.passed:
-                return CheckResult(passed=False, detail=r.detail)
+                return CheckResult(passed=False, detail=r.detail, evidence=r.evidence)
             details.append(r.detail)
-        return CheckResult(passed=True, detail="; ".join(d for d in details if d))
+            last_result = r
+        return CheckResult(
+            passed=True,
+            detail="; ".join(d for d in details if d),
+            evidence=last_result.evidence if last_result else None,
+        )
 
     return _dispatch_check(ssh, check)
 
@@ -137,5 +144,18 @@ def _dispatch_check(ssh: SSHSession, check: dict) -> CheckResult:
     method = check.get("method", "")
     handler = CHECK_HANDLERS.get(method)
     if handler is None:
-        return CheckResult(passed=False, detail=f"Unknown check method: {method}")
+        return CheckResult(
+            passed=False,
+            detail=f"Unknown check method: {method}",
+            evidence=Evidence(
+                method="error",
+                command=None,
+                stdout="",
+                stderr=f"Unknown check method: {method}",
+                exit_code=-1,
+                expected=None,
+                actual=None,
+                timestamp=datetime.now(timezone.utc),
+            ),
+        )
     return handler(ssh, check)

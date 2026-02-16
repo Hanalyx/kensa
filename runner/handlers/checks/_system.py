@@ -189,7 +189,20 @@ def _check_kernel_module_state(ssh: SSHSession, c: dict) -> CheckResult:
             ),
         )
 
-    return CheckResult(passed=False, detail=f"Unknown module state: {state}")
+    return CheckResult(
+        passed=False,
+        detail=f"Unknown module state: {state}",
+        evidence=Evidence(
+            method="error",
+            command=None,
+            stdout="",
+            stderr=f"Unknown module state: {state}",
+            exit_code=-1,
+            expected=state,
+            actual=None,
+            timestamp=check_time,
+        ),
+    )
 
 
 def _check_mount_option(ssh: SSHSession, c: dict) -> CheckResult:

@@ -29,10 +29,11 @@ RULES_DIR = SCHEMA_DIR.parent / "rules"
 RULE_SCHEMA_PATH = SCHEMA_DIR / "rule.schema.json"
 
 
-def load_schema(path: Path) -> dict:
+def load_schema(path: Path) -> dict[str, Any]:
     """Load and return a JSON Schema."""
     with open(path) as f:
-        return json.load(f)
+        result: dict[str, Any] = json.load(f)
+    return result
 
 
 def render_text(

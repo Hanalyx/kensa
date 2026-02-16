@@ -69,10 +69,10 @@ CLI flags (--host, --inventory, --rules, --sudo, ...)
 - **`_types.py`:** Result dataclasses — `CheckResult`, `PreState`, `StepResult`, `RollbackResult`, `RuleResult`
 - **`_loading.py`:** YAML files from a single file or directory (recursive), with optional severity/tag/category/platform filters
 - **`_selection.py`:** `evaluate_when()` and `select_implementation()` — capability gate evaluation, first match wins, falls back to `default: true`
-- **`_checks.py`:** `run_check()` dispatches to typed handlers, supports multi-condition checks (AND semantics via `checks:` list)
-- **`_remediation.py`:** `run_remediation()` dispatches to typed handlers, supports multi-step (sequential via `steps:` list), respects `dry_run`, handles `unless`/`onlyif` guards; also owns `_reload_service()`
-- **`_capture.py`:** Pre-state capture handlers — snapshot host state before remediation for rollback support
-- **`_rollback.py`:** Rollback handlers — restore host to pre-remediation state; `_execute_rollback()` processes steps in reverse
+- **`_checks.py`:** Re-export facade; implementations in `handlers/checks/` (domain modules: `_config`, `_file`, `_system`, `_service`, `_package`, `_security`, `_ssh`, `_command`)
+- **`_remediation.py`:** Re-export facade; implementations in `handlers/remediation/` (domain modules: `_config`, `_file`, `_system`, `_service`, `_package`, `_security`, `_command`)
+- **`_capture.py`:** Re-export facade; implementations in `handlers/capture/` (mirrors remediation domain modules)
+- **`_rollback.py`:** Re-export facade; implementations in `handlers/rollback/` (mirrors remediation domain modules)
 - **`_orchestration.py`:** `evaluate_rule()` and `remediate_rule()` — top-level rule evaluation and remediation with re-check and rollback-on-failure
 
 All public imports go through `from runner.engine import ...` for backward compatibility.
