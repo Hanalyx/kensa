@@ -4,7 +4,7 @@
 
 SSH-based compliance test runner. Takes canonical YAML rules, connects to remote RHEL hosts, detects capabilities, runs checks with evidence capture, reports pass/fail with framework mappings, and optionally remediates. The core idea: one rule per control, capability-gated implementations handle OS/config differences.
 
-**Current stats:** 338 rules | 7 framework mappings | 22 capability probes | 20 check handlers | 23 remediation handlers
+**Current stats:** 390 rules | 7 framework mappings | 22 capability probes | 20 check handlers | 23 remediation handlers
 
 ## Project Layout
 

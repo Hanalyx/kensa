@@ -393,33 +393,6 @@ def build_rule_to_section_map(mapping: FrameworkMapping) -> dict[str, str]:
     }
 
 
-def order_by_framework(
-    mapping: FrameworkMapping,
-    rules: list[dict],
-) -> list[tuple[str, dict]]:
-    """Order rules by framework section.
-
-    Args:
-        mapping: FrameworkMapping defining the order.
-        rules: List of rule dicts.
-
-    Returns:
-        List of (section_id, rule_dict) tuples in framework order.
-
-    """
-    rules_by_id = {r["id"]: r for r in rules}
-    result = []
-
-    # Sort section IDs for consistent ordering
-    for section_id in sorted(mapping.sections.keys()):
-        entry = mapping.sections[section_id]
-        rule = rules_by_id.get(entry.rule_id)
-        if rule:
-            result.append((section_id, rule))
-
-    return result
-
-
 def _parse_section_key(section: str | None) -> tuple:
     """Parse a section ID into a sortable tuple.
 
