@@ -2,6 +2,42 @@
 
 <!-- version list -->
 
+## v1.1.1 (2026-02-16)
+
+### Bug Fixes
+
+- Add type annotation to resolve mypy errors in inventory.py
+  ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+- Escape sed/grep patterns and add strict host key verification
+  ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+- Resolve CI failures in lint and schema validation ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+- Use str() coercion for mypy compatibility in inventory.py
+  ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+### Documentation
+
+- Add AEGIS Developer Guide v1.0.0 for OpenWatch integration
+  ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+- Update README.md and CLAUDE.md to reflect current state
+  ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+### Refactoring
+
+- Adopt neutral inventory variable names, remove ansible_ prefix
+  ([#1](https://github.com/Hanalyx/aegis/pull/1),
+  [`e6bb48c`](https://github.com/Hanalyx/aegis/commit/e6bb48cc47b2256d044a18aa6936a00932ebc1ed))
+
+
 ## v1.1.0 (2026-02-10)
 
 ### Bug Fixes
