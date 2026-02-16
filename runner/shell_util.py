@@ -36,6 +36,56 @@ if TYPE_CHECKING:
 # ── Quoting utilities ─────────────────────────────────────────────────────
 
 
+def escape_sed(value: str) -> str:
+    r"""Escape a value for safe use inside a sed BRE pattern or replacement.
+
+    Escapes all sed basic regular expression metacharacters so that
+    ``value`` is treated as a literal string in both the pattern and
+    replacement portions of a ``sed 's/…/…/'`` command.
+
+    Args:
+        value: Raw string to escape.
+
+    Returns:
+        String safe for interpolation into sed expressions.
+
+    Example:
+    -------
+        >>> escape_sed("net.ipv4.ip_forward")
+        'net\\.ipv4\\.ip_forward'
+        >>> escape_sed("/etc/ssh/sshd_config")
+        '\\/etc\\/ssh\\/sshd_config'
+
+    """
+    # Order matters: escape backslash first so we don't double-escape
+    for ch in r"\/.^$*[]&":
+        value = value.replace(ch, f"\\{ch}")
+    return value
+
+
+def escape_grep_bre(value: str) -> str:
+    r"""Escape a value for safe use inside a grep BRE pattern.
+
+    Escapes basic regular expression metacharacters so that ``value``
+    is treated as a literal string in ``grep`` patterns.
+
+    Args:
+        value: Raw string to escape.
+
+    Returns:
+        String safe for interpolation into grep BRE patterns.
+
+    Example:
+    -------
+        >>> escape_grep_bre("net.ipv4.ip_forward")
+        'net\\.ipv4\\.ip_forward'
+
+    """
+    for ch in r"\.^$*[]":
+        value = value.replace(ch, f"\\{ch}")
+    return value
+
+
 def quote(value: str) -> str:
     r"""Quote a value for safe shell interpolation.
 
@@ -233,10 +283,11 @@ def grep_config_key(
     if is_dir is None:
         is_dir = dir_exists(ssh, path)
 
+    escaped_key = escape_grep_bre(key)
     if is_dir:
-        cmd = f"grep -rh '^ *{key}' {quote(path)}/{scan_pattern} 2>/dev/null | tail -1"
+        cmd = f"grep -rh '^ *{escaped_key}' {quote(path)}/{scan_pattern} 2>/dev/null | tail -1"
     else:
-        cmd = f"grep -h '^ *{key}' {quote(path)} 2>/dev/null | tail -1"
+        cmd = f"grep -h '^ *{escaped_key}' {quote(path)} 2>/dev/null | tail -1"
     return ssh.run(cmd)
 
 
@@ -319,8 +370,8 @@ def sed_replace_line(
         Automatically escapes / in pattern and replacement.
 
     """
-    escaped_pattern = pattern.replace("/", "\\/")
-    escaped_replacement = replacement.replace("/", "\\/")
+    escaped_pattern = escape_sed(pattern)
+    escaped_replacement = escape_sed(replacement)
     cmd = f"sed -i 's/{escaped_pattern}/{escaped_replacement}/' {quote(path)}"
     return ssh.run(cmd).ok
 
@@ -337,7 +388,7 @@ def sed_delete_line(ssh: SSHSession, path: str, pattern: str) -> bool:
         True if successful.
 
     """
-    escaped_pattern = pattern.replace("/", "\\/")
+    escaped_pattern = escape_sed(pattern)
     return ssh.run(f"sed -i '/{escaped_pattern}/d' {quote(path)}").ok
 
 
@@ -359,8 +410,8 @@ def sed_delete_block(
         True if successful.
 
     """
-    start_escaped = start_pattern.replace("/", "\\/")
-    end_escaped = end_pattern.replace("/", "\\/")
+    start_escaped = escape_sed(start_pattern)
+    end_escaped = escape_sed(end_pattern)
     cmd = f"sed -i '/{start_escaped}/,/{end_escaped}/d' {quote(path)}"
     return ssh.run(cmd).ok
 

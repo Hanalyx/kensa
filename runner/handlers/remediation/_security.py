@@ -67,7 +67,7 @@ def _remediate_audit_rule_set(
     if dry_run:
         return True, f"Would add audit rule and persist to {persist_file}"
 
-    result = ssh.run(f"auditctl {rule}")
+    result = ssh.run(f"auditctl {shell_util.quote(rule)}")
     if not result.ok and "already exists" not in result.stderr.lower():
         return False, f"auditctl failed: {result.stderr}"
 
@@ -115,13 +115,17 @@ def _remediate_pam_module_configure(
     if not shell_util.file_exists(ssh, pam_file):
         return False, f"{pam_file}: not found"
 
+    escaped_type = shell_util.escape_grep_bre(pam_type)
+    escaped_module = shell_util.escape_grep_bre(module)
     check = ssh.run(
-        f"grep -E '^{pam_type}\\s+.*{shell_util.quote(module)}' {shell_util.quote(pam_file)} 2>/dev/null"
+        f"grep -E '^{escaped_type}\\s+.*{escaped_module}' {shell_util.quote(pam_file)} 2>/dev/null"
     )
 
     if check.ok:
-        escaped_line = pam_line.replace("/", "\\/")
-        cmd = f"sed -i 's/^{pam_type}\\s\\+.*{module}.*/{escaped_line}/' {shell_util.quote(pam_file)}"
+        sed_type = shell_util.escape_sed(pam_type)
+        sed_module = shell_util.escape_sed(module)
+        sed_replacement = shell_util.escape_sed(pam_line)
+        cmd = f"sed -i 's/^{sed_type}\\s\\+.*{sed_module}.*/{sed_replacement}/' {shell_util.quote(pam_file)}"
         result = ssh.run(cmd)
         if not result.ok:
             return False, f"Failed to update {pam_file}: {result.stderr}"

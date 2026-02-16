@@ -53,8 +53,8 @@ def _rollback_mount_option_set(
     if d["old_fstab_line"] is None:
         return False, f"{mount_point}: no previous fstab line captured"
 
-    escaped_mount = mount_point.replace("/", "\\/")
-    old_line_escaped = d["old_fstab_line"].replace("/", "\\/")
+    escaped_mount = shell_util.escape_sed(mount_point)
+    old_line_escaped = shell_util.escape_sed(d["old_fstab_line"])
     cmd = f"sed -i 's|.*\\s{escaped_mount}\\s.*|{old_line_escaped}|' /etc/fstab"
     result = ssh.run(cmd)
     if not result.ok:

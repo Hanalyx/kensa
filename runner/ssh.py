@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 from dataclasses import dataclass
 
@@ -40,6 +41,7 @@ class SSHSession:
         password: str | None = None,
         timeout: int = 30,
         sudo: bool = False,
+        strict_host_keys: bool = False,
     ):
         self.hostname = hostname
         self.port = port
@@ -48,12 +50,19 @@ class SSHSession:
         self.password = password
         self.timeout = timeout
         self.sudo = sudo
+        self.strict_host_keys = strict_host_keys
         self._client: paramiko.SSHClient | None = None
 
     def connect(self) -> None:
         """Establish the SSH connection."""
         client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if self.strict_host_keys:
+            client.set_missing_host_key_policy(paramiko.RejectPolicy())
+            known_hosts = os.path.expanduser("~/.ssh/known_hosts")
+            if os.path.isfile(known_hosts):
+                client.load_host_keys(known_hosts)
+        else:
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         connect_kwargs: dict = {
             "hostname": self.hostname,

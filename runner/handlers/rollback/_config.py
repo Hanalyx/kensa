@@ -18,11 +18,12 @@ def _rollback_config_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, st
     """Restore config file line to pre-remediation state."""
     d = pre_state.data
     path, key = d["path"], d["key"]
+    escaped_key = shell_util.escape_sed(key)
     if d["existed"] and d["old_line"]:
-        escaped = d["old_line"].replace("/", "\\/")
-        cmd = f"sed -i 's/^ *{key}.*/{escaped}/' {shell_util.quote(path)}"
+        escaped_line = shell_util.escape_sed(d["old_line"])
+        cmd = f"sed -i 's/^ *{escaped_key}.*/{escaped_line}/' {shell_util.quote(path)}"
     else:
-        cmd = f"sed -i '/^ *{key}/d' {shell_util.quote(path)}"
+        cmd = f"sed -i '/^ *{escaped_key}/d' {shell_util.quote(path)}"
     result = ssh.run(cmd)
     if not result.ok:
         return False, f"Failed to restore {key} in {path}: {result.stderr}"
