@@ -37,3 +37,10 @@ inventory.ini
 inventory.yml
 inventory.yaml
 .aegis/
+
+# Run results (generated, environment-specific)
+results/
+
+# Gap analysis scratch files (generated)
+CIS_*.md
+CIS_SECTION_COMPARISON.md
