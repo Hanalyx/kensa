@@ -195,7 +195,7 @@ def _walk_yaml_group(data: dict, group_name: str, hosts: dict[str, HostInfo]) ->
     if isinstance(group_hosts, dict):
         for hostname, vars_data in group_hosts.items():
             hvars = vars_data if isinstance(vars_data, dict) else {}
-            actual_host = hvars.get("ansible_host", hostname)
+            actual_host: str = hvars.get("ansible_host", hostname)
             port = int(hvars.get("ansible_port", 22))
             user = hvars.get("ansible_user")
             key = hvars.get("ansible_ssh_private_key_file")
