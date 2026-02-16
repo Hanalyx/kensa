@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.3 (2026-02-16)
+
+### Bug Fixes
+
+- Convert CIS RHEL 9 mapping to standard format and remove dead code
+  ([#5](https://github.com/Hanalyx/aegis/pull/5),
+  [`cc75055`](https://github.com/Hanalyx/aegis/commit/cc75055f503d9e1ef6bf3ca9d8fa43293332e625))
+
+
 ## v1.2.2 (2026-02-16)
 
 ### Bug Fixes
