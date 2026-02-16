@@ -2,6 +2,51 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-02-16)
+
+### Bug Fixes
+
+- Restore inventory neutral naming and docs from origin/main
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+- Use dict.fromkeys() in ordering.py for ruff C420 compliance
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+### Chores
+
+- Add results/ and gap analysis scratch files to .gitignore
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+- Add utility scripts and CIS comparison analysis docs
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+- Move completed PRDs to prd/done/ ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+### Features
+
+- Add 55 new CIS rules and update existing rules with v2.0.0 mappings
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+- Add SSH check handler module ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+- CIS v2.0.0 rules, neutral inventory naming, and cleanup
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+### Refactoring
+
+- Adopt neutral inventory variable names, remove ansible_ prefix
+  ([#2](https://github.com/Hanalyx/aegis/pull/2),
+  [`82302e0`](https://github.com/Hanalyx/aegis/commit/82302e05dc6c25725708b4ba3717932b7c70cf56))
+
+
 ## v1.1.1 (2026-02-16)
 
 ### Bug Fixes
