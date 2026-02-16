@@ -46,7 +46,7 @@ class TestConfigSet:
     def test_replaces_existing_key(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep -q": Result(exit_code=0, stdout="", stderr=""),
+                "grep -h": Result(exit_code=0, stdout="Foo old_value", stderr=""),
                 "sed -i": Result(exit_code=0, stdout="", stderr=""),
             }
         )
@@ -64,7 +64,7 @@ class TestConfigSet:
     def test_appends_when_key_absent(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep -q": Result(exit_code=1, stdout="", stderr=""),
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
                 "echo": Result(exit_code=0, stdout="", stderr=""),
             }
         )
@@ -82,7 +82,7 @@ class TestConfigSet:
     def test_calls_reload(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep -q": Result(exit_code=1, stdout="", stderr=""),
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
                 "echo": Result(exit_code=0, stdout="", stderr=""),
                 "systemctl": Result(exit_code=0, stdout="", stderr=""),
             }
@@ -104,7 +104,7 @@ class TestConfigSetDropin:
     def test_writes_file(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "echo": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
                 "systemctl": Result(exit_code=0, stdout="", stderr=""),
             }
         )
@@ -251,14 +251,14 @@ class TestSysctlSet:
         ssh = mock_ssh(
             {
                 "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
-                "echo": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
             }
         )
         rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
         ok, detail, _ = run_remediation(ssh, rem)
         assert ok is True
         assert any("sysctl -w" in cmd for cmd in ssh.commands_run)
-        assert any("echo" in cmd and "sysctl.d" in cmd for cmd in ssh.commands_run)
+        assert any("printf" in cmd and "sysctl.d" in cmd for cmd in ssh.commands_run)
 
     def test_dry_run(self, mock_ssh):
         ssh = mock_ssh({})
@@ -421,7 +421,7 @@ class TestCaptureConfigSet:
     def test_key_exists(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep '^ *Foo'": Result(exit_code=0, stdout="Foo bar", stderr=""),
+                "grep -h": Result(exit_code=0, stdout="Foo bar", stderr=""),
             }
         )
         rem = {
@@ -439,7 +439,7 @@ class TestCaptureConfigSet:
     def test_key_absent(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep '^ *Foo'": Result(exit_code=1, stdout="", stderr=""),
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
             }
         )
         rem = {
@@ -455,7 +455,7 @@ class TestCaptureConfigSet:
     def test_stores_reload_restart(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep '^ *K'": Result(exit_code=1, stdout="", stderr=""),
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
             }
         )
         rem = {
@@ -883,9 +883,8 @@ class TestStepResults:
     def test_single_step_returns_step_results(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "grep -q": Result(exit_code=1, stdout="", stderr=""),
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
                 "echo": Result(exit_code=0, stdout="", stderr=""),
-                "grep '^ *Foo'": Result(exit_code=1, stdout="", stderr=""),
             }
         )
         rem = {
@@ -955,22 +954,18 @@ class TestMultiStepVerification:
 
             def run(self, cmd, *, timeout=None):
                 self.commands_run.append(cmd)
-                if "grep '^ *deny'" in cmd and "tail" in cmd:
-                    # Capture grep
-                    return Result(exit_code=1, stdout="", stderr="")
-                if "grep -q" in cmd:
-                    # Remediation grep
-                    return Result(exit_code=1, stdout="", stderr="")
-                if "echo" in cmd:
-                    return Result(exit_code=0, stdout="", stderr="")
-                if "grep -h" in cmd or "grep -rh" in cmd:
-                    # Check: config_value
-                    call_count["check"] += 1
-                    if call_count["check"] <= 1:
-                        return Result(exit_code=0, stdout="deny = 5", stderr="")
-                    return Result(exit_code=0, stdout="deny = 5", stderr="")
                 if "test -d" in cmd:
                     return Result(exit_code=1, stdout="", stderr="")
+                if "grep -h" in cmd or "grep -rh" in cmd:
+                    # grep_config_key — used by capture, remediation, and check
+                    call_count["check"] += 1
+                    if call_count["check"] <= 2:
+                        # Capture + config_key_exists: key not found yet
+                        return Result(exit_code=1, stdout="", stderr="")
+                    # Check verification: key found with correct value
+                    return Result(exit_code=0, stdout="deny = 5", stderr="")
+                if "echo" in cmd:
+                    return Result(exit_code=0, stdout="", stderr="")
                 if "authselect" in cmd:
                     return Result(exit_code=0, stdout="", stderr="")
                 return Result(exit_code=0, stdout="", stderr="")
@@ -1009,12 +1004,10 @@ class TestRollbackOnFailure:
         """Step 2 fails → step 1 gets rolled back."""
         ssh = mock_ssh(
             {
-                # Capture config_set
-                "grep '^ *deny'": Result(exit_code=0, stdout="deny = 3", stderr=""),
-                # Remediate config_set
-                "grep -q": Result(exit_code=0, stdout="", stderr=""),
+                # grep_config_key: capture + remediation + check all use grep -h
+                "grep -h": Result(exit_code=0, stdout="deny = 3", stderr=""),
+                # sed_replace_line for config_set remediation
                 "sed -i": Result(exit_code=0, stdout="", stderr=""),
-                # Capture command_exec (no SSH call needed)
                 # Remediate command_exec fails
                 "authselect apply-changes": Result(
                     exit_code=1, stdout="", stderr="authselect error"
@@ -1088,7 +1081,7 @@ class TestRollbackOnRecheckFailure:
                     return Result(exit_code=0, stdout="1", stderr="")
                 if "sysctl -w" in cmd:
                     return Result(exit_code=0, stdout="", stderr="")
-                if "echo" in cmd:
+                if "printf" in cmd:
                     return Result(exit_code=0, stdout="", stderr="")
                 return Result(exit_code=0, stdout="", stderr="")
 
