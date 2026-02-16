@@ -1,8 +1,14 @@
 # P3-2: Rule Scaling — Full CIS/STIG Coverage
 
-## Status: Not Started
+## Status: Largely Complete (superseded)
 
-## Executive Summary
+**Note (2026-02-16):** This PRD targeted 180 rules with 17 check handlers. The codebase
+now has 390 rules, 20 check handlers, and 23 remediation handlers. CIS RHEL 9 coverage
+is 94% (229/244). The remaining gap is 102 rule IDs referenced in the CIS mapping that
+lack rule YAML files, and STIG RHEL 9 at 76% (needs 80%). See `IMPLEMENTATION_PLAN.md`
+for the updated status and remaining work.
+
+## Executive Summary (original)
 
 Scale Aegis from 35 canonical rules to ~180 rules covering the full CIS RHEL 9 Benchmark v2.0.0 and DISA STIG RHEL 9 V2R7. The handler infrastructure is complete (17 check handlers, 23 remediation handlers); this PRD focuses on rule authoring, testing, and quality assurance.
 
