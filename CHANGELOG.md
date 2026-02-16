@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.2 (2026-02-16)
+
+### Bug Fixes
+
+- Correct sed over-escaping and align test mocks with handlers
+  ([#4](https://github.com/Hanalyx/aegis/pull/4),
+  [`587490c`](https://github.com/Hanalyx/aegis/commit/587490cca7e6366f7db042d268e6f82ddaeb390f))
+
+
 ## v1.2.1 (2026-02-16)
 
 ### Bug Fixes
