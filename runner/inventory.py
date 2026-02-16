@@ -1,4 +1,4 @@
-"""Target host resolution from --host, inventory files, or plain text lists."""
+"""Target host resolution from --host, Ansible inventory, or plain text lists."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def resolve_targets(
     """Resolve target hosts from all sources and apply defaults.
 
     CLI flags (default_user, default_key, default_port) act as fallbacks.
-    Inventory-level per-host vars override them.
+    Inventory-level per-host vars override them (Ansible precedence).
     """
     hosts: list[HostInfo] = []
 
@@ -105,36 +105,8 @@ def _parse_inventory(path_str: str) -> list[HostInfo]:
     return _parse_plain_hostlist(text)
 
 
-_LEGACY_ALIASES: dict[str, str] = {
-    "host": "ansible_host",
-    "user": "ansible_user",
-    "port": "ansible_port",
-    "key_file": "ansible_ssh_private_key_file",
-}
-
-
-def _pop_var(d: dict[str, str], name: str, default: str | None = None) -> str | None:
-    """Pop a host variable by neutral name, falling back to legacy alias."""
-    if name in d:
-        return d.pop(name)
-    legacy = _LEGACY_ALIASES.get(name)
-    if legacy and legacy in d:
-        return d.pop(legacy)
-    return default
-
-
-def _get_var(d: dict, name: str, default: str | None = None) -> str | None:
-    """Get a host variable by neutral name, falling back to legacy alias."""
-    if name in d:
-        return str(d[name])
-    legacy = _LEGACY_ALIASES.get(name)
-    if legacy and legacy in d:
-        return str(d[legacy])
-    return default
-
-
 def _parse_ini_inventory(text: str) -> list[HostInfo]:
-    """Parse INI-format inventory."""
+    """Parse Ansible INI-format inventory."""
     hosts: dict[str, HostInfo] = {}
     current_group = "ungrouped"
     in_vars = False
@@ -168,10 +140,10 @@ def _parse_ini_inventory(text: str) -> list[HostInfo]:
         raw_host = parts[0]
         host_vars = _parse_inline_vars(parts[1:])
 
-        hostname = _pop_var(host_vars, "host", raw_host) or raw_host
-        port = int(_pop_var(host_vars, "port", "22") or "22")
-        user = _pop_var(host_vars, "user")
-        key = _pop_var(host_vars, "key_file")
+        hostname = host_vars.pop("ansible_host", raw_host)
+        port = int(host_vars.pop("ansible_port", 22))
+        user = host_vars.pop("ansible_user", None)
+        key = host_vars.pop("ansible_ssh_private_key_file", None)
 
         if hostname in hosts:
             # Host already seen — add group
@@ -200,7 +172,7 @@ def _parse_inline_vars(parts: list[str]) -> dict[str, str]:
 
 
 def _parse_yaml_inventory(text: str) -> list[HostInfo]:
-    """Parse YAML-format inventory."""
+    """Parse Ansible YAML-format inventory."""
     data = yaml.safe_load(text)
     if not isinstance(data, dict):
         raise ValueError("YAML inventory must be a mapping")
@@ -223,10 +195,10 @@ def _walk_yaml_group(data: dict, group_name: str, hosts: dict[str, HostInfo]) ->
     if isinstance(group_hosts, dict):
         for hostname, vars_data in group_hosts.items():
             hvars = vars_data if isinstance(vars_data, dict) else {}
-            actual_host = str(_get_var(hvars, "host", hostname) or hostname)
-            port = int(_get_var(hvars, "port", "22") or "22")
-            user = _get_var(hvars, "user")
-            key = _get_var(hvars, "key_file")
+            actual_host = hvars.get("ansible_host", hostname)
+            port = int(hvars.get("ansible_port", 22))
+            user = hvars.get("ansible_user")
+            key = hvars.get("ansible_ssh_private_key_file")
 
             if actual_host in hosts:
                 if group_name not in hosts[actual_host].groups:

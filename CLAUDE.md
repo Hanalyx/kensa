@@ -14,7 +14,7 @@ aegis/
   runner/
     cli.py               # Click CLI, rich output, orchestration
     ssh.py               # SSHSession wrapper around paramiko
-    inventory.py         # Inventory parser + host list (INI, YAML, plain text)
+    inventory.py         # Ansible inventory parser + host list
     detect.py            # 22 capability probes (name -> shell command)
     engine.py            # Re-export facade (backward compat)
     shell_util.py        # Shared shell command utilities (quoting, file ops)
@@ -233,16 +233,16 @@ CAPABILITY_PROBES = {
 For repeated testing, create a local `inventory.ini` (gitignored):
 
 ```ini
-# inventory.ini — INI format
+# inventory.ini — Ansible INI format
 [test]
-192.168.1.100 user=admin
-192.168.1.101 user=admin
+192.168.1.100 ansible_user=admin
+192.168.1.101 ansible_user=admin
 
 [production]
-prod-server-1 user=deploy port=2222
+prod-server-1 ansible_user=deploy ansible_port=2222
 ```
 
-Supports INI, YAML, or plain text (one host per line). Use `--limit` to filter by group or hostname glob.
+Supports Ansible INI, YAML, or plain text (one host per line). Use `--limit` to filter by group or hostname glob.
 
 ## Testing
 

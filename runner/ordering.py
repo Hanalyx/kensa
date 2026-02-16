@@ -53,7 +53,7 @@ def _detect_cycles(
 
     """
     WHITE, GRAY, BLACK = 0, 1, 2
-    color = dict.fromkeys(rule_ids, WHITE)
+    color = {rid: WHITE for rid in rule_ids}
     cycles = []
 
     def dfs(node: str, path: list[str]) -> None:
@@ -100,7 +100,7 @@ def _topological_sort(
 
     """
     # Build in-degree counts
-    in_degree = dict.fromkeys(rule_ids, 0)
+    in_degree = {rid: 0 for rid in rule_ids}
     for rid, dep_list in deps.items():
         if rid in in_degree:
             for dep in dep_list:

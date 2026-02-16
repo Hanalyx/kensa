@@ -629,14 +629,14 @@ aegis check -i inv.ini --sudo -r rules/ \
 
 ### 6.4 Inventory File Formats
 
-**INI**
+**INI (Ansible-style)**
 ```ini
 [webservers]
-web-01 host=192.168.1.10 user=admin
-web-02 host=192.168.1.11 user=admin
+web-01 ansible_host=192.168.1.10 ansible_user=admin
+web-02 ansible_host=192.168.1.11 ansible_user=admin
 
 [databases]
-db-01 host=192.168.1.20 user=dba port=2222
+db-01 ansible_host=192.168.1.20 ansible_user=dba ansible_port=2222
 ```
 
 **YAML**
@@ -644,11 +644,11 @@ db-01 host=192.168.1.20 user=dba port=2222
 all:
   hosts:
     web-01:
-      host: 192.168.1.10
-      user: admin
+      ansible_host: 192.168.1.10
+      ansible_user: admin
     db-01:
-      host: 192.168.1.20
-      user: dba
+      ansible_host: 192.168.1.20
+      ansible_user: dba
 ```
 
 **Plain text**
