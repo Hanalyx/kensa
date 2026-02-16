@@ -44,3 +44,8 @@ results/
 # Gap analysis scratch files (generated)
 CIS_*.md
 CIS_SECTION_COMPARISON.md
+
+# Session continuity files (local workflow, not shared)
+BACKLOG.md
+SESSION_LOG.md
+CLAUDE.md
