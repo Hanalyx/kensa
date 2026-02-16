@@ -13,7 +13,13 @@ All P0 items resolved. See Resolved section below.
 
 ## P1 — Correctness / Audit
 
-All P1 items resolved. See Resolved section below.
+- [ ] CIS RHEL 9 mapping references 102 rule IDs that have no corresponding rule
+  YAML file in `rules/`. These are framework sections mapped to rule IDs like
+  `aide-scheduled`, `cron-enabled`, `sysctl-ip-forward-disabled`, etc. that were
+  never authored. Either create the missing rules or remap/remove the dangling
+  references. Run: `aegis coverage --framework cis-rhel9-v2.0.0` to see the list.
+- [ ] STIG RHEL 9 coverage at 76% (338/446) — needs 18 more implementations to
+  reach the 80% target from the implementation plan.
 
 ---
 
@@ -45,3 +51,13 @@ All P2 items resolved. See Resolved section below.
 - [x] Missing `from __future__ import annotations` — added to `runner/_checks.py`,
   `runner/_remediation.py`, `runner/_capture.py`, `runner/_rollback.py`, and
   `runner/handlers/__init__.py` (2026-02-15)
+- [x] CIS RHEL 9 mapping file used incompatible format — `framework:` was a nested
+  dict and sections were under `mappings:` instead of `sections:`, causing the loader
+  to register it with an empty ID and zero sections. Converted to standard format
+  with `id:`, `framework:`, `sections:`, `unimplemented:`, and `control_ids:` manifest.
+  Also removed dead `order_by_framework()` from `runner/mappings.py` (2026-02-16)
+- [x] Stale `prd/IMPLEMENTATION_PLAN.md` — rewrote with current stats (390 rules,
+  94% CIS, 76% STIG), marked phases 1/3/4/5 complete, documented remaining Phase 2
+  gap (102 missing rule YAMLs, STIG needs 18 more) (2026-02-16)
+- [x] Stale `prd/p3-2-rule-scaling.md` — updated status from "Not Started" to
+  "Largely Complete (superseded)" with current stats note (2026-02-16)
