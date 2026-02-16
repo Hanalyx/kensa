@@ -1,0 +1,1557 @@
+# CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0
+# Reference file for mapping verification and gap analysis
+#
+# Fields:
+#   section: CIS section number
+#   title: Control title from benchmark
+#   type: Automated or Manual
+#   aegis_rule: AEGIS rule ID (if mapped)
+#   status: covered | missing | partial | not_applicable
+#
+# Usage:
+#   - Compare against AEGIS rules to verify correct mappings
+#   - Identify coverage gaps
+#   - Track implementation progress
+
+benchmark:
+  name: "CIS Red Hat Enterprise Linux 9 Benchmark"
+  version: "2.0.0"
+  platform: rhel9
+
+controls:
+
+  # ============================================================================
+  # 1 Initial Setup
+  # ============================================================================
+
+  # 1.5 Configure System Wide Crypto Policy (partial - SELinux moved here from 1.6)
+  - section: "1.5.4"
+    title: "Ensure core dump storage is disabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 1.6 Configure System Wide Crypto Policy
+  - section: "1.6.1"
+    title: "Ensure system wide crypto policy is not set to legacy"
+    type: Automated
+    aegis_rule: "crypto-policy-no-weak"
+    status: verify
+
+  - section: "1.6.2"
+    title: "Ensure system wide crypto policy is not set in sshd configuration"
+    type: Automated
+    aegis_rule: "ssh-crypto-policy"
+    status: verify
+
+  - section: "1.6.3"
+    title: "Ensure system wide crypto policy disables sha1 hash and signature support"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.6.4"
+    title: "Ensure system wide crypto policy disables macs less than 128 bits"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.6.5"
+    title: "Ensure system wide crypto policy disables cbc for ssh"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.6.6"
+    title: "Ensure system wide crypto policy disables chacha20-poly1305 for ssh"
+    type: Manual
+    aegis_rule: null
+    status: missing
+
+  - section: "1.6.7"
+    title: "Ensure system wide crypto policy disables EtM for ssh"
+    type: Manual
+    aegis_rule: null
+    status: missing
+
+  # 1.7 Configure Command Line Warning Banners
+  - section: "1.7.1"
+    title: "Ensure message of the day is configured properly"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.7.2"
+    title: "Ensure local login warning banner is configured properly"
+    type: Automated
+    aegis_rule: "banner-dod-consent"
+    status: verify
+
+  - section: "1.7.3"
+    title: "Ensure remote login warning banner is configured properly"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.7.4"
+    title: "Ensure access to /etc/motd is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.7.5"
+    title: "Ensure access to /etc/issue is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.7.6"
+    title: "Ensure access to /etc/issue.net is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 1.8 Configure GNOME Display Manager
+  - section: "1.8.1"
+    title: "Ensure GNOME Display Manager is removed"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.2"
+    title: "Ensure GDM login banner is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.3"
+    title: "Ensure GDM disable-user-list option is enabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.4"
+    title: "Ensure GDM screen locks when the user is idle"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.5"
+    title: "Ensure GDM screen locks cannot be overridden"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.6"
+    title: "Ensure GDM automatic mounting of removable media is disabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.7"
+    title: "Ensure GDM disabling automatic mounting of removable media is not overridden"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.8"
+    title: "Ensure GDM autorun-never is enabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.9"
+    title: "Ensure GDM autorun-never is not overridden"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "1.8.10"
+    title: "Ensure XDMCP is not enabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # ============================================================================
+  # 2 Services
+  # ============================================================================
+
+  # 2.1 Configure Server Services
+  - section: "2.1.1"
+    title: "Ensure autofs services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-autofs"
+    status: verify
+
+  - section: "2.1.2"
+    title: "Ensure avahi daemon services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-avahi"
+    status: verify
+
+  - section: "2.1.3"
+    title: "Ensure dhcp server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-dhcpd"
+    status: verify
+
+  - section: "2.1.4"
+    title: "Ensure dns server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-named"
+    status: verify
+
+  - section: "2.1.5"
+    title: "Ensure dnsmasq services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-dnsmasq"
+    status: verify
+
+  - section: "2.1.6"
+    title: "Ensure samba file server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-smb"
+    status: verify
+
+  - section: "2.1.7"
+    title: "Ensure ftp server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-vsftpd"
+    status: verify
+
+  - section: "2.1.8"
+    title: "Ensure message access server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-dovecot"
+    status: verify
+
+  - section: "2.1.9"
+    title: "Ensure network file system services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-nfs"
+    status: verify
+
+  - section: "2.1.10"
+    title: "Ensure nis server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-ypserv"
+    status: verify
+
+  - section: "2.1.11"
+    title: "Ensure print server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-cups"
+    status: verify
+
+  - section: "2.1.12"
+    title: "Ensure rpcbind services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-rpcbind"
+    status: verify
+
+  - section: "2.1.13"
+    title: "Ensure rsync services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-rsyncd"
+    status: verify
+
+  - section: "2.1.14"
+    title: "Ensure snmp services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-snmpd"
+    status: verify
+
+  - section: "2.1.15"
+    title: "Ensure telnet server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-telnet"
+    status: verify
+
+  - section: "2.1.16"
+    title: "Ensure tftp server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-tftp"
+    status: verify
+
+  - section: "2.1.17"
+    title: "Ensure web proxy server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-squid"
+    status: verify
+
+  - section: "2.1.18"
+    title: "Ensure web server services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-httpd"
+    status: verify
+
+  - section: "2.1.19"
+    title: "Ensure xinetd services are not in use"
+    type: Automated
+    aegis_rule: "service-disable-xinetd"
+    status: verify
+
+  - section: "2.1.20"
+    title: "Ensure X window server services are not in use"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "2.1.21"
+    title: "Ensure mail transfer agents are configured for local-only mode"
+    type: Automated
+    aegis_rule: "postfix-local-only"
+    status: verify
+
+  - section: "2.1.22"
+    title: "Ensure only approved services are listening on a network interface"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  # 2.2 Configure Client Services
+  - section: "2.2.1"
+    title: "Ensure ftp client is not installed"
+    type: Automated
+    aegis_rule: "package-ftp-removed"
+    status: verify
+
+  - section: "2.2.2"
+    title: "Ensure ldap client is not installed"
+    type: Automated
+    aegis_rule: "package-openldap-clients-removed"
+    status: verify
+
+  - section: "2.2.3"
+    title: "Ensure nis client is not installed"
+    type: Automated
+    aegis_rule: "package-ypbind-removed"
+    status: verify
+
+  - section: "2.2.4"
+    title: "Ensure telnet client is not installed"
+    type: Automated
+    aegis_rule: "package-telnet-removed"
+    status: verify
+
+  - section: "2.2.5"
+    title: "Ensure tftp client is not installed"
+    type: Automated
+    aegis_rule: "package-tftp-removed"
+    status: verify
+
+  # 2.3 Configure Time Synchronization
+  - section: "2.3.1"
+    title: "Ensure time synchronization is in use"
+    type: Automated
+    aegis_rule: "chrony-enabled"
+    status: verify
+
+  - section: "2.3.2"
+    title: "Ensure chrony is configured"
+    type: Automated
+    aegis_rule: "chrony-sources"
+    status: verify
+
+  - section: "2.3.3"
+    title: "Ensure chrony is not run as the root user"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 2.4 Job Schedulers
+  # 2.4.1 Configure cron
+  - section: "2.4.1.1"
+    title: "Ensure cron daemon is enabled and active"
+    type: Automated
+    aegis_rule: "cron-enabled"
+    status: verify
+
+  - section: "2.4.1.2"
+    title: "Ensure permissions on /etc/crontab are configured"
+    type: Automated
+    aegis_rule: "crontab-permissions"
+    status: verify
+
+  - section: "2.4.1.3"
+    title: "Ensure permissions on /etc/cron.hourly are configured"
+    type: Automated
+    aegis_rule: "cron-hourly-permissions"
+    status: verify
+
+  - section: "2.4.1.4"
+    title: "Ensure permissions on /etc/cron.daily are configured"
+    type: Automated
+    aegis_rule: "cron-daily-permissions"
+    status: verify
+
+  - section: "2.4.1.5"
+    title: "Ensure permissions on /etc/cron.weekly are configured"
+    type: Automated
+    aegis_rule: "cron-weekly-permissions"
+    status: verify
+
+  - section: "2.4.1.6"
+    title: "Ensure permissions on /etc/cron.monthly are configured"
+    type: Automated
+    aegis_rule: "cron-monthly-permissions"
+    status: verify
+
+  - section: "2.4.1.7"
+    title: "Ensure permissions on /etc/cron.d are configured"
+    type: Automated
+    aegis_rule: "cron-d-permissions"
+    status: verify
+
+  - section: "2.4.1.8"
+    title: "Ensure crontab is restricted to authorized users"
+    type: Automated
+    aegis_rule: "cron-allow"
+    status: verify
+
+  # 2.4.2 Configure at
+  - section: "2.4.2.1"
+    title: "Ensure at is restricted to authorized users"
+    type: Automated
+    aegis_rule: "at-allow"
+    status: verify
+
+  # ============================================================================
+  # 3 Network
+  # ============================================================================
+
+  # 3.1 Configure Network Devices
+  - section: "3.1.1"
+    title: "Ensure IPv6 status is identified"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "3.1.2"
+    title: "Ensure wireless interfaces are disabled"
+    type: Automated
+    aegis_rule: "wireless-disabled"
+    status: verify
+
+  - section: "3.1.3"
+    title: "Ensure bluetooth services are not in use"
+    type: Automated
+    aegis_rule: "kmod-disable-bluetooth"
+    status: verify
+
+  # 3.2 Configure Network Kernel Modules
+  - section: "3.2.1"
+    title: "Ensure dccp kernel module is not available"
+    type: Automated
+    aegis_rule: "kmod-disable-dccp"
+    status: verify
+
+  - section: "3.2.2"
+    title: "Ensure tipc kernel module is not available"
+    type: Automated
+    aegis_rule: "kmod-disable-tipc"
+    status: verify
+
+  - section: "3.2.3"
+    title: "Ensure rds kernel module is not available"
+    type: Automated
+    aegis_rule: "kmod-disable-rds"
+    status: verify
+
+  - section: "3.2.4"
+    title: "Ensure sctp kernel module is not available"
+    type: Automated
+    aegis_rule: "kmod-disable-sctp"
+    status: verify
+
+  # 3.3 Configure Network Kernel Parameters
+  - section: "3.3.1"
+    title: "Ensure ip forwarding is disabled"
+    type: Automated
+    aegis_rule: "sysctl-ip-forward-disabled"
+    status: verify
+
+  - section: "3.3.2"
+    title: "Ensure packet redirect sending is disabled"
+    type: Automated
+    aegis_rule: "sysctl-send-redirects-disabled"
+    status: verify
+
+  - section: "3.3.3"
+    title: "Ensure bogus icmp responses are ignored"
+    type: Automated
+    aegis_rule: "sysctl-ignore-bogus-icmp"
+    status: verify
+
+  - section: "3.3.4"
+    title: "Ensure broadcast icmp requests are ignored"
+    type: Automated
+    aegis_rule: "sysctl-ignore-broadcast-icmp"
+    status: verify
+
+  - section: "3.3.5"
+    title: "Ensure icmp redirects are not accepted"
+    type: Automated
+    aegis_rule: "sysctl-icmp-redirects-disabled"
+    status: verify
+
+  - section: "3.3.6"
+    title: "Ensure secure icmp redirects are not accepted"
+    type: Automated
+    aegis_rule: "sysctl-secure-redirects-disabled"
+    status: verify
+
+  - section: "3.3.7"
+    title: "Ensure reverse path filtering is enabled"
+    type: Automated
+    aegis_rule: "sysctl-rp-filter"
+    status: verify
+
+  - section: "3.3.8"
+    title: "Ensure source routed packets are not accepted"
+    type: Automated
+    aegis_rule: "sysctl-source-route-disabled"
+    status: verify
+
+  - section: "3.3.9"
+    title: "Ensure suspicious packets are logged"
+    type: Automated
+    aegis_rule: "sysctl-log-martians"
+    status: verify
+
+  - section: "3.3.10"
+    title: "Ensure tcp syn cookies is enabled"
+    type: Automated
+    aegis_rule: "sysctl-tcp-syncookies"
+    status: verify
+
+  - section: "3.3.11"
+    title: "Ensure ipv6 router advertisements are not accepted"
+    type: Automated
+    aegis_rule: "sysctl-ipv6-ra-disabled"
+    status: verify
+
+  # ============================================================================
+  # 4 Host Based Firewall
+  # ============================================================================
+
+  # 4.1 Configure a firewall utility
+  - section: "4.1.1"
+    title: "Ensure nftables is installed"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "4.1.2"
+    title: "Ensure a single firewall configuration utility is in use"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 4.2 Configure FirewallD
+  - section: "4.2.1"
+    title: "Ensure firewalld drops unnecessary services and ports"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "4.2.2"
+    title: "Ensure firewalld loopback traffic is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 4.3 Configure NFTables
+  - section: "4.3.1"
+    title: "Ensure nftables base chains exist"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "4.3.2"
+    title: "Ensure nftables established connections are configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "4.3.3"
+    title: "Ensure nftables default deny firewall policy"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "4.3.4"
+    title: "Ensure nftables loopback traffic is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # ============================================================================
+  # 5 Access Control
+  # ============================================================================
+
+  # 5.1 Configure SSH Server
+  - section: "5.1.1"
+    title: "Ensure permissions on /etc/ssh/sshd_config are configured"
+    type: Automated
+    aegis_rule: "sshd-config-permissions"
+    status: verify
+
+  - section: "5.1.2"
+    title: "Ensure permissions on SSH private host key files are configured"
+    type: Automated
+    aegis_rule: "ssh-private-key-permissions"
+    status: verify
+
+  - section: "5.1.3"
+    title: "Ensure permissions on SSH public host key files are configured"
+    type: Automated
+    aegis_rule: "ssh-public-key-permissions"
+    status: verify
+
+  - section: "5.1.4"
+    title: "Ensure sshd Ciphers are configured"
+    type: Automated
+    aegis_rule: "ssh-approved-ciphers"
+    status: verify
+
+  - section: "5.1.5"
+    title: "Ensure sshd KexAlgorithms is configured"
+    type: Automated
+    aegis_rule: "ssh-approved-kex"
+    status: verify
+
+  - section: "5.1.6"
+    title: "Ensure sshd MACs are configured"
+    type: Automated
+    aegis_rule: "ssh-approved-macs"
+    status: verify
+
+  - section: "5.1.7"
+    title: "Ensure sshd access is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.1.8"
+    title: "Ensure sshd Banner is configured"
+    type: Automated
+    aegis_rule: "ssh-banner"
+    status: verify
+
+  - section: "5.1.9"
+    title: "Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured"
+    type: Automated
+    aegis_rule: "ssh-client-alive-interval"
+    status: verify
+
+  - section: "5.1.10"
+    title: "Ensure sshd DisableForwarding is enabled"
+    type: Automated
+    aegis_rule: "ssh-disable-forwarding"
+    status: verify
+
+  - section: "5.1.11"
+    title: "Ensure sshd GSSAPIAuthentication is disabled"
+    type: Automated
+    aegis_rule: "ssh-disable-gssapi"
+    status: verify
+
+  - section: "5.1.12"
+    title: "Ensure sshd HostbasedAuthentication is disabled"
+    type: Automated
+    aegis_rule: "ssh-disable-hostbased-auth"
+    status: verify
+
+  - section: "5.1.13"
+    title: "Ensure sshd IgnoreRhosts is enabled"
+    type: Automated
+    aegis_rule: "ssh-ignore-rhosts"
+    status: verify
+
+  - section: "5.1.14"
+    title: "Ensure sshd LoginGraceTime is configured"
+    type: Automated
+    aegis_rule: "ssh-login-grace-time"
+    status: verify
+
+  - section: "5.1.15"
+    title: "Ensure sshd LogLevel is configured"
+    type: Automated
+    aegis_rule: "ssh-log-level"
+    status: verify
+
+  - section: "5.1.16"
+    title: "Ensure sshd MaxAuthTries is configured"
+    type: Automated
+    aegis_rule: "ssh-max-auth-tries"
+    status: verify
+
+  - section: "5.1.17"
+    title: "Ensure sshd MaxStartups is configured"
+    type: Automated
+    aegis_rule: "ssh-max-startups"
+    status: verify
+
+  - section: "5.1.18"
+    title: "Ensure sshd MaxSessions is configured"
+    type: Automated
+    aegis_rule: "ssh-max-sessions"
+    status: verify
+
+  - section: "5.1.19"
+    title: "Ensure sshd PermitEmptyPasswords is disabled"
+    type: Automated
+    aegis_rule: "ssh-deny-empty-passwords"
+    status: verify
+
+  - section: "5.1.20"
+    title: "Ensure sshd PermitRootLogin is disabled"
+    type: Automated
+    aegis_rule: "ssh-disable-root-login"
+    status: verify
+
+  - section: "5.1.21"
+    title: "Ensure sshd PermitUserEnvironment is disabled"
+    type: Automated
+    aegis_rule: "ssh-disable-user-environment"
+    status: verify
+
+  - section: "5.1.22"
+    title: "Ensure sshd UsePAM is enabled"
+    type: Automated
+    aegis_rule: "ssh-use-pam"
+    status: verify
+
+  # 5.2 Configure privilege escalation
+  - section: "5.2.1"
+    title: "Ensure sudo is installed"
+    type: Automated
+    aegis_rule: "package-sudo-installed"
+    status: verify
+
+  - section: "5.2.2"
+    title: "Ensure sudo commands use pty"
+    type: Automated
+    aegis_rule: "sudo-use-pty"
+    status: verify
+
+  - section: "5.2.3"
+    title: "Ensure sudo log file exists"
+    type: Automated
+    aegis_rule: "sudo-logfile"
+    status: verify
+
+  - section: "5.2.4"
+    title: "Ensure users must provide password for escalation"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.2.5"
+    title: "Ensure re-authentication for privilege escalation is not disabled globally"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.2.6"
+    title: "Ensure sudo authentication timeout is configured correctly"
+    type: Automated
+    aegis_rule: "sudo-timeout"
+    status: verify
+
+  - section: "5.2.7"
+    title: "Ensure access to the su command is restricted"
+    type: Automated
+    aegis_rule: "pam-wheel-su"
+    status: verify
+
+  # 5.3 Pluggable Authentication Modules
+  # 5.3.1 Configure PAM software packages
+  - section: "5.3.1.1"
+    title: "Ensure latest version of pam is installed"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.1.2"
+    title: "Ensure latest version of authselect is installed"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.1.3"
+    title: "Ensure latest version of libpwquality is installed"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 5.3.2 Configure authselect
+  - section: "5.3.2.1"
+    title: "Ensure active authselect profile includes pam modules"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.2.2"
+    title: "Ensure pam_faillock module is enabled"
+    type: Automated
+    aegis_rule: "pam-faillock-enabled"
+    status: verify
+
+  - section: "5.3.2.3"
+    title: "Ensure pam_pwquality module is enabled"
+    type: Automated
+    aegis_rule: "pam-pwquality-enabled"
+    status: verify
+
+  - section: "5.3.2.4"
+    title: "Ensure pam_pwhistory module is enabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.2.5"
+    title: "Ensure pam_unix module is enabled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 5.3.3 Configure PAM Arguments
+  # 5.3.3.1 Configure pam_faillock module
+  - section: "5.3.3.1.1"
+    title: "Ensure password failed attempts lockout is configured"
+    type: Automated
+    aegis_rule: "pam-faillock-deny"
+    status: verify
+
+  - section: "5.3.3.1.2"
+    title: "Ensure password unlock time is configured"
+    type: Automated
+    aegis_rule: "pam-faillock-unlock-time"
+    status: verify
+
+  - section: "5.3.3.1.3"
+    title: "Ensure password failed attempts lockout includes root account"
+    type: Automated
+    aegis_rule: "pam-faillock-root"
+    status: verify
+
+  # 5.3.3.2 Configure pam_pwquality module
+  - section: "5.3.3.2.1"
+    title: "Ensure password number of changed characters is configured"
+    type: Automated
+    aegis_rule: "pwquality-difok"
+    status: verify
+
+  - section: "5.3.3.2.2"
+    title: "Ensure password length is configured"
+    type: Automated
+    aegis_rule: "pwquality-minlen"
+    status: verify
+
+  - section: "5.3.3.2.3"
+    title: "Ensure password complexity is configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "5.3.3.2.4"
+    title: "Ensure password same consecutive characters is configured"
+    type: Automated
+    aegis_rule: "pwquality-maxrepeat"
+    status: verify
+
+  - section: "5.3.3.2.5"
+    title: "Ensure password maximum sequential characters is configured"
+    type: Automated
+    aegis_rule: "pwquality-maxsequence"
+    status: verify
+
+  - section: "5.3.3.2.6"
+    title: "Ensure password dictionary check is enabled"
+    type: Automated
+    aegis_rule: "pwquality-dictcheck"
+    status: verify
+
+  - section: "5.3.3.2.7"
+    title: "Ensure password quality is enforced for the root user"
+    type: Automated
+    aegis_rule: "pwquality-enforce-root"
+    status: verify
+
+  # 5.3.3.3 Configure pam_pwhistory module
+  - section: "5.3.3.3.1"
+    title: "Ensure password history remember is configured"
+    type: Automated
+    aegis_rule: "pam-pwhistory-remember"
+    status: verify
+
+  - section: "5.3.3.3.2"
+    title: "Ensure password history is enforced for the root user"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.3.3.3"
+    title: "Ensure pam_pwhistory includes use_authtok"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 5.3.3.4 Configure pam_unix module
+  - section: "5.3.3.4.1"
+    title: "Ensure pam_unix does not include nullok"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.3.4.2"
+    title: "Ensure pam_unix does not include remember"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.3.3.4.3"
+    title: "Ensure pam_unix includes a strong password hashing algorithm"
+    type: Automated
+    aegis_rule: "pam-password-sha512"
+    status: verify
+
+  - section: "5.3.3.4.4"
+    title: "Ensure pam_unix includes use_authtok"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 5.4 User Accounts and Environment
+  # 5.4.1 Configure shadow password suite parameters
+  - section: "5.4.1.1"
+    title: "Ensure password expiration is configured"
+    type: Automated
+    aegis_rule: "password-max-age"
+    status: verify
+
+  - section: "5.4.1.2"
+    title: "Ensure minimum password days is configured"
+    type: Manual
+    aegis_rule: "password-min-age"
+    status: verify
+
+  - section: "5.4.1.3"
+    title: "Ensure password expiration warning days is configured"
+    type: Automated
+    aegis_rule: "password-warn-age"
+    status: verify
+
+  - section: "5.4.1.4"
+    title: "Ensure strong password hashing algorithm is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.4.1.5"
+    title: "Ensure inactive password lock is configured"
+    type: Automated
+    aegis_rule: "password-inactive"
+    status: verify
+
+  - section: "5.4.1.6"
+    title: "Ensure all users last password change date is in the past"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 5.4.2 Configure root and system accounts and environment
+  - section: "5.4.2.1"
+    title: "Ensure root is the only UID 0 account"
+    type: Automated
+    aegis_rule: "root-only-uid0"
+    status: verify
+
+  - section: "5.4.2.2"
+    title: "Ensure root is the only GID 0 account"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.4.2.3"
+    title: "Ensure group root is the only GID 0 group"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.4.2.4"
+    title: "Ensure root account access is controlled"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.4.2.5"
+    title: "Ensure root path integrity"
+    type: Automated
+    aegis_rule: "root-path-integrity"
+    status: verify
+
+  - section: "5.4.2.6"
+    title: "Ensure root user umask is configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.4.2.7"
+    title: "Ensure system accounts do not have a valid login shell"
+    type: Automated
+    aegis_rule: "nologin-system-accounts"
+    status: verify
+
+  - section: "5.4.2.8"
+    title: "Ensure accounts without a valid login shell are locked"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 5.4.3 Configure user default environment
+  - section: "5.4.3.1"
+    title: "Ensure nologin is not listed in /etc/shells"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "5.4.3.2"
+    title: "Ensure default user shell timeout is configured"
+    type: Automated
+    aegis_rule: "shell-timeout"
+    status: verify
+
+  - section: "5.4.3.3"
+    title: "Ensure default user umask is configured"
+    type: Automated
+    aegis_rule: "umask-default"
+    status: verify
+
+  # ============================================================================
+  # 6 Logging and Auditing
+  # ============================================================================
+
+  # 6.1 Configure Integrity Checking
+  - section: "6.1.1"
+    title: "Ensure AIDE is installed"
+    type: Automated
+    aegis_rule: "aide-installed"
+    status: verify
+
+  - section: "6.1.2"
+    title: "Ensure filesystem integrity is regularly checked"
+    type: Automated
+    aegis_rule: "aide-scheduled"
+    status: verify
+
+  - section: "6.1.3"
+    title: "Ensure cryptographic mechanisms are used to protect the integrity of audit tools"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 6.2 System Logging
+  # 6.2.1 Configure systemd-journald service
+  - section: "6.2.1.1"
+    title: "Ensure journald service is enabled and active"
+    type: Automated
+    aegis_rule: "journald-service-enabled"
+    status: verify
+
+  - section: "6.2.1.2"
+    title: "Ensure journald log file access is configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "6.2.1.3"
+    title: "Ensure journald log file rotation is configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "6.2.1.4"
+    title: "Ensure only one logging system is in use"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 6.2.2 Configure journald
+  # 6.2.2.1 Configure systemd-journal-remote
+  - section: "6.2.2.1.1"
+    title: "Ensure systemd-journal-remote is installed"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "6.2.2.1.2"
+    title: "Ensure systemd-journal-upload authentication is configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "6.2.2.1.3"
+    title: "Ensure systemd-journal-upload is enabled and active"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "6.2.2.1.4"
+    title: "Ensure systemd-journal-remote service is not in use"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "6.2.2.2"
+    title: "Ensure journald ForwardToSyslog is disabled"
+    type: Automated
+    aegis_rule: "journald-no-forward-syslog"
+    status: verify
+
+  - section: "6.2.2.3"
+    title: "Ensure journald Compress is configured"
+    type: Automated
+    aegis_rule: "journald-compress"
+    status: verify
+
+  - section: "6.2.2.4"
+    title: "Ensure journald Storage is configured"
+    type: Automated
+    aegis_rule: "journald-storage-persistent"
+    status: verify
+
+  # 6.2.3 Configure rsyslog
+  - section: "6.2.3.1"
+    title: "Ensure rsyslog is installed"
+    type: Automated
+    aegis_rule: "rsyslog-installed"
+    status: verify
+
+  - section: "6.2.3.2"
+    title: "Ensure rsyslog service is enabled and active"
+    type: Automated
+    aegis_rule: "rsyslog-enabled"
+    status: verify
+
+  - section: "6.2.3.3"
+    title: "Ensure journald is configured to send logs to rsyslog"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "6.2.3.4"
+    title: "Ensure rsyslog log file creation mode is configured"
+    type: Automated
+    aegis_rule: "rsyslog-file-permissions"
+    status: verify
+
+  - section: "6.2.3.5"
+    title: "Ensure rsyslog logging is configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "6.2.3.6"
+    title: "Ensure rsyslog is configured to send logs to a remote log host"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  - section: "6.2.3.7"
+    title: "Ensure rsyslog is not configured to receive logs from a remote client"
+    type: Automated
+    aegis_rule: "rsyslog-no-remote-receive"
+    status: verify
+
+  - section: "6.2.3.8"
+    title: "Ensure rsyslog logrotate is configured"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  # 6.2.4 Configure Logfiles
+  - section: "6.2.4.1"
+    title: "Ensure access to all logfiles has been configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 6.3 System Auditing
+  # 6.3.1 Configure auditd Service
+  - section: "6.3.1.1"
+    title: "Ensure auditd packages are installed"
+    type: Automated
+    aegis_rule: "auditd-installed"
+    status: verify
+
+  - section: "6.3.1.2"
+    title: "Ensure auditing for processes that start prior to auditd is enabled"
+    type: Automated
+    aegis_rule: "grub-audit-enabled"
+    status: verify
+
+  - section: "6.3.1.3"
+    title: "Ensure audit_backlog_limit is sufficient"
+    type: Automated
+    aegis_rule: "grub-audit-backlog"
+    status: verify
+
+  - section: "6.3.1.4"
+    title: "Ensure auditd service is enabled and active"
+    type: Automated
+    aegis_rule: "auditd-enabled"
+    status: verify
+
+  # 6.3.2 Configure Data Retention
+  - section: "6.3.2.1"
+    title: "Ensure audit log storage size is configured"
+    type: Automated
+    aegis_rule: "auditd-max-log-file"
+    status: verify
+
+  - section: "6.3.2.2"
+    title: "Ensure audit logs are not automatically deleted"
+    type: Automated
+    aegis_rule: "auditd-max-log-file-action"
+    status: verify
+
+  - section: "6.3.2.3"
+    title: "Ensure system is disabled when audit logs are full"
+    type: Automated
+    aegis_rule: "auditd-space-left-action"
+    status: verify
+
+  - section: "6.3.2.4"
+    title: "Ensure system warns when audit logs are low on space"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  # 6.3.3 Configure auditd Rules
+  - section: "6.3.3.1"
+    title: "Ensure changes to system administration scope (sudoers) is collected"
+    type: Automated
+    aegis_rule: "audit-sudoers"
+    status: verify
+
+  - section: "6.3.3.2"
+    title: "Ensure actions as another user are always logged"
+    type: Automated
+    aegis_rule: "audit-user-emulation"
+    status: verify
+
+  - section: "6.3.3.3"
+    title: "Ensure events that modify the sudo log file are collected"
+    type: Automated
+    aegis_rule: "audit-sudo-log"
+    status: verify
+
+  - section: "6.3.3.4"
+    title: "Ensure events that modify date and time information are collected"
+    type: Automated
+    aegis_rule: "audit-time-change"
+    status: verify
+
+  - section: "6.3.3.5"
+    title: "Ensure events that modify the system's network environment are collected"
+    type: Automated
+    aegis_rule: "audit-network-change"
+    status: verify
+
+  - section: "6.3.3.6"
+    title: "Ensure use of privileged commands are collected"
+    type: Automated
+    aegis_rule: "audit-privileged-commands"
+    status: verify
+
+  - section: "6.3.3.7"
+    title: "Ensure unsuccessful file access attempts are collected"
+    type: Automated
+    aegis_rule: "audit-file-access-failed"
+    status: verify
+
+  - section: "6.3.3.8"
+    title: "Ensure events that modify user/group information are collected"
+    type: Automated
+    aegis_rule: "audit-identity-change"
+    status: verify
+
+  - section: "6.3.3.9"
+    title: "Ensure discretionary access control permission modification events are collected"
+    type: Automated
+    aegis_rule: "audit-perm-mod"
+    status: verify
+
+  - section: "6.3.3.10"
+    title: "Ensure successful file system mounts are collected"
+    type: Automated
+    aegis_rule: "audit-mounts"
+    status: verify
+
+  - section: "6.3.3.11"
+    title: "Ensure session initiation information is collected"
+    type: Automated
+    aegis_rule: "audit-session"
+    status: verify
+
+  - section: "6.3.3.12"
+    title: "Ensure login and logout events are collected"
+    type: Automated
+    aegis_rule: "audit-logins"
+    status: verify
+
+  - section: "6.3.3.13"
+    title: "Ensure file deletion events by users are collected"
+    type: Automated
+    aegis_rule: "audit-delete"
+    status: verify
+
+  - section: "6.3.3.14"
+    title: "Ensure events that modify the system's Mandatory Access Controls are collected"
+    type: Automated
+    aegis_rule: "audit-mac-policy"
+    status: verify
+
+  - section: "6.3.3.15"
+    title: "Ensure successful and unsuccessful attempts to use the chcon command are collected"
+    type: Automated
+    aegis_rule: "audit-cmd-chcon"
+    status: verify
+
+  - section: "6.3.3.16"
+    title: "Ensure successful and unsuccessful attempts to use the setfacl command are collected"
+    type: Automated
+    aegis_rule: "audit-cmd-setfacl"
+    status: verify
+
+  - section: "6.3.3.17"
+    title: "Ensure successful and unsuccessful attempts to use the chacl command are collected"
+    type: Automated
+    aegis_rule: "audit-cmd-chacl"
+    status: verify
+
+  - section: "6.3.3.18"
+    title: "Ensure successful and unsuccessful attempts to use the usermod command are collected"
+    type: Automated
+    aegis_rule: "audit-cmd-usermod"
+    status: verify
+
+  - section: "6.3.3.19"
+    title: "Ensure kernel module loading unloading and modification is collected"
+    type: Automated
+    aegis_rule: "audit-kernel-modules"
+    status: verify
+
+  - section: "6.3.3.20"
+    title: "Ensure the audit configuration is immutable"
+    type: Automated
+    aegis_rule: "audit-immutable"
+    status: verify
+
+  - section: "6.3.3.21"
+    title: "Ensure the running and on disk configuration is the same"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  # 6.3.4 Configure auditd File Access
+  - section: "6.3.4.1"
+    title: "Ensure the audit log file directory mode is configured"
+    type: Automated
+    aegis_rule: "audit-log-dir-permissions"
+    status: verify
+
+  - section: "6.3.4.2"
+    title: "Ensure audit log files mode is configured"
+    type: Automated
+    aegis_rule: "audit-log-permissions"
+    status: verify
+
+  - section: "6.3.4.3"
+    title: "Ensure audit log files owner is configured"
+    type: Automated
+    aegis_rule: "audit-log-owner"
+    status: verify
+
+  - section: "6.3.4.4"
+    title: "Ensure audit log files group owner is configured"
+    type: Automated
+    aegis_rule: "audit-log-group"
+    status: verify
+
+  - section: "6.3.4.5"
+    title: "Ensure audit configuration files mode is configured"
+    type: Automated
+    aegis_rule: "audit-config-permissions"
+    status: verify
+
+  - section: "6.3.4.6"
+    title: "Ensure audit configuration files owner is configured"
+    type: Automated
+    aegis_rule: "audit-config-owner"
+    status: verify
+
+  - section: "6.3.4.7"
+    title: "Ensure audit configuration files group owner is configured"
+    type: Automated
+    aegis_rule: "audit-config-group"
+    status: verify
+
+  - section: "6.3.4.8"
+    title: "Ensure audit tools mode is configured"
+    type: Automated
+    aegis_rule: "audit-tools-permissions"
+    status: verify
+
+  - section: "6.3.4.9"
+    title: "Ensure audit tools owner is configured"
+    type: Automated
+    aegis_rule: "audit-tools-owner"
+    status: verify
+
+  - section: "6.3.4.10"
+    title: "Ensure audit tools group owner is configured"
+    type: Automated
+    aegis_rule: "audit-tools-group"
+    status: verify
+
+  # ============================================================================
+  # 7 System Maintenance
+  # ============================================================================
+
+  # 7.1 System File Permissions
+  - section: "7.1.1"
+    title: "Ensure permissions on /etc/passwd are configured"
+    type: Automated
+    aegis_rule: "etc-passwd-permissions"
+    status: verify
+
+  - section: "7.1.2"
+    title: "Ensure permissions on /etc/passwd- are configured"
+    type: Automated
+    aegis_rule: "etc-passwd-backup-permissions"
+    status: verify
+
+  - section: "7.1.3"
+    title: "Ensure permissions on /etc/group are configured"
+    type: Automated
+    aegis_rule: "etc-group-permissions"
+    status: verify
+
+  - section: "7.1.4"
+    title: "Ensure permissions on /etc/group- are configured"
+    type: Automated
+    aegis_rule: "etc-group-backup-permissions"
+    status: verify
+
+  - section: "7.1.5"
+    title: "Ensure permissions on /etc/shadow are configured"
+    type: Automated
+    aegis_rule: "etc-shadow-permissions"
+    status: verify
+
+  - section: "7.1.6"
+    title: "Ensure permissions on /etc/shadow- are configured"
+    type: Automated
+    aegis_rule: "etc-shadow-backup-permissions"
+    status: verify
+
+  - section: "7.1.7"
+    title: "Ensure permissions on /etc/gshadow are configured"
+    type: Automated
+    aegis_rule: "etc-gshadow-permissions"
+    status: verify
+
+  - section: "7.1.8"
+    title: "Ensure permissions on /etc/gshadow- are configured"
+    type: Automated
+    aegis_rule: "etc-gshadow-backup-permissions"
+    status: verify
+
+  - section: "7.1.9"
+    title: "Ensure permissions on /etc/shells are configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "7.1.10"
+    title: "Ensure permissions on /etc/security/opasswd are configured"
+    type: Automated
+    aegis_rule: null
+    status: missing
+
+  - section: "7.1.11"
+    title: "Ensure world writable files and directories are secured"
+    type: Automated
+    aegis_rule: "no-world-writable"
+    status: verify
+
+  - section: "7.1.12"
+    title: "Ensure no files or directories without an owner and a group exist"
+    type: Automated
+    aegis_rule: "no-unowned-files"
+    status: verify
+
+  - section: "7.1.13"
+    title: "Ensure SUID and SGID files are reviewed"
+    type: Manual
+    aegis_rule: null
+    status: not_applicable
+
+  # 7.2 Local User and Group Settings
+  - section: "7.2.1"
+    title: "Ensure accounts in /etc/passwd use shadowed passwords"
+    type: Automated
+    aegis_rule: "passwd-shadowed"
+    status: verify
+
+  - section: "7.2.2"
+    title: "Ensure /etc/shadow password fields are not empty"
+    type: Automated
+    aegis_rule: "no-empty-passwords"
+    status: verify
+
+  - section: "7.2.3"
+    title: "Ensure all groups in /etc/passwd exist in /etc/group"
+    type: Automated
+    aegis_rule: "passwd-groups-exist"
+    status: verify
+
+  - section: "7.2.4"
+    title: "Ensure no duplicate UIDs exist"
+    type: Automated
+    aegis_rule: "no-duplicate-uids"
+    status: verify
+
+  - section: "7.2.5"
+    title: "Ensure no duplicate GIDs exist"
+    type: Automated
+    aegis_rule: "no-duplicate-gids"
+    status: verify
+
+  - section: "7.2.6"
+    title: "Ensure no duplicate user names exist"
+    type: Automated
+    aegis_rule: "no-duplicate-usernames"
+    status: verify
+
+  - section: "7.2.7"
+    title: "Ensure no duplicate group names exist"
+    type: Automated
+    aegis_rule: "no-duplicate-groupnames"
+    status: verify
+
+  - section: "7.2.8"
+    title: "Ensure local interactive user home directories are configured"
+    type: Automated
+    aegis_rule: "home-directories-exist"
+    status: verify
+
+  - section: "7.2.9"
+    title: "Ensure local interactive user dot files access is configured"
+    type: Automated
+    aegis_rule: "home-dotfiles-permissions"
+    status: verify
