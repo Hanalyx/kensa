@@ -1,18 +1,39 @@
 # FedRAMP Moderate Baseline Mapping for Aegis
 #
+# Source: FedRAMP Rev 5 Moderate Baseline (OSCAL Profile)
+# URL: https://github.com/GSA/fedramp-automation/blob/master/dist/content/rev5/baselines/json/FedRAMP_rev5_MODERATE-baseline_profile.json
+# Catalog: NIST SP 800-53 Rev 5
+# Last synced: 2026-02-16
+#
 # This mapping associates FedRAMP Moderate baseline controls with Aegis rules.
 # FedRAMP builds on NIST SP 800-53 with additional parameters for cloud systems.
 #
 # FedRAMP Moderate is appropriate for systems where the loss of confidentiality,
 # integrity, or availability would have a serious adverse effect.
 #
-# Control families covered:
-#   AC  - Access Control
-#   AU  - Audit and Accountability
-#   CM  - Configuration Management
-#   IA  - Identification and Authentication
-#   SC  - System and Communications Protection
-#   SI  - System and Information Integrity
+# The control_ids manifest lists all 323 controls from the official OSCAL profile.
+# Every control must appear in either 'controls' (implemented with rules) or
+# 'unimplemented' (explicitly not implemented with reason).
+#
+# Control families covered (17 families, 323 controls):
+#   AC  - Access Control (43)
+#   AT  - Awareness and Training (6)
+#   AU  - Audit and Accountability (16)
+#   CA  - Assessment, Authorization, and Monitoring (14)
+#   CM  - Configuration Management (27)
+#   CP  - Contingency Planning (23)
+#   IA  - Identification and Authentication (27)
+#   IR  - Incident Response (17)
+#   MA  - Maintenance (10)
+#   MP  - Media Protection (7)
+#   PE  - Physical and Environmental Protection (19)
+#   PL  - Planning (7)
+#   PS  - Personnel Security (10)
+#   RA  - Risk Assessment (11)
+#   SA  - System and Services Acquisition (21)
+#   SC  - System and Communications Protection (29)
+#   SI  - System and Information Integrity (24)
+#   SR  - Supply Chain Risk Management (12)
 
 id: fedramp-moderate
 framework: fedramp
@@ -38,6 +59,354 @@ parameters:
   SC-7:
     deny_by_default: true
 
+# ── Control ID Manifest ──────────────────────────────────────────────────────
+# Complete list of all 323 FedRAMP Moderate Rev 5 control IDs.
+# Every control must be accounted for in either 'controls' or 'unimplemented'.
+control_ids:
+  # AC — Access Control (43)
+  - "AC-1"
+  - "AC-2"
+  - "AC-2(1)"
+  - "AC-2(2)"
+  - "AC-2(3)"
+  - "AC-2(4)"
+  - "AC-2(5)"
+  - "AC-2(7)"
+  - "AC-2(9)"
+  - "AC-2(12)"
+  - "AC-2(13)"
+  - "AC-3"
+  - "AC-4"
+  - "AC-4(21)"
+  - "AC-5"
+  - "AC-6"
+  - "AC-6(1)"
+  - "AC-6(2)"
+  - "AC-6(5)"
+  - "AC-6(7)"
+  - "AC-6(9)"
+  - "AC-6(10)"
+  - "AC-7"
+  - "AC-8"
+  - "AC-11"
+  - "AC-11(1)"
+  - "AC-12"
+  - "AC-14"
+  - "AC-17"
+  - "AC-17(1)"
+  - "AC-17(2)"
+  - "AC-17(3)"
+  - "AC-17(4)"
+  - "AC-18"
+  - "AC-18(1)"
+  - "AC-18(3)"
+  - "AC-19"
+  - "AC-19(5)"
+  - "AC-20"
+  - "AC-20(1)"
+  - "AC-20(2)"
+  - "AC-21"
+  - "AC-22"
+  # AT — Awareness and Training (6)
+  - "AT-1"
+  - "AT-2"
+  - "AT-2(2)"
+  - "AT-2(3)"
+  - "AT-3"
+  - "AT-4"
+  # AU — Audit and Accountability (16)
+  - "AU-1"
+  - "AU-2"
+  - "AU-3"
+  - "AU-3(1)"
+  - "AU-4"
+  - "AU-5"
+  - "AU-6"
+  - "AU-6(1)"
+  - "AU-6(3)"
+  - "AU-7"
+  - "AU-7(1)"
+  - "AU-8"
+  - "AU-9"
+  - "AU-9(4)"
+  - "AU-11"
+  - "AU-12"
+  # CA — Assessment, Authorization, and Monitoring (14)
+  - "CA-1"
+  - "CA-2"
+  - "CA-2(1)"
+  - "CA-2(3)"
+  - "CA-3"
+  - "CA-5"
+  - "CA-6"
+  - "CA-7"
+  - "CA-7(1)"
+  - "CA-7(4)"
+  - "CA-8"
+  - "CA-8(1)"
+  - "CA-8(2)"
+  - "CA-9"
+  # CM — Configuration Management (27)
+  - "CM-1"
+  - "CM-2"
+  - "CM-2(2)"
+  - "CM-2(3)"
+  - "CM-2(7)"
+  - "CM-3"
+  - "CM-3(2)"
+  - "CM-3(4)"
+  - "CM-4"
+  - "CM-4(2)"
+  - "CM-5"
+  - "CM-5(1)"
+  - "CM-5(5)"
+  - "CM-6"
+  - "CM-6(1)"
+  - "CM-7"
+  - "CM-7(1)"
+  - "CM-7(2)"
+  - "CM-7(5)"
+  - "CM-8"
+  - "CM-8(1)"
+  - "CM-8(3)"
+  - "CM-9"
+  - "CM-10"
+  - "CM-11"
+  - "CM-12"
+  - "CM-12(1)"
+  # CP — Contingency Planning (23)
+  - "CP-1"
+  - "CP-2"
+  - "CP-2(1)"
+  - "CP-2(3)"
+  - "CP-2(8)"
+  - "CP-3"
+  - "CP-4"
+  - "CP-4(1)"
+  - "CP-6"
+  - "CP-6(1)"
+  - "CP-6(3)"
+  - "CP-7"
+  - "CP-7(1)"
+  - "CP-7(2)"
+  - "CP-7(3)"
+  - "CP-8"
+  - "CP-8(1)"
+  - "CP-8(2)"
+  - "CP-9"
+  - "CP-9(1)"
+  - "CP-9(8)"
+  - "CP-10"
+  - "CP-10(2)"
+  # IA — Identification and Authentication (27)
+  - "IA-1"
+  - "IA-2"
+  - "IA-2(1)"
+  - "IA-2(2)"
+  - "IA-2(5)"
+  - "IA-2(6)"
+  - "IA-2(8)"
+  - "IA-2(12)"
+  - "IA-3"
+  - "IA-4"
+  - "IA-4(4)"
+  - "IA-5"
+  - "IA-5(1)"
+  - "IA-5(2)"
+  - "IA-5(6)"
+  - "IA-5(7)"
+  - "IA-6"
+  - "IA-7"
+  - "IA-8"
+  - "IA-8(1)"
+  - "IA-8(2)"
+  - "IA-8(4)"
+  - "IA-11"
+  - "IA-12"
+  - "IA-12(2)"
+  - "IA-12(3)"
+  - "IA-12(5)"
+  # IR — Incident Response (17)
+  - "IR-1"
+  - "IR-2"
+  - "IR-3"
+  - "IR-3(2)"
+  - "IR-4"
+  - "IR-4(1)"
+  - "IR-5"
+  - "IR-6"
+  - "IR-6(1)"
+  - "IR-6(3)"
+  - "IR-7"
+  - "IR-7(1)"
+  - "IR-8"
+  - "IR-9"
+  - "IR-9(2)"
+  - "IR-9(3)"
+  - "IR-9(4)"
+  # MA — Maintenance (10)
+  - "MA-1"
+  - "MA-2"
+  - "MA-3"
+  - "MA-3(1)"
+  - "MA-3(2)"
+  - "MA-3(3)"
+  - "MA-4"
+  - "MA-5"
+  - "MA-5(1)"
+  - "MA-6"
+  # MP — Media Protection (7)
+  - "MP-1"
+  - "MP-2"
+  - "MP-3"
+  - "MP-4"
+  - "MP-5"
+  - "MP-6"
+  - "MP-7"
+  # PE — Physical and Environmental Protection (19)
+  - "PE-1"
+  - "PE-2"
+  - "PE-3"
+  - "PE-4"
+  - "PE-5"
+  - "PE-6"
+  - "PE-6(1)"
+  - "PE-8"
+  - "PE-9"
+  - "PE-10"
+  - "PE-11"
+  - "PE-12"
+  - "PE-13"
+  - "PE-13(1)"
+  - "PE-13(2)"
+  - "PE-14"
+  - "PE-15"
+  - "PE-16"
+  - "PE-17"
+  # PL — Planning (7)
+  - "PL-1"
+  - "PL-2"
+  - "PL-4"
+  - "PL-4(1)"
+  - "PL-8"
+  - "PL-10"
+  - "PL-11"
+  # PS — Personnel Security (10)
+  - "PS-1"
+  - "PS-2"
+  - "PS-3"
+  - "PS-3(3)"
+  - "PS-4"
+  - "PS-5"
+  - "PS-6"
+  - "PS-7"
+  - "PS-8"
+  - "PS-9"
+  # RA — Risk Assessment (11)
+  - "RA-1"
+  - "RA-2"
+  - "RA-3"
+  - "RA-3(1)"
+  - "RA-5"
+  - "RA-5(2)"
+  - "RA-5(3)"
+  - "RA-5(5)"
+  - "RA-5(11)"
+  - "RA-7"
+  - "RA-9"
+  # SA — System and Services Acquisition (21)
+  - "SA-1"
+  - "SA-2"
+  - "SA-3"
+  - "SA-4"
+  - "SA-4(1)"
+  - "SA-4(2)"
+  - "SA-4(9)"
+  - "SA-4(10)"
+  - "SA-5"
+  - "SA-8"
+  - "SA-9"
+  - "SA-9(1)"
+  - "SA-9(2)"
+  - "SA-9(5)"
+  - "SA-10"
+  - "SA-11"
+  - "SA-11(1)"
+  - "SA-11(2)"
+  - "SA-15"
+  - "SA-15(3)"
+  - "SA-22"
+  # SC — System and Communications Protection (29)
+  - "SC-1"
+  - "SC-2"
+  - "SC-4"
+  - "SC-5"
+  - "SC-7"
+  - "SC-7(3)"
+  - "SC-7(4)"
+  - "SC-7(5)"
+  - "SC-7(7)"
+  - "SC-7(8)"
+  - "SC-7(12)"
+  - "SC-7(18)"
+  - "SC-8"
+  - "SC-8(1)"
+  - "SC-10"
+  - "SC-12"
+  - "SC-13"
+  - "SC-15"
+  - "SC-17"
+  - "SC-18"
+  - "SC-20"
+  - "SC-21"
+  - "SC-22"
+  - "SC-23"
+  - "SC-28"
+  - "SC-28(1)"
+  - "SC-39"
+  - "SC-45"
+  - "SC-45(1)"
+  # SI — System and Information Integrity (24)
+  - "SI-1"
+  - "SI-2"
+  - "SI-2(2)"
+  - "SI-2(3)"
+  - "SI-3"
+  - "SI-4"
+  - "SI-4(1)"
+  - "SI-4(2)"
+  - "SI-4(4)"
+  - "SI-4(5)"
+  - "SI-4(16)"
+  - "SI-4(18)"
+  - "SI-4(23)"
+  - "SI-5"
+  - "SI-6"
+  - "SI-7"
+  - "SI-7(1)"
+  - "SI-7(7)"
+  - "SI-8"
+  - "SI-8(2)"
+  - "SI-10"
+  - "SI-11"
+  - "SI-12"
+  - "SI-16"
+  # SR — Supply Chain Risk Management (12)
+  - "SR-1"
+  - "SR-2"
+  - "SR-2(1)"
+  - "SR-3"
+  - "SR-5"
+  - "SR-6"
+  - "SR-8"
+  - "SR-10"
+  - "SR-11"
+  - "SR-11(1)"
+  - "SR-11(2)"
+  - "SR-12"
+
+# ── Implemented Controls ─────────────────────────────────────────────────────
+# Controls mapped to Aegis rules (many-to-many: one control -> multiple rules).
 controls:
   # ════════════════════════════════════════════════════════════════════════════
   # ACCESS CONTROL (AC)
@@ -79,6 +448,13 @@ controls:
       - audit-file-shadow
       - audit-sudoers-changes
 
+  "AC-2(5)":
+    title: "Account Management | Inactivity Logout"
+    rules:
+      - shell-timeout
+      - ssh-client-alive-interval
+      - ssh-client-alive-count-max
+
   "AC-3":
     title: "Access Enforcement"
     rules:
@@ -90,19 +466,6 @@ controls:
       - fs-permissions-etc-gshadow
       - sudo-use-pty
       - su-require-wheel
-
-  "AC-3(4)":
-    title: "Access Enforcement | Discretionary Access Control"
-    rules:
-      - fs-permissions-etc-passwd
-      - fs-permissions-etc-passwd-backup
-      - fs-permissions-etc-shadow
-      - fs-permissions-etc-shadow-backup
-      - fs-permissions-etc-group
-      - fs-permissions-etc-group-backup
-      - fs-permissions-etc-gshadow
-      - fs-permissions-etc-gshadow-backup
-      - sticky-bit-world-writable
 
   "AC-4":
     title: "Information Flow Enforcement"
@@ -139,7 +502,7 @@ controls:
       - selinux-enforcing
 
   "AC-6(2)":
-    title: "Least Privilege | Non-Privileged Access for Non-Security Functions"
+    title: "Least Privilege | Non-Privileged Access for Nonsecurity Functions"
     rules:
       - nologin-system-accounts
       - accounts-no-uid-zero
@@ -180,11 +543,6 @@ controls:
       - ssh-banner
       - banner-ssh-dod
       - banner-dod-consent
-
-  "AC-10":
-    title: "Concurrent Session Control"
-    rules:
-      - ssh-max-sessions
 
   "AC-11":
     title: "Device Lock"
@@ -239,6 +597,16 @@ controls:
     rules:
       - wireless-disabled
 
+  "AC-18(1)":
+    title: "Wireless Access | Authentication and Encryption"
+    rules:
+      - kmod-disable-bluetooth
+
+  "AC-18(3)":
+    title: "Wireless Access | Disable Wireless Networking"
+    rules:
+      - wireless-disabled
+
   # ════════════════════════════════════════════════════════════════════════════
   # AUDIT AND ACCOUNTABILITY (AU)
   # ════════════════════════════════════════════════════════════════════════════
@@ -280,12 +648,6 @@ controls:
       - auditd-disk-error-action
       - auditd-action-mail-acct
 
-  "AU-5(1)":
-    title: "Response to Audit Logging Process Failures | Storage Capacity Warning"
-    rules:
-      - auditd-space-action
-      - auditd-admin-space-action
-
   "AU-6":
     title: "Audit Record Review, Analysis, and Reporting"
     rules:
@@ -298,11 +660,6 @@ controls:
       - chrony-installed
       - chrony-user
       - audit-time-change
-
-  "AU-8(1)":
-    title: "Time Stamps | Synchronization with Authoritative Time Source"
-    rules:
-      - chrony-installed
 
   "AU-9":
     title: "Protection of Audit Information"
@@ -363,6 +720,13 @@ controls:
       - sudo-require-auth
       - su-require-wheel
       - audit-sudoers-changes
+
+  "CM-5(1)":
+    title: "Access Restrictions for Change | Automated Access Enforcement and Audit Records"
+    rules:
+      - audit-sudoers-changes
+      - audit-permission-changes
+      - sudo-logfile
 
   "CM-6":
     title: "Configuration Settings"
@@ -434,8 +798,14 @@ controls:
     rules:
       - ssh-pubkey-authentication
 
+  "IA-2(5)":
+    title: "Identification and Authentication | Individual Authentication with Group Authentication"
+    rules:
+      - ssh-pubkey-authentication
+      - accounts-no-uid-zero
+
   "IA-2(8)":
-    title: "Identification and Authentication | Access to Accounts - Replay Resistant"
+    title: "Identification and Authentication | Access to Accounts — Replay Resistant"
     rules:
       - ssh-ciphers-fips
       - ssh-macs-fips
@@ -451,6 +821,12 @@ controls:
     title: "Device Identification and Authentication"
     rules:
       - ssh-hostbased-authentication
+
+  "IA-4(4)":
+    title: "Identifier Management | Identify User Status"
+    rules:
+      - inactive-password-lock
+      - nologin-system-accounts
 
   "IA-5":
     title: "Authenticator Management"
@@ -496,6 +872,13 @@ controls:
       - crypto-policy-fips
       - fips-mode-enabled
 
+  "IA-11":
+    title: "Re-Authentication"
+    rules:
+      - sudo-timeout
+      - shell-timeout
+      - ssh-client-alive-interval
+
   # ════════════════════════════════════════════════════════════════════════════
   # SYSTEM AND COMMUNICATIONS PROTECTION (SC)
   # ════════════════════════════════════════════════════════════════════════════
@@ -506,13 +889,6 @@ controls:
       - nologin-system-accounts
       - accounts-no-uid-zero
       - su-require-wheel
-
-  "SC-3":
-    title: "Security Function Isolation"
-    rules:
-      - selinux-enforcing
-      - selinux-policy-targeted
-      - aslr-enabled
 
   "SC-4":
     title: "Information in Shared System Resources"
@@ -541,7 +917,7 @@ controls:
       - crypto-policy-fips
 
   "SC-7(5)":
-    title: "Boundary Protection | Deny by Default / Allow by Exception"
+    title: "Boundary Protection | Deny by Default — Allow by Exception"
     rules:
       - service-enable-firewalld
 
@@ -609,6 +985,19 @@ controls:
     rules:
       - crypto-policy-fips
       - fips-mode-enabled
+
+  "SC-39":
+    title: "Process Isolation"
+    rules:
+      - selinux-enforcing
+      - aslr-enabled
+      - kernel-yama-ptrace
+
+  "SC-45":
+    title: "System Time Synchronization"
+    rules:
+      - chrony-installed
+      - chrony-user
 
   # ════════════════════════════════════════════════════════════════════════════
   # SYSTEM AND INFORMATION INTEGRITY (SI)
@@ -696,3 +1085,971 @@ controls:
       - aslr-enabled
       - selinux-enforcing
       - coredump-restricted
+
+# ── Unimplemented Controls ───────────────────────────────────────────────────
+# Controls not implemented in Aegis with categorized reasons.
+# Types: Procedural, Semi-Technical, N/A
+unimplemented:
+  # ── AC — Access Control ────────────────────────────────────────────────────
+  "AC-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "AC-2(7)":
+    title: "Account Management | Privileged User Accounts"
+    type: Semi-Technical
+    reason: "Requires organizational definition of privileged roles"
+  "AC-2(9)":
+    title: "Account Management | Restrictions on Use of Shared and Group Accounts"
+    type: Semi-Technical
+    reason: "Requires organizational shared account policy"
+  "AC-2(12)":
+    title: "Account Management | Account Monitoring for Atypical Usage"
+    type: Semi-Technical
+    reason: "Requires SIEM or log analysis tooling beyond host-level SSH"
+  "AC-2(13)":
+    title: "Account Management | Disable Accounts for High-Risk Individuals"
+    type: Procedural
+    reason: "Requires HR/security integration — not enforceable via SSH"
+  "AC-4(21)":
+    title: "Information Flow Enforcement | Physical or Logical Separation of Information Flows"
+    type: Semi-Technical
+    reason: "Network segmentation — partially checkable but requires network architecture"
+  "AC-6(7)":
+    title: "Least Privilege | Review of User Privileges"
+    type: Procedural
+    reason: "Requires periodic organizational review process"
+  "AC-14":
+    title: "Permitted Actions Without Identification or Authentication"
+    type: Procedural
+    reason: "Organizational policy definition — not enforceable via SSH"
+  "AC-17(3)":
+    title: "Remote Access | Managed Access Control Points"
+    type: Semi-Technical
+    reason: "Network architecture — partially checkable via firewall rules"
+  "AC-19":
+    title: "Access Control for Mobile Devices"
+    type: Procedural
+    reason: "Mobile device policy — not host-enforceable"
+  "AC-19(5)":
+    title: "Access Control for Mobile Devices | Full Device or Container-Based Encryption"
+    type: Semi-Technical
+    reason: "USB storage module disable is partial — full control requires MDM"
+  "AC-20":
+    title: "Use of External Systems"
+    type: Procedural
+    reason: "Organizational policy for external system use"
+  "AC-20(1)":
+    title: "Use of External Systems | Limits on Authorized Use"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "AC-20(2)":
+    title: "Use of External Systems | Portable Storage Devices — Restricted Use"
+    type: Semi-Technical
+    reason: "USB storage module disable is partial — full control requires organizational policy"
+  "AC-21":
+    title: "Information Sharing"
+    type: Procedural
+    reason: "Organizational information sharing agreements"
+  "AC-22":
+    title: "Publicly Accessible Content"
+    type: Procedural
+    reason: "Application-level content review process"
+
+  # ── AT — Awareness and Training ────────────────────────────────────────────
+  "AT-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "AT-2":
+    title: "Literacy Training and Awareness"
+    type: Procedural
+    reason: "Organizational training program — not enforceable via SSH"
+  "AT-2(2)":
+    title: "Literacy Training and Awareness | Insider Threat"
+    type: Procedural
+    reason: "Organizational training program — not enforceable via SSH"
+  "AT-2(3)":
+    title: "Literacy Training and Awareness | Social Engineering and Mining"
+    type: Procedural
+    reason: "Organizational training program — not enforceable via SSH"
+  "AT-3":
+    title: "Role-Based Training"
+    type: Procedural
+    reason: "Organizational training program — not enforceable via SSH"
+  "AT-4":
+    title: "Training Records"
+    type: Procedural
+    reason: "Organizational training records — not enforceable via SSH"
+
+  # ── AU — Audit and Accountability ──────────────────────────────────────────
+  "AU-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "AU-6(1)":
+    title: "Audit Record Review, Analysis, and Reporting | Automated Process Integration"
+    type: Semi-Technical
+    reason: "Requires SIEM integration — not enforceable via SSH alone"
+  "AU-6(3)":
+    title: "Audit Record Review, Analysis, and Reporting | Correlate Audit Record Repositories"
+    type: Semi-Technical
+    reason: "Requires centralized log management — not enforceable via SSH alone"
+  "AU-7":
+    title: "Audit Record Reduction and Report Generation"
+    type: Semi-Technical
+    reason: "Requires SIEM or log analysis tooling — not enforceable via SSH alone"
+  "AU-7(1)":
+    title: "Audit Record Reduction and Report Generation | Automatic Processing"
+    type: Semi-Technical
+    reason: "Requires SIEM or log analysis tooling — not enforceable via SSH alone"
+
+  # ── CA — Assessment, Authorization, and Monitoring ─────────────────────────
+  "CA-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "CA-2":
+    title: "Control Assessments"
+    type: Procedural
+    reason: "Organizational assessment process — not enforceable via SSH"
+  "CA-2(1)":
+    title: "Control Assessments | Independent Assessors"
+    type: Procedural
+    reason: "Organizational assessment process — not enforceable via SSH"
+  "CA-2(3)":
+    title: "Control Assessments | Leveraging Results from External Organizations"
+    type: Procedural
+    reason: "Organizational assessment process — not enforceable via SSH"
+  "CA-3":
+    title: "Information Exchange"
+    type: Procedural
+    reason: "Organizational agreements — not enforceable via SSH"
+  "CA-5":
+    title: "Plan of Action and Milestones"
+    type: Procedural
+    reason: "Organizational process — not enforceable via SSH"
+  "CA-6":
+    title: "Authorization"
+    type: Procedural
+    reason: "Organizational authorization process — not enforceable via SSH"
+  "CA-7":
+    title: "Continuous Monitoring"
+    type: Semi-Technical
+    reason: "Aegis supports continuous monitoring of technical controls — organizational process required"
+  "CA-7(1)":
+    title: "Continuous Monitoring | Independent Assessment"
+    type: Procedural
+    reason: "Organizational assessment process — not enforceable via SSH"
+  "CA-7(4)":
+    title: "Continuous Monitoring | Risk Monitoring"
+    type: Procedural
+    reason: "Organizational risk management — not enforceable via SSH"
+  "CA-8":
+    title: "Penetration Testing"
+    type: Procedural
+    reason: "Organizational testing program — not enforceable via SSH"
+  "CA-8(1)":
+    title: "Penetration Testing | Independent Penetration Testing Agent or Team"
+    type: Procedural
+    reason: "Organizational testing program — not enforceable via SSH"
+  "CA-8(2)":
+    title: "Penetration Testing | Red Team Exercises"
+    type: Procedural
+    reason: "Organizational testing program — not enforceable via SSH"
+  "CA-9":
+    title: "Internal System Connections"
+    type: Semi-Technical
+    reason: "Network configuration partially checkable — requires organizational documentation"
+
+  # ── CM — Configuration Management ──────────────────────────────────────────
+  "CM-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "CM-2(2)":
+    title: "Baseline Configuration | Automation Support for Accuracy and Currency"
+    type: Semi-Technical
+    reason: "Aegis supports baseline enforcement — organizational process required"
+  "CM-2(3)":
+    title: "Baseline Configuration | Retention of Previous Configurations"
+    type: Semi-Technical
+    reason: "Requires configuration versioning — beyond host-level SSH"
+  "CM-2(7)":
+    title: "Baseline Configuration | Configure Systems and Components for High-Risk Areas"
+    type: Semi-Technical
+    reason: "Requires organizational risk area definition"
+  "CM-3(2)":
+    title: "Configuration Change Control | Testing, Validation, and Documentation of Changes"
+    type: Procedural
+    reason: "Organizational change management process — not enforceable via SSH"
+  "CM-3(4)":
+    title: "Configuration Change Control | Security and Privacy Representatives"
+    type: Procedural
+    reason: "Organizational role assignment — not enforceable via SSH"
+  "CM-4":
+    title: "Impact Analyses"
+    type: Procedural
+    reason: "Organizational change management — not enforceable via SSH"
+  "CM-4(2)":
+    title: "Impact Analyses | Verification of Controls"
+    type: Procedural
+    reason: "Organizational verification process — not enforceable via SSH"
+  "CM-5(5)":
+    title: "Access Restrictions for Change | Privilege Limitation for Production and Operation"
+    type: Semi-Technical
+    reason: "Role separation partially checkable — requires organizational role definitions"
+  "CM-7(5)":
+    title: "Least Functionality | Authorized Software — Allow-by-Exception"
+    type: Semi-Technical
+    reason: "GPG checking enforces signed packages — allowlist is organizational"
+  "CM-8":
+    title: "System Component Inventory"
+    type: Semi-Technical
+    reason: "AIDE provides partial inventory — full CMDB is organizational"
+  "CM-8(1)":
+    title: "System Component Inventory | Updates During Installation and Removal"
+    type: Semi-Technical
+    reason: "Requires CMDB integration — beyond host-level SSH"
+  "CM-8(3)":
+    title: "System Component Inventory | Automated Unauthorized Component Detection"
+    type: Semi-Technical
+    reason: "AIDE detects unauthorized changes — full detection requires organizational tooling"
+  "CM-9":
+    title: "Configuration Management Plan"
+    type: Procedural
+    reason: "Organizational planning document — not enforceable via SSH"
+  "CM-10":
+    title: "Software Usage Restrictions"
+    type: Procedural
+    reason: "Organizational licensing policy — not enforceable via SSH"
+  "CM-11":
+    title: "User-Installed Software"
+    type: Semi-Technical
+    reason: "GPG checking and sudo restrictions are partial — organizational policy required"
+  "CM-12":
+    title: "Information Location"
+    type: Semi-Technical
+    reason: "Requires data classification — beyond host-level SSH"
+  "CM-12(1)":
+    title: "Information Location | Automated Tools to Support Information Location"
+    type: Semi-Technical
+    reason: "Requires DLP or data discovery tooling — beyond host-level SSH"
+
+  # ── CP — Contingency Planning ──────────────────────────────────────────────
+  "CP-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "CP-2":
+    title: "Contingency Plan"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "CP-2(1)":
+    title: "Contingency Plan | Coordinate with Related Plans"
+    type: Procedural
+    reason: "Organizational coordination — not enforceable via SSH"
+  "CP-2(3)":
+    title: "Contingency Plan | Resume Mission and Business Functions"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "CP-2(8)":
+    title: "Contingency Plan | Identify Critical Assets"
+    type: Procedural
+    reason: "Organizational asset management — not enforceable via SSH"
+  "CP-3":
+    title: "Contingency Training"
+    type: Procedural
+    reason: "Organizational training — not enforceable via SSH"
+  "CP-4":
+    title: "Contingency Plan Testing"
+    type: Procedural
+    reason: "Organizational testing — not enforceable via SSH"
+  "CP-4(1)":
+    title: "Contingency Plan Testing | Coordinate with Related Plans"
+    type: Procedural
+    reason: "Organizational coordination — not enforceable via SSH"
+  "CP-6":
+    title: "Alternate Storage Site"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-6(1)":
+    title: "Alternate Storage Site | Separation from Primary Site"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-6(3)":
+    title: "Alternate Storage Site | Accessibility"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-7":
+    title: "Alternate Processing Site"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-7(1)":
+    title: "Alternate Processing Site | Separation from Primary Site"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-7(2)":
+    title: "Alternate Processing Site | Accessibility"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-7(3)":
+    title: "Alternate Processing Site | Priority of Service"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-8":
+    title: "Telecommunications Services"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-8(1)":
+    title: "Telecommunications Services | Priority of Service Provisions"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-8(2)":
+    title: "Telecommunications Services | Single Points of Failure"
+    type: Procedural
+    reason: "Infrastructure planning — not enforceable via SSH"
+  "CP-9":
+    title: "System Backup"
+    type: Procedural
+    reason: "Backup strategy — not enforceable via SSH"
+  "CP-9(1)":
+    title: "System Backup | Testing for Reliability and Integrity"
+    type: Procedural
+    reason: "Backup testing — not enforceable via SSH"
+  "CP-9(8)":
+    title: "System Backup | Cryptographic Protection"
+    type: Procedural
+    reason: "Backup encryption — not enforceable via SSH"
+  "CP-10":
+    title: "System Recovery and Reconstitution"
+    type: Procedural
+    reason: "Recovery procedures — not enforceable via SSH"
+  "CP-10(2)":
+    title: "System Recovery and Reconstitution | Transaction Recovery"
+    type: Procedural
+    reason: "Application-level recovery — not enforceable via SSH"
+
+  # ── IA — Identification and Authentication ─────────────────────────────────
+  "IA-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "IA-2(6)":
+    title: "Identification and Authentication | Access to Accounts — Separate Device"
+    type: Semi-Technical
+    reason: "MFA device requirement — partially checkable via PAM config"
+  "IA-4":
+    title: "Identifier Management"
+    type: Semi-Technical
+    reason: "UID checks are partial — identifier lifecycle is organizational"
+  "IA-5(6)":
+    title: "Authenticator Management | Protection of Authenticators"
+    type: Procedural
+    reason: "Organizational authenticator handling procedures"
+  "IA-5(7)":
+    title: "Authenticator Management | No Embedded Unencrypted Static Authenticators"
+    type: Procedural
+    reason: "Application development practice — not enforceable via SSH"
+  "IA-8":
+    title: "Identification and Authentication (Non-Organizational Users)"
+    type: Procedural
+    reason: "Requires organizational identity federation"
+  "IA-8(1)":
+    title: "Identification and Authentication | Acceptance of PIV Credentials from Other Agencies"
+    type: Procedural
+    reason: "Organizational identity federation — not enforceable via SSH"
+  "IA-8(2)":
+    title: "Identification and Authentication | Acceptance of External Authenticators"
+    type: Procedural
+    reason: "Organizational identity federation — not enforceable via SSH"
+  "IA-8(4)":
+    title: "Identification and Authentication | Use of Defined Profiles"
+    type: Procedural
+    reason: "Organizational identity policy — not enforceable via SSH"
+  "IA-12":
+    title: "Identity Proofing"
+    type: Procedural
+    reason: "Organizational identity proofing — not enforceable via SSH"
+  "IA-12(2)":
+    title: "Identity Proofing | Identity Evidence"
+    type: Procedural
+    reason: "Organizational identity proofing — not enforceable via SSH"
+  "IA-12(3)":
+    title: "Identity Proofing | Identity Evidence Validation and Verification"
+    type: Procedural
+    reason: "Organizational identity proofing — not enforceable via SSH"
+  "IA-12(5)":
+    title: "Identity Proofing | Address Confirmation"
+    type: Procedural
+    reason: "Organizational identity proofing — not enforceable via SSH"
+
+  # ── IR — Incident Response ─────────────────────────────────────────────────
+  "IR-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "IR-2":
+    title: "Incident Response Training"
+    type: Procedural
+    reason: "Organizational training — not enforceable via SSH"
+  "IR-3":
+    title: "Incident Response Testing"
+    type: Procedural
+    reason: "Organizational testing — not enforceable via SSH"
+  "IR-3(2)":
+    title: "Incident Response Testing | Coordination with Related Plans"
+    type: Procedural
+    reason: "Organizational coordination — not enforceable via SSH"
+  "IR-4":
+    title: "Incident Handling"
+    type: Procedural
+    reason: "Organizational incident handling — not enforceable via SSH"
+  "IR-4(1)":
+    title: "Incident Handling | Automated Incident Handling Processes"
+    type: Procedural
+    reason: "Requires SOAR/SIEM integration — not enforceable via SSH"
+  "IR-5":
+    title: "Incident Monitoring"
+    type: Procedural
+    reason: "Organizational incident tracking — not enforceable via SSH"
+  "IR-6":
+    title: "Incident Reporting"
+    type: Procedural
+    reason: "Organizational reporting — not enforceable via SSH"
+  "IR-6(1)":
+    title: "Incident Reporting | Automated Reporting"
+    type: Procedural
+    reason: "Requires SOAR integration — not enforceable via SSH"
+  "IR-6(3)":
+    title: "Incident Reporting | Supply Chain Coordination"
+    type: Procedural
+    reason: "Organizational coordination — not enforceable via SSH"
+  "IR-7":
+    title: "Incident Response Assistance"
+    type: Procedural
+    reason: "Organizational support — not enforceable via SSH"
+  "IR-7(1)":
+    title: "Incident Response Assistance | Automation Support for Availability of Information and Support"
+    type: Procedural
+    reason: "Organizational support tooling — not enforceable via SSH"
+  "IR-8":
+    title: "Incident Response Plan"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "IR-9":
+    title: "Information Spillage Response"
+    type: Procedural
+    reason: "Organizational response procedure — not enforceable via SSH"
+  "IR-9(2)":
+    title: "Information Spillage Response | Training"
+    type: Procedural
+    reason: "Organizational training — not enforceable via SSH"
+  "IR-9(3)":
+    title: "Information Spillage Response | Post-Spill Operations"
+    type: Procedural
+    reason: "Organizational procedure — not enforceable via SSH"
+  "IR-9(4)":
+    title: "Information Spillage Response | Exposure to Unauthorized Personnel"
+    type: Procedural
+    reason: "Organizational procedure — not enforceable via SSH"
+
+  # ── MA — Maintenance ───────────────────────────────────────────────────────
+  "MA-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "MA-2":
+    title: "Controlled Maintenance"
+    type: Procedural
+    reason: "Organizational maintenance process — not enforceable via SSH"
+  "MA-3":
+    title: "Maintenance Tools"
+    type: Procedural
+    reason: "Organizational tool management — not enforceable via SSH"
+  "MA-3(1)":
+    title: "Maintenance Tools | Inspect Tools"
+    type: Procedural
+    reason: "Organizational tool inspection — not enforceable via SSH"
+  "MA-3(2)":
+    title: "Maintenance Tools | Inspect Media"
+    type: Procedural
+    reason: "Organizational media inspection — not enforceable via SSH"
+  "MA-3(3)":
+    title: "Maintenance Tools | Prevent Unauthorized Removal"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "MA-4":
+    title: "Nonlocal Maintenance"
+    type: Procedural
+    reason: "Organizational maintenance process — not enforceable via SSH"
+  "MA-5":
+    title: "Maintenance Personnel"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "MA-5(1)":
+    title: "Maintenance Personnel | Individuals Without Appropriate Access"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "MA-6":
+    title: "Timely Maintenance"
+    type: Procedural
+    reason: "Organizational SLA — not enforceable via SSH"
+
+  # ── MP — Media Protection ──────────────────────────────────────────────────
+  "MP-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "MP-2":
+    title: "Media Access"
+    type: Procedural
+    reason: "Physical media access — not enforceable via SSH"
+  "MP-3":
+    title: "Media Marking"
+    type: Procedural
+    reason: "Physical media marking — not enforceable via SSH"
+  "MP-4":
+    title: "Media Storage"
+    type: Procedural
+    reason: "Physical media storage — not enforceable via SSH"
+  "MP-5":
+    title: "Media Transport"
+    type: Procedural
+    reason: "Physical media transport — not enforceable via SSH"
+  "MP-6":
+    title: "Media Sanitization"
+    type: Procedural
+    reason: "Physical media sanitization — not enforceable via SSH"
+  "MP-7":
+    title: "Media Use"
+    type: Procedural
+    reason: "Organizational media policy — not enforceable via SSH"
+
+  # ── PE — Physical and Environmental Protection ─────────────────────────────
+  "PE-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "PE-2":
+    title: "Physical Access Authorizations"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-3":
+    title: "Physical Access Control"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-4":
+    title: "Access Control for Transmission"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-5":
+    title: "Access Control for Output Devices"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-6":
+    title: "Monitoring Physical Access"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-6(1)":
+    title: "Monitoring Physical Access | Intrusion Alarms and Surveillance Equipment"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-8":
+    title: "Visitor Access Records"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-9":
+    title: "Power Equipment and Cabling"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-10":
+    title: "Emergency Shutoff"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-11":
+    title: "Emergency Power"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-12":
+    title: "Emergency Lighting"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-13":
+    title: "Fire Protection"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-13(1)":
+    title: "Fire Protection | Detection Systems — Automatic Activation and Notification"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-13(2)":
+    title: "Fire Protection | Suppression Systems — Automatic Activation and Notification"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-14":
+    title: "Environmental Controls"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-15":
+    title: "Water Damage Protection"
+    type: Procedural
+    reason: "Physical infrastructure — not enforceable via SSH"
+  "PE-16":
+    title: "Delivery and Removal"
+    type: Procedural
+    reason: "Physical security — not enforceable via SSH"
+  "PE-17":
+    title: "Alternate Work Site"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+
+  # ── PL — Planning ──────────────────────────────────────────────────────────
+  "PL-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "PL-2":
+    title: "System Security and Privacy Plans"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "PL-4":
+    title: "Rules of Behavior"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "PL-4(1)":
+    title: "Rules of Behavior | Social Media and External Site/Application Usage Restrictions"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "PL-8":
+    title: "Security and Privacy Architectures"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "PL-10":
+    title: "Baseline Selection"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "PL-11":
+    title: "Baseline Tailoring"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+
+  # ── PS — Personnel Security ────────────────────────────────────────────────
+  "PS-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "PS-2":
+    title: "Position Risk Designation"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-3":
+    title: "Personnel Screening"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-3(3)":
+    title: "Personnel Screening | Information Requiring Special Protective Measures"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-4":
+    title: "Personnel Termination"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-5":
+    title: "Personnel Transfer"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-6":
+    title: "Access Agreements"
+    type: Procedural
+    reason: "Organizational agreements — not enforceable via SSH"
+  "PS-7":
+    title: "External Personnel Security"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-8":
+    title: "Personnel Sanctions"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+  "PS-9":
+    title: "Position Descriptions"
+    type: Procedural
+    reason: "Personnel management — not enforceable via SSH"
+
+  # ── RA — Risk Assessment ───────────────────────────────────────────────────
+  "RA-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "RA-2":
+    title: "Security Categorization"
+    type: Procedural
+    reason: "Organizational risk assessment — not enforceable via SSH"
+  "RA-3":
+    title: "Risk Assessment"
+    type: Procedural
+    reason: "Organizational risk assessment — not enforceable via SSH"
+  "RA-3(1)":
+    title: "Risk Assessment | Supply Chain Risk Assessment"
+    type: Procedural
+    reason: "Organizational risk assessment — not enforceable via SSH"
+  "RA-5":
+    title: "Vulnerability Monitoring and Scanning"
+    type: Semi-Technical
+    reason: "Aegis performs configuration assessment — vulnerability scanning is organizational"
+  "RA-5(2)":
+    title: "Vulnerability Monitoring and Scanning | Update Vulnerabilities to Be Scanned"
+    type: Semi-Technical
+    reason: "Vulnerability feed management — not enforceable via SSH alone"
+  "RA-5(3)":
+    title: "Vulnerability Monitoring and Scanning | Breadth and Depth of Coverage"
+    type: Semi-Technical
+    reason: "Scanning scope — not enforceable via SSH alone"
+  "RA-5(5)":
+    title: "Vulnerability Monitoring and Scanning | Privileged Access"
+    type: Semi-Technical
+    reason: "Scanner privilege management — not enforceable via SSH alone"
+  "RA-5(11)":
+    title: "Vulnerability Monitoring and Scanning | Public Disclosure Program"
+    type: Procedural
+    reason: "Organizational program — not enforceable via SSH"
+  "RA-7":
+    title: "Risk Response"
+    type: Procedural
+    reason: "Organizational risk management — not enforceable via SSH"
+  "RA-9":
+    title: "Criticality Analysis"
+    type: Procedural
+    reason: "Organizational analysis — not enforceable via SSH"
+
+  # ── SA — System and Services Acquisition ───────────────────────────────────
+  "SA-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "SA-2":
+    title: "Allocation of Resources"
+    type: Procedural
+    reason: "Organizational resource management — not enforceable via SSH"
+  "SA-3":
+    title: "System Development Life Cycle"
+    type: Procedural
+    reason: "Organizational SDLC — not enforceable via SSH"
+  "SA-4":
+    title: "Acquisition Process"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SA-4(1)":
+    title: "Acquisition Process | Functional Properties of Controls"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SA-4(2)":
+    title: "Acquisition Process | Design and Implementation Information for Controls"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SA-4(9)":
+    title: "Acquisition Process | Functions, Ports, Protocols, and Services in Use"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SA-4(10)":
+    title: "Acquisition Process | Use of Approved PIV Products"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SA-5":
+    title: "System Documentation"
+    type: Procedural
+    reason: "Organizational documentation — not enforceable via SSH"
+  "SA-8":
+    title: "Security and Privacy Engineering Principles"
+    type: Procedural
+    reason: "Organizational engineering practices — not enforceable via SSH"
+  "SA-9":
+    title: "External System Services"
+    type: Procedural
+    reason: "Organizational vendor management — not enforceable via SSH"
+  "SA-9(1)":
+    title: "External System Services | Risk Assessments and Organizational Approvals"
+    type: Procedural
+    reason: "Organizational vendor management — not enforceable via SSH"
+  "SA-9(2)":
+    title: "External System Services | Identification of Functions, Ports, Protocols, and Services"
+    type: Procedural
+    reason: "Organizational vendor management — not enforceable via SSH"
+  "SA-9(5)":
+    title: "External System Services | Processing, Storage, and Service Location"
+    type: Procedural
+    reason: "Organizational vendor management — not enforceable via SSH"
+  "SA-10":
+    title: "Developer Configuration Management"
+    type: Procedural
+    reason: "Organizational development practices — not enforceable via SSH"
+  "SA-11":
+    title: "Developer Testing and Evaluation"
+    type: Procedural
+    reason: "Organizational development practices — not enforceable via SSH"
+  "SA-11(1)":
+    title: "Developer Testing and Evaluation | Static Code Analysis"
+    type: Procedural
+    reason: "Organizational development practices — not enforceable via SSH"
+  "SA-11(2)":
+    title: "Developer Testing and Evaluation | Threat Modeling and Vulnerability Analyses"
+    type: Procedural
+    reason: "Organizational development practices — not enforceable via SSH"
+  "SA-15":
+    title: "Development Process, Standards, and Tools"
+    type: Procedural
+    reason: "Organizational development practices — not enforceable via SSH"
+  "SA-15(3)":
+    title: "Development Process, Standards, and Tools | Criticality Analysis"
+    type: Procedural
+    reason: "Organizational analysis — not enforceable via SSH"
+  "SA-22":
+    title: "Unsupported System Components"
+    type: Procedural
+    reason: "Organizational lifecycle management — not enforceable via SSH"
+
+  # ── SC — System and Communications Protection ──────────────────────────────
+  "SC-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "SC-7(3)":
+    title: "Boundary Protection | Access Points"
+    type: Semi-Technical
+    reason: "Network architecture — partially checkable via firewall rules"
+  "SC-7(7)":
+    title: "Boundary Protection | Split Tunneling for Remote Devices"
+    type: Semi-Technical
+    reason: "VPN/network configuration — beyond host-level SSH"
+  "SC-7(8)":
+    title: "Boundary Protection | Route Traffic to Authenticated Proxy Servers"
+    type: Semi-Technical
+    reason: "Proxy configuration — beyond host-level SSH"
+  "SC-7(12)":
+    title: "Boundary Protection | Host-Based Protection"
+    type: Semi-Technical
+    reason: "firewalld provides partial coverage — full HIPS is organizational"
+  "SC-7(18)":
+    title: "Boundary Protection | Fail Secure"
+    type: Semi-Technical
+    reason: "Fail-secure design — requires architectural verification"
+  "SC-15":
+    title: "Collaborative Computing Devices and Applications"
+    type: Semi-Technical
+    reason: "X11 forwarding restrictions are partial — full control requires organizational policy"
+  "SC-18":
+    title: "Mobile Code"
+    type: Procedural
+    reason: "Application-level mobile code restrictions — not enforceable via SSH"
+  "SC-20":
+    title: "Secure Name/Address Resolution Service (Authoritative Source)"
+    type: Semi-Technical
+    reason: "DNSSEC configuration — requires DNS infrastructure"
+  "SC-21":
+    title: "Secure Name/Address Resolution Service (Recursive or Caching Resolver)"
+    type: Semi-Technical
+    reason: "DNS resolver configuration — requires DNS infrastructure"
+  "SC-22":
+    title: "Architecture and Provisioning for Name/Address Resolution Service"
+    type: Semi-Technical
+    reason: "DNS architecture — requires DNS infrastructure"
+  "SC-45(1)":
+    title: "System Time Synchronization | Synchronization with Authoritative Time Source"
+    type: Semi-Technical
+    reason: "chrony config checkable — authoritative source definition is organizational"
+
+  # ── SI — System and Information Integrity ──────────────────────────────────
+  "SI-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "SI-2(2)":
+    title: "Flaw Remediation | Automated Flaw Remediation Status"
+    type: Semi-Technical
+    reason: "Patch management status — requires organizational patch tooling"
+  "SI-2(3)":
+    title: "Flaw Remediation | Time to Remediate Flaws and Benchmarks for Corrective Actions"
+    type: Semi-Technical
+    reason: "Remediation timelines — requires organizational patch management"
+  "SI-4(1)":
+    title: "System Monitoring | System-Wide Intrusion Detection System"
+    type: Semi-Technical
+    reason: "IDS deployment — auditd provides partial capability"
+  "SI-4(16)":
+    title: "System Monitoring | Correlate Monitoring Information"
+    type: Semi-Technical
+    reason: "Requires SIEM — not enforceable via SSH alone"
+  "SI-4(18)":
+    title: "System Monitoring | Analyze Traffic and Event Patterns"
+    type: Semi-Technical
+    reason: "Requires network monitoring tools — not enforceable via SSH alone"
+  "SI-4(23)":
+    title: "System Monitoring | Host-Based Devices"
+    type: Semi-Technical
+    reason: "auditd provides partial host-based monitoring — full HIDS is organizational"
+  "SI-5":
+    title: "Security Alerts, Advisories, and Directives"
+    type: Procedural
+    reason: "Organizational subscription to security feeds — not enforceable via SSH"
+  "SI-8":
+    title: "Spam Protection"
+    type: Semi-Technical
+    reason: "Mail server configuration — only applicable if mail service present"
+  "SI-8(2)":
+    title: "Spam Protection | Automatic Updates"
+    type: Semi-Technical
+    reason: "Mail server update configuration — only applicable if mail service present"
+  "SI-12":
+    title: "Information Management and Retention"
+    type: Procedural
+    reason: "Organizational data retention — not enforceable via SSH"
+
+  # ── SR — Supply Chain Risk Management ──────────────────────────────────────
+  "SR-1":
+    title: "Policy and Procedures"
+    type: Procedural
+    reason: "Organizational policy — not enforceable via SSH"
+  "SR-2":
+    title: "Supply Chain Risk Management Plan"
+    type: Procedural
+    reason: "Organizational planning — not enforceable via SSH"
+  "SR-2(1)":
+    title: "Supply Chain Risk Management Plan | Establish SCRM Team"
+    type: Procedural
+    reason: "Organizational team structure — not enforceable via SSH"
+  "SR-3":
+    title: "Supply Chain Controls and Processes"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SR-5":
+    title: "Acquisition Strategies, Tools, and Methods"
+    type: Procedural
+    reason: "Organizational procurement — not enforceable via SSH"
+  "SR-6":
+    title: "Supplier Assessments and Reviews"
+    type: Procedural
+    reason: "Organizational vendor management — not enforceable via SSH"
+  "SR-8":
+    title: "Notification Agreements"
+    type: Procedural
+    reason: "Organizational agreements — not enforceable via SSH"
+  "SR-10":
+    title: "Inspection of Systems or Components"
+    type: Procedural
+    reason: "Organizational inspection — not enforceable via SSH"
+  "SR-11":
+    title: "Component Authenticity"
+    type: Procedural
+    reason: "Organizational supply chain — not enforceable via SSH"
+  "SR-11(1)":
+    title: "Component Authenticity | Anti-Counterfeit Training"
+    type: Procedural
+    reason: "Organizational training — not enforceable via SSH"
+  "SR-11(2)":
+    title: "Component Authenticity | Configuration Control for Component Service and Repair"
+    type: Procedural
+    reason: "Organizational supply chain — not enforceable via SSH"
+  "SR-12":
+    title: "Component Disposal"
+    type: Procedural
+    reason: "Organizational disposal — not enforceable via SSH"
