@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-02-16)
+
+### Chores
+
+- Gitignore session continuity files (BACKLOG, SESSION_LOG, CLAUDE)
+  ([`3b1e4f5`](https://github.com/Hanalyx/aegis/commit/3b1e4f5c1cda428565ebd0ebd17ed500d980844b))
+
+### Documentation
+
+- Update TECH_DEBT.md and PRDs to reflect current state
+  ([#6](https://github.com/Hanalyx/aegis/pull/6),
+  [`80e6c5e`](https://github.com/Hanalyx/aegis/commit/80e6c5e36601e6dcf4657071393743560660859d))
+
+### Features
+
+- Add FedRAMP Moderate Rev 5 baseline integration and tooling
+  ([`f03b8a4`](https://github.com/Hanalyx/aegis/commit/f03b8a449a67baf47827d72a05f34fde4d4a8eed))
+
+
 ## v1.2.3 (2026-02-16)
 
 ### Bug Fixes
