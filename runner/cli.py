@@ -174,6 +174,11 @@ def target_options(f):
     )(f)
     f = click.option("--sudo", is_flag=True, help="Run all remote commands via sudo")(f)
     f = click.option(
+        "--strict-host-keys/--no-strict-host-keys",
+        default=False,
+        help="Verify SSH host keys against ~/.ssh/known_hosts (default: off)",
+    )(f)
+    f = click.option(
         "--capability",
         "-C",
         multiple=True,
@@ -306,6 +311,7 @@ def detect(
     port,
     verbose,
     sudo,
+    strict_host_keys,
     capability,
     workers,
 ):
@@ -318,12 +324,27 @@ def detect(
     if workers == 1:
         # Sequential execution - use direct console output (original behavior)
         for hi in hosts:
-            _detect_host_sequential(hi, password, sudo, overrides, verbose)
+            _detect_host_sequential(
+                hi,
+                password,
+                sudo,
+                overrides,
+                verbose,
+                strict_host_keys=strict_host_keys,
+            )
     else:
         # Parallel execution - use buffered output
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as pool:
             futures = {
-                pool.submit(_detect_host, hi, password, sudo, overrides, verbose): hi
+                pool.submit(
+                    _detect_host,
+                    hi,
+                    password,
+                    sudo,
+                    overrides,
+                    verbose,
+                    strict_host_keys=strict_host_keys,
+                ): hi
                 for hi in hosts
             }
             for future in as_completed(futures):
@@ -338,12 +359,16 @@ def _detect_host_sequential(
     sudo: bool,
     overrides: dict[str, bool],
     verbose: bool,
+    *,
+    strict_host_keys: bool = False,
 ) -> None:
     """Run capability detection on a single host with direct console output."""
     console.rule(f"[bold]Host: {hi.hostname}[/bold]")
 
     try:
-        with _connect(hi, password, sudo=sudo) as ssh:
+        with _connect(
+            hi, password, sudo=sudo, strict_host_keys=strict_host_keys
+        ) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
             caps = _apply_capability_overrides(detected_caps, overrides)
@@ -375,6 +400,8 @@ def _detect_host(
     sudo: bool,
     overrides: dict[str, bool],
     verbose: bool,
+    *,
+    strict_host_keys: bool = False,
 ) -> HostDetectResult:
     """Run capability detection on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -383,7 +410,9 @@ def _detect_host(
     buf_console.rule(f"[bold]Host: {hi.hostname}[/bold]")
 
     try:
-        with _connect(hi, password, sudo=sudo) as ssh:
+        with _connect(
+            hi, password, sudo=sudo, strict_host_keys=strict_host_keys
+        ) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
             caps = _apply_capability_overrides_quiet(
@@ -458,6 +487,7 @@ def check(
     port,
     verbose,
     sudo,
+    strict_host_keys,
     capability,
     workers,
     rules,
@@ -497,7 +527,9 @@ def check(
                 console.rule(f"[bold]Host: {hi.hostname}[/bold]")
             host_result = HostResult(hostname=hi.hostname)
             try:
-                with _connect(hi, password, sudo=sudo) as ssh:
+                with _connect(
+                    hi, password, sudo=sudo, strict_host_keys=strict_host_keys
+                ) as ssh:
                     platform = detect_platform(ssh)
                     detected_caps = detect_capabilities(ssh, verbose=verbose)
                     caps = _apply_capability_overrides(detected_caps, overrides)
@@ -569,7 +601,9 @@ def check(
         if framework == "auto" and hosts:
             first_host = hosts[0]
             try:
-                with _connect(first_host, password, sudo=sudo) as ssh:
+                with _connect(
+                    first_host, password, sudo=sudo, strict_host_keys=strict_host_keys
+                ) as ssh:
                     first_platform = detect_platform(ssh)
                     rule_list, rule_to_section = _apply_auto_framework(
                         rule_list, first_platform, quiet=quiet
@@ -592,6 +626,7 @@ def check(
                     rule_list,
                     verbose,
                     rule_to_section,
+                    strict_host_keys=strict_host_keys,
                 ): hi
                 for hi in hosts
             }
@@ -688,6 +723,8 @@ def _check_host(
     rule_list: list[dict],
     verbose: bool,
     rule_to_section: dict[str, str] | None = None,
+    *,
+    strict_host_keys: bool = False,
 ) -> HostCheckResult:
     """Run checks on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -697,7 +734,9 @@ def _check_host(
     buf_console.rule(f"[bold]Host: {hi.hostname}[/bold]")
 
     try:
-        with _connect(hi, password, sudo=sudo) as ssh:
+        with _connect(
+            hi, password, sudo=sudo, strict_host_keys=strict_host_keys
+        ) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
             caps = _apply_capability_overrides_quiet(
@@ -1006,6 +1045,7 @@ def remediate(
     port,
     verbose,
     sudo,
+    strict_host_keys,
     capability,
     workers,
     rules,
@@ -1065,7 +1105,9 @@ def remediate(
                 console.rule(f"[bold]Host: {hi.hostname}[/bold]")
             host_result = HostResult(hostname=hi.hostname)
             try:
-                with _connect(hi, password, sudo=sudo) as ssh:
+                with _connect(
+                    hi, password, sudo=sudo, strict_host_keys=strict_host_keys
+                ) as ssh:
                     platform = detect_platform(ssh)
                     detected_caps = detect_capabilities(ssh, verbose=verbose)
                     caps = _apply_capability_overrides(detected_caps, overrides)
@@ -1158,7 +1200,9 @@ def remediate(
         if framework == "auto" and hosts:
             first_host = hosts[0]
             try:
-                with _connect(first_host, password, sudo=sudo) as ssh:
+                with _connect(
+                    first_host, password, sudo=sudo, strict_host_keys=strict_host_keys
+                ) as ssh:
                     first_platform = detect_platform(ssh)
                     rule_list, rule_to_section = _apply_auto_framework(
                         rule_list, first_platform, quiet=quiet
@@ -1183,6 +1227,7 @@ def remediate(
                     dry_run,
                     rollback_on_failure,
                     rule_to_section,
+                    strict_host_keys=strict_host_keys,
                 ): hi
                 for hi in hosts
             }
@@ -1256,6 +1301,8 @@ def _remediate_host(
     dry_run: bool,
     rollback_on_failure: bool,
     rule_to_section: dict[str, str] | None = None,
+    *,
+    strict_host_keys: bool = False,
 ) -> HostRemediateResult:
     """Run remediation on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -1265,7 +1312,9 @@ def _remediate_host(
     buf_console.rule(f"[bold]Host: {hi.hostname}[/bold]")
 
     try:
-        with _connect(hi, password, sudo=sudo) as ssh:
+        with _connect(
+            hi, password, sudo=sudo, strict_host_keys=strict_host_keys
+        ) as ssh:
             platform = detect_platform(ssh)
             detected_caps = detect_capabilities(ssh, verbose=verbose)
             caps = _apply_capability_overrides_quiet(
@@ -1736,7 +1785,13 @@ def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:
         sys.exit(1)
 
 
-def _connect(hi: HostInfo, password: str | None, *, sudo: bool = False) -> SSHSession:
+def _connect(
+    hi: HostInfo,
+    password: str | None,
+    *,
+    sudo: bool = False,
+    strict_host_keys: bool = False,
+) -> SSHSession:
     """Create an SSHSession from a HostInfo."""
     return SSHSession(
         hostname=hi.hostname,
@@ -1745,6 +1800,7 @@ def _connect(hi: HostInfo, password: str | None, *, sudo: bool = False) -> SSHSe
         key_path=hi.key_path,
         password=password,
         sudo=sudo,
+        strict_host_keys=strict_host_keys,
     )
 
 

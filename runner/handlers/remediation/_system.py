@@ -118,8 +118,9 @@ def _remediate_mount_option_set(
         current_opts.add(opt)
     new_opts = ",".join(sorted(current_opts))
 
-    escaped_mount = mount_point.replace("/", "\\/")
-    cmd = f"sed -i 's|\\(\\s{escaped_mount}\\s\\+\\S\\+\\s\\+\\)\\S\\+|\\1{new_opts}|' /etc/fstab"
+    escaped_mount = shell_util.escape_sed(mount_point)
+    escaped_opts = shell_util.escape_sed(new_opts)
+    cmd = f"sed -i 's|\\(\\s{escaped_mount}\\s\\+\\S\\+\\s\\+\\)\\S\\+|\\1{escaped_opts}|' /etc/fstab"
     result = ssh.run(cmd)
     if not result.ok:
         return False, f"Failed to update fstab: {result.stderr}"

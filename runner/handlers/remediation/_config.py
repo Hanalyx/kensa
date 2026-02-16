@@ -44,14 +44,13 @@ def _remediate_config_set(
         return True, f"Would set '{line}' in {path}"
 
     if shell_util.config_key_exists(ssh, path, key):
-        escaped_line = line.replace("/", "\\/")
-        cmd = f"sed -i 's/^ *{key}.*/{escaped_line}/' {shell_util.quote(path)}"
-        result = ssh.run(cmd)
+        escaped_key = shell_util.escape_grep_bre(key)
+        if not shell_util.sed_replace_line(ssh, path, f"^ *{escaped_key}.*", line):
+            return False, f"Failed to set {key} in {path}"
     else:
         result = ssh.run(f"echo {shell_util.quote(line)} >> {shell_util.quote(path)}")
-
-    if not result.ok:
-        return False, f"Failed to set {key} in {path}: {result.stderr}"
+        if not result.ok:
+            return False, f"Failed to set {key} in {path}: {result.stderr}"
 
     shell_util.service_action(ssh, r)
     return True, f"Set '{line}' in {path}"
@@ -124,7 +123,9 @@ def _remediate_config_remove(
     if dry_run:
         return True, f"Would remove '{key}' from {path}"
 
-    if not shell_util.sed_delete_line(ssh, path, f"^ *{key}"):
+    if not shell_util.sed_delete_line(
+        ssh, path, f"^ *{shell_util.escape_grep_bre(key)}"
+    ):
         return False, f"Failed to remove {key} from {path}"
 
     shell_util.service_action(ssh, r)

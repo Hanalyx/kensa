@@ -50,7 +50,7 @@ class TestDefaults:
             resolve_targets()
 
 
-class TestAnsibleINI:
+class TestINIInventory:
     def test_basic_ini(self, tmp_path):
         ini = tmp_path / "inventory.ini"
         ini.write_text(
@@ -70,8 +70,8 @@ class TestAnsibleINI:
         ini = tmp_path / "inventory.ini"
         ini.write_text(
             "[servers]\n"
-            "server1 ansible_host=10.0.0.1 ansible_user=deploy ansible_port=2222 "
-            "ansible_ssh_private_key_file=/keys/id_rsa\n"
+            "server1 host=10.0.0.1 user=deploy port=2222 "
+            "key_file=/keys/id_rsa\n"
         )
         hosts = resolve_targets(inventory=str(ini))
         assert hosts[0].hostname == "10.0.0.1"
@@ -96,7 +96,7 @@ class TestAnsibleINI:
 
     def test_inventory_vars_override_defaults(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text("[servers]\n" "host1 ansible_user=deploy\n")
+        ini.write_text("[servers]\n" "host1 user=deploy\n")
         hosts = resolve_targets(
             inventory=str(ini),
             default_user="admin",
@@ -106,7 +106,7 @@ class TestAnsibleINI:
 
     def test_defaults_fill_gaps(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text("[servers]\n" "host1 ansible_user=deploy\n")
+        ini.write_text("[servers]\n" "host1 user=deploy\n")
         hosts = resolve_targets(
             inventory=str(ini),
             default_user="admin",
@@ -117,7 +117,7 @@ class TestAnsibleINI:
         assert hosts[0].key_path == "/tmp/key"
 
 
-class TestAnsibleYAML:
+class TestYAMLInventory:
     def test_basic_yaml(self, tmp_path):
         inv = tmp_path / "inventory.yml"
         inv.write_text(
@@ -142,9 +142,9 @@ class TestAnsibleYAML:
             "    servers:\n"
             "      hosts:\n"
             "        myhost:\n"
-            "          ansible_host: 10.0.0.5\n"
-            "          ansible_user: deploy\n"
-            "          ansible_port: 2222\n"
+            "          host: 10.0.0.5\n"
+            "          user: deploy\n"
+            "          port: 2222\n"
         )
         hosts = resolve_targets(inventory=str(inv))
         assert hosts[0].hostname == "10.0.0.5"

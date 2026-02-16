@@ -54,7 +54,8 @@ def _capture_config_remove(ssh: SSHSession, r: dict) -> PreState:
     """Capture config line before removal."""
     path = r["path"]
     key = r["key"]
-    result = ssh.run(f"grep '^ *{key}' {shell_util.quote(path)} 2>/dev/null")
+    escaped_key = shell_util.escape_grep_bre(key)
+    result = ssh.run(f"grep '^ *{escaped_key}' {shell_util.quote(path)} 2>/dev/null")
     old_lines = result.stdout.strip() if result.ok and result.stdout.strip() else None
     return PreState(
         mechanism="config_remove",
