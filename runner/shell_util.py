@@ -63,6 +63,41 @@ def escape_sed(value: str) -> str:
     return value
 
 
+def _escape_sed_delim(value: str) -> str:
+    r"""Escape only the sed delimiter in a regex pattern.
+
+    Use this when the string IS a regex and you want to preserve
+    metacharacter meaning. Only escapes ``/`` so the pattern can
+    be safely placed inside ``sed 's/.../.../'``.
+
+    Args:
+        value: Regex pattern string.
+
+    Returns:
+        String with ``/`` escaped to ``\/``.
+
+    """
+    return value.replace("/", "\\/")
+
+
+def _escape_sed_replacement(value: str) -> str:
+    r"""Escape sed replacement-side metacharacters.
+
+    In a sed ``s/pat/repl/`` command, the replacement string treats
+    ``\``, ``&``, and ``/`` specially. This function escapes all three
+    so the replacement is treated as a literal string.
+
+    Args:
+        value: Literal replacement string.
+
+    Returns:
+        String safe for use as sed replacement.
+
+    """
+    # Order matters: escape backslash first
+    return value.replace("\\", "\\\\").replace("/", "\\/").replace("&", "\\&")
+
+
 def escape_grep_bre(value: str) -> str:
     r"""Escape a value for safe use inside a grep BRE pattern.
 
@@ -355,23 +390,26 @@ def sed_replace_line(
     pattern: str,
     replacement: str,
 ) -> bool:
-    """Replace lines matching pattern using sed.
+    r"""Replace lines matching pattern using sed.
 
     Args:
         ssh: Active SSH session.
         path: File path.
-        pattern: Regex pattern to match (will be auto-escaped for /).
-        replacement: Replacement string (will be auto-escaped for /).
+        pattern: BRE regex pattern to match (only ``/`` is escaped).
+        replacement: Literal replacement string (``/``, ``\\``, ``&`` escaped).
 
     Returns:
         True if successful.
 
     Note:
-        Automatically escapes / in pattern and replacement.
+        The pattern preserves regex metacharacter meaning; only the
+        sed delimiter is escaped. The replacement is treated as a
+        literal string. Callers should use ``escape_grep_bre()`` on
+        user-controlled values before embedding them in the pattern.
 
     """
-    escaped_pattern = escape_sed(pattern)
-    escaped_replacement = escape_sed(replacement)
+    escaped_pattern = _escape_sed_delim(pattern)
+    escaped_replacement = _escape_sed_replacement(replacement)
     cmd = f"sed -i 's/{escaped_pattern}/{escaped_replacement}/' {quote(path)}"
     return ssh.run(cmd).ok
 
@@ -382,13 +420,13 @@ def sed_delete_line(ssh: SSHSession, path: str, pattern: str) -> bool:
     Args:
         ssh: Active SSH session.
         path: File path.
-        pattern: Regex pattern to match.
+        pattern: BRE regex pattern to match (only ``/`` is escaped).
 
     Returns:
         True if successful.
 
     """
-    escaped_pattern = escape_sed(pattern)
+    escaped_pattern = _escape_sed_delim(pattern)
     return ssh.run(f"sed -i '/{escaped_pattern}/d' {quote(path)}").ok
 
 

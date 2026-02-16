@@ -420,7 +420,7 @@ class TestFileExists:
     def test_exists(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
             }
         )
         check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
@@ -430,7 +430,7 @@ class TestFileExists:
     def test_missing(self, mock_ssh):
         ssh = mock_ssh(
             {
-                "test -f": Result(exit_code=1, stdout="", stderr=""),
+                "test -e": Result(exit_code=1, stdout="", stderr=""),
             }
         )
         check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
@@ -443,7 +443,7 @@ class TestMultiConditionCheck:
         ssh = mock_ssh(
             {
                 "rpm -q": Result(exit_code=0, stdout="aide-0.16", stderr=""),
-                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
             }
         )
         check = {
