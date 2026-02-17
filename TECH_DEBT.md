@@ -13,11 +13,6 @@ All P0 items resolved. See Resolved section below.
 
 ## P1 — Correctness / Audit
 
-- [ ] CIS RHEL 9 mapping references 102 rule IDs that have no corresponding rule
-  YAML file in `rules/`. These are framework sections mapped to rule IDs like
-  `aide-scheduled`, `cron-enabled`, `sysctl-ip-forward-disabled`, etc. that were
-  never authored. Either create the missing rules or remap/remove the dangling
-  references. Run: `aegis coverage --framework cis-rhel9-v2.0.0` to see the list.
 - [ ] STIG RHEL 9 coverage at 76% (338/446) — needs 18 more implementations to
   reach the 80% target from the implementation plan.
 
@@ -31,6 +26,10 @@ All P2 items resolved. See Resolved section below.
 
 ## Resolved
 
+- [x] CIS RHEL 9 mapping dangling references — created all 102 missing rule YAMLs
+  across 8 categories (sysctl, services, file permissions, cron, audit, SSH,
+  PAM/password, system). Added CIS baseline references, validation script, and
+  `/cis` slash command. Coverage: 93.9% (229/244), 0 missing rules (2026-02-17)
 - [x] Unquoted values in sed/grep commands — added `shell_util.escape_sed()` and
   `shell_util.escape_grep_bre()` helpers; applied across remediation, rollback, and
   capture handlers; updated `sed_replace_line`, `sed_delete_line`, `sed_delete_block`,
