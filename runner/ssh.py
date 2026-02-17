@@ -2,11 +2,35 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shlex
 from dataclasses import dataclass
 
 import paramiko
+
+log = logging.getLogger(__name__)
+
+
+class _AcceptPolicy(paramiko.MissingHostKeyPolicy):
+    """Accept unknown host keys without computing an MD5 fingerprint.
+
+    Paramiko's built-in AutoAddPolicy and WarningPolicy both call
+    key.get_fingerprint() which uses MD5.  On RHEL 9+ the default
+    system crypto policy disables MD5 in OpenSSL, causing
+    "ValueError: [digital envelope routines] unsupported".
+
+    This policy silently accepts the key (like Ansible's
+    host_key_checking=False) and avoids the MD5 call entirely.
+    """
+
+    def missing_host_key(
+        self,
+        client: paramiko.SSHClient,
+        hostname: str,
+        key: paramiko.PKey,
+    ) -> None:
+        log.debug("Accepting %s host key for %s", key.get_name(), hostname)
 
 
 def _shell_quote(s: str) -> str:
@@ -66,11 +90,7 @@ class SSHSession:
         if self.strict_host_keys:
             client.set_missing_host_key_policy(paramiko.RejectPolicy())
         else:
-            # WarningPolicy instead of AutoAddPolicy: AutoAddPolicy
-            # calls key.get_fingerprint() which uses MD5.  On RHEL 9+
-            # the default crypto policy disables MD5 in OpenSSL,
-            # causing "ValueError: unsupported" on every new host.
-            client.set_missing_host_key_policy(paramiko.WarningPolicy())
+            client.set_missing_host_key_policy(_AcceptPolicy())
 
         connect_kwargs: dict = {
             "hostname": self.hostname,
