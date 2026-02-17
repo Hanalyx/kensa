@@ -3,7 +3,7 @@
 # Last synced: 2026-02-17
 
 id: cis-rhel9-v2.0.0
-total_controls: 317
+total_controls: 318
 source: CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0
 chapters:
   "1":
@@ -30,25 +30,30 @@ chapters:
       type: Automated
       rule_id: kmod-disable-hfsplus
     - id: "1.1.1.5"
+      title: Disable jffs2 kernel module
+      level: L2
+      type: Automated
+      rule_id: kmod-disable-jffs2
+    - id: "1.1.1.6"
       title: Disable squashfs kernel module
       level: L2
       type: Automated
       rule_id: kmod-disable-squashfs
-    - id: "1.1.1.6"
+    - id: "1.1.1.7"
       title: Disable udf kernel module
       level: L1
       type: Automated
       rule_id: kmod-disable-udf
-    - id: "1.1.1.7"
+    - id: "1.1.1.8"
       title: Disable USB storage kernel module
       level: L2
       type: Automated
       rule_id: kmod-disable-usb-storage
     - id: "1.1.1.9"
-      title: Disable jffs2 kernel module
-      level: L2
-      type: Automated
-      rule_id: kmod-disable-jffs2
+      title: Ensure unused filesystems kernel modules are not available
+      type: Manual
+      rule_id: null
+      reason: manual
     - id: "1.1.2.2"
       title: Ensure nodev option on /tmp partition
       level: L1

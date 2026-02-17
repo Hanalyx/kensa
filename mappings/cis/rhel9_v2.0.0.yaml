@@ -10,7 +10,7 @@ platform:
   min_version: 9
   max_version: 9
 
-# Complete list of all CIS RHEL 9 v2.0.0 control IDs (317 controls)
+# Complete list of all CIS RHEL 9 v2.0.0 control IDs (318 controls)
 # Every control must be accounted for in either 'sections' or 'unimplemented'
 control_ids:
   - "1.1.1.1"
@@ -20,6 +20,7 @@ control_ids:
   - "1.1.1.5"
   - "1.1.1.6"
   - "1.1.1.7"
+  - "1.1.1.8"
   - "1.1.1.9"
   - "1.1.2.2"
   - "1.1.2.3"
@@ -353,25 +354,25 @@ sections:
     type: Automated
     title: Disable hfsplus kernel module
   "1.1.1.5":
-    rule: kmod-disable-squashfs
-    level: L2
-    type: Automated
-    title: Disable squashfs kernel module
-  "1.1.1.6":
-    rule: kmod-disable-udf
-    level: L1
-    type: Automated
-    title: Disable udf kernel module
-  "1.1.1.7":
-    rule: kmod-disable-usb-storage
-    level: L2
-    type: Automated
-    title: Disable USB storage kernel module
-  "1.1.1.9":
     rule: kmod-disable-jffs2
     level: L2
     type: Automated
     title: Disable jffs2 kernel module
+  "1.1.1.6":
+    rule: kmod-disable-squashfs
+    level: L2
+    type: Automated
+    title: Disable squashfs kernel module
+  "1.1.1.7":
+    rule: kmod-disable-udf
+    level: L1
+    type: Automated
+    title: Disable udf kernel module
+  "1.1.1.8":
+    rule: kmod-disable-usb-storage
+    level: L2
+    type: Automated
+    title: Disable USB storage kernel module
   "1.1.2.2":
     rule: mount-tmp-nodev
     level: L1
@@ -1849,6 +1850,10 @@ sections:
     title: Ensure local interactive user dot files access is configured
 
 unimplemented:
+  "1.1.1.9":
+    title: Ensure unused filesystems kernel modules are not available
+    type: Manual
+    reason: manual
   "1.6.6":
     title: Ensure system wide crypto policy disables chacha20-poly1305 for ssh
     type: Manual
