@@ -1,15 +1,21 @@
 id: crypto-policy-no-sha1
 title: Ensure system wide crypto policy disables SHA1 hash and signature support
 description: >
-  The system-wide crypto policy should disable SHA1 for hashing and signatures
-  as it is considered cryptographically weak and vulnerable to collision attacks.
+  The effective system-wide crypto policy must disable SHA1 for hashing,
+  signatures, and certificate validation. This is verified by inspecting the
+  compiled policy state in /etc/crypto-policies/state/CURRENT.pol, not the
+  policy name. HMAC-SHA1 is not affected per CIS guidance, as HMAC does not
+  rely on collision resistance.
 rationale: >
-  SHA1 is no longer considered secure for cryptographic purposes. Collision
-  attacks have been demonstrated, making it unsuitable for digital signatures
-  and certificate validation.
+  SHA-1 collision attacks are practical and publicly demonstrated. Allowing
+  SHA-1 for hashing or signatures enables forgery of certificates, code
+  signatures, and other authenticated data. The sha1_in_certs directive
+  must also be disabled to prevent acceptance of SHA-1-signed certificates.
 severity: medium
 category: system
 tags: [crypto-policy, sha1, security, cryptography]
+
+depends_on: [crypto-policy-no-weak]
 
 references:
   cis:
@@ -23,10 +29,35 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      command: "update-crypto-policies --show 2>/dev/null"
-      expected_pattern: "^(FUTURE|FIPS|FIPS:NO-SHA1|.*:NO-SHA1.*)$"
-      on_missing: fail
+      checks:
+        # 1. hash/sign lines must not enable SHA1 (lines with SHA1 that
+        #    are NOT preceded by a dash indicating removal are a finding)
+        - method: command
+          run: "awk -F= '($1~/(hash|sign)/ && $2~/SHA1/ && $2!~/^\\s*-\\s*([^#\\n\\r]+)?SHA1/){print}' /etc/crypto-policies/state/CURRENT.pol"
+          expected_exit: 0
+          expected_stdout: ""
+        # 2. sha1_in_certs must be set to 0 (disabled)
+        - method: command
+          run: "grep -Psi -- '^\\h*sha1_in_certs\\h*=\\h*' /etc/crypto-policies/state/CURRENT.pol | grep -q '= 0'"
+          expected_exit: 0
     remediation:
-      mechanism: command_exec
-      command: "update-crypto-policies --set $(update-crypto-policies --show):NO-SHA1"
+      # Step order matters: .pmod must exist before update-crypto-policies
+      # references it. Step 1 is fully rollback-safe (file_content captures
+      # prior content). If step 2 fails, --rollback-on-failure restores
+      # the .pmod file to its original state (or removes it if it didn't
+      # exist), leaving the system unchanged.
+      steps:
+        # 1. Ensure the NO-SHA1 subpolicy module exists with correct content
+        - mechanism: file_content
+          path: "/etc/crypto-policies/policies/modules/NO-SHA1.pmod"
+          content: "# Subpolicy dropping SHA1 hash and signature support\nhash = -SHA1\nsign = -*-SHA1\nsha1_in_certs = 0\n"
+          owner: "root"
+          group: "root"
+          mode: "0644"
+        # 2. Apply NO-SHA1 subpolicy to the current crypto policy.
+        #    The sed strips any existing :NO-SHA1 before re-appending to
+        #    prevent duplication. The unless guard skips entirely if
+        #    NO-SHA1 is already active.
+        - mechanism: command_exec
+          run: "update-crypto-policies --set $(update-crypto-policies --show | sed 's/:NO-SHA1//g'):NO-SHA1"
+          unless: "update-crypto-policies --show | grep -q ':NO-SHA1'"
