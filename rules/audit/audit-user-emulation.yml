@@ -1,0 +1,30 @@
+id: audit-user-emulation
+title: Ensure actions as another user are always logged
+description: >
+  Actions performed as another user must be logged to maintain accountability.
+rationale: >
+  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+severity: medium
+category: audit
+tags: [audit, auditd]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.3.2", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "auditctl -l 2>/dev/null | grep -qE 'user_emulation'"
+      expected_exit: 0
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation"
+      persist_file: "/etc/audit/rules.d/50-user_emulation.rules"

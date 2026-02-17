@@ -1,0 +1,27 @@
+id: pam-pwquality-enabled
+title: Ensure pam_pwquality module is enabled
+description: >
+  The pam_pwquality module must be enabled in the PAM configuration.
+rationale: >
+  pam_pwquality enforces password complexity requirements, preventing weak passwords.
+severity: medium
+category: access-control
+tags: [pam, authentication, pwquality]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.2.3", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'grep -qE ''^\s*(password|auth).*pam_pwquality\.so'' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null || authselect current 2>/dev/null | grep -q with-pwquality'
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "authselect enable-feature with-pwquality 2>/dev/null || true"

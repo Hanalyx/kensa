@@ -1,0 +1,29 @@
+id: chrony-enabled
+title: Ensure time synchronization is in use
+description: >
+  The chronyd service must be enabled and running.
+rationale: >
+  The chronyd service provides essential system functionality. If it is not running, the system may not meet security requirements.
+severity: medium
+category: services
+tags: [service, ntp, time]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.3.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: service_state
+      name: "chronyd"
+      state: "running"
+      enabled: true
+    remediation:
+      mechanism: service_enabled
+      name: "chronyd"
+      start: true

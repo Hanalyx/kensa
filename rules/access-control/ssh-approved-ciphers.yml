@@ -1,0 +1,29 @@
+id: ssh-approved-ciphers
+title: Ensure sshd Ciphers are configured
+description: >
+  The sshd Ciphers directive must be properly configured.
+rationale: >
+  Improper SSH Ciphers configuration could weaken the security of remote access to the system.
+severity: medium
+category: access-control
+tags: [ssh, sshd, access-control]
+
+depends_on: [pkg-openssh-server-present]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.1.4", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-17", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'sshd -T 2>/dev/null | grep -qi ''^ciphers\s'''
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Configure Ciphers with site-approved algorithms per crypto policy"

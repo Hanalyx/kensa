@@ -1,0 +1,30 @@
+id: audit-sudo-log
+title: Ensure events that modify the sudo log file are collected
+description: >
+  The sudo log file must be monitored for tampering.
+rationale: >
+  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+severity: medium
+category: audit
+tags: [audit, auditd]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.3.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "auditctl -l 2>/dev/null | grep -qE 'sudo.log'"
+      expected_exit: 0
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /var/log/sudo.log -p wa -k sudo_log"
+      persist_file: "/etc/audit/rules.d/50-sudo.rules"

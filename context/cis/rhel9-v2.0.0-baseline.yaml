@@ -1,0 +1,1249 @@
+# CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0 — Authoritative Control List
+# Source: CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0
+# Last synced: 2026-02-16
+
+id: cis-rhel9-v2.0.0
+total_controls: 244
+source: CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0
+chapters:
+  "1":
+    title: Initial Setup
+    controls:
+    - id: "1.5.4"
+      title: Ensure core dump storage is disabled
+      level: L1
+      type: Automated
+      rule_id: coredump-storage-disabled
+    - id: "1.6.1"
+      title: Ensure system wide crypto policy is not set to legacy
+      level: L1
+      type: Automated
+      rule_id: crypto-policy-no-weak
+    - id: "1.6.2"
+      title: Ensure system wide crypto policy is not set in sshd configuration
+      level: L1
+      type: Automated
+      rule_id: ssh-crypto-policy
+    - id: "1.6.3"
+      title: Ensure system wide crypto policy disables sha1 hash and signature support
+      level: L1
+      type: Automated
+      rule_id: crypto-policy-no-sha1
+    - id: "1.6.4"
+      title: Ensure system wide crypto policy disables macs less than 128 bits
+      level: L1
+      type: Automated
+      rule_id: crypto-policy-strong-macs
+    - id: "1.6.5"
+      title: Ensure system wide crypto policy disables cbc for ssh
+      level: L1
+      type: Automated
+      rule_id: crypto-policy-no-cbc-ssh
+    - id: "1.6.6"
+      title: Ensure system wide crypto policy disables chacha20-poly1305 for ssh
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "1.6.7"
+      title: Ensure system wide crypto policy disables EtM for ssh
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "1.7.1"
+      title: Ensure message of the day is configured properly
+      level: L1
+      type: Automated
+      rule_id: motd-configured
+    - id: "1.7.2"
+      title: Ensure local login warning banner is configured properly
+      level: L1
+      type: Automated
+      rule_id: banner-dod-consent
+    - id: "1.7.3"
+      title: Ensure remote login warning banner is configured properly
+      level: L1
+      type: Automated
+      rule_id: issue-net-configured
+    - id: "1.7.4"
+      title: Ensure access to /etc/motd is configured
+      level: L1
+      type: Automated
+      rule_id: motd-permissions
+    - id: "1.7.5"
+      title: Ensure access to /etc/issue is configured
+      level: L1
+      type: Automated
+      rule_id: issue-permissions
+    - id: "1.7.6"
+      title: Ensure access to /etc/issue.net is configured
+      level: L1
+      type: Automated
+      rule_id: issue-net-permissions
+    - id: "1.8.1"
+      title: Ensure GNOME Display Manager is removed
+      level: L1
+      type: Automated
+      rule_id: gdm-removed
+    - id: "1.8.2"
+      title: Ensure GDM login banner is configured
+      level: L1
+      type: Automated
+      rule_id: gdm-login-banner
+    - id: "1.8.3"
+      title: Ensure GDM disable-user-list option is enabled
+      level: L1
+      type: Automated
+      rule_id: gdm-disable-user-list
+    - id: "1.8.4"
+      title: Ensure GDM screen locks when the user is idle
+      level: L1
+      type: Automated
+      rule_id: gdm-screen-lock-idle
+    - id: "1.8.5"
+      title: Ensure GDM screen locks cannot be overridden
+      level: L1
+      type: Automated
+      rule_id: gdm-screen-lock-override
+    - id: "1.8.6"
+      title: Ensure GDM automatic mounting of removable media is disabled
+      level: L1
+      type: Automated
+      rule_id: gdm-automount-disabled
+    - id: "1.8.7"
+      title: Ensure GDM disabling automatic mounting of removable media is not overridden
+      level: L1
+      type: Automated
+      rule_id: gdm-automount-override
+    - id: "1.8.8"
+      title: Ensure GDM autorun-never is enabled
+      level: L1
+      type: Automated
+      rule_id: gdm-autorun-never
+    - id: "1.8.9"
+      title: Ensure GDM autorun-never is not overridden
+      level: L1
+      type: Automated
+      rule_id: gdm-autorun-never-override
+    - id: "1.8.10"
+      title: Ensure XDMCP is not enabled
+      level: L1
+      type: Automated
+      rule_id: gdm-xdmcp-disabled
+  "2":
+    title: Services
+    controls:
+    - id: "2.1.1"
+      title: Ensure autofs services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-autofs
+    - id: "2.1.2"
+      title: Ensure avahi daemon services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-avahi
+    - id: "2.1.3"
+      title: Ensure dhcp server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-dhcpd
+    - id: "2.1.4"
+      title: Ensure dns server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-named
+    - id: "2.1.5"
+      title: Ensure dnsmasq services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-dnsmasq
+    - id: "2.1.6"
+      title: Ensure samba file server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-smb
+    - id: "2.1.7"
+      title: Ensure ftp server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-vsftpd
+    - id: "2.1.8"
+      title: Ensure message access server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-dovecot
+    - id: "2.1.9"
+      title: Ensure network file system services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-nfs
+    - id: "2.1.10"
+      title: Ensure nis server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-ypserv
+    - id: "2.1.11"
+      title: Ensure print server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-cups
+    - id: "2.1.12"
+      title: Ensure rpcbind services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-rpcbind
+    - id: "2.1.13"
+      title: Ensure rsync services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-rsyncd
+    - id: "2.1.14"
+      title: Ensure snmp services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-snmpd
+    - id: "2.1.15"
+      title: Ensure telnet server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-telnet
+    - id: "2.1.16"
+      title: Ensure tftp server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-tftp
+    - id: "2.1.17"
+      title: Ensure web proxy server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-squid
+    - id: "2.1.18"
+      title: Ensure web server services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-httpd
+    - id: "2.1.19"
+      title: Ensure xinetd services are not in use
+      level: L1
+      type: Automated
+      rule_id: service-disable-xinetd
+    - id: "2.1.20"
+      title: Ensure X window server services are not in use
+      level: L1
+      type: Automated
+      rule_id: xorg-removed
+    - id: "2.1.21"
+      title: Ensure mail transfer agents are configured for local-only mode
+      level: L1
+      type: Automated
+      rule_id: postfix-local-only
+    - id: "2.1.22"
+      title: Ensure only approved services are listening on a network interface
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "2.2.1"
+      title: Ensure ftp client is not installed
+      level: L1
+      type: Automated
+      rule_id: package-ftp-removed
+    - id: "2.2.2"
+      title: Ensure ldap client is not installed
+      level: L1
+      type: Automated
+      rule_id: package-openldap-clients-removed
+    - id: "2.2.3"
+      title: Ensure nis client is not installed
+      level: L1
+      type: Automated
+      rule_id: package-ypbind-removed
+    - id: "2.2.4"
+      title: Ensure telnet client is not installed
+      level: L1
+      type: Automated
+      rule_id: package-telnet-removed
+    - id: "2.2.5"
+      title: Ensure tftp client is not installed
+      level: L1
+      type: Automated
+      rule_id: package-tftp-removed
+    - id: "2.3.1"
+      title: Ensure time synchronization is in use
+      level: L1
+      type: Automated
+      rule_id: chrony-enabled
+    - id: "2.3.2"
+      title: Ensure chrony is configured
+      level: L1
+      type: Automated
+      rule_id: chrony-sources
+    - id: "2.3.3"
+      title: Ensure chrony is not run as the root user
+      level: L1
+      type: Automated
+      rule_id: chrony-user
+    - id: "2.4.1.1"
+      title: Ensure cron daemon is enabled and active
+      level: L1
+      type: Automated
+      rule_id: cron-enabled
+    - id: "2.4.1.2"
+      title: Ensure permissions on /etc/crontab are configured
+      level: L1
+      type: Automated
+      rule_id: crontab-permissions
+    - id: "2.4.1.3"
+      title: Ensure permissions on /etc/cron.hourly are configured
+      level: L1
+      type: Automated
+      rule_id: cron-hourly-permissions
+    - id: "2.4.1.4"
+      title: Ensure permissions on /etc/cron.daily are configured
+      level: L1
+      type: Automated
+      rule_id: cron-daily-permissions
+    - id: "2.4.1.5"
+      title: Ensure permissions on /etc/cron.weekly are configured
+      level: L1
+      type: Automated
+      rule_id: cron-weekly-permissions
+    - id: "2.4.1.6"
+      title: Ensure permissions on /etc/cron.monthly are configured
+      level: L1
+      type: Automated
+      rule_id: cron-monthly-permissions
+    - id: "2.4.1.7"
+      title: Ensure permissions on /etc/cron.d are configured
+      level: L1
+      type: Automated
+      rule_id: cron-d-permissions
+    - id: "2.4.1.8"
+      title: Ensure crontab is restricted to authorized users
+      level: L1
+      type: Automated
+      rule_id: cron-allow
+    - id: "2.4.2.1"
+      title: Ensure at is restricted to authorized users
+      level: L1
+      type: Automated
+      rule_id: at-allow
+  "3":
+    title: Network Configuration
+    controls:
+    - id: "3.1.1"
+      title: Ensure IPv6 status is identified
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "3.1.2"
+      title: Ensure wireless interfaces are disabled
+      level: L1
+      type: Automated
+      rule_id: wireless-disabled
+    - id: "3.1.3"
+      title: Ensure bluetooth services are not in use
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-bluetooth
+    - id: "3.2.1"
+      title: Ensure dccp kernel module is not available
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-dccp
+    - id: "3.2.2"
+      title: Ensure tipc kernel module is not available
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-tipc
+    - id: "3.2.3"
+      title: Ensure rds kernel module is not available
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-rds
+    - id: "3.2.4"
+      title: Ensure sctp kernel module is not available
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-sctp
+    - id: "3.3.1"
+      title: Ensure ip forwarding is disabled
+      level: L1
+      type: Automated
+      rule_id: sysctl-ip-forward-disabled
+    - id: "3.3.2"
+      title: Ensure packet redirect sending is disabled
+      level: L1
+      type: Automated
+      rule_id: sysctl-send-redirects-disabled
+    - id: "3.3.3"
+      title: Ensure bogus icmp responses are ignored
+      level: L1
+      type: Automated
+      rule_id: sysctl-ignore-bogus-icmp
+    - id: "3.3.4"
+      title: Ensure broadcast icmp requests are ignored
+      level: L1
+      type: Automated
+      rule_id: sysctl-ignore-broadcast-icmp
+    - id: "3.3.5"
+      title: Ensure icmp redirects are not accepted
+      level: L1
+      type: Automated
+      rule_id: sysctl-icmp-redirects-disabled
+    - id: "3.3.6"
+      title: Ensure secure icmp redirects are not accepted
+      level: L1
+      type: Automated
+      rule_id: sysctl-secure-redirects-disabled
+    - id: "3.3.7"
+      title: Ensure reverse path filtering is enabled
+      level: L1
+      type: Automated
+      rule_id: sysctl-rp-filter
+    - id: "3.3.8"
+      title: Ensure source routed packets are not accepted
+      level: L1
+      type: Automated
+      rule_id: sysctl-source-route-disabled
+    - id: "3.3.9"
+      title: Ensure suspicious packets are logged
+      level: L1
+      type: Automated
+      rule_id: sysctl-log-martians
+    - id: "3.3.10"
+      title: Ensure tcp syn cookies is enabled
+      level: L1
+      type: Automated
+      rule_id: sysctl-tcp-syncookies
+    - id: "3.3.11"
+      title: Ensure ipv6 router advertisements are not accepted
+      level: L1
+      type: Automated
+      rule_id: sysctl-ipv6-ra-disabled
+  "4":
+    title: Host Based Firewall
+    controls:
+    - id: "4.1.1"
+      title: Ensure nftables is installed
+      level: L1
+      type: Automated
+      rule_id: nftables-installed
+    - id: "4.1.2"
+      title: Ensure a single firewall configuration utility is in use
+      level: L1
+      type: Automated
+      rule_id: firewall-single-utility
+    - id: "4.2.1"
+      title: Ensure firewalld drops unnecessary services and ports
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "4.2.2"
+      title: Ensure firewalld loopback traffic is configured
+      level: L1
+      type: Automated
+      rule_id: firewalld-loopback
+    - id: "4.3.1"
+      title: Ensure nftables base chains exist
+      level: L1
+      type: Automated
+      rule_id: nftables-base-chains
+    - id: "4.3.2"
+      title: Ensure nftables established connections are configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "4.3.3"
+      title: Ensure nftables default deny firewall policy
+      level: L1
+      type: Automated
+      rule_id: nftables-default-deny
+    - id: "4.3.4"
+      title: Ensure nftables loopback traffic is configured
+      level: L1
+      type: Automated
+      rule_id: nftables-loopback
+  "5":
+    title: Access Control
+    controls:
+    - id: "5.1.1"
+      title: Ensure permissions on /etc/ssh/sshd_config are configured
+      level: L1
+      type: Automated
+      rule_id: sshd-config-permissions
+    - id: "5.1.2"
+      title: Ensure permissions on SSH private host key files are configured
+      level: L1
+      type: Automated
+      rule_id: ssh-private-key-permissions
+    - id: "5.1.3"
+      title: Ensure permissions on SSH public host key files are configured
+      level: L1
+      type: Automated
+      rule_id: ssh-public-key-permissions
+    - id: "5.1.4"
+      title: Ensure sshd Ciphers are configured
+      level: L1
+      type: Automated
+      rule_id: ssh-approved-ciphers
+    - id: "5.1.5"
+      title: Ensure sshd KexAlgorithms is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-approved-kex
+    - id: "5.1.6"
+      title: Ensure sshd MACs are configured
+      level: L1
+      type: Automated
+      rule_id: ssh-approved-macs
+    - id: "5.1.7"
+      title: Ensure sshd access is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-access-control
+    - id: "5.1.8"
+      title: Ensure sshd Banner is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-banner
+    - id: "5.1.9"
+      title: Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured
+      level: L1
+      type: Automated
+      rule_id: ssh-client-alive-interval
+    - id: "5.1.10"
+      title: Ensure sshd DisableForwarding is enabled
+      level: L1
+      type: Automated
+      rule_id: ssh-disable-forwarding
+    - id: "5.1.11"
+      title: Ensure sshd GSSAPIAuthentication is disabled
+      level: L1
+      type: Automated
+      rule_id: ssh-disable-gssapi
+    - id: "5.1.12"
+      title: Ensure sshd HostbasedAuthentication is disabled
+      level: L1
+      type: Automated
+      rule_id: ssh-disable-hostbased-auth
+    - id: "5.1.13"
+      title: Ensure sshd IgnoreRhosts is enabled
+      level: L1
+      type: Automated
+      rule_id: ssh-ignore-rhosts
+    - id: "5.1.14"
+      title: Ensure sshd LoginGraceTime is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-login-grace-time
+    - id: "5.1.15"
+      title: Ensure sshd LogLevel is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-log-level
+    - id: "5.1.16"
+      title: Ensure sshd MaxAuthTries is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-max-auth-tries
+    - id: "5.1.17"
+      title: Ensure sshd MaxStartups is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-max-startups
+    - id: "5.1.18"
+      title: Ensure sshd MaxSessions is configured
+      level: L1
+      type: Automated
+      rule_id: ssh-max-sessions
+    - id: "5.1.19"
+      title: Ensure sshd PermitEmptyPasswords is disabled
+      level: L1
+      type: Automated
+      rule_id: ssh-deny-empty-passwords
+    - id: "5.1.20"
+      title: Ensure sshd PermitRootLogin is disabled
+      level: L1
+      type: Automated
+      rule_id: ssh-disable-root-login
+    - id: "5.1.21"
+      title: Ensure sshd PermitUserEnvironment is disabled
+      level: L1
+      type: Automated
+      rule_id: ssh-disable-user-environment
+    - id: "5.1.22"
+      title: Ensure sshd UsePAM is enabled
+      level: L1
+      type: Automated
+      rule_id: ssh-use-pam
+    - id: "5.2.1"
+      title: Ensure sudo is installed
+      level: L1
+      type: Automated
+      rule_id: package-sudo-installed
+    - id: "5.2.2"
+      title: Ensure sudo commands use pty
+      level: L1
+      type: Automated
+      rule_id: sudo-use-pty
+    - id: "5.2.3"
+      title: Ensure sudo log file exists
+      level: L1
+      type: Automated
+      rule_id: sudo-logfile
+    - id: "5.2.4"
+      title: Ensure users must provide password for escalation
+      level: L1
+      type: Automated
+      rule_id: sudo-require-password
+    - id: "5.2.5"
+      title: Ensure re-authentication for privilege escalation is not disabled globally
+      level: L1
+      type: Automated
+      rule_id: sudo-reauth-not-disabled
+    - id: "5.2.6"
+      title: Ensure sudo authentication timeout is configured correctly
+      level: L1
+      type: Automated
+      rule_id: sudo-timeout
+    - id: "5.2.7"
+      title: Ensure access to the su command is restricted
+      level: L1
+      type: Automated
+      rule_id: pam-wheel-su
+    - id: "5.3.1.1"
+      title: Ensure latest version of pam is installed
+      level: L1
+      type: Automated
+      rule_id: package-pam-installed
+    - id: "5.3.1.2"
+      title: Ensure latest version of authselect is installed
+      level: L1
+      type: Automated
+      rule_id: package-authselect-installed
+    - id: "5.3.1.3"
+      title: Ensure latest version of libpwquality is installed
+      level: L1
+      type: Automated
+      rule_id: package-libpwquality-installed
+    - id: "5.3.2.1"
+      title: Ensure active authselect profile includes pam modules
+      level: L1
+      type: Automated
+      rule_id: authselect-profile-pam
+    - id: "5.3.2.2"
+      title: Ensure pam_faillock module is enabled
+      level: L1
+      type: Automated
+      rule_id: pam-faillock-enabled
+    - id: "5.3.2.3"
+      title: Ensure pam_pwquality module is enabled
+      level: L1
+      type: Automated
+      rule_id: pam-pwquality-enabled
+    - id: "5.3.2.4"
+      title: Ensure pam_pwhistory module is enabled
+      level: L1
+      type: Automated
+      rule_id: pam-pwhistory-enabled
+    - id: "5.3.2.5"
+      title: Ensure pam_unix module is enabled
+      level: L1
+      type: Automated
+      rule_id: pam-unix-enabled
+    - id: "5.3.3.1.1"
+      title: Ensure password failed attempts lockout is configured
+      level: L1
+      type: Automated
+      rule_id: pam-faillock-deny
+    - id: "5.3.3.1.2"
+      title: Ensure password unlock time is configured
+      level: L1
+      type: Automated
+      rule_id: pam-faillock-unlock-time
+    - id: "5.3.3.1.3"
+      title: Ensure password failed attempts lockout includes root account
+      level: L1
+      type: Automated
+      rule_id: pam-faillock-root
+    - id: "5.3.3.2.1"
+      title: Ensure password number of changed characters is configured
+      level: L1
+      type: Automated
+      rule_id: pwquality-difok
+    - id: "5.3.3.2.2"
+      title: Ensure password length is configured
+      level: L1
+      type: Automated
+      rule_id: pwquality-minlen
+    - id: "5.3.3.2.3"
+      title: Ensure password complexity is configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "5.3.3.2.4"
+      title: Ensure password same consecutive characters is configured
+      level: L1
+      type: Automated
+      rule_id: pwquality-maxrepeat
+    - id: "5.3.3.2.5"
+      title: Ensure password maximum sequential characters is configured
+      level: L1
+      type: Automated
+      rule_id: pwquality-maxsequence
+    - id: "5.3.3.2.6"
+      title: Ensure password dictionary check is enabled
+      level: L1
+      type: Automated
+      rule_id: pwquality-dictcheck
+    - id: "5.3.3.2.7"
+      title: Ensure password quality is enforced for the root user
+      level: L1
+      type: Automated
+      rule_id: pwquality-enforce-root
+    - id: "5.3.3.3.1"
+      title: Ensure password history remember is configured
+      level: L1
+      type: Automated
+      rule_id: pam-pwhistory-remember
+    - id: "5.3.3.3.2"
+      title: Ensure password history is enforced for the root user
+      level: L1
+      type: Automated
+      rule_id: pam-pwhistory-root
+    - id: "5.3.3.3.3"
+      title: Ensure pam_pwhistory includes use_authtok
+      level: L1
+      type: Automated
+      rule_id: pam-pwhistory-use-authtok
+    - id: "5.3.3.4.1"
+      title: Ensure pam_unix does not include nullok
+      level: L1
+      type: Automated
+      rule_id: pam-unix-no-nullok
+    - id: "5.3.3.4.2"
+      title: Ensure pam_unix does not include remember
+      level: L1
+      type: Automated
+      rule_id: pam-unix-no-remember
+    - id: "5.3.3.4.3"
+      title: Ensure pam_unix includes a strong password hashing algorithm
+      level: L1
+      type: Automated
+      rule_id: pam-password-sha512
+    - id: "5.3.3.4.4"
+      title: Ensure pam_unix includes use_authtok
+      level: L1
+      type: Automated
+      rule_id: pam-unix-use-authtok
+    - id: "5.4.1.1"
+      title: Ensure password expiration is configured
+      level: L1
+      type: Automated
+      rule_id: password-max-age
+    - id: "5.4.1.2"
+      title: Ensure minimum password days is configured
+      level: L1
+      type: Manual
+      rule_id: password-min-age
+    - id: "5.4.1.3"
+      title: Ensure password expiration warning days is configured
+      level: L1
+      type: Automated
+      rule_id: password-warn-age
+    - id: "5.4.1.4"
+      title: Ensure strong password hashing algorithm is configured
+      level: L1
+      type: Automated
+      rule_id: password-hashing-algorithm
+    - id: "5.4.1.5"
+      title: Ensure inactive password lock is configured
+      level: L1
+      type: Automated
+      rule_id: password-inactive
+    - id: "5.4.1.6"
+      title: Ensure all users last password change date is in the past
+      level: L1
+      type: Automated
+      rule_id: password-change-past
+    - id: "5.4.2.1"
+      title: Ensure root is the only UID 0 account
+      level: L1
+      type: Automated
+      rule_id: root-only-uid0
+    - id: "5.4.2.2"
+      title: Ensure root is the only GID 0 account
+      level: L1
+      type: Automated
+      rule_id: root-only-gid0
+    - id: "5.4.2.3"
+      title: Ensure group root is the only GID 0 group
+      level: L1
+      type: Automated
+      rule_id: root-group-only-gid0
+    - id: "5.4.2.4"
+      title: Ensure root account access is controlled
+      level: L1
+      type: Automated
+      rule_id: root-access-controlled
+    - id: "5.4.2.5"
+      title: Ensure root path integrity
+      level: L1
+      type: Automated
+      rule_id: root-path-integrity
+    - id: "5.4.2.6"
+      title: Ensure root user umask is configured
+      level: L1
+      type: Automated
+      rule_id: root-umask
+    - id: "5.4.2.7"
+      title: Ensure system accounts do not have a valid login shell
+      level: L1
+      type: Automated
+      rule_id: nologin-system-accounts
+    - id: "5.4.2.8"
+      title: Ensure accounts without a valid login shell are locked
+      level: L1
+      type: Automated
+      rule_id: accounts-locked-no-shell
+    - id: "5.4.3.1"
+      title: Ensure nologin is not listed in /etc/shells
+      level: L1
+      type: Automated
+      rule_id: nologin-not-in-shells
+    - id: "5.4.3.2"
+      title: Ensure default user shell timeout is configured
+      level: L1
+      type: Automated
+      rule_id: shell-timeout
+    - id: "5.4.3.3"
+      title: Ensure default user umask is configured
+      level: L1
+      type: Automated
+      rule_id: umask-default
+  "6":
+    title: Logging and Auditing
+    controls:
+    - id: "6.1.1"
+      title: Ensure AIDE is installed
+      level: L1
+      type: Automated
+      rule_id: aide-installed
+    - id: "6.1.2"
+      title: Ensure filesystem integrity is regularly checked
+      level: L1
+      type: Automated
+      rule_id: aide-scheduled
+    - id: "6.1.3"
+      title: Ensure cryptographic mechanisms are used to protect the integrity of audit tools
+      level: L1
+      type: Automated
+      rule_id: auditd-tools-integrity
+    - id: "6.2.1.1"
+      title: Ensure journald service is enabled and active
+      level: L1
+      type: Automated
+      rule_id: journald-service-enabled
+    - id: "6.2.1.2"
+      title: Ensure journald log file access is configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.2.1.3"
+      title: Ensure journald log file rotation is configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.2.1.4"
+      title: Ensure only one logging system is in use
+      level: L1
+      type: Automated
+      rule_id: single-logging-system
+    - id: "6.2.2.1.1"
+      title: Ensure systemd-journal-remote is installed
+      level: L1
+      type: Automated
+      rule_id: journald-remote-installed
+    - id: "6.2.2.1.2"
+      title: Ensure systemd-journal-upload authentication is configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.2.2.1.3"
+      title: Ensure systemd-journal-upload is enabled and active
+      level: L1
+      type: Automated
+      rule_id: journald-upload-enabled
+    - id: "6.2.2.1.4"
+      title: Ensure systemd-journal-remote service is not in use
+      level: L1
+      type: Automated
+      rule_id: journald-remote-disabled
+    - id: "6.2.2.2"
+      title: Ensure journald ForwardToSyslog is disabled
+      level: L1
+      type: Automated
+      rule_id: journald-no-forward-syslog
+    - id: "6.2.2.3"
+      title: Ensure journald Compress is configured
+      level: L1
+      type: Automated
+      rule_id: journald-compress
+    - id: "6.2.2.4"
+      title: Ensure journald Storage is configured
+      level: L1
+      type: Automated
+      rule_id: journald-storage-persistent
+    - id: "6.2.3.1"
+      title: Ensure rsyslog is installed
+      level: L1
+      type: Automated
+      rule_id: rsyslog-installed
+    - id: "6.2.3.2"
+      title: Ensure rsyslog service is enabled and active
+      level: L1
+      type: Automated
+      rule_id: rsyslog-enabled
+    - id: "6.2.3.3"
+      title: Ensure journald is configured to send logs to rsyslog
+      level: L1
+      type: Automated
+      rule_id: journald-to-rsyslog
+    - id: "6.2.3.4"
+      title: Ensure rsyslog log file creation mode is configured
+      level: L1
+      type: Automated
+      rule_id: rsyslog-file-permissions
+    - id: "6.2.3.5"
+      title: Ensure rsyslog logging is configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.2.3.6"
+      title: Ensure rsyslog is configured to send logs to a remote log host
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.2.3.7"
+      title: Ensure rsyslog is not configured to receive logs from a remote client
+      level: L1
+      type: Automated
+      rule_id: rsyslog-no-remote-receive
+    - id: "6.2.3.8"
+      title: Ensure rsyslog logrotate is configured
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.2.4.1"
+      title: Ensure access to all logfiles has been configured
+      level: L1
+      type: Automated
+      rule_id: logfiles-access-configured
+    - id: "6.3.1.1"
+      title: Ensure auditd packages are installed
+      level: L1
+      type: Automated
+      rule_id: auditd-installed
+    - id: "6.3.1.2"
+      title: Ensure auditing for processes that start prior to auditd is enabled
+      level: L1
+      type: Automated
+      rule_id: grub-audit-enabled
+    - id: "6.3.1.3"
+      title: Ensure audit_backlog_limit is sufficient
+      level: L1
+      type: Automated
+      rule_id: grub-audit-backlog
+    - id: "6.3.1.4"
+      title: Ensure auditd service is enabled and active
+      level: L1
+      type: Automated
+      rule_id: auditd-enabled
+    - id: "6.3.2.1"
+      title: Ensure audit log storage size is configured
+      level: L1
+      type: Automated
+      rule_id: auditd-max-log-file
+    - id: "6.3.2.2"
+      title: Ensure audit logs are not automatically deleted
+      level: L1
+      type: Automated
+      rule_id: auditd-max-log-file-action
+    - id: "6.3.2.3"
+      title: Ensure system is disabled when audit logs are full
+      level: L1
+      type: Automated
+      rule_id: auditd-space-left-action
+    - id: "6.3.2.4"
+      title: Ensure system warns when audit logs are low on space
+      level: L1
+      type: Automated
+      rule_id: auditd-space-low-warning
+    - id: "6.3.3.1"
+      title: Ensure changes to system administration scope (sudoers) is collected
+      level: L1
+      type: Automated
+      rule_id: audit-sudoers
+    - id: "6.3.3.2"
+      title: Ensure actions as another user are always logged
+      level: L1
+      type: Automated
+      rule_id: audit-user-emulation
+    - id: "6.3.3.3"
+      title: Ensure events that modify the sudo log file are collected
+      level: L1
+      type: Automated
+      rule_id: audit-sudo-log
+    - id: "6.3.3.4"
+      title: Ensure events that modify date and time information are collected
+      level: L1
+      type: Automated
+      rule_id: audit-time-change
+    - id: "6.3.3.5"
+      title: Ensure events that modify the system's network environment are collected
+      level: L1
+      type: Automated
+      rule_id: audit-network-change
+    - id: "6.3.3.6"
+      title: Ensure use of privileged commands are collected
+      level: L1
+      type: Automated
+      rule_id: audit-privileged-commands
+    - id: "6.3.3.7"
+      title: Ensure unsuccessful file access attempts are collected
+      level: L1
+      type: Automated
+      rule_id: audit-file-access-failed
+    - id: "6.3.3.8"
+      title: Ensure events that modify user/group information are collected
+      level: L1
+      type: Automated
+      rule_id: audit-identity-change
+    - id: "6.3.3.9"
+      title: Ensure discretionary access control permission modification events are collected
+      level: L1
+      type: Automated
+      rule_id: audit-perm-mod
+    - id: "6.3.3.10"
+      title: Ensure successful file system mounts are collected
+      level: L1
+      type: Automated
+      rule_id: audit-mounts
+    - id: "6.3.3.11"
+      title: Ensure session initiation information is collected
+      level: L1
+      type: Automated
+      rule_id: audit-session
+    - id: "6.3.3.12"
+      title: Ensure login and logout events are collected
+      level: L1
+      type: Automated
+      rule_id: audit-logins
+    - id: "6.3.3.13"
+      title: Ensure file deletion events by users are collected
+      level: L1
+      type: Automated
+      rule_id: audit-delete
+    - id: "6.3.3.14"
+      title: Ensure events that modify the system's Mandatory Access Controls are collected
+      level: L1
+      type: Automated
+      rule_id: audit-mac-policy
+    - id: "6.3.3.15"
+      title: Ensure successful and unsuccessful attempts to use the chcon command are collected
+      level: L1
+      type: Automated
+      rule_id: audit-cmd-chcon
+    - id: "6.3.3.16"
+      title: Ensure successful and unsuccessful attempts to use the setfacl command are collected
+      level: L1
+      type: Automated
+      rule_id: audit-cmd-setfacl
+    - id: "6.3.3.17"
+      title: Ensure successful and unsuccessful attempts to use the chacl command are collected
+      level: L1
+      type: Automated
+      rule_id: audit-cmd-chacl
+    - id: "6.3.3.18"
+      title: Ensure successful and unsuccessful attempts to use the usermod command are collected
+      level: L1
+      type: Automated
+      rule_id: audit-cmd-usermod
+    - id: "6.3.3.19"
+      title: Ensure kernel module loading unloading and modification is collected
+      level: L1
+      type: Automated
+      rule_id: audit-kernel-modules
+    - id: "6.3.3.20"
+      title: Ensure the audit configuration is immutable
+      level: L1
+      type: Automated
+      rule_id: audit-immutable
+    - id: "6.3.3.21"
+      title: Ensure the running and on disk configuration is the same
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "6.3.4.1"
+      title: Ensure the audit log file directory mode is configured
+      level: L1
+      type: Automated
+      rule_id: audit-log-dir-permissions
+    - id: "6.3.4.2"
+      title: Ensure audit log files mode is configured
+      level: L1
+      type: Automated
+      rule_id: audit-log-permissions
+    - id: "6.3.4.3"
+      title: Ensure audit log files owner is configured
+      level: L1
+      type: Automated
+      rule_id: audit-log-owner
+    - id: "6.3.4.4"
+      title: Ensure audit log files group owner is configured
+      level: L1
+      type: Automated
+      rule_id: audit-log-group
+    - id: "6.3.4.5"
+      title: Ensure audit configuration files mode is configured
+      level: L1
+      type: Automated
+      rule_id: audit-config-permissions
+    - id: "6.3.4.6"
+      title: Ensure audit configuration files owner is configured
+      level: L1
+      type: Automated
+      rule_id: audit-config-owner
+    - id: "6.3.4.7"
+      title: Ensure audit configuration files group owner is configured
+      level: L1
+      type: Automated
+      rule_id: audit-config-group
+    - id: "6.3.4.8"
+      title: Ensure audit tools mode is configured
+      level: L1
+      type: Automated
+      rule_id: audit-tools-permissions
+    - id: "6.3.4.9"
+      title: Ensure audit tools owner is configured
+      level: L1
+      type: Automated
+      rule_id: audit-tools-owner
+    - id: "6.3.4.10"
+      title: Ensure audit tools group owner is configured
+      level: L1
+      type: Automated
+      rule_id: audit-tools-group
+  "7":
+    title: System Maintenance
+    controls:
+    - id: "7.1.1"
+      title: Ensure permissions on /etc/passwd are configured
+      level: L1
+      type: Automated
+      rule_id: etc-passwd-permissions
+    - id: "7.1.2"
+      title: Ensure permissions on /etc/passwd- are configured
+      level: L1
+      type: Automated
+      rule_id: etc-passwd-backup-permissions
+    - id: "7.1.3"
+      title: Ensure permissions on /etc/group are configured
+      level: L1
+      type: Automated
+      rule_id: etc-group-permissions
+    - id: "7.1.4"
+      title: Ensure permissions on /etc/group- are configured
+      level: L1
+      type: Automated
+      rule_id: etc-group-backup-permissions
+    - id: "7.1.5"
+      title: Ensure permissions on /etc/shadow are configured
+      level: L1
+      type: Automated
+      rule_id: etc-shadow-permissions
+    - id: "7.1.6"
+      title: Ensure permissions on /etc/shadow- are configured
+      level: L1
+      type: Automated
+      rule_id: etc-shadow-backup-permissions
+    - id: "7.1.7"
+      title: Ensure permissions on /etc/gshadow are configured
+      level: L1
+      type: Automated
+      rule_id: etc-gshadow-permissions
+    - id: "7.1.8"
+      title: Ensure permissions on /etc/gshadow- are configured
+      level: L1
+      type: Automated
+      rule_id: etc-gshadow-backup-permissions
+    - id: "7.1.9"
+      title: Ensure permissions on /etc/shells are configured
+      level: L1
+      type: Automated
+      rule_id: shells-permissions
+    - id: "7.1.10"
+      title: Ensure permissions on /etc/security/opasswd are configured
+      level: L1
+      type: Automated
+      rule_id: opasswd-permissions
+    - id: "7.1.11"
+      title: Ensure world writable files and directories are secured
+      level: L1
+      type: Automated
+      rule_id: no-world-writable
+    - id: "7.1.12"
+      title: Ensure no files or directories without an owner and a group exist
+      level: L1
+      type: Automated
+      rule_id: no-unowned-files
+    - id: "7.1.13"
+      title: Ensure SUID and SGID files are reviewed
+      type: Manual
+      rule_id: null
+      reason: manual
+    - id: "7.2.1"
+      title: Ensure accounts in /etc/passwd use shadowed passwords
+      level: L1
+      type: Automated
+      rule_id: passwd-shadowed
+    - id: "7.2.2"
+      title: Ensure /etc/shadow password fields are not empty
+      level: L1
+      type: Automated
+      rule_id: no-empty-passwords
+    - id: "7.2.3"
+      title: Ensure all groups in /etc/passwd exist in /etc/group
+      level: L1
+      type: Automated
+      rule_id: passwd-groups-exist
+    - id: "7.2.4"
+      title: Ensure no duplicate UIDs exist
+      level: L1
+      type: Automated
+      rule_id: no-duplicate-uids
+    - id: "7.2.5"
+      title: Ensure no duplicate GIDs exist
+      level: L1
+      type: Automated
+      rule_id: no-duplicate-gids
+    - id: "7.2.6"
+      title: Ensure no duplicate user names exist
+      level: L1
+      type: Automated
+      rule_id: no-duplicate-usernames
+    - id: "7.2.7"
+      title: Ensure no duplicate group names exist
+      level: L1
+      type: Automated
+      rule_id: no-duplicate-groupnames
+    - id: "7.2.8"
+      title: Ensure local interactive user home directories are configured
+      level: L1
+      type: Automated
+      rule_id: home-directories-exist
+    - id: "7.2.9"
+      title: Ensure local interactive user dot files access is configured
+      level: L1
+      type: Automated
+      rule_id: home-dotfiles-permissions

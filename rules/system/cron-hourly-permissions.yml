@@ -1,0 +1,32 @@
+id: cron-hourly-permissions
+title: Ensure permissions on /etc/cron.hourly are configured
+description: >
+  The /etc/cron.hourly file must have correct ownership and permissions.
+rationale: >
+  Incorrect permissions on /etc/cron.hourly could allow unauthorized access or modification of sensitive system data.
+severity: medium
+category: system
+tags: [file-permissions, cron]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.4.1.3", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/etc/cron.hourly"
+      owner: "root"
+      group: "root"
+      mode: "0700"
+    remediation:
+      mechanism: file_permissions
+      path: "/etc/cron.hourly"
+      owner: "root"
+      group: "root"
+      mode: "0700"

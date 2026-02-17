@@ -1,0 +1,28 @@
+id: audit-tools-group
+title: Ensure audit tools group owner is configured
+description: >
+  Audit tool binaries must be group-owned by root.
+rationale: >
+  Incorrect ownership or permissions on audit files could allow unauthorized users to tamper with audit evidence.
+severity: medium
+category: audit
+tags: [audit, permissions]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.4.10", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-9"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules -type f ! -group root 2>/dev/null | head -1"
+      expected_exit: 0
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "chgrp root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules 2>/dev/null"

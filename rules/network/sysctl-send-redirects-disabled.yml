@@ -1,0 +1,36 @@
+id: sysctl-send-redirects-disabled
+title: Ensure packet redirect sending is disabled
+description: >
+  The kernel parameter(s) net.ipv4.conf.all.send_redirects, net.ipv4.conf.default.send_redirects must be configured to enforce this network security control.
+rationale: >
+  Improper network kernel parameters can allow network-based attacks including packet redirection, source routing, and denial of service.
+severity: medium
+category: network
+tags: [sysctl, networking, hardening]
+
+references:
+  cis:
+    rhel9_v2: { section: "3.3.2", level: "L1", type: "Automated" }
+  nist_800_53: ["SC-7", "CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      checks:
+        - method: sysctl_value
+          key: "net.ipv4.conf.all.send_redirects"
+          expected: "0"
+        - method: sysctl_value
+          key: "net.ipv4.conf.default.send_redirects"
+          expected: "0"
+    remediation:
+      steps:
+        - mechanism: sysctl_set
+          key: "net.ipv4.conf.all.send_redirects"
+          value: "0"
+        - mechanism: sysctl_set
+          key: "net.ipv4.conf.default.send_redirects"
+          value: "0"

@@ -1,0 +1,27 @@
+id: home-directories-exist
+title: Ensure local interactive user home directories are configured
+description: >
+  Local interactive user home directories must exist and be properly configured.
+rationale: >
+  Missing home directories can prevent users from logging in properly and may indicate orphaned accounts.
+severity: medium
+category: filesystem
+tags: [home, users, filesystem]
+
+references:
+  cis:
+    rhel9_v2: { section: "7.2.8", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'awk -F: ''($3>=1000 && $7 !~ /nologin|false/) {print $6}'' /etc/passwd | while read dir; do test -d "$dir" || exit 1; done'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Create missing home directories or remove orphaned user accounts"

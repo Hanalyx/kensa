@@ -1,0 +1,29 @@
+id: auditd-enabled
+title: Ensure auditd service is enabled and active
+description: >
+  The auditd service must be enabled and running.
+rationale: >
+  The auditd service provides essential system functionality. If it is not running, the system may not meet security requirements.
+severity: medium
+category: audit
+tags: [service, audit, auditd]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.1.4", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: service_state
+      name: "auditd"
+      state: "running"
+      enabled: true
+    remediation:
+      mechanism: service_enabled
+      name: "auditd"
+      start: true

@@ -1,0 +1,27 @@
+id: root-only-uid0
+title: Ensure root is the only UID 0 account
+description: >
+  Root must be the only account with UID 0.
+rationale: >
+  Multiple UID 0 accounts make it impossible to attribute root actions to a specific user.
+severity: high
+category: access-control
+tags: [root, uid, account]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.4.2.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6", "IA-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'awk -F: ''($3 == 0 && $1 != "root") {found=1} END {exit found ? 1 : 0}'' /etc/passwd'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Remove or reassign UID for any non-root accounts with UID 0"

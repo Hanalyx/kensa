@@ -1,0 +1,32 @@
+id: journald-storage-persistent
+title: Ensure journald Storage is configured
+description: >
+  The Storage setting in /etc/systemd/journald.conf must be properly configured.
+rationale: >
+  Improper Storage configuration could weaken system security controls.
+severity: low
+category: logging
+tags: [journald, logging, storage]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.2.2.4", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/systemd/journald.conf"
+      key: "Storage"
+      expected: "persistent"
+    remediation:
+      mechanism: config_set
+      path: "/etc/systemd/journald.conf"
+      key: "Storage"
+      value: "persistent"
+      separator: "="
+      reload: "systemd-journald"

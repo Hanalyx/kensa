@@ -1,0 +1,27 @@
+id: rsyslog-installed
+title: Ensure rsyslog is installed
+description: >
+  The rsyslog package must be installed.
+rationale: >
+  The rsyslog package provides essential functionality. Without it, the system cannot meet the corresponding security requirements.
+severity: medium
+category: logging
+tags: [rsyslog, logging, packages]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.2.3.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "rsyslog"
+      state: "present"
+    remediation:
+      mechanism: package_present
+      name: "rsyslog"

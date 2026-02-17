@@ -1,0 +1,27 @@
+id: chrony-sources
+title: Ensure chrony is configured
+description: >
+  Chrony must be configured with authoritative time sources.
+rationale: >
+  Without reliable time sources, system clocks may drift, compromising log accuracy and time-based security controls.
+severity: medium
+category: services
+tags: [chrony, ntp, time]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.3.2", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'chronyc sources 2>/dev/null | grep -E ''^\^'' | head -1'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Configure NTP sources in /etc/chrony.conf with site-specific time servers"
