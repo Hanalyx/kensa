@@ -2,7 +2,7 @@
 
 SSH-based compliance test runner for RHEL systems. Connects to remote hosts via SSH, evaluates compliance rules, captures machine-verifiable evidence, and maps results to multiple frameworks (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP).
 
-**338 rules** | **7 frameworks** | **22 capability probes** | **Evidence capture**
+**492 rules** | **7 frameworks** | **22 capability probes** | **Evidence capture**
 
 ## Installation
 
@@ -245,7 +245,7 @@ aegis/
 │       ├── csv_fmt.py     # CSV output
 │       ├── pdf_fmt.py     # PDF reports
 │       └── evidence_fmt.py # Evidence export
-├── rules/                 # 338 YAML rules
+├── rules/                 # 492 YAML rules
 ├── mappings/              # Framework mappings
 │   ├── cis/
 │   ├── stig/
