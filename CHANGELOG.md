@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-02-17)
+
+### Features
+
+- **cli**: Make --control resolution platform-aware
+  ([`4848f4a`](https://github.com/Hanalyx/aegis/commit/4848f4aa705ef4f1d1fc924a61e76c1934255d38))
+
+
 ## v1.5.3 (2026-02-17)
 
 ### Bug Fixes
