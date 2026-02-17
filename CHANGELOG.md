@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.1 (2026-02-17)
+
+### Bug Fixes
+
+- **cis**: Correct RHEL 9 v2.0.0 section numbering for kernel module controls
+  ([`ac98067`](https://github.com/Hanalyx/aegis/commit/ac98067bc1044211ac9f32b0dcf9b58bb1381930))
+
+
 ## v1.6.0 (2026-02-17)
 
 ### Features
