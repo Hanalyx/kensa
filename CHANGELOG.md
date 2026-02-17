@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-02-17)
+
+### Chores
+
+- Remove stale gap analysis scratch files ([#9](https://github.com/Hanalyx/aegis/pull/9),
+  [`b5babdc`](https://github.com/Hanalyx/aegis/commit/b5babdc02db6a22a30d55919b3e83016cb990c77))
+
+### Features
+
+- Add CIS benchmark integration with 102 rule YAMLs and tooling
+  ([#9](https://github.com/Hanalyx/aegis/pull/9),
+  [`b5babdc`](https://github.com/Hanalyx/aegis/commit/b5babdc02db6a22a30d55919b3e83016cb990c77))
+
+
 ## v1.3.0 (2026-02-16)
 
 ### Chores
