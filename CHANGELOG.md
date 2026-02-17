@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-02-17)
+
+### Bug Fixes
+
+- **cis**: Add 73 missing controls to CIS RHEL 9 v2.0.0 mapping
+  ([`b7fcd7e`](https://github.com/Hanalyx/aegis/commit/b7fcd7ec2e899e0d5c499faa1d6f5244ccba5d0c))
+
+- **rule**: Rewrite crypto-policy-no-sha1 to check effective policy state
+  ([`cf7560e`](https://github.com/Hanalyx/aegis/commit/cf7560e7c6aa6156f2b1fd3f0c70b668da39f092))
+
+### Documentation
+
+- Resolve P1 CIS dangling references in TECH_DEBT.md
+  ([`3e8c267`](https://github.com/Hanalyx/aegis/commit/3e8c2676dbefda984a70d0e9186b0c58c5e09b5c))
+
+### Features
+
+- **cli**: Add --control option to check/remediate commands
+  ([`664bbf7`](https://github.com/Hanalyx/aegis/commit/664bbf711cc6a075175f41a060e488472bbab05b))
+
+
 ## v1.4.0 (2026-02-17)
 
 ### Chores
