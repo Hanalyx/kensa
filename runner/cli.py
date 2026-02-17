@@ -7,6 +7,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from io import StringIO
 from threading import Lock
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from runner.mappings import FrameworkIndex
 
 import click
 from rich.console import Console
@@ -77,6 +81,48 @@ class HostDetectResult:
     platform: object | None = None
     capabilities: dict = field(default_factory=dict)
     output: str = ""  # Buffered console output
+
+
+@dataclass
+class _ControlContext:
+    """Metadata from --control resolution for per-host platform filtering."""
+
+    control: str
+    mappings: dict  # mapping_id -> FrameworkMapping
+    index: FrameworkIndex
+
+
+def _platform_filter_control_rules(
+    rule_list: list[dict],
+    control_ctx: _ControlContext,
+    platform,
+) -> list[dict]:
+    """Narrow control-resolved rules to platform-applicable mappings."""
+    from runner.mappings import get_applicable_mappings
+
+    applicable = get_applicable_mappings(
+        control_ctx.mappings, platform.family, platform.version
+    )
+    applicable_ids = {m.id for m in applicable}
+
+    # Re-resolve control against only applicable mappings
+    control = control_ctx.control
+    resolved_ids: set[str] = set()
+    if ":" in control:
+        prefix, section_id = control.split(":", 1)
+        for mid in applicable_ids:
+            if mid == prefix or mid.startswith(prefix):
+                full_spec = f"{mid}:{section_id}"
+                resolved_ids.update(control_ctx.index.query_by_control(full_spec))
+    else:
+        for mid in applicable_ids:
+            full_spec = f"{mid}:{control}"
+            resolved_ids.update(control_ctx.index.query_by_control(full_spec))
+
+    if not resolved_ids:
+        return rule_list  # fall back to unfiltered if no platform match
+
+    return [r for r in rule_list if r["id"] in resolved_ids]
 
 
 def _parse_capability_overrides(flags: tuple[str, ...]) -> dict[str, bool]:
@@ -514,7 +560,7 @@ def check(
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
-    rule_list, ordering, rule_to_section = _load_rule_list(
+    rule_list, ordering, rule_to_section, control_ctx = _load_rule_list(
         rules,
         rule,
         severity,
@@ -561,6 +607,13 @@ def check(
                         )
                         auto_framework_applied = True
 
+                    # Platform-aware control filtering
+                    host_rules = rule_list
+                    if control_ctx and platform:
+                        host_rules = _platform_filter_control_rules(
+                            rule_list, control_ctx, platform
+                        )
+
                     host_result.platform_family = platform.family if platform else None
                     host_result.platform_version = (
                         platform.version if platform else None
@@ -568,7 +621,7 @@ def check(
                     host_result.capabilities = caps
                     host_pass, host_fail, host_skip, rule_results = _run_checks(
                         ssh,
-                        rule_list,
+                        host_rules,
                         caps,
                         platform,
                         rule_to_section=rule_to_section,
@@ -644,6 +697,7 @@ def check(
                     verbose,
                     rule_to_section,
                     strict_host_keys=strict_host_keys,
+                    control_ctx=control_ctx,
                 ): hi
                 for hi in hosts
             }
@@ -742,6 +796,7 @@ def _check_host(
     rule_to_section: dict[str, str] | None = None,
     *,
     strict_host_keys: bool = False,
+    control_ctx: _ControlContext | None = None,
 ) -> HostCheckResult:
     """Run checks on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -778,10 +833,17 @@ def _check_host(
                 else:
                     buf_console.print("  [dim]capabilities: (none detected)[/dim]")
 
+            # Platform-aware control filtering
+            host_rules = rule_list
+            if control_ctx and platform:
+                host_rules = _platform_filter_control_rules(
+                    rule_list, control_ctx, platform
+                )
+
             # Run checks
             host_pass, host_fail, host_skip, rule_results = _run_checks_buffered(
                 ssh,
-                rule_list,
+                host_rules,
                 caps,
                 platform,
                 buf_console,
@@ -1083,7 +1145,7 @@ def remediate(
     global verbose_mode
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
-    rule_list, ordering, rule_to_section = _load_rule_list(
+    rule_list, ordering, rule_to_section, control_ctx = _load_rule_list(
         rules,
         rule,
         severity,
@@ -1148,6 +1210,13 @@ def remediate(
                         )
                         auto_framework_applied = True
 
+                    # Platform-aware control filtering
+                    host_rules = rule_list
+                    if control_ctx and platform:
+                        host_rules = _platform_filter_control_rules(
+                            rule_list, control_ctx, platform
+                        )
+
                     host_result.platform_family = platform.family if platform else None
                     host_result.platform_version = (
                         platform.version if platform else None
@@ -1162,7 +1231,7 @@ def remediate(
                         rule_results,
                     ) = _run_remediation(
                         ssh,
-                        rule_list,
+                        host_rules,
                         caps,
                         platform,
                         dry_run=dry_run,
@@ -1254,6 +1323,7 @@ def remediate(
                     rollback_on_failure,
                     rule_to_section,
                     strict_host_keys=strict_host_keys,
+                    control_ctx=control_ctx,
                 ): hi
                 for hi in hosts
             }
@@ -1329,6 +1399,7 @@ def _remediate_host(
     rule_to_section: dict[str, str] | None = None,
     *,
     strict_host_keys: bool = False,
+    control_ctx: _ControlContext | None = None,
 ) -> HostRemediateResult:
     """Run remediation on a single host. Returns results for later printing."""
     buf = StringIO()
@@ -1365,6 +1436,13 @@ def _remediate_host(
                 else:
                     buf_console.print("  [dim]capabilities: (none detected)[/dim]")
 
+            # Platform-aware control filtering
+            host_rules = rule_list
+            if control_ctx and platform:
+                host_rules = _platform_filter_control_rules(
+                    rule_list, control_ctx, platform
+                )
+
             # Run remediation
             (
                 host_pass,
@@ -1375,7 +1453,7 @@ def _remediate_host(
                 rule_results,
             ) = _run_remediation_buffered(
                 ssh,
-                rule_list,
+                host_rules,
                 caps,
                 platform,
                 buf_console,
@@ -1845,8 +1923,10 @@ def _load_rule_list(
     """Load, filter, and order rules from CLI options.
 
     Returns:
-        Tuple of (ordered_rules, ordering_result, rule_to_section).
+        Tuple of (ordered_rules, ordering_result, rule_to_section, control_ctx).
         rule_to_section maps rule_id to framework section_id when --framework is used.
+        control_ctx is a _ControlContext when --control used shorthand prefix or bare
+        section (ambiguous across platforms), None otherwise.
 
         When framework="auto", returns all rules without filtering. The caller
         should call _apply_auto_framework() after detecting the platform.
@@ -1904,6 +1984,7 @@ def _load_rule_list(
         sys.exit(0)
 
     # Apply control filter if specified
+    control_ctx: _ControlContext | None = None
     if control:
         if rule:
             console.print(
@@ -1920,10 +2001,11 @@ def _load_rule_list(
         # "cis-rhel9-v2.0.0:1.1.2.4" and "cis-rhel8-v4.0.0:1.1.2.4")
         resolved_rule_ids: list[str] = []
         expanded_mapping_id: str | None = None
+        ambiguous = False  # Track if resolution spans multiple mappings
         if ":" in control:
             prefix, section_id = control.split(":", 1)
             if prefix in ctrl_mappings:
-                # Exact mapping ID
+                # Exact mapping ID — no ambiguity
                 resolved_rule_ids = index.query_by_control(control)
                 expanded_mapping_id = prefix
             else:
@@ -1942,8 +2024,11 @@ def _load_rule_list(
                 resolved_rule_ids = list(set(resolved_rule_ids))
                 if len(matching_ids) == 1:
                     expanded_mapping_id = matching_ids[0]
+                else:
+                    ambiguous = True
         else:
             resolved_rule_ids = index.query_by_control(control)
+            ambiguous = True
 
         if not resolved_rule_ids:
             console.print(f"[red]Error:[/red] No rules found for control: {control}")
@@ -1998,6 +2083,11 @@ def _load_rule_list(
         # Infer framework for section ordering if control spec includes mapping ID
         if expanded_mapping_id and not framework:
             framework = expanded_mapping_id
+
+        if ambiguous:
+            control_ctx = _ControlContext(
+                control=control, mappings=ctrl_mappings, index=index
+            )
 
         if not quiet:
             console.print(f"[dim]Control: {control} → {len(rule_list)} rule(s)[/dim]")
@@ -2056,7 +2146,7 @@ def _load_rule_list(
         )
         sys.exit(1)
 
-    return ordering_result.ordered, ordering_result, rule_to_section
+    return ordering_result.ordered, ordering_result, rule_to_section, control_ctx
 
 
 def _apply_auto_framework(
