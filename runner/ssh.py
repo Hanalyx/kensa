@@ -2,26 +2,47 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import shlex
 from dataclasses import dataclass
 
-import paramiko
+# ── FIPS-safe MD5 patch ──────────────────────────────────────────────────
+# Paramiko calls hashlib.md5() in several internal code paths (host key
+# fingerprints, transport, key loading).  On FIPS-enabled systems (common
+# in RHEL 9 production), OpenSSL rejects bare MD5 with:
+#   "ValueError: [digital envelope routines] unsupported"
+#
+# Python 3.9+ supports hashlib.md5(usedforsecurity=False) to bypass the
+# FIPS restriction for non-cryptographic uses.  Paramiko's MD5 usage is
+# purely for display/fingerprinting, not security, so this is correct.
+#
+# We patch hashlib.md5 before importing paramiko so all internal calls
+# inherit the flag automatically.
+_original_md5 = hashlib.md5
+
+
+def _fips_safe_md5(*args: object, **kwargs: object) -> hashlib._Hash:  # type: ignore[name-defined]
+    """Wrap hashlib.md5 with usedforsecurity=False for FIPS compatibility."""
+    kwargs.setdefault("usedforsecurity", False)  # type: ignore[arg-type]
+    return _original_md5(*args, **kwargs)  # type: ignore[arg-type]
+
+
+hashlib.md5 = _fips_safe_md5  # type: ignore[assignment]
+
+import paramiko  # noqa: E402  # must follow MD5 patch
 
 log = logging.getLogger(__name__)
 
 
 class _AcceptPolicy(paramiko.MissingHostKeyPolicy):
-    """Accept unknown host keys without computing an MD5 fingerprint.
+    """Accept unknown host keys without fingerprinting.
 
     Paramiko's built-in AutoAddPolicy and WarningPolicy both call
-    key.get_fingerprint() which uses MD5.  On RHEL 9+ the default
-    system crypto policy disables MD5 in OpenSSL, causing
-    "ValueError: [digital envelope routines] unsupported".
-
-    This policy silently accepts the key (like Ansible's
-    host_key_checking=False) and avoids the MD5 call entirely.
+    key.get_fingerprint() which uses MD5.  Even with the FIPS-safe
+    MD5 patch above, this policy avoids unnecessary work for hosts
+    not in known_hosts (matching Ansible's host_key_checking=False).
     """
 
     def missing_host_key(
