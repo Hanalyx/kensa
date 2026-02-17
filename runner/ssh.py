@@ -56,13 +56,21 @@ class SSHSession:
     def connect(self) -> None:
         """Establish the SSH connection."""
         client = paramiko.SSHClient()
+
+        # Always load known hosts so recognised keys skip the
+        # missing-key policy entirely.
+        known_hosts = os.path.expanduser("~/.ssh/known_hosts")
+        if os.path.isfile(known_hosts):
+            client.load_host_keys(known_hosts)
+
         if self.strict_host_keys:
             client.set_missing_host_key_policy(paramiko.RejectPolicy())
-            known_hosts = os.path.expanduser("~/.ssh/known_hosts")
-            if os.path.isfile(known_hosts):
-                client.load_host_keys(known_hosts)
         else:
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            # WarningPolicy instead of AutoAddPolicy: AutoAddPolicy
+            # calls key.get_fingerprint() which uses MD5.  On RHEL 9+
+            # the default crypto policy disables MD5 in OpenSSL,
+            # causing "ValueError: unsupported" on every new host.
+            client.set_missing_host_key_policy(paramiko.WarningPolicy())
 
         connect_kwargs: dict = {
             "hostname": self.hostname,
