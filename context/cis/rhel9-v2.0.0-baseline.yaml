@@ -1,14 +1,199 @@
 # CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0 — Authoritative Control List
 # Source: CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0
-# Last synced: 2026-02-16
+# Last synced: 2026-02-17
 
 id: cis-rhel9-v2.0.0
-total_controls: 244
+total_controls: 317
 source: CIS Red Hat Enterprise Linux 9 Benchmark v2.0.0
 chapters:
   "1":
     title: Initial Setup
     controls:
+    - id: "1.1.1.1"
+      title: Disable cramfs kernel module
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-cramfs
+    - id: "1.1.1.2"
+      title: Disable freevxfs kernel module
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-freevxfs
+    - id: "1.1.1.3"
+      title: Disable hfs kernel module
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-hfs
+    - id: "1.1.1.4"
+      title: Disable hfsplus kernel module
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-hfsplus
+    - id: "1.1.1.5"
+      title: Disable squashfs kernel module
+      level: L2
+      type: Automated
+      rule_id: kmod-disable-squashfs
+    - id: "1.1.1.6"
+      title: Disable udf kernel module
+      level: L1
+      type: Automated
+      rule_id: kmod-disable-udf
+    - id: "1.1.1.7"
+      title: Disable USB storage kernel module
+      level: L2
+      type: Automated
+      rule_id: kmod-disable-usb-storage
+    - id: "1.1.1.9"
+      title: Disable jffs2 kernel module
+      level: L2
+      type: Automated
+      rule_id: kmod-disable-jffs2
+    - id: "1.1.2.2"
+      title: Ensure nodev option on /tmp partition
+      level: L1
+      type: Automated
+      rule_id: mount-tmp-nodev
+    - id: "1.1.2.3"
+      title: Ensure nosuid option on /tmp partition
+      level: L1
+      type: Automated
+      rule_id: mount-tmp-nosuid
+    - id: "1.1.2.4"
+      title: Ensure noexec option on /tmp partition
+      level: L1
+      type: Automated
+      rule_id: mount-tmp-noexec
+    - id: "1.1.2.4.2"
+      title: Set mount options on /var
+      level: L1
+      type: Automated
+      rule_id: mount-var-options
+    - id: "1.1.2.6.2"
+      title: Set mount options on /var/log
+      level: L1
+      type: Automated
+      rule_id: mount-var-log-options
+    - id: "1.1.2.7.2"
+      title: Set mount options on /var/log/audit
+      level: L1
+      type: Automated
+      rule_id: mount-var-log-audit-options
+    - id: "1.1.3.2"
+      title: Ensure nodev option on /var/tmp partition
+      level: L1
+      type: Automated
+      rule_id: mount-var-tmp-nodev
+    - id: "1.1.3.3"
+      title: Ensure nosuid option on /var/tmp partition
+      level: L1
+      type: Automated
+      rule_id: mount-var-tmp-nosuid
+    - id: "1.1.3.4"
+      title: Ensure noexec option on /var/tmp partition
+      level: L1
+      type: Automated
+      rule_id: mount-var-tmp-noexec
+    - id: "1.1.4.2"
+      title: Ensure nodev option on /home partition
+      level: L1
+      type: Automated
+      rule_id: mount-home-nodev
+    - id: "1.1.4.3"
+      title: Ensure nosuid option on /home partition
+      level: L1
+      type: Automated
+      rule_id: mount-home-nosuid
+    - id: "1.1.5.2"
+      title: Ensure nodev option on /dev/shm partition
+      level: L1
+      type: Automated
+      rule_id: mount-dev-shm-nodev
+    - id: "1.1.5.3"
+      title: Ensure nosuid option on /dev/shm partition
+      level: L1
+      type: Automated
+      rule_id: mount-dev-shm-nosuid
+    - id: "1.1.5.4"
+      title: Ensure noexec option on /dev/shm partition
+      level: L1
+      type: Automated
+      rule_id: mount-dev-shm-noexec
+    - id: "1.2.1"
+      title: Enable GPG signature checking for packages
+      level: L1
+      type: Automated
+      rule_id: gpgcheck-enabled
+    - id: "1.2.2"
+      title: Enable GPG checking for repository metadata
+      level: L1
+      type: Automated
+      rule_id: repo-gpgcheck-enabled
+    - id: "1.2.3"
+      title: Enable GPG checking for local packages
+      level: L1
+      type: Automated
+      rule_id: localpkg-gpgcheck-enabled
+    - id: "1.3.1.2"
+      title: Ensure SELinux is not disabled in bootloader configuration
+      level: L1
+      type: Automated
+      rule_id: grub-selinux-not-disabled
+    - id: "1.3.1.4"
+      title: Ensure the SELinux mode is not disabled
+      level: L1
+      type: Automated
+      rule_id: selinux-not-disabled
+    - id: "1.3.1.7"
+      title: Ensure mcstrans is not installed
+      level: L1
+      type: Automated
+      rule_id: service-disable-mcstrans
+    - id: "1.3.1.8"
+      title: Ensure setroubleshoot is not installed
+      level: L1
+      type: Automated
+      rule_id: package-setroubleshoot-removed
+    - id: "1.4.1"
+      title: Set GRUB bootloader password
+      level: L1
+      type: Automated
+      rule_id: grub-password
+    - id: "1.4.2"
+      title: Set GRUB configuration file permissions
+      level: L1
+      type: Automated
+      rule_id: grub-config-permissions
+    - id: "1.4.3"
+      title: Set GRUB user configuration file permissions
+      level: L1
+      type: Automated
+      rule_id: grub-user-cfg-permissions
+    - id: "1.4.4"
+      title: Require authentication for single-user mode
+      level: L1
+      type: Automated
+      rule_id: single-user-auth
+    - id: "1.4.5"
+      title: Disable Ctrl-Alt-Delete reboot
+      level: L1
+      type: Automated
+      rule_id: ctrl-alt-del-disabled
+    - id: "1.5.1"
+      title: Restrict core dumps
+      level: L1
+      type: Automated
+      rule_id: coredump-restricted
+    - id: "1.5.2"
+      title: Disable core dumps for SUID programs
+      level: L1
+      type: Automated
+      rule_id: coredump-suid-disabled
+    - id: "1.5.3"
+      title: Enable Address Space Layout Randomization (ASLR)
+      level: L1
+      type: Automated
+      rule_id: aslr-enabled
     - id: "1.5.4"
       title: Ensure core dump storage is disabled
       level: L1
@@ -19,6 +204,16 @@ chapters:
       level: L1
       type: Automated
       rule_id: crypto-policy-no-weak
+    - id: "1.6.1.2"
+      title: Set SELinux to enforcing mode
+      level: L1
+      type: Automated
+      rule_id: selinux-enforcing
+    - id: "1.6.1.3"
+      title: Set SELinux policy to targeted
+      level: L1
+      type: Automated
+      rule_id: selinux-policy-targeted
     - id: "1.6.2"
       title: Ensure system wide crypto policy is not set in sshd configuration
       level: L1
@@ -267,6 +462,16 @@ chapters:
       level: L1
       type: Automated
       rule_id: package-tftp-removed
+    - id: "2.2.11"
+      title: Disable Samba file sharing
+      level: L1
+      type: Automated
+      rule_id: service-disable-samba
+    - id: "2.2.20"
+      title: Disable rsync daemon
+      level: L1
+      type: Automated
+      rule_id: service-disable-rsync
     - id: "2.3.1"
       title: Ensure time synchronization is in use
       level: L1
@@ -420,6 +625,11 @@ chapters:
       level: L1
       type: Automated
       rule_id: sysctl-ipv6-ra-disabled
+    - id: "3.4.1.1"
+      title: Enable firewalld service
+      level: L1
+      type: Automated
+      rule_id: service-enable-firewalld
   "4":
     title: Host Based Firewall
     controls:
@@ -428,21 +638,71 @@ chapters:
       level: L1
       type: Automated
       rule_id: nftables-installed
+    - id: "4.1.1.1"
+      title: Enable and start auditd service
+      level: L2
+      type: Automated
+      rule_id: auditd-service-enabled
     - id: "4.1.2"
       title: Ensure a single firewall configuration utility is in use
       level: L1
       type: Automated
       rule_id: firewall-single-utility
+    - id: "4.1.3.5"
+      title: Audit user and group modifications
+      level: L2
+      type: Automated
+      rule_id: audit-user-group-changes
+    - id: "4.1.3.6"
+      title: Audit network environment changes
+      level: L2
+      type: Automated
+      rule_id: audit-network-changes
+    - id: "4.1.3.7"
+      title: Audit login and logout events
+      level: L2
+      type: Automated
+      rule_id: audit-login-logout
+    - id: "4.1.3.8"
+      title: Audit session initiation
+      level: L2
+      type: Automated
+      rule_id: audit-session-initiation
+    - id: "4.1.3.9"
+      title: Audit discretionary access control changes
+      level: L2
+      type: Automated
+      rule_id: audit-permission-changes
+    - id: "4.1.3.10"
+      title: Audit sudoers file changes
+      level: L2
+      type: Automated
+      rule_id: audit-sudoers-changes
+    - id: "4.1.3.11"
+      title: Audit file deletion by users
+      level: L2
+      type: Automated
+      rule_id: audit-file-deletion
     - id: "4.2.1"
       title: Ensure firewalld drops unnecessary services and ports
       type: Manual
       rule_id: null
       reason: manual
+    - id: "4.2.1.1"
+      title: Configure journald to store logs persistently
+      level: L1
+      type: Automated
+      rule_id: journald-storage
     - id: "4.2.2"
       title: Ensure firewalld loopback traffic is configured
       level: L1
       type: Automated
       rule_id: firewalld-loopback
+    - id: "4.2.2.1"
+      title: Set rsyslog default file permissions
+      level: L1
+      type: Automated
+      rule_id: rsyslog-default-permissions
     - id: "4.3.1"
       title: Ensure nftables base chains exist
       level: L1
@@ -736,6 +996,16 @@ chapters:
       level: L1
       type: Automated
       rule_id: pam-unix-use-authtok
+    - id: "5.3.5"
+      title: Restrict su command to wheel group
+      level: L1
+      type: Automated
+      rule_id: su-require-wheel
+    - id: "5.4.1"
+      title: Require uppercase character in password
+      level: L1
+      type: Automated
+      rule_id: pam-pwquality-ucredit
     - id: "5.4.1.1"
       title: Ensure password expiration is configured
       level: L1
@@ -766,6 +1036,11 @@ chapters:
       level: L1
       type: Automated
       rule_id: password-change-past
+    - id: "5.4.2"
+      title: Set failed login counting interval
+      level: L1
+      type: Automated
+      rule_id: pam-faillock-fail-interval
     - id: "5.4.2.1"
       title: Ensure root is the only UID 0 account
       level: L1
@@ -806,6 +1081,11 @@ chapters:
       level: L1
       type: Automated
       rule_id: accounts-locked-no-shell
+    - id: "5.4.3"
+      title: Enforce password history
+      level: L1
+      type: Automated
+      rule_id: password-remember
     - id: "5.4.3.1"
       title: Ensure nologin is not listed in /etc/shells
       level: L1
@@ -821,6 +1101,46 @@ chapters:
       level: L1
       type: Automated
       rule_id: umask-default
+    - id: "5.6.1.1"
+      title: Set maximum password age
+      level: L1
+      type: Automated
+      rule_id: login-defs-pass-max-days
+    - id: "5.6.1.2"
+      title: Set minimum password age
+      level: L1
+      type: Automated
+      rule_id: login-defs-pass-min-days
+    - id: "5.6.1.3"
+      title: Set password expiration warning days
+      level: L1
+      type: Automated
+      rule_id: login-defs-pass-warn-age
+    - id: "5.6.1.4"
+      title: Lock inactive user accounts
+      level: L1
+      type: Automated
+      rule_id: inactive-password-lock
+    - id: "5.6.2"
+      title: Ensure only root has UID 0
+      level: L1
+      type: Automated
+      rule_id: accounts-no-uid-zero
+    - id: "5.6.4"
+      title: Set password encryption algorithm to SHA-512
+      level: L1
+      type: Automated
+      rule_id: login-defs-encrypt-method
+    - id: "5.6.5"
+      title: Set default umask for users
+      level: L1
+      type: Automated
+      rule_id: login-defs-umask
+    - id: "5.6.6"
+      title: Ensure root account has GID 0
+      level: L1
+      type: Automated
+      rule_id: root-gid
   "6":
     title: Logging and Auditing
     controls:
@@ -839,6 +1159,51 @@ chapters:
       level: L1
       type: Automated
       rule_id: auditd-tools-integrity
+    - id: "6.1.4"
+      title: Set permissions on /etc/group
+      level: L1
+      type: Automated
+      rule_id: fs-permissions-etc-group
+    - id: "6.1.5"
+      title: Set permissions on /etc/group-
+      level: L1
+      type: Automated
+      rule_id: fs-permissions-etc-group-backup
+    - id: "6.1.6"
+      title: Set permissions on /etc/gshadow
+      level: L1
+      type: Automated
+      rule_id: fs-permissions-etc-gshadow
+    - id: "6.1.7"
+      title: Set permissions on /etc/gshadow-
+      level: L1
+      type: Automated
+      rule_id: fs-permissions-etc-gshadow-backup
+    - id: "6.1.8"
+      title: Set sticky bit on world-writable directories
+      level: L1
+      type: Automated
+      rule_id: sticky-bit-world-writable
+    - id: "6.1.9"
+      title: Audit world-writable files
+      level: L1
+      type: Automated
+      rule_id: no-world-writable-files
+    - id: "6.1.11"
+      title: Audit files without valid group
+      level: L1
+      type: Automated
+      rule_id: no-ungrouped-files
+    - id: "6.1.12"
+      title: Audit SUID executables
+      level: L1
+      type: Manual
+      rule_id: audit-suid-files
+    - id: "6.1.13"
+      title: Audit SGID executables
+      level: L1
+      type: Manual
+      rule_id: audit-sgid-files
     - id: "6.2.1.1"
       title: Ensure journald service is enabled and active
       level: L1
@@ -865,10 +1230,10 @@ chapters:
       type: Automated
       rule_id: journald-remote-installed
     - id: "6.2.2.1.2"
-      title: Ensure systemd-journal-upload authentication is configured
-      type: Manual
-      rule_id: null
-      reason: manual
+      title: Ensure systemd-journal-upload is configured
+      level: L2
+      type: Automated
+      rule_id: journald-upload-configured
     - id: "6.2.2.1.3"
       title: Ensure systemd-journal-upload is enabled and active
       level: L1
