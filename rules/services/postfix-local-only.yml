@@ -1,0 +1,27 @@
+id: postfix-local-only
+title: Ensure mail transfer agents are configured for local-only mode
+description: >
+  The mail transfer agent must be configured for local-only mode.
+rationale: >
+  A mail server listening on external interfaces exposes an unnecessary attack surface if remote mail delivery is not required.
+severity: medium
+category: services
+tags: [postfix, mail, network]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.1.21", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'ss -lntu | grep -E '':25\s'' | grep -qv ''127.0.0.1\|::1'' && exit 1 || exit 0'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Configure postfix inet_interfaces = loopback-only in /etc/postfix/main.cf"

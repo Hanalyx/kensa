@@ -1,0 +1,29 @@
+id: rsyslog-enabled
+title: Ensure rsyslog service is enabled and active
+description: >
+  The rsyslog service must be enabled and running.
+rationale: >
+  The rsyslog service provides essential system functionality. If it is not running, the system may not meet security requirements.
+severity: medium
+category: logging
+tags: [service, rsyslog, logging]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.2.3.2", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: service_state
+      name: "rsyslog"
+      state: "running"
+      enabled: true
+    remediation:
+      mechanism: service_enabled
+      name: "rsyslog"
+      start: true

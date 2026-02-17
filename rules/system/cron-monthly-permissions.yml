@@ -1,0 +1,32 @@
+id: cron-monthly-permissions
+title: Ensure permissions on /etc/cron.monthly are configured
+description: >
+  The /etc/cron.monthly file must have correct ownership and permissions.
+rationale: >
+  Incorrect permissions on /etc/cron.monthly could allow unauthorized access or modification of sensitive system data.
+severity: medium
+category: system
+tags: [file-permissions, cron]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.4.1.6", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/etc/cron.monthly"
+      owner: "root"
+      group: "root"
+      mode: "0700"
+    remediation:
+      mechanism: file_permissions
+      path: "/etc/cron.monthly"
+      owner: "root"
+      group: "root"
+      mode: "0700"

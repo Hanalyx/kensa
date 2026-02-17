@@ -1,0 +1,27 @@
+id: no-duplicate-gids
+title: Ensure no duplicate GIDs exist
+description: >
+  No duplicate GIDs may exist.
+rationale: >
+  Duplicate GIDs make group-based access controls unreliable.
+severity: medium
+category: access-control
+tags: [gid, groups, integrity]
+
+references:
+  cis:
+    rhel9_v2: { section: "7.2.5", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "awk -F: '{print $3}' /etc/group | sort | uniq -d | head -1 | grep -q . && exit 1 || exit 0"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Resolve duplicate GIDs by assigning unique GIDs to each group"

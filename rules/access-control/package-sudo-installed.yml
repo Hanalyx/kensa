@@ -1,0 +1,27 @@
+id: package-sudo-installed
+title: Ensure sudo is installed
+description: >
+  The sudo package must be installed.
+rationale: >
+  The sudo package provides essential functionality. Without it, the system cannot meet the corresponding security requirements.
+severity: medium
+category: access-control
+tags: [sudo, access-control, packages]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.2.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "sudo"
+      state: "present"
+    remediation:
+      mechanism: package_present
+      name: "sudo"

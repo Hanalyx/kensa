@@ -1,0 +1,27 @@
+id: no-world-writable
+title: Ensure world writable files and directories are secured
+description: >
+  World-writable files and directories must be secured.
+rationale: >
+  World-writable files can be modified by any user, creating opportunities for privilege escalation or data tampering.
+severity: medium
+category: filesystem
+tags: [filesystem, permissions, world-writable]
+
+references:
+  cis:
+    rhel9_v2: { section: "7.1.11", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3", "MP-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "df --local -P 2>/dev/null | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type f -perm -0002 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Review and remove world-writable permissions from flagged files"

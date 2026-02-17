@@ -1,0 +1,27 @@
+id: home-dotfiles-permissions
+title: Ensure local interactive user dot files access is configured
+description: >
+  Local interactive user dot files must not be group or world writable.
+rationale: >
+  Overly permissive dot files could allow other users to modify login scripts, potentially enabling code execution in the context of another user.
+severity: medium
+category: filesystem
+tags: [home, dotfiles, permissions]
+
+references:
+  cis:
+    rhel9_v2: { section: "7.2.9", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'awk -F: ''($3>=1000 && $7 !~ /nologin|false/) {print $6}'' /etc/passwd | while read dir; do find "$dir" -maxdepth 1 -name ''.*'' -type f -perm /go+w 2>/dev/null; done | head -1 | grep -q . && exit 1 || exit 0'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Remove group and world write permissions from user dot files"

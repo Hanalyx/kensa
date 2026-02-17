@@ -1,0 +1,27 @@
+id: passwd-shadowed
+title: Ensure accounts in /etc/passwd use shadowed passwords
+description: >
+  All accounts must use shadowed passwords.
+rationale: >
+  Unshadowed passwords in /etc/passwd are readable by all users and easily cracked.
+severity: high
+category: access-control
+tags: [passwd, shadow, authentication]
+
+references:
+  cis:
+    rhel9_v2: { section: "7.2.1", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'awk -F: ''($2 != "x") {found=1} END {exit found ? 1 : 0}'' /etc/passwd'
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "pwconv"

@@ -1,0 +1,28 @@
+id: audit-log-group
+title: Ensure audit log files group owner is configured
+description: >
+  Audit log files must be group-owned by root or adm to prevent unauthorized access.
+rationale: >
+  Incorrect ownership or permissions on audit files could allow unauthorized users to tamper with audit evidence.
+severity: medium
+category: audit
+tags: [audit, permissions]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.4.4", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-9"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'find "$(dirname "$(awk -F= ''/^log_file/{print $2}'' /etc/audit/auditd.conf | tr -d '' '')")" -type f ! -group root ! -group adm 2>/dev/null | head -1'
+      expected_exit: 0
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: 'find "$(dirname "$(awk -F= ''/^log_file/{print $2}'' /etc/audit/auditd.conf | tr -d '' '')")" -type f -exec chgrp root {} +'

@@ -1,0 +1,32 @@
+id: pwquality-maxsequence
+title: Ensure password maximum sequential characters is configured
+description: >
+  The maxsequence setting in /etc/security/pwquality.conf must be properly configured.
+rationale: >
+  Improper maxsequence configuration could weaken system security controls.
+severity: medium
+category: access-control
+tags: [pam, password, pwquality]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.3.2.5", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/security/pwquality.conf"
+      key: "maxsequence"
+      expected: "3"
+      comparator: "<="
+    remediation:
+      mechanism: config_set
+      path: "/etc/security/pwquality.conf"
+      key: "maxsequence"
+      value: "3"
+      separator: " = "

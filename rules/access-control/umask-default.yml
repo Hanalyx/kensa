@@ -1,0 +1,27 @@
+id: umask-default
+title: Ensure default user umask is configured
+description: >
+  A restrictive default umask must be configured for all users.
+rationale: >
+  A permissive umask allows newly created files to be accessible to other users by default.
+severity: medium
+category: access-control
+tags: [umask, defaults]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.4.3.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'grep -qE ''^\s*umask\s+0?[0-2][2-7]7'' /etc/profile /etc/bashrc 2>/dev/null'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Set umask 027 in /etc/profile and /etc/bashrc"

@@ -1,0 +1,27 @@
+id: pam-pwhistory-remember
+title: Ensure password history remember is configured
+description: >
+  Password history must be configured to prevent reuse.
+rationale: >
+  Without password history, users could alternate between a small set of passwords, reducing security.
+severity: medium
+category: access-control
+tags: [pam, password, history]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.3.3.3.1", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'grep -qE ''^\s*remember\s*=\s*[0-9]+'' /etc/security/pwhistory.conf 2>/dev/null || grep -qE ''pam_pwhistory\.so.*remember='' /etc/pam.d/system-auth'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Configure remember in /etc/security/pwhistory.conf or pam_pwhistory.so"

@@ -1,0 +1,32 @@
+id: sshd-config-permissions
+title: Ensure permissions on /etc/ssh/sshd_config are configured
+description: >
+  The /etc/ssh/sshd_config file must have correct ownership and permissions.
+rationale: >
+  Incorrect permissions on /etc/ssh/sshd_config could allow unauthorized access or modification of sensitive system data.
+severity: medium
+category: access-control
+tags: [file-permissions, ssh]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.1.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3", "MP-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/etc/ssh/sshd_config"
+      owner: "root"
+      group: "root"
+      mode: "0600"
+    remediation:
+      mechanism: file_permissions
+      path: "/etc/ssh/sshd_config"
+      owner: "root"
+      group: "root"
+      mode: "0600"

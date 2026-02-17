@@ -1,0 +1,32 @@
+id: ssh-disable-gssapi
+title: Ensure sshd GSSAPIAuthentication is disabled
+description: >
+  The sshd GSSAPIAuthentication directive must be properly configured.
+rationale: >
+  Improper SSH GSSAPIAuthentication configuration could weaken the security of remote access to the system.
+severity: medium
+category: access-control
+tags: [ssh, sshd, access-control]
+
+depends_on: [pkg-openssh-server-present]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.1.11", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-17", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: sshd_effective_config
+      key: "GSSAPIAuthentication"
+      expected: "no"
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "99-aegis.conf"
+      key: "GSSAPIAuthentication"
+      value: "no"

@@ -1,0 +1,27 @@
+id: aide-scheduled
+title: Ensure filesystem integrity is regularly checked
+description: >
+  Filesystem integrity must be regularly checked using AIDE.
+rationale: >
+  Without regular integrity checks, unauthorized file modifications could go undetected indefinitely.
+severity: medium
+category: audit
+tags: [aide, integrity, scheduled]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.1.2", level: "L1", type: "Automated" }
+  nist_800_53: ["SI-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "systemctl is-enabled aidecheck.timer 2>/dev/null | grep -q enabled || crontab -u root -l 2>/dev/null | grep -q aide"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Enable aidecheck.timer or add AIDE to root crontab"

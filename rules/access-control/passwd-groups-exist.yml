@@ -1,0 +1,27 @@
+id: passwd-groups-exist
+title: Ensure all groups in /etc/passwd exist in /etc/group
+description: >
+  All groups referenced in /etc/passwd must exist in /etc/group.
+rationale: >
+  Orphaned group references can cause unexpected file access permissions.
+severity: medium
+category: access-control
+tags: [passwd, groups, integrity]
+
+references:
+  cis:
+    rhel9_v2: { section: "7.2.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'awk -F: ''{print $4}'' /etc/passwd | sort -u | while read gid; do getent group "$gid" >/dev/null || exit 1; done; exit 0'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Create missing groups or update user primary group assignments"

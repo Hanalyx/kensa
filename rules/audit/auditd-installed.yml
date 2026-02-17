@@ -1,0 +1,27 @@
+id: auditd-installed
+title: Ensure auditd packages are installed
+description: >
+  The audit package must be installed.
+rationale: >
+  The audit package provides essential functionality. Without it, the system cannot meet the corresponding security requirements.
+severity: medium
+category: audit
+tags: [audit, auditd, packages]
+
+references:
+  cis:
+    rhel9_v2: { section: "6.3.1.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "audit"
+      state: "present"
+    remediation:
+      mechanism: package_present
+      name: "audit"

@@ -1,0 +1,32 @@
+id: crontab-permissions
+title: Ensure permissions on /etc/crontab are configured
+description: >
+  The /etc/crontab file must have correct ownership and permissions.
+rationale: >
+  Incorrect permissions on /etc/crontab could allow unauthorized access or modification of sensitive system data.
+severity: medium
+category: system
+tags: [file-permissions, cron]
+
+references:
+  cis:
+    rhel9_v2: { section: "2.4.1.2", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/etc/crontab"
+      owner: "root"
+      group: "root"
+      mode: "0600"
+    remediation:
+      mechanism: file_permissions
+      path: "/etc/crontab"
+      owner: "root"
+      group: "root"
+      mode: "0600"

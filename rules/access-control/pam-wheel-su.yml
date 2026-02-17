@@ -1,0 +1,27 @@
+id: pam-wheel-su
+title: Ensure access to the su command is restricted
+description: >
+  Access to the su command must be restricted to the wheel group.
+rationale: >
+  Unrestricted su access allows any user to attempt to become root, increasing brute-force attack surface.
+severity: medium
+category: access-control
+tags: [pam, su, access-control]
+
+references:
+  cis:
+    rhel9_v2: { section: "5.2.7", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-3", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'grep -qE ''^\s*auth\s+required\s+pam_wheel\.so\s+use_uid'' /etc/pam.d/su'
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: 'sed -i ''s/^#\(auth.*required.*pam_wheel.so.*use_uid\)/\1/'' /etc/pam.d/su'
