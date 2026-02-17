@@ -220,6 +220,11 @@ def rule_options(f):
         metavar="KEY=VALUE",
         help="Override rule variable (e.g., -V pam_pwquality_minlen=20)",
     )(f)
+    f = click.option(
+        "--control",
+        default=None,
+        help="Run only rules for a framework control (e.g., cis-rhel9-v2.0.0:5.1.12 or 5.1.12)",
+    )(f)
     return f
 
 
@@ -259,6 +264,7 @@ Common Options (all commands):
 Rule Options (check/remediate):
   -r, --rules PATH         Rules directory
   --rule PATH              Single rule file
+  --control ID             Run rules for a control (e.g., cis-rhel9-v2.0.0:5.1.12)
   -s, --severity TEXT      Filter by severity (repeatable)
   -t, --tag TEXT           Filter by tag (repeatable)
   -c, --category TEXT      Filter by category
@@ -285,6 +291,8 @@ Examples:
   aegis check -i hosts.ini --sudo -r rules/ -o json -q
   aegis check -i hosts.ini --sudo -r rules/ -o csv:results.csv -o pdf:report.pdf
   aegis check -i hosts.ini --sudo -r rules/ -V pam_pwquality_minlen=20
+  aegis check -i hosts.ini --sudo --control cis-rhel9-v2.0.0:5.1.12
+  aegis remediate -i hosts.ini --sudo --control 5.1.12
   aegis remediate -i hosts.ini --sudo -r rules/ --dry-run
 """
 
@@ -497,6 +505,7 @@ def check(
     category,
     framework,
     var,
+    control,
     outputs,
     quiet,
     store,
@@ -506,7 +515,15 @@ def check(
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list, ordering, rule_to_section = _load_rule_list(
-        rules, rule, severity, tag, category, framework=framework, var=var, quiet=quiet
+        rules,
+        rule,
+        severity,
+        tag,
+        category,
+        framework=framework,
+        var=var,
+        quiet=quiet,
+        control=control,
     )
     overrides = _parse_capability_overrides(capability)
     auto_framework_applied = False  # Track if auto framework has been applied
@@ -1055,6 +1072,7 @@ def remediate(
     category,
     framework,
     var,
+    control,
     outputs,
     quiet,
     dry_run,
@@ -1066,7 +1084,15 @@ def remediate(
     verbose_mode = verbose
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     rule_list, ordering, rule_to_section = _load_rule_list(
-        rules, rule, severity, tag, category, framework=framework, var=var, quiet=quiet
+        rules,
+        rule,
+        severity,
+        tag,
+        category,
+        framework=framework,
+        var=var,
+        quiet=quiet,
+        control=control,
     )
     overrides = _parse_capability_overrides(capability)
     auto_framework_applied = False  # Track if auto framework has been applied
@@ -1805,7 +1831,16 @@ def _connect(
 
 
 def _load_rule_list(
-    rules, rule, severity, tag, category, *, framework=None, var=(), quiet=False
+    rules,
+    rule,
+    severity,
+    tag,
+    category,
+    *,
+    framework=None,
+    var=(),
+    quiet=False,
+    control=None,
 ):
     """Load, filter, and order rules from CLI options.
 
@@ -1821,8 +1856,11 @@ def _load_rule_list(
 
     rule_path = rule or rules
     if not rule_path:
-        console.print("[red]Error:[/red] Specify --rules or --rule")
-        sys.exit(1)
+        if control:
+            rule_path = "rules/"
+        else:
+            console.print("[red]Error:[/red] Specify --rules or --rule")
+            sys.exit(1)
 
     # Parse CLI variable overrides
     try:
@@ -1864,6 +1902,105 @@ def _load_rule_list(
     if not rule_list:
         console.print("[yellow]No rules matched the given filters.[/yellow]")
         sys.exit(0)
+
+    # Apply control filter if specified
+    if control:
+        if rule:
+            console.print(
+                "[red]Error:[/red] --control and --rule are mutually exclusive"
+            )
+            sys.exit(1)
+
+        from runner.mappings import FrameworkIndex, load_all_mappings
+
+        ctrl_mappings = load_all_mappings()
+        index = FrameworkIndex.build(ctrl_mappings)
+
+        # Expand shorthand mapping prefix (e.g., "cis:1.1.2.4" matches
+        # "cis-rhel9-v2.0.0:1.1.2.4" and "cis-rhel8-v4.0.0:1.1.2.4")
+        resolved_rule_ids: list[str] = []
+        expanded_mapping_id: str | None = None
+        if ":" in control:
+            prefix, section_id = control.split(":", 1)
+            if prefix in ctrl_mappings:
+                # Exact mapping ID
+                resolved_rule_ids = index.query_by_control(control)
+                expanded_mapping_id = prefix
+            else:
+                # Try prefix match against mapping IDs
+                matching_ids = [mid for mid in ctrl_mappings if mid.startswith(prefix)]
+                if not matching_ids:
+                    console.print(
+                        f"[red]Error:[/red] No mapping matches prefix: {prefix}"
+                    )
+                    available = ", ".join(sorted(ctrl_mappings.keys()))
+                    console.print(f"Available: {available}")
+                    sys.exit(1)
+                for mid in matching_ids:
+                    full_spec = f"{mid}:{section_id}"
+                    resolved_rule_ids.extend(index.query_by_control(full_spec))
+                resolved_rule_ids = list(set(resolved_rule_ids))
+                if len(matching_ids) == 1:
+                    expanded_mapping_id = matching_ids[0]
+        else:
+            resolved_rule_ids = index.query_by_control(control)
+
+        if not resolved_rule_ids:
+            console.print(f"[red]Error:[/red] No rules found for control: {control}")
+
+            # Suggest nearby controls by prefix match
+            section = control.split(":", 1)[-1]
+            # Try progressively shorter prefixes (e.g., 1.1.2 -> 1.1 -> 1)
+            parts = section.split(".")
+            for depth in range(len(parts) - 1, 0, -1):
+                prefix_section = ".".join(parts[:depth])
+                nearby = index.query_by_control(
+                    f"{expanded_mapping_id}:{prefix_section}"
+                    if expanded_mapping_id
+                    else prefix_section,
+                    prefix_match=True,
+                )
+                if nearby:
+                    # Find matching control IDs for display
+                    nearby_controls = []
+                    for key in sorted(index.controls_to_rules):
+                        _, sid = key.split(":", 1)
+                        if (
+                            sid.startswith(prefix_section + ".")
+                            or sid == prefix_section
+                        ):
+                            if expanded_mapping_id:
+                                mid = key.split(":", 1)[0]
+                                if mid == expanded_mapping_id:
+                                    nearby_controls.append(sid)
+                            else:
+                                nearby_controls.append(sid)
+                    if nearby_controls:
+                        sample = nearby_controls[:5]
+                        hint = ", ".join(sample)
+                        if len(nearby_controls) > 5:
+                            hint += f", ... ({len(nearby_controls)} total)"
+                        console.print(f"[dim]Nearby: {hint}[/dim]")
+                    break
+
+            sys.exit(1)
+
+        resolved_set = set(resolved_rule_ids)
+        rule_list = [r for r in rule_list if r["id"] in resolved_set]
+
+        if not rule_list:
+            console.print(
+                f"[yellow]Control {control} resolved to rules "
+                f"{resolved_rule_ids}, but none found in rules directory.[/yellow]"
+            )
+            sys.exit(0)
+
+        # Infer framework for section ordering if control spec includes mapping ID
+        if expanded_mapping_id and not framework:
+            framework = expanded_mapping_id
+
+        if not quiet:
+            console.print(f"[dim]Control: {control} → {len(rule_list)} rule(s)[/dim]")
 
     # Apply framework filter if specified
     rule_to_section: dict[str, str] = {}
