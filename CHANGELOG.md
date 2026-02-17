@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.5.1 (2026-02-17)
+
+### Bug Fixes
+
+- **ssh**: Always load known_hosts and replace AutoAddPolicy with WarningPolicy
+  ([`03e4e80`](https://github.com/Hanalyx/aegis/commit/03e4e80ddfeec8c3d89e4a3b053deaa2c5bc3ba2))
+
+### Documentation
+
+- Update rule count to 492 in README
+  ([`7bd7d4d`](https://github.com/Hanalyx/aegis/commit/7bd7d4dfe437f6e9818c430289baf561b9cd3619))
+
+
 ## v1.5.0 (2026-02-17)
 
 ### Bug Fixes
