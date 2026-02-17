@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.2 (2026-02-17)
+
+### Bug Fixes
+
+- **ssh**: Custom host key policy to avoid MD5 on RHEL 9+
+  ([`7ce4b8e`](https://github.com/Hanalyx/aegis/commit/7ce4b8eda330be52a7fbf4382aec483ffa3f0b4c))
+
+
 ## v1.5.1 (2026-02-17)
 
 ### Bug Fixes
