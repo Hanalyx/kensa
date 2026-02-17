@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.3 (2026-02-17)
+
+### Bug Fixes
+
+- **ssh**: Patch hashlib.md5 for FIPS-enabled systems
+  ([`d2bb60b`](https://github.com/Hanalyx/aegis/commit/d2bb60b2cec648623b98d9deebbb6ce4d4ac74b3))
+
+
 ## v1.5.2 (2026-02-17)
 
 ### Bug Fixes
