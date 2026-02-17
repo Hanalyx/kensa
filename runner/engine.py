@@ -132,6 +132,7 @@ from runner._types import (  # noqa: F401
     CheckResult,
     PreState,
     RollbackResult,
+    Rule,
     RuleResult,
     StepResult,
 )

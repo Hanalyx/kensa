@@ -2,8 +2,37 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import TypedDict
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing_extensions import NotRequired
+
+# ── Rule schema type ─────────────────────────────────────────────────────────
+
+
+class Rule(TypedDict):
+    """Structural contract for a loaded YAML rule dictionary.
+
+    Zero runtime cost — used only for type-checking with mypy.
+    """
+
+    id: str
+    title: str
+    severity: str
+    category: str
+    tags: NotRequired[list[str]]
+    platforms: NotRequired[list[dict]]
+    implementations: list[dict]
+    references: NotRequired[dict]
+    depends_on: NotRequired[list[str]]
+
+
+# ── Result data types ─────────────────────────────────────────────────────────
 
 
 @dataclass

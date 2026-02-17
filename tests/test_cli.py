@@ -67,7 +67,7 @@ class TestCLIErrors:
 
 
 class TestCLICheck:
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_check_pass(self, mock_session_cls, tmp_path):
         """Verify check subcommand produces PASS output for a passing rule."""
         # Set up mock SSH
@@ -122,7 +122,7 @@ class TestCLICheck:
             "1 rules" in clean_output and "pass" in clean_output
         )
 
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_check_fail(self, mock_session_cls, tmp_path):
         mock_ssh = MagicMock()
         mock_session_cls.return_value = mock_ssh
@@ -175,7 +175,7 @@ class TestCLICheck:
 
 class TestCLIVerbose:
     @patch("runner.cli.detect_platform")
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_verbose_shows_capabilities(
         self, mock_session_cls, mock_detect_platform, tmp_path
     ):
@@ -222,7 +222,7 @@ class TestCLIVerbose:
 
 
 class TestCLIRemediate:
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_dry_run_shows_prefix(self, mock_session_cls, tmp_path):
         mock_ssh = MagicMock()
         mock_session_cls.return_value = mock_ssh
@@ -273,7 +273,7 @@ class TestCLIRemediate:
 
 
 class TestCLIFilters:
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_severity_filter(self, mock_session_cls, tmp_path):
         mock_ssh = MagicMock()
         mock_session_cls.return_value = mock_ssh
@@ -314,7 +314,7 @@ class TestCLIFilters:
 
 class TestCLIPlatformSkip:
     @patch("runner.cli.detect_platform")
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_check_skips_platform_mismatch(
         self, mock_session_cls, mock_detect_platform, tmp_path
     ):
@@ -370,7 +370,7 @@ class TestCLIPlatformSkip:
 
 
 class TestCLIRollbackFlag:
-    @patch("runner.cli.SSHSession")
+    @patch("runner._host_runner.SSHSession")
     def test_rollback_on_failure_shows_rolled_back(self, mock_session_cls, tmp_path):
         """--rollback-on-failure should produce 'rolled back' in output when triggered."""
         mock_ssh = MagicMock()
