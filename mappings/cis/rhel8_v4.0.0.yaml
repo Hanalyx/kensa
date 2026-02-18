@@ -1304,6 +1304,78 @@ controls:
     level: L1
     type: Automated
     title: "Ensure no duplicate group names exist"
+  "6.2.1.1.4":
+    rules:
+      - journald-no-forward-syslog
+    level: L1
+    type: Automated
+    title: "Ensure journald ForwardToSyslog is disabled"
+  "6.2.1.1.5":
+    rules:
+      - journald-storage
+    level: L1
+    type: Automated
+    title: "Ensure journald Storage is configured"
+  "6.2.1.1.6":
+    rules:
+      - journald-compress
+    level: L1
+    type: Automated
+    title: "Ensure journald Compress is configured"
+  "6.2.1.2.1":
+    rules:
+      - journald-remote-installed
+    level: L1
+    type: Automated
+    title: "Ensure systemd-journal-remote is installed"
+  "6.2.1.2.3":
+    rules:
+      - journald-upload-enabled
+    level: L1
+    type: Automated
+    title: "Ensure systemd-journal-upload is enabled and active"
+  "6.2.1.2.4":
+    rules:
+      - journald-remote-disabled
+    level: L1
+    type: Automated
+    title: "Ensure systemd-journal-remote service is not in use"
+  "6.2.2.1":
+    rules:
+      - rsyslog-installed
+    level: L1
+    type: Automated
+    title: "Ensure rsyslog is installed"
+  "6.2.2.2":
+    rules:
+      - rsyslog-enabled
+    level: L1
+    type: Automated
+    title: "Ensure rsyslog service is enabled and active"
+  "6.2.2.3":
+    rules:
+      - journald-to-rsyslog
+    level: L1
+    type: Automated
+    title: "Ensure journald is configured to send logs to rsyslog"
+  "6.2.2.4":
+    rules:
+      - rsyslog-file-permissions
+    level: L1
+    type: Automated
+    title: "Ensure rsyslog log file creation mode is configured"
+  "6.2.2.7":
+    rules:
+      - rsyslog-no-remote-receive
+    level: L1
+    type: Automated
+    title: "Ensure rsyslog is not configured to receive logs from a remote client"
+  "6.2.3.1":
+    rules:
+      - logfiles-access-configured
+    level: L1
+    type: Automated
+    title: "Ensure access to all logfiles has been configured"
 
 unimplemented:
   "1.1.1.5":
@@ -1742,50 +1814,20 @@ unimplemented:
     title: "Ensure journald log file rotation is configured"
     reason: "Manual check - requires human verification"
     type: Manual
-  "6.2.1.1.4":
-    title: "Ensure journald ForwardToSyslog is disabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.1.1.5":
-    title: "Ensure journald Storage is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.1.1.6":
-    title: "Ensure journald Compress is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.1.2.1":
-    title: "Ensure systemd-journal-remote is installed"
-    reason: "Needs rule implementation"
-    type: Automated
+  # 6.2.1.1.4: implemented (journald-no-forward-syslog)
+  # 6.2.1.1.5: implemented (journald-storage)
+  # 6.2.1.1.6: implemented (journald-compress)
+  # 6.2.1.2.1: implemented (journald-remote-installed)
   "6.2.1.2.2":
     title: "Ensure systemd-journal-remote authentication is configured"
     reason: "Manual check - requires human verification"
     type: Manual
-  "6.2.1.2.3":
-    title: "Ensure systemd-journal-upload is enabled and active"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.1.2.4":
-    title: "Ensure systemd-journal-remote service is not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.2.1":
-    title: "Ensure rsyslog is installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.2.2":
-    title: "Ensure rsyslog service is enabled and active"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.2.3":
-    title: "Ensure journald is configured to send logs to rsyslog"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.2.4":
-    title: "Ensure rsyslog log file creation mode is configured"
-    reason: "Needs rule implementation"
-    type: Automated
+  # 6.2.1.2.3: implemented (journald-upload-enabled)
+  # 6.2.1.2.4: implemented (journald-remote-disabled)
+  # 6.2.2.1: implemented (rsyslog-installed)
+  # 6.2.2.2: implemented (rsyslog-enabled)
+  # 6.2.2.3: implemented (journald-to-rsyslog)
+  # 6.2.2.4: implemented (rsyslog-file-permissions)
   "6.2.2.5":
     title: "Ensure rsyslog logging is configured"
     reason: "Manual check - requires human verification"
@@ -1794,18 +1836,12 @@ unimplemented:
     title: "Ensure rsyslog is configured to send logs to a remote log host"
     reason: "Manual check - requires human verification"
     type: Manual
-  "6.2.2.7":
-    title: "Ensure rsyslog is not configured to receive logs from a remote client"
-    reason: "Needs rule implementation"
-    type: Automated
+  # 6.2.2.7: implemented (rsyslog-no-remote-receive)
   "6.2.2.8":
     title: "Ensure logrotate is configured"
     reason: "Manual check - requires human verification"
     type: Manual
-  "6.2.3.1":
-    title: "Ensure access to all logfiles has been configured"
-    reason: "Needs rule implementation"
-    type: Automated
+  # 6.2.3.1: implemented (logfiles-access-configured)
   "6.3.2.1":
     title: "Ensure audit log storage size is configured"
     reason: "Needs rule implementation"

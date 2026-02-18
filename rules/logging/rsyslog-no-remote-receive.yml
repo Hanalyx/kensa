@@ -12,6 +12,7 @@ tags: [logging, rsyslog, remote]
 
 references:
   cis:
+    rhel8_v4:  { section: "6.2.2.7", level: "L1", type: "Automated" }
     rhel9_v2:  { section: "6.2.3.7", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
@@ -22,7 +23,7 @@ references:
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true

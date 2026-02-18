@@ -13,6 +13,7 @@ tags: [journald, remote, logging, attack-surface]
 
 references:
   cis:
+    rhel8_v4:  { section: "6.2.1.2.4", level: "L1", type: "Automated" }
     rhel9_v2:  { section: "6.2.2.1.4", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 

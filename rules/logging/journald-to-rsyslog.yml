@@ -12,12 +12,13 @@ tags: [journald, rsyslog, logging, security]
 
 references:
   cis:
+    rhel8_v4: { section: "6.2.2.3", level: "L1", type: "Automated" }
     rhel9_v2: { section: "6.2.3.3", level: "L1", type: "Automated" }
   nist_800_53: ["AU-4", "AU-6"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - when: rsyslog_active
