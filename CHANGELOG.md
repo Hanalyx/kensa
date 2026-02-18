@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.18 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Fix GDM default always-pass and add depends_on/conflicts_with
+  ([`d7354fc`](https://github.com/Hanalyx/aegis/commit/d7354fc0906dcd4799357ecad20c60c6c66c1dd8))
+
+
 ## v1.6.17 (2026-02-18)
 
 ### Bug Fixes
