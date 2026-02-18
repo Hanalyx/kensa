@@ -30,8 +30,8 @@ implementations:
     check:
       method: service_state
       name: "auditd"
-      state: "running"
       enabled: true
+      active: true
     remediation:
       mechanism: service_enabled
       name: "auditd"
