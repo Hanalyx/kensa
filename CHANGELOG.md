@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.45 (2026-02-18)
+
+### Bug Fixes
+
+- **logging**: Fix silently-ignored service state and add conflicts_with for duplicate pairs
+  ([`f44f869`](https://github.com/Hanalyx/aegis/commit/f44f8690a7d2d2bad5e47223b68f2f7a088f8706))
+
+
 ## v1.6.44 (2026-02-18)
 
 ### Bug Fixes
