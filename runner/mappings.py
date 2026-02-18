@@ -110,7 +110,11 @@ class FrameworkMapping:
     @property
     def rule_ids(self) -> set[str]:
         """Set of all rule IDs referenced by this mapping."""
-        return {entry.rule_id for entry in self.sections.values()}
+        return {
+            rid
+            for entry in self.sections.values()
+            for rid in entry.metadata.get("rules", [])
+        }
 
     @property
     def total_controls(self) -> int:
@@ -150,30 +154,27 @@ def _parse_platform(data: dict | None) -> PlatformConstraint | None:
     )
 
 
-def _parse_sections(
-    data: dict | None,
-    section_key: str = "sections",
-) -> dict[str, MappingEntry]:
-    """Parse sections from mapping data.
+def _parse_controls(data: dict | None) -> dict[str, MappingEntry]:
+    """Parse controls from mapping data.
 
-    Handles both CIS-style (sections) and STIG-style (findings) formats.
+    Each control entry must use ``rules: [list]`` format.
     """
     if data is None:
         return {}
 
-    sections = {}
-    for section_id, entry in data.items():
+    sections: dict[str, MappingEntry] = {}
+    for control_id, entry in data.items():
         if not isinstance(entry, dict):
             continue
 
-        rule_id = entry.get("rule", "")
         title = entry.get("title", "")
+        rules = entry.get("rules", [])
 
-        # Collect all other fields as metadata
-        metadata = {k: v for k, v in entry.items() if k not in ("rule", "title")}
+        metadata = {k: v for k, v in entry.items() if k not in ("rules", "title")}
+        metadata["rules"] = rules
 
-        sections[str(section_id)] = MappingEntry(
-            rule_id=rule_id,
+        sections[str(control_id)] = MappingEntry(
+            rule_id=",".join(rules) if rules else "",
             title=title,
             metadata=metadata,
         )
@@ -198,30 +199,6 @@ def _parse_unimplemented(data: dict | None) -> dict[str, UnimplementedEntry]:
         )
 
     return unimplemented
-
-
-def _parse_nist_controls(data: dict | None) -> dict[str, MappingEntry]:
-    """Parse NIST-style controls (many rules per control)."""
-    if data is None:
-        return {}
-
-    sections = {}
-    for control_id, entry in data.items():
-        if not isinstance(entry, dict):
-            continue
-
-        title = entry.get("title", "")
-        rules = entry.get("rules", [])
-
-        # For NIST, we create one entry per control
-        # The rule_id is a comma-separated list for display
-        sections[str(control_id)] = MappingEntry(
-            rule_id=",".join(rules) if rules else "",
-            title=title,
-            metadata={"rules": rules},
-        )
-
-    return sections
 
 
 def load_mapping(path: str | Path) -> FrameworkMapping:
@@ -253,20 +230,9 @@ def load_mapping(path: str | Path) -> FrameworkMapping:
         elif isinstance(pub_val, str):
             published = date.fromisoformat(pub_val)
 
-    # Determine section format based on framework type
+    # All mappings use "controls" as the top-level key
     framework = data.get("framework", "")
-    if framework == "nist_800_53":
-        sections = _parse_nist_controls(data.get("controls"))
-    elif framework == "pci_dss":
-        # PCI-DSS uses "requirements" with rules lists (like NIST)
-        sections = _parse_nist_controls(data.get("requirements"))
-    elif framework == "fedramp":
-        # FedRAMP uses "controls" with rules lists (like NIST)
-        sections = _parse_nist_controls(data.get("controls"))
-    elif framework == "stig":
-        sections = _parse_sections(data.get("findings"))
-    else:
-        sections = _parse_sections(data.get("sections"))
+    sections = _parse_controls(data.get("controls"))
 
     # Parse control_ids manifest (list of all control IDs that must be accounted for)
     control_ids = data.get("control_ids", [])
@@ -386,11 +352,12 @@ def build_rule_to_section_map(mapping: FrameworkMapping) -> dict[str, str]:
         Dict mapping rule_id to section_id (e.g., {"ssh-root-login": "5.1.20"}).
 
     """
-    return {
-        entry.rule_id: section_id
-        for section_id, entry in mapping.sections.items()
-        if entry.rule_id
-    }
+    result: dict[str, str] = {}
+    for section_id, entry in mapping.sections.items():
+        for rid in entry.metadata.get("rules", []):
+            if rid and rid not in result:
+                result[rid] = section_id
+    return result
 
 
 def _parse_section_key(section: str | None) -> tuple:
@@ -519,18 +486,11 @@ def check_coverage(
 
     """
     # Find missing rules (referenced but don't exist)
-    # Handle both NIST-style (rules in metadata) and CIS/STIG-style (single rule_id)
     missing_rules = []
     for entry in mapping.sections.values():
-        rule_list = entry.metadata.get("rules", [])
-        if rule_list:
-            # NIST format: check each rule in the list
-            for rule_id in rule_list:
-                if rule_id and rule_id not in available_rules:
-                    missing_rules.append(rule_id)
-        elif entry.rule_id and entry.rule_id not in available_rules:
-            # CIS/STIG format: single rule_id
-            missing_rules.append(entry.rule_id)
+        for rule_id in entry.metadata.get("rules", []):
+            if rule_id and rule_id not in available_rules:
+                missing_rules.append(rule_id)
 
     # Deduplicate missing rules
     missing_rules = sorted(set(missing_rules))
@@ -630,20 +590,13 @@ class FrameworkIndex:
                     metadata=entry.metadata,
                 )
 
-                # Handle NIST-style many-to-many (rules in metadata)
-                # vs CIS/STIG-style one-to-one (single rule_id)
+                # Unified: always use metadata["rules"] list
+                for rule_id in entry.metadata.get("rules", []):
+                    rules_to_frameworks.setdefault(rule_id, []).append(ref)
                 rule_list = entry.metadata.get("rules", [])
                 if rule_list:
-                    # NIST format: multiple rules per control
-                    for rule_id in rule_list:
-                        rules_to_frameworks.setdefault(rule_id, []).append(ref)
                     control_key = f"{mapping_id}:{section_id}"
                     controls_to_rules.setdefault(control_key, []).extend(rule_list)
-                elif entry.rule_id:
-                    # CIS/STIG format: single rule per section
-                    rules_to_frameworks.setdefault(entry.rule_id, []).append(ref)
-                    control_key = f"{mapping_id}:{section_id}"
-                    controls_to_rules.setdefault(control_key, []).append(entry.rule_id)
 
         return cls(
             rules_to_frameworks=rules_to_frameworks,

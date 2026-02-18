@@ -77,29 +77,27 @@ def analyze_mappings(
         "not_implemented": [],
     }
 
-    mappings = mapping.get("mappings", {})
+    controls = mapping.get("controls", {})
 
     # Build reverse lookup: rule -> expected CIS sections
     rule_to_sections: dict[str, list[str]] = {}
-    for section, data in mappings.items():
-        aegis_rule = data.get("rule") if isinstance(data, dict) else data
-        if aegis_rule:
-            if aegis_rule not in rule_to_sections:
-                rule_to_sections[aegis_rule] = []
-            rule_to_sections[aegis_rule].append(section)
+    for section, data in controls.items():
+        if not isinstance(data, dict):
+            continue
+        for aegis_rule in data.get("rules", []):
+            if aegis_rule:
+                rule_to_sections.setdefault(aegis_rule, []).append(section)
 
-    # Check each mapping
-    for section, data in mappings.items():
-        if isinstance(data, dict):
-            aegis_rule = data.get("rule")
-            title = data.get("title", "")
-            control_type = data.get("type", "Automated")
-        else:
-            aegis_rule = data
-            title = ""
-            control_type = "Automated"
+    # Check each control
+    for section, data in controls.items():
+        if not isinstance(data, dict):
+            continue
 
-        if aegis_rule is None:
+        rule_list = data.get("rules", [])
+        title = data.get("title", "")
+        control_type = data.get("type", "Automated")
+
+        if not rule_list:
             results["not_implemented"].append({
                 "section": section,
                 "title": title,
@@ -107,34 +105,35 @@ def analyze_mappings(
             })
             continue
 
-        if aegis_rule not in rules:
-            results["missing_in_rules"].append({
-                "section": section,
-                "title": title,
-                "expected_rule": aegis_rule,
-            })
-            continue
+        for aegis_rule in rule_list:
+            if aegis_rule not in rules:
+                results["missing_in_rules"].append({
+                    "section": section,
+                    "title": title,
+                    "expected_rule": aegis_rule,
+                })
+                continue
 
-        # Check if rule has correct CIS reference
-        rule = rules[aegis_rule]
-        cis_refs = rule["references"].get("cis", {})
-        ref_data = cis_refs.get(ref_key, {})
-        actual_section = ref_data.get("section", "") if isinstance(ref_data, dict) else ""
+            # Check if rule has correct CIS reference
+            rule = rules[aegis_rule]
+            cis_refs = rule["references"].get("cis", {})
+            ref_data = cis_refs.get(ref_key, {})
+            actual_section = ref_data.get("section", "") if isinstance(ref_data, dict) else ""
 
-        if actual_section == section:
-            results["correct"].append({
-                "section": section,
-                "rule": aegis_rule,
-            })
-        else:
-            results["misaligned"].append({
-                "section": section,
-                "title": title,
-                "rule": aegis_rule,
-                "rule_path": rule["path"],
-                "expected_section": section,
-                "actual_section": actual_section or "(missing)",
-            })
+            if actual_section == section:
+                results["correct"].append({
+                    "section": section,
+                    "rule": aegis_rule,
+                })
+            else:
+                results["misaligned"].append({
+                    "section": section,
+                    "title": title,
+                    "rule": aegis_rule,
+                    "rule_path": rule["path"],
+                    "expected_section": section,
+                    "actual_section": actual_section or "(missing)",
+                })
 
     # Check for extra references in rules (not in canonical mapping)
     for rule_id, rule in rules.items():
@@ -142,7 +141,7 @@ def analyze_mappings(
         ref_data = cis_refs.get(ref_key, {})
         actual_section = ref_data.get("section", "") if isinstance(ref_data, dict) else ""
 
-        if actual_section and actual_section not in mappings:
+        if actual_section and actual_section not in controls:
             results["extra_in_rules"].append({
                 "rule": rule_id,
                 "rule_path": rule["path"],
@@ -251,7 +250,7 @@ def main():
     mapping = load_mapping(args.mapping)
     ref_key = mapping.get("framework", {}).get("reference_key", "rhel9_v2")
     print(f"  Reference key: {ref_key}")
-    print(f"  Mappings: {len(mapping.get('mappings', {}))}")
+    print(f"  Controls: {len(mapping.get('controls', {}))}")
 
     print(f"\nLoading rules from: {args.rules}")
     rules = load_rules(args.rules)

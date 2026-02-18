@@ -325,604 +325,724 @@ control_ids:
   - "7.2.8"
   - "7.2.9"
 
-sections:
+controls:
   "1.1.1.1":
-    rule: kmod-disable-cramfs
+    rules:
+      - kmod-disable-cramfs
     level: L1
     type: Automated
     title: "Ensure cramfs kernel module is not available"
   "1.1.1.2":
-    rule: kmod-disable-freevxfs
+    rules:
+      - kmod-disable-freevxfs
     level: L1
     type: Automated
     title: "Ensure freevxfs kernel module is not available"
   "1.1.1.3":
-    rule: kmod-disable-hfs
+    rules:
+      - kmod-disable-hfs
     level: L1
     type: Automated
     title: "Ensure hfs kernel module is not available"
   "1.1.1.4":
-    rule: kmod-disable-hfsplus
+    rules:
+      - kmod-disable-hfsplus
     level: L1
     type: Automated
     title: "Ensure hfsplus kernel module is not available"
   "1.1.1.7":
-    rule: kmod-disable-squashfs
+    rules:
+      - kmod-disable-squashfs
     level: L2
     type: Automated
     title: "Ensure squashfs kernel module is not available"
   "1.1.1.8":
-    rule: kmod-disable-udf
+    rules:
+      - kmod-disable-udf
     level: L2
     type: Automated
     title: "Ensure udf kernel module is not available"
   "1.1.1.9":
-    rule: kmod-disable-firewire
+    rules:
+      - kmod-disable-firewire
     level: L1
     type: Automated
     title: "Ensure firewire-core kernel module is not available"
   "1.1.1.10":
-    rule: kmod-disable-usb-storage
+    rules:
+      - kmod-disable-usb-storage
     level: L2
     type: Automated
     title: "Ensure usb-storage kernel module is not available"
   "1.1.2.1.2":
-    rule: mount-tmp-nodev
+    rules:
+      - mount-tmp-nodev
     level: L1
     type: Automated
     title: "Ensure nodev option set on /tmp partition"
   "1.1.2.1.3":
-    rule: mount-tmp-nosuid
+    rules:
+      - mount-tmp-nosuid
     level: L1
     type: Automated
     title: "Ensure nosuid option set on /tmp partition"
   "1.1.2.1.4":
-    rule: mount-tmp-noexec
+    rules:
+      - mount-tmp-noexec
     level: L1
     type: Automated
     title: "Ensure noexec option set on /tmp partition"
   "1.1.2.2.2":
-    rule: mount-dev-shm-nodev
+    rules:
+      - mount-dev-shm-nodev
     level: L1
     type: Automated
     title: "Ensure nodev option set on /dev/shm partition"
   "1.1.2.2.3":
-    rule: mount-dev-shm-nosuid
+    rules:
+      - mount-dev-shm-nosuid
     level: L1
     type: Automated
     title: "Ensure nosuid option set on /dev/shm partition"
   "1.1.2.2.4":
-    rule: mount-dev-shm-noexec
+    rules:
+      - mount-dev-shm-noexec
     level: L1
     type: Automated
     title: "Ensure noexec option set on /dev/shm partition"
   "1.1.2.3.2":
-    rule: mount-home-nodev
+    rules:
+      - mount-home-nodev
     level: L1
     type: Automated
     title: "Ensure nodev option set on /home partition"
   "1.1.2.3.3":
-    rule: mount-home-nosuid
+    rules:
+      - mount-home-nosuid
     level: L1
     type: Automated
     title: "Ensure nosuid option set on /home partition"
   "1.1.2.5.2":
-    rule: mount-var-tmp-nodev
+    rules:
+      - mount-var-tmp-nodev
     level: L1
     type: Automated
     title: "Ensure nodev option set on /var/tmp partition"
   "1.1.2.5.3":
-    rule: mount-var-tmp-nosuid
+    rules:
+      - mount-var-tmp-nosuid
     level: L1
     type: Automated
     title: "Ensure nosuid option set on /var/tmp partition"
   "1.1.2.5.4":
-    rule: mount-var-tmp-noexec
+    rules:
+      - mount-var-tmp-noexec
     level: L1
     type: Automated
     title: "Ensure noexec option set on /var/tmp partition"
   "1.3.1.3":
-    rule: selinux-policy-targeted
+    rules:
+      - selinux-policy-targeted
     level: L1
     type: Automated
     title: "Ensure SELinux policy is configured"
   "1.3.1.4":
-    rule: selinux-enforcing
+    rules:
+      - selinux-enforcing
     level: L1
     type: Automated
     title: "Ensure the SELinux mode is not disabled"
   "1.4.1":
-    rule: grub-password
+    rules:
+      - grub-password
     level: L1
     type: Automated
     title: "Ensure bootloader password is set"
   "1.4.2":
-    rule: grub-config-permissions
+    rules:
+      - grub-config-permissions
     level: L1
     type: Automated
     title: "Ensure access to bootloader config is configured"
   "1.5.4":
-    rule: coredump-suid-disabled
+    rules:
+      - coredump-suid-disabled
     level: L1
     type: Automated
     title: "Ensure fs.suid_dumpable is configured"
   "1.5.5":
-    rule: kernel-dmesg-restrict
+    rules:
+      - kernel-dmesg-restrict
     level: L1
     type: Automated
     title: "Ensure kernel.dmesg_restrict is configured"
   "1.5.6":
-    rule: kernel-perf-restrict
+    rules:
+      - kernel-perf-restrict
     level: L1
     type: Automated
     title: "Ensure kernel.kptr_restrict is configured"
   "1.5.7":
-    rule: kernel-yama-ptrace
+    rules:
+      - kernel-yama-ptrace
     level: L1
     type: Automated
     title: "Ensure kernel.yama.ptrace_scope is configured"
   "1.5.8":
-    rule: aslr-enabled
+    rules:
+      - aslr-enabled
     level: L1
     type: Automated
     title: "Ensure kernel.randomize_va_space is configured"
   "1.5.9":
-    rule: coredump-restricted
+    rules:
+      - coredump-restricted
     level: L1
     type: Automated
     title: "Ensure systemd-coredump ProcessSizeMax is configured"
   "1.5.10":
-    rule: coredump-suid-disabled
+    rules:
+      - coredump-suid-disabled
     level: L1
     type: Automated
     title: "Ensure systemd-coredump Storage is configured"
   "1.6.1":
-    rule: crypto-policy-no-weak
+    rules:
+      - crypto-policy-no-weak
     level: L1
     type: Automated
     title: "Ensure system wide crypto policy is not set to legacy"
   "1.7.1":
-    rule: banner-dod-consent
+    rules:
+      - banner-dod-consent
     level: L1
     type: Automated
     title: "Ensure /etc/motd is configured"
   "1.7.2":
-    rule: banner-ssh-dod
+    rules:
+      - banner-ssh-dod
     level: L1
     type: Automated
     title: "Ensure /etc/issue is configured"
   "1.7.4":
-    rule: motd-permissions
+    rules:
+      - motd-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/motd is configured"
   "1.7.5":
-    rule: issue-permissions
+    rules:
+      - issue-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/issue is configured"
   "1.7.6":
-    rule: issue-net-permissions
+    rules:
+      - issue-net-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/issue.net is configured"
   "3.1.1":
-    rule: kmod-disable-bluetooth
+    rules:
+      - kmod-disable-bluetooth
     level: L1
     type: Manual
     title: "Ensure IPv6 status is identified"
   "3.1.2":
-    rule: kmod-disable-bluetooth
+    rules:
+      - kmod-disable-bluetooth
     level: L1
     type: Automated
     title: "Ensure wireless interfaces are not available"
   "3.2.1":
-    rule: kmod-disable-dccp
+    rules:
+      - kmod-disable-dccp
     level: L1
     type: Automated
     title: "Ensure atm kernel module is not available"
   "3.2.2":
-    rule: kmod-disable-tipc
+    rules:
+      - kmod-disable-tipc
     level: L1
     type: Automated
     title: "Ensure can kernel module is not available"
   "3.2.3":
-    rule: kmod-disable-rds
+    rules:
+      - kmod-disable-rds
     level: L1
     type: Automated
     title: "Ensure dccp kernel module is not available"
   "3.2.4":
-    rule: kmod-disable-sctp
+    rules:
+      - kmod-disable-sctp
     level: L1
     type: Automated
     title: "Ensure rds kernel module is not available"
   "3.3.1.1":
-    rule: sysctl-net-ipv4-ip-forward
+    rules:
+      - sysctl-net-ipv4-ip-forward
     level: L2
     type: Automated
     title: "Ensure net.ipv4.ip_forward is configured"
   "3.3.1.16":
-    rule: sysctl-net-ipv4-conf-all-log-martians
+    rules:
+      - sysctl-net-ipv4-conf-all-log-martians
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.log_martians is configured"
   "3.3.1.17":
-    rule: sysctl-net-ipv4-conf-all-log-martians
+    rules:
+      - sysctl-net-ipv4-conf-all-log-martians
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.log_martians is configured"
   "5.1.2":
-    rule: ssh-config-permissions
+    rules:
+      - ssh-config-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/ssh/sshd_config is configured"
   "5.1.3":
-    rule: ssh-private-key-permissions
+    rules:
+      - ssh-private-key-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/sysconfig/sshd is configured"
   "5.1.4":
-    rule: ssh-public-key-permissions
+    rules:
+      - ssh-public-key-permissions
     level: L1
     type: Automated
     title: "Ensure access to SSH private host key files is configured"
   "5.1.5":
-    rule: ssh-access-control
+    rules:
+      - ssh-access-control
     level: L1
     type: Automated
     title: "Ensure access to SSH public host key files is configured"
   "5.1.6":
-    rule: ssh-banner
+    rules:
+      - ssh-banner
     level: L1
     type: Automated
     title: "Ensure sshd access is configured"
   "5.1.7":
-    rule: ssh-ciphers-fips
+    rules:
+      - ssh-ciphers-fips
     level: L1
     type: Automated
     title: "Ensure sshd Banner is configured"
   "5.1.8":
-    rule: ssh-kex-fips
+    rules:
+      - ssh-kex-fips
     level: L1
     type: Automated
     title: "Ensure sshd Ciphers are configured"
   "5.1.9":
-    rule: ssh-macs-fips
+    rules:
+      - ssh-macs-fips
     level: L1
     type: Automated
     title: "Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured"
   "5.1.10":
-    rule: ssh-max-auth-tries
+    rules:
+      - ssh-max-auth-tries
     level: L2
     type: Automated
     title: "Ensure sshd DisableForwarding is enabled"
   "5.1.11":
-    rule: ssh-max-startups
+    rules:
+      - ssh-max-startups
     level: L2
     type: Automated
     title: "Ensure sshd GSSAPIAuthentication is disabled"
   "5.1.12":
-    rule: ssh-max-sessions
+    rules:
+      - ssh-max-sessions
     level: L1
     type: Automated
     title: "Ensure sshd HostbasedAuthentication is disabled"
   "5.1.13":
-    rule: ssh-login-grace-time
+    rules:
+      - ssh-login-grace-time
     level: L1
     type: Automated
     title: "Ensure sshd IgnoreRhosts is enabled"
   "5.1.14":
-    rule: ssh-client-alive-interval
+    rules:
+      - ssh-client-alive-interval
     level: L1
     type: Automated
     title: "Ensure sshd KexAlgorithms is configured"
   "5.1.15":
-    rule: ssh-client-alive-interval
+    rules:
+      - ssh-client-alive-interval
     level: L1
     type: Automated
     title: "Ensure sshd LoginGraceTime is configured"
   "5.1.17":
-    rule: ssh-permit-empty-passwords
+    rules:
+      - ssh-permit-empty-passwords
     level: L1
     type: Automated
     title: "Ensure sshd MACs are configured"
   "5.1.18":
-    rule: ssh-hostbased-authentication
+    rules:
+      - ssh-hostbased-authentication
     level: L1
     type: Automated
     title: "Ensure sshd MaxAuthTries is configured"
   "5.1.19":
-    rule: ssh-permit-user-environment
+    rules:
+      - ssh-permit-user-environment
     level: L1
     type: Automated
     title: "Ensure sshd MaxSessions is configured"
   "5.1.20":
-    rule: ssh-ignore-rhosts
+    rules:
+      - ssh-ignore-rhosts
     level: L1
     type: Automated
     title: "Ensure sshd MaxStartups is configured"
   "5.1.21":
-    rule: ssh-disable-forwarding
+    rules:
+      - ssh-disable-forwarding
     level: L1
     type: Automated
     title: "Ensure sshd PermitEmptyPasswords is disabled"
   "5.1.22":
-    rule: ssh-disable-root-login
+    rules:
+      - ssh-disable-root-login
     level: L1
     type: Automated
     title: "Ensure sshd PermitRootLogin is disabled"
   "5.2.2":
-    rule: sudo-use-pty
+    rules:
+      - sudo-use-pty
     level: L1
     type: Automated
     title: "Ensure sudo commands use pty"
   "5.2.3":
-    rule: sudo-logfile
+    rules:
+      - sudo-logfile
     level: L1
     type: Automated
     title: "Ensure sudo log file exists"
   "5.2.6":
-    rule: su-require-wheel
+    rules:
+      - su-require-wheel
     level: L1
     type: Automated
     title: "Ensure sudo timestamp_timeout is configured"
   "5.3.3.2.1":
-    rule: pam-pwquality-minlen
+    rules:
+      - pam-pwquality-minlen
     level: L1
     type: Automated
     title: "Ensure password number of changed characters is configured"
   "5.3.3.2.2":
-    rule: pam-pwquality-minclass
+    rules:
+      - pam-pwquality-minclass
     level: L1
     type: Automated
     title: "Ensure password length is configured"
   "5.3.3.2.3":
-    rule: pam-pwquality-dcredit
+    rules:
+      - pam-pwquality-dcredit
     level: L1
     type: Manual
     title: "Ensure password complexity is configured"
   "5.3.3.2.4":
-    rule: pam-pwquality-ucredit
+    rules:
+      - pam-pwquality-ucredit
     level: L1
     type: Automated
     title: "Ensure password same consecutive characters is configured"
   "5.3.3.2.5":
-    rule: pam-pwquality-lcredit
+    rules:
+      - pam-pwquality-lcredit
     level: L1
     type: Automated
     title: "Ensure password maximum sequential characters is configured"
   "5.3.3.2.6":
-    rule: pam-pwquality-ocredit
+    rules:
+      - pam-pwquality-ocredit
     level: L1
     type: Automated
     title: "Ensure password dictionary check is enabled"
   "5.3.3.2.7":
-    rule: pam-pwquality-dictcheck
+    rules:
+      - pam-pwquality-dictcheck
     level: L1
     type: Automated
     title: "Ensure password quality is enforced for the root user"
   "5.3.3.3.1":
-    rule: password-remember
+    rules:
+      - password-remember
     level: L1
     type: Automated
     title: "Ensure password history remember is configured"
   "5.3.3.3.2":
-    rule: pam-pwquality-difok
+    rules:
+      - pam-pwquality-difok
     level: L1
     type: Automated
     title: "Ensure password history is enforced for the root user"
   "5.3.3.4.1":
-    rule: pam-faillock-deny
+    rules:
+      - pam-faillock-deny
     level: L1
     type: Automated
     title: "Ensure pam_unix does not include nullok"
   "5.3.3.4.2":
-    rule: pam-faillock-unlock-time
+    rules:
+      - pam-faillock-unlock-time
     level: L1
     type: Automated
     title: "Ensure pam_unix does not include remember"
   "5.3.3.4.3":
-    rule: pam-faillock-fail-interval
+    rules:
+      - pam-faillock-fail-interval
     level: L1
     type: Automated
     title: "Ensure pam_unix includes a strong password hashing algorithm"
   "5.3.3.4.4":
-    rule: pam-faillock-even-deny-root
+    rules:
+      - pam-faillock-even-deny-root
     level: L1
     type: Automated
     title: "Ensure pam_unix includes use_authtok"
   "5.4.1.1":
-    rule: login-defs-pass-max-days
+    rules:
+      - login-defs-pass-max-days
     level: L1
     type: Automated
     title: "Ensure password expiration is configured"
   "5.4.1.2":
-    rule: login-defs-pass-min-days
+    rules:
+      - login-defs-pass-min-days
     level: L2
     type: Manual
     title: "Ensure minimum password days is configured"
   "5.4.1.3":
-    rule: login-defs-pass-warn-age
+    rules:
+      - login-defs-pass-warn-age
     level: L1
     type: Automated
     title: "Ensure password expiration warning days is configured"
   "5.4.1.4":
-    rule: inactive-password-lock
+    rules:
+      - inactive-password-lock
     level: L1
     type: Automated
     title: "Ensure strong password hashing algorithm is configured"
   "5.4.1.5":
-    rule: nologin-system-accounts
+    rules:
+      - nologin-system-accounts
     level: L1
     type: Automated
     title: "Ensure inactive password lock is configured"
   "5.4.1.6":
-    rule: default-group-root
+    rules:
+      - default-group-root
     level: L1
     type: Automated
     title: "Ensure all users last password change date is in the past"
   "5.4.2.1":
-    rule: login-defs-umask
+    rules:
+      - login-defs-umask
     level: L1
     type: Automated
     title: "Ensure root is the only UID 0 account"
   "5.4.2.4":
-    rule: shell-timeout
+    rules:
+      - shell-timeout
     level: L1
     type: Automated
     title: "Ensure root account access is controlled"
   "5.4.3.1":
-    rule: accounts-no-uid-zero
+    rules:
+      - accounts-no-uid-zero
     level: L2
     type: Automated
     title: "Ensure nologin is not listed in /etc/shells"
   "5.4.3.2":
-    rule: root-gid
+    rules:
+      - root-gid
     level: L1
     type: Automated
     title: "Ensure default user shell timeout is configured"
   "5.4.3.3":
-    rule: root-path-integrity
+    rules:
+      - root-path-integrity
     level: L1
     type: Automated
     title: "Ensure default user umask is configured"
   "6.1.1":
-    rule: aide-installed
+    rules:
+      - aide-installed
     level: L1
     type: Automated
     title: "Ensure AIDE is installed"
   "6.3.1.1":
-    rule: auditd-service-enabled
+    rules:
+      - auditd-service-enabled
     level: L2
     type: Automated
     title: "Ensure auditd packages are installed"
   "6.3.1.2":
-    rule: auditd-service-enabled
+    rules:
+      - auditd-service-enabled
     level: L2
     type: Automated
     title: "Ensure auditing for processes that start prior to auditd is enabled"
   "6.3.1.4":
-    rule: auditd-service-enabled
+    rules:
+      - auditd-service-enabled
     level: L2
     type: Automated
     title: "Ensure auditd service is enabled and active"
   "6.3.3.4":
-    rule: audit-time-change
+    rules:
+      - audit-time-change
     level: L2
     type: Automated
     title: "Ensure events that modify date and time information are collected"
   "6.3.3.6":
-    rule: audit-user-group-changes
+    rules:
+      - audit-user-group-changes
     level: L2
     type: Automated
     title: "Ensure use of privileged commands are collected"
   "6.3.3.7":
-    rule: audit-network-changes
+    rules:
+      - audit-network-changes
     level: L2
     type: Automated
     title: "Ensure unsuccessful file access attempts are collected"
   "6.3.3.8":
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     level: L2
     type: Automated
     title: "Ensure events that modify user/group information are collected"
   "6.3.3.10":
-    rule: audit-login-logout
+    rules:
+      - audit-login-logout
     level: L2
     type: Automated
     title: "Ensure successful file system mounts are collected"
   "6.3.3.11":
-    rule: audit-session-initiation
+    rules:
+      - audit-session-initiation
     level: L2
     type: Automated
     title: "Ensure session initiation information is collected"
   "6.3.3.12":
-    rule: audit-unsuccessful-access
+    rules:
+      - audit-unsuccessful-access
     level: L2
     type: Automated
     title: "Ensure login and logout events are collected"
   "6.3.3.13":
-    rule: audit-unsuccessful-perm
+    rules:
+      - audit-unsuccessful-perm
     level: L2
     type: Automated
     title: "Ensure file deletion events by users are collected"
   "6.3.3.19":
-    rule: audit-kernel-modules
+    rules:
+      - audit-kernel-modules
     level: L2
     type: Automated
     title: "Ensure kernel module loading unloading and modification is collected"
   "6.3.3.20":
-    rule: audit-chown-changes
+    rules:
+      - audit-chown-changes
     level: L2
     type: Automated
     title: "Ensure the audit configuration is loaded regardless of errors"
   "6.3.3.21":
-    rule: audit-xattr-changes
+    rules:
+      - audit-xattr-changes
     level: L2
     type: Automated
     title: "Ensure the audit configuration is immutable"
   "7.1.1":
-    rule: fs-permissions-etc-passwd
+    rules:
+      - fs-permissions-etc-passwd
     level: L1
     type: Automated
     title: "Ensure access to /etc/passwd is configured"
   "7.1.2":
-    rule: fs-permissions-etc-passwd-backup
+    rules:
+      - fs-permissions-etc-passwd-backup
     level: L1
     type: Automated
     title: "Ensure access to /etc/passwd- is configured"
   "7.1.3":
-    rule: fs-permissions-etc-group
+    rules:
+      - fs-permissions-etc-group
     level: L1
     type: Automated
     title: "Ensure access to /etc/group is configured"
   "7.1.4":
-    rule: fs-permissions-etc-group-backup
+    rules:
+      - fs-permissions-etc-group-backup
     level: L1
     type: Automated
     title: "Ensure access to /etc/group- is configured"
   "7.1.5":
-    rule: fs-permissions-etc-shadow
+    rules:
+      - fs-permissions-etc-shadow
     level: L1
     type: Automated
     title: "Ensure access to /etc/shadow is configured"
   "7.1.6":
-    rule: fs-permissions-etc-shadow-backup
+    rules:
+      - fs-permissions-etc-shadow-backup
     level: L1
     type: Automated
     title: "Ensure access to /etc/shadow- is configured"
   "7.1.7":
-    rule: fs-permissions-etc-gshadow
+    rules:
+      - fs-permissions-etc-gshadow
     level: L1
     type: Automated
     title: "Ensure access to /etc/gshadow is configured"
   "7.1.8":
-    rule: fs-permissions-etc-gshadow-backup
+    rules:
+      - fs-permissions-etc-gshadow-backup
     level: L1
     type: Automated
     title: "Ensure access to /etc/gshadow- is configured"
   "7.1.11":
-    rule: no-world-writable-files
+    rules:
+      - no-world-writable-files
     level: L1
     type: Automated
     title: "Ensure world writable files and directories are secured"
   "7.1.12":
-    rule: no-unowned-files
+    rules:
+      - no-unowned-files
     level: L1
     type: Automated
     title: "Ensure no files or directories without an owner and a group exist"
   "7.1.13":
-    rule: no-ungrouped-files
+    rules:
+      - no-ungrouped-files
     level: L1
     type: Manual
     title: "Ensure SUID and SGID files are reviewed"
   "7.2.4":
-    rule: audit-suid-files
+    rules:
+      - audit-suid-files
     level: L1
     type: Automated
     title: "Ensure no duplicate UIDs exist"
   "7.2.5":
-    rule: audit-sgid-files
+    rules:
+      - audit-sgid-files
     level: L1
     type: Automated
     title: "Ensure no duplicate GIDs exist"

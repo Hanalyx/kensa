@@ -21,14 +21,12 @@ BENCHMARK_CONFIGS = {
         "mapping": "mappings/cis/rhel8_v4.0.0.yaml",
         "framework": "cis",
         "id_field": "number",
-        "section_key": "sections",
     },
     "cis-rhel9": {
         "json": "extracted/cis_rhel9_rules.json",
         "mapping": "mappings/cis/rhel9_v2.0.0.yaml",
         "framework": "cis",
         "id_field": "number",
-        "section_key": "sections",
     },
     # STIG benchmarks
     "stig-rhel8": {
@@ -36,16 +34,12 @@ BENCHMARK_CONFIGS = {
         "mapping": "mappings/stig/rhel8_v2r6.yaml",
         "framework": "stig",
         "id_field": "vuln_id",
-        "section_key": "findings",
-        "rules_key": "rules",
     },
     "stig-rhel9": {
         "json": "extracted/stig_rhel9_rules.json",
         "mapping": "mappings/stig/rhel9_v2r7.yaml",
         "framework": "stig",
         "id_field": "vuln_id",
-        "section_key": "findings",
-        "rules_key": "rules",
     },
 }
 
@@ -90,7 +84,7 @@ def load_rules(rules_dir: str = "rules") -> dict[str, dict]:
     return rules
 
 
-def load_current_mapping(path: str = "mappings/cis/rhel9_v2.0.0.yaml", section_key: str = "sections") -> dict:
+def load_current_mapping(path: str = "mappings/cis/rhel9_v2.0.0.yaml") -> dict:
     """Load current mapping to see what's already mapped."""
     import yaml
 
@@ -100,12 +94,11 @@ def load_current_mapping(path: str = "mappings/cis/rhel9_v2.0.0.yaml", section_k
     except FileNotFoundError:
         data = {}
 
-    # Handle both CIS (sections) and STIG (findings) formats
-    sections = data.get(section_key) or data.get("sections") or data.get("findings") or {}
+    controls = data.get("controls") or {}
     unimplemented = data.get("unimplemented") or {}
-    mapped = set(sections.keys())
+    mapped = set(controls.keys())
     unimpl = set(unimplemented.keys())
-    return {"sections": sections, "unimplemented": unimplemented, "mapped": mapped, "unimplemented_set": unimpl}
+    return {"controls": controls, "unimplemented": unimplemented, "mapped": mapped, "unimplemented_set": unimpl}
 
 
 def normalize_title(title: str) -> str:
@@ -765,11 +758,10 @@ def analyze_controls(benchmark: str = "cis-rhel9"):
 
     framework = config.get("framework", "cis")
     id_field = config.get("id_field", "number")
-    section_key = config.get("section_key", "sections")
 
     controls = load_controls(config["json"], framework)
     rules = load_rules()
-    mapping = load_current_mapping(config["mapping"], section_key)
+    mapping = load_current_mapping(config["mapping"])
 
     print(f"{benchmark.upper()} controls: {len(controls)}")
     print(f"Total Aegis rules: {len(rules)}")
@@ -823,11 +815,10 @@ def suggest_mappings(benchmark: str = "cis-rhel9"):
 
     framework = config.get("framework", "cis")
     id_field = config.get("id_field", "number")
-    section_key = config.get("section_key", "sections")
 
     controls = load_controls(config["json"], framework)
     rules = load_rules()
-    mapping = load_current_mapping(config["mapping"], section_key)
+    mapping = load_current_mapping(config["mapping"])
 
     accounted = mapping["mapped"] | mapping["unimplemented_set"]
     unmapped = [c for c in controls if c.get(id_field) not in accounted]
@@ -877,17 +868,16 @@ def generate_yaml(benchmark: str = "cis-rhel9"):
 
     framework = config.get("framework", "cis")
     id_field = config.get("id_field", "number")
-    section_key = config.get("section_key", "sections")
 
     controls = load_controls(config["json"], framework)
     rules = load_rules()
-    mapping = load_current_mapping(config["mapping"], section_key)
+    mapping = load_current_mapping(config["mapping"])
 
     accounted = mapping["mapped"] | mapping["unimplemented_set"]
     unmapped = [c for c in controls if c.get(id_field) not in accounted]
 
     # Group by what we can do
-    sections_yaml = []
+    controls_yaml = []
     unimpl_yaml = []
 
     for control in unmapped:
@@ -899,9 +889,10 @@ def generate_yaml(benchmark: str = "cis-rhel9"):
             # STIG format
             severity = control.get("severity", "CAT II")
             if suggested:
-                sections_yaml.append(
+                controls_yaml.append(
                     f'  "{ctrl_id}":\n'
-                    f'    rule: {suggested}\n'
+                    f'    rules:\n'
+                    f'      - {suggested}\n'
                     f'    severity: "{severity}"\n'
                     f'    title: "{title}"\n'
                 )
@@ -918,9 +909,10 @@ def generate_yaml(benchmark: str = "cis-rhel9"):
             control_type = control.get("type", "Automated")
             level = control.get("level", "L1")
             if suggested:
-                sections_yaml.append(
+                controls_yaml.append(
                     f'  "{ctrl_id}":\n'
-                    f'    rule: {suggested}\n'
+                    f'    rules:\n'
+                    f'      - {suggested}\n'
                     f'    level: {level}\n'
                     f'    type: {control_type}\n'
                     f'    title: "{title}"\n'
@@ -935,9 +927,8 @@ def generate_yaml(benchmark: str = "cis-rhel9"):
                     f'    type: {control_type}\n'
                 )
 
-    section_label = "findings" if framework == "stig" else "sections"
-    print(f"# === Add to {section_label}: ===")
-    print("".join(sections_yaml))
+    print("# === Add to controls: ===")
+    print("".join(controls_yaml))
     print()
     print("# === Add to unimplemented: ===")
     print("".join(unimpl_yaml))

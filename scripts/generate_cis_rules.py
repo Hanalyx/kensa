@@ -1520,15 +1520,16 @@ def main() -> int:
 
     # Build CIS metadata lookup: rule_id -> {section, title, level, type}
     cis_info: dict[str, dict] = {}
-    for section_id, entry in mapping.get("sections", {}).items():
+    for section_id, entry in mapping.get("controls", {}).items():
         if isinstance(entry, dict):
-            rule_id = entry.get("rule", "")
-            cis_info[rule_id] = {
-                "section": str(section_id),
-                "title": entry.get("title", ""),
-                "level": entry.get("level", "L1"),
-                "type": entry.get("type", "Automated"),
-            }
+            rules = entry.get("rules", [])
+            for rule_id in rules:
+                cis_info[rule_id] = {
+                    "section": str(section_id),
+                    "title": entry.get("title", ""),
+                    "level": entry.get("level", "L1"),
+                    "type": entry.get("type", "Automated"),
+                }
 
     # Find existing rules
     existing = {p.stem for p in RULES_DIR.rglob("*.yml") if p.name != "defaults.yml"}

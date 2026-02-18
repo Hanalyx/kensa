@@ -353,9 +353,10 @@ def apply_auto_framework(
 
     for mapping in applicable:
         for section_id, entry in mapping.sections.items():
-            framework_rule_ids.add(entry.rule_id)
-            if entry.rule_id not in rule_to_section:
-                rule_to_section[entry.rule_id] = section_id
+            for rid in entry.metadata.get("rules", []):
+                framework_rule_ids.add(rid)
+                if rid not in rule_to_section:
+                    rule_to_section[rid] = section_id
 
     filtered_rules = [r for r in rule_list if r["id"] in framework_rule_ids]
 
