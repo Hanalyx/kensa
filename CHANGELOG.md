@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-02-18)
+
+### Features
+
+- **banner**: Make login banner text customizable via banner_text variable
+  ([#62](https://github.com/Hanalyx/aegis/pull/62),
+  [`8dbbeb0`](https://github.com/Hanalyx/aegis/commit/8dbbeb014f62f10adebca1781525b575cf88b25e))
+
+
 ## v1.7.1 (2026-02-18)
 
 ### Bug Fixes
