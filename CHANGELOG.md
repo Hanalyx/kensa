@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.16 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Correct framework references across 36 audit rules
+  ([`619cb74`](https://github.com/Hanalyx/aegis/commit/619cb748dbda204ed4d16c6f9b2d88b12843537a))
+
+
 ## v1.6.15 (2026-02-18)
 
 ### Bug Fixes
