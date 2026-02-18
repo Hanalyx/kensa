@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.44 (2026-02-18)
+
+### Bug Fixes
+
+- **kernel**: Add missing STIG/CIS refs, widen platform scope
+  ([`4f2ca02`](https://github.com/Hanalyx/aegis/commit/4f2ca02d950d85a92f8ccd4796293d5cc8506fdf))
+
+
 ## v1.6.43 (2026-02-18)
 
 ### Bug Fixes
