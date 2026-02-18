@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.8 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Improve remediation quality and check coverage
+  ([`602806c`](https://github.com/Hanalyx/aegis/commit/602806c19fe8c43baf33a10a324beabbddd2fd15))
+
+
 ## v1.6.7 (2026-02-18)
 
 ### Bug Fixes
