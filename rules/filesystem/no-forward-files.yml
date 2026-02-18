@@ -13,8 +13,6 @@ category: filesystem
 tags: [mail, forward, user-files, security]
 
 references:
-  cis:
-    rhel9_v2:  { section: "7.2.8", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "AC-6"]
 
 platforms:

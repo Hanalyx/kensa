@@ -15,8 +15,7 @@ conflicts_with:
 
 references:
   cis:
-    rhel8_v4:  { section: "7.1.3",  level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "6.1.3",  level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "7.1.5",  level: "L1", type: "Automated" }
     rhel10_v1: { section: "7.1.3",  level: "L1", type: "Automated" }
   stig:
     rhel8_v2r6:

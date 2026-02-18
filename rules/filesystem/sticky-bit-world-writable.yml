@@ -13,7 +13,6 @@ tags: [permissions, sticky-bit, world-writable, security]
 
 references:
   cis:
-    rhel8_v4:  { section: "6.1.8", level: "L1", type: "Automated" }
     rhel9_v2:  { section: "6.1.8", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6", "CM-6"]
 
