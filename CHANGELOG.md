@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.28 (2026-02-18)
+
+### Bug Fixes
+
+- **system**: Add deduplication to crypto-policy remediations
+  ([`1b614e8`](https://github.com/Hanalyx/aegis/commit/1b614e8f0144e42dbcfdaee6024bd919c73936ea))
+
+
 ## v1.6.27 (2026-02-18)
 
 ### Bug Fixes
