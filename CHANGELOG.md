@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.6.2 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Use canonical field names in command check definitions
+  ([`825bec5`](https://github.com/Hanalyx/aegis/commit/825bec5b7c37c6ab716adfa03fd6f3315f899821))
+
+### Documentation
+
+- Add Rule Review Guide V0 for canonical rule quality criteria
+  ([`438a89a`](https://github.com/Hanalyx/aegis/commit/438a89a41e7bc3aa1bcf7c16ab5ae9b45343d877))
+
+### Refactoring
+
+- **cli**: Extract host execution and rule selection into focused modules
+  ([`26c2a4f`](https://github.com/Hanalyx/aegis/commit/26c2a4f9d25fa5ae692c44e925bf483ae1192d59))
+
+- **mappings**: Unify YAML format to controls:/rules: across all frameworks
+  ([`dffab97`](https://github.com/Hanalyx/aegis/commit/dffab971dea60f599faa83286cb21a8f6a765d37))
+
+
 ## v1.6.1 (2026-02-17)
 
 ### Bug Fixes
