@@ -1379,7 +1379,7 @@ controls:
     title: Ensure password unlock time is configured
   "5.3.3.1.3":
     rules:
-      - pam-faillock-root
+      - pam-faillock-even-deny-root
     level: L1
     type: Automated
     title: Ensure password failed attempts lockout includes root account
@@ -1409,7 +1409,7 @@ controls:
     title: Ensure password maximum sequential characters is configured
   "5.3.3.2.6":
     rules:
-      - pwquality-dictcheck
+      - pam-pwquality-dictcheck
     level: L1
     type: Automated
     title: Ensure password dictionary check is enabled
@@ -1475,7 +1475,7 @@ controls:
     title: Require uppercase character in password
   "5.4.1.1":
     rules:
-      - password-max-age
+      - login-defs-pass-max-days
     level: L1
     type: Automated
     title: Ensure password expiration is configured
@@ -2105,7 +2105,7 @@ controls:
     title: Ensure accounts in /etc/passwd use shadowed passwords
   "7.2.2":
     rules:
-      - no-empty-passwords
+      - accounts-no-empty-passwords
     level: L1
     type: Automated
     title: Ensure /etc/shadow password fields are not empty

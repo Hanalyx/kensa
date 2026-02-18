@@ -32,7 +32,6 @@ controls:
       - nologin-system-accounts
       - inactive-password-lock
       - root-gid
-      - default-group-root
 
   "AC-2(1)":
     title: "Account Management | Automated System Account Management"

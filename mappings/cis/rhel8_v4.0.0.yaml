@@ -844,7 +844,7 @@ controls:
     title: "Ensure inactive password lock is configured"
   "5.4.1.6":
     rules:
-      - default-group-root
+      - root-gid
     level: L1
     type: Automated
     title: "Ensure all users last password change date is in the past"
