@@ -27,7 +27,7 @@ implementations:
     check:
       method: service_state
       name: "debug-shell"
-      state: "stopped"
+      active: false
       enabled: false
     remediation:
       mechanism: service_masked

@@ -31,7 +31,7 @@ implementations:
     check:
       method: service_state
       name: "rsyslog"
-      state: "running"
+      active: true
       enabled: true
     remediation:
       mechanism: service_enabled

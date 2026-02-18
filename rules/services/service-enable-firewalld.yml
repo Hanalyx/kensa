@@ -32,7 +32,7 @@ implementations:
     check:
       method: service_state
       name: "firewalld"
-      state: "running"
+      active: true
       enabled: true
     remediation:
       mechanism: service_enabled

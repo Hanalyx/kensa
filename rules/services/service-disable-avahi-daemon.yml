@@ -25,7 +25,7 @@ implementations:
     check:
       method: service_state
       name: "avahi-daemon"
-      state: "stopped"
+      active: false
       enabled: false
     remediation:
       mechanism: service_masked

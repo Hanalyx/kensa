@@ -21,7 +21,7 @@ implementations:
     check:
       method: service_state
       name: "ypserv"
-      state: "stopped"
+      active: false
       enabled: false
     remediation:
       mechanism: service_masked
