@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.7.1 (2026-02-18)
+
+### Bug Fixes
+
+- **checks**: Command handler expected_stdout="" always passed (false positive)
+  ([`a5b2af1`](https://github.com/Hanalyx/aegis/commit/a5b2af13648a5bcaf02ebefd09e15f81ec2a0ae9))
+
+
 ## v1.7.0 (2026-02-18)
 
 ### Bug Fixes
