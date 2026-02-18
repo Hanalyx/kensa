@@ -238,16 +238,17 @@ def build_controls_from_mapping(mapping_data: dict) -> list[CISControl]:
     """
     controls: dict[str, CISControl] = {}
 
-    # Implemented sections (have a rule)
-    for section_id, entry in mapping_data.get("sections", {}).items():
+    # Implemented controls (have rules)
+    for section_id, entry in mapping_data.get("controls", {}).items():
         sid = str(section_id)
+        rules = entry.get("rules", [])
         controls[sid] = CISControl(
             id=sid,
             title=entry.get("title", ""),
             level=entry.get("level", "L1"),
             type=entry.get("type", "Automated"),
             chapter=_chapter_from_id(sid),
-            rule_id=entry.get("rule"),
+            rule_id=rules[0] if rules else None,
         )
 
     # Unimplemented sections (no rule)
@@ -298,17 +299,17 @@ def gap_analysis(
         controls = [c for c in controls if c.chapter == chapter_filter]
 
     # Determine implemented vs unimplemented vs unaccounted
-    sections = mapping_data.get("sections", {})
+    controls_map = mapping_data.get("controls", {})
     unimplemented = mapping_data.get("unimplemented", {})
-    implemented_ids = {str(k) for k in sections}
+    implemented_ids = {str(k) for k in controls_map}
     unimplemented_ids = {str(k) for k in unimplemented}
 
-    # Collect referenced rule IDs from sections
+    # Collect referenced rule IDs from controls
     referenced_rules: set[str] = set()
-    for entry in sections.values():
-        rule_id = entry.get("rule")
-        if rule_id:
-            referenced_rules.add(rule_id)
+    for entry in controls_map.values():
+        for rule_id in entry.get("rules", []):
+            if rule_id:
+                referenced_rules.add(rule_id)
 
     # Missing rules: referenced in mapping but don't exist in rules/
     missing_rules = sorted(referenced_rules - available_rules)
@@ -373,9 +374,10 @@ def gap_analysis(
         if is_impl:
             rule_id = ctrl.rule_id
             if not rule_id:
-                section_entry = sections.get(ctrl.id)
+                section_entry = controls_map.get(ctrl.id)
                 if section_entry:
-                    rule_id = section_entry.get("rule")
+                    rules = section_entry.get("rules", [])
+                    rule_id = rules[0] if rules else None
             if rule_id and rule_id not in available_rules:
                 cc.missing_rules.append(rule_id)
 

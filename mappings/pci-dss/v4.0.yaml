@@ -19,7 +19,7 @@ framework: pci_dss
 title: "PCI DSS v4.0 Requirements"
 published: 2022-03-31
 
-requirements:
+controls:
   # ════════════════════════════════════════════════════════════════════════════
   # Requirement 2: Apply Secure Configurations
   # ════════════════════════════════════════════════════════════════════════════

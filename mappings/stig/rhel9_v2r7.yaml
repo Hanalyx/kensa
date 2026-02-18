@@ -453,1281 +453,1619 @@ control_ids:
 - V-272488
 - V-272496
 - V-279936
-findings:
+controls:
   V-257779:
-    rule: banner-dod-consent
+    rules:
+      - banner-dod-consent
     title: RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access to the system via a command line user logon.
   V-257784:
-    rule: ctrl-alt-del-disabled
+    rules:
+      - ctrl-alt-del-disabled
     severity: CAT I
     title: The systemd Ctrl-Alt-Delete burst key sequence in RHEL 9 must be disabled.
   V-257785:
-    rule: ctrl-alt-del-disabled
+    rules:
+      - ctrl-alt-del-disabled
     severity: CAT I
     title: The x86 Ctrl-Alt-Delete key sequence must be disabled on RHEL 9.
   V-257787:
-    rule: grub-password
+    rules:
+      - grub-password
     severity: CAT II
     title: RHEL 9 must require a boot loader superuser password.
   V-257789:
-    rule: single-user-auth
+    rules:
+      - single-user-auth
     severity: CAT I
     title: RHEL 9 must require a unique superusers name upon booting into single-user and maintenance modes.
   V-257790:
-    rule: grub-config-permissions
+    rules:
+      - grub-config-permissions
     title: RHEL 9 /boot/grub2/grub.cfg file must be group-owned by root.
   V-257791:
-    rule: grub-config-permissions
+    rules:
+      - grub-config-permissions
     title: RHEL 9 /boot/grub2/grub.cfg file must be owned by root.
   V-257797:
-    rule: kernel-dmesg-restrict
+    rules:
+      - kernel-dmesg-restrict
     severity: CAT II
     title: RHEL 9 must restrict access to the kernel message buffer.
   V-257798:
-    rule: kernel-perf-restrict
+    rules:
+      - kernel-perf-restrict
     severity: CAT II
     title: RHEL 9 must prevent kernel profiling by nonprivileged users.
   V-257799:
-    rule: kexec-load-disabled
+    rules:
+      - kexec-load-disabled
     severity: CAT II
     title: RHEL 9 must prevent the loading of a new kernel for later execution.
   V-257800:
-    rule: kernel-dmesg-restrict
+    rules:
+      - kernel-dmesg-restrict
     title: RHEL 9 must restrict exposed kernel pointer addresses access.
   V-257803:
-    rule: coredump-restricted
+    rules:
+      - coredump-restricted
     title: RHEL 9 must disable the kernel.core_pattern.
   V-257806:
-    rule: kmod-disable-firewire
+    rules:
+      - kmod-disable-firewire
     severity: CAT II
     title: RHEL 9 must be configured to disable the FireWire kernel module.
   V-257807:
-    rule: kmod-disable-sctp
+    rules:
+      - kmod-disable-sctp
     severity: CAT II
     title: RHEL 9 must disable the Stream Control Transmission Protocol (SCTP) kernel module.
   V-257808:
-    rule: kmod-disable-tipc
+    rules:
+      - kmod-disable-tipc
     severity: CAT II
     title: RHEL 9 must disable the Transparent Inter Process Communication (TIPC) kernel module.
   V-257809:
-    rule: aslr-enabled
+    rules:
+      - aslr-enabled
     severity: CAT II
     title: RHEL 9 must implement address space layout randomization (ASLR) to protect its memory from unauthorized code execution.
   V-257810:
-    rule: kernel-unprivileged-bpf
+    rules:
+      - kernel-unprivileged-bpf
     severity: CAT II
     title: RHEL 9 must disable access to network bpf system call from nonprivileged processes.
   V-257811:
-    rule: kernel-yama-ptrace
+    rules:
+      - kernel-yama-ptrace
     severity: CAT II
     title: RHEL 9 must restrict usage of ptrace to descendant processes.
   V-257812:
-    rule: coredump-restricted
+    rules:
+      - coredump-restricted
     severity: CAT II
     title: RHEL 9 must disable core dump backtraces.
   V-257813:
-    rule: coredump-restricted
+    rules:
+      - coredump-restricted
     severity: CAT II
     title: RHEL 9 must disable storing core dumps.
   V-257814:
-    rule: coredump-suid-disabled
+    rules:
+      - coredump-suid-disabled
     severity: CAT II
     title: RHEL 9 must disable core dumps for all users.
   V-257815:
-    rule: coredump-suid-disabled
+    rules:
+      - coredump-suid-disabled
     severity: CAT II
     title: RHEL 9 must disable acquiring, saving, and processing core dumps.
   V-257816:
-    rule: user-namespaces-disabled
+    rules:
+      - user-namespaces-disabled
     severity: CAT II
     title: RHEL 9 must disable the use of user namespaces.
   V-257817:
-    rule: aslr-enabled
+    rules:
+      - aslr-enabled
     title: RHEL 9 must implement nonexecutable data to protect its memory from unauthorized code execution.
   V-257819:
-    rule: gpgcheck-enabled
+    rules:
+      - gpgcheck-enabled
     severity: CAT II
     title: RHEL 9 must ensure cryptographic verification of vendor software packages.
   V-257820:
-    rule: gpgcheck-enabled
+    rules:
+      - gpgcheck-enabled
     severity: CAT I
     title: RHEL 9 must check the GPG signature of software packages originating from external software repositories before installation.
   V-257821:
-    rule: gpgcheck-enabled
+    rules:
+      - gpgcheck-enabled
     severity: CAT I
     title: RHEL 9 must check the GPG signature of locally installed software packages before installation.
   V-257822:
-    rule: gpgcheck-enabled
+    rules:
+      - gpgcheck-enabled
     severity: CAT I
     title: RHEL 9 must have GPG signature verification enabled for all software repositories.
   V-257783:
-    rule: journald-service-enabled
+    rules:
+      - journald-service-enabled
     severity: CAT II
     title: RHEL 9 systemd-journald service must be enabled.
   V-257786:
-    rule: debug-shell-disabled
+    rules:
+      - debug-shell-disabled
     severity: CAT II
     title: RHEL 9 debug-shell systemd service must be disabled.
   V-257788:
-    rule: interactive-boot-disabled
+    rules:
+      - interactive-boot-disabled
     severity: CAT II
     title: RHEL 9 must disable the ability of systemd to spawn an interactive boot process.
   V-257801:
-    rule: kernel-hardlink-protect
+    rules:
+      - kernel-hardlink-protect
     severity: CAT II
     title: RHEL 9 must enable kernel parameters to enforce discretionary access control (DAC) on hardlinks.
   V-257802:
-    rule: kernel-symlink-protect
+    rules:
+      - kernel-symlink-protect
     severity: CAT II
     title: RHEL 9 must enable kernel parameters to enforce discretionary access (DAC) control on symlinks.
   V-257804:
-    rule: kmod-disable-atm
+    rules:
+      - kmod-disable-atm
     severity: CAT II
     title: RHEL 9 must be configured to disable the Asynchronous Transfer Mode kernel module.
   V-257805:
-    rule: kmod-disable-can
+    rules:
+      - kmod-disable-can
     severity: CAT II
     title: RHEL 9 must be configured to disable the Controller Area Network kernel module.
   V-257818:
-    rule: kdump-disabled
+    rules:
+      - kdump-disabled
     severity: CAT II
     title: The kdump service on RHEL 9 must be disabled.
   V-257825:
-    rule: pkg-subscription-manager-present
+    rules:
+      - pkg-subscription-manager-present
     severity: CAT II
     title: RHEL 9 subscription-manager package must be installed.
   V-257826:
-    rule: pkg-vsftpd-absent
+    rules:
+      - pkg-vsftpd-absent
     severity: CAT I
     title: RHEL 9 must not have a File Transfer Protocol (FTP) server package installed.
   V-257827:
-    rule: pkg-sendmail-absent
+    rules:
+      - pkg-sendmail-absent
     severity: CAT II
     title: RHEL 9 must not have the sendmail package installed.
   V-257828:
-    rule: pkg-nfs-utils-absent
+    rules:
+      - pkg-nfs-utils-absent
     severity: CAT II
     title: RHEL 9 must not have the nfs-utils package installed.
   V-257829:
-    rule: pkg-ypserv-absent
+    rules:
+      - pkg-ypserv-absent
     severity: CAT II
     title: RHEL 9 must not have the ypserv package installed.
   V-257832:
-    rule: pkg-gssproxy-absent
+    rules:
+      - pkg-gssproxy-absent
     severity: CAT III
     title: RHEL 9 must not have the gssproxy package installed.
   V-257833:
-    rule: pkg-iprutils-absent
+    rules:
+      - pkg-iprutils-absent
     severity: CAT III
     title: RHEL 9 must not have the iprutils package installed.
   V-257834:
-    rule: pkg-tuned-absent
+    rules:
+      - pkg-tuned-absent
     severity: CAT II
     title: RHEL 9 must not have the tuned package installed.
   V-257836:
-    rule: pkg-quagga-absent
+    rules:
+      - pkg-quagga-absent
     severity: CAT II
     title: RHEL 9 must not have the quagga package installed.
   V-257838:
-    rule: pkg-openssl-pkcs11-present
+    rules:
+      - pkg-openssl-pkcs11-present
     severity: CAT II
     title: RHEL 9 must have the openssl-pkcs11 package installed.
   V-257839:
-    rule: pkg-gnutls-utils-present
+    rules:
+      - pkg-gnutls-utils-present
     severity: CAT II
     title: RHEL 9 must have the gnutls-utils package installed.
   V-257840:
-    rule: pkg-nss-tools-present
+    rules:
+      - pkg-nss-tools-present
     severity: CAT II
     title: RHEL 9 must have the nss-tools package installed.
   V-257841:
-    rule: pkg-rng-tools-present
+    rules:
+      - pkg-rng-tools-present
     severity: CAT II
     title: RHEL 9 must have the rng-tools package installed.
   V-257842:
-    rule: pkg-s-nail-present
+    rules:
+      - pkg-s-nail-present
     severity: CAT II
     title: RHEL 9 must have the s-nail package installed.
   V-257847:
-    rule: audit-time-change
+    rules:
+      - audit-time-change
     title: RHEL 9 must use a separate file system for the system audit data path.
   V-257848:
-    rule: audit-time-change
+    rules:
+      - audit-time-change
     title: RHEL 9 must use a separate file system for /var/tmp.
   V-257849:
-    rule: audit-time-change
+    rules:
+      - audit-time-change
     title: RHEL 9 file system automount function must be disabled unless required.
   V-257850:
-    rule: audit-network-changes
+    rules:
+      - audit-network-changes
     title: RHEL 9 must prevent device files from being interpreted on file systems that contain user home directories.
   V-257851:
-    rule: audit-network-changes
+    rules:
+      - audit-network-changes
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on file systems that contain user home directories.
   V-257852:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9 must prevent code from being executed on file systems that contain user home directories.
   V-257854:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9 must prevent special devices on file systems that are imported via Network File System (NFS).
   V-257855:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9  must prevent code from being executed on file systems that are imported via Network File System (NFS).
   V-257856:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on file systems that are imported via Network File System (NFS).
   V-257857:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9 must prevent code from being executed on file systems that are used with removable media.
   V-257858:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9 must prevent special devices on file systems that are used with removable media.
   V-257859:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on file systems that are used with removable media.
   V-257860:
-    rule: audit-xattr-changes
+    rules:
+      - audit-xattr-changes
     title: RHEL 9 must mount /boot with the nodev option.
   V-257861:
-    rule: audit-xattr-changes
+    rules:
+      - audit-xattr-changes
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on the /boot directory.
   V-257862:
-    rule: audit-xattr-changes
+    rules:
+      - audit-xattr-changes
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on the /boot/efi directory.
   V-257863:
-    rule: mount-dev-shm-nodev
+    rules:
+      - mount-dev-shm-nodev
     severity: CAT II
     title: RHEL 9 must mount /dev/shm with the nodev option.
   V-257864:
-    rule: mount-dev-shm-noexec
+    rules:
+      - mount-dev-shm-noexec
     severity: CAT II
     title: RHEL 9 must mount /dev/shm with the noexec option.
   V-257865:
-    rule: mount-dev-shm-nosuid
+    rules:
+      - mount-dev-shm-nosuid
     severity: CAT II
     title: RHEL 9 must mount /dev/shm with the nosuid option.
   V-257866:
-    rule: mount-tmp-nodev
+    rules:
+      - mount-tmp-nodev
     severity: CAT II
     title: RHEL 9 must mount /tmp with the nodev option.
   V-257867:
-    rule: mount-tmp-noexec
+    rules:
+      - mount-tmp-noexec
     severity: CAT II
     title: RHEL 9 must mount /tmp with the noexec option.
   V-257868:
-    rule: mount-tmp-nosuid
+    rules:
+      - mount-tmp-nosuid
     severity: CAT II
     title: RHEL 9 must mount /tmp with the nosuid option.
   V-257869:
-    rule: audit-file-deletion
+    rules:
+      - audit-file-deletion
     title: RHEL 9 must mount /var with the nodev option.
   V-257870:
-    rule: audit-kernel-modules
+    rules:
+      - audit-kernel-modules
     title: RHEL 9 must mount /var/log with the nodev option.
   V-257871:
-    rule: audit-kernel-modules
+    rules:
+      - audit-kernel-modules
     title: RHEL 9 must mount /var/log with the noexec option.
   V-257872:
-    rule: audit-kernel-modules
+    rules:
+      - audit-kernel-modules
     title: RHEL 9 must mount /var/log with the nosuid option.
   V-257873:
-    rule: audit-mount-operations
+    rules:
+      - audit-mount-operations
     title: RHEL 9 must mount /var/log/audit with the nodev option.
   V-257874:
-    rule: audit-mount-operations
+    rules:
+      - audit-mount-operations
     title: RHEL 9 must mount /var/log/audit with the noexec option.
   V-257876:
-    rule: mount-var-tmp-nodev
+    rules:
+      - mount-var-tmp-nodev
     severity: CAT II
     title: RHEL 9 must mount /var/tmp with the nodev option.
   V-257877:
-    rule: mount-var-tmp-noexec
+    rules:
+      - mount-var-tmp-noexec
     severity: CAT II
     title: RHEL 9 must mount /var/tmp with the noexec option.
   V-257878:
-    rule: mount-var-tmp-nosuid
+    rules:
+      - mount-var-tmp-nosuid
     severity: CAT II
     title: RHEL 9 must mount /var/tmp with the nosuid option.
   V-257880:
-    rule: kmod-disable-cramfs
+    rules:
+      - kmod-disable-cramfs
     title: RHEL 9 must disable mounting of cramfs.
   V-257881:
-    rule: kmod-disable-firewire
+    rules:
+      - kmod-disable-firewire
     title: RHEL 9 must prevent special devices on non-root local partitions.
   V-257882:
-    rule: kmod-disable-tipc
+    rules:
+      - kmod-disable-tipc
     title: RHEL 9 system commands must have mode 755 or less permissive.
   V-257883:
-    rule: kmod-disable-bluetooth
+    rules:
+      - kmod-disable-bluetooth
     title: RHEL 9 library directories must have mode 755 or less permissive.
   V-257884:
-    rule: kmod-disable-usb-storage
+    rules:
+      - kmod-disable-usb-storage
     title: RHEL 9 library files must have mode 755 or less permissive.
   V-257885:
-    rule: kmod-disable-dccp
+    rules:
+      - kmod-disable-dccp
     title: RHEL 9 /var/log directory must have mode 0755 or less permissive.
   V-257886:
-    rule: kmod-disable-sctp
+    rules:
+      - kmod-disable-sctp
     title: RHEL 9 /var/log/messages file must have mode 0640 or less permissive.
   V-257887:
-    rule: kmod-disable-rds
+    rules:
+      - kmod-disable-rds
     title: RHEL 9 audit tools must have a mode of 0755 or less permissive.
   V-257890:
-    rule: default-group-root
+    rules:
+      - default-group-root
     title: All RHEL 9 local interactive user home directories must have mode 0750 or less permissive.
   V-257891:
-    rule: fs-permissions-etc-group
+    rules:
+      - fs-permissions-etc-group
     severity: CAT II
     title: RHEL 9 /etc/group file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257892:
-    rule: fs-permissions-etc-group-backup
+    rules:
+      - fs-permissions-etc-group-backup
     severity: CAT II
     title: RHEL 9 /etc/group- file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257893:
-    rule: fs-permissions-etc-gshadow
+    rules:
+      - fs-permissions-etc-gshadow
     severity: CAT II
     title: RHEL 9 /etc/gshadow file must have mode 0000 or less permissive to prevent unauthorized access.
   V-257894:
-    rule: fs-permissions-etc-gshadow-backup
+    rules:
+      - fs-permissions-etc-gshadow-backup
     severity: CAT II
     title: RHEL 9 /etc/gshadow- file must have mode 0000 or less permissive to prevent unauthorized access.
   V-257895:
-    rule: fs-permissions-etc-passwd
+    rules:
+      - fs-permissions-etc-passwd
     severity: CAT II
     title: RHEL 9 /etc/passwd file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257896:
-    rule: fs-permissions-etc-passwd-backup
+    rules:
+      - fs-permissions-etc-passwd-backup
     severity: CAT II
     title: RHEL 9 /etc/passwd- file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257897:
-    rule: fs-permissions-etc-shadow-backup
+    rules:
+      - fs-permissions-etc-shadow-backup
     severity: CAT II
     title: RHEL 9 /etc/shadow- file must have mode 0000 or less permissive to prevent unauthorized access.
   V-257898:
-    rule: fs-permissions-etc-group
+    rules:
+      - fs-permissions-etc-group
     title: RHEL 9 /etc/group file must be owned by root.
   V-257899:
-    rule: fs-permissions-etc-group
+    rules:
+      - fs-permissions-etc-group
     title: RHEL 9 /etc/group file must be group-owned by root.
   V-257900:
-    rule: fs-permissions-etc-group-backup
+    rules:
+      - fs-permissions-etc-group-backup
     title: RHEL 9 /etc/group- file must be owned by root.
   V-257901:
-    rule: fs-permissions-etc-group-backup
+    rules:
+      - fs-permissions-etc-group-backup
     title: RHEL 9 /etc/group- file must be group-owned by root.
   V-257902:
-    rule: fs-permissions-etc-gshadow
+    rules:
+      - fs-permissions-etc-gshadow
     title: RHEL 9 /etc/gshadow file must be owned by root.
   V-257903:
-    rule: fs-permissions-etc-gshadow
+    rules:
+      - fs-permissions-etc-gshadow
     title: RHEL 9 /etc/gshadow file must be group-owned by root.
   V-257904:
-    rule: fs-permissions-etc-gshadow-backup
+    rules:
+      - fs-permissions-etc-gshadow-backup
     title: RHEL 9 /etc/gshadow- file must be owned by root.
   V-257905:
-    rule: fs-permissions-etc-gshadow-backup
+    rules:
+      - fs-permissions-etc-gshadow-backup
     title: RHEL 9 /etc/gshadow- file must be group-owned by root.
   V-257906:
-    rule: fs-permissions-etc-passwd
+    rules:
+      - fs-permissions-etc-passwd
     title: RHEL 9 /etc/passwd file must be owned by root.
   V-257907:
-    rule: fs-permissions-etc-passwd
+    rules:
+      - fs-permissions-etc-passwd
     title: RHEL 9 /etc/passwd file must be group-owned by root.
   V-257908:
-    rule: fs-permissions-etc-passwd
+    rules:
+      - fs-permissions-etc-passwd
     title: RHEL 9 /etc/passwd- file must be owned by root.
   V-257909:
-    rule: fs-permissions-etc-passwd-backup
+    rules:
+      - fs-permissions-etc-passwd-backup
     title: RHEL 9 /etc/passwd- file must be group-owned by root.
   V-257910:
-    rule: fs-permissions-etc-passwd-backup
+    rules:
+      - fs-permissions-etc-passwd-backup
     title: RHEL 9 /etc/shadow file must be owned by root.
   V-257911:
-    rule: fs-permissions-etc-passwd-backup
+    rules:
+      - fs-permissions-etc-passwd-backup
     title: RHEL 9 /etc/shadow file must be group-owned by root.
   V-257912:
-    rule: fs-permissions-etc-shadow
+    rules:
+      - fs-permissions-etc-shadow
     title: RHEL 9 /etc/shadow- file must be owned by root.
   V-257913:
-    rule: fs-permissions-etc-shadow
+    rules:
+      - fs-permissions-etc-shadow
     title: RHEL 9 /etc/shadow- file must be group-owned by root.
   V-257914:
-    rule: fs-permissions-etc-shadow
+    rules:
+      - fs-permissions-etc-shadow
     title: RHEL 9 /var/log directory must be owned by root.
   V-257915:
-    rule: fs-permissions-etc-shadow-backup
+    rules:
+      - fs-permissions-etc-shadow-backup
     title: RHEL 9 /var/log directory must be group-owned by root.
   V-257916:
-    rule: fs-permissions-etc-shadow-backup
+    rules:
+      - fs-permissions-etc-shadow-backup
     title: RHEL 9 /var/log/messages file must be owned by root.
   V-257917:
-    rule: fs-permissions-etc-shadow-backup
+    rules:
+      - fs-permissions-etc-shadow-backup
     title: RHEL 9 /var/log/messages file must be group-owned by root.
   V-257918:
-    rule: no-world-writable-files
+    rules:
+      - no-world-writable-files
     title: RHEL 9 system commands must be owned by root.
   V-257919:
-    rule: no-unowned-files
+    rules:
+      - no-unowned-files
     title: RHEL 9 system commands must be group-owned by root or a system account.
   V-257920:
-    rule: no-ungrouped-files
+    rules:
+      - no-ungrouped-files
     title: RHEL 9 library files must be owned by root.
   V-257921:
-    rule: sticky-bit-world-writable
+    rules:
+      - sticky-bit-world-writable
     title: RHEL 9 library files must be group-owned by root or a system account.
   V-257928:
-    rule: no-world-writable-files
+    rules:
+      - no-world-writable-files
     severity: CAT II
     title: All RHEL 9 world-writable directories must be owned by root, sys, bin, or an application user.
   V-257929:
-    rule: sticky-bit-world-writable
+    rules:
+      - sticky-bit-world-writable
     severity: CAT II
     title: A sticky bit must be set on all RHEL 9 public directories.
   V-257930:
-    rule: no-ungrouped-files
+    rules:
+      - no-ungrouped-files
     severity: CAT II
     title: All RHEL 9 local files and directories must have a valid group owner.
   V-257931:
-    rule: no-unowned-files
+    rules:
+      - no-unowned-files
     severity: CAT II
     title: All RHEL 9 local files and directories must have a valid owner.
   V-257934:
-    rule: fs-permissions-etc-shadow
+    rules:
+      - fs-permissions-etc-shadow
     severity: CAT II
     title: RHEL 9 /etc/shadow file must have mode 0000 to prevent unauthorized access.
   V-257936:
-    rule: pam-faillock-unlock-time
+    rules:
+      - pam-faillock-unlock-time
     title: The firewalld service on RHEL 9 must be active.
   V-257937:
-    rule: pam-faillock-fail-interval
+    rules:
+      - pam-faillock-fail-interval
     title: The RHEL 9 firewall must employ a deny-all, allow-by-exception policy for allowing connections to other systems.
   V-257939:
-    rule: inactive-password-lock
+    rules:
+      - inactive-password-lock
     title: RHEL 9 must protect against or limit the effects of denial-of-service (DoS) attacks by ensuring rate-limiting measures on impacted network interfaces are implemented.
   V-257942:
-    rule: kernel-unprivileged-bpf
+    rules:
+      - kernel-unprivileged-bpf
     severity: CAT II
     title: RHEL 9 must enable hardening for the Berkeley Packet Filter just-in-time compiler.
   V-257943:
-    rule: pam-pwquality-minlen
+    rules:
+      - pam-pwquality-minlen
     title: RHEL 9 must have the chrony package installed.
   V-257944:
-    rule: pam-pwquality-dcredit
+    rules:
+      - pam-pwquality-dcredit
     title: RHEL 9 chronyd service must be enabled.
   V-257945:
-    rule: pam-pwquality-ucredit
+    rules:
+      - pam-pwquality-ucredit
     title: RHEL 9 must securely compare internal information system clocks at least every 24 hours.
   V-257946:
-    rule: pam-pwquality-lcredit
+    rules:
+      - pam-pwquality-lcredit
     title: RHEL 9 must disable the chrony daemon from acting as a server.
   V-257947:
-    rule: pam-pwquality-ocredit
+    rules:
+      - pam-pwquality-ocredit
     title: RHEL 9 must disable network management of the chrony daemon.
   V-257948:
-    rule: pam-pwquality-difok
+    rules:
+      - pam-pwquality-difok
     title: RHEL 9 systems using Domain Name Servers (DNS) resolution must have at least two name servers configured.
   V-257949:
-    rule: pam-pwquality-minclass
+    rules:
+      - pam-pwquality-minclass
     title: RHEL 9 must configure a DNS processing mode in Network Manager.
   V-257950:
-    rule: pam-pwquality-maxrepeat
+    rules:
+      - pam-pwquality-maxrepeat
     title: RHEL 9 must not have unauthorized IP tunnels configured.
   V-257951:
-    rule: pam-pwquality-maxclassrepeat
+    rules:
+      - pam-pwquality-maxclassrepeat
     title: RHEL 9 must be configured to prevent unrestricted mail relaying.
   V-257953:
-    rule: password-remember
+    rules:
+      - password-remember
     title: RHEL 9 must forward mail from postmaster to the root account using a postfix alias.
   V-257954:
-    rule: login-defs-pass-max-days
+    rules:
+      - login-defs-pass-max-days
     title: RHEL 9 libreswan package must be installed.
   V-257955:
-    rule: login-defs-pass-min-days
+    rules:
+      - login-defs-pass-min-days
     title: There must be no shosts.equiv files on RHEL 9.
   V-257956:
-    rule: login-defs-pass-warn-age
+    rules:
+      - login-defs-pass-warn-age
     title: There must be no .shosts files on RHEL 9.
   V-257957:
-    rule: sysctl-net-ipv4-tcp-syncookies
+    rules:
+      - sysctl-net-ipv4-tcp-syncookies
     severity: CAT II
     title: RHEL 9 must be configured to use TCP syncookies.
   V-257958:
-    rule: sysctl-net-ipv4-conf-all-accept-redirects
+    rules:
+      - sysctl-net-ipv4-conf-all-accept-redirects
     severity: CAT II
     title: RHEL 9 must ignore Internet Protocol version 4 (IPv4) Internet Control Message Protocol (ICMP) redirect messages.
   V-257959:
-    rule: sysctl-net-ipv4-conf-all-accept-source-route
+    rules:
+      - sysctl-net-ipv4-conf-all-accept-source-route
     severity: CAT II
     title: RHEL 9 must not forward Internet Protocol version 4 (IPv4) source-routed packets.
   V-257960:
-    rule: sysctl-net-ipv4-conf-all-log-martians
+    rules:
+      - sysctl-net-ipv4-conf-all-log-martians
     severity: CAT II
     title: RHEL 9 must log IPv4 packets with impossible addresses.
   V-257961:
-    rule: sysctl-net-ipv4-conf-all-log-martians
+    rules:
+      - sysctl-net-ipv4-conf-all-log-martians
     severity: CAT II
     title: RHEL 9 must log IPv4 packets with impossible addresses by default.
   V-257962:
-    rule: sysctl-net-ipv4-conf-all-rp-filter
+    rules:
+      - sysctl-net-ipv4-conf-all-rp-filter
     severity: CAT II
     title: RHEL 9 must use reverse path filtering on all IPv4 interfaces.
   V-257963:
-    rule: sysctl-net-ipv4-conf-all-accept-redirects
+    rules:
+      - sysctl-net-ipv4-conf-all-accept-redirects
     severity: CAT II
     title: RHEL 9 must prevent IPv4 Internet Control Message Protocol (ICMP) redirect messages from being accepted.
   V-257964:
-    rule: sysctl-net-ipv4-conf-all-accept-source-route
+    rules:
+      - sysctl-net-ipv4-conf-all-accept-source-route
     severity: CAT II
     title: RHEL 9 must not forward IPv4 source-routed packets by default.
   V-257965:
-    rule: sysctl-net-ipv4-conf-all-rp-filter
+    rules:
+      - sysctl-net-ipv4-conf-all-rp-filter
     severity: CAT II
     title: RHEL 9 must use a reverse-path filter for IPv4 network traffic when possible by default.
   V-257966:
-    rule: sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+    rules:
+      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
     severity: CAT II
     title: RHEL 9 must not respond to Internet Control Message Protocol (ICMP) echoes sent to a broadcast address.
   V-257967:
-    rule: sysctl-net-ipv4-icmp-ignore-bogus-error-responses
+    rules:
+      - sysctl-net-ipv4-icmp-ignore-bogus-error-responses
     severity: CAT II
     title: RHEL 9 must limit the number of bogus Internet Control Message Protocol (ICMP) response errors logs.
   V-257968:
-    rule: sysctl-net-ipv4-conf-all-send-redirects
+    rules:
+      - sysctl-net-ipv4-conf-all-send-redirects
     severity: CAT II
     title: RHEL 9 must not send Internet Control Message Protocol (ICMP) redirects.
   V-257969:
-    rule: sysctl-net-ipv4-conf-all-accept-redirects
+    rules:
+      - sysctl-net-ipv4-conf-all-accept-redirects
     severity: CAT II
     title: RHEL 9 must not allow interfaces to perform Internet Control Message Protocol (ICMP) redirects by default.
   V-257970:
-    rule: sysctl-net-ipv4-ip-forward
+    rules:
+      - sysctl-net-ipv4-ip-forward
     severity: CAT II
     title: RHEL 9 must not enable IPv4 packet forwarding unless the system is a router.
   V-257971:
-    rule: sysctl-net-ipv6-conf-all-accept-ra
+    rules:
+      - sysctl-net-ipv6-conf-all-accept-ra
     severity: CAT II
     title: RHEL 9 must not accept router advertisements on all IPv6 interfaces.
   V-257972:
-    rule: sysctl-net-ipv6-conf-all-accept-redirects
+    rules:
+      - sysctl-net-ipv6-conf-all-accept-redirects
     severity: CAT II
     title: RHEL 9 must ignore IPv6 Internet Control Message Protocol (ICMP) redirect messages.
   V-257973:
-    rule: sysctl-net-ipv6-conf-all-accept-source-route
+    rules:
+      - sysctl-net-ipv6-conf-all-accept-source-route
     severity: CAT II
     title: RHEL 9 must not forward IPv6 source-routed packets.
   V-257974:
-    rule: sysctl-net-ipv6-conf-all-forwarding
+    rules:
+      - sysctl-net-ipv6-conf-all-forwarding
     severity: CAT II
     title: RHEL 9 must not enable IPv6 packet forwarding unless the system is a router.
   V-257975:
-    rule: sysctl-net-ipv6-conf-all-accept-ra
+    rules:
+      - sysctl-net-ipv6-conf-all-accept-ra
     severity: CAT II
     title: RHEL 9 must not accept router advertisements on all IPv6 interfaces by default.
   V-257976:
-    rule: sysctl-net-ipv6-conf-all-accept-redirects
+    rules:
+      - sysctl-net-ipv6-conf-all-accept-redirects
     severity: CAT II
     title: RHEL 9 must prevent IPv6 Internet Control Message Protocol (ICMP) redirect messages from being accepted.
   V-257977:
-    rule: sysctl-net-ipv6-conf-all-accept-source-route
+    rules:
+      - sysctl-net-ipv6-conf-all-accept-source-route
     severity: CAT II
     title: RHEL 9 must not forward IPv6 source-routed packets by default.
   V-257980:
-    rule: gpgcheck-enabled
+    rules:
+      - gpgcheck-enabled
     title: RHEL 9 must have the openssh-clients package installed.
   V-257981:
-    rule: banner-ssh-dod
+    rules:
+      - banner-ssh-dod
     severity: CAT II
     title: RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access to the system via a SSH logon.
   V-257982:
-    rule: repo-gpgcheck-enabled
+    rules:
+      - repo-gpgcheck-enabled
     title: RHEL 9 must log SSH connection attempts and failures to the server.
   V-257984:
-    rule: ssh-permit-empty-passwords
+    rules:
+      - ssh-permit-empty-passwords
     severity: CAT I
     title: RHEL 9 SSHD must not allow blank passwords.
   V-257985:
-    rule: ssh-disable-root-login
+    rules:
+      - ssh-disable-root-login
     severity: CAT II
     title: RHEL 9 must not permit direct logons to the root account using remote access via SSH.
   V-257989:
-    rule: ssh-ciphers-fips
+    rules:
+      - ssh-ciphers-fips
     severity: CAT II
     title: The RHEL 9 SSH server must be configured to use only DOD-approved encryption ciphers employing FIPS 140-3 validated cryptographic hash algorithms to protect the confidentiality of SSH server
       connections.
   V-257991:
-    rule: ssh-macs-fips
+    rules:
+      - ssh-macs-fips
     severity: CAT II
     title: The RHEL 9 SSH server must be configured to use only Message Authentication Codes (MACs) employing FIPS 140-3 validated cryptographic hash algorithms to protect the confidentiality of SSH server
       connections.
   V-257992:
-    rule: selinux-policy-targeted
+    rules:
+      - selinux-policy-targeted
     title: RHEL 9 must not allow a noncertificate trusted host SSH logon to the system.
   V-257993:
-    rule: ssh-permit-user-environment
+    rules:
+      - ssh-permit-user-environment
     severity: CAT II
     title: RHEL 9 must not allow users to override SSH environment variables.
   V-257994:
-    rule: crypto-policy-fips
+    rules:
+      - crypto-policy-fips
     title: RHEL 9 must force a frequent session key renegotiation for SSH connections to the server.
   V-257995:
-    rule: crypto-policy-no-weak
+    rules:
+      - crypto-policy-no-weak
     title: RHEL 9 must be configured so that all network connections associated with SSH traffic terminate after becoming unresponsive.
   V-257999:
-    rule: ssh-ignore-rhosts
+    rules:
+      - ssh-ignore-rhosts
     title: RHEL 9 SSH server configuration files' permissions must not be modified.
   V-258000:
-    rule: ssh-print-last-log
+    rules:
+      - ssh-print-last-log
     title: RHEL 9 SSH private host key files must have mode 0640 or less permissive.
   V-258004:
-    rule: ssh-ciphers-fips
+    rules:
+      - ssh-ciphers-fips
     title: RHEL 9 SSH daemon must not allow Kerberos authentication.
   V-258005:
-    rule: ssh-macs-fips
+    rules:
+      - ssh-macs-fips
     title: RHEL 9 SSH daemon must not allow rhosts authentication.
   V-258006:
-    rule: ssh-kex-fips
+    rules:
+      - ssh-kex-fips
     title: RHEL 9 SSH daemon must not allow known hosts authentication.
   V-258007:
-    rule: ssh-client-alive-interval
+    rules:
+      - ssh-client-alive-interval
     title: RHEL 9 SSH daemon must disable remote X connections for interactive users.
   V-258011:
-    rule: ssh-permit-empty-passwords
+    rules:
+      - ssh-permit-empty-passwords
     title: RHEL 9 SSH daemon must prevent remote hosts from connecting to the proxy display.
   V-258014:
-    rule: ssh-banner
+    rules:
+      - ssh-banner
     title: RHEL 9 must disable the graphical user interface automount function unless required.
   V-258018:
-    rule: coredump-suid-disabled
+    rules:
+      - coredump-suid-disabled
     title: RHEL 9 must not allow unattended or automatic logon via the graphical user interface.
   V-258019:
-    rule: kernel-yama-ptrace
+    rules:
+      - kernel-yama-ptrace
     title: RHEL 9 must be able to initiate directly a session lock for all connection types using smart card when the smart card is removed.
   V-258031:
-    rule: ctrl-alt-del-disabled
+    rules:
+      - ctrl-alt-del-disabled
     severity: CAT II
     title: RHEL 9 must disable the ability of a user to accidentally press Ctrl-Alt-Del and cause a system to shut down or reboot.
   V-258032:
-    rule: ctrl-alt-del-disabled
+    rules:
+      - ctrl-alt-del-disabled
     severity: CAT II
     title: RHEL 9 must prevent a user from overriding the Ctrl-Alt-Del sequence settings for the graphical user interface.
   V-258034:
-    rule: kmod-disable-usb-storage
+    rules:
+      - kmod-disable-usb-storage
     severity: CAT II
     title: RHEL 9 must be configured to disable USB mass storage.
   V-258039:
-    rule: kmod-disable-bluetooth
+    rules:
+      - kmod-disable-bluetooth
     severity: CAT II
     title: RHEL 9 Bluetooth must be disabled.
   V-258041:
-    rule: login-defs-pass-max-days
+    rules:
+      - login-defs-pass-max-days
     severity: CAT II
     title: RHEL 9 user account passwords for new users or password changes must have a 60-day maximum password lifetime restriction in /etc/login.defs.
   V-258042:
-    rule: login-defs-pass-max-days
+    rules:
+      - login-defs-pass-max-days
     severity: CAT II
     title: RHEL 9 user account passwords must have a 60-day maximum password lifetime restriction.
   V-258044:
-    rule: login-defs-umask
+    rules:
+      - login-defs-umask
     severity: CAT II
     title: RHEL 9 must set the umask value to 077 for all local interactive user accounts.
   V-258046:
-    rule: nologin-system-accounts
+    rules:
+      - nologin-system-accounts
     severity: CAT II
     title: RHEL 9 system accounts must not have an interactive login shell.
   V-258049:
-    rule: inactive-password-lock
+    rules:
+      - inactive-password-lock
     severity: CAT II
     title: RHEL 9 must disable account identifiers (individuals, groups, roles, and devices) after 35 days of inactivity.
   V-258054:
-    rule: pam-faillock-deny
+    rules:
+      - pam-faillock-deny
     severity: CAT II
     title: RHEL 9 must automatically lock an account when three unsuccessful logon attempts occur.
   V-258055:
-    rule: pam-faillock-even-deny-root
+    rules:
+      - pam-faillock-even-deny-root
     severity: CAT II
     title: RHEL 9 must automatically lock the root account until the root account is released by an administrator when three unsuccessful logon attempts occur during a 15-minute time period.
   V-258056:
-    rule: pam-faillock-fail-interval
+    rules:
+      - pam-faillock-fail-interval
     severity: CAT II
     title: RHEL 9 must automatically lock an account when three unsuccessful logon attempts occur during a 15-minute time period.
   V-258057:
-    rule: pam-faillock-unlock-time
+    rules:
+      - pam-faillock-unlock-time
     severity: CAT II
     title: RHEL 9 must maintain an account lock until the locked account is released by an administrator.
   V-258059:
-    rule: accounts-no-uid-zero
+    rules:
+      - accounts-no-uid-zero
     severity: CAT I
     title: The root account must be the only account having unrestricted access to RHEL 9 system.
   V-258068:
-    rule: shell-timeout
+    rules:
+      - shell-timeout
     severity: CAT II
     title: RHEL 9 must automatically exit interactive command shell user sessions after 10 minutes of inactivity.
   V-258077:
-    rule: shell-timeout
+    rules:
+      - shell-timeout
     severity: CAT II
     title: RHEL 9 must terminate idle user sessions.
   V-258079:
-    rule: selinux-policy-targeted
+    rules:
+      - selinux-policy-targeted
     severity: CAT II
     title: RHEL 9 must enable the SELinux targeted policy.
   V-258084:
-    rule: sudo-timeout
+    rules:
+      - sudo-timeout
     severity: CAT II
     title: RHEL 9 must require reauthentication when using the "sudo" command.
   V-258087:
-    rule: su-require-wheel
+    rules:
+      - su-require-wheel
     severity: CAT II
     title: RHEL 9 must restrict privilege elevation to authorized personnel.
   V-258088:
-    rule: su-require-wheel
+    rules:
+      - su-require-wheel
     severity: CAT II
     title: RHEL 9 must restrict the use of the "su" command.
   V-258094:
-    rule: ssh-permit-empty-passwords
+    rules:
+      - ssh-permit-empty-passwords
     severity: CAT I
     title: RHEL 9 must not allow blank or null passwords.
   V-258102:
-    rule: pam-pwquality-lcredit
+    rules:
+      - pam-pwquality-lcredit
     severity: CAT II
     title: RHEL 9 must enforce password complexity by requiring that at least one lowercase character be used.
   V-258103:
-    rule: pam-pwquality-dcredit
+    rules:
+      - pam-pwquality-dcredit
     severity: CAT II
     title: RHEL 9 must enforce password complexity by requiring that at least one numeric character be used.
   V-258104:
-    rule: login-defs-pass-min-days
+    rules:
+      - login-defs-pass-min-days
     severity: CAT II
     title: RHEL 9 passwords for new users or password changes must have a 24 hours minimum password lifetime restriction in /etc/login.defs.
   V-258105:
-    rule: login-defs-pass-min-days
+    rules:
+      - login-defs-pass-min-days
     severity: CAT II
     title: RHEL 9 passwords must have a 24 hours minimum password lifetime restriction in /etc/shadow.
   V-258107:
-    rule: pam-pwquality-minlen
+    rules:
+      - pam-pwquality-minlen
     severity: CAT II
     title: RHEL 9 passwords must be created with a minimum of 15 characters.
   V-258109:
-    rule: pam-pwquality-ocredit
+    rules:
+      - pam-pwquality-ocredit
     severity: CAT II
     title: RHEL 9 must enforce password complexity by requiring that at least one special character be used.
   V-258110:
-    rule: pam-pwquality-dictcheck
+    rules:
+      - pam-pwquality-dictcheck
     severity: CAT II
     title: RHEL 9 must prevent the use of dictionary words for passwords.
   V-258111:
-    rule: pam-pwquality-ucredit
+    rules:
+      - pam-pwquality-ucredit
     severity: CAT II
     title: RHEL 9 must enforce password complexity by requiring that at least one uppercase character be used.
   V-258112:
-    rule: pam-pwquality-difok
+    rules:
+      - pam-pwquality-difok
     severity: CAT II
     title: RHEL 9 must require the change of at least eight characters when passwords are changed.
   V-258113:
-    rule: pam-pwquality-maxclassrepeat
+    rules:
+      - pam-pwquality-maxclassrepeat
     severity: CAT II
     title: RHEL 9 must require the maximum number of repeating characters of the same character class be limited to four when passwords are changed.
   V-258114:
-    rule: pam-pwquality-maxrepeat
+    rules:
+      - pam-pwquality-maxrepeat
     severity: CAT II
     title: RHEL 9 must require the maximum number of repeating characters be limited to three when passwords are changed.
   V-258115:
-    rule: pam-pwquality-minclass
+    rules:
+      - pam-pwquality-minclass
     severity: CAT II
     title: RHEL 9 must require the change of at least four character classes when passwords are changed.
   V-258120:
-    rule: ssh-permit-empty-passwords
+    rules:
+      - ssh-permit-empty-passwords
     severity: CAT II
     title: RHEL 9 must not have accounts configured with blank or null passwords.
   V-258128:
-    rule: single-user-auth
+    rules:
+      - single-user-auth
     severity: CAT II
     title: RHEL 9 must require authentication to access emergency mode.
   V-258129:
-    rule: single-user-auth
+    rules:
+      - single-user-auth
     severity: CAT II
     title: RHEL 9 must require authentication to access single-user mode.
   V-258136:
-    rule: fips-mode-enabled
+    rules:
+      - fips-mode-enabled
     severity: CAT II
     title: RHEL 9 must use a file integrity tool that is configured to use FIPS 140-3-approved cryptographic hashes for validating file contents and directories.
   V-258151:
-    rule: auditd-service-enabled
+    rules:
+      - auditd-service-enabled
     severity: CAT II
     title: RHEL 9 audit package must be installed.
   V-258152:
-    rule: auditd-service-enabled
+    rules:
+      - auditd-service-enabled
     severity: CAT II
     title: RHEL 9 audit service must be enabled.
   V-258177:
-    rule: audit-permission-changes
+    rules:
+      - audit-permission-changes
     severity: CAT II
     title: RHEL 9 must audit all uses of the chmod, fchmod, and fchmodat system calls.
   V-258178:
-    rule: audit-chown-changes
+    rules:
+      - audit-chown-changes
     severity: CAT II
     title: RHEL 9 must audit all uses of the chown, fchown, fchownat, and lchown system calls.
   V-258179:
-    rule: audit-xattr-changes
+    rules:
+      - audit-xattr-changes
     severity: CAT II
     title: RHEL 9 must audit all uses of the setxattr, fsetxattr, lsetxattr, removexattr, fremovexattr, and lremovexattr system calls.
   V-258180:
-    rule: audit-mount-operations
+    rules:
+      - audit-mount-operations
     severity: CAT II
     title: RHEL 9 must audit all uses of umount system calls.
   V-258187:
-    rule: audit-file-deletion
+    rules:
+      - audit-file-deletion
     severity: CAT II
     title: RHEL 9 must audit all uses of the rename, unlink, rmdir, renameat, and unlinkat system calls.
   V-258189:
-    rule: audit-kernel-modules
+    rules:
+      - audit-kernel-modules
     severity: CAT II
     title: RHEL 9 must audit all uses of the delete_module system call.
   V-258190:
-    rule: audit-kernel-modules
+    rules:
+      - audit-kernel-modules
     severity: CAT II
     title: RHEL 9 must audit all uses of the init_module and finit_module system calls.
   V-258210:
-    rule: audit-mount-operations
+    rules:
+      - audit-mount-operations
     severity: CAT II
     title: RHEL 9 must audit all uses of the mount command.
   # V-258176: Needs rule implementation - audit-execve-syscall (complex, generates heavy audit logs)
   V-258181:
-    rule: audit-cmd-chacl
+    rules:
+      - audit-cmd-chacl
     severity: CAT II
     title: RHEL 9 must audit all uses of the chacl command.
   V-258182:
-    rule: audit-cmd-setfacl
+    rules:
+      - audit-cmd-setfacl
     severity: CAT II
     title: RHEL 9 must audit all uses of the setfacl command.
   V-258183:
-    rule: audit-cmd-chcon
+    rules:
+      - audit-cmd-chcon
     severity: CAT II
     title: RHEL 9 must audit all uses of the chcon command.
   V-258184:
-    rule: audit-cmd-semanage
+    rules:
+      - audit-cmd-semanage
     severity: CAT II
     title: RHEL 9 must audit all uses of the semanage command.
   V-258185:
-    rule: audit-cmd-setfiles
+    rules:
+      - audit-cmd-setfiles
     severity: CAT II
     title: RHEL 9 must audit all uses of the setfiles command.
   V-258186:
-    rule: audit-cmd-setsebool
+    rules:
+      - audit-cmd-setsebool
     severity: CAT II
     title: RHEL 9 must audit all uses of the setsebool command.
   V-258188:
-    rule: audit-unsuccessful-access
+    rules:
+      - audit-unsuccessful-access
     severity: CAT II
     title: RHEL 9 must audit all uses of the truncate, ftruncate, creat, open, openat, and open_by_handle_at system calls.
   V-258191:
-    rule: audit-cmd-chage
+    rules:
+      - audit-cmd-chage
     severity: CAT II
     title: RHEL 9 must audit all uses of the chage command.
   V-258192:
-    rule: audit-cmd-chsh
+    rules:
+      - audit-cmd-chsh
     severity: CAT II
     title: RHEL 9 must audit all uses of the chsh command.
   V-258193:
-    rule: audit-cmd-crontab
+    rules:
+      - audit-cmd-crontab
     severity: CAT II
     title: RHEL 9 must audit all uses of the crontab command.
   V-258194:
-    rule: audit-cmd-gpasswd
+    rules:
+      - audit-cmd-gpasswd
     severity: CAT II
     title: RHEL 9 must audit all uses of the gpasswd command.
   V-258195:
-    rule: audit-cmd-kmod
+    rules:
+      - audit-cmd-kmod
     severity: CAT II
     title: RHEL 9 must audit all uses of the kmod command.
   V-258196:
-    rule: audit-cmd-newgrp
+    rules:
+      - audit-cmd-newgrp
     severity: CAT II
     title: RHEL 9 must audit all uses of the newgrp command.
   V-258197:
-    rule: audit-cmd-pam-timestamp-check
+    rules:
+      - audit-cmd-pam-timestamp-check
     severity: CAT II
     title: RHEL 9 must audit all uses of the pam_timestamp_check command.
   V-258198:
-    rule: audit-cmd-passwd
+    rules:
+      - audit-cmd-passwd
     severity: CAT II
     title: RHEL 9 must audit all uses of the passwd command.
   V-258199:
-    rule: audit-cmd-postdrop
+    rules:
+      - audit-cmd-postdrop
     severity: CAT II
     title: RHEL 9 must audit all uses of the postdrop command.
   V-258200:
-    rule: audit-cmd-postqueue
+    rules:
+      - audit-cmd-postqueue
     severity: CAT II
     title: RHEL 9 must audit all uses of the postqueue command.
   V-258201:
-    rule: audit-cmd-ssh-agent
+    rules:
+      - audit-cmd-ssh-agent
     severity: CAT II
     title: RHEL 9 must audit all uses of the ssh-agent command.
   V-258202:
-    rule: audit-cmd-ssh-keysign
+    rules:
+      - audit-cmd-ssh-keysign
     severity: CAT II
     title: RHEL 9 must audit all uses of the ssh-keysign command.
   V-258203:
-    rule: audit-cmd-su
+    rules:
+      - audit-cmd-su
     severity: CAT II
     title: RHEL 9 must audit all uses of the su command.
   V-258204:
-    rule: audit-cmd-sudo
+    rules:
+      - audit-cmd-sudo
     severity: CAT II
     title: RHEL 9 must audit all uses of the sudo command.
   V-258205:
-    rule: audit-cmd-sudoedit
+    rules:
+      - audit-cmd-sudoedit
     severity: CAT II
     title: RHEL 9 must audit all uses of the sudoedit command.
   V-258206:
-    rule: audit-cmd-unix-chkpwd
+    rules:
+      - audit-cmd-unix-chkpwd
     severity: CAT II
     title: RHEL 9 must audit all uses of the unix_chkpwd command.
   V-258207:
-    rule: audit-cmd-unix-update
+    rules:
+      - audit-cmd-unix-update
     severity: CAT II
     title: RHEL 9 must audit all uses of the unix_update command.
   V-258208:
-    rule: audit-cmd-userhelper
+    rules:
+      - audit-cmd-userhelper
     severity: CAT II
     title: RHEL 9 must audit all uses of the userhelper command.
   V-258209:
-    rule: audit-cmd-usermod
+    rules:
+      - audit-cmd-usermod
     severity: CAT II
     title: RHEL 9 must audit all uses of the usermod command.
   V-258211:
-    rule: audit-cmd-init
+    rules:
+      - audit-cmd-init
     severity: CAT II
     title: Successful/unsuccessful uses of the init command in RHEL 9 must generate an audit record.
   V-258212:
-    rule: audit-cmd-poweroff
+    rules:
+      - audit-cmd-poweroff
     severity: CAT II
     title: Successful/unsuccessful uses of the poweroff command in RHEL 9 must generate an audit record.
   V-258213:
-    rule: audit-cmd-reboot
+    rules:
+      - audit-cmd-reboot
     severity: CAT II
     title: Successful/unsuccessful uses of the reboot command in RHEL 9 must generate an audit record.
   V-258214:
-    rule: audit-cmd-shutdown
+    rules:
+      - audit-cmd-shutdown
     severity: CAT II
     title: Successful/unsuccessful uses of the shutdown command in RHEL 9 must generate an audit record.
   V-258215:
-    rule: audit-mount-operations
+    rules:
+      - audit-mount-operations
     severity: CAT II
     title: Successful/unsuccessful uses of the umount system call in RHEL 9 must generate an audit record.
   V-258216:
-    rule: audit-mount-operations
+    rules:
+      - audit-mount-operations
     severity: CAT II
     title: Successful/unsuccessful uses of the umount2 system call in RHEL 9 must generate an audit record.
   V-258217:
-    rule: audit-user-group-changes
+    rules:
+      - audit-user-group-changes
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/sudoers.
   V-258218:
-    rule: audit-user-group-changes
+    rules:
+      - audit-user-group-changes
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/sudoers.d/ directory.
   V-258219:
-    rule: audit-user-group-changes
+    rules:
+      - audit-user-group-changes
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/group.
   V-258220:
-    rule: audit-user-group-changes
+    rules:
+      - audit-user-group-changes
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/gshadow.
   V-258221:
-    rule: audit-file-opasswd
+    rules:
+      - audit-file-opasswd
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/opasswd.
   V-258222:
-    rule: audit-file-passwd
+    rules:
+      - audit-file-passwd
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/passwd.
   V-258223:
-    rule: audit-file-shadow
+    rules:
+      - audit-file-shadow
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/shadow.
   V-258224:
-    rule: audit-file-faillock
+    rules:
+      - audit-file-faillock
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /var/log/faillock.
   V-258225:
-    rule: audit-file-lastlog
+    rules:
+      - audit-file-lastlog
     severity: CAT II
     title: RHEL 9 must generate audit records for all account creations, modifications, disabling, and termination events that affect /var/log/lastlog.
   V-258230:
-    rule: fips-mode-enabled
+    rules:
+      - fips-mode-enabled
     severity: CAT I
     title: RHEL 9 must enable FIPS mode.
   V-258231:
-    rule: fips-mode-enabled
+    rules:
+      - fips-mode-enabled
     severity: CAT II
     title: RHEL 9 must employ FIPS 140-3 approved cryptographic hashing algorithms for all stored passwords.
   V-258232:
-    rule: fips-mode-enabled
+    rules:
+      - fips-mode-enabled
     severity: CAT II
     title: RHEL 9 IP tunnels must use FIPS 140-3 approved cryptographic algorithms.
   V-258233:
-    rule: fips-mode-enabled
+    rules:
+      - fips-mode-enabled
     severity: CAT II
     title: RHEL 9 pam_unix.so module must be configured in the password-auth file to use a FIPS 140-3 approved cryptographic hashing algorithm for system authentication.
   V-258241:
-    rule: fips-mode-enabled
+    rules:
+      - fips-mode-enabled
     severity: CAT II
     title: RHEL 9 must implement a FIPS 140-3-compliant systemwide cryptographic policy.
   V-270177:
-    rule: ssh-ciphers-fips
+    rules:
+      - ssh-ciphers-fips
     severity: CAT II
     title: The RHEL 9 SSH client must be configured to use only DOD-approved encryption ciphers employing FIPS 140-3 validated cryptographic hash algorithms to protect the confidentiality of SSH client
       connections.
   V-270178:
-    rule: ssh-macs-fips
+    rules:
+      - ssh-macs-fips
     severity: CAT II
     title: The RHEL 9 SSH client must be configured to use only DOD-approved Message Authentication Codes (MACs) employing FIPS 140-3 validated cryptographic hash algorithms to protect the confidentiality
       of SSH client connections.
   # Package rules
   V-257935:
-    rule: pkg-firewalld-present
+    rules:
+      - pkg-firewalld-present
     severity: CAT II
     title: RHEL 9 must have the firewalld package installed.
   V-257978:
-    rule: pkg-openssh-server-present
+    rules:
+      - pkg-openssh-server-present
     severity: CAT II
     title: All RHEL 9 networked systems must have SSH installed.
   V-257979:
-    rule: pkg-openssh-server-present
+    rules:
+      - pkg-openssh-server-present
     severity: CAT II
     title: All RHEL 9 networked systems must have and implement SSH to protect the confidentiality and integrity of transmitted and received information.
   V-258081:
-    rule: pkg-policycoreutils-present
+    rules:
+      - pkg-policycoreutils-present
     severity: CAT II
     title: RHEL 9 must have policycoreutils package installed.
   V-258082:
-    rule: pkg-policycoreutils-python-utils-present
+    rules:
+      - pkg-policycoreutils-python-utils-present
     severity: CAT II
     title: RHEL 9 policycoreutils-python-utils package must be installed.
   V-258083:
-    rule: pkg-sudo-present
+    rules:
+      - pkg-sudo-present
     severity: CAT II
     title: RHEL 9 must have the sudo package installed.
   V-258140:
-    rule: pkg-rsyslog-present
+    rules:
+      - pkg-rsyslog-present
     severity: CAT II
     title: RHEL 9 must have the rsyslog package installed.
   V-258141:
-    rule: pkg-rsyslog-gnutls-present
+    rules:
+      - pkg-rsyslog-gnutls-present
     severity: CAT II
     title: RHEL 9 must have the packages required for encrypting offloaded audit logs installed.
   V-258142:
-    rule: rsyslog-service-enabled
+    rules:
+      - rsyslog-service-enabled
     severity: CAT II
     title: The rsyslog service on RHEL 9 must be active.
   V-258143:
-    rule: rsyslog-no-remote-receive
+    rules:
+      - rsyslog-no-remote-receive
     severity: CAT II
     title: RHEL 9 must be configured so that the rsyslog daemon does not accept log messages from other servers unless the server is being used for log aggregation.
   V-258150:
-    rule: cron-logging
+    rules:
+      - cron-logging
     severity: CAT II
     title: RHEL 9 must use cron logging.
   V-258175:
-    rule: pkg-audispd-plugins-present
+    rules:
+      - pkg-audispd-plugins-present
     severity: CAT II
     title: RHEL 9 audispd-plugins package must be installed.
   V-258234:
-    rule: pkg-crypto-policies-present
+    rules:
+      - pkg-crypto-policies-present
     severity: CAT II
     title: RHEL 9 must have the crypto-policies package installed.
   V-258236:
-    rule: crypto-policy-not-overridden
+    rules:
+      - crypto-policy-not-overridden
     severity: CAT I
     title: RHEL 9 cryptographic policy must not be overridden.
   V-272488:
-    rule: pkg-postfix-present
+    rules:
+      - pkg-postfix-present
     severity: CAT II
     title: RHEL 9 must have the Postfix package installed.
   # Additional package rules
   V-257830:
-    rule: pkg-krb5-server-absent
+    rules:
+      - pkg-krb5-server-absent
     severity: CAT II
     title: RHEL 9 must not have the krb5-server package installed.
   V-257831:
-    rule: pkg-krb5-workstation-absent
+    rules:
+      - pkg-krb5-workstation-absent
     severity: CAT II
     title: RHEL 9 must not have the krb5-workstation package installed.
   V-257835:
-    rule: pkg-libnsl-absent
+    rules:
+      - pkg-libnsl-absent
     severity: CAT III
     title: RHEL 9 must not have the libnsl package installed.
   V-257837:
-    rule: pkg-telnet-server-absent
+    rules:
+      - pkg-telnet-server-absent
     severity: CAT I
     title: RHEL 9 must not have the telnet-server package installed.
   # Kernel boot parameter rules
   V-257792:
-    rule: grub-vsyscall-none
+    rules:
+      - grub-vsyscall-none
     severity: CAT II
     title: RHEL 9 must disable virtual system calls.
   V-257793:
-    rule: grub-page-alloc-shuffle
+    rules:
+      - grub-page-alloc-shuffle
     severity: CAT II
     title: RHEL 9 must clear the page allocator to prevent use-after-free attacks.
   V-257794:
-    rule: grub-slub-debug
+    rules:
+      - grub-slub-debug
     severity: CAT II
     title: RHEL 9 must clear memory when it is freed to prevent use-after-free attacks.
   V-257795:
-    rule: grub-processor-mitigations
+    rules:
+      - grub-processor-mitigations
     severity: CAT III
     title: RHEL 9 must enable mitigations against processor-based vulnerabilities.
   V-257796:
-    rule: grub-audit-enabled
+    rules:
+      - grub-audit-enabled
     severity: CAT III
     title: RHEL 9 must enable auditing of processes that start prior to the audit daemon.
   # SSH rules
   V-257983:
-    rule: ssh-pubkey-authentication
+    rules:
+      - ssh-pubkey-authentication
     severity: CAT II
     title: RHEL 9 SSHD must accept public key authentication.
   V-257986:
-    rule: ssh-use-pam
+    rules:
+      - ssh-use-pam
     severity: CAT I
     title: RHEL 9 must enable the Pluggable Authentication Module (PAM) interface for SSHD.
   V-258002:
-    rule: ssh-compression
+    rules:
+      - ssh-compression
     severity: CAT II
     title: RHEL 9 SSH daemon must not allow compression or must only allow compression after successful authentication.
   V-258003:
-    rule: ssh-gssapi-authentication
+    rules:
+      - ssh-gssapi-authentication
     severity: CAT II
     title: RHEL 9 SSH daemon must not allow GSSAPI authentication.
   V-258008:
-    rule: ssh-strict-modes
+    rules:
+      - ssh-strict-modes
     severity: CAT II
     title: RHEL 9 SSH daemon must perform strict mode checking of home directory configuration files.
   V-258009:
-    rule: ssh-print-last-log
+    rules:
+      - ssh-print-last-log
     severity: CAT II
     title: RHEL 9 SSH daemon must display the date and time of the last successful account logon upon an SSH logon.
   V-257996:
-    rule: ssh-client-alive-interval
+    rules:
+      - ssh-client-alive-interval
     severity: CAT II
     title: RHEL 9 must be configured so that all network connections associated with SSH traffic are terminated after becoming unresponsive.
   V-257997:
-    rule: ssh-config-permissions
+    rules:
+      - ssh-config-permissions
     severity: CAT II
     title: RHEL 9 SSH server configuration file must be group-owned by root.
   V-257998:
-    rule: ssh-config-permissions
+    rules:
+      - ssh-config-permissions
     severity: CAT II
     title: RHEL 9 SSH server configuration file must be owned by root.
   V-258001:
-    rule: ssh-public-key-permissions
+    rules:
+      - ssh-public-key-permissions
     severity: CAT II
     title: RHEL 9 SSH public host key files must have mode 0644 or less permissive.
   # Cron and audit permissions
   V-257926:
-    rule: cron-permissions
+    rules:
+      - cron-permissions
     severity: CAT II
     title: RHEL 9 cron configuration files directory must be owned by root.
   V-257927:
-    rule: cron-permissions
+    rules:
+      - cron-permissions
     severity: CAT II
     title: RHEL 9 cron configuration files directory must be group-owned by root.
   V-257924:
-    rule: audit-binary-permissions
+    rules:
+      - audit-binary-permissions
     severity: CAT II
     title: RHEL 9 audit tools must be owned by root.
   V-257925:
-    rule: audit-binary-permissions
+    rules:
+      - audit-binary-permissions
     severity: CAT II
     title: RHEL 9 audit tools must be group-owned by root.
   # SELinux and umask rules
   V-258078:
-    rule: selinux-enforcing
+    rules:
+      - selinux-enforcing
     severity: CAT I
     title: RHEL 9 must use a Linux Security Module configured to enforce limits on system services.
   V-258074:
-    rule: login-defs-umask
+    rules:
+      - login-defs-umask
     severity: CAT II
     title: RHEL 9 must define default permissions for all authenticated users.
   V-258060:
-    rule: pam-faillock-unlock-time
+    rules:
+      - pam-faillock-unlock-time
     severity: CAT II
     title: RHEL 9 must ensure account lockouts persist.
   V-257781:
-    rule: no-graphical-target
+    rules:
+      - no-graphical-target
     severity: CAT II
     title: The graphical display manager must not be the default target on RHEL 9 unless approved.
   # AIDE rules
   V-258134:
-    rule: aide-installed
+    rules:
+      - aide-installed
     severity: CAT II
     title: RHEL 9 must have the AIDE package installed.
   V-258135:
-    rule: aide-cron-check
+    rules:
+      - aide-cron-check
     severity: CAT II
     title: RHEL 9 must routinely check the baseline configuration for unauthorized changes.
   V-258137:
-    rule: aide-audit-tools
+    rules:
+      - aide-audit-tools
     severity: CAT II
     title: RHEL 9 must use cryptographic mechanisms to protect the integrity of audit tools.
   # Sudo rules
   V-258085:
-    rule: sudo-require-auth
+    rules:
+      - sudo-require-auth
     severity: CAT II
     title: RHEL 9 must use the invoking user's password for privilege escalation when using sudo.
   V-258086:
-    rule: sudo-timeout
+    rules:
+      - sudo-timeout
     severity: CAT II
     title: RHEL 9 must require users to reauthenticate for privilege escalation.
   V-258106:
-    rule: sudo-require-auth
+    rules:
+      - sudo-require-auth
     severity: CAT II
     title: RHEL 9 must require users to provide a password for privilege escalation.
   V-258118:
-    rule: sudo-require-auth
+    rules:
+      - sudo-require-auth
     severity: CAT II
     title: RHEL 9 must not be configured to bypass password requirements for privilege escalation.
   # Shadow password rules
   V-258116:
-    rule: login-defs-encrypt-method
+    rules:
+      - login-defs-encrypt-method
     severity: CAT II
     title: RHEL 9 must be configured so that user and group account administration utilities store only encrypted passwords.
   V-258117:
-    rule: accounts-password-shadowed
+    rules:
+      - accounts-password-shadowed
     severity: CAT II
     title: RHEL 9 must be configured to use the shadow file to store only encrypted representations of passwords.
   # Auditd configuration rules
   V-258153:
-    rule: auditd-disk-error-action
+    rules:
+      - auditd-disk-error-action
     severity: CAT II
     title: RHEL 9 audit system must take appropriate action when an error writing to the audit storage volume occurs.
   V-258154:
-    rule: auditd-disk-full-action
+    rules:
+      - auditd-disk-full-action
     severity: CAT II
     title: RHEL 9 audit system must take appropriate action when the audit storage volume is full.
   V-258156:
-    rule: auditd-space-action
+    rules:
+      - auditd-space-action
     severity: CAT II
     title: RHEL 9 must take action when allocated audit record storage volume reaches 75 percent.
   V-258160:
-    rule: auditd-max-log-file-action
+    rules:
+      - auditd-max-log-file-action
     severity: CAT II
     title: RHEL 9 audit system must take appropriate action when the audit files have reached maximum size.
   V-258163:
-    rule: auditd-action-mail-acct
+    rules:
+      - auditd-action-mail-acct
     severity: CAT II
     title: RHEL 9 SA/ISSO must be alerted of an audit processing failure event.
   V-258165:
-    rule: audit-log-permissions
+    rules:
+      - audit-log-permissions
     severity: CAT II
     title: RHEL 9 audit logs must be group-owned by root.
   V-258166:
-    rule: audit-log-dir-permissions
+    rules:
+      - audit-log-dir-permissions
     severity: CAT II
     title: RHEL 9 audit log directory must be owned by root.
   V-258167:
-    rule: audit-log-permissions
+    rules:
+      - audit-log-permissions
     severity: CAT II
     title: RHEL 9 audit logs file must have mode 0600 or less permissive.
 unimplemented:

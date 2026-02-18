@@ -103,7 +103,7 @@ def generate_baseline(mapping_path: Path, output_path: Path) -> int:
     framework_id: str = mapping["id"]
     title: str = mapping["title"]
     control_ids: list[str] = [str(cid) for cid in mapping["control_ids"]]
-    sections: dict = mapping.get("sections", {})
+    sections: dict = mapping.get("controls", {})
     unimplemented: dict = mapping.get("unimplemented", {})
 
     total_controls = len(control_ids)
@@ -120,12 +120,13 @@ def generate_baseline(mapping_path: Path, output_path: Path) -> int:
 
         if cid_str in sections:
             sec = sections[cid_str]
+            rules = sec.get("rules", [])
             entry = _build_control_entry(
                 section_id=cid_str,
                 title=sec.get("title", ""),
                 level=sec.get("level"),
                 control_type=sec.get("type"),
-                rule_id=sec.get("rule"),
+                rule_id=rules[0] if rules else None,
             )
         elif cid_str in unimplemented:
             unimp = unimplemented[cid_str]
