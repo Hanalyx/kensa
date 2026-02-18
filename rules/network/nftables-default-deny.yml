@@ -44,8 +44,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "echo 'OK: nftables not active (using firewalld)'; exit 0"
+      run: "systemctl is-active firewalld >/dev/null 2>&1 && echo 'OK: using firewalld' || { echo 'FAIL: no firewall active'; exit 1; }"
       expected_exit: 0
     remediation:
       mechanism: manual
-      note: "nftables service is not active."
+      note: "Enable either firewalld or nftables to enforce firewall policies."
