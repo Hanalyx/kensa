@@ -22,7 +22,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: "auditctl -l 2>/dev/null | grep -qE '^-e 2'"
+      run: "auditctl -s 2>/dev/null | grep -qE '^enabled\\s+2'"
       expected_exit: 0
     remediation:
       mechanism: audit_rule_set

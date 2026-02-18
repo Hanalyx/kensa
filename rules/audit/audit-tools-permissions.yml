@@ -20,7 +20,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: "stat -c '%a' /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules 2>/dev/null | awk '{if ($1 > 755) exit 1}'"
+      run: "stat -c '%a' /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules 2>/dev/null | awk '{if ($1+0 > 755) exit 1}'"
       expected_exit: 0
       expected_stdout: ""
     remediation:
