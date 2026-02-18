@@ -11,6 +11,8 @@ severity: medium
 category: services
 tags: [service, kdump, crash-dump, memory, stig]
 
+conflicts_with: [kdump-disabled]
+
 references:
   stig:
     rhel9_v2r7:

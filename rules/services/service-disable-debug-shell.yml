@@ -11,6 +11,8 @@ severity: high
 category: services
 tags: [service, debug, console, physical-security, stig]
 
+conflicts_with: [debug-shell-disabled]
+
 references:
   stig:
     rhel9_v2r7:

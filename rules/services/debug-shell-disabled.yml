@@ -10,6 +10,8 @@ severity: high
 category: services
 tags: [service, systemd, debug, security]
 
+conflicts_with: [service-disable-debug-shell]
+
 references:
   stig:
     rhel9_v2r7:

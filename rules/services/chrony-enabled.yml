@@ -8,6 +8,8 @@ severity: medium
 category: services
 tags: [service, ntp, time]
 
+depends_on: [chrony-installed]
+
 references:
   cis:
     rhel9_v2: { section: "2.3.1", level: "L1", type: "Automated" }

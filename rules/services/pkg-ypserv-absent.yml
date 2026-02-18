@@ -10,6 +10,8 @@ severity: medium
 category: services
 tags: [package, nis, attack-surface]
 
+conflicts_with: [package-ypserv-removed]
+
 references:
   stig:
     rhel9_v2r7:

@@ -10,6 +10,8 @@ severity: medium
 category: services
 tags: [service, systemd, kdump]
 
+conflicts_with: [service-disable-kdump]
+
 references:
   stig:
     rhel9_v2r7:
