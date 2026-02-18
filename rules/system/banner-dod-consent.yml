@@ -30,9 +30,9 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "grep -Ei 'authorized|consent|monitoring|privacy|activity' /etc/issue 2>/dev/null"
-      expected_exit: 0
+      method: file_content
+      path: "/etc/issue"
+      expected_content: "{{ banner_text }}"
     remediation:
       mechanism: file_content
       path: "/etc/issue"

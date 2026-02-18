@@ -26,20 +26,9 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: |
-        if [ ! -f /etc/issue.net ]; then
-          echo "FAIL: /etc/issue.net does not exist"
-          exit 1
-        fi
-        grep -qEi '(\\v|\\r|\\m|\\s)' /etc/issue.net 2>/dev/null
-        if [ $? -eq 0 ]; then
-          echo "FAIL: /etc/issue.net contains OS escape sequences"
-          exit 1
-        fi
-        echo "OK: /etc/issue.net properly configured"
-        exit 0
-      expected_exit: 0
+      method: file_content
+      path: "/etc/issue.net"
+      expected_content: "{{ banner_text }}"
     remediation:
       mechanism: file_content
       path: "/etc/issue.net"

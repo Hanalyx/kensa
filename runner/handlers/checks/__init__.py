@@ -6,7 +6,7 @@ function for running checks against remote hosts.
 Handler Modules:
     - _config: config_value, config_absent
     - _file: file_permission, file_exists, file_not_exists,
-             file_content_match, file_content_no_match
+             file_content, file_content_match, file_content_no_match
     - _system: sysctl_value, kernel_module_state, mount_option, grub_parameter
     - _service: service_state
     - _package: package_state
@@ -31,6 +31,7 @@ from runner._types import CheckResult, Evidence
 from runner.handlers.checks._command import _check_command
 from runner.handlers.checks._config import _check_config_absent, _check_config_value
 from runner.handlers.checks._file import (
+    _check_file_content,
     _check_file_content_match,
     _check_file_content_no_match,
     _check_file_exists,
@@ -67,6 +68,7 @@ CHECK_HANDLERS = {
     "file_permission": _check_file_permission,
     "file_exists": _check_file_exists,
     "file_not_exists": _check_file_not_exists,
+    "file_content": _check_file_content,
     "file_content_match": _check_file_content_match,
     "file_content_no_match": _check_file_content_no_match,
     # System handlers

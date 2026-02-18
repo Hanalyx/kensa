@@ -464,6 +464,72 @@ class TestFileExists:
         assert r.passed is False
 
 
+class TestFileContent:
+    def test_content_matches(self, mock_ssh):
+        banner = "Authorized uses only. All activity may be monitored and reported."
+        ssh = mock_ssh(
+            {
+                "cat": Result(exit_code=0, stdout=banner, stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_content_mismatch(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "cat": Result(
+                    exit_code=0,
+                    stdout="Old banner text from previous admin.",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": "New organization consent warning.",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "does not match" in r.detail
+
+    def test_file_not_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "cat": Result(exit_code=1, stdout="", stderr="No such file"),
+            }
+        )
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": "Banner text",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail or "not readable" in r.detail
+
+    def test_trailing_newline_ignored(self, mock_ssh):
+        """Trailing newlines should not cause a mismatch."""
+        ssh = mock_ssh(
+            {
+                "cat": Result(exit_code=0, stdout="Banner text\n", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": "Banner text\n",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+
 class TestMultiConditionCheck:
     def test_all_pass(self, mock_ssh):
         ssh = mock_ssh(

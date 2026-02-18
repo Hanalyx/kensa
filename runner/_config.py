@@ -49,7 +49,9 @@ VARIABLE_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 
 SAFE_SUBSTITUTION_FIELDS = frozenset(
     {
+        "content",
         "expected",
+        "expected_content",
         "value",
         "mode",
         "owner",
