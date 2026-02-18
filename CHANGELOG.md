@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.6.9 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Correct runtime-critical field and schema bugs
+  ([`73045c6`](https://github.com/Hanalyx/aegis/commit/73045c6890d5d7d8dfc4f156201fa293c187de05))
+
+### Chores
+
+- **rules**: Add missing framework references to access-control rules
+  ([`605844d`](https://github.com/Hanalyx/aegis/commit/605844d703e5e082da0b99f2dd942372e79289bf))
+
+### Documentation
+
+- Add audit category review plan
+  ([`ee9c117`](https://github.com/Hanalyx/aegis/commit/ee9c1170237461f16d4cea17574003e778630bcc))
+
+- Update CLAUDE.md and review guide after access-control review
+  ([`65fa490`](https://github.com/Hanalyx/aegis/commit/65fa4909f912a979f4ef0518d27323d5dded1248))
+
+
 ## v1.6.8 (2026-02-18)
 
 ### Bug Fixes
