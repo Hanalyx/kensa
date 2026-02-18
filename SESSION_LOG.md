@@ -4,6 +4,23 @@ Append-only. Most recent session first. Read at start of each session for contex
 
 ---
 
+## 2026-02-18 — Customizable login banner text (PR #62)
+
+### Done
+- Replaced hardcoded DOD consent banner with `{{ banner_text }}` template variable
+- Added `banner_text` variable to `rules/defaults.yml` with generic default
+- Updated `banner-dod-consent.yml`: framework-agnostic title/description, automated
+  `file_content` remediation for `/etc/issue` using `{{ banner_text }}`
+- Updated `issue-net-configured.yml`: switched to `{{ banner_text }}` for `/etc/issue.net`,
+  widened platform scope from RHEL 9 to RHEL 8+, added CIS RHEL 8 v4.0.0 reference
+- Created `rules/rules.d/99-banner-example.yml.example` with documented override template
+- Variable priority: CLI `--var` > `rules/rules.d/*.yml` > framework defaults > `defaults.yml`
+
+### Coverage
+- Tests: 200 pass, 508 rules valid
+
+---
+
 ## 2026-02-18 — Fix command handler expected_stdout="" false positive (PR #61)
 
 ### Done

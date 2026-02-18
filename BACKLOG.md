@@ -49,6 +49,11 @@ context to start without additional preamble.
 
 ## Completed
 
+- [x] **Customizable login banner text** _(2026-02-18)_
+  PR #62: Replaced hardcoded DOD consent banner with `{{ banner_text }}` template variable.
+  Updated `banner-dod-consent` and `issue-net-configured` to use `file_content` remediation
+  with `{{ banner_text }}`. Added example override template `rules/rules.d/99-banner-example.yml.example`.
+
 - [x] **Fix command handler expected_stdout="" false positive** _(2026-02-18)_
   PR #61: `expected_stdout: ""` always passed due to `"" in any_string` being True.
   19 rules affected (audit permissions, crypto-policy-no-sha1, file checks).
