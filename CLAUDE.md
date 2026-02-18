@@ -55,8 +55,8 @@ runner/                  # Core Python package
 └── output/             # JSON, CSV, PDF, evidence export
 
 rules/                   # 484 YAML compliance rules
-├── access-control/     # 114 rules (largest, reviewed)
-├── audit/              # 92 rules
+├── access-control/     # 114 rules (largest, reviewed PRs #13-#20)
+├── audit/              # 92 rules (reviewed PRs #21-#28)
 ├── services/           # 92 rules
 ├── system/             # 56 rules
 ├── filesystem/         # 51 rules
@@ -95,7 +95,8 @@ scripts/                 # Dev tooling
 tests/                   # 198 pytest tests
 
 RULE_REVIEW_GUIDE_V0.md  # Rule review criteria (5 dimensions)
-ACCESS_CONTROL_REVIEW_PLAN.md # Completed access-control review plan
+ACCESS_CONTROL_REVIEW_PLAN.md # Completed access-control review plan (PRs #13-#20)
+AUDIT_REVIEW_PLAN.md     # Completed audit review plan (PRs #21-#28)
 ```
 
 ## Key Conventions
