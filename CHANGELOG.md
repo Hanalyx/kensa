@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.6 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Migrate 23 SSH rules from static config to effective config
+  ([`16f5c9f`](https://github.com/Hanalyx/aegis/commit/16f5c9f3b1805b5dec6d8afcbd679eb16210f738))
+
+
 ## v1.6.5 (2026-02-18)
 
 ### Bug Fixes
