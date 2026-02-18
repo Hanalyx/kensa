@@ -9,6 +9,7 @@ category: audit
 tags: [aide, integrity, scheduled]
 
 conflicts_with: [aide-cron-check]
+depends_on: [aide-installed]
 
 references:
   cis:
