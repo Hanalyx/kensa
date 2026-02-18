@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.14 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Add missing separator for auditd.conf and remove error-swallowing 2>/dev/null
+  ([`48b5ab2`](https://github.com/Hanalyx/aegis/commit/48b5ab2dcbf782ec5f99ad8970861920ea540981))
+
+
 ## v1.6.13 (2026-02-18)
 
 ### Bug Fixes
