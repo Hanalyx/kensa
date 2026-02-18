@@ -24,10 +24,9 @@ implementations:
     check:
       method: file_permission
       path: "/etc/motd"
-      max_mode: "0644"
+      mode: "0644"
       owner: "root"
       group: "root"
-      missing_ok: true
     remediation:
       mechanism: file_permissions
       path: "/etc/motd"

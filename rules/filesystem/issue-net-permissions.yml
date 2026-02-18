@@ -24,7 +24,7 @@ implementations:
     check:
       method: file_permission
       path: "/etc/issue.net"
-      max_mode: "0644"
+      mode: "0644"
       owner: "root"
       group: "root"
     remediation:
