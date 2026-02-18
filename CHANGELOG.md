@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.41 (2026-02-18)
+
+### Bug Fixes
+
+- **network**: Improve check accuracy for wireless and nftables rules
+  ([`a2b03d0`](https://github.com/Hanalyx/aegis/commit/a2b03d0bd128c4e3fd98dca71eb24903c05c2aa9))
+
+
 ## v1.6.40 (2026-02-18)
 
 ### Bug Fixes
