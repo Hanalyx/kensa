@@ -13,6 +13,8 @@ conflicts_with:
   - sysctl-icmp-redirects-disabled
 
 references:
+  cis:
+    rhel8_v4: { section: "3.3.1.9", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "SC-5"]
 
 platforms:

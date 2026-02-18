@@ -19,6 +19,8 @@ references:
     rhel9_v2r7:
       vuln_id: "V-257957"
       severity: "CAT II"
+  cis:
+    rhel8_v4: { section: "3.3.1.18", level: "L1", type: "Automated" }
   nist_800_53: ["SC-5"]
 
 platforms:
