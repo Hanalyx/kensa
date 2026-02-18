@@ -29,9 +29,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grubby --info=ALL 2>/dev/null | grep -E '^args=.*selinux=0' | head -1"
+      run: "! grubby --info=ALL 2>/dev/null | grep -qE '^args=.*selinux=0'"
       expected_exit: 0
-      expected_stdout: ""
     remediation:
       mechanism: command_exec
       run: "grubby --update-kernel=ALL --remove-args='selinux=0'"

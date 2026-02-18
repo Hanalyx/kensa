@@ -29,7 +29,7 @@ implementations:
   - when: crypto_policy_modules
     check:
       method: command
-      run: "update-crypto-policies --show | grep -v SHA1"
+      run: "update-crypto-policies --show | grep -q 'NO-SHA1'"
       expected_exit: 0
     remediation:
       mechanism: command_exec
