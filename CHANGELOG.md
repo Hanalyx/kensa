@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.19 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Fix chrony-user separator and debug-shell handler type
+  ([`e45936d`](https://github.com/Hanalyx/aegis/commit/e45936dbdf6d78974c6ec55a214dd012d8bc0b18))
+
+
 ## v1.6.18 (2026-02-18)
 
 ### Bug Fixes
