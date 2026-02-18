@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: filesystem
 tags: [permissions, opasswd, password, security]
+conflicts_with:
+  - fs-permissions-opasswd
 
 references:
   cis:

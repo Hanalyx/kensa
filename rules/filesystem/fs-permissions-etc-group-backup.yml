@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: filesystem
 tags: [permissions, group, authentication, security]
+conflicts_with:
+  - etc-group-backup-permissions
 
 references:
   cis:

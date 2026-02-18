@@ -9,6 +9,8 @@ rationale: >
 severity: low
 category: filesystem
 tags: [permissions, shells, security]
+conflicts_with:
+  - fs-permissions-etc-shells
 
 references:
   cis:

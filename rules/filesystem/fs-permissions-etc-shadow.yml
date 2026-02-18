@@ -10,6 +10,8 @@ rationale: >
 severity: high
 category: filesystem
 tags: [file-permissions, passwords, authentication]
+conflicts_with:
+  - etc-shadow-permissions
 
 references:
   cis:
