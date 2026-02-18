@@ -22,6 +22,9 @@ references:
       vuln_id: "V-258055"
       stig_id: "RHEL-09-411080"
       severity: "CAT II"
+    rhel8_v2r6:
+      vuln_id: "V-230336"
+      severity: "CAT II"
   nist_800_53: ["AC-7(b)"]
 
 platforms:
