@@ -15,6 +15,7 @@ tags: [service, time, ntp, chrony]
 references:
   cis:
     rhel9_v2:  { section: "2.3.1", level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "2.3.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-8"]
 
 platforms:

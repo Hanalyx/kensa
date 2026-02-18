@@ -14,6 +14,7 @@ tags: [service, cron, scheduling]
 references:
   cis:
     rhel9_v2:  { section: "2.4.1.1", level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "2.4.1.1", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "AU-4"]
 
 platforms:

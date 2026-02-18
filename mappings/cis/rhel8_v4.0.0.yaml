@@ -452,6 +452,18 @@ controls:
     level: L1
     type: Automated
     title: "Ensure the SELinux mode is not disabled"
+  "1.3.1.7":
+    rules:
+      - service-disable-mcstrans
+    level: L1
+    type: Automated
+    title: "Ensure the MCS Translation Service (mcstrans) is not installed"
+  "1.3.1.8":
+    rules:
+      - package-setroubleshoot-removed
+    level: L1
+    type: Automated
+    title: "Ensure SETroubleshoot is not installed"
   "1.4.1":
     rules:
       - grub-password
@@ -542,6 +554,54 @@ controls:
     level: L1
     type: Automated
     title: "Ensure access to /etc/issue.net is configured"
+  "2.1.1":
+    rules:
+      - service-disable-autofs
+    level: L1
+    type: Automated
+    title: "Ensure autofs services are not in use"
+  "2.2.1":
+    rules:
+      - package-ftp-removed
+    level: L1
+    type: Automated
+    title: "Ensure ftp client is not installed"
+  "2.2.2":
+    rules:
+      - package-openldap-clients-removed
+    level: L1
+    type: Automated
+    title: "Ensure ldap client is not installed"
+  "2.2.3":
+    rules:
+      - package-ypbind-removed
+    level: L1
+    type: Automated
+    title: "Ensure nis client is not installed"
+  "2.2.4":
+    rules:
+      - package-telnet-removed
+    level: L1
+    type: Automated
+    title: "Ensure telnet client is not installed"
+  "2.2.5":
+    rules:
+      - package-tftp-removed
+    level: L1
+    type: Automated
+    title: "Ensure tftp client is not installed"
+  "2.3.1":
+    rules:
+      - chrony-installed
+    level: L1
+    type: Automated
+    title: "Ensure time synchronization is in use"
+  "2.4.1.1":
+    rules:
+      - crond-service-enabled
+    level: L1
+    type: Automated
+    title: "Ensure cron daemon is enabled and active"
   "3.1.1":
     rules:
       - kmod-disable-bluetooth
@@ -1160,14 +1220,6 @@ unimplemented:
     title: "Ensure no unconfined services exist"
     reason: "Manual check - requires human verification"
     type: Manual
-  "1.3.1.7":
-    title: "Ensure the MCS Translation Service (mcstrans) is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.3.1.8":
-    title: "Ensure SETroubleshoot is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.5.1":
     title: "Ensure core file size is configured"
     reason: "Needs rule implementation"
@@ -1226,10 +1278,6 @@ unimplemented:
     type: Automated
   "1.8.7":
     title: "Ensure Xwayland is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.1":
-    title: "Ensure autofs services are not in use"
     reason: "Needs rule implementation"
     type: Automated
   "2.1.2":
@@ -1324,40 +1372,12 @@ unimplemented:
     title: "Ensure only approved services are listening on a network interface"
     reason: "Manual check - requires human verification"
     type: Manual
-  "2.2.1":
-    title: "Ensure ftp client is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.2.2":
-    title: "Ensure ldap client is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.2.3":
-    title: "Ensure nis client is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.2.4":
-    title: "Ensure telnet client is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.2.5":
-    title: "Ensure tftp client is not installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.3.1":
-    title: "Ensure time synchronization is in use"
-    reason: "Needs rule implementation"
-    type: Automated
   "2.3.2":
     title: "Ensure chrony is configured"
     reason: "Needs rule implementation"
     type: Automated
   "2.3.3":
     title: "Ensure chrony is not run as the root user"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.1":
-    title: "Ensure cron daemon is enabled and active"
     reason: "Needs rule implementation"
     type: Automated
   "2.4.1.2":
