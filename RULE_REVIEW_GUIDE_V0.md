@@ -577,14 +577,14 @@ dimensions have been evaluated and any defects have been either fixed or documen
 
 | Category | Rules | Reviewed | Defects Found | Defects Fixed |
 |----------|-------|----------|---------------|---------------|
-| access-control | | | | |
-| audit | | | | |
-| filesystem | | | | |
-| kernel | | | | |
-| logging | | | | |
-| network | | | | |
-| services | | | | |
-| system | | | | |
+| access-control | 114 | 114 | 78 | 78 (PRs #13-#20) |
+| audit | 92 | | | |
+| services | 92 | | | |
+| system | 56 | | | |
+| filesystem | 51 | | | |
+| network | 42 | | | |
+| kernel | 19 | | | |
+| logging | 18 | | | |
 
 ---
 
