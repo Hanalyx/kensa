@@ -12,8 +12,6 @@ category: services
 tags: [package, web, nginx, attack-surface]
 
 references:
-  cis:
-    rhel9_v2:  { section: "2.1.18", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

@@ -14,8 +14,8 @@ conflicts_with: [service-disable-smb]
 
 references:
   cis:
-    rhel8_v4:  { section: "2.2.11", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "2.2.11", level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "2.1.14", level: "L1", type: "Automated" }
+    rhel9_v2:  { section: "2.1.14", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

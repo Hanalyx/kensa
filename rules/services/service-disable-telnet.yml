@@ -12,7 +12,7 @@ tags: [service, networking, telnet, attack-surface]
 
 references:
   cis:
-    rhel8_v4:  { section: "2.2.18", level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "2.1.16", level: "L1", type: "Automated" }
     rhel9_v2:  { section: "2.1.15", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "IA-5"]
 

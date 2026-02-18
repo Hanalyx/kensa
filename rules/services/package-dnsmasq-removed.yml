@@ -12,8 +12,6 @@ category: services
 tags: [package, dns, dhcp, dnsmasq, attack-surface]
 
 references:
-  cis:
-    rhel9_v2:  { section: "2.1.5", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:
