@@ -10,6 +10,8 @@ severity: medium
 category: services
 tags: [service, networking, rsync, attack-surface]
 
+conflicts_with: [service-disable-rsyncd]
+
 references:
   cis:
     rhel8_v4:  { section: "2.2.20", level: "L1", type: "Automated" }

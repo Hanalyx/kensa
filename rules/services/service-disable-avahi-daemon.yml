@@ -10,6 +10,8 @@ severity: medium
 category: services
 tags: [service, networking, attack-surface]
 
+conflicts_with: [service-disable-avahi]
+
 references:
   cis:
     rhel8_v4:  { section: "2.2.2", level: "L1", type: "Automated" }

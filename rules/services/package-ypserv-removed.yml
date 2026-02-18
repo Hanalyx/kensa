@@ -11,6 +11,8 @@ severity: medium
 category: services
 tags: [package, nis, ypserv, legacy, security]
 
+conflicts_with: [pkg-ypserv-absent]
+
 references:
   cis:
     rhel9_v2:  { section: "2.1.10", level: "L1", type: "Automated" }
