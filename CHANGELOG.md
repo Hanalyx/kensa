@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.12 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Migrate 13 weak grep checks to audit_rule_exists handler
+  ([`29993ca`](https://github.com/Hanalyx/aegis/commit/29993ca6500ed7b3f5fb0ed591908552b7743a12))
+
+
 ## v1.6.11 (2026-02-18)
 
 ### Bug Fixes
