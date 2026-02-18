@@ -10,6 +10,7 @@ severity: medium
 category: audit
 tags: [audit, auditd, permissions]
 
+conflicts_with: [audit-perm-mod]
 depends_on: [auditd-service-enabled]
 
 references:

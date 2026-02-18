@@ -10,6 +10,7 @@ severity: medium
 category: audit
 tags: [audit, auditd, network]
 
+conflicts_with: [audit-network-change]
 depends_on: [auditd-service-enabled]
 
 references:

@@ -10,6 +10,7 @@ severity: medium
 category: audit
 tags: [aide, audit, file-integrity, intrusion-detection]
 
+conflicts_with: [auditd-tools-integrity]
 depends_on: [aide-installed]
 
 references:

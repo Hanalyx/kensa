@@ -12,6 +12,7 @@ severity: medium
 category: audit
 tags: [aide, file-integrity, cron, intrusion-detection]
 
+supersedes: [aide-scheduled]
 depends_on: [aide-installed]
 
 references:

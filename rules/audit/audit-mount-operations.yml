@@ -11,6 +11,7 @@ severity: medium
 category: audit
 tags: [audit, mount, filesystem, stig]
 
+conflicts_with: [audit-mounts]
 depends_on: [auditd-service-enabled]
 
 references:

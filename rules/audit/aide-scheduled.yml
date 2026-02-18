@@ -8,6 +8,8 @@ severity: medium
 category: audit
 tags: [aide, integrity, scheduled]
 
+conflicts_with: [aide-cron-check]
+
 references:
   cis:
     rhel9_v2: { section: "6.1.2", level: "L1", type: "Automated" }

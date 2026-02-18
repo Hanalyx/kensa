@@ -11,6 +11,7 @@ severity: medium
 category: audit
 tags: [audit, auditd, storage, stig]
 
+conflicts_with: [auditd-space-left-action]
 depends_on: [auditd-service-enabled]
 
 references:

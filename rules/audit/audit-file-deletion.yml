@@ -10,6 +10,7 @@ severity: medium
 category: audit
 tags: [audit, auditd, files]
 
+conflicts_with: [audit-delete]
 depends_on: [auditd-service-enabled]
 
 references:
