@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.37 (2026-02-18)
+
+### Bug Fixes
+
+- **network**: Correct wrong STIG vuln_ids in 5 sysctl rules
+  ([`ef176ef`](https://github.com/Hanalyx/aegis/commit/ef176ef727f99a9744e1c7c5437d1ca6bb3ff658))
+
+
 ## v1.6.36 (2026-02-18)
 
 ### Bug Fixes
