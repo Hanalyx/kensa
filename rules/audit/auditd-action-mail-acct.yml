@@ -34,4 +34,5 @@ implementations:
       path: "/etc/audit/auditd.conf"
       key: "action_mail_acct"
       value: "root"
+      separator: " = "
       restart: "auditd"
