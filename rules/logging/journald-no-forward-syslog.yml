@@ -13,6 +13,7 @@ conflicts_with:
 
 references:
   cis:
+    rhel8_v4: { section: "6.2.1.1.4", level: "L1", type: "Automated" }
     rhel9_v2: { section: "6.2.2.2", level: "L1", type: "Automated" }
   nist_800_53: ["AU-4"]
 

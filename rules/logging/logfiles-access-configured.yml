@@ -12,12 +12,13 @@ tags: [logging, permissions, security]
 
 references:
   cis:
+    rhel8_v4: { section: "6.2.3.1", level: "L1", type: "Automated" }
     rhel9_v2: { section: "6.2.4.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-9"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true
