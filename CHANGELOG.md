@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.20 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Resolve 8 duplicate rule pairs with conflicts_with/depends_on
+  ([`c4072b6`](https://github.com/Hanalyx/aegis/commit/c4072b6a631f6dbb2999f614b0f578a81e0802a7))
+
+
 ## v1.6.19 (2026-02-18)
 
 ### Bug Fixes
