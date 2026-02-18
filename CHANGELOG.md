@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.36 (2026-02-18)
+
+### Bug Fixes
+
+- **filesystem**: Add CIS RHEL 8 refs and widen platform scope for banner rules
+  ([`a79ebee`](https://github.com/Hanalyx/aegis/commit/a79ebeeda457e6f240bf9de02ba434e69352a400))
+
+
 ## v1.6.35 (2026-02-18)
 
 ### Bug Fixes
