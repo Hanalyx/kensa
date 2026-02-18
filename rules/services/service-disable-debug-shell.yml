@@ -26,9 +26,10 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "systemctl is-enabled debug-shell.service 2>/dev/null | grep -q 'masked\\|disabled' || systemctl is-enabled debug-shell.service 2>&1 | grep -q 'No such file'"
-      expected_exit: 0
+      method: service_state
+      name: "debug-shell"
+      active: false
+      enabled: false
     remediation:
       mechanism: service_masked
       name: "debug-shell"
