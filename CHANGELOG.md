@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.21 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Correct wrong STIG vuln_id/stig_id references
+  ([`0d8305c`](https://github.com/Hanalyx/aegis/commit/0d8305c42a7b3d65d8144455dd7f4ec8d38f6f60))
+
+
 ## v1.6.20 (2026-02-18)
 
 ### Bug Fixes
