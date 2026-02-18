@@ -419,7 +419,6 @@ controls:
       - nologin-system-accounts
       - inactive-password-lock
       - root-gid
-      - default-group-root
       - accounts-no-empty-passwords
 
   "AC-2(1)":

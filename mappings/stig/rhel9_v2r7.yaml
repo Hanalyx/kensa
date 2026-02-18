@@ -861,7 +861,7 @@ controls:
     title: RHEL 9 audit tools must have a mode of 0755 or less permissive.
   V-257890:
     rules:
-      - default-group-root
+      - root-gid
     title: All RHEL 9 local interactive user home directories must have mode 0750 or less permissive.
   V-257891:
     rules:
