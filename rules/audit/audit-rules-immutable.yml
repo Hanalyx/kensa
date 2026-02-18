@@ -27,8 +27,9 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grep -E '^\\s*-e\\s+2\\s*$' /etc/audit/rules.d/*.rules 2>/dev/null | tail -1"
+      run: "grep -E '^\\s*-e\\s+2\\s*$' /etc/audit/rules.d/*.rules 2>/dev/null && auditctl -s 2>/dev/null | grep -qE '^enabled\\s+2'"
       expected_exit: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-e 2"
+      persist_file: "/etc/audit/rules.d/99-finalize.rules"
