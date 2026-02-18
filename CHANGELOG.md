@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.29 (2026-02-18)
+
+### Bug Fixes
+
+- **system**: Resolve duplicate rule pairs and remove wrong CIS ref
+  ([`fd8b4ce`](https://github.com/Hanalyx/aegis/commit/fd8b4ced33fd56f181ba71f754ad8ad2cf20dd79))
+
+
 ## v1.6.28 (2026-02-18)
 
 ### Bug Fixes
