@@ -578,7 +578,7 @@ dimensions have been evaluated and any defects have been either fixed or documen
 | Category | Rules | Reviewed | Defects Found | Defects Fixed |
 |----------|-------|----------|---------------|---------------|
 | access-control | 114 | 114 | 78 | 78 (PRs #13-#20) |
-| audit | 92 | | | |
+| audit | 92 | 92 | ~146 | ~146 (PRs #21-#28) |
 | services | 92 | | | |
 | system | 56 | | | |
 | filesystem | 51 | | | |
