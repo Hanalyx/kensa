@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.27 (2026-02-18)
+
+### Bug Fixes
+
+- **system**: Correct STIG vuln_id references across 22 rules
+  ([`071c49e`](https://github.com/Hanalyx/aegis/commit/071c49e1f2a53b74bf3ee3d3cadd99e0d3d9efef))
+
+
 ## v1.6.26 (2026-02-18)
 
 ### Bug Fixes
