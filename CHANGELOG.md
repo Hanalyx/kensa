@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.23 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Widen platform scope from min_version 9 to 8
+  ([`4d626c5`](https://github.com/Hanalyx/aegis/commit/4d626c5455c1dd86d4cab750308b495b78479b33))
+
+
 ## v1.6.22 (2026-02-18)
 
 ### Bug Fixes
