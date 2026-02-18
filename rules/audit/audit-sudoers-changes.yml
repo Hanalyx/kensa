@@ -10,6 +10,7 @@ severity: high
 category: audit
 tags: [audit, auditd, sudo, privilege-escalation]
 
+conflicts_with: [audit-sudoers]
 depends_on: [auditd-service-enabled]
 
 references:

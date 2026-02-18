@@ -12,6 +12,7 @@ severity: high
 category: audit
 tags: [audit, permissions, binaries, security]
 
+conflicts_with: [audit-tools-permissions, audit-tools-owner, audit-tools-group]
 depends_on: [auditd-service-enabled]
 
 references:

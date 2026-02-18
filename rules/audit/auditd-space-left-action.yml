@@ -8,9 +8,17 @@ severity: medium
 category: audit
 tags: [audit, auditd, storage]
 
+supersedes: [auditd-space-action]
+depends_on: [auditd-service-enabled]
+
 references:
   cis:
     rhel9_v2: { section: "6.3.2.3", level: "L1", type: "Automated" }
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257807"
+      stig_id: "RHEL-09-653010"
+      severity: "CAT II"
   nist_800_53: ["AU-5"]
 
 platforms:
@@ -29,3 +37,4 @@ implementations:
       key: "space_left_action"
       value: "email"
       separator: " = "
+      restart: "auditd"

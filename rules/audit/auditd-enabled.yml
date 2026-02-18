@@ -4,14 +4,22 @@ description: >
   The auditd service must be enabled and running.
 rationale: >
   The auditd service provides essential system functionality. If it is not running, the system may not meet security requirements.
-severity: medium
+severity: high
 category: audit
 tags: [service, audit, auditd]
 
+supersedes: [auditd-service-enabled]
+
 references:
   cis:
+    rhel8_v4: { section: "4.1.1.1", level: "L2", type: "Automated" }
     rhel9_v2: { section: "6.3.1.4", level: "L1", type: "Automated" }
-  nist_800_53: ["AU-2", "AU-12"]
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257868"
+      stig_id: "RHEL-09-653010"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-3", "AU-12"]
 
 platforms:
   - family: rhel

@@ -12,6 +12,7 @@ severity: high
 category: audit
 tags: [audit, immutable, security, hardening]
 
+conflicts_with: [audit-immutable]
 depends_on: [auditd-service-enabled]
 
 references:

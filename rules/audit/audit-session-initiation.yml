@@ -10,6 +10,7 @@ severity: medium
 category: audit
 tags: [audit, auditd, session]
 
+conflicts_with: [audit-session]
 depends_on: [auditd-service-enabled]
 
 references:

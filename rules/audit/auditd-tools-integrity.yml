@@ -11,6 +11,7 @@ severity: high
 category: audit
 tags: [audit, integrity, aide, security]
 
+supersedes: [aide-audit-tools]
 depends_on: [auditd-service-enabled]
 
 references:

@@ -11,6 +11,7 @@ severity: medium
 category: audit
 tags: [audit, file-access, failed, intrusion-detection, stig]
 
+conflicts_with: [audit-file-access-failed]
 depends_on: [auditd-service-enabled]
 
 references:
