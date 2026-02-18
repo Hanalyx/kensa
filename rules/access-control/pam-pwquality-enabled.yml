@@ -17,11 +17,36 @@ platforms:
   - family: rhel
     min_version: 8
 implementations:
-  - default: true
+  - when: authselect
     check:
       method: command
-      run: 'grep -qE ''^\s*(password|auth).*pam_pwquality\.so'' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null || authselect current 2>/dev/null | grep -q with-pwquality'
+      run: |
+        if authselect current 2>/dev/null | grep -q with-pwquality; then
+          echo "OK: pwquality enabled via authselect"
+          exit 0
+        fi
+        if grep -qE '^\s*(password|auth).*pam_pwquality\.so' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null; then
+          echo "OK: pam_pwquality configured in PAM files"
+          exit 0
+        fi
+        echo "FAIL: pam_pwquality not enabled"
+        exit 1
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      run: "authselect enable-feature with-pwquality 2>/dev/null || true"
+      run: "authselect enable-feature with-pwquality"
+
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -qE '^\s*(password|auth).*pam_pwquality\.so' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null; then
+          echo "OK: pam_pwquality configured"
+          exit 0
+        fi
+        echo "FAIL: pam_pwquality not enabled"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Add pam_pwquality.so to the password stack in /etc/pam.d/system-auth and /etc/pam.d/password-auth"

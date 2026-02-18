@@ -20,8 +20,25 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'grep -qE ''^\s*umask\s+0?[0-2][2-7]7'' /etc/profile /etc/bashrc 2>/dev/null'
+      run: |
+        # Check all sources where umask can be configured
+        found=0
+        for f in /etc/profile /etc/bashrc /etc/profile.d/*.sh; do
+          if grep -qE '^\s*umask\s+0?[0-2][2-7]7' "$f" 2>/dev/null; then
+            found=1
+            break
+          fi
+        done
+        # Also check /etc/login.defs UMASK
+        if grep -qE '^\s*UMASK\s+0?[0-2][2-7]7' /etc/login.defs 2>/dev/null; then
+          found=1
+        fi
+        if [ "$found" -eq 0 ]; then
+          echo "FAIL: No restrictive umask (027 or stricter) found"
+          exit 1
+        fi
+        echo "OK: Restrictive umask configured"
       expected_exit: 0
     remediation:
       mechanism: manual
-      note: "Set umask 027 in /etc/profile and /etc/bashrc"
+      note: "Set umask 027 in /etc/profile, /etc/bashrc, or /etc/login.defs"
