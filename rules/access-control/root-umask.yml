@@ -30,8 +30,13 @@ implementations:
           echo "FAIL: No umask configured for root"
           exit 1
         fi
-        # Check if umask is 027 or more restrictive (007 is most restrictive)
-        if [ "$umask_val" -lt 027 ] 2>/dev/null; then
+        # Pad to 3 digits if needed
+        while [ ${#umask_val} -lt 3 ]; do umask_val="0${umask_val}"; done
+        # Per-digit comparison: each digit must be >= the corresponding digit in 027
+        u_digit=$(echo "$umask_val" | cut -c1)
+        g_digit=$(echo "$umask_val" | cut -c2)
+        o_digit=$(echo "$umask_val" | cut -c3)
+        if [ "$u_digit" -lt 0 ] || [ "$g_digit" -lt 2 ] || [ "$o_digit" -lt 7 ]; then
           echo "FAIL: Root umask ($umask_val) is less restrictive than 027"
           exit 1
         fi
