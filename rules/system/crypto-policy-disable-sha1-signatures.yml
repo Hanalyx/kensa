@@ -12,6 +12,8 @@ severity: high
 category: system
 tags: [crypto-policy, hashing, tls, signatures]
 
+conflicts_with: [crypto-policy-no-sha1]
+
 references:
   nist_800_53: ["SC-13", "MA-4(6)"]
 
