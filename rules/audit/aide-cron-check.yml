@@ -24,18 +24,10 @@ platforms:
     min_version: 8
 
 implementations:
-  - when: systemd_timer
-    check:
-      method: service_state
-      name: "aidecheck.timer"
-      enabled: true
-    remediation:
-      mechanism: service_enabled
-      name: "aidecheck.timer"
   - default: true
     check:
       method: command
-      run: "grep -rE 'aide\\s+(--check|--update|-C|-u)' /etc/crontab /etc/cron.d/ /etc/cron.daily/ /etc/cron.weekly/ /var/spool/cron/ 2>/dev/null"
+      run: "systemctl is-enabled aidecheck.timer 2>/dev/null | grep -q enabled || grep -rE 'aide\\s+(--check|--update|-C|-u)' /etc/crontab /etc/cron.d/ /etc/cron.daily/ /etc/cron.weekly/ /var/spool/cron/ 2>/dev/null"
       expected_exit: 0
     remediation:
       mechanism: cron_job

@@ -45,4 +45,4 @@ implementations:
       key: "space_left_action"
       value: "email"
       separator: " = "
-      reload: "systemctl restart auditd"
+      restart: "auditd"
