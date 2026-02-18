@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.46 (2026-02-18)
+
+### Bug Fixes
+
+- **logging**: Remove fabricated STIG refs, correct CIS sections/levels, add missing deps
+  ([`21d794b`](https://github.com/Hanalyx/aegis/commit/21d794bc16f641c8985ada2525f0987978dcca6d))
+
+
 ## v1.6.45 (2026-02-18)
 
 ### Bug Fixes
