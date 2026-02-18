@@ -9,21 +9,22 @@ context to start without additional preamble.
 
 ### P1 — Coverage Gaps
 
-- [ ] **Create missing CIS RHEL 9 rule YAMLs (102 rules)**
-  CIS RHEL 9 mapping references 102 rule IDs with no corresponding YAML in `rules/`.
-  These are dangling references — the mapping says "section X is implemented by rule Y"
-  but rule Y does not exist. Options: create rules where existing check handlers support
-  it, move the rest to `unimplemented:` in the mapping.
-  Run `aegis coverage --framework cis-rhel9-v2.0.0` to see the full list.
-  Acceptance: zero missing rules in CIS RHEL 9 mapping.
+- [x] **Create missing CIS RHEL 9 rule YAMLs (102 rules)**
+  Resolved through quality review PRs #13-#59. Zero missing rules, 95.3% coverage.
 
-- [ ] **Reach STIG RHEL 9 80% coverage (need 18 more implementations)**
-  Currently at 76% (338/446). The P3-2 target was 80%. Need to identify the 18
-  highest-value STIG findings not yet covered and create rule YAMLs + any new
-  handlers needed.
-  Acceptance: `aegis coverage --framework stig-rhel9-v2r7` shows >= 80%.
+- [x] **Reach STIG RHEL 9 80% coverage (need 18 more implementations)**
+  PR #60: Created 24 new rules. Coverage: 75.8% → 81.2% (362/446).
 
 ### P2 — Quality & Tooling
+
+- [ ] **Add `aegis rollback` command for on-demand remediation reversal**
+  Currently rollback only triggers automatically during `--rollback-on-failure` when a
+  step or post-check fails. Pre-state data is not persisted after the run, so there's no
+  way to undo a successful remediation that later causes problems. Needs:
+  1. Persist step_results + PreState snapshots to SQLite history during `remediate`
+  2. New `aegis rollback --host <host> --rule <rule-id>` command that reads stored
+     pre-state and executes the existing rollback handlers
+  The capture/rollback handler infrastructure already covers all 18 mechanism types.
 
 - [ ] **Add unit tests for check handlers**
   No test suite exists for the check handler functions. Start with the most critical
@@ -35,18 +36,46 @@ context to start without additional preamble.
   and evidence is captured.
 
 - [ ] **Expand RHEL 8 framework coverage**
-  CIS RHEL 8 at 52% (163/311), STIG RHEL 8 at 32% (116/366). Low priority but
+  CIS RHEL 8 at 56.3% (175/311), STIG RHEL 8 at 32% (116/366). Low priority but
   significant gap. Many RHEL 9 rules may apply with minor capability-gate adjustments.
 
-- [ ] **Continue rule quality review — remaining categories**
-  Systematic 5-dimension review (RULE_REVIEW_GUIDE_V0.md) of all rules by category.
+- [x] **Complete rule quality review — all 8 categories**
+  Systematic 5-dimension review (RULE_REVIEW_GUIDE_V0.md) of all 484 rules.
   Completed: access-control (PRs #13-#20), audit (PRs #21-#28), services (PRs #29-#36),
-  system (PRs #37-#42), filesystem (PRs #43-#48), network (PRs #49-#54).
-  Remaining: kernel (19), logging (18).
+  system (PRs #37-#42), filesystem (PRs #43-#48), network (PRs #49-#54),
+  kernel (PRs #55-#56), logging (PRs #57-#59).
 
 ---
 
 ## Completed
+
+- [x] **Fix command handler expected_stdout="" false positive** _(2026-02-18)_
+  PR #61: `expected_stdout: ""` always passed due to `"" in any_string` being True.
+  19 rules affected (audit permissions, crypto-policy-no-sha1, file checks).
+  Fixed with empty-string special case. Added 2 regression tests (200 total).
+
+- [x] **STIG RHEL 9 80% coverage** _(2026-02-18)_
+  PR #60: Created 24 new rule YAMLs (8 package/service, 12 auditd config, 4 filesystem).
+  STIG RHEL 9 coverage: 75.8% → 81.2% (362/446). 508 rules total.
+
+- [x] **Logging category rule review — 18 rules, ~28 findings** _(2026-02-18)_
+  3-phase fix across PRs #57-#59: fixed silently-ignored `state: "running"` in rsyslog-enabled
+  (added `active: true`), added bidirectional conflicts_with for 3 duplicate/contradictory pairs
+  (journald-forward-syslog ↔ journald-no-forward-syslog, journald-storage ↔ journald-storage-persistent,
+  rsyslog-default-permissions ↔ rsyslog-file-permissions), removed wrong CIS 6.2.2.2 ref from
+  journald-forward-syslog, removed 2 fabricated STIG vuln_ids (V-258062, V-258065), corrected 3 wrong
+  CIS RHEL 8 sections (4.2.x→6.2.x for v4.0.0 renumbering), fixed 3 wrong CIS levels (L2→L1),
+  added depends_on for rsyslog-enabled and journald-upload-enabled, added restart directive for
+  journald-to-rsyslog drop-in, added CIS RHEL 8 refs to 10 rules, widened 3 rules from RHEL 9 to
+  RHEL 8+, activated 12 controls in CIS RHEL 8 mapping. CIS RHEL 8 coverage: 52.4% → 56.3%.
+
+- [x] **Kernel category rule review — 19 rules, ~18 findings** _(2026-02-18)_
+  2-phase fix across PRs #55-#56: corrected 8 wrong STIG vuln_ids (usb-storage, bluetooth, dccp,
+  tipc, sctp, rds, firewire, ip-forward), fixed CIS RHEL 9 levels (L2→L1 for protocol modules),
+  corrected CIS RHEL 8 sections (squashfs, udf, usb-storage, ip-forward), added missing STIG RHEL 8
+  refs (firewire, usb-storage, bluetooth), added CIS RHEL 8 ref for firewire, widened hardlink/symlink
+  protection from RHEL 9 to RHEL 8+. Low-priority items deferred: description quality, persist_file
+  for ip-forward, CIS RHEL 9 mapping discrepancy.
 
 - [x] **Network category rule review — 42 rules, ~64 findings** _(2026-02-18)_
   6-phase fix across PRs #49-#54: corrected 5 wrong STIG vuln_ids, resolved 11 composite/granular

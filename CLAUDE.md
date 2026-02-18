@@ -54,12 +54,12 @@ runner/                  # Core Python package
 │   └── rollback/       # State restoration
 └── output/             # JSON, CSV, PDF, evidence export
 
-rules/                   # 484 YAML compliance rules
-├── access-control/     # 114 rules (largest, reviewed PRs #13-#20)
-├── audit/              # 92 rules (reviewed PRs #21-#28)
-├── services/           # 92 rules
+rules/                   # 508 YAML compliance rules
+├── access-control/     # 114 rules
+├── audit/              # ~104 rules
+├── services/           # ~100 rules
 ├── system/             # 56 rules
-├── filesystem/         # 51 rules
+├── filesystem/         # ~55 rules
 ├── network/            # 42 rules
 ├── kernel/             # 19 rules
 ├── logging/            # 18 rules
@@ -92,7 +92,7 @@ scripts/                 # Dev tooling
 ├── fedramp_validate.py # FedRAMP gap analysis
 └── parse_fedramp_oscal.py # OSCAL parser for baseline regen
 
-tests/                   # 198 pytest tests
+tests/                   # 200 pytest tests
 
 RULE_REVIEW_GUIDE_V0.md  # Rule review criteria (5 dimensions)
 ACCESS_CONTROL_REVIEW_PLAN.md # Completed access-control review plan (PRs #13-#20)
@@ -112,6 +112,8 @@ Check handlers: `config_value`, `sshd_effective_config`, `file_permission`, `com
 
 **Key field names (runtime-critical):**
 - Check blocks: `run:` (not `command:`), `expected_exit:` (not `expected_exit_code:`)
+- `expected_stdout: ""` means "expect empty output" (exact empty check, not substring)
+- `expected_stdout: "text"` means "stdout contains text" (substring match)
 - Manual remediation: `note:` (not `description:`)
 - command_exec remediation: `run:` (not `command:`)
 - SSH checks: use `sshd_effective_config` (runs `sshd -T`), not `config_value` on static file

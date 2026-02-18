@@ -4,6 +4,95 @@ Append-only. Most recent session first. Read at start of each session for contex
 
 ---
 
+## 2026-02-18 — Fix command handler expected_stdout="" false positive (PR #61)
+
+### Done
+- Diagnosed production false-positive: `crypto-policy-no-sha1` (CIS 1.6.3) passed on a
+  server where SHA1 was clearly present in `/etc/crypto-policies/state/CURRENT.pol`
+- Root cause: `runner/handlers/checks/_command.py:63` used `expected_stdout not in result.stdout`
+  — the empty string `""` is always "in" any string, so `expected_stdout: ""` never failed
+- Fixed: empty string now means "expect no output" (`not result.stdout`); non-empty retains
+  substring match semantics
+- 19 rules affected: crypto-policy-no-sha1, 10 audit permission rules, selinux-not-disabled,
+  groups-in-passwd-exist, no-duplicate-usernames/groupnames, accounts-password-shadowed,
+  accounts-no-empty-passwords, no-netrc-files, no-forward-files
+- Added 2 regression tests: `test_expected_empty_stdout_pass`, `test_expected_empty_stdout_fail`
+- Updated CLAUDE.md with `expected_stdout` semantics documentation
+
+### Coverage
+- Tests: 200 pass (was 198), 508 rules valid
+
+---
+
+## 2026-02-18 — STIG RHEL 9 80% coverage (PR #60)
+
+### Done
+- Analyzed 111 unimplemented STIG RHEL 9 findings, categorized by difficulty
+- Created 24 new rule YAMLs using existing check handlers:
+  - 8 package/service rules: usbguard (V-258035/36), fapolicyd (V-258089/90),
+    pcsc-lite/pcscd (V-258124/25), opensc (V-258126), rngd (V-257782)
+  - 12 auditd config rules: write_logs (V-258170), local_events (V-258164),
+    log_format (V-258169), flush (V-258168), overflow_action (V-258162),
+    space_left (V-258157), admin_space_left_action (V-258158),
+    backlog_limit (V-258173), immutable rules (V-258229),
+    loginuid-immutable (V-258228), /etc/audit/ owner/group (V-270175/76)
+  - 4 separate filesystem rules: /home (V-257843), /tmp (V-257844),
+    /var (V-257845), /var/log (V-257846)
+- Updated STIG RHEL 9 v2r7 mapping: moved 24 findings from unimplemented to controls
+- CIS RHEL 9 missing rules resolved (was 102, now 0) — completed during quality review
+
+### Coverage
+- STIG RHEL 9: 81.2% (362/446) — up from 75.8%, exceeds 80% target
+- CIS RHEL 9: 95.3% (303/318) — 0 missing rules, 0 gaps
+- CIS RHEL 8: 56.3% (175/311)
+- Tests: 198 pass, 508 rules valid
+
+---
+
+## 2026-02-18 — Logging category rule review (PRs #57-#59)
+
+### Done
+- Reviewed all 18 rules in `rules/logging/` against 5-dimension criteria
+- ~28 findings: silently-ignored fields, 3 duplicate/contradictory pairs, 2 fabricated STIG vuln_ids,
+  3 wrong CIS RHEL 8 sections, 3 wrong CIS levels, missing deps/reload, missing RHEL 8 refs
+- Review agent incorrectly flagged `expected_exit` as silently ignored — confirmed it IS supported
+  by the command handler (line 39 of `_command.py`)
+- PR #57: Fixed silently-ignored `state: "running"` in rsyslog-enabled (added `active: true`),
+  added bidirectional conflicts_with for 3 pairs (forward↔no-forward syslog, storage↔storage-persistent,
+  default-permissions↔file-permissions), removed wrong CIS 6.2.2.2 from journald-forward-syslog,
+  added depends_on for rsyslog-enabled
+- PR #58: Removed 2 fabricated STIG vuln_ids (V-258062, V-258065), corrected 3 wrong CIS RHEL 8
+  sections (4.2.x→6.2.x for v4.0.0 renumbering), fixed 3 CIS levels (L2→L1), added depends_on
+  for journald-upload-enabled, added restart directive for journald-to-rsyslog
+- PR #59: Added CIS RHEL 8 refs to 10 rules, widened 3 rules from RHEL 9 to RHEL 8+, activated
+  12 controls in CIS RHEL 8 mapping
+- Low-priority deferred: boilerplate descriptions (5 rules), journald drop-in override detection
+  (5 rules use static config_value instead of systemd-analyze cat-config)
+- ALL 8 CATEGORIES NOW COMPLETE — 484 rules reviewed
+
+### Coverage
+- CIS RHEL 8: 56.3% (175/311) — up from 52.4%
+- CIS RHEL 9: unchanged
+- Tests: 198 pass, 484 rules valid
+
+---
+
+## 2026-02-18 — Kernel category rule review (PRs #55-#56)
+
+### Done
+- Reviewed all 19 rules in `rules/kernel/` against 5-dimension criteria
+- ~18 findings: 8 wrong STIG vuln_ids, 6 wrong CIS sections/levels, missing framework refs
+- PR #55: Corrected 8 wrong STIG vuln_ids, fixed CIS levels (L2→L1 for protocol modules),
+  fixed CIS RHEL 8 sections (squashfs, udf, usb-storage, ip-forward), removed incorrect stig_ids
+- PR #56: Added STIG RHEL 8 refs (firewire/usb-storage/bluetooth), CIS RHEL 8 ref for firewire,
+  widened hardlink/symlink protection from RHEL 9 to RHEL 8+
+- Low-priority deferred: description quality, persist_file for ip-forward
+
+### Coverage
+- Tests: 198 pass, 484 rules valid
+
+---
+
 ## 2026-02-18 — Network category rule review (PRs #49-#54)
 
 ### Done

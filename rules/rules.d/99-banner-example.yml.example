@@ -1,0 +1,21 @@
+# Organization banner text override
+#
+# Copy this file as rules/rules.d/99-banner.yml and replace the text below
+# with your organization's authorized-use consent warning.
+#
+# The banner_text variable is used by:
+#   - banner-dod-consent  → writes to /etc/issue  (pre-login local/SSH)
+#   - issue-net-configured → writes to /etc/issue.net (pre-login network)
+#
+# Priority (highest first):
+#   1. CLI:  aegis remediate --var banner_text="..."
+#   2. This file (rules/rules.d/*.yml, alphabetical, later overrides earlier)
+#   3. Framework overrides (defaults.yml → frameworks.<name>)
+#   4. Default (defaults.yml → variables)
+
+banner_text: |
+  ***WARNING***
+  This system is the property of Example Organization.
+  Unauthorized access is prohibited. By accessing this system, you consent
+  to monitoring, recording, and auditing of all activity. Unauthorized use
+  may result in disciplinary action and/or civil and criminal penalties.
