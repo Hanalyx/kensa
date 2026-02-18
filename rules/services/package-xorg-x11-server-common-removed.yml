@@ -15,8 +15,6 @@ tags: [package, xorg, gui, attack-surface]
 conflicts_with: [xorg-removed]
 
 references:
-  cis:
-    rhel9_v2:  { section: "2.1.20", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:
