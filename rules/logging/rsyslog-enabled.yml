@@ -16,13 +16,16 @@ references:
 platforms:
   - family: rhel
     min_version: 8
+depends_on:
+  - rsyslog-installed
+
 implementations:
   - default: true
     check:
       method: service_state
       name: "rsyslog"
-      state: "running"
       enabled: true
+      active: true
     remediation:
       mechanism: service_enabled
       name: "rsyslog"
