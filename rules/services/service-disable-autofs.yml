@@ -14,11 +14,6 @@ tags: [service, autofs, automount, attack-surface, stig]
 references:
   cis:
     rhel9_v2:  { section: "2.1.1", level: "L1", type: "Automated" }
-  stig:
-    rhel9_v2r7:
-      vuln_id: "V-257796"
-      stig_id: "RHEL-09-211020"
-      severity: "CAT II"
   nist_800_53: ["CM-7"]
 
 platforms:

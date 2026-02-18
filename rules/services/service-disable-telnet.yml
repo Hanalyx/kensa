@@ -14,11 +14,6 @@ references:
   cis:
     rhel8_v4:  { section: "2.2.18", level: "L1", type: "Automated" }
     rhel9_v2:  { section: "2.1.15", level: "L1", type: "Automated" }
-  stig:
-    rhel9_v2r7:
-      vuln_id: "V-257779"
-      stig_id: "RHEL-09-215015"
-      severity: "CAT I"
   nist_800_53: ["CM-7", "IA-5"]
 
 platforms:

@@ -14,11 +14,6 @@ tags: [service, debug, console, physical-security, stig]
 conflicts_with: [debug-shell-disabled]
 
 references:
-  stig:
-    rhel9_v2r7:
-      vuln_id: "V-257798"
-      stig_id: "RHEL-09-211030"
-      severity: "CAT I"
   nist_800_53: ["AC-3", "IA-2"]
 
 platforms:
