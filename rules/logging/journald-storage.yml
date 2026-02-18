@@ -11,6 +11,9 @@ severity: medium
 category: logging
 tags: [journald, logging, persistence, audit]
 
+conflicts_with:
+  - journald-storage-persistent
+
 references:
   cis:
     rhel8_v4:  { section: "4.2.1.1", level: "L1", type: "Automated" }

@@ -10,9 +10,10 @@ severity: medium
 category: logging
 tags: [logging, journald, rsyslog]
 
+conflicts_with:
+  - journald-no-forward-syslog
+
 references:
-  cis:
-    rhel9_v2:  { section: "6.2.2.2", level: "L1", type: "Automated" }
   nist_800_53: ["AU-4", "AU-12"]
 
 platforms:

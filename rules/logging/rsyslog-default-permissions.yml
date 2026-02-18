@@ -11,6 +11,9 @@ severity: medium
 category: logging
 tags: [rsyslog, logging, permissions, security]
 
+conflicts_with:
+  - rsyslog-file-permissions
+
 references:
   cis:
     rhel8_v4:  { section: "4.2.2.1", level: "L1", type: "Automated" }
