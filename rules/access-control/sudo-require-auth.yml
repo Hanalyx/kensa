@@ -13,6 +13,8 @@ severity: high
 category: access-control
 tags: [sudo, privilege-escalation, authentication]
 
+depends_on: [package-sudo-installed]
+
 references:
   cis:
     rhel9_v2:  { section: "5.2.4", level: "L1", type: "Automated" }

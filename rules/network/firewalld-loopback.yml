@@ -27,8 +27,8 @@ implementations:
   - default: true
     check:
       method: command
-      command: "firewall-cmd --zone=trusted --list-interfaces 2>/dev/null | grep -q lo"
+      run: "firewall-cmd --zone=trusted --list-interfaces 2>/dev/null | grep -q lo"
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "firewall-cmd --permanent --zone=trusted --add-interface=lo && firewall-cmd --reload"
+      run: "firewall-cmd --permanent --zone=trusted --add-interface=lo && firewall-cmd --reload"

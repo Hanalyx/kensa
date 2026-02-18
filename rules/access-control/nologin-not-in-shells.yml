@@ -34,4 +34,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "sed -i '/nologin$/d; /false$/d' /etc/shells"
+      run: "sed -i '/nologin$/d; /false$/d' /etc/shells"

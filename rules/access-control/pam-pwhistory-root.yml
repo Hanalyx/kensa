@@ -22,13 +22,37 @@ platforms:
     min_version: 9
 
 implementations:
+  - when: authselect
+    check:
+      method: command
+      run: |
+        # Check pwhistory.conf for enforce_for_root (authselect-managed)
+        if grep -qE '^\s*enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
+          echo "OK: enforce_for_root set in pwhistory.conf"
+          exit 0
+        fi
+        # Also check PAM files directly
+        if grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: enforce_for_root set in system-auth"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory does not enforce history for root"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: |
+        if grep -q '^enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
+          exit 0
+        fi
+        echo 'enforce_for_root' >> /etc/security/pwhistory.conf
+
   - default: true
     check:
       method: command
       run: |
-        # Check if pam_pwhistory enforces for root
         if grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/pam.d/system-auth 2>/dev/null ||
-           grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
+           grep -qE '^\s*enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
           echo "OK: pam_pwhistory enforces history for root"
           exit 0
         fi
@@ -39,5 +63,5 @@ implementations:
       mechanism: manual
       note: >
         Configure pam_pwhistory to enforce password history for root.
-        Add 'enforce_for_root' to the pam_pwhistory configuration or
-        use authselect: authselect enable-feature with-pwhistory
+        Add 'enforce_for_root' to /etc/security/pwhistory.conf or to the
+        pam_pwhistory.so line in /etc/pam.d/system-auth.

@@ -29,8 +29,8 @@ implementations:
   - default: true
     check:
       method: command
-      command: "update-crypto-policies --show | grep -qvE 'LEGACY|DEFAULT:.*weak'"
+      run: "update-crypto-policies --show | grep -qvE 'LEGACY|DEFAULT:.*weak'"
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "update-crypto-policies --set DEFAULT"
+      run: "update-crypto-policies --set DEFAULT"

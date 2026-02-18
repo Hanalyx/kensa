@@ -46,7 +46,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: "echo 'OK: GDM not installed'; exit 0"
+      run: "echo 'OK: GDM not installed'; exit 0"
       expected_exit: 0
     remediation:
       mechanism: manual
