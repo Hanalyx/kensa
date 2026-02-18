@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-02-18)
+
+### Bug Fixes
+
+- **logging**: Add CIS RHEL 8 v4.0.0 references to 10 rules, widen 3 to RHEL 8
+  ([`f8b8370`](https://github.com/Hanalyx/aegis/commit/f8b83708d756cdc5f20af93762728bf180b5066a))
+
+### Features
+
+- **stig**: Add 24 STIG RHEL 9 rules to reach 80% coverage target
+  ([`b6cf0ee`](https://github.com/Hanalyx/aegis/commit/b6cf0ee1a657c60129454b71ffadebd1b3ec091e))
+
+
 ## v1.6.46 (2026-02-18)
 
 ### Bug Fixes
