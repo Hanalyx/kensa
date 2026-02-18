@@ -25,9 +25,11 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "test ! -f /etc/gshadow- || stat -c '%a %U %G' /etc/gshadow- | grep -E '^0 root root$'"
-      expected_exit: 0
+      method: file_permission
+      path: "/etc/gshadow-"
+      mode: "0000"
+      owner: "root"
+      group: "root"
     remediation:
       mechanism: file_permissions
       path: "/etc/gshadow-"
