@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aegis"
-version = "1.6.16"
+version = "1.6.17"
 description = "SSH-based compliance test runner for RHEL systems"
 readme = "README.md"
 license = "MIT"

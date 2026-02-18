@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.6.17 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Replace state: stopped/running with active: false/true
+  ([`b08d248`](https://github.com/Hanalyx/aegis/commit/b08d248f56d4963269d5426e7033cbd43dbabed8))
+
+### Documentation
+
+- Add services category review plan with 139 findings across 8 phases
+  ([`be8115e`](https://github.com/Hanalyx/aegis/commit/be8115e56acc96c72d20a7fd8ac5d0d7692b11a1))
+
+- Mark audit category as reviewed in CLAUDE.md
+  ([`a499328`](https://github.com/Hanalyx/aegis/commit/a4993280fc6b83ea4cd1b82371a5066d21c5a33f))
+
+- Update review tracking table with completed audit review
+  ([`898ca7b`](https://github.com/Hanalyx/aegis/commit/898ca7b264c43d17eac17085fd8b6ca482d80c77))
+
+
 ## v1.6.16 (2026-02-18)
 
 ### Bug Fixes
