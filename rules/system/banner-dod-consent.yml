@@ -1,15 +1,17 @@
 id: banner-dod-consent
-title: Configure DoD consent banner
+title: Configure login warning banner
 description: >
-  The system must display the Standard Mandatory DoD Notice and Consent
-  Banner before granting local or remote access.
+  The system must display an authorized-use warning banner before granting
+  local or remote access. The banner text is written to /etc/issue, which
+  sshd displays via the Banner directive (see ssh-banner rule).
+  Customize the text by setting the banner_text variable in rules/rules.d/.
 rationale: >
-  Display of a DoD-approved system use notification message provides
-  privacy and security notices consistent with applicable federal laws
-  and is a requirement for federal systems.
+  A pre-authentication banner establishes the legal basis for monitoring
+  and prosecution of unauthorized access. Without a warning banner, an
+  attacker may claim they were unaware the system was restricted.
 severity: medium
 category: system
-tags: [banner, dod, compliance, stig]
+tags: [banner, compliance, login]
 
 references:
   cis:
@@ -29,11 +31,12 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue 2>/dev/null"
+      run: "grep -Ei 'authorized|consent|monitoring|privacy|activity' /etc/issue 2>/dev/null"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure /etc/issue with your organization's approved login
-        banner. For DoD systems, use the Standard Mandatory DoD Notice
-        and Consent Banner.
+      mechanism: file_content
+      path: "/etc/issue"
+      content: "{{ banner_text }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"

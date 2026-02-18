@@ -35,6 +35,12 @@ variables:
   login_defs_umask: "077"
   password_remember: 5
 
+  # Login banner — displayed before authentication via /etc/issue and /etc/issue.net
+  # Override in rules/rules.d/ with your organization's consent text.
+  # Default is a generic authorized-use warning suitable for most environments.
+  banner_text: |
+    Authorized uses only. All activity may be monitored and reported.
+
   # SSH settings
   ssh_client_alive_interval: 600
   ssh_client_alive_count_max: 1

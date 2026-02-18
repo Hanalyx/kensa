@@ -583,8 +583,8 @@ dimensions have been evaluated and any defects have been either fixed or documen
 | system | 56 | 56 | ~30 | ~30 (PRs #37-#42) |
 | filesystem | 51 | 51 | ~68 | ~68 (PRs #43-#48) |
 | network | 42 | 42 | ~64 | ~64 (PRs #49-#54) |
-| kernel | 19 | | | |
-| logging | 18 | | | |
+| kernel | 19 | 19 | ~18 | ~18 (PRs #55-#56) |
+| logging | 18 | 18 | ~28 | ~28 (PRs #57-#59) |
 
 ---
 
