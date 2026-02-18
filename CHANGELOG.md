@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.25 (2026-02-18)
+
+### Bug Fixes
+
+- **system**: Correct silently-ignored check fields in 3 rules
+  ([`f3b21c5`](https://github.com/Hanalyx/aegis/commit/f3b21c5524c056a34d283ebe52d4b263aa385a0b))
+
+
 ## v1.6.24 (2026-02-18)
 
 ### Bug Fixes
