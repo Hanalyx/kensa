@@ -1,0 +1,33 @@
+id: pkg-usbguard-present
+title: Ensure USBGuard package is installed
+description: >
+  The usbguard package must be installed to provide USB device
+  authorization control.
+rationale: >
+  USBGuard provides a software framework for implementing USB device
+  authorization policies, preventing unauthorized USB devices from
+  being connected to the system.
+severity: medium
+category: services
+tags: [package, usb, security]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258035"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "IA-3"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "usbguard"
+      state: "present"
+    remediation:
+      mechanism: package_present
+      name: "usbguard"

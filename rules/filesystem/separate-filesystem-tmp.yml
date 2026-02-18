@@ -1,0 +1,33 @@
+id: separate-filesystem-tmp
+title: Ensure /tmp is on a separate filesystem
+description: >
+  The /tmp directory must be on a separate filesystem or
+  logical volume to prevent temporary files from filling
+  the root filesystem.
+rationale: >
+  A separate filesystem for /tmp prevents temporary files
+  from consuming all available disk space on the root
+  filesystem, which could cause system instability.
+severity: medium
+category: filesystem
+tags: [filesystem, partitioning, storage]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257844"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt --noheadings /tmp"
+      expected_exit: 0
+    remediation:
+      mechanism: manual

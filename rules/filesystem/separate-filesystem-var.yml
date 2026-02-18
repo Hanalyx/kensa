@@ -1,0 +1,33 @@
+id: separate-filesystem-var
+title: Ensure /var is on a separate filesystem
+description: >
+  The /var directory must be on a separate filesystem or
+  logical volume to prevent log and spool data from filling
+  the root filesystem.
+rationale: >
+  A separate filesystem for /var prevents log files and
+  other variable data from consuming all available disk space
+  on the root filesystem, which could cause system instability.
+severity: low
+category: filesystem
+tags: [filesystem, partitioning, storage]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257845"
+      severity: "CAT III"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt --noheadings /var"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
