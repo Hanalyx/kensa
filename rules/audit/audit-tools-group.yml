@@ -8,6 +8,8 @@ severity: medium
 category: audit
 tags: [audit, permissions]
 
+depends_on: [auditd-service-enabled]
+
 references:
   cis:
     rhel9_v2: { section: "6.3.4.10", level: "L1", type: "Automated" }

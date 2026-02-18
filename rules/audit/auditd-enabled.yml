@@ -9,6 +9,7 @@ category: audit
 tags: [service, audit, auditd]
 
 supersedes: [auditd-service-enabled]
+depends_on: [auditd-installed]
 
 references:
   cis:
