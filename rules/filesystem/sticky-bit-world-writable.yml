@@ -29,3 +29,4 @@ implementations:
     remediation:
       mechanism: command_exec
       run: "find / -xdev -type d -perm -0002 ! -perm -1000 -exec chmod +t {} \\;"
+      unless: "! find / -xdev -type d \\( -perm -0002 -a ! -perm -1000 \\) 2>/dev/null | grep -q ."
