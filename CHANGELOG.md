@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.26 (2026-02-18)
+
+### Bug Fixes
+
+- **system**: Correct inverted check logic in 2 rules
+  ([`40489f2`](https://github.com/Hanalyx/aegis/commit/40489f221871a3421e9097904735227ebb873a4c))
+
+
 ## v1.6.25 (2026-02-18)
 
 ### Bug Fixes
