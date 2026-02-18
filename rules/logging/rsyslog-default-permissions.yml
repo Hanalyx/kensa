@@ -16,13 +16,8 @@ conflicts_with:
 
 references:
   cis:
-    rhel8_v4:  { section: "4.2.2.1", level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "6.2.2.4", level: "L1", type: "Automated" }
     rhel9_v2:  { section: "4.2.2.1", level: "L1", type: "Automated" }
-  stig:
-    rhel9_v2r7:
-      vuln_id: "V-258065"
-      stig_id: "RHEL-09-652035"
-      severity: "CAT II"
   nist_800_53: ["AC-6", "AU-9"]
 
 platforms:
