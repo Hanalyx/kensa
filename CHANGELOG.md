@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.13 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Expand 5 incomplete multi-condition remediations to full steps
+  ([`ce27916`](https://github.com/Hanalyx/aegis/commit/ce2791625da06614e78953385341c7a4ddc216a7))
+
+
 ## v1.6.12 (2026-02-18)
 
 ### Bug Fixes
