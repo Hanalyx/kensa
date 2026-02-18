@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.10 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Correct check logic bugs in immutable and permissions rules
+  ([`97dd7c6`](https://github.com/Hanalyx/aegis/commit/97dd7c626085f16e1694c773f93da54da7e6f15f))
+
+
 ## v1.6.9 (2026-02-18)
 
 ### Bug Fixes
