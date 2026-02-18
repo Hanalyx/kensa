@@ -15,9 +15,6 @@ conflicts_with:
   - sysctl-send-redirects-disabled
 
 references:
-  cis:
-    rhel8_v4:  { section: "3.3.2", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "3.3.2", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257968"

@@ -13,9 +13,6 @@ conflicts_with:
   - sysctl-ignore-broadcast-icmp
 
 references:
-  cis:
-    rhel8_v4:  { section: "3.3.4", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "3.3.4", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257966"

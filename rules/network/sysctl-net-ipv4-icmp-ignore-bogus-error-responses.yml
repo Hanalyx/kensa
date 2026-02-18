@@ -14,9 +14,6 @@ conflicts_with:
   - sysctl-ignore-bogus-icmp
 
 references:
-  cis:
-    rhel8_v4:  { section: "3.3.5", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "3.3.5", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "SC-5"]
 
 platforms:
