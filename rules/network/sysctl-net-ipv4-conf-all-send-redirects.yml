@@ -18,8 +18,7 @@ references:
     rhel9_v2:  { section: "3.3.2", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
-      vuln_id: "V-257964"
-      stig_id: "RHEL-09-253015"
+      vuln_id: "V-257968"
       severity: "CAT II"
   nist_800_53: ["CM-7", "SC-5"]
 
