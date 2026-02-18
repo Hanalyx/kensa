@@ -32,11 +32,9 @@ platforms:
 implementations:
   - when: sshd_config_d
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config.d"
-      key: "MaxSessions"
+      method: sshd_effective_config
+      key: "maxsessions"
       expected: "10"
-      scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
@@ -47,9 +45,8 @@ implementations:
 
   - default: true
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config"
-      key: "MaxSessions"
+      method: sshd_effective_config
+      key: "maxsessions"
       expected: "10"
     remediation:
       mechanism: config_set

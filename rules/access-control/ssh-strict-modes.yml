@@ -40,11 +40,9 @@ platforms:
 implementations:
   - when: sshd_config_d
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config.d"
-      key: "StrictModes"
+      method: sshd_effective_config
+      key: "strictmodes"
       expected: "yes"
-      scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
@@ -55,9 +53,8 @@ implementations:
 
   - default: true
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config"
-      key: "StrictModes"
+      method: sshd_effective_config
+      key: "strictmodes"
       expected: "yes"
     remediation:
       mechanism: config_set

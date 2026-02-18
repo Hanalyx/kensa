@@ -45,12 +45,16 @@ platforms:
 implementations:
   - when: sshd_config_d
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config.d"
-      key: "ClientAliveInterval"
-      expected: "{{ ssh_client_alive_interval }}"
-      comparator: "<="
-      scan_pattern: "*.conf"
+      method: command
+      run: |
+        val=$(sshd -T 2>/dev/null | grep -i '^clientaliveinterval ' | awk '{print $2}')
+        if [ -z "$val" ]; then echo "FAIL: clientaliveinterval not found"; exit 1; fi
+        if [ "$val" -eq 0 ] || [ "$val" -gt {{ ssh_client_alive_interval }} ]; then
+          echo "FAIL: clientaliveinterval=$val (expected <= {{ ssh_client_alive_interval }})"
+          exit 1
+        fi
+        echo "OK: clientaliveinterval=$val"
+      expected_exit: 0
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
@@ -61,11 +65,16 @@ implementations:
 
   - default: true
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config"
-      key: "ClientAliveInterval"
-      expected: "{{ ssh_client_alive_interval }}"
-      comparator: "<="
+      method: command
+      run: |
+        val=$(sshd -T 2>/dev/null | grep -i '^clientaliveinterval ' | awk '{print $2}')
+        if [ -z "$val" ]; then echo "FAIL: clientaliveinterval not found"; exit 1; fi
+        if [ "$val" -eq 0 ] || [ "$val" -gt {{ ssh_client_alive_interval }} ]; then
+          echo "FAIL: clientaliveinterval=$val (expected <= {{ ssh_client_alive_interval }})"
+          exit 1
+        fi
+        echo "OK: clientaliveinterval=$val"
+      expected_exit: 0
     remediation:
       mechanism: config_set
       path: "/etc/ssh/sshd_config"

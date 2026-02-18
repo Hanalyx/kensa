@@ -44,11 +44,9 @@ platforms:
 implementations:
   - when: sshd_config_d
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config.d"
-      key: "DisableForwarding"
+      method: sshd_effective_config
+      key: "disableforwarding"
       expected: "yes"
-      scan_pattern: "*.conf"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
@@ -59,9 +57,8 @@ implementations:
 
   - default: true
     check:
-      method: config_value
-      path: "/etc/ssh/sshd_config"
-      key: "DisableForwarding"
+      method: sshd_effective_config
+      key: "disableforwarding"
       expected: "yes"
     remediation:
       mechanism: config_set
