@@ -25,9 +25,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "systemd-analyze cat-config systemd/coredump.conf 2>/dev/null | grep -E '^Storage=' | tail -1"
-      expected_pattern: "^Storage=none$"
-      on_missing: fail
+      run: "systemd-analyze cat-config systemd/coredump.conf 2>/dev/null | grep -E '^Storage=' | tail -1 | grep -q '^Storage=none$'"
+      expected_exit: 0
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/systemd/coredump.conf.d"
