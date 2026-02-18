@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-02-18)
+
+### Documentation
+
+- Update session log and backlog for PR #62 (customizable banner)
+  ([`16f654d`](https://github.com/Hanalyx/aegis/commit/16f654d183db47770de408c9eab7b6b9aabb902f))
+
+### Features
+
+- **checks**: Add file_content check handler for exact content matching
+  ([#63](https://github.com/Hanalyx/aegis/pull/63),
+  [`07f5bbb`](https://github.com/Hanalyx/aegis/commit/07f5bbb81f980f64aadf87e584bd696cfd6e231f))
+
+
 ## v1.8.0 (2026-02-18)
 
 ### Features
