@@ -35,4 +35,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Change primary GID for non-root accounts with GID 0"
+      note: "Change primary GID for non-root accounts with GID 0"

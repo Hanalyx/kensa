@@ -33,7 +33,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure /etc/issue with your organization's approved login
         banner. For DoD systems, use the Standard Mandatory DoD Notice
         and Consent Banner.

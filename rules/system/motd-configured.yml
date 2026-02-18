@@ -39,4 +39,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Remove OS version information from /etc/motd or replace with authorized use warning"
+      note: "Remove OS version information from /etc/motd or replace with authorized use warning"

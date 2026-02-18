@@ -36,7 +36,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure GDM login banner in /etc/dconf/db/gdm.d/01-banner-message:
         [org/gnome/login-screen]
         banner-message-enable=true
@@ -50,4 +50,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "GDM is not installed. No banner configuration needed."
+      note: "GDM is not installed. No banner configuration needed."

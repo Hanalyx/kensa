@@ -40,4 +40,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Remove negative timestamp_timeout values and !authenticate from sudoers"
+      note: "Remove negative timestamp_timeout values and !authenticate from sudoers"

@@ -48,4 +48,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Configure ForwardToSyslog=yes in journald.conf if rsyslog is used"
+      note: "Configure ForwardToSyslog=yes in journald.conf if rsyslog is used"

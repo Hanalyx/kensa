@@ -40,4 +40,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Disable SSH root login and configure pam_securetty for console access"
+      note: "Disable SSH root login and configure pam_securetty for console access"

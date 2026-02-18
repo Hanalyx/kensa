@@ -30,7 +30,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review the PATH environment variable in root's shell profile
         (/root/.bash_profile, /root/.bashrc) and remove any empty elements
         (::), leading colons (:path), trailing colons (path:), or current

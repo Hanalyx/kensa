@@ -34,7 +34,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review /etc/passwd for accounts with UID 0 other than root.
         Either remove these accounts or assign them a different UID.
         Run: awk -F: '$3 == 0 && $1 != \"root\" {print $1}' /etc/passwd

@@ -36,7 +36,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Lock autorun setting in /etc/dconf/db/local.d/locks/00-media-autorun:
         /org/gnome/desktop/media-handling/autorun-never
         Then run: dconf update
@@ -48,4 +48,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "GDM is not installed."
+      note: "GDM is not installed."

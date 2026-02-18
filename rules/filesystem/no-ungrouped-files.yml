@@ -29,7 +29,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review files without valid groups and assign appropriate group:
         find / -xdev -nogroup
         For each file, either assign to an appropriate group:

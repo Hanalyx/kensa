@@ -36,6 +36,6 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure pam_pwhistory with use_authtok in /etc/pam.d/system-auth.
         Use authselect to manage PAM configuration consistently.

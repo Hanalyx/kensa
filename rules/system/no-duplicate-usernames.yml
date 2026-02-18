@@ -29,6 +29,6 @@ implementations:
       expected_stdout: ""
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review /etc/passwd and resolve any duplicate user names by either
         removing the duplicate accounts or renaming them to unique values.

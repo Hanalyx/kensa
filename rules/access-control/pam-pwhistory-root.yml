@@ -37,7 +37,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure pam_pwhistory to enforce password history for root.
         Add 'enforce_for_root' to the pam_pwhistory configuration or
         use authselect: authselect enable-feature with-pwhistory

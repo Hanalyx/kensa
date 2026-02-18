@@ -30,7 +30,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review SUID files and remove SUID bit from unauthorized programs:
         find / -xdev -type f -perm -4000
         Compare against a known-good baseline. Remove SUID if not needed:
