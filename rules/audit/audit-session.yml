@@ -26,6 +26,13 @@ implementations:
       method: audit_rule_exists
       rule: "-k session"
     remediation:
-      mechanism: audit_rule_set
-      rule: "-w /var/run/utmp -p wa -k session"
-      persist_file: "/etc/audit/rules.d/50-session.rules"
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /var/run/utmp -p wa -k session"
+          persist_file: "/etc/audit/rules.d/50-session.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /var/log/wtmp -p wa -k session"
+          persist_file: "/etc/audit/rules.d/50-session.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /var/log/btmp -p wa -k session"
+          persist_file: "/etc/audit/rules.d/50-session.rules"

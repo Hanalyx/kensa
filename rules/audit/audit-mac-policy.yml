@@ -24,6 +24,10 @@ implementations:
       method: audit_rule_exists
       rule: "-k MAC-policy"
     remediation:
-      mechanism: audit_rule_set
-      rule: "-w /etc/selinux -p wa -k MAC-policy"
-      persist_file: "/etc/audit/rules.d/50-MAC-policy.rules"
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /etc/selinux -p wa -k MAC-policy"
+          persist_file: "/etc/audit/rules.d/50-MAC-policy.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /usr/share/selinux -p wa -k MAC-policy"
+          persist_file: "/etc/audit/rules.d/50-MAC-policy.rules"
