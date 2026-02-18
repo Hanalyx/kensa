@@ -31,6 +31,10 @@ implementations:
       method: audit_rule_exists
       rule: "-w /etc/sudoers"
     remediation:
-      mechanism: audit_rule_set
-      rule: "-w /etc/sudoers -p wa -k scope"
-      persist_file: "/etc/audit/rules.d/50-scope.rules"
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /etc/sudoers -p wa -k scope"
+          persist_file: "/etc/audit/rules.d/50-scope.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/sudoers.d -p wa -k scope"
+          persist_file: "/etc/audit/rules.d/50-scope.rules"

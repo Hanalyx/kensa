@@ -31,6 +31,10 @@ implementations:
       method: audit_rule_exists
       rule: "-k logins"
     remediation:
-      mechanism: audit_rule_set
-      rule: "-w /var/log/lastlog -p wa -k logins"
-      persist_file: "/etc/audit/rules.d/50-logins.rules"
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /var/log/lastlog -p wa -k logins"
+          persist_file: "/etc/audit/rules.d/50-logins.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /var/run/faillock -p wa -k logins"
+          persist_file: "/etc/audit/rules.d/50-logins.rules"

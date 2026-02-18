@@ -24,6 +24,16 @@ implementations:
       method: audit_rule_exists
       rule: "-k identity"
     remediation:
-      mechanism: audit_rule_set
-      rule: "-w /etc/group -p wa -k identity"
-      persist_file: "/etc/audit/rules.d/50-identity.rules"
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /etc/group -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/passwd -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/gshadow -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/shadow -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
