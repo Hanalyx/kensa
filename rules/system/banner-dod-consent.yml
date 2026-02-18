@@ -29,7 +29,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue 2>/dev/null"
+      run: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue 2>/dev/null"
       expected_exit: 0
     remediation:
       mechanism: manual

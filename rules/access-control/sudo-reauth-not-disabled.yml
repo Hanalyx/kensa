@@ -10,6 +10,8 @@ severity: medium
 category: access-control
 tags: [sudo, authentication, timeout, privilege-escalation]
 
+depends_on: [package-sudo-installed]
+
 references:
   cis:
     rhel9_v2: { section: "5.2.5", level: "L1", type: "Automated" }

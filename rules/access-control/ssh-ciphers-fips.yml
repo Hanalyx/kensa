@@ -12,6 +12,7 @@ category: access-control
 tags: [ssh, fips, ciphers, cryptography, stig]
 
 depends_on: [pkg-openssh-server-present]
+conflicts_with: [ssh-crypto-policy]
 
 references:
   stig:

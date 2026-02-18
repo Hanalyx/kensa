@@ -27,6 +27,18 @@ platforms:
     min_version: 8
 
 implementations:
+  - when: authselect
+    check:
+      method: command
+      run: "grep -E '^auth\\s+required\\s+pam_wheel.so\\s+use_uid' /etc/pam.d/su"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        On authselect-managed systems, do not edit /etc/pam.d/su directly.
+        Use 'authselect enable-feature with-pam-u2f-2fa' or create a custom
+        authselect profile that includes pam_wheel.so with use_uid in /etc/pam.d/su.
+
   - default: true
     check:
       method: command

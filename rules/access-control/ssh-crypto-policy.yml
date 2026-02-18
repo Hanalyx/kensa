@@ -18,6 +18,7 @@ category: access-control
 tags: [ssh, cryptography, crypto-policy]
 
 depends_on: [pkg-openssh-server-present]
+conflicts_with: [ssh-ciphers-fips, ssh-macs-fips, ssh-kex-fips]
 
 references:
   cis:

@@ -31,7 +31,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: "auditctl -l | grep -E 'execve.*auid>=1000.*euid=0'"
+      run: "auditctl -l | grep -E 'execve.*auid>=1000.*euid=0'"
       expected_exit: 0
     remediation:
       mechanism: audit_rule_set

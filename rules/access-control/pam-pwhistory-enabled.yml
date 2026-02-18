@@ -39,7 +39,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "authselect enable-feature with-pwhistory"
+      run: "authselect enable-feature with-pwhistory"
 
   - default: true
     check:

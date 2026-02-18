@@ -44,7 +44,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: "echo 'OK: rsyslog not active, forwarding not required'; exit 0"
+      run: "echo 'OK: rsyslog not active, forwarding not required'; exit 0"
       expected_exit: 0
     remediation:
       mechanism: manual

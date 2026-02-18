@@ -24,8 +24,8 @@ implementations:
   - default: true
     check:
       method: command
-      command: "sshd -T 2>/dev/null | grep -i '^ciphers' | grep -qi 'cbc' && echo 'FAIL: CBC ciphers enabled' && exit 1 || echo 'OK: No CBC ciphers' && exit 0"
+      run: "sshd -T 2>/dev/null | grep -i '^ciphers' | grep -qi 'cbc' && echo 'FAIL: CBC ciphers enabled' && exit 1 || echo 'OK: No CBC ciphers' && exit 0"
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "update-crypto-policies --set $(update-crypto-policies --show):NO-CBC"
+      run: "update-crypto-policies --set $(update-crypto-policies --show):NO-CBC"

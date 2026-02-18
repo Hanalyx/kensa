@@ -20,11 +20,10 @@ platforms:
     min_version: 9
 
 implementations:
-  - default: true
+  - when: authselect
     check:
       method: command
       run: |
-        # Check for nullok in pam_unix configuration
         if grep -rE 'pam_unix\.so.*nullok' /etc/pam.d/ 2>/dev/null | grep -v '^#'; then
           echo "FAIL: nullok found in pam_unix configuration"
           exit 1
@@ -34,4 +33,19 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "authselect enable-feature without-nullok 2>/dev/null || sed -i 's/nullok//g' /etc/pam.d/system-auth /etc/pam.d/password-auth"
+      run: "authselect enable-feature without-nullok"
+
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -rE 'pam_unix\.so.*nullok' /etc/pam.d/ 2>/dev/null | grep -v '^#'; then
+          echo "FAIL: nullok found in pam_unix configuration"
+          exit 1
+        fi
+        echo "OK: nullok not configured for pam_unix"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "sed -i 's/nullok//g' /etc/pam.d/system-auth /etc/pam.d/password-auth"

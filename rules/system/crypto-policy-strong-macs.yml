@@ -37,4 +37,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      command: "update-crypto-policies --set $(update-crypto-policies --show):NO-WEAKMAC"
+      run: "update-crypto-policies --set $(update-crypto-policies --show):NO-WEAKMAC"

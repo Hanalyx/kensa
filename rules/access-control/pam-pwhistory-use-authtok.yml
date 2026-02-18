@@ -22,11 +22,34 @@ platforms:
     min_version: 9
 
 implementations:
+  - when: authselect
+    check:
+      method: command
+      run: |
+        # Check pwhistory.conf for use_authtok (authselect-managed)
+        if grep -qE '^\s*use_authtok' /etc/security/pwhistory.conf 2>/dev/null; then
+          echo "OK: use_authtok set in pwhistory.conf"
+          exit 0
+        fi
+        if grep -qE 'pam_pwhistory\.so.*use_authtok' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: use_authtok set in system-auth"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory does not include use_authtok"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: |
+        if grep -q '^use_authtok' /etc/security/pwhistory.conf 2>/dev/null; then
+          exit 0
+        fi
+        echo 'use_authtok' >> /etc/security/pwhistory.conf
+
   - default: true
     check:
       method: command
       run: |
-        # Check if pam_pwhistory uses use_authtok
         if grep -qE 'pam_pwhistory\.so.*use_authtok' /etc/pam.d/system-auth 2>/dev/null; then
           echo "OK: pam_pwhistory includes use_authtok"
           exit 0
@@ -37,5 +60,5 @@ implementations:
     remediation:
       mechanism: manual
       note: >
-        Configure pam_pwhistory with use_authtok in /etc/pam.d/system-auth.
-        Use authselect to manage PAM configuration consistently.
+        Add use_authtok to the pam_pwhistory.so line in /etc/pam.d/system-auth
+        or to /etc/security/pwhistory.conf.

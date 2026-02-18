@@ -12,6 +12,8 @@ severity: medium
 category: access-control
 tags: [sudo, privilege-escalation, logging, audit]
 
+depends_on: [package-sudo-installed]
+
 references:
   cis:
     rhel8_v4:  { section: "5.3.3", level: "L1", type: "Automated" }
