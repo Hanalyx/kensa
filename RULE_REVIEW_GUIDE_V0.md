@@ -579,10 +579,10 @@ dimensions have been evaluated and any defects have been either fixed or documen
 |----------|-------|----------|---------------|---------------|
 | access-control | 114 | 114 | 78 | 78 (PRs #13-#20) |
 | audit | 92 | 92 | ~146 | ~146 (PRs #21-#28) |
-| services | 92 | | | |
-| system | 56 | | | |
-| filesystem | 51 | | | |
-| network | 42 | | | |
+| services | 92 | 92 | ~139 | ~139 (PRs #29-#36) |
+| system | 56 | 56 | ~30 | ~30 (PRs #37-#42) |
+| filesystem | 51 | 51 | ~68 | ~68 (PRs #43-#48) |
+| network | 42 | 42 | ~64 | ~64 (PRs #49-#54) |
 | kernel | 19 | | | |
 | logging | 18 | | | |
 
