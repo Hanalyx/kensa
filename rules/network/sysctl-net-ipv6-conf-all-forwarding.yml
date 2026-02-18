@@ -13,6 +13,10 @@ conflicts_with:
   - sysctl-ip-forward-disabled
 
 references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257974"
+      severity: "CAT II"
   nist_800_53: ["CM-7", "SC-5"]
 
 platforms:

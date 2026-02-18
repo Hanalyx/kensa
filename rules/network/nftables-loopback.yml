@@ -17,7 +17,7 @@ references:
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - when: nftables_active
