@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Find accounts with nologin/false shell that are not locked
         unlocked=""
         while IFS=: read -r user _ uid _ _ _ shell; do
@@ -44,7 +44,7 @@ implementations:
         fi
         echo "OK: All nologin accounts are locked"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Lock accounts with nologin shell using: passwd -l <username>"

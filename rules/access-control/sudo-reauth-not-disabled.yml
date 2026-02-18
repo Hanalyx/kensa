@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check for negative timestamp_timeout (disables re-auth)
         timeout=$(sudo -V 2>/dev/null | grep -i 'timestamp timeout' | grep -oE '[-]?[0-9]+' || echo "5")
         if [ "$timeout" -lt 0 ] 2>/dev/null; then
@@ -37,7 +37,7 @@ implementations:
         fi
         echo "OK: Re-authentication not disabled (timeout: ${timeout})"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Remove negative timestamp_timeout values and !authenticate from sudoers"

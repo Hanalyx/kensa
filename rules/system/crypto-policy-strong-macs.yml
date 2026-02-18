@@ -24,7 +24,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         policy=$(update-crypto-policies --show 2>/dev/null)
         if [[ "$policy" =~ ^(FUTURE|FIPS) ]]; then
           echo "OK: $policy"
@@ -34,7 +34,7 @@ implementations:
         sshd -T 2>/dev/null | grep -i '^macs' | grep -qiE 'hmac-sha1|umac-64' && exit 1
         echo "OK: No weak MACs"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: command_exec
       command: "update-crypto-policies --set $(update-crypto-policies --show):NO-WEAKMAC"

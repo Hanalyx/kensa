@@ -23,7 +23,7 @@ implementations:
   - when: gdm_installed
     check:
       method: command
-      command: |
+      run: |
         # Check if XDMCP is enabled
         if grep -qE '^\[xdmcp\]' /etc/gdm/custom.conf 2>/dev/null; then
           if grep -qE '^Enable=true' /etc/gdm/custom.conf 2>/dev/null; then
@@ -33,7 +33,7 @@ implementations:
         fi
         echo "OK: XDMCP is not enabled"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >
@@ -44,7 +44,7 @@ implementations:
     check:
       method: command
       command: "echo 'OK: GDM not installed'; exit 0"
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "GDM is not installed."

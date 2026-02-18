@@ -26,7 +26,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check if AIDE is configured to monitor audit binaries
         if [ -f /etc/aide.conf ]; then
           if grep -qE '/sbin/auditctl|/sbin/aureport|/sbin/ausearch' /etc/aide.conf 2>/dev/null; then
@@ -36,7 +36,7 @@ implementations:
         fi
         echo "FAIL: Audit tool integrity monitoring not configured"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >

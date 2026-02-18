@@ -25,7 +25,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check if pam_pwhistory enforces for root
         if grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/pam.d/system-auth 2>/dev/null ||
            grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
@@ -34,7 +34,7 @@ implementations:
         fi
         echo "FAIL: pam_pwhistory does not enforce history for root"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >

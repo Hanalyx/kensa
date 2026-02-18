@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check for pam_unix in auth and password stacks
         if grep -qE '^auth.*pam_unix\.so' /etc/pam.d/system-auth 2>/dev/null && \
            grep -qE '^password.*pam_unix\.so' /etc/pam.d/system-auth 2>/dev/null; then
@@ -32,7 +32,7 @@ implementations:
         fi
         echo "FAIL: pam_unix not properly configured"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Ensure pam_unix.so is present in auth and password stacks of /etc/pam.d/system-auth"

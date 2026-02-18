@@ -23,14 +23,14 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         if grep -E 'pam_unix\.so.*remember' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null | grep -v '^#'; then
           echo "FAIL: remember option found in pam_unix configuration"
           exit 1
         fi
         echo "OK: pam_unix does not include remember"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: command_exec
       command: "sed -i 's/\\bremember=[0-9]*//g' /etc/pam.d/system-auth /etc/pam.d/password-auth"

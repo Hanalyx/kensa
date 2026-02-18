@@ -24,7 +24,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         if [ ! -f /etc/motd ]; then
           echo "OK: /etc/motd does not exist"
           exit 0
@@ -36,7 +36,7 @@ implementations:
         fi
         echo "OK: /etc/motd properly configured"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Remove OS version information from /etc/motd or replace with authorized use warning"

@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check that root login is restricted
         # 1. SSH root login should be disabled
         ssh_root=$(sshd -T 2>/dev/null | grep -i '^permitrootlogin' | awk '{print $2}')
@@ -37,7 +37,7 @@ implementations:
 
         echo "OK: Root access is controlled (SSH root login: $ssh_root)"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Disable SSH root login and configure pam_securetty for console access"

@@ -23,7 +23,7 @@ implementations:
   - when: gdm_installed
     check:
       method: command
-      command: |
+      run: |
         # Check if autorun-never is configured
         if grep -qr "autorun-never=true" /etc/dconf/db/local.d/ 2>/dev/null; then
           echo "OK: GDM autorun-never is enabled"
@@ -31,7 +31,7 @@ implementations:
         fi
         echo "FAIL: GDM autorun-never is not enabled"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >
@@ -44,7 +44,7 @@ implementations:
     check:
       method: command
       command: "echo 'OK: GDM not installed'; exit 0"
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "GDM is not installed."

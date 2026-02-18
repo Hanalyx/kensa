@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check journald is running (required)
         if ! systemctl is-active systemd-journald >/dev/null 2>&1; then
           echo "FAIL: systemd-journald is not active"
@@ -47,7 +47,7 @@ implementations:
 
         echo "OK: journald-only logging"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Ensure systemd-journald is active. If using rsyslog, configure ForwardToSyslog=yes"
