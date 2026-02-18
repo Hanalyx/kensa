@@ -4,6 +4,22 @@ Append-only. Most recent session first. Read at start of each session for contex
 
 ---
 
+## 2026-02-18 — Complete check handler unit tests (all 21 types)
+
+### Done
+- Added 43 new unit tests for 13 previously untested check handlers:
+  `service_state`, `systemd_target`, `config_absent`, `file_not_exists`,
+  `file_content_match`, `file_content_no_match`, `mount_option`, `grub_parameter`,
+  `selinux_state`, `selinux_boolean`, `audit_rule_exists`, `sshd_effective_config`,
+  `pam_module`, plus `config_value` comparator tests (>=, <=)
+- Each handler has pass, fail, and edge-case tests using mocked SSH responses
+- Fixed mock pattern: `shell_util.file_exists()` uses `test -f` not `test -e`
+
+### Coverage
+- Tests: 247 pass (+43), 508 rules valid, 21 check handler types fully tested
+
+---
+
 ## 2026-02-18 — file_content check handler + banner drift detection (PR #63)
 
 ### Done

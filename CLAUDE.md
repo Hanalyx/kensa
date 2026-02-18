@@ -92,7 +92,7 @@ scripts/                 # Dev tooling
 ├── fedramp_validate.py # FedRAMP gap analysis
 └── parse_fedramp_oscal.py # OSCAL parser for baseline regen
 
-tests/                   # 204 pytest tests
+tests/                   # 247 pytest tests
 
 RULE_REVIEW_GUIDE_V0.md  # Rule review criteria (5 dimensions)
 ACCESS_CONTROL_REVIEW_PLAN.md # Completed access-control review plan (PRs #13-#20)

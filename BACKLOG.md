@@ -26,10 +26,9 @@ context to start without additional preamble.
      pre-state and executes the existing rollback handlers
   The capture/rollback handler infrastructure already covers all 18 mechanism types.
 
-- [ ] **Add unit tests for check handlers**
-  No test suite exists for the check handler functions. Start with the most critical
-  handlers: `config_value`, `file_permission`, `sysctl_value`, `service_state`.
-  Use mocked `SSHSession.run()` responses.
+- [x] **Add unit tests for check handlers**
+  All 21 check handler types now have unit tests (80 tests in test_engine_checks.py).
+  Covers pass, fail, and edge cases using mocked SSHSession.run() responses.
 
 - [ ] **Add unit tests for remediation handlers**
   Same pattern as check handler tests — mock SSH, verify correct commands are built
@@ -48,6 +47,10 @@ context to start without additional preamble.
 ---
 
 ## Completed
+
+- [x] **Complete check handler unit tests — all 21 types** _(2026-02-18)_
+  Added 43 tests for 13 untested handlers. 247 total tests. All check handler
+  types now have pass/fail/edge-case coverage with mocked SSH responses.
 
 - [x] **file_content check handler + banner drift detection** _(2026-02-18)_
   PR #63: New `file_content` check handler for exact content matching. Fixed PR #62 bug where
