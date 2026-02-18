@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.34 (2026-02-18)
+
+### Bug Fixes
+
+- **filesystem**: Correct wrong STIG vuln_ids in 4 fs-permissions rules
+  ([`1fcae5c`](https://github.com/Hanalyx/aegis/commit/1fcae5c0ca35874f0bb180c493015fd339d2ee40))
+
+
 ## v1.6.33 (2026-02-18)
 
 ### Bug Fixes
