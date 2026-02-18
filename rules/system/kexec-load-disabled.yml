@@ -14,8 +14,7 @@ tags: [sysctl, kexec, kernel, security, stig]
 references:
   stig:
     rhel9_v2r7:
-      vuln_id: "V-257817"
-      stig_id: "RHEL-09-213025"
+      vuln_id: "V-257799"
       severity: "CAT II"
   nist_800_53: ["CM-6"]
 
