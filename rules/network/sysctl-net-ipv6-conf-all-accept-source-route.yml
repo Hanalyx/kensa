@@ -13,6 +13,8 @@ conflicts_with:
   - sysctl-source-route-disabled
 
 references:
+  cis:
+    rhel8_v4: { section: "3.3.2.5", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "SC-5", "SC-7"]
 
 platforms:
