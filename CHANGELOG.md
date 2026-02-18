@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.3 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Use canonical note: field for manual remediation text
+  ([`47e54f0`](https://github.com/Hanalyx/aegis/commit/47e54f05e9ca8013e911c094b78d6407315dfe41))
+
+
 ## v1.6.2 (2026-02-18)
 
 ### Bug Fixes
