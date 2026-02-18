@@ -7,6 +7,11 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, hardening]
+conflicts_with:
+  - sysctl-net-ipv4-conf-all-accept-redirects
+  - sysctl-net-ipv4-conf-default-accept-redirects
+  - sysctl-net-ipv6-conf-all-accept-redirects
+  - sysctl-net-ipv6-conf-default-accept-redirects
 
 references:
   cis:

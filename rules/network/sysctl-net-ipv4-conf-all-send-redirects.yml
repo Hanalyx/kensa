@@ -11,6 +11,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv4, icmp]
+conflicts_with:
+  - sysctl-send-redirects-disabled
 
 references:
   cis:

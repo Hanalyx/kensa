@@ -7,6 +7,9 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, hardening]
+conflicts_with:
+  - sysctl-net-ipv4-conf-all-secure-redirects
+  - sysctl-net-ipv4-conf-default-secure-redirects
 
 references:
   cis:

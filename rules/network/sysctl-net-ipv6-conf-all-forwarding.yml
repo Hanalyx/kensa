@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv6, routing]
+conflicts_with:
+  - sysctl-ip-forward-disabled
 
 references:
   cis:

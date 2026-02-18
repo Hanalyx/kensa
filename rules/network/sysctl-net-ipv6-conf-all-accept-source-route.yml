@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv6, routing]
+conflicts_with:
+  - sysctl-source-route-disabled
 
 references:
   cis:

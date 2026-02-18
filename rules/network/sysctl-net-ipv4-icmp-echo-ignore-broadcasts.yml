@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv4, icmp, dos-protection]
+conflicts_with:
+  - sysctl-ignore-broadcast-icmp
 
 references:
   cis:
