@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.11 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Resolve 14 duplicate rule pairs with supersedes/conflicts_with
+  ([`0bd767f`](https://github.com/Hanalyx/aegis/commit/0bd767f6382b0dcf2cf8e4fb3c94d3f6676bfc57))
+
+
 ## v1.6.10 (2026-02-18)
 
 ### Bug Fixes
