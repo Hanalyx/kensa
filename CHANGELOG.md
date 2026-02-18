@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.42 (2026-02-18)
+
+### Bug Fixes
+
+- **network**: Add CIS RHEL 8 refs to 20 granular sysctl rules
+  ([`046ec9c`](https://github.com/Hanalyx/aegis/commit/046ec9c369ba2f238bf4775f6196b7e90d49d910))
+
+
 ## v1.6.41 (2026-02-18)
 
 ### Bug Fixes
