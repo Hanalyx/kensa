@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv4, icmp]
+conflicts_with:
+  - sysctl-icmp-redirects-disabled
 
 references:
   cis:

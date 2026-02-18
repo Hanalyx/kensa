@@ -7,6 +7,9 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, hardening]
+conflicts_with:
+  - sysctl-net-ipv6-conf-all-accept-ra
+  - sysctl-net-ipv6-conf-default-accept-ra
 
 references:
   cis:

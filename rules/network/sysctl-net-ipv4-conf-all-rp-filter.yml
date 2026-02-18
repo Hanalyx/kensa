@@ -10,6 +10,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv4, spoofing-protection]
+conflicts_with:
+  - sysctl-rp-filter
 
 references:
   cis:

@@ -11,6 +11,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, tcp, dos-protection]
+conflicts_with:
+  - sysctl-tcp-syncookies
 
 references:
   cis:

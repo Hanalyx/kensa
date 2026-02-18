@@ -9,6 +9,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, ipv6]
+conflicts_with:
+  - sysctl-ipv6-ra-disabled
 
 references:
   cis:

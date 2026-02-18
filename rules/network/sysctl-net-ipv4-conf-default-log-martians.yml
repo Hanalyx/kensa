@@ -9,6 +9,8 @@ rationale: >
 severity: low
 category: network
 tags: [sysctl, networking, ipv4, logging]
+conflicts_with:
+  - sysctl-log-martians
 
 references:
   cis:

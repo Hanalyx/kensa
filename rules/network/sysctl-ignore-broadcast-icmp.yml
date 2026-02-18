@@ -7,6 +7,8 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, hardening]
+conflicts_with:
+  - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
 
 references:
   cis:

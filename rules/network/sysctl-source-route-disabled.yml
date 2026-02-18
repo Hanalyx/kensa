@@ -7,6 +7,11 @@ rationale: >
 severity: medium
 category: network
 tags: [sysctl, networking, hardening]
+conflicts_with:
+  - sysctl-net-ipv4-conf-all-accept-source-route
+  - sysctl-net-ipv4-conf-default-accept-source-route
+  - sysctl-net-ipv6-conf-all-accept-source-route
+  - sysctl-net-ipv6-conf-default-accept-source-route
 
 references:
   cis:
