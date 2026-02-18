@@ -24,7 +24,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: "nmcli radio wifi 2>/dev/null | grep -q 'disabled' && echo 'disabled' || nmcli radio wifi 2>/dev/null"
+      run: "nmcli radio wifi 2>/dev/null || echo 'disabled'"
       expected_exit: 0
       expected_stdout: "disabled"
     remediation:
