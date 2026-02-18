@@ -21,9 +21,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l 2>/dev/null | grep -qE 'MAC-policy'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-k MAC-policy"
     remediation:
       mechanism: audit_rule_set
       rule: "-w /etc/selinux -p wa -k MAC-policy"

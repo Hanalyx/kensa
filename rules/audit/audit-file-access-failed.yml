@@ -27,9 +27,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l 2>/dev/null | grep -qE 'access'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-k access"
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S creat,open,openat,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=unset -k access"

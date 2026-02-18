@@ -21,9 +21,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l 2>/dev/null | grep -qE 'sudo.log'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-w /var/log/sudo.log"
     remediation:
       mechanism: audit_rule_set
       rule: "-w /var/log/sudo.log -p wa -k sudo_log"
