@@ -4,6 +4,23 @@ Append-only. Most recent session first. Read at start of each session for contex
 
 ---
 
+## 2026-02-18 — file_content check handler + banner drift detection (PR #63)
+
+### Done
+- Added new `file_content` check handler that compares entire file content against expected text
+- Added `content` and `expected_content` to `SAFE_SUBSTITUTION_FIELDS` — previously
+  `{{ banner_text }}` in remediation `content:` field was never resolved (bug in PR #62)
+- Updated `banner-dod-consent` and `issue-net-configured` checks: replaced keyword grep
+  with exact content matching via `file_content` check + `{{ banner_text }}`
+- Now when admin overrides `banner_text` in `rules.d/`, check fails on servers with old text
+  and remediation writes the new content automatically
+- Added `file_content` to check handler registry, schema, and 4 unit tests
+
+### Coverage
+- Tests: 204 pass (+4), 508 rules valid, 21 check handler types
+
+---
+
 ## 2026-02-18 — Customizable login banner text (PR #62)
 
 ### Done

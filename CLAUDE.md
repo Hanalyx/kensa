@@ -48,7 +48,7 @@ runner/                  # Core Python package
 ├── storage.py          # SQLite result persistence
 ├── ordering.py         # Framework-ordered output
 ├── handlers/           # Modular domain-specific handlers
-│   ├── checks/         # 20 check handler types
+│   ├── checks/         # 21 check handler types
 │   ├── remediation/    # 23 remediation handler types
 │   ├── capture/        # Pre-remediation state capture
 │   └── rollback/       # State restoration
@@ -92,7 +92,7 @@ scripts/                 # Dev tooling
 ├── fedramp_validate.py # FedRAMP gap analysis
 └── parse_fedramp_oscal.py # OSCAL parser for baseline regen
 
-tests/                   # 200 pytest tests
+tests/                   # 204 pytest tests
 
 RULE_REVIEW_GUIDE_V0.md  # Rule review criteria (5 dimensions)
 ACCESS_CONTROL_REVIEW_PLAN.md # Completed access-control review plan (PRs #13-#20)
@@ -108,7 +108,7 @@ Rules live in `rules/<category>/<rule-id>.yml`. Each rule has:
 - `platforms` with family/version constraints
 - `implementations` with capability-gated check + remediation pairs
 
-Check handlers: `config_value`, `sshd_effective_config`, `file_permission`, `command`, `file_exists`, `package_state`, `service_state`, `sysctl_value`, `kernel_module_state`, `mount_option`, `audit_rule_exists`, `grub_parameter`, `selinux_boolean`, `selinux_state`, `multi_check`, etc.
+Check handlers: `config_value`, `sshd_effective_config`, `file_permission`, `file_content`, `command`, `file_exists`, `package_state`, `service_state`, `sysctl_value`, `kernel_module_state`, `mount_option`, `audit_rule_exists`, `grub_parameter`, `selinux_boolean`, `selinux_state`, `multi_check`, etc.
 
 **Key field names (runtime-critical):**
 - Check blocks: `run:` (not `command:`), `expected_exit:` (not `expected_exit_code:`)

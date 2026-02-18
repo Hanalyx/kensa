@@ -49,6 +49,11 @@ context to start without additional preamble.
 
 ## Completed
 
+- [x] **file_content check handler + banner drift detection** _(2026-02-18)_
+  PR #63: New `file_content` check handler for exact content matching. Fixed PR #62 bug where
+  `{{ banner_text }}` wasn't resolved in `content:` field (not in SAFE_SUBSTITUTION_FIELDS).
+  Banner rules now detect drift and auto-remediate when `banner_text` is overridden. 204 tests.
+
 - [x] **Customizable login banner text** _(2026-02-18)_
   PR #62: Replaced hardcoded DOD consent banner with `{{ banner_text }}` template variable.
   Updated `banner-dod-consent` and `issue-net-configured` to use `file_content` remediation
