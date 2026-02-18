@@ -14,6 +14,7 @@ tags: [accounts, passwd, security]
 references:
   cis:
     rhel9_v2:  { section: "7.2.6", level: "L1", type: "Automated" }
+    rhel8_v4:  { section: "7.2.6", level: "L1", type: "Automated" }
   nist_800_53: ["IA-2", "AC-2"]
 
 platforms:
