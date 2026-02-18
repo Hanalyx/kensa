@@ -16,6 +16,7 @@ category: system
 tags: [crypto-policy, sha1, security, cryptography]
 
 depends_on: [crypto-policy-no-weak]
+conflicts_with: [crypto-policy-disable-sha1-signatures]
 
 references:
   cis:

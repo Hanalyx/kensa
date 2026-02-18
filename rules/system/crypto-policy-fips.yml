@@ -11,6 +11,8 @@ severity: high
 category: system
 tags: [crypto-policy, fips, cryptography, stig]
 
+depends_on: [fips-mode-enabled]
+
 references:
   stig:
     rhel9_v2r7:
