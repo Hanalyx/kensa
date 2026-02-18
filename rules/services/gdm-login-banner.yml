@@ -23,7 +23,7 @@ implementations:
   - when: gdm_installed
     check:
       method: command
-      command: |
+      run: |
         # Check if banner is configured in GDM
         if [ -f /etc/dconf/db/gdm.d/01-banner-message ]; then
           if grep -q "banner-message-enable=true" /etc/dconf/db/gdm.d/01-banner-message 2>/dev/null; then
@@ -33,7 +33,7 @@ implementations:
         fi
         echo "FAIL: GDM login banner is not configured"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >
@@ -47,7 +47,7 @@ implementations:
     check:
       method: command
       command: "echo 'OK: GDM not installed, banner not required'; exit 0"
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "GDM is not installed. No banner configuration needed."

@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         if grep -qE '(nologin|false)$' /etc/shells 2>/dev/null; then
           echo "FAIL: nologin or false found in /etc/shells"
           grep -E '(nologin|false)$' /etc/shells
@@ -31,7 +31,7 @@ implementations:
         fi
         echo "OK: nologin not in /etc/shells"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: command_exec
       command: "sed -i '/nologin$/d; /false$/d' /etc/shells"

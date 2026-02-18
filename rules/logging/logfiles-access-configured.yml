@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check for world-readable log files
         bad_perms=$(find /var/log -type f -perm /o+r 2>/dev/null | head -5)
         if [ -n "$bad_perms" ]; then
@@ -33,7 +33,7 @@ implementations:
         fi
         echo "OK: Log file permissions are properly configured"
         exit 0
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >

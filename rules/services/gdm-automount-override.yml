@@ -23,7 +23,7 @@ implementations:
   - when: gdm_installed
     check:
       method: command
-      command: |
+      run: |
         # Check if automount setting is locked
         if [ -f /etc/dconf/db/local.d/locks/00-media-automount ]; then
           if grep -q "/org/gnome/desktop/media-handling/automount" /etc/dconf/db/local.d/locks/00-media-automount 2>/dev/null; then
@@ -33,7 +33,7 @@ implementations:
         fi
         echo "FAIL: GDM automount setting can be overridden"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >
@@ -46,7 +46,7 @@ implementations:
     check:
       method: command
       command: "echo 'OK: GDM not installed'; exit 0"
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "GDM is not installed."

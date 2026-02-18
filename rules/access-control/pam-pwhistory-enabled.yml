@@ -23,7 +23,7 @@ implementations:
   - when: authselect
     check:
       method: command
-      command: |
+      run: |
         # Check if pwhistory is in the authselect profile
         if authselect current 2>/dev/null | grep -q with-pwhistory; then
           echo "OK: pwhistory enabled via authselect"
@@ -36,7 +36,7 @@ implementations:
         fi
         echo "FAIL: pam_pwhistory not enabled"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: command_exec
       command: "authselect enable-feature with-pwhistory"
@@ -44,14 +44,14 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         if grep -qE '^password.*pam_pwhistory\.so' /etc/pam.d/system-auth 2>/dev/null; then
           echo "OK: pam_pwhistory configured"
           exit 0
         fi
         echo "FAIL: pam_pwhistory not enabled"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Add pam_pwhistory.so to /etc/pam.d/system-auth password stack"

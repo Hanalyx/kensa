@@ -30,7 +30,7 @@ implementations:
     check:
       method: command
       command: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue 2>/dev/null"
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >

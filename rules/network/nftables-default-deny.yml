@@ -23,7 +23,7 @@ implementations:
   - when: nftables_active
     check:
       method: command
-      command: |
+      run: |
         # Check for drop policy on input and forward chains
         ruleset=$(nft list ruleset 2>/dev/null)
         if echo "$ruleset" | grep -qE "chain input.*policy drop" &&
@@ -33,7 +33,7 @@ implementations:
         fi
         echo "FAIL: nftables default deny policy not configured"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: >
@@ -45,7 +45,7 @@ implementations:
     check:
       method: command
       command: "echo 'OK: nftables not active (using firewalld)'; exit 0"
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "nftables service is not active."

@@ -23,7 +23,7 @@ implementations:
   - default: true
     check:
       method: command
-      command: |
+      run: |
         # Check for use_authtok in pam_unix password line
         if grep -E '^password.*pam_unix\.so.*use_authtok' /etc/pam.d/system-auth 2>/dev/null; then
           echo "OK: pam_unix includes use_authtok"
@@ -31,7 +31,7 @@ implementations:
         fi
         echo "FAIL: pam_unix missing use_authtok"
         exit 1
-      expected_exit_code: 0
+      expected_exit: 0
     remediation:
       mechanism: manual
       description: "Add use_authtok to pam_unix.so in password stack of /etc/pam.d/system-auth"
