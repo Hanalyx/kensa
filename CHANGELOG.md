@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.15 (2026-02-18)
+
+### Bug Fixes
+
+- **audit**: Add missing depends_on declarations to 9 rules
+  ([`f4fcf5a`](https://github.com/Hanalyx/aegis/commit/f4fcf5aa3bf464e3accdd44ed0e4138e6619917f))
+
+
 ## v1.6.14 (2026-02-18)
 
 ### Bug Fixes
