@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.31 (2026-02-18)
+
+### Bug Fixes
+
+- **filesystem**: Replace silently-ignored max_mode/missing_ok with correct fields
+  ([`8b57a28`](https://github.com/Hanalyx/aegis/commit/8b57a28fb832f94516de4bd94f8aca020d820a6a))
+
+
 ## v1.6.30 (2026-02-18)
 
 ### Bug Fixes
