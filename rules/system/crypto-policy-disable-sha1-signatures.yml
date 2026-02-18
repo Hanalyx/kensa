@@ -33,9 +33,9 @@ implementations:
   - default: true
     check:
       method: command
-      run: "update-crypto-policies --show"
+      run: "update-crypto-policies --show | grep -q 'NO-SHA1'"
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      run: "update-crypto-policies --set DEFAULT"
-      unless: "update-crypto-policies --show | grep -qE '^DEFAULT$'"
+      run: "update-crypto-policies --set $(update-crypto-policies --show | sed 's/:NO-SHA1//g'):NO-SHA1"
+      unless: "update-crypto-policies --show | grep -q NO-SHA1"
