@@ -7,6 +7,8 @@ rationale: >
 severity: medium
 category: filesystem
 tags: [file-permissions, authentication]
+conflicts_with:
+  - fs-permissions-etc-group-backup
 
 references:
   cis:

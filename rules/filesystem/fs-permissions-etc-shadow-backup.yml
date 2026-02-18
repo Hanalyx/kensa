@@ -9,6 +9,8 @@ rationale: >
 severity: high
 category: filesystem
 tags: [permissions, shadow, password, security]
+conflicts_with:
+  - etc-shadow-backup-permissions
 
 references:
   cis:

@@ -11,6 +11,8 @@ rationale: >
 severity: high
 category: filesystem
 tags: [permissions, passwords, security, pam]
+conflicts_with:
+  - opasswd-permissions
 
 references:
   cis:

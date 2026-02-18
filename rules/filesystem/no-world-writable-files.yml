@@ -11,6 +11,8 @@ rationale: >
 severity: medium
 category: filesystem
 tags: [permissions, world-writable, audit, security]
+conflicts_with:
+  - no-world-writable
 
 references:
   cis:

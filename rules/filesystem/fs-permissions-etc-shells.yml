@@ -10,6 +10,8 @@ rationale: >
 severity: medium
 category: filesystem
 tags: [permissions, shells, authentication, security]
+conflicts_with:
+  - shells-permissions
 
 references:
   cis:
