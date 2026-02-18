@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.33 (2026-02-18)
+
+### Bug Fixes
+
+- **filesystem**: Correct wrong CIS section references in 27 rules
+  ([`a18d303`](https://github.com/Hanalyx/aegis/commit/a18d303c6c0f5f0d1584973ba8ffec4b2e9794d7))
+
+
 ## v1.6.32 (2026-02-18)
 
 ### Bug Fixes
