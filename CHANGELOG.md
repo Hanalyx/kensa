@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.4 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Consolidate 8 duplicate rule pairs
+  ([`dfed23e`](https://github.com/Hanalyx/aegis/commit/dfed23ee4deb9d669322a9260915ce47bd6823d8))
+
+
 ## v1.6.3 (2026-02-18)
 
 ### Bug Fixes
