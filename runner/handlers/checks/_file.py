@@ -215,6 +215,79 @@ def _check_file_not_exists(ssh: SSHSession, c: dict) -> CheckResult:
     )
 
 
+def _check_file_content(ssh: SSHSession, c: dict) -> CheckResult:
+    """Check that a file's entire content matches the expected text.
+
+    Reads the full file and compares (stripped) against expected_content.
+    Useful for banner files where the exact wording must match.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        c: Check definition with required fields:
+            - path (str): Absolute path to the file.
+            - expected_content (str): Expected file content.
+
+    Returns:
+        CheckResult with passed=True if content matches exactly.
+
+    """
+    path = c["path"]
+    expected = c["expected_content"]
+    check_time = datetime.now(timezone.utc)
+
+    cmd = f"cat {shell_util.quote(path)}"
+    result = ssh.run(cmd)
+
+    if not result.ok:
+        return CheckResult(
+            passed=False,
+            detail=f"{path}: not found or not readable",
+            evidence=Evidence(
+                method="file_content",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected="file readable with expected content",
+                actual="file not found or not readable",
+                timestamp=check_time,
+            ),
+        )
+
+    actual = result.stdout.strip()
+    expected_stripped = expected.strip()
+
+    if actual == expected_stripped:
+        return CheckResult(
+            passed=True,
+            detail=f"{path}: content matches expected",
+            evidence=Evidence(
+                method="file_content",
+                command=cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                expected=expected_stripped,
+                actual=actual,
+                timestamp=check_time,
+            ),
+        )
+    return CheckResult(
+        passed=False,
+        detail=f"{path}: content does not match expected",
+        evidence=Evidence(
+            method="file_content",
+            command=cmd,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            expected=expected_stripped,
+            actual=actual,
+            timestamp=check_time,
+        ),
+    )
+
+
 def _check_file_content_match(ssh: SSHSession, c: dict) -> CheckResult:
     """Check that file content matches a regex pattern.
 
