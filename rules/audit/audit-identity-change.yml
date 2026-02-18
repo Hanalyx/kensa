@@ -21,9 +21,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l 2>/dev/null | grep -qE 'identity'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-k identity"
     remediation:
       mechanism: audit_rule_set
       rule: "-w /etc/group -p wa -k identity"

@@ -21,9 +21,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l 2>/dev/null | grep -qE 'user_emulation'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-k user_emulation"
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation"

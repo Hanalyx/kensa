@@ -30,9 +30,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l | grep -E 'execve.*auid>=1000.*euid=0'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-k execpriv"
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"

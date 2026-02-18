@@ -27,9 +27,8 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "auditctl -l 2>/dev/null | grep -qE 'mounts'"
-      expected_exit: 0
+      method: audit_rule_exists
+      rule: "-k mounts"
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=unset -k mounts"
