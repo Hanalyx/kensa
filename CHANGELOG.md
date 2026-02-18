@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.40 (2026-02-18)
+
+### Bug Fixes
+
+- **network**: Add missing STIG refs and widen nftables platform scope
+  ([`8f281bc`](https://github.com/Hanalyx/aegis/commit/8f281bce8562021ba3138b0b899e09b26f14f700))
+
+
 ## v1.6.39 (2026-02-18)
 
 ### Bug Fixes
