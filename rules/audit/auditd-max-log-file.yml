@@ -33,4 +33,5 @@ implementations:
       path: "/etc/audit/auditd.conf"
       key: "max_log_file"
       value: "8"
+      separator: " = "
       restart: "auditd"

@@ -35,4 +35,5 @@ implementations:
       path: "/etc/audit/auditd.conf"
       key: "max_log_file_action"
       value: "keep_logs"
+      separator: " = "
       restart: "auditd"
