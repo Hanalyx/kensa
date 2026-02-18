@@ -16,12 +16,21 @@ references:
 platforms:
   - family: rhel
     min_version: 8
+
 implementations:
-  - default: true
+  - when: authselect
     check:
       method: command
-      run: 'grep -qE ''^\s*auth\s+required\s+pam_faillock\.so'' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null || authselect current 2>/dev/null | grep -q with-faillock'
+      run: 'authselect current 2>/dev/null | grep -q with-faillock'
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      run: "authselect enable-feature with-faillock 2>/dev/null || true"
+      run: "authselect enable-feature with-faillock"
+  - default: true
+    check:
+      method: command
+      run: 'grep -qE ''^\s*auth\s+required\s+pam_faillock\.so'' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Enable pam_faillock in /etc/pam.d/system-auth and /etc/pam.d/password-auth"
