@@ -10,6 +10,8 @@ severity: medium
 category: services
 tags: [gdm, gnome, user-list, security]
 
+conflicts_with: [gdm-removed]
+
 references:
   cis:
     rhel9_v2: { section: "1.8.3", level: "L1", type: "Automated" }
@@ -42,9 +44,9 @@ implementations:
 
   - default: true
     check:
-      method: command
-      run: "echo 'OK: GDM not installed'; exit 0"
-      expected_exit: 0
+      method: package_state
+      name: "gdm"
+      state: "absent"
     remediation:
-      mechanism: manual
-      note: "GDM is not installed."
+      mechanism: package_absent
+      name: "gdm"
