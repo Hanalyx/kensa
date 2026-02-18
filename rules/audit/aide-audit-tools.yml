@@ -14,8 +14,6 @@ conflicts_with: [auditd-tools-integrity]
 depends_on: [aide-installed]
 
 references:
-  cis:
-    rhel9_v2:  { section: "6.3.4.8", level: "L2", type: "Automated" }
   nist_800_53: ["SI-7", "AU-9"]
 
 platforms:

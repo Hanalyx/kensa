@@ -14,6 +14,8 @@ tags: [audit, ownership, chown, stig]
 depends_on: [auditd-service-enabled]
 
 references:
+  cis:
+    rhel8_v4: { section: "6.3.3.20", level: "L2", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257804"

@@ -14,7 +14,7 @@ depends_on: [auditd-service-enabled]
 
 references:
   cis:
-    rhel9_v2: { section: "6.3.3.17", level: "L2", type: "Automated" }
+    rhel9_v2: { section: "6.3.3.17", level: "L1", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-258181"

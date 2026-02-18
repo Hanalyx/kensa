@@ -15,6 +15,8 @@ conflicts_with: [audit-file-access-failed]
 depends_on: [auditd-service-enabled]
 
 references:
+  cis:
+    rhel8_v4: { section: "6.3.3.12", level: "L2", type: "Automated" }
   stig:
     rhel9_v2r7:
       vuln_id: "V-257802"
