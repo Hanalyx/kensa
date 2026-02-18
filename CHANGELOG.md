@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.30 (2026-02-18)
+
+### Bug Fixes
+
+- **system**: Add missing CIS RHEL 8 v4.0.0 references to 17 system rules
+  ([`319dfe0`](https://github.com/Hanalyx/aegis/commit/319dfe05eee6f4bebc05ea00a0a08320bb7a6578))
+
+
 ## v1.6.29 (2026-02-18)
 
 ### Bug Fixes
