@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.39 (2026-02-18)
+
+### Bug Fixes
+
+- **network**: Remove wrong CIS refs from granular rules, add remediation guards
+  ([`c98d28d`](https://github.com/Hanalyx/aegis/commit/c98d28d89775c0247221ca691966a2eea59ed771))
+
+
 ## v1.6.38 (2026-02-18)
 
 ### Bug Fixes
