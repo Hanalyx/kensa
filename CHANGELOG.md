@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.6.43 (2026-02-18)
+
+### Bug Fixes
+
+- **kernel**: Correct wrong STIG vuln_ids and CIS section references
+  ([`2334617`](https://github.com/Hanalyx/aegis/commit/2334617f7ecf15d14f629c46250b7c0ce2118f0e))
+
+### Documentation
+
+- Update tracking for completed network rule review (PRs #49-#54)
+  ([`cc82893`](https://github.com/Hanalyx/aegis/commit/cc8289369d1a5400f535ab8eaff968f8cb99defe))
+
+
 ## v1.6.42 (2026-02-18)
 
 ### Bug Fixes
