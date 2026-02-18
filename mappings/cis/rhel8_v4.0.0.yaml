@@ -440,6 +440,12 @@ controls:
     level: L1
     type: Automated
     title: "Ensure noexec option set on /var/tmp partition"
+  "1.3.1.2":
+    rules:
+      - grub-selinux-not-disabled
+    level: L1
+    type: Automated
+    title: "Ensure SELinux is not disabled in bootloader configuration"
   "1.3.1.3":
     rules:
       - selinux-policy-targeted
@@ -602,6 +608,54 @@ controls:
     level: L1
     type: Automated
     title: "Ensure cron daemon is enabled and active"
+  "2.4.1.2":
+    rules:
+      - crontab-permissions
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/crontab is configured"
+  "2.4.1.3":
+    rules:
+      - cron-hourly-permissions
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/cron.hourly is configured"
+  "2.4.1.4":
+    rules:
+      - cron-daily-permissions
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/cron.daily is configured"
+  "2.4.1.5":
+    rules:
+      - cron-weekly-permissions
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/cron.weekly is configured"
+  "2.4.1.6":
+    rules:
+      - cron-monthly-permissions
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/cron.monthly is configured"
+  "2.4.1.7":
+    rules:
+      - cron-d-permissions
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/cron.d is configured"
+  "2.4.1.8":
+    rules:
+      - cron-allow
+    level: L1
+    type: Automated
+    title: "Ensure crontab is restricted to authorized users"
+  "2.4.2.1":
+    rules:
+      - at-allow
+    level: L1
+    type: Automated
+    title: "Ensure at is restricted to authorized users"
   "3.1.1":
     rules:
       - kmod-disable-bluetooth
@@ -956,6 +1010,12 @@ controls:
     level: L2
     type: Automated
     title: "Ensure auditing for processes that start prior to auditd is enabled"
+  "6.3.1.3":
+    rules:
+      - grub-audit-backlog
+    level: L2
+    type: Automated
+    title: "Ensure audit_backlog_limit is configured"
   "6.3.1.4":
     rules:
       - auditd-service-enabled
@@ -1094,6 +1154,12 @@ controls:
     level: L1
     type: Manual
     title: "Ensure SUID and SGID files are reviewed"
+  "7.2.3":
+    rules:
+      - groups-in-passwd-exist
+    level: L1
+    type: Automated
+    title: "Ensure all groups in /etc/passwd exist in /etc/group"
   "7.2.4":
     rules:
       - audit-suid-files
@@ -1106,6 +1172,18 @@ controls:
     level: L1
     type: Automated
     title: "Ensure no duplicate GIDs exist"
+  "7.2.6":
+    rules:
+      - no-duplicate-usernames
+    level: L1
+    type: Automated
+    title: "Ensure no duplicate user names exist"
+  "7.2.7":
+    rules:
+      - no-duplicate-groupnames
+    level: L1
+    type: Automated
+    title: "Ensure no duplicate group names exist"
 
 unimplemented:
   "1.1.1.5":
@@ -1206,10 +1284,6 @@ unimplemented:
     type: Manual
   "1.3.1.1":
     title: "Ensure SELinux is installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.3.1.2":
-    title: "Ensure SELinux is not disabled in bootloader configuration"
     reason: "Needs rule implementation"
     type: Automated
   "1.3.1.5":
@@ -1380,40 +1454,8 @@ unimplemented:
     title: "Ensure chrony is not run as the root user"
     reason: "Needs rule implementation"
     type: Automated
-  "2.4.1.2":
-    title: "Ensure access to /etc/crontab is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.3":
-    title: "Ensure access to /etc/cron.hourly is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.4":
-    title: "Ensure access to /etc/cron.daily is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.5":
-    title: "Ensure access to /etc/cron.weekly is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.6":
-    title: "Ensure access to /etc/cron.monthly is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.7":
-    title: "Ensure access to /etc/cron.yearly is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.8":
-    title: "Ensure access to /etc/cron.d is configured"
-    reason: "Needs rule implementation"
-    type: Automated
   "2.4.1.9":
     title: "Ensure access to crontab is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.2.1":
-    title: "Ensure access to at is configured"
     reason: "Needs rule implementation"
     type: Automated
   "3.1.3":
@@ -1724,10 +1766,6 @@ unimplemented:
     title: "Ensure access to all logfiles has been configured"
     reason: "Needs rule implementation"
     type: Automated
-  "6.3.1.3":
-    title: "Ensure audit_backlog_limit is configured"
-    reason: "Needs rule implementation"
-    type: Automated
   "6.3.2.1":
     title: "Ensure audit log storage size is configured"
     reason: "Needs rule implementation"
@@ -1810,18 +1848,6 @@ unimplemented:
     type: Automated
   "7.2.2":
     title: "Ensure /etc/shadow password fields are not empty"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.3":
-    title: "Ensure all groups in /etc/passwd exist in /etc/group"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.6":
-    title: "Ensure no duplicate user names exist"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.7":
-    title: "Ensure no duplicate group names exist"
     reason: "Needs rule implementation"
     type: Automated
   "7.2.8":
