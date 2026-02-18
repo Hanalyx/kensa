@@ -28,4 +28,5 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: command_exec
-      run: "update-crypto-policies --set $(update-crypto-policies --show):NO-CBC"
+      run: "update-crypto-policies --set $(update-crypto-policies --show | sed 's/:NO-CBC//g'):NO-CBC"
+      unless: "update-crypto-policies --show | grep -q ':NO-CBC'"
