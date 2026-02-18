@@ -564,6 +564,676 @@ class TestMultiConditionCheck:
         assert "not installed" in r.detail
 
 
+class TestServiceState:
+    def test_enabled_and_running(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
+                "is-active": Result(exit_code=0, stdout="active", stderr=""),
+            }
+        )
+        check = {
+            "method": "service_state",
+            "name": "sshd",
+            "enabled": True,
+            "active": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_enabled_but_not_running(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
+                "is-active": Result(exit_code=3, stdout="inactive", stderr=""),
+            }
+        )
+        check = {
+            "method": "service_state",
+            "name": "sshd",
+            "enabled": True,
+            "active": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "active=inactive" in r.detail
+
+    def test_disabled_as_expected(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=1, stdout="disabled", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "autofs", "enabled": False}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_static_counts_as_enabled(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="static", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "systemd-journald", "enabled": True}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_masked_counts_as_disabled(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=1, stdout="masked", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "autofs", "enabled": False}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_enabled_when_should_be_disabled(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "autofs", "enabled": False}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected disabled" in r.detail
+
+
+class TestSystemdTarget:
+    def test_expected_target_matches(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="multi-user.target", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "systemd_target",
+            "expected": "multi-user.target",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_expected_target_mismatch(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="graphical.target", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "systemd_target",
+            "expected": "multi-user.target",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "graphical.target" in r.detail
+
+    def test_not_expected_target(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="multi-user.target", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "systemd_target",
+            "not_expected": "graphical.target",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+
+class TestConfigAbsent:
+    def test_key_absent(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_key_present_when_should_be_absent(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0, stdout="PermitEmptyPasswords yes", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "should be absent" in r.detail
+
+
+class TestFileNotExists:
+    def test_file_absent(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {"method": "file_not_exists", "path": "/etc/cron.deny"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_file_present_when_should_be_absent(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {"method": "file_not_exists", "path": "/etc/cron.deny"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "should be absent" in r.detail
+
+
+class TestFileContentMatch:
+    def test_pattern_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_pattern_not_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "pattern not found" in r.detail
+
+    def test_file_missing(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/nonexistent",
+            "pattern": "anything",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+
+class TestFileContentNoMatch:
+    def test_prohibited_pattern_absent(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/etc/issue",
+            "pattern": "\\\\[vrmns]",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_prohibited_pattern_present(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/etc/issue",
+            "pattern": "\\\\[vrmns]",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "prohibited pattern" in r.detail
+
+    def test_missing_file_passes(self, mock_ssh):
+        """If the file doesn't exist, the pattern can't be present."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/nonexistent",
+            "pattern": "anything",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+
+class TestMountOption:
+    def test_required_options_present(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(
+                    exit_code=0, stdout="rw,nosuid,nodev,noexec,relatime", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid", "nodev", "noexec"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_missing_option(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=0, stdout="rw,nosuid,relatime", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid", "nodev", "noexec"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "nodev" in r.detail
+        assert "noexec" in r.detail
+
+    def test_not_mounted(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not mounted" in r.detail
+
+
+class TestGrubParameter:
+    def test_parameter_with_value(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro crashkernel=auto audit=1"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "grub_parameter",
+            "key": "audit",
+            "expected": "1",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_parameter_wrong_value(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro crashkernel=auto audit=0"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "grub_parameter",
+            "key": "audit",
+            "expected": "1",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected 1" in r.detail
+
+    def test_parameter_missing(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro crashkernel=auto"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "grub_parameter",
+            "key": "audit",
+            "expected": "1",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+    def test_grubby_not_available(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=1, stdout="", stderr="not found"),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "audit", "expected": "1"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "grubby" in r.detail.lower()
+
+
+class TestSelinuxState:
+    def test_enforcing(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=0, stdout="Enforcing", stderr=""),
+            }
+        )
+        check = {"method": "selinux_state", "state": "Enforcing"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_permissive_when_enforcing_expected(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=0, stdout="Permissive", stderr=""),
+            }
+        )
+        check = {"method": "selinux_state", "state": "Enforcing"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "Permissive" in r.detail
+
+    def test_getenforce_fails(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=1, stdout="", stderr="not found"),
+            }
+        )
+        check = {"method": "selinux_state"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not be installed" in r.detail
+
+
+class TestSelinuxBoolean:
+    def test_boolean_on(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(
+                    exit_code=0,
+                    stdout="httpd_can_network_connect --> on",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "httpd_can_network_connect",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_boolean_off_when_on_expected(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(
+                    exit_code=0,
+                    stdout="httpd_can_network_connect --> off",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "httpd_can_network_connect",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected on" in r.detail
+
+    def test_boolean_not_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(exit_code=1, stdout="", stderr="not found"),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "nonexistent_bool",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+
+class TestAuditRuleExists:
+    def test_rule_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout="-w /etc/passwd -p wa -k identity\n-w /etc/shadow -p wa -k identity",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": "-w /etc/passwd -p wa -k identity",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_rule_not_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout="-w /etc/shadow -p wa -k identity",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": "-w /etc/passwd -p wa -k identity",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+    def test_auditd_not_running(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(exit_code=1, stdout="", stderr="error"),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": "-w /etc/passwd -p wa",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "auditctl" in r.detail
+
+
+class TestSshdEffectiveConfig:
+    def test_key_matches(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_key_wrong_value(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin yes", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected no" in r.detail
+
+    def test_key_not_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+
+class TestPamModule:
+    def test_module_found_with_correct_type(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0,
+                    stdout="auth        required      pam_faillock.so preauth",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_module_not_found(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+    def test_pam_file_missing(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "nonexistent",
+            "module": "pam_faillock.so",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+
+class TestConfigValueComparator:
+    def test_greater_than_or_equal_pass(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="minlen = 15", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_value",
+            "path": "/etc/security/pwquality.conf",
+            "key": "minlen",
+            "expected": "14",
+            "comparator": ">=",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_greater_than_or_equal_fail(self, mock_ssh):
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="minlen = 8", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_value",
+            "path": "/etc/security/pwquality.conf",
+            "key": "minlen",
+            "expected": "14",
+            "comparator": ">=",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+
 class TestUnknownMethod:
     def test_unknown_check_method(self, mock_ssh):
         ssh = mock_ssh({})
