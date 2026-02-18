@@ -29,7 +29,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Set shell to /sbin/nologin for system accounts that should not
         have interactive login:
         usermod -s /sbin/nologin <username>

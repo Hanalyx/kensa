@@ -41,6 +41,6 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure authselect with an appropriate profile. Example:
         authselect select sssd with-faillock with-pwhistory --force

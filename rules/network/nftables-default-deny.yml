@@ -36,7 +36,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure nftables default deny policy:
         nft chain inet filter input { policy drop \; }
         nft chain inet filter forward { policy drop \; }
@@ -48,4 +48,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "nftables service is not active."
+      note: "nftables service is not active."

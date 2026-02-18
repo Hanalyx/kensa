@@ -34,7 +34,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Disable autorun in /etc/dconf/db/local.d/00-media-autorun:
         [org/gnome/desktop/media-handling]
         autorun-never=true
@@ -47,4 +47,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "GDM is not installed."
+      note: "GDM is not installed."

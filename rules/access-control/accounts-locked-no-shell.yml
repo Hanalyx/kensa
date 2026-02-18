@@ -47,4 +47,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Lock accounts with nologin shell using: passwd -l <username>"
+      note: "Lock accounts with nologin shell using: passwd -l <username>"

@@ -42,4 +42,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Enable either firewalld or nftables, not both. Disable the unused service."
+      note: "Enable either firewalld or nftables, not both. Disable the unused service."

@@ -35,4 +35,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Remove or reassign GID for groups with GID 0 that are not root"
+      note: "Remove or reassign GID for groups with GID 0 that are not root"

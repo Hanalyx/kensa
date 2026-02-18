@@ -29,7 +29,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review files without valid owners and assign appropriate ownership:
         find / -xdev -nouser
         For each file, either assign to an appropriate user:

@@ -36,6 +36,6 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review and fix permissions on log files. Remove world-readable
         permissions: find /var/log -type f -perm /o+r -exec chmod o-r {} \;

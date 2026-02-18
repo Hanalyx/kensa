@@ -50,4 +50,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Ensure systemd-journald is active. If using rsyslog, configure ForwardToSyslog=yes"
+      note: "Ensure systemd-journald is active. If using rsyslog, configure ForwardToSyslog=yes"

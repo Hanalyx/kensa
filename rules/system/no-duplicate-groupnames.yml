@@ -29,6 +29,6 @@ implementations:
       expected_stdout: ""
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review /etc/group and resolve any duplicate group names by either
         removing the duplicate groups or renaming them to unique values.

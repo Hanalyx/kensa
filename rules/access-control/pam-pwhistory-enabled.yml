@@ -54,4 +54,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Add pam_pwhistory.so to /etc/pam.d/system-auth password stack"
+      note: "Add pam_pwhistory.so to /etc/pam.d/system-auth password stack"

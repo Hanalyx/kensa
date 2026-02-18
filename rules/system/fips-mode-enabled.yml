@@ -31,7 +31,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Enable FIPS mode using:
         fips-mode-setup --enable
         A system reboot is required after enabling FIPS mode.

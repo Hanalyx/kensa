@@ -39,7 +39,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure AIDE to monitor audit binaries. Add to /etc/aide.conf:
         /sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512
         /sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512

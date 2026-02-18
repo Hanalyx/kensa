@@ -30,7 +30,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Review SGID files and remove SGID bit from unauthorized programs:
         find / -xdev -type f -perm -2000
         Compare against a known-good baseline. Remove SGID if not needed:

@@ -35,7 +35,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Configure screen lock in /etc/dconf/db/local.d/00-screensaver:
         [org/gnome/desktop/session]
         idle-delay=uint32 900
@@ -50,4 +50,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "GDM is not installed."
+      note: "GDM is not installed."

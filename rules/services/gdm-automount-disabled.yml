@@ -34,7 +34,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Disable automount in /etc/dconf/db/local.d/00-media-automount:
         [org/gnome/desktop/media-handling]
         automount=false
@@ -48,4 +48,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "GDM is not installed."
+      note: "GDM is not installed."

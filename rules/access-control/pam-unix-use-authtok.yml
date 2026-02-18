@@ -34,4 +34,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Add use_authtok to pam_unix.so in password stack of /etc/pam.d/system-auth"
+      note: "Add use_authtok to pam_unix.so in password stack of /etc/pam.d/system-auth"

@@ -36,7 +36,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Lock automount setting in /etc/dconf/db/local.d/locks/00-media-automount:
         /org/gnome/desktop/media-handling/automount
         /org/gnome/desktop/media-handling/automount-open
@@ -49,4 +49,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "GDM is not installed."
+      note: "GDM is not installed."

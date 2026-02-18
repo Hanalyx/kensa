@@ -35,4 +35,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: "Ensure pam_unix.so is present in auth and password stacks of /etc/pam.d/system-auth"
+      note: "Ensure pam_unix.so is present in auth and password stacks of /etc/pam.d/system-auth"

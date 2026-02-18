@@ -34,7 +34,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: manual
-      description: >
+      note: >
         The rescue.service unit should use sulogin for authentication.
         This is the default on RHEL 8/9. If modified, restore the default:
         systemctl revert rescue.service

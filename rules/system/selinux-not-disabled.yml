@@ -29,6 +29,6 @@ implementations:
       expected_stdout: ""
     remediation:
       mechanism: manual
-      description: >
+      note: >
         Edit /etc/selinux/config and set SELINUX=enforcing or SELINUX=permissive.
         A system reboot is required to change SELinux mode from disabled.
