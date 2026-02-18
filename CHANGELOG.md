@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.32 (2026-02-18)
+
+### Bug Fixes
+
+- **filesystem**: Add conflicts_with to 11 duplicate rule pairs
+  ([`3159fa1`](https://github.com/Hanalyx/aegis/commit/3159fa12799f7f67d71bcd50d1b1e6c22e5158ae))
+
+
 ## v1.6.31 (2026-02-18)
 
 ### Bug Fixes
