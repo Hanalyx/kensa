@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.38 (2026-02-18)
+
+### Bug Fixes
+
+- **network**: Add conflicts_with between 11 composite/granular sysctl rule pairs
+  ([`3e66dc0`](https://github.com/Hanalyx/aegis/commit/3e66dc0e409daf5eae609b7b2d4398da1e04666a))
+
+
 ## v1.6.37 (2026-02-18)
 
 ### Bug Fixes
