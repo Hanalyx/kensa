@@ -60,7 +60,16 @@ def _check_command(ssh: SSHSession, c: dict) -> CheckResult:
             ),
         )
 
-    if expected_stdout is not None and expected_stdout not in result.stdout:
+    if expected_stdout is not None:
+        # Empty string means "expect no output"; non-empty uses substring match
+        stdout_ok = (
+            (not result.stdout)
+            if expected_stdout == ""
+            else (expected_stdout in result.stdout)
+        )
+    else:
+        stdout_ok = True
+    if not stdout_ok:
         return CheckResult(
             passed=False,
             detail=f"stdout mismatch: got {result.stdout!r}",

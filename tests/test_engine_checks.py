@@ -279,6 +279,32 @@ class TestCommand:
         r = run_check(ssh, check)
         assert r.passed is False
 
+    def test_expected_empty_stdout_pass(self, mock_ssh):
+        """expected_stdout='' must pass when command produces no output."""
+        ssh = mock_ssh({"find /bad": Result(exit_code=0, stdout="", stderr="")})
+        check = {
+            "method": "command",
+            "run": "find /bad",
+            "expected_exit": 0,
+            "expected_stdout": "",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_expected_empty_stdout_fail(self, mock_ssh):
+        """expected_stdout='' must fail when command produces output."""
+        ssh = mock_ssh(
+            {"find /bad": Result(exit_code=0, stdout="/bad/file.txt", stderr="")}
+        )
+        check = {
+            "method": "command",
+            "run": "find /bad",
+            "expected_exit": 0,
+            "expected_stdout": "",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
     def test_nonzero_expected_exit(self, mock_ssh):
         """Some checks expect failure (e.g., 'this should NOT be found')."""
         ssh = mock_ssh(
