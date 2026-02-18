@@ -1,0 +1,40 @@
+id: auditd-overflow-action
+title: Configure auditd internal event queue overflow action
+description: >
+  The auditd overflow_action parameter must be configured to
+  take appropriate action when the internal event queue is full.
+rationale: >
+  If the internal event queue overflows without notification,
+  audit events may be silently dropped, creating gaps in the
+  audit trail that could mask malicious activity.
+severity: medium
+category: audit
+tags: [audit, auditd, configuration]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258162"
+      severity: "CAT II"
+  nist_800_53: ["AU-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/audit/auditd.conf"
+      key: "overflow_action"
+      expected: "syslog"
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "overflow_action"
+      value: "syslog"
+      separator: " = "
+      restart: "auditd"

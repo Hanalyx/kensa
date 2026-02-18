@@ -1,0 +1,40 @@
+id: auditd-log-format
+title: Configure auditd log format to ENRICHED
+description: >
+  The auditd log_format parameter must be set to ENRICHED to
+  include user and group name resolution in audit records.
+rationale: >
+  The ENRICHED format resolves UIDs and GIDs to names at log
+  time, making audit records more readable and useful for
+  security analysis without requiring external lookups.
+severity: medium
+category: audit
+tags: [audit, auditd, configuration]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258169"
+      severity: "CAT II"
+  nist_800_53: ["AU-3"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/audit/auditd.conf"
+      key: "log_format"
+      expected: "ENRICHED"
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "log_format"
+      value: "ENRICHED"
+      separator: " = "
+      restart: "auditd"

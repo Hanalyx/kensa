@@ -1,0 +1,33 @@
+id: separate-filesystem-var-log
+title: Ensure /var/log is on a separate filesystem
+description: >
+  The /var/log directory must be on a separate filesystem or
+  logical volume to prevent log data from filling the /var
+  or root filesystem.
+rationale: >
+  A separate filesystem for /var/log prevents log data from
+  consuming all available disk space, which could cause loss
+  of audit records or system instability.
+severity: low
+category: filesystem
+tags: [filesystem, partitioning, storage, logging]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257846"
+      severity: "CAT III"
+  nist_800_53: ["CM-6", "AU-4"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt --noheadings /var/log"
+      expected_exit: 0
+    remediation:
+      mechanism: manual

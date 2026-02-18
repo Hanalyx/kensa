@@ -1,0 +1,35 @@
+id: auditd-audit-backlog-limit
+title: Configure sufficient audit_backlog_limit in GRUB
+description: >
+  The audit_backlog_limit kernel parameter must be set to a
+  sufficient size to capture processes that start before the
+  audit daemon.
+rationale: >
+  During boot, processes start before the audit daemon is
+  running. Without a sufficient backlog limit, audit events
+  for these early processes may be lost.
+severity: low
+category: audit
+tags: [audit, grub, boot, configuration]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258173"
+      severity: "CAT III"
+  nist_800_53: ["AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "grubby --info=ALL | grep -o 'audit_backlog_limit=[0-9]*' | head -1 | cut -d= -f2"
+      expected_exit: 0
+      expected_stdout: "8192"
+    remediation:
+      mechanism: command_exec
+      run: "grubby --update-kernel=ALL --args='audit_backlog_limit=8192'"

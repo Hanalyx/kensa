@@ -1,0 +1,33 @@
+id: separate-filesystem-home
+title: Ensure /home is on a separate filesystem
+description: >
+  The /home directory must be on a separate filesystem or
+  logical volume to prevent user data from filling the
+  root filesystem.
+rationale: >
+  A separate filesystem for /home prevents users from
+  consuming all available disk space on the root filesystem,
+  which could cause system instability or denial of service.
+severity: medium
+category: filesystem
+tags: [filesystem, partitioning, storage]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257843"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt --noheadings /home"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
