@@ -14,8 +14,7 @@ tags: [banner, ssh, dod, compliance, stig]
 references:
   stig:
     rhel9_v2r7:
-      vuln_id: "V-257800"
-      stig_id: "RHEL-09-255040"
+      vuln_id: "V-257981"
       severity: "CAT II"
   nist_800_53: ["AC-8"]
 
