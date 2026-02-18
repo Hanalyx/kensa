@@ -40,6 +40,7 @@ implementations:
       key: "ForwardToSyslog"
       value: "yes"
       section: "[Journal]"
+      restart: "systemd-journald"
 
   - default: true
     check:
