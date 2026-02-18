@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.35 (2026-02-18)
+
+### Bug Fixes
+
+- **filesystem**: Improve check accuracy for backup file and sticky-bit rules
+  ([`0455d55`](https://github.com/Hanalyx/aegis/commit/0455d55c677dc2237318d2cb56ad143edf9180e5))
+
+
 ## v1.6.34 (2026-02-18)
 
 ### Bug Fixes
