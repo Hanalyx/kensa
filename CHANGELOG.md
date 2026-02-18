@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.7 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Add capability gating, dependencies, and fix remaining field names
+  ([`4a0fcee`](https://github.com/Hanalyx/aegis/commit/4a0fceeac54617c9f4206bfd26a9610218551ac7))
+
+
 ## v1.6.6 (2026-02-18)
 
 ### Bug Fixes
