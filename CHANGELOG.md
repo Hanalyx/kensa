@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.22 (2026-02-18)
+
+### Bug Fixes
+
+- **services**: Correct CIS section references across 23 rules
+  ([`e5bd2e1`](https://github.com/Hanalyx/aegis/commit/e5bd2e1c7ee4d2edaad6504548a88eee3ed17e31))
+
+
 ## v1.6.21 (2026-02-18)
 
 ### Bug Fixes
