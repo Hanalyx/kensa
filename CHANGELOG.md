@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.5 (2026-02-18)
+
+### Bug Fixes
+
+- **rules**: Correct logic bugs in root-umask, shell-timeout, pam-faillock-enabled
+  ([`aaa6920`](https://github.com/Hanalyx/aegis/commit/aaa69209eddd2714acb32dcf089e9b78ce569459))
+
+
 ## v1.6.4 (2026-02-18)
 
 ### Bug Fixes
