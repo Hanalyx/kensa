@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.11.0 (2026-02-19)
+
+### Documentation
+
+- Add PR workflow convention to CLAUDE.md
+  ([`0774308`](https://github.com/Hanalyx/aegis/commit/07743080bb0fa6d91ba5c980da63a4e406e9725a))
+
+### Features
+
+- **benchmark**: Add multi-host comparison and coverage dimension (Phase 2)
+  ([`76f8024`](https://github.com/Hanalyx/aegis/commit/76f80247230e7d0e83f11daf214a61ffeebf354c))
+
+
 ## v1.10.0 (2026-02-19)
 
 ### Documentation
