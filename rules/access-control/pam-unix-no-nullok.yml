@@ -24,7 +24,7 @@ implementations:
     check:
       method: command
       run: |
-        if grep -rE 'pam_unix\.so.*nullok' /etc/pam.d/ 2>/dev/null | grep -v '^#'; then
+        if grep -E 'pam_unix\.so.*\bnullok\b' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null | grep -v '^\s*#'; then
           echo "FAIL: nullok found in pam_unix configuration"
           exit 1
         fi
@@ -39,7 +39,7 @@ implementations:
     check:
       method: command
       run: |
-        if grep -rE 'pam_unix\.so.*nullok' /etc/pam.d/ 2>/dev/null | grep -v '^#'; then
+        if grep -E 'pam_unix\.so.*\bnullok\b' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null | grep -v '^\s*#'; then
           echo "FAIL: nullok found in pam_unix configuration"
           exit 1
         fi

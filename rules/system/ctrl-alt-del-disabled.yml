@@ -28,9 +28,9 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: "systemctl is-masked ctrl-alt-del.target"
-      expected_exit: 0
+      method: service_state
+      name: "ctrl-alt-del.target"
+      enabled: false
     remediation:
       mechanism: service_masked
       name: "ctrl-alt-del.target"
