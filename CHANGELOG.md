@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.12.1 (2026-02-19)
+
+### Bug Fixes
+
+- **rules**: Improve SSH check accuracy with algorithm validation and range checks
+  ([#69](https://github.com/Hanalyx/aegis/pull/69),
+  [`34b30cc`](https://github.com/Hanalyx/aegis/commit/34b30ccfc15a7da73fea36860b9f3cd8f5f0ff31))
+
+
 ## v1.12.0 (2026-02-19)
 
 ### Features
