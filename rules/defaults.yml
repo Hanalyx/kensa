@@ -42,11 +42,16 @@ variables:
     Authorized uses only. All activity may be monitored and reported.
 
   # SSH settings
-  ssh_client_alive_interval: 600
+  ssh_client_alive_interval: 900
   ssh_client_alive_count_max: 1
   ssh_max_auth_tries: 4
   ssh_max_sessions: 10
   ssh_login_grace_time: 60
+
+  # SSH approved algorithms — intersection of CIS, STIG, and NIST guidance.
+  # Override in rules/rules.d/ to match your organization's crypto policy.
+  ssh_approved_kex: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,sntrup761x25519-sha512@openssh.com"
+  ssh_approved_macs: "hmac-sha2-256,hmac-sha2-512,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com"
 
 frameworks:
   # CIS Benchmark values (generally less restrictive than STIG)

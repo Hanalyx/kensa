@@ -1,12 +1,16 @@
 id: ssh-approved-kex
 title: Ensure sshd KexAlgorithms is configured
 description: >
-  The sshd KexAlgorithms directive must be properly configured.
+  The sshd KexAlgorithms directive must specify only approved key exchange
+  algorithms. Every configured algorithm is validated against a configurable
+  allowlist of secure algorithms.
 rationale: >
-  Improper SSH KexAlgorithms configuration could weaken the security of remote access to the system.
+  Improper SSH KexAlgorithms configuration could weaken the security of
+  remote access to the system. Weak or unapproved key exchange algorithms
+  may be vulnerable to eavesdropping or man-in-the-middle attacks.
 severity: medium
 category: access-control
-tags: [ssh, sshd, access-control]
+tags: [ssh, sshd, access-control, cryptography]
 
 depends_on: [pkg-openssh-server-present]
 
@@ -22,7 +26,22 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'sshd -T 2>/dev/null | grep -qi ''^kexalgorithms\s'''
+      run: |
+        approved="{{ ssh_approved_kex }}"
+        configured=$(sshd -T 2>/dev/null | grep -i '^kexalgorithms ' | awk '{print $2}')
+        if [ -z "$configured" ]; then echo "FAIL: kexalgorithms not configured"; exit 1; fi
+        bad=""
+        for alg in $(echo "$configured" | tr ',' ' '); do
+          case ",$approved," in
+            *",$alg,"*) ;;
+            *) bad="$bad $alg" ;;
+          esac
+        done
+        if [ -n "$bad" ]; then
+          echo "FAIL: unapproved kex algorithm(s):$bad"
+          exit 1
+        fi
+        echo "OK: all kex algorithms approved ($configured)"
       expected_exit: 0
     remediation:
       mechanism: manual
