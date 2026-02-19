@@ -122,9 +122,9 @@ These are genuine evaluation differences where both tools work correctly but app
 | **1.6.2** | `ssh-crypto-policy` | Greps for manual crypto overrides in sshd_config (expects none) | `configure_ssh_crypto_policy` | Aegis checks for override presence; OpenSCAP checks policy is applied |
 
 **Proposed fixes:**
-- **5.1.5 / 5.1.6:** Enhance to validate specific algorithm lists against CIS-approved algorithms, not just presence. This is a genuine gap in Aegis check quality.
+- **5.1.5 / 5.1.6:** Validate configured algorithms against a **configurable allowlist** of secure algorithms (defaulted in `defaults.yml`). Do NOT hardcode a CIS-specific list into the rule — per Principle 4, frameworks are metadata. The allowlist default should be the intersection of algorithms considered secure across CIS, STIG, and NIST guidance. Organizations can override via `rules.d/` to match their specific framework or policy. This preserves the framework-agnostic rule while closing the presence-only gap.
 - **5.1.8:** Add `/etc/issue.net` as an accepted banner path (CIS mentions both).
-- **5.1.9:** Verify threshold matches CIS v2.0.0 recommendation. May need to accept OpenSCAP's threshold.
+- **5.1.9:** The rule already carries dual thresholds (600 STIG / 900 CIS) because frameworks disagree. Per Principle 4, do NOT tune to match one framework — instead, parameterize the threshold via `defaults.yml` (default: 900, the least restrictive compliant value). Organizations targeting STIG can override to 600 in `rules.d/`. The rule expresses the security property "idle timeout is configured within a reasonable bound."
 - **5.1.18:** Verify expected value matches CIS. If CIS says "10 or less", change to range check.
 - **1.6.2:** Verify this is the correct interpretation. If Aegis finds MACs override lines, that's a real config issue — may be a genuine host config problem, not a check bug.
 
@@ -136,7 +136,7 @@ These are genuine evaluation differences where both tools work correctly but app
 | **1.6.1** | `crypto-policy-no-weak` | Checks `update-crypto-policies --show | grep -qvE 'LEGACY\|DEFAULT:.*weak'`. OpenSCAP's `configure_crypto_policy` may check differently. |
 
 **Proposed fixes:**
-- **1.7.2:** Make banner text configurable (it already uses `{{ banner_text }}`). Ensure the default matches CIS requirements, not DoD-specific text. Or accept any non-empty, non-default OS banner.
+- **1.7.2:** The rule's desired state is "a meaningful warning banner is displayed" — this is the framework-agnostic security property. The canonical check should verify the banner file is non-empty and differs from the OS default (e.g., not `\S` or `Kernel \r`). Organization-specific or DoD-specific banner text belongs in `defaults.yml` or `rules.d/` overrides, not in the rule itself. The existing `{{ banner_text }}` parameter is the right mechanism — but the default value should be framework-agnostic (check for non-empty, non-default), not DoD-flavored.
 - **1.6.1:** Investigate what `configure_crypto_policy` actually checks. If it's a stricter check (e.g., requires FIPS), the disagreement may be genuine.
 
 ### C3. Account/PAM Checks (4 controls)
@@ -176,7 +176,7 @@ These are genuine evaluation differences where both tools work correctly but app
 | **4.1.2** | `firewall-single-utility` | Aegis counts active firewall services. OpenSCAP maps firewalld install/enable rules (mapping error overlap with Category B). |
 
 **Proposed fixes:**
-- **3.1.3:** Consider adding service state check as a secondary condition alongside kernel module check.
+- **3.1.3:** **No change needed.** The kernel module blacklist is the more fundamental control — if the module cannot load, the service cannot run. Adding a service state check is redundant and adds complexity without security benefit. Aegis targets the root mechanism (Principle 2: capabilities, not surface symptoms).
 - **6.3.3.12:** No change — Aegis check is correct. OpenSCAP is checking different/additional rules.
 - **4.1.2:** Partially a Category B issue. Aegis check logic is correct.
 
@@ -252,25 +252,24 @@ These are likely **genuine failures** on the host (audit rules not loaded). The 
 
 | # | Rule | Fix | Files |
 |---|------|-----|-------|
-| 1 | `ssh-approved-kex` | Validate against CIS-approved algorithm list, not just presence | `rules/access-control/ssh-approved-kex.yml` |
-| 2 | `ssh-approved-macs` | Validate against CIS-approved MAC list, not just presence | `rules/access-control/ssh-approved-macs.yml` |
+| 1 | `ssh-approved-kex` | Validate against configurable secure-algorithm allowlist in `defaults.yml` (framework-agnostic intersection of CIS/STIG/NIST guidance) | `rules/access-control/ssh-approved-kex.yml`, `rules/defaults.yml` |
+| 2 | `ssh-approved-macs` | Same approach: configurable allowlist, not framework-specific list | `rules/access-control/ssh-approved-macs.yml`, `rules/defaults.yml` |
 | 3 | `ssh-banner` | Accept both `/etc/issue` and `/etc/issue.net` | `rules/access-control/ssh-banner.yml` |
-| 4 | `ssh-client-alive-interval` | Verify threshold matches CIS v2.0.0 | `rules/access-control/ssh-client-alive-interval.yml` |
+| 4 | `ssh-client-alive-interval` | Parameterize threshold in `defaults.yml` (default: 900). Organizations targeting STIG override to 600 via `rules.d/` | `rules/access-control/ssh-client-alive-interval.yml`, `rules/defaults.yml` |
 | 5 | `ssh-max-sessions` | Change to range check (<=10) if CIS allows | `rules/access-control/ssh-max-sessions.yml` |
 | 6 | `ssh-crypto-policy` | Investigate host config — may be genuine failure | Investigation only |
 
-### Phase 4: Remaining Scope Tuning (Category C2–C5 — 12 controls)
+### Phase 4: Remaining Scope Tuning (Category C2–C5 — 11 controls)
 
-**Effort:** 4–6 hours | **Impact:** -3 to -6 disagreements
+**Effort:** 3–5 hours | **Impact:** -3 to -5 disagreements
 
 | # | Rule | Fix |
 |---|------|-----|
-| 1 | `banner-dod-consent` | Ensure default `banner_text` matches CIS (not DoD-specific) |
+| 1 | `banner-dod-consent` | Change default check to framework-agnostic: verify banner file is non-empty and differs from OS default. Move DoD/org-specific text to `defaults.yml` override |
 | 2 | `pam-wheel-su` | Add wheel group empty check as second condition |
 | 3 | `nologin-system-accounts` | Debug awk quoting issue causing empty output |
 | 4 | `shell-timeout` | Expand TMOUT search to `/etc/bashrc` and systemd environment |
 | 5 | `aide-scheduled` | Add `aide.timer` and `/etc/cron.daily/aide` checks |
-| 6 | `kmod-disable-bluetooth` | Add service state check alongside kernel module check |
 
 ### Phase 5: Audit Rule Investigation (Category D — 8 controls)
 
@@ -293,11 +292,13 @@ These are likely **genuine failures** on the host (audit rules not loaded). The 
 | After Phase 1 | 5 | 35 |
 | After Phase 2 | 9 (flagged separately) | 26 |
 | After Phase 3 | 4–6 | 20–22 |
-| After Phase 4 | 3–6 | 14–19 |
-| After Phase 5 | 0–8 (investigation) | 6–19 |
+| After Phase 4 | 2–5 | 15–20 |
+| After Phase 5 | 0–8 (investigation) | 7–20 |
 
 Conservative target: **<15 genuine disagreements** after all phases.
 Optimistic target: **<10 genuine disagreements** if audit rules are a host config issue.
+
+**Note on remaining disagreements:** Some residual disagreements are expected and acceptable — they represent cases where Aegis intentionally applies a stricter or more fundamental check than OpenSCAP (e.g., 5.4.2.2 root-only-gid0, 6.2.4.1 logfile permissions, 3.1.3 kernel module blacklist). These are not defects; they reflect Aegis's evidence-first, capability-targeted philosophy.
 
 ---
 

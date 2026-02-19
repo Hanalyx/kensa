@@ -1,12 +1,16 @@
 id: ssh-approved-macs
 title: Ensure sshd MACs are configured
 description: >
-  The sshd MACs directive must be properly configured.
+  The sshd MACs directive must specify only approved Message Authentication
+  Codes. Every configured MAC is validated against a configurable allowlist
+  of secure algorithms.
 rationale: >
-  Improper SSH MACs configuration could weaken the security of remote access to the system.
+  Improper SSH MACs configuration could weaken the security of remote access
+  to the system. Weak or unapproved MAC algorithms may fail to detect data
+  tampering during SSH sessions.
 severity: medium
 category: access-control
-tags: [ssh, sshd, access-control]
+tags: [ssh, sshd, access-control, cryptography]
 
 depends_on: [pkg-openssh-server-present]
 
@@ -22,7 +26,22 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'sshd -T 2>/dev/null | grep -qi ''^macs\s'''
+      run: |
+        approved="{{ ssh_approved_macs }}"
+        configured=$(sshd -T 2>/dev/null | grep -i '^macs ' | awk '{print $2}')
+        if [ -z "$configured" ]; then echo "FAIL: macs not configured"; exit 1; fi
+        bad=""
+        for alg in $(echo "$configured" | tr ',' ' '); do
+          case ",$approved," in
+            *",$alg,"*) ;;
+            *) bad="$bad $alg" ;;
+          esac
+        done
+        if [ -n "$bad" ]; then
+          echo "FAIL: unapproved mac algorithm(s):$bad"
+          exit 1
+        fi
+        echo "OK: all mac algorithms approved ($configured)"
       expected_exit: 0
     remediation:
       mechanism: manual

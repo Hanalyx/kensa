@@ -32,26 +32,40 @@ platforms:
 implementations:
   - when: sshd_config_d
     check:
-      method: sshd_effective_config
-      key: "maxsessions"
-      expected: "10"
+      method: command
+      run: |
+        val=$(sshd -T 2>/dev/null | grep -i '^maxsessions ' | awk '{print $2}')
+        if [ -z "$val" ]; then echo "FAIL: maxsessions not found"; exit 1; fi
+        if [ "$val" -lt 1 ] || [ "$val" -gt {{ ssh_max_sessions }} ]; then
+          echo "FAIL: maxsessions=$val (expected 1-{{ ssh_max_sessions }})"
+          exit 1
+        fi
+        echo "OK: maxsessions=$val"
+      expected_exit: 0
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
       file: "00-aegis-max-sessions.conf"
       key: "MaxSessions"
-      value: "10"
+      value: "{{ ssh_max_sessions }}"
       reload: "sshd"
 
   - default: true
     check:
-      method: sshd_effective_config
-      key: "maxsessions"
-      expected: "10"
+      method: command
+      run: |
+        val=$(sshd -T 2>/dev/null | grep -i '^maxsessions ' | awk '{print $2}')
+        if [ -z "$val" ]; then echo "FAIL: maxsessions not found"; exit 1; fi
+        if [ "$val" -lt 1 ] || [ "$val" -gt {{ ssh_max_sessions }} ]; then
+          echo "FAIL: maxsessions=$val (expected 1-{{ ssh_max_sessions }})"
+          exit 1
+        fi
+        echo "OK: maxsessions=$val"
+      expected_exit: 0
     remediation:
       mechanism: config_set
       path: "/etc/ssh/sshd_config"
       key: "MaxSessions"
-      value: "10"
+      value: "{{ ssh_max_sessions }}"
       separator: " "
       reload: "sshd"
