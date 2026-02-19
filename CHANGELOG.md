@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.11.1 (2026-02-19)
+
+### Bug Fixes
+
+- **rules**: Correct 5 check bugs found via benchmark comparison
+  ([`50cdd5f`](https://github.com/Hanalyx/aegis/commit/50cdd5ff4d8434e357accd08cb5a9dd6764d06c1))
+
+
 ## v1.11.0 (2026-02-19)
 
 ### Documentation
