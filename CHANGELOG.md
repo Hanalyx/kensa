@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.12.2 (2026-02-19)
+
+### Bug Fixes
+
+- **rules**: Tune scope for banner, pam-wheel, nologin, timeout, and aide checks
+  ([#70](https://github.com/Hanalyx/aegis/pull/70),
+  [`ea187dc`](https://github.com/Hanalyx/aegis/commit/ea187dc3ca6381d96d53e65ff28e3e91ae3a95e8))
+
+
 ## v1.12.1 (2026-02-19)
 
 ### Bug Fixes
