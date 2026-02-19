@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.12.4 (2026-02-19)
+
+### Bug Fixes
+
+- **benchmark**: Filter PCI-DSS references from CIS section parser
+  ([#72](https://github.com/Hanalyx/aegis/pull/72),
+  [`b7d2138`](https://github.com/Hanalyx/aegis/commit/b7d213812dda04c0f91c4c6c8ddf5a458c15a9e4))
+
+
 ## v1.12.3 (2026-02-19)
 
 ### Bug Fixes
