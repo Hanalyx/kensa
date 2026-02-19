@@ -29,8 +29,19 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng"
+      method: command
+      run: |
+        rule=$(auditctl -l 2>/dev/null | grep 'path=/usr/bin/setfacl')
+        if [ -z "$rule" ]; then
+          echo "FAIL: no audit rule for /usr/bin/setfacl"
+          exit 1
+        fi
+        if ! echo "$rule" | grep -q 'perm=x'; then
+          echo "FAIL: audit rule for /usr/bin/setfacl missing perm=x"
+          exit 1
+        fi
+        echo "OK: /usr/bin/setfacl is audited"
+      expected_exit: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng"

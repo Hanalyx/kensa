@@ -271,16 +271,31 @@ These are likely **genuine failures** on the host (audit rules not loaded). The 
 | 4 | `shell-timeout` | Expand TMOUT search to `/etc/bashrc` and systemd environment |
 | 5 | `aide-scheduled` | Add `aide.timer` and `/etc/cron.daily/aide` checks |
 
-### Phase 5: Audit Rule Investigation (Category D — 8 controls)
+### Phase 5: Audit Rule Check Fixes (Category D — 8 controls)
 
-**Effort:** 1–2 hours (investigation) | **Impact:** Documentation / host remediation
+**Effort:** 2–3 hours | **Impact:** Handler bug fix + 5 rule rewrites
 
-| # | Task |
-|---|------|
-| 1 | SSH into rhel9-211, run `auditctl -l`, verify loaded rules |
-| 2 | Check `/etc/audit/rules.d/` for configured rules |
-| 3 | If rules configured but not loaded: document as host config issue |
-| 4 | Run `augenrules --load` if needed, re-run benchmark to verify |
+**Investigation findings:** All 8 audit rules ARE loaded on rhel9-211 (`auditctl -l`
+confirms). The failures were caused by Aegis bugs, not host configuration:
+
+1. **`auditctl -l` format normalization** — `auditctl -l` outputs `-F key=X` for
+   syscall rules but rules use `-k X` shorthand; also `auid!=-1` vs `auid!=unset`
+   and `-S all` insertion for path-only rules.
+2. **Key name mismatches** — Host uses `audit_rules_usergroup_modification` for
+   identity files (not `identity`) and `privileged` for command rules (not
+   `perm_chng` or `privileged-usermod`).
+
+| # | Control | Fix |
+|---|---------|-----|
+| 1 | Handler `audit_rule_exists` | Add `_normalize_auditctl_output()` — normalizes `-F key=` → `-k`, `auid!=-1` → `auid!=unset`, strips `-S all` |
+| 2 | `audit-file-access-failed` (6.3.3.7) | No rule change — handler fix resolves `-k access` vs `-F key=access` |
+| 3 | `audit-identity-change` (6.3.3.8) | Rewrite: check watched paths (`/etc/passwd` etc.), not key name |
+| 4 | `audit-perm-mod` (6.3.3.9) | No rule change — handler fix resolves `-k perm_mod` |
+| 5 | `audit-delete` (6.3.3.13) | No rule change — handler fix resolves `-k delete` |
+| 6 | `audit-cmd-chcon` (6.3.3.15) | Rewrite: semantic check (`path=` + `perm=x`), not exact rule match |
+| 7 | `audit-cmd-setfacl` (6.3.3.16) | Same pattern as chcon |
+| 8 | `audit-cmd-chacl` (6.3.3.17) | Same pattern as chcon |
+| 9 | `audit-cmd-usermod` (6.3.3.18) | Same pattern as chcon |
 
 ---
 
