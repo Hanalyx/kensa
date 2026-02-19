@@ -19,6 +19,8 @@ from scripts.benchmark.compare import (
     aggregate_hosts,
     compare_at_control_level,
     compute_coverage,
+    detect_mapping_errors,
+    load_known_mapping_errors,
     summarize,
 )
 from scripts.benchmark.report import (
@@ -1182,3 +1184,614 @@ class TestCLIBackwardCompat:
 
         with pytest.raises(SystemExit):
             main(["--aegis", str(aegis_flat_json)])
+
+
+# ── Phase 3: Mapping Error Detection tests ───────────────────────────────────
+
+
+@pytest.fixture()
+def known_errors_yaml(tmp_path: Path) -> Path:
+    """Create a sample known mapping errors YAML file."""
+    content = textwrap.dedent("""\
+        version: 1
+        errors:
+          - control_id: "1.2.1"
+            reason: "Firewall rules mapped to GPG check"
+            rules:
+              - package_firewalld_installed
+              - service_firewalld_enabled
+          - control_id: "1.4.3"
+            reason: "Sysctl rules mapped to GRUB config"
+            rules:
+              - sysctl_net_ipv6_conf_default_accept_source_route
+    """)
+    p = tmp_path / "known_errors.yaml"
+    p.write_text(content)
+    return p
+
+
+class TestKnownMappingErrors:
+    def test_load_known_errors(self, known_errors_yaml: Path):
+        errors = load_known_mapping_errors(str(known_errors_yaml))
+        assert len(errors) == 2
+        assert "1.2.1" in errors
+        assert "1.4.3" in errors
+
+    def test_error_fields(self, known_errors_yaml: Path):
+        errors = load_known_mapping_errors(str(known_errors_yaml))
+        e = errors["1.2.1"]
+        assert e.control_id == "1.2.1"
+        assert "Firewall" in e.reason
+        assert "package_firewalld_installed" in e.rules
+        assert len(e.rules) == 2
+
+    def test_match_against_comparisons(self, known_errors_yaml: Path):
+        errors = load_known_mapping_errors(str(known_errors_yaml))
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                title="Enable GPG signature checking",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                        rule_ids=["package_firewalld_installed"],
+                    ),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps, errors)
+        assert comps[0].mapping_error == "known"
+        assert "Firewall" in comps[0].mapping_error_reason
+
+    def test_unknown_control_ignored(self, known_errors_yaml: Path):
+        errors = load_known_mapping_errors(str(known_errors_yaml))
+        comps = [
+            ControlComparison(
+                control_id="9.9.9",
+                framework="cis",
+                title="Unknown control",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "9.9.9", passed=True),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "9.9.9",
+                        passed=False,
+                        rule_ids=["unknown_rule"],
+                    ),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps, errors)
+        # Not in allowlist, and heuristic checks keyword overlap
+        assert comps[0].mapping_error != "known"
+
+
+class TestMappingHeuristic:
+    def test_zero_overlap_flagged(self):
+        """Rules with no keyword overlap to title are flagged as suspected."""
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                title="Enable GPG signature checking for packages",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "1.2.1",
+                        passed=True,
+                        rule_ids=["gpgcheck_enabled"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                        rule_ids=["service_firewalld_enabled"],
+                    ),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps)
+        assert comps[0].mapping_error == "suspected"
+
+    def test_partial_overlap_not_flagged(self):
+        """Rules with some keyword overlap to title are NOT flagged."""
+        comps = [
+            ControlComparison(
+                control_id="5.1.5",
+                framework="cis",
+                title="Ensure sshd KexAlgorithms is configured",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "5.1.5",
+                        passed=True,
+                        rule_ids=["ssh_approved_kex"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "5.1.5",
+                        passed=False,
+                        rule_ids=["sshd_use_strong_kex"],
+                    ),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps)
+        assert comps[0].mapping_error == ""
+
+    def test_non_disagreement_skipped(self):
+        """Controls that agree are not checked for mapping errors."""
+        comps = [
+            ControlComparison(
+                control_id="1.1",
+                framework="cis",
+                title="Test control",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "1.1", passed=True),
+                    "openscap": ToolControlResult("openscap", "1.1", passed=True),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps)
+        assert comps[0].mapping_error == ""
+
+    def test_no_title_skips_heuristic(self):
+        """Controls without a title skip the heuristic."""
+        comps = [
+            ControlComparison(
+                control_id="1.1",
+                framework="cis",
+                title="",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "1.1", passed=True),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.1",
+                        passed=False,
+                        rule_ids=["unrelated_rule"],
+                    ),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps)
+        assert comps[0].mapping_error == ""
+
+
+class TestDetectMappingErrors:
+    def test_combined_allowlist_and_heuristic(self, known_errors_yaml: Path):
+        """Allowlist takes precedence; heuristic catches remaining."""
+        errors = load_known_mapping_errors(str(known_errors_yaml))
+        comps = [
+            # Known error (in allowlist)
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                title="Enable GPG signature checking",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                        rule_ids=["package_firewalld_installed"],
+                    ),
+                },
+            ),
+            # Suspected error (zero keyword overlap)
+            ControlComparison(
+                control_id="1.5.1",
+                framework="cis",
+                title="Restrict core dumps",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "1.5.1",
+                        passed=False,
+                        rule_ids=["coredump_restricted"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.5.1",
+                        passed=True,
+                        rule_ids=["sysctl_kernel_randomize_va_space"],
+                    ),
+                },
+            ),
+            # Real disagreement (keyword overlap exists)
+            ControlComparison(
+                control_id="5.1.5",
+                framework="cis",
+                title="Ensure sshd KexAlgorithms is configured",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "5.1.5",
+                        passed=True,
+                        rule_ids=["ssh_approved_kex"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "5.1.5",
+                        passed=False,
+                        rule_ids=["sshd_use_strong_kex"],
+                    ),
+                },
+            ),
+        ]
+        detect_mapping_errors(comps, errors)
+        assert comps[0].mapping_error == "known"
+        assert comps[1].mapping_error == "suspected"
+        assert comps[2].mapping_error == ""
+
+    def test_summarize_excludes_mapping_errors(self):
+        """Mapping errors are excluded from disagree_count and agreement_rate."""
+        comps = [
+            ControlComparison(
+                control_id="1.1",
+                framework="cis",
+                tool_results={
+                    "a": ToolControlResult("a", "1.1", passed=True),
+                    "b": ToolControlResult("b", "1.1", passed=True),
+                },
+            ),
+            ControlComparison(
+                control_id="1.2",
+                framework="cis",
+                mapping_error="known",
+                mapping_error_reason="bad mapping",
+                tool_results={
+                    "a": ToolControlResult("a", "1.2", passed=True),
+                    "b": ToolControlResult("b", "1.2", passed=False),
+                },
+            ),
+            ControlComparison(
+                control_id="1.3",
+                framework="cis",
+                tool_results={
+                    "a": ToolControlResult("a", "1.3", passed=True),
+                    "b": ToolControlResult("b", "1.3", passed=False),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        assert summary.agree_count == 1
+        assert summary.disagree_count == 1  # Only 1.3, not 1.2
+        assert summary.mapping_error_count == 1
+        # agreement_rate = 1 agree / (1 agree + 1 disagree) = 0.5
+        assert summary.agreement_rate == 0.5
+
+
+class TestMappingErrorReport:
+    def test_markdown_has_known_errors_section(self):
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                title="Enable GPG checking",
+                mapping_error="known",
+                mapping_error_reason="Firewall rules mapped to GPG",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "1.2.1",
+                        passed=True,
+                        rule_ids=["r1"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                        rule_ids=["package_firewalld_installed"],
+                    ),
+                },
+            ),
+            ControlComparison(
+                control_id="5.1.5",
+                framework="cis",
+                title="Ensure sshd KexAlgorithms",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "5.1.5",
+                        passed=True,
+                        rule_ids=["r2"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "5.1.5",
+                        passed=False,
+                        rule_ids=["sshd_use_strong_kex"],
+                    ),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        md = generate_markdown(comps, summary)
+
+        assert "Known Mapping Errors (1)" in md
+        assert "Firewall rules mapped to GPG" in md
+        # The real disagreement is still in the Disagreements section
+        assert "Disagreements (1)" in md
+
+    def test_markdown_has_suspected_errors_section(self):
+        comps = [
+            ControlComparison(
+                control_id="2.2.4",
+                framework="cis",
+                title="Ensure telnet client is not installed",
+                mapping_error="suspected",
+                mapping_error_reason="Zero keyword overlap",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "2.2.4",
+                        passed=True,
+                        rule_ids=["r1"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "2.2.4",
+                        passed=False,
+                        rule_ids=["package_dhcp_removed"],
+                    ),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        md = generate_markdown(comps, summary)
+
+        assert "Suspected Mapping Errors (1)" in md
+        assert "2.2.4" in md
+
+    def test_markdown_disagreement_count_reduced(self):
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                title="GPG check",
+                mapping_error="known",
+                mapping_error_reason="bad",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "1.2.1",
+                        passed=True,
+                        rule_ids=["r1"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                        rule_ids=["r2"],
+                    ),
+                },
+            ),
+            ControlComparison(
+                control_id="5.1.5",
+                framework="cis",
+                title="KexAlgorithms",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "5.1.5",
+                        passed=True,
+                        rule_ids=["r3"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "5.1.5",
+                        passed=False,
+                        rule_ids=["r4"],
+                    ),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        md = generate_markdown(comps, summary)
+
+        # Only the real disagreement shows in Disagreements section
+        assert "Disagreements (1)" in md
+        # Known errors in their own section
+        assert "Known Mapping Errors (1)" in md
+
+
+class TestMappingErrorJSON:
+    def test_json_includes_mapping_error_fields(self):
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                title="GPG check",
+                mapping_error="known",
+                mapping_error_reason="Firewall mapped to GPG",
+                tool_results={
+                    "aegis": ToolControlResult(
+                        "aegis",
+                        "1.2.1",
+                        passed=True,
+                        rule_ids=["r1"],
+                    ),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                        rule_ids=["r2"],
+                    ),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        data = json.loads(generate_json(comps, summary))
+
+        ctrl = data["controls"][0]
+        assert ctrl["mapping_error"] == "known"
+        assert ctrl["mapping_error_reason"] == "Firewall mapped to GPG"
+
+    def test_json_summary_has_mapping_error_count(self):
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                mapping_error="known",
+                mapping_error_reason="bad",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                    ),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        data = json.loads(generate_json(comps, summary))
+
+        assert data["summary"]["mapping_error_count"] == 1
+        assert data["summary"]["disagree_count"] == 0
+
+    def test_multihost_json_includes_mapping_error(self):
+        comps = [
+            ControlComparison(
+                control_id="1.2.1",
+                framework="cis",
+                mapping_error="known",
+                mapping_error_reason="bad mapping",
+                tool_results={
+                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "openscap": ToolControlResult(
+                        "openscap",
+                        "1.2.1",
+                        passed=False,
+                    ),
+                },
+            ),
+        ]
+        summary = summarize(comps, framework="cis")
+        hc = HostComparison(
+            host_name="h1",
+            platform="rhel9",
+            comparisons=comps,
+            summary=summary,
+        )
+        agg = aggregate_hosts([hc], framework="cis")
+        result = MultiHostResult(
+            framework="cis",
+            hosts=[hc],
+            aggregate_summary=agg,
+        )
+        data = json.loads(generate_multihost_json(result))
+
+        entry = data["hosts"][0]["comparisons"][0]
+        assert entry["mapping_error"] == "known"
+        assert entry["mapping_error_reason"] == "bad mapping"
+
+
+class TestCLIKnownErrors:
+    def test_cli_with_known_errors_flag(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        known_errors_yaml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "report.md"
+        rc = main(
+            [
+                "--aegis",
+                str(aegis_flat_json),
+                "--openscap",
+                str(openscap_xml),
+                "--known-errors",
+                str(known_errors_yaml),
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        content = output.read_text()
+        assert "Benchmark Comparison" in content
+
+    def test_cli_known_errors_json(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        known_errors_yaml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "report.json"
+        rc = main(
+            [
+                "--aegis",
+                str(aegis_flat_json),
+                "--openscap",
+                str(openscap_xml),
+                "--known-errors",
+                str(known_errors_yaml),
+                "--format",
+                "json",
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(output.read_text())
+        assert "mapping_error_count" in data["summary"]
+
+    def test_cli_multihost_with_known_errors(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        known_errors_yaml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "multihost.md"
+        rc = main(
+            [
+                "--pair",
+                f"rhel9-211:{aegis_flat_json}:{openscap_xml}",
+                "--known-errors",
+                str(known_errors_yaml),
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        content = output.read_text()
+        assert "Multi-Host" in content
+
+    def test_cli_missing_known_errors_warns(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        tmp_path: Path,
+        capsys,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "report.md"
+        rc = main(
+            [
+                "--aegis",
+                str(aegis_flat_json),
+                "--openscap",
+                str(openscap_xml),
+                "--known-errors",
+                "/nonexistent/path.yaml",
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "not found" in captured.err

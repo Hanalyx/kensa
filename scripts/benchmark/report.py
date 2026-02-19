@@ -10,7 +10,6 @@ from scripts.benchmark.compare import (
     ComparisonSummary,
     ControlComparison,
     CoverageDimension,
-    HostComparison,
     MultiHostResult,
 )
 
@@ -64,12 +63,14 @@ def generate_markdown(
         total = summary.total_controls
         pct = (count / total * 100) if total > 0 else 0
         cov_cells.append(f"{count}/{total} ({pct:.1f}%)")
-    best_cov = max(summary.per_tool_coverage.values()) if summary.per_tool_coverage else 0
-    worst_cov = min(summary.per_tool_coverage.values()) if summary.per_tool_coverage else 0
-    diff = best_cov - worst_cov
-    lines.append(
-        f"| Coverage | {' | '.join(cov_cells)} | delta: {diff} controls |"
+    best_cov = (
+        max(summary.per_tool_coverage.values()) if summary.per_tool_coverage else 0
     )
+    worst_cov = (
+        min(summary.per_tool_coverage.values()) if summary.per_tool_coverage else 0
+    )
+    diff = best_cov - worst_cov
+    lines.append(f"| Coverage | {' | '.join(cov_cells)} | delta: {diff} controls |")
 
     # Agreement row
     commonly = summary.agree_count + summary.disagree_count
@@ -87,11 +88,58 @@ def generate_markdown(
 
     # Categorize comparisons
     agreements = [c for c in comparisons if c.agreement == "agree"]
-    disagreements = [c for c in comparisons if c.agreement == "disagree"]
+    all_disagreements = [c for c in comparisons if c.agreement == "disagree"]
     partial = [c for c in comparisons if c.agreement == "partial"]
+
+    known_errors = [c for c in all_disagreements if c.mapping_error == "known"]
+    suspected_errors = [c for c in all_disagreements if c.mapping_error == "suspected"]
+    disagreements = [c for c in all_disagreements if not c.mapping_error]
 
     agree_pass = [c for c in agreements if _any_pass(c)]
     agree_fail = [c for c in agreements if not _any_pass(c)]
+
+    # Known mapping errors section
+    if known_errors:
+        lines.append(f"## Known Mapping Errors ({len(known_errors)})")
+        lines.append("")
+        lines.append(
+            "These disagreements are caused by incorrect OpenSCAP-to-CIS "
+            "section mappings and are excluded from the disagreement count."
+        )
+        lines.append("")
+        lines.append("| Control | Reason | Mismatched Rules |")
+        lines.append("|---------|--------|-----------------|")
+        for comp in known_errors:
+            rules = _collect_rule_ids(comp, tool_names)
+            lines.append(
+                f"| {comp.control_id} | {comp.mapping_error_reason} "
+                f"| {', '.join(rules[:5])}"
+                + (f" +{len(rules) - 5}" if len(rules) > 5 else "")
+                + " |"
+            )
+        lines.append("")
+
+    # Suspected mapping errors section
+    if suspected_errors:
+        lines.append(f"## Suspected Mapping Errors ({len(suspected_errors)})")
+        lines.append("")
+        lines.append(
+            "These disagreements have zero keyword overlap between the CIS "
+            "control title and OpenSCAP rule names. Review and promote to "
+            "the known errors allowlist if confirmed."
+        )
+        lines.append("")
+        lines.append("| Control | Title | Rule Names |")
+        lines.append("|---------|-------|------------|")
+        for comp in suspected_errors:
+            rules = _collect_rule_ids(comp, tool_names)
+            lines.append(
+                f"| {comp.control_id} | {comp.title} "
+                f"| {', '.join(rules[:5])}"
+                + (f" +{len(rules) - 5}" if len(rules) > 5 else "")
+                + " |"
+            )
+        lines.append("")
 
     # Disagreements section
     if disagreements:
@@ -171,15 +219,9 @@ def generate_markdown(
         lines.append("")
         # Group by tool
         for t in tool_names:
-            tool_exclusive = [
-                c for c in partial if c.covered_by == [t]
-            ]
+            tool_exclusive = [c for c in partial if c.covered_by == [t]]
             if tool_exclusive:
-                pass_count = sum(
-                    1
-                    for c in tool_exclusive
-                    if c.tool_results[t].passed
-                )
+                pass_count = sum(1 for c in tool_exclusive if c.tool_results[t].passed)
                 fail_count = len(tool_exclusive) - pass_count
                 lines.append(
                     f"### {t} only ({len(tool_exclusive)} controls: "
@@ -240,6 +282,7 @@ def generate_json(
             "agreement_rate": round(summary.agreement_rate, 4),
             "agree_count": summary.agree_count,
             "disagree_count": summary.disagree_count,
+            "mapping_error_count": summary.mapping_error_count,
             "exclusive_coverage": summary.exclusive_coverage,
         },
         "controls": [],
@@ -250,6 +293,8 @@ def generate_json(
             "control_id": comp.control_id,
             "title": comp.title,
             "agreement": comp.agreement,
+            "mapping_error": comp.mapping_error,
+            "mapping_error_reason": comp.mapping_error_reason,
             "tools": {},
         }
         for tool_name, r in comp.tool_results.items():
@@ -322,6 +367,8 @@ def generate_multihost_markdown(
     commonly = s.agree_count + s.disagree_count
     lines.append(f"| Agreement rate | {s.agreement_rate:.1%} on {commonly} common |")
     lines.append(f"| Disagreements | {s.disagree_count} |")
+    if s.mapping_error_count > 0:
+        lines.append(f"| Mapping errors | {s.mapping_error_count} |")
     lines.append("")
 
     # Coverage dimension
@@ -329,10 +376,11 @@ def generate_multihost_markdown(
         lines.append("## Framework Coverage")
         lines.append("")
         lines.append(
-            "| Tool | Controls Covered | Framework Total "
-            "| Coverage % | Exclusive |"
+            "| Tool | Controls Covered | Framework Total | Coverage % | Exclusive |"
         )
-        lines.append("|------|-----------------|----------------|-----------|-----------|")
+        lines.append(
+            "|------|-----------------|----------------|-----------|-----------|"
+        )
         for t in tool_names:
             cov = result.aggregate_coverage.get(t)
             if cov:
@@ -357,14 +405,14 @@ def generate_multihost_markdown(
         lines.append(f"| Disagreements | {hs.disagree_count} |")
         lines.append("")
 
-        # Host disagreements
+        # Host disagreements (exclude mapping errors)
         host_disagreements = [
-            c for c in hc.comparisons if c.agreement == "disagree"
+            c
+            for c in hc.comparisons
+            if c.agreement == "disagree" and not c.mapping_error
         ]
         if host_disagreements:
-            lines.append(
-                f"**Disagreements ({len(host_disagreements)}):**"
-            )
+            lines.append(f"**Disagreements ({len(host_disagreements)}):**")
             lines.append("")
             for comp in host_disagreements:
                 parts = []
@@ -471,9 +519,7 @@ def _append_consistency_section(
                 if comp:
                     r = comp.tool_results.get(t)
                     if r and r.passed is not None:
-                        per_tool_results[t].append(
-                            "PASS" if r.passed else "FAIL"
-                        )
+                        per_tool_results[t].append("PASS" if r.passed else "FAIL")
 
         # Check consistency: all hosts agree for each tool
         is_consistent = True
@@ -539,14 +585,15 @@ def generate_multihost_json(
         }
         if hc.coverage:
             host_data["coverage"] = {
-                name: _coverage_to_dict(cov)
-                for name, cov in hc.coverage.items()
+                name: _coverage_to_dict(cov) for name, cov in hc.coverage.items()
             }
         for comp in hc.comparisons:
             entry: dict = {
                 "control_id": comp.control_id,
                 "title": comp.title,
                 "agreement": comp.agreement,
+                "mapping_error": comp.mapping_error,
+                "mapping_error_reason": comp.mapping_error_reason,
                 "tools": {},
             }
             for tool_name, r in comp.tool_results.items():
@@ -572,6 +619,7 @@ def _summary_to_dict(s: ComparisonSummary) -> dict:
         "agreement_rate": round(s.agreement_rate, 4),
         "agree_count": s.agree_count,
         "disagree_count": s.disagree_count,
+        "mapping_error_count": s.mapping_error_count,
         "exclusive_coverage": s.exclusive_coverage,
     }
 
@@ -587,8 +635,19 @@ def _coverage_to_dict(cov: CoverageDimension) -> dict:
     }
 
 
+def _collect_rule_ids(
+    comp: ControlComparison,
+    tool_names: list[str],
+) -> list[str]:
+    """Collect all rule IDs from a comparison across tools."""
+    rules: list[str] = []
+    for t in tool_names:
+        r = comp.tool_results.get(t)
+        if r:
+            rules.extend(r.rule_ids)
+    return rules
+
+
 def _any_pass(comp: ControlComparison) -> bool:
     """Check if any tool reports this control as passing."""
-    return any(
-        r.passed for r in comp.tool_results.values() if r.passed is not None
-    )
+    return any(r.passed for r in comp.tool_results.values() if r.passed is not None)

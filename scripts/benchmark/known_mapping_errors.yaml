@@ -1,0 +1,71 @@
+# Known incorrect OpenSCAP-to-CIS section mappings in SSG XCCDF content.
+# Each entry lists OpenSCAP rule IDs that are incorrectly mapped
+# to the given CIS control in the SCAP Security Guide.
+#
+# These entries are excluded from the disagreement count in benchmark reports.
+# To add new entries, identify mismatched rules in the Disagreement Details
+# section and verify the OpenSCAP rules are unrelated to the CIS control title.
+version: 1
+errors:
+  - control_id: "1.2.1"
+    reason: "Firewall rules incorrectly mapped to GPG check control"
+    rules:
+      - package_firewalld_installed
+      - service_firewalld_enabled
+      - package_nftables_installed
+      - service_nftables_disabled
+
+  - control_id: "1.4.2"
+    reason: "Unrelated file owner/permission rules mapped to GRUB config"
+    rules:
+      - file_groupowner_grub2_cfg
+      - file_groupowner_user_cfg
+      - file_owner_grub2_cfg
+      - file_owner_user_cfg
+      - file_permissions_grub2_cfg
+
+  - control_id: "1.4.3"
+    reason: "Sysctl network rules incorrectly mapped to GRUB user config permissions"
+    rules:
+      - sysctl_net_ipv6_conf_default_accept_source_route
+      - sysctl_net_ipv4_conf_all_rp_filter
+      - sysctl_net_ipv4_conf_all_secure_redirects
+
+  - control_id: "1.4.5"
+    reason: "Sysctl send_redirects rules incorrectly mapped to Ctrl-Alt-Delete"
+    rules:
+      - sysctl_net_ipv4_conf_all_send_redirects
+      - sysctl_net_ipv4_conf_default_send_redirects
+
+  - control_id: "1.5.1"
+    reason: "ASLR rule incorrectly mapped to core dumps restriction"
+    rules:
+      - sysctl_kernel_randomize_va_space
+
+  - control_id: "1.5.2"
+    reason: "ptrace_scope rule incorrectly mapped to SUID core dumps"
+    rules:
+      - sysctl_kernel_yama_ptrace_scope
+
+  - control_id: "2.2.4"
+    reason: "Miscellaneous package/service removal rules mapped to telnet control"
+    rules:
+      - package_dhcp_removed
+      - package_ftp_removed
+      - service_rpcbind_disabled
+      - package_xinetd_removed
+      - package_ypbind_removed
+
+  - control_id: "3.3.1"
+    reason: "Coredump and ASLR rules mixed into IP forwarding control"
+    rules:
+      - coredump_disable_backtraces
+      - coredump_disable_storage
+      - sysctl_kernel_randomize_va_space
+
+  - control_id: "4.1.2"
+    reason: "Firewall install/enable rules mapped to single-utility check"
+    rules:
+      - package_firewalld_installed
+      - service_firewalld_enabled
+      - service_nftables_disabled
