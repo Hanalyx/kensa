@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.10.0 (2026-02-19)
+
+### Documentation
+
+- Update tracking docs for check handler test coverage
+  ([`5285232`](https://github.com/Hanalyx/aegis/commit/528523288cbb78e4038c6de790bc89cab176ecda))
+
+- Update tracking docs for PR #63 (file_content check handler)
+  ([`7f7206c`](https://github.com/Hanalyx/aegis/commit/7f7206c0bc63983ac17d23a129bdd088d4380b27))
+
+### Features
+
+- **benchmark**: Add control-level multi-dimensional benchmarking framework (Phase 1)
+  ([`74e28f5`](https://github.com/Hanalyx/aegis/commit/74e28f5b388e798203ffaa225202f641324aa777))
+
+### Testing
+
+- **checks**: Add unit tests for all 21 check handler types
+  ([`9d3a007`](https://github.com/Hanalyx/aegis/commit/9d3a007a4b7102cae0b924458847d6a96f70b499))
+
+
 ## v1.9.0 (2026-02-18)
 
 ### Documentation
