@@ -108,11 +108,12 @@ class OpenSCAPAdapter(ToolAdapter):
                     if match:
                         rule_to_sections[rule_id].append(match.group(1))
 
-            # Check reference elements
+            # Check reference elements — match cisecurity.org only,
+            # not pcisecuritystandards.org (which also contains "cis").
             for ref in rule.findall("xccdf:reference", XCCDF_NS):
                 href = ref.get("href", "")
                 text = ref.text or ""
-                if "cis" in href.lower() or "cis" in text.lower():
+                if "cisecurity.org" in href.lower():
                     match = re.search(r"(\d+\.\d+(?:\.\d+)*)", text)
                     if match:
                         rule_to_sections[rule_id].append(match.group(1))
