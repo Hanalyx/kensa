@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.12.3 (2026-02-19)
+
+### Bug Fixes
+
+- **audit**: Normalize auditctl output and rewrite 5 audit rule checks
+  ([#71](https://github.com/Hanalyx/aegis/pull/71),
+  [`c366ebe`](https://github.com/Hanalyx/aegis/commit/c366ebed3146e8faa45051aaf9b0a7865a6345ef))
+
+
 ## v1.12.2 (2026-02-19)
 
 ### Bug Fixes
