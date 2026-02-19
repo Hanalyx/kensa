@@ -2,18 +2,19 @@
 """CLI entry point for the Aegis benchmarking framework.
 
 Usage:
+    # Single-host mode (backward compatible)
     python -m scripts.benchmark.benchmark_cli \\
         --aegis results/aegis-211.json \\
         --openscap results/openscap/rhel9-211.xml \\
         --framework cis-rhel9-v2.0.0 \\
         --output benchmark-report.md
 
-    # JSON output
+    # Multi-host mode
     python -m scripts.benchmark.benchmark_cli \\
-        --aegis results/aegis-211.json \\
-        --openscap results/openscap/rhel9-211.xml \\
-        --format json \\
-        --output benchmark-report.json
+        --pair rhel9-211:results/aegis-211.json:results/openscap/rhel9-211.xml \\
+        --pair rhel9-213:results/aegis-213.json:results/openscap/rhel9-213.xml \\
+        --framework cis-rhel9-v2.0.0 \\
+        --output benchmark-multihost.md
 """
 
 from __future__ import annotations
@@ -30,8 +31,21 @@ if _project_root not in sys.path:
 from scripts.benchmark.adapters.aegis_adapter import AegisAdapter
 from scripts.benchmark.adapters.base import ToolControlResult
 from scripts.benchmark.adapters.openscap_adapter import OpenSCAPAdapter
-from scripts.benchmark.compare import compare_at_control_level, summarize
-from scripts.benchmark.report import generate_json, generate_markdown, write_report
+from scripts.benchmark.compare import (
+    HostComparison,
+    MultiHostResult,
+    aggregate_hosts,
+    compare_at_control_level,
+    compute_coverage,
+    summarize,
+)
+from scripts.benchmark.report import (
+    generate_json,
+    generate_markdown,
+    generate_multihost_json,
+    generate_multihost_markdown,
+    write_report,
+)
 
 
 def _load_control_titles(framework: str) -> dict[str, str]:
@@ -61,6 +75,229 @@ def _load_control_titles(framework: str) -> dict[str, str]:
     return {}
 
 
+def _load_framework_total(framework: str) -> int:
+    """Load total control count from a framework mapping.
+
+    Args:
+        framework: Framework mapping ID.
+
+    Returns:
+        Total controls in the framework, or 0 if not loadable.
+
+    """
+    try:
+        from runner.mappings import load_all_mappings
+
+        mappings = load_all_mappings()
+        mapping = mappings.get(framework)
+        if mapping:
+            return mapping.total_controls
+    except ImportError:
+        pass
+    return 0
+
+
+def _parse_pair(pair_str: str) -> tuple[str, str, str]:
+    """Parse a --pair argument into (name, aegis_path, openscap_path).
+
+    Args:
+        pair_str: Colon-separated string "name:aegis_path:openscap_path".
+
+    Returns:
+        Tuple of (name, aegis_path, openscap_path).
+
+    Raises:
+        argparse.ArgumentTypeError: If format is invalid.
+
+    """
+    parts = pair_str.split(":")
+    if len(parts) != 3:
+        raise argparse.ArgumentTypeError(
+            f"Invalid --pair format: '{pair_str}'. "
+            "Expected name:aegis_path:openscap_path"
+        )
+    return parts[0], parts[1], parts[2]
+
+
+def _run_single_host(args: argparse.Namespace) -> int:
+    """Run single-host comparison (Phase 1 backward compat)."""
+    print("Parsing Aegis results...", file=sys.stderr)
+    aegis = AegisAdapter()
+    aegis_results = aegis.parse(args.aegis)
+    print(f"  {len(aegis_results)} controls", file=sys.stderr)
+
+    print("Parsing OpenSCAP results...", file=sys.stderr)
+    openscap = OpenSCAPAdapter()
+    openscap_results = openscap.parse(args.openscap)
+    print(f"  {len(openscap_results)} controls", file=sys.stderr)
+
+    control_titles = _load_control_titles(args.framework) if args.framework else {}
+
+    tool_results: dict[str, dict[str, ToolControlResult]] = {
+        "aegis": aegis_results,
+        "openscap": openscap_results,
+    }
+    comparisons = compare_at_control_level(
+        tool_results,
+        framework=args.framework,
+        control_titles=control_titles,
+    )
+    summary = summarize(comparisons, framework=args.framework)
+
+    _print_summary(summary)
+
+    if args.format == "json":
+        content = generate_json(comparisons, summary)
+    else:
+        content = generate_markdown(
+            comparisons,
+            summary,
+            title=f"{args.framework} — Benchmark Comparison"
+            if args.framework
+            else "Benchmark Comparison",
+            host=args.host,
+        )
+
+    _write_output(content, args.output)
+    return 0
+
+
+def _run_multi_host(args: argparse.Namespace) -> int:
+    """Run multi-host comparison (Phase 2)."""
+    pairs = [_parse_pair(p) for p in args.pair]
+    control_titles = _load_control_titles(args.framework) if args.framework else {}
+    framework_total = _load_framework_total(args.framework) if args.framework else 0
+
+    aegis = AegisAdapter()
+    openscap = OpenSCAPAdapter()
+    host_comparisons: list[HostComparison] = []
+
+    for name, aegis_path, openscap_path in pairs:
+        print(f"Processing {name}...", file=sys.stderr)
+
+        aegis_results = aegis.parse(aegis_path)
+        print(f"  Aegis: {len(aegis_results)} controls", file=sys.stderr)
+
+        openscap_results = openscap.parse(openscap_path)
+        print(f"  OpenSCAP: {len(openscap_results)} controls", file=sys.stderr)
+
+        tool_results: dict[str, dict[str, ToolControlResult]] = {
+            "aegis": aegis_results,
+            "openscap": openscap_results,
+        }
+        comparisons = compare_at_control_level(
+            tool_results,
+            framework=args.framework,
+            control_titles=control_titles,
+        )
+        summary = summarize(comparisons, framework=args.framework)
+
+        # Compute coverage if framework total is available
+        coverage: dict = {}
+        if framework_total > 0:
+            # Determine exclusive IDs
+            aegis_ids = set(aegis_results.keys())
+            openscap_ids = set(openscap_results.keys())
+            coverage["aegis"] = compute_coverage(
+                aegis_results,
+                framework_total,
+                "aegis",
+                exclusive_ids=aegis_ids - openscap_ids,
+            )
+            coverage["openscap"] = compute_coverage(
+                openscap_results,
+                framework_total,
+                "openscap",
+                exclusive_ids=openscap_ids - aegis_ids,
+            )
+
+        # Derive platform from name (e.g., "rhel9-211" -> "rhel9")
+        platform = name.rsplit("-", 1)[0] if "-" in name else name
+
+        host_comparisons.append(
+            HostComparison(
+                host_name=name,
+                platform=platform,
+                comparisons=comparisons,
+                summary=summary,
+                coverage=coverage,
+            )
+        )
+
+    # Aggregate
+    agg_summary = aggregate_hosts(host_comparisons, framework=args.framework)
+
+    # Aggregate coverage (union across hosts)
+    agg_coverage: dict = {}
+    if framework_total > 0:
+        all_aegis: dict[str, ToolControlResult] = {}
+        all_openscap: dict[str, ToolControlResult] = {}
+        for name, aegis_path, _ in pairs:
+            for cid, r in aegis.parse(aegis_path).items():
+                if cid not in all_aegis:
+                    all_aegis[cid] = r
+        for name, _, openscap_path in pairs:
+            for cid, r in openscap.parse(openscap_path).items():
+                if cid not in all_openscap:
+                    all_openscap[cid] = r
+        agg_coverage["aegis"] = compute_coverage(
+            all_aegis,
+            framework_total,
+            "aegis",
+            exclusive_ids=set(all_aegis.keys()) - set(all_openscap.keys()),
+        )
+        agg_coverage["openscap"] = compute_coverage(
+            all_openscap,
+            framework_total,
+            "openscap",
+            exclusive_ids=set(all_openscap.keys()) - set(all_aegis.keys()),
+        )
+
+    result = MultiHostResult(
+        framework=args.framework,
+        hosts=host_comparisons,
+        aggregate_summary=agg_summary,
+        aggregate_coverage=agg_coverage,
+    )
+
+    _print_summary(agg_summary)
+
+    if args.format == "json":
+        content = generate_multihost_json(result)
+    else:
+        content = generate_multihost_markdown(
+            result,
+            title=f"{args.framework} — Multi-Host Benchmark"
+            if args.framework
+            else "Multi-Host Benchmark Comparison",
+        )
+
+    _write_output(content, args.output)
+    return 0
+
+
+def _print_summary(summary: "ComparisonSummary") -> None:
+    """Print summary metrics to stderr."""
+    from scripts.benchmark.compare import ComparisonSummary
+
+    print(f"\nComparison complete:", file=sys.stderr)
+    print(f"  Total controls: {summary.total_controls}", file=sys.stderr)
+    for tool, count in sorted(summary.per_tool_coverage.items()):
+        pct = count / summary.total_controls * 100 if summary.total_controls else 0
+        print(f"  {tool}: {count} ({pct:.1f}%)", file=sys.stderr)
+    print(f"  Agreement rate: {summary.agreement_rate:.1%}", file=sys.stderr)
+    print(f"  Disagreements: {summary.disagree_count}", file=sys.stderr)
+
+
+def _write_output(content: str, output: str) -> None:
+    """Write content to file or stdout."""
+    if output:
+        write_report(content, output)
+        print(f"\nReport written to {output}", file=sys.stderr)
+    else:
+        print(content)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the benchmark comparison CLI.
 
@@ -74,16 +311,28 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Aegis Benchmarking Framework — Control-level comparison",
     )
+    # Single-host args (backward compatible)
     parser.add_argument(
         "--aegis",
-        required=True,
-        help="Path to Aegis JSON results file",
+        default="",
+        help="Path to Aegis JSON results file (single-host mode)",
     )
     parser.add_argument(
         "--openscap",
-        required=True,
-        help="Path to OpenSCAP XCCDF XML results file",
+        default="",
+        help="Path to OpenSCAP XCCDF XML results file (single-host mode)",
     )
+    # Multi-host args
+    parser.add_argument(
+        "--pair",
+        action="append",
+        default=[],
+        help=(
+            "Host pair as name:aegis_path:openscap_path "
+            "(repeatable, multi-host mode)"
+        ),
+    )
+    # Common args
     parser.add_argument(
         "--framework",
         default="",
@@ -103,64 +352,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--host",
         default="",
-        help="Hostname for report header",
+        help="Hostname for report header (single-host mode)",
     )
     args = parser.parse_args(argv)
 
-    # Parse results
-    print("Parsing Aegis results...", file=sys.stderr)
-    aegis = AegisAdapter()
-    aegis_results = aegis.parse(args.aegis)
-    print(f"  {len(aegis_results)} controls", file=sys.stderr)
+    # Validate: --pair and --aegis/--openscap are mutually exclusive
+    has_single = bool(args.aegis or args.openscap)
+    has_multi = bool(args.pair)
 
-    print("Parsing OpenSCAP results...", file=sys.stderr)
-    openscap = OpenSCAPAdapter()
-    openscap_results = openscap.parse(args.openscap)
-    print(f"  {len(openscap_results)} controls", file=sys.stderr)
+    if has_single and has_multi:
+        parser.error("--pair and --aegis/--openscap are mutually exclusive")
 
-    # Load titles
-    control_titles = _load_control_titles(args.framework) if args.framework else {}
+    if has_multi:
+        return _run_multi_host(args)
 
-    # Compare
-    tool_results: dict[str, dict[str, ToolControlResult]] = {
-        "aegis": aegis_results,
-        "openscap": openscap_results,
-    }
-    comparisons = compare_at_control_level(
-        tool_results,
-        framework=args.framework,
-        control_titles=control_titles,
-    )
-    summary = summarize(comparisons, framework=args.framework)
+    if has_single:
+        if not args.aegis or not args.openscap:
+            parser.error("--aegis and --openscap are both required in single-host mode")
+        return _run_single_host(args)
 
-    # Report
-    print(f"\nComparison complete:", file=sys.stderr)
-    print(f"  Total controls: {summary.total_controls}", file=sys.stderr)
-    for tool, count in sorted(summary.per_tool_coverage.items()):
-        pct = count / summary.total_controls * 100 if summary.total_controls else 0
-        print(f"  {tool}: {count} ({pct:.1f}%)", file=sys.stderr)
-    print(f"  Agreement rate: {summary.agreement_rate:.1%}", file=sys.stderr)
-    print(f"  Disagreements: {summary.disagree_count}", file=sys.stderr)
-
-    if args.format == "json":
-        content = generate_json(comparisons, summary)
-    else:
-        content = generate_markdown(
-            comparisons,
-            summary,
-            title=f"{args.framework} — Benchmark Comparison"
-            if args.framework
-            else "Benchmark Comparison",
-            host=args.host,
-        )
-
-    if args.output:
-        write_report(content, args.output)
-        print(f"\nReport written to {args.output}", file=sys.stderr)
-    else:
-        print(content)
-
-    return 0
+    parser.error("Either --pair or --aegis/--openscap is required")
+    return 1  # unreachable
 
 
 if __name__ == "__main__":
