@@ -6,6 +6,7 @@ and PAM configuration.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -152,11 +153,35 @@ def _check_selinux_boolean(ssh: SSHSession, c: dict) -> CheckResult:
     )
 
 
+def _normalize_auditctl_output(output: str) -> str:
+    """Normalize auditctl -l output for reliable substring matching.
+
+    ``auditctl -l`` displays rules in a canonical form that differs from the
+    input syntax accepted by ``auditctl``.  This function reverses the
+    well-known transformations so that rules written in input syntax can be
+    matched via simple substring search.
+
+    Transformations applied:
+      - ``-F key=X``  → ``-k X``  (syscall rules display the long form)
+      - ``auid!=-1``  → ``auid!=unset``  (numeric vs symbolic UID)
+      - ``auid!=4294967295`` → ``auid!=unset``  (alternate numeric form)
+      - ``-S all ``    → removed  (inserted for path-only rules)
+
+    """
+    output = re.sub(r"-F key=(\S+)", r"-k \1", output)
+    output = output.replace("auid!=-1", "auid!=unset")
+    output = output.replace("auid!=4294967295", "auid!=unset")
+    output = output.replace("-S all ", "")
+    return output
+
+
 def _check_audit_rule_exists(ssh: SSHSession, c: dict) -> CheckResult:
     """Check that an audit rule is active.
 
     Uses auditctl -l to list current audit rules and searches for the
-    specified rule.
+    specified rule.  The output is normalized before matching to account
+    for formatting differences between auditctl input and display syntax
+    (e.g. ``-k`` vs ``-F key=``, ``auid!=unset`` vs ``auid!=-1``).
 
     Args:
         ssh: Active SSH session to the target host.
@@ -188,7 +213,8 @@ def _check_audit_rule_exists(ssh: SSHSession, c: dict) -> CheckResult:
             ),
         )
 
-    passed = rule in result.stdout
+    normalized = _normalize_auditctl_output(result.stdout)
+    passed = rule in normalized
     detail = "Audit rule found" if passed else f"Audit rule not found: {rule[:50]}..."
 
     return CheckResult(

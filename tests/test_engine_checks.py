@@ -1097,6 +1097,94 @@ class TestAuditRuleExists:
         assert r.passed is False
         assert "auditctl" in r.detail
 
+    def test_normalize_key_format(self, mock_ssh):
+        """auditctl -l outputs -F key=X for syscall rules; rule uses -k X."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout=(
+                        "-a always,exit -F arch=b64 -S open -F exit=-EACCES"
+                        " -F auid>=1000 -F auid!=-1 -F key=access"
+                    ),
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": "-k access"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_normalize_auid_unset(self, mock_ssh):
+        """auditctl -l shows auid!=-1; rule uses auid!=unset."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout=(
+                        "-a always,exit -F path=/usr/bin/chage"
+                        " -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-chage"
+                    ),
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": "-F auid!=unset -k privileged-chage",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_normalize_s_all_removed(self, mock_ssh):
+        """auditctl -l inserts -S all for path-only rules."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout=(
+                        "-a always,exit -S all -F path=/usr/bin/su"
+                        " -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-su"
+                    ),
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": (
+                "-a always,exit -F path=/usr/bin/su"
+                " -F perm=x -F auid>=1000 -F auid!=unset -k privileged-su"
+            ),
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_normalize_combined(self, mock_ssh):
+        """All normalizations applied together."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout=(
+                        "-a always,exit -S all -F path=/usr/sbin/usermod"
+                        " -F perm=x -F auid>=1000 -F auid!=4294967295"
+                        " -F key=privileged-usermod"
+                    ),
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": (
+                "-a always,exit -F path=/usr/sbin/usermod"
+                " -F perm=x -F auid>=1000 -F auid!=unset -k privileged-usermod"
+            ),
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
 
 class TestSshdEffectiveConfig:
     def test_key_matches(self, mock_ssh):

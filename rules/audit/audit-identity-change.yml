@@ -21,8 +21,20 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-k identity"
+      method: command
+      run: |
+        missing=""
+        for f in /etc/group /etc/passwd /etc/gshadow /etc/shadow /etc/security/opasswd; do
+          if ! auditctl -l 2>/dev/null | grep -q "\-w $f "; then
+            missing="$missing $f"
+          fi
+        done
+        if [ -n "$missing" ]; then
+          echo "FAIL: identity files not watched:$missing"
+          exit 1
+        fi
+        echo "OK: all identity files are watched"
+      expected_exit: 0
     remediation:
       steps:
         - mechanism: audit_rule_set

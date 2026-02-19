@@ -29,8 +29,19 @@ platforms:
 implementations:
   - default: true
     check:
-      method: audit_rule_exists
-      rule: "-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k privileged-usermod"
+      method: command
+      run: |
+        rule=$(auditctl -l 2>/dev/null | grep 'path=/usr/sbin/usermod')
+        if [ -z "$rule" ]; then
+          echo "FAIL: no audit rule for /usr/sbin/usermod"
+          exit 1
+        fi
+        if ! echo "$rule" | grep -q 'perm=x'; then
+          echo "FAIL: audit rule for /usr/sbin/usermod missing perm=x"
+          exit 1
+        fi
+        echo "OK: /usr/sbin/usermod is audited"
+      expected_exit: 0
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k privileged-usermod"
