@@ -37,6 +37,8 @@ from scripts.benchmark.compare import (
     aggregate_hosts,
     compare_at_control_level,
     compute_coverage,
+    detect_mapping_errors,
+    load_known_mapping_errors,
     summarize,
 )
 from scripts.benchmark.report import (
@@ -142,6 +144,10 @@ def _run_single_host(args: argparse.Namespace) -> int:
         framework=args.framework,
         control_titles=control_titles,
     )
+
+    known_errors = _load_known_errors(args.known_errors)
+    detect_mapping_errors(comparisons, known_errors)
+
     summary = summarize(comparisons, framework=args.framework)
 
     _print_summary(summary)
@@ -168,6 +174,8 @@ def _run_multi_host(args: argparse.Namespace) -> int:
     control_titles = _load_control_titles(args.framework) if args.framework else {}
     framework_total = _load_framework_total(args.framework) if args.framework else 0
 
+    known_errors = _load_known_errors(args.known_errors)
+
     aegis = AegisAdapter()
     openscap = OpenSCAPAdapter()
     host_comparisons: list[HostComparison] = []
@@ -190,6 +198,7 @@ def _run_multi_host(args: argparse.Namespace) -> int:
             framework=args.framework,
             control_titles=control_titles,
         )
+        detect_mapping_errors(comparisons, known_errors)
         summary = summarize(comparisons, framework=args.framework)
 
         # Compute coverage if framework total is available
@@ -276,6 +285,34 @@ def _run_multi_host(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_known_errors(path: str) -> dict | None:
+    """Load known mapping errors from a YAML file.
+
+    Args:
+        path: Path to the known errors YAML, or empty string to auto-detect.
+
+    Returns:
+        Dict of known errors keyed by control_id, or None if not available.
+
+    """
+    if not path:
+        # Auto-detect default location
+        default = Path(__file__).parent / "known_mapping_errors.yaml"
+        if default.exists():
+            path = str(default)
+        else:
+            return None
+
+    p = Path(path)
+    if not p.exists():
+        print(f"Warning: known errors file not found: {path}", file=sys.stderr)
+        return None
+
+    errors = load_known_mapping_errors(str(p))
+    print(f"  Loaded {len(errors)} known mapping errors", file=sys.stderr)
+    return errors
+
+
 def _print_summary(summary: "ComparisonSummary") -> None:
     """Print summary metrics to stderr."""
     from scripts.benchmark.compare import ComparisonSummary
@@ -287,6 +324,11 @@ def _print_summary(summary: "ComparisonSummary") -> None:
         print(f"  {tool}: {count} ({pct:.1f}%)", file=sys.stderr)
     print(f"  Agreement rate: {summary.agreement_rate:.1%}", file=sys.stderr)
     print(f"  Disagreements: {summary.disagree_count}", file=sys.stderr)
+    if summary.mapping_error_count > 0:
+        print(
+            f"  Mapping errors: {summary.mapping_error_count} (excluded)",
+            file=sys.stderr,
+        )
 
 
 def _write_output(content: str, output: str) -> None:
@@ -328,8 +370,7 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         default=[],
         help=(
-            "Host pair as name:aegis_path:openscap_path "
-            "(repeatable, multi-host mode)"
+            "Host pair as name:aegis_path:openscap_path (repeatable, multi-host mode)"
         ),
     )
     # Common args
@@ -353,6 +394,15 @@ def main(argv: list[str] | None = None) -> int:
         "--host",
         default="",
         help="Hostname for report header (single-host mode)",
+    )
+    parser.add_argument(
+        "--known-errors",
+        default="",
+        dest="known_errors",
+        help=(
+            "Path to known mapping errors YAML "
+            "(default: auto-detect scripts/benchmark/known_mapping_errors.yaml)"
+        ),
     )
     args = parser.parse_args(argv)
 
