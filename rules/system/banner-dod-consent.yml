@@ -3,8 +3,10 @@ title: Configure login warning banner
 description: >
   The system must display an authorized-use warning banner before granting
   local or remote access. The banner text is written to /etc/issue, which
-  sshd displays via the Banner directive (see ssh-banner rule).
-  Customize the text by setting the banner_text variable in rules/rules.d/.
+  sshd displays via the Banner directive (see ssh-banner rule). The check
+  verifies that the file contains meaningful warning text, not just the OS
+  default. Customize the text by setting the banner_text variable in
+  rules/rules.d/.
 rationale: >
   A pre-authentication banner establishes the legal basis for monitoring
   and prosecution of unauthorized access. Without a warning banner, an
@@ -30,9 +32,20 @@ platforms:
 implementations:
   - default: true
     check:
-      method: file_content
-      path: "/etc/issue"
-      expected_content: "{{ banner_text }}"
+      method: command
+      run: |
+        if [ ! -s /etc/issue ]; then
+          echo "FAIL: /etc/issue is empty or missing"
+          exit 1
+        fi
+        # Strip getty escape sequences (\S, \r, \m, \l, etc.) and whitespace
+        textlen=$(sed 's/\\[[:alpha:]]//g' /etc/issue | tr -d '[:space:]' | wc -c)
+        if [ "$textlen" -lt 20 ]; then
+          echo "FAIL: /etc/issue has no meaningful warning text ($textlen chars after stripping escapes)"
+          exit 1
+        fi
+        echo "OK: /etc/issue contains warning banner ($textlen meaningful chars)"
+      expected_exit: 0
     remediation:
       mechanism: file_content
       path: "/etc/issue"

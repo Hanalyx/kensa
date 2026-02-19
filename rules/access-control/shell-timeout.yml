@@ -34,7 +34,7 @@ implementations:
     check:
       method: command
       run: |
-        tmout_val=$(grep -rhE '^(export\s+)?TMOUT=' /etc/profile /etc/profile.d/*.sh 2>/dev/null | tail -1 | grep -oE '[0-9]+')
+        tmout_val=$(grep -rhE '^(export\s+)?TMOUT=' /etc/profile /etc/profile.d/*.sh /etc/bashrc 2>/dev/null | tail -1 | grep -oE '[0-9]+')
         if [ -z "$tmout_val" ]; then
           echo "FAIL: TMOUT not set"
           exit 1
