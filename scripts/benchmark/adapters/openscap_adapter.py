@@ -63,6 +63,26 @@ class OpenSCAPAdapter(ToolAdapter):
 
         return controls
 
+    def count_mapped_sections(self, path: str) -> int:
+        """Count unique CIS sections present in an XCCDF file.
+
+        Useful for coverage dimension without full result parsing.
+
+        Args:
+            path: Path to OpenSCAP XCCDF XML file.
+
+        Returns:
+            Number of unique CIS sections found.
+
+        """
+        tree = ET.parse(path)
+        root = tree.getroot()
+        rule_to_sections = self._build_rule_section_map(root)
+        all_sections: set[str] = set()
+        for sections in rule_to_sections.values():
+            all_sections.update(sections)
+        return len(all_sections)
+
     @staticmethod
     def _build_rule_section_map(
         root: ET.Element,

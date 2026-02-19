@@ -13,10 +13,20 @@ from scripts.benchmark.adapters.base import ToolAdapter, ToolControlResult
 from scripts.benchmark.adapters.openscap_adapter import OpenSCAPAdapter
 from scripts.benchmark.compare import (
     ControlComparison,
+    CoverageDimension,
+    HostComparison,
+    MultiHostResult,
+    aggregate_hosts,
     compare_at_control_level,
+    compute_coverage,
     summarize,
 )
-from scripts.benchmark.report import generate_json, generate_markdown
+from scripts.benchmark.report import (
+    generate_json,
+    generate_markdown,
+    generate_multihost_json,
+    generate_multihost_markdown,
+)
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -730,3 +740,445 @@ class TestCLI:
         assert rc == 0
         captured = capsys.readouterr()
         assert "Benchmark Comparison" in captured.out
+
+
+# ── Phase 2: Multi-host + Coverage tests ─────────────────────────────────────
+
+
+def _make_host_comparison(
+    host_name: str,
+    platform: str,
+    aegis_results: dict[str, ToolControlResult],
+    openscap_results: dict[str, ToolControlResult],
+    framework: str = "cis",
+) -> HostComparison:
+    """Helper to build a HostComparison from tool results."""
+    tool_results = {"aegis": aegis_results, "openscap": openscap_results}
+    comparisons = compare_at_control_level(tool_results, framework=framework)
+    summary = summarize(comparisons, framework=framework)
+    return HostComparison(
+        host_name=host_name,
+        platform=platform,
+        comparisons=comparisons,
+        summary=summary,
+    )
+
+
+class TestCoverageDimension:
+    def test_basic_coverage(self):
+        results = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+            "1.2": ToolControlResult("aegis", "1.2", passed=False),
+        }
+        cov = compute_coverage(results, total_framework=10, tool_name="aegis")
+        assert cov.tool_name == "aegis"
+        assert cov.controls_covered == 2
+        assert cov.total_framework == 10
+        assert cov.coverage_percent == 20.0
+
+    def test_zero_total(self):
+        results = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+        }
+        cov = compute_coverage(results, total_framework=0, tool_name="aegis")
+        assert cov.coverage_percent == 0.0
+
+    def test_none_passed_excluded(self):
+        results = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+            "1.2": ToolControlResult("aegis", "1.2", passed=None),
+        }
+        cov = compute_coverage(results, total_framework=5, tool_name="aegis")
+        assert cov.controls_covered == 1
+
+    def test_exclusive_controls(self):
+        results = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+            "1.2": ToolControlResult("aegis", "1.2", passed=True),
+        }
+        cov = compute_coverage(
+            results,
+            total_framework=10,
+            tool_name="aegis",
+            exclusive_ids={"1.2"},
+        )
+        assert cov.exclusive_controls == 1
+
+    def test_empty_results(self):
+        cov = compute_coverage({}, total_framework=10, tool_name="aegis")
+        assert cov.controls_covered == 0
+        assert cov.coverage_percent == 0.0
+
+
+class TestHostComparison:
+    def test_host_comparison_fields(self):
+        aegis = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+        hc = _make_host_comparison("rhel9-211", "rhel9", aegis, openscap)
+
+        assert hc.host_name == "rhel9-211"
+        assert hc.platform == "rhel9"
+        assert len(hc.comparisons) == 1
+        assert hc.summary.agree_count == 1
+
+    def test_host_with_coverage(self):
+        aegis = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+        hc = _make_host_comparison("rhel9-211", "rhel9", aegis, openscap)
+        hc.coverage["aegis"] = compute_coverage(aegis, 5, "aegis")
+        hc.coverage["openscap"] = compute_coverage(openscap, 5, "openscap")
+
+        assert hc.coverage["aegis"].controls_covered == 1
+        assert hc.coverage["openscap"].coverage_percent == 20.0
+
+
+class TestMultiHostResult:
+    def test_multihost_structure(self):
+        aegis = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+        hc1 = _make_host_comparison("rhel9-211", "rhel9", aegis, openscap)
+        hc2 = _make_host_comparison("rhel9-213", "rhel9", aegis, openscap)
+
+        agg = aggregate_hosts([hc1, hc2], framework="cis")
+        result = MultiHostResult(
+            framework="cis",
+            hosts=[hc1, hc2],
+            aggregate_summary=agg,
+        )
+
+        assert len(result.hosts) == 2
+        assert result.aggregate_summary.total_controls == 1
+        assert result.framework == "cis"
+
+
+class TestAggregateHosts:
+    def test_union_of_controls(self):
+        """Aggregate should include union of all controls across hosts."""
+        aegis1 = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+        }
+        openscap1 = {
+            "1.1": ToolControlResult("openscap", "1.1", passed=True),
+        }
+        aegis2 = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+            "1.2": ToolControlResult("aegis", "1.2", passed=False),
+        }
+        openscap2 = {
+            "1.1": ToolControlResult("openscap", "1.1", passed=True),
+            "1.2": ToolControlResult("openscap", "1.2", passed=False),
+        }
+
+        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel9", aegis2, openscap2)
+
+        agg = aggregate_hosts([hc1, hc2], framework="cis")
+        assert agg.total_controls == 2
+
+    def test_empty_hosts(self):
+        agg = aggregate_hosts([], framework="cis")
+        assert agg.total_controls == 0
+
+    def test_any_fail_aggregates_conservative(self):
+        """If any host fails a tool on a control, aggregate shows fail."""
+        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+        aegis2 = {"1.1": ToolControlResult("aegis", "1.1", passed=False)}
+        openscap2 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+
+        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel9", aegis2, openscap2)
+
+        agg = aggregate_hosts([hc1, hc2], framework="cis")
+        # aegis pass on h1, fail on h2 → aggregate fail
+        # openscap pass on both → aggregate pass
+        # Result: disagree
+        assert agg.disagree_count == 1
+
+    def test_agreement_recalculated(self):
+        """Aggregate recalculates agreement from merged results."""
+        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+
+        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel9", aegis1, openscap1)
+
+        agg = aggregate_hosts([hc1, hc2])
+        assert agg.agree_count == 1
+        assert agg.agreement_rate == 1.0
+
+
+class TestMultiHostReport:
+    @pytest.fixture()
+    def multihost_result(self) -> MultiHostResult:
+        aegis1 = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True, rule_ids=["r1"]),
+            "1.2": ToolControlResult("aegis", "1.2", passed=True, rule_ids=["r2"]),
+        }
+        openscap1 = {
+            "1.1": ToolControlResult("openscap", "1.1", passed=True, rule_ids=["r3"]),
+            "1.2": ToolControlResult("openscap", "1.2", passed=False, rule_ids=["r4"]),
+        }
+        aegis2 = {
+            "1.1": ToolControlResult("aegis", "1.1", passed=True, rule_ids=["r1"]),
+            "1.2": ToolControlResult("aegis", "1.2", passed=False, rule_ids=["r2"]),
+        }
+        openscap2 = {
+            "1.1": ToolControlResult("openscap", "1.1", passed=False, rule_ids=["r3"]),
+            "1.2": ToolControlResult("openscap", "1.2", passed=False, rule_ids=["r4"]),
+        }
+
+        hc1 = _make_host_comparison("rhel9-211", "rhel9", aegis1, openscap1)
+        hc2 = _make_host_comparison("rhel8-202", "rhel8", aegis2, openscap2)
+
+        agg = aggregate_hosts([hc1, hc2], framework="cis")
+        return MultiHostResult(
+            framework="cis",
+            hosts=[hc1, hc2],
+            aggregate_summary=agg,
+        )
+
+    def test_markdown_contains_aggregate_summary(self, multihost_result):
+        md = generate_multihost_markdown(multihost_result)
+        assert "Aggregate Summary" in md
+        assert "Total controls (union)" in md
+
+    def test_markdown_contains_per_host(self, multihost_result):
+        md = generate_multihost_markdown(multihost_result)
+        assert "rhel9-211" in md
+        assert "rhel8-202" in md
+        assert "Per-Host Results" in md
+
+    def test_markdown_contains_crossplatform(self, multihost_result):
+        md = generate_multihost_markdown(multihost_result)
+        assert "Cross-Platform Table" in md
+
+    def test_markdown_contains_consistency(self, multihost_result):
+        md = generate_multihost_markdown(multihost_result)
+        assert "Cross-Platform Consistency" in md
+        assert "Consistent across hosts" in md
+
+    def test_json_structure(self, multihost_result):
+        raw = generate_multihost_json(multihost_result)
+        data = json.loads(raw)
+
+        assert "hosts" in data
+        assert len(data["hosts"]) == 2
+        assert "aggregate" in data
+        assert data["hosts"][0]["host_name"] == "rhel9-211"
+        assert data["hosts"][1]["host_name"] == "rhel8-202"
+
+    def test_json_per_host_comparisons(self, multihost_result):
+        data = json.loads(generate_multihost_json(multihost_result))
+
+        host0 = data["hosts"][0]
+        assert "comparisons" in host0
+        assert "summary" in host0
+        assert host0["platform"] == "rhel9"
+
+    def test_markdown_with_coverage(self, multihost_result):
+        multihost_result.aggregate_coverage = {
+            "aegis": CoverageDimension("aegis", 2, 10, 20.0, 0),
+            "openscap": CoverageDimension("openscap", 2, 10, 20.0, 0),
+        }
+        md = generate_multihost_markdown(multihost_result)
+        assert "Framework Coverage" in md
+        assert "20.0%" in md
+
+    def test_json_with_coverage(self, multihost_result):
+        multihost_result.aggregate_coverage = {
+            "aegis": CoverageDimension("aegis", 2, 10, 20.0, 1),
+        }
+        data = json.loads(generate_multihost_json(multihost_result))
+        assert "coverage" in data["aggregate"]
+        assert data["aggregate"]["coverage"]["aegis"]["controls_covered"] == 2
+
+
+class TestCrossplatformTable:
+    def test_table_rows(self):
+        """Cross-platform table has a row per control, column per host/tool."""
+        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+        aegis2 = {"1.1": ToolControlResult("aegis", "1.1", passed=False)}
+        openscap2 = {"1.1": ToolControlResult("openscap", "1.1", passed=False)}
+
+        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel8", aegis2, openscap2)
+
+        agg = aggregate_hosts([hc1, hc2], framework="cis")
+        result = MultiHostResult(
+            framework="cis",
+            hosts=[hc1, hc2],
+            aggregate_summary=agg,
+        )
+        md = generate_multihost_markdown(result)
+
+        # Headers should include host/tool combos
+        assert "h1/aegis" in md
+        assert "h2/openscap" in md
+        # Control row
+        assert "1.1" in md
+        assert "PASS" in md
+        assert "FAIL" in md
+
+    def test_missing_control_shows_dash(self):
+        """Controls not present on a host show '—'."""
+        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
+        aegis2 = {"1.2": ToolControlResult("aegis", "1.2", passed=False)}
+        openscap2 = {"1.2": ToolControlResult("openscap", "1.2", passed=False)}
+
+        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel8", aegis2, openscap2)
+
+        agg = aggregate_hosts([hc1, hc2], framework="cis")
+        result = MultiHostResult(
+            framework="cis",
+            hosts=[hc1, hc2],
+            aggregate_summary=agg,
+        )
+        md = generate_multihost_markdown(result)
+        # Control 1.1 only on h1, so h2 columns should show —
+        assert "\u2014" in md  # em dash
+
+
+class TestOpenSCAPCountMappedSections:
+    def test_count_sections(self, openscap_xml: Path):
+        adapter = OpenSCAPAdapter()
+        count = adapter.count_mapped_sections(str(openscap_xml))
+        # Fixture has 3 CIS sections: 5.1.20, 5.1.5, 5.5.1.1
+        assert count == 3
+
+
+class TestCLIMultiHost:
+    def test_pair_markdown(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "multihost.md"
+        rc = main(
+            [
+                "--pair",
+                f"rhel9-211:{aegis_flat_json}:{openscap_xml}",
+                "--pair",
+                f"rhel9-213:{aegis_flat_json}:{openscap_xml}",
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        content = output.read_text()
+        assert "Multi-Host" in content
+        assert "rhel9-211" in content
+        assert "rhel9-213" in content
+
+    def test_pair_json(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "multihost.json"
+        rc = main(
+            [
+                "--pair",
+                f"rhel9-211:{aegis_flat_json}:{openscap_xml}",
+                "--format",
+                "json",
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(output.read_text())
+        assert "hosts" in data
+        assert "aggregate" in data
+        assert data["hosts"][0]["host_name"] == "rhel9-211"
+
+    def test_pair_mutual_exclusion(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    "--aegis",
+                    str(aegis_flat_json),
+                    "--openscap",
+                    str(openscap_xml),
+                    "--pair",
+                    f"h1:{aegis_flat_json}:{openscap_xml}",
+                ]
+            )
+
+    def test_no_args_errors(self):
+        from scripts.benchmark.benchmark_cli import main
+
+        with pytest.raises(SystemExit):
+            main([])
+
+
+class TestCLIBackwardCompat:
+    def test_single_host_still_works(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "compat.md"
+        rc = main(
+            [
+                "--aegis",
+                str(aegis_flat_json),
+                "--openscap",
+                str(openscap_xml),
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        content = output.read_text()
+        assert "Benchmark Comparison" in content
+
+    def test_single_host_json_still_works(
+        self,
+        aegis_flat_json: Path,
+        openscap_xml: Path,
+        tmp_path: Path,
+    ):
+        from scripts.benchmark.benchmark_cli import main
+
+        output = tmp_path / "compat.json"
+        rc = main(
+            [
+                "--aegis",
+                str(aegis_flat_json),
+                "--openscap",
+                str(openscap_xml),
+                "--format",
+                "json",
+                "--output",
+                str(output),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(output.read_text())
+        assert "summary" in data
+        assert "controls" in data
+
+    def test_aegis_only_errors(self, aegis_flat_json: Path):
+        from scripts.benchmark.benchmark_cli import main
+
+        with pytest.raises(SystemExit):
+            main(["--aegis", str(aegis_flat_json)])

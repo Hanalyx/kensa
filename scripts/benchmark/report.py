@@ -9,6 +9,9 @@ from pathlib import Path
 from scripts.benchmark.compare import (
     ComparisonSummary,
     ControlComparison,
+    CoverageDimension,
+    HostComparison,
+    MultiHostResult,
 )
 
 
@@ -276,6 +279,312 @@ def write_report(
 
     """
     Path(path).write_text(content)
+
+
+def generate_multihost_markdown(
+    result: MultiHostResult,
+    *,
+    title: str = "Multi-Host Benchmark Comparison",
+) -> str:
+    """Generate a Markdown report for multi-host comparison.
+
+    Args:
+        result: MultiHostResult with per-host and aggregate data.
+        title: Report title.
+
+    Returns:
+        Markdown-formatted report string.
+
+    """
+    lines: list[str] = []
+    s = result.aggregate_summary
+    tool_names = sorted(s.per_tool_coverage.keys())
+
+    # Header
+    lines.append(f"# {title}")
+    lines.append(f"**Framework:** {result.framework}")
+    lines.append(
+        f"**Hosts:** {len(result.hosts)} | "
+        f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    lines.append("")
+
+    # Aggregate summary
+    lines.append("## Aggregate Summary")
+    lines.append("")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
+    lines.append(f"| Total controls (union) | {s.total_controls} |")
+    for t in tool_names:
+        count = s.per_tool_coverage.get(t, 0)
+        pct = (count / s.total_controls * 100) if s.total_controls > 0 else 0
+        lines.append(f"| {t} coverage | {count}/{s.total_controls} ({pct:.1f}%) |")
+    commonly = s.agree_count + s.disagree_count
+    lines.append(f"| Agreement rate | {s.agreement_rate:.1%} on {commonly} common |")
+    lines.append(f"| Disagreements | {s.disagree_count} |")
+    lines.append("")
+
+    # Coverage dimension
+    if result.aggregate_coverage:
+        lines.append("## Framework Coverage")
+        lines.append("")
+        lines.append(
+            "| Tool | Controls Covered | Framework Total "
+            "| Coverage % | Exclusive |"
+        )
+        lines.append("|------|-----------------|----------------|-----------|-----------|")
+        for t in tool_names:
+            cov = result.aggregate_coverage.get(t)
+            if cov:
+                lines.append(
+                    f"| {t} | {cov.controls_covered} | {cov.total_framework} "
+                    f"| {cov.coverage_percent:.1f}% | {cov.exclusive_controls} |"
+                )
+        lines.append("")
+
+    # Per-host sections
+    lines.append("## Per-Host Results")
+    lines.append("")
+    for hc in result.hosts:
+        hs = hc.summary
+        lines.append(f"### {hc.host_name} ({hc.platform})")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        lines.append(f"| Controls | {hs.total_controls} |")
+        commonly_h = hs.agree_count + hs.disagree_count
+        lines.append(f"| Agreement | {hs.agreement_rate:.1%} on {commonly_h} common |")
+        lines.append(f"| Disagreements | {hs.disagree_count} |")
+        lines.append("")
+
+        # Host disagreements
+        host_disagreements = [
+            c for c in hc.comparisons if c.agreement == "disagree"
+        ]
+        if host_disagreements:
+            lines.append(
+                f"**Disagreements ({len(host_disagreements)}):**"
+            )
+            lines.append("")
+            for comp in host_disagreements:
+                parts = []
+                for t in tool_names:
+                    r = comp.tool_results.get(t)
+                    if r and r.passed is not None:
+                        parts.append(f"{t}={'PASS' if r.passed else 'FAIL'}")
+                lines.append(f"- {comp.control_id}: {', '.join(parts)}")
+            lines.append("")
+
+    # Cross-platform table
+    lines.append("## Cross-Platform Table")
+    lines.append("")
+    _append_crossplatform_table(lines, result, tool_names)
+
+    # Cross-platform consistency
+    lines.append("## Cross-Platform Consistency")
+    lines.append("")
+    _append_consistency_section(lines, result, tool_names)
+
+    return "\n".join(lines)
+
+
+def _append_crossplatform_table(
+    lines: list[str],
+    result: MultiHostResult,
+    tool_names: list[str],
+) -> None:
+    """Append cross-platform comparison table to lines."""
+    # Collect all control IDs across all hosts
+    all_controls: dict[str, str] = {}  # control_id -> title
+    for hc in result.hosts:
+        for comp in hc.comparisons:
+            if comp.control_id not in all_controls:
+                all_controls[comp.control_id] = comp.title
+
+    if not all_controls:
+        lines.append("*No controls to display.*")
+        lines.append("")
+        return
+
+    # Build header: Control | host1-tool1 | host1-tool2 | host2-tool1 | ...
+    host_tool_headers = []
+    for hc in result.hosts:
+        for t in tool_names:
+            host_tool_headers.append(f"{hc.host_name}/{t}")
+
+    lines.append("| Control | " + " | ".join(host_tool_headers) + " |")
+    lines.append("|---------|" + "|".join("------" for _ in host_tool_headers) + "|")
+
+    # Build lookup: (host_name, control_id) -> ControlComparison
+    lookup: dict[tuple[str, str], ControlComparison] = {}
+    for hc in result.hosts:
+        for comp in hc.comparisons:
+            lookup[(hc.host_name, comp.control_id)] = comp
+
+    from scripts.benchmark.compare import _section_sort_key
+
+    for cid in sorted(all_controls.keys(), key=_section_sort_key):
+        cells = []
+        for hc in result.hosts:
+            comp = lookup.get((hc.host_name, cid))
+            for t in tool_names:
+                if comp:
+                    r = comp.tool_results.get(t)
+                    if r and r.passed is not None:
+                        cells.append("PASS" if r.passed else "FAIL")
+                    else:
+                        cells.append("—")
+                else:
+                    cells.append("—")
+        lines.append(f"| {cid} | " + " | ".join(cells) + " |")
+    lines.append("")
+
+
+def _append_consistency_section(
+    lines: list[str],
+    result: MultiHostResult,
+    tool_names: list[str],
+) -> None:
+    """Append cross-platform consistency analysis."""
+    # For each control, check if results are consistent across all hosts
+    from scripts.benchmark.compare import _section_sort_key
+
+    all_controls: set[str] = set()
+    for hc in result.hosts:
+        for comp in hc.comparisons:
+            all_controls.add(comp.control_id)
+
+    lookup: dict[tuple[str, str], ControlComparison] = {}
+    for hc in result.hosts:
+        for comp in hc.comparisons:
+            lookup[(hc.host_name, comp.control_id)] = comp
+
+    consistent: list[str] = []
+    inconsistent: list[tuple[str, dict[str, list[str]]]] = []
+
+    for cid in sorted(all_controls, key=_section_sort_key):
+        # Collect (tool, result) across hosts for this control
+        per_tool_results: dict[str, list[str]] = {t: [] for t in tool_names}
+        for hc in result.hosts:
+            comp = lookup.get((hc.host_name, cid))
+            for t in tool_names:
+                if comp:
+                    r = comp.tool_results.get(t)
+                    if r and r.passed is not None:
+                        per_tool_results[t].append(
+                            "PASS" if r.passed else "FAIL"
+                        )
+
+        # Check consistency: all hosts agree for each tool
+        is_consistent = True
+        for t in tool_names:
+            vals = per_tool_results[t]
+            if vals and len(set(vals)) > 1:
+                is_consistent = False
+                break
+
+        if is_consistent:
+            consistent.append(cid)
+        else:
+            inconsistent.append((cid, per_tool_results))
+
+    lines.append(f"- **Consistent across hosts:** {len(consistent)} controls")
+    lines.append(f"- **Differ across hosts:** {len(inconsistent)} controls")
+    lines.append("")
+
+    if inconsistent:
+        lines.append("### Controls differing across hosts")
+        lines.append("")
+        for cid, per_tool in inconsistent:
+            parts = []
+            for t in tool_names:
+                vals = per_tool[t]
+                if vals:
+                    parts.append(f"{t}: {'/'.join(vals)}")
+            lines.append(f"- {cid}: {', '.join(parts)}")
+        lines.append("")
+
+
+def generate_multihost_json(
+    result: MultiHostResult,
+) -> str:
+    """Generate a JSON report for multi-host comparison.
+
+    Args:
+        result: MultiHostResult with per-host and aggregate data.
+
+    Returns:
+        JSON-formatted string.
+
+    """
+    data: dict = {
+        "framework": result.framework,
+        "generated": datetime.now().isoformat(),
+        "hosts": [],
+        "aggregate": _summary_to_dict(result.aggregate_summary),
+    }
+
+    if result.aggregate_coverage:
+        data["aggregate"]["coverage"] = {
+            name: _coverage_to_dict(cov)
+            for name, cov in result.aggregate_coverage.items()
+        }
+
+    for hc in result.hosts:
+        host_data: dict = {
+            "host_name": hc.host_name,
+            "platform": hc.platform,
+            "summary": _summary_to_dict(hc.summary),
+            "comparisons": [],
+        }
+        if hc.coverage:
+            host_data["coverage"] = {
+                name: _coverage_to_dict(cov)
+                for name, cov in hc.coverage.items()
+            }
+        for comp in hc.comparisons:
+            entry: dict = {
+                "control_id": comp.control_id,
+                "title": comp.title,
+                "agreement": comp.agreement,
+                "tools": {},
+            }
+            for tool_name, r in comp.tool_results.items():
+                entry["tools"][tool_name] = {
+                    "passed": r.passed,
+                    "rule_ids": r.rule_ids,
+                    "has_evidence": r.has_evidence,
+                    "has_remediation": r.has_remediation,
+                    "detail": r.detail,
+                }
+            host_data["comparisons"].append(entry)
+        data["hosts"].append(host_data)
+
+    return json.dumps(data, indent=2)
+
+
+def _summary_to_dict(s: ComparisonSummary) -> dict:
+    """Convert ComparisonSummary to a serializable dict."""
+    return {
+        "framework": s.framework,
+        "total_controls": s.total_controls,
+        "per_tool_coverage": s.per_tool_coverage,
+        "agreement_rate": round(s.agreement_rate, 4),
+        "agree_count": s.agree_count,
+        "disagree_count": s.disagree_count,
+        "exclusive_coverage": s.exclusive_coverage,
+    }
+
+
+def _coverage_to_dict(cov: CoverageDimension) -> dict:
+    """Convert CoverageDimension to a serializable dict."""
+    return {
+        "tool_name": cov.tool_name,
+        "controls_covered": cov.controls_covered,
+        "total_framework": cov.total_framework,
+        "coverage_percent": cov.coverage_percent,
+        "exclusive_controls": cov.exclusive_controls,
+    }
 
 
 def _any_pass(comp: ControlComparison) -> bool:
