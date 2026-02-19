@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.12.0 (2026-02-19)
+
+### Features
+
+- **benchmark**: Add mapping error detection with allowlist and heuristic
+  ([#68](https://github.com/Hanalyx/aegis/pull/68),
+  [`a889ff0`](https://github.com/Hanalyx/aegis/commit/a889ff076953110d9a0ac7449a0f2cb5e9262678))
+
+
 ## v1.11.1 (2026-02-19)
 
 ### Bug Fixes
