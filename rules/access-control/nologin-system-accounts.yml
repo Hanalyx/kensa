@@ -29,7 +29,14 @@ implementations:
   - default: true
     check:
       method: command
-      run: "awk -F: '$3 < 1000 && $1 != \"root\" && $7 != \"/sbin/nologin\" && $7 != \"/bin/false\" && $7 != \"/usr/sbin/nologin\" {exit 1}' /etc/passwd"
+      run: |
+        bad=$(awk -F: '$3 > 0 && $3 < 1000 && $7 != "/sbin/nologin" && $7 != "/bin/false" && $7 != "/usr/sbin/nologin" {print $1 ":" $7}' /etc/passwd)
+        if [ -n "$bad" ]; then
+          echo "FAIL: system accounts with login shell:"
+          echo "$bad"
+          exit 1
+        fi
+        echo "OK: all system accounts have non-login shell"
       expected_exit: 0
     remediation:
       mechanism: manual
@@ -38,4 +45,4 @@ implementations:
         have interactive login:
         usermod -s /sbin/nologin <username>
         Run this to find accounts needing update:
-        awk -F: '$3 < 1000 && $1 != "root" && $7 !~ /nologin|false/ {print $1}' /etc/passwd
+        awk -F: '$3 > 0 && $3 < 1000 && $7 !~ /nologin|false/ {print $1}' /etc/passwd
