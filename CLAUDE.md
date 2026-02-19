@@ -140,6 +140,16 @@ All support `control_ids:` manifest and `unimplemented:` for completeness tracki
 4. Pydocstyle (Google convention)
 5. Rule YAML schema validation
 
+### PR Workflow
+1. Create a feature branch from `main`
+2. Commit changes to the branch
+3. Push and open a PR against `main`
+4. Monitor CI status using `gh pr checks <number> --watch`
+5. Once all checks pass, merge the PR with `gh pr merge`
+6. Pull the merged changes to local `main`
+
+No user approval is needed to merge — CI passing is the gate.
+
 ## Slash Commands
 
 - `/cis` — Interactive CIS benchmark gap analysis, rule creation, mapping validation
