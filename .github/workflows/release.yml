@@ -134,7 +134,7 @@ jobs:
       - name: Install RPM build tools
         run: |
           dnf install -y rpm-build python3-devel python3-pip python3-wheel \
-            pyproject-rpm-macros python3-setuptools
+            python3-hatchling pyproject-rpm-macros python3-setuptools
 
       - name: Prepare sources and build RPM
         run: |

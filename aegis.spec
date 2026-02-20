@@ -10,6 +10,7 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-wheel
+BuildRequires:  python3-hatchling
 BuildRequires:  pyproject-rpm-macros
 
 Requires:       python3-paramiko >= 3.0
