@@ -1,6 +1,6 @@
 # Aegis
 
-SSH-based compliance test runner for RHEL systems. Connects to remote hosts via SSH, evaluates compliance rules, captures machine-verifiable evidence, and maps results to multiple frameworks (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP).
+SSH-based compliance scanner for SysAdmin. Connects to remote hosts via SSH, evaluates compliance rules, captures machine-verifiable evidence, and maps results to multiple frameworks (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP).
 
 **508 rules** | **7 frameworks** | **22 capability probes** | **Evidence capture**
 
