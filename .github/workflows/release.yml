@@ -40,6 +40,9 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     concurrency: release
+    outputs:
+      released: ${{ steps.semrel.outputs.released }}
+      version: ${{ steps.semrel.outputs.version }}
 
     steps:
       - name: Checkout
@@ -114,3 +117,49 @@ jobs:
           # Create pip-installable release asset info
           echo "Package can be installed with:"
           echo "  pip install git+https://github.com/${{ github.repository }}.git@v${{ steps.semrel.outputs.version }}"
+
+  rpm:
+    name: Build RPM
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: needs.release.outputs.released == 'true'
+    container:
+      image: fedora:latest
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.release.outputs.version }}
+
+      - name: Install RPM build tools
+        run: |
+          dnf install -y rpm-build python3-devel python3-pip python3-wheel \
+            pyproject-rpm-macros python3-setuptools
+
+      - name: Prepare sources and build RPM
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+
+          # Set up rpmbuild directory structure
+          mkdir -p ~/rpmbuild/{SOURCES,SPECS}
+
+          # Create source tarball matching spec expectations
+          TARDIR="aegis-${VERSION}"
+          mkdir -p "/tmp/${TARDIR}"
+          cp -a . "/tmp/${TARDIR}/"
+          tar czf ~/rpmbuild/SOURCES/aegis-${VERSION}.tar.gz -C /tmp "${TARDIR}"
+
+          # Copy spec with correct version
+          sed "s/^Version:.*/Version:        ${VERSION}/" aegis.spec > ~/rpmbuild/SPECS/aegis.spec
+
+          # Build RPM
+          rpmbuild -ba ~/rpmbuild/SPECS/aegis.spec
+
+      - name: Attach RPM to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dnf install -y gh
+          gh release upload "v${{ needs.release.outputs.version }}" \
+            ~/rpmbuild/RPMS/noarch/*.rpm \
+            --repo "${{ github.repository }}"
