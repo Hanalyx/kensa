@@ -119,12 +119,24 @@ jobs:
           echo "  pip install git+https://github.com/${{ github.repository }}.git@v${{ steps.semrel.outputs.version }}"
 
   rpm:
-    name: Build RPM
+    name: Build RPM (${{ matrix.distro }})
     runs-on: ubuntu-latest
     needs: [release]
     if: needs.release.outputs.released == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: el8
+            image: rockylinux:8
+          - distro: el9
+            image: rockylinux:9
+          - distro: el10
+            image: almalinux:10
+          - distro: fc
+            image: fedora:latest
     container:
-      image: fedora:latest
+      image: ${{ matrix.image }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -133,8 +145,24 @@ jobs:
 
       - name: Install RPM build tools
         run: |
+          # Enable EPEL on EL distros (needed for pyproject-rpm-macros on EL8/9)
+          if [ "${{ matrix.distro }}" != "fc" ]; then
+            dnf install -y epel-release || true
+          fi
+
+          # Base RPM build tools
           dnf install -y rpm-build python3-devel python3-pip python3-wheel \
-            python3-hatchling pyproject-rpm-macros python3-setuptools
+            python3-setuptools pyproject-rpm-macros
+
+          # EL8: system python3 is 3.6 — too old for hatchling (needs 3.8+)
+          # Install Python 3.11 from AppStream and use it for the build
+          if [ "${{ matrix.distro }}" = "el8" ]; then
+            dnf install -y python3.11-devel
+            dnf install -y python3.11-pip || python3.11 -m ensurepip
+            python3.11 -m pip install hatchling wheel setuptools
+          else
+            dnf install -y python3-hatchling 2>/dev/null || pip3 install hatchling wheel
+          fi
 
       - name: Prepare sources and build RPM
         run: |
@@ -152,8 +180,17 @@ jobs:
           # Copy spec with correct version
           sed "s/^Version:.*/Version:        ${VERSION}/" aegis.spec > ~/rpmbuild/SPECS/aegis.spec
 
+          # Remove python3-hatchling BuildRequires if installed via pip (not RPM)
+          if ! rpm -q python3-hatchling &>/dev/null; then
+            sed -i '/BuildRequires:.*python3-hatchling/d' ~/rpmbuild/SPECS/aegis.spec
+          fi
+
           # Build RPM
-          rpmbuild -ba ~/rpmbuild/SPECS/aegis.spec
+          if [ "${{ matrix.distro }}" = "el8" ]; then
+            rpmbuild --define '__python3 /usr/bin/python3.11' -ba ~/rpmbuild/SPECS/aegis.spec
+          else
+            rpmbuild -ba ~/rpmbuild/SPECS/aegis.spec
+          fi
 
       - name: Attach RPM to release
         env:
