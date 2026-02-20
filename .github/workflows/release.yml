@@ -12,6 +12,13 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - 'runner/**'
+      - 'rules/**'
+      - 'schema/**'
+      - 'mappings/**'
+      - 'pyproject.toml'
+      - 'setup.cfg'
   workflow_dispatch:
     inputs:
       force_version:
