@@ -57,5 +57,6 @@ cp -a config/conf.d/* %{buildroot}%{_sysconfdir}/aegis/conf.d/ 2>/dev/null || tr
 %config(noreplace) %{_sysconfdir}/aegis/defaults.yml
 %{_sysconfdir}/aegis/inventory.yml.example
 %config(noreplace) %dir %{_sysconfdir}/aegis/conf.d/
+%config(noreplace) %{_sysconfdir}/aegis/conf.d/*
 %config(noreplace) %dir %{_sysconfdir}/aegis/groups/
 %config(noreplace) %dir %{_sysconfdir}/aegis/hosts/
