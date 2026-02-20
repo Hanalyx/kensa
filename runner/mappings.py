@@ -253,17 +253,25 @@ def load_mapping(path: str | Path) -> FrameworkMapping:
 
 
 def load_all_mappings(
-    mappings_dir: str | Path = "mappings/",
+    mappings_dir: str | Path | None = None,
 ) -> dict[str, FrameworkMapping]:
     """Load all mappings from a directory.
 
     Args:
-        mappings_dir: Directory containing mapping files.
+        mappings_dir: Directory containing mapping files. If None, auto-detect
+            via ``get_mappings_path()``.
 
     Returns:
         Dict mapping ID to FrameworkMapping.
 
     """
+    if mappings_dir is None:
+        from runner.paths import get_mappings_path
+
+        try:
+            mappings_dir = get_mappings_path()
+        except FileNotFoundError:
+            return {}
     mappings_dir = Path(mappings_dir)
     if not mappings_dir.exists():
         return {}

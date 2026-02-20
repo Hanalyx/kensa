@@ -217,8 +217,14 @@ Examples:
 """
 
 
+def _get_version() -> str:
+    from runner.paths import get_version
+
+    return get_version()
+
+
 @click.group(epilog=MAIN_HELP_EPILOG, context_settings={"max_content_width": 120})
-@click.version_option(version="0.1.0", prog_name="aegis")
+@click.version_option(version=_get_version(), prog_name="aegis")
 def main():
     """Aegis — SSH-based compliance test runner."""
     pass
@@ -1045,6 +1051,14 @@ def remediate(
 
 def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:
     """Resolve target hosts from CLI flags."""
+    # Auto-discover inventory when not explicitly provided
+    if inventory is None and host is None:
+        from runner.paths import get_inventory_path
+
+        discovered = get_inventory_path()
+        if discovered is not None:
+            inventory = str(discovered)
+
     try:
         return resolve_targets(
             host=host,

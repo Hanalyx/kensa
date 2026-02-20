@@ -74,15 +74,19 @@ include = [
     "/runner",
     "/rules",
     "/schema",
+    "/mappings",
+    "/config",
     "/pyproject.toml",
     "/README.md",
     "/LICENSE",
 ]
 
 [tool.hatch.build.targets.wheel.shared-data]
-# Install rules and schema as package data
+# Install rules, schema, mappings, and config as package data
 "rules" = "share/aegis/rules"
 "schema" = "share/aegis/schema"
+"mappings" = "share/aegis/mappings"
+"config" = "share/aegis/config"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Tool configuration

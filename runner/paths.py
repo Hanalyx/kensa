@@ -191,6 +191,87 @@ def get_config_path(subpath: str = "") -> Path:
     raise FileNotFoundError(msg)
 
 
+def get_mappings_path(subpath: str = "") -> Path:
+    """Get the path to Aegis mappings directory.
+
+    Checks locations in order:
+    1. AEGIS_MAPPINGS_PATH environment variable
+    2. ./mappings relative to current directory (development)
+    3. ./mappings relative to source tree (runner/../mappings/)
+    4. Installed package data location
+
+    Args:
+        subpath: Optional subdirectory or file within mappings.
+
+    Returns:
+        Path to mappings directory or specific mapping file.
+
+    Raises:
+        FileNotFoundError: If mappings directory cannot be located.
+
+    """
+    # 1. Environment variable override
+    if env_path := os.environ.get("AEGIS_MAPPINGS_PATH"):
+        mappings_dir = Path(env_path)
+        if mappings_dir.exists():
+            return mappings_dir / subpath if subpath else mappings_dir
+
+    # 2. Development: relative to working directory
+    local_mappings = Path.cwd() / "mappings"
+    if local_mappings.exists():
+        return local_mappings / subpath if subpath else local_mappings
+
+    # 3. Development: relative to this file (runner/paths.py -> ../mappings)
+    source_mappings = Path(__file__).parent.parent / "mappings"
+    if source_mappings.exists():
+        return source_mappings / subpath if subpath else source_mappings
+
+    # 4. Installed package data
+    if data_dir := _find_package_data_dir():
+        installed_mappings = data_dir / "mappings"
+        if installed_mappings.exists():
+            return installed_mappings / subpath if subpath else installed_mappings
+
+    msg = (
+        "Cannot locate Aegis mappings directory. "
+        "Set AEGIS_MAPPINGS_PATH environment variable or run from source directory."
+    )
+    raise FileNotFoundError(msg)
+
+
+def get_inventory_path() -> Path | None:
+    """Get the path to an Aegis inventory file.
+
+    Checks locations in order:
+    1. AEGIS_INVENTORY_PATH environment variable
+    2. ./inventory.yml or ./inventory.ini relative to cwd
+    3. /etc/aegis/inventory.yml or /etc/aegis/inventory.ini (installed)
+
+    Returns:
+        Path to inventory file, or None if not found.
+
+    """
+    # 1. Environment variable override
+    if env_path := os.environ.get("AEGIS_INVENTORY_PATH"):
+        inv_path = Path(env_path)
+        if inv_path.exists():
+            return inv_path
+
+    # 2. Development: relative to working directory
+    for name in ("inventory.yml", "inventory.ini"):
+        local_inv = Path.cwd() / name
+        if local_inv.exists():
+            return local_inv
+
+    # 3. Installed: /etc/aegis/
+    for name in ("inventory.yml", "inventory.ini"):
+        etc_inv = Path("/etc/aegis") / name
+        if etc_inv.exists():
+            return etc_inv
+
+    return None
+
+
 def get_version() -> str:
     """Get the installed Aegis version.
 

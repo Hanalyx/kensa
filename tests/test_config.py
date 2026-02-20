@@ -617,3 +617,102 @@ class TestGetConfigPath:
         )
         with pytest.raises(FileNotFoundError, match="Cannot locate"):
             get_config_path()
+
+
+# ── get_mappings_path ────────────────────────────────────────────────────
+
+
+class TestGetMappingsPath:
+    """Tests for runner.paths.get_mappings_path()."""
+
+    def test_env_var(self, tmp_path, monkeypatch):
+        """AEGIS_MAPPINGS_PATH env var takes priority."""
+        from runner.paths import get_mappings_path
+
+        mappings_dir = tmp_path / "custom-mappings"
+        mappings_dir.mkdir()
+        monkeypatch.setenv("AEGIS_MAPPINGS_PATH", str(mappings_dir))
+        result = get_mappings_path()
+        assert result == mappings_dir
+
+    def test_env_var_with_subpath(self, tmp_path, monkeypatch):
+        """Subpath is appended to env var path."""
+        from runner.paths import get_mappings_path
+
+        mappings_dir = tmp_path / "custom-mappings"
+        mappings_dir.mkdir()
+        monkeypatch.setenv("AEGIS_MAPPINGS_PATH", str(mappings_dir))
+        result = get_mappings_path("cis")
+        assert result == mappings_dir / "cis"
+
+    def test_dev_layout(self, tmp_path, monkeypatch):
+        """Dev layout: ./mappings/ relative to cwd."""
+        from runner.paths import get_mappings_path
+
+        monkeypatch.delenv("AEGIS_MAPPINGS_PATH", raising=False)
+        mappings_dir = tmp_path / "mappings"
+        mappings_dir.mkdir()
+        monkeypatch.chdir(tmp_path)
+        result = get_mappings_path()
+        assert result == mappings_dir
+
+    def test_not_found_raises(self, tmp_path, monkeypatch):
+        """FileNotFoundError when no mappings dir found."""
+        from runner.paths import get_mappings_path
+
+        monkeypatch.delenv("AEGIS_MAPPINGS_PATH", raising=False)
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            "runner.paths.Path.exists",
+            lambda self: False,
+        )
+        with pytest.raises(FileNotFoundError, match="Cannot locate"):
+            get_mappings_path()
+
+
+# ── get_inventory_path ───────────────────────────────────────────────────
+
+
+class TestGetInventoryPath:
+    """Tests for runner.paths.get_inventory_path()."""
+
+    def test_env_var(self, tmp_path, monkeypatch):
+        """AEGIS_INVENTORY_PATH env var takes priority."""
+        from runner.paths import get_inventory_path
+
+        inv_file = tmp_path / "hosts.yml"
+        inv_file.write_text("all:\n  - host1\n")
+        monkeypatch.setenv("AEGIS_INVENTORY_PATH", str(inv_file))
+        result = get_inventory_path()
+        assert result == inv_file
+
+    def test_cwd_yml(self, tmp_path, monkeypatch):
+        """Finds inventory.yml in cwd."""
+        from runner.paths import get_inventory_path
+
+        monkeypatch.delenv("AEGIS_INVENTORY_PATH", raising=False)
+        inv_file = tmp_path / "inventory.yml"
+        inv_file.write_text("all:\n  - host1\n")
+        monkeypatch.chdir(tmp_path)
+        result = get_inventory_path()
+        assert result == inv_file
+
+    def test_cwd_ini(self, tmp_path, monkeypatch):
+        """Finds inventory.ini in cwd."""
+        from runner.paths import get_inventory_path
+
+        monkeypatch.delenv("AEGIS_INVENTORY_PATH", raising=False)
+        inv_file = tmp_path / "inventory.ini"
+        inv_file.write_text("[all]\nhost1\n")
+        monkeypatch.chdir(tmp_path)
+        result = get_inventory_path()
+        assert result == inv_file
+
+    def test_not_found_returns_none(self, tmp_path, monkeypatch):
+        """Returns None when no inventory file found."""
+        from runner.paths import get_inventory_path
+
+        monkeypatch.delenv("AEGIS_INVENTORY_PATH", raising=False)
+        monkeypatch.chdir(tmp_path)
+        result = get_inventory_path()
+        assert result is None

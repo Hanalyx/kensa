@@ -1,0 +1,63 @@
+# Aegis Inventory File — Example
+#
+# This file defines the hosts that Aegis will scan. It can be specified
+# with the -i/--inventory flag, or placed at /etc/aegis/inventory.yml
+# for automatic discovery.
+#
+# Aegis supports two inventory formats: YAML (this file) and INI
+# (Ansible-compatible). Use whichever you prefer.
+#
+# ── YAML Format ──────────────────────────────────────────────────────────
+#
+# Groups are top-level keys. Each group contains a list of hosts.
+# Hosts can be simple strings or mappings with connection parameters.
+#
+# all:
+#   - 192.168.1.10
+#   - 192.168.1.11
+#
+# web_servers:
+#   - hostname: web01.example.com
+#     user: admin
+#     port: 2222
+#     key: /home/admin/.ssh/web_key
+#   - hostname: web02.example.com
+#     user: admin
+#
+# db_servers:
+#   - hostname: db01.example.com
+#     user: dba
+#   - hostname: db02.example.com
+#     user: dba
+#
+# ── INI Format (Ansible-compatible) ─────────────────────────────────────
+#
+# [all]
+# 192.168.1.10
+# 192.168.1.11
+#
+# [web_servers]
+# web01.example.com ansible_user=admin ansible_port=2222
+# web02.example.com ansible_user=admin
+#
+# [db_servers]
+# db01.example.com ansible_user=dba
+# db02.example.com ansible_user=dba
+#
+# ── Usage ────────────────────────────────────────────────────────────────
+#
+# Explicit:
+#   aegis check -i /etc/aegis/inventory.yml --sudo -r rules/
+#
+# Auto-discovery (when installed at /etc/aegis/inventory.yml):
+#   aegis check --sudo -r rules/
+#
+# With group filtering:
+#   aegis check -i inventory.yml -l web_servers --sudo -r rules/
+#
+# ── Notes ────────────────────────────────────────────────────────────────
+#
+# - CLI flags (--user, --key, --port) act as defaults; per-host values
+#   in the inventory override them.
+# - Use --limit / -l to restrict to a group or hostname glob pattern.
+# - A host can appear in multiple groups.

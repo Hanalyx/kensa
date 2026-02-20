@@ -51,7 +51,8 @@ class TestCLIHelp:
 
 
 class TestCLIErrors:
-    def test_check_no_host(self):
+    @patch("runner.paths.get_inventory_path", return_value=None)
+    def test_check_no_host(self, _mock_inv):
         runner = CliRunner()
         result = runner.invoke(
             main, ["check", "--rule", "rules/access-control/ssh-disable-root-login.yml"]
