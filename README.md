@@ -2,7 +2,7 @@
 
 SSH-based compliance test runner for RHEL systems. Connects to remote hosts via SSH, evaluates compliance rules, captures machine-verifiable evidence, and maps results to multiple frameworks (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP).
 
-**492 rules** | **7 frameworks** | **22 capability probes** | **Evidence capture**
+**508 rules** | **7 frameworks** | **22 capability probes** | **Evidence capture**
 
 ## Installation
 
@@ -30,40 +30,78 @@ aegis check --sudo --host 192.168.1.10 --user admin \
   --rule rules/access-control/ssh-disable-root-login.yml
 
 # Check all rules
-aegis check --sudo --host 192.168.1.10 --user admin --rule rules/
+aegis check --sudo --host 192.168.1.10 --user admin --rules rules/
 
 # Check by framework
 aegis check --sudo --host 192.168.1.10 --user admin \
-  --rule rules/ --framework cis-rhel9-v2.0.0
+  --rules rules/ --framework cis-rhel9-v2.0.0
 
 # Check by severity
 aegis check --sudo --host 192.168.1.10 --user admin \
-  --rule rules/ --severity high --severity critical
+  --rules rules/ --severity high --severity critical
 
 # Remediate failures (dry run first)
 aegis remediate --sudo --host 192.168.1.10 --user admin \
-  --rule rules/ --dry-run
+  --rules rules/ --dry-run
 
 # Export with evidence for integration
 aegis check --sudo --host 192.168.1.10 --user admin \
-  --rule rules/ -o evidence:results.json -q
+  --rules rules/ -o evidence:results.json -q
 ```
 
 ## Multi-Host with Inventory
 
 ```bash
 # Ansible INI inventory
-aegis check --sudo -i inventory.ini --rule rules/
+aegis check --sudo -i inventory.ini --rules rules/
 
 # Ansible YAML inventory
-aegis check --sudo -i inventory.yml --rule rules/
+aegis check --sudo -i inventory.yml --rules rules/
 
 # Limit to a group or pattern
-aegis check --sudo -i inventory.yml --limit webservers --rule rules/
-aegis check --sudo -i inventory.yml --limit 'web*' --rule rules/
+aegis check --sudo -i inventory.yml --limit webservers --rules rules/
+aegis check --sudo -i inventory.yml --limit 'web*' --rules rules/
 
 # Parallel execution (10 hosts at once)
-aegis check --sudo -i inventory.ini --rule rules/ --workers 10
+aegis check --sudo -i inventory.ini --rules rules/ --workers 10
+```
+
+## Configuration
+
+Site-specific configuration lives in `config/` (maps to `/etc/aegis/` when installed via RPM):
+
+```
+config/
+├── defaults.yml        # Global variable defaults and framework overrides
+├── conf.d/             # Site-wide overrides (alphabetical, later wins)
+│   └── 99-custom.yml
+├── groups/             # Per-group variable overrides (filename = group name)
+│   └── pci-scope.yml
+└── hosts/              # Per-host variable overrides (filename = hostname)
+    └── bastion-01.yml
+```
+
+**Variable precedence** (highest wins):
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | CLI `--var KEY=VALUE` | `--var ssh_max_auth_tries=2` |
+| 2 | `config/hosts/<hostname>.yml` | Per-host thresholds |
+| 3 | `config/groups/<group>.yml` | Per-group policy (last group wins) |
+| 4 | `config/conf.d/*.yml` | Site-wide overrides |
+| 5 | `frameworks.<name>` section | Framework-specific defaults |
+| 6 | `config/defaults.yml` variables | Shipped defaults |
+
+Variables use `{{ variable_name }}` syntax in rule YAML and are resolved per-host at execution time, so hosts in different groups can receive different thresholds for the same rule.
+
+```bash
+# Override a variable from the CLI
+aegis check --sudo -h 192.168.1.10 -u admin -r rules/ \
+  --var ssh_max_auth_tries=2
+
+# Use a custom config directory
+aegis check --sudo -h 192.168.1.10 -u admin -r rules/ \
+  --config-dir /etc/aegis-staging/
 ```
 
 ## Framework Coverage
@@ -72,9 +110,9 @@ aegis check --sudo -i inventory.ini --rule rules/ --workers 10
 |-----------|------------|----------|--------|
 | CIS RHEL 9 v2.0.0 | `cis-rhel9-v2.0.0` | 271 | 95%+ |
 | STIG RHEL 9 V2R7 | `stig-rhel9-v2r7` | 338 | 75%+ |
-| NIST 800-53 R5 | `nist-800-53-r5` | 87 | ✓ |
-| PCI-DSS v4.0 | `pci-dss-v4.0` | 45 | ✓ |
-| FedRAMP Moderate | `fedramp-moderate` | 87 | ✓ |
+| NIST 800-53 R5 | `nist-800-53-r5` | 87 | Complete |
+| PCI-DSS v4.0 | `pci-dss-v4.0` | 45 | Complete |
+| FedRAMP Moderate | `fedramp-moderate` | 87 | Complete |
 | CIS RHEL 8 v4.0.0 | `cis-rhel8-v4.0.0` | 120 | ~80% |
 | STIG RHEL 8 V2R6 | `stig-rhel8-v2r6` | 116 | ~70% |
 
@@ -84,6 +122,9 @@ aegis coverage --framework cis-rhel9-v2.0.0
 
 # Show framework info
 aegis info --framework stig-rhel9-v2r7
+
+# List all available frameworks
+aegis list-frameworks
 ```
 
 ## Output Formats
@@ -101,7 +142,7 @@ aegis check -i inventory.ini --sudo -r rules/ -o csv:results.csv
 # PDF report
 aegis check -i inventory.ini --sudo -r rules/ -o pdf:report.pdf
 
-# Evidence format (for integration - includes raw command output)
+# Evidence format (includes raw command output, groups, effective variables)
 aegis check -i inventory.ini --sudo -r rules/ -o evidence:evidence.json
 
 # Multiple outputs
@@ -134,6 +175,21 @@ Every check captures machine-verifiable evidence:
 }
 ```
 
+Evidence exports also include per-host context for audit trails:
+
+```json
+{
+  "host": {
+    "hostname": "web-01",
+    "groups": ["web", "pci-scope"],
+    "effective_variables": {
+      "ssh_max_auth_tries": 3,
+      "login_defs_pass_max_days": 30
+    }
+  }
+}
+```
+
 ## How It Works
 
 1. **Resolve targets** — from `--host`, Ansible inventory, or host list
@@ -141,14 +197,15 @@ Every check captures machine-verifiable evidence:
 3. **Detect capabilities** — 22 probes (sshd_config.d? authselect? firewalld? SELinux? ...)
 4. **Detect platform** — RHEL family + version (Rocky, Alma, CentOS normalized to "rhel")
 5. **Select implementations** — capability-gated rule variants; first match wins
-6. **Run checks** — 19 typed handlers with evidence capture
-7. **Map frameworks** — extract references from rules (CIS, STIG, NIST, PCI-DSS, FedRAMP)
-8. **Report** — PASS/FAIL with evidence, summaries per host and overall
-9. **Remediate** (if requested) — check first, fix failures, re-check to confirm
+6. **Resolve variables** — per-host, using the group/host/CLI override hierarchy
+7. **Run checks** — 21 typed handlers with evidence capture
+8. **Map frameworks** — extract references from rules (CIS, STIG, NIST, PCI-DSS, FedRAMP)
+9. **Report** — PASS/FAIL with evidence, summaries per host and overall
+10. **Remediate** (if requested) — check first, fix failures, re-check to confirm
 
 ## Rule Format
 
-Rules are YAML files in `rules/<category>/`. Each rule declares one security control with one or more implementations:
+Rules are YAML files in `rules/<category>/`. Each rule declares one security control with one or more capability-gated implementations:
 
 ```yaml
 id: ssh-disable-root-login
@@ -203,8 +260,7 @@ Full schema: `schema/rule.schema.json`
 ```python
 from runner.ssh import SSHSession
 from runner.detect import detect_capabilities, detect_platform
-from runner._orchestration import evaluate_rule
-from runner._loading import load_rules
+from runner.engine import evaluate_rule, load_rules
 
 with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
     # Detect host info
@@ -233,19 +289,31 @@ aegis/
 │   ├── cli.py             # CLI commands and orchestration
 │   ├── ssh.py             # SSH connection management
 │   ├── detect.py          # 22 capability probes
-│   ├── _orchestration.py  # Rule evaluation with evidence
+│   ├── engine.py          # Rule evaluation facade
+│   ├── _config.py         # Variable loading and resolution
+│   ├── _rule_selection.py # Rule selection pipeline
+│   ├── _host_runner.py    # Per-host execution lifecycle
 │   ├── _types.py          # Evidence, CheckResult, RuleResult
+│   ├── paths.py           # Resource path resolution
 │   ├── mappings.py        # Framework mapping loader
+│   ├── inventory.py       # Host resolution (INI/YAML/host list)
 │   ├── storage.py         # SQLite result persistence
 │   ├── handlers/
-│   │   ├── checks/        # 19 check handlers
-│   │   └── remediation/   # Remediation handlers
+│   │   ├── checks/        # 21 check handlers
+│   │   ├── remediation/   # 23 remediation handlers
+│   │   ├── capture/       # Pre-remediation state capture
+│   │   └── rollback/      # State restoration
 │   └── output/
 │       ├── json_fmt.py    # JSON output
 │       ├── csv_fmt.py     # CSV output
 │       ├── pdf_fmt.py     # PDF reports
 │       └── evidence_fmt.py # Evidence export
-├── rules/                 # 492 YAML rules
+├── config/                # Site configuration (/etc/aegis/ in RPM)
+│   ├── defaults.yml       # Variable defaults
+│   ├── conf.d/            # Site-wide overrides
+│   ├── groups/            # Per-group overrides
+│   └── hosts/             # Per-host overrides
+├── rules/                 # 508 YAML compliance rules
 ├── mappings/              # Framework mappings
 │   ├── cis/
 │   ├── stig/
