@@ -1,6 +1,6 @@
 # Technical Remediation Master Plan — Version 0
 
-**Project:** Aegis
+**Project:** Kensa
 **Date:** 2026-02-04
 **Status:** Draft — Philosophical Foundation
 
@@ -343,7 +343,7 @@ Rule: ssh-disable-root-login
 │       ├── mechanism:   config_set_dropin
 │       ├── service:     sshd
 │       ├── dropin_dir:  /etc/ssh/sshd_config.d
-│       ├── dropin_file: 99-aegis-root-login.conf
+│       ├── dropin_file: 99-kensa-root-login.conf
 │       ├── key:         PermitRootLogin
 │       ├── value:       "no"
 │       └── restart:     sshd
@@ -688,11 +688,11 @@ The architecture is validated when:
 
 Clarity on non-goals prevents scope creep and architectural contamination:
 
-- **Not a configuration management tool.** Aegis does not replace Puppet or Ansible for
+- **Not a configuration management tool.** Kensa does not replace Puppet or Ansible for
   general system configuration. It is concerned exclusively with security compliance
   controls.
 
-- **Not a scanning-only tool.** Aegis is not an alternative to OpenSCAP for assessment.
+- **Not a scanning-only tool.** Kensa is not an alternative to OpenSCAP for assessment.
   It is the remediation and enforcement counterpart. It can verify its own remediations,
   but it is not a general-purpose vulnerability scanner.
 
@@ -702,7 +702,7 @@ Clarity on non-goals prevents scope creep and architectural contamination:
   compliance engineers who are not software developers.
 
 - **Not a replacement for reading the benchmarks.** Auditors and compliance engineers
-  must still understand the controls. Aegis automates the remediation. It does not
+  must still understand the controls. Kensa automates the remediation. It does not
   replace the human judgment that determines which controls apply and how to handle
   exceptions.
 
@@ -730,7 +730,7 @@ Clarity on non-goals prevents scope creep and architectural contamination:
 
 ---
 
-*This document defines the philosophical and architectural foundation for Aegis. It is
+*This document defines the philosophical and architectural foundation for Kensa. It is
 version 0 — a statement of intent and direction. Implementation details, file formats,
 and tooling choices will be developed in subsequent documents as the canonical rule set
 takes shape against the reference benchmarks in this directory.*

@@ -39,7 +39,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-max-startups.conf"
+      file: "00-kensa-max-startups.conf"
       key: "MaxStartups"
       value: "10:30:60"
       reload: "sshd"

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Compare AEGIS and OpenSCAP at the CIS section level.
+"""Compare KENSA and OpenSCAP at the CIS section level.
 
-Since AEGIS consolidates multiple OpenSCAP rules into single rules by security
+Since KENSA consolidates multiple OpenSCAP rules into single rules by security
 intent, rule-to-rule comparison is invalid. Instead, we compare at the CIS
 section level - the common denominator both tools reference.
 
 Usage:
     python3 scripts/cis_section_compare.py \
-        --aegis results/aegis-results.json \
+        --kensa results/kensa-results.json \
         --openscap results/openscap-results.xml \
         --output CIS_SECTION_COMPARISON.md
 """
@@ -31,15 +31,15 @@ class SectionResult:
     """Aggregated result for a CIS section."""
 
     section: str
-    aegis_rules: list[tuple[str, bool, str]] = field(default_factory=list)  # (id, passed, detail)
+    kensa_rules: list[tuple[str, bool, str]] = field(default_factory=list)  # (id, passed, detail)
     openscap_rules: list[tuple[str, bool]] = field(default_factory=list)  # (id, passed)
 
     @property
-    def aegis_pass(self) -> bool | None:
-        """Section passes if ALL aegis rules pass."""
-        if not self.aegis_rules:
+    def kensa_pass(self) -> bool | None:
+        """Section passes if ALL kensa rules pass."""
+        if not self.kensa_rules:
             return None
-        return all(passed for _, passed, _ in self.aegis_rules)
+        return all(passed for _, passed, _ in self.kensa_rules)
 
     @property
     def openscap_pass(self) -> bool | None:
@@ -51,13 +51,13 @@ class SectionResult:
     @property
     def agreement(self) -> str:
         """Compare results."""
-        if self.aegis_pass is None and self.openscap_pass is None:
+        if self.kensa_pass is None and self.openscap_pass is None:
             return "neither"
-        if self.aegis_pass is None:
+        if self.kensa_pass is None:
             return "openscap-only"
         if self.openscap_pass is None:
-            return "aegis-only"
-        if self.aegis_pass == self.openscap_pass:
+            return "kensa-only"
+        if self.kensa_pass == self.openscap_pass:
             return "agree"
         return "disagree"
 
@@ -134,8 +134,8 @@ def parse_openscap_with_sections(xml_path: str) -> dict[str, list[tuple[str, boo
     return dict(sections)
 
 
-def parse_aegis_with_sections(json_path: str) -> dict[str, list[tuple[str, bool, str]]]:
-    """Parse AEGIS results grouped by CIS section.
+def parse_kensa_with_sections(json_path: str) -> dict[str, list[tuple[str, bool, str]]]:
+    """Parse KENSA results grouped by CIS section.
 
     Returns dict mapping CIS section -> list of (rule_id, passed, detail).
     """
@@ -165,20 +165,20 @@ def parse_aegis_with_sections(json_path: str) -> dict[str, list[tuple[str, bool,
 
 
 def generate_report(
-    aegis_sections: dict[str, list[tuple[str, bool, str]]],
+    kensa_sections: dict[str, list[tuple[str, bool, str]]],
     openscap_sections: dict[str, list[tuple[str, bool]]],
     output_path: str,
 ) -> None:
     """Generate CIS section comparison report."""
     # Merge all sections
-    all_sections = set(aegis_sections.keys()) | set(openscap_sections.keys())
+    all_sections = set(kensa_sections.keys()) | set(openscap_sections.keys())
     all_sections.discard("unmapped")
 
     results: dict[str, SectionResult] = {}
     for section in sorted(all_sections, key=lambda s: [int(x) for x in s.split(".")]):
         sr = SectionResult(section=section)
-        if section in aegis_sections:
-            sr.aegis_rules = aegis_sections[section]
+        if section in kensa_sections:
+            sr.kensa_rules = kensa_sections[section]
         if section in openscap_sections:
             sr.openscap_rules = openscap_sections[section]
         results[section] = sr
@@ -187,25 +187,25 @@ def generate_report(
     both_pass = []
     both_fail = []
     disagree = []
-    aegis_only = []
+    kensa_only = []
     openscap_only = []
 
     for section, sr in results.items():
         if sr.agreement == "agree":
-            if sr.aegis_pass:
+            if sr.kensa_pass:
                 both_pass.append(sr)
             else:
                 both_fail.append(sr)
         elif sr.agreement == "disagree":
             disagree.append(sr)
-        elif sr.agreement == "aegis-only":
-            aegis_only.append(sr)
+        elif sr.agreement == "kensa-only":
+            kensa_only.append(sr)
         elif sr.agreement == "openscap-only":
             openscap_only.append(sr)
 
     # Generate report
     report = []
-    report.append("# CIS Section-Level Comparison: AEGIS vs OpenSCAP\n")
+    report.append("# CIS Section-Level Comparison: KENSA vs OpenSCAP\n")
     report.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report.append("")
     report.append("## Methodology")
@@ -213,7 +213,7 @@ def generate_report(
     report.append("This comparison aggregates results at the **CIS section level** rather than")
     report.append("comparing individual rules. This accounts for the different philosophies:")
     report.append("- **OpenSCAP**: Multiple granular rules per CIS section (e.g., 15 rules for DAC auditing)")
-    report.append("- **AEGIS**: Consolidated rules by security intent (e.g., 1 rule for DAC auditing)")
+    report.append("- **KENSA**: Consolidated rules by security intent (e.g., 1 rule for DAC auditing)")
     report.append("")
     report.append("A CIS section **passes** if ALL rules covering it pass.")
     report.append("")
@@ -228,8 +228,8 @@ def generate_report(
     report.append(f"| Both tools agree: PASS | {len(both_pass)} | {100*len(both_pass)//total_sections}% |")
     report.append(f"| Both tools agree: FAIL | {len(both_fail)} | {100*len(both_fail)//total_sections}% |")
     report.append(f"| **Disagreement** | {len(disagree)} | {100*len(disagree)//total_sections}% |")
-    report.append(f"| AEGIS only (no OpenSCAP mapping) | {len(aegis_only)} | {100*len(aegis_only)//total_sections}% |")
-    report.append(f"| OpenSCAP only (no AEGIS mapping) | {len(openscap_only)} | {100*len(openscap_only)//total_sections}% |")
+    report.append(f"| KENSA only (no OpenSCAP mapping) | {len(kensa_only)} | {100*len(kensa_only)//total_sections}% |")
+    report.append(f"| OpenSCAP only (no KENSA mapping) | {len(openscap_only)} | {100*len(openscap_only)//total_sections}% |")
     report.append("")
 
     agreement_rate = (len(both_pass) + len(both_fail)) / max(1, len(both_pass) + len(both_fail) + len(disagree))
@@ -241,23 +241,23 @@ def generate_report(
     if disagree:
         report.append("## Disagreements (Requires Investigation)\n")
         report.append("These CIS sections have different pass/fail outcomes between tools.\n")
-        report.append("| CIS Section | AEGIS | OpenSCAP | AEGIS Rules | OpenSCAP Rules |")
+        report.append("| CIS Section | KENSA | OpenSCAP | KENSA Rules | OpenSCAP Rules |")
         report.append("|-------------|-------|----------|-------------|----------------|")
         for sr in disagree:
-            aegis_status = "PASS" if sr.aegis_pass else "FAIL"
+            kensa_status = "PASS" if sr.kensa_pass else "FAIL"
             openscap_status = "PASS" if sr.openscap_pass else "FAIL"
-            aegis_count = len(sr.aegis_rules)
+            kensa_count = len(sr.kensa_rules)
             openscap_count = len(sr.openscap_rules)
-            report.append(f"| {sr.section} | {aegis_status} | {openscap_status} | {aegis_count} | {openscap_count} |")
+            report.append(f"| {sr.section} | {kensa_status} | {openscap_status} | {kensa_count} | {openscap_count} |")
         report.append("")
 
         # Detail on disagreements
         report.append("### Disagreement Details\n")
         for sr in disagree:
             report.append(f"#### CIS {sr.section}\n")
-            if sr.aegis_rules:
-                report.append("**AEGIS:**")
-                for rule_id, passed, detail in sr.aegis_rules:
+            if sr.kensa_rules:
+                report.append("**KENSA:**")
+                for rule_id, passed, detail in sr.kensa_rules:
                     status = "PASS" if passed else "FAIL"
                     report.append(f"- `{rule_id}`: {status} - {detail[:50]}")
             if sr.openscap_rules:
@@ -274,39 +274,39 @@ def generate_report(
     # Both fail - action needed
     if both_fail:
         report.append("## Both Fail (Action Required)\n")
-        report.append("| CIS Section | AEGIS Rules | OpenSCAP Rules | AEGIS Detail |")
+        report.append("| CIS Section | KENSA Rules | OpenSCAP Rules | KENSA Detail |")
         report.append("|-------------|-------------|----------------|--------------|")
         for sr in both_fail:
-            aegis_detail = sr.aegis_rules[0][2][:40] if sr.aegis_rules else ""
-            report.append(f"| {sr.section} | {len(sr.aegis_rules)} | {len(sr.openscap_rules)} | {aegis_detail} |")
+            kensa_detail = sr.kensa_rules[0][2][:40] if sr.kensa_rules else ""
+            report.append(f"| {sr.section} | {len(sr.kensa_rules)} | {len(sr.openscap_rules)} | {kensa_detail} |")
         report.append("")
         report.append("---\n")
 
     # Coverage gaps
-    if aegis_only or openscap_only:
+    if kensa_only or openscap_only:
         report.append("## Coverage Gaps\n")
         if openscap_only:
-            report.append(f"### OpenSCAP covers but AEGIS doesn't ({len(openscap_only)} sections)\n")
+            report.append(f"### OpenSCAP covers but KENSA doesn't ({len(openscap_only)} sections)\n")
             pass_count = sum(1 for sr in openscap_only if sr.openscap_pass)
             fail_count = len(openscap_only) - pass_count
             report.append(f"- Passing in OpenSCAP: {pass_count}")
             report.append(f"- **Failing in OpenSCAP (priority):** {fail_count}")
             report.append("")
             if fail_count > 0:
-                report.append("**Failing sections (need AEGIS rules):**")
+                report.append("**Failing sections (need KENSA rules):**")
                 for sr in openscap_only:
                     if not sr.openscap_pass:
                         rules = ", ".join(r[0] for r in sr.openscap_rules[:3])
                         report.append(f"- CIS {sr.section}: {rules}")
             report.append("")
 
-        if aegis_only:
-            report.append(f"### AEGIS covers but OpenSCAP doesn't ({len(aegis_only)} sections)\n")
-            report.append("These may be AEGIS-specific rules or CIS sections not in OpenSCAP's profile.\n")
+        if kensa_only:
+            report.append(f"### KENSA covers but OpenSCAP doesn't ({len(kensa_only)} sections)\n")
+            report.append("These may be KENSA-specific rules or CIS sections not in OpenSCAP's profile.\n")
             report.append("<details><summary>Click to expand</summary>\n")
-            for sr in aegis_only:
-                status = "PASS" if sr.aegis_pass else "FAIL"
-                rules = ", ".join(r[0] for r in sr.aegis_rules)
+            for sr in kensa_only:
+                status = "PASS" if sr.kensa_pass else "FAIL"
+                rules = ", ".join(r[0] for r in sr.kensa_rules)
                 report.append(f"- CIS {sr.section}: {status} - {rules}")
             report.append("</details>\n")
 
@@ -316,8 +316,8 @@ def generate_report(
     report.append(f"## Both Pass ({len(both_pass)} sections)\n")
     report.append("<details><summary>Click to expand</summary>\n")
     for sr in both_pass:
-        aegis_rules = ", ".join(r[0] for r in sr.aegis_rules)
-        report.append(f"- CIS {sr.section}: AEGIS({len(sr.aegis_rules)}) / OpenSCAP({len(sr.openscap_rules)})")
+        kensa_rules = ", ".join(r[0] for r in sr.kensa_rules)
+        report.append(f"- CIS {sr.section}: KENSA({len(sr.kensa_rules)}) / OpenSCAP({len(sr.openscap_rules)})")
     report.append("</details>\n")
 
     # Write report
@@ -334,20 +334,20 @@ def generate_report(
 
 def main():
     parser = argparse.ArgumentParser(description="CIS section-level comparison")
-    parser.add_argument("--aegis", required=True, help="Path to AEGIS JSON results")
+    parser.add_argument("--kensa", required=True, help="Path to KENSA JSON results")
     parser.add_argument("--openscap", required=True, help="Path to OpenSCAP XML results")
     parser.add_argument("--output", default="CIS_SECTION_COMPARISON.md", help="Output file")
     args = parser.parse_args()
 
-    print(f"Parsing AEGIS results...")
-    aegis_sections = parse_aegis_with_sections(args.aegis)
-    print(f"  Found {len(aegis_sections)} CIS sections")
+    print(f"Parsing KENSA results...")
+    kensa_sections = parse_kensa_with_sections(args.kensa)
+    print(f"  Found {len(kensa_sections)} CIS sections")
 
     print(f"Parsing OpenSCAP results...")
     openscap_sections = parse_openscap_with_sections(args.openscap)
     print(f"  Found {len(openscap_sections)} CIS sections")
 
-    generate_report(aegis_sections, openscap_sections, args.output)
+    generate_report(kensa_sections, openscap_sections, args.output)
 
 
 if __name__ == "__main__":

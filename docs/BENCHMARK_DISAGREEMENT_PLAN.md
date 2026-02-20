@@ -8,20 +8,20 @@
 
 ## Executive Summary
 
-The 40 disagreements between Aegis and OpenSCAP fall into four root-cause categories. This plan proposes targeted fixes for each category, ordered by impact and effort.
+The 40 disagreements between Kensa and OpenSCAP fall into four root-cause categories. This plan proposes targeted fixes for each category, ordered by impact and effort.
 
 | Category | Count | Effort | Impact |
 |----------|-------|--------|--------|
-| A. Aegis check bugs | 5 | Low | Eliminates false failures |
+| A. Kensa check bugs | 5 | Low | Eliminates false failures |
 | B. OpenSCAP mapping errors | 9 | Medium | Filters false disagreements |
-| C. Aegis scope/criteria tuning | 18 | Medium | Aligns with CIS intent |
+| C. Kensa scope/criteria tuning | 18 | Medium | Aligns with CIS intent |
 | D. Audit rule detection gap | 8 | Low–Medium | Clarifies real vs apparent failures |
 
 **Target:** Reduce disagreements from 40 to <10 genuine differences.
 
 ---
 
-## Category A: Aegis Check Bugs (5 controls)
+## Category A: Kensa Check Bugs (5 controls)
 
 These are broken checks that produce incorrect results regardless of host state. Highest priority — straightforward fixes.
 
@@ -76,7 +76,7 @@ Recommended: Option 1, accept `INACTIVE` in range 1–45 per CIS guidance, with 
 
 ## Category B: OpenSCAP Mapping Errors (9 controls)
 
-These disagreements are caused by **incorrect CIS section references in the OpenSCAP SCAP Security Guide (SSG) XCCDF content**. The wrong OpenSCAP rules are mapped to the wrong CIS sections, creating false disagreements. Aegis cannot fix SSG data, but can **detect and flag** these in the report.
+These disagreements are caused by **incorrect CIS section references in the OpenSCAP SCAP Security Guide (SSG) XCCDF content**. The wrong OpenSCAP rules are mapped to the wrong CIS sections, creating false disagreements. Kensa cannot fix SSG data, but can **detect and flag** these in the report.
 
 ### Affected Controls
 
@@ -106,31 +106,31 @@ Add a **mapping-mismatch detection heuristic** to the benchmark report. When Ope
 
 ---
 
-## Category C: Aegis Scope/Criteria Differences (18 controls)
+## Category C: Kensa Scope/Criteria Differences (18 controls)
 
 These are genuine evaluation differences where both tools work correctly but apply different interpretations. Ordered by sub-category.
 
 ### C1. SSH Configuration Checks (6 controls)
 
-| Control | Aegis Rule | Aegis Approach | OpenSCAP Approach | Difference |
+| Control | Kensa Rule | Kensa Approach | OpenSCAP Approach | Difference |
 |---------|-----------|---------------|-------------------|------------|
-| **5.1.5** | `ssh-approved-kex` | Checks KexAlgorithms is *defined* (`grep -qi '^kexalgorithms\s'`) | `sshd_use_strong_kex` — validates specific algorithm list | Aegis only checks presence, not values |
+| **5.1.5** | `ssh-approved-kex` | Checks KexAlgorithms is *defined* (`grep -qi '^kexalgorithms\s'`) | `sshd_use_strong_kex` — validates specific algorithm list | Kensa only checks presence, not values |
 | **5.1.6** | `ssh-approved-macs` | Checks MACs is *defined* (`grep -qi '^macs\s'`) | `sshd_use_strong_macs` — validates specific algorithm list | Same: presence-only check |
 | **5.1.8** | `ssh-banner` | `sshd_effective_config` key=banner, expected=/etc/issue | `sshd_enable_warning_banner_net` — checks `/etc/issue.net` | Different file: `/etc/issue` vs `/etc/issue.net` |
 | **5.1.9** | `ssh-client-alive-interval` | ClientAliveInterval <= 600 (STIG) / 900 (CIS) | `sshd_set_keepalive` + `sshd_set_idle_timeout` | Different thresholds or keepalive vs interval |
 | **5.1.18** | `ssh-max-sessions` | `sshd_effective_config` expects exactly `10` | `sshd_set_max_sessions` | May have different expected value |
-| **1.6.2** | `ssh-crypto-policy` | Greps for manual crypto overrides in sshd_config (expects none) | `configure_ssh_crypto_policy` | Aegis checks for override presence; OpenSCAP checks policy is applied |
+| **1.6.2** | `ssh-crypto-policy` | Greps for manual crypto overrides in sshd_config (expects none) | `configure_ssh_crypto_policy` | Kensa checks for override presence; OpenSCAP checks policy is applied |
 
 **Proposed fixes:**
 - **5.1.5 / 5.1.6:** Validate configured algorithms against a **configurable allowlist** of secure algorithms (defaulted in `defaults.yml`). Do NOT hardcode a CIS-specific list into the rule — per Principle 4, frameworks are metadata. The allowlist default should be the intersection of algorithms considered secure across CIS, STIG, and NIST guidance. Organizations can override via `rules.d/` to match their specific framework or policy. This preserves the framework-agnostic rule while closing the presence-only gap.
 - **5.1.8:** Add `/etc/issue.net` as an accepted banner path (CIS mentions both).
 - **5.1.9:** The rule already carries dual thresholds (600 STIG / 900 CIS) because frameworks disagree. Per Principle 4, do NOT tune to match one framework — instead, parameterize the threshold via `defaults.yml` (default: 900, the least restrictive compliant value). Organizations targeting STIG can override to 600 in `rules.d/`. The rule expresses the security property "idle timeout is configured within a reasonable bound."
 - **5.1.18:** Verify expected value matches CIS. If CIS says "10 or less", change to range check.
-- **1.6.2:** Verify this is the correct interpretation. If Aegis finds MACs override lines, that's a real config issue — may be a genuine host config problem, not a check bug.
+- **1.6.2:** Verify this is the correct interpretation. If Kensa finds MACs override lines, that's a real config issue — may be a genuine host config problem, not a check bug.
 
 ### C2. Banner/Policy Checks (2 controls)
 
-| Control | Aegis Rule | Issue |
+| Control | Kensa Rule | Issue |
 |---------|-----------|-------|
 | **1.7.2** | `banner-dod-consent` | Expects DoD consent text ("Authorized uses only..."). CIS only requires *a* warning banner, not DoD-specific text. |
 | **1.6.1** | `crypto-policy-no-weak` | Checks `update-crypto-policies --show | grep -qvE 'LEGACY\|DEFAULT:.*weak'`. OpenSCAP's `configure_crypto_policy` may check differently. |
@@ -141,7 +141,7 @@ These are genuine evaluation differences where both tools work correctly but app
 
 ### C3. Account/PAM Checks (4 controls)
 
-| Control | Aegis Rule | Issue |
+| Control | Kensa Rule | Issue |
 |---------|-----------|-------|
 | **5.2.7** | `pam-wheel-su` | Only checks `pam_wheel.so use_uid` in `/etc/pam.d/su`. OpenSCAP also checks wheel group is empty (`ensure_pam_wheel_group_empty`). |
 | **5.4.2.2** | `root-only-gid0` | Flags `sync`, `shutdown`, `halt`, `operator` as non-root GID 0 accounts. OpenSCAP's `accounts_root_gid_zero` only checks root's GID. |
@@ -150,45 +150,45 @@ These are genuine evaluation differences where both tools work correctly but app
 
 **Proposed fixes:**
 - **5.2.7:** Consider adding wheel group membership check as a second condition.
-- **5.4.2.2:** CIS 5.4.2.2 says "Ensure root is the only GID 0 account." Aegis is actually correct and stricter — `sync`, `shutdown`, `halt`, `operator` with GID 0 are flagged correctly. OpenSCAP's check is too lenient. **No change needed.**
+- **5.4.2.2:** CIS 5.4.2.2 says "Ensure root is the only GID 0 account." Kensa is actually correct and stricter — `sync`, `shutdown`, `halt`, `operator` with GID 0 are flagged correctly. OpenSCAP's check is too lenient. **No change needed.**
 - **5.4.2.7:** Investigate exit 1 with empty output — may be an awk quoting issue in the check command.
 - **5.4.3.2:** Check if TMOUT is set via `/etc/bashrc` or systemd environment. May need to expand search paths.
 
 ### C4. Filesystem/Logging Checks (3 controls)
 
-| Control | Aegis Rule | Issue |
+| Control | Kensa Rule | Issue |
 |---------|-----------|-------|
 | **5.4.1.6** | `password-change-past` | Custom script checking `/etc/shadow`. OpenSCAP's `accounts_password_last_change_is_in_past` fails — likely a different algorithm or edge case. |
 | **6.1.2** | `aide-scheduled` | Checks `aidecheck.timer` or root crontab. OpenSCAP's `aide_periodic_cron_checking` may check different scheduling methods. |
 | **6.2.4.1** | `logfiles-access-configured` | Checks ALL `/var/log` files for world-readable perms. OpenSCAP only checks rsyslog-managed files. |
 
 **Proposed fixes:**
-- **5.4.1.6:** Aegis passes, OpenSCAP fails. Investigate OpenSCAP's logic — this may be an OpenSCAP false failure.
+- **5.4.1.6:** Kensa passes, OpenSCAP fails. Investigate OpenSCAP's logic — this may be an OpenSCAP false failure.
 - **6.1.2:** Expand to also check `aide.timer` (alternative timer name) and `/etc/cron.daily/aide`.
-- **6.2.4.1:** Aegis is stricter (checks all log files). This is arguably more correct per CIS. **No change needed**, but document as a known scope difference.
+- **6.2.4.1:** Kensa is stricter (checks all log files). This is arguably more correct per CIS. **No change needed**, but document as a known scope difference.
 
 ### C5. Other (3 controls)
 
-| Control | Aegis Rule | Issue |
+| Control | Kensa Rule | Issue |
 |---------|-----------|-------|
 | **3.1.3** | `kmod-disable-bluetooth` | Checks kernel module blacklist. OpenSCAP checks `service_bluetooth_disabled`. Both valid approaches. |
-| **6.3.3.12** | `audit-logins` | Aegis checks `-k logins` audit key (passes). OpenSCAP checks `faillock` + `lastlog` rules (fails). Different audit rule scope. |
-| **4.1.2** | `firewall-single-utility` | Aegis counts active firewall services. OpenSCAP maps firewalld install/enable rules (mapping error overlap with Category B). |
+| **6.3.3.12** | `audit-logins` | Kensa checks `-k logins` audit key (passes). OpenSCAP checks `faillock` + `lastlog` rules (fails). Different audit rule scope. |
+| **4.1.2** | `firewall-single-utility` | Kensa counts active firewall services. OpenSCAP maps firewalld install/enable rules (mapping error overlap with Category B). |
 
 **Proposed fixes:**
-- **3.1.3:** **No change needed.** The kernel module blacklist is the more fundamental control — if the module cannot load, the service cannot run. Adding a service state check is redundant and adds complexity without security benefit. Aegis targets the root mechanism (Principle 2: capabilities, not surface symptoms).
-- **6.3.3.12:** No change — Aegis check is correct. OpenSCAP is checking different/additional rules.
-- **4.1.2:** Partially a Category B issue. Aegis check logic is correct.
+- **3.1.3:** **No change needed.** The kernel module blacklist is the more fundamental control — if the module cannot load, the service cannot run. Adding a service state check is redundant and adds complexity without security benefit. Kensa targets the root mechanism (Principle 2: capabilities, not surface symptoms).
+- **6.3.3.12:** No change — Kensa check is correct. OpenSCAP is checking different/additional rules.
+- **4.1.2:** Partially a Category B issue. Kensa check logic is correct.
 
 ---
 
 ## Category D: Audit Rule Detection Gap (8 controls)
 
-Aegis uses `audit_rule_exists` (checks **loaded rules** via `auditctl -l`) while OpenSCAP likely checks **config files** in `/etc/audit/rules.d/`. This creates a detection gap when rules are configured but not loaded.
+Kensa uses `audit_rule_exists` (checks **loaded rules** via `auditctl -l`) while OpenSCAP likely checks **config files** in `/etc/audit/rules.d/`. This creates a detection gap when rules are configured but not loaded.
 
 ### Affected Controls
 
-| Control | Aegis Rule | Audit Key/Rule Checked |
+| Control | Kensa Rule | Audit Key/Rule Checked |
 |---------|-----------|----------------------|
 | **6.3.3.7** | `audit-file-access-failed` | `-k access` |
 | **6.3.3.8** | `audit-identity-change` | `-k identity` |
@@ -217,7 +217,7 @@ These are likely **genuine failures** on the host (audit rules not loaded). The 
 3. If config exists but rules aren't loaded: host config issue (needs `augenrules --load`)
 4. If config doesn't exist: genuine missing configuration
 
-**No Aegis code changes needed** — the check is correct in checking loaded rules. Document this as a methodology difference: Aegis checks runtime state, OpenSCAP checks config files.
+**No Kensa code changes needed** — the check is correct in checking loaded rules. Document this as a methodology difference: Kensa checks runtime state, OpenSCAP checks config files.
 
 ---
 
@@ -276,7 +276,7 @@ These are likely **genuine failures** on the host (audit rules not loaded). The 
 **Effort:** 2–3 hours | **Impact:** Handler bug fix + 5 rule rewrites
 
 **Investigation findings:** All 8 audit rules ARE loaded on rhel9-211 (`auditctl -l`
-confirms). The failures were caused by Aegis bugs, not host configuration:
+confirms). The failures were caused by Kensa bugs, not host configuration:
 
 1. **`auditctl -l` format normalization** — `auditctl -l` outputs `-F key=X` for
    syscall rules but rules use `-k X` shorthand; also `auid!=-1` vs `auid!=unset`
@@ -313,14 +313,14 @@ confirms). The failures were caused by Aegis bugs, not host configuration:
 Conservative target: **<15 genuine disagreements** after all phases.
 Optimistic target: **<10 genuine disagreements** if audit rules are a host config issue.
 
-**Note on remaining disagreements:** Some residual disagreements are expected and acceptable — they represent cases where Aegis intentionally applies a stricter or more fundamental check than OpenSCAP (e.g., 5.4.2.2 root-only-gid0, 6.2.4.1 logfile permissions, 3.1.3 kernel module blacklist). These are not defects; they reflect Aegis's evidence-first, capability-targeted philosophy.
+**Note on remaining disagreements:** Some residual disagreements are expected and acceptable — they represent cases where Kensa intentionally applies a stricter or more fundamental check than OpenSCAP (e.g., 5.4.2.2 root-only-gid0, 6.2.4.1 logfile permissions, 3.1.3 kernel module blacklist). These are not defects; they reflect Kensa's evidence-first, capability-targeted philosophy.
 
 ---
 
 ## Verification
 
 After each phase:
-1. Re-run benchmark: `python3 -m scripts.benchmark.benchmark_cli --aegis results/aegis-211.json --openscap results/openscap/rhel9-211.xml --framework cis-rhel9-v2.0.0 --output results/report/benchmark-report-XX.md`
+1. Re-run benchmark: `python3 -m scripts.benchmark.benchmark_cli --kensa results/kensa-211.json --openscap results/openscap/rhel9-211.xml --framework cis-rhel9-v2.0.0 --output results/report/benchmark-report-XX.md`
 2. Compare disagreement count against previous run
 3. Run full test suite: `pytest tests/test_benchmark.py -v`
 4. Lint: `ruff check && ruff format --check`

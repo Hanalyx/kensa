@@ -76,7 +76,7 @@ def get_db_path(project_root: Path | None = None) -> Path:
 
     """
     root = project_root or Path.cwd()
-    db_dir = root / ".aegis"
+    db_dir = root / ".kensa"
     db_dir.mkdir(exist_ok=True)
     return db_dir / "results.db"
 
@@ -102,7 +102,7 @@ class ResultStore:
         """Initialize the result store.
 
         Args:
-            db_path: Path to database file. Defaults to .aegis/results.db.
+            db_path: Path to database file. Defaults to .kensa/results.db.
             retention_days: Days to retain results before pruning.
 
         """

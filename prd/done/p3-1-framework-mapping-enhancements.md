@@ -22,14 +22,14 @@ Integrate `order_by_framework()` into the output pipeline so results display in 
 
 ```bash
 # Current: results sorted by rule ID
-./aegis check --host 192.168.1.100 --framework cis-rhel9-v2.0.0
+./kensa check --host 192.168.1.100 --framework cis-rhel9-v2.0.0
   PASS  aide-installed
   PASS  crypto-policy-disable-sha1-signatures
   FAIL  ssh-disable-root-login
   PASS  ssh-max-auth-tries
 
 # Enhanced: results sorted by CIS section number
-./aegis check --host 192.168.1.100 --framework cis-rhel9-v2.0.0
+./kensa check --host 192.168.1.100 --framework cis-rhel9-v2.0.0
   Section   Rule                              Status
   1.1.1.1   kmod-disable-cramfs               PASS
   3.1.1     sysctl-net-ipv4-ip-forward        PASS
@@ -53,10 +53,10 @@ Auto-detect platform and select all applicable framework mappings.
 
 ```bash
 # Explicit framework (current)
-./aegis check --host 192.168.1.100 --framework cis-rhel9-v2.0.0
+./kensa check --host 192.168.1.100 --framework cis-rhel9-v2.0.0
 
 # Auto-select based on detected platform
-./aegis check --host 192.168.1.100 --framework auto
+./kensa check --host 192.168.1.100 --framework auto
 
 # On RHEL 9 host, this would automatically select:
 #   - cis-rhel9-v2.0.0 (if present in mappings/)
@@ -85,13 +85,13 @@ def auto_select_frameworks(platform, mappings):
 
 ### 3. Cross-Reference Queries
 
-New `aegis query` command for framework cross-reference lookups.
+New `kensa query` command for framework cross-reference lookups.
 
 #### CLI: Query by Control
 
 ```bash
 # Which rules implement NIST AC-6?
-./aegis query --control "nist:AC-6"
+./kensa query --control "nist:AC-6"
 
 NIST 800-53 AC-6 — Least Privilege
 Rules implementing this control:
@@ -100,7 +100,7 @@ Rules implementing this control:
   - pam-faillock-deny
 
 # Which rules implement CIS RHEL 9 section 5.1?
-./aegis query --control "cis-rhel9-v2.0.0:5.1"
+./kensa query --control "cis-rhel9-v2.0.0:5.1"
 
 CIS RHEL 9 v2.0.0 Section 5.1 — Configure SSH Server
 Rules:
@@ -114,7 +114,7 @@ Rules:
 
 ```bash
 # What frameworks reference ssh-disable-root-login?
-./aegis query --rule ssh-disable-root-login
+./kensa query --rule ssh-disable-root-login
 
 Rule: ssh-disable-root-login
 Title: Disable SSH root login
@@ -130,7 +130,7 @@ Framework References:
 
 ```bash
 # List all NIST controls and their rule counts
-./aegis query --framework nist --list-controls
+./kensa query --framework nist --list-controls
 
 NIST 800-53 Rev 5 Controls:
   AC-2      Account Management                  3 rules
@@ -214,10 +214,10 @@ def write_output(
 - [x] Works with both `check` and `remediate` commands
 
 ### Cross-Reference Queries
-- [x] `aegis info --control "nist:AC-6"` lists implementing rules
-- [x] `aegis info --control "cis-rhel9-v2.0.0:5.1"` lists section rules
-- [x] `aegis info --rule <id>` shows all framework references
-- [x] `aegis info --framework <id> --list-controls` shows control summary
+- [x] `kensa info --control "nist:AC-6"` lists implementing rules
+- [x] `kensa info --control "cis-rhel9-v2.0.0:5.1"` lists section rules
+- [x] `kensa info --rule <id>` shows all framework references
+- [x] `kensa info --framework <id> --list-controls` shows control summary
 - [x] JSON output option for all queries
 
 ## Implementation Notes

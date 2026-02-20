@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts.benchmark.adapters.aegis_adapter import AegisAdapter
 from scripts.benchmark.adapters.base import ToolAdapter, ToolControlResult
+from scripts.benchmark.adapters.kensa_adapter import KensaAdapter
 from scripts.benchmark.adapters.openscap_adapter import OpenSCAPAdapter
 from scripts.benchmark.compare import (
     ControlComparison,
@@ -34,8 +34,8 @@ from scripts.benchmark.report import (
 
 
 @pytest.fixture()
-def aegis_flat_json(tmp_path: Path) -> Path:
-    """Aegis flat-format JSON with framework_section."""
+def kensa_flat_json(tmp_path: Path) -> Path:
+    """Kensa flat-format JSON with framework_section."""
     data = {
         "results": [
             {
@@ -85,14 +85,14 @@ def aegis_flat_json(tmp_path: Path) -> Path:
             },
         ]
     }
-    p = tmp_path / "aegis.json"
+    p = tmp_path / "kensa.json"
     p.write_text(json.dumps(data))
     return p
 
 
 @pytest.fixture()
-def aegis_multihost_json(tmp_path: Path) -> Path:
-    """Aegis multi-host JSON."""
+def kensa_multihost_json(tmp_path: Path) -> Path:
+    """Kensa multi-host JSON."""
     data = {
         "timestamp": "2026-02-19T00:00:00",
         "command": "check",
@@ -134,7 +134,7 @@ def aegis_multihost_json(tmp_path: Path) -> Path:
         ],
         "summary": {"hosts": 2, "total": 2, "pass": 1, "fail": 1, "skip": 0},
     }
-    p = tmp_path / "aegis-multi.json"
+    p = tmp_path / "kensa-multi.json"
     p.write_text(json.dumps(data))
     return p
 
@@ -207,19 +207,19 @@ class TestToolControlResult:
         assert r.passed is None
 
 
-# ── AegisAdapter tests ────────────────────────────────────────────────────────
+# ── KensaAdapter tests ────────────────────────────────────────────────────────
 
 
-class TestAegisAdapter:
+class TestKensaAdapter:
     def test_tool_name(self):
-        assert AegisAdapter().tool_name == "aegis"
+        assert KensaAdapter().tool_name == "kensa"
 
     def test_is_tool_adapter(self):
-        assert isinstance(AegisAdapter(), ToolAdapter)
+        assert isinstance(KensaAdapter(), ToolAdapter)
 
-    def test_parse_flat_format(self, aegis_flat_json: Path):
-        adapter = AegisAdapter()
-        results = adapter.parse(str(aegis_flat_json))
+    def test_parse_flat_format(self, kensa_flat_json: Path):
+        adapter = KensaAdapter()
+        results = adapter.parse(str(kensa_flat_json))
 
         # 3 controls (skipped and unmapped excluded)
         assert len(results) == 3
@@ -228,57 +228,57 @@ class TestAegisAdapter:
         assert "5.5.1.1" in results
         assert "9.9.9" not in results  # skipped
 
-    def test_pass_fail_values(self, aegis_flat_json: Path):
-        results = AegisAdapter().parse(str(aegis_flat_json))
+    def test_pass_fail_values(self, kensa_flat_json: Path):
+        results = KensaAdapter().parse(str(kensa_flat_json))
 
         assert results["5.1.20"].passed is True
         assert results["5.1.5"].passed is False
         assert results["5.5.1.1"].passed is True
 
-    def test_rule_ids_populated(self, aegis_flat_json: Path):
-        results = AegisAdapter().parse(str(aegis_flat_json))
+    def test_rule_ids_populated(self, kensa_flat_json: Path):
+        results = KensaAdapter().parse(str(kensa_flat_json))
 
         assert results["5.1.20"].rule_ids == ["ssh-disable-root-login"]
         assert results["5.1.5"].rule_ids == ["ssh-max-auth-tries"]
 
-    def test_detail_populated(self, aegis_flat_json: Path):
-        results = AegisAdapter().parse(str(aegis_flat_json))
+    def test_detail_populated(self, kensa_flat_json: Path):
+        results = KensaAdapter().parse(str(kensa_flat_json))
 
         assert "PermitRootLogin" in results["5.1.20"].detail
 
-    def test_multihost_format(self, aegis_multihost_json: Path):
-        adapter = AegisAdapter()
-        results = adapter.parse(str(aegis_multihost_json))
+    def test_multihost_format(self, kensa_multihost_json: Path):
+        adapter = KensaAdapter()
+        results = adapter.parse(str(kensa_multihost_json))
 
         # Both hosts have 5.1.20; merged, one passes one fails → control fails
         assert "5.1.20" in results
         assert results["5.1.20"].passed is False
 
-    def test_list_hosts(self, aegis_multihost_json: Path):
-        adapter = AegisAdapter()
-        hosts = adapter.list_hosts(str(aegis_multihost_json))
+    def test_list_hosts(self, kensa_multihost_json: Path):
+        adapter = KensaAdapter()
+        hosts = adapter.list_hosts(str(kensa_multihost_json))
         assert hosts == ["host1", "host2"]
 
-    def test_list_hosts_flat(self, aegis_flat_json: Path):
-        adapter = AegisAdapter()
-        hosts = adapter.list_hosts(str(aegis_flat_json))
+    def test_list_hosts_flat(self, kensa_flat_json: Path):
+        adapter = KensaAdapter()
+        hosts = adapter.list_hosts(str(kensa_flat_json))
         assert hosts == ["default"]
 
-    def test_parse_host(self, aegis_multihost_json: Path):
-        adapter = AegisAdapter()
-        results = adapter.parse_host(str(aegis_multihost_json), "host1")
+    def test_parse_host(self, kensa_multihost_json: Path):
+        adapter = KensaAdapter()
+        results = adapter.parse_host(str(kensa_multihost_json), "host1")
         assert results["5.1.20"].passed is True
 
-        results2 = adapter.parse_host(str(aegis_multihost_json), "host2")
+        results2 = adapter.parse_host(str(kensa_multihost_json), "host2")
         assert results2["5.1.20"].passed is False
 
-    def test_parse_host_not_found(self, aegis_multihost_json: Path):
-        adapter = AegisAdapter()
-        results = adapter.parse_host(str(aegis_multihost_json), "nonexistent")
+    def test_parse_host_not_found(self, kensa_multihost_json: Path):
+        adapter = KensaAdapter()
+        results = adapter.parse_host(str(kensa_multihost_json), "nonexistent")
         assert results == {}
 
-    def test_unmapped_rules_excluded(self, aegis_flat_json: Path):
-        results = AegisAdapter().parse(str(aegis_flat_json))
+    def test_unmapped_rules_excluded(self, kensa_flat_json: Path):
+        results = KensaAdapter().parse(str(kensa_flat_json))
         # Rules without framework_section are excluded
         for r in results.values():
             assert r.control_id != ""
@@ -310,7 +310,7 @@ class TestAegisAdapter:
         p = tmp_path / "multi.json"
         p.write_text(json.dumps(data))
 
-        results = AegisAdapter().parse(str(p))
+        results = KensaAdapter().parse(str(p))
         assert results["1.1.1"].passed is False
         assert len(results["1.1.1"].rule_ids) == 2
 
@@ -531,8 +531,8 @@ class TestReport:
                 framework="cis",
                 title="Test Control A",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis", "1.1", passed=True, rule_ids=["r1"]
+                    "kensa": ToolControlResult(
+                        "kensa", "1.1", passed=True, rule_ids=["r1"]
                     ),
                     "openscap": ToolControlResult(
                         "openscap", "1.1", passed=True, rule_ids=["r2"]
@@ -544,8 +544,8 @@ class TestReport:
                 framework="cis",
                 title="Test Control B",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis", "1.2", passed=True, rule_ids=["r3"]
+                    "kensa": ToolControlResult(
+                        "kensa", "1.2", passed=True, rule_ids=["r3"]
                     ),
                     "openscap": ToolControlResult(
                         "openscap", "1.2", passed=False, rule_ids=["r4"]
@@ -557,8 +557,8 @@ class TestReport:
                 framework="cis",
                 title="Test Control C",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis", "1.3", passed=True, rule_ids=["r5"]
+                    "kensa": ToolControlResult(
+                        "kensa", "1.3", passed=True, rule_ids=["r5"]
                     ),
                 },
             ),
@@ -608,7 +608,7 @@ class TestReport:
         ctrl = data["controls"][0]
         assert ctrl["control_id"] == "1.1"
         assert ctrl["agreement"] == "agree"
-        assert "aegis" in ctrl["tools"]
+        assert "kensa" in ctrl["tools"]
 
     def test_markdown_host_header(self, sample_data):
         comparisons, summary = sample_data
@@ -616,7 +616,7 @@ class TestReport:
             comparisons,
             summary,
             host="192.168.1.211",
-            tool_versions={"aegis": "v1.9.0", "openscap": "1.3.x"},
+            tool_versions={"kensa": "v1.9.0", "openscap": "1.3.x"},
         )
         assert "192.168.1.211" in md
         assert "v1.9.0" in md
@@ -626,13 +626,13 @@ class TestReport:
 
 
 class TestIntegration:
-    def test_full_pipeline(self, aegis_flat_json: Path, openscap_xml: Path):
+    def test_full_pipeline(self, kensa_flat_json: Path, openscap_xml: Path):
         """End-to-end: parse both → compare → summarize → report."""
-        aegis_results = AegisAdapter().parse(str(aegis_flat_json))
+        kensa_results = KensaAdapter().parse(str(kensa_flat_json))
         openscap_results = OpenSCAPAdapter().parse(str(openscap_xml))
 
         comparisons = compare_at_control_level(
-            {"aegis": aegis_results, "openscap": openscap_results},
+            {"kensa": kensa_results, "openscap": openscap_results},
             framework="cis-test",
         )
         summary = summarize(comparisons, framework="cis-test")
@@ -644,11 +644,11 @@ class TestIntegration:
         c_5120 = next(c for c in comparisons if c.control_id == "5.1.20")
         assert c_5120.agreement == "agree"
 
-        # Check disagreement on 5.5.1.1 (aegis pass, openscap fail)
+        # Check disagreement on 5.5.1.1 (kensa pass, openscap fail)
         c_5511 = next(c for c in comparisons if c.control_id == "5.5.1.1")
         assert c_5511.agreement == "disagree"
 
-        # Check disagreement on 5.1.5 (aegis fail, openscap pass)
+        # Check disagreement on 5.1.5 (kensa fail, openscap pass)
         c_515 = next(c for c in comparisons if c.control_id == "5.1.5")
         assert c_515.agreement == "disagree"
 
@@ -675,7 +675,7 @@ class TestIntegration:
 class TestCLI:
     def test_main_markdown(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
     ):
@@ -684,8 +684,8 @@ class TestCLI:
         output = tmp_path / "report.md"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--output",
@@ -699,7 +699,7 @@ class TestCLI:
 
     def test_main_json(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
     ):
@@ -708,8 +708,8 @@ class TestCLI:
         output = tmp_path / "report.json"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--format",
@@ -725,7 +725,7 @@ class TestCLI:
 
     def test_main_stdout(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         capsys,
     ):
@@ -733,8 +733,8 @@ class TestCLI:
 
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
             ]
@@ -750,12 +750,12 @@ class TestCLI:
 def _make_host_comparison(
     host_name: str,
     platform: str,
-    aegis_results: dict[str, ToolControlResult],
+    kensa_results: dict[str, ToolControlResult],
     openscap_results: dict[str, ToolControlResult],
     framework: str = "cis",
 ) -> HostComparison:
     """Helper to build a HostComparison from tool results."""
-    tool_results = {"aegis": aegis_results, "openscap": openscap_results}
+    tool_results = {"kensa": kensa_results, "openscap": openscap_results}
     comparisons = compare_at_control_level(tool_results, framework=framework)
     summary = summarize(comparisons, framework=framework)
     return HostComparison(
@@ -769,54 +769,54 @@ def _make_host_comparison(
 class TestCoverageDimension:
     def test_basic_coverage(self):
         results = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True),
-            "1.2": ToolControlResult("aegis", "1.2", passed=False),
+            "1.1": ToolControlResult("kensa", "1.1", passed=True),
+            "1.2": ToolControlResult("kensa", "1.2", passed=False),
         }
-        cov = compute_coverage(results, total_framework=10, tool_name="aegis")
-        assert cov.tool_name == "aegis"
+        cov = compute_coverage(results, total_framework=10, tool_name="kensa")
+        assert cov.tool_name == "kensa"
         assert cov.controls_covered == 2
         assert cov.total_framework == 10
         assert cov.coverage_percent == 20.0
 
     def test_zero_total(self):
         results = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+            "1.1": ToolControlResult("kensa", "1.1", passed=True),
         }
-        cov = compute_coverage(results, total_framework=0, tool_name="aegis")
+        cov = compute_coverage(results, total_framework=0, tool_name="kensa")
         assert cov.coverage_percent == 0.0
 
     def test_none_passed_excluded(self):
         results = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True),
-            "1.2": ToolControlResult("aegis", "1.2", passed=None),
+            "1.1": ToolControlResult("kensa", "1.1", passed=True),
+            "1.2": ToolControlResult("kensa", "1.2", passed=None),
         }
-        cov = compute_coverage(results, total_framework=5, tool_name="aegis")
+        cov = compute_coverage(results, total_framework=5, tool_name="kensa")
         assert cov.controls_covered == 1
 
     def test_exclusive_controls(self):
         results = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True),
-            "1.2": ToolControlResult("aegis", "1.2", passed=True),
+            "1.1": ToolControlResult("kensa", "1.1", passed=True),
+            "1.2": ToolControlResult("kensa", "1.2", passed=True),
         }
         cov = compute_coverage(
             results,
             total_framework=10,
-            tool_name="aegis",
+            tool_name="kensa",
             exclusive_ids={"1.2"},
         )
         assert cov.exclusive_controls == 1
 
     def test_empty_results(self):
-        cov = compute_coverage({}, total_framework=10, tool_name="aegis")
+        cov = compute_coverage({}, total_framework=10, tool_name="kensa")
         assert cov.controls_covered == 0
         assert cov.coverage_percent == 0.0
 
 
 class TestHostComparison:
     def test_host_comparison_fields(self):
-        aegis = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
-        hc = _make_host_comparison("rhel9-211", "rhel9", aegis, openscap)
+        hc = _make_host_comparison("rhel9-211", "rhel9", kensa, openscap)
 
         assert hc.host_name == "rhel9-211"
         assert hc.platform == "rhel9"
@@ -824,22 +824,22 @@ class TestHostComparison:
         assert hc.summary.agree_count == 1
 
     def test_host_with_coverage(self):
-        aegis = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
-        hc = _make_host_comparison("rhel9-211", "rhel9", aegis, openscap)
-        hc.coverage["aegis"] = compute_coverage(aegis, 5, "aegis")
+        hc = _make_host_comparison("rhel9-211", "rhel9", kensa, openscap)
+        hc.coverage["kensa"] = compute_coverage(kensa, 5, "kensa")
         hc.coverage["openscap"] = compute_coverage(openscap, 5, "openscap")
 
-        assert hc.coverage["aegis"].controls_covered == 1
+        assert hc.coverage["kensa"].controls_covered == 1
         assert hc.coverage["openscap"].coverage_percent == 20.0
 
 
 class TestMultiHostResult:
     def test_multihost_structure(self):
-        aegis = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
-        hc1 = _make_host_comparison("rhel9-211", "rhel9", aegis, openscap)
-        hc2 = _make_host_comparison("rhel9-213", "rhel9", aegis, openscap)
+        hc1 = _make_host_comparison("rhel9-211", "rhel9", kensa, openscap)
+        hc2 = _make_host_comparison("rhel9-213", "rhel9", kensa, openscap)
 
         agg = aggregate_hosts([hc1, hc2], framework="cis")
         result = MultiHostResult(
@@ -856,23 +856,23 @@ class TestMultiHostResult:
 class TestAggregateHosts:
     def test_union_of_controls(self):
         """Aggregate should include union of all controls across hosts."""
-        aegis1 = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True),
+        kensa1 = {
+            "1.1": ToolControlResult("kensa", "1.1", passed=True),
         }
         openscap1 = {
             "1.1": ToolControlResult("openscap", "1.1", passed=True),
         }
-        aegis2 = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True),
-            "1.2": ToolControlResult("aegis", "1.2", passed=False),
+        kensa2 = {
+            "1.1": ToolControlResult("kensa", "1.1", passed=True),
+            "1.2": ToolControlResult("kensa", "1.2", passed=False),
         }
         openscap2 = {
             "1.1": ToolControlResult("openscap", "1.1", passed=True),
             "1.2": ToolControlResult("openscap", "1.2", passed=False),
         }
 
-        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
-        hc2 = _make_host_comparison("h2", "rhel9", aegis2, openscap2)
+        hc1 = _make_host_comparison("h1", "rhel9", kensa1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel9", kensa2, openscap2)
 
         agg = aggregate_hosts([hc1, hc2], framework="cis")
         assert agg.total_controls == 2
@@ -883,27 +883,27 @@ class TestAggregateHosts:
 
     def test_any_fail_aggregates_conservative(self):
         """If any host fails a tool on a control, aggregate shows fail."""
-        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa1 = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
-        aegis2 = {"1.1": ToolControlResult("aegis", "1.1", passed=False)}
+        kensa2 = {"1.1": ToolControlResult("kensa", "1.1", passed=False)}
         openscap2 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
 
-        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
-        hc2 = _make_host_comparison("h2", "rhel9", aegis2, openscap2)
+        hc1 = _make_host_comparison("h1", "rhel9", kensa1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel9", kensa2, openscap2)
 
         agg = aggregate_hosts([hc1, hc2], framework="cis")
-        # aegis pass on h1, fail on h2 → aggregate fail
+        # kensa pass on h1, fail on h2 → aggregate fail
         # openscap pass on both → aggregate pass
         # Result: disagree
         assert agg.disagree_count == 1
 
     def test_agreement_recalculated(self):
         """Aggregate recalculates agreement from merged results."""
-        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa1 = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
 
-        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
-        hc2 = _make_host_comparison("h2", "rhel9", aegis1, openscap1)
+        hc1 = _make_host_comparison("h1", "rhel9", kensa1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel9", kensa1, openscap1)
 
         agg = aggregate_hosts([hc1, hc2])
         assert agg.agree_count == 1
@@ -913,25 +913,25 @@ class TestAggregateHosts:
 class TestMultiHostReport:
     @pytest.fixture()
     def multihost_result(self) -> MultiHostResult:
-        aegis1 = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True, rule_ids=["r1"]),
-            "1.2": ToolControlResult("aegis", "1.2", passed=True, rule_ids=["r2"]),
+        kensa1 = {
+            "1.1": ToolControlResult("kensa", "1.1", passed=True, rule_ids=["r1"]),
+            "1.2": ToolControlResult("kensa", "1.2", passed=True, rule_ids=["r2"]),
         }
         openscap1 = {
             "1.1": ToolControlResult("openscap", "1.1", passed=True, rule_ids=["r3"]),
             "1.2": ToolControlResult("openscap", "1.2", passed=False, rule_ids=["r4"]),
         }
-        aegis2 = {
-            "1.1": ToolControlResult("aegis", "1.1", passed=True, rule_ids=["r1"]),
-            "1.2": ToolControlResult("aegis", "1.2", passed=False, rule_ids=["r2"]),
+        kensa2 = {
+            "1.1": ToolControlResult("kensa", "1.1", passed=True, rule_ids=["r1"]),
+            "1.2": ToolControlResult("kensa", "1.2", passed=False, rule_ids=["r2"]),
         }
         openscap2 = {
             "1.1": ToolControlResult("openscap", "1.1", passed=False, rule_ids=["r3"]),
             "1.2": ToolControlResult("openscap", "1.2", passed=False, rule_ids=["r4"]),
         }
 
-        hc1 = _make_host_comparison("rhel9-211", "rhel9", aegis1, openscap1)
-        hc2 = _make_host_comparison("rhel8-202", "rhel8", aegis2, openscap2)
+        hc1 = _make_host_comparison("rhel9-211", "rhel9", kensa1, openscap1)
+        hc2 = _make_host_comparison("rhel8-202", "rhel8", kensa2, openscap2)
 
         agg = aggregate_hosts([hc1, hc2], framework="cis")
         return MultiHostResult(
@@ -980,7 +980,7 @@ class TestMultiHostReport:
 
     def test_markdown_with_coverage(self, multihost_result):
         multihost_result.aggregate_coverage = {
-            "aegis": CoverageDimension("aegis", 2, 10, 20.0, 0),
+            "kensa": CoverageDimension("kensa", 2, 10, 20.0, 0),
             "openscap": CoverageDimension("openscap", 2, 10, 20.0, 0),
         }
         md = generate_multihost_markdown(multihost_result)
@@ -989,23 +989,23 @@ class TestMultiHostReport:
 
     def test_json_with_coverage(self, multihost_result):
         multihost_result.aggregate_coverage = {
-            "aegis": CoverageDimension("aegis", 2, 10, 20.0, 1),
+            "kensa": CoverageDimension("kensa", 2, 10, 20.0, 1),
         }
         data = json.loads(generate_multihost_json(multihost_result))
         assert "coverage" in data["aggregate"]
-        assert data["aggregate"]["coverage"]["aegis"]["controls_covered"] == 2
+        assert data["aggregate"]["coverage"]["kensa"]["controls_covered"] == 2
 
 
 class TestCrossplatformTable:
     def test_table_rows(self):
         """Cross-platform table has a row per control, column per host/tool."""
-        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa1 = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
-        aegis2 = {"1.1": ToolControlResult("aegis", "1.1", passed=False)}
+        kensa2 = {"1.1": ToolControlResult("kensa", "1.1", passed=False)}
         openscap2 = {"1.1": ToolControlResult("openscap", "1.1", passed=False)}
 
-        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
-        hc2 = _make_host_comparison("h2", "rhel8", aegis2, openscap2)
+        hc1 = _make_host_comparison("h1", "rhel9", kensa1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel8", kensa2, openscap2)
 
         agg = aggregate_hosts([hc1, hc2], framework="cis")
         result = MultiHostResult(
@@ -1016,7 +1016,7 @@ class TestCrossplatformTable:
         md = generate_multihost_markdown(result)
 
         # Headers should include host/tool combos
-        assert "h1/aegis" in md
+        assert "h1/kensa" in md
         assert "h2/openscap" in md
         # Control row
         assert "1.1" in md
@@ -1025,13 +1025,13 @@ class TestCrossplatformTable:
 
     def test_missing_control_shows_dash(self):
         """Controls not present on a host show '—'."""
-        aegis1 = {"1.1": ToolControlResult("aegis", "1.1", passed=True)}
+        kensa1 = {"1.1": ToolControlResult("kensa", "1.1", passed=True)}
         openscap1 = {"1.1": ToolControlResult("openscap", "1.1", passed=True)}
-        aegis2 = {"1.2": ToolControlResult("aegis", "1.2", passed=False)}
+        kensa2 = {"1.2": ToolControlResult("kensa", "1.2", passed=False)}
         openscap2 = {"1.2": ToolControlResult("openscap", "1.2", passed=False)}
 
-        hc1 = _make_host_comparison("h1", "rhel9", aegis1, openscap1)
-        hc2 = _make_host_comparison("h2", "rhel8", aegis2, openscap2)
+        hc1 = _make_host_comparison("h1", "rhel9", kensa1, openscap1)
+        hc2 = _make_host_comparison("h2", "rhel8", kensa2, openscap2)
 
         agg = aggregate_hosts([hc1, hc2], framework="cis")
         result = MultiHostResult(
@@ -1055,7 +1055,7 @@ class TestOpenSCAPCountMappedSections:
 class TestCLIMultiHost:
     def test_pair_markdown(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
     ):
@@ -1065,9 +1065,9 @@ class TestCLIMultiHost:
         rc = main(
             [
                 "--pair",
-                f"rhel9-211:{aegis_flat_json}:{openscap_xml}",
+                f"rhel9-211:{kensa_flat_json}:{openscap_xml}",
                 "--pair",
-                f"rhel9-213:{aegis_flat_json}:{openscap_xml}",
+                f"rhel9-213:{kensa_flat_json}:{openscap_xml}",
                 "--output",
                 str(output),
             ]
@@ -1080,7 +1080,7 @@ class TestCLIMultiHost:
 
     def test_pair_json(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
     ):
@@ -1090,7 +1090,7 @@ class TestCLIMultiHost:
         rc = main(
             [
                 "--pair",
-                f"rhel9-211:{aegis_flat_json}:{openscap_xml}",
+                f"rhel9-211:{kensa_flat_json}:{openscap_xml}",
                 "--format",
                 "json",
                 "--output",
@@ -1105,7 +1105,7 @@ class TestCLIMultiHost:
 
     def test_pair_mutual_exclusion(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
     ):
         from scripts.benchmark.benchmark_cli import main
@@ -1113,12 +1113,12 @@ class TestCLIMultiHost:
         with pytest.raises(SystemExit):
             main(
                 [
-                    "--aegis",
-                    str(aegis_flat_json),
+                    "--kensa",
+                    str(kensa_flat_json),
                     "--openscap",
                     str(openscap_xml),
                     "--pair",
-                    f"h1:{aegis_flat_json}:{openscap_xml}",
+                    f"h1:{kensa_flat_json}:{openscap_xml}",
                 ]
             )
 
@@ -1132,7 +1132,7 @@ class TestCLIMultiHost:
 class TestCLIBackwardCompat:
     def test_single_host_still_works(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
     ):
@@ -1141,8 +1141,8 @@ class TestCLIBackwardCompat:
         output = tmp_path / "compat.md"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--output",
@@ -1155,7 +1155,7 @@ class TestCLIBackwardCompat:
 
     def test_single_host_json_still_works(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
     ):
@@ -1164,8 +1164,8 @@ class TestCLIBackwardCompat:
         output = tmp_path / "compat.json"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--format",
@@ -1179,11 +1179,11 @@ class TestCLIBackwardCompat:
         assert "summary" in data
         assert "controls" in data
 
-    def test_aegis_only_errors(self, aegis_flat_json: Path):
+    def test_kensa_only_errors(self, kensa_flat_json: Path):
         from scripts.benchmark.benchmark_cli import main
 
         with pytest.raises(SystemExit):
-            main(["--aegis", str(aegis_flat_json)])
+            main(["--kensa", str(kensa_flat_json)])
 
 
 # ── Phase 3: Mapping Error Detection tests ───────────────────────────────────
@@ -1233,7 +1233,7 @@ class TestKnownMappingErrors:
                 framework="cis",
                 title="Enable GPG signature checking",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "kensa": ToolControlResult("kensa", "1.2.1", passed=True),
                     "openscap": ToolControlResult(
                         "openscap",
                         "1.2.1",
@@ -1255,7 +1255,7 @@ class TestKnownMappingErrors:
                 framework="cis",
                 title="Unknown control",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "9.9.9", passed=True),
+                    "kensa": ToolControlResult("kensa", "9.9.9", passed=True),
                     "openscap": ToolControlResult(
                         "openscap",
                         "9.9.9",
@@ -1279,8 +1279,8 @@ class TestMappingHeuristic:
                 framework="cis",
                 title="Enable GPG signature checking for packages",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "1.2.1",
                         passed=True,
                         rule_ids=["gpgcheck_enabled"],
@@ -1305,8 +1305,8 @@ class TestMappingHeuristic:
                 framework="cis",
                 title="Ensure sshd KexAlgorithms is configured",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "5.1.5",
                         passed=True,
                         rule_ids=["ssh_approved_kex"],
@@ -1331,7 +1331,7 @@ class TestMappingHeuristic:
                 framework="cis",
                 title="Test control",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "1.1", passed=True),
+                    "kensa": ToolControlResult("kensa", "1.1", passed=True),
                     "openscap": ToolControlResult("openscap", "1.1", passed=True),
                 },
             ),
@@ -1347,7 +1347,7 @@ class TestMappingHeuristic:
                 framework="cis",
                 title="",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "1.1", passed=True),
+                    "kensa": ToolControlResult("kensa", "1.1", passed=True),
                     "openscap": ToolControlResult(
                         "openscap",
                         "1.1",
@@ -1372,7 +1372,7 @@ class TestDetectMappingErrors:
                 framework="cis",
                 title="Enable GPG signature checking",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "kensa": ToolControlResult("kensa", "1.2.1", passed=True),
                     "openscap": ToolControlResult(
                         "openscap",
                         "1.2.1",
@@ -1387,8 +1387,8 @@ class TestDetectMappingErrors:
                 framework="cis",
                 title="Restrict core dumps",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "1.5.1",
                         passed=False,
                         rule_ids=["coredump_restricted"],
@@ -1407,8 +1407,8 @@ class TestDetectMappingErrors:
                 framework="cis",
                 title="Ensure sshd KexAlgorithms is configured",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "5.1.5",
                         passed=True,
                         rule_ids=["ssh_approved_kex"],
@@ -1475,8 +1475,8 @@ class TestMappingErrorReport:
                 mapping_error="known",
                 mapping_error_reason="Firewall rules mapped to GPG",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "1.2.1",
                         passed=True,
                         rule_ids=["r1"],
@@ -1494,8 +1494,8 @@ class TestMappingErrorReport:
                 framework="cis",
                 title="Ensure sshd KexAlgorithms",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "5.1.5",
                         passed=True,
                         rule_ids=["r2"],
@@ -1526,8 +1526,8 @@ class TestMappingErrorReport:
                 mapping_error="suspected",
                 mapping_error_reason="Zero keyword overlap",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "2.2.4",
                         passed=True,
                         rule_ids=["r1"],
@@ -1556,8 +1556,8 @@ class TestMappingErrorReport:
                 mapping_error="known",
                 mapping_error_reason="bad",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "1.2.1",
                         passed=True,
                         rule_ids=["r1"],
@@ -1575,8 +1575,8 @@ class TestMappingErrorReport:
                 framework="cis",
                 title="KexAlgorithms",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "5.1.5",
                         passed=True,
                         rule_ids=["r3"],
@@ -1609,8 +1609,8 @@ class TestMappingErrorJSON:
                 mapping_error="known",
                 mapping_error_reason="Firewall mapped to GPG",
                 tool_results={
-                    "aegis": ToolControlResult(
-                        "aegis",
+                    "kensa": ToolControlResult(
+                        "kensa",
                         "1.2.1",
                         passed=True,
                         rule_ids=["r1"],
@@ -1639,7 +1639,7 @@ class TestMappingErrorJSON:
                 mapping_error="known",
                 mapping_error_reason="bad",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "kensa": ToolControlResult("kensa", "1.2.1", passed=True),
                     "openscap": ToolControlResult(
                         "openscap",
                         "1.2.1",
@@ -1662,7 +1662,7 @@ class TestMappingErrorJSON:
                 mapping_error="known",
                 mapping_error_reason="bad mapping",
                 tool_results={
-                    "aegis": ToolControlResult("aegis", "1.2.1", passed=True),
+                    "kensa": ToolControlResult("kensa", "1.2.1", passed=True),
                     "openscap": ToolControlResult(
                         "openscap",
                         "1.2.1",
@@ -1694,7 +1694,7 @@ class TestMappingErrorJSON:
 class TestCLIKnownErrors:
     def test_cli_with_known_errors_flag(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         known_errors_yaml: Path,
         tmp_path: Path,
@@ -1704,8 +1704,8 @@ class TestCLIKnownErrors:
         output = tmp_path / "report.md"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--known-errors",
@@ -1720,7 +1720,7 @@ class TestCLIKnownErrors:
 
     def test_cli_known_errors_json(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         known_errors_yaml: Path,
         tmp_path: Path,
@@ -1730,8 +1730,8 @@ class TestCLIKnownErrors:
         output = tmp_path / "report.json"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--known-errors",
@@ -1748,7 +1748,7 @@ class TestCLIKnownErrors:
 
     def test_cli_multihost_with_known_errors(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         known_errors_yaml: Path,
         tmp_path: Path,
@@ -1759,7 +1759,7 @@ class TestCLIKnownErrors:
         rc = main(
             [
                 "--pair",
-                f"rhel9-211:{aegis_flat_json}:{openscap_xml}",
+                f"rhel9-211:{kensa_flat_json}:{openscap_xml}",
                 "--known-errors",
                 str(known_errors_yaml),
                 "--output",
@@ -1772,7 +1772,7 @@ class TestCLIKnownErrors:
 
     def test_cli_missing_known_errors_warns(
         self,
-        aegis_flat_json: Path,
+        kensa_flat_json: Path,
         openscap_xml: Path,
         tmp_path: Path,
         capsys,
@@ -1782,8 +1782,8 @@ class TestCLIKnownErrors:
         output = tmp_path / "report.md"
         rc = main(
             [
-                "--aegis",
-                str(aegis_flat_json),
+                "--kensa",
+                str(kensa_flat_json),
                 "--openscap",
                 str(openscap_xml),
                 "--known-errors",

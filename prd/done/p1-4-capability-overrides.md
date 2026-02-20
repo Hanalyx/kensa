@@ -22,13 +22,13 @@ Add `--capability` / `-C` flag to override detected capabilities.
 
 ```bash
 # Force sshd_config_d to false (use main config file even if .d exists)
-./aegis check --host 192.168.1.211 --capability sshd_config_d=false
+./kensa check --host 192.168.1.211 --capability sshd_config_d=false
 
 # Force authselect to true (assume it's available even if detection failed)
-./aegis remediate --host 192.168.1.211 -C authselect=true
+./kensa remediate --host 192.168.1.211 -C authselect=true
 
 # Multiple overrides
-./aegis check --host 192.168.1.211 \
+./kensa check --host 192.168.1.211 \
   -C sshd_config_d=false \
   -C crypto_policy_modules=false
 ```
@@ -129,7 +129,7 @@ def apply_overrides(
 
 ```bash
 # System has sshd_config.d, but I want to test the main config path
-./aegis remediate --host 192.168.1.211 \
+./kensa remediate --host 192.168.1.211 \
   --rule rules/access-control/ssh-disable-root-login.yml \
   -C sshd_config_d=false \
   --dry-run
@@ -141,7 +141,7 @@ Would set 'PermitRootLogin no' in /etc/ssh/sshd_config  # Uses default impl
 
 ```bash
 # authselect detection failed because sssd was restarting
-./aegis remediate --host 192.168.1.211 \
+./kensa remediate --host 192.168.1.211 \
   --rule rules/access-control/pam-faillock.yml \
   -C authselect=true
 ```
@@ -151,7 +151,7 @@ Would set 'PermitRootLogin no' in /etc/ssh/sshd_config  # Uses default impl
 For inventory-based runs, capability overrides apply to all hosts:
 
 ```bash
-./aegis check --inventory hosts.ini -C crypto_policy_modules=false
+./kensa check --inventory hosts.ini -C crypto_policy_modules=false
 ```
 
 Future enhancement: per-host overrides via inventory variables.
@@ -170,4 +170,4 @@ Future enhancement: per-host overrides via inventory variables.
 
 - **Inventory variables**: `ansible_host_vars` style capability overrides per host
 - **Capability profiles**: `--capability-profile minimal` to force all optional capabilities off
-- **Persist overrides**: `~/.aegis/capability-overrides.yaml` for site-wide defaults
+- **Persist overrides**: `~/.kensa/capability-overrides.yaml` for site-wide defaults

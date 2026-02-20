@@ -1,6 +1,6 @@
 # Rule Review Guide — Version 0
 
-**Project:** Aegis
+**Project:** Kensa
 **Date:** 2026-02-17
 **Status:** Draft
 **Companion:** CANONICAL_RULE_SCHEMA_V0.md, TECHNICAL_REMEDIATION_MP_V0.md
@@ -9,7 +9,7 @@
 
 ## 1. Purpose
 
-This document defines the criteria for reviewing Aegis canonical rules. Every rule
+This document defines the criteria for reviewing Kensa canonical rules. Every rule
 in `rules/` should be evaluated against these criteria to ensure correctness,
 completeness, and alignment with the project's design philosophy.
 
@@ -178,7 +178,7 @@ independently verify the result?
 Good evidence is:
 - **Unambiguous.** The output clearly shows the setting and its value.
 - **Complete.** An auditor can confirm compliance without re-running the check.
-- **Unforgeable.** The evidence comes from the system, not from Aegis's interpretation.
+- **Unforgeable.** The evidence comes from the system, not from Kensa's interpretation.
 
 Watch for:
 - `grep` patterns that match false positives (e.g., matching a comment line)
@@ -234,7 +234,7 @@ Durability hierarchy (most durable first):
 |-----------|-----------|----------|
 | Drop-in file in `.d/` directory | Survives package updates (package restores main config, drop-in persists) | System supports `.d/` includes |
 | Authselect feature | Survives authselect profile switches | PAM configuration on authselect systems |
-| Dedicated config file (`/etc/sysctl.d/99-aegis.conf`) | Survives package updates | Sysctl, modprobe, audit rules |
+| Dedicated config file (`/etc/sysctl.d/99-kensa.conf`) | Survives package updates | Sysctl, modprobe, audit rules |
 | Direct edit to main config file | Overwritten by package updates | No `.d/` alternative exists |
 | Runtime-only command | Lost on reboot | Never (unless paired with persistent change) |
 
@@ -333,7 +333,7 @@ Every rule must have all required fields per CANONICAL_RULE_SCHEMA_V0.md:
 | `title` | string | Imperative voice, under 100 characters |
 | `description` | string | 2-4 sentences: what the rule enforces and security context |
 | `rationale` | string | Security justification: why an attacker exploits absence |
-| `severity` | enum | `critical`, `high`, `medium`, `low` — Aegis's own assessment |
+| `severity` | enum | `critical`, `high`, `medium`, `low` — Kensa's own assessment |
 | `category` | string | Must match parent directory name |
 | `tags` | list | Free-form labels including primary service/subsystem |
 | `references` | object | Framework cross-references (see Dimension 4) |
@@ -342,11 +342,11 @@ Every rule must have all required fields per CANONICAL_RULE_SCHEMA_V0.md:
 
 ### 5.2 Severity Assessment
 
-**Review question:** Is the severity Aegis's own assessment, not a copy of a
+**Review question:** Is the severity Kensa's own assessment, not a copy of a
 framework's rating?
 
-Aegis severity is independent of CIS Level (L1/L2) and STIG Category (CAT I/II/III).
-A control may be CIS L2 but Aegis `high` if the security impact warrants it.
+Kensa severity is independent of CIS Level (L1/L2) and STIG Category (CAT I/II/III).
+A control may be CIS L2 but Kensa `high` if the security impact warrants it.
 
 | Severity | Criteria |
 |----------|----------|
@@ -509,11 +509,11 @@ the service.
 
 ### 8.6 Severity Copied from Framework
 
-**Defect:** Aegis `severity` is set to match CIS Level or STIG Category rather
-than Aegis's own assessment.
+**Defect:** Kensa `severity` is set to match CIS Level or STIG Category rather
+than Kensa's own assessment.
 
 **Impact:** Misleading severity when frameworks disagree. CIS L2 does not
-automatically mean Aegis `medium`.
+automatically mean Kensa `medium`.
 
 **Fix:** Assess severity independently using the criteria in Section 5.2.
 
@@ -600,6 +600,6 @@ dimensions have been evaluated and any defects have been either fixed or documen
 
 ---
 
-*This document defines the review criteria for Aegis canonical rules. It is the
+*This document defines the review criteria for Kensa canonical rules. It is the
 quality gate between authored rules and the canonical set. Every rule should meet
 these criteria before being considered production-ready.*

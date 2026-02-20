@@ -1,6 +1,6 @@
-# NIST SP 800-53 Rev. 5 Control Mapping for Aegis
+# NIST SP 800-53 Rev. 5 Control Mapping for Kensa
 #
-# This mapping associates NIST 800-53 security controls with Aegis rules.
+# This mapping associates NIST 800-53 security controls with Kensa rules.
 # NIST controls are many-to-many: one control may require multiple rules,
 # and one rule may satisfy multiple controls.
 #
@@ -788,7 +788,7 @@ unimplemented:
 
   "CM-2":
     title: "Baseline Configuration"
-    reason: "Aegis itself provides baseline enforcement"
+    reason: "Kensa itself provides baseline enforcement"
     type: N/A
 
   "CM-3":

@@ -49,7 +49,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-permit-user-environment.conf"
+      file: "00-kensa-permit-user-environment.conf"
       key: "PermitUserEnvironment"
       value: "no"
       reload: "sshd"

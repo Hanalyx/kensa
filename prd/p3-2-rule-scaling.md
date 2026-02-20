@@ -10,7 +10,7 @@ for the updated status and remaining work.
 
 ## Executive Summary (original)
 
-Scale Aegis from 35 canonical rules to ~180 rules covering the full CIS RHEL 9 Benchmark v2.0.0 and DISA STIG RHEL 9 V2R7. The handler infrastructure is complete (17 check handlers, 23 remediation handlers); this PRD focuses on rule authoring, testing, and quality assurance.
+Scale Kensa from 35 canonical rules to ~180 rules covering the full CIS RHEL 9 Benchmark v2.0.0 and DISA STIG RHEL 9 V2R7. The handler infrastructure is complete (17 check handlers, 23 remediation handlers); this PRD focuses on rule authoring, testing, and quality assurance.
 
 ## Current State
 
@@ -250,10 +250,10 @@ Each rule YAML is validated:
 ### Integration Testing (Per Category)
 
 Test against clean RHEL 9 VM:
-1. Run `aegis check` — baseline state
-2. Run `aegis remediate --dry-run` — verify planned changes
-3. Run `aegis remediate` — apply changes
-4. Run `aegis check` — verify all pass
+1. Run `kensa check` — baseline state
+2. Run `kensa remediate --dry-run` — verify planned changes
+3. Run `kensa remediate` — apply changes
+4. Run `kensa check` — verify all pass
 5. Verify no breaking side effects
 
 ### Regression Testing
@@ -308,7 +308,7 @@ sections:
 
 Run coverage check after each phase:
 ```bash
-./aegis coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework cis-rhel9-v2.0.0
 ```
 
 ## Risk Mitigation

@@ -73,7 +73,7 @@ def _capture_config_remove(ssh: SSHSession, r: dict) -> PreState:
 def _capture_config_block(ssh: SSHSession, r: dict) -> PreState:
     """Capture file content before writing block."""
     path = r["path"]
-    marker = r.get("marker", "# AEGIS MANAGED BLOCK")
+    marker = r.get("marker", "# KENSA MANAGED BLOCK")
     begin_marker = f"# BEGIN {marker}"
 
     exists = shell_util.file_exists(ssh, path)

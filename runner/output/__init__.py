@@ -1,6 +1,6 @@
 """Output formatters for check and remediate results.
 
-This module provides structured output formats for Aegis compliance results.
+This module provides structured output formats for Kensa compliance results.
 Formatters convert the internal result objects into JSON, CSV, or PDF for
 reporting, CI/CD integration, and archival purposes.
 

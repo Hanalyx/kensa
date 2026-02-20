@@ -1,4 +1,4 @@
-"""Aegis CLI — detect, check, and remediate compliance rules over SSH."""
+"""Kensa CLI — detect, check, and remediate compliance rules over SSH."""
 
 from __future__ import annotations
 
@@ -206,14 +206,14 @@ Remediation Options:
 
 \b
 Examples:
-  aegis detect --host 192.168.1.100 -u admin --sudo
-  aegis check -i hosts.ini --sudo -r rules/ -w 4
-  aegis check -i hosts.ini --sudo -r rules/ -o json -q
-  aegis check -i hosts.ini --sudo -r rules/ -o csv:results.csv -o pdf:report.pdf
-  aegis check -i hosts.ini --sudo -r rules/ -V pam_pwquality_minlen=20
-  aegis check -i hosts.ini --sudo --control cis-rhel9-v2.0.0:5.1.12
-  aegis remediate -i hosts.ini --sudo --control 5.1.12
-  aegis remediate -i hosts.ini --sudo -r rules/ --dry-run
+  kensa detect --host 192.168.1.100 -u admin --sudo
+  kensa check -i hosts.ini --sudo -r rules/ -w 4
+  kensa check -i hosts.ini --sudo -r rules/ -o json -q
+  kensa check -i hosts.ini --sudo -r rules/ -o csv:results.csv -o pdf:report.pdf
+  kensa check -i hosts.ini --sudo -r rules/ -V pam_pwquality_minlen=20
+  kensa check -i hosts.ini --sudo --control cis-rhel9-v2.0.0:5.1.12
+  kensa remediate -i hosts.ini --sudo --control 5.1.12
+  kensa remediate -i hosts.ini --sudo -r rules/ --dry-run
 """
 
 
@@ -224,9 +224,9 @@ def _get_version() -> str:
 
 
 @click.group(epilog=MAIN_HELP_EPILOG, context_settings={"max_content_width": 120})
-@click.version_option(version=_get_version(), prog_name="aegis")
+@click.version_option(version=_get_version(), prog_name="kensa")
 def main():
-    """Aegis — SSH-based compliance test runner."""
+    """Kensa — SSH-based compliance test runner."""
     pass
 
 
@@ -1106,11 +1106,11 @@ def history(host, rule, sessions, session_id, limit, stats, prune):
     """Query compliance scan history.
 
     Examples:
-      aegis history --host 192.168.1.100
-      aegis history --sessions
-      aegis history --session-id 5
-      aegis history --stats
-      aegis history --prune 30
+      kensa history --host 192.168.1.100
+      kensa history --sessions
+      kensa history --session-id 5
+      kensa history --stats
+      kensa history --prune 30
     """
     from runner.storage import ResultStore
 
@@ -1240,9 +1240,9 @@ def diff(session1, session2, host, show_unchanged, json_output):
     - New passes: rules new in session2 that pass
 
     Examples:
-      aegis diff 1 5
-      aegis diff 1 5 --host 192.168.1.100
-      aegis diff 1 5 --json
+      kensa diff 1 5
+      kensa diff 1 5 --host 192.168.1.100
+      kensa diff 1 5 --json
     """
     from runner.storage import ResultStore, diff_sessions
 
@@ -1383,8 +1383,8 @@ def coverage(framework, rules, json_output):
     unimplemented, and which have missing rules.
 
     Examples:
-      aegis coverage --framework cis-rhel9-v2.0.0
-      aegis coverage --framework cis-rhel9-v2.0.0 --json
+      kensa coverage --framework cis-rhel9-v2.0.0
+      kensa coverage --framework cis-rhel9-v2.0.0 --json
     """
     from runner.mappings import check_coverage, load_all_mappings
 
@@ -1636,10 +1636,10 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
     and find relationships between compliance requirements and rules.
 
     Examples:
-      aegis info --control cis-rhel9-v2.0.0:5.1.12
-      aegis info --control 5.1 --prefix-match
-      aegis info --rule ssh-disable-root-login
-      aegis info --list-controls --framework cis-rhel9-v2.0.0
+      kensa info --control cis-rhel9-v2.0.0:5.1.12
+      kensa info --control 5.1 --prefix-match
+      kensa info --rule ssh-disable-root-login
+      kensa info --list-controls --framework cis-rhel9-v2.0.0
     """
     from runner.mappings import FrameworkIndex, load_all_mappings
 
@@ -1847,11 +1847,11 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
 
     \b
     Examples:
-      aegis lookup 2.2.5                  # CIS section (auto-detected)
-      aegis lookup --cis 2.2.5            # Explicit CIS lookup
-      aegis lookup --cis 5.1 --rhel 9     # CIS 5.1.x for RHEL 9 only
-      aegis lookup --stig V-257874        # STIG vulnerability ID
-      aegis lookup --nist AC-3            # NIST 800-53 control
+      kensa lookup 2.2.5                  # CIS section (auto-detected)
+      kensa lookup --cis 2.2.5            # Explicit CIS lookup
+      kensa lookup --cis 5.1 --rhel 9     # CIS 5.1.x for RHEL 9 only
+      kensa lookup --stig V-257874        # STIG vulnerability ID
+      kensa lookup --nist AC-3            # NIST 800-53 control
     """
     from pathlib import Path
 
@@ -1886,10 +1886,10 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
             "[red]Error:[/red] Specify a section number or use --cis/--stig/--nist"
         )
         console.print("\nExamples:")
-        console.print("  aegis lookup 2.2.5")
-        console.print("  aegis lookup --cis 5.1.12")
-        console.print("  aegis lookup --stig V-257874")
-        console.print("  aegis lookup --nist AC-3")
+        console.print("  kensa lookup 2.2.5")
+        console.print("  kensa lookup --cis 5.1.12")
+        console.print("  kensa lookup --stig V-257874")
+        console.print("  kensa lookup --nist AC-3")
         sys.exit(1)
 
     # Load all rules and search

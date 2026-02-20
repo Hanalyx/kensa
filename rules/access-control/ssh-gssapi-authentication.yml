@@ -50,7 +50,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-gssapi-authentication.conf"
+      file: "00-kensa-gssapi-authentication.conf"
       key: "GSSAPIAuthentication"
       value: "no"
       reload: "sshd"

@@ -506,11 +506,11 @@ All 12 controls are **Procedural**.
 
 ---
 
-## Mapping to Aegis Rule Categories
+## Mapping to Kensa Rule Categories
 
-Controls with **technical** applicability map to Aegis rules in these categories:
+Controls with **technical** applicability map to Kensa rules in these categories:
 
-| Aegis Category | Primary Control Families |
+| Kensa Category | Primary Control Families |
 |---------------|------------------------|
 | `access-control/` | AC-2, AC-3, AC-5, AC-6, AC-7 |
 | `audit/` | AU-2, AU-3, AU-4, AU-5, AU-9, AU-12 |

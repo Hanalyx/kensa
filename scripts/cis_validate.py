@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CIS benchmark validation and gap analysis (development tool).
 
-Compares Aegis CIS mappings against their declared control_ids manifests
+Compares Kensa CIS mappings against their declared control_ids manifests
 to identify gaps, validate completeness, and generate reports.  Works with
 or without external baseline files — when no baseline is present it falls
 back to extracting data directly from the mapping YAML.

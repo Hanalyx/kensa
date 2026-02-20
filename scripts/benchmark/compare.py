@@ -238,7 +238,7 @@ class CoverageDimension:
     """Framework coverage metrics for a tool.
 
     Attributes:
-        tool_name: Name of the tool (e.g., "aegis", "openscap").
+        tool_name: Name of the tool (e.g., "kensa", "openscap").
         controls_covered: Controls with results from this tool.
         total_framework: Total controls in framework mapping.
         coverage_percent: Percentage of framework controls covered.

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aegis.hanalyx.com/schema/rule/v0",
-  "title": "Aegis Canonical Rule Schema",
-  "description": "Schema for Aegis canonical compliance rules — version 0",
+  "$id": "https://kensa.hanalyx.com/schema/rule/v0",
+  "title": "Kensa Canonical Rule Schema",
+  "description": "Schema for Kensa canonical compliance rules — version 0",
   "version": "0.1.0",
   "type": "object",
   "required": ["id", "title", "description", "rationale", "severity", "category", "platforms", "implementations"],
@@ -29,7 +29,7 @@
     "severity": {
       "type": "string",
       "enum": ["critical", "high", "medium", "low"],
-      "description": "Aegis severity rating"
+      "description": "Kensa severity rating"
     },
     "category": {
       "type": "string",

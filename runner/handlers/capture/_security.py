@@ -36,7 +36,7 @@ def _capture_selinux_boolean_set(ssh: SSHSession, r: dict) -> PreState:
 def _capture_audit_rule_set(ssh: SSHSession, r: dict) -> PreState:
     """Capture audit rule state before adding."""
     rule = r["rule"]
-    persist_file = r.get("persist_file", "/etc/audit/rules.d/99-aegis.rules")
+    persist_file = r.get("persist_file", "/etc/audit/rules.d/99-kensa.rules")
 
     result = ssh.run("auditctl -l 2>/dev/null")
     rule_existed = result.ok and rule in result.stdout

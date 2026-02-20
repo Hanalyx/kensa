@@ -30,7 +30,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/systemd/coredump.conf.d"
-      file: "00-aegis-coredump.conf"
+      file: "00-kensa-coredump.conf"
       key: "Storage"
       value: "none"
       section: "[Coredump]"

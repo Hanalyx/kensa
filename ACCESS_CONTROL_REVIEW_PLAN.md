@@ -193,7 +193,7 @@ grep -n 'sshd_effective_config' runner/handlers/checks/__init__.py
 pytest tests/ -k ssh -v
 
 # Integration: test against a host
-./aegis check --inventory inventory.ini --sudo --limit <host> --rule rules/access-control/ssh-permit-empty-passwords.yml
+./kensa check --inventory inventory.ini --sudo --limit <host> --rule rules/access-control/ssh-permit-empty-passwords.yml
 ```
 
 ---
@@ -316,7 +316,7 @@ python scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9_v2.0.0.yaml
 python scripts/sync_cis_mappings.py --mapping mappings/cis/rhel8_v4.0.0.yaml
 
 # Coverage unchanged
-./aegis coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework cis-rhel9-v2.0.0
 ```
 
 ---
@@ -452,8 +452,8 @@ should use a capability-gated implementation that falls back to manual.
 
 ```bash
 # Test each fixed rule individually against a host
-./aegis check --rule rules/access-control/root-umask.yml --inventory inventory.ini --sudo --limit <host>
-./aegis check --rule rules/access-control/shell-timeout.yml --inventory inventory.ini --sudo --limit <host>
+./kensa check --rule rules/access-control/root-umask.yml --inventory inventory.ini --sudo --limit <host>
+./kensa check --rule rules/access-control/shell-timeout.yml --inventory inventory.ini --sudo --limit <host>
 ```
 
 ---
@@ -570,7 +570,7 @@ On authselect-managed systems, this edit will be overwritten.
 
 ```bash
 # Check ordering with dependencies
-./aegis list-frameworks
+./kensa list-frameworks
 pytest tests/ -k ordering -v
 ```
 
@@ -684,13 +684,13 @@ ruff check runner/ schema/ tests/
 mypy runner/ schema/ --ignore-missing-imports
 
 # 5. CIS coverage unchanged
-./aegis coverage --framework cis-rhel9-v2.0.0
-./aegis coverage --framework cis-rhel8-v4.0.0
+./kensa coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework cis-rhel8-v4.0.0
 
 # 6. Mapping sync clean
 python scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9_v2.0.0.yaml
 python scripts/sync_cis_mappings.py --mapping mappings/cis/rhel8_v4.0.0.yaml
 
 # 7. Integration test (on a real RHEL host)
-./aegis check --inventory inventory.ini --sudo --limit <host> --framework cis-rhel9-v2.0.0
+./kensa check --inventory inventory.ini --sudo --limit <host> --framework cis-rhel9-v2.0.0
 ```

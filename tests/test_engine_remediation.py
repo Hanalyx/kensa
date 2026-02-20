@@ -111,21 +111,21 @@ class TestConfigSetDropin:
         rem = {
             "mechanism": "config_set_dropin",
             "dir": "/etc/ssh/sshd_config.d",
-            "file": "00-aegis-test.conf",
+            "file": "00-kensa-test.conf",
             "key": "PermitRootLogin",
             "value": "no",
             "reload": "sshd",
         }
         ok, detail, _ = run_remediation(ssh, rem)
         assert ok is True
-        assert "00-aegis-test.conf" in detail
+        assert "00-kensa-test.conf" in detail
 
     def test_dry_run(self, mock_ssh):
         ssh = mock_ssh({})
         rem = {
             "mechanism": "config_set_dropin",
             "dir": "/etc/ssh/sshd_config.d",
-            "file": "00-aegis-test.conf",
+            "file": "00-kensa-test.conf",
             "key": "K",
             "value": "V",
         }
@@ -769,7 +769,7 @@ class TestRollbackSysctlSet:
             data={
                 "key": "net.ipv4.ip_forward",
                 "old_value": "1",
-                "persist_file": "/etc/sysctl.d/99-aegis-net-ipv4-ip-forward.conf",
+                "persist_file": "/etc/sysctl.d/99-kensa-net-ipv4-ip-forward.conf",
                 "old_persist": "net.ipv4.ip_forward = 1",
                 "persist_existed": True,
             },
@@ -790,7 +790,7 @@ class TestRollbackSysctlSet:
             data={
                 "key": "net.ipv4.ip_forward",
                 "old_value": "1",
-                "persist_file": "/etc/sysctl.d/99-aegis-net-ipv4-ip-forward.conf",
+                "persist_file": "/etc/sysctl.d/99-kensa-net-ipv4-ip-forward.conf",
                 "old_persist": None,
                 "persist_existed": False,
             },

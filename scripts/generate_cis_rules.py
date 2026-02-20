@@ -1395,7 +1395,7 @@ def gen_ssh_rule(
             "    remediation:",
             "      mechanism: config_set_dropin",
             '      dir: "/etc/ssh/sshd_config.d"',
-            '      file: "99-aegis.conf"',
+            '      file: "99-kensa.conf"',
             f'      key: "{directive}"',
             f'      value: "{expected}"',
         ]

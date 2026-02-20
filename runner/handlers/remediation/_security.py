@@ -62,7 +62,7 @@ def _remediate_audit_rule_set(
 
     """
     rule = r["rule"]
-    persist_file = r.get("persist_file", "/etc/audit/rules.d/99-aegis.rules")
+    persist_file = r.get("persist_file", "/etc/audit/rules.d/99-kensa.rules")
 
     if dry_run:
         return True, f"Would add audit rule and persist to {persist_file}"

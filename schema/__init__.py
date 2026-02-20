@@ -1,1 +1,1 @@
-"""Aegis schema validation package."""
+"""Kensa schema validation package."""

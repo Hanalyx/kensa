@@ -80,7 +80,7 @@ and is silently ignored, meaning these rules do NOT verify the service is runnin
 
 ```bash
 pytest tests/ -v -k "service"
-./aegis check --inventory inventory.ini --sudo --limit <host> --rule auditd-service-enabled
+./kensa check --inventory inventory.ini --sudo --limit <host> --rule auditd-service-enabled
 ```
 
 ---
@@ -171,7 +171,7 @@ Then:
 
 ```bash
 pytest tests/ -v
-./aegis coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework cis-rhel9-v2.0.0
 ```
 
 ---
@@ -334,7 +334,7 @@ change without confirming the intent.
 
 ```bash
 pytest tests/ -v
-./aegis check --inventory inventory.ini --sudo --limit <host> --rule aide-scheduled
+./kensa check --inventory inventory.ini --sudo --limit <host> --rule aide-scheduled
 ```
 
 ---
@@ -374,7 +374,7 @@ cross-reference mappings and add missing references.
 
 ```bash
 python scripts/cis_validate.py --mapping cis-rhel9-v2.0.0
-./aegis coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework cis-rhel9-v2.0.0
 ```
 
 ---

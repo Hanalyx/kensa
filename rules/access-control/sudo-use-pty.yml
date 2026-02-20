@@ -38,5 +38,5 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       directory: "/etc/sudoers.d"
-      filename: "00-aegis-use-pty"
+      filename: "00-kensa-use-pty"
       content: "Defaults use_pty"

@@ -81,22 +81,20 @@ class TestINIInventory:
 
     def test_groups_tracked(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text("[web]\n" "server1\n" "\n" "[app]\n" "server1\n")
+        ini.write_text("[web]\nserver1\n\n[app]\nserver1\n")
         hosts = resolve_targets(inventory=str(ini))
         assert len(hosts) == 1
         assert set(hosts[0].groups) == {"web", "app"}
 
     def test_comments_ignored(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text(
-            "# This is a comment\n" "[servers]\n" "host1  # inline comment\n"
-        )
+        ini.write_text("# This is a comment\n[servers]\nhost1  # inline comment\n")
         hosts = resolve_targets(inventory=str(ini))
         assert len(hosts) == 1
 
     def test_inventory_vars_override_defaults(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text("[servers]\n" "host1 user=deploy\n")
+        ini.write_text("[servers]\nhost1 user=deploy\n")
         hosts = resolve_targets(
             inventory=str(ini),
             default_user="admin",
@@ -106,7 +104,7 @@ class TestINIInventory:
 
     def test_defaults_fill_gaps(self, tmp_path):
         ini = tmp_path / "inventory.ini"
-        ini.write_text("[servers]\n" "host1 user=deploy\n")
+        ini.write_text("[servers]\nhost1 user=deploy\n")
         hosts = resolve_targets(
             inventory=str(ini),
             default_user="admin",
@@ -153,9 +151,7 @@ class TestYAMLInventory:
 
     def test_yaml_groups(self, tmp_path):
         inv = tmp_path / "inventory.yml"
-        inv.write_text(
-            "all:\n" "  children:\n" "    web:\n" "      hosts:\n" "        server1:\n"
-        )
+        inv.write_text("all:\n  children:\n    web:\n      hosts:\n        server1:\n")
         hosts = resolve_targets(inventory=str(inv))
         assert "web" in hosts[0].groups
 
@@ -169,7 +165,7 @@ class TestPlainTextHostList:
 
     def test_blank_lines_and_comments(self, tmp_path):
         f = tmp_path / "hosts.txt"
-        f.write_text("# Servers\n" "10.0.0.1\n" "\n" "10.0.0.2  # web\n" "\n")
+        f.write_text("# Servers\n10.0.0.1\n\n10.0.0.2  # web\n\n")
         hosts = resolve_targets(inventory=str(f))
         assert len(hosts) == 2
 

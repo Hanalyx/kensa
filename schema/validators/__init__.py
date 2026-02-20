@@ -1,4 +1,4 @@
-"""Validation modules for Aegis rule and mapping files.
+"""Validation modules for Kensa rule and mapping files.
 
 This package contains modular validators for different validation types:
 - rule: Per-rule YAML validation (schema + business rules)

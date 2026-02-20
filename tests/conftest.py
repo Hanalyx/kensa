@@ -1,4 +1,4 @@
-"""Shared fixtures for aegis test suite."""
+"""Shared fixtures for kensa test suite."""
 
 from __future__ import annotations
 
@@ -147,7 +147,7 @@ def sample_rule_gated():
                 "remediation": {
                     "mechanism": "config_set_dropin",
                     "dir": "/etc/ssh/sshd_config.d",
-                    "file": "00-aegis-permit-root-login.conf",
+                    "file": "00-kensa-permit-root-login.conf",
                     "key": "PermitRootLogin",
                     "value": "no",
                     "reload": "sshd",

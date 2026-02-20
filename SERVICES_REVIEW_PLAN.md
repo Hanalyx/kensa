@@ -437,6 +437,6 @@ python scripts/cis_validate.py --mapping cis-rhel9-v2.0.0
 python scripts/cis_validate.py --mapping cis-rhel8-v4.0.0
 
 # Coverage
-./aegis coverage --framework cis-rhel9-v2.0.0
-./aegis coverage --framework stig-rhel9-v2r7
+./kensa coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework stig-rhel9-v2r7
 ```

@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""CLI entry point for the Aegis benchmarking framework.
+"""CLI entry point for the Kensa benchmarking framework.
 
 Usage:
     # Single-host mode (backward compatible)
     python -m scripts.benchmark.benchmark_cli \\
-        --aegis results/aegis-211.json \\
+        --kensa results/kensa-211.json \\
         --openscap results/openscap/rhel9-211.xml \\
         --framework cis-rhel9-v2.0.0 \\
         --output benchmark-report.md
 
     # Multi-host mode
     python -m scripts.benchmark.benchmark_cli \\
-        --pair rhel9-211:results/aegis-211.json:results/openscap/rhel9-211.xml \\
-        --pair rhel9-213:results/aegis-213.json:results/openscap/rhel9-213.xml \\
+        --pair rhel9-211:results/kensa-211.json:results/openscap/rhel9-211.xml \\
+        --pair rhel9-213:results/kensa-213.json:results/openscap/rhel9-213.xml \\
         --framework cis-rhel9-v2.0.0 \\
         --output benchmark-multihost.md
 """
@@ -28,7 +28,7 @@ _project_root = str(Path(__file__).resolve().parent.parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from scripts.benchmark.adapters.aegis_adapter import AegisAdapter
+from scripts.benchmark.adapters.kensa_adapter import KensaAdapter
 from scripts.benchmark.adapters.base import ToolControlResult
 from scripts.benchmark.adapters.openscap_adapter import OpenSCAPAdapter
 from scripts.benchmark.compare import (
@@ -100,13 +100,13 @@ def _load_framework_total(framework: str) -> int:
 
 
 def _parse_pair(pair_str: str) -> tuple[str, str, str]:
-    """Parse a --pair argument into (name, aegis_path, openscap_path).
+    """Parse a --pair argument into (name, kensa_path, openscap_path).
 
     Args:
-        pair_str: Colon-separated string "name:aegis_path:openscap_path".
+        pair_str: Colon-separated string "name:kensa_path:openscap_path".
 
     Returns:
-        Tuple of (name, aegis_path, openscap_path).
+        Tuple of (name, kensa_path, openscap_path).
 
     Raises:
         argparse.ArgumentTypeError: If format is invalid.
@@ -116,17 +116,17 @@ def _parse_pair(pair_str: str) -> tuple[str, str, str]:
     if len(parts) != 3:
         raise argparse.ArgumentTypeError(
             f"Invalid --pair format: '{pair_str}'. "
-            "Expected name:aegis_path:openscap_path"
+            "Expected name:kensa_path:openscap_path"
         )
     return parts[0], parts[1], parts[2]
 
 
 def _run_single_host(args: argparse.Namespace) -> int:
     """Run single-host comparison (Phase 1 backward compat)."""
-    print("Parsing Aegis results...", file=sys.stderr)
-    aegis = AegisAdapter()
-    aegis_results = aegis.parse(args.aegis)
-    print(f"  {len(aegis_results)} controls", file=sys.stderr)
+    print("Parsing Kensa results...", file=sys.stderr)
+    kensa = KensaAdapter()
+    kensa_results = kensa.parse(args.kensa)
+    print(f"  {len(kensa_results)} controls", file=sys.stderr)
 
     print("Parsing OpenSCAP results...", file=sys.stderr)
     openscap = OpenSCAPAdapter()
@@ -136,7 +136,7 @@ def _run_single_host(args: argparse.Namespace) -> int:
     control_titles = _load_control_titles(args.framework) if args.framework else {}
 
     tool_results: dict[str, dict[str, ToolControlResult]] = {
-        "aegis": aegis_results,
+        "kensa": kensa_results,
         "openscap": openscap_results,
     }
     comparisons = compare_at_control_level(
@@ -176,21 +176,21 @@ def _run_multi_host(args: argparse.Namespace) -> int:
 
     known_errors = _load_known_errors(args.known_errors)
 
-    aegis = AegisAdapter()
+    kensa = KensaAdapter()
     openscap = OpenSCAPAdapter()
     host_comparisons: list[HostComparison] = []
 
-    for name, aegis_path, openscap_path in pairs:
+    for name, kensa_path, openscap_path in pairs:
         print(f"Processing {name}...", file=sys.stderr)
 
-        aegis_results = aegis.parse(aegis_path)
-        print(f"  Aegis: {len(aegis_results)} controls", file=sys.stderr)
+        kensa_results = kensa.parse(kensa_path)
+        print(f"  Kensa: {len(kensa_results)} controls", file=sys.stderr)
 
         openscap_results = openscap.parse(openscap_path)
         print(f"  OpenSCAP: {len(openscap_results)} controls", file=sys.stderr)
 
         tool_results: dict[str, dict[str, ToolControlResult]] = {
-            "aegis": aegis_results,
+            "kensa": kensa_results,
             "openscap": openscap_results,
         }
         comparisons = compare_at_control_level(
@@ -205,19 +205,19 @@ def _run_multi_host(args: argparse.Namespace) -> int:
         coverage: dict = {}
         if framework_total > 0:
             # Determine exclusive IDs
-            aegis_ids = set(aegis_results.keys())
+            kensa_ids = set(kensa_results.keys())
             openscap_ids = set(openscap_results.keys())
-            coverage["aegis"] = compute_coverage(
-                aegis_results,
+            coverage["kensa"] = compute_coverage(
+                kensa_results,
                 framework_total,
-                "aegis",
-                exclusive_ids=aegis_ids - openscap_ids,
+                "kensa",
+                exclusive_ids=kensa_ids - openscap_ids,
             )
             coverage["openscap"] = compute_coverage(
                 openscap_results,
                 framework_total,
                 "openscap",
-                exclusive_ids=openscap_ids - aegis_ids,
+                exclusive_ids=openscap_ids - kensa_ids,
             )
 
         # Derive platform from name (e.g., "rhel9-211" -> "rhel9")
@@ -239,27 +239,27 @@ def _run_multi_host(args: argparse.Namespace) -> int:
     # Aggregate coverage (union across hosts)
     agg_coverage: dict = {}
     if framework_total > 0:
-        all_aegis: dict[str, ToolControlResult] = {}
+        all_kensa: dict[str, ToolControlResult] = {}
         all_openscap: dict[str, ToolControlResult] = {}
-        for name, aegis_path, _ in pairs:
-            for cid, r in aegis.parse(aegis_path).items():
-                if cid not in all_aegis:
-                    all_aegis[cid] = r
+        for name, kensa_path, _ in pairs:
+            for cid, r in kensa.parse(kensa_path).items():
+                if cid not in all_kensa:
+                    all_kensa[cid] = r
         for name, _, openscap_path in pairs:
             for cid, r in openscap.parse(openscap_path).items():
                 if cid not in all_openscap:
                     all_openscap[cid] = r
-        agg_coverage["aegis"] = compute_coverage(
-            all_aegis,
+        agg_coverage["kensa"] = compute_coverage(
+            all_kensa,
             framework_total,
-            "aegis",
-            exclusive_ids=set(all_aegis.keys()) - set(all_openscap.keys()),
+            "kensa",
+            exclusive_ids=set(all_kensa.keys()) - set(all_openscap.keys()),
         )
         agg_coverage["openscap"] = compute_coverage(
             all_openscap,
             framework_total,
             "openscap",
-            exclusive_ids=set(all_openscap.keys()) - set(all_aegis.keys()),
+            exclusive_ids=set(all_openscap.keys()) - set(all_kensa.keys()),
         )
 
     result = MultiHostResult(
@@ -351,13 +351,13 @@ def main(argv: list[str] | None = None) -> int:
 
     """
     parser = argparse.ArgumentParser(
-        description="Aegis Benchmarking Framework — Control-level comparison",
+        description="Kensa Benchmarking Framework — Control-level comparison",
     )
     # Single-host args (backward compatible)
     parser.add_argument(
-        "--aegis",
+        "--kensa",
         default="",
-        help="Path to Aegis JSON results file (single-host mode)",
+        help="Path to Kensa JSON results file (single-host mode)",
     )
     parser.add_argument(
         "--openscap",
@@ -370,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         default=[],
         help=(
-            "Host pair as name:aegis_path:openscap_path (repeatable, multi-host mode)"
+            "Host pair as name:kensa_path:openscap_path (repeatable, multi-host mode)"
         ),
     )
     # Common args
@@ -406,22 +406,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    # Validate: --pair and --aegis/--openscap are mutually exclusive
-    has_single = bool(args.aegis or args.openscap)
+    # Validate: --pair and --kensa/--openscap are mutually exclusive
+    has_single = bool(args.kensa or args.openscap)
     has_multi = bool(args.pair)
 
     if has_single and has_multi:
-        parser.error("--pair and --aegis/--openscap are mutually exclusive")
+        parser.error("--pair and --kensa/--openscap are mutually exclusive")
 
     if has_multi:
         return _run_multi_host(args)
 
     if has_single:
-        if not args.aegis or not args.openscap:
-            parser.error("--aegis and --openscap are both required in single-host mode")
+        if not args.kensa or not args.openscap:
+            parser.error("--kensa and --openscap are both required in single-host mode")
         return _run_single_host(args)
 
-    parser.error("Either --pair or --aegis/--openscap is required")
+    parser.error("Either --pair or --kensa/--openscap is required")
     return 1  # unreachable
 
 

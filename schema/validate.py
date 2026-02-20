@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aegis Validation Orchestrator.
+"""Kensa Validation Orchestrator.
 
 Validates rule files, mapping files, and cross-rule dependencies.
 
@@ -169,7 +169,7 @@ def render_github(
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Validate Aegis rule and mapping files",
+        description="Validate Kensa rule and mapping files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

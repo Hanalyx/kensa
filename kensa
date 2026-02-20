@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aegis entry point."""
+"""Kensa entry point."""
 
 from runner.cli import main
 

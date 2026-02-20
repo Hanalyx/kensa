@@ -48,7 +48,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-permit-root-login.conf"
+      file: "00-kensa-permit-root-login.conf"
       key: "PermitRootLogin"
       value: "no"
       reload: "sshd"

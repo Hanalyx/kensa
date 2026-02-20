@@ -1,7 +1,7 @@
-"""Path utilities for locating Aegis resources.
+"""Path utilities for locating Kensa resources.
 
 This module provides functions to locate rules and schema files whether
-Aegis is run from source or installed as a package.
+Kensa is run from source or installed as a package.
 
 Example:
 -------
@@ -21,7 +21,7 @@ from pathlib import Path
 
 
 def _find_package_data_dir() -> Path | None:
-    """Find the package data directory for installed Aegis.
+    """Find the package data directory for installed Kensa.
 
     Checks common installation locations for shared data.
 
@@ -38,7 +38,7 @@ def _find_package_data_dir() -> Path | None:
     ]
 
     for prefix in prefixes:
-        data_dir = Path(prefix) / "share" / "aegis"
+        data_dir = Path(prefix) / "share" / "kensa"
         if data_dir.exists():
             return data_dir
 
@@ -46,10 +46,10 @@ def _find_package_data_dir() -> Path | None:
 
 
 def get_rules_path(subpath: str = "") -> Path:
-    """Get the path to Aegis rules directory.
+    """Get the path to Kensa rules directory.
 
     Checks locations in order:
-    1. AEGIS_RULES_PATH environment variable
+    1. KENSA_RULES_PATH environment variable
     2. ./rules relative to current directory (development)
     3. Installed package data location
 
@@ -69,7 +69,7 @@ def get_rules_path(subpath: str = "") -> Path:
 
     """
     # 1. Environment variable override
-    if env_path := os.environ.get("AEGIS_RULES_PATH"):
+    if env_path := os.environ.get("KENSA_RULES_PATH"):
         rules_dir = Path(env_path)
         if rules_dir.exists():
             return rules_dir / subpath if subpath else rules_dir
@@ -91,17 +91,17 @@ def get_rules_path(subpath: str = "") -> Path:
             return installed_rules / subpath if subpath else installed_rules
 
     msg = (
-        "Cannot locate Aegis rules directory. "
-        "Set AEGIS_RULES_PATH environment variable or run from source directory."
+        "Cannot locate Kensa rules directory. "
+        "Set KENSA_RULES_PATH environment variable or run from source directory."
     )
     raise FileNotFoundError(msg)
 
 
 def get_schema_path(filename: str = "rule.schema.json") -> Path:
-    """Get the path to Aegis schema files.
+    """Get the path to Kensa schema files.
 
     Checks locations in order:
-    1. AEGIS_SCHEMA_PATH environment variable
+    1. KENSA_SCHEMA_PATH environment variable
     2. ./schema relative to current directory (development)
     3. Installed package data location
 
@@ -116,7 +116,7 @@ def get_schema_path(filename: str = "rule.schema.json") -> Path:
 
     """
     # 1. Environment variable override
-    if env_path := os.environ.get("AEGIS_SCHEMA_PATH"):
+    if env_path := os.environ.get("KENSA_SCHEMA_PATH"):
         schema_dir = Path(env_path)
         if schema_dir.exists():
             return schema_dir / filename
@@ -138,20 +138,20 @@ def get_schema_path(filename: str = "rule.schema.json") -> Path:
             return installed_schema / filename
 
     msg = (
-        "Cannot locate Aegis schema directory. "
-        "Set AEGIS_SCHEMA_PATH environment variable or run from source directory."
+        "Cannot locate Kensa schema directory. "
+        "Set KENSA_SCHEMA_PATH environment variable or run from source directory."
     )
     raise FileNotFoundError(msg)
 
 
 def get_config_path(subpath: str = "") -> Path:
-    """Get the path to Aegis configuration directory.
+    """Get the path to Kensa configuration directory.
 
     Checks locations in order:
-    1. AEGIS_CONFIG_PATH environment variable
+    1. KENSA_CONFIG_PATH environment variable
     2. ./config relative to current directory (development)
     3. ./config relative to source tree (runner/../config/)
-    4. /etc/aegis/ (installed)
+    4. /etc/kensa/ (installed)
 
     Args:
         subpath: Optional subdirectory or file within config (e.g., "defaults.yml").
@@ -164,7 +164,7 @@ def get_config_path(subpath: str = "") -> Path:
 
     """
     # 1. Environment variable override
-    if env_path := os.environ.get("AEGIS_CONFIG_PATH"):
+    if env_path := os.environ.get("KENSA_CONFIG_PATH"):
         config_dir = Path(env_path)
         if config_dir.exists():
             return config_dir / subpath if subpath else config_dir
@@ -179,23 +179,23 @@ def get_config_path(subpath: str = "") -> Path:
     if source_config.exists():
         return source_config / subpath if subpath else source_config
 
-    # 4. Installed: /etc/aegis/
-    etc_config = Path("/etc/aegis")
+    # 4. Installed: /etc/kensa/
+    etc_config = Path("/etc/kensa")
     if etc_config.exists():
         return etc_config / subpath if subpath else etc_config
 
     msg = (
-        "Cannot locate Aegis config directory. "
-        "Set AEGIS_CONFIG_PATH environment variable or run from source directory."
+        "Cannot locate Kensa config directory. "
+        "Set KENSA_CONFIG_PATH environment variable or run from source directory."
     )
     raise FileNotFoundError(msg)
 
 
 def get_mappings_path(subpath: str = "") -> Path:
-    """Get the path to Aegis mappings directory.
+    """Get the path to Kensa mappings directory.
 
     Checks locations in order:
-    1. AEGIS_MAPPINGS_PATH environment variable
+    1. KENSA_MAPPINGS_PATH environment variable
     2. ./mappings relative to current directory (development)
     3. ./mappings relative to source tree (runner/../mappings/)
     4. Installed package data location
@@ -211,7 +211,7 @@ def get_mappings_path(subpath: str = "") -> Path:
 
     """
     # 1. Environment variable override
-    if env_path := os.environ.get("AEGIS_MAPPINGS_PATH"):
+    if env_path := os.environ.get("KENSA_MAPPINGS_PATH"):
         mappings_dir = Path(env_path)
         if mappings_dir.exists():
             return mappings_dir / subpath if subpath else mappings_dir
@@ -233,26 +233,26 @@ def get_mappings_path(subpath: str = "") -> Path:
             return installed_mappings / subpath if subpath else installed_mappings
 
     msg = (
-        "Cannot locate Aegis mappings directory. "
-        "Set AEGIS_MAPPINGS_PATH environment variable or run from source directory."
+        "Cannot locate Kensa mappings directory. "
+        "Set KENSA_MAPPINGS_PATH environment variable or run from source directory."
     )
     raise FileNotFoundError(msg)
 
 
 def get_inventory_path() -> Path | None:
-    """Get the path to an Aegis inventory file.
+    """Get the path to an Kensa inventory file.
 
     Checks locations in order:
-    1. AEGIS_INVENTORY_PATH environment variable
+    1. KENSA_INVENTORY_PATH environment variable
     2. ./inventory.yml or ./inventory.ini relative to cwd
-    3. /etc/aegis/inventory.yml or /etc/aegis/inventory.ini (installed)
+    3. /etc/kensa/inventory.yml or /etc/kensa/inventory.ini (installed)
 
     Returns:
         Path to inventory file, or None if not found.
 
     """
     # 1. Environment variable override
-    if env_path := os.environ.get("AEGIS_INVENTORY_PATH"):
+    if env_path := os.environ.get("KENSA_INVENTORY_PATH"):
         inv_path = Path(env_path)
         if inv_path.exists():
             return inv_path
@@ -263,9 +263,9 @@ def get_inventory_path() -> Path | None:
         if local_inv.exists():
             return local_inv
 
-    # 3. Installed: /etc/aegis/
+    # 3. Installed: /etc/kensa/
     for name in ("inventory.yml", "inventory.ini"):
-        etc_inv = Path("/etc/aegis") / name
+        etc_inv = Path("/etc/kensa") / name
         if etc_inv.exists():
             return etc_inv
 
@@ -273,7 +273,7 @@ def get_inventory_path() -> Path | None:
 
 
 def get_version() -> str:
-    """Get the installed Aegis version.
+    """Get the installed Kensa version.
 
     Returns:
         Version string (e.g., "1.0.0") or "dev" if not installed.
@@ -282,6 +282,6 @@ def get_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("aegis")
+        return version("kensa")
     except Exception:
         return "dev"

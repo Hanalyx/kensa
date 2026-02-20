@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Helper script to map CIS controls to Aegis rules.
+"""Helper script to map CIS controls to Kensa rules.
 
 Usage:
     python3 scripts/map_cis_controls.py --analyze [--rhel8|--rhel9]
@@ -764,7 +764,7 @@ def analyze_controls(benchmark: str = "cis-rhel9"):
     mapping = load_current_mapping(config["mapping"])
 
     print(f"{benchmark.upper()} controls: {len(controls)}")
-    print(f"Total Aegis rules: {len(rules)}")
+    print(f"Total Kensa rules: {len(rules)}")
     print(f"Currently mapped: {len(mapping['mapped'])}")
     print(f"Currently unimplemented: {len(mapping['unimplemented_set'])}")
     print()

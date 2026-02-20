@@ -32,4 +32,4 @@ implementations:
       mechanism: sysctl_set
       key: "fs.protected_symlinks"
       value: "1"
-      persist_file: "/etc/sysctl.d/99-aegis-symlink.conf"
+      persist_file: "/etc/sysctl.d/99-kensa-symlink.conf"

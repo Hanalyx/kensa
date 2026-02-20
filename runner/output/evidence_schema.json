@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aegis.hanalyx.dev/schemas/evidence-export/1.0.0",
-  "title": "AEGIS Evidence Export",
+  "$id": "https://kensa.hanalyx.dev/schemas/evidence-export/1.0.0",
+  "title": "KENSA Evidence Export",
   "description": "Structured compliance evidence for OpenWatch integration and audit purposes",
   "type": "object",
   "required": ["version", "session", "host", "results"],

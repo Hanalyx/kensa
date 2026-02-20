@@ -1,5 +1,5 @@
 # CIS Red Hat Enterprise Linux 8 Benchmark v4.0.0
-# Maps CIS sections to Aegis canonical rules
+# Maps CIS sections to Kensa canonical rules
 
 id: cis-rhel8-v4.0.0
 framework: cis

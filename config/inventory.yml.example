@@ -1,10 +1,10 @@
-# Aegis Inventory File — Example
+# Kensa Inventory File — Example
 #
-# This file defines the hosts that Aegis will scan. It can be specified
-# with the -i/--inventory flag, or placed at /etc/aegis/inventory.yml
+# This file defines the hosts that Kensa will scan. It can be specified
+# with the -i/--inventory flag, or placed at /etc/kensa/inventory.yml
 # for automatic discovery.
 #
-# Aegis supports two inventory formats: YAML (this file) and INI
+# Kensa supports two inventory formats: YAML (this file) and INI
 # (Ansible-compatible). Use whichever you prefer.
 #
 # ── YAML Format ──────────────────────────────────────────────────────────
@@ -47,13 +47,13 @@
 # ── Usage ────────────────────────────────────────────────────────────────
 #
 # Explicit:
-#   aegis check -i /etc/aegis/inventory.yml --sudo -r rules/
+#   kensa check -i /etc/kensa/inventory.yml --sudo -r rules/
 #
-# Auto-discovery (when installed at /etc/aegis/inventory.yml):
-#   aegis check --sudo -r rules/
+# Auto-discovery (when installed at /etc/kensa/inventory.yml):
+#   kensa check --sudo -r rules/
 #
 # With group filtering:
-#   aegis check -i inventory.yml -l web_servers --sudo -r rules/
+#   kensa check -i inventory.yml -l web_servers --sudo -r rules/
 #
 # ── Notes ────────────────────────────────────────────────────────────────
 #

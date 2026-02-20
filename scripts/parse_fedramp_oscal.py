@@ -8,7 +8,7 @@ Downloads and parses:
 1. FedRAMP Moderate Rev 5 OSCAL profile (control selections)
 2. NIST SP 800-53 Rev 5 OSCAL catalog (control titles)
 
-Outputs a curated YAML reference file for use by Aegis.
+Outputs a curated YAML reference file for use by Kensa.
 
 Usage:
     # From local files:

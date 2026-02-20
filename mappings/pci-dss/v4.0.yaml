@@ -1,6 +1,6 @@
-# PCI DSS v4.0 Control Mapping for Aegis
+# PCI DSS v4.0 Control Mapping for Kensa
 #
-# This mapping associates PCI DSS 4.0 requirements with Aegis rules.
+# This mapping associates PCI DSS 4.0 requirements with Kensa rules.
 # PCI DSS requirements are mapped to technical controls that can be
 # verified through automated checks.
 #

@@ -2,14 +2,14 @@
 
 ## Overview
 
-Enable AEGIS to serve as the canonical evidence source for OpenWatch, supporting claims 7-11 of the OpenWatch positioning framework.
+Enable KENSA to serve as the canonical evidence source for OpenWatch, supporting claims 7-11 of the OpenWatch positioning framework.
 
 ## Goals
 
 | Claim | Goal | Success Criteria |
 |-------|------|------------------|
 | 7 | Posture queryable at any point in time | Evidence captured with raw output, queryable by time range |
-| 8 | Exceptions are explicit state | Exception model designed, AEGIS emits data OpenWatch needs |
+| 8 | Exceptions are explicit state | Exception model designed, KENSA emits data OpenWatch needs |
 | 10 | Frameworks are views, not authorities | 3+ framework families mapped to same canonical rules |
 | 11 | Audits are queries over canonical evidence | Structured evidence output contract for OpenWatch API |
 
@@ -237,7 +237,7 @@ def get_framework_refs(self, result_id: int) -> dict[str, str]:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AEGIS Evidence Export",
+  "title": "KENSA Evidence Export",
   "type": "object",
   "required": ["version", "session", "host", "results"],
   "properties": {
@@ -311,7 +311,7 @@ def get_framework_refs(self, result_id: int) -> dict[str, str]:
 
 **Usage:**
 ```bash
-./aegis check -i inventory.ini --sudo -r rules/ -o evidence:results.json
+./kensa check -i inventory.ini --sudo -r rules/ -o evidence:results.json
 ```
 
 **File:** `runner/output/evidence_fmt.py`
@@ -379,15 +379,15 @@ PCI-DSS requirements map heavily to existing controls:
 | 10.2.1 | Audit logging | auditd-*, audit-* |
 | 10.3.1 | Audit log integrity | audit-log-permissions |
 
-**Estimated rules mapped:** ~80-100 (60%+ of AEGIS rules)
+**Estimated rules mapped:** ~80-100 (60%+ of KENSA rules)
 
 ### 4.2 Add FedRAMP Mapping (via NIST 800-53)
 
 **File:** `mappings/fedramp/moderate.yaml`
 
-FedRAMP Moderate baseline inherits NIST 800-53 controls. AEGIS rules already reference NIST 800-53.
+FedRAMP Moderate baseline inherits NIST 800-53 controls. KENSA rules already reference NIST 800-53.
 
-| Control Family | AEGIS Coverage |
+| Control Family | KENSA Coverage |
 |---------------|----------------|
 | AC (Access Control) | ssh-*, pam-*, sudo-* |
 | AU (Audit) | audit-*, auditd-* |
@@ -444,7 +444,7 @@ mappings/
 
 ### 5.1 Recommendation: OpenWatch Owns Exception State
 
-AEGIS remains a pure measurement engine. It reports:
+KENSA remains a pure measurement engine. It reports:
 - Pass/fail based on technical check
 - Host metadata for exception matching
 - All framework references
@@ -455,7 +455,7 @@ OpenWatch manages:
 - Expiration tracking
 - POA&M linkage
 
-### 5.2 AEGIS Requirements for Exception Support
+### 5.2 KENSA Requirements for Exception Support
 
 **Host metadata emission:**
 
@@ -491,7 +491,7 @@ bastion-01 ansible_host=192.168.1.5 tags=production,bastion,emergency-access
 **OpenWatch exception rule (example):**
 
 ```yaml
-# In OpenWatch, not AEGIS
+# In OpenWatch, not KENSA
 exceptions:
   - id: EXC-2024-0142
     rule_id: ssh-disable-root-login
@@ -505,9 +505,9 @@ exceptions:
     poam_ref: "POA&M-2024-0142"
 ```
 
-### 5.3 Future: AEGIS-Side Exception Hints (Optional)
+### 5.3 Future: KENSA-Side Exception Hints (Optional)
 
-If needed later, AEGIS could support exception hints in rules:
+If needed later, KENSA could support exception hints in rules:
 
 ```yaml
 # In rule YAML
@@ -549,7 +549,7 @@ This is informational only - OpenWatch still controls exception state.
 - [ ] Create PCI-DSS v4.0 mapping (~100 rules)
 - [ ] Generate FedRAMP Moderate mapping from NIST refs
 - [ ] Create Rocky Linux 9 / AlmaLinux 9 mappings (copy + adjust)
-- [ ] Update `aegis coverage` to report all frameworks
+- [ ] Update `kensa coverage` to report all frameworks
 
 ### Phase 5: Exception Design (Week 4)
 

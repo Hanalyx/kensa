@@ -30,7 +30,7 @@ This has several problems:
 Create a **separate mapping layer** that lives alongside rules. Each framework version gets its own mapping file that maps framework identifiers → canonical rule IDs.
 
 ```
-aegis/
+kensa/
   mappings/
     cis/
       rhel8_v3.0.0.yaml
@@ -141,20 +141,20 @@ controls:
 
 ```bash
 # Check against CIS RHEL 9 v2.0.0 specifically
-./aegis check --host 192.168.1.211 --framework cis-rhel9-v2.0.0
+./kensa check --host 192.168.1.211 --framework cis-rhel9-v2.0.0
 
 # Check against all applicable frameworks (based on detected platform)
-./aegis check --host 192.168.1.211 --framework auto
+./kensa check --host 192.168.1.211 --framework auto
 
 # Check specific STIG
-./aegis check --host 192.168.1.211 --framework stig-rhel9-v2r7
+./kensa check --host 192.168.1.211 --framework stig-rhel9-v2r7
 ```
 
 ### Framework-Ordered Output
 
 ```bash
 # Output in CIS section order
-./aegis check --host 192.168.1.211 --framework cis-rhel9-v2.0.0 --output table
+./kensa check --host 192.168.1.211 --framework cis-rhel9-v2.0.0 --output table
 
 Section   Title                              Status  Detail
 ────────────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ Section   Title                              Status  Detail
 
 ```bash
 # Show which framework sections have rules vs gaps
-./aegis coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework cis-rhel9-v2.0.0
 
 CIS RHEL 9 v2.0.0 Coverage
 ──────────────────────────
@@ -188,7 +188,7 @@ Missing sections (need rules or explicit skip):
 
 ```bash
 # Which rules satisfy NIST AC-6?
-./aegis query --control "nist:AC-6"
+./kensa query --control "nist:AC-6"
 
 NIST 800-53 AC-6 — Least Privilege
 Rules implementing this control:
@@ -241,7 +241,7 @@ The existing `references:` block in rules can remain for human readability and b
 - [x] `--framework <id>` filters rules to those in the mapping
 - [ ] `--framework auto` selects mappings matching detected platform (deferred)
 - [ ] Output respects framework section ordering (CIS 1.1.1 before 5.2.3) (deferred)
-- [x] `./aegis coverage --framework <id>` shows implemented/unimplemented/missing
+- [x] `./kensa coverage --framework <id>` shows implemented/unimplemented/missing
 - [x] Adding CIS RHEL 10 requires only a new mapping file (no rule changes)
 - [ ] Cross-reference queries work: "which rules map to NIST AC-6?" (deferred)
 - [x] Mapping validation: warn if mapping references non-existent rule ID

@@ -1,4 +1,4 @@
-You are helping a developer work with the Aegis CIS benchmark mappings.
+You are helping a developer work with the Kensa CIS benchmark mappings.
 
 ## Context Files
 
@@ -6,8 +6,8 @@ Read these files first to understand the current state:
 
 1. **RHEL 9 baseline reference**: `context/cis/rhel9-v2.0.0-baseline.yaml` — authoritative list of all 244 CIS RHEL 9 v2.0.0 controls
 2. **RHEL 8 baseline reference**: `context/cis/rhel8-v4.0.0-baseline.yaml` — authoritative list of all 311 CIS RHEL 8 v4.0.0 controls
-3. **RHEL 9 mapping**: `mappings/cis/rhel9_v2.0.0.yaml` — Aegis mapping file linking CIS sections to rules
-4. **RHEL 8 mapping**: `mappings/cis/rhel8_v4.0.0.yaml` — Aegis mapping file linking CIS sections to rules
+3. **RHEL 9 mapping**: `mappings/cis/rhel9_v2.0.0.yaml` — Kensa mapping file linking CIS sections to rules
+4. **RHEL 8 mapping**: `mappings/cis/rhel8_v4.0.0.yaml` — Kensa mapping file linking CIS sections to rules
 
 Then run the validation script to get the current gap analysis:
 

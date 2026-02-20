@@ -1,6 +1,6 @@
 # Canonical Rule Schema Specification — Version 0
 
-**Project:** Aegis
+**Project:** Kensa
 **Date:** 2026-02-04
 **Status:** Draft
 **Companion:** TECHNICAL_REMEDIATION_MP_V0.md
@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-This document defines the schema for Aegis canonical rules — the atomic unit of
+This document defines the schema for Kensa canonical rules — the atomic unit of
 compliance automation described in the Technical Remediation Master Plan.
 
 A canonical rule is a single, framework-independent statement of desired system state.
@@ -175,7 +175,7 @@ The rule's inherent severity, independent of any framework's rating.
 | `low`      | Defense-in-depth measure. Absence does not directly enable     |
 |            | compromise. Examples: banner text, log compression settings.   |
 
-This is Aegis's own severity assessment. Framework-specific severity (STIG CAT I/II/III,
+This is Kensa's own severity assessment. Framework-specific severity (STIG CAT I/II/III,
 CIS Level 1/2) is recorded in the `references` section as metadata.
 
 #### `category` (string, required)
@@ -316,7 +316,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-root-login.conf"
+      file: "00-kensa-root-login.conf"
       key: "PermitRootLogin"
       value: "no"
       reload: "sshd"
@@ -513,7 +513,7 @@ with one entry.
 | Field   | Type   | Required | Description                                    |
 |---------|--------|----------|------------------------------------------------|
 | `dir`   | string | yes      | Path to the .d directory                       |
-| `file`  | string | yes      | Filename for the drop-in (e.g., 00-aegis.conf) |
+| `file`  | string | yes      | Filename for the drop-in (e.g., 00-kensa.conf) |
 | `key`   | string | yes      | Configuration key/directive name               |
 | `value` | string | yes      | Desired value                                  |
 
@@ -523,14 +523,14 @@ with one entry.
 |----------------|--------|----------|-------------------------------|-----------------------|
 | `key`          | string | yes      |                               | Sysctl parameter name |
 | `value`        | string | yes      |                               | Desired value         |
-| `persist_file` | string | no       | `/etc/sysctl.d/99-aegis.conf` | Persistence file      |
+| `persist_file` | string | no       | `/etc/sysctl.d/99-kensa.conf` | Persistence file      |
 
 **`audit_rule_set` fields:**
 
 | Field          | Type   | Required | Default                         | Description          |
 |----------------|--------|----------|---------------------------------|----------------------|
 | `rule`         | string | yes      |                                 | Full audit rule text |
-| `persist_file` | string | no       | `/etc/audit/rules.d/aegis.rules`| Rules file           |
+| `persist_file` | string | no       | `/etc/audit/rules.d/kensa.rules`| Rules file           |
 
 **`command_exec` fields:**
 
@@ -747,7 +747,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-permit-root-login.conf"
+      file: "00-kensa-permit-root-login.conf"
       key: "PermitRootLogin"
       value: "no"
       reload: "sshd"
@@ -1068,10 +1068,10 @@ Validation is run via:
 
 ```bash
 # Validate a single rule
-aegis validate rules/access-control/ssh-disable-root-login.yml
+kensa validate rules/access-control/ssh-disable-root-login.yml
 
 # Validate all rules
-aegis validate rules/
+kensa validate rules/
 ```
 
 ### 6.2 Validation Rules Beyond Schema
@@ -1111,6 +1111,6 @@ cases surface. The evolution policy:
 
 ---
 
-*This document defines the canonical rule schema for Aegis. It is the contract
+*This document defines the canonical rule schema for Kensa. It is the contract
 between rule authors, the execution engine, and the reporting system. Every rule
 in the canonical set must conform to this schema.*

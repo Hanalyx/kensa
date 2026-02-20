@@ -13,7 +13,7 @@
 | Remediation handlers | 23 | **23** | Done |
 | Framework-ordered output | — | Implemented | Done |
 | Auto framework selection | — | Implemented | Done |
-| Cross-reference queries | — | `aegis lookup` command | Done |
+| Cross-reference queries | — | `kensa lookup` command | Done |
 | NIST 800-53 mapping | — | 87/105 controls (83%) | Done |
 | PCI-DSS v4.0 mapping | — | 45/45 (100%) | Done |
 | FedRAMP Moderate mapping | — | 87/87 (100%) | Done |
@@ -27,7 +27,7 @@
 | **1** | Framework-ordered output | **Complete** — `order_results_by_section()` with semantic numeric sorting, section prefix in terminal, reordering for file output |
 | **2** | Mapping gap analysis & completion | **Partially complete** — CIS 94% (exceeds 85% target), STIG 76% (needs 80%). 102 missing rule YAMLs in CIS mapping |
 | **3** | Auto framework selection | **Complete** — `--framework auto` detects platform, `_apply_auto_framework()` in both check/remediate |
-| **4** | Cross-reference queries | **Complete** — `FrameworkIndex` class, `aegis lookup` command with `--cis-section`, `--stig-id`, `--nist-control` |
+| **4** | Cross-reference queries | **Complete** — `FrameworkIndex` class, `kensa lookup` command with `--cis-section`, `--stig-id`, `--nist-control` |
 | **5** | NIST control mapping | **Complete** — NIST 800-53 R5 (87/105), PCI-DSS v4.0 (45/45), FedRAMP Moderate (87/87) |
 
 ---

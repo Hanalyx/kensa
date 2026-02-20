@@ -1,8 +1,8 @@
-# AEGIS Developer Guide v1.0.0
+# KENSA Developer Guide v1.0.0
 
 **SSH-Based Compliance Test Runner**
 
-This guide provides comprehensive documentation for integrating AEGIS into applications like OpenWatch. AEGIS is a pure measurement engine that connects to remote hosts via SSH, evaluates compliance rules, and returns structured results with machine-verifiable evidence.
+This guide provides comprehensive documentation for integrating KENSA into applications like OpenWatch. KENSA is a pure measurement engine that connects to remote hosts via SSH, evaluates compliance rules, and returns structured results with machine-verifiable evidence.
 
 ---
 
@@ -17,7 +17,7 @@ This guide provides comprehensive documentation for integrating AEGIS into appli
 7. [Evidence Model](#7-evidence-model)
 8. [Framework Mappings](#8-framework-mappings)
 9. [Output Formats](#9-output-formats)
-10. [Extending AEGIS](#10-extending-aegis)
+10. [Extending KENSA](#10-extending-kensa)
 11. [Integration Patterns](#11-integration-patterns)
 12. [Troubleshooting](#12-troubleshooting)
 
@@ -25,7 +25,7 @@ This guide provides comprehensive documentation for integrating AEGIS into appli
 
 ## 1. Overview
 
-### What AEGIS Does
+### What KENSA Does
 
 - Connects to remote Linux hosts via SSH
 - Detects host capabilities and platform information
@@ -34,7 +34,7 @@ This guide provides comprehensive documentation for integrating AEGIS into appli
 - Maps results to multiple compliance frameworks
 - Optionally remediates non-compliant configurations
 
-### What AEGIS Does NOT Do
+### What KENSA Does NOT Do
 
 - Long-term result storage (use OpenWatch)
 - Exception/waiver management (use OpenWatch)
@@ -44,7 +44,7 @@ This guide provides comprehensive documentation for integrating AEGIS into appli
 
 ### Design Principles
 
-1. **Pure Measurement** - AEGIS measures and reports; it doesn't interpret policy
+1. **Pure Measurement** - KENSA measures and reports; it doesn't interpret policy
 2. **Evidence-First** - Every check captures raw proof for audit trails
 3. **Framework Agnostic** - One rule maps to many frameworks; frameworks are views
 4. **Capability-Gated** - Rule implementations adapt to host capabilities
@@ -58,27 +58,27 @@ This guide provides comprehensive documentation for integrating AEGIS into appli
 
 ```bash
 # Basic installation
-pip install git+https://github.com/Hanalyx/aegis.git
+pip install git+https://github.com/Hanalyx/kensa.git
 
 # With PDF report support
-pip install "git+https://github.com/Hanalyx/aegis.git#egg=aegis[pdf]"
+pip install "git+https://github.com/Hanalyx/kensa.git#egg=kensa[pdf]"
 
 # Development installation (includes testing tools)
-pip install "git+https://github.com/Hanalyx/aegis.git#egg=aegis[dev]"
+pip install "git+https://github.com/Hanalyx/kensa.git#egg=kensa[dev]"
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/Hanalyx/aegis.git
-cd aegis
+git clone https://github.com/Hanalyx/kensa.git
+cd kensa
 pip install -e ".[dev]"
 ```
 
 ### In requirements.txt
 
 ```
-aegis @ git+https://github.com/Hanalyx/aegis.git
+kensa @ git+https://github.com/Hanalyx/kensa.git
 ```
 
 ### In pyproject.toml
@@ -86,7 +86,7 @@ aegis @ git+https://github.com/Hanalyx/aegis.git
 ```toml
 [project]
 dependencies = [
-    "aegis @ git+https://github.com/Hanalyx/aegis.git",
+    "kensa @ git+https://github.com/Hanalyx/kensa.git",
 ]
 ```
 
@@ -114,7 +114,7 @@ dependencies = [
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         AEGIS Package                           │
+│                         KENSA Package                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
@@ -219,7 +219,7 @@ implementations:
       case_insensitive: true
     remediation:
       mechanism: config_set_dropin
-      path: /etc/ssh/sshd_config.d/99-aegis-root-login.conf
+      path: /etc/ssh/sshd_config.d/99-kensa-root-login.conf
       key: PermitRootLogin
       value: "no"
       restart: sshd
@@ -308,7 +308,7 @@ platforms:
     max_version: 9
 ```
 
-AEGIS normalizes RHEL derivatives (Rocky, Alma, CentOS, Oracle Linux) to `family: rhel`.
+KENSA normalizes RHEL derivatives (Rocky, Alma, CentOS, Oracle Linux) to `family: rhel`.
 
 ---
 
@@ -517,7 +517,7 @@ rule_to_section = build_rule_to_section_map(cis)
 from runner.storage import ResultStore
 from runner._types import Evidence
 
-store = ResultStore()  # Uses .aegis/results.db
+store = ResultStore()  # Uses .kensa/results.db
 
 # Create session
 session_id = store.create_session(
@@ -561,26 +561,26 @@ store.close()
 
 ```bash
 # Show help
-aegis --help
-aegis check --help
+kensa --help
+kensa check --help
 
 # Detect capabilities
-aegis detect --host 192.168.1.100 --user admin --sudo
+kensa detect --host 192.168.1.100 --user admin --sudo
 
 # Run compliance checks
-aegis check --host 192.168.1.100 --user admin --sudo --rule rules/
+kensa check --host 192.168.1.100 --user admin --sudo --rule rules/
 
 # Run with inventory file
-aegis check -i inventory.ini --sudo -r rules/
+kensa check -i inventory.ini --sudo -r rules/
 
 # Remediate non-compliant rules
-aegis remediate -i inventory.ini --sudo -r rules/
+kensa remediate -i inventory.ini --sudo -r rules/
 
 # Show framework coverage
-aegis coverage --framework cis-rhel9-v2.0.0
+kensa coverage --framework cis-rhel9-v2.0.0
 
 # Show framework info
-aegis info --framework cis-rhel9-v2.0.0
+kensa info --framework cis-rhel9-v2.0.0
 ```
 
 ### 6.2 Common Options
@@ -606,22 +606,22 @@ aegis info --framework cis-rhel9-v2.0.0
 
 ```bash
 # JSON to stdout
-aegis check -i inv.ini --sudo -r rules/ -o json -q
+kensa check -i inv.ini --sudo -r rules/ -o json -q
 
 # JSON to file
-aegis check -i inv.ini --sudo -r rules/ -o json:results.json
+kensa check -i inv.ini --sudo -r rules/ -o json:results.json
 
 # CSV
-aegis check -i inv.ini --sudo -r rules/ -o csv:results.csv
+kensa check -i inv.ini --sudo -r rules/ -o csv:results.csv
 
 # PDF report
-aegis check -i inv.ini --sudo -r rules/ -o pdf:report.pdf
+kensa check -i inv.ini --sudo -r rules/ -o pdf:report.pdf
 
 # Evidence format (for OpenWatch)
-aegis check -i inv.ini --sudo -r rules/ -o evidence:evidence.json
+kensa check -i inv.ini --sudo -r rules/ -o evidence:evidence.json
 
 # Multiple outputs
-aegis check -i inv.ini --sudo -r rules/ \
+kensa check -i inv.ini --sudo -r rules/ \
     -o json:results.json \
     -o csv:results.csv \
     -o evidence:evidence.json
@@ -804,7 +804,7 @@ result.framework_refs = {
 
 ```bash
 # CLI: Run only rules in CIS RHEL 9
-aegis check -i inv.ini --sudo -r rules/ --framework cis-rhel9-v2.0.0
+kensa check -i inv.ini --sudo -r rules/ --framework cis-rhel9-v2.0.0
 ```
 
 ```python
@@ -956,7 +956,7 @@ Formatted report with:
 
 ---
 
-## 10. Extending AEGIS
+## 10. Extending KENSA
 
 ### 10.1 Adding a Capability Probe
 
@@ -1039,7 +1039,7 @@ check:
 
 1. Create YAML file in `rules/<category>/<rule-id>.yml`
 2. Validate: `python -m schema.validate rules/<category>/<rule-id>.yml`
-3. Test: `aegis check --host <test-host> --sudo --rule rules/<category>/<rule-id>.yml`
+3. Test: `kensa check --host <test-host> --sudo --rule rules/<category>/<rule-id>.yml`
 
 ### 10.4 Adding a Framework Mapping
 
@@ -1077,7 +1077,7 @@ controls:  # or "sections" or "requirements"
           │                 │
           ▼                 │
 ┌─────────────────┐         │
-│     AEGIS       │─────────┘
+│     KENSA       │─────────┘
 │  (Python Lib)   │  Evidence JSON
 └────────┬────────┘
          │ SSH
@@ -1157,7 +1157,7 @@ def scan_with_cli(inventory: str, rules_path: str) -> dict:
     """Use CLI for scanning, parse JSON output."""
     result = subprocess.run(
         [
-            "aegis", "check",
+            "kensa", "check",
             "-i", inventory,
             "--sudo",
             "-r", rules_path,
@@ -1178,7 +1178,7 @@ def scan_with_cli(inventory: str, rules_path: str) -> dict:
 
 ```python
 def store_scan_results(scan_data: dict, openwatch_db):
-    """Store AEGIS results in OpenWatch database."""
+    """Store KENSA results in OpenWatch database."""
 
     # Create scan session
     session = openwatch_db.create_scan_session(
@@ -1221,7 +1221,7 @@ with SSHSession(host, user=user, sudo=True) as ssh:
 
 ```bash
 # Run with verbose output
-aegis detect --host 192.168.1.100 --user admin --sudo -v
+kensa detect --host 192.168.1.100 --user admin --sudo -v
 ```
 
 ```python
@@ -1288,9 +1288,9 @@ implementations:
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `AEGIS_RULES_PATH` | Default rules directory | `rules/` |
-| `AEGIS_MAPPINGS_PATH` | Default mappings directory | `mappings/` |
-| `AEGIS_DB_PATH` | SQLite database path | `.aegis/results.db` |
+| `KENSA_RULES_PATH` | Default rules directory | `rules/` |
+| `KENSA_MAPPINGS_PATH` | Default mappings directory | `mappings/` |
+| `KENSA_DB_PATH` | SQLite database path | `.kensa/results.db` |
 
 ---
 
@@ -1302,4 +1302,4 @@ implementations:
 
 ---
 
-**Questions?** Contact the AEGIS team or open an issue at https://github.com/Hanalyx/aegis/issues
+**Questions?** Contact the KENSA team or open an issue at https://github.com/Hanalyx/kensa/issues

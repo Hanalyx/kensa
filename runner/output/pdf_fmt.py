@@ -87,7 +87,7 @@ def format_pdf(run_result: RunResult, filepath: str) -> None:
         ImportError: If reportlab library is not installed.
 
     Report Sections:
-        1. Header: "Aegis Compliance Report" title
+        1. Header: "Kensa Compliance Report" title
         2. Metadata: Timestamp and command type
         3. Summary Table: Aggregate counts (hosts, pass, fail, skip, fixed)
         4. Per-Host Details: For each host:
@@ -187,7 +187,7 @@ def _build_header(run_result: RunResult, styles: dict) -> list:
 
     """
     return [
-        Paragraph("Aegis Compliance Report", styles["title"]),
+        Paragraph("Kensa Compliance Report", styles["title"]),
         Spacer(1, 0.2 * inch),
         Paragraph(f"Timestamp: {run_result.timestamp.isoformat()}", styles["normal"]),
         Paragraph(f"Command: {run_result.command}", styles["normal"]),

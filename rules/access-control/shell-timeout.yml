@@ -48,5 +48,5 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       directory: "/etc/profile.d"
-      filename: "aegis-tmout.sh"
+      filename: "kensa-tmout.sh"
       content: "TMOUT=900\nreadonly TMOUT\nexport TMOUT"

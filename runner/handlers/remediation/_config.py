@@ -153,7 +153,7 @@ def _remediate_config_block(
     """
     path = r["path"]
     block = r["block"]
-    marker = r.get("marker", "AEGIS MANAGED BLOCK")
+    marker = r.get("marker", "KENSA MANAGED BLOCK")
     begin_marker = f"# BEGIN {marker}"
     end_marker = f"# END {marker}"
 

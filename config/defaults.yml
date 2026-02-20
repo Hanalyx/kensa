@@ -1,4 +1,4 @@
-# Aegis Rule Variable Defaults
+# Kensa Rule Variable Defaults
 #
 # This file defines default values for rule variables and framework-specific
 # overrides. Variables can be used in rules with {{ variable_name }} syntax.

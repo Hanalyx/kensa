@@ -175,24 +175,24 @@ jobs:
           mkdir -p ~/rpmbuild/{SOURCES,SPECS}
 
           # Create source tarball matching spec expectations
-          TARDIR="aegis-${VERSION}"
+          TARDIR="kensa-${VERSION}"
           mkdir -p "/tmp/${TARDIR}"
           cp -a . "/tmp/${TARDIR}/"
-          tar czf ~/rpmbuild/SOURCES/aegis-${VERSION}.tar.gz -C /tmp "${TARDIR}"
+          tar czf ~/rpmbuild/SOURCES/kensa-${VERSION}.tar.gz -C /tmp "${TARDIR}"
 
           # Copy spec with correct version
-          sed "s/^Version:.*/Version:        ${VERSION}/" aegis.spec > ~/rpmbuild/SPECS/aegis.spec
+          sed "s/^Version:.*/Version:        ${VERSION}/" kensa.spec > ~/rpmbuild/SPECS/kensa.spec
 
           # Remove python3-hatchling BuildRequires if installed via pip (not RPM)
           if ! rpm -q python3-hatchling &>/dev/null; then
-            sed -i '/BuildRequires:.*python3-hatchling/d' ~/rpmbuild/SPECS/aegis.spec
+            sed -i '/BuildRequires:.*python3-hatchling/d' ~/rpmbuild/SPECS/kensa.spec
           fi
 
           # Build RPM
           if [ "${{ matrix.distro }}" = "el8" ] || [ "${{ matrix.distro }}" = "el9" ]; then
-            rpmbuild --define '__python3 /usr/bin/python3.11' -ba ~/rpmbuild/SPECS/aegis.spec
+            rpmbuild --define '__python3 /usr/bin/python3.11' -ba ~/rpmbuild/SPECS/kensa.spec
           else
-            rpmbuild -ba ~/rpmbuild/SPECS/aegis.spec
+            rpmbuild -ba ~/rpmbuild/SPECS/kensa.spec
           fi
 
       - name: Attach RPM to release

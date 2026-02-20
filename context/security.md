@@ -1,11 +1,11 @@
 # Security Model
 
-Aegis runs shell commands on remote hosts via SSH. This document covers the threat model, specific risks, and the coding practices that mitigate them.
+Kensa runs shell commands on remote hosts via SSH. This document covers the threat model, specific risks, and the coding practices that mitigate them.
 
 ## Threat Model
 
 **Trust boundaries:**
-- The local machine running aegis is trusted
+- The local machine running kensa is trusted
 - The SSH transport (paramiko) is trusted
 - Rule YAML files are trusted (authored by us)
 - Remote host state is untrusted (we read it, never trust output blindly)
@@ -87,7 +87,7 @@ The `shlex.quote()` around the entire command handles nested quoting. This is do
 ### SSH Credentials
 
 - Passwords are accepted via `--password` CLI flag (visible in process list — users should prefer keys)
-- Private key paths are stored in `HostInfo.key_path` but contents are never read by aegis (paramiko handles this)
+- Private key paths are stored in `HostInfo.key_path` but contents are never read by kensa (paramiko handles this)
 - Neither passwords nor key contents are ever logged or included in error messages
 
 ### What Never Appears in Remote Commands

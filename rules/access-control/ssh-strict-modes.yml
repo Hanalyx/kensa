@@ -46,7 +46,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-strict-modes.conf"
+      file: "00-kensa-strict-modes.conf"
       key: "StrictModes"
       value: "yes"
       reload: "sshd"

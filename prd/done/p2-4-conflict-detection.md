@@ -39,7 +39,7 @@ These are NOT conflicts — they're redundant but safe:
 ### Default: Error on Conflict
 
 ```bash
-./aegis check --rules rules/
+./kensa check --rules rules/
 
 ERROR: Conflicting rules detected
 
@@ -58,7 +58,7 @@ Aborting. No changes made.
 ### Override: `--allow-conflicts`
 
 ```bash
-./aegis remediate --rules rules/ --allow-conflicts
+./kensa remediate --rules rules/ --allow-conflicts
 
 WARNING: Conflicting rules detected (running anyway due to --allow-conflicts)
   ssh-max-auth-tries vs ssh-max-auth-tries-strict → last wins
@@ -69,7 +69,7 @@ WARNING: Conflicting rules detected (running anyway due to --allow-conflicts)
 ### Dry-Run Shows Conflicts
 
 ```bash
-./aegis remediate --rules rules/ --dry-run
+./kensa remediate --rules rules/ --dry-run
 
 Execution Plan:
   1. ssh-max-auth-tries: Would set MaxAuthTries=4 in /etc/ssh/sshd_config

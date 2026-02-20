@@ -36,7 +36,7 @@ Thumbs.db
 inventory.ini
 inventory.yml
 inventory.yaml
-.aegis/
+.kensa/
 
 # Run results (generated, environment-specific)
 results/

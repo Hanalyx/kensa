@@ -1,6 +1,6 @@
 # Code Patterns
 
-Concrete templates for the most common development tasks in Aegis. Copy, adapt, register.
+Concrete templates for the most common development tasks in Kensa. Copy, adapt, register.
 
 Handlers are organized by domain across four symmetric packages under `runner/handlers/`:
 
@@ -396,7 +396,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-some-key.conf"
+      file: "00-kensa-some-key.conf"
       key: "SomeKey"
       value: "some_value"
       reload: "sshd"

@@ -41,5 +41,5 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       directory: "/etc/sudoers.d"
-      filename: "00-aegis-timeout"
+      filename: "00-kensa-timeout"
       content: "Defaults timestamp_timeout=5"

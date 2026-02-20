@@ -11,7 +11,7 @@ class ToolControlResult:
     """Result of a single tool evaluating a single framework control.
 
     Attributes:
-        tool_name: Name of the tool (e.g., "aegis", "openscap").
+        tool_name: Name of the tool (e.g., "kensa", "openscap").
         control_id: Framework control identifier (e.g., CIS "5.1.20").
         passed: Whether the control passed. None means not covered.
         rule_ids: Tool-specific rule IDs contributing to this result.
@@ -42,7 +42,7 @@ class ToolAdapter(ABC):
     @property
     @abstractmethod
     def tool_name(self) -> str:
-        """Short name for the tool (e.g., 'aegis', 'openscap')."""
+        """Short name for the tool (e.g., 'kensa', 'openscap')."""
 
     @abstractmethod
     def parse(self, path: str) -> dict[str, ToolControlResult]:

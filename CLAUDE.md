@@ -1,4 +1,4 @@
-# Aegis — Claude Code Project Guide
+# Kensa — Claude Code Project Guide
 
 SSH-based compliance test runner for RHEL systems. Connects to remote hosts, evaluates YAML compliance rules, captures machine-verifiable evidence, and maps results to frameworks (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP).
 
@@ -19,8 +19,8 @@ mypy runner/ schema/ --ignore-missing-imports
 pre-commit run --all-files
 
 # Framework coverage
-./aegis coverage --framework cis-rhel9-v2.0.0
-./aegis coverage --framework fedramp-moderate
+./kensa coverage --framework cis-rhel9-v2.0.0
+./kensa coverage --framework fedramp-moderate
 
 # FedRAMP gap analysis
 python scripts/fedramp_validate.py
@@ -54,7 +54,7 @@ runner/                  # Core Python package
 │   └── rollback/       # State restoration
 └── output/             # JSON, CSV, PDF, evidence export
 
-config/                  # /etc/aegis/ in RPM — site admin owns
+config/                  # /etc/kensa/ in RPM — site admin owns
 ├── defaults.yml        # Global variable defaults
 ├── conf.d/             # Global overrides (alphabetical)
 ├── groups/             # Per-group variable overrides
@@ -92,7 +92,7 @@ context/cis/             # CIS reference data
 
 scripts/                 # Dev tooling
 ├── cis_validate.py     # CIS gap analysis and validation
-├── gap_analysis.py     # AEGIS vs OpenSCAP comparison
+├── gap_analysis.py     # KENSA vs OpenSCAP comparison
 ├── fedramp_validate.py # FedRAMP gap analysis
 └── parse_fedramp_oscal.py # OSCAL parser for baseline regen
 
@@ -179,7 +179,7 @@ No user approval is needed to merge — CI passing is the gate.
 
 - `CANONICAL_RULE_SCHEMA_V0.md` — Rule YAML schema specification
 - `TECHNICAL_REMEDIATION_MP_V0.md` — Three-layer architecture, remediation design principles
-- `docs/AEGIS_Developer_Guide_v1.0.0.md` — Full API reference
+- `docs/KENSA_Developer_Guide_v1.0.0.md` — Full API reference
 - `TECH_DEBT.md` — Known issues and priorities
 - `CHANGELOG.md` — Semantic versioning history
 - `BACKLOG.md` — Current task backlog

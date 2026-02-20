@@ -1,5 +1,5 @@
 # DISA STIG Red Hat Enterprise Linux 8 V2R6
-# Maps STIG findings to Aegis canonical rules
+# Maps STIG findings to Kensa canonical rules
 
 id: stig-rhel8-v2r6
 framework: stig

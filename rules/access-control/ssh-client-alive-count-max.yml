@@ -46,7 +46,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-client-alive-count-max.conf"
+      file: "00-kensa-client-alive-count-max.conf"
       key: "ClientAliveCountMax"
       value: "1"
       reload: "sshd"

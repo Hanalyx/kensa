@@ -2,16 +2,16 @@
 
 **Date:** 2026-02-08
 **Target:** 192.168.1.211 (RHEL 9)
-**Frameworks:** CIS RHEL 9 v2.0.0 (AEGIS), CIS RHEL 9 profile (OpenSCAP)
+**Frameworks:** CIS RHEL 9 v2.0.0 (KENSA), CIS RHEL 9 profile (OpenSCAP)
 
 ---
 
 ## Executive Summary
 
-Investigation of 5 discrepancies where **OpenSCAP passes** but **AEGIS fails** on the same security controls. Root causes fall into three categories:
+Investigation of 5 discrepancies where **OpenSCAP passes** but **KENSA fails** on the same security controls. Root causes fall into three categories:
 
-1. **Threshold semantics** - AEGIS checks for exact values instead of "at least as strict"
-2. **Rule format matching** - AEGIS expects exact audit rule syntax vs OpenSCAP's flexible matching
+1. **Threshold semantics** - KENSA checks for exact values instead of "at least as strict"
+2. **Rule format matching** - KENSA expects exact audit rule syntax vs OpenSCAP's flexible matching
 3. **Check method differences** - Different approaches to verifying the same control
 
 ---
@@ -29,13 +29,13 @@ deny = 3  (locks account after 3 failed attempts)
 | Tool | Expected | Actual | Result |
 |------|----------|--------|--------|
 | OpenSCAP | deny ≤ 5 | 3 | **PASS** |
-| AEGIS | deny = 5 (CIS default) | 3 | **FAIL** |
+| KENSA | deny = 5 (CIS default) | 3 | **FAIL** |
 
-**Root Cause:** Missing comparator in AEGIS rule.
+**Root Cause:** Missing comparator in KENSA rule.
 
 CIS Benchmark 5.3.3.1.1 states: *"Ensure password failed attempts lockout is configured"* with guidance that `deny` should be "5 or fewer." The intent is a threshold, not an exact value.
 
-**AEGIS Rule (`pam-faillock-deny.yml`):**
+**KENSA Rule (`pam-faillock-deny.yml`):**
 ```yaml
 check:
   method: config_value
@@ -69,11 +69,11 @@ chronyd runs as user "chrony" (by default in RHEL 9)
 | Tool | Check Method | Result |
 |------|--------------|--------|
 | OpenSCAP | Checks process owner or config | **PASS** |
-| AEGIS | Checks explicit -u flag in OPTIONS | **FAIL** |
+| KENSA | Checks explicit -u flag in OPTIONS | **FAIL** |
 
-**Root Cause:** AEGIS checks for explicit configuration, but RHEL 9 runs chronyd as "chrony" by default.
+**Root Cause:** KENSA checks for explicit configuration, but RHEL 9 runs chronyd as "chrony" by default.
 
-**AEGIS Check:**
+**KENSA Check:**
 ```yaml
 run: "grep -E '^OPTIONS=.*-u chrony' /etc/sysconfig/chronyd 2>/dev/null ||
       grep -v '^#' /etc/chrony.conf 2>/dev/null | grep -E '^user\\s+chrony'"
@@ -105,18 +105,18 @@ run: |
 **System State:**
 ```
 Audit rules exist for /etc/passwd, /etc/shadow, /etc/group, /etc/gshadow
-But with different key names than AEGIS expects
+But with different key names than KENSA expects
 ```
 
 **Check Results:**
 | Tool | Check Approach | Result |
 |------|----------------|--------|
 | OpenSCAP | Individual syscall checks | **PASS** (all 5 rules) |
-| AEGIS | Exact rule string match | **FAIL** |
+| KENSA | Exact rule string match | **FAIL** |
 
-**Root Cause:** AEGIS requires exact audit rule format including key name.
+**Root Cause:** KENSA requires exact audit rule format including key name.
 
-**AEGIS Check:**
+**KENSA Check:**
 ```yaml
 check:
   method: audit_rule_exists
@@ -167,11 +167,11 @@ DAC modification audit rules exist but in different format
 | Tool | Check Approach | Result |
 |------|----------------|--------|
 | OpenSCAP | Per-syscall checks (chmod, fchmod, etc.) | **PASS** (all 4) |
-| AEGIS | Single consolidated rule check | **FAIL** |
+| KENSA | Single consolidated rule check | **FAIL** |
 
 **Root Cause:** Exact rule format mismatch.
 
-**AEGIS Expected Rule:**
+**KENSA Expected Rule:**
 ```
 -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_mod
 ```
@@ -185,9 +185,9 @@ DAC modification audit rules exist but in different format
 ```
 
 **Differences:**
-1. AEGIS: Comma-separated syscalls (`chmod,fchmod,fchmodat`)
+1. KENSA: Comma-separated syscalls (`chmod,fchmod,fchmodat`)
 2. System: Individual rules per syscall
-3. AEGIS: `auid!=unset`
+3. KENSA: `auid!=unset`
 4. System: `auid!=4294967295` (numeric equivalent)
 
 Both configurations provide **equivalent security** but have different textual representation.
@@ -222,11 +222,11 @@ Some kernel module audit rules present, some missing
 | `audit_rules_kernel_module_loading_create` | FAIL |
 | `audit_rules_kernel_module_loading_query` | FAIL |
 
-**AEGIS:** Single consolidated rule → **FAIL** (because not all syscalls covered)
+**KENSA:** Single consolidated rule → **FAIL** (because not all syscalls covered)
 
-**Root Cause:** AEGIS consolidates 5 OpenSCAP rules into 1. If ANY syscall is missing, the whole control fails.
+**Root Cause:** KENSA consolidates 5 OpenSCAP rules into 1. If ANY syscall is missing, the whole control fails.
 
-This is **correct behavior** for AEGIS philosophy - the security control (audit kernel module operations) is either satisfied or not. OpenSCAP's granular view shows 60% compliance; AEGIS shows 0% compliance for the control.
+This is **correct behavior** for KENSA philosophy - the security control (audit kernel module operations) is either satisfied or not. OpenSCAP's granular view shows 60% compliance; KENSA shows 0% compliance for the control.
 
 **Recommendation:** This is not a bug - it's a philosophical difference. Document the consolidated approach.
 
@@ -305,8 +305,8 @@ check:
 
 The discrepancies are **not missing rules** but **check logic differences**:
 
-1. **Threshold semantics**: OpenSCAP accepts "at least as strict"; AEGIS demands exact match
-2. **Format flexibility**: OpenSCAP pattern-matches; AEGIS requires exact strings
-3. **Operational vs static**: OpenSCAP checks files; AEGIS should check running state
+1. **Threshold semantics**: OpenSCAP accepts "at least as strict"; KENSA demands exact match
+2. **Format flexibility**: OpenSCAP pattern-matches; KENSA requires exact strings
+3. **Operational vs static**: OpenSCAP checks files; KENSA should check running state
 
-Fixing these issues will improve AEGIS accuracy without sacrificing the control-centric philosophy. The fixes maintain the "one rule per control" model while making checks more robust.
+Fixing these issues will improve KENSA accuracy without sacrificing the control-centric philosophy. The fixes maintain the "one rule per control" model while making checks more robust.

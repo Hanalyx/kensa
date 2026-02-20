@@ -1,4 +1,4 @@
-# Aegis
+# Kensa
 
 SSH-based compliance scanner for SysAdmin. Connects to remote hosts via SSH, evaluates compliance rules, captures machine-verifiable evidence, and maps results to multiple frameworks (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP).
 
@@ -8,14 +8,14 @@ SSH-based compliance scanner for SysAdmin. Connects to remote hosts via SSH, eva
 
 ```bash
 # From GitHub
-pip install git+https://github.com/Hanalyx/aegis.git
+pip install git+https://github.com/Hanalyx/kensa.git
 
 # With PDF report support
-pip install "git+https://github.com/Hanalyx/aegis.git#egg=aegis[pdf]"
+pip install "git+https://github.com/Hanalyx/kensa.git#egg=kensa[pdf]"
 
 # From source (development)
-git clone https://github.com/Hanalyx/aegis.git
-cd aegis
+git clone https://github.com/Hanalyx/kensa.git
+cd kensa
 pip install -e ".[dev]"
 ```
 
@@ -23,29 +23,29 @@ pip install -e ".[dev]"
 
 ```bash
 # Probe host capabilities
-aegis detect --sudo --host 192.168.1.10 --user admin
+kensa detect --sudo --host 192.168.1.10 --user admin
 
 # Check a single rule
-aegis check --sudo --host 192.168.1.10 --user admin \
+kensa check --sudo --host 192.168.1.10 --user admin \
   --rule rules/access-control/ssh-disable-root-login.yml
 
 # Check all rules
-aegis check --sudo --host 192.168.1.10 --user admin --rules rules/
+kensa check --sudo --host 192.168.1.10 --user admin --rules rules/
 
 # Check by framework
-aegis check --sudo --host 192.168.1.10 --user admin \
+kensa check --sudo --host 192.168.1.10 --user admin \
   --rules rules/ --framework cis-rhel9-v2.0.0
 
 # Check by severity
-aegis check --sudo --host 192.168.1.10 --user admin \
+kensa check --sudo --host 192.168.1.10 --user admin \
   --rules rules/ --severity high --severity critical
 
 # Remediate failures (dry run first)
-aegis remediate --sudo --host 192.168.1.10 --user admin \
+kensa remediate --sudo --host 192.168.1.10 --user admin \
   --rules rules/ --dry-run
 
 # Export with evidence for integration
-aegis check --sudo --host 192.168.1.10 --user admin \
+kensa check --sudo --host 192.168.1.10 --user admin \
   --rules rules/ -o evidence:results.json -q
 ```
 
@@ -53,22 +53,22 @@ aegis check --sudo --host 192.168.1.10 --user admin \
 
 ```bash
 # Ansible INI inventory
-aegis check --sudo -i inventory.ini --rules rules/
+kensa check --sudo -i inventory.ini --rules rules/
 
 # Ansible YAML inventory
-aegis check --sudo -i inventory.yml --rules rules/
+kensa check --sudo -i inventory.yml --rules rules/
 
 # Limit to a group or pattern
-aegis check --sudo -i inventory.yml --limit webservers --rules rules/
-aegis check --sudo -i inventory.yml --limit 'web*' --rules rules/
+kensa check --sudo -i inventory.yml --limit webservers --rules rules/
+kensa check --sudo -i inventory.yml --limit 'web*' --rules rules/
 
 # Parallel execution (10 hosts at once)
-aegis check --sudo -i inventory.ini --rules rules/ --workers 10
+kensa check --sudo -i inventory.ini --rules rules/ --workers 10
 ```
 
 ## Configuration
 
-Site-specific configuration lives in `config/` (maps to `/etc/aegis/` when installed via RPM):
+Site-specific configuration lives in `config/` (maps to `/etc/kensa/` when installed via RPM):
 
 ```
 config/
@@ -96,12 +96,12 @@ Variables use `{{ variable_name }}` syntax in rule YAML and are resolved per-hos
 
 ```bash
 # Override a variable from the CLI
-aegis check --sudo -h 192.168.1.10 -u admin -r rules/ \
+kensa check --sudo -h 192.168.1.10 -u admin -r rules/ \
   --var ssh_max_auth_tries=2
 
 # Use a custom config directory
-aegis check --sudo -h 192.168.1.10 -u admin -r rules/ \
-  --config-dir /etc/aegis-staging/
+kensa check --sudo -h 192.168.1.10 -u admin -r rules/ \
+  --config-dir /etc/kensa-staging/
 ```
 
 ## Framework Coverage
@@ -118,35 +118,35 @@ aegis check --sudo -h 192.168.1.10 -u admin -r rules/ \
 
 ```bash
 # Show framework coverage
-aegis coverage --framework cis-rhel9-v2.0.0
+kensa coverage --framework cis-rhel9-v2.0.0
 
 # Show framework info
-aegis info --framework stig-rhel9-v2r7
+kensa info --framework stig-rhel9-v2r7
 
 # List all available frameworks
-aegis list-frameworks
+kensa list-frameworks
 ```
 
 ## Output Formats
 
 ```bash
 # Terminal output (default)
-aegis check -i inventory.ini --sudo -r rules/
+kensa check -i inventory.ini --sudo -r rules/
 
 # JSON
-aegis check -i inventory.ini --sudo -r rules/ -o json:results.json
+kensa check -i inventory.ini --sudo -r rules/ -o json:results.json
 
 # CSV
-aegis check -i inventory.ini --sudo -r rules/ -o csv:results.csv
+kensa check -i inventory.ini --sudo -r rules/ -o csv:results.csv
 
 # PDF report
-aegis check -i inventory.ini --sudo -r rules/ -o pdf:report.pdf
+kensa check -i inventory.ini --sudo -r rules/ -o pdf:report.pdf
 
 # Evidence format (includes raw command output, groups, effective variables)
-aegis check -i inventory.ini --sudo -r rules/ -o evidence:evidence.json
+kensa check -i inventory.ini --sudo -r rules/ -o evidence:evidence.json
 
 # Multiple outputs
-aegis check -i inventory.ini --sudo -r rules/ \
+kensa check -i inventory.ini --sudo -r rules/ \
   -o json:results.json -o csv:results.csv -o evidence:evidence.json
 ```
 
@@ -234,7 +234,7 @@ implementations:
       value: "no"
     remediation:
       mechanism: config_set_dropin
-      path: "/etc/ssh/sshd_config.d/99-aegis-root-login.conf"
+      path: "/etc/ssh/sshd_config.d/99-kensa-root-login.conf"
       key: "PermitRootLogin"
       value: "no"
       restart: sshd
@@ -278,13 +278,13 @@ with SSHSession("192.168.1.100", user="admin", sudo=True) as ssh:
         print(f"  Frameworks: {result.framework_refs}")
 ```
 
-See [AEGIS Developer Guide](docs/AEGIS_Developer_Guide_v1.0.0.md) for complete API documentation.
+See [KENSA Developer Guide](docs/KENSA_Developer_Guide_v1.0.0.md) for complete API documentation.
 
 ## Architecture
 
 ```
-aegis/
-├── aegis                  # Entry point
+kensa/
+├── kensa                  # Entry point
 ├── runner/
 │   ├── cli.py             # CLI commands and orchestration
 │   ├── ssh.py             # SSH connection management
@@ -308,7 +308,7 @@ aegis/
 │       ├── csv_fmt.py     # CSV output
 │       ├── pdf_fmt.py     # PDF reports
 │       └── evidence_fmt.py # Evidence export
-├── config/                # Site configuration (/etc/aegis/ in RPM)
+├── config/                # Site configuration (/etc/kensa/ in RPM)
 │   ├── defaults.yml       # Variable defaults
 │   ├── conf.d/            # Site-wide overrides
 │   ├── groups/            # Per-group overrides
@@ -333,7 +333,7 @@ aegis/
 
 ## Documentation
 
-- [AEGIS Developer Guide](docs/AEGIS_Developer_Guide_v1.0.0.md) - Complete API reference and integration guide
+- [KENSA Developer Guide](docs/KENSA_Developer_Guide_v1.0.0.md) - Complete API reference and integration guide
 - [Rule Schema](CANONICAL_RULE_SCHEMA_V0.md) - Full rule format documentation
 - [CLAUDE.md](CLAUDE.md) - Project guide for contributors
 

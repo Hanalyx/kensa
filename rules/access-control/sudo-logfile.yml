@@ -38,5 +38,5 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       directory: "/etc/sudoers.d"
-      filename: "00-aegis-logfile"
+      filename: "00-kensa-logfile"
       content: "Defaults logfile=\"/var/log/sudo.log\""

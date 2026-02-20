@@ -1,4 +1,4 @@
-# AEGIS vs OpenSCAP Disagreement Analysis
+# KENSA vs OpenSCAP Disagreement Analysis
 
 **Date:** 2026-02-09
 **Disagreement Rate:** 11.4% (20 of 176 CIS sections where both have coverage)
@@ -9,21 +9,21 @@
 
 | Root Cause | Count | Action Required |
 |------------|-------|-----------------|
-| **AEGIS Bug** | 3 | Fix handler logic |
+| **KENSA Bug** | 3 | Fix handler logic |
 | **Different Check Scope** | 8 | Align or document difference |
 | **CIS Section Mismapping** | 5 | Fix section references |
 | **Different Validation Logic** | 4 | Decide which is correct |
 
 ---
 
-## Category 1: AEGIS Bugs (3 issues)
+## Category 1: KENSA Bugs (3 issues)
 
 ### 1.1 CIS 6.2.1.1 - journald "static" state
 
-**Symptom:** AEGIS FAIL, OpenSCAP PASS
+**Symptom:** KENSA FAIL, OpenSCAP PASS
 
 ```
-AEGIS:    systemd-journald: enabled=static (expected enabled)
+KENSA:    systemd-journald: enabled=static (expected enabled)
 OpenSCAP: service_systemd-journald_enabled: pass
 ```
 
@@ -49,30 +49,30 @@ if actual_enabled not in ENABLED_STATES:
 
 ### 1.2 CIS 1.4.2 - GRUB permissions incomplete
 
-**Symptom:** AEGIS PASS (1 rule), OpenSCAP FAIL (13 rules, some passing)
+**Symptom:** KENSA PASS (1 rule), OpenSCAP FAIL (13 rules, some passing)
 
-**Root Cause:** AEGIS `grub-config-permissions` only checks `/boot/grub2/grub.cfg`. OpenSCAP also checks:
+**Root Cause:** KENSA `grub-config-permissions` only checks `/boot/grub2/grub.cfg`. OpenSCAP also checks:
 - `/boot/grub2/user.cfg` (permissions, owner, group)
 - Backup files
 - Other GRUB-related files
 
-**Fix Required:** Expand AEGIS rule or create additional rules.
+**Fix Required:** Expand KENSA rule or create additional rules.
 
 ---
 
 ### 1.3 CIS 5.2.7 - pam_wheel incomplete
 
-**Symptom:** AEGIS PASS, OpenSCAP FAIL
+**Symptom:** KENSA PASS, OpenSCAP FAIL
 
 ```
-AEGIS:    auth required pam_wheel.so use_uid → PASS
+KENSA:    auth required pam_wheel.so use_uid → PASS
 OpenSCAP: ensure_pam_wheel_group_empty → FAIL
           use_pam_wheel_group_for_su → FAIL
 ```
 
 **Root Cause:** CIS 5.2.7 has TWO requirements:
-1. pam_wheel.so configured in /etc/pam.d/su ✓ (AEGIS checks this)
-2. wheel group has only authorized users ✗ (AEGIS doesn't check)
+1. pam_wheel.so configured in /etc/pam.d/su ✓ (KENSA checks this)
+2. wheel group has only authorized users ✗ (KENSA doesn't check)
 
 **Fix Required:** Add check for wheel group membership or create separate rule.
 
@@ -82,44 +82,44 @@ OpenSCAP: ensure_pam_wheel_group_empty → FAIL
 
 ### 2.1 CIS 1.5.3/1.5.4 - Coredump controls
 
-**Symptom:** AEGIS FAIL, OpenSCAP PASS
+**Symptom:** KENSA FAIL, OpenSCAP PASS
 
 | Tool | What it checks |
 |------|----------------|
-| AEGIS | `limits.conf` → `* hard core 0` and `sysctl fs.suid_dumpable` |
+| KENSA | `limits.conf` → `* hard core 0` and `sysctl fs.suid_dumpable` |
 | OpenSCAP | `coredump.conf` → `Storage=none`, `ProcessSizeMax=0` |
 
-**Analysis:** Both are valid approaches. OpenSCAP checks systemd-coredump daemon config. AEGIS checks traditional limits.conf. Modern RHEL 9 uses systemd-coredump.
+**Analysis:** Both are valid approaches. OpenSCAP checks systemd-coredump daemon config. KENSA checks traditional limits.conf. Modern RHEL 9 uses systemd-coredump.
 
-**Recommendation:** AEGIS should add coredump.conf checks OR document that it uses traditional approach.
+**Recommendation:** KENSA should add coredump.conf checks OR document that it uses traditional approach.
 
 ---
 
 ### 2.2 CIS 3.1.3 - Bluetooth disable
 
-**Symptom:** AEGIS PASS, OpenSCAP FAIL
+**Symptom:** KENSA PASS, OpenSCAP FAIL
 
 | Tool | What it checks |
 |------|----------------|
-| AEGIS | Kernel module blacklisted (`install bluetooth /bin/false`) |
+| KENSA | Kernel module blacklisted (`install bluetooth /bin/false`) |
 | OpenSCAP | systemd service disabled (`systemctl is-enabled bluetooth`) |
 
-**Analysis:** Both are valid. AEGIS approach is more thorough (module-level), but OpenSCAP also checks service layer.
+**Analysis:** Both are valid. KENSA approach is more thorough (module-level), but OpenSCAP also checks service layer.
 
-**Recommendation:** AEGIS should add service check OR document kernel-level is sufficient.
+**Recommendation:** KENSA should add service check OR document kernel-level is sufficient.
 
 ---
 
 ### 2.3 CIS 1.6.1 - Crypto policy
 
-**Symptom:** AEGIS PASS, OpenSCAP FAIL
+**Symptom:** KENSA PASS, OpenSCAP FAIL
 
 ```
-AEGIS:    crypto-policy-no-weak: ok (checks policy not NULL/LEGACY)
+KENSA:    crypto-policy-no-weak: ok (checks policy not NULL/LEGACY)
 OpenSCAP: configure_crypto_policy: fail (checks specific policy level)
 ```
 
-**Analysis:** OpenSCAP may require FIPS or specific policy. AEGIS accepts any non-weak policy.
+**Analysis:** OpenSCAP may require FIPS or specific policy. KENSA accepts any non-weak policy.
 
 **Recommendation:** Investigate OpenSCAP's specific requirement.
 
@@ -127,16 +127,16 @@ OpenSCAP: configure_crypto_policy: fail (checks specific policy level)
 
 ### 2.4 CIS 1.7.3 - Banner content
 
-**Symptom:** AEGIS PASS, OpenSCAP FAIL
+**Symptom:** KENSA PASS, OpenSCAP FAIL
 
 ```
-AEGIS:    banner-dod-consent: "USG-authorized use only" found → PASS
+KENSA:    banner-dod-consent: "USG-authorized use only" found → PASS
 OpenSCAP: banner_etc_issue_net_cis: FAIL (checks /etc/issue.net format)
 ```
 
-**Analysis:** AEGIS checks `/etc/issue`, OpenSCAP checks `/etc/issue.net`. CIS requires both.
+**Analysis:** KENSA checks `/etc/issue`, OpenSCAP checks `/etc/issue.net`. CIS requires both.
 
-**Recommendation:** AEGIS should check both files.
+**Recommendation:** KENSA should check both files.
 
 ---
 
@@ -144,7 +144,7 @@ OpenSCAP: banner_etc_issue_net_cis: FAIL (checks /etc/issue.net format)
 
 Multiple audit rule disagreements stem from format differences:
 
-| AEGIS Format | OpenSCAP Format |
+| KENSA Format | OpenSCAP Format |
 |--------------|-----------------|
 | Comma-separated syscalls | Individual syscall rules |
 | `auid>=1000` | `auid>=1000 -F auid!=unset` |
@@ -152,7 +152,7 @@ Multiple audit rule disagreements stem from format differences:
 
 **Analysis:** Both produce equivalent audit behavior. The disagreement is about parsing/validation format.
 
-**Recommendation:** AEGIS check logic should accept both formats.
+**Recommendation:** KENSA check logic should accept both formats.
 
 ---
 
@@ -160,7 +160,7 @@ Multiple audit rule disagreements stem from format differences:
 
 ### 3.1 CIS 2.2.6 - Wrong section
 
-**Symptom:** AEGIS maps `service-disable-named` to 2.2.6, OpenSCAP maps sudo rules to 2.2.6
+**Symptom:** KENSA maps `service-disable-named` to 2.2.6, OpenSCAP maps sudo rules to 2.2.6
 
 **Analysis:** CIS section numbering varies between benchmark versions. Need to verify against actual CIS RHEL 9 v2.0.0.
 
@@ -171,8 +171,8 @@ Multiple audit rule disagreements stem from format differences:
 **Symptom:** Different SSH rules mapped to same sections
 
 ```
-CIS 5.1.5:  AEGIS=ssh-banner, OpenSCAP=sshd_use_strong_kex
-CIS 5.1.18: AEGIS=ssh-use-pam, OpenSCAP=sshd_set_max_sessions
+CIS 5.1.5:  KENSA=ssh-banner, OpenSCAP=sshd_use_strong_kex
+CIS 5.1.18: KENSA=ssh-use-pam, OpenSCAP=sshd_set_max_sessions
 ```
 
 **Analysis:** Section numbers don't match between tools. Need CIS benchmark verification.
@@ -183,9 +183,9 @@ CIS 5.1.18: AEGIS=ssh-use-pam, OpenSCAP=sshd_set_max_sessions
 
 ### 4.1 CIS 5.4.1.5 - System accounts
 
-**Symptom:** AEGIS FAIL, OpenSCAP PASS
+**Symptom:** KENSA FAIL, OpenSCAP PASS
 
-AEGIS `nologin-system-accounts` checks all system accounts have nologin shell. OpenSCAP may have exceptions.
+KENSA `nologin-system-accounts` checks all system accounts have nologin shell. OpenSCAP may have exceptions.
 
 ---
 
@@ -197,7 +197,7 @@ Different sysctl keys mapped to same sections. Need section alignment.
 
 ## Recommended Fixes
 
-### Priority 1 - AEGIS Bugs (Fix immediately)
+### Priority 1 - KENSA Bugs (Fix immediately)
 
 1. **service_state handler**: Accept "static" as valid enabled state
 2. **journald-service-enabled**: Will auto-fix with handler change

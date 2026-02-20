@@ -1,11 +1,11 @@
-You are helping a developer work with the Aegis FedRAMP Moderate baseline mapping.
+You are helping a developer work with the Kensa FedRAMP Moderate baseline mapping.
 
 ## Context Files
 
 Read these files first to understand the current state:
 
 1. **Baseline reference**: `context/fedramp/moderate-rev5-baseline.yaml` — authoritative list of all 323 FedRAMP Moderate Rev 5 controls with applicability tags
-2. **Current mapping**: `mappings/fedramp/moderate.yaml` — Aegis mapping file linking controls to rules
+2. **Current mapping**: `mappings/fedramp/moderate.yaml` — Kensa mapping file linking controls to rules
 3. **Reference doc**: `context/fedramp/FEDRAMP_MODERATE_REFERENCE.md` — human-readable reference with FedRAMP parameters
 
 Then run the validation script to get the current gap analysis:

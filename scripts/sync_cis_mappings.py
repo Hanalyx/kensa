@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Synchronize CIS mappings between canonical mapping file and AEGIS rules.
+"""Synchronize CIS mappings between canonical mapping file and KENSA rules.
 
 This script uses the mapping file as the source of truth and:
 1. Reports rules with incorrect CIS section references
-2. Reports coverage gaps (CIS sections without AEGIS rules)
+2. Reports coverage gaps (CIS sections without KENSA rules)
 3. Optionally fixes rule files with correct section numbers
 
 Usage:
@@ -35,7 +35,7 @@ def load_mapping(mapping_path: str) -> dict:
 
 
 def load_rules(rules_dir: str) -> dict[str, dict]:
-    """Load all AEGIS rules and extract CIS references."""
+    """Load all KENSA rules and extract CIS references."""
     rules = {}
     rules_path = Path(rules_dir)
 
@@ -84,9 +84,9 @@ def analyze_mappings(
     for section, data in controls.items():
         if not isinstance(data, dict):
             continue
-        for aegis_rule in data.get("rules", []):
-            if aegis_rule:
-                rule_to_sections.setdefault(aegis_rule, []).append(section)
+        for kensa_rule in data.get("rules", []):
+            if kensa_rule:
+                rule_to_sections.setdefault(kensa_rule, []).append(section)
 
     # Check each control
     for section, data in controls.items():
@@ -105,17 +105,17 @@ def analyze_mappings(
             })
             continue
 
-        for aegis_rule in rule_list:
-            if aegis_rule not in rules:
+        for kensa_rule in rule_list:
+            if kensa_rule not in rules:
                 results["missing_in_rules"].append({
                     "section": section,
                     "title": title,
-                    "expected_rule": aegis_rule,
+                    "expected_rule": kensa_rule,
                 })
                 continue
 
             # Check if rule has correct CIS reference
-            rule = rules[aegis_rule]
+            rule = rules[kensa_rule]
             cis_refs = rule["references"].get("cis", {})
             ref_data = cis_refs.get(ref_key, {})
             actual_section = ref_data.get("section", "") if isinstance(ref_data, dict) else ""
@@ -123,13 +123,13 @@ def analyze_mappings(
             if actual_section == section:
                 results["correct"].append({
                     "section": section,
-                    "rule": aegis_rule,
+                    "rule": kensa_rule,
                 })
             else:
                 results["misaligned"].append({
                     "section": section,
                     "title": title,
-                    "rule": aegis_rule,
+                    "rule": kensa_rule,
                     "rule_path": rule["path"],
                     "expected_section": section,
                     "actual_section": actual_section or "(missing)",
@@ -192,7 +192,7 @@ def print_report(results: dict, verbose: bool = False) -> None:
     print(f"  Misaligned sections:  {len(results['misaligned']):3d}  <- FIX THESE")
     print(f"  Missing rules:        {len(results['missing_in_rules']):3d}  <- Rules referenced but not found")
     print(f"  Extra in rules:       {len(results['extra_in_rules']):3d}  <- Rules have sections not in mapping")
-    print(f"  Not implemented:      {len(results['not_implemented']):3d}  <- CIS sections without AEGIS rules")
+    print(f"  Not implemented:      {len(results['not_implemented']):3d}  <- CIS sections without KENSA rules")
 
     # Misaligned (most important)
     if results["misaligned"]:
@@ -214,7 +214,7 @@ def print_report(results: dict, verbose: bool = False) -> None:
 
     # Not implemented
     if results["not_implemented"] and verbose:
-        print("\n## Not Implemented (CIS sections without AEGIS rules)\n")
+        print("\n## Not Implemented (CIS sections without KENSA rules)\n")
         for item in sorted(results["not_implemented"], key=lambda x: x["section"]):
             type_marker = "[M]" if item.get("type") == "Manual" else "[A]"
             print(f"  {item['section']:<12} {type_marker} {item['title'][:50]}")
@@ -223,7 +223,7 @@ def print_report(results: dict, verbose: bool = False) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sync CIS mappings with AEGIS rules")
+    parser = argparse.ArgumentParser(description="Sync CIS mappings with KENSA rules")
     parser.add_argument(
         "--mapping",
         required=True,

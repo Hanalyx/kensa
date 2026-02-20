@@ -48,7 +48,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-ignore-rhosts.conf"
+      file: "00-kensa-ignore-rhosts.conf"
       key: "IgnoreRhosts"
       value: "yes"
       reload: "sshd"

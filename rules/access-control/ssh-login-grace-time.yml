@@ -39,7 +39,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-login-grace-time.conf"
+      file: "00-kensa-login-grace-time.conf"
       key: "LoginGraceTime"
       value: "60"
       reload: "sshd"

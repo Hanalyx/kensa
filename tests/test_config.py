@@ -89,7 +89,7 @@ class TestLoadConfig:
 
     def test_load_none_uses_auto_detect(self, tmp_path, monkeypatch):
         """load_config(None) falls back to get_config_path()."""
-        monkeypatch.setenv("AEGIS_CONFIG_PATH", str(tmp_path))
+        monkeypatch.setenv("KENSA_CONFIG_PATH", str(tmp_path))
         _write_yaml(
             tmp_path / "defaults.yml",
             """\
@@ -574,12 +574,12 @@ class TestGetConfigPath:
     """Tests for runner.paths.get_config_path()."""
 
     def test_env_var(self, tmp_path, monkeypatch):
-        """AEGIS_CONFIG_PATH env var takes priority."""
+        """KENSA_CONFIG_PATH env var takes priority."""
         from runner.paths import get_config_path
 
         config_dir = tmp_path / "custom-config"
         config_dir.mkdir()
-        monkeypatch.setenv("AEGIS_CONFIG_PATH", str(config_dir))
+        monkeypatch.setenv("KENSA_CONFIG_PATH", str(config_dir))
         result = get_config_path()
         assert result == config_dir
 
@@ -589,7 +589,7 @@ class TestGetConfigPath:
 
         config_dir = tmp_path / "custom-config"
         config_dir.mkdir()
-        monkeypatch.setenv("AEGIS_CONFIG_PATH", str(config_dir))
+        monkeypatch.setenv("KENSA_CONFIG_PATH", str(config_dir))
         result = get_config_path("defaults.yml")
         assert result == config_dir / "defaults.yml"
 
@@ -597,7 +597,7 @@ class TestGetConfigPath:
         """Dev layout: ./config/ relative to cwd."""
         from runner.paths import get_config_path
 
-        monkeypatch.delenv("AEGIS_CONFIG_PATH", raising=False)
+        monkeypatch.delenv("KENSA_CONFIG_PATH", raising=False)
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         monkeypatch.chdir(tmp_path)
@@ -608,7 +608,7 @@ class TestGetConfigPath:
         """FileNotFoundError when no config dir found."""
         from runner.paths import get_config_path
 
-        monkeypatch.delenv("AEGIS_CONFIG_PATH", raising=False)
+        monkeypatch.delenv("KENSA_CONFIG_PATH", raising=False)
         monkeypatch.chdir(tmp_path)
         # Patch source-relative path too
         monkeypatch.setattr(
@@ -626,12 +626,12 @@ class TestGetMappingsPath:
     """Tests for runner.paths.get_mappings_path()."""
 
     def test_env_var(self, tmp_path, monkeypatch):
-        """AEGIS_MAPPINGS_PATH env var takes priority."""
+        """KENSA_MAPPINGS_PATH env var takes priority."""
         from runner.paths import get_mappings_path
 
         mappings_dir = tmp_path / "custom-mappings"
         mappings_dir.mkdir()
-        monkeypatch.setenv("AEGIS_MAPPINGS_PATH", str(mappings_dir))
+        monkeypatch.setenv("KENSA_MAPPINGS_PATH", str(mappings_dir))
         result = get_mappings_path()
         assert result == mappings_dir
 
@@ -641,7 +641,7 @@ class TestGetMappingsPath:
 
         mappings_dir = tmp_path / "custom-mappings"
         mappings_dir.mkdir()
-        monkeypatch.setenv("AEGIS_MAPPINGS_PATH", str(mappings_dir))
+        monkeypatch.setenv("KENSA_MAPPINGS_PATH", str(mappings_dir))
         result = get_mappings_path("cis")
         assert result == mappings_dir / "cis"
 
@@ -649,7 +649,7 @@ class TestGetMappingsPath:
         """Dev layout: ./mappings/ relative to cwd."""
         from runner.paths import get_mappings_path
 
-        monkeypatch.delenv("AEGIS_MAPPINGS_PATH", raising=False)
+        monkeypatch.delenv("KENSA_MAPPINGS_PATH", raising=False)
         mappings_dir = tmp_path / "mappings"
         mappings_dir.mkdir()
         monkeypatch.chdir(tmp_path)
@@ -660,7 +660,7 @@ class TestGetMappingsPath:
         """FileNotFoundError when no mappings dir found."""
         from runner.paths import get_mappings_path
 
-        monkeypatch.delenv("AEGIS_MAPPINGS_PATH", raising=False)
+        monkeypatch.delenv("KENSA_MAPPINGS_PATH", raising=False)
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
             "runner.paths.Path.exists",
@@ -677,12 +677,12 @@ class TestGetInventoryPath:
     """Tests for runner.paths.get_inventory_path()."""
 
     def test_env_var(self, tmp_path, monkeypatch):
-        """AEGIS_INVENTORY_PATH env var takes priority."""
+        """KENSA_INVENTORY_PATH env var takes priority."""
         from runner.paths import get_inventory_path
 
         inv_file = tmp_path / "hosts.yml"
         inv_file.write_text("all:\n  - host1\n")
-        monkeypatch.setenv("AEGIS_INVENTORY_PATH", str(inv_file))
+        monkeypatch.setenv("KENSA_INVENTORY_PATH", str(inv_file))
         result = get_inventory_path()
         assert result == inv_file
 
@@ -690,7 +690,7 @@ class TestGetInventoryPath:
         """Finds inventory.yml in cwd."""
         from runner.paths import get_inventory_path
 
-        monkeypatch.delenv("AEGIS_INVENTORY_PATH", raising=False)
+        monkeypatch.delenv("KENSA_INVENTORY_PATH", raising=False)
         inv_file = tmp_path / "inventory.yml"
         inv_file.write_text("all:\n  - host1\n")
         monkeypatch.chdir(tmp_path)
@@ -701,7 +701,7 @@ class TestGetInventoryPath:
         """Finds inventory.ini in cwd."""
         from runner.paths import get_inventory_path
 
-        monkeypatch.delenv("AEGIS_INVENTORY_PATH", raising=False)
+        monkeypatch.delenv("KENSA_INVENTORY_PATH", raising=False)
         inv_file = tmp_path / "inventory.ini"
         inv_file.write_text("[all]\nhost1\n")
         monkeypatch.chdir(tmp_path)
@@ -712,7 +712,7 @@ class TestGetInventoryPath:
         """Returns None when no inventory file found."""
         from runner.paths import get_inventory_path
 
-        monkeypatch.delenv("AEGIS_INVENTORY_PATH", raising=False)
+        monkeypatch.delenv("KENSA_INVENTORY_PATH", raising=False)
         monkeypatch.chdir(tmp_path)
         result = get_inventory_path()
         assert result is None

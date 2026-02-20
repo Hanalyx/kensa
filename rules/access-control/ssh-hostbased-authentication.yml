@@ -49,7 +49,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-hostbased-authentication.conf"
+      file: "00-kensa-hostbased-authentication.conf"
       key: "HostbasedAuthentication"
       value: "no"
       reload: "sshd"

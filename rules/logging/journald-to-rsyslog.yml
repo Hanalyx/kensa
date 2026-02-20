@@ -37,7 +37,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/systemd/journald.conf.d"
-      file: "00-aegis-forward.conf"
+      file: "00-kensa-forward.conf"
       key: "ForwardToSyslog"
       value: "yes"
       section: "[Journal]"

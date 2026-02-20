@@ -45,7 +45,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-max-sessions.conf"
+      file: "00-kensa-max-sessions.conf"
       key: "MaxSessions"
       value: "{{ ssh_max_sessions }}"
       reload: "sshd"

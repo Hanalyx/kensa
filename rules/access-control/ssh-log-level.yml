@@ -45,7 +45,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-log-level.conf"
+      file: "00-kensa-log-level.conf"
       key: "LogLevel"
       value: "VERBOSE"
       reload: "sshd"

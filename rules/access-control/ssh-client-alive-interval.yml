@@ -58,7 +58,7 @@ implementations:
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
-      file: "00-aegis-client-alive-interval.conf"
+      file: "00-kensa-client-alive-interval.conf"
       key: "ClientAliveInterval"
       value: "{{ ssh_client_alive_interval }}"
       reload: "sshd"

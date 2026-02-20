@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Gap analysis between AEGIS and OpenSCAP scan results.
+"""Gap analysis between KENSA and OpenSCAP scan results.
 
-Compares AEGIS JSON results with OpenSCAP XML results to identify:
+Compares KENSA JSON results with OpenSCAP XML results to identify:
 1. Result mismatches (different pass/fail outcomes)
 2. Coverage gaps (rules in one tool but not the other)
 3. Agreement statistics
 
 Usage:
     python3 scripts/gap_analysis.py \
-        --aegis results/aegis-results.json \
+        --kensa results/kensa-results.json \
         --openscap results/openscap-results.xml \
         --output CIS_RHEL9_GAP_ANALYSIS.md
 """
@@ -91,8 +91,8 @@ def parse_openscap_xml(xml_path: str) -> dict[str, RuleResult]:
     return results
 
 
-def parse_aegis_json(json_path: str) -> dict[str, RuleResult]:
-    """Parse AEGIS JSON results.
+def parse_kensa_json(json_path: str) -> dict[str, RuleResult]:
+    """Parse KENSA JSON results.
 
     Returns dict mapping rule_id to RuleResult.
     """
@@ -121,9 +121,9 @@ def parse_aegis_json(json_path: str) -> dict[str, RuleResult]:
     return results
 
 
-# Mapping from AEGIS rule IDs to OpenSCAP rule IDs
+# Mapping from KENSA rule IDs to OpenSCAP rule IDs
 # This covers common naming differences
-AEGIS_TO_OPENSCAP = {
+KENSA_TO_OPENSCAP = {
     # Kernel modules
     "kmod-disable-cramfs": "kernel_module_cramfs_disabled",
     "kmod-disable-freevxfs": "kernel_module_freevxfs_disabled",
@@ -277,7 +277,7 @@ AEGIS_TO_OPENSCAP = {
 }
 
 # Build reverse mapping
-OPENSCAP_TO_AEGIS = {v: k for k, v in AEGIS_TO_OPENSCAP.items()}
+OPENSCAP_TO_KENSA = {v: k for k, v in KENSA_TO_OPENSCAP.items()}
 
 
 def normalize_rule_id(rule_id: str) -> str:
@@ -289,27 +289,27 @@ def normalize_rule_id(rule_id: str) -> str:
 
 
 def find_matching_openscap_rule(
-    aegis_id: str, openscap_results: dict[str, RuleResult]
+    kensa_id: str, openscap_results: dict[str, RuleResult]
 ) -> str | None:
-    """Find matching OpenSCAP rule for an AEGIS rule."""
+    """Find matching OpenSCAP rule for a KENSA rule."""
     # Direct mapping
-    if aegis_id in AEGIS_TO_OPENSCAP:
-        openscap_id = AEGIS_TO_OPENSCAP[aegis_id]
+    if kensa_id in KENSA_TO_OPENSCAP:
+        openscap_id = KENSA_TO_OPENSCAP[kensa_id]
         if openscap_id in openscap_results:
             return openscap_id
 
     # Try fuzzy matching
-    aegis_norm = normalize_rule_id(aegis_id)
+    kensa_norm = normalize_rule_id(kensa_id)
     for openscap_id in openscap_results:
         openscap_norm = normalize_rule_id(openscap_id)
-        if aegis_norm in openscap_norm or openscap_norm in aegis_norm:
+        if kensa_norm in openscap_norm or openscap_norm in kensa_norm:
             return openscap_id
 
     return None
 
 
 def generate_report(
-    aegis_results: dict[str, RuleResult],
+    kensa_results: dict[str, RuleResult],
     openscap_results: dict[str, RuleResult],
     output_path: str,
 ) -> None:
@@ -317,35 +317,35 @@ def generate_report(
     # Categorize results
     both_pass = []
     both_fail = []
-    aegis_pass_openscap_fail = []
-    aegis_fail_openscap_pass = []
-    aegis_only = []
+    kensa_pass_openscap_fail = []
+    kensa_fail_openscap_pass = []
+    kensa_only = []
     openscap_only_pass = []
     openscap_only_fail = []
 
     matched_openscap = set()
 
-    for aegis_id, aegis_result in aegis_results.items():
-        openscap_id = find_matching_openscap_rule(aegis_id, openscap_results)
+    for kensa_id, kensa_result in kensa_results.items():
+        openscap_id = find_matching_openscap_rule(kensa_id, openscap_results)
 
         if openscap_id:
             matched_openscap.add(openscap_id)
             openscap_result = openscap_results[openscap_id]
 
-            if aegis_result.passed and openscap_result.passed:
-                both_pass.append((aegis_id, openscap_id, aegis_result, openscap_result))
-            elif not aegis_result.passed and not openscap_result.passed:
-                both_fail.append((aegis_id, openscap_id, aegis_result, openscap_result))
-            elif aegis_result.passed and not openscap_result.passed:
-                aegis_pass_openscap_fail.append(
-                    (aegis_id, openscap_id, aegis_result, openscap_result)
+            if kensa_result.passed and openscap_result.passed:
+                both_pass.append((kensa_id, openscap_id, kensa_result, openscap_result))
+            elif not kensa_result.passed and not openscap_result.passed:
+                both_fail.append((kensa_id, openscap_id, kensa_result, openscap_result))
+            elif kensa_result.passed and not openscap_result.passed:
+                kensa_pass_openscap_fail.append(
+                    (kensa_id, openscap_id, kensa_result, openscap_result)
                 )
             else:
-                aegis_fail_openscap_pass.append(
-                    (aegis_id, openscap_id, aegis_result, openscap_result)
+                kensa_fail_openscap_pass.append(
+                    (kensa_id, openscap_id, kensa_result, openscap_result)
                 )
         else:
-            aegis_only.append((aegis_id, aegis_result))
+            kensa_only.append((kensa_id, kensa_result))
 
     for openscap_id, openscap_result in openscap_results.items():
         if openscap_id not in matched_openscap:
@@ -356,38 +356,38 @@ def generate_report(
 
     # Generate report
     report = []
-    report.append("# CIS RHEL 9 Gap Analysis: AEGIS vs OpenSCAP\n")
+    report.append("# CIS RHEL 9 Gap Analysis: KENSA vs OpenSCAP\n")
     report.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report.append("**AEGIS Framework:** cis-rhel9-v2.0.0")
+    report.append("**KENSA Framework:** cis-rhel9-v2.0.0")
     report.append("**OpenSCAP Profile:** xccdf_org.ssgproject.content_profile_cis")
     report.append("")
     report.append("---\n")
 
     # Executive Summary
     report.append("## Executive Summary\n")
-    report.append("| Metric | AEGIS | OpenSCAP |")
+    report.append("| Metric | KENSA | OpenSCAP |")
     report.append("|--------|-------|----------|")
-    aegis_pass = sum(1 for r in aegis_results.values() if r.passed)
-    aegis_fail = sum(1 for r in aegis_results.values() if not r.passed)
+    kensa_pass = sum(1 for r in kensa_results.values() if r.passed)
+    kensa_fail = sum(1 for r in kensa_results.values() if not r.passed)
     openscap_pass = sum(1 for r in openscap_results.values() if r.passed)
     openscap_fail = sum(1 for r in openscap_results.values() if not r.passed)
-    report.append(f"| Rules checked | {len(aegis_results)} | {len(openscap_results)} |")
+    report.append(f"| Rules checked | {len(kensa_results)} | {len(openscap_results)} |")
     report.append(
-        f"| Pass | {aegis_pass} ({100*aegis_pass//len(aegis_results)}%) | {openscap_pass} ({100*openscap_pass//len(openscap_results)}%) |"
+        f"| Pass | {kensa_pass} ({100*kensa_pass//len(kensa_results)}%) | {openscap_pass} ({100*openscap_pass//len(openscap_results)}%) |"
     )
     report.append(
-        f"| Fail | {aegis_fail} ({100*aegis_fail//len(aegis_results)}%) | {openscap_fail} ({100*openscap_fail//len(openscap_results)}%) |"
+        f"| Fail | {kensa_fail} ({100*kensa_fail//len(kensa_results)}%) | {openscap_fail} ({100*openscap_fail//len(openscap_results)}%) |"
     )
     report.append("")
 
-    mapped_count = len(both_pass) + len(both_fail) + len(aegis_pass_openscap_fail) + len(
-        aegis_fail_openscap_pass
+    mapped_count = len(both_pass) + len(both_fail) + len(kensa_pass_openscap_fail) + len(
+        kensa_fail_openscap_pass
     )
     report.append(f"**Mapped Rules Analysis ({mapped_count} rules compared):**")
     report.append(f"- Both tools agree (pass): {len(both_pass)}")
     report.append(f"- Both tools agree (fail): {len(both_fail)}")
     report.append(
-        f"- Mismatches requiring investigation: {len(aegis_pass_openscap_fail) + len(aegis_fail_openscap_pass)}"
+        f"- Mismatches requiring investigation: {len(kensa_pass_openscap_fail) + len(kensa_fail_openscap_pass)}"
     )
     report.append("")
     report.append("---\n")
@@ -395,28 +395,28 @@ def generate_report(
     # Result Mismatches
     report.append("## 1. Result Mismatches\n")
     report.append(
-        "These rules have different pass/fail results between AEGIS and OpenSCAP.\n"
+        "These rules have different pass/fail results between KENSA and OpenSCAP.\n"
     )
 
-    if aegis_pass_openscap_fail:
-        report.append("### 1.1 AEGIS Passes, OpenSCAP Fails\n")
-        report.append("| AEGIS Rule | OpenSCAP Rule | AEGIS Detail | Analysis |")
+    if kensa_pass_openscap_fail:
+        report.append("### 1.1 KENSA Passes, OpenSCAP Fails\n")
+        report.append("| KENSA Rule | OpenSCAP Rule | KENSA Detail | Analysis |")
         report.append("|------------|---------------|--------------|----------|")
-        for aegis_id, openscap_id, aegis_r, openscap_r in sorted(aegis_pass_openscap_fail):
-            detail = aegis_r.detail[:40] if aegis_r.detail else "ok"
+        for kensa_id, openscap_id, kensa_r, openscap_r in sorted(kensa_pass_openscap_fail):
+            detail = kensa_r.detail[:40] if kensa_r.detail else "ok"
             report.append(
-                f"| `{aegis_id}` | `{openscap_id}` | {detail} | Check logic difference |"
+                f"| `{kensa_id}` | `{openscap_id}` | {detail} | Check logic difference |"
             )
         report.append("")
 
-    if aegis_fail_openscap_pass:
-        report.append("### 1.2 AEGIS Fails, OpenSCAP Passes\n")
-        report.append("| AEGIS Rule | OpenSCAP Rule | AEGIS Detail | Root Cause |")
+    if kensa_fail_openscap_pass:
+        report.append("### 1.2 KENSA Fails, OpenSCAP Passes\n")
+        report.append("| KENSA Rule | OpenSCAP Rule | KENSA Detail | Root Cause |")
         report.append("|------------|---------------|--------------|------------|")
-        for aegis_id, openscap_id, aegis_r, openscap_r in sorted(aegis_fail_openscap_pass):
-            detail = aegis_r.detail[:40] if aegis_r.detail else "fail"
+        for kensa_id, openscap_id, kensa_r, openscap_r in sorted(kensa_fail_openscap_pass):
+            detail = kensa_r.detail[:40] if kensa_r.detail else "fail"
             report.append(
-                f"| `{aegis_id}` | `{openscap_id}` | {detail} | Investigate |"
+                f"| `{kensa_id}` | `{openscap_id}` | {detail} | Investigate |"
             )
         report.append("")
 
@@ -426,15 +426,15 @@ def generate_report(
     report.append("## 2. Coverage Gaps\n")
     report.append("### 2.1 Summary\n")
     report.append(
-        f"- **OpenSCAP rules not mapped to AEGIS:** {len(openscap_only_pass) + len(openscap_only_fail)}"
+        f"- **OpenSCAP rules not mapped to KENSA:** {len(openscap_only_pass) + len(openscap_only_fail)}"
     )
     report.append(f"  - Passing (lower priority): {len(openscap_only_pass)}")
     report.append(f"  - **Failing (critical gaps): {len(openscap_only_fail)}**")
-    report.append(f"- **AEGIS rules not mapped to OpenSCAP:** {len(aegis_only)}")
+    report.append(f"- **KENSA rules not mapped to OpenSCAP:** {len(kensa_only)}")
     report.append("")
 
     if openscap_only_fail:
-        report.append("### 2.2 Critical Gaps (Failing in OpenSCAP, Missing in AEGIS)\n")
+        report.append("### 2.2 Critical Gaps (Failing in OpenSCAP, Missing in KENSA)\n")
         report.append("| OpenSCAP Rule | Title |")
         report.append("|---------------|-------|")
         for openscap_id, openscap_r in sorted(openscap_only_fail)[:50]:
@@ -451,36 +451,36 @@ def generate_report(
     report.append(f"### 3.1 Both Pass ({len(both_pass)} rules)\n")
     if both_pass:
         report.append("<details><summary>Click to expand</summary>\n")
-        report.append("| AEGIS Rule | OpenSCAP Rule |")
+        report.append("| KENSA Rule | OpenSCAP Rule |")
         report.append("|------------|---------------|")
-        for aegis_id, openscap_id, _, _ in sorted(both_pass):
-            report.append(f"| `{aegis_id}` | `{openscap_id}` |")
+        for kensa_id, openscap_id, _, _ in sorted(both_pass):
+            report.append(f"| `{kensa_id}` | `{openscap_id}` |")
         report.append("</details>\n")
 
     report.append(f"### 3.2 Both Fail ({len(both_fail)} rules)\n")
     if both_fail:
-        report.append("| AEGIS Rule | OpenSCAP Rule | AEGIS Detail |")
+        report.append("| KENSA Rule | OpenSCAP Rule | KENSA Detail |")
         report.append("|------------|---------------|--------------|")
-        for aegis_id, openscap_id, aegis_r, _ in sorted(both_fail):
-            detail = aegis_r.detail[:50] if aegis_r.detail else "fail"
-            report.append(f"| `{aegis_id}` | `{openscap_id}` | {detail} |")
+        for kensa_id, openscap_id, kensa_r, _ in sorted(both_fail):
+            detail = kensa_r.detail[:50] if kensa_r.detail else "fail"
+            report.append(f"| `{kensa_id}` | `{openscap_id}` | {detail} |")
         report.append("")
 
     report.append("---\n")
 
-    # AEGIS Only
-    report.append("## 4. AEGIS-Only Rules\n")
+    # KENSA Only
+    report.append("## 4. KENSA-Only Rules\n")
     report.append(
-        f"These {len(aegis_only)} rules exist in AEGIS but have no OpenSCAP equivalent.\n"
+        f"These {len(kensa_only)} rules exist in KENSA but have no OpenSCAP equivalent.\n"
     )
-    if aegis_only:
+    if kensa_only:
         report.append("<details><summary>Click to expand</summary>\n")
-        report.append("| AEGIS Rule | CIS Section | Result |")
+        report.append("| KENSA Rule | CIS Section | Result |")
         report.append("|------------|-------------|--------|")
-        for aegis_id, aegis_r in sorted(aegis_only):
-            section = aegis_r.section or "-"
-            result = "PASS" if aegis_r.passed else "FAIL"
-            report.append(f"| `{aegis_id}` | {section} | {result} |")
+        for kensa_id, kensa_r in sorted(kensa_only):
+            section = kensa_r.section or "-"
+            result = "PASS" if kensa_r.passed else "FAIL"
+            report.append(f"| `{kensa_id}` | {section} | {result} |")
         report.append("</details>\n")
 
     # Write report
@@ -488,33 +488,33 @@ def generate_report(
     output.write_text("\n".join(report))
     print(f"Report written to {output_path}")
     print(f"\nSummary:")
-    print(f"  AEGIS: {len(aegis_results)} rules ({aegis_pass} pass, {aegis_fail} fail)")
+    print(f"  KENSA: {len(kensa_results)} rules ({kensa_pass} pass, {kensa_fail} fail)")
     print(
         f"  OpenSCAP: {len(openscap_results)} rules ({openscap_pass} pass, {openscap_fail} fail)"
     )
     print(f"  Mapped: {mapped_count} rules")
     print(f"  Agree: {len(both_pass) + len(both_fail)}")
-    print(f"  Mismatch: {len(aegis_pass_openscap_fail) + len(aegis_fail_openscap_pass)}")
+    print(f"  Mismatch: {len(kensa_pass_openscap_fail) + len(kensa_fail_openscap_pass)}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AEGIS vs OpenSCAP gap analysis")
-    parser.add_argument("--aegis", required=True, help="Path to AEGIS JSON results")
+    parser = argparse.ArgumentParser(description="KENSA vs OpenSCAP gap analysis")
+    parser.add_argument("--kensa", required=True, help="Path to KENSA JSON results")
     parser.add_argument("--openscap", required=True, help="Path to OpenSCAP XML results")
     parser.add_argument(
         "--output", default="GAP_ANALYSIS.md", help="Output markdown file"
     )
     args = parser.parse_args()
 
-    print(f"Parsing AEGIS results from {args.aegis}...")
-    aegis_results = parse_aegis_json(args.aegis)
-    print(f"  Found {len(aegis_results)} rules")
+    print(f"Parsing KENSA results from {args.kensa}...")
+    kensa_results = parse_kensa_json(args.kensa)
+    print(f"  Found {len(kensa_results)} rules")
 
     print(f"Parsing OpenSCAP results from {args.openscap}...")
     openscap_results = parse_openscap_xml(args.openscap)
     print(f"  Found {len(openscap_results)} rules")
 
-    generate_report(aegis_results, openscap_results, args.output)
+    generate_report(kensa_results, openscap_results, args.output)
 
 
 if __name__ == "__main__":

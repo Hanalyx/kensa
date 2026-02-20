@@ -33,7 +33,7 @@ def _remediate_sysctl_set(
     key = r["key"]
     value = r["value"]
     persist_file = r.get(
-        "persist_file", f"/etc/sysctl.d/99-aegis-{key.replace('.', '-')}.conf"
+        "persist_file", f"/etc/sysctl.d/99-kensa-{key.replace('.', '-')}.conf"
     )
 
     if dry_run:
@@ -200,7 +200,7 @@ def _remediate_cron_job(
             - schedule (str): Cron schedule.
             - command (str): Command to execute.
             - user (str, optional): User to run as. Defaults to "root".
-            - name (str, optional): Job name. Defaults to "aegis-managed".
+            - name (str, optional): Job name. Defaults to "kensa-managed".
 
     Returns:
         Tuple of (success, detail).
@@ -209,7 +209,7 @@ def _remediate_cron_job(
     schedule = r["schedule"]
     command = r["command"]
     user = r.get("user", "root")
-    name = r.get("name", "aegis-managed")
+    name = r.get("name", "kensa-managed")
 
     cron_file = f"/etc/cron.d/{name}"
     cron_line = f"{schedule} {user} {command}"

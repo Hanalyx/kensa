@@ -309,7 +309,7 @@ families:
       - id: "CA-7"
         title: "Continuous Monitoring"
         applicability: semi-technical
-        notes: "Aegis itself supports continuous monitoring of technical controls"
+        notes: "Kensa itself supports continuous monitoring of technical controls"
       - id: "CA-7(1)"
         title: "Continuous Monitoring | Independent Assessment"
         applicability: procedural
@@ -342,7 +342,7 @@ families:
       - id: "CM-2"
         title: "Baseline Configuration"
         applicability: semi-technical
-        notes: "Aegis itself provides baseline configuration enforcement"
+        notes: "Kensa itself provides baseline configuration enforcement"
       - id: "CM-2(2)"
         title: "Baseline Configuration | Automation Support for Accuracy and Currency"
         applicability: semi-technical
@@ -882,7 +882,7 @@ families:
       - id: "RA-5"
         title: "Vulnerability Monitoring and Scanning"
         applicability: semi-technical
-        notes: "Vulnerability scanning tools — Aegis performs configuration assessment"
+        notes: "Vulnerability scanning tools — Kensa performs configuration assessment"
       - id: "RA-5(2)"
         title: "Vulnerability Monitoring and Scanning | Update Vulnerabilities to Be Scanned"
         applicability: semi-technical

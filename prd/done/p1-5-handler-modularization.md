@@ -586,5 +586,5 @@ Track these before and after:
 ## Future Extensions
 
 - **Handler autodiscovery**: Scan `handlers/` for `_check_*` and `_remediate_*` functions
-- **Plugin system**: Load third-party handlers from `~/.aegis/handlers/`
+- **Plugin system**: Load third-party handlers from `~/.kensa/handlers/`
 - **Handler profiling**: Track execution time per handler type

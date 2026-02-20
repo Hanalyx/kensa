@@ -19,7 +19,7 @@ def _capture_sysctl_set(ssh: SSHSession, r: dict) -> PreState:
     """Capture current sysctl value and persist file state."""
     key = r["key"]
     persist_file = r.get(
-        "persist_file", f"/etc/sysctl.d/99-aegis-{key.replace('.', '-')}.conf"
+        "persist_file", f"/etc/sysctl.d/99-kensa-{key.replace('.', '-')}.conf"
     )
     result = ssh.run(f"sysctl -n {shell_util.quote(key)} 2>/dev/null")
     old_value = result.stdout.strip() if result.ok else None
@@ -108,7 +108,7 @@ def _capture_grub_parameter_remove(ssh: SSHSession, r: dict) -> PreState:
 
 def _capture_cron_job(ssh: SSHSession, r: dict) -> PreState:
     """Capture cron file state before creation."""
-    name = r.get("name", "aegis-managed")
+    name = r.get("name", "kensa-managed")
     cron_file = f"/etc/cron.d/{name}"
 
     exists = shell_util.file_exists(ssh, cron_file)

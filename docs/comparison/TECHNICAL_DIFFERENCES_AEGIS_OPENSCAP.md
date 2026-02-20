@@ -1,4 +1,4 @@
-# Technical Differences: AEGIS vs OpenSCAP
+# Technical Differences: KENSA vs OpenSCAP
 
 **Version:** 1.0
 **Date:** 2026-02-08
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-AEGIS and OpenSCAP represent two fundamentally different philosophies for security compliance automation. OpenSCAP follows the **benchmark-centric** model where rules are organized around compliance document structure. AEGIS follows a **control-centric** model where canonical security controls exist independently of any specific framework.
+KENSA and OpenSCAP represent two fundamentally different philosophies for security compliance automation. OpenSCAP follows the **benchmark-centric** model where rules are organized around compliance document structure. KENSA follows a **control-centric** model where canonical security controls exist independently of any specific framework.
 
 This document explains the architectural differences, check methodologies, trade-offs, and implications for organizations implementing technical compliance programs.
 
@@ -47,9 +47,9 @@ OpenSCAP is built around the Security Content Automation Protocol (SCAP), a NIST
 - **OVAL definitions**: Checks are expressed in Open Vulnerability and Assessment Language (XML)
 - **CPE dictionaries**: Platform applicability via Common Platform Enumeration
 
-### 1.2 AEGIS: Control-Centric Architecture
+### 1.2 KENSA: Control-Centric Architecture
 
-AEGIS is built around the concept of canonical security controls that exist independently of any compliance framework. Frameworks are metadata attached to rules, not organizational structures.
+KENSA is built around the concept of canonical security controls that exist independently of any compliance framework. Frameworks are metadata attached to rules, not organizational structures.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -121,9 +121,9 @@ OpenSCAP uses OVAL (Open Vulnerability and Assessment Language) for checks. OVAL
 - **Boolean logic**: Complex criteria with AND/OR operators
 - **Offline capable**: Can scan filesystem images without running services
 
-### 2.2 AEGIS Check Approach
+### 2.2 KENSA Check Approach
 
-AEGIS uses shell commands executed over SSH to verify system state. Checks are defined in YAML with explicit methods.
+KENSA uses shell commands executed over SSH to verify system state. Checks are defined in YAML with explicit methods.
 
 **Example: Checking SSH Root Login**
 
@@ -163,7 +163,7 @@ implementations:
 
 ### 3.1 Static vs Operational Verification
 
-| Aspect | OpenSCAP | AEGIS |
+| Aspect | OpenSCAP | KENSA |
 |--------|----------|-------|
 | **Primary method** | Parse config files | Query running services |
 | **SSH example** | Read `/etc/ssh/sshd_config` | Run `sshd -T` to get effective config |
@@ -175,7 +175,7 @@ implementations:
 Read /etc/ssh/sshd_config → Parse for PermitRootLogin → Compare value
 ```
 
-**AEGIS approach:**
+**KENSA approach:**
 ```
 Run sshd -T → Get EFFECTIVE configuration → Compare value
 ```
@@ -193,11 +193,11 @@ OpenSCAP checking only `/etc/ssh/sshd_config` may miss:
 - Match blocks that apply different settings per user/host
 - Cases where the main file is empty but defaults are secure
 
-AEGIS using `sshd -T` gets the **effective** configuration after all includes and overrides are processed.
+KENSA using `sshd -T` gets the **effective** configuration after all includes and overrides are processed.
 
 ### 3.2 Granular vs Consolidated Rules
 
-| Aspect | OpenSCAP | AEGIS |
+| Aspect | OpenSCAP | KENSA |
 |--------|----------|-------|
 | **Time audit rules** | 5 separate rules | 1 consolidated rule |
 | **Cron access control** | 3 separate rules | 1 consolidated rule |
@@ -212,7 +212,7 @@ audit_rules_time_stime              → Check for stime syscall
 audit_rules_time_watch_localtime    → Check for /etc/localtime watch
 ```
 
-**AEGIS consolidation:**
+**KENSA consolidation:**
 ```
 audit-time-change                   → Check all time-modification audit rules
 ```
@@ -220,13 +220,13 @@ audit-time-change                   → Check all time-modification audit rules
 **Why this matters:**
 
 - **OpenSCAP**: One syscall missing = one finding. Precise but verbose.
-- **AEGIS**: Time changes are audited or not. Holistic security posture.
+- **KENSA**: Time changes are audited or not. Holistic security posture.
 
-The OpenSCAP approach aligns with benchmark document structure (each recommendation is a rule). The AEGIS approach aligns with security intent (time changes must be audited).
+The OpenSCAP approach aligns with benchmark document structure (each recommendation is a rule). The KENSA approach aligns with security intent (time changes must be audited).
 
 ### 3.3 Version-Specific vs Capability-Gated
 
-| Aspect | OpenSCAP | AEGIS |
+| Aspect | OpenSCAP | KENSA |
 |--------|----------|-------|
 | **RHEL 8 vs 9 handling** | Separate datastreams | Same rules, capability detection |
 | **New OS support** | New datastream required | Usually works automatically |
@@ -239,7 +239,7 @@ ssg-rhel9-ds.xml  → Rules for RHEL 9
 ssg-rhel10-ds.xml → Rules for RHEL 10 (when available)
 ```
 
-**AEGIS capability handling:**
+**KENSA capability handling:**
 ```
 Detect capabilities → {sshd_config_d: true, authselect: true, ...}
 Select implementation → Based on capabilities, not version string
@@ -270,9 +270,9 @@ Examples:
 - Often mirrors benchmark recommendation naming
 - Separate rules for related controls
 
-### 4.2 AEGIS Naming Convention
+### 4.2 KENSA Naming Convention
 
-AEGIS uses kebab-case canonical IDs that describe the security control:
+KENSA uses kebab-case canonical IDs that describe the security control:
 
 ```
 <category>/<control-name>.yml
@@ -294,7 +294,7 @@ Examples:
 
 The different naming conventions mean **rules don't map 1:1**:
 
-| OpenSCAP Rules | AEGIS Rule | Notes |
+| OpenSCAP Rules | KENSA Rule | Notes |
 |----------------|------------|-------|
 | `audit_rules_time_settimeofday` | `audit-time-change` | Consolidated |
 | `audit_rules_time_clock_settime` | `audit-time-change` | Consolidated |
@@ -334,7 +334,7 @@ The different naming conventions mean **rules don't map 1:1**:
 | **False positives** | File-based checks may not reflect operational state |
 | **Verbose findings** | 5 rules for "audit time changes" vs 1 security control |
 
-### 5.2 AEGIS
+### 5.2 KENSA
 
 **Pros:**
 
@@ -365,7 +365,7 @@ The different naming conventions mean **rules don't map 1:1**:
 
 ### 6.1 Why Results May Differ
 
-When OpenSCAP and AEGIS check the same system, results may differ due to:
+When OpenSCAP and KENSA check the same system, results may differ due to:
 
 #### 6.1.1 Check Method Differences
 
@@ -381,7 +381,7 @@ System state:
 | Tool | Check Method | Result |
 |------|--------------|--------|
 | OpenSCAP | Read main config file | **FAIL** (sees "yes") |
-| AEGIS | Run `sshd -T` | **PASS** (sees effective "no") |
+| KENSA | Run `sshd -T` | **PASS** (sees effective "no") |
 
 Both are technically correct given their methodology. The system IS secure (root login disabled), but the main config file has an insecure value that's overridden.
 
@@ -397,9 +397,9 @@ CIS RHEL 9 requires: minlen >= 14
 | Tool | Check | Result |
 |------|-------|--------|
 | OpenSCAP | minlen == 14 (exact match) | **FAIL** |
-| AEGIS | minlen >= 14 (threshold) | **PASS** |
+| KENSA | minlen >= 14 (threshold) | **PASS** |
 
-OpenSCAP may check for exact values while AEGIS uses comparators (`>=`, `<=`). A more restrictive setting (15 > 14) should pass, not fail.
+OpenSCAP may check for exact values while KENSA uses comparators (`>=`, `<=`). A more restrictive setting (15 > 14) should pass, not fail.
 
 #### 6.1.3 Rule Granularity
 
@@ -413,9 +413,9 @@ System state: Missing audit rule for adjtimex syscall
 | Tool | Rules Checked | Result |
 |------|---------------|--------|
 | OpenSCAP | 5 separate time rules | 4 PASS, 1 FAIL |
-| AEGIS | 1 consolidated rule | **FAIL** (incomplete coverage) |
+| KENSA | 1 consolidated rule | **FAIL** (incomplete coverage) |
 
-OpenSCAP reports 80% compliance (4/5 rules). AEGIS reports 0% (control not satisfied). The security posture is the same, but metrics differ.
+OpenSCAP reports 80% compliance (4/5 rules). KENSA reports 0% (control not satisfied). The security posture is the same, but metrics differ.
 
 ### 6.2 Choosing the Right Tool
 
@@ -427,7 +427,7 @@ OpenSCAP reports 80% compliance (4/5 rules). AEGIS reports 0% (control not satis
 4. **CVE assessment needed** - Combined compliance and vulnerability scanning
 5. **Benchmark document alignment required** - Report must match CIS PDF exactly
 
-#### Use AEGIS When:
+#### Use KENSA When:
 
 1. **Operational accuracy matters** - Need to verify what services actually use
 2. **Multi-OS environment** - RHEL 8, 9, 10, Rocky, Alma in same estate
@@ -441,7 +441,7 @@ OpenSCAP reports 80% compliance (4/5 rules). AEGIS reports 0% (control not satis
 Many organizations benefit from complementary use:
 
 1. **OpenSCAP for audit evidence** - Formal SCAP reports for auditors
-2. **AEGIS for operational enforcement** - Day-to-day compliance maintenance
+2. **KENSA for operational enforcement** - Day-to-day compliance maintenance
 3. **Cross-validation** - Discrepancies highlight areas needing investigation
 
 ### 6.3 Reconciling Discrepancies
@@ -461,7 +461,7 @@ When tools disagree, investigate the root cause:
 
 ## 7. Technical Comparison Summary
 
-| Dimension | OpenSCAP | AEGIS |
+| Dimension | OpenSCAP | KENSA |
 |-----------|----------|-------|
 | **Philosophy** | Benchmark-centric | Control-centric |
 | **Rule structure** | Per-benchmark, per-OS | Canonical, capability-gated |
@@ -478,16 +478,16 @@ When tools disagree, investigate the root cause:
 
 ## 8. Conclusion
 
-OpenSCAP and AEGIS are not competitors—they are complementary tools reflecting different philosophies about compliance automation.
+OpenSCAP and KENSA are not competitors—they are complementary tools reflecting different philosophies about compliance automation.
 
 **OpenSCAP** answers: *"Does this system match the benchmark document?"*
 
-**AEGIS** answers: *"Is this system secure according to these controls?"*
+**KENSA** answers: *"Is this system secure according to these controls?"*
 
 The distinction matters when:
-- A config file has insecure values that are overridden (OpenSCAP may fail, AEGIS passes)
-- A service uses secure defaults with no explicit config (OpenSCAP may fail, AEGIS passes)
-- Multiple related checks form one security control (OpenSCAP counts 5, AEGIS counts 1)
+- A config file has insecure values that are overridden (OpenSCAP may fail, KENSA passes)
+- A service uses secure defaults with no explicit config (OpenSCAP may fail, KENSA passes)
+- Multiple related checks form one security control (OpenSCAP counts 5, KENSA counts 1)
 
 Organizations should understand these differences when:
 1. Interpreting compliance scores between tools
@@ -504,5 +504,5 @@ Neither tool is "wrong"—they measure different things. Understanding what each
 - [NIST SCAP Specification](https://csrc.nist.gov/projects/security-content-automation-protocol)
 - [OVAL Language Specification](https://oval.mitre.org/)
 - [ComplianceAsCode Project](https://github.com/ComplianceAsCode/content)
-- [AEGIS Technical Remediation Master Plan](../../TECHNICAL_REMEDIATION_MP_V0.md)
+- [Kensa Technical Remediation Master Plan](../../TECHNICAL_REMEDIATION_MP_V0.md)
 - [CIS RHEL 9 Benchmark v2.0.0](https://www.cisecurity.org/benchmark/red_hat_linux)

@@ -1,4 +1,4 @@
-"""Adapter for parsing Aegis JSON results into control-level results."""
+"""Adapter for parsing Kensa JSON results into control-level results."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ EVIDENCE_FIELDS = [
 ]
 
 
-class AegisAdapter(ToolAdapter):
-    """Parse Aegis JSON output into control-level results.
+class KensaAdapter(ToolAdapter):
+    """Parse Kensa JSON output into control-level results.
 
     Handles both legacy flat format (``{"results": [...]}``) and the
     multi-host format (``{"hosts": [{"results": [...]}]}``)
@@ -30,13 +30,13 @@ class AegisAdapter(ToolAdapter):
 
     @property
     def tool_name(self) -> str:
-        return "aegis"
+        return "kensa"
 
     def parse(self, path: str) -> dict[str, ToolControlResult]:
-        """Parse Aegis JSON and group results by framework section.
+        """Parse Kensa JSON and group results by framework section.
 
         Args:
-            path: Path to Aegis JSON results file.
+            path: Path to Kensa JSON results file.
 
         Returns:
             Dict mapping control_id -> ToolControlResult.
@@ -51,7 +51,7 @@ class AegisAdapter(ToolAdapter):
         """Parse results for a specific host from multi-host JSON.
 
         Args:
-            path: Path to Aegis JSON results file.
+            path: Path to Kensa JSON results file.
             hostname: Target hostname to extract.
 
         Returns:
@@ -71,7 +71,7 @@ class AegisAdapter(ToolAdapter):
         """List hostnames in a multi-host JSON file.
 
         Args:
-            path: Path to Aegis JSON results file.
+            path: Path to Kensa JSON results file.
 
         Returns:
             List of hostnames, or ["default"] for flat format.
@@ -134,7 +134,7 @@ class AegisAdapter(ToolAdapter):
             has_remediation = any(r.get("remediated") is not None for r in rules)
 
             controls[section] = ToolControlResult(
-                tool_name="aegis",
+                tool_name="kensa",
                 control_id=section,
                 passed=all_pass,
                 rule_ids=rule_ids,

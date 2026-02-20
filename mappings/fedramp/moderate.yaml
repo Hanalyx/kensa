@@ -1,11 +1,11 @@
-# FedRAMP Moderate Baseline Mapping for Aegis
+# FedRAMP Moderate Baseline Mapping for Kensa
 #
 # Source: FedRAMP Rev 5 Moderate Baseline (OSCAL Profile)
 # URL: https://github.com/GSA/fedramp-automation/blob/master/dist/content/rev5/baselines/json/FedRAMP_rev5_MODERATE-baseline_profile.json
 # Catalog: NIST SP 800-53 Rev 5
 # Last synced: 2026-02-16
 #
-# This mapping associates FedRAMP Moderate baseline controls with Aegis rules.
+# This mapping associates FedRAMP Moderate baseline controls with Kensa rules.
 # FedRAMP builds on NIST SP 800-53 with additional parameters for cloud systems.
 #
 # FedRAMP Moderate is appropriate for systems where the loss of confidentiality,
@@ -406,7 +406,7 @@ control_ids:
   - "SR-12"
 
 # ── Implemented Controls ─────────────────────────────────────────────────────
-# Controls mapped to Aegis rules (many-to-many: one control -> multiple rules).
+# Controls mapped to Kensa rules (many-to-many: one control -> multiple rules).
 controls:
   # ════════════════════════════════════════════════════════════════════════════
   # ACCESS CONTROL (AC)
@@ -1086,7 +1086,7 @@ controls:
       - coredump-restricted
 
 # ── Unimplemented Controls ───────────────────────────────────────────────────
-# Controls not implemented in Aegis with categorized reasons.
+# Controls not implemented in Kensa with categorized reasons.
 # Types: Procedural, Semi-Technical, N/A
 unimplemented:
   # ── AC — Access Control ────────────────────────────────────────────────────
@@ -1235,7 +1235,7 @@ unimplemented:
   "CA-7":
     title: "Continuous Monitoring"
     type: Semi-Technical
-    reason: "Aegis supports continuous monitoring of technical controls — organizational process required"
+    reason: "Kensa supports continuous monitoring of technical controls — organizational process required"
   "CA-7(1)":
     title: "Continuous Monitoring | Independent Assessment"
     type: Procedural
@@ -1269,7 +1269,7 @@ unimplemented:
   "CM-2(2)":
     title: "Baseline Configuration | Automation Support for Accuracy and Currency"
     type: Semi-Technical
-    reason: "Aegis supports baseline enforcement — organizational process required"
+    reason: "Kensa supports baseline enforcement — organizational process required"
   "CM-2(3)":
     title: "Baseline Configuration | Retention of Previous Configurations"
     type: Semi-Technical
@@ -1795,7 +1795,7 @@ unimplemented:
   "RA-5":
     title: "Vulnerability Monitoring and Scanning"
     type: Semi-Technical
-    reason: "Aegis performs configuration assessment — vulnerability scanning is organizational"
+    reason: "Kensa performs configuration assessment — vulnerability scanning is organizational"
   "RA-5(2)":
     title: "Vulnerability Monitoring and Scanning | Update Vulnerabilities to Be Scanned"
     type: Semi-Technical

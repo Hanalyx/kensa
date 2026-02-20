@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """FedRAMP baseline validation and gap analysis (development tool).
 
-Compares the current Aegis FedRAMP mapping against the official Rev 5
+Compares the current Kensa FedRAMP mapping against the official Rev 5
 baseline reference to identify gaps, validate completeness, and generate
 reports. Not a user-facing CLI command.
 
