@@ -68,6 +68,8 @@ def format_evidence(run_result: RunResult, host: HostResult | None = None) -> st
         },
         "host": {
             "hostname": host.hostname,
+            "groups": host.groups,
+            "effective_variables": host.effective_variables,
             "platform": {
                 "family": host.platform_family,
                 "version": host.platform_version,

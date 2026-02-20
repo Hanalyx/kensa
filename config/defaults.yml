@@ -5,12 +5,14 @@
 #
 # Priority (highest first):
 #   1. CLI --var KEY=VALUE
-#   2. rules/rules.d/*.yml (alphabetical, later overrides earlier)
-#   3. frameworks.<name> section (when --framework specified)
-#   4. variables section below
+#   2. config/hosts/<hostname>.yml (per-host overrides)
+#   3. config/groups/<group>.yml (per-group overrides, last group wins)
+#   4. config/conf.d/*.yml (alphabetical, later overrides earlier)
+#   5. frameworks.<name> section (when --framework specified)
+#   6. variables section below
 #
-# To override values for your environment, create files in rules/rules.d/
-# Example: rules/rules.d/99-custom.yml
+# To override values for your environment, create files in config/conf.d/
+# Example: config/conf.d/99-custom.yml
 
 variables:
   # Password quality - pwquality.conf
@@ -36,7 +38,7 @@ variables:
   password_remember: 5
 
   # Login banner — displayed before authentication via /etc/issue and /etc/issue.net
-  # Override in rules/rules.d/ with your organization's consent text.
+  # Override in config/conf.d/ with your organization's consent text.
   # Default is a generic authorized-use warning suitable for most environments.
   banner_text: |
     Authorized uses only. All activity may be monitored and reported.
@@ -49,7 +51,7 @@ variables:
   ssh_login_grace_time: 60
 
   # SSH approved algorithms — intersection of CIS, STIG, and NIST guidance.
-  # Override in rules/rules.d/ to match your organization's crypto policy.
+  # Override in config/conf.d/ to match your organization's crypto policy.
   ssh_approved_kex: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,sntrup761x25519-sha512@openssh.com"
   ssh_approved_macs: "hmac-sha2-256,hmac-sha2-512,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com"
 

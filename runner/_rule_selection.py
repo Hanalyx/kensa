@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 
@@ -12,6 +12,7 @@ from runner.engine import load_rules
 from runner.ordering import format_ordering_issues, order_rules
 
 if TYPE_CHECKING:
+    from runner._config import RuleConfig
     from runner.ordering import OrderingResult
 
 
@@ -23,6 +24,9 @@ class RuleSelection:
     ordering: OrderingResult
     rule_to_section: dict[str, str]
     control_ctx: ControlContext | None
+    config: RuleConfig | None = None
+    cli_overrides: dict[str, Any] = field(default_factory=dict)
+    framework: str | None = None
 
 
 def _resolve_control(
@@ -194,12 +198,17 @@ def select_rules(
     framework: str | None = None,
     var: tuple[str, ...] = (),
     control: str | None = None,
+    config_dir: str | None = None,
     out: Console | None = None,
 ) -> RuleSelection:
     """Top-level rule selection pipeline.
 
     Replaces _load_rule_list(). Loads rules, applies filters, resolves
     controls and frameworks, and orders by dependencies.
+
+    Variable resolution is deferred to per-host execution time so
+    different hosts can receive different variable values based on
+    group/host overrides.
 
     Args:
         rules_path: Path to rules directory (--rules).
@@ -210,18 +219,19 @@ def select_rules(
         framework: Framework ID for filtering/ordering ("auto" deferred).
         var: Variable overrides ("key=value" strings).
         control: Control spec (e.g., "cis:1.1.2.4").
+        config_dir: Path to config directory (--config-dir).
         out: Console for output (None = suppress).
 
     Returns:
         RuleSelection with ordered rules, ordering info, section mapping,
-        and optional ControlContext.
+        config, and optional ControlContext.
 
     Raises:
         ValueError: On invalid arguments or empty results.
         FileNotFoundError: If rules path doesn't exist.
 
     """
-    from runner._config import load_config, parse_var_overrides, resolve_variables
+    from runner._config import load_config, parse_var_overrides
 
     path = rule_path or rules_path
     if not path:
@@ -233,8 +243,8 @@ def select_rules(
     # Parse CLI variable overrides
     cli_overrides = parse_var_overrides(var)
 
-    # Load variable configuration
-    config = load_config(path)
+    # Load variable configuration from config directory
+    config = load_config(config_dir)
 
     # Load and filter rules
     rule_list = load_rules(
@@ -244,17 +254,10 @@ def select_rules(
         category=category,
     )
 
-    # Apply variable substitution
-    rule_list = [
-        resolve_variables(
-            r,
-            config,
-            framework=framework if framework != "auto" else None,
-            cli_overrides=cli_overrides,
-            strict=True,
-        )
-        for r in rule_list
-    ]
+    # NOTE: Variable resolution is deferred to per-host execution time.
+    # The config and cli_overrides are stored on RuleSelection and
+    # applied in execute_on_host() / the sequential CLI loop so that
+    # per-group and per-host overrides can take effect.
 
     if not rule_list:
         raise ValueError("No rules matched the given filters.")
@@ -301,6 +304,9 @@ def select_rules(
         ordering=ordering_result,
         rule_to_section=rule_to_section,
         control_ctx=control_ctx,
+        config=config,
+        cli_overrides=cli_overrides,
+        framework=framework if framework != "auto" else None,
     )
 
 
