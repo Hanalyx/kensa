@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.14.2 (2026-02-20)
+
+### Bug Fixes
+
+- **rpm**: Enable CRB/PowerTools for EL9 and fix EL8 hatchling path
+  ([`5ba813b`](https://github.com/Hanalyx/aegis/commit/5ba813b60531296af3b23d22177c7c7e8cd378fc))
+
+- **rpm**: Use Python 3.11 for EL9 build (system python3 is 3.9, needs >=3.10)
+  ([`a990f38`](https://github.com/Hanalyx/aegis/commit/a990f38404e9ab76e7188f5609dbaeeefa9b9468))
+
+### Continuous Integration
+
+- **rpm**: Build RPMs for EL8, EL9, EL10, and Fedora
+  ([`6dc2277`](https://github.com/Hanalyx/aegis/commit/6dc2277812ad665cb4b752f986db95cb309ca235))
+
+
 ## v1.14.1 (2026-02-20)
 
 ### Bug Fixes
