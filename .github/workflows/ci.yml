@@ -115,9 +115,9 @@ jobs:
           dnf install -y rpm-build python3-devel python3-pip python3-wheel \
             python3-setuptools pyproject-rpm-macros
 
-          # EL8: system python3 is 3.6 — too old for hatchling (needs 3.8+)
+          # EL8/EL9: system python3 is too old (3.6/3.9) for requires-python>=3.10
           # Install Python 3.11 from AppStream and use it for the build
-          if [ "${{ matrix.distro }}" = "el8" ]; then
+          if [ "${{ matrix.distro }}" = "el8" ] || [ "${{ matrix.distro }}" = "el9" ]; then
             dnf install -y python3.11-devel
             dnf install -y python3.11-pip || python3.11 -m ensurepip
             python3.11 -m pip install --prefix=/usr hatchling wheel setuptools
@@ -155,7 +155,7 @@ jobs:
 
       - name: Build RPM
         run: |
-          if [ "${{ matrix.distro }}" = "el8" ]; then
+          if [ "${{ matrix.distro }}" = "el8" ] || [ "${{ matrix.distro }}" = "el9" ]; then
             rpmbuild --define '__python3 /usr/bin/python3.11' -ba ~/rpmbuild/SPECS/aegis.spec
           else
             rpmbuild -ba ~/rpmbuild/SPECS/aegis.spec
