@@ -144,6 +144,53 @@ def get_schema_path(filename: str = "rule.schema.json") -> Path:
     raise FileNotFoundError(msg)
 
 
+def get_config_path(subpath: str = "") -> Path:
+    """Get the path to Aegis configuration directory.
+
+    Checks locations in order:
+    1. AEGIS_CONFIG_PATH environment variable
+    2. ./config relative to current directory (development)
+    3. ./config relative to source tree (runner/../config/)
+    4. /etc/aegis/ (installed)
+
+    Args:
+        subpath: Optional subdirectory or file within config (e.g., "defaults.yml").
+
+    Returns:
+        Path to config directory or specific config file.
+
+    Raises:
+        FileNotFoundError: If config directory cannot be located.
+
+    """
+    # 1. Environment variable override
+    if env_path := os.environ.get("AEGIS_CONFIG_PATH"):
+        config_dir = Path(env_path)
+        if config_dir.exists():
+            return config_dir / subpath if subpath else config_dir
+
+    # 2. Development: relative to working directory
+    local_config = Path.cwd() / "config"
+    if local_config.exists():
+        return local_config / subpath if subpath else local_config
+
+    # 3. Development: relative to this file (runner/paths.py -> ../config)
+    source_config = Path(__file__).parent.parent / "config"
+    if source_config.exists():
+        return source_config / subpath if subpath else source_config
+
+    # 4. Installed: /etc/aegis/
+    etc_config = Path("/etc/aegis")
+    if etc_config.exists():
+        return etc_config / subpath if subpath else etc_config
+
+    msg = (
+        "Cannot locate Aegis config directory. "
+        "Set AEGIS_CONFIG_PATH environment variable or run from source directory."
+    )
+    raise FileNotFoundError(msg)
+
+
 def get_version() -> str:
     """Get the installed Aegis version.
 

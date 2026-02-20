@@ -2,23 +2,27 @@
 
 This module handles loading of configurable variables for rules, allowing
 different compliance frameworks (CIS, STIG, NIST) to use different threshold
-values for the same control.
+values for the same control, and per-group/per-host overrides.
 
-Configuration is loaded from:
-1. rules/defaults.yml - Base variable definitions and framework overrides
-2. rules/rules.d/*.yml - User overrides (loaded alphabetically)
+Configuration is loaded from the config directory (default: ./config/):
+1. config/defaults.yml - Base variable definitions and framework overrides
+2. config/conf.d/*.yml - Site-wide overrides (loaded alphabetically)
+3. config/groups/*.yml - Per-group overrides (filename stem = group name)
+4. config/hosts/*.yml  - Per-host overrides (filename stem = hostname)
 
-Variables are resolved at rule-load time with this priority (highest first):
+Variables are resolved at per-host execution time with this priority (highest first):
 1. CLI --var KEY=VALUE overrides
-2. rules/rules.d/*.yml (later files override earlier)
-3. frameworks.<name> section (when --framework specified)
-4. variables section in rules/defaults.yml
+2. config/hosts/<hostname>.yml
+3. config/groups/<group>.yml (last group wins on conflict)
+4. config/conf.d/*.yml (later files override earlier)
+5. frameworks.<name> section (when --framework specified)
+6. variables section in config/defaults.yml
 
 Example:
 -------
     >>> from runner._config import load_config, resolve_variables
     >>>
-    >>> config = load_config("rules/")
+    >>> config = load_config("config/")
     >>> rule = {"check": {"expected": "{{ pam_pwquality_minlen }}"}}
     >>> resolved = resolve_variables(rule, config, framework="stig")
     >>> print(resolved["check"]["expected"])
@@ -72,72 +76,56 @@ class RuleConfig:
         framework_overrides: Framework-specific variable overrides.
             Keys are framework names (e.g., "cis", "stig").
             Values are dicts mapping variable names to values.
+        group_overrides: Per-group variable overrides.
+            Keys are group names (filename stems from config/groups/).
+            Values are dicts mapping variable names to values.
+        host_overrides: Per-host variable overrides.
+            Keys are hostnames (filename stems from config/hosts/).
+            Values are dicts mapping variable names to values.
 
     """
 
     variables: dict[str, Any] = field(default_factory=dict)
     framework_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    group_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    host_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 # ── Configuration loading ──────────────────────────────────────────────────
 
 
-def _find_defaults_file(start_dir: Path) -> Path | None:
-    """Search for defaults.yml in start_dir and parent directories.
+def load_config(config_path: str | None = None) -> RuleConfig:
+    """Load rule configuration from config directory.
 
-    This allows rules in subdirectories (e.g., rules/access-control/) to find
-    the defaults.yml in the rules root directory.
-
-    Args:
-        start_dir: Directory to start searching from.
-
-    Returns:
-        Path to defaults.yml if found, None otherwise.
-
-    """
-    current = start_dir.resolve()
-    # Limit search depth to avoid infinite loops
-    for _ in range(10):
-        defaults_path = current / "defaults.yml"
-        if defaults_path.exists():
-            return defaults_path
-        # Also check for rules.d directory as indicator of rules root
-        if (current / "rules.d").is_dir():
-            return defaults_path if defaults_path.exists() else None
-        parent = current.parent
-        if parent == current:
-            # Reached filesystem root
-            break
-        current = parent
-    return None
-
-
-def load_config(rules_path: str | None = None) -> RuleConfig:
-    """Load rule configuration from defaults.yml and rules.d overrides.
+    Loads defaults.yml, conf.d/ overrides, groups/, and hosts/ from
+    the specified config directory.
 
     Args:
-        rules_path: Path to rules directory. If None, looks for rules/
-            relative to the current directory.
+        config_path: Path to config directory. If None, uses
+            get_config_path() to auto-detect.
 
     Returns:
         RuleConfig with merged variables and framework overrides.
 
     """
-    if rules_path is None:
-        rules_path = "rules"
+    if config_path is None:
+        from runner.paths import get_config_path
 
-    rules_dir = Path(rules_path)
-    if not rules_dir.is_dir():
-        # If path is a file, use its parent directory
-        rules_dir = rules_dir.parent
+        try:
+            config_dir = get_config_path()
+        except FileNotFoundError:
+            return RuleConfig()
+    else:
+        config_dir = Path(config_path)
+
+    if not config_dir.is_dir():
+        return RuleConfig()
 
     config = RuleConfig()
 
-    # Load defaults.yml - search up the directory tree to find it
-    defaults_path = _find_defaults_file(rules_dir)
-    rules_root = rules_dir  # Default to the given directory
-    if defaults_path is not None and defaults_path.exists():
-        rules_root = defaults_path.parent  # Use the directory containing defaults.yml
+    # Load defaults.yml
+    defaults_path = config_dir / "defaults.yml"
+    if defaults_path.exists():
         try:
             data = yaml.safe_load(defaults_path.read_text())
             if isinstance(data, dict):
@@ -146,10 +134,10 @@ def load_config(rules_path: str | None = None) -> RuleConfig:
         except yaml.YAMLError:
             pass  # Silently ignore malformed defaults
 
-    # Load rules.d/*.yml overrides (alphabetically)
-    rules_d = rules_root / "rules.d"
-    if rules_d.is_dir():
-        for override_file in sorted(rules_d.glob("*.yml")):
+    # Load conf.d/*.yml overrides (alphabetically)
+    conf_d = config_dir / "conf.d"
+    if conf_d.is_dir():
+        for override_file in sorted(conf_d.glob("*.yml")):
             try:
                 data = yaml.safe_load(override_file.read_text())
                 if isinstance(data, dict):
@@ -165,6 +153,30 @@ def load_config(rules_path: str | None = None) -> RuleConfig:
             except yaml.YAMLError:
                 pass  # Silently ignore malformed overrides
 
+    # Load groups/*.yml → group_overrides (filename stem = group name)
+    groups_dir = config_dir / "groups"
+    if groups_dir.is_dir():
+        for group_file in sorted(groups_dir.glob("*.yml")):
+            group_name = group_file.stem
+            try:
+                data = yaml.safe_load(group_file.read_text())
+                if isinstance(data, dict):
+                    config.group_overrides[group_name] = data.get("variables", {})
+            except yaml.YAMLError:
+                pass
+
+    # Load hosts/*.yml → host_overrides (filename stem = hostname)
+    hosts_dir = config_dir / "hosts"
+    if hosts_dir.is_dir():
+        for host_file in sorted(hosts_dir.glob("*.yml")):
+            host_name = host_file.stem
+            try:
+                data = yaml.safe_load(host_file.read_text())
+                if isinstance(data, dict):
+                    config.host_overrides[host_name] = data.get("variables", {})
+            except yaml.YAMLError:
+                pass
+
     return config
 
 
@@ -176,24 +188,31 @@ def _get_effective_variables(
     *,
     framework: str | None = None,
     cli_overrides: dict[str, Any] | None = None,
+    hostname: str | None = None,
+    groups: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build the effective variable dict with proper priority.
 
     Priority (highest first):
     1. CLI --var overrides
-    2. Framework-specific values
-    3. Default values from config
+    2. Per-host overrides (config/hosts/<hostname>.yml)
+    3. Per-group overrides (config/groups/<group>.yml, last group wins)
+    4. conf.d overrides (already merged into config.variables)
+    5. Framework-specific values
+    6. Default values from config
 
     Args:
         config: Loaded rule configuration.
         framework: Framework name for framework-specific overrides.
         cli_overrides: CLI --var KEY=VALUE overrides.
+        hostname: Target hostname for per-host overrides.
+        groups: Target host's group list for per-group overrides.
 
     Returns:
         Dict of variable names to resolved values.
 
     """
-    # Start with defaults
+    # Start with defaults (already includes conf.d merges)
     effective = dict(config.variables)
 
     # Apply framework overrides if specified
@@ -202,6 +221,15 @@ def _get_effective_variables(
         fw_base = framework.split("-")[0].lower()
         if fw_base in config.framework_overrides:
             effective.update(config.framework_overrides[fw_base])
+
+    # Apply group overrides (in order — last group wins on conflict)
+    for g in groups or []:
+        if g in config.group_overrides:
+            effective.update(config.group_overrides[g])
+
+    # Apply host overrides
+    if hostname and hostname in config.host_overrides:
+        effective.update(config.host_overrides[hostname])
 
     # Apply CLI overrides (highest priority)
     if cli_overrides:
@@ -311,6 +339,8 @@ def resolve_variables(
     *,
     framework: str | None = None,
     cli_overrides: dict[str, Any] | None = None,
+    hostname: str | None = None,
+    groups: list[str] | None = None,
     strict: bool = True,
 ) -> dict:
     """Resolve {{ variable }} placeholders in a rule.
@@ -323,6 +353,8 @@ def resolve_variables(
         config: Loaded rule configuration.
         framework: Framework name for framework-specific values.
         cli_overrides: CLI --var KEY=VALUE overrides.
+        hostname: Target hostname for per-host overrides.
+        groups: Target host's group list for per-group overrides.
         strict: If True, raise on undefined variables.
 
     Returns:
@@ -333,7 +365,11 @@ def resolve_variables(
 
     """
     variables = _get_effective_variables(
-        config, framework=framework, cli_overrides=cli_overrides
+        config,
+        framework=framework,
+        cli_overrides=cli_overrides,
+        hostname=hostname,
+        groups=groups,
     )
 
     # Deep copy and substitute

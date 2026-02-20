@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from io import StringIO
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from rich.console import Console
 
@@ -19,6 +19,7 @@ from runner.ordering import should_skip_rule
 from runner.ssh import SSHSession
 
 if TYPE_CHECKING:
+    from runner._config import RuleConfig
     from runner.inventory import HostInfo
     from runner.mappings import FrameworkIndex
 
@@ -92,6 +93,9 @@ class HostRunConfig:
     rule_to_section: dict[str, str] | None = None
     control_ctx: ControlContext | None = None
     capability_overrides: dict[str, bool] = field(default_factory=dict)
+    rule_config: RuleConfig | None = None
+    cli_overrides: dict[str, Any] = field(default_factory=dict)
+    framework: str | None = None
 
 
 # ── SSH connection ─────────────────────────────────────────────────────────
@@ -507,6 +511,23 @@ def execute_on_host(
                 host_rules = platform_filter_control_rules(
                     rule_list, config.control_ctx, platform
                 )
+
+            # Per-host variable resolution
+            if config.rule_config:
+                from runner._config import resolve_variables
+
+                host_rules = [
+                    resolve_variables(
+                        r,
+                        config.rule_config,
+                        framework=config.framework,
+                        cli_overrides=config.cli_overrides,
+                        hostname=hi.hostname,
+                        groups=hi.groups,
+                        strict=True,
+                    )
+                    for r in host_rules
+                ]
 
             if config.mode == "check":
                 host_pass, host_fail, host_skip, rule_results = run_checks(

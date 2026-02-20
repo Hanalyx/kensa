@@ -139,6 +139,12 @@ def rule_options(f):
         default=None,
         help="Run only rules for a framework control (e.g., cis-rhel9-v2.0.0:5.1.12 or 5.1.12)",
     )(f)
+    f = click.option(
+        "--config-dir",
+        "config_dir",
+        default=None,
+        help="Path to config directory (default: auto-detect)",
+    )(f)
     return f
 
 
@@ -416,6 +422,7 @@ def check(
     framework,
     var,
     control,
+    config_dir,
     outputs,
     quiet,
     store,
@@ -432,6 +439,7 @@ def check(
             framework=framework,
             var=var,
             control=control,
+            config_dir=config_dir,
             out=None if quiet else console,
         )
     except (ValueError, FileNotFoundError) as exc:
@@ -456,6 +464,9 @@ def check(
         rule_to_section=rule_to_section,
         control_ctx=control_ctx,
         capability_overrides=overrides,
+        rule_config=selection.config,
+        cli_overrides=selection.cli_overrides,
+        framework=selection.framework,
     )
 
     if workers == 1:
@@ -468,7 +479,7 @@ def check(
         for hi in hosts:
             out.print()
             out.rule(f"[bold]Host: {hi.hostname}[/bold]")
-            host_result = HostResult(hostname=hi.hostname)
+            host_result = HostResult(hostname=hi.hostname, groups=hi.groups)
             try:
                 with connect(
                     hi, password, sudo=sudo, strict_host_keys=strict_host_keys
@@ -494,6 +505,33 @@ def check(
                     if control_ctx and platform:
                         host_rules = platform_filter_control_rules(
                             rule_list, control_ctx, platform
+                        )
+
+                    # Per-host variable resolution
+                    if selection.config:
+                        from runner._config import (
+                            _get_effective_variables,
+                            resolve_variables,
+                        )
+
+                        host_rules = [
+                            resolve_variables(
+                                r,
+                                selection.config,
+                                framework=selection.framework,
+                                cli_overrides=selection.cli_overrides,
+                                hostname=hi.hostname,
+                                groups=hi.groups,
+                                strict=True,
+                            )
+                            for r in host_rules
+                        ]
+                        host_result.effective_variables = _get_effective_variables(
+                            selection.config,
+                            framework=selection.framework,
+                            cli_overrides=selection.cli_overrides,
+                            hostname=hi.hostname,
+                            groups=hi.groups,
                         )
 
                     host_result.platform_family = platform.family if platform else None
@@ -566,6 +604,8 @@ def check(
                     )
                     console.print("[yellow]Running with all rules[/yellow]")
 
+        host_groups_map = {hi.hostname: hi.groups for hi in hosts}
+
         def _check_worker(hi):
             buf = StringIO()
             buf_console = Console(file=buf, force_terminal=True, width=120)
@@ -600,6 +640,7 @@ def check(
                 capabilities=r.capabilities,
                 results=r.rule_results,
                 error=r.error,
+                groups=host_groups_map.get(r.hostname, []),
             )
             run_result.hosts.append(host_result)
 
@@ -703,6 +744,7 @@ def remediate(
     framework,
     var,
     control,
+    config_dir,
     outputs,
     quiet,
     dry_run,
@@ -721,6 +763,7 @@ def remediate(
             framework=framework,
             var=var,
             control=control,
+            config_dir=config_dir,
             out=None if quiet else console,
         )
     except (ValueError, FileNotFoundError) as exc:
@@ -763,6 +806,9 @@ def remediate(
         rule_to_section=rule_to_section,
         control_ctx=control_ctx,
         capability_overrides=overrides,
+        rule_config=selection.config,
+        cli_overrides=selection.cli_overrides,
+        framework=selection.framework,
     )
 
     if workers == 1:
@@ -777,7 +823,7 @@ def remediate(
         for hi in hosts:
             out.print()
             out.rule(f"[bold]Host: {hi.hostname}[/bold]")
-            host_result = HostResult(hostname=hi.hostname)
+            host_result = HostResult(hostname=hi.hostname, groups=hi.groups)
             try:
                 with connect(
                     hi, password, sudo=sudo, strict_host_keys=strict_host_keys
@@ -803,6 +849,33 @@ def remediate(
                     if control_ctx and platform:
                         host_rules = platform_filter_control_rules(
                             rule_list, control_ctx, platform
+                        )
+
+                    # Per-host variable resolution
+                    if selection.config:
+                        from runner._config import (
+                            _get_effective_variables,
+                            resolve_variables,
+                        )
+
+                        host_rules = [
+                            resolve_variables(
+                                r,
+                                selection.config,
+                                framework=selection.framework,
+                                cli_overrides=selection.cli_overrides,
+                                hostname=hi.hostname,
+                                groups=hi.groups,
+                                strict=True,
+                            )
+                            for r in host_rules
+                        ]
+                        host_result.effective_variables = _get_effective_variables(
+                            selection.config,
+                            framework=selection.framework,
+                            cli_overrides=selection.cli_overrides,
+                            hostname=hi.hostname,
+                            groups=hi.groups,
                         )
 
                     host_result.platform_family = platform.family if platform else None
@@ -896,6 +969,8 @@ def remediate(
                     )
                     console.print("[yellow]Running with all rules[/yellow]")
 
+        host_groups_map = {hi.hostname: hi.groups for hi in hosts}
+
         def _remediate_worker(hi):
             buf = StringIO()
             buf_console = Console(file=buf, force_terminal=True, width=120)
@@ -932,6 +1007,7 @@ def remediate(
                 capabilities=r.capabilities,
                 results=r.rule_results,
                 error=r.error,
+                groups=host_groups_map.get(r.hostname, []),
             )
             run_result.hosts.append(host_result)
 
@@ -1811,8 +1887,6 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
     matches = []
 
     for rule_path in sorted(rules_dir.rglob("*.yml")):
-        if rule_path.name == "defaults.yml":
-            continue
         try:
             with open(rule_path) as f:
                 rule = yaml.safe_load(f)

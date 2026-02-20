@@ -54,7 +54,13 @@ runner/                  # Core Python package
 │   └── rollback/       # State restoration
 └── output/             # JSON, CSV, PDF, evidence export
 
-rules/                   # 508 YAML compliance rules
+config/                  # /etc/aegis/ in RPM — site admin owns
+├── defaults.yml        # Global variable defaults
+├── conf.d/             # Global overrides (alphabetical)
+├── groups/             # Per-group variable overrides
+└── hosts/              # Per-host variable overrides
+
+rules/                   # 508 YAML compliance rules (read-only in RPM)
 ├── access-control/     # 114 rules
 ├── audit/              # ~104 rules
 ├── services/           # ~100 rules
@@ -62,9 +68,7 @@ rules/                   # 508 YAML compliance rules
 ├── filesystem/         # ~55 rules
 ├── network/            # 42 rules
 ├── kernel/             # 19 rules
-├── logging/            # 18 rules
-├── defaults.yml        # Default values for all rules
-└── rules.d/            # Optional rule overrides
+└── logging/            # 18 rules
 
 mappings/                # Framework reference mappings
 ├── cis/                # CIS RHEL 8/9
@@ -118,6 +122,14 @@ Check handlers: `config_value`, `sshd_effective_config`, `file_permission`, `fil
 - command_exec remediation: `run:` (not `command:`)
 - SSH checks: use `sshd_effective_config` (runs `sshd -T`), not `config_value` on static file
 - PAM rules: use `when: authselect` implementation when authselect manages PAM
+
+### Variable Precedence (highest → lowest)
+1. CLI `--var KEY=VALUE`
+2. `config/hosts/<hostname>.yml`
+3. `config/groups/<group>.yml` (last group wins)
+4. `config/conf.d/*.yml` (alphabetical)
+5. `frameworks.<name>` section in `config/defaults.yml`
+6. `variables` section in `config/defaults.yml`
 
 ### Framework Mappings
 All mapping files use a unified format:

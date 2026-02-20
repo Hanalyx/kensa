@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from runner._types import RuleResult
@@ -90,6 +90,8 @@ class HostResult:
     capabilities: dict[str, bool] = field(default_factory=dict)
     results: list[RuleResult] = field(default_factory=list)
     error: str | None = None
+    groups: list[str] = field(default_factory=list)
+    effective_variables: dict[str, Any] = field(default_factory=dict)
 
     @property
     def pass_count(self) -> int:
