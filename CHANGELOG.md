@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.14.0 (2026-02-20)
+
+### Documentation
+
+- **readme**: Update README for config separation and accurate architecture
+  ([`a3f91e2`](https://github.com/Hanalyx/aegis/commit/a3f91e21f1dc36326609b5f126260506dad45e78))
+
+- **readme**: Update tagline to match repo description
+  ([`5803678`](https://github.com/Hanalyx/aegis/commit/5803678f4d45fad3851701596366c238943ce98f))
+
+### Features
+
+- **packaging**: Add RPM spec and fix hardcoded paths for installed deployment
+  ([`29e7135`](https://github.com/Hanalyx/aegis/commit/29e7135873a8613c7eeab776c3527b77b9c90168))
+
+
 ## v1.13.0 (2026-02-20)
 
 ### Continuous Integration
