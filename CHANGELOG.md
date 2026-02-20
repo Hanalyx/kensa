@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.13.0 (2026-02-20)
+
+### Continuous Integration
+
+- **release**: Add paths filter to skip releases for non-application changes
+  ([`173774e`](https://github.com/Hanalyx/aegis/commit/173774e8ce6378fde6b09ae67288434b0f76bfd4))
+
+### Features
+
+- **config**: Separate config from rules and add per-host variable overrides
+  ([#73](https://github.com/Hanalyx/aegis/pull/73),
+  [`ef17572`](https://github.com/Hanalyx/aegis/commit/ef17572a524fed4ca94c58a2ead1bf8e80e89749))
+
+
 ## v1.12.4 (2026-02-19)
 
 ### Bug Fixes
