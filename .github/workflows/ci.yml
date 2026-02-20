@@ -103,9 +103,12 @@ jobs:
 
       - name: Install RPM build tools
         run: |
-          # Enable EPEL on EL distros (needed for pyproject-rpm-macros on EL8/9)
+          # Enable EPEL and CRB/PowerTools on EL distros
           if [ "${{ matrix.distro }}" != "fc" ]; then
             dnf install -y epel-release || true
+            /usr/bin/crb enable 2>/dev/null \
+              || dnf config-manager --set-enabled powertools 2>/dev/null \
+              || true
           fi
 
           # Base RPM build tools
@@ -117,7 +120,7 @@ jobs:
           if [ "${{ matrix.distro }}" = "el8" ]; then
             dnf install -y python3.11-devel
             dnf install -y python3.11-pip || python3.11 -m ensurepip
-            python3.11 -m pip install hatchling wheel setuptools
+            python3.11 -m pip install --prefix=/usr hatchling wheel setuptools
           else
             dnf install -y python3-hatchling 2>/dev/null || pip3 install hatchling wheel
           fi
