@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.14.3 (2026-02-20)
+
+### Bug Fixes
+
+- **rpm**: Install gh CLI from GitHub repo on EL8
+  ([`055c603`](https://github.com/Hanalyx/aegis/commit/055c6035c7f9a3070c8bde2b48de999f0a9b0045))
+
+
 ## v1.14.2 (2026-02-20)
 
 ### Bug Fixes
