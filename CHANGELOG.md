@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.14.1 (2026-02-20)
+
+### Bug Fixes
+
+- **rpm**: Add python3-hatchling to RPM BuildRequires
+  ([`54e969f`](https://github.com/Hanalyx/aegis/commit/54e969fb81cadbc87f088d43b4bbb58fb7ea3e6a))
+
+- **rpm**: Include conf.d files in RPM %files section
+  ([`725a9f0`](https://github.com/Hanalyx/aegis/commit/725a9f0793a45a615d6d2d253eff13516b6df457))
+
+### Continuous Integration
+
+- **rpm**: Add RPM build jobs to CI and Release workflows
+  ([`ff9a885`](https://github.com/Hanalyx/aegis/commit/ff9a885f28de1dabb0e59dcfc5f1f7c01e4c3f73))
+
+### Documentation
+
+- **backlog**: Add HIPAA, man pages, STIG benchmark, and UX items
+  ([`3d2a110`](https://github.com/Hanalyx/aegis/commit/3d2a110dffe3471030198cca119dc9bb681c7bd9))
+
+
 ## v1.14.0 (2026-02-20)
 
 ### Documentation
