@@ -199,7 +199,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          dnf install -y gh
+          dnf install -y gh || {
+            dnf install -y 'dnf-command(config-manager)' || true
+            dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+            dnf install -y gh
+          }
           gh release upload "v${{ needs.release.outputs.version }}" \
             ~/rpmbuild/RPMS/noarch/*.rpm \
             --repo "${{ github.repository }}"
