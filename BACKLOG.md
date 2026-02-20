@@ -15,7 +15,33 @@ context to start without additional preamble.
 - [x] **Reach STIG RHEL 9 80% coverage (need 18 more implementations)**
   PR #60: Created 24 new rules. Coverage: 75.8% → 81.2% (362/446).
 
+### P1 — New Frameworks
+
+- [ ] **Add HIPAA compliance coverage**
+  HIPAA Security Rule maps heavily to NIST 800-53 controls (which Aegis already covers).
+  Create `mappings/hipaa/security-rule.yaml` mapping HIPAA administrative, physical, and
+  technical safeguards (§164.308, §164.310, §164.312) to existing Aegis rules via their
+  NIST 800-53 cross-references. Many rules already satisfy HIPAA requirements through the
+  NIST mapping — this is primarily a mapping exercise, not new rule creation. Add
+  `context/hipaa/` with authoritative baseline and validation script.
+
 ### P2 — Quality & Tooling
+
+- [ ] **Man pages for aegis**
+  RPM-installed CLI tools should ship man pages. Create `man/aegis.1` (general usage,
+  all 9 subcommands) using groff/mdoc format. Add to `aegis.spec` `%install` section
+  (`install -Dm 644 man/aegis.1 %{buildroot}%{_mandir}/man1/aegis.1`) and `%files`
+  (`%{_mandir}/man1/aegis.1*`). Consider generating from Click help text or maintaining
+  manually. Also create `man/aegis.conf.5` for config file format (`defaults.yml`,
+  `conf.d/`, variable precedence).
+
+- [ ] **Test benchmark: RHEL 8 and RHEL 9 STIG end-to-end validation**
+  Stand up test VMs (or containers) for RHEL 8 and RHEL 9, run `aegis check` against
+  the full STIG rule set, and validate results against OpenSCAP STIG profiles for the
+  same hosts. Compare pass/fail/error rates, identify false positives and false negatives,
+  and document discrepancies. Use `scripts/gap_analysis.py` as a starting point — it
+  already compares Aegis vs OpenSCAP results. Target: zero false passes (every OpenSCAP
+  fail should also fail in Aegis).
 
 - [ ] **Add `aegis rollback` command for on-demand remediation reversal**
   Currently rollback only triggers automatically during `--rollback-on-failure` when a
@@ -37,6 +63,27 @@ context to start without additional preamble.
 - [ ] **Expand RHEL 8 framework coverage**
   CIS RHEL 8 at 56.3% (175/311), STIG RHEL 8 at 32% (116/366). Low priority but
   significant gap. Many RHEL 9 rules may apply with minor capability-gate adjustments.
+
+### P3 — UX & Distribution
+
+- [ ] **Shell completion for bash/zsh/fish**
+  Click has built-in shell completion support (`click.shell_completion`). Add
+  `_AEGIS_COMPLETE=bash_source aegis` generation and install completion scripts
+  via RPM (`/etc/bash_completion.d/aegis`). Covers subcommands, `--framework` values
+  (from `list-frameworks`), `--rules` path completion, and `--format` choices.
+
+- [ ] **Systemd timer for scheduled compliance scans**
+  Create `contrib/aegis-scan.service` and `aegis-scan.timer` for periodic unattended
+  scans. Service runs `aegis check` with configurable args via
+  `/etc/sysconfig/aegis`. Timer defaults to weekly. RPM installs to
+  `%{_unitdir}/` but does not enable by default. Results persist to SQLite history
+  for `aegis diff` drift detection between runs.
+
+- [ ] **HTML output format**
+  Add `--format html` to complement JSON/CSV/PDF. Self-contained single-file HTML
+  report with collapsible rule details, pass/fail summary, and framework coverage
+  charts. Useful for email distribution and browser viewing without PDF tooling.
+  Lower dependency footprint than PDF (no reportlab needed).
 
 - [x] **Complete rule quality review — all 8 categories**
   Systematic 5-dimension review (RULE_REVIEW_GUIDE_V0.md) of all 484 rules.
