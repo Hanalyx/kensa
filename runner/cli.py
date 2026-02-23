@@ -1739,6 +1739,16 @@ def list_frameworks():
 # ── info ─────────────────────────────────────────────────────────────────────
 
 
+def _severity_color(severity: str) -> str:
+    """Return a Rich color tag for a severity level."""
+    return {
+        "critical": "red",
+        "high": "red",
+        "medium": "yellow",
+        "low": "dim",
+    }.get(severity, "white")
+
+
 def _get_control_info(
     control_spec: str,
     mappings: dict,
@@ -1813,7 +1823,232 @@ def _get_control_info(
     return results
 
 
+def _info_rule_detail(rule_data: dict, index, json_output: bool) -> None:
+    """Display full rule detail for ``kensa info <rule-id>``."""
+    rule_id = rule_data["id"]
+    refs = index.query_by_rule(rule_id)
+
+    if json_output:
+        import json
+
+        output = {
+            "query": {"rule_id": rule_id},
+            "rule": {
+                "id": rule_id,
+                "title": rule_data.get("title", ""),
+                "description": rule_data.get("description", ""),
+                "severity": rule_data.get("severity", ""),
+                "category": rule_data.get("category", ""),
+                "tags": rule_data.get("tags", []),
+                "depends_on": rule_data.get("depends_on", []),
+                "platforms": rule_data.get("platforms", []),
+                "references": rule_data.get("references", {}),
+                "implementations": _summarize_implementations(rule_data),
+            },
+            "frameworks": [
+                {
+                    "mapping_id": ref.mapping_id,
+                    "mapping_title": ref.mapping_title,
+                    "section_id": ref.section_id,
+                    "title": ref.title,
+                }
+                for ref in refs
+            ],
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    # Header
+    console.print(f"[bold cyan]{rule_id}[/bold cyan]")
+    title = rule_data.get("title", "")
+    if title:
+        console.print(f"  {title}")
+    console.print()
+
+    # Description
+    desc = rule_data.get("description", "")
+    if desc:
+        console.print("[bold]Description:[/bold]")
+        console.print(f"  {desc.strip()}")
+        console.print()
+
+    # Severity / Category / Tags
+    severity = rule_data.get("severity", "")
+    if severity:
+        color = _severity_color(severity)
+        console.print(f"[bold]Severity:[/bold] [{color}]{severity}[/{color}]")
+    category = rule_data.get("category", "")
+    if category:
+        console.print(f"[bold]Category:[/bold] {category}")
+    tags = rule_data.get("tags", [])
+    if tags:
+        console.print(f"[bold]Tags:[/bold] {', '.join(tags)}")
+
+    # Dependencies
+    depends = rule_data.get("depends_on", [])
+    if depends:
+        console.print(f"[bold]Depends on:[/bold] {', '.join(depends)}")
+
+    # Platforms
+    platforms = rule_data.get("platforms", [])
+    if platforms:
+        parts = []
+        for p in platforms:
+            s = p.get("family", "")
+            if p.get("min_version"):
+                s += f" >={p['min_version']}"
+            if p.get("max_version"):
+                s += f" <={p['max_version']}"
+            parts.append(s)
+        console.print(f"[bold]Platforms:[/bold] {', '.join(parts)}")
+
+    console.print()
+
+    # Implementations summary
+    impls = rule_data.get("implementations", [])
+    if impls:
+        console.print(f"[bold]Implementations ({len(impls)}):[/bold]")
+        for i, impl in enumerate(impls):
+            default = impl.get("default", False)
+            when = impl.get("when")
+            label = f"  [{i + 1}]"
+            if default:
+                label += " (default)"
+            if when:
+                label += f" when={when}"
+            console.print(label)
+
+            check = impl.get("check", {})
+            if check:
+                method = check.get("method", "")
+                console.print(f"    Check: {method}")
+
+            remediation = impl.get("remediation", {})
+            if remediation:
+                mechanism = remediation.get("mechanism", "")
+                console.print(f"    Remediation: {mechanism}")
+        console.print()
+
+    # YAML references
+    yaml_refs = rule_data.get("references", {})
+    if yaml_refs:
+        console.print("[bold]References (from rule YAML):[/bold]")
+        cis_refs = yaml_refs.get("cis", {})
+        for ref_key, ref_data in cis_refs.items():
+            section = ref_data.get("section", "")
+            level = ref_data.get("level", "")
+            console.print(f"  CIS {ref_key}: section {section} ({level})")
+        stig_refs = yaml_refs.get("stig", {})
+        for ref_key, ref_data in stig_refs.items():
+            vuln_id = ref_data.get("vuln_id", "")
+            stig_sev = ref_data.get("severity", "")
+            console.print(f"  STIG {ref_key}: {vuln_id} ({stig_sev})")
+        nist_refs = yaml_refs.get("nist_800_53", [])
+        if nist_refs:
+            console.print(f"  NIST 800-53: {', '.join(nist_refs)}")
+        console.print()
+
+    # Framework cross-references
+    if refs:
+        console.print("[bold]Framework cross-references:[/bold]")
+        for ref in refs:
+            console.print(
+                f"  [cyan]{ref.mapping_id}[/cyan]: {ref.section_id} — {ref.title}"
+            )
+        console.print()
+        console.print(f"[dim]{len(refs)} framework references[/dim]")
+    else:
+        console.print("[dim]No framework cross-references found[/dim]")
+
+
+def _summarize_implementations(rule_data: dict) -> list[dict]:
+    """Build a JSON-safe summary of a rule's implementations."""
+    summaries = []
+    for impl in rule_data.get("implementations", []):
+        entry: dict = {}
+        if impl.get("default"):
+            entry["default"] = True
+        if impl.get("when"):
+            entry["when"] = impl["when"]
+        check = impl.get("check", {})
+        if check:
+            entry["check_method"] = check.get("method", "")
+        remediation = impl.get("remediation", {})
+        if remediation:
+            entry["remediation_mechanism"] = remediation.get("mechanism", "")
+        summaries.append(entry)
+    return summaries
+
+
+def _info_by_reference(
+    search_type: str,
+    value: str,
+    rules_by_id: dict[str, dict],
+    rhel_version: str | None,
+    show_all: bool,
+    json_output: bool,
+) -> None:
+    """Display rules matching a CIS/STIG/NIST reference."""
+    from runner.rule_info import search_rules_by_reference
+
+    matches = search_rules_by_reference(rules_by_id, search_type, value, rhel_version)
+
+    if json_output:
+        import json
+
+        output = {
+            "query": {"type": search_type, "value": value, "rhel": rhel_version},
+            "matches": matches,
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    if not matches:
+        console.print(
+            f"[yellow]No rules found for {search_type.upper()} {value}[/yellow]"
+        )
+        return
+
+    type_label = {"cis": "CIS", "stig": "STIG", "nist": "NIST 800-53"}[search_type]
+    console.print(f"[bold]{type_label} {value}[/bold]")
+    if rhel_version:
+        console.print(f"[dim]Filtered: RHEL {rhel_version}[/dim]")
+    console.print()
+
+    if search_type in ("cis", "stig") and (show_all or not rhel_version):
+        fw_rules: dict[str, list] = {}
+        for match in matches:
+            for ref in match["refs"]:
+                fw = ref.get("framework", "")
+                if fw not in fw_rules:
+                    fw_rules[fw] = []
+                fw_rules[fw].append(match)
+
+        for fw in sorted(fw_rules.keys()):
+            console.print(f"[cyan]{fw}:[/cyan]")
+            seen: set[str] = set()
+            for match in fw_rules[fw]:
+                if match["rule_id"] in seen:
+                    continue
+                seen.add(match["rule_id"])
+                color = _severity_color(match["severity"])
+                console.print(f"  [green]{match['rule_id']}[/green]")
+                console.print(f"    {match['title']}")
+                console.print(f"    [{color}]Severity: {match['severity']}[/{color}]")
+            console.print()
+    else:
+        for match in matches:
+            color = _severity_color(match["severity"])
+            console.print(f"  [green]{match['rule_id']}[/green]")
+            console.print(f"    {match['title']}")
+            console.print(f"    [{color}]Severity: {match['severity']}[/{color}]")
+            console.print()
+
+    console.print(f"[dim]Total: {len(matches)} rules[/dim]")
+
+
 @main.command()
+@click.argument("query", required=False)
 @click.option(
     "--control",
     "-c",
@@ -1845,115 +2080,182 @@ def _get_control_info(
     help="Match control as prefix (e.g., 5.1 matches 5.1.1, 5.1.2, etc.)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def info(control, rule, list_controls, framework, prefix_match, json_output):
-    """Show detailed information about rules and framework controls.
+@click.option(
+    "--cis", "cis_section", default=None, help="CIS section number (e.g., 5.2.2)"
+)
+@click.option("--stig", "stig_id", default=None, help="STIG ID (e.g., V-258036)")
+@click.option(
+    "--nist", "nist_control", default=None, help="NIST 800-53 control (e.g., AC-3)"
+)
+@click.option(
+    "--rhel",
+    "rhel_version",
+    type=click.Choice(["8", "9", "10"]),
+    default=None,
+    help="Filter by RHEL version",
+)
+@click.option("--all", "show_all", is_flag=True, help="Show all RHEL versions")
+def info(
+    query,
+    control,
+    rule,
+    list_controls,
+    framework,
+    prefix_match,
+    json_output,
+    cis_section,
+    stig_id,
+    nist_control,
+    rhel_version,
+    show_all,
+):
+    r"""Show detailed information about rules and framework controls.
 
-    Cross-reference rules and framework controls to understand coverage
-    and find relationships between compliance requirements and rules.
+    With a positional QUERY, auto-detects the query type:
 
+    \b
+      Rule ID   → full rule detail (title, severity, check, remediation, refs)
+      V-NNNNNN  → STIG lookup
+      XX-N      → NIST 800-53 control
+      N.N.N     → CIS section
+
+    Use explicit flags for framework lookups or existing control queries.
+
+    \b
     Examples:
-      kensa info --control cis-rhel9-v2.0.0:5.1.12
-      kensa info --control 5.1 --prefix-match
-      kensa info --rule ssh-disable-root-login
-      kensa info --list-controls --framework cis-rhel9-v2.0.0
+      kensa info sudo-use-pty                         # Rule detail
+      kensa info 5.2.2                                # Auto-detect CIS
+      kensa info V-258036                             # Auto-detect STIG
+      kensa info AC-3                                 # Auto-detect NIST
+      kensa info --cis 5.2.2 --rhel 9                # Explicit CIS
+      kensa info --stig V-258036                      # Explicit STIG
+      kensa info --nist AC-3                          # Explicit NIST
+      kensa info --control cis-rhel9-v2.0.0:5.1.12   # Mapping-based control
+      kensa info --list-controls -f cis-rhel9-v2.0.0  # List controls
     """
     from runner.mappings import FrameworkIndex, load_all_mappings
+    from runner.paths import get_rules_path
+    from runner.rule_info import build_rule_index, classify_query
 
-    # Load mappings and build index
+    # Load rules index
+    try:
+        rules_path = get_rules_path()
+    except FileNotFoundError:
+        rules_path = None
+
+    rules_by_id: dict[str, dict] = {}
+    if rules_path:
+        rules_by_id = build_rule_index(rules_path)
+
+    # Load mappings and build framework index
     mappings = load_all_mappings()
-    if not mappings:
-        console.print("[yellow]No framework mappings found in mappings/[/yellow]")
-        sys.exit(1)
+    index = FrameworkIndex.build(mappings) if mappings else None
 
-    index = FrameworkIndex.build(mappings)
+    # --- Explicit framework reference flags (--cis, --stig, --nist) ---
+    explicit_ref = cis_section or stig_id or nist_control
+    if explicit_ref:
+        if not rules_by_id:
+            console.print("[red]Error:[/red] rules/ directory not found")
+            sys.exit(1)
+        if cis_section:
+            _info_by_reference(
+                "cis", cis_section, rules_by_id, rhel_version, show_all, json_output
+            )
+        elif stig_id:
+            _info_by_reference(
+                "stig",
+                stig_id.upper(),
+                rules_by_id,
+                rhel_version,
+                show_all,
+                json_output,
+            )
+        elif nist_control:
+            _info_by_reference(
+                "nist",
+                nist_control.upper(),
+                rules_by_id,
+                rhel_version,
+                show_all,
+                json_output,
+            )
+        return
 
-    # Validate options
-    options_count = sum([bool(control), bool(rule), list_controls])
-    if options_count == 0:
-        console.print("[red]Error:[/red] Specify --control, --rule, or --list-controls")
-        sys.exit(1)
-    if options_count > 1:
+    # --- Existing --control, --rule, --list-controls flags ---
+    flag_count = sum([bool(control), bool(rule), list_controls])
+
+    if flag_count > 1:
         console.print(
             "[red]Error:[/red] Only one of --control, --rule, --list-controls allowed"
         )
         sys.exit(1)
 
-    # Query by control
     if control:
-        rules = index.query_by_control(control, prefix_match=prefix_match)
-
-        # Load rule metadata for detail display
-        from runner._loading import load_rules
-
-        try:
-            all_rules = load_rules("rules/")
-            rules_by_id = {r["id"]: r for r in all_rules}
-        except (ValueError, FileNotFoundError):
-            rules_by_id = {}
-
-        # Get control info from mapping
-        control_info = _get_control_info(control, mappings, prefix_match)
+        if not index:
+            console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+            sys.exit(1)
+        rules_list = index.query_by_control(control, prefix_match=prefix_match)
+        control_info_list = _get_control_info(control, mappings, prefix_match)
 
         if json_output:
             import json
 
-            # Build detailed rule info
             detailed_rules = []
-            for rule_id in sorted(rules):
-                rule_data = rules_by_id.get(rule_id, {})
+            for rule_id in sorted(rules_list):
+                rd = rules_by_id.get(rule_id, {})
                 detailed_rules.append(
                     {
                         "rule_id": rule_id,
-                        "title": rule_data.get("title", ""),
-                        "severity": rule_data.get("severity", ""),
-                        "category": rule_data.get("category", ""),
+                        "title": rd.get("title", ""),
+                        "severity": rd.get("severity", ""),
+                        "category": rd.get("category", ""),
                     }
                 )
-
             output = {
                 "query": {"control": control, "prefix_match": prefix_match},
-                "control_info": control_info,
+                "control_info": control_info_list,
                 "rules": detailed_rules,
             }
             print(json.dumps(output, indent=2))
             return
 
-        if not rules:
+        if not rules_list:
             console.print(f"[yellow]No rules found for control: {control}[/yellow]")
             return
 
         console.print(f"[bold]Rules implementing {control}:[/bold]")
         if prefix_match:
             console.print("[dim](prefix match enabled)[/dim]")
-
-        # Show control title if available
-        if control_info:
-            for info in control_info:
-                console.print(f"[dim]{info['mapping_id']}: {info['title']}[/dim]")
+        if control_info_list:
+            for ci in control_info_list:
+                console.print(f"[dim]{ci['mapping_id']}: {ci['title']}[/dim]")
         console.print()
 
-        for rule_id in sorted(rules):
-            rule_data = rules_by_id.get(rule_id, {})
-            title = rule_data.get("title", "")
-            severity = rule_data.get("severity", "")
-
+        for rule_id in sorted(rules_list):
+            rd = rules_by_id.get(rule_id, {})
+            title = rd.get("title", "")
+            severity = rd.get("severity", "")
             console.print(f"  [cyan]{rule_id}[/cyan]")
             if title:
                 console.print(f"    {title}")
             if severity:
-                sev_color = {
-                    "critical": "red",
-                    "high": "red",
-                    "medium": "yellow",
-                    "low": "dim",
-                }.get(severity, "white")
-                console.print(f"    [{sev_color}]Severity: {severity}[/{sev_color}]")
+                color = _severity_color(severity)
+                console.print(f"    [{color}]Severity: {severity}[/{color}]")
             console.print()
+        console.print(f"[dim]Total: {len(rules_list)} rules[/dim]")
+        return
 
-        console.print(f"[dim]Total: {len(rules)} rules[/dim]")
+    if rule:
+        if not index:
+            console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+            sys.exit(1)
 
-    # Query by rule
-    elif rule:
+        # If --rule points to a known rule ID, show full detail
+        if rule in rules_by_id:
+            _info_rule_detail(rules_by_id[rule], index, json_output)
+            return
+
+        # Otherwise fall back to framework cross-ref only
         refs = index.query_by_rule(rule)
         if json_output:
             import json
@@ -1988,10 +2290,13 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
                 console.print(f"    [dim]{meta_str}[/dim]")
             console.print()
         console.print(f"[dim]Total: {len(refs)} framework references[/dim]")
+        return
 
-    # List controls
-    elif list_controls:
-        controls = index.list_controls(mapping_id=framework)
+    if list_controls:
+        if not index:
+            console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+            sys.exit(1)
+        controls_list = index.list_controls(mapping_id=framework)
         if json_output:
             import json
 
@@ -1999,13 +2304,13 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
                 "query": {"list_controls": True, "framework": framework},
                 "controls": [
                     {"mapping_id": mid, "section_id": sid, "rule_count": count}
-                    for mid, sid, count in controls
+                    for mid, sid, count in controls_list
                 ],
             }
             print(json.dumps(output, indent=2))
             return
 
-        if not controls:
+        if not controls_list:
             if framework:
                 console.print(
                     f"[yellow]No controls found for framework: {framework}[/yellow]"
@@ -2018,28 +2323,69 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
         console.print(f"[bold]{title}:[/bold]")
         console.print()
 
-        # Group by mapping if showing all
         current_mapping = None
-        for mid, sid, count in controls:
+        for mid, sid, count in controls_list:
             if not framework and mid != current_mapping:
                 if current_mapping is not None:
                     console.print()
                 console.print(f"[cyan]{mid}[/cyan]")
                 current_mapping = mid
 
-            prefix = "  " if not framework else ""
+            pfx = "  " if not framework else ""
             console.print(
-                f"{prefix}  {sid:<15s} ({count} rule{'s' if count != 1 else ''})"
+                f"{pfx}  {sid:<15s} ({count} rule{'s' if count != 1 else ''})"
             )
 
         console.print()
-        console.print(f"[dim]Total: {len(controls)} controls[/dim]")
+        console.print(f"[dim]Total: {len(controls_list)} controls[/dim]")
+        return
+
+    # --- Positional QUERY argument ---
+    if query:
+        query_type, query_value = classify_query(query, set(rules_by_id.keys()))
+
+        if query_type == "rule":
+            if query_value in rules_by_id:
+                if not index:
+                    # Build a minimal empty index for display
+                    index = FrameworkIndex.build({})
+                _info_rule_detail(rules_by_id[query_value], index, json_output)
+            else:
+                console.print(f"[yellow]Rule not found: {query_value}[/yellow]")
+                sys.exit(1)
+        else:
+            if not rules_by_id:
+                console.print("[red]Error:[/red] rules/ directory not found")
+                sys.exit(1)
+            _info_by_reference(
+                query_type,
+                query_value,
+                rules_by_id,
+                rhel_version,
+                show_all,
+                json_output,
+            )
+        return
+
+    # No arguments at all
+    console.print(
+        "[red]Error:[/red] Specify a QUERY, --control, --rule, or --list-controls"
+    )
+    console.print()
+    console.print("Examples:")
+    console.print("  kensa info sudo-use-pty          # Rule detail")
+    console.print("  kensa info 5.2.2                 # CIS section")
+    console.print("  kensa info V-258036              # STIG ID")
+    console.print("  kensa info AC-3                  # NIST control")
+    console.print("  kensa info --control cis-rhel9-v2.0.0:5.1.12")
+    console.print("  kensa info --list-controls -f cis-rhel9-v2.0.0")
+    sys.exit(1)
 
 
-# ── lookup ────────────────────────────────────────────────────────────────────
+# ── lookup (deprecated) ──────────────────────────────────────────────────────
 
 
-@main.command()
+@main.command(hidden=True, deprecated=True)
 @click.argument("section", required=False)
 @click.option(
     "--cis", "cis_section", default=None, help="CIS section number (e.g., 2.2.5)"
@@ -2059,19 +2405,22 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
 def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
     r"""Look up rules by CIS section, STIG ID, or NIST control.
 
-    Searches all rules to find which ones implement a specific compliance control.
+    Deprecated: use ``kensa info`` instead.
 
     \b
     Examples:
-      kensa lookup 2.2.5                  # CIS section (auto-detected)
-      kensa lookup --cis 2.2.5            # Explicit CIS lookup
-      kensa lookup --cis 5.1 --rhel 9     # CIS 5.1.x for RHEL 9 only
-      kensa lookup --stig V-257874        # STIG vulnerability ID
-      kensa lookup --nist AC-3            # NIST 800-53 control
+      kensa info 2.2.5                   # CIS section (replaces lookup)
+      kensa info --cis 2.2.5             # Explicit CIS lookup
+      kensa info --stig V-257874         # STIG vulnerability ID
+      kensa info --nist AC-3             # NIST 800-53 control
     """
-    from pathlib import Path
+    click.echo(
+        "Warning: 'kensa lookup' is deprecated. Use 'kensa info' instead.",
+        err=True,
+    )
 
-    import yaml
+    from runner.paths import get_rules_path
+    from runner.rule_info import build_rule_index
 
     # Determine what to search for
     search_type = None
@@ -2087,7 +2436,6 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
         search_type = "nist"
         search_value = nist_control.upper()
     elif section:
-        # Auto-detect type from format
         if section.upper().startswith("V-"):
             search_type = "stig"
             search_value = section.upper()
@@ -2101,157 +2449,27 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
         console.print(
             "[red]Error:[/red] Specify a section number or use --cis/--stig/--nist"
         )
-        console.print("\nExamples:")
-        console.print("  kensa lookup 2.2.5")
-        console.print("  kensa lookup --cis 5.1.12")
-        console.print("  kensa lookup --stig V-257874")
-        console.print("  kensa lookup --nist AC-3")
+        console.print("\nUse 'kensa info' instead:")
+        console.print("  kensa info 2.2.5")
+        console.print("  kensa info --cis 5.1.12")
+        console.print("  kensa info --stig V-257874")
+        console.print("  kensa info --nist AC-3")
         sys.exit(1)
 
-    # Load all rules and search
-    rules_dir = Path("rules")
-    if not rules_dir.exists():
+    try:
+        rules_path = get_rules_path()
+    except FileNotFoundError:
         console.print("[red]Error:[/red] rules/ directory not found")
         sys.exit(1)
 
-    matches = []
+    rules_by_id = build_rule_index(rules_path)
+    if not rules_by_id:
+        console.print("[red]Error:[/red] No rules found")
+        sys.exit(1)
 
-    for rule_path in sorted(rules_dir.rglob("*.yml")):
-        try:
-            with open(rule_path) as f:
-                rule = yaml.safe_load(f)
-            if not isinstance(rule, dict) or "id" not in rule:
-                continue
-        except Exception:
-            continue
-
-        refs = rule.get("references", {})
-        rule_id = rule["id"]
-        title = rule.get("title", "")
-        severity = rule.get("severity", "")
-
-        matched_refs = []
-
-        if search_type == "cis":
-            cis_refs = refs.get("cis", {})
-            for ref_key, ref_data in cis_refs.items():
-                ref_section = ref_data.get("section", "")
-                # Match exact or prefix
-                if ref_section == search_value or ref_section.startswith(
-                    search_value + "."
-                ):
-                    # Filter by RHEL version if specified
-                    if rhel_version and f"rhel{rhel_version}" not in ref_key:
-                        continue
-                    matched_refs.append(
-                        {
-                            "framework": ref_key,
-                            "section": ref_section,
-                            "level": ref_data.get("level", ""),
-                            "type": ref_data.get("type", ""),
-                        }
-                    )
-
-        elif search_type == "stig":
-            stig_refs = refs.get("stig", {})
-            for ref_key, ref_data in stig_refs.items():
-                vuln_id = ref_data.get("vuln_id", "")
-                stig_rule_id = ref_data.get("stig_id", "")
-                if (
-                    vuln_id.upper() == search_value
-                    or stig_rule_id.upper() == search_value
-                ):
-                    if rhel_version and f"rhel{rhel_version}" not in ref_key:
-                        continue
-                    matched_refs.append(
-                        {
-                            "framework": ref_key,
-                            "vuln_id": vuln_id,
-                            "stig_id": stig_rule_id,
-                            "severity": ref_data.get("severity", ""),
-                        }
-                    )
-
-        elif search_type == "nist":
-            nist_refs = refs.get("nist_800_53", [])
-            if isinstance(nist_refs, list):
-                for ctrl in nist_refs:
-                    if ctrl.upper() == search_value or ctrl.upper().startswith(
-                        search_value
-                    ):
-                        matched_refs.append({"control": ctrl})
-
-        if matched_refs:
-            matches.append(
-                {
-                    "rule_id": rule_id,
-                    "title": title,
-                    "severity": severity,
-                    "refs": matched_refs,
-                }
-            )
-
-    # Display results
-    if not matches:
-        console.print(
-            f"[yellow]No rules found for {search_type.upper()} {search_value}[/yellow]"
-        )
-        return
-
-    # Header
-    type_label = {"cis": "CIS", "stig": "STIG", "nist": "NIST 800-53"}[search_type]
-    console.print(f"[bold]{type_label} {search_value}[/bold]")
-    if rhel_version:
-        console.print(f"[dim]Filtered: RHEL {rhel_version}[/dim]")
-    console.print()
-
-    # Group by framework version if showing all
-    if search_type in ("cis", "stig") and (show_all or not rhel_version):
-        # Collect all framework versions
-        fw_rules: dict[str, list] = {}
-        for match in matches:
-            for ref in match["refs"]:
-                fw = ref.get("framework", "")
-                if fw not in fw_rules:
-                    fw_rules[fw] = []
-                fw_rules[fw].append(match)
-
-        for fw in sorted(fw_rules.keys()):
-            console.print(f"[cyan]{fw}:[/cyan]")
-            seen = set()
-            for match in fw_rules[fw]:
-                if match["rule_id"] in seen:
-                    continue
-                seen.add(match["rule_id"])
-                sev_color = {
-                    "critical": "red",
-                    "high": "red",
-                    "medium": "yellow",
-                    "low": "dim",
-                }.get(match["severity"], "white")
-                console.print(f"  [green]{match['rule_id']}[/green]")
-                console.print(f"    {match['title']}")
-                console.print(
-                    f"    [{sev_color}]Severity: {match['severity']}[/{sev_color}]"
-                )
-            console.print()
-    else:
-        # Simple list
-        for match in matches:
-            sev_color = {
-                "critical": "red",
-                "high": "red",
-                "medium": "yellow",
-                "low": "dim",
-            }.get(match["severity"], "white")
-            console.print(f"  [green]{match['rule_id']}[/green]")
-            console.print(f"    {match['title']}")
-            console.print(
-                f"    [{sev_color}]Severity: {match['severity']}[/{sev_color}]"
-            )
-            console.print()
-
-    console.print(f"[dim]Total: {len(matches)} rules[/dim]")
+    _info_by_reference(
+        search_type, search_value, rules_by_id, rhel_version, show_all, False
+    )
 
 
 # ── rollback ─────────────────────────────────────────────────────────────

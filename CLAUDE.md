@@ -38,7 +38,8 @@ python scripts/cis_validate.py --chapter 5
 
 ```
 runner/                  # Core Python package
-├── cli.py              # Main CLI (10 commands: detect, check, remediate, rollback, history, diff, coverage, list-frameworks, info, lookup)
+├── cli.py              # Main CLI (10 commands: detect, check, remediate, rollback, history, diff, coverage, list-frameworks, info; lookup deprecated)
+├── rule_info.py        # Rule discovery helpers (build_rule_index, classify_query, search_rules_by_reference)
 ├── engine.py           # Rule evaluation facade
 ├── ssh.py              # SSH connection management
 ├── detect.py           # 22 capability probes + platform detection
