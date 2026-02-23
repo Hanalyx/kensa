@@ -90,6 +90,7 @@ class HostRunConfig:
     verbose: bool = False
     dry_run: bool = False
     rollback_on_failure: bool = False
+    snapshot: bool = True
     rule_to_section: dict[str, str] | None = None
     control_ctx: ControlContext | None = None
     capability_overrides: dict[str, bool] = field(default_factory=dict)
@@ -354,6 +355,7 @@ def run_remediation(
     verbose: bool,
     dry_run,
     rollback_on_failure=False,
+    snapshot: bool = True,
     rule_to_section: dict[str, str] | None = None,
 ):
     """Run remediation for a single host. Returns (pass, fail, fixed, skip, rolled_back, rule_results)."""
@@ -419,6 +421,7 @@ def run_remediation(
             caps,
             dry_run=dry_run,
             rollback_on_failure=rollback_on_failure,
+            snapshot=snapshot,
         )
         result.framework_section = section
         rule_results.append(result)
@@ -556,6 +559,7 @@ def execute_on_host(
                     verbose=config.verbose,
                     dry_run=config.dry_run,
                     rollback_on_failure=config.rollback_on_failure,
+                    snapshot=config.snapshot,
                     rule_to_section=config.rule_to_section,
                 )
     except Exception as exc:

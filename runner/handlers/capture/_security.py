@@ -1,6 +1,6 @@
 """Security-related capture handlers.
 
-Handlers for capturing pre-state of security subsystems: SELinux and audit.
+Handlers for capturing pre-state of security subsystems: SELinux, audit, and PAM.
 """
 
 from __future__ import annotations
@@ -51,5 +51,35 @@ def _capture_audit_rule_set(ssh: SSHSession, r: dict) -> PreState:
             "rule_existed": rule_existed,
             "old_persist_content": old_persist_content,
             "persist_existed": old_persist_content is not None,
+        },
+    )
+
+
+def _capture_pam_module_configure(ssh: SSHSession, r: dict) -> PreState:
+    """Capture PAM file content and authselect state before modification.
+
+    Snapshots the target PAM service file and the current authselect
+    profile so that both can be restored on rollback.
+    """
+    service = r["service"]
+    pam_file = f"/etc/pam.d/{service}"
+
+    old_content = shell_util.read_file(ssh, pam_file)
+    existed = old_content is not None
+
+    # Capture authselect state for systems that use it
+    authselect_result = ssh.run("authselect current 2>/dev/null")
+    authselect_profile = (
+        authselect_result.stdout.strip() if authselect_result.ok else None
+    )
+
+    return PreState(
+        mechanism="pam_module_configure",
+        data={
+            "service": service,
+            "pam_file": pam_file,
+            "existed": existed,
+            "old_content": old_content,
+            "authselect_profile": authselect_profile,
         },
     )

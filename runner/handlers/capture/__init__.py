@@ -37,6 +37,7 @@ from runner.handlers.capture._package import (
 )
 from runner.handlers.capture._security import (
     _capture_audit_rule_set,
+    _capture_pam_module_configure,
     _capture_selinux_boolean_set,
 )
 from runner.handlers.capture._service import (
@@ -85,6 +86,7 @@ CAPTURE_HANDLERS = {
     # Security handlers
     "selinux_boolean_set": _capture_selinux_boolean_set,
     "audit_rule_set": _capture_audit_rule_set,
+    "pam_module_configure": _capture_pam_module_configure,
     # Command handlers
     "command_exec": _capture_command_exec,
     "manual": _capture_manual,

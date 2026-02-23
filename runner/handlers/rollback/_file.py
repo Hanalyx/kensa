@@ -21,10 +21,17 @@ def _rollback_file_permissions(
     entries = pre_state.data.get("entries", [])
     if not entries:
         return False, "No file entries to restore"
+    errors: list[str] = []
     for entry in entries:
         p = shell_util.quote(entry["path"])
-        ssh.run(f"chown {entry['owner']}:{entry['group']} {p}")
-        ssh.run(f"chmod {entry['mode']} {p}")
+        chown_result = ssh.run(f"chown {entry['owner']}:{entry['group']} {p}")
+        if not chown_result.ok:
+            errors.append(f"chown {entry['path']}: {chown_result.stderr}")
+        chmod_result = ssh.run(f"chmod {entry['mode']} {p}")
+        if not chmod_result.ok:
+            errors.append(f"chmod {entry['path']}: {chmod_result.stderr}")
+    if errors:
+        return False, f"Failed to restore permissions: {'; '.join(errors)}"
     return True, f"Restored permissions on {len(entries)} file(s)"
 
 

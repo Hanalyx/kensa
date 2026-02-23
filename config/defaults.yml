@@ -55,6 +55,20 @@ variables:
   ssh_approved_kex: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,sntrup761x25519-sha512@openssh.com"
   ssh_approved_macs: "hmac-sha2-256,hmac-sha2-512,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com"
 
+rollback:
+  # Snapshot mode: all (default) | risk_based | none
+  snapshot: all
+  # When snapshot=risk_based, minimum risk level to capture
+  # Options: high | medium | low
+  risk_threshold: medium
+  # Additional paths that elevate risk to 'high'
+  # (merged with built-in high-risk paths)
+  high_risk_paths: []
+  # Retention — full rollback available within active window
+  snapshot_active_days: 7
+  # Pre-state data pruned after archive window (metadata retained)
+  snapshot_archive_days: 90
+
 frameworks:
   # CIS Benchmark values (generally less restrictive than STIG)
   cis:

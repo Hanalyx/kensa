@@ -709,6 +709,185 @@ def _store_results(run_result: RunResult, hosts: list, rules_path: str) -> None:
         store.close()
 
 
+def _store_remediation_results(
+    run_result: RunResult,
+    hosts: list,
+    rules_path: str,
+    *,
+    dry_run: bool = False,
+    rollback_on_failure: bool = False,
+    snapshot_mode: str = "all",
+) -> None:
+    """Store remediation results in local database.
+
+    Creates a scan session, remediation session, and records all rule results
+    including per-step data and pre-state snapshots.
+    """
+    from runner.storage import ResultStore
+
+    store = ResultStore()
+    try:
+        hostnames = [h.hostname for h in hosts]
+        session_id = store.create_session(
+            hosts=hostnames,
+            rules_path=rules_path or "",
+        )
+
+        rem_session_id = store.create_remediation_session(
+            session_id,
+            dry_run=dry_run,
+            rollback_on_failure=rollback_on_failure,
+            snapshot_mode=snapshot_mode,
+        )
+
+        for host_result in run_result.hosts:
+            if host_result.error:
+                continue
+
+            for rule_result in host_result.results:
+                if rule_result.skipped:
+                    continue
+
+                # Record the check result in results table too
+                store.record_result(
+                    session_id=session_id,
+                    host=host_result.hostname,
+                    rule_id=rule_result.rule_id,
+                    passed=rule_result.passed,
+                    detail=rule_result.detail or "",
+                    remediated=rule_result.remediated,
+                    evidence=rule_result.evidence,
+                    framework_refs=rule_result.framework_refs or None,
+                )
+
+                # Record remediation-specific data
+                rem_id = store.record_remediation(
+                    rem_session_id,
+                    host=host_result.hostname,
+                    rule_id=rule_result.rule_id,
+                    severity=rule_result.severity,
+                    passed_before=not rule_result.remediated and rule_result.passed,
+                    passed_after=rule_result.passed if rule_result.remediated else None,
+                    remediated=rule_result.remediated,
+                    rolled_back=rule_result.rolled_back,
+                    detail=rule_result.remediation_detail or rule_result.detail or "",
+                )
+
+                # Record steps and pre-states
+                for sr in rule_result.step_results:
+                    step_id = store.record_step(
+                        rem_id,
+                        step_index=sr.step_index,
+                        mechanism=sr.mechanism,
+                        success=sr.success,
+                        detail=sr.detail or "",
+                    )
+
+                    if sr.pre_state is not None and sr.pre_state.capturable:
+                        store.record_pre_state(
+                            step_id,
+                            mechanism=sr.pre_state.mechanism,
+                            data=sr.pre_state.data,
+                            capturable=sr.pre_state.capturable,
+                        )
+
+                # Record inline rollback events
+                for rb in rule_result.rollback_results:
+                    # Find the matching step_id for this rollback
+                    # Rollback results map by step_index to step records
+                    matching_steps = [
+                        sr
+                        for sr in rule_result.step_results
+                        if sr.step_index == rb.step_index
+                    ]
+                    if matching_steps:
+                        # Look up the stored step_id
+                        steps = store.get_remediation_steps(rem_id)
+                        for stored_step in steps:
+                            if stored_step.step_index == rb.step_index:
+                                store.record_rollback_event(
+                                    stored_step.id,
+                                    mechanism=rb.mechanism,
+                                    success=rb.success,
+                                    detail=rb.detail or "",
+                                    source="inline",
+                                )
+                                break
+
+        console.print(
+            f"[dim]Stored remediation results in session {rem_session_id}[/dim]"
+        )
+    finally:
+        store.close()
+
+
+def _get_rollback_archive_days(config_dir: str | None) -> int:
+    """Read snapshot_archive_days from the rollback config section.
+
+    Loads the ``rollback:`` block from ``config/defaults.yml`` (and any
+    conf.d overrides), returning the ``snapshot_archive_days`` value.
+    Falls back to 90 if not configured or if loading fails.
+
+    Args:
+        config_dir: Path to the config directory, or None to auto-detect.
+
+    Returns:
+        Archive retention period in days.
+
+    """
+    from pathlib import Path
+
+    import yaml
+
+    default_days = 90
+
+    if config_dir is None:
+        from runner.paths import get_config_path
+
+        try:
+            cfg_path = get_config_path()
+        except FileNotFoundError:
+            return default_days
+    else:
+        cfg_path = Path(config_dir)
+
+    if not cfg_path.is_dir():
+        return default_days
+
+    archive_days = default_days
+
+    # Load from defaults.yml
+    defaults_file = cfg_path / "defaults.yml"
+    if defaults_file.exists():
+        try:
+            data = yaml.safe_load(defaults_file.read_text())
+            if isinstance(data, dict):
+                rollback = data.get("rollback", {})
+                if isinstance(rollback, dict):
+                    val = rollback.get("snapshot_archive_days")
+                    if isinstance(val, int) and val > 0:
+                        archive_days = val
+        except yaml.YAMLError:
+            pass
+
+    # Apply conf.d overrides (alphabetical)
+    conf_d = cfg_path / "conf.d"
+    if conf_d.is_dir():
+        for override_file in sorted(conf_d.glob("*.yml")):
+            try:
+                data = yaml.safe_load(override_file.read_text())
+                if isinstance(data, dict):
+                    rollback = data.get("rollback", {})
+                    if isinstance(rollback, dict):
+                        val = rollback.get("snapshot_archive_days")
+                        if isinstance(val, int) and val > 0:
+                            archive_days = val
+            except yaml.YAMLError:
+                pass
+
+    return archive_days
+
+
 # ── remediate ───────────────────────────────────────────────────────────────
 
 
@@ -728,6 +907,11 @@ def _store_results(run_result: RunResult, hosts: list, rules_path: str) -> None:
     "--allow-conflicts",
     is_flag=True,
     help="Proceed despite detected conflicts (last rule wins)",
+)
+@click.option(
+    "--no-snapshot",
+    is_flag=True,
+    help="Disable pre-state snapshot capture (captures by default)",
 )
 def remediate(
     host,
@@ -756,6 +940,7 @@ def remediate(
     dry_run,
     rollback_on_failure,
     allow_conflicts,
+    no_snapshot,
 ):
     """Check rules and remediate failures on target hosts."""
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
@@ -775,6 +960,24 @@ def remediate(
     except (ValueError, FileNotFoundError) as exc:
         console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
+
+    # Prune old snapshot data before processing hosts
+    try:
+        from runner.storage import ResultStore
+
+        archive_days = _get_rollback_archive_days(config_dir)
+        _prune_store = ResultStore()
+        try:
+            deleted = _prune_store.prune_snapshots(archive_days=archive_days)
+            if deleted > 0 and not quiet:
+                console.print(
+                    f"[dim]Pruned {deleted} expired pre-state snapshots "
+                    f"(>{archive_days} days)[/dim]"
+                )
+        finally:
+            _prune_store.close()
+    except Exception:
+        pass  # Pruning failure must not block remediation
 
     rule_list = selection.rules
     rule_to_section = selection.rule_to_section
@@ -804,11 +1007,13 @@ def remediate(
             "[yellow]WARNING:[/yellow] Conflicts detected, proceeding anyway (--allow-conflicts)\n"
         )
 
+    snapshot = not no_snapshot
     run_config = HostRunConfig(
         mode="remediate",
         verbose=verbose,
         dry_run=dry_run,
         rollback_on_failure=rollback_on_failure,
+        snapshot=snapshot,
         rule_to_section=rule_to_section,
         control_ctx=control_ctx,
         capability_overrides=overrides,
@@ -905,6 +1110,7 @@ def remediate(
                         verbose=verbose,
                         dry_run=dry_run,
                         rollback_on_failure=rollback_on_failure,
+                        snapshot=snapshot,
                         rule_to_section=rule_to_section,
                     )
                     host_result.results = rule_results
@@ -1047,6 +1253,16 @@ def remediate(
 
     # Write outputs
     _write_outputs(run_result, outputs)
+
+    # Always persist remediation results
+    _store_remediation_results(
+        run_result,
+        hosts,
+        rules or rule or "",
+        dry_run=dry_run,
+        rollback_on_failure=rollback_on_failure,
+        snapshot_mode="none" if no_snapshot else "all",
+    )
 
 
 def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:
@@ -2036,3 +2252,614 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
             console.print()
 
     console.print(f"[dim]Total: {len(matches)} rules[/dim]")
+
+
+# ── rollback ─────────────────────────────────────────────────────────────
+
+
+@main.command()
+@click.option(
+    "--list", "list_mode", is_flag=True, help="List recent remediation sessions"
+)
+@click.option(
+    "--info",
+    "info_id",
+    type=int,
+    default=None,
+    help="Show details for a remediation session",
+)
+@click.option(
+    "--start",
+    "start_id",
+    type=int,
+    default=None,
+    help="Execute rollback from stored snapshots",
+)
+@click.option(
+    "--detail", is_flag=True, help="Show per-step pre-state data (with --info)"
+)
+@click.option(
+    "--rule",
+    "filter_rule",
+    default=None,
+    help="Filter to a specific rule (with --info/--start)",
+)
+@click.option(
+    "--host", "-h", default=None, help="Target host (--start) or filter (--list/--info)"
+)
+@click.option(
+    "--inventory",
+    "-i",
+    default=None,
+    help="Ansible inventory file (INI/YAML) for SSH credentials",
+)
+@click.option(
+    "--limit", "-l", "host_limit", default=None, help="Limit to host glob pattern"
+)
+@click.option(
+    "--max", "-n", "max_sessions", default=20, type=int, help="Max sessions to list"
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.option("--user", "-u", default=None, help="SSH username")
+@click.option("--key", "-k", default=None, help="SSH private key path")
+@click.option("--password", "-p", default=None, help="SSH password")
+@click.option("--port", "-P", default=22, type=int, help="SSH port (default: 22)")
+@click.option("--sudo", is_flag=True, help="Run commands via sudo")
+@click.option(
+    "--strict-host-keys/--no-strict-host-keys",
+    default=False,
+    help="Verify SSH host keys",
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be rolled back (--start)"
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Override stale/already-rolled-back warnings (--start)",
+)
+def rollback(
+    list_mode,
+    info_id,
+    start_id,
+    detail,
+    filter_rule,
+    host,
+    inventory,
+    host_limit,
+    max_sessions,
+    json_output,
+    user,
+    key,
+    password,
+    port,
+    sudo,
+    strict_host_keys,
+    dry_run,
+    force,
+):
+    """Inspect past remediations and execute rollback from stored snapshots.
+
+    Uses the same SSH infrastructure as check/remediate. Specify targets with
+    --host (direct) or --inventory + --limit (inventory-based).
+
+    Examples:
+      kensa rollback --list
+      kensa rollback --list --host 10.0.0.5
+      kensa rollback --info 42
+      kensa rollback --info 42 --detail --rule ssh-disable-root-login
+      kensa rollback --info 42 --json
+      kensa rollback --start 42 --host 10.0.0.5 -u admin --sudo
+      kensa rollback --start 42 -i inventory.ini --limit 10.0.0.5 --sudo
+      kensa rollback --start 42 --host 10.0.0.5 --sudo --dry-run
+    """
+    mode_count = sum([list_mode, info_id is not None, start_id is not None])
+    if mode_count == 0:
+        console.print("[red]Error:[/red] Specify --list, --info ID, or --start ID")
+        sys.exit(1)
+    if mode_count > 1:
+        console.print("[red]Error:[/red] Only one of --list, --info, --start allowed")
+        sys.exit(1)
+
+    # For --list and --info, the target host is a DB filter.
+    # For --start, we need to resolve it to an SSH-capable HostInfo.
+    # Determine the effective target hostname for DB filtering.
+    filter_host = host
+    if not filter_host and host_limit:
+        filter_host = host_limit
+
+    from runner.storage import ResultStore
+
+    store = ResultStore()
+    try:
+        if list_mode:
+            _rollback_list(store, filter_host, max_sessions, json_output)
+        elif info_id is not None:
+            _rollback_info(
+                store, info_id, detail, filter_rule, filter_host, json_output
+            )
+        elif start_id is not None:
+            if not filter_host:
+                console.print(
+                    "[red]Error:[/red] --host or --limit is required with --start"
+                )
+                sys.exit(1)
+            # Resolve SSH target using the same path as check/remediate
+            hosts = _resolve_hosts(host, inventory, host_limit, user, key, port)
+            if not hosts:
+                console.print(f"[red]Error:[/red] Could not resolve host {filter_host}")
+                sys.exit(1)
+            _rollback_start(
+                store,
+                start_id,
+                target_host=filter_host,
+                host_info=hosts[0],
+                rule_filter=filter_rule,
+                password=password,
+                sudo=sudo,
+                strict_host_keys=strict_host_keys,
+                dry_run=dry_run,
+                force=force,
+            )
+    finally:
+        store.close()
+
+
+def _rollback_list(store, host: str | None, limit: int, json_output: bool) -> None:
+    """List recent remediation sessions with summary counts."""
+    sessions = store.list_remediation_sessions(host=host, limit=limit)
+
+    if not sessions:
+        console.print("[yellow]No remediation sessions found[/yellow]")
+        return
+
+    if json_output:
+        import json
+
+        output = []
+        for s in sessions:
+            rems = store.get_remediations(s.id)
+            hosts = sorted({r.host for r in rems})
+            output.append(
+                {
+                    "id": s.id,
+                    "timestamp": s.timestamp.isoformat(),
+                    "hosts": hosts,
+                    "dry_run": s.dry_run,
+                    "rollback_on_failure": s.rollback_on_failure,
+                    "snapshot_mode": s.snapshot_mode,
+                    "total_rules": len(rems),
+                    "fixed": sum(1 for r in rems if r.remediated and r.passed_after),
+                    "fail": sum(
+                        1
+                        for r in rems
+                        if r.remediated and not (r.passed_after or False)
+                    ),
+                    "rolled_back": sum(1 for r in rems if r.rolled_back),
+                }
+            )
+        print(json.dumps(output, indent=2))
+        return
+
+    table = Table(title="Remediation Sessions")
+    table.add_column("ID", style="cyan")
+    table.add_column("Timestamp", style="white")
+    table.add_column("Host(s)", style="green")
+    table.add_column("Rules", justify="right")
+    table.add_column("Fixed", justify="right", style="yellow")
+    table.add_column("Fail", justify="right", style="red")
+    table.add_column("Rolled Back", justify="right", style="magenta")
+
+    for s in sessions:
+        rems = store.get_remediations(s.id)
+        hosts = sorted({r.host for r in rems})
+        hosts_str = ", ".join(hosts[:2])
+        if len(hosts) > 2:
+            hosts_str += f" (+{len(hosts) - 2})"
+
+        total = len(rems)
+        fixed = sum(1 for r in rems if r.remediated and r.passed_after)
+        fail = sum(1 for r in rems if r.remediated and not (r.passed_after or False))
+        rolled_back = sum(1 for r in rems if r.rolled_back)
+
+        mode_tag = " [dim](dry)[/dim]" if s.dry_run else ""
+        table.add_row(
+            str(s.id),
+            str(s.timestamp) + mode_tag,
+            hosts_str,
+            str(total),
+            str(fixed),
+            str(fail),
+            str(rolled_back),
+        )
+
+    console.print(table)
+
+
+def _rollback_info(
+    store,
+    remediation_session_id: int,
+    detail: bool,
+    filter_rule: str | None,
+    filter_host: str | None,
+    json_output: bool,
+) -> None:
+    """Show detailed info about a remediation session."""
+    rs = store.get_remediation_session(remediation_session_id)
+    if rs is None:
+        console.print(
+            f"[red]Error:[/red] Remediation session {remediation_session_id} not found"
+        )
+        sys.exit(1)
+
+    rems = store.get_remediations(rs.id, host=filter_host)
+    if filter_rule:
+        rems = [r for r in rems if r.rule_id == filter_rule]
+
+    if json_output:
+        _rollback_info_json(rs, rems, store, detail)
+        return
+
+    # Header
+    console.print(f"[bold]Remediation Session #{rs.id}[/bold]")
+    console.print()
+
+    # Session metadata
+    hosts = sorted({r.host for r in rems})
+    mode = "dry-run" if rs.dry_run else "live (not dry-run)"
+    rollback_mode = "on-failure (enabled)" if rs.rollback_on_failure else "manual only"
+    console.print(f"  Timestamp:   {rs.timestamp}")
+    console.print(f"  Host(s):     {', '.join(hosts) if hosts else 'none'}")
+    console.print(f"  Mode:        {mode}")
+    console.print(f"  Snapshot:    {rs.snapshot_mode}")
+    console.print(f"  Rollback:    {rollback_mode}")
+    console.print()
+
+    # Counts
+    remediated = [r for r in rems if r.remediated]
+    rolled_back = [r for r in rems if r.rolled_back]
+    console.print(f"  Rules processed:    {len(rems)}")
+    console.print(f"  Rules remediated:   {len(remediated)}")
+    if rolled_back:
+        console.print(f"  Rules rolled back:  [magenta]{len(rolled_back)}[/magenta]")
+    console.print()
+
+    # Remediated rules summary
+    if remediated:
+        console.print("[bold]  Remediated rules:[/bold]")
+        for r in remediated:
+            if r.rolled_back:
+                steps = store.get_remediation_steps(r.id)
+                step_count = len(steps)
+                reversed_count = 0
+                for step in steps:
+                    events = store.get_rollback_events(step.id)
+                    reversed_count += sum(1 for e in events if e.success)
+                console.print(
+                    f"    [red]FAIL[/red]  {r.rule_id:<40s} "
+                    f"(rolled back — {step_count} step{'s' if step_count != 1 else ''}, "
+                    f"{reversed_count} reversed)"
+                )
+            elif r.passed_after:
+                console.print(f"    [green]PASS[/green]  {r.rule_id}")
+            else:
+                console.print(f"    [red]FAIL[/red]  {r.rule_id}")
+        console.print()
+
+    # Non-rollbackable steps
+    non_capturable = []
+    for r in remediated:
+        steps = store.get_remediation_steps(r.id)
+        for step in steps:
+            if not step.pre_state_capturable:
+                non_capturable.append((r.rule_id, step))
+
+    if non_capturable:
+        console.print("[bold]  Non-rollbackable steps encountered:[/bold]")
+        for rule_id, step in non_capturable:
+            console.print(
+                f"    {rule_id}  step {step.step_index}: {step.mechanism}  "
+                f"[dim](not capturable)[/dim]"
+            )
+        console.print()
+
+    # Detailed per-step info
+    if detail:
+        console.print("[bold]  Step Details:[/bold]")
+        for r in rems:
+            if not r.remediated:
+                continue
+            console.print()
+            status = "[green]PASS[/green]" if r.passed_after else "[red]FAIL[/red]"
+            suffix = "  [magenta](rolled back)[/magenta]" if r.rolled_back else ""
+            console.print(f"  {r.rule_id}  [{status}]{suffix}")
+
+            steps = store.get_remediation_steps(r.id)
+            for step in steps:
+                step_status = "[green]ok[/green]" if step.success else "[red]FAIL[/red]"
+                console.print(
+                    f"    Step {step.step_index}: {step.mechanism}  [{step_status}]"
+                )
+
+                # Pre-state
+                if step.pre_state_data is not None:
+                    console.print("      Pre-state:")
+                    for k, v in step.pre_state_data.items():
+                        val_str = str(v)
+                        if len(val_str) > 80:
+                            val_str = val_str[:77] + "..."
+                        console.print(f"        {k}: {val_str}")
+                elif not step.pre_state_capturable:
+                    console.print(
+                        f"      Pre-state: [dim]not capturable ({step.mechanism})[/dim]"
+                    )
+
+                # Rollback events
+                events = store.get_rollback_events(step.id)
+                for event in events:
+                    rb_status = (
+                        "[green]ok[/green]" if event.success else "[red]FAIL[/red]"
+                    )
+                    detail_str = f"  {event.detail}" if event.detail else ""
+                    console.print(
+                        f"      Rollback ({event.source}): [{rb_status}]{detail_str}"
+                    )
+
+
+def _rollback_info_json(rs, rems, store, detail: bool) -> None:
+    """Output rollback info as JSON."""
+    import json
+
+    hosts = sorted({r.host for r in rems})
+    output: dict = {
+        "id": rs.id,
+        "timestamp": rs.timestamp.isoformat(),
+        "hosts": hosts,
+        "dry_run": rs.dry_run,
+        "rollback_on_failure": rs.rollback_on_failure,
+        "snapshot_mode": rs.snapshot_mode,
+        "summary": {
+            "total_rules": len(rems),
+            "remediated": sum(1 for r in rems if r.remediated),
+            "rolled_back": sum(1 for r in rems if r.rolled_back),
+        },
+        "remediations": [],
+    }
+
+    for r in rems:
+        rem_data: dict = {
+            "rule_id": r.rule_id,
+            "host": r.host,
+            "severity": r.severity,
+            "passed_before": r.passed_before,
+            "passed_after": r.passed_after,
+            "remediated": r.remediated,
+            "rolled_back": r.rolled_back,
+            "detail": r.detail,
+        }
+
+        if detail and r.remediated:
+            steps_data = []
+            steps = store.get_remediation_steps(r.id)
+            for step in steps:
+                step_data: dict = {
+                    "step_index": step.step_index,
+                    "mechanism": step.mechanism,
+                    "success": step.success,
+                    "detail": step.detail,
+                    "pre_state_capturable": step.pre_state_capturable,
+                    "pre_state_data": step.pre_state_data,
+                }
+                events = store.get_rollback_events(step.id)
+                if events:
+                    step_data["rollback_events"] = [
+                        {
+                            "mechanism": e.mechanism,
+                            "success": e.success,
+                            "detail": e.detail,
+                            "source": e.source,
+                            "timestamp": e.timestamp.isoformat(),
+                        }
+                        for e in events
+                    ]
+                steps_data.append(step_data)
+            rem_data["steps"] = steps_data
+
+        output["remediations"].append(rem_data)
+
+    # This is the last print in _rollback_info_json
+    print(json.dumps(output, indent=2))
+
+
+def _rollback_start(
+    store,
+    remediation_session_id: int,
+    *,
+    target_host: str,
+    host_info,
+    rule_filter: str | None,
+    password: str | None,
+    sudo: bool,
+    strict_host_keys: bool,
+    dry_run: bool,
+    force: bool,
+) -> None:
+    """Execute rollback from stored pre-state snapshots."""
+    from datetime import datetime, timedelta
+
+    host = target_host
+
+    rs = store.get_remediation_session(remediation_session_id)
+    if rs is None:
+        console.print(
+            f"[red]Error:[/red] Remediation session {remediation_session_id} not found"
+        )
+        sys.exit(1)
+
+    # Get remediations for this session filtered to the target host
+    rems = store.get_remediations(rs.id, host=host)
+    if not rems:
+        # Check if there are remediations for other hosts
+        all_rems = store.get_remediations(rs.id)
+        stored_hosts = sorted({r.host for r in all_rems})
+        console.print(
+            f"[red]Error:[/red] Host {host} not found in session #{rs.id}. "
+            f"Stored hosts: {', '.join(stored_hosts)}"
+        )
+        sys.exit(1)
+
+    if rule_filter:
+        rems = [r for r in rems if r.rule_id == rule_filter]
+        if not rems:
+            console.print(
+                f"[red]Error:[/red] Rule {rule_filter} not found in session #{rs.id}"
+            )
+            sys.exit(1)
+
+    # Only process remediated rules
+    rems = [r for r in rems if r.remediated]
+    if not rems:
+        console.print("[yellow]No remediated rules to roll back[/yellow]")
+        return
+
+    # Collect all steps and check rollback eligibility
+    all_steps = []
+    already_rolled_back = 0
+    non_capturable = 0
+    for r in rems:
+        steps = store.get_remediation_steps(r.id)
+        for step in steps:
+            if not step.success:
+                continue  # Nothing to undo
+            events = store.get_rollback_events(step.id)
+            if events and not force:
+                already_rolled_back += 1
+                continue  # Already rolled back
+            if not step.pre_state_capturable or step.pre_state_data is None:
+                non_capturable += 1
+                continue
+            all_steps.append((r, step))
+
+    if not all_steps:
+        if already_rolled_back > 0:
+            console.print(
+                f"[yellow]All {already_rolled_back} eligible step(s) already "
+                f"rolled back.[/yellow] Use --force to re-execute."
+            )
+        else:
+            console.print("[yellow]No rollbackable steps found[/yellow]")
+        return
+
+    # Stale snapshot warning
+    active_days = 7
+    age = datetime.now() - rs.timestamp
+    if age > timedelta(days=active_days) and not force:
+        console.print(
+            f"[yellow]Warning:[/yellow] Remediation session #{rs.id} is "
+            f"{age.days} days old (active window: {active_days} days)."
+        )
+        console.print(
+            "The system may have changed since the snapshot was taken. "
+            "Use --force to proceed."
+        )
+        sys.exit(1)
+
+    # Show summary
+    step_count = len(all_steps)
+    rule_ids = sorted({r.rule_id for r, _ in all_steps})
+    console.print(f"[bold]Rollback Session #{rs.id}[/bold]")
+    console.print(f"  Host:    {host}")
+    console.print(f"  Rules:   {len(rule_ids)}")
+    console.print(f"  Steps:   {step_count}")
+    if already_rolled_back:
+        console.print(f"  Skipped: {already_rolled_back} (already rolled back)")
+    if non_capturable:
+        console.print(f"  Skipped: {non_capturable} (not capturable)")
+    console.print()
+
+    if dry_run:
+        console.print("[bold]Dry-run — steps that would be executed:[/bold]")
+        console.print()
+        for r, step in all_steps:
+            console.print(
+                f"  {r.rule_id}  step {step.step_index}: "
+                f"{step.mechanism}  [dim](reverse)[/dim]"
+            )
+            if step.pre_state_data:
+                for k, v in step.pre_state_data.items():
+                    val_str = str(v)
+                    if len(val_str) > 60:
+                        val_str = val_str[:57] + "..."
+                    console.print(f"    restore {k} = {val_str}")
+        console.print()
+        console.print(
+            f"[dim]{step_count} step(s) would be reversed "
+            f"(dry-run, no action taken)[/dim]"
+        )
+        return
+
+    # Execute rollback via SSH
+    from runner._orchestration import rollback_from_stored
+
+    console.print("[bold]Executing rollback...[/bold]")
+    console.print()
+
+    # Collect step records for rollback
+    step_records = [step for _, step in all_steps]
+
+    try:
+        with connect(
+            host_info, password, sudo=sudo, strict_host_keys=strict_host_keys
+        ) as ssh:
+            results = rollback_from_stored(ssh, step_records)
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] SSH connection failed: {exc}")
+        sys.exit(1)
+
+    # Persist rollback events and display results
+    success_count = 0
+    fail_count = 0
+    for rb_result in results:
+        # Find the matching step record to get its db id
+        matching_step = None
+        for _, step in all_steps:
+            if step.step_index == rb_result.step_index:
+                matching_step = step
+                break
+
+        if matching_step is not None:
+            store.record_rollback_event(
+                matching_step.id,
+                rb_result.mechanism,
+                rb_result.success,
+                rb_result.detail,
+                source="manual",
+            )
+
+        status = "[green]ok[/green]" if rb_result.success else "[red]FAIL[/red]"
+        console.print(
+            f"  Step {rb_result.step_index}: {rb_result.mechanism}  [{status}]"
+            f"  {rb_result.detail}"
+        )
+        if rb_result.success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+    # Mark remediations as rolled_back
+    rolled_rem_ids = set()
+    for r, _ in all_steps:
+        if r.id not in rolled_rem_ids:
+            store.mark_remediation_rolled_back(r.id)
+            rolled_rem_ids.add(r.id)
+
+    console.print()
+    if fail_count == 0:
+        console.print(
+            f"[green]Rollback complete:[/green] {success_count} step(s) reversed"
+        )
+    else:
+        console.print(
+            f"[red]Rollback completed with errors:[/red] "
+            f"{success_count} ok, {fail_count} failed"
+        )
