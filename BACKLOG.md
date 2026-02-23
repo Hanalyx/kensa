@@ -43,14 +43,23 @@ context to start without additional preamble.
   already compares Kensa vs OpenSCAP results. Target: zero false passes (every OpenSCAP
   fail should also fail in Kensa).
 
-- [ ] **Add `kensa rollback` command for on-demand remediation reversal**
-  Currently rollback only triggers automatically during `--rollback-on-failure` when a
-  step or post-check fails. Pre-state data is not persisted after the run, so there's no
-  way to undo a successful remediation that later causes problems. Needs:
-  1. Persist step_results + PreState snapshots to SQLite history during `remediate`
-  2. New `kensa rollback --host <host> --rule <rule-id>` command that reads stored
-     pre-state and executes the existing rollback handlers
-  The capture/rollback handler infrastructure already covers all 18 mechanism types.
+- [x] **Add `kensa rollback` command for on-demand remediation reversal**
+  Implemented enterprise rollback with risk-based snapshot capture (9 phases).
+  SQLite schema v3, `kensa rollback --list/--info/--start`, 14 capturable mechanisms,
+  risk classification module, configurable snapshot modes, retention lifecycle.
+  635 tests. See `prd/p5-1-rollback-enterprise.md`.
+
+- [ ] **Rollback coverage gap: 139 rules across 3 non-capturable mechanisms**
+  These mechanisms are intentionally non-capturable but represent a rollback gap:
+  | Mechanism                 | Rules | Reason                                                    |
+  |---------------------------|-------|-----------------------------------------------------------|
+  | `manual`                  | 86    | Human-only steps — can't be captured or reversed programmatically |
+  | `command_exec`            | 46    | Arbitrary shell commands with unknown side effects        |
+  | `grub_parameter_set/remove` | 7   | Bootloader changes — too dangerous for automated reversal |
+  Potential mitigations:
+  - `command_exec`: Add optional `undo:` field to rule YAML for reversible commands
+  - `grub`: Capture `/etc/default/grub` pre-state with reboot-required warning
+  - `manual`: Document manual rollback steps in `note:` field (display-only)
 
 - [x] **Add unit tests for check handlers**
   All 21 check handler types now have unit tests (80 tests in test_engine_checks.py).
