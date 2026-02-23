@@ -45,22 +45,20 @@ results/
 CIS_*.md
 CIS_SECTION_COMPARISON.md
 
-# Session continuity files (local workflow, not shared)
-BACKLOG.md
-SESSION_LOG.md
+# Internal docs (kept locally in docs/, not published)
+docs/CANONICAL_RULE_SCHEMA_V0.md
+docs/RULE_REVIEW_GUIDE_V0.md
+docs/TECHNICAL_REMEDIATION_MP_V0.md
+docs/ACCESS_CONTROL_REVIEW_PLAN.md
+docs/AUDIT_REVIEW_PLAN.md
+docs/SERVICES_REVIEW_PLAN.md
+docs/TECH_DEBT.md
+docs/BACKLOG.md
+docs/SESSION_LOG.md
 CLAUDE.md
-
-# Internal specs and planning docs (kept locally, not published)
-CANONICAL_RULE_SCHEMA_V0.md
-RULE_REVIEW_GUIDE_V0.md
-TECHNICAL_REMEDIATION_MP_V0.md
-ACCESS_CONTROL_REVIEW_PLAN.md
-AUDIT_REVIEW_PLAN.md
-SERVICES_REVIEW_PLAN.md
-TECH_DEBT.md
-prd/
-docs/comparison/
-docs/BENCHMARK_DISAGREEMENT_PLAN.md
 docs/MARKETING.md
 docs/PYPI_COPR_PUBLISH_PLAN.md
+docs/BENCHMARK_DISAGREEMENT_PLAN.md
+docs/comparison/
+docs/prd/
 .aegis/
