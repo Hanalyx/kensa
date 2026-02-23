@@ -120,8 +120,11 @@ kensa check --sudo -h 192.168.1.10 -u admin -r rules/ \
 # Show framework coverage
 kensa coverage --framework cis-rhel9-v2.0.0
 
-# Show framework info
-kensa info --framework stig-rhel9-v2r7
+# Look up a rule, CIS section, STIG ID, or NIST control
+kensa info sudo-use-pty
+kensa info 5.2.2
+kensa info V-258036
+kensa info AC-3
 
 # List all available frameworks
 kensa list-frameworks
@@ -253,7 +256,7 @@ implementations:
       restart: sshd
 ```
 
-Full schema: `schema/rule.schema.json`
+Full schema: [`schema/rule.schema.json`](schema/rule.schema.json)
 
 ## Python API
 
@@ -333,10 +336,8 @@ kensa/
 
 ## Documentation
 
-- [KENSA Developer Guide](docs/KENSA_Developer_Guide_v1.0.0.md) - Complete API reference and integration guide
-- [Rule Schema](CANONICAL_RULE_SCHEMA_V0.md) - Full rule format documentation
-- [CLAUDE.md](CLAUDE.md) - Project guide for contributors
+- [KENSA Developer Guide](docs/KENSA_Developer_Guide_v1.0.0.md) — Complete API reference and integration guide
 
 ## License
 
-MIT
+Kensa is source-available under the Business Source License 1.1. It is free for individuals and small businesses (under $5M annual revenue) and will convert to Apache 2.0 on January 1, 2029. See [LICENSE](LICENSE) for full terms.
