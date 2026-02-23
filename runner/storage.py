@@ -15,8 +15,9 @@ Example:
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -65,6 +66,70 @@ class HistoryEntry:
     remediated: bool
 
 
+@dataclass
+class RemediationSessionRecord:
+    """A remediation session record."""
+
+    id: int
+    session_id: int
+    dry_run: bool
+    rollback_on_failure: bool
+    snapshot_mode: str
+    timestamp: datetime
+
+
+@dataclass
+class RemediationRecord:
+    """A single rule remediation record."""
+
+    id: int
+    remediation_session_id: int
+    host: str
+    rule_id: str
+    severity: str | None
+    passed_before: bool
+    passed_after: bool | None
+    remediated: bool
+    rolled_back: bool
+    detail: str
+    timestamp: datetime
+    steps: list[RemediationStepRecord] = field(default_factory=list)
+
+
+@dataclass
+class RemediationStepRecord:
+    """A single remediation step record."""
+
+    id: int
+    remediation_id: int
+    step_index: int
+    mechanism: str
+    success: bool
+    detail: str
+    pre_state_data: dict | None = None
+    pre_state_capturable: bool = True
+
+
+@dataclass
+class RollbackEventRecord:
+    """A rollback event log entry."""
+
+    id: int
+    step_id: int
+    mechanism: str
+    success: bool
+    detail: str
+    timestamp: datetime
+    source: str
+
+
+def _parse_timestamp(value: str | datetime) -> datetime:
+    """Parse a timestamp that may be a string or already a datetime."""
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value)
+
+
 def get_db_path(project_root: Path | None = None) -> Path:
     """Get the database path for the project.
 
@@ -92,7 +157,7 @@ class ResultStore:
 
     """
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
 
     def __init__(
         self,
@@ -166,6 +231,9 @@ class ResultStore:
         if current_version < 2:
             self._migrate_to_v2(conn)
 
+        if current_version < 3:
+            self._migrate_to_v3(conn)
+
         # Set or update schema version
         if row is None:
             conn.execute(
@@ -211,6 +279,89 @@ class ResultStore:
             CREATE INDEX IF NOT EXISTS idx_evidence_result ON evidence(result_id);
             CREATE INDEX IF NOT EXISTS idx_framework_refs_result ON framework_refs(result_id);
             CREATE INDEX IF NOT EXISTS idx_framework_refs_framework ON framework_refs(framework);
+            """
+        )
+
+    def _migrate_to_v3(self, conn: sqlite3.Connection) -> None:
+        """Migrate database to schema version 3 (add remediation persistence)."""
+        conn.executescript(
+            """
+            -- Remediation session (one per kensa remediate invocation)
+            CREATE TABLE IF NOT EXISTS remediation_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                dry_run INTEGER NOT NULL DEFAULT 0,
+                rollback_on_failure INTEGER NOT NULL DEFAULT 0,
+                snapshot_mode TEXT NOT NULL DEFAULT 'all',
+                timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            );
+
+            -- One row per rule remediated on a host
+            CREATE TABLE IF NOT EXISTS remediations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                remediation_session_id INTEGER NOT NULL,
+                host TEXT NOT NULL,
+                rule_id TEXT NOT NULL,
+                severity TEXT,
+                passed_before INTEGER NOT NULL,
+                passed_after INTEGER,
+                remediated INTEGER NOT NULL DEFAULT 0,
+                rolled_back INTEGER NOT NULL DEFAULT 0,
+                detail TEXT DEFAULT '',
+                timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (remediation_session_id)
+                    REFERENCES remediation_sessions(id) ON DELETE CASCADE
+            );
+
+            -- One row per remediation step
+            CREATE TABLE IF NOT EXISTS remediation_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                remediation_id INTEGER NOT NULL,
+                step_index INTEGER NOT NULL,
+                mechanism TEXT NOT NULL,
+                success INTEGER NOT NULL,
+                detail TEXT DEFAULT '',
+                FOREIGN KEY (remediation_id)
+                    REFERENCES remediations(id) ON DELETE CASCADE
+            );
+
+            -- Pre-state snapshot for a step (the rollback payload)
+            CREATE TABLE IF NOT EXISTS pre_states (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                step_id INTEGER NOT NULL,
+                mechanism TEXT NOT NULL,
+                data_json TEXT NOT NULL,
+                capturable INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (step_id)
+                    REFERENCES remediation_steps(id) ON DELETE CASCADE
+            );
+
+            -- Rollback event log
+            CREATE TABLE IF NOT EXISTS rollback_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                step_id INTEGER NOT NULL,
+                mechanism TEXT NOT NULL,
+                success INTEGER NOT NULL,
+                detail TEXT DEFAULT '',
+                timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                source TEXT NOT NULL DEFAULT 'inline',
+                FOREIGN KEY (step_id)
+                    REFERENCES remediation_steps(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_rem_sessions_session
+                ON remediation_sessions(session_id);
+            CREATE INDEX IF NOT EXISTS idx_remediations_session
+                ON remediations(remediation_session_id);
+            CREATE INDEX IF NOT EXISTS idx_remediations_host_rule
+                ON remediations(host, rule_id);
+            CREATE INDEX IF NOT EXISTS idx_rem_steps_remediation
+                ON remediation_steps(remediation_id);
+            CREATE INDEX IF NOT EXISTS idx_pre_states_step
+                ON pre_states(step_id);
+            CREATE INDEX IF NOT EXISTS idx_rollback_events_step
+                ON rollback_events(step_id);
             """
         )
 
@@ -350,7 +501,7 @@ class ResultStore:
             return None
         return Session(
             id=row["id"],
-            timestamp=datetime.fromisoformat(row["timestamp"]),
+            timestamp=_parse_timestamp(row["timestamp"]),
             hosts=row["hosts"].split(","),
             rules_path=row["rules_path"],
             options=row["options"],
@@ -385,7 +536,7 @@ class ResultStore:
                 passed=bool(row["passed"]),
                 detail=row["detail"],
                 remediated=bool(row["remediated"]),
-                timestamp=datetime.fromisoformat(row["timestamp"]),
+                timestamp=_parse_timestamp(row["timestamp"]),
                 rule_hash=row["rule_hash"],
             )
             for row in cursor.fetchall()
@@ -421,7 +572,7 @@ class ResultStore:
             exit_code=row["exit_code"] or 0,
             expected=row["expected"],
             actual=row["actual"],
-            timestamp=datetime.fromisoformat(row["check_timestamp"]),
+            timestamp=_parse_timestamp(row["check_timestamp"]),
         )
 
     def get_framework_refs(self, result_id: int) -> dict[str, str]:
@@ -505,7 +656,7 @@ class ResultStore:
                 passed=bool(row["passed"]),
                 detail=row["detail"],
                 remediated=bool(row["remediated"]),
-                timestamp=datetime.fromisoformat(row["timestamp"]),
+                timestamp=_parse_timestamp(row["timestamp"]),
                 rule_hash=row["rule_hash"],
             )
             for row in cursor.fetchall()
@@ -553,7 +704,7 @@ class ResultStore:
         return [
             Session(
                 id=row["id"],
-                timestamp=datetime.fromisoformat(row["timestamp"]),
+                timestamp=_parse_timestamp(row["timestamp"]),
                 hosts=row["hosts"].split(","),
                 rules_path=row["rules_path"],
                 options=row["options"],
@@ -605,7 +756,7 @@ class ResultStore:
         return [
             HistoryEntry(
                 session_id=row["session_id"],
-                timestamp=datetime.fromisoformat(row["timestamp"]),
+                timestamp=_parse_timestamp(row["timestamp"]),
                 host=row["host"],
                 rule_id=row["rule_id"],
                 passed=bool(row["passed"]),
@@ -658,6 +809,444 @@ class ResultStore:
             "newest_session": newest,
             "db_path": str(self.db_path),
         }
+
+    # ── Remediation persistence (schema v3) ─────────────────────────────────
+
+    def create_remediation_session(
+        self,
+        session_id: int,
+        *,
+        dry_run: bool = False,
+        rollback_on_failure: bool = False,
+        snapshot_mode: str = "all",
+    ) -> int:
+        """Create a remediation session linked to a scan session.
+
+        Args:
+            session_id: Parent session ID from create_session().
+            dry_run: Whether this was a dry-run invocation.
+            rollback_on_failure: Whether inline rollback was enabled.
+            snapshot_mode: Snapshot capture mode (all, risk_based, none).
+
+        Returns:
+            Remediation session ID.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            INSERT INTO remediation_sessions
+                (session_id, dry_run, rollback_on_failure, snapshot_mode)
+            VALUES (?, ?, ?, ?)
+            """,
+            (session_id, int(dry_run), int(rollback_on_failure), snapshot_mode),
+        )
+        conn.commit()
+        return cursor.lastrowid  # type: ignore
+
+    def record_remediation(
+        self,
+        remediation_session_id: int,
+        host: str,
+        rule_id: str,
+        *,
+        severity: str | None = None,
+        passed_before: bool = False,
+        passed_after: bool | None = None,
+        remediated: bool = False,
+        rolled_back: bool = False,
+        detail: str = "",
+    ) -> int:
+        """Record a rule remediation result.
+
+        Args:
+            remediation_session_id: Parent remediation session ID.
+            host: Target host.
+            rule_id: Rule identifier.
+            severity: Rule severity.
+            passed_before: Check result before remediation.
+            passed_after: Check result after remediation (None if not re-checked).
+            remediated: Whether remediation was applied.
+            rolled_back: Whether rollback was executed.
+            detail: Remediation outcome detail.
+
+        Returns:
+            Remediation record ID.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            INSERT INTO remediations
+                (remediation_session_id, host, rule_id, severity,
+                 passed_before, passed_after, remediated, rolled_back, detail)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                remediation_session_id,
+                host,
+                rule_id,
+                severity,
+                int(passed_before),
+                int(passed_after) if passed_after is not None else None,
+                int(remediated),
+                int(rolled_back),
+                detail,
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid  # type: ignore
+
+    def record_step(
+        self,
+        remediation_id: int,
+        step_index: int,
+        mechanism: str,
+        success: bool,
+        detail: str = "",
+    ) -> int:
+        """Record a remediation step.
+
+        Args:
+            remediation_id: Parent remediation record ID.
+            step_index: Step index within the remediation.
+            mechanism: Remediation mechanism name.
+            success: Whether the step succeeded.
+            detail: Step outcome detail.
+
+        Returns:
+            Step record ID.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            INSERT INTO remediation_steps
+                (remediation_id, step_index, mechanism, success, detail)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (remediation_id, step_index, mechanism, int(success), detail),
+        )
+        conn.commit()
+        return cursor.lastrowid  # type: ignore
+
+    def record_pre_state(
+        self,
+        step_id: int,
+        mechanism: str,
+        data: dict,
+        capturable: bool = True,
+    ) -> int:
+        """Record a pre-state snapshot for a remediation step.
+
+        Args:
+            step_id: Parent step record ID.
+            mechanism: Mechanism name.
+            data: Pre-state data dict (JSON-serializable).
+            capturable: Whether this mechanism supports rollback.
+
+        Returns:
+            Pre-state record ID.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            INSERT INTO pre_states (step_id, mechanism, data_json, capturable)
+            VALUES (?, ?, ?, ?)
+            """,
+            (step_id, mechanism, json.dumps(data), int(capturable)),
+        )
+        conn.commit()
+        return cursor.lastrowid  # type: ignore
+
+    def record_rollback_event(
+        self,
+        step_id: int,
+        mechanism: str,
+        success: bool,
+        detail: str = "",
+        source: str = "inline",
+    ) -> int:
+        """Record a rollback event.
+
+        Args:
+            step_id: The step that was rolled back.
+            mechanism: Mechanism name.
+            success: Whether rollback succeeded.
+            detail: Rollback outcome detail.
+            source: Rollback trigger ('inline' or 'manual').
+
+        Returns:
+            Rollback event record ID.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            INSERT INTO rollback_events
+                (step_id, mechanism, success, detail, source)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (step_id, mechanism, int(success), detail, source),
+        )
+        conn.commit()
+        return cursor.lastrowid  # type: ignore
+
+    def get_remediation_session(
+        self, remediation_session_id: int
+    ) -> RemediationSessionRecord | None:
+        """Get a remediation session by ID.
+
+        Args:
+            remediation_session_id: Remediation session ID.
+
+        Returns:
+            RemediationSessionRecord or None if not found.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            SELECT id, session_id, dry_run, rollback_on_failure,
+                   snapshot_mode, timestamp
+            FROM remediation_sessions WHERE id = ?
+            """,
+            (remediation_session_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return RemediationSessionRecord(
+            id=row["id"],
+            session_id=row["session_id"],
+            dry_run=bool(row["dry_run"]),
+            rollback_on_failure=bool(row["rollback_on_failure"]),
+            snapshot_mode=row["snapshot_mode"],
+            timestamp=_parse_timestamp(row["timestamp"]),
+        )
+
+    def get_remediations(
+        self, remediation_session_id: int, *, host: str | None = None
+    ) -> list[RemediationRecord]:
+        """Get all remediation records for a session.
+
+        Args:
+            remediation_session_id: Remediation session ID.
+            host: Optional host filter.
+
+        Returns:
+            List of remediation records.
+
+        """
+        conn = self._get_conn()
+        query = """
+            SELECT id, remediation_session_id, host, rule_id, severity,
+                   passed_before, passed_after, remediated, rolled_back,
+                   detail, timestamp
+            FROM remediations
+            WHERE remediation_session_id = ?
+        """
+        params: list = [remediation_session_id]
+        if host:
+            query += " AND host = ?"
+            params.append(host)
+        query += " ORDER BY host, rule_id"
+
+        cursor = conn.execute(query, params)
+        return [
+            RemediationRecord(
+                id=row["id"],
+                remediation_session_id=row["remediation_session_id"],
+                host=row["host"],
+                rule_id=row["rule_id"],
+                severity=row["severity"],
+                passed_before=bool(row["passed_before"]),
+                passed_after=(
+                    bool(row["passed_after"])
+                    if row["passed_after"] is not None
+                    else None
+                ),
+                remediated=bool(row["remediated"]),
+                rolled_back=bool(row["rolled_back"]),
+                detail=row["detail"],
+                timestamp=_parse_timestamp(row["timestamp"]),
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def get_remediation_steps(self, remediation_id: int) -> list[RemediationStepRecord]:
+        """Get all steps for a remediation, including pre-state data.
+
+        Args:
+            remediation_id: Remediation record ID.
+
+        Returns:
+            List of step records with pre-state data populated.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            SELECT s.id, s.remediation_id, s.step_index, s.mechanism,
+                   s.success, s.detail,
+                   p.data_json, p.capturable
+            FROM remediation_steps s
+            LEFT JOIN pre_states p ON p.step_id = s.id
+            WHERE s.remediation_id = ?
+            ORDER BY s.step_index
+            """,
+            (remediation_id,),
+        )
+        return [
+            RemediationStepRecord(
+                id=row["id"],
+                remediation_id=row["remediation_id"],
+                step_index=row["step_index"],
+                mechanism=row["mechanism"],
+                success=bool(row["success"]),
+                detail=row["detail"],
+                pre_state_data=(
+                    json.loads(row["data_json"]) if row["data_json"] else None
+                ),
+                pre_state_capturable=(
+                    bool(row["capturable"]) if row["capturable"] is not None else True
+                ),
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def get_rollback_events(self, step_id: int) -> list[RollbackEventRecord]:
+        """Get rollback events for a step.
+
+        Args:
+            step_id: Step record ID.
+
+        Returns:
+            List of rollback events.
+
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            SELECT id, step_id, mechanism, success, detail, timestamp, source
+            FROM rollback_events
+            WHERE step_id = ?
+            ORDER BY timestamp
+            """,
+            (step_id,),
+        )
+        return [
+            RollbackEventRecord(
+                id=row["id"],
+                step_id=row["step_id"],
+                mechanism=row["mechanism"],
+                success=bool(row["success"]),
+                detail=row["detail"],
+                timestamp=_parse_timestamp(row["timestamp"]),
+                source=row["source"],
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def list_remediation_sessions(
+        self,
+        host: str | None = None,
+        limit: int = 20,
+    ) -> list[RemediationSessionRecord]:
+        """List recent remediation sessions.
+
+        Args:
+            host: Filter by host (optional).
+            limit: Maximum sessions to return.
+
+        Returns:
+            List of remediation session records, most recent first.
+
+        """
+        conn = self._get_conn()
+        if host:
+            cursor = conn.execute(
+                """
+                SELECT DISTINCT rs.id, rs.session_id, rs.dry_run,
+                       rs.rollback_on_failure, rs.snapshot_mode, rs.timestamp
+                FROM remediation_sessions rs
+                JOIN remediations r ON rs.id = r.remediation_session_id
+                WHERE r.host = ?
+                ORDER BY rs.timestamp DESC
+                LIMIT ?
+                """,
+                (host, limit),
+            )
+        else:
+            cursor = conn.execute(
+                """
+                SELECT id, session_id, dry_run, rollback_on_failure,
+                       snapshot_mode, timestamp
+                FROM remediation_sessions
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+
+        return [
+            RemediationSessionRecord(
+                id=row["id"],
+                session_id=row["session_id"],
+                dry_run=bool(row["dry_run"]),
+                rollback_on_failure=bool(row["rollback_on_failure"]),
+                snapshot_mode=row["snapshot_mode"],
+                timestamp=_parse_timestamp(row["timestamp"]),
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def mark_remediation_rolled_back(self, remediation_id: int) -> None:
+        """Mark a remediation record as rolled back.
+
+        Args:
+            remediation_id: Remediation record ID.
+
+        """
+        conn = self._get_conn()
+        conn.execute(
+            "UPDATE remediations SET rolled_back = 1 WHERE id = ?",
+            (remediation_id,),
+        )
+        conn.commit()
+
+    def prune_snapshots(
+        self,
+        archive_days: int = 90,
+    ) -> int:
+        """Remove pre-state data older than the archive period.
+
+        Remediation metadata is preserved; only the pre_states rows are deleted.
+
+        Args:
+            archive_days: Days after which pre-state data is pruned.
+
+        Returns:
+            Number of pre_state rows deleted.
+
+        """
+        cutoff = datetime.now() - timedelta(days=archive_days)
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """
+            DELETE FROM pre_states
+            WHERE step_id IN (
+                SELECT s.id FROM remediation_steps s
+                JOIN remediations r ON s.remediation_id = r.id
+                JOIN remediation_sessions rs ON r.remediation_session_id = rs.id
+                WHERE rs.timestamp < ?
+            )
+            """,
+            (cutoff.isoformat(),),
+        )
+        conn.commit()
+        return cursor.rowcount
 
 
 def compute_rule_hash(rule_content: str) -> str:

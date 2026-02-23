@@ -709,6 +709,185 @@ def _store_results(run_result: RunResult, hosts: list, rules_path: str) -> None:
         store.close()
 
 
+def _store_remediation_results(
+    run_result: RunResult,
+    hosts: list,
+    rules_path: str,
+    *,
+    dry_run: bool = False,
+    rollback_on_failure: bool = False,
+    snapshot_mode: str = "all",
+) -> None:
+    """Store remediation results in local database.
+
+    Creates a scan session, remediation session, and records all rule results
+    including per-step data and pre-state snapshots.
+    """
+    from runner.storage import ResultStore
+
+    store = ResultStore()
+    try:
+        hostnames = [h.hostname for h in hosts]
+        session_id = store.create_session(
+            hosts=hostnames,
+            rules_path=rules_path or "",
+        )
+
+        rem_session_id = store.create_remediation_session(
+            session_id,
+            dry_run=dry_run,
+            rollback_on_failure=rollback_on_failure,
+            snapshot_mode=snapshot_mode,
+        )
+
+        for host_result in run_result.hosts:
+            if host_result.error:
+                continue
+
+            for rule_result in host_result.results:
+                if rule_result.skipped:
+                    continue
+
+                # Record the check result in results table too
+                store.record_result(
+                    session_id=session_id,
+                    host=host_result.hostname,
+                    rule_id=rule_result.rule_id,
+                    passed=rule_result.passed,
+                    detail=rule_result.detail or "",
+                    remediated=rule_result.remediated,
+                    evidence=rule_result.evidence,
+                    framework_refs=rule_result.framework_refs or None,
+                )
+
+                # Record remediation-specific data
+                rem_id = store.record_remediation(
+                    rem_session_id,
+                    host=host_result.hostname,
+                    rule_id=rule_result.rule_id,
+                    severity=rule_result.severity,
+                    passed_before=not rule_result.remediated and rule_result.passed,
+                    passed_after=rule_result.passed if rule_result.remediated else None,
+                    remediated=rule_result.remediated,
+                    rolled_back=rule_result.rolled_back,
+                    detail=rule_result.remediation_detail or rule_result.detail or "",
+                )
+
+                # Record steps and pre-states
+                for sr in rule_result.step_results:
+                    step_id = store.record_step(
+                        rem_id,
+                        step_index=sr.step_index,
+                        mechanism=sr.mechanism,
+                        success=sr.success,
+                        detail=sr.detail or "",
+                    )
+
+                    if sr.pre_state is not None and sr.pre_state.capturable:
+                        store.record_pre_state(
+                            step_id,
+                            mechanism=sr.pre_state.mechanism,
+                            data=sr.pre_state.data,
+                            capturable=sr.pre_state.capturable,
+                        )
+
+                # Record inline rollback events
+                for rb in rule_result.rollback_results:
+                    # Find the matching step_id for this rollback
+                    # Rollback results map by step_index to step records
+                    matching_steps = [
+                        sr
+                        for sr in rule_result.step_results
+                        if sr.step_index == rb.step_index
+                    ]
+                    if matching_steps:
+                        # Look up the stored step_id
+                        steps = store.get_remediation_steps(rem_id)
+                        for stored_step in steps:
+                            if stored_step.step_index == rb.step_index:
+                                store.record_rollback_event(
+                                    stored_step.id,
+                                    mechanism=rb.mechanism,
+                                    success=rb.success,
+                                    detail=rb.detail or "",
+                                    source="inline",
+                                )
+                                break
+
+        console.print(
+            f"[dim]Stored remediation results in session {rem_session_id}[/dim]"
+        )
+    finally:
+        store.close()
+
+
+def _get_rollback_archive_days(config_dir: str | None) -> int:
+    """Read snapshot_archive_days from the rollback config section.
+
+    Loads the ``rollback:`` block from ``config/defaults.yml`` (and any
+    conf.d overrides), returning the ``snapshot_archive_days`` value.
+    Falls back to 90 if not configured or if loading fails.
+
+    Args:
+        config_dir: Path to the config directory, or None to auto-detect.
+
+    Returns:
+        Archive retention period in days.
+
+    """
+    from pathlib import Path
+
+    import yaml
+
+    default_days = 90
+
+    if config_dir is None:
+        from runner.paths import get_config_path
+
+        try:
+            cfg_path = get_config_path()
+        except FileNotFoundError:
+            return default_days
+    else:
+        cfg_path = Path(config_dir)
+
+    if not cfg_path.is_dir():
+        return default_days
+
+    archive_days = default_days
+
+    # Load from defaults.yml
+    defaults_file = cfg_path / "defaults.yml"
+    if defaults_file.exists():
+        try:
+            data = yaml.safe_load(defaults_file.read_text())
+            if isinstance(data, dict):
+                rollback = data.get("rollback", {})
+                if isinstance(rollback, dict):
+                    val = rollback.get("snapshot_archive_days")
+                    if isinstance(val, int) and val > 0:
+                        archive_days = val
+        except yaml.YAMLError:
+            pass
+
+    # Apply conf.d overrides (alphabetical)
+    conf_d = cfg_path / "conf.d"
+    if conf_d.is_dir():
+        for override_file in sorted(conf_d.glob("*.yml")):
+            try:
+                data = yaml.safe_load(override_file.read_text())
+                if isinstance(data, dict):
+                    rollback = data.get("rollback", {})
+                    if isinstance(rollback, dict):
+                        val = rollback.get("snapshot_archive_days")
+                        if isinstance(val, int) and val > 0:
+                            archive_days = val
+            except yaml.YAMLError:
+                pass
+
+    return archive_days
+
+
 # ── remediate ───────────────────────────────────────────────────────────────
 
 
@@ -728,6 +907,11 @@ def _store_results(run_result: RunResult, hosts: list, rules_path: str) -> None:
     "--allow-conflicts",
     is_flag=True,
     help="Proceed despite detected conflicts (last rule wins)",
+)
+@click.option(
+    "--no-snapshot",
+    is_flag=True,
+    help="Disable pre-state snapshot capture (captures by default)",
 )
 def remediate(
     host,
@@ -756,6 +940,7 @@ def remediate(
     dry_run,
     rollback_on_failure,
     allow_conflicts,
+    no_snapshot,
 ):
     """Check rules and remediate failures on target hosts."""
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
@@ -775,6 +960,24 @@ def remediate(
     except (ValueError, FileNotFoundError) as exc:
         console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
+
+    # Prune old snapshot data before processing hosts
+    try:
+        from runner.storage import ResultStore
+
+        archive_days = _get_rollback_archive_days(config_dir)
+        _prune_store = ResultStore()
+        try:
+            deleted = _prune_store.prune_snapshots(archive_days=archive_days)
+            if deleted > 0 and not quiet:
+                console.print(
+                    f"[dim]Pruned {deleted} expired pre-state snapshots "
+                    f"(>{archive_days} days)[/dim]"
+                )
+        finally:
+            _prune_store.close()
+    except Exception:
+        pass  # Pruning failure must not block remediation
 
     rule_list = selection.rules
     rule_to_section = selection.rule_to_section
@@ -804,11 +1007,13 @@ def remediate(
             "[yellow]WARNING:[/yellow] Conflicts detected, proceeding anyway (--allow-conflicts)\n"
         )
 
+    snapshot = not no_snapshot
     run_config = HostRunConfig(
         mode="remediate",
         verbose=verbose,
         dry_run=dry_run,
         rollback_on_failure=rollback_on_failure,
+        snapshot=snapshot,
         rule_to_section=rule_to_section,
         control_ctx=control_ctx,
         capability_overrides=overrides,
@@ -905,6 +1110,7 @@ def remediate(
                         verbose=verbose,
                         dry_run=dry_run,
                         rollback_on_failure=rollback_on_failure,
+                        snapshot=snapshot,
                         rule_to_section=rule_to_section,
                     )
                     host_result.results = rule_results
@@ -1047,6 +1253,16 @@ def remediate(
 
     # Write outputs
     _write_outputs(run_result, outputs)
+
+    # Always persist remediation results
+    _store_remediation_results(
+        run_result,
+        hosts,
+        rules or rule or "",
+        dry_run=dry_run,
+        rollback_on_failure=rollback_on_failure,
+        snapshot_mode="none" if no_snapshot else "all",
+    )
 
 
 def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:
@@ -1523,6 +1739,16 @@ def list_frameworks():
 # ── info ─────────────────────────────────────────────────────────────────────
 
 
+def _severity_color(severity: str) -> str:
+    """Return a Rich color tag for a severity level."""
+    return {
+        "critical": "red",
+        "high": "red",
+        "medium": "yellow",
+        "low": "dim",
+    }.get(severity, "white")
+
+
 def _get_control_info(
     control_spec: str,
     mappings: dict,
@@ -1597,7 +1823,232 @@ def _get_control_info(
     return results
 
 
+def _info_rule_detail(rule_data: dict, index, json_output: bool) -> None:
+    """Display full rule detail for ``kensa info <rule-id>``."""
+    rule_id = rule_data["id"]
+    refs = index.query_by_rule(rule_id)
+
+    if json_output:
+        import json
+
+        output = {
+            "query": {"rule_id": rule_id},
+            "rule": {
+                "id": rule_id,
+                "title": rule_data.get("title", ""),
+                "description": rule_data.get("description", ""),
+                "severity": rule_data.get("severity", ""),
+                "category": rule_data.get("category", ""),
+                "tags": rule_data.get("tags", []),
+                "depends_on": rule_data.get("depends_on", []),
+                "platforms": rule_data.get("platforms", []),
+                "references": rule_data.get("references", {}),
+                "implementations": _summarize_implementations(rule_data),
+            },
+            "frameworks": [
+                {
+                    "mapping_id": ref.mapping_id,
+                    "mapping_title": ref.mapping_title,
+                    "section_id": ref.section_id,
+                    "title": ref.title,
+                }
+                for ref in refs
+            ],
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    # Header
+    console.print(f"[bold cyan]{rule_id}[/bold cyan]")
+    title = rule_data.get("title", "")
+    if title:
+        console.print(f"  {title}")
+    console.print()
+
+    # Description
+    desc = rule_data.get("description", "")
+    if desc:
+        console.print("[bold]Description:[/bold]")
+        console.print(f"  {desc.strip()}")
+        console.print()
+
+    # Severity / Category / Tags
+    severity = rule_data.get("severity", "")
+    if severity:
+        color = _severity_color(severity)
+        console.print(f"[bold]Severity:[/bold] [{color}]{severity}[/{color}]")
+    category = rule_data.get("category", "")
+    if category:
+        console.print(f"[bold]Category:[/bold] {category}")
+    tags = rule_data.get("tags", [])
+    if tags:
+        console.print(f"[bold]Tags:[/bold] {', '.join(tags)}")
+
+    # Dependencies
+    depends = rule_data.get("depends_on", [])
+    if depends:
+        console.print(f"[bold]Depends on:[/bold] {', '.join(depends)}")
+
+    # Platforms
+    platforms = rule_data.get("platforms", [])
+    if platforms:
+        parts = []
+        for p in platforms:
+            s = p.get("family", "")
+            if p.get("min_version"):
+                s += f" >={p['min_version']}"
+            if p.get("max_version"):
+                s += f" <={p['max_version']}"
+            parts.append(s)
+        console.print(f"[bold]Platforms:[/bold] {', '.join(parts)}")
+
+    console.print()
+
+    # Implementations summary
+    impls = rule_data.get("implementations", [])
+    if impls:
+        console.print(f"[bold]Implementations ({len(impls)}):[/bold]")
+        for i, impl in enumerate(impls):
+            default = impl.get("default", False)
+            when = impl.get("when")
+            label = f"  [{i + 1}]"
+            if default:
+                label += " (default)"
+            if when:
+                label += f" when={when}"
+            console.print(label)
+
+            check = impl.get("check", {})
+            if check:
+                method = check.get("method", "")
+                console.print(f"    Check: {method}")
+
+            remediation = impl.get("remediation", {})
+            if remediation:
+                mechanism = remediation.get("mechanism", "")
+                console.print(f"    Remediation: {mechanism}")
+        console.print()
+
+    # YAML references
+    yaml_refs = rule_data.get("references", {})
+    if yaml_refs:
+        console.print("[bold]References (from rule YAML):[/bold]")
+        cis_refs = yaml_refs.get("cis", {})
+        for ref_key, ref_data in cis_refs.items():
+            section = ref_data.get("section", "")
+            level = ref_data.get("level", "")
+            console.print(f"  CIS {ref_key}: section {section} ({level})")
+        stig_refs = yaml_refs.get("stig", {})
+        for ref_key, ref_data in stig_refs.items():
+            vuln_id = ref_data.get("vuln_id", "")
+            stig_sev = ref_data.get("severity", "")
+            console.print(f"  STIG {ref_key}: {vuln_id} ({stig_sev})")
+        nist_refs = yaml_refs.get("nist_800_53", [])
+        if nist_refs:
+            console.print(f"  NIST 800-53: {', '.join(nist_refs)}")
+        console.print()
+
+    # Framework cross-references
+    if refs:
+        console.print("[bold]Framework cross-references:[/bold]")
+        for ref in refs:
+            console.print(
+                f"  [cyan]{ref.mapping_id}[/cyan]: {ref.section_id} — {ref.title}"
+            )
+        console.print()
+        console.print(f"[dim]{len(refs)} framework references[/dim]")
+    else:
+        console.print("[dim]No framework cross-references found[/dim]")
+
+
+def _summarize_implementations(rule_data: dict) -> list[dict]:
+    """Build a JSON-safe summary of a rule's implementations."""
+    summaries = []
+    for impl in rule_data.get("implementations", []):
+        entry: dict = {}
+        if impl.get("default"):
+            entry["default"] = True
+        if impl.get("when"):
+            entry["when"] = impl["when"]
+        check = impl.get("check", {})
+        if check:
+            entry["check_method"] = check.get("method", "")
+        remediation = impl.get("remediation", {})
+        if remediation:
+            entry["remediation_mechanism"] = remediation.get("mechanism", "")
+        summaries.append(entry)
+    return summaries
+
+
+def _info_by_reference(
+    search_type: str,
+    value: str,
+    rules_by_id: dict[str, dict],
+    rhel_version: str | None,
+    show_all: bool,
+    json_output: bool,
+) -> None:
+    """Display rules matching a CIS/STIG/NIST reference."""
+    from runner.rule_info import search_rules_by_reference
+
+    matches = search_rules_by_reference(rules_by_id, search_type, value, rhel_version)
+
+    if json_output:
+        import json
+
+        output = {
+            "query": {"type": search_type, "value": value, "rhel": rhel_version},
+            "matches": matches,
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    if not matches:
+        console.print(
+            f"[yellow]No rules found for {search_type.upper()} {value}[/yellow]"
+        )
+        return
+
+    type_label = {"cis": "CIS", "stig": "STIG", "nist": "NIST 800-53"}[search_type]
+    console.print(f"[bold]{type_label} {value}[/bold]")
+    if rhel_version:
+        console.print(f"[dim]Filtered: RHEL {rhel_version}[/dim]")
+    console.print()
+
+    if search_type in ("cis", "stig") and (show_all or not rhel_version):
+        fw_rules: dict[str, list] = {}
+        for match in matches:
+            for ref in match["refs"]:
+                fw = ref.get("framework", "")
+                if fw not in fw_rules:
+                    fw_rules[fw] = []
+                fw_rules[fw].append(match)
+
+        for fw in sorted(fw_rules.keys()):
+            console.print(f"[cyan]{fw}:[/cyan]")
+            seen: set[str] = set()
+            for match in fw_rules[fw]:
+                if match["rule_id"] in seen:
+                    continue
+                seen.add(match["rule_id"])
+                color = _severity_color(match["severity"])
+                console.print(f"  [green]{match['rule_id']}[/green]")
+                console.print(f"    {match['title']}")
+                console.print(f"    [{color}]Severity: {match['severity']}[/{color}]")
+            console.print()
+    else:
+        for match in matches:
+            color = _severity_color(match["severity"])
+            console.print(f"  [green]{match['rule_id']}[/green]")
+            console.print(f"    {match['title']}")
+            console.print(f"    [{color}]Severity: {match['severity']}[/{color}]")
+            console.print()
+
+    console.print(f"[dim]Total: {len(matches)} rules[/dim]")
+
+
 @main.command()
+@click.argument("query", required=False)
 @click.option(
     "--control",
     "-c",
@@ -1629,115 +2080,182 @@ def _get_control_info(
     help="Match control as prefix (e.g., 5.1 matches 5.1.1, 5.1.2, etc.)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def info(control, rule, list_controls, framework, prefix_match, json_output):
-    """Show detailed information about rules and framework controls.
+@click.option(
+    "--cis", "cis_section", default=None, help="CIS section number (e.g., 5.2.2)"
+)
+@click.option("--stig", "stig_id", default=None, help="STIG ID (e.g., V-258036)")
+@click.option(
+    "--nist", "nist_control", default=None, help="NIST 800-53 control (e.g., AC-3)"
+)
+@click.option(
+    "--rhel",
+    "rhel_version",
+    type=click.Choice(["8", "9", "10"]),
+    default=None,
+    help="Filter by RHEL version",
+)
+@click.option("--all", "show_all", is_flag=True, help="Show all RHEL versions")
+def info(
+    query,
+    control,
+    rule,
+    list_controls,
+    framework,
+    prefix_match,
+    json_output,
+    cis_section,
+    stig_id,
+    nist_control,
+    rhel_version,
+    show_all,
+):
+    r"""Show detailed information about rules and framework controls.
 
-    Cross-reference rules and framework controls to understand coverage
-    and find relationships between compliance requirements and rules.
+    With a positional QUERY, auto-detects the query type:
 
+    \b
+      Rule ID   → full rule detail (title, severity, check, remediation, refs)
+      V-NNNNNN  → STIG lookup
+      XX-N      → NIST 800-53 control
+      N.N.N     → CIS section
+
+    Use explicit flags for framework lookups or existing control queries.
+
+    \b
     Examples:
-      kensa info --control cis-rhel9-v2.0.0:5.1.12
-      kensa info --control 5.1 --prefix-match
-      kensa info --rule ssh-disable-root-login
-      kensa info --list-controls --framework cis-rhel9-v2.0.0
+      kensa info sudo-use-pty                         # Rule detail
+      kensa info 5.2.2                                # Auto-detect CIS
+      kensa info V-258036                             # Auto-detect STIG
+      kensa info AC-3                                 # Auto-detect NIST
+      kensa info --cis 5.2.2 --rhel 9                # Explicit CIS
+      kensa info --stig V-258036                      # Explicit STIG
+      kensa info --nist AC-3                          # Explicit NIST
+      kensa info --control cis-rhel9-v2.0.0:5.1.12   # Mapping-based control
+      kensa info --list-controls -f cis-rhel9-v2.0.0  # List controls
     """
     from runner.mappings import FrameworkIndex, load_all_mappings
+    from runner.paths import get_rules_path
+    from runner.rule_info import build_rule_index, classify_query
 
-    # Load mappings and build index
+    # Load rules index
+    try:
+        rules_path = get_rules_path()
+    except FileNotFoundError:
+        rules_path = None
+
+    rules_by_id: dict[str, dict] = {}
+    if rules_path:
+        rules_by_id = build_rule_index(rules_path)
+
+    # Load mappings and build framework index
     mappings = load_all_mappings()
-    if not mappings:
-        console.print("[yellow]No framework mappings found in mappings/[/yellow]")
-        sys.exit(1)
+    index = FrameworkIndex.build(mappings) if mappings else None
 
-    index = FrameworkIndex.build(mappings)
+    # --- Explicit framework reference flags (--cis, --stig, --nist) ---
+    explicit_ref = cis_section or stig_id or nist_control
+    if explicit_ref:
+        if not rules_by_id:
+            console.print("[red]Error:[/red] rules/ directory not found")
+            sys.exit(1)
+        if cis_section:
+            _info_by_reference(
+                "cis", cis_section, rules_by_id, rhel_version, show_all, json_output
+            )
+        elif stig_id:
+            _info_by_reference(
+                "stig",
+                stig_id.upper(),
+                rules_by_id,
+                rhel_version,
+                show_all,
+                json_output,
+            )
+        elif nist_control:
+            _info_by_reference(
+                "nist",
+                nist_control.upper(),
+                rules_by_id,
+                rhel_version,
+                show_all,
+                json_output,
+            )
+        return
 
-    # Validate options
-    options_count = sum([bool(control), bool(rule), list_controls])
-    if options_count == 0:
-        console.print("[red]Error:[/red] Specify --control, --rule, or --list-controls")
-        sys.exit(1)
-    if options_count > 1:
+    # --- Existing --control, --rule, --list-controls flags ---
+    flag_count = sum([bool(control), bool(rule), list_controls])
+
+    if flag_count > 1:
         console.print(
             "[red]Error:[/red] Only one of --control, --rule, --list-controls allowed"
         )
         sys.exit(1)
 
-    # Query by control
     if control:
-        rules = index.query_by_control(control, prefix_match=prefix_match)
-
-        # Load rule metadata for detail display
-        from runner._loading import load_rules
-
-        try:
-            all_rules = load_rules("rules/")
-            rules_by_id = {r["id"]: r for r in all_rules}
-        except (ValueError, FileNotFoundError):
-            rules_by_id = {}
-
-        # Get control info from mapping
-        control_info = _get_control_info(control, mappings, prefix_match)
+        if not index:
+            console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+            sys.exit(1)
+        rules_list = index.query_by_control(control, prefix_match=prefix_match)
+        control_info_list = _get_control_info(control, mappings, prefix_match)
 
         if json_output:
             import json
 
-            # Build detailed rule info
             detailed_rules = []
-            for rule_id in sorted(rules):
-                rule_data = rules_by_id.get(rule_id, {})
+            for rule_id in sorted(rules_list):
+                rd = rules_by_id.get(rule_id, {})
                 detailed_rules.append(
                     {
                         "rule_id": rule_id,
-                        "title": rule_data.get("title", ""),
-                        "severity": rule_data.get("severity", ""),
-                        "category": rule_data.get("category", ""),
+                        "title": rd.get("title", ""),
+                        "severity": rd.get("severity", ""),
+                        "category": rd.get("category", ""),
                     }
                 )
-
             output = {
                 "query": {"control": control, "prefix_match": prefix_match},
-                "control_info": control_info,
+                "control_info": control_info_list,
                 "rules": detailed_rules,
             }
             print(json.dumps(output, indent=2))
             return
 
-        if not rules:
+        if not rules_list:
             console.print(f"[yellow]No rules found for control: {control}[/yellow]")
             return
 
         console.print(f"[bold]Rules implementing {control}:[/bold]")
         if prefix_match:
             console.print("[dim](prefix match enabled)[/dim]")
-
-        # Show control title if available
-        if control_info:
-            for info in control_info:
-                console.print(f"[dim]{info['mapping_id']}: {info['title']}[/dim]")
+        if control_info_list:
+            for ci in control_info_list:
+                console.print(f"[dim]{ci['mapping_id']}: {ci['title']}[/dim]")
         console.print()
 
-        for rule_id in sorted(rules):
-            rule_data = rules_by_id.get(rule_id, {})
-            title = rule_data.get("title", "")
-            severity = rule_data.get("severity", "")
-
+        for rule_id in sorted(rules_list):
+            rd = rules_by_id.get(rule_id, {})
+            title = rd.get("title", "")
+            severity = rd.get("severity", "")
             console.print(f"  [cyan]{rule_id}[/cyan]")
             if title:
                 console.print(f"    {title}")
             if severity:
-                sev_color = {
-                    "critical": "red",
-                    "high": "red",
-                    "medium": "yellow",
-                    "low": "dim",
-                }.get(severity, "white")
-                console.print(f"    [{sev_color}]Severity: {severity}[/{sev_color}]")
+                color = _severity_color(severity)
+                console.print(f"    [{color}]Severity: {severity}[/{color}]")
             console.print()
+        console.print(f"[dim]Total: {len(rules_list)} rules[/dim]")
+        return
 
-        console.print(f"[dim]Total: {len(rules)} rules[/dim]")
+    if rule:
+        if not index:
+            console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+            sys.exit(1)
 
-    # Query by rule
-    elif rule:
+        # If --rule points to a known rule ID, show full detail
+        if rule in rules_by_id:
+            _info_rule_detail(rules_by_id[rule], index, json_output)
+            return
+
+        # Otherwise fall back to framework cross-ref only
         refs = index.query_by_rule(rule)
         if json_output:
             import json
@@ -1772,10 +2290,13 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
                 console.print(f"    [dim]{meta_str}[/dim]")
             console.print()
         console.print(f"[dim]Total: {len(refs)} framework references[/dim]")
+        return
 
-    # List controls
-    elif list_controls:
-        controls = index.list_controls(mapping_id=framework)
+    if list_controls:
+        if not index:
+            console.print("[yellow]No framework mappings found in mappings/[/yellow]")
+            sys.exit(1)
+        controls_list = index.list_controls(mapping_id=framework)
         if json_output:
             import json
 
@@ -1783,13 +2304,13 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
                 "query": {"list_controls": True, "framework": framework},
                 "controls": [
                     {"mapping_id": mid, "section_id": sid, "rule_count": count}
-                    for mid, sid, count in controls
+                    for mid, sid, count in controls_list
                 ],
             }
             print(json.dumps(output, indent=2))
             return
 
-        if not controls:
+        if not controls_list:
             if framework:
                 console.print(
                     f"[yellow]No controls found for framework: {framework}[/yellow]"
@@ -1802,28 +2323,69 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
         console.print(f"[bold]{title}:[/bold]")
         console.print()
 
-        # Group by mapping if showing all
         current_mapping = None
-        for mid, sid, count in controls:
+        for mid, sid, count in controls_list:
             if not framework and mid != current_mapping:
                 if current_mapping is not None:
                     console.print()
                 console.print(f"[cyan]{mid}[/cyan]")
                 current_mapping = mid
 
-            prefix = "  " if not framework else ""
+            pfx = "  " if not framework else ""
             console.print(
-                f"{prefix}  {sid:<15s} ({count} rule{'s' if count != 1 else ''})"
+                f"{pfx}  {sid:<15s} ({count} rule{'s' if count != 1 else ''})"
             )
 
         console.print()
-        console.print(f"[dim]Total: {len(controls)} controls[/dim]")
+        console.print(f"[dim]Total: {len(controls_list)} controls[/dim]")
+        return
+
+    # --- Positional QUERY argument ---
+    if query:
+        query_type, query_value = classify_query(query, set(rules_by_id.keys()))
+
+        if query_type == "rule":
+            if query_value in rules_by_id:
+                if not index:
+                    # Build a minimal empty index for display
+                    index = FrameworkIndex.build({})
+                _info_rule_detail(rules_by_id[query_value], index, json_output)
+            else:
+                console.print(f"[yellow]Rule not found: {query_value}[/yellow]")
+                sys.exit(1)
+        else:
+            if not rules_by_id:
+                console.print("[red]Error:[/red] rules/ directory not found")
+                sys.exit(1)
+            _info_by_reference(
+                query_type,
+                query_value,
+                rules_by_id,
+                rhel_version,
+                show_all,
+                json_output,
+            )
+        return
+
+    # No arguments at all
+    console.print(
+        "[red]Error:[/red] Specify a QUERY, --control, --rule, or --list-controls"
+    )
+    console.print()
+    console.print("Examples:")
+    console.print("  kensa info sudo-use-pty          # Rule detail")
+    console.print("  kensa info 5.2.2                 # CIS section")
+    console.print("  kensa info V-258036              # STIG ID")
+    console.print("  kensa info AC-3                  # NIST control")
+    console.print("  kensa info --control cis-rhel9-v2.0.0:5.1.12")
+    console.print("  kensa info --list-controls -f cis-rhel9-v2.0.0")
+    sys.exit(1)
 
 
-# ── lookup ────────────────────────────────────────────────────────────────────
+# ── lookup (deprecated) ──────────────────────────────────────────────────────
 
 
-@main.command()
+@main.command(hidden=True, deprecated=True)
 @click.argument("section", required=False)
 @click.option(
     "--cis", "cis_section", default=None, help="CIS section number (e.g., 2.2.5)"
@@ -1843,19 +2405,22 @@ def info(control, rule, list_controls, framework, prefix_match, json_output):
 def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
     r"""Look up rules by CIS section, STIG ID, or NIST control.
 
-    Searches all rules to find which ones implement a specific compliance control.
+    Deprecated: use ``kensa info`` instead.
 
     \b
     Examples:
-      kensa lookup 2.2.5                  # CIS section (auto-detected)
-      kensa lookup --cis 2.2.5            # Explicit CIS lookup
-      kensa lookup --cis 5.1 --rhel 9     # CIS 5.1.x for RHEL 9 only
-      kensa lookup --stig V-257874        # STIG vulnerability ID
-      kensa lookup --nist AC-3            # NIST 800-53 control
+      kensa info 2.2.5                   # CIS section (replaces lookup)
+      kensa info --cis 2.2.5             # Explicit CIS lookup
+      kensa info --stig V-257874         # STIG vulnerability ID
+      kensa info --nist AC-3             # NIST 800-53 control
     """
-    from pathlib import Path
+    click.echo(
+        "Warning: 'kensa lookup' is deprecated. Use 'kensa info' instead.",
+        err=True,
+    )
 
-    import yaml
+    from runner.paths import get_rules_path
+    from runner.rule_info import build_rule_index
 
     # Determine what to search for
     search_type = None
@@ -1871,7 +2436,6 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
         search_type = "nist"
         search_value = nist_control.upper()
     elif section:
-        # Auto-detect type from format
         if section.upper().startswith("V-"):
             search_type = "stig"
             search_value = section.upper()
@@ -1885,154 +2449,635 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
         console.print(
             "[red]Error:[/red] Specify a section number or use --cis/--stig/--nist"
         )
-        console.print("\nExamples:")
-        console.print("  kensa lookup 2.2.5")
-        console.print("  kensa lookup --cis 5.1.12")
-        console.print("  kensa lookup --stig V-257874")
-        console.print("  kensa lookup --nist AC-3")
+        console.print("\nUse 'kensa info' instead:")
+        console.print("  kensa info 2.2.5")
+        console.print("  kensa info --cis 5.1.12")
+        console.print("  kensa info --stig V-257874")
+        console.print("  kensa info --nist AC-3")
         sys.exit(1)
 
-    # Load all rules and search
-    rules_dir = Path("rules")
-    if not rules_dir.exists():
+    try:
+        rules_path = get_rules_path()
+    except FileNotFoundError:
         console.print("[red]Error:[/red] rules/ directory not found")
         sys.exit(1)
 
-    matches = []
+    rules_by_id = build_rule_index(rules_path)
+    if not rules_by_id:
+        console.print("[red]Error:[/red] No rules found")
+        sys.exit(1)
 
-    for rule_path in sorted(rules_dir.rglob("*.yml")):
-        try:
-            with open(rule_path) as f:
-                rule = yaml.safe_load(f)
-            if not isinstance(rule, dict) or "id" not in rule:
-                continue
-        except Exception:
-            continue
+    _info_by_reference(
+        search_type, search_value, rules_by_id, rhel_version, show_all, False
+    )
 
-        refs = rule.get("references", {})
-        rule_id = rule["id"]
-        title = rule.get("title", "")
-        severity = rule.get("severity", "")
 
-        matched_refs = []
+# ── rollback ─────────────────────────────────────────────────────────────
 
-        if search_type == "cis":
-            cis_refs = refs.get("cis", {})
-            for ref_key, ref_data in cis_refs.items():
-                ref_section = ref_data.get("section", "")
-                # Match exact or prefix
-                if ref_section == search_value or ref_section.startswith(
-                    search_value + "."
-                ):
-                    # Filter by RHEL version if specified
-                    if rhel_version and f"rhel{rhel_version}" not in ref_key:
-                        continue
-                    matched_refs.append(
-                        {
-                            "framework": ref_key,
-                            "section": ref_section,
-                            "level": ref_data.get("level", ""),
-                            "type": ref_data.get("type", ""),
-                        }
-                    )
 
-        elif search_type == "stig":
-            stig_refs = refs.get("stig", {})
-            for ref_key, ref_data in stig_refs.items():
-                vuln_id = ref_data.get("vuln_id", "")
-                stig_rule_id = ref_data.get("stig_id", "")
-                if (
-                    vuln_id.upper() == search_value
-                    or stig_rule_id.upper() == search_value
-                ):
-                    if rhel_version and f"rhel{rhel_version}" not in ref_key:
-                        continue
-                    matched_refs.append(
-                        {
-                            "framework": ref_key,
-                            "vuln_id": vuln_id,
-                            "stig_id": stig_rule_id,
-                            "severity": ref_data.get("severity", ""),
-                        }
-                    )
+@main.command()
+@click.option(
+    "--list", "list_mode", is_flag=True, help="List recent remediation sessions"
+)
+@click.option(
+    "--info",
+    "info_id",
+    type=int,
+    default=None,
+    help="Show details for a remediation session",
+)
+@click.option(
+    "--start",
+    "start_id",
+    type=int,
+    default=None,
+    help="Execute rollback from stored snapshots",
+)
+@click.option(
+    "--detail", is_flag=True, help="Show per-step pre-state data (with --info)"
+)
+@click.option(
+    "--rule",
+    "filter_rule",
+    default=None,
+    help="Filter to a specific rule (with --info/--start)",
+)
+@click.option(
+    "--host", "-h", default=None, help="Target host (--start) or filter (--list/--info)"
+)
+@click.option(
+    "--inventory",
+    "-i",
+    default=None,
+    help="Ansible inventory file (INI/YAML) for SSH credentials",
+)
+@click.option(
+    "--limit", "-l", "host_limit", default=None, help="Limit to host glob pattern"
+)
+@click.option(
+    "--max", "-n", "max_sessions", default=20, type=int, help="Max sessions to list"
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.option("--user", "-u", default=None, help="SSH username")
+@click.option("--key", "-k", default=None, help="SSH private key path")
+@click.option("--password", "-p", default=None, help="SSH password")
+@click.option("--port", "-P", default=22, type=int, help="SSH port (default: 22)")
+@click.option("--sudo", is_flag=True, help="Run commands via sudo")
+@click.option(
+    "--strict-host-keys/--no-strict-host-keys",
+    default=False,
+    help="Verify SSH host keys",
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be rolled back (--start)"
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Override stale/already-rolled-back warnings (--start)",
+)
+def rollback(
+    list_mode,
+    info_id,
+    start_id,
+    detail,
+    filter_rule,
+    host,
+    inventory,
+    host_limit,
+    max_sessions,
+    json_output,
+    user,
+    key,
+    password,
+    port,
+    sudo,
+    strict_host_keys,
+    dry_run,
+    force,
+):
+    """Inspect past remediations and execute rollback from stored snapshots.
 
-        elif search_type == "nist":
-            nist_refs = refs.get("nist_800_53", [])
-            if isinstance(nist_refs, list):
-                for ctrl in nist_refs:
-                    if ctrl.upper() == search_value or ctrl.upper().startswith(
-                        search_value
-                    ):
-                        matched_refs.append({"control": ctrl})
+    Uses the same SSH infrastructure as check/remediate. Specify targets with
+    --host (direct) or --inventory + --limit (inventory-based).
 
-        if matched_refs:
-            matches.append(
+    Examples:
+      kensa rollback --list
+      kensa rollback --list --host 10.0.0.5
+      kensa rollback --info 42
+      kensa rollback --info 42 --detail --rule ssh-disable-root-login
+      kensa rollback --info 42 --json
+      kensa rollback --start 42 --host 10.0.0.5 -u admin --sudo
+      kensa rollback --start 42 -i inventory.ini --limit 10.0.0.5 --sudo
+      kensa rollback --start 42 --host 10.0.0.5 --sudo --dry-run
+    """
+    mode_count = sum([list_mode, info_id is not None, start_id is not None])
+    if mode_count == 0:
+        console.print("[red]Error:[/red] Specify --list, --info ID, or --start ID")
+        sys.exit(1)
+    if mode_count > 1:
+        console.print("[red]Error:[/red] Only one of --list, --info, --start allowed")
+        sys.exit(1)
+
+    # For --list and --info, the target host is a DB filter.
+    # For --start, we need to resolve it to an SSH-capable HostInfo.
+    # Determine the effective target hostname for DB filtering.
+    filter_host = host
+    if not filter_host and host_limit:
+        filter_host = host_limit
+
+    from runner.storage import ResultStore
+
+    store = ResultStore()
+    try:
+        if list_mode:
+            _rollback_list(store, filter_host, max_sessions, json_output)
+        elif info_id is not None:
+            _rollback_info(
+                store, info_id, detail, filter_rule, filter_host, json_output
+            )
+        elif start_id is not None:
+            if not filter_host:
+                console.print(
+                    "[red]Error:[/red] --host or --limit is required with --start"
+                )
+                sys.exit(1)
+            # Resolve SSH target using the same path as check/remediate
+            hosts = _resolve_hosts(host, inventory, host_limit, user, key, port)
+            if not hosts:
+                console.print(f"[red]Error:[/red] Could not resolve host {filter_host}")
+                sys.exit(1)
+            _rollback_start(
+                store,
+                start_id,
+                target_host=filter_host,
+                host_info=hosts[0],
+                rule_filter=filter_rule,
+                password=password,
+                sudo=sudo,
+                strict_host_keys=strict_host_keys,
+                dry_run=dry_run,
+                force=force,
+            )
+    finally:
+        store.close()
+
+
+def _rollback_list(store, host: str | None, limit: int, json_output: bool) -> None:
+    """List recent remediation sessions with summary counts."""
+    sessions = store.list_remediation_sessions(host=host, limit=limit)
+
+    if not sessions:
+        console.print("[yellow]No remediation sessions found[/yellow]")
+        return
+
+    if json_output:
+        import json
+
+        output = []
+        for s in sessions:
+            rems = store.get_remediations(s.id)
+            hosts = sorted({r.host for r in rems})
+            output.append(
                 {
-                    "rule_id": rule_id,
-                    "title": title,
-                    "severity": severity,
-                    "refs": matched_refs,
+                    "id": s.id,
+                    "timestamp": s.timestamp.isoformat(),
+                    "hosts": hosts,
+                    "dry_run": s.dry_run,
+                    "rollback_on_failure": s.rollback_on_failure,
+                    "snapshot_mode": s.snapshot_mode,
+                    "total_rules": len(rems),
+                    "fixed": sum(1 for r in rems if r.remediated and r.passed_after),
+                    "fail": sum(
+                        1
+                        for r in rems
+                        if r.remediated and not (r.passed_after or False)
+                    ),
+                    "rolled_back": sum(1 for r in rems if r.rolled_back),
                 }
             )
+        print(json.dumps(output, indent=2))
+        return
 
-    # Display results
-    if not matches:
-        console.print(
-            f"[yellow]No rules found for {search_type.upper()} {search_value}[/yellow]"
+    table = Table(title="Remediation Sessions")
+    table.add_column("ID", style="cyan")
+    table.add_column("Timestamp", style="white")
+    table.add_column("Host(s)", style="green")
+    table.add_column("Rules", justify="right")
+    table.add_column("Fixed", justify="right", style="yellow")
+    table.add_column("Fail", justify="right", style="red")
+    table.add_column("Rolled Back", justify="right", style="magenta")
+
+    for s in sessions:
+        rems = store.get_remediations(s.id)
+        hosts = sorted({r.host for r in rems})
+        hosts_str = ", ".join(hosts[:2])
+        if len(hosts) > 2:
+            hosts_str += f" (+{len(hosts) - 2})"
+
+        total = len(rems)
+        fixed = sum(1 for r in rems if r.remediated and r.passed_after)
+        fail = sum(1 for r in rems if r.remediated and not (r.passed_after or False))
+        rolled_back = sum(1 for r in rems if r.rolled_back)
+
+        mode_tag = " [dim](dry)[/dim]" if s.dry_run else ""
+        table.add_row(
+            str(s.id),
+            str(s.timestamp) + mode_tag,
+            hosts_str,
+            str(total),
+            str(fixed),
+            str(fail),
+            str(rolled_back),
         )
+
+    console.print(table)
+
+
+def _rollback_info(
+    store,
+    remediation_session_id: int,
+    detail: bool,
+    filter_rule: str | None,
+    filter_host: str | None,
+    json_output: bool,
+) -> None:
+    """Show detailed info about a remediation session."""
+    rs = store.get_remediation_session(remediation_session_id)
+    if rs is None:
+        console.print(
+            f"[red]Error:[/red] Remediation session {remediation_session_id} not found"
+        )
+        sys.exit(1)
+
+    rems = store.get_remediations(rs.id, host=filter_host)
+    if filter_rule:
+        rems = [r for r in rems if r.rule_id == filter_rule]
+
+    if json_output:
+        _rollback_info_json(rs, rems, store, detail)
         return
 
     # Header
-    type_label = {"cis": "CIS", "stig": "STIG", "nist": "NIST 800-53"}[search_type]
-    console.print(f"[bold]{type_label} {search_value}[/bold]")
-    if rhel_version:
-        console.print(f"[dim]Filtered: RHEL {rhel_version}[/dim]")
+    console.print(f"[bold]Remediation Session #{rs.id}[/bold]")
     console.print()
 
-    # Group by framework version if showing all
-    if search_type in ("cis", "stig") and (show_all or not rhel_version):
-        # Collect all framework versions
-        fw_rules: dict[str, list] = {}
-        for match in matches:
-            for ref in match["refs"]:
-                fw = ref.get("framework", "")
-                if fw not in fw_rules:
-                    fw_rules[fw] = []
-                fw_rules[fw].append(match)
+    # Session metadata
+    hosts = sorted({r.host for r in rems})
+    mode = "dry-run" if rs.dry_run else "live (not dry-run)"
+    rollback_mode = "on-failure (enabled)" if rs.rollback_on_failure else "manual only"
+    console.print(f"  Timestamp:   {rs.timestamp}")
+    console.print(f"  Host(s):     {', '.join(hosts) if hosts else 'none'}")
+    console.print(f"  Mode:        {mode}")
+    console.print(f"  Snapshot:    {rs.snapshot_mode}")
+    console.print(f"  Rollback:    {rollback_mode}")
+    console.print()
 
-        for fw in sorted(fw_rules.keys()):
-            console.print(f"[cyan]{fw}:[/cyan]")
-            seen = set()
-            for match in fw_rules[fw]:
-                if match["rule_id"] in seen:
-                    continue
-                seen.add(match["rule_id"])
-                sev_color = {
-                    "critical": "red",
-                    "high": "red",
-                    "medium": "yellow",
-                    "low": "dim",
-                }.get(match["severity"], "white")
-                console.print(f"  [green]{match['rule_id']}[/green]")
-                console.print(f"    {match['title']}")
+    # Counts
+    remediated = [r for r in rems if r.remediated]
+    rolled_back = [r for r in rems if r.rolled_back]
+    console.print(f"  Rules processed:    {len(rems)}")
+    console.print(f"  Rules remediated:   {len(remediated)}")
+    if rolled_back:
+        console.print(f"  Rules rolled back:  [magenta]{len(rolled_back)}[/magenta]")
+    console.print()
+
+    # Remediated rules summary
+    if remediated:
+        console.print("[bold]  Remediated rules:[/bold]")
+        for r in remediated:
+            if r.rolled_back:
+                steps = store.get_remediation_steps(r.id)
+                step_count = len(steps)
+                reversed_count = 0
+                for step in steps:
+                    events = store.get_rollback_events(step.id)
+                    reversed_count += sum(1 for e in events if e.success)
                 console.print(
-                    f"    [{sev_color}]Severity: {match['severity']}[/{sev_color}]"
+                    f"    [red]FAIL[/red]  {r.rule_id:<40s} "
+                    f"(rolled back — {step_count} step{'s' if step_count != 1 else ''}, "
+                    f"{reversed_count} reversed)"
                 )
-            console.print()
-    else:
-        # Simple list
-        for match in matches:
-            sev_color = {
-                "critical": "red",
-                "high": "red",
-                "medium": "yellow",
-                "low": "dim",
-            }.get(match["severity"], "white")
-            console.print(f"  [green]{match['rule_id']}[/green]")
-            console.print(f"    {match['title']}")
-            console.print(
-                f"    [{sev_color}]Severity: {match['severity']}[/{sev_color}]"
-            )
-            console.print()
+            elif r.passed_after:
+                console.print(f"    [green]PASS[/green]  {r.rule_id}")
+            else:
+                console.print(f"    [red]FAIL[/red]  {r.rule_id}")
+        console.print()
 
-    console.print(f"[dim]Total: {len(matches)} rules[/dim]")
+    # Non-rollbackable steps
+    non_capturable = []
+    for r in remediated:
+        steps = store.get_remediation_steps(r.id)
+        for step in steps:
+            if not step.pre_state_capturable:
+                non_capturable.append((r.rule_id, step))
+
+    if non_capturable:
+        console.print("[bold]  Non-rollbackable steps encountered:[/bold]")
+        for rule_id, step in non_capturable:
+            console.print(
+                f"    {rule_id}  step {step.step_index}: {step.mechanism}  "
+                f"[dim](not capturable)[/dim]"
+            )
+        console.print()
+
+    # Detailed per-step info
+    if detail:
+        console.print("[bold]  Step Details:[/bold]")
+        for r in rems:
+            if not r.remediated:
+                continue
+            console.print()
+            status = "[green]PASS[/green]" if r.passed_after else "[red]FAIL[/red]"
+            suffix = "  [magenta](rolled back)[/magenta]" if r.rolled_back else ""
+            console.print(f"  {r.rule_id}  [{status}]{suffix}")
+
+            steps = store.get_remediation_steps(r.id)
+            for step in steps:
+                step_status = "[green]ok[/green]" if step.success else "[red]FAIL[/red]"
+                console.print(
+                    f"    Step {step.step_index}: {step.mechanism}  [{step_status}]"
+                )
+
+                # Pre-state
+                if step.pre_state_data is not None:
+                    console.print("      Pre-state:")
+                    for k, v in step.pre_state_data.items():
+                        val_str = str(v)
+                        if len(val_str) > 80:
+                            val_str = val_str[:77] + "..."
+                        console.print(f"        {k}: {val_str}")
+                elif not step.pre_state_capturable:
+                    console.print(
+                        f"      Pre-state: [dim]not capturable ({step.mechanism})[/dim]"
+                    )
+
+                # Rollback events
+                events = store.get_rollback_events(step.id)
+                for event in events:
+                    rb_status = (
+                        "[green]ok[/green]" if event.success else "[red]FAIL[/red]"
+                    )
+                    detail_str = f"  {event.detail}" if event.detail else ""
+                    console.print(
+                        f"      Rollback ({event.source}): [{rb_status}]{detail_str}"
+                    )
+
+
+def _rollback_info_json(rs, rems, store, detail: bool) -> None:
+    """Output rollback info as JSON."""
+    import json
+
+    hosts = sorted({r.host for r in rems})
+    output: dict = {
+        "id": rs.id,
+        "timestamp": rs.timestamp.isoformat(),
+        "hosts": hosts,
+        "dry_run": rs.dry_run,
+        "rollback_on_failure": rs.rollback_on_failure,
+        "snapshot_mode": rs.snapshot_mode,
+        "summary": {
+            "total_rules": len(rems),
+            "remediated": sum(1 for r in rems if r.remediated),
+            "rolled_back": sum(1 for r in rems if r.rolled_back),
+        },
+        "remediations": [],
+    }
+
+    for r in rems:
+        rem_data: dict = {
+            "rule_id": r.rule_id,
+            "host": r.host,
+            "severity": r.severity,
+            "passed_before": r.passed_before,
+            "passed_after": r.passed_after,
+            "remediated": r.remediated,
+            "rolled_back": r.rolled_back,
+            "detail": r.detail,
+        }
+
+        if detail and r.remediated:
+            steps_data = []
+            steps = store.get_remediation_steps(r.id)
+            for step in steps:
+                step_data: dict = {
+                    "step_index": step.step_index,
+                    "mechanism": step.mechanism,
+                    "success": step.success,
+                    "detail": step.detail,
+                    "pre_state_capturable": step.pre_state_capturable,
+                    "pre_state_data": step.pre_state_data,
+                }
+                events = store.get_rollback_events(step.id)
+                if events:
+                    step_data["rollback_events"] = [
+                        {
+                            "mechanism": e.mechanism,
+                            "success": e.success,
+                            "detail": e.detail,
+                            "source": e.source,
+                            "timestamp": e.timestamp.isoformat(),
+                        }
+                        for e in events
+                    ]
+                steps_data.append(step_data)
+            rem_data["steps"] = steps_data
+
+        output["remediations"].append(rem_data)
+
+    # This is the last print in _rollback_info_json
+    print(json.dumps(output, indent=2))
+
+
+def _rollback_start(
+    store,
+    remediation_session_id: int,
+    *,
+    target_host: str,
+    host_info,
+    rule_filter: str | None,
+    password: str | None,
+    sudo: bool,
+    strict_host_keys: bool,
+    dry_run: bool,
+    force: bool,
+) -> None:
+    """Execute rollback from stored pre-state snapshots."""
+    from datetime import datetime, timedelta
+
+    host = target_host
+
+    rs = store.get_remediation_session(remediation_session_id)
+    if rs is None:
+        console.print(
+            f"[red]Error:[/red] Remediation session {remediation_session_id} not found"
+        )
+        sys.exit(1)
+
+    # Get remediations for this session filtered to the target host
+    rems = store.get_remediations(rs.id, host=host)
+    if not rems:
+        # Check if there are remediations for other hosts
+        all_rems = store.get_remediations(rs.id)
+        stored_hosts = sorted({r.host for r in all_rems})
+        console.print(
+            f"[red]Error:[/red] Host {host} not found in session #{rs.id}. "
+            f"Stored hosts: {', '.join(stored_hosts)}"
+        )
+        sys.exit(1)
+
+    if rule_filter:
+        rems = [r for r in rems if r.rule_id == rule_filter]
+        if not rems:
+            console.print(
+                f"[red]Error:[/red] Rule {rule_filter} not found in session #{rs.id}"
+            )
+            sys.exit(1)
+
+    # Only process remediated rules
+    rems = [r for r in rems if r.remediated]
+    if not rems:
+        console.print("[yellow]No remediated rules to roll back[/yellow]")
+        return
+
+    # Collect all steps and check rollback eligibility
+    all_steps = []
+    already_rolled_back = 0
+    non_capturable = 0
+    for r in rems:
+        steps = store.get_remediation_steps(r.id)
+        for step in steps:
+            if not step.success:
+                continue  # Nothing to undo
+            events = store.get_rollback_events(step.id)
+            if events and not force:
+                already_rolled_back += 1
+                continue  # Already rolled back
+            if not step.pre_state_capturable or step.pre_state_data is None:
+                non_capturable += 1
+                continue
+            all_steps.append((r, step))
+
+    if not all_steps:
+        if already_rolled_back > 0:
+            console.print(
+                f"[yellow]All {already_rolled_back} eligible step(s) already "
+                f"rolled back.[/yellow] Use --force to re-execute."
+            )
+        else:
+            console.print("[yellow]No rollbackable steps found[/yellow]")
+        return
+
+    # Stale snapshot warning
+    active_days = 7
+    age = datetime.now() - rs.timestamp
+    if age > timedelta(days=active_days) and not force:
+        console.print(
+            f"[yellow]Warning:[/yellow] Remediation session #{rs.id} is "
+            f"{age.days} days old (active window: {active_days} days)."
+        )
+        console.print(
+            "The system may have changed since the snapshot was taken. "
+            "Use --force to proceed."
+        )
+        sys.exit(1)
+
+    # Show summary
+    step_count = len(all_steps)
+    rule_ids = sorted({r.rule_id for r, _ in all_steps})
+    console.print(f"[bold]Rollback Session #{rs.id}[/bold]")
+    console.print(f"  Host:    {host}")
+    console.print(f"  Rules:   {len(rule_ids)}")
+    console.print(f"  Steps:   {step_count}")
+    if already_rolled_back:
+        console.print(f"  Skipped: {already_rolled_back} (already rolled back)")
+    if non_capturable:
+        console.print(f"  Skipped: {non_capturable} (not capturable)")
+    console.print()
+
+    if dry_run:
+        console.print("[bold]Dry-run — steps that would be executed:[/bold]")
+        console.print()
+        for r, step in all_steps:
+            console.print(
+                f"  {r.rule_id}  step {step.step_index}: "
+                f"{step.mechanism}  [dim](reverse)[/dim]"
+            )
+            if step.pre_state_data:
+                for k, v in step.pre_state_data.items():
+                    val_str = str(v)
+                    if len(val_str) > 60:
+                        val_str = val_str[:57] + "..."
+                    console.print(f"    restore {k} = {val_str}")
+        console.print()
+        console.print(
+            f"[dim]{step_count} step(s) would be reversed "
+            f"(dry-run, no action taken)[/dim]"
+        )
+        return
+
+    # Execute rollback via SSH
+    from runner._orchestration import rollback_from_stored
+
+    console.print("[bold]Executing rollback...[/bold]")
+    console.print()
+
+    # Collect step records for rollback
+    step_records = [step for _, step in all_steps]
+
+    try:
+        with connect(
+            host_info, password, sudo=sudo, strict_host_keys=strict_host_keys
+        ) as ssh:
+            results = rollback_from_stored(ssh, step_records)
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] SSH connection failed: {exc}")
+        sys.exit(1)
+
+    # Persist rollback events and display results
+    success_count = 0
+    fail_count = 0
+    for rb_result in results:
+        # Find the matching step record to get its db id
+        matching_step = None
+        for _, step in all_steps:
+            if step.step_index == rb_result.step_index:
+                matching_step = step
+                break
+
+        if matching_step is not None:
+            store.record_rollback_event(
+                matching_step.id,
+                rb_result.mechanism,
+                rb_result.success,
+                rb_result.detail,
+                source="manual",
+            )
+
+        status = "[green]ok[/green]" if rb_result.success else "[red]FAIL[/red]"
+        console.print(
+            f"  Step {rb_result.step_index}: {rb_result.mechanism}  [{status}]"
+            f"  {rb_result.detail}"
+        )
+        if rb_result.success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+    # Mark remediations as rolled_back
+    rolled_rem_ids = set()
+    for r, _ in all_steps:
+        if r.id not in rolled_rem_ids:
+            store.mark_remediation_rolled_back(r.id)
+            rolled_rem_ids.add(r.id)
+
+    console.print()
+    if fail_count == 0:
+        console.print(
+            f"[green]Rollback complete:[/green] {success_count} step(s) reversed"
+        )
+    else:
+        console.print(
+            f"[red]Rollback completed with errors:[/red] "
+            f"{success_count} ok, {fail_count} failed"
+        )

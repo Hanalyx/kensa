@@ -8,10 +8,11 @@ from runner._checks import run_check
 from runner._remediation import run_remediation
 from runner._rollback import _execute_rollback
 from runner._selection import select_implementation
-from runner._types import RuleResult
+from runner._types import PreState, RollbackResult, RuleResult, StepResult
 
 if TYPE_CHECKING:
     from runner.ssh import SSHSession
+    from runner.storage import RemediationStepRecord
 
 
 def _extract_framework_refs(rule: dict) -> dict[str, str]:
@@ -118,6 +119,7 @@ def remediate_rule(
     *,
     dry_run: bool = False,
     rollback_on_failure: bool = False,
+    snapshot: bool = True,
 ) -> RuleResult:
     """Check a rule, remediate if failing, then re-check."""
     # Initial check
@@ -144,6 +146,7 @@ def remediate_rule(
             remediation,
             dry_run=dry_run,
             check=check,
+            snapshot=snapshot,
         )
     except Exception as exc:
         result.remediation_detail = f"Error: {exc}"
@@ -178,3 +181,47 @@ def remediate_rule(
         result.rolled_back = True
 
     return result
+
+
+def rollback_from_stored(
+    ssh: SSHSession,
+    steps: list[RemediationStepRecord],
+) -> list[RollbackResult]:
+    """Execute rollback using pre-state data loaded from the database.
+
+    Reconstructs StepResult objects from stored RemediationStepRecords and
+    delegates to _execute_rollback() for the actual rollback execution.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        steps: Step records loaded from the database (with pre_state_data).
+
+    Returns:
+        List of RollbackResult for each step attempted.
+
+    """
+    step_results = []
+    for step in steps:
+        pre_state = None
+        if step.pre_state_data is not None and step.pre_state_capturable:
+            pre_state = PreState(
+                mechanism=step.mechanism,
+                data=step.pre_state_data,
+                capturable=True,
+            )
+        elif not step.pre_state_capturable:
+            pre_state = PreState(
+                mechanism=step.mechanism,
+                data={},
+                capturable=False,
+            )
+        step_results.append(
+            StepResult(
+                step_index=step.step_index,
+                mechanism=step.mechanism,
+                success=step.success,
+                detail=step.detail or "",
+                pre_state=pre_state,
+            )
+        )
+    return _execute_rollback(ssh, step_results)

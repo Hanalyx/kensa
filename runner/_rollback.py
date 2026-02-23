@@ -30,6 +30,7 @@ from runner.handlers.rollback._package import (  # noqa: F401
 )
 from runner.handlers.rollback._security import (  # noqa: F401
     _rollback_audit_rule_set,
+    _rollback_pam_module_configure,
     _rollback_selinux_boolean_set,
 )
 from runner.handlers.rollback._service import (  # noqa: F401

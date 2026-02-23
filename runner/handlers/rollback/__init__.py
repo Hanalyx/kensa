@@ -36,6 +36,7 @@ from runner.handlers.rollback._package import (
 )
 from runner.handlers.rollback._security import (
     _rollback_audit_rule_set,
+    _rollback_pam_module_configure,
     _rollback_selinux_boolean_set,
 )
 from runner.handlers.rollback._service import (
@@ -84,6 +85,7 @@ ROLLBACK_HANDLERS = {
     # Security handlers
     "selinux_boolean_set": _rollback_selinux_boolean_set,
     "audit_rule_set": _rollback_audit_rule_set,
+    "pam_module_configure": _rollback_pam_module_configure,
     # Command handlers
     "command_exec": _rollback_command_exec,
     "manual": _rollback_manual,
@@ -116,7 +118,10 @@ def _execute_rollback(
                 RollbackResult(sr.step_index, sr.mechanism, False, "no handler")
             )
             continue
-        ok, detail = handler(ssh, sr.pre_state)
+        try:
+            ok, detail = handler(ssh, sr.pre_state)
+        except Exception as exc:
+            ok, detail = False, f"Exception: {exc}"
         results.append(RollbackResult(sr.step_index, sr.mechanism, ok, detail))
     return results
 

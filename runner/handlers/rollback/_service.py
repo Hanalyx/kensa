@@ -21,14 +21,24 @@ def _rollback_service_enabled(ssh: SSHSession, pre_state: PreState) -> tuple[boo
     was_enabled = d["was_enabled"]
     was_active = d["was_active"]
 
-    if was_enabled in ("disabled", "masked"):
-        ssh.run(f"systemctl disable {shell_util.quote(name)}")
-    elif was_enabled == "masked":
-        ssh.run(f"systemctl mask {shell_util.quote(name)}")
+    errors: list[str] = []
+
+    if was_enabled == "masked":
+        result = ssh.run(f"systemctl mask {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"mask failed: {result.stderr}")
+    elif was_enabled == "disabled":
+        result = ssh.run(f"systemctl disable {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"disable failed: {result.stderr}")
 
     if was_active in ("inactive", "failed", "unknown"):
-        ssh.run(f"systemctl stop {shell_util.quote(name)}")
+        result = ssh.run(f"systemctl stop {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"stop failed: {result.stderr}")
 
+    if errors:
+        return False, f"Failed to restore {name}: {'; '.join(errors)}"
     return True, f"Restored {name} to {was_enabled}/{was_active}"
 
 
@@ -41,12 +51,20 @@ def _rollback_service_disabled(
     was_enabled = d["was_enabled"]
     was_active = d["was_active"]
 
+    errors: list[str] = []
+
     if was_enabled == "enabled":
-        ssh.run(f"systemctl enable {shell_util.quote(name)}")
+        result = ssh.run(f"systemctl enable {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"enable failed: {result.stderr}")
 
     if was_active == "active":
-        ssh.run(f"systemctl start {shell_util.quote(name)}")
+        result = ssh.run(f"systemctl start {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"start failed: {result.stderr}")
 
+    if errors:
+        return False, f"Failed to restore {name}: {'; '.join(errors)}"
     return True, f"Restored {name} to {was_enabled}/{was_active}"
 
 
@@ -57,12 +75,22 @@ def _rollback_service_masked(ssh: SSHSession, pre_state: PreState) -> tuple[bool
     was_enabled = d["was_enabled"]
     was_active = d["was_active"]
 
-    ssh.run(f"systemctl unmask {shell_util.quote(name)}")
+    errors: list[str] = []
+
+    result = ssh.run(f"systemctl unmask {shell_util.quote(name)}")
+    if not result.ok:
+        errors.append(f"unmask failed: {result.stderr}")
 
     if was_enabled == "enabled":
-        ssh.run(f"systemctl enable {shell_util.quote(name)}")
+        result = ssh.run(f"systemctl enable {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"enable failed: {result.stderr}")
 
     if was_active == "active":
-        ssh.run(f"systemctl start {shell_util.quote(name)}")
+        result = ssh.run(f"systemctl start {shell_util.quote(name)}")
+        if not result.ok:
+            errors.append(f"start failed: {result.stderr}")
 
+    if errors:
+        return False, f"Failed to restore {name}: {'; '.join(errors)}"
     return True, f"Restored {name} to {was_enabled}/{was_active}"

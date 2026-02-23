@@ -141,6 +141,10 @@ def run_remediation(
     *,
     dry_run: bool = False,
     check: dict | None = None,
+    snapshot: bool = True,
+    snapshot_mode: str = "all",
+    risk_threshold: str = "medium",
+    extra_high_risk: list[str] | None = None,
 ) -> tuple[bool, str, list[StepResult]]:
     """Execute a remediation and optionally verify the result.
 
@@ -155,6 +159,10 @@ def run_remediation(
             - "steps": list[dict] for multi-step remediation
         dry_run: If True, describe changes without applying them.
         check: Optional check definition for post-remediation verification.
+        snapshot: Master snapshot toggle (False disables all capture).
+        snapshot_mode: 'all', 'risk_based', or 'none'.
+        risk_threshold: Minimum risk level for risk_based capture.
+        extra_high_risk: Additional paths that escalate to high risk.
 
     Returns:
         Tuple of (success, detail, step_results):
@@ -179,13 +187,26 @@ def run_remediation(
             success, detail, steps = run_remediation(ssh, remediation)
 
     """
+    from runner.risk import should_capture
+
     # Multi-step remediation
     if "steps" in remediation:
         details = []
         step_results: list[StepResult] = []
         for i, step in enumerate(remediation["steps"]):
             mech = step.get("mechanism", "")
-            pre_state = _dispatch_capture(ssh, step) if not dry_run else None
+            do_capture = (
+                snapshot
+                and not dry_run
+                and should_capture(
+                    mech,
+                    step,
+                    snapshot_mode=snapshot_mode,
+                    risk_threshold=risk_threshold,
+                    extra_high_risk=extra_high_risk,
+                )
+            )
+            pre_state = _dispatch_capture(ssh, step) if do_capture else None
             ok, detail = _dispatch_remediation(ssh, step, dry_run=dry_run)
             details.append(detail)
             sr = StepResult(i, mech, ok, detail, pre_state)
@@ -201,7 +222,18 @@ def run_remediation(
 
     # Single-step
     mech = remediation.get("mechanism", "")
-    pre_state = _dispatch_capture(ssh, remediation) if not dry_run else None
+    do_capture = (
+        snapshot
+        and not dry_run
+        and should_capture(
+            mech,
+            remediation,
+            snapshot_mode=snapshot_mode,
+            risk_threshold=risk_threshold,
+            extra_high_risk=extra_high_risk,
+        )
+    )
+    pre_state = _dispatch_capture(ssh, remediation) if do_capture else None
     ok, detail = _dispatch_remediation(ssh, remediation, dry_run=dry_run)
     sr = StepResult(0, mech, ok, detail, pre_state)
     return ok, detail, [sr]

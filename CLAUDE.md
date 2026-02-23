@@ -38,14 +38,16 @@ python scripts/cis_validate.py --chapter 5
 
 ```
 runner/                  # Core Python package
-├── cli.py              # Main CLI (9 commands: detect, check, remediate, history, diff, coverage, list-frameworks, info, lookup)
+├── cli.py              # Main CLI (10 commands: detect, check, remediate, rollback, history, diff, coverage, list-frameworks, info; lookup deprecated)
+├── rule_info.py        # Rule discovery helpers (build_rule_index, classify_query, search_rules_by_reference)
 ├── engine.py           # Rule evaluation facade
 ├── ssh.py              # SSH connection management
 ├── detect.py           # 22 capability probes + platform detection
 ├── mappings.py         # Framework mapping loader (FrameworkMapping, FrameworkIndex)
 ├── inventory.py        # Host resolution (INI/YAML/host list)
 ├── shell_util.py       # Command escaping utilities
-├── storage.py          # SQLite result persistence
+├── storage.py          # SQLite result persistence (schema v3: sessions, results, evidence, remediations, pre_states, rollback_events)
+├── risk.py             # Remediation risk classification (mechanism + path → high/medium/low)
 ├── ordering.py         # Framework-ordered output
 ├── handlers/           # Modular domain-specific handlers
 │   ├── checks/         # 21 check handler types
@@ -167,13 +169,36 @@ No user approval is needed to merge — CI passing is the gate.
 - `/cis` — Interactive CIS benchmark gap analysis, rule creation, mapping validation
 - `/fedramp` — Interactive FedRAMP gap analysis, rule creation, mapping validation
 
+### Rollback System
+Rollback operates at the engine level, not the schema level. No rollback fields in rule YAML.
+- **Capture/rollback handlers** mirror remediation handlers (21 mechanism types)
+- **Pre-state snapshots** are persisted to SQLite by default during `kensa remediate`
+- **Risk classification** (`runner/risk.py`): mechanism + path → high/medium/low
+- **`kensa rollback --info N`** — inspect pre-state data from a past remediation
+- **`kensa rollback --start N`** — reverse a past remediation from stored snapshots
+- **`--rollback-on-failure`** — inline auto-rollback on remediation failure
+- **`--no-snapshot`** — opt out of pre-state capture for faster runs
+- **Non-capturable mechanisms**: `command_exec`, `manual`, `grub_parameter_set/remove` — explicitly surfaced to user
+
+### Storage Schema (v3)
+SQLite at `.kensa/results.db`. Tables:
+- `sessions`, `results`, `evidence`, `framework_refs` (from v1/v2)
+- `remediation_sessions` — one per `kensa remediate` invocation
+- `remediations` — one per rule remediated on a host
+- `remediation_steps` — one per remediation step
+- `pre_states` — JSON-serialized PreState.data for each capturable step
+- `rollback_events` — log of rollback executions (source: inline | manual)
+
+Retention: snapshots active 7 days (full rollback), archived 90 days (info only), then pruned.
+
 ## Architecture Principles
 
 1. **Pure measurement** — no persistent state, evidence-focused
-2. **Evidence-first** — every check captures raw command output for audit trails
+2. **Evidence-first** — every check captures raw command output for audit trails; pre-state snapshots are evidence artifacts
 3. **Framework-agnostic** — one rule maps to multiple frameworks
 4. **Capability-gated** — implementations adapt to host capabilities (22 probes)
 5. **Modular handlers** — domain-specific check/remediation/capture/rollback
+6. **Safe by default** — pre-state snapshots captured on every remediation; rollback always available
 
 ## Key Reference Docs
 
@@ -185,3 +210,4 @@ No user approval is needed to merge — CI passing is the gate.
 - `BACKLOG.md` — Current task backlog
 - `SESSION_LOG.md` — Session continuity log
 - `prd/IMPLEMENTATION_PLAN.md` — Current implementation tracking
+- `prd/p5-1-rollback-enterprise.md` — Enterprise rollback plan (9 phases)

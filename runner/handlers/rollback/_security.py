@@ -1,6 +1,6 @@
 """Security-related rollback handlers.
 
-Handlers for rolling back security subsystem changes: SELinux and audit.
+Handlers for rolling back security subsystem changes: SELinux, audit, and PAM.
 """
 
 from __future__ import annotations
@@ -52,3 +52,27 @@ def _rollback_audit_rule_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool
         ssh.run(f"rm -f {shell_util.quote(persist_file)}")
 
     return True, "Removed audit rule"
+
+
+def _rollback_pam_module_configure(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
+    """Restore PAM file content to pre-remediation state."""
+    d = pre_state.data
+    pam_file = d["pam_file"]
+    service = d["service"]
+
+    if not d["existed"]:
+        # File didn't exist before; remove it
+        result = ssh.run(f"rm -f {shell_util.quote(pam_file)}")
+        if not result.ok:
+            return False, f"Failed to remove {pam_file}: {result.stderr}"
+        return True, f"Removed {pam_file}"
+
+    if d["old_content"] is None:
+        return False, f"Cannot restore {pam_file}: content not captured"
+
+    if not shell_util.write_file(ssh, pam_file, d["old_content"]):
+        return False, f"Failed to restore {pam_file}"
+
+    return True, f"Restored {service} PAM config"
