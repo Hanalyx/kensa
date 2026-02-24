@@ -19,7 +19,10 @@ This guide provides comprehensive documentation for integrating KENSA into appli
 9. [Output Formats](#9-output-formats)
 10. [Extending KENSA](#10-extending-kensa)
 11. [Integration Patterns](#11-integration-patterns)
-12. [Troubleshooting](#12-troubleshooting)
+12. [Evidence for Compliance Visibility](#12-evidence-for-compliance-visibility)
+13. [Remediation](#13-remediation)
+14. [Rollback](#14-rollback)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
@@ -1202,9 +1205,427 @@ def store_scan_results(scan_data: dict, openwatch_db):
 
 ---
 
-## 12. Troubleshooting
+## 12. Evidence for Compliance Visibility
 
-### 12.1 SSH Connection Issues
+Sections [7](#7-evidence-model) and [9](#9-output-formats) describe the evidence data model and export format. This section explains what that evidence enables from an integration perspective — how OpenWatch (or any upstream platform) can use Kensa's evidence output to provide continuous compliance visibility, audit-ready reporting, and drift detection.
+
+### 12.1 What Kensa Captures Per Check
+
+Every check handler produces an `Evidence` object with the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `method` | str | Handler that ran (`config_value`, `file_permission`, `sysctl_value`, etc.) |
+| `command` | str | Exact shell command executed on the target host |
+| `stdout` | str | Raw standard output from the command |
+| `stderr` | str | Raw standard error |
+| `exit_code` | int | Command exit code |
+| `expected` | str | Value the rule requires (from rule YAML) |
+| `actual` | str | Value found on the host |
+| `timestamp` | datetime | UTC timestamp when the check executed |
+
+This is not a summary or interpretation — it is the raw proof. An auditor can re-run the exact `command` on the same host and independently verify the `stdout`.
+
+### 12.2 Host Context
+
+Beyond per-check evidence, the evidence export includes host-level context that explains how the check was configured and selected:
+
+```json
+{
+  "host": {
+    "hostname": "web-01",
+    "groups": ["web", "pci-scope"],
+    "effective_variables": {
+      "ssh_max_auth_tries": 3,
+      "login_defs_pass_max_days": 30
+    },
+    "platform": { "family": "rhel", "version": 9 },
+    "capabilities": {
+      "sshd_config_d": true,
+      "authselect": true,
+      "selinux": true,
+      "fips_mode": false
+    }
+  }
+}
+```
+
+- **groups** — Which inventory groups the host belongs to, which determines variable overrides.
+- **effective_variables** — The resolved variable values after the full precedence chain (CLI > host > group > conf.d > defaults). This tells you exactly what thresholds were applied.
+- **capabilities** — The 22 probes that determine which implementation variant was selected. If `sshd_config_d` is true, Kensa checked the drop-in directory instead of the main config file.
+
+### 12.3 Framework Cross-References
+
+Each result includes a `frameworks` dict mapping to every applicable compliance framework:
+
+```json
+{
+  "rule_id": "ssh-disable-root-login",
+  "frameworks": {
+    "cis_rhel9_v2": "5.1.12",
+    "stig_rhel9_v2r7": "V-257983",
+    "nist_800_53": "AC-6, CM-6"
+  }
+}
+```
+
+A single check result can satisfy controls in CIS, STIG, NIST 800-53, PCI-DSS, and FedRAMP simultaneously. OpenWatch can use these references to:
+
+- **Build per-framework compliance dashboards** — aggregate pass/fail by CIS section, STIG finding, or NIST control family.
+- **Track control coverage over time** — which controls are covered, which are failing, and which have never been evaluated.
+- **Generate framework-specific reports** — filter the same scan data to produce a CIS report for one audience and a FedRAMP report for another.
+
+### 12.4 What Makes the Evidence Machine-Verifiable
+
+Traditional compliance evidence is screenshots, notes, or attestations. Kensa evidence is machine-verifiable because:
+
+1. **Reproducible** — The `command` field is the exact shell command. Re-run it to verify.
+2. **Raw** — `stdout` is not interpreted, summarized, or filtered. Third-party tools can parse it independently.
+3. **Comparable** — `expected` vs `actual` values make pass/fail deterministic. No subjective judgment.
+4. **Timestamped** — Per-check `timestamp` establishes when the measurement was taken.
+5. **Contextual** — Host platform, capabilities, and effective variables explain why a specific implementation was selected.
+
+### 12.5 Integration Opportunities for OpenWatch
+
+**Continuous compliance posture** — Ingest evidence JSON from scheduled Kensa scans. Track pass/fail trends per host, per framework, per control. Surface regressions the moment a previously-passing check fails.
+
+**Drift detection** — Compare the `actual` field across successive scans for the same host and rule. If `PermitRootLogin` was `no` last week and is `yes` today, that is a configuration drift event.
+
+**Audit artifact export** — When an auditor requests evidence for a specific CIS control (e.g., 5.1.12), query the evidence store by `frameworks.cis_rhel9_v2 = "5.1.12"` and return the raw command, output, and timestamp. No manual evidence collection needed.
+
+**Exception management** — When a check fails and the failure is accepted (waived), OpenWatch can store the waiver alongside the evidence. The evidence proves the system was inspected even if the finding is accepted.
+
+**Multi-host aggregation** — Kensa's evidence export is per-host. OpenWatch can aggregate across an entire fleet to produce org-wide compliance dashboards: "423 of 500 hosts pass CIS 5.1.12" with drill-down to individual evidence.
+
+---
+
+## 13. Remediation
+
+Kensa can fix non-compliant configurations, not just detect them. Remediation is designed around safety: dry-run previews, pre-state snapshots captured by default, and automatic rollback on failure.
+
+### 13.1 Remediation Lifecycle
+
+```
+1. CHECK   — Evaluate rule against host (is it already passing?)
+2. SKIP    — If passing or skipped, do nothing
+3. CAPTURE — Snapshot current state before changing anything
+4. FIX     — Apply the remediation handler(s)
+5. VERIFY  — Re-run the original check to confirm the fix worked
+6. ROLLBACK (optional) — If fix or verify failed, restore pre-state
+```
+
+This lifecycle runs per-rule, per-host. A multi-step remediation (e.g., install a package, then write a config, then enable a service) captures a separate pre-state snapshot for each step.
+
+### 13.2 CLI Usage
+
+```bash
+# Preview what would change (no modifications)
+kensa remediate --sudo --host 192.168.1.10 --user admin \
+  --rules rules/ --dry-run
+
+# Remediate all failing rules
+kensa remediate --sudo --host 192.168.1.10 --user admin \
+  --rules rules/
+
+# Remediate with auto-rollback if anything fails
+kensa remediate --sudo --host 192.168.1.10 --user admin \
+  --rules rules/ --rollback-on-failure
+
+# Remediate a single framework
+kensa remediate --sudo --host 192.168.1.10 --user admin \
+  --rules rules/ --framework cis-rhel9-v2.0.0
+
+# Skip pre-state capture (faster, no rollback available)
+kensa remediate --sudo --host 192.168.1.10 --user admin \
+  --rules rules/ --no-snapshot
+```
+
+### 13.3 Remediation Handlers
+
+Each rule specifies a `remediation` block with a `mechanism` that maps to a handler. Kensa has 23 remediation handler types:
+
+| Handler | What It Does |
+|---------|-------------|
+| `config_set` | Set key=value in a config file |
+| `config_set_dropin` | Write key=value to a drop-in directory file |
+| `config_remove` | Remove a key from a config file |
+| `config_block` | Write a managed block with BEGIN/END markers |
+| `file_permissions` | Set owner, group, and mode on a file |
+| `file_content` | Write file content |
+| `file_absent` | Delete a file |
+| `package_present` | Install an RPM package via dnf |
+| `package_absent` | Remove an RPM package via dnf |
+| `service_enabled` | Enable and start a systemd service |
+| `service_disabled` | Disable and stop a systemd service |
+| `service_masked` | Mask a systemd service |
+| `sysctl_set` | Set a kernel parameter and persist to `/etc/sysctl.d/` |
+| `kernel_module_disable` | Blacklist a kernel module in `/etc/modprobe.d/` |
+| `mount_option_set` | Add mount options to `/etc/fstab` and remount |
+| `grub_parameter_set` | Add a kernel boot parameter to GRUB |
+| `grub_parameter_remove` | Remove a kernel boot parameter from GRUB |
+| `cron_job` | Create or modify a cron job |
+| `selinux_boolean_set` | Set a SELinux boolean |
+| `audit_rule_set` | Add an audit rule |
+| `pam_module_configure` | Configure a PAM module |
+| `command_exec` | Execute an arbitrary shell command |
+| `manual` | Placeholder for manual intervention (no automation) |
+
+### 13.4 Single-Step vs Multi-Step Remediation
+
+Most rules have a single remediation step:
+
+```yaml
+remediation:
+  mechanism: config_set
+  path: /etc/ssh/sshd_config
+  key: PermitRootLogin
+  value: "no"
+  restart: sshd
+```
+
+Some rules require multiple steps executed in sequence:
+
+```yaml
+remediation:
+  steps:
+    - mechanism: package_present
+      name: aide
+    - mechanism: command_exec
+      run: aide --init
+    - mechanism: cron_job
+      path: /etc/cron.d/aide-check
+      content: "0 5 * * * root /usr/sbin/aide --check"
+```
+
+Multi-step behavior: steps execute in order, each gets its own pre-state snapshot, and execution stops on the first failure. If `--rollback-on-failure` is set, all completed steps are rolled back in reverse order.
+
+### 13.5 Dry-Run Mode
+
+`--dry-run` previews all changes without modifying the host:
+
+- Handlers return descriptions of what they would do (e.g., `"Would set PermitRootLogin=no in /etc/ssh/sshd_config"`)
+- No pre-state snapshots are captured (nothing to undo)
+- No post-remediation re-check runs
+- Terminal output uses `DRY` instead of `FIXED`
+
+### 13.6 Pre-State Snapshots
+
+By default, Kensa captures the current system state before each remediation step. This snapshot is the basis for rollback.
+
+What gets captured depends on the mechanism:
+
+| Mechanism | Pre-State Data |
+|-----------|---------------|
+| `config_set` | The current line matching the key (or that the key didn't exist) |
+| `file_permissions` | Current owner, group, and mode |
+| `package_present` | Whether the package was already installed |
+| `service_enabled` | Whether the service was enabled and active |
+| `sysctl_set` | Current sysctl value and persist file state |
+| `selinux_boolean_set` | Current boolean value |
+
+Snapshots are stored in SQLite (`pre_states` table) and retained for 7 days (full rollback available) then archived for 90 days (info-only) before being pruned.
+
+### 13.7 Risk Classification
+
+Kensa classifies each remediation step by risk level to determine snapshot priority:
+
+| Risk | Mechanisms |
+|------|-----------|
+| **High** | `grub_parameter_set/remove`, `mount_option_set`, `pam_module_configure`, `kernel_module_disable` |
+| **Medium** | `config_set/remove/block`, `sysctl_set`, `service_masked/disabled`, `audit_rule_set`, `selinux_boolean_set`, `file_content` |
+| **Low** | `file_permissions`, `package_present/absent`, `service_enabled`, `cron_job`, `file_absent` |
+| **N/A** | `command_exec`, `manual` (cannot be captured or rolled back) |
+
+Certain file paths escalate risk further. Modifying `/etc/fstab`, `/etc/pam.d/`, or `/etc/default/grub` escalates any mechanism to high risk.
+
+### 13.8 Remediation Storage Schema
+
+All remediation activity is persisted to SQLite for audit and rollback:
+
+```
+remediation_sessions     — One row per `kensa remediate` invocation
+    ├── dry_run           — Was this a dry run?
+    ├── rollback_on_failure — Was auto-rollback enabled?
+    └── snapshot_mode     — all | risk_based | none
+        │
+        ▼
+remediations             — One row per rule remediated on a host
+    ├── passed_before     — Check result before remediation
+    ├── passed_after      — Check result after remediation (NULL if dry-run)
+    ├── remediated        — Was remediation attempted?
+    └── rolled_back       — Were changes rolled back?
+        │
+        ▼
+remediation_steps        — One row per remediation step
+    ├── mechanism         — Handler type (config_set, package_present, etc.)
+    ├── success           — Did this step succeed?
+    │
+    ├──▶ pre_states       — JSON-serialized snapshot of state before this step
+    │    ├── data_json    — Mechanism-specific data dict
+    │    └── capturable   — Can this step be rolled back?
+    │
+    └──▶ rollback_events  — Log of rollback executions (if any)
+         ├── source       — 'inline' (auto) or 'manual' (user-triggered)
+         ├── success      — Did rollback succeed?
+         └── timestamp    — When rollback executed
+```
+
+### 13.9 Integration Opportunities for OpenWatch
+
+**Remediation tracking dashboard** — Ingest remediation results to show: which hosts were remediated, which rules were fixed, which failed, and which were rolled back. Track fix rates over time.
+
+**Before/after compliance comparison** — Each remediation records `passed_before` and `passed_after`. OpenWatch can visualize the compliance improvement from a single remediation run: "47 of 52 failing controls fixed in one pass."
+
+**Dry-run approval workflows** — Run `kensa remediate --dry-run` and surface the planned changes in OpenWatch for human review. After approval, re-run without `--dry-run` to apply.
+
+**Risk-aware remediation policies** — Use Kensa's risk classification data to enforce approval gates: auto-approve low-risk remediations, require manual approval for high-risk (GRUB, PAM, fstab).
+
+**Audit trail for change management** — Every remediation step is persisted with timestamps, mechanism details, and pre-state snapshots. This provides the change log that auditors need: what changed, when, why, and what the system looked like before.
+
+---
+
+## 14. Rollback
+
+Rollback restores a host to its pre-remediation state using the snapshots captured during remediation. It operates at the step level — each remediation step can be individually reversed using its stored pre-state data.
+
+### 14.1 Two Rollback Modes
+
+**Inline rollback** — Automatic, triggered during remediation when `--rollback-on-failure` is set. If a remediation step fails or the post-remediation re-check fails, all completed steps are immediately undone in reverse order within the same SSH session.
+
+**Manual rollback** — User-initiated after the fact. Loads pre-state snapshots from the database and executes rollback handlers over a new SSH connection.
+
+```bash
+# List recent remediation sessions
+kensa rollback --list
+
+# Inspect what was changed in session 5
+kensa rollback --info 5
+
+# Inspect with full pre-state data
+kensa rollback --info 5 --detail
+
+# Preview what rollback would do (no changes)
+kensa rollback --start 5 --host 192.168.1.10 --user admin --sudo --dry-run
+
+# Execute rollback
+kensa rollback --start 5 --host 192.168.1.10 --user admin --sudo
+
+# Rollback a specific rule only
+kensa rollback --start 5 --host 192.168.1.10 --user admin --sudo \
+  --rule ssh-disable-root-login
+
+# Force rollback on stale snapshots (>7 days)
+kensa rollback --start 5 --host 192.168.1.10 --user admin --sudo --force
+```
+
+### 14.2 Rollback Handlers
+
+Each rollback handler mirrors a remediation handler. It reads the pre-state snapshot and reverses the change:
+
+| Mechanism | Rollback Action |
+|-----------|----------------|
+| `config_set` | Restore original line, or remove key if it didn't exist before |
+| `config_set_dropin` | Restore or remove drop-in file |
+| `config_remove` | Re-append the lines that were removed |
+| `config_block` | Restore file to pre-block content |
+| `file_permissions` | Restore original owner, group, and mode |
+| `file_content` | Restore original file content, or remove file if it didn't exist |
+| `file_absent` | Recreate the deleted file from stored content |
+| `package_present` | Remove the package if it wasn't installed before |
+| `package_absent` | Re-install the package if it was installed before |
+| `service_enabled` | Restore to previous enabled/active state |
+| `service_disabled` | Restore to previous enabled/active state |
+| `service_masked` | Unmask and restore previous state |
+| `sysctl_set` | Restore previous sysctl value and persist file |
+| `kernel_module_disable` | Restore modprobe config, reload module if it was loaded |
+| `mount_option_set` | Restore fstab line and remount |
+| `selinux_boolean_set` | Restore boolean to previous value |
+| `audit_rule_set` | Remove audit rule if it didn't exist, restore persist file |
+| `pam_module_configure` | Restore PAM file to original content |
+| `cron_job` | Restore or remove cron file |
+
+### 14.3 Non-Reversible Mechanisms
+
+Three mechanism types cannot be automatically rolled back:
+
+| Mechanism | Why |
+|-----------|-----|
+| `command_exec` | Arbitrary shell commands have unpredictable effects that cannot be generically reversed |
+| `manual` | Requires human judgment — there is nothing to automate |
+| `grub_parameter_set/remove` | GRUB changes affect boot configuration; automated rollback risks making the system unbootable |
+
+When these mechanisms appear in a multi-step remediation, they are skipped during rollback. Kensa surfaces them explicitly in `rollback --info` output so the user knows which steps were not reversed.
+
+### 14.4 Snapshot Retention
+
+| Window | Duration | Available Operations |
+|--------|----------|---------------------|
+| **Active** | 0-7 days | Full rollback and detailed inspection |
+| **Archive** | 7-90 days | Inspection only (`--info`); rollback requires `--force` |
+| **Purged** | >90 days | Session metadata only; pre-state data deleted |
+
+Snapshot pruning runs automatically at the start of each `kensa remediate` invocation. The archive window is configurable in `config/defaults.yml`:
+
+```yaml
+rollback:
+  snapshot_archive_days: 90
+```
+
+### 14.5 Rollback Data Flow
+
+```
+REMEDIATION TIME                           ROLLBACK TIME
+─────────────────                          ──────────────
+
+Pre-state captured                         Load pre-state from SQLite
+    │                                          │
+    ▼                                          ▼
+PreState {                                 Rollback handler reads PreState
+  mechanism: "config_set"                      │
+  data: {                                      ▼
+    path: "/etc/ssh/sshd_config",          Reverse the change:
+    key: "PermitRootLogin",                  - If key existed: restore old line
+    old_line: "PermitRootLogin yes",         - If key didn't exist: delete it
+    existed: true,                             │
+    restart: "sshd"                            ▼
+  }                                        Reload/restart service
+}                                              │
+    │                                          ▼
+    ▼                                      Record rollback_event
+Stored in pre_states table                   (source, success, detail, timestamp)
+  as JSON (data_json column)
+```
+
+### 14.6 Rollback Storage
+
+All rollback activity is logged in the `rollback_events` table:
+
+| Column | Description |
+|--------|-------------|
+| `step_id` | Links to the remediation step being reversed |
+| `mechanism` | Handler type (for audit trail) |
+| `success` | Whether the rollback succeeded |
+| `detail` | Human-readable outcome or error message |
+| `timestamp` | When the rollback executed |
+| `source` | `inline` (auto, during remediation) or `manual` (user-triggered) |
+
+### 14.7 Integration Opportunities for OpenWatch
+
+**Rollback visibility** — Surface rollback events alongside remediation history. When a remediation shows `rolled_back: true`, OpenWatch can display what was reversed, when, and whether the rollback succeeded.
+
+**Rollback-on-failure alerting** — When inline rollback fires, it means a remediation attempt changed the system and then failed verification. This is a high-priority event: the system was modified and then restored, which may warrant investigation.
+
+**Manual rollback approval workflow** — Surface `rollback --info` data in OpenWatch so operators can review pre-state snapshots before approving a rollback. Show the `--dry-run` output for review, then trigger the actual rollback.
+
+**Snapshot expiration tracking** — Monitor the 7-day active window. If a remediation produced failures and rollback was not triggered, alert before the active window expires and full rollback is no longer available without `--force`.
+
+**Change audit completeness** — Combine remediation events (what changed) with rollback events (what was reversed) to produce a complete change audit trail. Auditors can see: original state, remediation applied, verification result, and rollback (if any) — all with timestamps.
+
+---
+
+## 15. Troubleshooting
+
+### 15.1 SSH Connection Issues
 
 ```python
 # Enable verbose SSH debugging
@@ -1217,7 +1638,7 @@ with SSHSession(host, user=user, sudo=True) as ssh:
     print(f"Connected as: {result.stdout}")
 ```
 
-### 12.2 Capability Detection Failures
+### 15.2 Capability Detection Failures
 
 ```bash
 # Run with verbose output
@@ -1229,18 +1650,18 @@ kensa detect --host 192.168.1.100 --user admin --sudo -v
 caps = detect_capabilities(ssh, verbose=True)
 ```
 
-### 12.3 Rule Not Matching
+### 15.3 Rule Not Matching
 
 Check:
 1. Platform matches: `rule_applies_to_platform(rule, family, version)`
 2. Capability gate matches: Check `when:` clause
 3. Rule loaded: Verify severity/tag/category filters
 
-### 12.4 Evidence Not Captured
+### 15.4 Evidence Not Captured
 
 Ensure you're using updated handlers. All 19 handlers in `handlers/checks/` capture evidence as of v1.0.0.
 
-### 12.5 Common Errors
+### 15.5 Common Errors
 
 | Error | Cause | Solution |
 |-------|-------|----------|
