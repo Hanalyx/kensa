@@ -1,0 +1,109 @@
+kind: RemediationHandler
+metadata:
+  name: ServiceMasked
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Masks a systemd service on a remote host to prevent it from being started
+    by any means (manual, dependency, or boot). Optionally stops the service
+    before masking. Masking creates a symlink from the unit file to /dev/null.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["service_masked"]. Implemented in
+    runner/handlers/remediation/_service.py as _remediate_service_masked.
+  dependencies:
+    - runner.shell_util.quote
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/service_lifecycle.spec.yaml
+
+objective:
+  summary: >
+    Mask a systemd service on a remote RHEL host to completely prevent it from
+    starting. Optionally stop the service before masking. In dry-run mode,
+    describe the intended action.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run with stop=True (default): When dry_run=True and stop defaults to
+      True, returns (True, "Would stop and mask {name}") and no SSH commands
+      are executed.
+    AC-2: >
+      Dry-run with stop=False: When dry_run=True and stop=False, returns (True,
+      "Would mask {name}") and no SSH commands are executed.
+    AC-3: >
+      Full success with stop: When stop=True, systemctl stop succeeds, and
+      systemctl mask succeeds, returns (True, "Stopped and masked {name}").
+    AC-4: >
+      Stop failure ignored: When stop=True and systemctl stop fails but
+      systemctl mask succeeds, the stop failure is ignored and the handler
+      proceeds to mask. The result of stop is intentionally discarded.
+    AC-5: >
+      Mask failure: When systemctl mask fails, returns (False, "Failed to mask
+      {name}: {stderr}") regardless of stop result.
+    AC-6: >
+      Mask-only success: When stop=False and systemctl mask succeeds, returns
+      (True, "Masked {name}") and does not run systemctl stop.
+    AC-7: >
+      Shell quoting: The service name is passed through shell_util.quote() in
+      all systemctl commands.
+    AC-8: >
+      Stop default: When stop is not provided, defaults to True.
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - The handler deliberately ignores stop failures; a service may already be stopped.
+  - MUST use shell_util.quote() for the service name in all systemctl commands.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - The order of operations is stop first, then mask; this prevents the service from running while being masked.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "service_masked" (used by dispatch, not by handler directly)
+  - field: name
+    type: str
+    required: true
+    description: Systemd service unit name (e.g., "autofs")
+  - field: stop
+    type: bool
+    required: false
+    default: true
+    description: Whether to also stop the service before masking
+
+behavior:
+  - "Extract fields: Read name from the remediation dict. Read stop flag with default True."
+  - "Dry-run check: If dry_run=True and stop is True, return (True, \"Would stop and mask {name}\"). If stop is False, return (True, \"Would mask {name}\")."
+  - "Conditional stop: If stop is True, run systemctl stop {quoted_name} via SSH. The result is intentionally discarded (stop failure is ignored)."
+  - "Mask service: Run systemctl mask {quoted_name} via SSH."
+  - "Check mask result: If systemctl mask fails (non-zero exit), return (False, \"Failed to mask {name}: {stderr}\")."
+  - "Success with stop: If stop is True, return (True, \"Stopped and masked {name}\")."
+  - "Success mask-only: If stop is False, return (True, \"Masked {name}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run with stop: \"Would stop and mask {name}\""
+    - "Dry-run without stop: \"Would mask {name}\""
+    - "Mask failure: \"Failed to mask {name}: {stderr}\""
+    - "Full success: \"Stopped and masked {name}\""
+    - "Mask-only success: \"Masked {name}\""
+
+side_effects:
+  - "Stops a systemd service via systemctl stop (optional, failure ignored)."
+  - "Masks a systemd service via systemctl mask (creates symlink to /dev/null)."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestServiceMaskedSpecDerived
+    count: 10

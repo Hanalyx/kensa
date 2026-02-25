@@ -1,0 +1,120 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackConfig
+  module: runner.handlers.rollback._config
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Config-related rollback handlers that restore configuration files to their
+    pre-remediation state. Four mechanisms: config_set restores the original config
+    line (or removes it if it didn't exist), config_set_dropin restores or removes
+    drop-in files, config_remove re-appends removed lines, config_block restores
+    full file content or removes the file.
+  technical_context: >
+    Functions: _rollback_config_set, _rollback_config_set_dropin, _rollback_config_remove,
+    _rollback_config_block. Registered in ROLLBACK_HANDLERS in
+    runner.handlers.rollback.__init__. Each receives an SSHSession and a PreState
+    captured by the corresponding capture handler, and returns (bool, str).
+  dependencies:
+    - "runner.shell_util (escape_sed, quote, write_file, append_line, service_action)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/config.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "PreState.data contains the fields populated by the corresponding capture handler."
+    - "sed -i is available on the target host."
+
+objective:
+  summary: >
+    Restore configuration files to their pre-remediation state using captured
+    PreState data, including service reload/restart when applicable.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_config_set when key existed: uses sed to replace current line with
+      old_line in the file; returns (True, "Restored {key} in {path}").
+    AC-2: >
+      _rollback_config_set when key did not exist: uses sed to delete the line
+      matching the key; returns (True, "Restored {key} in {path}").
+    AC-3: >
+      _rollback_config_set when sed fails: returns (False, "Failed to restore ...").
+    AC-4: >
+      _rollback_config_set_dropin when file did not exist before: removes the
+      file via rm -f; returns (True, "Removed {path}").
+    AC-5: >
+      _rollback_config_set_dropin when file existed before: writes old_content
+      back; returns (True, "Restored {path}").
+    AC-6: >
+      _rollback_config_remove when lines existed: appends each old line back
+      to the file; returns (True, "Restored removed lines in {path}").
+    AC-7: >
+      _rollback_config_remove when no lines existed (existed=False): returns
+      (True, "No lines to restore in {path}").
+    AC-8: >
+      _rollback_config_block when file did not exist: removes the file;
+      returns (True, "Removed {path}").
+    AC-9: >
+      _rollback_config_block when file existed: writes old_content back;
+      returns (True, "Restored {path}").
+    AC-10: >
+      All handlers trigger service_action (reload/restart) when the captured
+      PreState data contains reload or restart keys.
+
+constraints:
+  - "MUST use shell_util.escape_sed for safe sed pattern construction."
+  - "MUST use shell_util.quote for all path interpolation."
+  - "MUST trigger service reload/restart when captured data contains those keys."
+  - "MUST return (False, detail) on command failure, never raise exceptions."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: >
+      Captured pre-state from the corresponding capture handler. Data fields
+      depend on mechanism.
+
+behavior:
+  - "1. _rollback_config_set: if existed and old_line, sed replace current key line with old_line; else sed delete key line. Trigger service_action if reload/restart in data."
+  - "2. _rollback_config_set_dropin: if not existed, rm -f file; else write_file with old_content. Trigger service_action."
+  - "3. _rollback_config_remove: if existed, append each old_line back to file. Trigger service_action."
+  - "4. _rollback_config_block: if not existed, rm -f file; else write_file with old_content. Trigger service_action."
+
+output_contract:
+  returns: "tuple[bool, str] — (success, human-readable detail message)."
+  paths:
+    restored:
+      description: "Configuration successfully restored to pre-remediation state."
+      result: "(True, detail message describing what was restored)."
+    failed:
+      description: "Restoration command failed."
+      result: "(False, error detail including stderr)."
+    no_op:
+      description: "Nothing to restore (e.g., config_remove with no previous lines)."
+      result: "(True, 'No lines to restore in {path}')."
+  invariants:
+    - "Service reload/restart is triggered when data contains those keys."
+    - "Never raises exceptions; returns (False, detail) on failure."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_config_spec.py
+    classes:
+      - TestRollbackConfigSpecDerived
+    count: 12
+  unit:
+    - tests/test_rollback_handlers.py

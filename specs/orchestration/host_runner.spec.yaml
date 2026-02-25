@@ -1,0 +1,180 @@
+kind: Orchestration
+
+metadata:
+  name: HostRunner
+  module: runner._host_runner
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Per-host execution lifecycle that connects to a remote host via SSH, detects
+    platform and capabilities, applies per-host variable resolution and control
+    filtering, then runs either check or remediation evaluation for all applicable
+    rules. Returns a typed result object (HostCheckResult or HostRemediateResult)
+    containing pass/fail/skip counts, rule results, and captured output.
+  technical_context: >
+    Entry point: execute_on_host(hi, password, sudo, strict_host_keys, rule_list,
+    config, out) orchestrates the full lifecycle. Internal helpers: connect() creates
+    SSHSession, run_checks() evaluates rules, run_remediation() evaluates and
+    remediates. HostRunConfig configures mode, verbosity, dry_run, rollback, snapshot,
+    and capability overrides. ControlContext carries --control resolution state for
+    per-host platform filtering.
+  dependencies:
+    - "runner.ssh (SSHSession)"
+    - "runner.detect (detect_capabilities, detect_platform)"
+    - "runner.engine (evaluate_rule, remediate_rule, rule_applies_to_platform, select_implementation)"
+    - "runner.ordering (should_skip_rule)"
+    - "runner._config (resolve_variables)"
+    - "runner._types (RuleResult)"
+    - "runner.mappings (get_applicable_mappings)"
+    - "runner.inventory (HostInfo)"
+    - "rich.console (Console)"
+  callers:
+    - "runner.cli (check and remediate commands iterate hosts calling execute_on_host)"
+  related_specs:
+    - "specs/internal/rule_selection.spec.yaml"
+    - "specs/internal/variable_resolution.spec.yaml"
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+    - "specs/orchestration/remediate_rule.spec.yaml"
+  assumptions:
+    - "HostInfo provides hostname, port, user, key_path, and groups."
+    - "SSHSession context manager closes connection on exit."
+    - "Rules are already dependency-ordered before being passed to execute_on_host."
+
+objective:
+  summary: >
+    Connect to a single host, detect its platform and capabilities, resolve per-host
+    variables, filter rules by platform applicability, and execute check or remediation
+    for all matching rules.
+  acceptance_criteria:
+    AC-1: >
+      execute_on_host establishes an SSH connection using HostInfo credentials and
+      closes it when execution completes (context manager).
+    AC-2: >
+      Platform detection via detect_platform(ssh) runs before rule evaluation;
+      result is stored on the returned HostCheckResult/HostRemediateResult.
+    AC-3: >
+      Capability detection via detect_capabilities(ssh) runs before rule evaluation;
+      manual overrides from config.capability_overrides are applied on top.
+    AC-4: >
+      When config.control_ctx is set and platform is detected, rules are narrowed
+      to platform-applicable mappings via platform_filter_control_rules().
+    AC-5: >
+      When config.rule_config is set, per-host variable resolution is applied using
+      resolve_variables with hostname and groups from HostInfo.
+    AC-6: >
+      In check mode, run_checks iterates rules and for each: skips if
+      should_skip_rule returns true, skips if platform constraints don't match,
+      otherwise calls evaluate_rule(ssh, rule, caps).
+    AC-7: >
+      In remediate mode, run_remediation iterates rules similarly but calls
+      remediate_rule(ssh, rule, caps, dry_run, rollback_on_failure, snapshot).
+    AC-8: >
+      Skipped rules produce RuleResult with skipped=True and appropriate skip_reason
+      (dependency failure or platform mismatch).
+    AC-9: >
+      Connection failure returns a result with success=False and error message;
+      no rules are evaluated.
+    AC-10: >
+      Check mode returns HostCheckResult with pass_count, fail_count, skip_count.
+    AC-11: >
+      Remediate mode returns HostRemediateResult with pass_count, fail_count,
+      fixed_count, skip_count, rolled_back_count.
+    AC-12: >
+      Failed rules are tracked so that dependent rules are skipped via
+      should_skip_rule in subsequent iterations.
+
+constraints:
+  - "MUST close SSH connection even on exception (context manager)."
+  - "MUST detect platform and capabilities before evaluating any rules."
+  - "MUST apply capability overrides after detection."
+  - "MUST apply per-host variable resolution when rule_config is present."
+  - "MUST track failed rule IDs for dependency-based skip logic."
+  - "MUST NOT propagate SSH connection exceptions; return error result instead."
+  - "MUST print platform and capability info to Console."
+
+input_contract:
+  - field: hi
+    type: HostInfo
+    required: true
+    description: "Host inventory entry with hostname, port, user, key_path, groups."
+  - field: password
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "SSH password (None for key-based auth)."
+  - field: sudo
+    type: bool
+    required: true
+    description: "Whether to use sudo for remote commands."
+  - field: strict_host_keys
+    type: bool
+    required: true
+    description: "Whether to enforce strict SSH host key checking."
+  - field: rule_list
+    type: "list[dict]"
+    required: true
+    description: "Pre-ordered list of rule dicts to evaluate."
+  - field: config
+    type: HostRunConfig
+    required: true
+    description: >
+      Execution configuration with mode (check/remediate), verbose, dry_run,
+      rollback_on_failure, snapshot, rule_to_section, control_ctx,
+      capability_overrides, rule_config, cli_overrides, framework.
+  - field: out
+    type: Console
+    required: true
+    description: "Rich Console for terminal output."
+
+behavior:
+  - "1. Print host header to Console."
+  - "2. Establish SSH connection via connect(hi, password, sudo, strict_host_keys)."
+  - "3. Detect platform via detect_platform(ssh). Print result."
+  - "4. Detect capabilities via detect_capabilities(ssh). Apply overrides. Print if verbose."
+  - "5. If control_ctx is set and platform detected, filter rules via platform_filter_control_rules()."
+  - "6. If rule_config is set, resolve per-host variables for each rule via resolve_variables()."
+  - "7. Dispatch to run_checks() or run_remediation() based on config.mode."
+  - "8. run_checks/run_remediation iterates rules: check should_skip_rule, check platform applicability, call evaluate_rule/remediate_rule, track results."
+  - "9. On connection exception, return error result with success=False."
+  - "10. Print summary counts and return typed result."
+
+output_contract:
+  returns: >
+    HostCheckResult | HostRemediateResult depending on config.mode. Both contain
+    hostname, success, error, platform, capabilities, rule_results, output, and
+    mode-specific count fields.
+  paths:
+    check_success:
+      description: "Check mode completed without connection errors."
+      result: "HostCheckResult with success=True, pass/fail/skip counts."
+    remediate_success:
+      description: "Remediate mode completed without connection errors."
+      result: "HostRemediateResult with success=True, pass/fail/fixed/skip/rolled_back counts."
+    connection_failure:
+      description: "SSH connection failed."
+      result: "Result with success=False, error message, no rule results."
+  invariants:
+    - "Every rule in rule_list produces exactly one RuleResult (pass, fail, or skip)."
+    - "Failed rule IDs are tracked for dependency skip propagation."
+    - "SSH connection is always cleaned up via context manager."
+
+side_effects:
+  - "Establishes SSH connection to remote host."
+  - "Executes remote commands for platform/capability detection."
+  - "Executes remote commands for rule checks or remediation."
+  - "Prints progress output to Console."
+
+testing:
+  spec_derived:
+    file: tests/test_host_runner_spec.py
+    classes:
+      - TestHostRunnerSpecDerived
+    count: 14
+  unit:
+    - tests/test_host_runner.py

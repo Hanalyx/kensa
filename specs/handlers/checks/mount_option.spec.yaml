@@ -1,0 +1,114 @@
+kind: CheckHandler
+metadata:
+  name: MountOption
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Checks that a filesystem mount point has all required mount options
+    present using findmnt.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check via
+    CHECK_HANDLERS["mount_option"]. Implemented in
+    runner/handlers/checks/_system.py as _check_mount_option.
+    Uses findmnt -n -o OPTIONS to retrieve current mount options as a
+    comma-separated string, then verifies all required options are present.
+  dependencies:
+    - runner.shell_util.quote
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+
+objective:
+  summary: >
+    Execute findmnt on a remote host to retrieve mount options for a given
+    mount point, verify all required options are present, and return a
+    CheckResult with structured Evidence.
+  acceptance_criteria:
+    AC-1: "All required options present in mount returns passed=True with detail '{mount_point}: has required options'."
+    AC-2: "One or more options missing returns passed=False with detail '{mount_point}: missing options: {missing}'."
+    AC-3: "Mount point not mounted (command fails or empty stdout) returns passed=False with detail '{mount_point}: not mounted'."
+    AC-4: "Evidence method is always 'mount_option'."
+    AC-5: "Evidence expected is the comma-joined list of required options."
+    AC-6: "Detail on failure lists the specific missing options comma-separated."
+    AC-7: "Evidence timestamp is a UTC datetime captured before the command executes."
+    AC-8: "Evidence actual is the full comma-separated options string from findmnt on success, None when not mounted."
+
+constraints:
+  - "MUST read mount_point as a required key (KeyError if absent)."
+  - "MUST default options to empty list when not provided."
+  - "MUST use shell_util.quote() on the mount_point to prevent shell injection."
+  - "MUST redirect stderr to /dev/null in the findmnt command."
+  - "MUST treat both command failure and empty stdout as 'not mounted'."
+  - "MUST split current options on comma to build a set for membership testing."
+  - "MUST set evidence.method to 'mount_option' in all paths."
+  - "MUST set evidence.actual to None when mount point is not mounted."
+  - "MUST join required options with comma for evidence.expected."
+
+input_contract:
+  - field: mount_point
+    type: str
+    required: true
+    description: Filesystem mount point path (e.g., "/tmp", "/var").
+  - field: options
+    type: "list[str]"
+    required: false
+    default: "[]"
+    description: "List of required mount options (e.g., ['nodev', 'nosuid', 'noexec'])."
+
+behavior:
+  - "Read mount_point from c['mount_point'] (required key)."
+  - "Read required_options from c.get('options', [])."
+  - "Capture check_time as datetime.now(timezone.utc)."
+  - "Build command: findmnt -n -o OPTIONS {quoted_mount_point} 2>/dev/null."
+  - "Execute ssh.run(cmd) to get a Result."
+  - >
+    If not result.ok or result.stdout is empty after stripping: return FAIL
+    with detail '{mount_point}: not mounted' and evidence.actual=None.
+  - "Split stripped stdout on comma into a set of current options."
+  - "Compute missing as required options not in current options set."
+  - >
+    If missing is non-empty: return FAIL with detail '{mount_point}: missing
+    options: {missing_joined}' and evidence.actual=stripped stdout.
+  - "Return PASS with detail '{mount_point}: has required options' and evidence.actual=stripped stdout."
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "'{mount_point}: has required options'"
+    fail_missing:
+      passed: false
+      detail: "'{mount_point}: missing options: {comma_separated_missing}'"
+    fail_not_mounted:
+      passed: false
+      detail: "'{mount_point}: not mounted'"
+  evidence_fields:
+    method: "mount_option"
+    command: "findmnt -n -o OPTIONS {quoted_mount_point} 2>/dev/null"
+    stdout: Full raw stdout from findmnt
+    stderr: Full raw stderr
+    exit_code: Actual exit code from findmnt
+    expected: "Comma-joined list of required options"
+    actual: "Stripped stdout string of current options, or None when not mounted"
+    timestamp: UTC time captured before command execution
+  invariants:
+    - "Evidence is always populated in all code paths."
+    - "evidence.method is always 'mount_option'."
+    - "evidence.expected is always the comma-joined required options."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestMountOption
+      - TestMountOptionSpecDerived
+    count: 8

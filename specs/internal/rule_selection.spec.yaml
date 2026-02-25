@@ -1,0 +1,186 @@
+kind: InternalModule
+
+metadata:
+  name: RuleSelection
+  module: runner._rule_selection
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Rule selection pipeline that loads, filters, orders, and resolves rules for
+    compliance runs. Handles --rules/--rule path selection, --severity/--tag/--category
+    filtering, --framework filtering and ordering, --control resolution against
+    framework mappings, --var CLI overrides, and dependency ordering. Variable
+    resolution is deferred to per-host execution time to support host-specific
+    overrides.
+  technical_context: >
+    Entry point: select_rules() returns a RuleSelection dataclass containing ordered
+    rules, ordering metadata, section mapping, config, and optional ControlContext.
+    apply_auto_framework() handles --framework auto mode at per-host execution time.
+    Internal helpers: _resolve_control() resolves control specs to rule lists,
+    _apply_framework_filter() filters rules to a specific framework mapping.
+  dependencies:
+    - "runner.engine (load_rules)"
+    - "runner.ordering (order_rules, format_ordering_issues, should_skip_rule)"
+    - "runner.mappings (FrameworkIndex, load_all_mappings, rules_for_framework)"
+    - "runner._config (load_config, parse_var_overrides)"
+    - "runner._host_runner (ControlContext)"
+    - "rich.console (Console)"
+  callers:
+    - "runner.cli (check, remediate, coverage commands)"
+  related_specs:
+    - "specs/orchestration/host_runner.spec.yaml"
+    - "specs/internal/variable_resolution.spec.yaml"
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+  assumptions:
+    - "Rule YAML files are valid and loadable by engine.load_rules()."
+    - "Framework mappings are available via load_all_mappings()."
+
+objective:
+  summary: >
+    Load rules from disk, apply severity/tag/category/framework/control filters,
+    resolve dependency ordering, and return a RuleSelection ready for per-host execution.
+  acceptance_criteria:
+    AC-1: >
+      select_rules with --rules path loads all matching rules from the directory,
+      applying severity, tag, and category filters via engine.load_rules().
+    AC-2: >
+      select_rules with --rule path loads a single rule file.
+    AC-3: >
+      When no path is provided and --control is set, defaults rules_path to "rules/".
+    AC-4: >
+      When no path is provided and --control is not set, raises ValueError with
+      "Specify --rules or --rule".
+    AC-5: >
+      --control and --rule are mutually exclusive; specifying both raises ValueError.
+    AC-6: >
+      --control with "prefix:section" format resolves to rules via FrameworkIndex;
+      unknown prefix raises ValueError listing available mappings.
+    AC-7: >
+      --control with no ":" resolves across all mappings; result is ambiguous
+      (ControlContext is set for per-host platform filtering).
+    AC-8: >
+      --control that resolves to zero rules raises ValueError with nearby control
+      suggestions when available.
+    AC-9: >
+      --framework filters rules to those in the specified mapping; unknown framework
+      raises ValueError listing available frameworks.
+    AC-10: >
+      Dependency ordering via order_rules() is always applied; cycles cause ValueError.
+
+constraints:
+  - "MUST apply filters before dependency ordering."
+  - "MUST defer variable resolution to per-host execution time."
+  - "MUST raise ValueError on circular dependencies (cycles)."
+  - "MUST raise ValueError when no rules match filters."
+  - "MUST NOT mutate input arguments."
+  - "MUST store config and cli_overrides on RuleSelection for per-host resolution."
+
+input_contract:
+  - field: rules_path
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Path to rules directory (--rules)."
+  - field: rule_path
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Path to single rule file (--rule)."
+  - field: severity
+    type: "tuple[str, ...]"
+    required: true
+    description: "Severity filters (empty tuple = no filter)."
+  - field: tag
+    type: "tuple[str, ...]"
+    required: true
+    description: "Tag filters (empty tuple = no filter)."
+  - field: category
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Category filter."
+  - field: framework
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Framework ID for filtering/ordering; 'auto' deferred to per-host."
+  - field: var
+    type: "tuple[str, ...]"
+    required: false
+    default: "()"
+    description: "Variable overrides as 'key=value' strings."
+  - field: control
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Control spec (e.g., 'cis:1.1.2.4' or '1.1.2.4')."
+  - field: config_dir
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Path to config directory (--config-dir)."
+  - field: out
+    type: "Console | None"
+    required: false
+    default: "None"
+    description: "Console for output messages (None = suppress)."
+
+behavior:
+  - "1. Parse CLI variable overrides via parse_var_overrides(var)."
+  - "2. Load variable configuration from config directory via load_config(config_dir)."
+  - "3. Determine path: use rule_path or rules_path; default to 'rules/' if --control is set; raise ValueError if no path."
+  - "4. Load rules via load_rules(path, severity, tags, category). Raise ValueError if empty."
+  - "5. If --control specified, call _resolve_control() to filter rules and optionally infer framework."
+  - "6. If --framework specified (not 'auto'), call _apply_framework_filter() to narrow rules and build rule_to_section map."
+  - "7. Order rules by dependencies via order_rules(). Report ordering issues to Console."
+  - "8. Abort with ValueError if cycles detected."
+  - "9. Return RuleSelection with ordered rules, ordering result, section map, control context, config, cli_overrides, and resolved framework."
+
+output_contract:
+  returns: >
+    select_rules -> RuleSelection dataclass with fields: rules (list[dict]),
+    ordering (OrderingResult), rule_to_section (dict[str, str]),
+    control_ctx (ControlContext | None), config (RuleConfig | None),
+    cli_overrides (dict[str, Any]), framework (str | None).
+    apply_auto_framework -> tuple[list[dict], dict[str, str]].
+  paths:
+    rules_selected:
+      description: "Rules loaded and all filters applied successfully."
+      result: "RuleSelection with ordered rules and metadata."
+    no_rules:
+      description: "No rules matched the given filters."
+      result: "ValueError raised."
+    no_path:
+      description: "No rules_path, rule_path, or control specified."
+      result: "ValueError raised with 'Specify --rules or --rule'."
+    cycle_detected:
+      description: "Circular dependencies detected in rule ordering."
+      result: "ValueError raised."
+    unknown_framework:
+      description: "Framework ID not found in loaded mappings."
+      result: "ValueError raised listing available frameworks."
+  invariants:
+    - "Returned rules list is always dependency-ordered."
+    - "Variable resolution is never performed; deferred to per-host time."
+    - "config and cli_overrides are always populated on the result."
+
+side_effects:
+  - "Reads rule YAML files from filesystem."
+  - "Reads framework mapping files from filesystem."
+  - "Reads config directory from filesystem."
+
+testing:
+  spec_derived:
+    file: tests/test_rule_selection_spec.py
+    classes:
+      - TestRuleSelectionSpecDerived
+    count: 12
+  unit:
+    - tests/test_rule_selection.py

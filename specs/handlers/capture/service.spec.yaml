@@ -1,0 +1,105 @@
+kind: InternalModule
+
+metadata:
+  name: CaptureService
+  module: runner.handlers.capture._service
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Service-related capture handlers that snapshot pre-remediation state of systemd
+    services. Three mechanisms: service_enabled captures state before enabling,
+    service_disabled captures state before disabling, service_masked captures state
+    before masking. All three capture the same two properties: was_enabled (systemctl
+    is-enabled output) and was_active (systemctl is-active output).
+  technical_context: >
+    Functions: _capture_service_enabled, _capture_service_disabled, _capture_service_masked.
+    Registered in CAPTURE_HANDLERS. All use systemctl is-enabled and is-active to
+    query current service state. The was_enabled value can be "enabled", "disabled",
+    "masked", "static", or "unknown". The was_active value can be "active", "inactive",
+    "failed", or "unknown".
+  dependencies:
+    - "runner.shell_util (quote)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/service.spec.yaml"
+    - "specs/handlers/remediation/service_lifecycle.spec.yaml"
+    - "specs/handlers/remediation/service_masked.spec.yaml"
+  assumptions:
+    - "systemctl is-enabled returns 0 with status string on success."
+    - "systemctl is-active returns 0 with 'active' on success, non-zero otherwise."
+
+objective:
+  summary: >
+    Capture systemd service enabled/active state before remediation to enable
+    rollback to the pre-remediation service state.
+  acceptance_criteria:
+    AC-1: >
+      _capture_service_enabled captures was_enabled from systemctl is-enabled
+      output and was_active from systemctl is-active output; data contains
+      name, was_enabled, was_active.
+    AC-2: >
+      _capture_service_disabled captures the same fields as service_enabled:
+      name, was_enabled, was_active.
+    AC-3: >
+      _capture_service_masked captures the same fields: name, was_enabled, was_active.
+    AC-4: >
+      When systemctl is-enabled fails (service not found), was_enabled is "unknown".
+    AC-5: >
+      When systemctl is-active fails, was_active is "unknown".
+    AC-6: >
+      All service capture handlers return PreState with capturable=True.
+    AC-7: >
+      All handlers use shell_util.quote for safe service name interpolation.
+
+constraints:
+  - "MUST use shell_util.quote for service name interpolation."
+  - "MUST query both is-enabled and is-active states."
+  - "MUST set 'unknown' when systemctl queries fail."
+  - "MUST NOT modify the remote host during capture."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: r
+    type: dict
+    required: true
+    description: "Remediation definition dict. Must contain 'name' key (service name)."
+
+behavior:
+  - "1. Run systemctl is-enabled with quoted service name; capture stdout or set 'unknown'."
+  - "2. Run systemctl is-active with quoted service name; capture stdout or set 'unknown'."
+  - "3. Return PreState with mechanism name and data dict containing name, was_enabled, was_active."
+
+output_contract:
+  returns: "PreState with mechanism name and captured data dict."
+  paths:
+    service_known:
+      description: "Service exists and state is queryable."
+      result: "PreState with was_enabled/was_active set to systemctl output strings."
+    service_unknown:
+      description: "Service does not exist or queries fail."
+      result: "PreState with was_enabled='unknown' and/or was_active='unknown'."
+  invariants:
+    - "All returned PreState objects have capturable=True."
+    - "was_enabled and was_active are always strings, never None."
+    - "All three mechanisms capture identical data structures."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_service_spec.py
+    classes:
+      - TestCaptureServiceSpecDerived
+    count: 8
+  unit:
+    - tests/test_capture_handlers.py

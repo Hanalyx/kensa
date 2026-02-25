@@ -1,0 +1,126 @@
+kind: InternalModule
+
+metadata:
+  name: CaptureSystem
+  module: runner.handlers.capture._system
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    System-related capture handlers that snapshot pre-remediation state of system
+    configuration. Six mechanisms: sysctl_set captures runtime value and persist file,
+    kernel_module_disable captures modprobe conf and load state, mount_option_set
+    captures fstab line and current mount options, grub_parameter_set/remove capture
+    current kernel args (non-capturable), cron_job captures cron file content.
+  technical_context: >
+    Functions: _capture_sysctl_set, _capture_kernel_module_disable, _capture_mount_option_set,
+    _capture_grub_parameter_set, _capture_grub_parameter_remove, _capture_cron_job.
+    Registered in CAPTURE_HANDLERS. GRUB handlers return capturable=False because
+    GRUB changes are too complex for automated rollback.
+  dependencies:
+    - "runner.shell_util (quote, file_exists, read_file)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/system.spec.yaml"
+    - "specs/handlers/remediation/sysctl_set.spec.yaml"
+    - "specs/handlers/remediation/kernel_module_disable.spec.yaml"
+    - "specs/handlers/remediation/mount_option_set.spec.yaml"
+    - "specs/handlers/remediation/grub_parameter_set.spec.yaml"
+    - "specs/handlers/remediation/grub_parameter_remove.spec.yaml"
+    - "specs/handlers/remediation/cron_job.spec.yaml"
+  assumptions:
+    - "sysctl -n returns current runtime value for a kernel parameter."
+    - "lsmod shows currently loaded kernel modules."
+    - "grubby --info=DEFAULT returns current boot parameters."
+    - "findmnt returns current mount options."
+
+objective:
+  summary: >
+    Capture system-level configuration state (sysctl, kernel modules, mount options,
+    GRUB, cron) before remediation to enable rollback.
+  acceptance_criteria:
+    AC-1: >
+      _capture_sysctl_set captures old_value (sysctl -n output), persist_file path,
+      old_persist (file content or None), persist_existed (bool).
+    AC-2: >
+      _capture_sysctl_set uses default persist_file path of
+      /etc/sysctl.d/99-kensa-{key_dashed}.conf when not specified in remediation dict.
+    AC-3: >
+      _capture_kernel_module_disable captures conf_path (/etc/modprobe.d/{name}.conf),
+      old_conf (file content or None), conf_existed (bool), was_loaded (bool from
+      lsmod check).
+    AC-4: >
+      _capture_mount_option_set captures old_fstab_line from grep /etc/fstab and
+      old_options from findmnt; either can be None if not found.
+    AC-5: >
+      _capture_grub_parameter_set returns PreState with capturable=False; data
+      contains key and old_args (informational only).
+    AC-6: >
+      _capture_grub_parameter_remove returns PreState with capturable=False; data
+      contains key and old_args (informational only).
+    AC-7: >
+      _capture_cron_job captures cron_file path (/etc/cron.d/{name}), existed (bool),
+      old_content (file content or None).
+    AC-8: >
+      All system capture handlers except GRUB return PreState with capturable=True.
+
+constraints:
+  - "MUST use shell_util.quote for all path and value interpolation."
+  - "MUST set capturable=False for grub_parameter_set and grub_parameter_remove."
+  - "MUST capture both runtime state and persist file state for sysctl_set."
+  - "MUST capture both conf file and load state for kernel_module_disable."
+  - "MUST NOT modify the remote host during capture."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: r
+    type: dict
+    required: true
+    description: >
+      Remediation definition dict. Required keys vary: sysctl_set requires 'key';
+      kernel_module_disable requires 'name'; mount_option_set requires 'mount_point';
+      grub_parameter_set/remove require 'key'; cron_job uses optional 'name'.
+
+behavior:
+  - "1. _capture_sysctl_set: run sysctl -n to get runtime value; read persist file content."
+  - "2. _capture_kernel_module_disable: read /etc/modprobe.d/{name}.conf; check lsmod for loaded state."
+  - "3. _capture_mount_option_set: grep /etc/fstab for mount point; run findmnt for current options."
+  - "4. _capture_grub_parameter_set/remove: run grubby --info=DEFAULT to capture args; return capturable=False."
+  - "5. _capture_cron_job: check /etc/cron.d/{name} existence; read content if exists."
+
+output_contract:
+  returns: "PreState with mechanism name and captured data dict."
+  paths:
+    state_captured:
+      description: "System state successfully captured."
+      result: "PreState with populated data fields."
+    grub_non_capturable:
+      description: "GRUB parameter capture (informational only)."
+      result: "PreState with capturable=False and old_args for informational use."
+    state_absent:
+      description: "Config file or runtime value does not exist."
+      result: "PreState with None values for missing data."
+  invariants:
+    - "GRUB handlers always return capturable=False."
+    - "Non-GRUB handlers always return capturable=True."
+    - "Remote host is never modified during capture."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_system_spec.py
+    classes:
+      - TestCaptureSystemSpecDerived
+    count: 10
+  unit:
+    - tests/test_capture_handlers.py

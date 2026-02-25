@@ -1,0 +1,154 @@
+kind: InternalModule
+
+metadata:
+  name: RuleOrdering
+  module: runner.ordering
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Rule dependency ordering, conflict detection, and framework-ordered output.
+    Performs topological sorting of rules based on depends_on relationships,
+    detects circular dependencies and conflicts_with relationships, handles
+    supersedes (skip superseded rules when superseding rule present), and
+    checks whether rules should be skipped due to failed dependencies.
+  technical_context: >
+    Entry points: order_rules(rules) -> OrderingResult,
+    get_dependency_failures(rule_id, rules, failed_rules) -> list[str],
+    should_skip_rule(rule_id, rules, failed_rules, transitive) -> (bool, str),
+    format_ordering_issues(result) -> list[str]. OrderingResult dataclass
+    contains ordered (topologically sorted), cycles, conflicts, superseded,
+    and skipped fields. Internal helpers: _detect_cycles (DFS-based),
+    _topological_sort (Kahn's algorithm with deterministic tie-breaking).
+  dependencies: []
+  callers:
+    - "runner.engine (rule execution ordering)"
+    - "runner._host_runner (dependency-aware execution)"
+  related_specs:
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+    - "specs/orchestration/remediate_rule.spec.yaml"
+  assumptions:
+    - "Rules are dicts with 'id' key and optional depends_on, conflicts_with, supersedes lists."
+    - "Dependency references are rule IDs within the current rule set."
+
+objective:
+  summary: >
+    Topologically sort rules by dependency, detect cycles and conflicts,
+    handle supersedes, and determine dependency-based rule skipping.
+  acceptance_criteria:
+    AC-1: >
+      order_rules returns OrderingResult with rules topologically sorted
+      so that dependencies appear before dependents.
+    AC-2: >
+      Circular dependencies are detected via DFS and reported in
+      OrderingResult.cycles as lists of rule IDs forming the cycle.
+    AC-3: >
+      conflicts_with relationships are detected when both conflicting
+      rules are in the active set; reported as (rule_id, conflict_id) tuples.
+    AC-4: >
+      supersedes relationships cause superseded rules to be removed from
+      the active set and listed in OrderingResult.skipped.
+    AC-5: >
+      Empty rule list returns an empty OrderingResult with no errors.
+    AC-6: >
+      Topological sort is deterministic — when multiple rules have no
+      dependencies, they are sorted alphabetically by rule ID.
+    AC-7: >
+      get_dependency_failures returns the list of failed dependency rule
+      IDs for a given rule.
+    AC-8: >
+      should_skip_rule returns (True, reason) when a direct dependency
+      has failed, with reason describing the failed dependency.
+    AC-9: >
+      should_skip_rule with transitive=True detects transitively failed
+      dependencies via DFS through the depends_on chain.
+    AC-10: >
+      format_ordering_issues returns formatted strings: [ERROR] for cycles,
+      [WARNING] for conflicts, [INFO] for supersedes.
+
+constraints:
+  - "MUST perform topological sort with deterministic tie-breaking (alphabetical)."
+  - "MUST detect and report all circular dependencies."
+  - "MUST remove superseded rules from the active execution set."
+  - "MUST only consider dependencies within the current rule set (ignore external IDs)."
+  - "MUST support transitive dependency failure checking."
+  - "MUST NOT modify input rule list."
+
+input_contract:
+  - field: rules
+    type: "list[dict]"
+    required: true
+    description: >
+      List of rule dicts with "id" and optional "depends_on", "conflicts_with",
+      "supersedes" fields.
+  - field: rule_id
+    type: str
+    required: false
+    description: >
+      Rule ID to check for dependency failures (get_dependency_failures,
+      should_skip_rule).
+  - field: failed_rules
+    type: "set[str]"
+    required: false
+    description: >
+      Set of rule IDs that have failed (for dependency skip checks).
+  - field: transitive
+    type: bool
+    required: false
+    default: true
+    description: >
+      Whether to check transitive dependencies in should_skip_rule.
+
+behavior:
+  - "1. Build rules_by_id map and extract dependency edges (depends_on only within active set)."
+  - "2. Detect cycles using DFS coloring (white/gray/black)."
+  - "3. Process supersedes: mark superseded rules as skipped, remove from active set."
+  - "4. Detect conflicts_with where both rules are in active set."
+  - "5. Perform topological sort on active rules using Kahn's algorithm with sorted queue."
+  - "6. Build ordered rule list from sorted IDs."
+  - "7. get_dependency_failures looks up rule's depends_on and intersects with failed_rules."
+  - "8. should_skip_rule checks direct then (if transitive) DFS-walks depends_on chain."
+  - "9. format_ordering_issues maps cycles/conflicts/supersedes to formatted messages."
+
+output_contract:
+  returns: >
+    order_rules -> OrderingResult(ordered, cycles, conflicts, superseded, skipped);
+    get_dependency_failures -> list[str]; should_skip_rule -> tuple[bool, str];
+    format_ordering_issues -> list[str].
+  paths:
+    clean_ordering:
+      description: "No cycles, conflicts, or supersedes."
+      result: "OrderingResult with ordered list and empty issues."
+    cycles_detected:
+      description: "Circular dependencies exist."
+      result: "OrderingResult.cycles populated with cycle paths."
+    conflicts_detected:
+      description: "Conflicting rules both present."
+      result: "OrderingResult.conflicts populated with pairs."
+    supersedes_applied:
+      description: "Superseding rules replace superseded ones."
+      result: "Superseded rules in skipped; not in ordered."
+    dependency_failed:
+      description: "Rule depends on a failed rule."
+      result: "should_skip_rule returns (True, reason)."
+  invariants:
+    - "Ordered list never contains superseded rules."
+    - "Topological sort is deterministic for same input."
+    - "Cycle detection finds all cycles reachable from any node."
+
+side_effects:
+  - "No side effects — pure computation."
+
+testing:
+  spec_derived:
+    file: tests/test_rule_ordering_spec.py
+    classes:
+      - TestRuleOrderingSpecDerived
+    count: 11
+  unit:
+    - tests/test_ordering.py

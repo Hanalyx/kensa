@@ -1,0 +1,149 @@
+kind: InternalModule
+
+metadata:
+  name: RiskClassification
+  module: runner.risk
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Remediation risk classification based on mechanism type and target path.
+    Determines whether a remediation step is high, medium, low, or not-applicable
+    risk, used by snapshot capture to decide which steps need pre-state recording.
+    Risk is the maximum of mechanism-base risk and path-escalated risk.
+  technical_context: >
+    Entry points: classify_step_risk(mechanism, remediation, extra_high_risk)
+    -> str, should_capture(mechanism, remediation, snapshot_mode, risk_threshold,
+    extra_high_risk) -> bool. Constants: MECHANISM_RISK maps 23 mechanism types
+    to risk levels, HIGH_RISK_PATHS (PAM, fstab, crypttab, grub, selinux config),
+    MEDIUM_RISK_PATHS (sshd_config, /etc/security/). RISK_LEVELS defines
+    ordering: ("na", "low", "medium", "high").
+  dependencies: []
+  callers:
+    - "runner.handlers.capture (pre-state snapshot decision)"
+    - "runner._host_runner (risk-based capture filtering)"
+  related_specs:
+    - "specs/orchestration/remediate_rule.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "Remediation dict may contain 'path' or 'file' key for target path."
+    - "Unknown mechanisms default to 'medium' risk."
+
+objective:
+  summary: >
+    Classify remediation step risk from mechanism type and target path to
+    drive pre-state snapshot capture decisions.
+  acceptance_criteria:
+    AC-1: >
+      classify_step_risk returns the base risk from MECHANISM_RISK for the
+      given mechanism type.
+    AC-2: >
+      Unknown mechanisms not in MECHANISM_RISK default to "medium" risk.
+    AC-3: >
+      Paths matching HIGH_RISK_PATHS (directory prefix or exact match)
+      escalate risk to "high" regardless of mechanism base.
+    AC-4: >
+      Paths matching MEDIUM_RISK_PATHS escalate risk to "medium" if
+      mechanism base is lower.
+    AC-5: >
+      Effective risk is max(mechanism_risk, path_risk) using RISK_LEVELS
+      ordering (na < low < medium < high).
+    AC-6: >
+      Path is extracted from remediation dict using "path" key, falling
+      back to "file" key, defaulting to empty string.
+    AC-7: >
+      should_capture returns False when snapshot_mode is "none".
+    AC-8: >
+      should_capture returns True when snapshot_mode is "all".
+    AC-9: >
+      should_capture in "risk_based" mode returns True only when the
+      classified risk meets or exceeds risk_threshold.
+    AC-10: >
+      should_capture returns False for "na" risk mechanisms in risk_based
+      mode regardless of threshold.
+
+constraints:
+  - "MUST use max(mechanism_risk, path_risk) for effective risk."
+  - "MUST default unknown mechanisms to 'medium'."
+  - "MUST match HIGH_RISK_PATHS by directory prefix (ends with /) or exact path."
+  - "MUST extract path from 'path' key first, then 'file' key."
+  - "MUST NOT capture when mechanism risk is 'na' in risk_based mode."
+  - "MUST support extra_high_risk parameter to extend HIGH_RISK_PATHS."
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: >
+      Remediation mechanism name (e.g., "config_set", "grub_parameter_set").
+  - field: remediation
+    type: dict
+    required: true
+    description: >
+      Remediation step dict, may contain "path" or "file" key.
+  - field: extra_high_risk
+    type: "list[str] | None"
+    required: false
+    default: "None"
+    description: >
+      Additional paths that escalate to high risk.
+  - field: snapshot_mode
+    type: str
+    required: false
+    default: "all"
+    description: >
+      Snapshot mode: "all", "risk_based", or "none".
+  - field: risk_threshold
+    type: str
+    required: false
+    default: "medium"
+    description: >
+      Minimum risk level to trigger capture in risk_based mode.
+
+behavior:
+  - "1. Look up mechanism in MECHANISM_RISK; default to 'medium' if absent."
+  - "2. Extract path from remediation dict ('path' key, then 'file' key, else empty)."
+  - "3. Check path against HIGH_RISK_PATHS (including extra_high_risk); if match, path_risk = 'high'."
+  - "4. Check path against MEDIUM_RISK_PATHS; if match, path_risk = 'medium'."
+  - "5. Compute effective risk as max(base_risk, path_risk) using RISK_LEVELS index ordering."
+  - "6. For should_capture: return False if snapshot_mode='none', True if 'all'."
+  - "7. In risk_based mode, return False if risk='na', else compare risk >= threshold."
+
+output_contract:
+  returns: >
+    classify_step_risk -> str ("high", "medium", "low", or "na");
+    should_capture -> bool.
+  paths:
+    high_risk:
+      description: "Mechanism or path triggers high risk."
+      result: "'high' returned."
+    medium_risk:
+      description: "Mechanism or path triggers medium risk."
+      result: "'medium' returned."
+    low_risk:
+      description: "Mechanism is low risk and path does not escalate."
+      result: "'low' returned."
+    not_applicable:
+      description: "Mechanism is command_exec or manual."
+      result: "'na' returned."
+  invariants:
+    - "Return value is always one of: 'high', 'medium', 'low', 'na'."
+    - "Path escalation can only increase risk, never decrease."
+    - "MECHANISM_RISK covers all 23 remediation mechanism types."
+
+side_effects:
+  - "No side effects — pure computation."
+
+testing:
+  spec_derived:
+    file: tests/test_risk_classification_spec.py
+    classes:
+      - TestRiskClassificationSpecDerived
+    count: 11
+  unit:
+    - tests/test_risk.py

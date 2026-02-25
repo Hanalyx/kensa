@@ -1,0 +1,144 @@
+kind: InternalModule
+
+metadata:
+  name: DetectCapability
+  module: runner.detect
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Capability detection probes and platform identification for remote hosts.
+    Runs 22 read-only shell probes over SSH to determine which features are
+    available (authselect, crypto_policies, firewalld, etc.), enabling
+    capability-gated rule implementations. Platform detection identifies OS
+    family and major version, normalizing RHEL derivatives to family "rhel".
+  technical_context: >
+    Entry points: detect_platform(ssh) -> PlatformInfo | None,
+    detect_capabilities(ssh, verbose=False) -> dict[str, bool].
+    PlatformInfo is a namedtuple(family, version). CAPABILITY_PROBES is a
+    dict[str, str] mapping 22 capability names to shell commands where
+    exit code 0 = capability present. RHEL_FAMILY set defines OS IDs
+    normalized to "rhel" (rhel, centos, rocky, almalinux, ol).
+  dependencies:
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.cli (detect command)"
+    - "runner._host_runner (pre-check capability detection)"
+    - "runner.engine (capability-gated implementation selection)"
+  related_specs:
+    - "specs/cli/detect.spec.yaml"
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+    - "specs/internal/ssh_session.spec.yaml"
+  assumptions:
+    - "SSH session is connected before calling detect functions."
+    - "Probes are fast (< 2 seconds), side-effect free, and suppress stderr."
+    - "Target hosts have /etc/os-release or fallback release files."
+
+objective:
+  summary: >
+    Detect the remote host's OS platform and available capabilities via
+    fast, read-only SSH probes for capability-gated rule selection.
+  acceptance_criteria:
+    AC-1: >
+      detect_platform reads /etc/os-release and returns PlatformInfo(family,
+      version) with family normalized to lowercase and version as integer
+      major version.
+    AC-2: >
+      RHEL derivatives (centos, rocky, almalinux, ol) are normalized to
+      family "rhel" via the RHEL_FAMILY set.
+    AC-3: >
+      When /etc/os-release is unavailable, detect_platform falls back to
+      /etc/redhat-release (returns family "rhel") then /etc/debian_version
+      (returns family "debian").
+    AC-4: >
+      When all detection methods fail, detect_platform returns None.
+    AC-5: >
+      detect_capabilities runs all 22 CAPABILITY_PROBES and returns a
+      dict[str, bool] with True for probes that exit with code 0.
+    AC-6: >
+      Each probe in CAPABILITY_PROBES is a shell command where exit code 0
+      means the capability is present and non-zero means absent.
+    AC-7: >
+      When verbose=True, failed probes print debug info (name, exit_code,
+      stderr) to stderr.
+    AC-8: >
+      Probes are independent; a failure in one probe does not affect others.
+    AC-9: >
+      The 22 probes cover: sshd_config_d, authselect, authselect_sssd,
+      crypto_policies, crypto_policy_modules, fips_mode, firewalld_nftables,
+      firewalld_iptables, systemd_resolved, pam_faillock, grub_bls,
+      grub_legacy, journald_primary, rsyslog_active, fapolicyd, selinux,
+      aide, tpm2, usbguard, dnf_automatic, gdm, tmux.
+    AC-10: >
+      VERSION_ID parsing handles dotted versions (e.g., "9.3") by extracting
+      only the major version as an integer.
+
+constraints:
+  - "MUST normalize RHEL derivatives to family 'rhel'."
+  - "MUST return None from detect_platform when all detection methods fail."
+  - "MUST NOT modify remote host state — all probes are read-only."
+  - "MUST suppress stderr in probe commands (2>/dev/null)."
+  - "MUST handle missing or malformed VERSION_ID gracefully (default to 0)."
+  - "MUST run all probes regardless of individual probe failures."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: >
+      Active SSH session to the target host. Must be connected.
+  - field: verbose
+    type: bool
+    required: false
+    default: false
+    description: >
+      If True, print debug info for failed probes to stderr.
+
+behavior:
+  - "1. detect_platform runs 'cat /etc/os-release' via SSH."
+  - "2. If successful, parses ID and VERSION_ID fields, normalizes RHEL family, returns PlatformInfo."
+  - "3. If /etc/os-release unavailable, tries 'cat /etc/redhat-release', extracts version via regex."
+  - "4. If redhat-release unavailable, tries 'cat /etc/debian_version'."
+  - "5. If all fail, returns None."
+  - "6. detect_capabilities iterates CAPABILITY_PROBES dict."
+  - "7. For each probe, runs the shell command via ssh.run()."
+  - "8. Records result.ok (exit_code == 0) as True/False in output dict."
+  - "9. If verbose and probe failed, prints debug info to stderr."
+  - "10. Returns complete dict[str, bool] with all 22 capability results."
+
+output_contract:
+  returns: >
+    detect_platform -> PlatformInfo(family: str, version: int) | None;
+    detect_capabilities -> dict[str, bool] with 22 entries.
+  paths:
+    platform_detected:
+      description: "OS release file found and parsed."
+      result: "PlatformInfo with normalized family and integer version."
+    platform_unknown:
+      description: "No release file found or parseable."
+      result: "None returned."
+    capabilities_detected:
+      description: "All probes executed."
+      result: "Dict with 22 bool entries, one per capability."
+  invariants:
+    - "detect_capabilities always returns exactly len(CAPABILITY_PROBES) entries."
+    - "PlatformInfo.version is always an integer (0 if unparseable)."
+    - "RHEL family members always normalize to 'rhel'."
+
+side_effects:
+  - "Executes read-only shell commands over SSH."
+  - "No writes to remote host or local filesystem."
+
+testing:
+  spec_derived:
+    file: tests/test_detect_capability_spec.py
+    classes:
+      - TestDetectCapabilitySpecDerived
+    count: 11
+  unit:
+    - tests/test_detect.py

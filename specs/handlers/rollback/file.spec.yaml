@@ -1,0 +1,118 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackFile
+  module: runner.handlers.rollback._file
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    File-related rollback handlers that restore files to their pre-remediation
+    state. Three mechanisms: file_permissions restores ownership and mode for each
+    captured file entry, file_content restores file content plus ownership and
+    mode (or removes the file if it didn't exist), file_absent re-creates removed
+    files with original content, ownership, and mode.
+  technical_context: >
+    Functions: _rollback_file_permissions, _rollback_file_content, _rollback_file_absent.
+    Registered in ROLLBACK_HANDLERS. file_permissions iterates over entries list
+    from capture data. file_content and file_absent handle file existence, content,
+    and metadata restoration.
+  dependencies:
+    - "runner.shell_util (quote, write_file, set_file_owner, set_file_mode)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/file.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "PreState.data.entries is a list of {path, owner, group, mode} dicts for file_permissions."
+    - "chown and chmod are available on the target host."
+
+objective:
+  summary: >
+    Restore file permissions, content, and metadata to their pre-remediation
+    state using captured PreState data.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_file_permissions iterates entries and runs chown owner:group
+      and chmod mode for each file; returns (True, "Restored permissions on N file(s)").
+    AC-2: >
+      _rollback_file_permissions with empty entries list returns (False, "No file
+      entries to restore").
+    AC-3: >
+      _rollback_file_permissions when any chown or chmod fails: returns (False,
+      detail listing failed operations).
+    AC-4: >
+      _rollback_file_content when file did not exist before: removes the file
+      via rm -f; returns (True, "Removed {path}").
+    AC-5: >
+      _rollback_file_content when file existed: writes old_content, restores
+      owner/group and mode; returns (True, "Restored {path}").
+    AC-6: >
+      _rollback_file_absent when file was already absent: returns (True,
+      "{path} was already absent, nothing to restore").
+    AC-7: >
+      _rollback_file_absent when file existed but content not captured: returns
+      (False, "Cannot restore {path}: content not captured").
+    AC-8: >
+      _rollback_file_absent when file existed and content captured: writes
+      old_content, restores owner/group and mode; returns (True, "Restored {path}").
+
+constraints:
+  - "MUST use shell_util.quote for all path interpolation in commands."
+  - "MUST restore both content and metadata (owner, group, mode) when available."
+  - "MUST return (False, detail) on failure, never raise exceptions."
+  - "MUST handle empty entries list for file_permissions."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: "Captured pre-state from the corresponding file capture handler."
+
+behavior:
+  - "1. _rollback_file_permissions: iterate entries; chown and chmod each path; collect errors."
+  - "2. _rollback_file_content: if not existed, rm -f; else write_file + set_file_owner + set_file_mode."
+  - "3. _rollback_file_absent: if not existed, return no-op; if content None, return error; else write_file + set_file_owner + set_file_mode."
+
+output_contract:
+  returns: "tuple[bool, str] — (success, human-readable detail message)."
+  paths:
+    permissions_restored:
+      description: "All file permissions restored."
+      result: "(True, 'Restored permissions on N file(s)')."
+    content_restored:
+      description: "File content and metadata restored."
+      result: "(True, 'Restored {path}')."
+    file_removed:
+      description: "File that didn't previously exist was removed."
+      result: "(True, 'Removed {path}')."
+    no_entries:
+      description: "No file entries to restore for file_permissions."
+      result: "(False, 'No file entries to restore')."
+    content_missing:
+      description: "File content was not captured for file_absent."
+      result: "(False, 'Cannot restore {path}: content not captured')."
+  invariants:
+    - "Never raises exceptions; returns (False, detail) on failure."
+    - "Owner, group, and mode are restored when non-None."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_file_spec.py
+    classes:
+      - TestRollbackFileSpecDerived
+    count: 10
+  unit:
+    - tests/test_rollback_handlers.py

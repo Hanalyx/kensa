@@ -1,0 +1,186 @@
+kind: InternalModule
+
+metadata:
+  name: SSHSession
+  module: runner.ssh
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    SSH session wrapper around paramiko for remote command execution on
+    target hosts. Provides connect/run/close lifecycle with context manager
+    support, sudo wrapping, FIPS-safe MD5 patching for RHEL 9 compatibility,
+    and configurable host key policy. Returns Result objects with exit_code,
+    stdout, stderr, and an ok property.
+  technical_context: >
+    Class: SSHSession with connect(), run(cmd, timeout), close(), and
+    context manager (__enter__/__exit__). Result dataclass with exit_code,
+    stdout, stderr, ok property. FIPS-safe MD5 patch applied at module
+    load (hashlib.md5 wrapped with usedforsecurity=False). _AcceptPolicy
+    for non-strict host key checking. sudo wrapping uses
+    'sudo -n sh -c <quoted_cmd>'. Paramiko exec_command with configurable
+    timeout.
+  dependencies:
+    - "paramiko"
+    - "hashlib (standard library, patched for FIPS)"
+  callers:
+    - "runner._host_runner (per-host SSH session)"
+    - "runner.detect (platform and capability detection)"
+    - "runner.handlers.checks (all check handlers)"
+    - "runner.handlers.remediation (all remediation handlers)"
+  related_specs:
+    - "specs/internal/detect_capability.spec.yaml"
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+  assumptions:
+    - "Target host is reachable on the configured port."
+    - "SSH credentials (key or password) are valid."
+    - "When sudo=True, target user has passwordless sudo configured."
+
+objective:
+  summary: >
+    Provide a reusable SSH connection to remote hosts with command execution,
+    sudo wrapping, FIPS compatibility, and Result-based return values.
+  acceptance_criteria:
+    AC-1: >
+      SSHSession.connect() establishes a paramiko SSH connection using
+      hostname, port, user, key_path, or password.
+    AC-2: >
+      When explicit credentials (key_path or password) are provided,
+      look_for_keys and allow_agent are disabled to avoid fallback.
+    AC-3: >
+      When no explicit credentials are provided, paramiko tries ~/.ssh
+      keys and the SSH agent.
+    AC-4: >
+      run(cmd) executes the command via exec_command and returns a Result
+      with exit_code, stdout (rstripped), stderr (rstripped).
+    AC-5: >
+      When sudo=True, commands are wrapped as
+      'sudo -n sh -c <shell_quoted_cmd>'.
+    AC-6: >
+      Result.ok property returns True when exit_code is 0.
+    AC-7: >
+      close() closes the paramiko client and sets _client to None;
+      subsequent run() calls raise RuntimeError.
+    AC-8: >
+      Context manager (__enter__) calls connect() and returns self;
+      __exit__ calls close().
+    AC-9: >
+      When strict_host_keys=False (default), unknown host keys are
+      accepted silently via _AcceptPolicy.
+    AC-10: >
+      When strict_host_keys=True, unknown host keys are rejected via
+      paramiko.RejectPolicy.
+    AC-11: >
+      FIPS-safe MD5 patch wraps hashlib.md5 with usedforsecurity=False
+      before paramiko import to prevent ValueError on FIPS-enabled systems.
+
+constraints:
+  - "MUST patch hashlib.md5 with usedforsecurity=False before importing paramiko."
+  - "MUST disable look_for_keys and allow_agent when explicit credentials are provided."
+  - "MUST wrap commands with sudo -n sh -c when sudo=True."
+  - "MUST use shlex.quote for shell argument quoting in sudo wrapping."
+  - "MUST strip trailing newlines from stdout and stderr."
+  - "MUST load known_hosts from ~/.ssh/known_hosts when file exists."
+  - "MUST raise RuntimeError when run() is called without an active connection."
+
+input_contract:
+  - field: hostname
+    type: str
+    required: true
+    description: >
+      Target host address (hostname or IP).
+  - field: port
+    type: int
+    required: false
+    default: 22
+    description: >
+      SSH port number.
+  - field: user
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      SSH username. None lets paramiko use the current user.
+  - field: key_path
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Path to SSH private key file.
+  - field: password
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      SSH password (alternative to key-based auth).
+  - field: timeout
+    type: int
+    required: false
+    default: 30
+    description: >
+      Connection and command timeout in seconds.
+  - field: sudo
+    type: bool
+    required: false
+    default: false
+    description: >
+      Wrap all commands with sudo -n sh -c.
+  - field: strict_host_keys
+    type: bool
+    required: false
+    default: false
+    description: >
+      Reject unknown host keys instead of accepting them.
+
+behavior:
+  - "1. Module load: patch hashlib.md5 with usedforsecurity=False, then import paramiko."
+  - "2. connect(): create SSHClient, load known_hosts if exists, set host key policy."
+  - "3. connect(): build connect_kwargs from hostname, port, user, key_path, password, timeout."
+  - "4. connect(): disable look_for_keys/allow_agent when explicit credentials provided."
+  - "5. connect(): call client.connect(**connect_kwargs)."
+  - "6. run(cmd): if sudo, wrap cmd as 'sudo -n sh -c <quoted>'."
+  - "7. run(cmd): exec_command with timeout, read stdout/stderr, get exit status."
+  - "8. run(cmd): return Result with rstripped stdout/stderr and exit_code."
+  - "9. close(): close client, set _client = None."
+  - "10. Context manager: __enter__ calls connect(), __exit__ calls close()."
+
+output_contract:
+  returns: >
+    run -> Result(exit_code: int, stdout: str, stderr: str, ok: bool);
+    connect -> None; close -> None.
+  paths:
+    command_success:
+      description: "Remote command exits with code 0."
+      result: "Result(exit_code=0, ok=True, stdout=output, stderr=errors)."
+    command_failure:
+      description: "Remote command exits with non-zero code."
+      result: "Result(exit_code=N, ok=False, stdout=output, stderr=errors)."
+    not_connected:
+      description: "run() called without active connection."
+      result: "RuntimeError raised."
+    connection_failure:
+      description: "SSH connection fails."
+      result: "paramiko exception propagated (AuthenticationException, SSHException, etc.)."
+  invariants:
+    - "stdout and stderr always have trailing newlines stripped."
+    - "Result.ok is True if and only if exit_code == 0."
+    - "After close(), _client is None."
+
+side_effects:
+  - "Establishes network SSH connection to remote host."
+  - "Executes commands on remote host (may have side effects depending on command)."
+  - "Reads ~/.ssh/known_hosts from local filesystem."
+
+testing:
+  spec_derived:
+    file: tests/test_ssh_session_spec.py
+    classes:
+      - TestSSHSessionSpecDerived
+    count: 12
+  unit:
+    - tests/test_ssh.py

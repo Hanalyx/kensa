@@ -1,0 +1,88 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackCommand
+  module: runner.handlers.rollback._command
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Command-related rollback handlers for mechanisms that cannot be rolled back.
+    Two mechanisms: command_exec always returns failure because arbitrary commands
+    have no predictable inverse, manual always returns failure because manual
+    remediation requires human intervention.
+  technical_context: >
+    Functions: _rollback_command_exec, _rollback_manual. Registered in
+    ROLLBACK_HANDLERS. Both always return (False, message). These handlers exist
+    for dispatch consistency — _execute_rollback can look them up, but they will
+    only be called if the capture somehow produced capturable=True (which it does
+    not in practice).
+  dependencies:
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/command.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "These handlers are rarely called in practice because capture returns capturable=False."
+    - "They exist as defensive handlers in case dispatch reaches them."
+
+objective:
+  summary: >
+    Provide rollback handler stubs for non-rollbackable mechanisms (command_exec,
+    manual) that always return failure.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_command_exec always returns (False, "Cannot rollback arbitrary
+      commands").
+    AC-2: >
+      _rollback_manual always returns (False, "Nothing to rollback").
+    AC-3: >
+      Neither handler executes any remote commands (ssh and pre_state are unused).
+    AC-4: >
+      Both handlers are registered in ROLLBACK_HANDLERS for dispatch consistency.
+
+constraints:
+  - "MUST always return (False, ...)."
+  - "MUST NOT execute any remote commands."
+  - "MUST be registered in ROLLBACK_HANDLERS for consistent dispatch."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session (unused by these handlers)."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: "Captured pre-state (unused by these handlers)."
+
+behavior:
+  - "1. _rollback_command_exec: return (False, 'Cannot rollback arbitrary commands')."
+  - "2. _rollback_manual: return (False, 'Nothing to rollback')."
+
+output_contract:
+  returns: "tuple[bool, str] — always (False, message)."
+  paths:
+    non_rollbackable:
+      description: "Both mechanisms are non-rollbackable."
+      result: "(False, failure message)."
+  invariants:
+    - "success is always False for both handlers."
+    - "No remote commands are ever executed."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_command_spec.py
+    classes:
+      - TestRollbackCommandSpecDerived
+    count: 4
+  unit:
+    - tests/test_rollback_handlers.py

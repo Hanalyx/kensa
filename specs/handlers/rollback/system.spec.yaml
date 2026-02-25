@@ -1,0 +1,129 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackSystem
+  module: runner.handlers.rollback._system
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    System-related rollback handlers that restore system configuration to
+    pre-remediation state. Six mechanisms: sysctl_set restores runtime value and
+    persist file, kernel_module_disable restores modprobe conf and reloads module,
+    mount_option_set restores fstab line and remounts, grub_parameter_set/remove
+    always fail (non-rollbackable), cron_job restores or removes cron file.
+  technical_context: >
+    Functions: _rollback_sysctl_set, _rollback_kernel_module_disable,
+    _rollback_mount_option_set, _rollback_grub_parameter_set,
+    _rollback_grub_parameter_remove, _rollback_cron_job. Registered in
+    ROLLBACK_HANDLERS. GRUB handlers always return (False, ...) because GRUB
+    changes cannot be safely auto-reversed.
+  dependencies:
+    - "runner.shell_util (quote, write_file, escape_sed)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/system.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "sysctl -w can set runtime kernel parameters."
+    - "modprobe can reload kernel modules."
+    - "mount -o remount applies fstab changes to active mounts."
+
+objective:
+  summary: >
+    Restore system-level configuration (sysctl, kernel modules, mount options,
+    cron) to pre-remediation state using captured PreState data. GRUB changes
+    are explicitly non-rollbackable.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_sysctl_set restores runtime value via sysctl -w when old_value
+      is not None; restores or removes persist file based on persist_existed flag.
+    AC-2: >
+      _rollback_sysctl_set when persist file did not exist before: removes it
+      via rm -f.
+    AC-3: >
+      _rollback_kernel_module_disable restores /etc/modprobe.d/{name}.conf content
+      when it existed, removes it when it didn't; reloads module via modprobe when
+      it was previously loaded.
+    AC-4: >
+      _rollback_mount_option_set restores fstab line via sed and runs mount -o
+      remount; returns (False, ...) when no previous fstab line was captured.
+    AC-5: >
+      _rollback_grub_parameter_set always returns (False, "GRUB changes cannot
+      be automatically rolled back").
+    AC-6: >
+      _rollback_grub_parameter_remove always returns (False, "GRUB changes cannot
+      be automatically rolled back").
+    AC-7: >
+      _rollback_cron_job when file did not exist before: removes it via rm -f;
+      returns (True, "Removed {cron_file}").
+    AC-8: >
+      _rollback_cron_job when file existed and old_content captured: writes
+      old_content back; returns (True, "Restored {cron_file}").
+
+constraints:
+  - "MUST use shell_util.quote for all path and value interpolation."
+  - "MUST always return (False, ...) for GRUB handlers."
+  - "MUST restore both runtime and persist state for sysctl_set."
+  - "MUST remount after fstab restoration for mount_option_set."
+  - "MUST return (False, detail) on failure, never raise exceptions."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: "Captured pre-state from the corresponding system capture handler."
+
+behavior:
+  - "1. _rollback_sysctl_set: if old_value, sysctl -w; if persist_existed, write_file; else rm -f persist file."
+  - "2. _rollback_kernel_module_disable: if conf_existed, write_file; else rm -f; if was_loaded, modprobe."
+  - "3. _rollback_mount_option_set: if no old_fstab_line, return failure; else sed replace and mount -o remount."
+  - "4. _rollback_grub_parameter_set/remove: return (False, non-rollbackable message)."
+  - "5. _rollback_cron_job: if not existed, rm -f; else write_file with old_content."
+
+output_contract:
+  returns: "tuple[bool, str] — (success, human-readable detail message)."
+  paths:
+    sysctl_restored:
+      description: "Sysctl value and persist file restored."
+      result: "(True, 'Restored {key}={old_value}')."
+    module_restored:
+      description: "Kernel module config restored and module reloaded."
+      result: "(True, 'Restored {name} module config')."
+    mount_restored:
+      description: "Fstab line restored and mount remounted."
+      result: "(True, 'Restored {mount_point} options')."
+    grub_non_rollbackable:
+      description: "GRUB changes cannot be rolled back."
+      result: "(False, 'GRUB changes cannot be automatically rolled back')."
+    cron_restored:
+      description: "Cron file restored or removed."
+      result: "(True, detail message)."
+    no_fstab:
+      description: "No previous fstab line captured for mount."
+      result: "(False, '{mount_point}: no previous fstab line captured')."
+  invariants:
+    - "GRUB handlers always return (False, ...)."
+    - "Non-GRUB handlers return (True, ...) on success."
+    - "Never raises exceptions."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_system_spec.py
+    classes:
+      - TestRollbackSystemSpecDerived
+    count: 10
+  unit:
+    - tests/test_rollback_handlers.py

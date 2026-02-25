@@ -1,0 +1,129 @@
+kind: InternalModule
+
+metadata:
+  name: CaptureConfig
+  module: runner.handlers.capture._config
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Config-related capture handlers that snapshot pre-remediation state of
+    configuration files. Four mechanisms: config_set captures the current config
+    line before modification, config_set_dropin captures drop-in file content
+    before modification, config_remove captures config lines before removal,
+    config_block captures entire file content before managed block insertion.
+  technical_context: >
+    Functions: _capture_config_set, _capture_config_set_dropin, _capture_config_remove,
+    _capture_config_block. All registered in CAPTURE_HANDLERS in
+    runner.handlers.capture.__init__. Each returns a PreState dataclass with
+    mechanism name, data dict, and capturable=True (default).
+  dependencies:
+    - "runner.shell_util (grep_config_key, escape_grep_bre, quote, file_exists, read_file)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/config.spec.yaml"
+    - "specs/handlers/remediation/config_set.spec.yaml"
+    - "specs/handlers/remediation/config_set_dropin.spec.yaml"
+    - "specs/handlers/remediation/config_remove.spec.yaml"
+    - "specs/handlers/remediation/config_block.spec.yaml"
+  assumptions:
+    - "Remediation dict contains required keys (path, key for config_set/config_remove; dir, file for config_set_dropin; path for config_block)."
+    - "grep_config_key returns the last matching line from the config file."
+
+objective:
+  summary: >
+    Capture the current state of configuration files before remediation so that
+    changes can be rolled back from stored pre-state snapshots.
+  acceptance_criteria:
+    AC-1: >
+      _capture_config_set captures the current config line for the given key;
+      data contains path, key, old_line (str or None), existed (bool), and
+      optional reload/restart service names.
+    AC-2: >
+      _capture_config_set when key does not exist in the file: old_line is None
+      and existed is False.
+    AC-3: >
+      _capture_config_set_dropin captures drop-in file content at dir/file path;
+      data contains path (full), old_content (str or None), existed (bool), and
+      optional reload/restart.
+    AC-4: >
+      _capture_config_set_dropin when file does not exist: old_content is None
+      and existed is False.
+    AC-5: >
+      _capture_config_remove captures all lines matching the key pattern (not just
+      the last line); data contains path, key, old_lines (str or None), existed
+      (bool), and optional reload/restart.
+    AC-6: >
+      _capture_config_block captures entire file content before managed block
+      insertion; data contains path, existed, old_content, block_existed (whether
+      the marker block already exists), marker, and optional reload/restart.
+    AC-7: >
+      All config capture handlers return PreState with capturable=True (default).
+    AC-8: >
+      All handlers preserve reload/restart keys from the remediation dict into
+      the captured PreState data for rollback service restart.
+
+constraints:
+  - "MUST use shell_util.grep_config_key for safe config key lookup."
+  - "MUST use shell_util.quote for all path interpolation in commands."
+  - "MUST set existed=False when key or file does not exist."
+  - "MUST preserve reload/restart service names in captured data."
+  - "MUST NOT modify the remote host (read-only capture)."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: r
+    type: dict
+    required: true
+    description: >
+      Remediation definition dict. Required keys vary by mechanism:
+      config_set/config_remove require 'path' and 'key';
+      config_set_dropin requires 'dir' and 'file';
+      config_block requires 'path' with optional 'marker'.
+
+behavior:
+  - "1. _capture_config_set: grep for key in path via shell_util.grep_config_key; store last matching line as old_line."
+  - "2. _capture_config_set_dropin: check if dir/file exists; if so, read full content via shell_util.read_file."
+  - "3. _capture_config_remove: grep for all lines matching key pattern (not limited to last line); store as old_lines."
+  - "4. _capture_config_block: check file existence; read full content; check for marker block presence via grep -qF."
+  - "5. All handlers construct PreState with mechanism name, captured data dict, and default capturable=True."
+
+output_contract:
+  returns: "PreState with mechanism name and captured data dict."
+  paths:
+    key_exists:
+      description: "Config key found in the file."
+      result: "PreState with existed=True and old_line/old_lines populated."
+    key_absent:
+      description: "Config key not found in the file."
+      result: "PreState with existed=False and old_line/old_lines=None."
+    file_exists:
+      description: "Drop-in or config file exists."
+      result: "PreState with existed=True and old_content populated."
+    file_absent:
+      description: "Drop-in or config file does not exist."
+      result: "PreState with existed=False and old_content=None."
+  invariants:
+    - "All returned PreState objects have capturable=True."
+    - "Mechanism name in PreState matches the remediation mechanism."
+    - "Remote host is never modified during capture."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_config_spec.py
+    classes:
+      - TestCaptureConfigSpecDerived
+    count: 10
+  unit:
+    - tests/test_capture_handlers.py

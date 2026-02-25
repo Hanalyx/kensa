@@ -1,0 +1,146 @@
+kind: CheckHandler
+metadata:
+  name: PamModule
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Checks that a PAM module is configured in a service's PAM stack
+    with optional type, control, and argument constraints.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check via
+    CHECK_HANDLERS["pam_module"]. Implemented in
+    runner/handlers/checks/_security.py as _check_pam_module.
+    First checks file existence via shell_util.file_exists(), then uses
+    grep to find lines containing the module name. Each matching line is
+    parsed: parts[0] is type (with leading '-' stripped), parts[1] is
+    control, parts[2] is module path, parts[3:] are arguments. Lines
+    starting with '#' are skipped. All optional criteria (type, control,
+    args) must match for a line to be accepted.
+  dependencies:
+    - runner.shell_util.quote
+    - runner.shell_util.file_exists
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+  related_specs:
+    - selinux_state.spec.yaml
+    - selinux_boolean.spec.yaml
+
+objective:
+  summary: >
+    Check whether a PAM module is present in a service's PAM configuration
+    file on a remote host with the expected type, control, and arguments,
+    and return a CheckResult with structured Evidence.
+  acceptance_criteria:
+    AC-1: "Module found matching all specified criteria returns passed=True with detail '{type} {control} {module}' optionally followed by '({args[:50]})'."
+    AC-2: "Module not found in PAM file returns passed=False with detail '{module} not found in {pam_file}'."
+    AC-3: "PAM file does not exist returns passed=False with detail '{pam_file}: not found'."
+    AC-4: "Module found but type mismatch causes that line to be skipped; if no lines match, returns passed=False."
+    AC-5: "Module found but control mismatch causes that line to be skipped; if no lines match, returns passed=False."
+    AC-6: "Module found but args substring not present causes that line to be skipped; if no lines match, returns passed=False."
+    AC-7: "Evidence method is always 'pam_module'."
+    AC-8: "Criteria mismatch detail includes the specific criteria that were not found (type, control, args)."
+
+constraints:
+  - "MUST read service and module as required keys (KeyError if absent)."
+  - "MUST check file existence via shell_util.file_exists() before running grep."
+  - "MUST use shell_util.quote() on the module name and PAM file path."
+  - "MUST skip comment lines (starting with '#')."
+  - "MUST skip lines with fewer than 3 whitespace-separated parts."
+  - "MUST strip leading '-' from the type field when parsing PAM lines."
+  - "MUST use substring match for the module name in parsed lines (module in line_module)."
+  - "MUST use substring match for args (expected_args in line_args)."
+  - "MUST truncate args display to 50 characters in the pass detail with '...' suffix."
+  - "MUST set evidence.method to 'pam_module' in all paths."
+
+input_contract:
+  - field: service
+    type: str
+    required: true
+    description: PAM service name (maps to /etc/pam.d/{service}).
+  - field: module
+    type: str
+    required: true
+    description: "PAM module name (e.g., 'pam_pwquality.so', 'pam_faillock.so')."
+  - field: type
+    type: str
+    required: false
+    description: "PAM type to match (e.g., 'auth', 'password', 'session', 'account')."
+  - field: control
+    type: str
+    required: false
+    description: "Expected control value (e.g., 'required', 'requisite', 'sufficient')."
+  - field: args
+    type: str
+    required: false
+    description: "Expected argument substring to match in the module's arguments."
+
+behavior:
+  - "Read service and module from c (required keys)."
+  - "Read optional type, control, args from c.get()."
+  - "Capture check_time as datetime.now(timezone.utc)."
+  - "Build pam_file path: /etc/pam.d/{service}."
+  - >
+    Check file existence via shell_util.file_exists(ssh, pam_file). If not
+    found, return FAIL with detail '{pam_file}: not found' and
+    evidence.command='test -e {pam_file}'.
+  - >
+    Build grep command to search for the module in the PAM file. Execute
+    via SSH.
+  - >
+    If grep fails or stdout is empty: return FAIL with detail '{module} not
+    found in {pam_file}'.
+  - "Build expected_str from criteria: 'module={module}' plus optional 'type=', 'control=', 'args contains' parts."
+  - >
+    Iterate over non-comment lines with 3+ parts. For each line: extract
+    type (strip leading '-'), control, module path, and args. Skip if
+    module not in line_module, or if any specified criteria (type, control,
+    args) don't match. On first full match, return PASS with detail
+    '{type} {control} {module}' optionally followed by truncated args.
+  - >
+    If no lines match criteria: return FAIL with detail listing the
+    unmatched criteria and evidence.actual='no matching configuration'.
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "'{type} {control} {module}' optionally '({args[:50]})'"
+    fail_not_found:
+      passed: false
+      detail: "'{module} not found in {pam_file}'"
+    fail_file_missing:
+      passed: false
+      detail: "'{pam_file}: not found'"
+    fail_criteria_mismatch:
+      passed: false
+      detail: "'{module} in {pam_file}: type={type} control={control} args containing {args} not found'"
+  evidence_fields:
+    method: "pam_module"
+    command: "grep command for module search, or 'test -e {pam_file}' for file check"
+    stdout: Full raw stdout from grep
+    stderr: Full raw stderr
+    exit_code: "Actual exit code, or 1 for file-not-found path"
+    expected: "Comma-joined criteria string (module=, type=, control=, args contains)"
+    actual: "Matching PAM line on pass, 'not found' or 'file not found' or 'no matching configuration' on fail"
+    timestamp: UTC time captured before command execution
+  invariants:
+    - "Evidence is always populated in all code paths."
+    - "evidence.method is always 'pam_module'."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestPamModule
+      - TestPamModuleSpecDerived
+    count: 8

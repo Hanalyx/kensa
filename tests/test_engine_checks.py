@@ -2425,6 +2425,596 @@ class TestConfigValueSpecDerived:
         assert "not found" in r.detail
 
 
+class TestFileExistsSpecDerived:
+    """Spec-derived gap tests for file_exists handler.
+
+    See specs/handlers/checks/file_exists.spec.yaml for full specification.
+    """
+
+    def test_ac1_file_exists_returns_pass(self, mock_ssh):
+        """AC-1: File exists returns pass."""
+        ssh = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac2_file_not_found_returns_fail(self, mock_ssh):
+        """AC-2: File missing returns fail."""
+        ssh = mock_ssh({"test -e": Result(exit_code=1, stdout="", stderr="")})
+        check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_ac3_evidence_method(self, mock_ssh):
+        """AC-3: Evidence method is file_exists."""
+        ssh = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "file_exists"
+
+    def test_ac4_evidence_command(self, mock_ssh):
+        """AC-4: Evidence command contains test -e."""
+        ssh = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert "test -e" in r.evidence.command
+
+    def test_ac5_detail_format_pass(self, mock_ssh):
+        """AC-5: Detail on pass is '{path}: exists'."""
+        path = "/var/lib/aide/aide.db.gz"
+        ssh = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "file_exists", "path": path}
+        r = run_check(ssh, check)
+        assert r.detail == f"{path}: exists"
+
+    def test_ac6_evidence_timestamp(self, mock_ssh):
+        """AC-6: Evidence timestamp is a UTC datetime."""
+        ssh = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "file_exists", "path": "/var/lib/aide/aide.db.gz"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert isinstance(r.evidence.timestamp, datetime)
+        assert r.evidence.timestamp.tzinfo == timezone.utc
+
+
+class TestFileNotExistsSpecDerived:
+    """Spec-derived gap tests for file_not_exists handler.
+
+    See specs/handlers/checks/file_not_exists.spec.yaml for full specification.
+    """
+
+    def test_ac1_file_absent_returns_pass(self, mock_ssh):
+        """AC-1: File absent returns pass."""
+        ssh = mock_ssh({"test -e": Result(exit_code=1, stdout="", stderr="")})
+        check = {"method": "file_not_exists", "path": "/etc/cron.deny"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac2_file_present_returns_fail(self, mock_ssh):
+        """AC-2: File exists returns fail."""
+        ssh = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "file_not_exists", "path": "/etc/cron.deny"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_ac3_evidence_method(self, mock_ssh):
+        """AC-3: Evidence method is file_not_exists."""
+        ssh = mock_ssh({"test -e": Result(exit_code=1, stdout="", stderr="")})
+        check = {"method": "file_not_exists", "path": "/etc/cron.deny"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "file_not_exists"
+
+    def test_ac4_detail_format(self, mock_ssh):
+        """AC-4: Detail contains expected strings on pass and fail."""
+        path = "/etc/cron.deny"
+        ssh_pass = mock_ssh({"test -e": Result(exit_code=1, stdout="", stderr="")})
+        r = run_check(ssh_pass, {"method": "file_not_exists", "path": path})
+        assert "not present (as required)" in r.detail
+
+        ssh_fail = mock_ssh({"test -e": Result(exit_code=0, stdout="", stderr="")})
+        r = run_check(ssh_fail, {"method": "file_not_exists", "path": path})
+        assert "should be absent" in r.detail
+
+    def test_ac5_evidence_expected(self, mock_ssh):
+        """AC-5: Evidence expected is 'absent'."""
+        ssh = mock_ssh({"test -e": Result(exit_code=1, stdout="", stderr="")})
+        check = {"method": "file_not_exists", "path": "/etc/cron.deny"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected == "absent"
+
+
+class TestFileContentSpecDerived:
+    """Spec-derived gap tests for file_content handler.
+
+    See specs/handlers/checks/file_content.spec.yaml for full specification.
+    """
+
+    def test_ac1_content_matches(self, mock_ssh):
+        """AC-1: Exact content match returns pass."""
+        banner = "Authorized uses only."
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout=banner, stderr="")})
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac2_content_mismatch(self, mock_ssh):
+        """AC-2: Different content returns fail."""
+        ssh = mock_ssh(
+            {"cat": Result(exit_code=0, stdout="Old banner text.", stderr="")}
+        )
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": "New consent warning.",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_ac3_file_not_readable(self, mock_ssh):
+        """AC-3: Non-zero exit code returns fail with 'not found or not readable'."""
+        ssh = mock_ssh({"cat": Result(exit_code=1, stdout="", stderr="No such file")})
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": "Banner text",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found or not readable" in r.detail
+
+    def test_ac4_evidence_method(self, mock_ssh):
+        """AC-4: Evidence method is file_content."""
+        banner = "Authorized uses only."
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout=banner, stderr="")})
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "file_content"
+
+    def test_ac5_content_stripped(self, mock_ssh):
+        """AC-5: Trailing/leading whitespace stripped before comparison."""
+        ssh = mock_ssh(
+            {"cat": Result(exit_code=0, stdout="  Banner text  \n", stderr="")}
+        )
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": "  Banner text  \n",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac6_detail_pass_format(self, mock_ssh):
+        """AC-6: Detail on pass is '{path}: content matches expected'."""
+        path = "/etc/issue"
+        banner = "Authorized uses only."
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout=banner, stderr="")})
+        check = {
+            "method": "file_content",
+            "path": path,
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.detail == f"{path}: content matches expected"
+
+    def test_ac7_detail_fail_format(self, mock_ssh):
+        """AC-7: Detail on fail is '{path}: content does not match expected'."""
+        path = "/etc/issue"
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout="wrong content", stderr="")})
+        check = {
+            "method": "file_content",
+            "path": path,
+            "expected_content": "expected content",
+        }
+        r = run_check(ssh, check)
+        assert r.detail == f"{path}: content does not match expected"
+
+    def test_ac8_evidence_expected(self, mock_ssh):
+        """AC-8: Evidence expected is the expected content (stripped)."""
+        banner = "  Authorized uses only.  "
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout=banner.strip(), stderr="")})
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected == banner.strip()
+
+    def test_ac9_evidence_command(self, mock_ssh):
+        """AC-9: Evidence command contains 'cat'."""
+        banner = "Authorized uses only."
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout=banner, stderr="")})
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert "cat" in r.evidence.command
+
+    def test_ac10_evidence_timestamp(self, mock_ssh):
+        """AC-10: Evidence timestamp is a UTC datetime."""
+        banner = "Authorized uses only."
+        ssh = mock_ssh({"cat": Result(exit_code=0, stdout=banner, stderr="")})
+        check = {
+            "method": "file_content",
+            "path": "/etc/issue",
+            "expected_content": banner,
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert isinstance(r.evidence.timestamp, datetime)
+        assert r.evidence.timestamp.tzinfo == timezone.utc
+
+
+class TestFileContentMatchSpecDerived:
+    """Spec-derived gap tests for file_content_match handler.
+
+    See specs/handlers/checks/file_content_match.spec.yaml for full specification.
+    """
+
+    def test_ac1_pattern_found(self, mock_ssh):
+        """AC-1: Grep succeeds returns pass."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac2_pattern_not_found(self, mock_ssh):
+        """AC-2: Grep fails returns fail."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_ac3_file_not_found(self, mock_ssh):
+        """AC-3: File missing returns fail with 'not found' in detail."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/nonexistent",
+            "pattern": "anything",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+    def test_ac4_evidence_method(self, mock_ssh):
+        """AC-4: Evidence method is file_content_match."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "file_content_match"
+
+    def test_ac5_evidence_expected_includes_pattern(self, mock_ssh):
+        """AC-5: Evidence expected includes the pattern."""
+        pattern = "^ENCRYPT_METHOD\\s+SHA512"
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": pattern,
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert pattern in r.evidence.expected
+
+    def test_ac6_evidence_actual_found(self, mock_ssh):
+        """AC-6: Evidence actual is 'pattern found' on pass."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.actual == "pattern found"
+
+    def test_ac7_evidence_actual_not_found(self, mock_ssh):
+        """AC-7: Evidence actual is 'pattern not found' on fail."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.actual == "pattern not found"
+
+    def test_ac8_uses_grep_qe(self, mock_ssh):
+        """AC-8: Evidence command contains 'grep -qE' when file exists."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_match",
+            "path": "/etc/login.defs",
+            "pattern": "^ENCRYPT_METHOD\\s+SHA512",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert "grep -qE" in r.evidence.command
+
+
+class TestFileContentNoMatchSpecDerived:
+    """Spec-derived gap tests for file_content_no_match handler.
+
+    See specs/handlers/checks/file_content_no_match.spec.yaml for full specification.
+    """
+
+    def test_ac1_file_absent_passes(self, mock_ssh):
+        """AC-1: File missing returns pass."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/nonexistent",
+            "pattern": "anything",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac2_pattern_not_found_passes(self, mock_ssh):
+        """AC-2: Pattern absent returns pass."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/etc/issue",
+            "pattern": "\\\\[vrmns]",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac3_pattern_found_fails(self, mock_ssh):
+        """AC-3: Pattern present returns fail."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/etc/issue",
+            "pattern": "\\\\[vrmns]",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_ac4_evidence_method(self, mock_ssh):
+        """AC-4: Evidence method is file_content_no_match."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/etc/issue",
+            "pattern": "\\\\[vrmns]",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "file_content_no_match"
+
+    def test_ac5_file_missing_detail(self, mock_ssh):
+        """AC-5: Detail on file missing contains expected string."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/nonexistent",
+            "pattern": "anything",
+        }
+        r = run_check(ssh, check)
+        assert "not found (pattern cannot exist)" in r.detail
+
+    def test_ac6_detail_format_fail(self, mock_ssh):
+        """AC-6: Detail on fail contains 'contains prohibited pattern'."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -qE": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_content_no_match",
+            "path": "/etc/issue",
+            "pattern": "\\\\[vrmns]",
+        }
+        r = run_check(ssh, check)
+        assert "contains prohibited pattern" in r.detail
+
+
+class TestConfigAbsentSpecDerived:
+    """Spec-derived gap tests for config_absent handler.
+
+    See specs/handlers/checks/config_absent.spec.yaml for full specification.
+    """
+
+    def test_ac1_key_absent_passes(self, mock_ssh):
+        """AC-1: Key not found returns pass."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_ac2_key_found_fails(self, mock_ssh):
+        """AC-2: Key found returns fail."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0, stdout="PermitEmptyPasswords yes", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_ac3_evidence_method(self, mock_ssh):
+        """AC-3: Evidence method is config_absent."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "config_absent"
+
+    def test_ac4_detail_format_pass(self, mock_ssh):
+        """AC-4: Detail on pass contains 'not found in' and '(as required)'."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert "not found in" in r.detail
+        assert "(as required)" in r.detail
+
+    def test_ac5_detail_format_fail(self, mock_ssh):
+        """AC-5: Detail on fail contains 'should be absent'."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0, stdout="PermitEmptyPasswords yes", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert "should be absent" in r.detail
+
+    def test_ac6_evidence_expected_null(self, mock_ssh):
+        """AC-6: Evidence expected is None on pass path."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_absent",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitEmptyPasswords",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected is None
+
+
 class TestUnknownMethod:
     def test_unknown_check_method(self, mock_ssh):
         ssh = mock_ssh({})

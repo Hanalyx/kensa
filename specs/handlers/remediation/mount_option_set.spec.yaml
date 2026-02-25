@@ -1,0 +1,116 @@
+kind: RemediationHandler
+metadata:
+  name: MountOptionSet
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Adds mount options to a filesystem's fstab entry and remounts the
+    filesystem to apply the changes immediately. Merges new options with
+    existing options, preserving any options already present.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["mount_option_set"]. Implemented in
+    runner/handlers/remediation/_system.py as _remediate_mount_option_set.
+  dependencies:
+    - runner.shell_util.quote
+    - runner.shell_util.escape_sed
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Add mount options to a filesystem entry in /etc/fstab and remount the
+    filesystem to apply the changes. Merges the specified options into the
+    existing option set. In dry-run mode, describe the intended changes.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, returns (True, "Would add
+      options {options} to {mount_point} in fstab and remount") and no SSH
+      commands are executed.
+    AC-2: >
+      Mount point not in fstab: When grep does not find the mount point in
+      /etc/fstab, returns (False, "{mount_point}: not found in /etc/fstab").
+    AC-3: >
+      Invalid fstab line: When the fstab line has fewer than 4 fields, returns
+      (False, "Invalid fstab line for {mount_point}").
+    AC-4: >
+      Option merging: The handler merges new options into the existing comma-
+      separated option set. Existing options are preserved; duplicates are
+      deduplicated via set union.
+    AC-5: >
+      Options sorted: The merged options are sorted alphabetically before being
+      written back to fstab.
+    AC-6: >
+      Sed update success + remount success: When both sed and remount succeed,
+      returns (True, "Added options {options} to {mount_point}").
+    AC-7: >
+      Sed update failure: When the sed command fails, returns (False, "Failed
+      to update fstab: {stderr}") and does not attempt remount.
+    AC-8: >
+      Remount failure: When sed succeeds but remount fails, returns (False,
+      "Remount failed: {stderr}").
+    AC-9: >
+      Shell escaping: Mount point and new option string are passed through
+      shell_util.escape_sed() for safe sed interpolation.
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - The handler modifies /etc/fstab in-place via sed; a backup is not created.
+  - The handler does not verify the mount point exists as a directory on the filesystem.
+  - The handler does not validate that the specified options are valid mount options.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "mount_option_set" (used by dispatch, not by handler directly)
+  - field: mount_point
+    type: str
+    required: true
+    description: Mount point path (e.g., "/tmp", "/var/log")
+  - field: options
+    type: "list[str]"
+    required: true
+    description: List of mount options to add (e.g., ["noexec", "nosuid", "nodev"])
+
+behavior:
+  - "Extract fields: Read mount_point and options from the remediation dict."
+  - "Dry-run check: If dry_run=True, return (True, \"Would add options {options} to {mount_point} in fstab and remount\") immediately."
+  - "Find fstab entry: Execute grep to find the line in /etc/fstab containing the mount point. If grep fails, return (False, \"{mount_point}: not found in /etc/fstab\")."
+  - "Parse fstab line: Split the fstab line by whitespace. If fewer than 4 fields, return (False, \"Invalid fstab line for {mount_point}\")."
+  - "Merge options: Extract existing options from the 4th field (comma-separated into a set). Add each new option from the options list to the set."
+  - "Sort and join: Join the merged set of options with commas, sorted alphabetically."
+  - "Update fstab via sed: Construct a sed -i command to replace the options field in the fstab line. Use shell_util.escape_sed() for the mount point and new options string."
+  - "Check sed result: If sed fails, return (False, \"Failed to update fstab: {stderr}\"). Do not attempt remount."
+  - "Remount: Execute mount -o remount {quoted_mount_point} via SSH."
+  - "Check remount result: If remount fails, return (False, \"Remount failed: {stderr}\")."
+  - "Success return: Return (True, \"Added options {options} to {mount_point}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would add options {options} to {mount_point} in fstab and remount\""
+    - "Not in fstab: \"{mount_point}: not found in /etc/fstab\""
+    - "Invalid fstab: \"Invalid fstab line for {mount_point}\""
+    - "Success: \"Added options {options} to {mount_point}\""
+    - "Sed failure: \"Failed to update fstab: {stderr}\""
+    - "Remount failure: \"Remount failed: {stderr}\""
+
+side_effects:
+  - "Modifies /etc/fstab in-place to add mount options via sed."
+  - "Remounts the filesystem to apply changes immediately."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestMountOptionSetSpecDerived
+    count: 13

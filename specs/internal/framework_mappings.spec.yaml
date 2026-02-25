@@ -1,0 +1,182 @@
+kind: InternalModule
+
+metadata:
+  name: FrameworkMappings
+  module: runner.mappings
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Framework mapping layer that associates compliance rules with framework
+    identifiers (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP). Loads mapping
+    YAML files that define controls with rule lists, tracks completeness via
+    control_ids manifests and unimplemented sections, and provides cross-reference
+    indexing for fast rule-to-framework and control-to-rule lookups.
+  technical_context: >
+    Primary classes: FrameworkMapping (single mapping file with sections, unimplemented,
+    controls manifest, is_complete property), FrameworkIndex (cross-reference index
+    built from all mappings with query_by_rule and query_by_control methods).
+    Key functions: load_mapping(path) -> FrameworkMapping, load_all_mappings(dir) ->
+    dict[str, FrameworkMapping], rules_for_framework(mapping, rules) -> list[dict],
+    check_coverage(mapping, available_rules) -> CoverageReport,
+    build_rule_to_section_map(mapping) -> dict[str, str],
+    order_results_by_section(results, rule_to_section) -> list.
+  dependencies:
+    - "yaml (PyYAML)"
+    - "runner.paths (get_mappings_path)"
+  callers:
+    - "runner.cli (coverage, check --framework, list-frameworks)"
+    - "runner.ordering (framework-ordered output via order_results_by_section)"
+    - "runner.rule_info (search_rules_by_reference)"
+  related_specs:
+    - "specs/cli/coverage.spec.yaml"
+    - "specs/cli/list_frameworks.spec.yaml"
+    - "specs/cli/check.spec.yaml"
+    - "specs/internal/rule_ordering.spec.yaml"
+  assumptions:
+    - "All mapping YAML files use controls: as the top-level key for control entries."
+    - "Each control entry uses rules: [list] format, even for single-rule entries."
+    - "YAML files use safe_load only."
+
+objective:
+  summary: >
+    Load framework mapping YAML files, track control completeness, and provide
+    fast cross-reference lookups between rules and framework controls.
+  acceptance_criteria:
+    AC-1: >
+      load_mapping reads a YAML file and returns a FrameworkMapping with id,
+      framework, title, published date, platform constraint, sections, and
+      unimplemented entries.
+    AC-2: >
+      Controls are parsed from the controls: top-level key; each entry
+      produces a MappingEntry with rule_id, title, and metadata containing
+      the rules list.
+    AC-3: >
+      Unimplemented sections are parsed into UnimplementedEntry objects with
+      title, reason, and entry_type fields.
+    AC-4: >
+      control_ids manifest populates FrameworkMapping.controls as a list of
+      strings; when present, is_complete returns True only when all control_ids
+      are accounted for in sections or unimplemented.
+    AC-5: >
+      When no control_ids manifest is present (empty list), is_complete
+      returns True (cannot determine completeness without manifest).
+    AC-6: >
+      unaccounted_controls returns the ordered list of control IDs from the
+      manifest that have no corresponding section or unimplemented entry.
+    AC-7: >
+      load_all_mappings discovers all .yaml and .yml files recursively under
+      the mappings directory and returns a dict keyed by mapping.id.
+    AC-8: >
+      get_applicable_mappings filters mappings by platform family and version,
+      including mappings with no platform constraint (applies to all).
+    AC-9: >
+      rules_for_framework filters a rule list to only those whose id appears
+      in the mapping's rule_ids set (derived from all sections' rules lists).
+    AC-10: >
+      check_coverage returns a CoverageReport with implemented count,
+      unimplemented count, unaccounted controls, and missing_rules (rule IDs
+      referenced in mapping but absent from available_rules set).
+    AC-11: >
+      FrameworkIndex.build constructs rules_to_frameworks and controls_to_rules
+      indexes from all loaded mappings; query_by_rule returns FrameworkReference
+      objects, query_by_control returns rule_id lists.
+    AC-12: >
+      query_by_control supports both exact match and prefix_match mode
+      (e.g., "5.1" matches "5.1.1", "5.1.2") across single or all mappings.
+
+constraints:
+  - "MUST parse controls from controls: top-level key only."
+  - "MUST use rules: [list] format for all control entries."
+  - "MUST use yaml.safe_load for all YAML parsing."
+  - "MUST skip malformed YAML files without crashing in load_all_mappings."
+  - "MUST normalize control_ids to strings."
+  - "MUST NOT modify input rule lists in rules_for_framework."
+
+input_contract:
+  - field: path
+    type: "str | Path"
+    required: true
+    description: >
+      Path to a single mapping YAML file (for load_mapping) or directory
+      (for load_all_mappings).
+  - field: mapping
+    type: FrameworkMapping
+    required: true
+    description: >
+      Loaded FrameworkMapping object (for rules_for_framework, check_coverage,
+      build_rule_to_section_map).
+  - field: rules
+    type: "list[dict]"
+    required: false
+    description: >
+      List of rule dicts to filter by framework (for rules_for_framework).
+  - field: available_rules
+    type: "set[str]"
+    required: false
+    description: >
+      Set of available rule IDs (for check_coverage).
+  - field: mappings
+    type: "dict[str, FrameworkMapping]"
+    required: false
+    description: >
+      Dict of all loaded mappings (for FrameworkIndex.build, get_applicable_mappings).
+
+behavior:
+  - "1. load_mapping reads YAML file with safe_load, validates it is a dict."
+  - "2. Parses published date from string or date object."
+  - "3. Parses platform constraint (family, min_version, max_version) if present."
+  - "4. Parses controls: entries into MappingEntry objects with rules list in metadata."
+  - "5. Parses unimplemented: entries into UnimplementedEntry objects."
+  - "6. Normalizes control_ids manifest to list of strings."
+  - "7. Returns populated FrameworkMapping with all computed properties available."
+  - "8. load_all_mappings recursively globs .yaml and .yml, skips malformed files."
+  - "9. FrameworkIndex.build iterates all mappings/sections building two indexes: rules_to_frameworks and controls_to_rules."
+  - "10. query_by_rule looks up rule_id in rules_to_frameworks index."
+  - "11. query_by_control supports exact and prefix matching with optional mapping_id scoping."
+  - "12. check_coverage compares mapping sections against available_rules set to compute CoverageReport."
+
+output_contract:
+  returns: >
+    load_mapping -> FrameworkMapping; load_all_mappings -> dict[str, FrameworkMapping];
+    rules_for_framework -> list[dict]; check_coverage -> CoverageReport;
+    FrameworkIndex.build -> FrameworkIndex; query_by_rule -> list[FrameworkReference];
+    query_by_control -> list[str].
+  paths:
+    mapping_loaded:
+      description: "Valid mapping YAML file parsed successfully."
+      result: "Populated FrameworkMapping with sections, unimplemented, and controls."
+    file_not_found:
+      description: "Mapping file does not exist."
+      result: "FileNotFoundError raised."
+    invalid_yaml:
+      description: "YAML parsing fails."
+      result: "yaml.YAMLError raised (load_mapping); silently skipped (load_all_mappings)."
+    coverage_with_manifest:
+      description: "Mapping has control_ids manifest."
+      result: "CoverageReport with total from manifest and unaccounted list."
+    coverage_without_manifest:
+      description: "Mapping has no control_ids manifest."
+      result: "CoverageReport total = sections + unimplemented; unaccounted empty."
+  invariants:
+    - "Input rule lists are never mutated."
+    - "Mapping IDs are always strings."
+    - "is_complete is True when all control_ids are in sections or unimplemented."
+
+side_effects:
+  - "Reads YAML files from filesystem."
+  - "No writes or network access."
+
+testing:
+  spec_derived:
+    file: tests/test_framework_mappings_spec.py
+    classes:
+      - TestFrameworkMappingsSpecDerived
+    count: 13
+  unit:
+    - tests/test_mappings.py

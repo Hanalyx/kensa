@@ -1,0 +1,91 @@
+kind: RemediationHandler
+metadata:
+  name: Manual
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Indicates that a rule requires manual remediation that cannot be automated.
+    Always returns failure with a descriptive note explaining the manual steps
+    needed. This handler exists to provide a consistent interface for rules
+    that cannot be remediated automatically, ensuring they appear in
+    remediation reports with clear guidance.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["manual"]. Implemented in
+    runner/handlers/remediation/_command.py as _remediate_manual. This is a
+    non-capturable mechanism: pre-state capture always returns None because
+    there is no automated state change to snapshot.
+  dependencies: []
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/command_exec.spec.yaml
+
+objective:
+  summary: >
+    Signal that automated remediation is not possible for a rule. Always return
+    failure with a descriptive note explaining the manual steps required. The
+    SSH session and dry_run flag are accepted for interface consistency but are
+    not used.
+  acceptance_criteria:
+    AC-1: >
+      Always returns failure: The handler always returns (False, "MANUAL:
+      {note}") regardless of any input parameters.
+    AC-2: >
+      Default note: When note is not provided, returns (False, "MANUAL: Manual
+      remediation required").
+    AC-3: >
+      Custom note: When note is provided, returns (False, "MANUAL: {note}")
+      with the specified note.
+    AC-4: >
+      Dry-run ignored: The dry_run parameter has no effect; the handler always
+      returns the same result in both dry-run and normal mode.
+    AC-5: >
+      SSH unused: The SSH session is not used; no remote commands are executed.
+    AC-6: >
+      Non-capturable: This mechanism is explicitly non-capturable; pre-state
+      capture always returns None.
+
+constraints:
+  - 'MUST always return (False, "MANUAL: {note}") regardless of dry_run mode.'
+  - MUST NOT execute any remote commands.
+  - "MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller."
+  - The first element of the return tuple is always False; this is by design to indicate remediation was not performed.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "manual" (used by dispatch, not by handler directly)
+  - field: note
+    type: str
+    required: false
+    default: Manual remediation required
+    description: Description of the manual steps needed for remediation
+
+behavior:
+  - "Extract fields: Read note from the remediation dict with default \"Manual remediation required\"."
+  - "Return failure: Return (False, \"MANUAL: {note}\") unconditionally."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Default: \"MANUAL: Manual remediation required\""
+    - "Custom: \"MANUAL: {note}\""
+
+side_effects:
+  - "None. No remote commands are executed and no state is modified."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestManualSpecDerived
+    count: 5
