@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from runner.engine import run_check
 from runner.ssh import Result
 
@@ -115,6 +117,7 @@ class TestConfigValue:
 
 class TestFilePermission:
     def test_correct_permissions(self, mock_ssh):
+        """AC-1, AC-10: All attributes match (including mode 0000 -> 0 normalization) -> PASS."""
         ssh = mock_ssh(
             {
                 "stat": Result(
@@ -133,6 +136,7 @@ class TestFilePermission:
         assert r.passed is True
 
     def test_wrong_owner(self, mock_ssh):
+        """AC-2: Wrong owner -> FAIL with 'owner={actual}' in detail."""
         ssh = mock_ssh(
             {
                 "stat": Result(
@@ -152,6 +156,7 @@ class TestFilePermission:
         assert "owner=nobody" in r.detail
 
     def test_wrong_mode(self, mock_ssh):
+        """AC-3: Wrong mode -> FAIL with 'mode={actual}' in detail."""
         ssh = mock_ssh(
             {
                 "stat": Result(
@@ -171,6 +176,7 @@ class TestFilePermission:
         assert "mode=644" in r.detail
 
     def test_file_not_found(self, mock_ssh):
+        """AC-4, AC-8: File not found -> FAIL, evidence.actual is None."""
         ssh = mock_ssh(
             {
                 "stat": Result(exit_code=1, stdout="", stderr="No such file"),
@@ -182,6 +188,7 @@ class TestFilePermission:
         assert "not found" in r.detail
 
     def test_glob_path_multiple_files(self, mock_ssh):
+        """AC-5: Glob path, all files pass -> PASS."""
         ssh = mock_ssh(
             {
                 "stat": Result(
@@ -203,6 +210,7 @@ class TestFilePermission:
         assert r.passed is True
 
     def test_glob_path_partial_failure(self, mock_ssh):
+        """AC-6: Glob path, some files fail -> FAIL with failing file in detail."""
         ssh = mock_ssh(
             {
                 "stat": Result(
@@ -225,8 +233,273 @@ class TestFilePermission:
         assert "ssh_host_rsa_key" in r.detail
 
 
+class TestFilePermissionSpecDerived:
+    """Spec-derived gap tests for file_permission handler.
+
+    See specs/handlers/checks/file_permission.spec.md for full specification.
+    """
+
+    def test_evidence_fields_populated_on_pass(self, mock_ssh):
+        """AC-7: Evidence fields fully populated on successful check."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root root 644 /etc/passwd", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/passwd",
+            "owner": "root",
+            "group": "root",
+            "mode": "0644",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.method == "file_permission"
+        assert r.evidence.command is not None
+        assert "stat" in r.evidence.command
+        assert r.evidence.stdout == "root root 644 /etc/passwd"
+        assert r.evidence.exit_code == 0
+        assert r.evidence.expected == "owner=root, group=root, mode=0644"
+        assert r.evidence.actual is not None
+        assert "owner=root" in r.evidence.actual
+        assert r.evidence.timestamp is not None
+
+    def test_evidence_actual_none_when_not_found(self, mock_ssh):
+        """AC-8: Evidence actual is None when file not found."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(exit_code=1, stdout="", stderr="No such file"),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/nonexistent",
+            "owner": "root",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.actual is None
+        assert r.evidence.stderr == "No such file"
+
+    def test_mode_normalization_leading_zero_strip(self, mock_ssh):
+        """AC-9: Mode '0600' expected matches '600' actual (leading zero stripped)."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root root 600 /etc/shadow", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/shadow",
+            "mode": "0600",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_mode_normalization_reverse(self, mock_ssh):
+        """AC-9: Mode '600' expected matches '0600' actual (stat reports with leading zero)."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root root 0600 /etc/shadow", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/shadow",
+            "mode": "600",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_mode_all_zeros_normalization(self, mock_ssh):
+        """AC-10: Mode '0000' expected matches '0' actual (all-zero edge case)."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root root 0 /etc/shadow", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/shadow",
+            "mode": "0000",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_partial_check_owner_only(self, mock_ssh):
+        """AC-11: Only owner specified -> only owner is validated."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root wheel 755 /usr/bin/test", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/usr/bin/test",
+            "owner": "root",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "group=*" in r.evidence.expected
+        assert "mode=*" in r.evidence.expected
+
+    def test_partial_check_mode_only(self, mock_ssh):
+        """AC-12: Only mode specified -> only mode is validated."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="nobody nogroup 600 /etc/secret", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/secret",
+            "mode": "0600",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "owner=*" in r.evidence.expected
+        assert "group=*" in r.evidence.expected
+
+    def test_wrong_group(self, mock_ssh):
+        """AC-13: Wrong group -> FAIL with 'group={actual}' in detail."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root nobody 600 /etc/shadow", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/shadow",
+            "owner": "root",
+            "group": "root",
+            "mode": "0600",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "group=nobody" in r.detail
+
+    def test_empty_stdout_exit_zero(self, mock_ssh):
+        """AC-14: Empty stdout with exit code 0 -> FAIL as not found."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/shadow",
+            "owner": "root",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+
+    def test_glob_key_presence_triggers_glob_mode(self, mock_ssh):
+        """AC-15: 'glob' key presence forces glob mode even without glob chars in path."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root root 644 /etc/passwd", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/passwd",
+            "owner": "root",
+            "glob": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        # Verify that stat was called — the mock matched on "stat" substring
+        assert any("stat" in cmd for cmd in ssh.commands_run)
+
+    def test_glob_auto_detect_from_path(self, mock_ssh):
+        """AC-16: Glob chars in path auto-triggers glob mode without 'glob' key."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0,
+                    stdout="root root 644 /etc/cron.d/job1\nroot root 644 /etc/cron.d/job2",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/cron.d/*",
+            "owner": "root",
+            "mode": "0644",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_expected_string_wildcard_for_unchecked(self, mock_ssh):
+        """AC-17: Expected string uses '*' for attributes not in check definition."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="root root 644 /etc/passwd", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/passwd",
+            "owner": "root",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected == "owner=root, group=*, mode=*"
+
+    def test_evidence_on_fail_mismatch(self, mock_ssh):
+        """AC-7: Evidence fields populated on fail (attribute mismatch)."""
+        ssh = mock_ssh(
+            {
+                "stat": Result(
+                    exit_code=0, stdout="nobody root 644 /etc/shadow", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "file_permission",
+            "path": "/etc/shadow",
+            "owner": "root",
+            "group": "root",
+            "mode": "0600",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.method == "file_permission"
+        assert r.evidence.exit_code == 0
+        assert r.evidence.actual is not None
+        assert "owner=nobody" in r.evidence.actual
+        assert r.evidence.expected == "owner=root, group=root, mode=0600"
+
+
 class TestCommand:
     def test_exit_code_matches(self, mock_ssh):
+        """AC-1: Matching exit code (default 0), no expected_stdout -> PASS."""
         ssh = mock_ssh(
             {
                 "authselect current": Result(
@@ -239,6 +512,7 @@ class TestCommand:
         assert r.passed is True
 
     def test_exit_code_mismatch(self, mock_ssh):
+        """AC-2: Mismatching exit code -> FAIL with exit codes in detail."""
         ssh = mock_ssh(
             {
                 "authselect current": Result(
@@ -252,6 +526,7 @@ class TestCommand:
         assert "exit 1" in r.detail
 
     def test_expected_stdout(self, mock_ssh):
+        """AC-3: Non-empty expected_stdout substring found -> PASS."""
         ssh = mock_ssh(
             {
                 "cat /etc/hostname": Result(
@@ -269,6 +544,7 @@ class TestCommand:
         assert r.passed is True
 
     def test_expected_stdout_mismatch(self, mock_ssh):
+        """AC-4: Non-empty expected_stdout NOT found -> FAIL with 'stdout mismatch'."""
         ssh = mock_ssh(
             {
                 "cat /etc/hostname": Result(
@@ -286,7 +562,7 @@ class TestCommand:
         assert r.passed is False
 
     def test_expected_empty_stdout_pass(self, mock_ssh):
-        """expected_stdout='' must pass when command produces no output."""
+        """AC-5: expected_stdout='' with empty stdout -> PASS."""
         ssh = mock_ssh({"find /bad": Result(exit_code=0, stdout="", stderr="")})
         check = {
             "method": "command",
@@ -298,7 +574,7 @@ class TestCommand:
         assert r.passed is True
 
     def test_expected_empty_stdout_fail(self, mock_ssh):
-        """expected_stdout='' must fail when command produces output."""
+        """AC-6: expected_stdout='' with non-empty stdout -> FAIL."""
         ssh = mock_ssh(
             {"find /bad": Result(exit_code=0, stdout="/bad/file.txt", stderr="")}
         )
@@ -312,7 +588,7 @@ class TestCommand:
         assert r.passed is False
 
     def test_nonzero_expected_exit(self, mock_ssh):
-        """Some checks expect failure (e.g., 'this should NOT be found')."""
+        """AC-7: Non-zero expected_exit matching actual -> PASS."""
         ssh = mock_ssh(
             {
                 "grep bad": Result(exit_code=1, stdout="", stderr=""),
@@ -321,6 +597,247 @@ class TestCommand:
         check = {"method": "command", "run": "grep bad /etc/conf", "expected_exit": 1}
         r = run_check(ssh, check)
         assert r.passed is True
+
+
+class TestCommandSpecDerived:
+    """Gap tests derived from command.spec.md acceptance criteria."""
+
+    def test_exit_mismatch_detail_prefers_stderr(self, mock_ssh):
+        """AC-8: Exit code mismatch detail shows stderr when non-empty."""
+        ssh = mock_ssh(
+            {
+                "check-cmd": Result(
+                    exit_code=2, stdout="some output", stderr="fatal error"
+                ),
+            }
+        )
+        check = {"method": "command", "run": "check-cmd", "expected_exit": 0}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "fatal error" in r.detail
+        assert "exit 2" in r.detail
+
+    def test_exit_mismatch_detail_falls_back_to_stdout(self, mock_ssh):
+        """AC-8: Exit code mismatch detail shows stdout when stderr is empty."""
+        ssh = mock_ssh(
+            {
+                "check-cmd": Result(exit_code=3, stdout="unexpected output", stderr=""),
+            }
+        )
+        check = {"method": "command", "run": "check-cmd", "expected_exit": 0}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "unexpected output" in r.detail
+        assert "exit 3" in r.detail
+
+    def test_evidence_method_is_command_on_pass(self, mock_ssh):
+        """AC-9: Evidence method is 'command' on pass path."""
+        ssh = mock_ssh({"echo hello": Result(exit_code=0, stdout="hello", stderr="")})
+        check = {"method": "command", "run": "echo hello"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.method == "command"
+
+    def test_evidence_method_is_command_on_exit_fail(self, mock_ssh):
+        """AC-9: Evidence method is 'command' on exit-code failure."""
+        ssh = mock_ssh({"fail-cmd": Result(exit_code=1, stdout="", stderr="err")})
+        check = {"method": "command", "run": "fail-cmd", "expected_exit": 0}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.method == "command"
+
+    def test_evidence_method_is_command_on_stdout_fail(self, mock_ssh):
+        """AC-9: Evidence method is 'command' on stdout-mismatch failure."""
+        ssh = mock_ssh({"some-cmd": Result(exit_code=0, stdout="wrong", stderr="")})
+        check = {
+            "method": "command",
+            "run": "some-cmd",
+            "expected_stdout": "right",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.method == "command"
+
+    def test_evidence_command_matches_run_value(self, mock_ssh):
+        """AC-10: Evidence command is the run value from check definition."""
+        ssh = mock_ssh({"ls -la /tmp": Result(exit_code=0, stdout="files", stderr="")})
+        check = {"method": "command", "run": "ls -la /tmp"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.command == "ls -la /tmp"
+
+    def test_evidence_expected_exit_only(self, mock_ssh):
+        """AC-11: Evidence expected includes exit=N when no expected_stdout."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="ok", stderr="")})
+        check = {"method": "command", "run": "cmd", "expected_exit": 0}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected == "exit=0"
+
+    def test_evidence_expected_with_stdout(self, mock_ssh):
+        """AC-11: Evidence expected includes stdout constraint when set."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="hello world", stderr="")})
+        check = {
+            "method": "command",
+            "run": "cmd",
+            "expected_exit": 0,
+            "expected_stdout": "hello",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert "exit=0" in r.evidence.expected
+        assert "stdout contains 'hello'" in r.evidence.expected
+
+    def test_evidence_actual_on_pass_with_stdout(self, mock_ssh):
+        """AC-12: Evidence actual on pass is stdout[:200] when stdout truthy."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="result data", stderr="")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.actual == "result data"
+
+    def test_evidence_actual_on_pass_empty_stdout(self, mock_ssh):
+        """AC-12, AC-16: Evidence actual and detail are 'ok' when stdout empty."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="", stderr="")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.actual == "ok"
+        assert r.detail == "ok"
+
+    def test_evidence_actual_on_exit_failure(self, mock_ssh):
+        """AC-13: Evidence actual on exit-code failure is 'exit=N'."""
+        ssh = mock_ssh({"cmd": Result(exit_code=127, stdout="", stderr="not found")})
+        check = {"method": "command", "run": "cmd", "expected_exit": 0}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.actual == "exit=127"
+
+    def test_evidence_actual_on_stdout_mismatch_with_output(self, mock_ssh):
+        """AC-14: Evidence actual on stdout mismatch is stdout[:200] when truthy."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="wrong data", stderr="")})
+        check = {
+            "method": "command",
+            "run": "cmd",
+            "expected_stdout": "right data",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.actual == "wrong data"
+
+    def test_evidence_actual_on_stdout_mismatch_empty(self, mock_ssh):
+        """AC-14: Evidence actual on stdout mismatch is '' when stdout falsy."""
+        # expected_stdout="something" but stdout is empty -> mismatch
+        # Wait: if stdout is empty, then "something" in "" is False -> mismatch.
+        # But evidence.actual = stdout[:200] if stdout else "" -- stdout is "", falsy.
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="", stderr="")})
+        check = {
+            "method": "command",
+            "run": "cmd",
+            "expected_stdout": "something",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.actual == ""
+
+    def test_pass_detail_truncates_long_stdout(self, mock_ssh):
+        """AC-15: Pass detail truncates stdout to 200 characters."""
+        long_output = "x" * 300
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout=long_output, stderr="")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert len(r.detail) == 200
+        assert r.detail == "x" * 200
+        # Evidence actual also truncated
+        assert r.evidence is not None
+        assert len(r.evidence.actual) == 200
+
+    def test_evidence_stdout_not_truncated(self, mock_ssh):
+        """AC-15 constraint: evidence.stdout preserves full raw output."""
+        long_output = "x" * 300
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout=long_output, stderr="")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert len(r.evidence.stdout) == 300
+
+    def test_evidence_timestamp_is_utc(self, mock_ssh):
+        """AC-17: Evidence timestamp is a UTC datetime."""
+        before = datetime.now(timezone.utc)
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="ok", stderr="")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        after = datetime.now(timezone.utc)
+        assert r.evidence is not None
+        assert isinstance(r.evidence.timestamp, datetime)
+        assert r.evidence.timestamp.tzinfo is not None
+        assert before <= r.evidence.timestamp <= after
+
+    def test_expected_exit_defaults_to_zero(self, mock_ssh):
+        """AC-18: expected_exit defaults to 0 when omitted."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="output", stderr="")})
+        # No expected_exit in check dict
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "exit=0" in r.evidence.expected
+
+    def test_expected_exit_defaults_to_zero_mismatch(self, mock_ssh):
+        """AC-18: Omitted expected_exit defaults to 0; exit 1 is a mismatch."""
+        ssh = mock_ssh({"cmd": Result(exit_code=1, stdout="", stderr="err")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected 0" in r.detail
+
+    def test_evidence_preserves_stderr(self, mock_ssh):
+        """AC-9/AC-10: Evidence stderr field captures raw stderr."""
+        ssh = mock_ssh(
+            {"cmd": Result(exit_code=0, stdout="ok", stderr="warning: something")}
+        )
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.stderr == "warning: something"
+
+    def test_stdout_mismatch_detail_contains_repr(self, mock_ssh):
+        """AC-4 detail: stdout mismatch detail includes repr of stdout."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="actual output", stderr="")})
+        check = {
+            "method": "command",
+            "run": "cmd",
+            "expected_stdout": "expected",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "stdout mismatch" in r.detail
+        assert "actual output" in r.detail
+
+    def test_evidence_exit_code_on_pass(self, mock_ssh):
+        """AC-9: Evidence exit_code reflects actual exit code on pass."""
+        ssh = mock_ssh({"cmd": Result(exit_code=0, stdout="data", stderr="")})
+        check = {"method": "command", "run": "cmd"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.exit_code == 0
+
+    def test_evidence_exit_code_on_failure(self, mock_ssh):
+        """AC-9: Evidence exit_code reflects actual exit code on failure."""
+        ssh = mock_ssh({"cmd": Result(exit_code=42, stdout="", stderr="bad")})
+        check = {"method": "command", "run": "cmd", "expected_exit": 0}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.exit_code == 42
 
 
 class TestSysctlValue:
@@ -572,6 +1089,7 @@ class TestMultiConditionCheck:
 
 class TestServiceState:
     def test_enabled_and_running(self, mock_ssh):
+        """AC-1: Enabled and active both True with matching state -> PASS."""
         ssh = mock_ssh(
             {
                 "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
@@ -588,6 +1106,7 @@ class TestServiceState:
         assert r.passed is True
 
     def test_enabled_but_not_running(self, mock_ssh):
+        """AC-2: Enabled True but actual active=inactive -> FAIL."""
         ssh = mock_ssh(
             {
                 "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
@@ -605,6 +1124,7 @@ class TestServiceState:
         assert "active=inactive" in r.detail
 
     def test_disabled_as_expected(self, mock_ssh):
+        """AC-3: Enabled False with actual 'disabled' -> PASS."""
         ssh = mock_ssh(
             {
                 "is-enabled": Result(exit_code=1, stdout="disabled", stderr=""),
@@ -615,6 +1135,7 @@ class TestServiceState:
         assert r.passed is True
 
     def test_static_counts_as_enabled(self, mock_ssh):
+        """AC-4: Static service counts as enabled -> PASS."""
         ssh = mock_ssh(
             {
                 "is-enabled": Result(exit_code=0, stdout="static", stderr=""),
@@ -625,6 +1146,7 @@ class TestServiceState:
         assert r.passed is True
 
     def test_masked_counts_as_disabled(self, mock_ssh):
+        """AC-5: Masked service counts as disabled -> PASS."""
         ssh = mock_ssh(
             {
                 "is-enabled": Result(exit_code=1, stdout="masked", stderr=""),
@@ -635,6 +1157,7 @@ class TestServiceState:
         assert r.passed is True
 
     def test_enabled_when_should_be_disabled(self, mock_ssh):
+        """AC-6: Enabled=False but actual 'enabled' -> FAIL with 'expected disabled'."""
         ssh = mock_ssh(
             {
                 "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
@@ -644,6 +1167,201 @@ class TestServiceState:
         r = run_check(ssh, check)
         assert r.passed is False
         assert "expected disabled" in r.detail
+
+
+class TestServiceStateSpecDerived:
+    """Spec-derived gap tests for service_state handler.
+
+    See specs/handlers/checks/service_state.spec.md for full specification.
+    """
+
+    def test_indirect_counts_as_enabled(self, mock_ssh):
+        """AC-7: Indirect service counts as enabled -> PASS."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="indirect", stderr=""),
+            }
+        )
+        check = {
+            "method": "service_state",
+            "name": "systemd-tmpfiles-clean.timer",
+            "enabled": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert "indirect" in r.detail
+
+    def test_not_found_counts_as_disabled(self, mock_ssh):
+        """AC-8: Not-found service counts as disabled -> PASS."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=1, stdout="not-found", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "autofs", "enabled": False}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert "not-found" in r.detail
+
+    def test_masked_fails_when_expected_enabled(self, mock_ssh):
+        """AC-9: Enabled=True with actual 'masked' -> FAIL."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=1, stdout="masked", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "sshd", "enabled": True}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected enabled" in r.detail
+
+    def test_active_true_but_inactive(self, mock_ssh):
+        """AC-10: Active=True with actual 'inactive' -> FAIL."""
+        ssh = mock_ssh(
+            {
+                "is-active": Result(exit_code=3, stdout="inactive", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "sshd", "active": True}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected active" in r.detail
+
+    def test_active_false_but_active(self, mock_ssh):
+        """AC-11: Active=False with actual 'active' -> FAIL."""
+        ssh = mock_ssh(
+            {
+                "is-active": Result(exit_code=0, stdout="active", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "autofs", "active": False}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected inactive" in r.detail
+
+    def test_active_false_and_inactive(self, mock_ssh):
+        """AC-12: Active=False with actual 'inactive' -> PASS."""
+        ssh = mock_ssh(
+            {
+                "is-active": Result(exit_code=3, stdout="inactive", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "autofs", "active": False}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert "not active" in r.detail
+
+    def test_active_only_no_enabled_key(self, mock_ssh):
+        """AC-13: Only active specified -> only is-active runs."""
+        ssh = mock_ssh(
+            {
+                "is-active": Result(exit_code=0, stdout="active", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "sshd", "active": True}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "is-active: active" in r.evidence.stdout
+        # Should NOT contain is-enabled output since enabled was not checked
+        assert "is-enabled" not in r.evidence.stdout
+
+    def test_enabled_only_no_active_key(self, mock_ssh):
+        """AC-14: Only enabled specified -> only is-enabled runs."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
+            }
+        )
+        check = {"method": "service_state", "name": "sshd", "enabled": True}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "is-enabled: enabled" in r.evidence.stdout
+        # Should NOT contain is-active output since active was not checked
+        assert "is-active" not in r.evidence.stdout
+
+    def test_evidence_fields_on_pass(self, mock_ssh):
+        """AC-15: Evidence populated correctly on pass."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
+                "is-active": Result(exit_code=0, stdout="active", stderr=""),
+            }
+        )
+        check = {
+            "method": "service_state",
+            "name": "sshd",
+            "enabled": True,
+            "active": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.method == "service_state"
+        assert r.evidence.command == "systemctl is-enabled/is-active sshd"
+        assert r.evidence.exit_code == 0
+        assert "is-enabled: enabled" in r.evidence.stdout
+        assert "is-active: active" in r.evidence.stdout
+        assert "enabled=enabled" in r.evidence.expected
+        assert "active=active" in r.evidence.expected
+        assert "enabled=enabled" in r.evidence.actual
+        assert "active=active" in r.evidence.actual
+        assert r.evidence.timestamp is not None
+
+    def test_evidence_fields_on_fail(self, mock_ssh):
+        """AC-16: Evidence populated correctly on fail."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=0, stdout="enabled", stderr=""),
+                "is-active": Result(exit_code=3, stdout="inactive", stderr=""),
+            }
+        )
+        check = {
+            "method": "service_state",
+            "name": "sshd",
+            "enabled": True,
+            "active": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.method == "service_state"
+        assert r.evidence.exit_code == 1
+        assert "is-active: inactive" in r.evidence.stdout
+        assert "active=active" in r.evidence.expected
+        assert "active=inactive" in r.evidence.actual
+
+    def test_neither_enabled_nor_active_vacuous_pass(self, mock_ssh):
+        """AC-17: Neither enabled nor active specified -> vacuous PASS."""
+        ssh = mock_ssh({})
+        check = {"method": "service_state", "name": "sshd"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.method == "service_state"
+        assert r.evidence.exit_code == 0
+
+    def test_both_dimensions_fail(self, mock_ssh):
+        """AC-18: Both enabled and active fail -> detail has both failures."""
+        ssh = mock_ssh(
+            {
+                "is-enabled": Result(exit_code=1, stdout="disabled", stderr=""),
+                "is-active": Result(exit_code=3, stdout="inactive", stderr=""),
+            }
+        )
+        check = {
+            "method": "service_state",
+            "name": "sshd",
+            "enabled": True,
+            "active": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "expected enabled" in r.detail
+        assert "expected active" in r.detail
+        # Both failures joined by "; "
+        assert "; " in r.detail
 
 
 class TestSystemdTarget:
@@ -1193,7 +1911,13 @@ class TestAuditRuleExists:
 
 
 class TestSshdEffectiveConfig:
+    """Tests for sshd_effective_config check handler.
+
+    See specs/handlers/checks/sshd_effective_config.spec.md for full specification.
+    """
+
     def test_key_matches(self, mock_ssh):
+        """AC-1: Key present with matching value -> passed=True."""
         ssh = mock_ssh(
             {
                 "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
@@ -1208,6 +1932,7 @@ class TestSshdEffectiveConfig:
         assert r.passed is True
 
     def test_key_wrong_value(self, mock_ssh):
+        """AC-2: Key present with wrong value -> passed=False, detail contains 'expected'."""
         ssh = mock_ssh(
             {
                 "sshd": Result(exit_code=0, stdout="permitrootlogin yes", stderr=""),
@@ -1223,6 +1948,7 @@ class TestSshdEffectiveConfig:
         assert "expected no" in r.detail
 
     def test_key_not_found(self, mock_ssh):
+        """AC-3: Key not found (command exit code != 0) -> passed=False, 'not found'."""
         ssh = mock_ssh(
             {
                 "sshd": Result(exit_code=1, stdout="", stderr=""),
@@ -1236,6 +1962,208 @@ class TestSshdEffectiveConfig:
         r = run_check(ssh, check)
         assert r.passed is False
         assert "not found" in r.detail
+
+
+class TestSshdEffectiveConfigSpecDerived:
+    """Spec-derived gap tests for sshd_effective_config handler.
+
+    See specs/handlers/checks/sshd_effective_config.spec.md for full specification.
+    """
+
+    def test_not_found_empty_stdout_exit_zero(self, mock_ssh):
+        """AC-4: Exit code 0 but stdout empty -> FAIL with 'not found', actual is None."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
+        assert r.evidence is not None
+        assert r.evidence.actual is None
+
+    def test_evidence_fields_on_match(self, mock_ssh):
+        """AC-5: Evidence fields fully populated on successful match."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.method == "sshd_effective_config"
+        assert r.evidence.command is not None
+        assert "sshd -T" in r.evidence.command
+        assert r.evidence.expected == "no"
+        assert r.evidence.actual == "no"
+        assert r.evidence.exit_code == 0
+        assert r.evidence.stdout == "permitrootlogin no"
+        assert r.evidence.timestamp is not None
+
+    def test_evidence_fields_on_not_found(self, mock_ssh):
+        """AC-6: Evidence populated on not-found path with actual=None."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=1, stdout="", stderr="some error"),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.evidence is not None
+        assert r.evidence.method == "sshd_effective_config"
+        assert r.evidence.actual is None
+        assert r.evidence.expected == "no"
+        assert r.evidence.stderr == "some error"
+
+    def test_match_user_only(self, mock_ssh):
+        """AC-7: match_user only -> command includes '-C user=...' without host."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+            "match_user": "testuser",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "-C" in r.evidence.command
+        assert "user=" in r.evidence.command
+        assert "host=" not in r.evidence.command
+
+    def test_match_host_only(self, mock_ssh):
+        """AC-8: match_host only -> command includes '-C host=...' without user."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+            "match_host": "10.0.0.1",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "-C" in r.evidence.command
+        assert "host=" in r.evidence.command
+        assert "user=" not in r.evidence.command
+
+    def test_match_user_and_host(self, mock_ssh):
+        """AC-9: Both match_user and match_host -> '-C user=...,host=...'."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+            "match_user": "testuser",
+            "match_host": "10.0.0.1",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert "-C" in r.evidence.command
+        assert "user=" in r.evidence.command
+        assert "host=" in r.evidence.command
+
+    def test_no_match_context_plain_command(self, mock_ssh):
+        """AC-10: No match_user/match_host -> plain 'sshd -T' (no -C flag)."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert "-C" not in r.evidence.command
+
+    def test_case_insensitive_key_and_expected(self, mock_ssh):
+        """AC-11: Key and expected are lowercased internally."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "No",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.expected == "no"
+        assert r.evidence.actual == "no"
+
+    def test_multiline_output_uses_first_line(self, mock_ssh):
+        """AC-12: Multi-line output -> only first line used for value extraction."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(
+                    exit_code=0,
+                    stdout="permitrootlogin no\npermitRootLogin yes",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.actual == "no"
+
+    def test_key_only_line_empty_value(self, mock_ssh):
+        """AC-13: Line with key but no value part -> actual is empty string."""
+        ssh = mock_ssh(
+            {
+                "sshd": Result(exit_code=0, stdout="permitrootlogin", stderr=""),
+            }
+        )
+        check = {
+            "method": "sshd_effective_config",
+            "key": "PermitRootLogin",
+            "expected": "",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.actual == ""
 
 
 class TestPamModule:
