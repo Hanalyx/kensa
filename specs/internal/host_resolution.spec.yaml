@@ -1,0 +1,163 @@
+kind: InternalModule
+
+metadata:
+  name: HostResolution
+  module: runner.inventory
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Target host resolution from CLI flags and inventory files. Parses
+    --host comma-separated lists, INI-format inventory files with group
+    headers and inline variables, YAML-format inventory files with nested
+    groups, and plain text host lists. Applies CLI defaults for user, key,
+    and port, then filters by --limit (group name or hostname glob).
+  technical_context: >
+    Entry point: resolve_targets(host, inventory, limit, default_user,
+    default_key, default_port) -> list[HostInfo]. HostInfo dataclass has
+    hostname, port, user, key_path, groups. Internal parsers: _parse_host_flag,
+    _parse_ini_inventory, _parse_yaml_inventory, _parse_plain_hostlist.
+    Legacy Ansible aliases (ansible_host, ansible_user, ansible_port,
+    ansible_ssh_private_key_file) are supported via _LEGACY_ALIASES.
+  dependencies:
+    - "yaml (PyYAML)"
+    - "fnmatch (standard library)"
+  callers:
+    - "runner.cli (--host, --inventory, --limit flags)"
+    - "runner._host_runner (host iteration)"
+  related_specs:
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+  assumptions:
+    - "Inventory files exist at the specified path."
+    - "YAML inventory follows Ansible-compatible structure with hosts/children keys."
+    - "INI inventory follows Ansible-compatible format with [group] headers."
+
+objective:
+  summary: >
+    Resolve target hosts from --host flags and inventory files (INI, YAML,
+    plain text), apply connection defaults, and filter by --limit.
+  acceptance_criteria:
+    AC-1: >
+      --host flag parses comma-separated hostnames, each optionally with
+      :port suffix, into HostInfo objects with default port 22.
+    AC-2: >
+      INI inventory files are detected by presence of [group] headers and
+      parsed with per-host inline key=value variables.
+    AC-3: >
+      INI parser supports legacy Ansible variable names (ansible_host,
+      ansible_user, ansible_port, ansible_ssh_private_key_file) as aliases.
+    AC-4: >
+      YAML inventory files (.yml/.yaml extension) are parsed recursively,
+      walking hosts and children groups.
+    AC-5: >
+      Plain text host lists (one host per line, comments with #) are parsed
+      as fallback when file is neither YAML nor INI.
+    AC-6: >
+      CLI defaults (default_user, default_key, default_port) are applied as
+      fallbacks only when inventory did not set per-host values.
+    AC-7: >
+      --limit filters hosts by group membership (exact match) or hostname
+      glob pattern (fnmatch); raises ValueError when no hosts match.
+    AC-8: >
+      When neither --host nor --inventory is provided, raises ValueError
+      with "No target hosts specified" message.
+    AC-9: >
+      Hosts appearing in multiple INI groups accumulate all group names in
+      HostInfo.groups without duplication.
+    AC-10: >
+      Inventory file not found raises FileNotFoundError with the path.
+
+constraints:
+  - "MUST support both neutral names (host, user, port, key_file) and legacy Ansible aliases."
+  - "MUST raise ValueError when no target hosts are resolved."
+  - "MUST raise ValueError when --limit matches no hosts."
+  - "MUST raise FileNotFoundError for missing inventory files."
+  - "MUST use yaml.safe_load for YAML inventory parsing."
+  - "MUST NOT modify hosts list in place when applying limit — filter to new list."
+
+input_contract:
+  - field: host
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Comma-separated host string from --host flag.
+  - field: inventory
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Path to inventory file (INI, YAML, or plain text).
+  - field: limit
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Group name or hostname glob pattern to filter resolved hosts.
+  - field: default_user
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Default SSH user applied when inventory does not specify one.
+  - field: default_key
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Default SSH key path applied when inventory does not specify one.
+  - field: default_port
+    type: int
+    required: false
+    default: 22
+    description: >
+      Default SSH port applied when inventory does not specify one.
+
+behavior:
+  - "1. If host is provided, parse comma-separated list into HostInfo objects."
+  - "2. If inventory is provided, detect format (YAML by extension, INI by [group] headers, else plain text) and parse."
+  - "3. If no hosts resolved from either source, raise ValueError."
+  - "4. Apply CLI defaults: set user, key_path, port on each HostInfo where not already set by inventory."
+  - "5. If limit is provided, filter hosts by group membership (exact) or hostname glob (fnmatch)."
+  - "6. If limit matches no hosts, raise ValueError."
+  - "7. Return final list of HostInfo objects."
+
+output_contract:
+  returns: >
+    resolve_targets -> list[HostInfo] with at least one entry.
+  paths:
+    hosts_resolved:
+      description: "One or more hosts resolved from --host or --inventory."
+      result: "List of HostInfo with connection parameters."
+    no_hosts:
+      description: "Neither --host nor --inventory provided."
+      result: "ValueError raised."
+    limit_empty:
+      description: "--limit matched no hosts."
+      result: "ValueError raised."
+    inventory_missing:
+      description: "Inventory file does not exist."
+      result: "FileNotFoundError raised."
+  invariants:
+    - "Returned list always has at least one HostInfo."
+    - "HostInfo.port defaults to 22 when not specified."
+    - "Group names are never duplicated in HostInfo.groups."
+
+side_effects:
+  - "Reads inventory files from filesystem."
+  - "No writes or network access."
+
+testing:
+  spec_derived:
+    file: tests/test_host_resolution_spec.py
+    classes:
+      - TestHostResolutionSpecDerived
+    count: 11
+  unit:
+    - tests/test_inventory.py

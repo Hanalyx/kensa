@@ -1,0 +1,168 @@
+kind: InternalModule
+
+metadata:
+  name: OutputFormatter
+  module: runner.output
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Output formatting subsystem that converts internal result objects (RunResult,
+    HostResult, RuleResult) into structured output formats for reporting, CI/CD
+    integration, audit trails, and archival. Supports JSON, CSV, PDF, and evidence
+    export formats. JSON and CSV produce text output suitable for stdout or file;
+    PDF produces binary output requiring a file path; evidence produces per-host
+    structured JSON with raw command output for OpenWatch integration.
+  technical_context: >
+    Entry points: write_output(run_result, fmt, filepath) dispatches to format_json,
+    format_csv, format_pdf, or format_evidence_all. parse_output_spec(spec) splits
+    "format:path" strings. RunResult and HostResult are dataclass containers with
+    computed properties (total_pass, total_fail, etc.). PDF requires optional reportlab
+    dependency; raises ImportError if missing.
+  dependencies:
+    - "json (stdlib)"
+    - "csv (stdlib)"
+    - "uuid (stdlib)"
+    - "reportlab (optional, for PDF)"
+    - "runner._types.RuleResult"
+  callers:
+    - "runner.cli (check and remediate commands, -o flag processing)"
+  related_specs:
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+    - "specs/orchestration/host_runner.spec.yaml"
+  assumptions:
+    - "RuleResult objects have passed, skipped, severity, detail, evidence, framework_refs, remediated, remediation_detail, rolled_back fields."
+    - "Callers build RunResult by appending HostResult objects after per-host execution."
+
+objective:
+  summary: >
+    Format compliance run results into JSON, CSV, PDF, or evidence output formats,
+    dispatching via write_output() and optionally writing to files.
+  acceptance_criteria:
+    AC-1: >
+      write_output with fmt="json" returns a pretty-printed JSON string (2-space
+      indent) containing timestamp, command, hosts array, and summary object.
+    AC-2: >
+      JSON output includes per-host platform, capabilities, and per-rule results
+      with rule_id, title, severity, passed, skipped, and detail fields.
+    AC-3: >
+      JSON output for remediate command includes additional fields: summary.fixed,
+      results[].remediated, results[].remediation_detail, results[].rolled_back.
+    AC-4: >
+      write_output with fmt="csv" returns a CSV string with header row; check
+      command columns are host, platform, rule_id, framework_section, title,
+      severity, passed, skipped, detail.
+    AC-5: >
+      CSV remediate command adds a "remediated" column between skipped and detail.
+    AC-6: >
+      CSV hosts with connection errors produce a single row with empty rule fields
+      and "Connection error: <message>" in the detail column.
+    AC-7: >
+      write_output with fmt="pdf" requires a filepath argument; raises ValueError
+      if filepath is None with message containing "PDF format requires a filepath".
+    AC-8: >
+      PDF output raises ImportError with installation instructions when reportlab
+      is not installed.
+    AC-9: >
+      write_output with fmt="evidence" returns structured JSON per evidence_schema.json
+      including raw command output (stdout, stderr, exit_code), expected/actual values,
+      and framework references.
+    AC-10: >
+      write_output with an unknown format raises ValueError listing valid formats.
+    AC-11: >
+      parse_output_spec("json") returns ("json", None); parse_output_spec("csv:out.csv")
+      returns ("csv", "out.csv"); format names are lowercased.
+    AC-12: >
+      When filepath is provided to write_output for text formats (json, csv, evidence),
+      the formatted output is written to the file and also returned as a string.
+
+constraints:
+  - "MUST support all four formats: json, csv, pdf, evidence."
+  - "MUST raise ValueError for unknown format names with list of valid formats."
+  - "MUST raise ValueError for PDF without filepath."
+  - "MUST lowercase format names in parse_output_spec."
+  - "MUST NOT require reportlab for non-PDF formats."
+  - "MUST return empty string for PDF format (binary output)."
+  - "MUST produce valid JSON for json and evidence formats."
+  - "MUST produce valid CSV with correct headers for csv format."
+
+input_contract:
+  - field: run_result
+    type: RunResult
+    required: true
+    description: >
+      Aggregated results from a compliance run. Contains timestamp, command type,
+      and list of HostResult objects with per-rule RuleResult entries.
+  - field: fmt
+    type: str
+    required: true
+    description: >
+      Output format name: "json", "csv", "pdf", or "evidence".
+  - field: filepath
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Optional file path to write output. Required for PDF format.
+  - field: spec
+    type: str
+    required: true
+    description: >
+      [parse_output_spec] Output specification string, e.g., "json" or "csv:results.csv".
+
+behavior:
+  - "1. parse_output_spec splits on ':' if present, returning (format, filepath) tuple; format is lowercased."
+  - "2. write_output checks format name; for 'pdf', validates filepath is not None."
+  - "3. For 'pdf', calls format_pdf(run_result, filepath) which uses reportlab to build a SimpleDocTemplate with title, summary table, and per-host results tables with color-coded status cells."
+  - "4. For 'json', calls format_json(run_result) which builds a nested dict with timestamp, command, hosts[], and summary, then serializes with json.dumps(indent=2)."
+  - "5. For 'csv', calls format_csv(run_result) which uses csv.DictWriter with CHECK_COLUMNS or REMEDIATE_COLUMNS based on command type."
+  - "6. For 'evidence', calls format_evidence_all(run_result) which produces per-host evidence JSON with raw command output, expected/actual values, and framework references."
+  - "7. If filepath is provided for text formats, writes output string to file."
+  - "8. Returns formatted string (empty string for PDF)."
+
+output_contract:
+  returns: >
+    write_output -> str (formatted output, empty for PDF); parse_output_spec ->
+    tuple[str, str | None] (format, filepath).
+  paths:
+    json_output:
+      description: "fmt='json' with valid RunResult."
+      result: "Pretty-printed JSON string with full result structure."
+    csv_output:
+      description: "fmt='csv' with valid RunResult."
+      result: "CSV string with header and one row per host+rule."
+    pdf_output:
+      description: "fmt='pdf' with valid filepath."
+      result: "PDF file written to disk; empty string returned."
+    evidence_output:
+      description: "fmt='evidence' with valid RunResult."
+      result: "Structured JSON with evidence fields per host."
+    unknown_format:
+      description: "Unrecognized format name."
+      result: "ValueError raised with list of valid formats."
+    pdf_no_filepath:
+      description: "fmt='pdf' without filepath."
+      result: "ValueError raised."
+  invariants:
+    - "JSON output is always valid JSON parseable by json.loads()."
+    - "CSV output always includes a header row as the first line."
+    - "Evidence output conforms to evidence_schema.json structure."
+
+side_effects:
+  - "Writes files to filesystem when filepath is provided."
+  - "PDF format creates binary files via reportlab."
+
+testing:
+  spec_derived:
+    file: tests/test_output_formatter_spec.py
+    classes:
+      - TestOutputFormatterSpecDerived
+    count: 14
+  unit:
+    - tests/test_output.py

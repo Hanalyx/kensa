@@ -1,0 +1,108 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackService
+  module: runner.handlers.rollback._service
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Service-related rollback handlers that restore systemd service state to
+    pre-remediation. Three mechanisms: service_enabled restores to pre-enabled
+    state (disable, mask, or stop as needed), service_disabled restores to
+    pre-disabled state (enable and/or start), service_masked restores from
+    masked state (unmask, optionally enable and start).
+  technical_context: >
+    Functions: _rollback_service_enabled, _rollback_service_disabled,
+    _rollback_service_masked. Registered in ROLLBACK_HANDLERS. All use systemctl
+    commands to transition service state. Handlers examine was_enabled and was_active
+    from captured PreState to determine the correct restoration commands.
+  dependencies:
+    - "runner.shell_util (quote)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/service.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "systemctl mask/unmask/enable/disable/start/stop are available."
+    - "was_enabled and was_active values match systemctl output strings."
+
+objective:
+  summary: >
+    Restore systemd service state to the exact enabled/active combination captured
+    before remediation.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_service_enabled when was_enabled="masked": runs systemctl mask;
+      returns (True, "Restored {name} to masked/{was_active}").
+    AC-2: >
+      _rollback_service_enabled when was_enabled="disabled": runs systemctl disable;
+      returns success.
+    AC-3: >
+      _rollback_service_enabled when was_active is "inactive", "failed", or "unknown":
+      runs systemctl stop.
+    AC-4: >
+      _rollback_service_disabled when was_enabled="enabled": runs systemctl enable;
+      when was_active="active": runs systemctl start.
+    AC-5: >
+      _rollback_service_masked: always runs systemctl unmask first; then conditionally
+      enables and starts based on was_enabled and was_active.
+    AC-6: >
+      All handlers collect errors from each systemctl command; if any fail, return
+      (False, "Failed to restore {name}: {joined errors}").
+    AC-7: >
+      All handlers return (True, "Restored {name} to {was_enabled}/{was_active}")
+      when all commands succeed.
+
+constraints:
+  - "MUST use shell_util.quote for service name interpolation."
+  - "MUST restore both enabled state and active state."
+  - "MUST collect all errors and report them together."
+  - "MUST always unmask before enable/start for service_masked."
+  - "MUST return (False, detail) on failure, never raise exceptions."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: "Captured pre-state from the corresponding service capture handler."
+
+behavior:
+  - "1. _rollback_service_enabled: if was_enabled='masked', mask; if was_enabled='disabled', disable; if was_active inactive/failed/unknown, stop."
+  - "2. _rollback_service_disabled: if was_enabled='enabled', enable; if was_active='active', start."
+  - "3. _rollback_service_masked: unmask; if was_enabled='enabled', enable; if was_active='active', start."
+  - "4. All collect command errors and return aggregated result."
+
+output_contract:
+  returns: "tuple[bool, str] — (success, human-readable detail message)."
+  paths:
+    restored:
+      description: "Service state fully restored."
+      result: "(True, 'Restored {name} to {was_enabled}/{was_active}')."
+    partial_failure:
+      description: "Some systemctl commands failed."
+      result: "(False, 'Failed to restore {name}: {errors}')."
+  invariants:
+    - "Never raises exceptions; returns (False, detail) on failure."
+    - "Detail message always includes the target state."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_service_spec.py
+    classes:
+      - TestRollbackServiceSpecDerived
+    count: 10
+  unit:
+    - tests/test_rollback_handlers.py

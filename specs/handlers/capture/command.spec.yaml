@@ -1,0 +1,89 @@
+kind: InternalModule
+
+metadata:
+  name: CaptureCommand
+  module: runner.handlers.capture._command
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Command-related capture handlers for mechanisms that cannot capture meaningful
+    pre-state. Two mechanisms: command_exec returns a non-capturable PreState because
+    arbitrary commands have no predictable inverse, manual returns a non-capturable
+    PreState because manual remediation requires human intervention.
+  technical_context: >
+    Functions: _capture_command_exec, _capture_manual. Registered in CAPTURE_HANDLERS.
+    Both return PreState with capturable=False, which causes _execute_rollback to
+    skip these steps during rollback.
+  dependencies:
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/command.spec.yaml"
+    - "specs/handlers/remediation/command_exec.spec.yaml"
+    - "specs/handlers/remediation/manual.spec.yaml"
+  assumptions:
+    - "Arbitrary command execution cannot be generically reversed."
+    - "Manual remediation requires human intervention and has no automated inverse."
+
+objective:
+  summary: >
+    Provide capture handler stubs for non-capturable mechanisms (command_exec,
+    manual) that return PreState with capturable=False to signal that rollback
+    is not possible.
+  acceptance_criteria:
+    AC-1: >
+      _capture_command_exec returns PreState with mechanism="command_exec",
+      capturable=False, and data containing a note about arbitrary command.
+    AC-2: >
+      _capture_manual returns PreState with mechanism="manual", capturable=False,
+      and empty data dict.
+    AC-3: >
+      Neither handler executes any remote commands (ssh parameter is unused).
+    AC-4: >
+      Both handlers are registered in CAPTURE_HANDLERS for dispatch consistency.
+
+constraints:
+  - "MUST return capturable=False for both mechanisms."
+  - "MUST NOT execute any remote commands."
+  - "MUST be registered in CAPTURE_HANDLERS for consistent dispatch."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session (unused by these handlers)."
+  - field: r
+    type: dict
+    required: true
+    description: "Remediation definition dict (unused by these handlers)."
+
+behavior:
+  - "1. _capture_command_exec: return PreState(mechanism='command_exec', data={'note': 'arbitrary command'}, capturable=False)."
+  - "2. _capture_manual: return PreState(mechanism='manual', data={}, capturable=False)."
+
+output_contract:
+  returns: "PreState with capturable=False."
+  paths:
+    non_capturable:
+      description: "Both mechanisms are non-capturable."
+      result: "PreState with capturable=False; rollback will skip these steps."
+  invariants:
+    - "capturable is always False for both handlers."
+    - "No remote commands are ever executed."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_command_spec.py
+    classes:
+      - TestCaptureCommandSpecDerived
+    count: 4
+  unit:
+    - tests/test_capture_handlers.py

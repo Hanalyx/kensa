@@ -1,0 +1,124 @@
+kind: InternalModule
+
+metadata:
+  name: CaptureSecurity
+  module: runner.handlers.capture._security
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Security-related capture handlers that snapshot pre-remediation state of security
+    subsystems. Three mechanisms: selinux_boolean_set captures current boolean value,
+    audit_rule_set captures running audit rules and persist file state,
+    pam_module_configure captures PAM file content and authselect profile.
+  technical_context: >
+    Functions: _capture_selinux_boolean_set, _capture_audit_rule_set,
+    _capture_pam_module_configure. Registered in CAPTURE_HANDLERS. SELinux uses
+    getsebool; audit uses auditctl -l and persist file read; PAM reads service file
+    and authselect current.
+  dependencies:
+    - "runner.shell_util (quote, read_file)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/security.spec.yaml"
+    - "specs/handlers/remediation/selinux_boolean_set.spec.yaml"
+    - "specs/handlers/remediation/audit_rule_set.spec.yaml"
+    - "specs/handlers/remediation/pam_module_configure.spec.yaml"
+  assumptions:
+    - "getsebool returns 'name --> on/off' format."
+    - "auditctl -l lists all active audit rules."
+    - "authselect current returns current authselect profile information."
+
+objective:
+  summary: >
+    Capture security subsystem state (SELinux booleans, audit rules, PAM configuration)
+    before remediation to enable rollback.
+  acceptance_criteria:
+    AC-1: >
+      _capture_selinux_boolean_set captures old_value as boolean (True for 'on',
+      False for 'off', None if query fails); data contains name, old_value,
+      persistent flag.
+    AC-2: >
+      _capture_selinux_boolean_set parses getsebool output by splitting on
+      whitespace and checking if the last element is 'on'.
+    AC-3: >
+      _capture_audit_rule_set captures rule_existed (whether rule is in running
+      config), persist_file path, old_persist_content (file content or None),
+      persist_existed (bool).
+    AC-4: >
+      _capture_audit_rule_set checks running rules via auditctl -l and string
+      match against the rule text.
+    AC-5: >
+      _capture_pam_module_configure captures PAM file content at /etc/pam.d/{service},
+      existed flag, and authselect_profile (current authselect output or None).
+    AC-6: >
+      _capture_pam_module_configure when PAM file does not exist: existed=False
+      and old_content=None.
+    AC-7: >
+      All security capture handlers return PreState with capturable=True.
+
+constraints:
+  - "MUST use shell_util.quote for safe interpolation in commands."
+  - "MUST capture authselect state for PAM to support authselect-managed rollback."
+  - "MUST check both running audit rules and persist file for audit_rule_set."
+  - "MUST NOT modify the remote host during capture."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: r
+    type: dict
+    required: true
+    description: >
+      Remediation definition dict. Required keys: selinux_boolean_set requires
+      'name'; audit_rule_set requires 'rule' and optional 'persist_file';
+      pam_module_configure requires 'service'.
+
+behavior:
+  - "1. _capture_selinux_boolean_set: run getsebool; parse output to extract boolean value; capture persistent flag from remediation dict."
+  - "2. _capture_audit_rule_set: run auditctl -l to check for existing rule; read persist file content."
+  - "3. _capture_pam_module_configure: read /etc/pam.d/{service} content; capture authselect current output."
+
+output_contract:
+  returns: "PreState with mechanism name and captured data dict."
+  paths:
+    boolean_captured:
+      description: "SELinux boolean value successfully captured."
+      result: "PreState with old_value as bool."
+    boolean_unknown:
+      description: "getsebool query failed."
+      result: "PreState with old_value=None."
+    audit_rule_exists:
+      description: "Audit rule already in running config."
+      result: "PreState with rule_existed=True."
+    audit_rule_absent:
+      description: "Audit rule not in running config."
+      result: "PreState with rule_existed=False."
+    pam_file_exists:
+      description: "PAM service file exists."
+      result: "PreState with existed=True and old_content populated."
+    pam_file_absent:
+      description: "PAM service file does not exist."
+      result: "PreState with existed=False and old_content=None."
+  invariants:
+    - "All returned PreState objects have capturable=True."
+    - "Remote host is never modified during capture."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_security_spec.py
+    classes:
+      - TestCaptureSecuritySpecDerived
+    count: 9
+  unit:
+    - tests/test_capture_handlers.py

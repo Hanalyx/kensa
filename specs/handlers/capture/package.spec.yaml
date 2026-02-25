@@ -1,0 +1,96 @@
+kind: InternalModule
+
+metadata:
+  name: CapturePackage
+  module: runner.handlers.capture._package
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Package-related capture handlers that snapshot pre-remediation state of RPM
+    packages. Two mechanisms: package_present captures whether a package is currently
+    installed before installing it, package_absent captures whether a package is
+    currently installed (and its version) before removing it.
+  technical_context: >
+    Functions: _capture_package_present, _capture_package_absent. Registered in
+    CAPTURE_HANDLERS. Both use rpm -q to check installation status. package_absent
+    additionally captures the installed version string for informational purposes.
+  dependencies:
+    - "runner.shell_util (quote)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/package.spec.yaml"
+    - "specs/handlers/remediation/package_present.spec.yaml"
+    - "specs/handlers/remediation/package_absent.spec.yaml"
+  assumptions:
+    - "rpm -q returns exit code 0 when package is installed, non-zero otherwise."
+    - "rpm -q stdout contains the package version string (e.g., 'package-1.2.3-4.el9.x86_64')."
+
+objective:
+  summary: >
+    Capture RPM package installation state before remediation to enable rollback
+    of package install/remove operations.
+  acceptance_criteria:
+    AC-1: >
+      _capture_package_present captures was_installed=True when rpm -q succeeds,
+      was_installed=False when it fails; data contains name and was_installed.
+    AC-2: >
+      _capture_package_absent captures was_installed and version when package is
+      installed; data contains name, was_installed, and version (str or None).
+    AC-3: >
+      _capture_package_absent when package is not installed: was_installed=False
+      and version=None.
+    AC-4: >
+      Both handlers use shell_util.quote for safe package name interpolation.
+    AC-5: >
+      Both handlers return PreState with capturable=True.
+
+constraints:
+  - "MUST use shell_util.quote for package name interpolation."
+  - "MUST use rpm -q for package state detection."
+  - "MUST NOT modify the remote host during capture."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: r
+    type: dict
+    required: true
+    description: "Remediation definition dict. Must contain 'name' key (package name)."
+
+behavior:
+  - "1. _capture_package_present: run rpm -q with quoted package name; set was_installed based on exit code."
+  - "2. _capture_package_absent: run rpm -q with quoted package name; set was_installed and capture version from stdout if installed."
+  - "3. Both return PreState with mechanism name and captured data."
+
+output_contract:
+  returns: "PreState with mechanism name and captured data dict."
+  paths:
+    package_installed:
+      description: "Package is currently installed."
+      result: "PreState with was_installed=True (and version for package_absent)."
+    package_not_installed:
+      description: "Package is not currently installed."
+      result: "PreState with was_installed=False (and version=None for package_absent)."
+  invariants:
+    - "All returned PreState objects have capturable=True."
+    - "data.name always matches the package name from the remediation dict."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_package_spec.py
+    classes:
+      - TestCapturePackageSpecDerived
+    count: 6
+  unit:
+    - tests/test_capture_handlers.py

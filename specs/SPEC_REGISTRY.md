@@ -63,6 +63,7 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | [evaluate_rule](orchestration/evaluate_rule.spec.yaml) | `runner/_orchestration.py` → `evaluate_rule` | `tests/test_orchestration_evaluate.py` → `TestEvaluateRuleSpecDerived`, `TestExtractFrameworkRefs` | **Active** — 14 ACs, 30 tests |
 | [remediate_rule](orchestration/remediate_rule.spec.yaml) | `runner/_orchestration.py` → `remediate_rule` | `tests/test_orchestration_remediate.py` → `TestRemediateRuleSpecDerived` | **Active** — 15 ACs, 23 tests |
 | [rollback](orchestration/rollback.spec.yaml) | `runner/handlers/rollback/__init__.py` → `_execute_rollback`; `runner/_orchestration.py` → `rollback_from_stored` | `tests/test_orchestration_rollback.py` → `TestExecuteRollbackSpecDerived`, `TestRollbackFromStoredSpecDerived` | **Active** — 15 ACs, 22 tests |
+| [host_runner](orchestration/host_runner.spec.yaml) | `runner/_host_runner.py` → `run_host` | `tests/test_host_runner_spec.py` → `TestHostRunnerSpecDerived` | **Active** — 12 ACs, 13 tests |
 
 ## CLI Commands
 
@@ -89,6 +90,40 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | Spec | Source | Tests | Status |
 |------|--------|-------|--------|
 | [variable_resolution](internal/variable_resolution.spec.yaml) | `runner/_config.py` → `load_config`, `resolve_variables`, `parse_var_overrides` | `tests/test_variable_resolution_spec.py` → `TestVariableResolutionSpecDerived` | **Active** — 14 ACs, 15 tests |
+| [framework_mappings](internal/framework_mappings.spec.yaml) | `runner/mappings.py` → `FrameworkMapping`, `FrameworkIndex` | `tests/test_framework_mappings_spec.py` → `TestFrameworkMappingsSpecDerived` | **Active** — 12 ACs, 12 tests |
+| [detect_capability](internal/detect_capability.spec.yaml) | `runner/detect.py` → `detect_platform`, `detect_capabilities` | `tests/test_detect_capability_spec.py` → `TestDetectCapabilitySpecDerived` | **Active** — 10 ACs, 10 tests |
+| [host_resolution](internal/host_resolution.spec.yaml) | `runner/inventory.py` → `resolve_targets` | `tests/test_host_resolution_spec.py` → `TestHostResolutionSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [rule_loading](internal/rule_loading.spec.yaml) | `runner/_loading.py` → `load_rules` | `tests/test_rule_loading_spec.py` → `TestRuleLoadingSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [risk_classification](internal/risk_classification.spec.yaml) | `runner/risk.py` → `classify_step_risk`, `should_capture` | `tests/test_risk_classification_spec.py` → `TestRiskClassificationSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [rule_ordering](internal/rule_ordering.spec.yaml) | `runner/ordering.py` → `order_rules` | `tests/test_rule_ordering_spec.py` → `TestRuleOrderingSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [ssh_session](internal/ssh_session.spec.yaml) | `runner/ssh.py` → `SSHSession` | `tests/test_ssh_session_spec.py` → `TestSSHSessionSpecDerived` | **Active** — 11 ACs, 11 tests |
+| [output_formatter](internal/output_formatter.spec.yaml) | `runner/output/` → `write_output` | `tests/test_output_formatter_spec.py` → `TestOutputFormatterSpecDerived` | **Active** — 12 ACs, 12 tests |
+| [rule_selection](internal/rule_selection.spec.yaml) | `runner/_rule_selection.py` → `select_rules` | `tests/test_rule_selection_spec.py` → `TestRuleSelectionSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [shell_util](internal/shell_util.spec.yaml) | `runner/shell_util.py` | `tests/test_shell_util_spec.py` → `TestShellUtilSpecDerived` | **Active** — 10 ACs, 10 tests |
+
+## Handlers — Capture
+
+| Spec | Source | Tests | Status |
+|------|--------|-------|--------|
+| [capture_config](handlers/capture/config.spec.yaml) | `runner/handlers/capture/_config.py` | `tests/test_capture_config_spec.py` → `TestCaptureConfigSpecDerived` | **Active** — 8 ACs, 8 tests |
+| [capture_file](handlers/capture/file.spec.yaml) | `runner/handlers/capture/_file.py` | `tests/test_capture_file_spec.py` → `TestCaptureFileSpecDerived` | **Active** — 8 ACs, 8 tests |
+| [capture_package](handlers/capture/package.spec.yaml) | `runner/handlers/capture/_package.py` | `tests/test_capture_package_spec.py` → `TestCapturePackageSpecDerived` | **Active** — 5 ACs, 5 tests |
+| [capture_service](handlers/capture/service.spec.yaml) | `runner/handlers/capture/_service.py` | `tests/test_capture_service_spec.py` → `TestCaptureServiceSpecDerived` | **Active** — 7 ACs, 7 tests |
+| [capture_system](handlers/capture/system.spec.yaml) | `runner/handlers/capture/_system.py` | `tests/test_capture_system_spec.py` → `TestCaptureSystemSpecDerived` | **Active** — 8 ACs, 8 tests |
+| [capture_security](handlers/capture/security.spec.yaml) | `runner/handlers/capture/_security.py` | `tests/test_capture_security_spec.py` → `TestCaptureSecuritySpecDerived` | **Active** — 7 ACs, 7 tests |
+| [capture_command](handlers/capture/command.spec.yaml) | `runner/handlers/capture/_command.py` | `tests/test_capture_command_spec.py` → `TestCaptureCommandSpecDerived` | **Active** — 4 ACs, 4 tests |
+
+## Handlers — Rollback
+
+| Spec | Source | Tests | Status |
+|------|--------|-------|--------|
+| [rollback_config](handlers/rollback/config.spec.yaml) | `runner/handlers/rollback/_config.py` | `tests/test_rollback_config_spec.py` → `TestRollbackConfigSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [rollback_file](handlers/rollback/file.spec.yaml) | `runner/handlers/rollback/_file.py` | `tests/test_rollback_file_spec.py` → `TestRollbackFileSpecDerived` | **Active** — 8 ACs, 8 tests |
+| [rollback_package](handlers/rollback/package.spec.yaml) | `runner/handlers/rollback/_package.py` | `tests/test_rollback_package_spec.py` → `TestRollbackPackageSpecDerived` | **Active** — 6 ACs, 6 tests |
+| [rollback_service](handlers/rollback/service.spec.yaml) | `runner/handlers/rollback/_service.py` | `tests/test_rollback_service_spec.py` → `TestRollbackServiceSpecDerived` | **Active** — 7 ACs, 7 tests |
+| [rollback_system](handlers/rollback/system.spec.yaml) | `runner/handlers/rollback/_system.py` | `tests/test_rollback_system_spec.py` → `TestRollbackSystemSpecDerived` | **Active** — 8 ACs, 8 tests |
+| [rollback_security](handlers/rollback/security.spec.yaml) | `runner/handlers/rollback/_security.py` | `tests/test_rollback_security_spec.py` → `TestRollbackSecuritySpecDerived` | **Active** — 8 ACs, 8 tests |
+| [rollback_command](handlers/rollback/command.spec.yaml) | `runner/handlers/rollback/_command.py` | `tests/test_rollback_command_spec.py` → `TestRollbackCommandSpecDerived` | **Active** — 4 ACs, 4 tests |
 
 ## Legend
 

@@ -1,0 +1,172 @@
+kind: InternalModule
+
+metadata:
+  name: ShellUtil
+  module: runner.shell_util
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Shell command utility library providing safe, consistent helpers for remote
+    command execution over SSH. All functions use proper quoting via shlex.quote
+    to prevent shell injection. Covers quoting/escaping, file existence checks,
+    file read/write, config file search, sed operations, file stat/permission
+    operations, and systemd service control.
+  technical_context: >
+    Pure utility module with no internal state. Functions accept an SSHSession
+    and operation-specific arguments, construct shell commands with proper quoting,
+    execute via ssh.run(), and return results. Escaping functions (escape_sed,
+    escape_grep_bre, _escape_sed_delim, _escape_sed_replacement) are used internally
+    and by handlers.
+  dependencies:
+    - "shlex (stdlib)"
+    - "runner.ssh (SSHSession, Result)"
+  callers:
+    - "runner.handlers.checks.* (all check handlers)"
+    - "runner.handlers.remediation.* (all remediation handlers)"
+    - "runner.handlers.capture.* (all capture handlers)"
+    - "runner.handlers.rollback.* (all rollback handlers)"
+  related_specs:
+    - "specs/handlers/capture/config.spec.yaml"
+    - "specs/handlers/rollback/config.spec.yaml"
+    - "specs/handlers/remediation/config_set.spec.yaml"
+  assumptions:
+    - "SSHSession.run() executes commands on the remote host and returns a Result with ok, stdout, stderr."
+    - "Remote host has standard POSIX utilities (cat, grep, sed, stat, chmod, chown, test, systemctl)."
+
+objective:
+  summary: >
+    Provide injection-safe shell command construction and execution helpers for file,
+    config, sed, stat, and service operations over SSH.
+  acceptance_criteria:
+    AC-1: >
+      quote(value) returns shlex.quote(str(value)), safely quoting any string
+      for shell interpolation.
+    AC-2: >
+      is_glob_path(path) returns True if path contains *, ?, or [ characters;
+      False otherwise.
+    AC-3: >
+      escape_sed(value) escapes all sed BRE metacharacters (\ / . ^ $ * [ ] &)
+      so the value is treated as a literal string.
+    AC-4: >
+      escape_grep_bre(value) escapes grep BRE metacharacters (\ . ^ $ * [ ])
+      so the value is treated as a literal string.
+    AC-5: >
+      file_exists(ssh, path) returns True when test -f succeeds on the quoted
+      path, False otherwise.
+    AC-6: >
+      grep_config_key(ssh, path, key) searches for lines starting with the key
+      (with optional leading whitespace); auto-detects directory mode and searches
+      recursively with scan_pattern when path is a directory.
+    AC-7: >
+      parse_config_value(line, key) extracts the value portion from "key value"
+      or "key=value" lines, stripping separators and quotes.
+    AC-8: >
+      sed_replace_line(ssh, path, pattern, replacement) replaces matching lines
+      using sed -i, with pattern delimiters escaped and replacement treated as literal.
+    AC-9: >
+      get_file_stat(ssh, path) returns stat output in "owner group mode path"
+      format; supports glob patterns when allow_glob=True.
+    AC-10: >
+      service_action(ssh, remediation) performs reload or restart based on
+      the presence of 'reload' or 'restart' keys in the remediation dict.
+
+constraints:
+  - "MUST use shlex.quote for all user-controlled values interpolated into shell commands."
+  - "MUST escape sed metacharacters to prevent regex injection in sed commands."
+  - "MUST escape grep BRE metacharacters in config key searches."
+  - "MUST auto-detect directory vs file mode in grep_config_key when is_dir is None."
+  - "MUST NOT fail on non-existent files in read operations (return None)."
+  - "MUST preserve glob patterns when allow_glob=True in quote_path."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host (required for all remote operations)."
+  - field: path
+    type: str
+    required: true
+    description: "File or directory path for file operations."
+  - field: value
+    type: str
+    required: true
+    description: "[quote/escape functions] String to quote or escape."
+  - field: key
+    type: str
+    required: true
+    description: "[grep_config_key/parse_config_value] Config key name to search for."
+  - field: pattern
+    type: str
+    required: true
+    description: "[sed operations] BRE regex pattern for matching."
+  - field: replacement
+    type: str
+    required: true
+    description: "[sed_replace_line] Literal replacement string."
+  - field: remediation
+    type: dict
+    required: true
+    description: "[service_action] Remediation dict that may contain 'reload' or 'restart' keys."
+  - field: allow_glob
+    type: bool
+    required: false
+    default: "false"
+    description: "[quote_path/get_file_stat] If True, don't quote glob patterns."
+
+behavior:
+  - "1. Quoting: quote(value) delegates to shlex.quote(str(value)). quote_path preserves glob chars when allow_glob=True."
+  - "2. Escaping: escape_sed escapes \\.^$*[]& for sed BRE. escape_grep_bre escapes \\.^$*[] for grep BRE. _escape_sed_delim escapes only /. _escape_sed_replacement escapes \\ / &."
+  - "3. File checks: file_exists runs test -f, dir_exists runs test -d, path_exists runs test -e, all with quoted paths."
+  - "4. File I/O: read_file runs cat with quoted path, returns stdout or None. write_file uses printf to write. append_line uses echo >>."
+  - "5. Config search: grep_config_key auto-detects dir mode, builds grep command with escaped key pattern, returns last matching line."
+  - "6. Config parse: parse_config_value strips key prefix, separators (= space tab), and quotes from value."
+  - "7. Sed: sed_replace_line escapes pattern delimiters and replacement metacharacters, runs sed -i. sed_delete_line removes matching lines. sed_delete_block removes lines between two patterns."
+  - "8. File stat: get_file_stat runs stat -c '%U %G %a %n'. set_file_owner runs chown. set_file_mode runs chmod."
+  - "9. Service: reload_service tries systemctl reload then falls back to restart. restart_service runs systemctl restart. service_action dispatches based on dict keys."
+
+output_contract:
+  returns: >
+    Varies by function: quote/escape functions return str. File check functions
+    return bool. read_file returns str | None. SSH-executing functions return
+    bool (success) or Result. get_file_stat returns Result.
+  paths:
+    quoted:
+      description: "String safely quoted for shell interpolation."
+      result: "Shell-safe quoted string."
+    file_found:
+      description: "File or directory exists on remote host."
+      result: "True."
+    file_not_found:
+      description: "File or directory does not exist."
+      result: "False (for checks) or None (for read_file)."
+    config_key_found:
+      description: "Config key found in file or directory."
+      result: "Result with ok=True and matching line in stdout."
+    sed_success:
+      description: "Sed operation completed successfully."
+      result: "True."
+  invariants:
+    - "All shell commands use quoted paths to prevent injection."
+    - "File read operations never raise on missing files."
+    - "Service operations never fail fatally (always return True for reload/restart)."
+
+side_effects:
+  - "Executes remote shell commands via SSH."
+  - "Sed operations modify files in-place on the remote host."
+  - "File write operations create or overwrite files on the remote host."
+  - "Service operations may restart or reload systemd services."
+
+testing:
+  spec_derived:
+    file: tests/test_shell_util_spec.py
+    classes:
+      - TestShellUtilSpecDerived
+    count: 12
+  unit:
+    - tests/test_shell_util.py

@@ -1,0 +1,125 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackSecurity
+  module: runner.handlers.rollback._security
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Security-related rollback handlers that restore security subsystem state to
+    pre-remediation. Three mechanisms: selinux_boolean_set restores the boolean
+    to its previous value, audit_rule_set removes a newly added rule and restores
+    the persist file, pam_module_configure restores PAM file content.
+  technical_context: >
+    Functions: _rollback_selinux_boolean_set, _rollback_audit_rule_set,
+    _rollback_pam_module_configure. Registered in ROLLBACK_HANDLERS. SELinux uses
+    setsebool with optional -P flag. Audit uses auditctl -d/-W to remove rules.
+    PAM restores file content via write_file.
+  dependencies:
+    - "runner.shell_util (quote, write_file)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/security.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "setsebool with -P flag persists across reboots."
+    - "auditctl -d removes a rule added with -a; auditctl -W removes a watch added with -w."
+
+objective:
+  summary: >
+    Restore security subsystem state (SELinux booleans, audit rules, PAM
+    configuration) to pre-remediation state using captured PreState data.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_selinux_boolean_set when old_value is not None: runs setsebool
+      (with -P if persistent) to restore value; returns (True, "Restored {name} = {value}").
+    AC-2: >
+      _rollback_selinux_boolean_set when old_value is None: returns (False,
+      "{name}: could not determine previous value").
+    AC-3: >
+      _rollback_selinux_boolean_set uses 60-second timeout for setsebool -P
+      (persistent operations can be slow).
+    AC-4: >
+      _rollback_audit_rule_set when rule already existed before remediation:
+      returns (True, "Rule already existed, nothing to rollback").
+    AC-5: >
+      _rollback_audit_rule_set when rule was newly added: removes from running
+      config by converting -a to -d and -w to -W in the rule string; restores
+      persist file to old content or removes it.
+    AC-6: >
+      _rollback_pam_module_configure when file did not exist before: removes
+      the PAM file; returns (True, "Removed {pam_file}").
+    AC-7: >
+      _rollback_pam_module_configure when file existed but content is None:
+      returns (False, "Cannot restore {pam_file}: content not captured").
+    AC-8: >
+      _rollback_pam_module_configure when file existed and content captured:
+      writes old_content back; returns (True, "Restored {service} PAM config").
+
+constraints:
+  - "MUST use shell_util.quote for safe interpolation."
+  - "MUST use -P flag for persistent SELinux boolean operations when persistent=True."
+  - "MUST convert -a to -d and -w to -W for audit rule removal."
+  - "MUST restore or remove persist file based on persist_existed flag."
+  - "MUST return (False, detail) on failure, never raise exceptions."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: "Captured pre-state from the corresponding security capture handler."
+
+behavior:
+  - "1. _rollback_selinux_boolean_set: check old_value; if None, return failure; else run setsebool with -P flag if persistent."
+  - "2. _rollback_audit_rule_set: if rule_existed, return no-op; else convert rule for deletion (auditctl -d/-W), remove from running config, restore or remove persist file."
+  - "3. _rollback_pam_module_configure: if not existed, rm -f; if old_content None, return error; else write_file with old_content."
+
+output_contract:
+  returns: "tuple[bool, str] — (success, human-readable detail message)."
+  paths:
+    boolean_restored:
+      description: "SELinux boolean restored to previous value."
+      result: "(True, 'Restored {name} = on/off')."
+    boolean_unknown:
+      description: "Previous boolean value was not captured."
+      result: "(False, '{name}: could not determine previous value')."
+    audit_rule_existed:
+      description: "Rule was already present before remediation."
+      result: "(True, 'Rule already existed, nothing to rollback')."
+    audit_rule_removed:
+      description: "Newly added rule removed from running and persist."
+      result: "(True, 'Removed audit rule')."
+    pam_restored:
+      description: "PAM file content restored."
+      result: "(True, 'Restored {service} PAM config')."
+    pam_removed:
+      description: "PAM file that didn't exist removed."
+      result: "(True, 'Removed {pam_file}')."
+    pam_no_content:
+      description: "PAM file content was not captured."
+      result: "(False, 'Cannot restore {pam_file}: content not captured')."
+  invariants:
+    - "Never raises exceptions; returns (False, detail) on failure."
+    - "Persistent SELinux operations use -P flag and 60s timeout."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_security_spec.py
+    classes:
+      - TestRollbackSecuritySpecDerived
+    count: 10
+  unit:
+    - tests/test_rollback_handlers.py

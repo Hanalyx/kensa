@@ -1,0 +1,113 @@
+kind: InternalModule
+
+metadata:
+  name: CaptureFile
+  module: runner.handlers.capture._file
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    File-related capture handlers that snapshot pre-remediation state of files.
+    Three mechanisms: file_permissions captures ownership and mode for one or more
+    files (including glob patterns), file_content captures full file content plus
+    ownership and mode, file_absent captures file content and metadata before
+    removal.
+  technical_context: >
+    Functions: _capture_file_permissions, _capture_file_content, _capture_file_absent.
+    Registered in CAPTURE_HANDLERS. file_permissions handles glob paths by parsing
+    multi-line stat output into entries. file_content and file_absent both capture
+    full content, owner, group, and mode.
+  dependencies:
+    - "runner.shell_util (is_glob_path, quote_path, file_exists, read_file, get_file_stat)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.capture._dispatch_capture (via CAPTURE_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/rollback/file.spec.yaml"
+    - "specs/handlers/remediation/file_permissions.spec.yaml"
+    - "specs/handlers/remediation/file_content_set.spec.yaml"
+    - "specs/handlers/remediation/file_absent.spec.yaml"
+  assumptions:
+    - "stat -c '%U %G %a %n' produces 'owner group mode path' per line."
+    - "read_file returns None for non-existent files."
+
+objective:
+  summary: >
+    Capture file ownership, permissions, and content before remediation to enable
+    rollback to the pre-remediation state.
+  acceptance_criteria:
+    AC-1: >
+      _capture_file_permissions captures owner, group, and mode for each file
+      matching the path (including glob patterns); data.entries is a list of
+      {path, owner, group, mode} dicts.
+    AC-2: >
+      _capture_file_permissions with a glob path uses allow_glob=True for stat
+      command, producing multiple entries.
+    AC-3: >
+      _capture_file_permissions for a non-existent file produces an empty entries list.
+    AC-4: >
+      _capture_file_content captures full file content, owner, group, and mode;
+      data contains path, existed, old_content, old_owner, old_group, old_mode.
+    AC-5: >
+      _capture_file_content for a non-existent file: existed=False, old_content=None,
+      and old_owner/old_group/old_mode are all None.
+    AC-6: >
+      _capture_file_absent captures the same fields as file_content (path, existed,
+      old_content, old_owner, old_group, old_mode) for restoring removed files.
+    AC-7: >
+      _capture_file_absent for a non-existent file: existed=False and all old_*
+      fields are None.
+    AC-8: >
+      All file capture handlers return PreState with capturable=True.
+
+constraints:
+  - "MUST handle glob paths for file_permissions via is_glob_path and quote_path."
+  - "MUST capture both content and metadata (owner, group, mode) for file_content and file_absent."
+  - "MUST return empty entries list when no files match (file_permissions)."
+  - "MUST NOT modify the remote host during capture."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: r
+    type: dict
+    required: true
+    description: >
+      Remediation definition dict. Must contain 'path' key. file_permissions
+      may also have 'glob' key to force glob mode.
+
+behavior:
+  - "1. _capture_file_permissions: detect glob mode from r['glob'] or is_glob_path; run stat with quoted path; parse output into entries list."
+  - "2. _capture_file_content: check file existence; if exists, read content via read_file and stat via get_file_stat; parse owner, group, mode from stat output."
+  - "3. _capture_file_absent: identical capture logic to file_content (check existence, read content, capture metadata)."
+  - "4. All return PreState with mechanism name and captured data."
+
+output_contract:
+  returns: "PreState with mechanism name and captured data dict."
+  paths:
+    files_found:
+      description: "One or more files match the path."
+      result: "PreState with populated entries (permissions) or old_content (content/absent)."
+    no_files:
+      description: "No files match the path or file does not exist."
+      result: "PreState with empty entries or existed=False and None values."
+  invariants:
+    - "All returned PreState objects have capturable=True."
+    - "file_content and file_absent produce identical data structures."
+
+testing:
+  spec_derived:
+    file: tests/test_capture_file_spec.py
+    classes:
+      - TestCaptureFileSpecDerived
+    count: 10
+  unit:
+    - tests/test_capture_handlers.py

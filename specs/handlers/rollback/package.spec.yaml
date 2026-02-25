@@ -1,0 +1,106 @@
+kind: InternalModule
+
+metadata:
+  name: RollbackPackage
+  module: runner.handlers.rollback._package
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Package-related rollback handlers that restore RPM package state to
+    pre-remediation. Two mechanisms: package_present removes a package if it was
+    not installed before (reverting an install), package_absent re-installs a
+    package if it was installed before (reverting a remove).
+  technical_context: >
+    Functions: _rollback_package_present, _rollback_package_absent. Registered in
+    ROLLBACK_HANDLERS. Uses dnf remove/install with -y flag and 300-second timeout
+    for package operations.
+  dependencies:
+    - "runner.shell_util (quote)"
+    - "runner._types (PreState)"
+    - "runner.ssh (SSHSession)"
+  callers:
+    - "runner.handlers.rollback._execute_rollback (via ROLLBACK_HANDLERS registry)"
+  related_specs:
+    - "specs/handlers/capture/package.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "dnf is available on the target host."
+    - "Package operations may take significant time (up to 300 seconds)."
+
+objective:
+  summary: >
+    Reverse package install/remove operations by using captured pre-state to
+    determine whether to remove or re-install the package.
+  acceptance_criteria:
+    AC-1: >
+      _rollback_package_present when package was already installed before remediation:
+      returns (True, "{name} was already installed, nothing to rollback").
+    AC-2: >
+      _rollback_package_present when package was not installed before: runs
+      dnf remove -y with quoted name and 300s timeout; returns (True, "Removed {name}").
+    AC-3: >
+      _rollback_package_present when dnf remove fails: returns (False, "Failed to
+      remove {name}: {stderr}").
+    AC-4: >
+      _rollback_package_absent when package was not installed before remediation:
+      returns (True, "{name} was not installed, nothing to restore").
+    AC-5: >
+      _rollback_package_absent when package was installed before: runs
+      dnf install -y with quoted name and 300s timeout; returns (True, "Reinstalled {name}").
+    AC-6: >
+      _rollback_package_absent when dnf install fails: returns (False, "Failed to
+      reinstall {name}: {stderr}").
+
+constraints:
+  - "MUST use shell_util.quote for package name interpolation."
+  - "MUST use 300-second timeout for dnf operations."
+  - "MUST use -y flag for non-interactive dnf operations."
+  - "MUST return (False, detail) on failure, never raise exceptions."
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "Active SSH session to the target host."
+  - field: pre_state
+    type: PreState
+    required: true
+    description: "Captured pre-state from the corresponding package capture handler."
+
+behavior:
+  - "1. _rollback_package_present: if was_installed, return no-op; else run dnf remove -y."
+  - "2. _rollback_package_absent: if not was_installed, return no-op; else run dnf install -y."
+
+output_contract:
+  returns: "tuple[bool, str] — (success, human-readable detail message)."
+  paths:
+    no_op:
+      description: "Package was already in the desired state before remediation."
+      result: "(True, no-op message)."
+    package_removed:
+      description: "Package successfully removed (reverting install)."
+      result: "(True, 'Removed {name}')."
+    package_reinstalled:
+      description: "Package successfully reinstalled (reverting remove)."
+      result: "(True, 'Reinstalled {name}')."
+    dnf_failed:
+      description: "dnf operation failed."
+      result: "(False, failure detail with stderr)."
+  invariants:
+    - "Never raises exceptions; returns (False, detail) on failure."
+    - "dnf operations always use -y and 300s timeout."
+
+testing:
+  spec_derived:
+    file: tests/test_rollback_package_spec.py
+    classes:
+      - TestRollbackPackageSpecDerived
+    count: 8
+  unit:
+    - tests/test_rollback_handlers.py

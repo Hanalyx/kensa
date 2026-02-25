@@ -1,0 +1,168 @@
+kind: InternalModule
+
+metadata:
+  name: RuleLoading
+  module: runner._loading
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Rule loading and platform filtering. Loads YAML rule files from a single
+    file or recursively from a directory, applies optional severity/tag/category
+    filters, and provides platform applicability checking against detected
+    host family and version.
+  technical_context: >
+    Entry points: load_rules(path, severity, tags, category) -> list[dict],
+    rule_applies_to_platform(rule, family, version) -> bool. load_rules
+    accepts a single .yml/.yaml file or a directory (recursive glob).
+    Rules are dicts with required "id" key; files without "id" are skipped.
+    Severity filter is case-insensitive set membership. Tag filter is
+    case-insensitive intersection (any tag matches). Category filter is
+    case-insensitive exact match.
+  dependencies:
+    - "yaml (PyYAML)"
+  callers:
+    - "runner.cli (check, remediate, info commands)"
+    - "runner.engine (rule evaluation)"
+    - "runner._host_runner (rule loading and filtering)"
+  related_specs:
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+  assumptions:
+    - "Rule YAML files contain a single top-level mapping with an 'id' key."
+    - "YAML files use safe_load only."
+
+objective:
+  summary: >
+    Load YAML rule files from filesystem, filter by severity/tag/category,
+    and check platform applicability for host-specific rule selection.
+  acceptance_criteria:
+    AC-1: >
+      load_rules with a file path loads that single file and returns a
+      list with one rule dict (if valid).
+    AC-2: >
+      load_rules with a directory path recursively discovers all .yml and
+      .yaml files sorted by path.
+    AC-3: >
+      Files that fail YAML parsing are silently skipped without raising.
+    AC-4: >
+      Files that parse to non-dict or lack an "id" key are silently skipped.
+    AC-5: >
+      severity filter is case-insensitive; only rules whose severity field
+      matches one of the given values are returned.
+    AC-6: >
+      tags filter is case-insensitive intersection; rules with at least one
+      matching tag are returned.
+    AC-7: >
+      category filter is case-insensitive exact match on the rule's category
+      field.
+    AC-8: >
+      rule_applies_to_platform returns True when the rule has no platforms
+      field (applies to all platforms).
+    AC-9: >
+      rule_applies_to_platform returns True when any platform entry matches
+      the given family and the version falls within min_version..max_version.
+    AC-10: >
+      rule_applies_to_platform returns False when platforms is an empty list
+      or no platform entry matches.
+
+constraints:
+  - "MUST use yaml.safe_load for all YAML parsing."
+  - "MUST skip malformed YAML files without crashing."
+  - "MUST skip files that do not contain a mapping with an 'id' key."
+  - "MUST apply all specified filters (severity, tags, category) when provided."
+  - "MUST raise ValueError when path is None."
+  - "MUST raise FileNotFoundError when path does not exist."
+
+input_contract:
+  - field: path
+    type: "str | None"
+    required: true
+    description: >
+      Path to a single rule file or a directory of rules. None raises ValueError.
+  - field: severity
+    type: "list[str] | None"
+    required: false
+    default: "None"
+    description: >
+      Severity values to include (case-insensitive). None means no filter.
+  - field: tags
+    type: "list[str] | None"
+    required: false
+    default: "None"
+    description: >
+      Tag values to include (case-insensitive intersection). None means no filter.
+  - field: category
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Category to filter by (case-insensitive exact match). None means no filter.
+  - field: rule
+    type: dict
+    required: false
+    description: >
+      Rule dict for rule_applies_to_platform. Must have optional platforms field.
+  - field: family
+    type: str
+    required: false
+    description: >
+      OS family for platform filtering (e.g., "rhel").
+  - field: version
+    type: int
+    required: false
+    description: >
+      OS major version for platform filtering.
+
+behavior:
+  - "1. If path is None, raise ValueError."
+  - "2. If path is a file, load it as a single-element list."
+  - "3. If path is a directory, recursively glob *.yml and *.yaml, sorted by path."
+  - "4. If path does not exist, raise FileNotFoundError."
+  - "5. For each file, safe_load YAML; skip on YAMLError."
+  - "6. Skip if result is not a dict or has no 'id' key."
+  - "7. Apply severity filter (case-insensitive set membership)."
+  - "8. Apply tags filter (case-insensitive intersection)."
+  - "9. Apply category filter (case-insensitive exact match)."
+  - "10. Return filtered list of rule dicts."
+
+output_contract:
+  returns: >
+    load_rules -> list[dict] of rule dicts (may be empty after filtering);
+    rule_applies_to_platform -> bool.
+  paths:
+    rules_loaded:
+      description: "Valid rule files found and optionally filtered."
+      result: "List of rule dicts passing all filters."
+    no_rules:
+      description: "No valid rule files found or all filtered out."
+      result: "Empty list returned."
+    path_none:
+      description: "path parameter is None."
+      result: "ValueError raised."
+    path_missing:
+      description: "Path does not exist on filesystem."
+      result: "FileNotFoundError raised."
+  invariants:
+    - "Every returned rule dict has an 'id' key."
+    - "Filters are cumulative (all must pass)."
+    - "File loading order is deterministic (sorted paths)."
+
+side_effects:
+  - "Reads YAML files from filesystem."
+  - "No writes or network access."
+
+testing:
+  spec_derived:
+    file: tests/test_rule_loading_spec.py
+    classes:
+      - TestRuleLoadingSpecDerived
+    count: 11
+  unit:
+    - tests/test_loading.py
