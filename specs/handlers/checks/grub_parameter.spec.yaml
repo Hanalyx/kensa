@@ -1,0 +1,126 @@
+kind: CheckHandler
+metadata:
+  name: GrubParameter
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Checks that a kernel boot parameter is present in the default GRUB
+    entry with an optional expected value.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check via
+    CHECK_HANDLERS["grub_parameter"]. Implemented in
+    runner/handlers/checks/_system.py as _check_grub_parameter.
+    Uses grubby --info=DEFAULT piped through grep to extract the args line,
+    then uses regex to extract parameter values. Supports both key=value
+    parameters and presence-only boolean parameters.
+  dependencies:
+    - re
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+  related_specs:
+    - sysctl_value.spec.yaml
+    - kernel_module_state.spec.yaml
+
+objective:
+  summary: >
+    Execute grubby --info=DEFAULT on a remote host to inspect kernel boot
+    parameters, verify the specified parameter is present with the expected
+    value, and return a CheckResult with structured Evidence.
+  acceptance_criteria:
+    AC-1: "Parameter found with value matching expected returns passed=True with detail '{key}={actual}'."
+    AC-2: "Parameter found with value not matching expected returns passed=False with detail '{key}={actual} (expected {expected})'."
+    AC-3: "Parameter not found in kernel args returns passed=False with detail '{key} not found in kernel args'."
+    AC-4: "Grubby command failing (not result.ok) returns passed=False with detail 'grubby not available'."
+    AC-5: "Presence-only check (expected is None or '') with parameter present returns passed=True with detail '{key} present'."
+    AC-6: "Parameter present without value but expected has a value returns passed=False with detail '{key} present but expected value {expected}'."
+    AC-7: "Evidence method is always 'grub_parameter'."
+
+constraints:
+  - "MUST read key as a required key (KeyError if absent)."
+  - "MUST treat expected as optional (default None for presence-only check)."
+  - "MUST redirect stderr to /dev/null in the grubby command."
+  - "MUST use regex to extract key=value pairs, stripping surrounding quotes."
+  - "MUST check for key= pattern before bare key presence."
+  - "MUST set evidence.method to 'grub_parameter' in all paths."
+  - "MUST set evidence.actual to None when parameter is not found or grubby is unavailable."
+
+input_contract:
+  - field: key
+    type: str
+    required: true
+    description: Kernel boot parameter name (e.g., "audit", "audit_backlog_limit").
+  - field: expected
+    type: str
+    required: false
+    default: "None"
+    description: "Expected parameter value. None or '' means presence-only check."
+
+behavior:
+  - "Read key from c['key'] (required key)."
+  - "Read expected from c.get('expected') (default None)."
+  - "Capture check_time as datetime.now(timezone.utc)."
+  - "Build command: grubby --info=DEFAULT 2>/dev/null | grep -E 'args='."
+  - "Execute ssh.run(cmd) to get a Result."
+  - >
+    If result.ok: strip stdout to get args_line. Check if '{key}=' is in
+    args_line. If so, use regex to extract the value, strip quotes. If
+    expected is None, pass. If expected matches actual, pass. Otherwise fail
+    with value mismatch detail. If '{key}=' not found but key is in
+    args_line (bare presence): if expected is None or '', return PASS with
+    detail '{key} present'. If expected has a value, return FAIL with detail
+    '{key} present but expected value {expected}'. If key not found at all,
+    return FAIL with detail '{key} not found in kernel args'.
+  - >
+    If not result.ok: return FAIL with detail 'grubby not available' and
+    evidence.actual=None.
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass_value_match:
+      passed: true
+      detail: "'{key}={actual}'"
+    pass_presence:
+      passed: true
+      detail: "'{key} present'"
+    fail_value_mismatch:
+      passed: false
+      detail: "'{key}={actual} (expected {expected})'"
+    fail_present_no_value:
+      passed: false
+      detail: "'{key} present but expected value {expected}'"
+    fail_not_found:
+      passed: false
+      detail: "'{key} not found in kernel args'"
+    fail_grubby_unavailable:
+      passed: false
+      detail: "'grubby not available'"
+  evidence_fields:
+    method: "grub_parameter"
+    command: "grubby --info=DEFAULT 2>/dev/null | grep -E 'args='"
+    stdout: Full raw stdout from grubby
+    stderr: Full raw stderr
+    exit_code: Actual exit code
+    expected: "The expected value string, or None for presence-only"
+    actual: "Extracted parameter value, 'present', 'present (no value)', or None"
+    timestamp: UTC time captured before command execution
+  invariants:
+    - "Evidence is always populated in all code paths."
+    - "evidence.method is always 'grub_parameter'."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestGrubParameter
+      - TestGrubParameterSpecDerived
+    count: 7

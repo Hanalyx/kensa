@@ -11,6 +11,22 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | [file_permission](handlers/checks/file_permission.spec.yaml) | `runner/handlers/checks/_file.py` → `_check_file_permission` | `tests/test_engine_checks.py` → `TestFilePermission`, `TestFilePermissionSpecDerived` | **Active** — 17 ACs, 19 tests |
 | [service_state](handlers/checks/service_state.spec.yaml) | `runner/handlers/checks/_service.py` → `_check_service_state` | `tests/test_engine_checks.py` → `TestServiceState`, `TestServiceStateSpecDerived` | **Active** — 18 ACs, 18 tests |
 | [command](handlers/checks/command.spec.yaml) | `runner/handlers/checks/_command.py` → `_check_command` | `tests/test_engine_checks.py` → `TestCommand`, `TestCommandSpecDerived` | **Active** — 18 ACs, 29 tests |
+| [file_exists](handlers/checks/file_exists.spec.yaml) | `runner/handlers/checks/_file.py` → `_check_file_exists` | `tests/test_engine_checks.py` → `TestFileExists`, `TestFileExistsSpecDerived` | **Active** — 6 ACs, 8 tests |
+| [file_not_exists](handlers/checks/file_not_exists.spec.yaml) | `runner/handlers/checks/_file.py` → `_check_file_not_exists` | `tests/test_engine_checks.py` → `TestFileNotExists`, `TestFileNotExistsSpecDerived` | **Active** — 5 ACs, 7 tests |
+| [file_content](handlers/checks/file_content.spec.yaml) | `runner/handlers/checks/_file.py` → `_check_file_content` | `tests/test_engine_checks.py` → `TestFileContent`, `TestFileContentSpecDerived` | **Active** — 10 ACs, 14 tests |
+| [file_content_match](handlers/checks/file_content_match.spec.yaml) | `runner/handlers/checks/_file.py` → `_check_file_content_match` | `tests/test_engine_checks.py` → `TestFileContentMatch`, `TestFileContentMatchSpecDerived` | **Active** — 8 ACs, 11 tests |
+| [file_content_no_match](handlers/checks/file_content_no_match.spec.yaml) | `runner/handlers/checks/_file.py` → `_check_file_content_no_match` | `tests/test_engine_checks.py` → `TestFileContentNoMatch`, `TestFileContentNoMatchSpecDerived` | **Active** — 6 ACs, 9 tests |
+| [config_absent](handlers/checks/config_absent.spec.yaml) | `runner/handlers/checks/_config.py` → `_check_config_absent` | `tests/test_engine_checks.py` → `TestConfigAbsent`, `TestConfigAbsentSpecDerived` | **Active** — 6 ACs, 8 tests |
+| [sysctl_value](handlers/checks/sysctl_value.spec.yaml) | `runner/handlers/checks/_system.py` → `_check_sysctl_value` | `tests/test_engine_checks.py` → `TestSysctlValue` | **Active** — 6 ACs, 6 tests |
+| [kernel_module_state](handlers/checks/kernel_module_state.spec.yaml) | `runner/handlers/checks/_system.py` → `_check_kernel_module_state` | `tests/test_engine_checks.py` → `TestKernelModuleState` | **Active** — 8 ACs, 8 tests |
+| [mount_option](handlers/checks/mount_option.spec.yaml) | `runner/handlers/checks/_system.py` → `_check_mount_option` | `tests/test_engine_checks.py` → `TestMountOption` | **Active** — 8 ACs, 8 tests |
+| [grub_parameter](handlers/checks/grub_parameter.spec.yaml) | `runner/handlers/checks/_system.py` → `_check_grub_parameter` | `tests/test_engine_checks.py` → `TestGrubParameter` | **Active** — 7 ACs, 7 tests |
+| [package_state](handlers/checks/package_state.spec.yaml) | `runner/handlers/checks/_package.py` → `_check_package_state` | `tests/test_engine_checks.py` → `TestPackageState` | **Active** — 6 ACs, 6 tests |
+| [selinux_state](handlers/checks/selinux_state.spec.yaml) | `runner/handlers/checks/_security.py` → `_check_selinux_state` | `tests/test_engine_checks.py` → `TestSelinuxState` | **Active** — 5 ACs, 5 tests |
+| [selinux_boolean](handlers/checks/selinux_boolean.spec.yaml) | `runner/handlers/checks/_security.py` → `_check_selinux_boolean` | `tests/test_engine_checks.py` → `TestSelinuxBoolean` | **Active** — 6 ACs, 6 tests |
+| [audit_rule_exists](handlers/checks/audit_rule_exists.spec.yaml) | `runner/handlers/checks/_security.py` → `_check_audit_rule_exists` | `tests/test_engine_checks.py` → `TestAuditRuleExists` | **Active** — 8 ACs, 8 tests |
+| [pam_module](handlers/checks/pam_module.spec.yaml) | `runner/handlers/checks/_security.py` → `_check_pam_module` | `tests/test_engine_checks.py` → `TestPamModule` | **Active** — 8 ACs, 8 tests |
+| [systemd_target](handlers/checks/systemd_target.spec.yaml) | `runner/handlers/checks/_service.py` → `_check_systemd_target` | `tests/test_engine_checks.py` → `TestSystemdTarget` | **Active** — 5 ACs, 5 tests |
 
 ## Handlers — Remediation
 

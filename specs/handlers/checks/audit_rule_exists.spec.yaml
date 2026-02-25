@@ -1,0 +1,114 @@
+kind: CheckHandler
+metadata:
+  name: AuditRuleExists
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Checks whether an audit rule is active by listing current auditctl
+    rules and searching for a matching pattern after output normalization.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check via
+    CHECK_HANDLERS["audit_rule_exists"]. Implemented in
+    runner/handlers/checks/_security.py as _check_audit_rule_exists.
+    Uses a helper _normalize_auditctl_output() that reverses well-known
+    formatting differences between auditctl input and display syntax:
+    '-F key=X' to '-k X', 'auid!=-1' and 'auid!=4294967295' to
+    'auid!=unset', and removal of '-S all '. The rule pattern is matched
+    via simple substring search against the normalized output.
+  dependencies:
+    - re
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+
+objective:
+  summary: >
+    Execute auditctl -l on a remote host to list active audit rules,
+    normalize the output to account for formatting differences, search
+    for the specified rule pattern, and return a CheckResult with
+    structured Evidence.
+  acceptance_criteria:
+    AC-1: "Rule pattern found in normalized auditctl output returns passed=True with detail 'Audit rule found'."
+    AC-2: "Rule pattern not found in normalized output returns passed=False with detail 'Audit rule not found: {rule[:50]}...'."
+    AC-3: "auditctl command failing returns passed=False with detail 'auditctl failed - auditd may not be running'."
+    AC-4: "Normalization converts '-F key=X' to '-k X' before matching."
+    AC-5: "Normalization converts 'auid!=-1' and 'auid!=4294967295' to 'auid!=unset' before matching."
+    AC-6: "Evidence method is always 'audit_rule_exists'."
+    AC-7: "Evidence expected contains the rule pattern truncated to 50 characters in format \"contains '{rule[:50]}'\"."
+    AC-8: "Evidence actual is 'found' when rule matches, 'not found' when rule does not match, None when auditctl fails."
+
+constraints:
+  - "MUST read rule as a required key (KeyError if absent)."
+  - "MUST redirect stderr to /dev/null in the auditctl command."
+  - "MUST normalize auditctl output before performing substring match."
+  - "MUST apply all four normalization transformations: -F key=X to -k X, auid!=-1 to auid!=unset, auid!=4294967295 to auid!=unset, -S all removal."
+  - "MUST truncate rule to 50 characters in the failure detail message."
+  - "MUST truncate rule to 50 characters in evidence.expected."
+  - "MUST set evidence.method to 'audit_rule_exists' in all paths."
+  - "MUST use simple substring match (rule in normalized), not regex."
+
+input_contract:
+  - field: rule
+    type: str
+    required: true
+    description: "Full or partial audit rule to search for (e.g., '-w /etc/passwd -p wa -k identity')."
+
+behavior:
+  - "Read rule from c['rule'] (required key)."
+  - "Capture check_time as datetime.now(timezone.utc)."
+  - "Build command: auditctl -l 2>/dev/null."
+  - "Execute ssh.run(cmd) to get a Result."
+  - >
+    If not result.ok: return FAIL with detail 'auditctl failed - auditd may
+    not be running' and evidence.actual=None.
+  - >
+    Normalize the output via _normalize_auditctl_output(): replace
+    '-F key=X' with '-k X', replace 'auid!=-1' with 'auid!=unset', replace
+    'auid!=4294967295' with 'auid!=unset', remove '-S all '.
+  - "Check if rule is a substring of the normalized output."
+  - >
+    Build detail: if found, 'Audit rule found'; if not, 'Audit rule not
+    found: {rule[:50]}...'.
+  - "Return CheckResult with passed, detail, and Evidence."
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "'Audit rule found'"
+    fail_not_found:
+      passed: false
+      detail: "'Audit rule not found: {rule[:50]}...'"
+    fail_auditctl:
+      passed: false
+      detail: "'auditctl failed - auditd may not be running'"
+  evidence_fields:
+    method: "audit_rule_exists"
+    command: "auditctl -l 2>/dev/null"
+    stdout: Full raw stdout from auditctl (before normalization)
+    stderr: Full raw stderr
+    exit_code: Actual exit code from auditctl
+    expected: "\"contains '{rule[:50]}'\" (pattern truncated to 50 chars)"
+    actual: "'found' or 'not found', or None on command failure"
+    timestamp: UTC time captured before command execution
+  invariants:
+    - "Evidence is always populated in all code paths."
+    - "evidence.method is always 'audit_rule_exists'."
+    - "evidence.stdout contains raw (un-normalized) auditctl output."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestAuditRuleExists
+      - TestAuditRuleExistsSpecDerived
+    count: 8
