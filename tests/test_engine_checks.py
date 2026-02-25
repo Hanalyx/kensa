@@ -8,6 +8,7 @@ from runner.ssh import Result
 
 class TestConfigValue:
     def test_key_found_correct_value(self, mock_ssh):
+        """AC-1: Key present with correct value → PASS."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -24,6 +25,7 @@ class TestConfigValue:
         assert r.passed is True
 
     def test_key_found_wrong_value(self, mock_ssh):
+        """AC-2: Key present with wrong value → FAIL with 'expected' detail."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -41,6 +43,7 @@ class TestConfigValue:
         assert "expected no" in r.detail
 
     def test_key_not_found(self, mock_ssh):
+        """AC-3: Key not found (grep exit 1) → FAIL with 'not found' detail."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -58,6 +61,7 @@ class TestConfigValue:
         assert "not found" in r.detail
 
     def test_directory_mode_with_scan_pattern(self, mock_ssh):
+        """AC-4: Directory mode with scan_pattern → recursive grep."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=0, stdout="", stderr=""),
@@ -75,6 +79,7 @@ class TestConfigValue:
         assert r.passed is True
 
     def test_equals_separator(self, mock_ssh):
+        """AC-5: Equals separator (key = value) parsed correctly."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -91,6 +96,7 @@ class TestConfigValue:
         assert r.passed is True
 
     def test_case_insensitive_comparison(self, mock_ssh):
+        """AC-6: Case-insensitive comparison (No matches no) → PASS."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -1288,6 +1294,7 @@ class TestPamModule:
 
 class TestConfigValueComparator:
     def test_greater_than_or_equal_pass(self, mock_ssh):
+        """AC-7: Numeric >= comparator when actual >= expected → PASS."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -1305,6 +1312,7 @@ class TestConfigValueComparator:
         assert r.passed is True
 
     def test_greater_than_or_equal_fail(self, mock_ssh):
+        """AC-8: Numeric >= comparator when actual < expected → FAIL."""
         ssh = mock_ssh(
             {
                 "test -d": Result(exit_code=1, stdout="", stderr=""),
@@ -1320,6 +1328,173 @@ class TestConfigValueComparator:
         }
         r = run_check(ssh, check)
         assert r.passed is False
+
+
+class TestConfigValueSpecDerived:
+    """Spec-derived gap tests for config_value handler.
+
+    See specs/handlers/checks/config_value.spec.md for full specification.
+    """
+
+    def test_evidence_fields_populated(self, mock_ssh):
+        """AC-9: Evidence fields populated on successful check."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="PermitRootLogin no", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_value",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "config_value"
+        assert r.evidence.command is not None
+        assert r.evidence.expected == "no"
+        assert r.evidence.actual == "no"
+        assert r.evidence.exit_code == 0
+        assert r.evidence.stdout == "PermitRootLogin no"
+
+    def test_invalid_comparator_rejected(self, mock_ssh):
+        """AC-10: Invalid comparator → FAIL with descriptive error."""
+        ssh = mock_ssh({})
+        check = {
+            "method": "config_value",
+            "path": "/etc/security/pwquality.conf",
+            "key": "minlen",
+            "expected": "14",
+            "comparator": "!=",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "Invalid comparator" in r.detail
+        assert "!=" in r.detail
+
+    def test_less_than_comparators(self, mock_ssh):
+        """AC-11: Numeric < and <= comparators behave correctly."""
+        ssh_lt = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="maxretries = 3", stderr=""),
+            }
+        )
+        check_lt = {
+            "method": "config_value",
+            "path": "/etc/security/faillock.conf",
+            "key": "maxretries",
+            "expected": "5",
+            "comparator": "<",
+        }
+        r = run_check(ssh_lt, check_lt)
+        assert r.passed is True
+
+        ssh_le = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="maxretries = 5", stderr=""),
+            }
+        )
+        check_le = {
+            "method": "config_value",
+            "path": "/etc/security/faillock.conf",
+            "key": "maxretries",
+            "expected": "5",
+            "comparator": "<=",
+        }
+        r = run_check(ssh_le, check_le)
+        assert r.passed is True
+
+        ssh_gt = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="maxretries = 2", stderr=""),
+            }
+        )
+        check_gt = {
+            "method": "config_value",
+            "path": "/etc/security/faillock.conf",
+            "key": "maxretries",
+            "expected": "5",
+            "comparator": ">",
+        }
+        r = run_check(ssh_gt, check_gt)
+        assert r.passed is False
+
+    def test_numeric_comparator_non_numeric_fallback(self, mock_ssh):
+        """AC-12: Numeric comparator with non-numeric value → string fallback."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="LogLevel VERBOSE", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_value",
+            "path": "/etc/ssh/sshd_config",
+            "key": "LogLevel",
+            "expected": "VERBOSE",
+            "comparator": ">=",
+        }
+        r = run_check(ssh, check)
+        # Non-numeric values fall back to case-insensitive string equality
+        assert r.passed is True
+
+        ssh_fail = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="LogLevel INFO", stderr=""),
+            }
+        )
+        check_fail = {
+            "method": "config_value",
+            "path": "/etc/ssh/sshd_config",
+            "key": "LogLevel",
+            "expected": "VERBOSE",
+            "comparator": ">=",
+        }
+        r = run_check(ssh_fail, check_fail)
+        assert r.passed is False
+
+    def test_quoted_value_extraction(self, mock_ssh):
+        """AC-13: Quoted value extraction strips quotes."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout='Banner="/etc/issue"', stderr=""),
+            }
+        )
+        check = {
+            "method": "config_value",
+            "path": "/etc/ssh/sshd_config",
+            "key": "Banner",
+            "expected": "/etc/issue",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.evidence is not None
+        assert r.evidence.actual == "/etc/issue"
+
+    def test_empty_stdout_exit_zero_not_found(self, mock_ssh):
+        """AC-14: Empty stdout with exit code 0 → FAIL as not found."""
+        ssh = mock_ssh(
+            {
+                "test -d": Result(exit_code=1, stdout="", stderr=""),
+                "grep": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "config_value",
+            "path": "/etc/ssh/sshd_config",
+            "key": "PermitRootLogin",
+            "expected": "no",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "not found" in r.detail
 
 
 class TestUnknownMethod:
