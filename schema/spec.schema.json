@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hanalyx.com/kensa/spec.schema.json",
+  "title": "Kensa Behavioral Specification",
+  "description": "Schema for SDD-style behavioral specifications in the Kensa project.",
+  "type": "object",
+  "required": ["kind", "metadata", "context", "objective", "constraints"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "SystemContext",
+        "CheckHandler",
+        "RemediationHandler",
+        "Orchestration",
+        "CLICommand"
+      ],
+      "description": "Type of artifact this spec describes."
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "objective": {
+      "$ref": "#/$defs/objective"
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "RFC 2119 constraints (MUST/MUST NOT)."
+    },
+    "input_contract": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contract_field" },
+      "description": "Structured input fields or CLI flags."
+    },
+    "behavior": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Numbered steps describing execution flow."
+    },
+    "output_contract": {
+      "$ref": "#/$defs/output_contract"
+    },
+    "exit_codes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/exit_code" },
+      "description": "Exit code to condition mapping (CLICommand only)."
+    },
+    "side_effects": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Side effects (SQLite writes, remote changes, file writes)."
+    },
+    "testing": {
+      "$ref": "#/$defs/testing"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "kind": { "const": "SystemContext" } }
+      },
+      "then": {
+        "properties": {
+          "input_contract": false,
+          "behavior": false,
+          "output_contract": false,
+          "exit_codes": false,
+          "side_effects": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": { "enum": ["CheckHandler", "RemediationHandler", "Orchestration"] }
+        }
+      },
+      "then": {
+        "required": ["input_contract", "behavior", "output_contract"],
+        "properties": {
+          "exit_codes": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "CLICommand" } }
+      },
+      "then": {
+        "required": ["input_contract", "behavior", "exit_codes", "output_contract"]
+      }
+    }
+  ],
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "required": ["name", "module", "version", "status", "system_spec", "created", "updated"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]+$",
+          "description": "PascalCase name for the spec."
+        },
+        "module": {
+          "type": "string",
+          "description": "Feature domain / module path."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Spec version (semver)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "review", "approved", "deprecated"],
+          "description": "Spec lifecycle status."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Responsible team."
+        },
+        "system_spec": {
+          "type": "string",
+          "description": "Reference to system.spec.yaml@version."
+        },
+        "created": {
+          "type": "string",
+          "format": "date",
+          "description": "Creation date (ISO 8601)."
+        },
+        "updated": {
+          "type": "string",
+          "format": "date",
+          "description": "Last update date (ISO 8601)."
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["description"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Business/technical context."
+        },
+        "technical_context": {
+          "type": "string",
+          "description": "Technical details (APIs, types, dispatch)."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Module dependencies."
+        },
+        "callers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Functions/modules that invoke this."
+        },
+        "related_specs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specs that interact with this one."
+        },
+        "assumptions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Assumptions taken as given."
+        }
+      }
+    },
+    "objective": {
+      "type": "object",
+      "required": ["summary", "acceptance_criteria"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One-sentence mission brief."
+        },
+        "acceptance_criteria": {
+          "type": "object",
+          "patternProperties": {
+            "^AC-\\d+$": { "type": "string" }
+          },
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "Testable acceptance criteria keyed by AC-N."
+        }
+      }
+    },
+    "contract_field": {
+      "type": "object",
+      "required": ["field", "type", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "Field or flag name."
+        },
+        "type": {
+          "type": "string",
+          "description": "Data type."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether the field is required."
+        },
+        "default": {
+          "description": "Default value (any type)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Field description."
+        }
+      }
+    },
+    "output_contract": {
+      "type": "object",
+      "required": ["returns"],
+      "additionalProperties": true,
+      "properties": {
+        "returns": {
+          "type": "string",
+          "description": "Return type description."
+        },
+        "paths": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Return value per exit path."
+        },
+        "detail_formats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Detail message format patterns."
+        },
+        "evidence_fields": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Evidence field descriptions."
+        },
+        "modes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Per-mode output descriptions (CLI commands)."
+        },
+        "invariants": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Invariants true across all paths."
+        }
+      }
+    },
+    "exit_code": {
+      "type": "object",
+      "required": ["code", "condition"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "Process exit code."
+        },
+        "condition": {
+          "type": "string",
+          "description": "Condition that triggers this exit code."
+        }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spec_derived": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file": { "type": "string" },
+            "classes": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "count": { "type": "integer" }
+          }
+        },
+        "unit": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "integration": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

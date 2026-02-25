@@ -1,0 +1,172 @@
+kind: Orchestration
+metadata:
+  name: EvaluateRule
+  module: orchestration
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Core check pipeline -- select implementation, run check, build RuleResult.
+  technical_context: >
+    Located in runner/_orchestration.py as evaluate_rule(). Re-exported via
+    runner/engine.py.
+  dependencies:
+    - runner._orchestration._selection.select_implementation
+    - runner._orchestration._checks.run_check
+    - runner._orchestration._extract_framework_refs
+  callers:
+    - runner/engine.py (re-export)
+    - runner._orchestration._host_runner.run_checks
+    - runner._orchestration.remediate_rule (initial check)
+
+objective:
+  summary: >
+    Evaluate a single compliance rule against a remote host by selecting the
+    appropriate capability-gated implementation, executing its check handler, and
+    returning a structured RuleResult that carries rule metadata, check outcome,
+    evidence, and framework references. The function must handle every exit path
+    deterministically: pass, fail, skip (no implementation), skip (no check block),
+    and error (exception during check execution).
+  acceptance_criteria:
+    AC-1: >
+      Check passes -> RuleResult.passed=True with evidence and detail from
+      CheckResult.
+    AC-2: >
+      Check fails -> RuleResult.passed=False with detail and evidence from
+      CheckResult.
+    AC-3: >
+      No matching implementation -> RuleResult.skipped=True,
+      skip_reason="No matching implementation", passed=False.
+    AC-4: >
+      Implementation has no check block -> RuleResult.skipped=True,
+      skip_reason="Implementation has no check", passed=False.
+    AC-5: >
+      Check handler throws exception -> RuleResult.passed=False, detail starts
+      with "Error: ", skipped=False.
+    AC-6: >
+      Framework refs extracted and attached to result on all exit paths.
+    AC-7: >
+      Rule metadata (id, title, severity) propagated to result on all exit paths.
+    AC-8: >
+      Title defaults to rule_id when title key is absent from rule dict.
+    AC-9: >
+      Severity defaults to "unknown" when severity key is absent from rule dict.
+    AC-10: >
+      _extract_framework_refs joins NIST controls with ", " separator.
+    AC-11: >
+      _extract_framework_refs extracts CIS section, STIG vuln_id, PCI-DSS
+      requirement, and generic control from nested reference dicts.
+    AC-12: >
+      _extract_framework_refs handles string-valued framework version entries
+      (non-dict details).
+    AC-13: >
+      _extract_framework_refs returns empty dict when rule has no references key.
+    AC-14: >
+      Evidence is None on skip and error paths; populated on pass/fail paths
+      (when CheckResult.evidence is set).
+
+constraints:
+  - evaluate_rule must not mutate the input rule dict.
+  - >
+    evaluate_rule must not perform any SSH operations directly; all SSH
+    interaction is delegated to run_check.
+  - >
+    The function catches all exceptions from run_check (bare except Exception),
+    ensuring no unhandled exceptions propagate to callers.
+  - >
+    select_implementation and _extract_framework_refs are called unconditionally
+    before any early-return path.
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: Active SSH connection to the target host.
+  - field: rule
+    type: dict
+    required: true
+    description: >
+      Loaded YAML rule dictionary (see _types.Rule). Required key: id (str).
+      Optional keys: title (str, defaults to id), severity (str, defaults to
+      "unknown"), references (dict), implementations (list[dict]).
+  - field: capabilities
+    type: dict[str, bool]
+    required: true
+    description: Capability probe results for the target host.
+
+behavior:
+  - >
+    Extract rule metadata: rule_id from rule["id"], title from
+    rule.get("title", rule_id), severity from rule.get("severity", "unknown").
+  - >
+    Call _extract_framework_refs(rule) to flatten rule["references"] into a
+    dict[str, str].
+  - >
+    Call select_implementation(rule, capabilities) to find the first matching
+    capability-gated implementation.
+  - >
+    If no implementation matches (returns None): return RuleResult(skipped=True,
+    skip_reason="No matching implementation", passed=False).
+  - >
+    If the selected implementation has no check key: return
+    RuleResult(skipped=True, skip_reason="Implementation has no check",
+    passed=False).
+  - Call run_check(ssh, check) inside a try/except block.
+  - >
+    If run_check raises an exception: return RuleResult(passed=False,
+    detail=f"Error: {exc}").
+  - >
+    On successful check execution: return RuleResult(passed=cr.passed,
+    detail=cr.detail, evidence=cr.evidence).
+  - All return paths include rule_id, title, severity, and framework_refs.
+
+output_contract:
+  returns: RuleResult
+  paths:
+    check_passes:
+      passed: true
+      skipped: false
+      skip_reason: ""
+      detail: from CheckResult
+      evidence: from CheckResult
+    check_fails:
+      passed: false
+      skipped: false
+      skip_reason: ""
+      detail: from CheckResult
+      evidence: from CheckResult
+    no_implementation:
+      passed: false
+      skipped: true
+      skip_reason: "No matching implementation"
+      detail: ""
+      evidence: null
+    no_check_block:
+      passed: false
+      skipped: true
+      skip_reason: "Implementation has no check"
+      detail: ""
+      evidence: null
+    check_error:
+      passed: false
+      skipped: false
+      skip_reason: ""
+      detail: "Error: <msg>"
+      evidence: null
+  invariants:
+    - "rule_id == rule['id']"
+    - "title == rule.get('title', rule['id'])"
+    - "severity == rule.get('severity', 'unknown')"
+    - "framework_refs == flattened output of _extract_framework_refs(rule)"
+
+testing:
+  spec_derived:
+    file: tests/test_orchestration_evaluate.py
+    classes:
+      - TestEvaluateRuleSpecDerived
+      - TestExtractFrameworkRefs
+    count: 30

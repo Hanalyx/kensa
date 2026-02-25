@@ -1,0 +1,113 @@
+kind: RemediationHandler
+metadata:
+  name: AuditRuleSet
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Loads an audit rule into the running audit daemon and persists it to a
+    rules file on disk. The handler is idempotent: if the rule already exists
+    in the running kernel it treats the operation as successful, and if the
+    rule is already in the persist file it skips the append.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["audit_rule_set"], invoked by run_remediation.
+  dependencies:
+    - runner.shell_util.quote
+    - runner.shell_util.append_line
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Add an audit rule to the running kernel audit subsystem via auditctl and
+    ensure the rule is persisted to a file in /etc/audit/rules.d/ so it
+    survives reboots. The handler is idempotent: if the rule already exists
+    in the running kernel it treats the operation as successful, and if the
+    rule is already in the persist file it skips the append.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, the handler returns (True,
+      ...) with a message mentioning the persist file, and no SSH commands
+      are executed.
+    AC-2: >
+      auditctl success + rule not persisted -> append: When auditctl succeeds
+      and grep does not find the rule in the persist file, append_line is
+      called and the handler returns success.
+    AC-3: >
+      auditctl success + rule already persisted -> skip append: When auditctl
+      succeeds and grep finds the rule in the persist file, no append occurs
+      and the handler returns success.
+    AC-4: >
+      auditctl "already exists" -> treated as success: When auditctl fails
+      but stderr contains "already exists" (case-insensitive), the handler
+      proceeds to the persistence step rather than returning failure.
+    AC-5: >
+      auditctl fails with other error -> failure: When auditctl fails and
+      stderr does NOT contain "already exists", the handler returns (False,
+      "auditctl failed: ...").
+    AC-6: >
+      Persistence write fails -> failure: When auditctl succeeds but
+      append_line returns False, the handler returns (False, "Failed to
+      persist rule").
+    AC-7: >
+      Custom persist_file path: When persist_file is provided in the
+      remediation dict, that path is used instead of the default.
+    AC-8: >
+      Default persist_file path: When persist_file is omitted, the default
+      /etc/audit/rules.d/99-kensa.rules is used.
+    AC-9: >
+      Shell quoting: All user-supplied values (rule, persist_file) are passed
+      through shell_util.quote() before interpolation into shell commands.
+
+constraints:
+  - The handler does NOT call augenrules --load or restart auditd; it relies on auditctl for immediate loading.
+  - The handler does NOT create the persist file's parent directory; it assumes /etc/audit/rules.d/ exists.
+  - The handler does NOT check whether the audit daemon is running before attempting auditctl.
+  - The "already exists" check is case-insensitive (result.stderr.lower()).
+  - The handler always returns the same success message regardless of whether the rule was freshly added or already existed.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "audit_rule_set" (set by caller)
+  - field: rule
+    type: str
+    required: true
+    description: Audit rule string (e.g., -a always,exit -F ...)
+  - field: persist_file
+    type: str
+    required: false
+    default: /etc/audit/rules.d/99-kensa.rules
+    description: Path to the file where the rule is persisted
+
+behavior:
+  - "Dry-run path: If dry_run=True, return (True, \"Would add audit rule and persist to {persist_file}\") without executing any commands."
+  - "Load rule into running kernel: Execute auditctl {quoted_rule} via SSH. If auditctl succeeds (exit code 0), proceed to persistence check. If auditctl fails but stderr contains \"already exists\" (case-insensitive), treat as success and proceed to persistence check. If auditctl fails with any other error, return (False, \"auditctl failed: {stderr}\")."
+  - "Check persistence: Execute grep -qF {quoted_rule} {quoted_persist_file} 2>/dev/null via SSH. If grep succeeds (rule already in file), skip to success return. If grep fails (rule not in file), call shell_util.append_line(ssh, persist_file, rule). If append_line returns False, return (False, \"Failed to persist rule\")."
+  - "Return success: Return (True, \"Added audit rule, persisted to {persist_file}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would add audit rule and persist to {persist_file}\""
+    - "Success: \"Added audit rule, persisted to {persist_file}\""
+    - "auditctl failure: \"auditctl failed: {stderr}\""
+    - "Persistence failure: \"Failed to persist rule\""
+
+side_effects:
+  - "Loads an audit rule into the running kernel via auditctl."
+  - "Appends the rule to a persistence file under /etc/audit/rules.d/."
+
+testing:
+  spec_derived:
+    file: tests/test_remediation_audit_rule_set.py
+    classes:
+      - TestAuditRuleSetSpecDerived
+    count: 16

@@ -1,0 +1,149 @@
+kind: CheckHandler
+metadata:
+  name: ConfigValue
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Verify a configuration key has an expected value in a file or directory
+    of config files.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check when
+    check["method"] == "config_value". Implemented in
+    runner/handlers/checks/_config.py as _check_config_value.
+  dependencies:
+    - runner.shell_util.grep_config_key
+    - runner.shell_util.parse_config_value
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.engine.run_check
+
+objective:
+  summary: >
+    Given an SSH session and a check definition, search for a configuration
+    key in a file or directory of config files, extract its value, compare
+    against the expected value using the specified comparator, and return a
+    CheckResult with machine-verifiable Evidence.
+  acceptance_criteria:
+    AC-1: "Key present with correct value returns passed=True, detail is '{key}={actual}'."
+    AC-2: "Key present with wrong value returns passed=False, detail contains 'expected {expected}'."
+    AC-3: "Key not found (grep exit 1) returns passed=False, detail contains 'not found'."
+    AC-4: "Directory mode with scan_pattern triggers recursive grep, correct result."
+    AC-5: "Equals separator (key = value) parses value correctly."
+    AC-6: "Case-insensitive comparison ('No' matches 'no') returns passed=True."
+    AC-7: "Numeric >= comparator when actual >= expected returns passed=True."
+    AC-8: "Numeric >= comparator when actual < expected returns passed=False."
+    AC-9: "Evidence fields populated (method, command, expected, actual, exit_code, stdout)."
+    AC-10: "Invalid comparator returns passed=False with descriptive error detail."
+    AC-11: "Other numeric comparators (<=, >, <) behave correctly."
+    AC-12: "Numeric comparator with non-numeric value falls back to string comparison (case-insensitive equality)."
+    AC-13: "Quoted value extraction (Banner=\"/etc/issue\" parses to /etc/issue)."
+    AC-14: "Empty stdout with exit code 0 returns passed=False with 'not found' detail."
+
+constraints:
+  - "Handler MUST NOT modify any remote state (pure measurement)."
+  - "Handler MUST populate Evidence on every code path except invalid comparator."
+  - "Comparator validation MUST happen before SSH commands are executed."
+  - "expected MUST be coerced to str before any comparison."
+  - "== comparison MUST be case-insensitive."
+  - "Numeric comparator fallback MUST use case-insensitive string equality (not raise)."
+
+input_contract:
+  - field: path
+    type: str
+    required: true
+    description: File path or directory to search.
+  - field: key
+    type: str
+    required: true
+    description: Configuration key name to find.
+  - field: expected
+    type: str
+    required: true
+    description: Expected value (coerced to str internally).
+  - field: comparator
+    type: str
+    required: false
+    default: "\"==\""
+    description: "One of >=, <=, >, <, ==."
+  - field: scan_pattern
+    type: str
+    required: false
+    default: "\"*.conf\""
+    description: Glob pattern for directory mode file matching.
+
+behavior:
+  - "Coerce expected to str."
+  - "Validate comparator -- if not in {>=, <=, >, <, ==}, return FAIL immediately with descriptive error."
+  - >
+    Search for key via shell_util.grep_config_key(ssh, path, key,
+    scan_pattern=scan_pattern): auto-detects directory vs file mode (test -d);
+    in directory mode, recursively greps files matching scan_pattern; in file
+    mode, greps the single file; returns last matching line via tail -1.
+  - >
+    Handle not-found -- if grep fails (exit_code != 0) OR stdout is empty
+    after stripping, return FAIL with detail "{key} not found in {path}".
+  - >
+    Parse value -- extract actual value from the matched line via
+    shell_util.parse_config_value: strips key prefix, then leading =/spaces/tabs;
+    strips surrounding single or double quotes.
+  - >
+    Compare via _compare_values(actual, expected, comparator): == uses
+    case-insensitive string comparison; numeric comparators (>=, <=, >, <)
+    attempt float() conversion; if either side is non-numeric, fall back to
+    case-insensitive string equality.
+  - >
+    Format detail via _format_comparison_detail: pass + == produces
+    "{key}={actual}"; pass + numeric produces "{key}={actual} ({comparator}
+    {expected})"; fail + == produces "{key}={actual} (expected {expected})";
+    fail + numeric produces "{key}={actual} (expected {comparator}
+    {expected})".
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass_equal:
+      passed: true
+      detail: "'{key}={actual}'"
+    pass_numeric:
+      passed: true
+      detail: "'{key}={actual} ({comparator} {expected})'"
+    fail_wrong_value:
+      passed: false
+      detail: "'{key}={actual} (expected {expected})'"
+    fail_wrong_value_numeric:
+      passed: false
+      detail: "'{key}={actual} (expected {comparator} {expected})'"
+    fail_not_found:
+      passed: false
+      detail: "'{key} not found in {path}'"
+    fail_invalid_comparator:
+      passed: false
+      detail: "Descriptive error about invalid comparator"
+  evidence_fields:
+    method: "config_value"
+    command: The grep command executed
+    stdout: Raw grep output
+    stderr: Raw stderr
+    exit_code: Grep exit code
+    expected: The expected value
+    actual: "Parsed value, or None when not found"
+    timestamp: UTC check time
+  invariants:
+    - "Evidence is populated on every code path except invalid comparator."
+    - "Invalid comparator returns CheckResult(passed=False) with no evidence field."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestConfigValue
+      - TestConfigValueComparator
+      - TestConfigValueSpecDerived
+    count: 14

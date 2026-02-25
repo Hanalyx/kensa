@@ -1,0 +1,136 @@
+kind: CheckHandler
+metadata:
+  name: Command
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Runs an arbitrary shell command over SSH and verifies exit code and
+    optionally stdout content.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check when
+    check["method"] == "command". Implemented in
+    runner/handlers/checks/_command.py as _check_command.
+  dependencies:
+    - runner._types.CheckResult
+    - runner._types.Evidence
+    - runner.ssh.SSHSession
+    - datetime
+  callers:
+    - runner.handlers.checks.run_check
+
+objective:
+  summary: >
+    Execute a user-defined shell command on a remote host, then evaluate
+    the result against an expected exit code (default 0) and an optional
+    expected stdout constraint. Return a CheckResult with structured
+    Evidence capturing the raw command output for audit purposes.
+  acceptance_criteria:
+    AC-1: "Command with matching exit code (default 0) and no expected_stdout returns passed=True."
+    AC-2: "Command with mismatching exit code returns passed=False with exit codes in detail."
+    AC-3: "Non-empty expected_stdout substring found in stdout returns passed=True."
+    AC-4: "Non-empty expected_stdout substring NOT found in stdout returns passed=False with 'stdout mismatch' in detail."
+    AC-5: "expected_stdout='' with empty stdout returns passed=True."
+    AC-6: "expected_stdout='' with non-empty stdout returns passed=False."
+    AC-7: "Non-zero expected_exit matching actual exit code returns passed=True."
+    AC-8: "Exit code mismatch detail includes stderr when stderr is non-empty, otherwise includes stdout."
+    AC-9: "Evidence method is always 'command'."
+    AC-10: "Evidence command is always the run value from the check definition."
+    AC-11: "Evidence expected includes 'exit=N' and optionally 'stdout contains ...' when expected_stdout is set."
+    AC-12: "Evidence actual on pass path is stdout[:200] when stdout is truthy, else 'ok'."
+    AC-13: "Evidence actual on exit-code failure is f'exit={exit_code}'."
+    AC-14: "Evidence actual on stdout-mismatch failure is stdout[:200] when stdout is truthy, else ''."
+    AC-15: "Pass detail truncates stdout to 200 characters."
+    AC-16: "Pass detail is 'ok' when stdout is empty."
+    AC-17: "Evidence timestamp is a UTC datetime captured before the command executes."
+    AC-18: "expected_exit defaults to 0 when omitted from the check definition."
+
+constraints:
+  - "MUST read run as a required key (KeyError if absent)."
+  - "MUST check exit code before stdout (exit mismatch short-circuits)."
+  - "MUST treat expected_stdout='' as exact empty check (not result.stdout), NOT substring match."
+  - "MUST treat expected_stdout=None (absent) as no stdout check at all."
+  - "MUST truncate stdout to 200 characters in detail and evidence.actual on pass and stdout-mismatch paths."
+  - "MUST NOT truncate evidence.stdout (raw evidence is preserved in full)."
+  - "MUST set evidence.method to 'command' in all paths."
+
+input_contract:
+  - field: run
+    type: str
+    required: true
+    description: Shell command to execute on the remote host.
+  - field: expected_exit
+    type: int
+    required: false
+    default: "0"
+    description: Expected process exit code.
+  - field: expected_stdout
+    type: "str | None"
+    required: false
+    default: "None"
+    description: "Stdout constraint. None = no check. '' = expect empty output. Non-empty = substring match."
+
+behavior:
+  - "Read cmd from c['run'] (required key)."
+  - "Capture check_time as datetime.now(timezone.utc)."
+  - "Execute ssh.run(cmd) to get a Result(exit_code, stdout, stderr)."
+  - "Read expected_exit from c.get('expected_exit', 0) (default 0)."
+  - "Read expected_stdout from c.get('expected_stdout') (default None)."
+  - >
+    Build expected_str: always starts with f"exit={expected_exit}"; if
+    expected_stdout is not None, appends f", stdout contains
+    '{expected_stdout}'".
+  - >
+    Exit code check (first gate): if result.exit_code != expected_exit,
+    return FAIL with detail f"exit {result.exit_code} (expected
+    {expected_exit}): {result.stderr or result.stdout}" and evidence actual
+    f"exit={result.exit_code}".
+  - >
+    Stdout check (second gate, only when expected_stdout is not None): if
+    expected_stdout == "", pass when not result.stdout (empty/falsy), fail
+    otherwise. If expected_stdout != "", pass when expected_stdout in
+    result.stdout (substring), fail otherwise. On fail, detail is f"stdout
+    mismatch: got {result.stdout!r}" and evidence actual is
+    result.stdout[:200] if stdout is truthy, else "".
+  - >
+    Pass path: detail is result.stdout[:200] if stdout is truthy, else "ok".
+    Evidence actual is same as detail.
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "stdout[:200] or 'ok'"
+    fail_exit_mismatch:
+      passed: false
+      detail: "'exit {actual} (expected {expected}): {stderr or stdout}'"
+    fail_stdout_mismatch:
+      passed: false
+      detail: "'stdout mismatch: got {stdout!r}'"
+  evidence_fields:
+    method: "command"
+    command: "The run value from check definition"
+    stdout: Full raw stdout
+    stderr: Full raw stderr
+    exit_code: Actual exit code
+    expected: "'exit=N' with optional ', stdout contains ...' when expected_stdout is set"
+    actual: "Pass: stdout[:200] or 'ok'. Exit fail: 'exit={exit_code}'. Stdout fail: stdout[:200] or ''."
+    timestamp: UTC time captured before command execution
+  invariants:
+    - "Evidence is always populated in all code paths."
+    - "evidence.stdout is never truncated (raw evidence preserved in full)."
+    - "evidence.method is always 'command'."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestCommand
+      - TestCommandSpecDerived
+    count: 29

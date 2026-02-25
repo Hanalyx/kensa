@@ -1,0 +1,113 @@
+kind: RemediationHandler
+metadata:
+  name: SysctlSet
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Sets a sysctl kernel parameter at runtime and persists it to a
+    configuration file. Applies the change immediately via sysctl -w and
+    writes a persistence file under /etc/sysctl.d/ so the setting survives
+    reboots.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["sysctl_set"].
+  dependencies:
+    - runner.shell_util.quote
+    - runner.shell_util.write_file
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Apply a sysctl kernel parameter change immediately via sysctl -w and
+    persist the setting to a file under /etc/sysctl.d/ so it survives
+    reboots. In dry-run mode, describe the intended changes without modifying
+    the system.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run: When dry_run=True, returns (True, ...) with detail containing
+      "Would set", the key, the value, and the persist file path. No SSH
+      commands are executed.
+    AC-2: >
+      Success path: When sysctl -w succeeds and write_file succeeds, returns
+      (True, "Set {key}={value}, persisted to {persist_file}").
+    AC-3: >
+      sysctl -w failure: When sysctl -w returns non-zero exit, returns
+      (False, "sysctl -w failed: {stderr}"). No persistence write is
+      attempted.
+    AC-4: >
+      Persistence failure: When sysctl -w succeeds but write_file returns
+      False, returns (False, "Failed to persist {persist_file}").
+    AC-5: >
+      Default persist_file: When persist_file is not provided, the default
+      path is /etc/sysctl.d/99-kensa-{key_dashed}.conf where only dots (.)
+      in key are replaced with dashes (-); underscores and other characters
+      are preserved.
+    AC-6: >
+      Custom persist_file: When persist_file is provided in the remediation
+      dict, that path is used instead of the default.
+    AC-7: >
+      Shell quoting: Both key and value are passed through shell_util.quote()
+      in the sysctl -w command to prevent shell injection.
+    AC-8: >
+      Persistence content: The persisted file contains exactly
+      "{key} = {value}\n" (spaces around =, trailing newline).
+    AC-9: >
+      Value coercion: The value is coerced to str() before shell quoting,
+      ensuring integer values from YAML are handled correctly.
+
+constraints:
+  - The handler does not verify the parameter exists before setting it; sysctl -w is relied upon for validation.
+  - The handler overwrites the persist file entirely (via write_file), rather than appending or merging with existing content.
+  - No service reload or sysctl re-read is performed after persisting; the runtime value is already set by sysctl -w.
+  - The handler does not create parent directories for persist_file; /etc/sysctl.d/ is assumed to exist.
+
+input_contract:
+  - field: key
+    type: str
+    required: true
+    description: Sysctl parameter name (e.g., net.ipv4.ip_forward)
+  - field: value
+    type: str
+    required: true
+    description: Value to set
+  - field: persist_file
+    type: str
+    required: false
+    default: /etc/sysctl.d/99-kensa-{key_with_dots_as_dashes}.conf
+    description: Custom persistence file path
+
+behavior:
+  - "Extract fields: Read key and value from the remediation dict. Derive persist_file from r.get(\"persist_file\", ...) with a default of /etc/sysctl.d/99-kensa-{key.replace('.', '-')}.conf."
+  - "Dry-run path: If dry_run=True, return (True, \"Would set sysctl {key}={value} and persist to {persist_file}\") immediately. No SSH commands are executed."
+  - "Apply at runtime: Execute sysctl -w {quoted_key}={quoted_value} via SSH. Both key and value are shell-quoted using shell_util.quote()."
+  - "Check runtime result: If sysctl -w fails (non-zero exit), return (False, \"sysctl -w failed: {stderr}\") immediately. No persistence is attempted."
+  - "Persist to file: Construct the line \"{key} = {value}\" and write it (with trailing newline) to persist_file using shell_util.write_file()."
+  - "Check persistence result: If write_file returns False, return (False, \"Failed to persist {persist_file}\")."
+  - "Success: Return (True, \"Set {key}={value}, persisted to {persist_file}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would set sysctl {key}={value} and persist to {persist_file}\""
+    - "Success: \"Set {key}={value}, persisted to {persist_file}\""
+    - "Runtime failure: \"sysctl -w failed: {stderr}\""
+    - "Persistence failure: \"Failed to persist {persist_file}\""
+
+side_effects:
+  - "Sets a kernel parameter at runtime via sysctl -w."
+  - "Writes a persistence file under /etc/sysctl.d/."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestSysctlSet
+      - TestSysctlSetSpecDerived
+    count: 15

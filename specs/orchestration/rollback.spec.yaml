@@ -1,0 +1,214 @@
+kind: Orchestration
+metadata:
+  name: Rollback
+  module: orchestration
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Reverse past remediation steps using stored pre-state snapshots.
+    _execute_rollback is the runtime engine that iterates steps and dispatches to
+    handlers. rollback_from_stored is the bridge that reconstructs runtime objects
+    from database records and delegates to _execute_rollback.
+  technical_context: >
+    _execute_rollback located in runner/handlers/rollback/__init__.py.
+    rollback_from_stored located in runner/_orchestration.py.
+  dependencies:
+    - runner.handlers.rollback.ROLLBACK_HANDLERS
+    - runner._types.PreState
+    - runner._types.StepResult
+    - runner._types.RollbackResult
+    - runner.storage.RemediationStepRecord
+  callers:
+    - CLI rollback --start command (calls rollback_from_stored)
+    - runner._orchestration.remediate_rule (calls _execute_rollback for inline rollback-on-failure)
+
+objective:
+  summary: >
+    Part A (_execute_rollback): Given a list of StepResult objects from a
+    remediation run, reverse the successfully remediated steps by dispatching
+    each to its corresponding rollback handler in reverse order. Steps that
+    failed, have no pre-state, or are non-capturable are skipped. Handler
+    exceptions are caught and recorded, never propagated, so that all steps are
+    attempted regardless of individual failures.
+
+    Part B (rollback_from_stored): Given an SSH session and a list of
+    RemediationStepRecord objects loaded from the database, reconstruct
+    StepResult objects with appropriate PreState values and delegate to
+    _execute_rollback for execution. This function bridges the persistence
+    layer and the runtime rollback engine.
+  acceptance_criteria:
+    AC-1: >
+      Reverse order -- Steps are rolled back in reverse order: the last
+      remediated step is rolled back first, and the first remediated step is
+      rolled back last. The returned RollbackResult list reflects this reverse
+      ordering.
+    AC-2: >
+      Failed steps skipped -- A step where success=False produces
+      RollbackResult(success=False, detail="skipped") without calling any
+      handler.
+    AC-3: >
+      No pre_state skipped -- A step where pre_state is None produces
+      RollbackResult(success=False, detail="skipped") without calling any
+      handler.
+    AC-4: >
+      Non-capturable skipped -- A step where pre_state.capturable=False
+      produces RollbackResult(success=False, detail="skipped") without calling
+      any handler.
+    AC-5: >
+      Missing handler -- A step with a mechanism not in ROLLBACK_HANDLERS
+      produces RollbackResult(success=False, detail="no handler").
+    AC-6: >
+      Handler exception caught -- When a handler raises an exception, the result
+      is RollbackResult(success=False, detail="Exception: {exc}") and remaining
+      steps are still processed.
+    AC-7: >
+      Handler success -- When a handler returns (True, detail), the result is
+      RollbackResult(success=True, detail=detail).
+    AC-8: >
+      Handler failure -- When a handler returns (False, detail), the result is
+      RollbackResult(success=False, detail=detail).
+    AC-9: >
+      Empty input -- An empty step_results list returns an empty results list.
+    AC-10: >
+      rollback_from_stored -- capturable reconstruction: When a DB record has
+      pre_state_data not None and pre_state_capturable=True, the reconstructed
+      PreState has data=step.pre_state_data and capturable=True.
+    AC-11: >
+      rollback_from_stored -- non-capturable reconstruction: When a DB record
+      has pre_state_capturable=False, the reconstructed PreState has data={}
+      and capturable=False, regardless of pre_state_data.
+    AC-12: >
+      rollback_from_stored -- no data reconstruction: When a DB record has
+      pre_state_data=None and pre_state_capturable=True, the reconstructed
+      StepResult has pre_state=None.
+    AC-13: >
+      rollback_from_stored -- detail fallback: When a DB record has detail=None,
+      the reconstructed StepResult has detail="" (empty string fallback).
+    AC-14: >
+      rollback_from_stored -- delegation: rollback_from_stored delegates to
+      _execute_rollback and returns its result unchanged.
+    AC-15: >
+      All steps attempted -- Even if one step's handler raises an exception, all
+      remaining steps are still attempted.
+
+constraints:
+  - MUST iterate steps in reverse order (last step first).
+  - MUST catch all handler exceptions; MUST NOT propagate exceptions to callers.
+  - >
+    MUST produce exactly one RollbackResult per input step (result count equals
+    input count).
+  - >
+    MUST NOT call a handler for skipped steps (failed, no pre_state, or
+    non-capturable).
+  - >
+    MUST use the ROLLBACK_HANDLERS registry for handler lookup; no direct
+    handler imports.
+  - >
+    MUST reconstruct PreState with capturable=False for non-capturable DB
+    records, ensuring _execute_rollback skip logic works correctly.
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "[_execute_rollback] Active SSH session to the target host."
+  - field: step_results
+    type: list[StepResult]
+    required: true
+    description: >
+      [_execute_rollback] Step results from a remediation run, in original order.
+      Each StepResult has: step_index (int), mechanism (str), success (bool),
+      detail (str), pre_state (PreState | None). Each PreState has: mechanism (str),
+      data (dict), capturable (bool).
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: "[rollback_from_stored] Active SSH session to the target host."
+  - field: steps
+    type: list[RemediationStepRecord]
+    required: true
+    description: >
+      [rollback_from_stored] Step records loaded from the database. Each
+      RemediationStepRecord has: id (int), remediation_id (int), step_index (int),
+      mechanism (str), success (bool), detail (str), pre_state_data (dict | None),
+      pre_state_capturable (bool).
+
+behavior:
+  - "[_execute_rollback] Initialize an empty results list to accumulate RollbackResult objects."
+  - "[_execute_rollback] Reverse iteration: iterate over step_results in reverse order (newest step first, oldest step last)."
+  - >
+    [_execute_rollback] Skip check: For each step, if ANY of these conditions is true,
+    append RollbackResult(step_index, mechanism, success=False, detail="skipped")
+    and continue to the next step: sr.success is False (the original
+    remediation step failed); sr.pre_state is None (no pre-state was
+    captured); sr.pre_state.capturable is False (mechanism is non-capturable,
+    e.g., command_exec, manual).
+  - >
+    [_execute_rollback] Handler lookup: Look up sr.mechanism in ROLLBACK_HANDLERS. If no handler
+    is found, append RollbackResult(step_index, mechanism, success=False,
+    detail="no handler") and continue.
+  - >
+    [_execute_rollback] Handler dispatch: Call handler(ssh, sr.pre_state) which returns
+    (ok: bool, detail: str).
+  - >
+    [_execute_rollback] Exception handling: If the handler raises any Exception, catch it and set
+    ok=False, detail=f"Exception: {exc}". The exception is never propagated.
+  - >
+    [_execute_rollback] Record result: Append RollbackResult(step_index, mechanism, ok, detail)
+    to the results list.
+  - "[_execute_rollback] Return the accumulated results list."
+  - "[rollback_from_stored] Initialize an empty step_results list to accumulate reconstructed StepResult objects."
+  - >
+    [rollback_from_stored] Iterate over DB records: For each RemediationStepRecord in steps:
+    (a) Capturable with data: If step.pre_state_data is not None AND
+    step.pre_state_capturable is True, create PreState(mechanism=step.mechanism,
+    data=step.pre_state_data, capturable=True).
+    (b) Non-capturable: Else if step.pre_state_capturable is False, create
+    PreState(mechanism=step.mechanism, data={}, capturable=False).
+    (c) No data, capturable: Otherwise (pre_state_data is None and capturable
+    is True), set pre_state = None.
+    (d) Construct StepResult(step_index=step.step_index,
+    mechanism=step.mechanism, success=step.success,
+    detail=step.detail or "", pre_state=pre_state).
+    (e) Append the StepResult to the list.
+  - >
+    [rollback_from_stored] Delegate: Call _execute_rollback(ssh, step_results)
+    and return its result.
+
+output_contract:
+  returns: list[RollbackResult]
+  fields:
+    - field: step_index
+      type: int
+      description: The step index from the original remediation.
+    - field: mechanism
+      type: str
+      description: The mechanism name.
+    - field: success
+      type: bool
+      description: True if rollback succeeded, False if skipped/failed.
+    - field: detail
+      type: str
+      description: >
+        Human-readable outcome: "skipped", "no handler",
+        "Exception: ...", or handler-provided detail.
+  invariants:
+    - >
+      Results are in reverse step order (last remediated step first, first
+      remediated step last), matching the reverse iteration.
+    - >
+      Result count equals input step count (exactly one RollbackResult per
+      input step).
+
+testing:
+  spec_derived:
+    file: tests/test_orchestration_rollback.py
+    classes:
+      - TestExecuteRollbackSpecDerived
+      - TestRollbackFromStoredSpecDerived
+    count: 22

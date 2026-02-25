@@ -1,0 +1,145 @@
+kind: CheckHandler
+metadata:
+  name: FilePermission
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Verifies file ownership (owner, group) and permissions (mode) for one
+    or more files on a remote host via SSH.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check when
+    check["method"] == "file_permission". Implemented in
+    runner/handlers/checks/_file.py as _check_file_permission.
+  dependencies:
+    - runner.shell_util.get_file_stat
+    - runner.shell_util.is_glob_path
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+
+objective:
+  summary: >
+    Check that one or more files match expected owner, group, and/or mode
+    attributes. Supports glob patterns for multi-file checks. Returns a
+    CheckResult with evidence capturing the raw stat output for audit trails.
+  acceptance_criteria:
+    AC-1: "Single file, all attributes match returns passed=True, detail contains 'ok'."
+    AC-2: "Single file, wrong owner returns passed=False, detail contains 'owner={actual}'."
+    AC-3: "Single file, wrong mode returns passed=False, detail contains 'mode={actual}'."
+    AC-4: "File not found (stat fails, exit_code != 0) returns passed=False, detail contains 'not found'."
+    AC-5: "Glob path, all files pass returns passed=True."
+    AC-6: "Glob path, some files fail returns passed=False, detail contains the failing file path."
+    AC-7: "Evidence fields are fully populated on pass (method, command, stdout, expected, actual, timestamp)."
+    AC-8: "Evidence actual is None when file not found."
+    AC-9: "Mode normalization: leading zeros are stripped for comparison. '0600' expected matches '600' actual and vice versa."
+    AC-10: "Mode '0000' expected matches '0' actual (all-zero edge case: both normalize to '0')."
+    AC-11: "Partial attribute check (only owner, no group/mode) validates only owner; unchecked attributes show as '*' in expected string."
+    AC-12: "Partial attribute check (only mode, no owner/group) validates only mode."
+    AC-13: "Wrong group returns passed=False, detail contains 'group={actual}'."
+    AC-14: "Empty stdout with exit_code 0 returns passed=False, detail contains 'not found'."
+    AC-15: "Glob mode is triggered by 'glob' key presence (regardless of value), even if path has no glob characters."
+    AC-16: "Glob mode is auto-detected from *, ?, or [ in path when 'glob' key is absent."
+    AC-17: "Evidence expected string uses * wildcard for attributes not specified in the check definition."
+
+constraints:
+  - "MUST use shell_util.get_file_stat for the stat command (never construct it directly)."
+  - "MUST normalize mode by stripping leading zeros before comparison."
+  - "MUST return CheckResult with Evidence in all code paths (pass, fail-mismatch, fail-not-found)."
+  - "MUST NOT fail if only a subset of attributes (owner/group/mode) is specified."
+  - "MUST handle file paths with spaces (uses ' '.join(parts[3:]) for path extraction)."
+  - "MUST report failures per-file when glob matches multiple files."
+
+input_contract:
+  - field: path
+    type: str
+    required: true
+    description: Absolute file path or glob pattern.
+  - field: owner
+    type: str
+    required: false
+    description: Expected file owner username.
+  - field: group
+    type: str
+    required: false
+    description: Expected file group name.
+  - field: mode
+    type: str
+    required: false
+    description: "Expected octal mode (e.g., '0600', '600', '0000')."
+  - field: glob
+    type: any
+    required: false
+    description: "If key is present (any value), forces glob mode."
+
+behavior:
+  - "Extract path from c['path']."
+  - >
+    Determine glob mode: is_glob = "glob" in c or shell_util.is_glob_path(path).
+    The glob key's mere presence triggers glob mode regardless of its value.
+  - "Record timestamp via datetime.now(timezone.utc)."
+  - >
+    Execute stat: call shell_util.get_file_stat(ssh, path, allow_glob=is_glob),
+    which runs stat -c '%U %G %a %n' <path>. When allow_glob=True, the path
+    is not shell-quoted, allowing glob expansion.
+  - "Derive command string: result.command if the attribute exists, otherwise f'stat {path}'."
+  - >
+    Handle stat failure: if result.ok is False OR result.stdout.strip() is
+    empty, return CheckResult(passed=False) with detail "{path}: not found or
+    not accessible" and evidence with actual=None.
+  - >
+    Parse stat output: for each non-empty line in stdout, split on whitespace
+    into parts. Skip lines with fewer than 4 parts. Extract actual_owner =
+    parts[0], actual_group = parts[1], actual_mode = parts[2], file_path =
+    " ".join(parts[3:]). Record actual_parts entry. Check owner if "owner"
+    in c. Check group if "group" in c. Check mode if "mode" in c, normalizing
+    both expected and actual by stripping leading zeros (with fallback to "0"
+    for all-zero modes).
+  - >
+    Build expected string: "owner={owner|*}, group={group|*}, mode={mode|*}"
+    using * for unchecked attributes.
+  - "Build actual string: semicolon-joined actual_parts."
+  - >
+    Return result: if any failures, CheckResult(passed=False) with detail =
+    semicolon-joined failure descriptions. If no failures,
+    CheckResult(passed=True) with detail = "{path}: ok". Both cases include
+    full Evidence with method="file_permission".
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "'{path}: ok'"
+    fail_mismatch:
+      passed: false
+      detail: "Semicolon-joined per-file failure messages"
+    fail_not_found:
+      passed: false
+      detail: "'{path}: not found or not accessible'"
+  evidence_fields:
+    method: "file_permission"
+    command: "'stat {path}'"
+    stdout: Raw stat output
+    stderr: Raw stderr
+    exit_code: Stat exit code
+    expected: "'owner=X, group=Y, mode=Z' (uses * for unchecked)"
+    actual: "Semicolon-joined actual values, or None when not found"
+    timestamp: UTC datetime
+  invariants:
+    - "Evidence is always populated (pass, fail-mismatch, fail-not-found)."
+    - "Evidence actual is None when file not found."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestFilePermission
+      - TestFilePermissionSpecDerived
+    count: 19

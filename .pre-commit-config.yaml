@@ -89,3 +89,10 @@ repos:
         files: ^rules/.*\.ya?ml$
         exclude: ^rules/(defaults\.yml|rules\.d/)
         pass_filenames: true
+
+      - id: validate-specs
+        name: Validate spec YAML against schema
+        entry: bash -c 'PYTHONPATH=. python3 schema/validate_specs.py "$@"' --
+        language: system
+        files: ^specs/.*\.spec\.yaml$
+        pass_filenames: true

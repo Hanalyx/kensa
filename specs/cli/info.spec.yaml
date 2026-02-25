@@ -1,0 +1,157 @@
+kind: CLICommand
+metadata:
+  name: Info
+  module: cli
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Show detailed information about rules and framework controls. Supports
+    auto-detection of query type from positional argument, explicit framework
+    flags (--cis, --stig, --nist), and control/rule/list-controls modes.
+  technical_context: >
+    Module runner/cli.py -> info(). Click decorators: @main.command(),
+    @click.argument("query", required=False), individual options.
+  dependencies:
+    - runner.mappings.FrameworkIndex
+    - runner.mappings.load_all_mappings
+    - runner.rule_info.build_rule_index
+    - runner.rule_info.classify_query
+    - runner.rule_info.search_rules_by_reference
+    - runner.paths.get_rules_path
+  callers:
+    - CLI entry point (kensa info)
+
+objective:
+  summary: >
+    Show detailed information about rules and framework controls. Supports
+    auto-detection of query type from positional argument, explicit framework
+    flags (--cis, --stig, --nist), and control/rule/list-controls modes.
+  acceptance_criteria:
+    AC-1: "Positional rule ID exits 0 with full rule detail."
+    AC-2: "Positional rule ID not found exits 1."
+    AC-3: "Positional CIS section auto-detected and exits 0."
+    AC-4: "Positional STIG ID auto-detected and exits 0."
+    AC-5: "Positional NIST control auto-detected and exits 0."
+    AC-6: "'--cis' explicit flag exits 0 with matching rules."
+    AC-7: "'--control' with valid control exits 0 with matching rules."
+    AC-8: "'--rule' with known rule exits 0 with framework refs."
+    AC-9: "'--list-controls' exits 0 with control listing."
+    AC-10: "'--json' outputs valid JSON for all modes."
+    AC-11: "Multiple conflicting flags ('--control' + '--rule') exits 1."
+    AC-12: "No arguments exits 1 with usage examples."
+    AC-13: "'--prefix-match' matches control prefixes."
+    AC-14: "'--list-controls --framework' filters to specified framework."
+    AC-15: "Rules directory not found with explicit ref flag exits 1."
+
+constraints:
+  - "MUST support auto-detection from positional QUERY."
+  - "MUST enforce mutual exclusion of '--control', '--rule', '--list-controls'."
+  - "MUST exit 1 for no arguments."
+  - "MUST handle missing rules/ directory gracefully."
+
+input_contract:
+  - field: QUERY
+    type: str
+    required: false
+    default: null
+    description: "Auto-detected: rule ID, CIS section, STIG ID, or NIST control"
+  - field: --control / -c
+    type: str
+    required: false
+    default: null
+    description: Find rules implementing a control
+  - field: --rule / -r
+    type: str
+    required: false
+    default: null
+    description: Find framework references for a rule
+  - field: --list-controls / -l
+    type: bool
+    required: false
+    default: "false"
+    description: List all controls with rule counts
+  - field: --framework / -f
+    type: str
+    required: false
+    default: null
+    description: Filter by framework ID (for --list-controls)
+  - field: --prefix-match / -p
+    type: bool
+    required: false
+    default: "false"
+    description: Match control as prefix
+  - field: --json
+    type: bool
+    required: false
+    default: "false"
+    description: Output as JSON
+  - field: --cis
+    type: str
+    required: false
+    default: null
+    description: CIS section number
+  - field: --stig
+    type: str
+    required: false
+    default: null
+    description: STIG ID
+  - field: --nist
+    type: str
+    required: false
+    default: null
+    description: NIST 800-53 control
+  - field: --rhel
+    type: Choice[8,9,10]
+    required: false
+    default: null
+    description: Filter by RHEL version
+  - field: --all
+    type: bool
+    required: false
+    default: "false"
+    description: Show all RHEL versions
+
+behavior:
+  - "Explicit reference flags (--cis, --stig, --nist): Search rules by reference type. Exit 1 if rules/ not found."
+  - "Mutual exclusion check: At most one of --control, --rule, --list-controls. Exit 1 if >1."
+  - "'--control' mode: Query FrameworkIndex for rules implementing a control. Supports --prefix-match."
+  - "'--rule' mode: If rule ID in index, show full detail; otherwise show framework cross-references only."
+  - "'--list-controls' mode: List all controls with rule counts. Filter by --framework if specified."
+  - >
+    Positional QUERY: Auto-detect type via classify_query():
+    Rule ID -> full rule detail (exit 1 if not found);
+    V-NNNNNN -> STIG lookup;
+    XX-N pattern -> NIST 800-53;
+    N.N.N pattern -> CIS section.
+  - "No arguments: Print usage error with examples, exit 1."
+
+exit_codes:
+  - code: 0
+    condition: "Successful query (including empty results for --control, --rule, --list-controls)"
+  - code: 1
+    condition: "No arguments, conflicting flags (>1 of --control/--rule/--list-controls), rule not found (positional), rules/ directory not found"
+
+output_contract:
+  returns: Terminal output or JSON
+  modes:
+    control_terminal: "Header, optional prefix match note, control info, rule list with severity."
+    rule_terminal: "Full rule detail OR framework cross-references."
+    list_controls_terminal: "Controls grouped by mapping with rule counts."
+    positional_rule_terminal: "Full detail: title, description, severity, category, tags, platforms, implementations, references, framework cross-refs."
+    positional_reference_terminal: "Rules matching the reference, grouped by framework when showing all versions."
+    json: "JSON object with query context and results appropriate to the mode."
+
+side_effects:
+  - "None. Read-only operation."
+
+testing:
+  spec_derived:
+    file: tests/test_cli_spec.py
+    classes:
+      - TestInfoSpecDerived
+    count: 15

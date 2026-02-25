@@ -1,0 +1,129 @@
+kind: CheckHandler
+metadata:
+  name: SshdEffectiveConfig
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Verify SSH daemon effective runtime configuration via sshd -T.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check when
+    check["method"] == "sshd_effective_config". Implemented in
+    runner/handlers/checks/_ssh.py as _check_sshd_effective_config.
+  dependencies:
+    - runner.shell_util.quote
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+
+objective:
+  summary: >
+    Given an SSH session and a check definition, run sshd -T (with optional
+    match context) on the target host, grep for the specified key, parse its
+    value from the output, compare against the expected value
+    (case-insensitive), and return a CheckResult with machine-verifiable
+    Evidence.
+  acceptance_criteria:
+    AC-1: "Key present with matching value returns passed=True, detail is '{key}={actual}'."
+    AC-2: "Key present with wrong value returns passed=False, detail contains 'expected {expected}'."
+    AC-3: "Key not found (command exit code != 0) returns passed=False, detail contains 'not found'."
+    AC-4: "Key not found (exit code 0 but stdout empty) returns passed=False, detail contains 'not found', evidence.actual is None."
+    AC-5: "Evidence fields fully populated on successful match (method, command, expected, actual, exit_code, stdout, timestamp)."
+    AC-6: "Evidence fields populated on not-found path (actual is None, method is 'sshd_effective_config')."
+    AC-7: "match_user only causes command to include -C user=<quoted_value> without host spec."
+    AC-8: "match_host only causes command to include -C host=<quoted_value> without user spec."
+    AC-9: "Both match_user and match_host causes command to include -C user=<quoted_user>,host=<quoted_host>."
+    AC-10: "Neither match_user nor match_host results in plain sshd -T (no -C flag)."
+    AC-11: "Key and expected are case-insensitive (input 'PermitRootLogin' lowercased to 'permitrootlogin')."
+    AC-12: "Multi-line output uses only first line for value extraction."
+    AC-13: "Value is empty string when line has key but no value part (single-token line)."
+
+constraints:
+  - "Handler MUST NOT modify any remote state (pure measurement)."
+  - "Handler MUST populate Evidence on every code path (both found and not-found)."
+  - "key MUST be lowercased before use in grep pattern and detail strings."
+  - "expected MUST be coerced to str and lowercased before comparison."
+  - "Comparison MUST be exact string equality on lowercased values (no comparator support)."
+  - "match_user and match_host values MUST be shell-quoted via shell_util.quote."
+  - "stderr from sshd -T MUST be redirected to /dev/null in the command."
+
+input_contract:
+  - field: key
+    type: str
+    required: true
+    description: SSH config key name (lowercased internally).
+  - field: expected
+    type: str
+    required: true
+    description: Expected value (coerced to str, then lowercased).
+  - field: match_user
+    type: str
+    required: false
+    default: "None"
+    description: "User context for Match blocks (-C user=...)."
+  - field: match_host
+    type: str
+    required: false
+    default: "None"
+    description: "Host context for Match blocks (-C host=...)."
+
+behavior:
+  - "Normalize inputs -- lowercase c['key'] and coerce + lowercase str(c['expected'])."
+  - "Read optional match context -- match_user and match_host via c.get() (default None)."
+  - "Record check time -- datetime.now(timezone.utc)."
+  - >
+    Build command -- start with sshd -T: if match_user or match_host is
+    truthy, append -C with comma-separated user=<quoted_user>,host=<quoted_host>
+    specs (only include whichever are set). Values are shell-quoted via
+    shell_util.quote.
+  - >
+    Execute -- pipe through grep -i '^{key} ' with stderr redirected to
+    /dev/null. Full command: sshd -T [-C ...] 2>/dev/null | grep -i '^{key} '.
+  - >
+    Handle not-found -- if result.ok is False OR result.stdout.strip() is
+    empty, return FAIL with detail "{key} not found in sshd effective config"
+    and evidence.actual = None.
+  - >
+    Parse value -- from the first line of stdout: split on whitespace with
+    maxsplit=1; take the second part (index 1) lowercased; if only one part
+    exists, use empty string "".
+  - "Compare -- actual == expected (both already lowercased; exact string equality)."
+  - "Format detail -- pass: '{key}={actual}'; fail: '{key}={actual} (expected {expected})'."
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "'{key}={actual}'"
+    fail_wrong_value:
+      passed: false
+      detail: "'{key}={actual} (expected {expected})'"
+    fail_not_found:
+      passed: false
+      detail: "'{key} not found in sshd effective config'"
+  evidence_fields:
+    method: "sshd_effective_config"
+    command: The full piped command executed
+    stdout: Raw command output
+    stderr: Raw stderr
+    exit_code: Command exit code
+    expected: The lowercased expected value
+    actual: "Parsed lowercased value, or None when not found"
+    timestamp: UTC check time
+  invariants:
+    - "Evidence is always populated (both found and not-found paths)."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestSshdEffectiveConfig
+      - TestSshdEffectiveConfigSpecDerived
+    count: 13

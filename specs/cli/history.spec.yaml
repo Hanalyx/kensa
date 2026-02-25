@@ -1,0 +1,117 @@
+kind: CLICommand
+metadata:
+  name: History
+  module: cli
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Query compliance scan history from the local SQLite database. Supports
+    listing sessions, viewing session details, showing database statistics,
+    pruning old data, and querying per-host result history.
+  technical_context: >
+    Module runner/cli.py -> history(). Click decorators: @main.command(),
+    individual options. Five modes: --stats, --prune DAYS, --session-id ID,
+    --sessions, default (result history).
+  dependencies:
+    - runner.storage.ResultStore
+  callers:
+    - CLI entry point (kensa history)
+
+objective:
+  summary: >
+    Query compliance scan history from the local SQLite database. Supports
+    listing sessions, viewing session details, showing database statistics,
+    pruning old data, and querying per-host result history.
+  acceptance_criteria:
+    AC-1: "'--stats' exits 0 and displays database statistics table."
+    AC-2: "'--prune 30' exits 0 and prints deletion count."
+    AC-3: "'--session-id' with valid session exits 0 and shows session header + results."
+    AC-4: "'--session-id' with nonexistent session exits 1 with 'not found'."
+    AC-5: "'--sessions' exits 0 and lists sessions."
+    AC-6: "'--sessions --host' filters sessions by host."
+    AC-7: "'--sessions' with no sessions prints 'No sessions found'."
+    AC-8: "Default mode without '--host' exits 1 with error message."
+    AC-9: "Default mode with '--host' exits 0 and shows history table."
+    AC-10: "Default mode with '--host' and no history prints 'No history for host'."
+    AC-11: "'--session-id' with no results for session prints 'No results'."
+    AC-12: "Default mode with '--host' and '--rule' filters by both."
+
+constraints:
+  - "MUST require '--host' for default result history mode."
+  - "MUST handle empty result sets gracefully (informational message, exit 0)."
+  - "MUST exit 1 only for session-not-found or missing required flags."
+
+input_contract:
+  - field: --host / -h
+    type: str
+    required: false
+    default: null
+    description: Filter by host
+  - field: --rule / -r
+    type: str
+    required: false
+    default: null
+    description: Filter by rule ID
+  - field: --sessions / -s
+    type: bool
+    required: false
+    default: "false"
+    description: List sessions
+  - field: --session-id / -S
+    type: int
+    required: false
+    default: null
+    description: Show specific session results
+  - field: --limit / -n
+    type: int
+    required: false
+    default: "20"
+    description: Max entries to show
+  - field: --stats
+    type: bool
+    required: false
+    default: "false"
+    description: Show database statistics
+  - field: --prune
+    type: int
+    required: false
+    default: null
+    description: Remove results older than N days
+
+behavior:
+  - "'--stats': Display database statistics table (session count, result count, oldest/newest, path). Return immediately."
+  - "'--prune DAYS': Delete sessions older than N days, print count. Return immediately."
+  - "'--session-id ID': Look up session, display header + results table. Exit 1 if not found."
+  - "'--sessions': List sessions with optional '--host' filter."
+  - "Default (no mode flag): Require '--host'. Query per-host result history. Show 'No history' if empty."
+
+exit_codes:
+  - code: 0
+    condition: "Successful query (including empty results)"
+  - code: 1
+    condition: "'--session-id' not found, default mode without '--host'"
+
+output_contract:
+  returns: Terminal output
+  modes:
+    stats: "Rich table with Metric/Value columns."
+    prune: "'Deleted N sessions older than N days'."
+    session_id: "Session header + results table (Host, Rule, Status, Remediated, Detail)."
+    sessions: "Sessions table (ID, Timestamp, Hosts, Rules Path)."
+    default: "History table (Session, Timestamp, Rule, Status, Remediated)."
+
+side_effects:
+  - "SQLite reads: All modes except --prune."
+  - "SQLite deletes: --prune removes old sessions and associated data."
+
+testing:
+  spec_derived:
+    file: tests/test_cli_spec.py
+    classes:
+      - TestHistorySpecDerived
+    count: 10

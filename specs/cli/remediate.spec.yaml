@@ -1,0 +1,135 @@
+kind: CLICommand
+metadata:
+  name: Remediate
+  module: cli
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Check rules and remediate failures on target hosts. Always persists results
+    to SQLite (unlike check). Supports dry-run preview, inline
+    rollback-on-failure, conflict detection, and pre-state snapshot capture.
+  technical_context: >
+    Module runner/cli.py -> remediate(). Click decorators: @main.command(),
+    @target_options, @rule_options, @output_options, plus --dry-run,
+    --rollback-on-failure, --allow-conflicts, --no-snapshot. Option groups:
+    target_options, rule_options, output_options (same as check).
+  dependencies:
+    - runner._host_runner
+    - runner._rule_selection
+    - runner.engine
+    - runner.inventory
+    - runner.output
+    - runner.conflicts
+    - runner.storage
+  callers:
+    - CLI entry point (kensa remediate)
+
+objective:
+  summary: >
+    Check rules and remediate failures on target hosts. Always persists results
+    to SQLite (unlike check). Supports dry-run preview, inline
+    rollback-on-failure, conflict detection, and pre-state snapshot capture.
+  acceptance_criteria:
+    AC-1: "Remediate with one passing rule exits 0, shows '1 pass', no remediation occurs."
+    AC-2: "Remediate with one failing rule shows 'fixed' or 'fail' count."
+    AC-3: "'--dry-run' prints 'DRY RUN' banner and does not execute remediation steps."
+    AC-4: "No target hosts exits 1."
+    AC-5: "No rules exits 1."
+    AC-6: "Unresolved conflicts (without '--allow-conflicts') exits 1."
+    AC-7: "'--allow-conflicts' prints warning and proceeds despite conflicts."
+    AC-8: "Results are always stored to SQLite (no '--store' flag needed)."
+    AC-9: "'--no-snapshot' sets snapshot_mode to 'none' in stored session."
+    AC-10: "'--rollback-on-failure' enables inline rollback; rolled-back count appears in summary."
+    AC-11: "'--quiet' suppresses terminal output."
+    AC-12: "Connection failure prints error and continues; exit 0."
+    AC-13: "Multi-host run prints summary with totals."
+    AC-14: "'--framework' sorts results by section order."
+    AC-15: "Parallel execution ('--workers 2') produces results for all hosts."
+    AC-16: "'-o json' writes JSON to stdout."
+    AC-17: "Snapshot pruning runs before processing hosts."
+    AC-18: "Snapshot pruning failure does not block remediation."
+    AC-19: "'--var KEY=VALUE' overrides rule variables."
+    AC-20: "'--control' filters to rules for a specific framework control."
+
+constraints:
+  - "MUST always persist remediation results to SQLite (unlike check which requires --store)."
+  - "MUST exit 1 on unresolved conflicts unless '--allow-conflicts' is set."
+  - "MUST NOT let snapshot pruning failures block remediation."
+  - "MUST show 'DRY RUN' banner when '--dry-run' is active."
+  - "MUST capture pre-state snapshots by default (opt out with '--no-snapshot')."
+
+input_contract:
+  - field: --dry-run
+    type: bool
+    required: false
+    default: "false"
+    description: Preview without making changes
+  - field: --rollback-on-failure
+    type: bool
+    required: false
+    default: "false"
+    description: Auto-rollback on failure
+  - field: --allow-conflicts
+    type: bool
+    required: false
+    default: "false"
+    description: Proceed despite detected conflicts
+  - field: --no-snapshot
+    type: bool
+    required: false
+    default: "false"
+    description: Disable pre-state snapshot capture
+
+behavior:
+  - "Resolve targets and load rules (same as check)."
+  - "Prune expired pre-state snapshots from SQLite (failure must not block remediation)."
+  - "Run preliminary conflict detection with empty capabilities."
+  - "If conflicts found and '--allow-conflicts' not set: print conflicts and exit 1."
+  - "If conflicts found and '--allow-conflicts' set: print warning and continue."
+  - >
+    For each host (sequential or parallel):
+    (a) Same SSH setup as check (connect, detect, override, auto-framework).
+    (b) Per-host variable resolution.
+    (c) Run run_remediation() with dry_run, rollback_on_failure, snapshot flags.
+    (d) Collect results: pass, fail, fixed, skip, rolled_back counts.
+  - "Print per-host summary (rules | pass | fixed | fail | skip | rolled back)."
+  - "Print multi-host summary if >1 host."
+  - "Sort results by framework section if active."
+  - "Write output files."
+  - "Always persist results via _store_remediation_results() (unconditional)."
+
+exit_codes:
+  - code: 0
+    condition: "Normal completion -- even with remediation failures or connection errors"
+  - code: 1
+    condition: "Target resolution error, rule loading error, unresolved conflicts (without --allow-conflicts), output format error"
+
+output_contract:
+  returns: Terminal output or file output
+  modes:
+    terminal: >
+      "DRY RUN -- no changes will be made" banner when --dry-run. Conflict
+      warning when --allow-conflicts and conflicts detected. Per-host: rules |
+      pass | fixed | fail | skip | rolled back. Multi-host: Grand summary with
+      totals. "Stored remediation results in session N" confirmation.
+    quiet: "Suppresses terminal output except storage confirmation."
+    json: "JSON to stdout (same formats as check via -o)."
+    csv: "CSV format (same as check via -o)."
+    pdf: "PDF report (same as check via -o)."
+
+side_effects:
+  - "SQLite (always): Creates session, remediation_session, remediations, steps, pre_states records."
+  - "Snapshot pruning: Deletes expired pre-state data older than snapshot_archive_days (default 90)."
+  - "File writes: Via -o fmt:path."
+
+testing:
+  spec_derived:
+    file: tests/test_cli_spec.py
+    classes:
+      - TestRemediateSpecDerived
+    count: 15
