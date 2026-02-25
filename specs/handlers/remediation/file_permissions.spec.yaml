@@ -1,0 +1,132 @@
+kind: RemediationHandler
+metadata:
+  name: FilePermissions
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Sets file ownership (owner, group) and permissions (mode) on a remote host.
+    Supports glob patterns for applying changes to multiple files. Constructs
+    chown and chmod commands as needed and executes them in a single compound
+    command.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["file_permissions"]. Implemented in
+    runner/handlers/remediation/_file.py as _remediate_file_permissions.
+  dependencies:
+    - runner.shell_util.is_glob_path
+    - runner.shell_util.quote_path
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/file_content_set.spec.yaml
+
+objective:
+  summary: >
+    Set file ownership and/or permissions on a remote host by constructing and
+    executing chown and chmod commands. Supports glob patterns for batch
+    operations. In dry-run mode, describe the intended commands without
+    executing them.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, returns (True, "Would run:
+      {commands}") where commands is the chown && chmod string, and no SSH
+      commands are executed.
+    AC-2: >
+      Owner and group set: When both owner and group are provided, chown is
+      called with "{owner}:{group}" spec.
+    AC-3: >
+      Owner only: When only owner is provided (no group), chown is called with
+      just the owner name (no colon).
+    AC-4: >
+      Group only: When only group is provided (no owner), chown is called with
+      ":{group}" spec.
+    AC-5: >
+      Mode set: When mode is provided, chmod is called with the octal mode
+      string.
+    AC-6: >
+      Combined command: When both ownership and mode are specified, the handler
+      constructs "chown ... && chmod ..." as a single compound command.
+    AC-7: >
+      Glob support via explicit flag: When "glob" key is present in the
+      remediation dict, the path is treated as a glob pattern.
+    AC-8: >
+      Glob auto-detection: When the path contains glob characters and no
+      explicit glob flag, shell_util.is_glob_path detects and enables glob
+      quoting.
+    AC-9: >
+      Success path: When the compound command succeeds, returns (True, "Set
+      permissions on {path}").
+    AC-10: >
+      Failure path: When the compound command fails, returns (False, "Failed:
+      {stderr}").
+    AC-11: >
+      Path quoting: The path is quoted via shell_util.quote_path with
+      allow_glob set according to glob detection.
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST use shell_util.quote_path() with allow_glob for safe path quoting.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - The handler does not create parent directories or verify the file exists before modifying permissions.
+  - At least one of owner, group, or mode SHOULD be present; the handler constructs an empty command if none are given.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "file_permissions" (used by dispatch, not by handler directly)
+  - field: path
+    type: str
+    required: true
+    description: File path or glob pattern on the remote host
+  - field: owner
+    type: str
+    required: false
+    description: File owner to set
+  - field: group
+    type: str
+    required: false
+    description: File group to set
+  - field: mode
+    type: str
+    required: false
+    description: Octal file mode (e.g., "0644")
+  - field: glob
+    type: bool
+    required: false
+    description: Explicit flag to treat path as a glob pattern
+
+behavior:
+  - "Extract fields: Read path from the remediation dict. Read optional owner, group, mode, and glob."
+  - "Determine glob mode: Set is_glob to True if \"glob\" key is present in the dict OR if shell_util.is_glob_path(path) returns True."
+  - "Build chown command: If owner or group is provided, construct chown_spec as \"{owner}:{group}\" (when group is present) or just owner. Quote the path with shell_util.quote_path(path, allow_glob=is_glob). Add \"chown {chown_spec} {quoted_path}\" to the parts list."
+  - "Build chmod command: If mode is provided, quote the path again with allow_glob. Add \"chmod {mode} {quoted_path}\" to the parts list."
+  - "Dry-run check: If dry_run=True, return (True, \"Would run: {' && '.join(parts)}\")."
+  - "Execute compound command: Join parts with \" && \" and execute via ssh.run()."
+  - "Check result: If the command fails (not ok), return (False, \"Failed: {stderr}\")."
+  - "Success return: Return (True, \"Set permissions on {path}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would run: {chown && chmod commands}\""
+    - "Success: \"Set permissions on {path}\""
+    - "Failure: \"Failed: {stderr}\""
+
+side_effects:
+  - "Changes file ownership via chown on the remote host."
+  - "Changes file permissions via chmod on the remote host."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestFilePermissionsSpecDerived
+    count: 14

@@ -1,0 +1,118 @@
+kind: RemediationHandler
+metadata:
+  name: ConfigRemove
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Removes a configuration key from a file on a remote host by deleting all
+    lines matching the key. Idempotent: if the key is already absent, the
+    handler returns success without modification.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["config_remove"]. Implemented in
+    runner/handlers/remediation/_config.py as _remediate_config_remove.
+  dependencies:
+    - runner.shell_util.config_key_exists
+    - runner.shell_util.escape_grep_bre
+    - runner.shell_util.sed_delete_line
+    - runner.shell_util.service_action
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/config_set.spec.yaml
+
+objective:
+  summary: >
+    Remove all lines matching a configuration key from a file on a remote host.
+    If the key is already absent, return success immediately. Optionally reload
+    or restart a service after modification.
+  acceptance_criteria:
+    AC-1: >
+      Key already absent: When config_key_exists returns False, returns (True,
+      "{key} not found in {path} (already absent)") without any modification
+      and without checking dry_run.
+    AC-2: >
+      Dry-run with key present: When the key exists and dry_run=True, returns
+      (True, "Would remove '{key}' from {path}") without executing sed.
+    AC-3: >
+      Success path: When config_key_exists returns True and sed_delete_line
+      succeeds, returns (True, "Removed '{key}' from {path}").
+    AC-4: >
+      Sed failure: When sed_delete_line returns False, returns (False, "Failed
+      to remove {key} from {path}") and does not proceed to service action.
+    AC-5: >
+      Service action on success: When removal succeeds and reload/restart is
+      specified, calls service_action to reload or restart the named service.
+    AC-6: >
+      No service action on failure: When sed_delete_line fails, service_action
+      is not called.
+    AC-7: >
+      Key escaping: The key is escaped with escape_grep_bre before being used
+      in the sed pattern.
+    AC-8: >
+      Sed pattern: The sed delete pattern is "^ *{escaped_key}" to match lines
+      starting with optional leading spaces followed by the key.
+
+constraints:
+  - MUST NOT execute any remote modification commands when dry_run=True.
+  - MUST NOT call service_action if sed_delete_line failed.
+  - MUST use shell_util.escape_grep_bre() to escape the key before embedding in sed patterns.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - The early-return for absent key runs before the dry_run check; this is by design for idempotent behavior.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "config_remove" (used by dispatch, not by handler directly)
+  - field: path
+    type: str
+    required: true
+    description: Absolute path to the config file on the remote host
+  - field: key
+    type: str
+    required: true
+    description: Configuration key to remove
+  - field: reload
+    type: str
+    required: false
+    description: Service name to reload after modification
+  - field: restart
+    type: str
+    required: false
+    description: Service name to restart after modification
+
+behavior:
+  - "Extract fields: Read path and key from the remediation dict."
+  - "Idempotency check: Call shell_util.config_key_exists(ssh, path, key). If the key is not found, return (True, \"{key} not found in {path} (already absent)\") immediately."
+  - "Dry-run check: If dry_run=True, return (True, \"Would remove '{key}' from {path}\") without executing any modification commands."
+  - "Delete lines: Call shell_util.sed_delete_line(ssh, path, f\"^ *{escaped_key}\") where escaped_key comes from shell_util.escape_grep_bre(key)."
+  - "Check delete result: If sed_delete_line returns False, return (False, \"Failed to remove {key} from {path}\"). Do not proceed to service action."
+  - "Service action: Call shell_util.service_action(ssh, r) which checks for reload or restart keys."
+  - "Success return: Return (True, \"Removed '{key}' from {path}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Already absent: \"{key} not found in {path} (already absent)\""
+    - "Dry-run: \"Would remove '{key}' from {path}\""
+    - "Success: \"Removed '{key}' from {path}\""
+    - "Sed failure: \"Failed to remove {key} from {path}\""
+
+side_effects:
+  - "Deletes lines from a remote configuration file via sed."
+  - "Optionally reloads or restarts a systemd service via systemctl."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestConfigRemoveSpecDerived
+    count: 11

@@ -1,0 +1,96 @@
+kind: RemediationHandler
+metadata:
+  name: PackageAbsent
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Removes a package from a remote RHEL host using dnf. The handler is
+    idempotent: it first checks if the package is installed via rpm -q and
+    returns success immediately if the package is already absent.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["package_absent"]. Implemented in
+    runner/handlers/remediation/_package.py as _remediate_package_absent.
+  dependencies:
+    - runner.shell_util.quote
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/package_present.spec.yaml
+
+objective:
+  summary: >
+    Remove a named package from a remote RHEL host using dnf remove -y.
+    Idempotent: if the package is not installed, return success immediately.
+    In dry-run mode, describe the intended action.
+  acceptance_criteria:
+    AC-1: >
+      Already absent: When rpm -q reports the package is not installed, returns
+      (True, "{name}: already not installed") without checking dry_run.
+    AC-2: >
+      Dry-run with package present: When the package is installed and
+      dry_run=True, returns (True, "Would remove {name}") without executing
+      dnf remove.
+    AC-3: >
+      Success path: When dnf remove succeeds, returns (True, "Removed {name}").
+    AC-4: >
+      Remove failure: When dnf remove fails (non-zero exit), returns (False,
+      "dnf remove failed: {stderr}").
+    AC-5: >
+      Shell quoting: The package name is passed through shell_util.quote()
+      in both the rpm -q check and the dnf remove command.
+    AC-6: >
+      Extended timeout: The dnf remove command uses a 300-second timeout.
+    AC-7: >
+      Idempotency check: The rpm -q command uses 2>/dev/null to suppress
+      stderr from non-installed packages.
+
+constraints:
+  - MUST NOT execute dnf remove when dry_run=True.
+  - MUST use shell_util.quote() for the package name in all shell commands.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - The early-return for absent package runs before the dry_run check; this is by design for idempotent behavior.
+  - Uses -y flag for non-interactive removal.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "package_absent" (used by dispatch, not by handler directly)
+  - field: name
+    type: str
+    required: true
+    description: Package name to remove (e.g., "telnet", "rsh")
+
+behavior:
+  - "Extract fields: Read name from the remediation dict."
+  - "Idempotency check: Execute rpm -q {quoted_name} 2>/dev/null via SSH. If the command fails (package not installed), return (True, \"{name}: already not installed\") immediately."
+  - "Dry-run check: If dry_run=True, return (True, \"Would remove {name}\") immediately."
+  - "Remove package: Execute dnf remove -y {quoted_name} via SSH with a 300-second timeout."
+  - "Check result: If dnf returns non-zero exit code, return (False, \"dnf remove failed: {stderr}\")."
+  - "Success return: Return (True, \"Removed {name}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Already absent: \"{name}: already not installed\""
+    - "Dry-run: \"Would remove {name}\""
+    - "Success: \"Removed {name}\""
+    - "Failure: \"dnf remove failed: {stderr}\""
+
+side_effects:
+  - "Removes an RPM package from the remote host via dnf."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestPackageAbsentSpecDerived
+    count: 9

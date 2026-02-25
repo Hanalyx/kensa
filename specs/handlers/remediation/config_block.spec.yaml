@@ -1,0 +1,133 @@
+kind: RemediationHandler
+metadata:
+  name: ConfigBlock
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Writes a managed block of content delimited by begin/end markers into a
+    configuration file on a remote host. If a block with the same markers
+    already exists, it is removed before the new block is appended. This
+    ensures idempotent block replacement.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["config_block"]. Implemented in
+    runner/handlers/remediation/_config.py as _remediate_config_block.
+  dependencies:
+    - runner.shell_util.quote
+    - runner.shell_util.sed_delete_block
+    - runner.shell_util.append_line
+    - runner.shell_util.service_action
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/config_set.spec.yaml
+
+objective:
+  summary: >
+    Insert or replace a managed block of content in a configuration file,
+    delimited by "# BEGIN {marker}" and "# END {marker}" lines. If a block
+    with the same marker already exists, remove it first, then append the new
+    block. Optionally reload or restart a service after modification.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, returns (True, "Would write
+      block to {path} with marker '{marker}'") and no SSH commands are executed.
+    AC-2: >
+      Default marker: When marker is not provided, defaults to "KENSA MANAGED
+      BLOCK".
+    AC-3: >
+      Custom marker: When marker is provided, uses the specified marker in
+      begin/end delimiters.
+    AC-4: >
+      Existing block removal: When grep finds the begin marker in the file,
+      sed_delete_block is called to remove the old block before appending.
+    AC-5: >
+      No existing block: When grep does not find the begin marker, no deletion
+      is attempted and the new block is appended directly.
+    AC-6: >
+      Block format: The appended block is formatted as "# BEGIN {marker}\n
+      {block}\n# END {marker}".
+    AC-7: >
+      Append success: When append_line succeeds, returns (True, "Wrote block
+      to {path}").
+    AC-8: >
+      Append failure: When append_line returns False, returns (False, "Failed
+      to write block to {path}") and does not proceed to service action.
+    AC-9: >
+      Service action on success: When append succeeds and reload/restart is
+      specified, calls service_action.
+    AC-10: >
+      No service action on failure: When append fails, service_action is not
+      called.
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST NOT call service_action if append_line failed.
+  - MUST use shell_util.quote() for interpolating values into shell commands (grep check).
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - The handler always appends the block at the end of the file; it does not insert at a specific position.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "config_block" (used by dispatch, not by handler directly)
+  - field: path
+    type: str
+    required: true
+    description: Absolute path to the config file on the remote host
+  - field: block
+    type: str
+    required: true
+    description: Content to insert between the begin and end markers
+  - field: marker
+    type: str
+    required: false
+    default: KENSA MANAGED BLOCK
+    description: Marker identifier used in begin/end delimiter comments
+  - field: reload
+    type: str
+    required: false
+    description: Service name to reload after modification
+  - field: restart
+    type: str
+    required: false
+    description: Service name to restart after modification
+
+behavior:
+  - "Extract fields: Read path, block from the remediation dict. Read marker with default \"KENSA MANAGED BLOCK\"."
+  - "Compute markers: Build begin_marker as \"# BEGIN {marker}\" and end_marker as \"# END {marker}\"."
+  - "Dry-run check: If dry_run=True, return (True, \"Would write block to {path} with marker '{marker}'\") immediately."
+  - "Check for existing block: Run grep -qF {quoted_begin_marker} {quoted_path} 2>/dev/null via SSH."
+  - "Remove existing block: If grep succeeds (block already exists), call shell_util.sed_delete_block(ssh, path, begin_marker, end_marker) to remove the old block."
+  - "Compose full block: Build full_block as \"{begin_marker}\\n{block}\\n{end_marker}\"."
+  - "Append block: Call shell_util.append_line(ssh, path, full_block)."
+  - "Check append result: If append_line returns False, return (False, \"Failed to write block to {path}\"). Do not proceed to service action."
+  - "Service action: Call shell_util.service_action(ssh, r)."
+  - "Success return: Return (True, \"Wrote block to {path}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would write block to {path} with marker '{marker}'\""
+    - "Success: \"Wrote block to {path}\""
+    - "Append failure: \"Failed to write block to {path}\""
+
+side_effects:
+  - "Removes an existing managed block from a remote configuration file via sed (if present)."
+  - "Appends a new managed block to the remote configuration file."
+  - "Optionally reloads or restarts a systemd service via systemctl."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestConfigBlockSpecDerived
+    count: 13

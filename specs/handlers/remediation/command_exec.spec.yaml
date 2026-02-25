@@ -1,0 +1,135 @@
+kind: RemediationHandler
+metadata:
+  name: CommandExec
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Executes an arbitrary shell command on a remote host as a remediation
+    action. Supports conditional execution via unless and onlyif guard
+    commands that can skip the main command based on pre-conditions.
+    Optionally reloads or restarts a service after successful execution.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["command_exec"]. Implemented in
+    runner/handlers/remediation/_command.py as _remediate_command_exec. This is
+    a non-capturable mechanism: pre-state capture returns None because
+    arbitrary commands have no predictable state to snapshot.
+  dependencies:
+    - runner.shell_util.service_action
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/manual.spec.yaml
+
+objective:
+  summary: >
+    Execute an arbitrary shell command on a remote host, with optional guard
+    conditions (unless/onlyif) to skip execution when pre-conditions are met.
+    Optionally reload or restart a service after successful execution.
+  acceptance_criteria:
+    AC-1: >
+      Unless guard passes: When unless is specified and the guard command
+      succeeds (exit 0), the handler skips execution and returns (True,
+      "Skipped (unless guard passed): {unless}").
+    AC-2: >
+      Onlyif guard fails: When onlyif is specified and the guard command fails
+      (non-zero exit), the handler skips execution and returns (True, "Skipped
+      (onlyif guard failed): {onlyif}").
+    AC-3: >
+      Guard evaluation order: The unless guard is checked first. If unless is
+      absent or fails, the onlyif guard is checked. If both guards pass (unless
+      fails and onlyif succeeds), execution proceeds.
+    AC-4: >
+      Dry-run returns preview: When dry_run=True and guards do not skip, returns
+      (True, "Would run: {cmd}") and the main command is not executed.
+    AC-5: >
+      Guard evaluation before dry-run: Guard commands (unless/onlyif) are
+      evaluated even when dry_run=True. Only the main command is skipped in
+      dry-run mode.
+    AC-6: >
+      Success path: When the command succeeds (exit 0), returns (True,
+      "Executed: {cmd}").
+    AC-7: >
+      Command failure: When the command fails (non-zero exit), returns (False,
+      "Command failed (exit {exit_code}): {stderr_or_stdout}").
+    AC-8: >
+      Failure detail prefers stderr: When the command fails, the detail uses
+      stderr if available, falling back to stdout.
+    AC-9: >
+      Service action on success: When the command succeeds and reload/restart
+      is specified, calls service_action.
+    AC-10: >
+      No service action on failure: When the command fails, service_action is
+      not called.
+    AC-11: >
+      Extended timeout: The main command uses a 120-second timeout.
+
+constraints:
+  - MUST NOT execute the main command when dry_run=True, but guard commands ARE evaluated in dry-run mode.
+  - MUST NOT call service_action if the main command failed.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - This is a non-capturable mechanism; pre-state capture always returns None.
+  - The handler does not validate or sanitize the command; it is executed as-is via SSH.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "command_exec" (used by dispatch, not by handler directly)
+  - field: run
+    type: str
+    required: true
+    description: Shell command to execute on the remote host
+  - field: unless
+    type: str
+    required: false
+    description: Guard command; if it succeeds (exit 0), the main command is skipped
+  - field: onlyif
+    type: str
+    required: false
+    description: Guard command; if it fails (non-zero exit), the main command is skipped
+  - field: reload
+    type: str
+    required: false
+    description: Service name to reload after successful execution
+  - field: restart
+    type: str
+    required: false
+    description: Service name to restart after successful execution
+
+behavior:
+  - "Extract fields: Read run from the remediation dict as the main command."
+  - "Unless guard: If unless is specified, execute the guard command via SSH. If it succeeds (exit 0), return (True, \"Skipped (unless guard passed): {unless}\")."
+  - "Onlyif guard: If onlyif is specified, execute the guard command via SSH. If it fails (non-zero exit), return (True, \"Skipped (onlyif guard failed): {onlyif}\")."
+  - "Dry-run check: If dry_run=True, return (True, \"Would run: {cmd}\") immediately."
+  - "Execute command: Run the main command via SSH with a 120-second timeout."
+  - "Check result: If the command fails, return (False, \"Command failed (exit {exit_code}): {stderr or stdout}\")."
+  - "Service action: Call shell_util.service_action(ssh, r) to handle reload/restart."
+  - "Success return: Return (True, \"Executed: {cmd}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Unless skip: \"Skipped (unless guard passed): {unless}\""
+    - "Onlyif skip: \"Skipped (onlyif guard failed): {onlyif}\""
+    - "Dry-run: \"Would run: {cmd}\""
+    - "Success: \"Executed: {cmd}\""
+    - "Failure: \"Command failed (exit {exit_code}): {stderr_or_stdout}\""
+
+side_effects:
+  - "Executes an arbitrary shell command on the remote host."
+  - "Optionally reloads or restarts a systemd service via systemctl."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestCommandExecSpecDerived
+    count: 14

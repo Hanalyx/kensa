@@ -1,0 +1,104 @@
+kind: RemediationHandler
+metadata:
+  name: SelinuxStateSet
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    This handler is a placeholder for setting the SELinux enforcement state
+    (enforcing, permissive, disabled) on a remote host. The actual
+    implementation would modify /etc/selinux/config and optionally call
+    setenforce for runtime changes. Currently not implemented as a standalone
+    handler in the codebase; SELinux state changes are typically handled via
+    config_set on /etc/selinux/config combined with command_exec for
+    setenforce.
+  technical_context: >
+    Not currently registered in REMEDIATION_HANDLERS. SELinux state changes
+    are typically composed as multi-step remediations using config_set and
+    command_exec mechanisms. This spec documents the intended contract for
+    a dedicated handler.
+  dependencies:
+    - runner.shell_util.quote
+    - runner.shell_util.write_file
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+  related_specs:
+    - specs/handlers/remediation/selinux_boolean_set.spec.yaml
+    - specs/handlers/remediation/config_set.spec.yaml
+    - specs/handlers/remediation/command_exec.spec.yaml
+
+objective:
+  summary: >
+    Set the SELinux enforcement state on a remote host by modifying
+    /etc/selinux/config for persistence and optionally calling setenforce
+    for immediate runtime effect. Supports enforcing, permissive, and disabled
+    states.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, returns (True, "Would set
+      SELinux to {state}") and no SSH commands are executed.
+    AC-2: >
+      Config file update: The handler modifies SELINUX={state} in
+      /etc/selinux/config for persistence across reboots.
+    AC-3: >
+      Runtime enforcement: When state is "enforcing" or "permissive", calls
+      setenforce to apply immediately without reboot.
+    AC-4: >
+      Disabled state: When state is "disabled", only the config file is
+      modified; setenforce is not called (requires reboot).
+    AC-5: >
+      Success path: When config update and setenforce both succeed, returns
+      (True, "Set SELinux to {state}").
+    AC-6: >
+      Config update failure: When config modification fails, returns (False,
+      "Failed to set SELinux config: {stderr}").
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST return a 2-tuple (bool, str) from the handler; the 3-tuple wrapping is done by the caller.
+  - Transitioning to "disabled" requires a reboot; the handler does not reboot the system.
+  - The handler does not verify the current SELinux state before making changes.
+  - The state value MUST be one of "enforcing", "permissive", or "disabled".
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "selinux_state_set" (used by dispatch, not by handler directly)
+  - field: state
+    type: str
+    required: true
+    description: "Target SELinux state: enforcing, permissive, or disabled"
+
+behavior:
+  - "Extract fields: Read state from the remediation dict."
+  - "Dry-run check: If dry_run=True, return (True, \"Would set SELinux to {state}\") immediately."
+  - "Update config file: Modify the SELINUX= line in /etc/selinux/config to set the target state."
+  - "Runtime enforcement: If state is \"enforcing\" or \"permissive\", call setenforce {1|0} to apply immediately. Map \"enforcing\" to 1 and \"permissive\" to 0."
+  - "Check results: If config update fails, return (False, \"Failed to set SELinux config: {stderr}\"). If setenforce fails, return (False, \"setenforce failed: {stderr}\")."
+  - "Success return: Return (True, \"Set SELinux to {state}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would set SELinux to {state}\""
+    - "Success: \"Set SELinux to {state}\""
+    - "Config failure: \"Failed to set SELinux config: {stderr}\""
+    - "Setenforce failure: \"setenforce failed: {stderr}\""
+
+side_effects:
+  - "Modifies /etc/selinux/config to set the SELinux enforcement state."
+  - "Optionally calls setenforce for immediate runtime effect."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestSelinuxStateSetSpecDerived
+    count: 8

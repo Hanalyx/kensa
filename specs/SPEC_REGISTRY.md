@@ -37,6 +37,24 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | [service_lifecycle](handlers/remediation/service_lifecycle.spec.yaml) | `runner/handlers/remediation/_service.py` → `_remediate_service_enabled`, `_remediate_service_disabled` | `tests/test_service_lifecycle.py` → `TestServiceEnabledSpecDerived`, `TestServiceDisabledSpecDerived` | **Active** — 14 ACs, 22 tests |
 | [sysctl_set](handlers/remediation/sysctl_set.spec.yaml) | `runner/handlers/remediation/_system.py` → `_remediate_sysctl_set` | `tests/test_engine_remediation.py` → `TestSysctlSet`, `TestSysctlSetSpecDerived` | **Active** — 9 ACs, 15 tests |
 | [audit_rule_set](handlers/remediation/audit_rule_set.spec.yaml) | `runner/handlers/remediation/_security.py` → `_remediate_audit_rule_set` | `tests/test_remediation_audit_rule_set.py` → `TestAuditRuleSetSpecDerived` | **Active** — 9 ACs, 16 tests |
+| [config_set_dropin](handlers/remediation/config_set_dropin.spec.yaml) | `runner/handlers/remediation/_config.py` → `_remediate_config_set_dropin` | `tests/test_engine_remediation.py` | **Active** — 9 ACs |
+| [config_remove](handlers/remediation/config_remove.spec.yaml) | `runner/handlers/remediation/_config.py` → `_remediate_config_remove` | `tests/test_engine_remediation.py` | **Active** — 8 ACs |
+| [config_block](handlers/remediation/config_block.spec.yaml) | `runner/handlers/remediation/_config.py` → `_remediate_config_block` | `tests/test_engine_remediation.py` | **Active** — 10 ACs |
+| [file_permissions](handlers/remediation/file_permissions.spec.yaml) | `runner/handlers/remediation/_file.py` → `_remediate_file_permissions` | `tests/test_engine_remediation.py` | **Active** — 11 ACs |
+| [file_content_set](handlers/remediation/file_content_set.spec.yaml) | `runner/handlers/remediation/_file.py` → `_remediate_file_content_set` | `tests/test_engine_remediation.py` | **Active** — 8 ACs |
+| [file_absent](handlers/remediation/file_absent.spec.yaml) | `runner/handlers/remediation/_file.py` → `_remediate_file_absent` | `tests/test_engine_remediation.py` | **Active** — 5 ACs |
+| [package_present](handlers/remediation/package_present.spec.yaml) | `runner/handlers/remediation/_package.py` → `_remediate_package_present` | `tests/test_engine_remediation.py` | **Active** — 5 ACs |
+| [package_absent](handlers/remediation/package_absent.spec.yaml) | `runner/handlers/remediation/_package.py` → `_remediate_package_absent` | `tests/test_engine_remediation.py` | **Active** — 7 ACs |
+| [service_masked](handlers/remediation/service_masked.spec.yaml) | `runner/handlers/remediation/_service.py` → `_remediate_service_masked` | `tests/test_engine_remediation.py` | **Active** — 8 ACs |
+| [kernel_module_disable](handlers/remediation/kernel_module_disable.spec.yaml) | `runner/handlers/remediation/_system.py` → `_remediate_kernel_module_disable` | `tests/test_engine_remediation.py` | **Active** — 7 ACs |
+| [mount_option_set](handlers/remediation/mount_option_set.spec.yaml) | `runner/handlers/remediation/_system.py` → `_remediate_mount_option_set` | `tests/test_engine_remediation.py` | **Active** — 9 ACs |
+| [grub_parameter_set](handlers/remediation/grub_parameter_set.spec.yaml) | `runner/handlers/remediation/_system.py` → `_remediate_grub_parameter_set` | `tests/test_engine_remediation.py` | **Active** — 7 ACs |
+| [grub_parameter_remove](handlers/remediation/grub_parameter_remove.spec.yaml) | `runner/handlers/remediation/_system.py` → `_remediate_grub_parameter_remove` | `tests/test_engine_remediation.py` | **Active** — 5 ACs |
+| [cron_job](handlers/remediation/cron_job.spec.yaml) | `runner/handlers/remediation/_system.py` → `_remediate_cron_job` | `tests/test_engine_remediation.py` | **Active** — 8 ACs |
+| [selinux_boolean_set](handlers/remediation/selinux_boolean_set.spec.yaml) | `runner/handlers/remediation/_security.py` → `_remediate_selinux_boolean_set` | `tests/test_engine_remediation.py` | **Active** — 11 ACs |
+| [selinux_state_set](handlers/remediation/selinux_state_set.spec.yaml) | `runner/handlers/remediation/_security.py` → `_remediate_selinux_state_set` | `tests/test_engine_remediation.py` | **Active** — 6 ACs |
+| [command_exec](handlers/remediation/command_exec.spec.yaml) | `runner/handlers/remediation/_command.py` → `_remediate_command_exec` | `tests/test_engine_remediation.py` | **Active** — 11 ACs |
+| [manual](handlers/remediation/manual.spec.yaml) | `runner/handlers/remediation/_command.py` → `_remediate_manual` | `tests/test_engine_remediation.py` | **Active** — 6 ACs |
 
 ## Orchestration
 
