@@ -1,0 +1,193 @@
+kind: InternalModule
+
+metadata:
+  name: VariableResolution
+  module: runner._config
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    Rule variable configuration loading and resolution. Handles the 6-level
+    variable precedence chain (CLI > host > group > conf.d > framework > defaults)
+    that drives all rule evaluation and remediation. Variables use {{ name }}
+    patterns and are substituted only in safe fields to prevent shell injection.
+  technical_context: >
+    Entry points: load_config(path) -> RuleConfig, resolve_variables(rule, config, ...)
+    -> dict, parse_var_overrides(flags) -> dict. Internal helpers:
+    _get_effective_variables() merges all layers, _substitute_in_dict() recurses
+    through rule structure applying substitutions only to SAFE_SUBSTITUTION_FIELDS.
+  dependencies:
+    - "yaml (PyYAML)"
+    - "runner.paths (get_config_path)"
+  callers:
+    - "runner._host_runner (per-host variable resolution)"
+    - "runner.cli (--var flag parsing)"
+  related_specs:
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+  assumptions:
+    - "Config directory structure follows config/{defaults.yml, conf.d/, groups/, hosts/}"
+    - "YAML files use safe_load only"
+
+objective:
+  summary: >
+    Load variable configuration from a layered config directory and resolve
+    {{ variable }} placeholders in rule dicts with correct 6-level precedence.
+  acceptance_criteria:
+    AC-1: >
+      Default variables loaded from defaults.yml variables section populate
+      RuleConfig.variables.
+    AC-2: >
+      conf.d/*.yml files merge into config.variables alphabetically; later files
+      override earlier ones for the same key.
+    AC-3: >
+      Framework overrides from defaults.yml frameworks section populate
+      RuleConfig.framework_overrides keyed by framework base name.
+    AC-4: >
+      When --framework is specified, framework overrides are applied after
+      defaults, using the base name extracted via split("-")[0].lower().
+    AC-5: >
+      Group overrides from config/groups/*.yml populate RuleConfig.group_overrides
+      keyed by filename stem; when multiple groups apply, last group wins.
+    AC-6: >
+      Host overrides from config/hosts/*.yml populate RuleConfig.host_overrides
+      keyed by filename stem; applied for matching hostname only.
+    AC-7: >
+      CLI --var KEY=VALUE overrides have highest priority, overriding all other
+      layers including host overrides.
+    AC-8: >
+      Only SAFE_SUBSTITUTION_FIELDS (content, expected, expected_content, value,
+      mode, owner, group) are substituted; unsafe fields like run and path are
+      never modified.
+    AC-9: >
+      {{ variable_name }} pattern with optional whitespace is recognized and
+      replaced with the string representation of the variable value.
+    AC-10: >
+      In strict mode (default), undefined variables raise ValueError with
+      "Undefined variable: <name>" message.
+    AC-11: >
+      In non-strict mode, undefined variables are left as-is ({{ name }}) in
+      the output.
+    AC-12: >
+      Empty or missing config directory returns an empty RuleConfig with no
+      variables, framework_overrides, group_overrides, or host_overrides.
+    AC-13: >
+      parse_var_overrides validates KEY=VALUE format; raises ValueError on
+      missing "=" or empty key.
+    AC-14: >
+      Malformed YAML in any config file (defaults, conf.d, groups, hosts) is
+      silently ignored without crashing.
+
+constraints:
+  - "MUST only substitute in SAFE_SUBSTITUTION_FIELDS — never in run, path, command, or other execution fields."
+  - "MUST apply precedence: CLI > host > group > framework > conf.d (merged into defaults) > defaults."
+  - "MUST use yaml.safe_load for all YAML parsing."
+  - "MUST extract framework base name via framework.split('-')[0].lower()."
+  - "MUST NOT mutate the input rule dict — returns a new dict."
+  - "MUST match {{ variable_name }} pattern with optional whitespace around the name."
+
+input_contract:
+  - field: config_path
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Path to config directory. None triggers auto-detection via get_config_path().
+  - field: rule
+    type: dict
+    required: true
+    description: >
+      Rule dict to resolve variables in. Substitution only in safe fields.
+  - field: config
+    type: RuleConfig
+    required: true
+    description: >
+      Loaded rule configuration with variables, framework_overrides, group_overrides,
+      host_overrides.
+  - field: framework
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Framework identifier (e.g., "cis-rhel9-v2.0.0"). Base name extracted for lookup.
+  - field: cli_overrides
+    type: "dict[str, Any] | None"
+    required: false
+    default: "None"
+    description: >
+      CLI --var KEY=VALUE overrides (highest priority).
+  - field: hostname
+    type: "str | None"
+    required: false
+    default: "None"
+    description: >
+      Target hostname for per-host overrides.
+  - field: groups
+    type: "list[str] | None"
+    required: false
+    default: "None"
+    description: >
+      Target host group list for per-group overrides. Last group wins.
+  - field: strict
+    type: bool
+    required: false
+    default: "true"
+    description: >
+      If true, raise ValueError on undefined variables. If false, leave them unchanged.
+
+behavior:
+  - "1. load_config(path) reads defaults.yml → config.variables, config.framework_overrides."
+  - "2. load_config merges conf.d/*.yml alphabetically into config.variables and config.framework_overrides."
+  - "3. load_config loads groups/*.yml into config.group_overrides keyed by stem."
+  - "4. load_config loads hosts/*.yml into config.host_overrides keyed by stem."
+  - "5. _get_effective_variables builds effective dict: start with config.variables (includes conf.d merges)."
+  - "6. If framework specified, apply framework_overrides[base_name] over defaults."
+  - "7. Apply group_overrides in order (last group wins on conflict)."
+  - "8. Apply host_overrides for matching hostname."
+  - "9. Apply cli_overrides (highest priority)."
+  - "10. _substitute_in_dict walks rule recursively; for string values in SAFE_SUBSTITUTION_FIELDS, applies VARIABLE_PATTERN.sub()."
+  - "11. Returns new dict with all safe fields substituted."
+
+output_contract:
+  returns: >
+    load_config → RuleConfig; resolve_variables → dict (new rule with substitutions);
+    parse_var_overrides → dict[str, str]; _get_effective_variables → dict[str, Any].
+  paths:
+    config_loaded:
+      description: "Config directory exists and has valid YAML files."
+      result: "RuleConfig populated with all layers."
+    config_empty:
+      description: "Config directory missing or empty."
+      result: "Empty RuleConfig with all dicts empty."
+    variables_resolved:
+      description: "All {{ var }} patterns in safe fields substituted."
+      result: "New rule dict with substituted values."
+    undefined_strict:
+      description: "Undefined variable in strict mode."
+      result: "ValueError raised."
+    undefined_non_strict:
+      description: "Undefined variable in non-strict mode."
+      result: "Pattern left as-is in output."
+  invariants:
+    - "Input rule dict is never mutated."
+    - "Non-safe fields are always copied verbatim."
+    - "Variable values are converted to str via str()."
+
+side_effects:
+  - "Reads YAML files from filesystem (config directory)."
+  - "No writes — purely a read/compute module."
+
+testing:
+  spec_derived:
+    file: tests/test_variable_resolution_spec.py
+    classes:
+      - TestVariableResolutionSpecDerived
+    count: 15
+  unit:
+    - tests/test_config.py

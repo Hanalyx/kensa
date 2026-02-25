@@ -1,0 +1,172 @@
+kind: DataStore
+
+metadata:
+  name: ResultStore
+  module: runner.storage
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+
+context:
+  description: >
+    SQLite-based storage for compliance scan results, remediation records,
+    pre-state snapshots, and rollback events. Provides historical queries,
+    diff reporting, and retention management. Single-connection pattern with
+    schema versioning and migration support (v1 -> v2 -> v3).
+  technical_context: >
+    Entry point: ResultStore(db_path, retention_days). Uses sqlite3 with
+    PARSE_DECLTYPES and Row factory. Schema v3 has 8 tables: schema_version,
+    sessions, results, evidence, framework_refs, remediation_sessions,
+    remediations, remediation_steps, pre_states, rollback_events.
+    diff_sessions() and compute_rule_hash() are module-level helpers.
+  dependencies:
+    - "sqlite3 (stdlib)"
+    - "runner._types.Evidence"
+  callers:
+    - "runner.cli (--store flag)"
+    - "runner._host_runner (result recording)"
+    - "runner._orchestration (rollback_from_stored)"
+  related_specs:
+    - "specs/cli/history.spec.yaml"
+    - "specs/cli/diff.spec.yaml"
+    - "specs/cli/rollback.spec.yaml"
+    - "specs/orchestration/rollback.spec.yaml"
+  assumptions:
+    - "SQLite supports the required SQL dialect (WAL, AUTOINCREMENT, foreign keys)."
+    - "Database file is local to the project (.kensa/results.db)."
+
+objective:
+  summary: >
+    Persist compliance scan results, remediation records, pre-state snapshots,
+    and rollback events to SQLite with schema migrations and retention management.
+  acceptance_criteria:
+    AC-1: >
+      Fresh initialization creates schema v3 with all 8 tables: schema_version,
+      sessions, results, evidence, framework_refs, remediation_sessions,
+      remediations, remediation_steps, pre_states, rollback_events.
+    AC-2: >
+      A v2 database (with schema_version=2) is migrated to v3 on open,
+      preserving existing session and result data.
+    AC-3: >
+      create_session persists hosts (comma-joined), rules_path, and options;
+      returns a session ID that get_session can retrieve.
+    AC-4: >
+      record_result persists session_id, host, rule_id, passed, detail, and
+      optional evidence and framework_refs; returns a result ID.
+    AC-5: >
+      get_evidence retrieves Evidence object from a result_id; returns None
+      if no evidence was stored.
+    AC-6: >
+      get_framework_refs returns a dict[str, str] of framework->reference
+      for a result_id; returns empty dict if no refs stored.
+    AC-7: >
+      create_remediation_session persists session_id, dry_run,
+      rollback_on_failure, snapshot_mode; returns a remediation session ID.
+    AC-8: >
+      record_remediation persists host, rule_id, severity, passed_before,
+      passed_after (nullable), remediated, rolled_back, detail.
+    AC-9: >
+      record_step persists step_index, mechanism, success, detail linked to
+      a remediation_id.
+    AC-10: >
+      record_pre_state persists mechanism, data (JSON-serialized), capturable
+      linked to a step_id; data round-trips through JSON correctly.
+    AC-11: >
+      record_rollback_event persists mechanism, success, detail, source
+      linked to a step_id.
+    AC-12: >
+      get_history returns HistoryEntry list filtered by host and optional
+      rule_id, ordered by timestamp descending.
+    AC-13: >
+      diff_sessions computes DiffReport between two sessions with correct
+      status classification: regression, resolved, new_pass, new_failure,
+      unchanged.
+    AC-14: >
+      prune_old_results deletes sessions older than retention_days; CASCADE
+      removes associated results.
+    AC-15: >
+      prune_snapshots deletes pre_states rows older than archive_days while
+      preserving remediation_steps metadata.
+    AC-16: >
+      Single-connection pattern: repeated _get_conn() calls return the same
+      connection instance.
+    AC-17: >
+      close() releases the database connection; subsequent _get_conn() creates
+      a new one.
+    AC-18: >
+      compute_rule_hash returns a 16-character SHA-256 prefix of the rule content.
+
+constraints:
+  - "MUST use sqlite3 single-connection pattern per ResultStore instance."
+  - "MUST create all v3 tables on fresh initialization."
+  - "MUST migrate v2 databases to v3 preserving existing data."
+  - "MUST JSON-serialize pre_state data dicts and round-trip correctly."
+  - "MUST use CASCADE deletes for session -> results -> evidence/framework_refs."
+  - "MUST NOT lose data during schema migration."
+
+input_contract:
+  - field: db_path
+    type: "Path | None"
+    required: false
+    default: ".kensa/results.db"
+    description: "Path to SQLite database file."
+  - field: retention_days
+    type: int
+    required: false
+    default: "90"
+    description: "Days to retain results before pruning."
+
+behavior:
+  - "1. __init__ stores db_path and retention_days, calls _init_db()."
+  - "2. _init_db creates base tables (schema_version, sessions, results + indexes)."
+  - "3. Reads current schema_version; if <2, runs _migrate_to_v2 (evidence, framework_refs)."
+  - "4. If <3, runs _migrate_to_v3 (remediation_sessions, remediations, remediation_steps, pre_states, rollback_events + indexes)."
+  - "5. Sets schema_version to 3."
+  - "6. create_session inserts into sessions, returns lastrowid."
+  - "7. record_result inserts into results; if evidence provided, inserts into evidence; if framework_refs provided, inserts per-framework row."
+  - "8. Remediation recording: create_remediation_session -> record_remediation -> record_step -> record_pre_state -> record_rollback_event (chain of foreign keys)."
+  - "9. get_remediation_steps LEFT JOINs pre_states to include pre_state_data in results."
+  - "10. prune_old_results deletes sessions older than cutoff (CASCADE to results)."
+  - "11. prune_snapshots deletes pre_states via subquery through remediation_steps -> remediations -> remediation_sessions timestamp."
+  - "12. diff_sessions builds (host, rule_id) maps from both sessions and classifies changes."
+
+output_contract:
+  returns: >
+    ResultStore instance (constructor); int IDs (create/record methods);
+    dataclass records (get methods); DiffReport (diff_sessions);
+    int row counts (prune methods).
+  paths:
+    fresh_init:
+      description: "No existing database — creates v3 schema from scratch."
+      result: "All 8+ tables created, schema_version=3."
+    v2_migration:
+      description: "Existing v2 database opened."
+      result: "v3 tables added, schema_version updated to 3, existing data preserved."
+    record_and_retrieve:
+      description: "Data written and read back."
+      result: "All fields round-trip correctly including JSON pre_states."
+    prune:
+      description: "Old data pruned."
+      result: "Rows deleted, metadata preserved."
+  invariants:
+    - "schema_version is always 3 after initialization."
+    - "Foreign key chains: session -> results -> evidence/framework_refs."
+    - "Foreign key chains: session -> remediation_sessions -> remediations -> remediation_steps -> pre_states."
+    - "pre_state.data_json round-trips through json.dumps/json.loads."
+
+side_effects:
+  - "Creates and writes to SQLite database file."
+  - "Creates .kensa/ directory if not present (via get_db_path)."
+  - "Deletes rows during prune operations."
+
+testing:
+  spec_derived:
+    file: tests/test_storage_spec.py
+    classes:
+      - TestResultStoreSpecDerived
+    count: 18
+  unit:
+    - tests/test_storage_v3.py

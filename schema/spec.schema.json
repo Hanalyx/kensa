@@ -14,7 +14,9 @@
         "CheckHandler",
         "RemediationHandler",
         "Orchestration",
-        "CLICommand"
+        "CLICommand",
+        "DataStore",
+        "InternalModule"
       ],
       "description": "Type of artifact this spec describes."
     },
@@ -78,7 +80,7 @@
     {
       "if": {
         "properties": {
-          "kind": { "enum": ["CheckHandler", "RemediationHandler", "Orchestration"] }
+          "kind": { "enum": ["CheckHandler", "RemediationHandler", "Orchestration", "DataStore", "InternalModule"] }
         }
       },
       "then": {

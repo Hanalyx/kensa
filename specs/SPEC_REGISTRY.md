@@ -44,6 +44,18 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | [list-frameworks](cli/list_frameworks.spec.yaml) | `runner/cli.py` → `list_frameworks()` | `tests/test_cli_spec.py` → `TestListFrameworksSpecDerived` | **Active** — 5 ACs, 5 tests |
 | [info](cli/info.spec.yaml) | `runner/cli.py` → `info()` | `tests/test_cli_spec.py` → `TestInfoSpecDerived` | **Active** — 15 ACs, 15 tests |
 
+## Data
+
+| Spec | Source | Tests | Status |
+|------|--------|-------|--------|
+| [result_store](data/result_store.spec.yaml) | `runner/storage.py` → `ResultStore` | `tests/test_storage_spec.py` → `TestResultStoreSpecDerived` | **Active** — 18 ACs, 18 tests |
+
+## Internal Modules
+
+| Spec | Source | Tests | Status |
+|------|--------|-------|--------|
+| [variable_resolution](internal/variable_resolution.spec.yaml) | `runner/_config.py` → `load_config`, `resolve_variables`, `parse_var_overrides` | `tests/test_variable_resolution_spec.py` → `TestVariableResolutionSpecDerived` | **Active** — 14 ACs, 15 tests |
+
 ## Legend
 
 - **Active** — Spec written, tests mapped, all ACs covered
