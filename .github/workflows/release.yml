@@ -15,10 +15,14 @@ on:
     paths:
       - 'runner/**'
       - 'rules/**'
-      - 'schema/**'
+      - 'schema/rule.schema.json'
+      - 'schema/validate.py'
+      - 'schema/validators/**'
       - 'mappings/**'
+      - 'config/**'
       - 'pyproject.toml'
       - 'setup.cfg'
+      - 'kensa.spec'
   workflow_dispatch:
     inputs:
       force_version:
@@ -71,12 +75,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Determine version bump
+          # Determine version bump (semantic-release pushes commits and tags via GitHub API)
           if [ -n "${{ inputs.force_version }}" ]; then
             echo "Forcing ${{ inputs.force_version }} version bump"
-            semantic-release version --${{ inputs.force_version }} --no-push
+            semantic-release version --${{ inputs.force_version }}
           else
-            semantic-release version --no-push
+            semantic-release version
           fi
 
           # Get the new version if created
@@ -93,12 +97,6 @@ jobs:
       - name: Build package
         if: steps.semrel.outputs.released == 'true'
         run: python -m build
-
-      - name: Push version bump
-        if: steps.semrel.outputs.released == 'true'
-        run: |
-          git push origin main
-          git push origin --tags
 
       - name: Create GitHub Release
         if: steps.semrel.outputs.released == 'true'
