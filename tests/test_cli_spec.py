@@ -895,3 +895,499 @@ class TestRemediateSpecDerived:
 
         # Should succeed despite pruning failure
         assert result.exit_code == 0
+
+
+# ── Helpers for storage-backed tests ─────────────────────────────────────────
+
+
+def _make_db(tmp_path):
+    """Create a temp database and return (db_path, store)."""
+    from runner.storage import ResultStore
+
+    db_dir = tmp_path / ".kensa"
+    db_dir.mkdir()
+    db_path = db_dir / "results.db"
+    store = ResultStore(db_path=db_path)
+    return db_path, store
+
+
+def _seed_check_session(store, *, host="10.0.0.1", passing=True):
+    """Create a check session with one result and return session_id."""
+    session_id = store.create_session(hosts=[host], rules_path="rules/")
+    store.record_result(
+        session_id=session_id,
+        host=host,
+        rule_id="ssh-disable-root-login",
+        passed=passing,
+        detail="test detail",
+        remediated=False,
+    )
+    return session_id
+
+
+def _seed_remediation_session(store, *, host="10.0.0.5"):
+    """Create a remediation session with sample data."""
+    session_id = store.create_session(hosts=[host], rules_path="rules/")
+    rs_id = store.create_remediation_session(
+        session_id,
+        dry_run=False,
+        rollback_on_failure=True,
+        snapshot_mode="all",
+    )
+    rem1 = store.record_remediation(
+        rs_id,
+        host=host,
+        rule_id="ssh-disable-root-login",
+        severity="high",
+        passed_before=False,
+        passed_after=True,
+        remediated=True,
+        rolled_back=False,
+        detail="Set PermitRootLogin=no",
+    )
+    step1 = store.record_step(rem1, 0, "config_set_dropin", True, "Wrote drop-in")
+    store.record_pre_state(
+        step1,
+        "config_set_dropin",
+        {"path": "/etc/ssh/sshd_config.d/00-kensa.conf", "existed": False},
+        capturable=True,
+    )
+    return rs_id
+
+
+# ── TestRollbackSpecDerived ──────────────────────────────────────────────────
+
+
+class TestRollbackSpecDerived:
+    """Spec-derived tests for the rollback CLI command.
+
+    Spec: specs/cli/rollback.spec.md
+    """
+
+    def test_ac1_no_mode_exits_1(self):
+        """AC-1: No mode flag exits 1."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["rollback"])
+
+        assert result.exit_code == 1
+        assert "Specify --list" in result.output
+
+    def test_ac2_multiple_modes_exits_1(self):
+        """AC-2: Multiple mode flags exits 1."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["rollback", "--list", "--info", "1"])
+
+        assert result.exit_code == 1
+        assert "Only one of" in result.output
+
+    def test_ac3_list_empty(self, tmp_path):
+        """AC-3: --list with no sessions prints informational message."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--list"])
+
+        assert result.exit_code == 0
+        assert "No remediation sessions found" in result.output
+
+    def test_ac4_list_shows_sessions(self, tmp_path):
+        """AC-4: --list with sessions exits 0 and displays table."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--list"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "Remediation Sessions" in output
+        assert "10.0.0.5" in output
+
+    def test_ac5_list_json(self, tmp_path):
+        """AC-5: --list --json outputs valid JSON array."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--list", "--json"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) >= 1
+
+    def test_ac6_info_valid_session(self, tmp_path):
+        """AC-6: --info with valid session exits 0."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--info", str(rs_id)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert f"Remediation Session #{rs_id}" in output
+
+    def test_ac7_info_nonexistent_session(self, tmp_path):
+        """AC-7: --info with nonexistent session exits 1."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--info", "999"])
+
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+    def test_ac8_info_json(self, tmp_path):
+        """AC-8: --info --json outputs valid JSON object."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--info", str(rs_id), "--json"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, dict)
+        assert "id" in data
+        assert "remediations" in data
+
+    def test_ac10_start_without_host_exits_1(self, tmp_path):
+        """AC-10: --start without --host/--limit exits 1."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--start", str(rs_id)])
+
+        assert result.exit_code == 1
+        assert "--host" in result.output or "--limit" in result.output
+
+    def test_ac15_list_host_filter(self, tmp_path):
+        """AC-15: --list --host filters sessions by host."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_remediation_session(store, host="10.0.0.5")
+            _seed_remediation_session(store, host="10.0.0.6")
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--list", "--host", "10.0.0.5"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "10.0.0.5" in output
+
+    def test_ac16_info_rule_filter(self, tmp_path):
+        """AC-16: --info --rule filters to a specific rule."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "rollback",
+                    "--info",
+                    str(rs_id),
+                    "--rule",
+                    "ssh-disable-root-login",
+                ],
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "ssh-disable-root-login" in output
+
+    def test_ac18_start_nonexistent_session(self, tmp_path):
+        """AC-18: --start with nonexistent session exits 1."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                ["rollback", "--start", "999", "--host", "10.0.0.5"],
+            )
+
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+
+# ── TestHistorySpecDerived ───────────────────────────────────────────────────
+
+
+class TestHistorySpecDerived:
+    """Spec-derived tests for the history CLI command.
+
+    Spec: specs/cli/history.spec.md
+    """
+
+    def test_ac1_stats(self, tmp_path):
+        """AC-1: --stats exits 0 and displays database statistics."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_check_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--stats"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "Database Statistics" in output
+
+    def test_ac2_prune(self, tmp_path):
+        """AC-2: --prune exits 0 and prints deletion count."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_check_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--prune", "30"])
+
+        assert result.exit_code == 0
+        assert "Deleted" in result.output
+
+    def test_ac3_session_id_valid(self, tmp_path):
+        """AC-3: --session-id with valid session exits 0."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            sid = _seed_check_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--session-id", str(sid)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert f"Session {sid}" in output
+
+    def test_ac4_session_id_not_found(self, tmp_path):
+        """AC-4: --session-id with nonexistent session exits 1."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--session-id", "999"])
+
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+    def test_ac5_sessions_list(self, tmp_path):
+        """AC-5: --sessions exits 0 and lists sessions."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_check_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--sessions"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "Scan Sessions" in output
+
+    def test_ac7_sessions_empty(self, tmp_path):
+        """AC-7: --sessions with no sessions prints informational message."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--sessions"])
+
+        assert result.exit_code == 0
+        assert "No sessions found" in result.output
+
+    def test_ac8_default_without_host_exits_1(self):
+        """AC-8: Default mode without --host exits 1."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["history"])
+
+        assert result.exit_code == 1
+        assert "--host" in result.output or "--sessions" in result.output
+
+    def test_ac9_default_with_host(self, tmp_path):
+        """AC-9: Default mode with --host exits 0."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_check_session(store, host="10.0.0.1")
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--host", "10.0.0.1"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "10.0.0.1" in output
+
+    def test_ac10_default_no_history(self, tmp_path):
+        """AC-10: Default mode with --host and no history prints message."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--host", "10.0.0.99"])
+
+        assert result.exit_code == 0
+        assert "No history" in result.output
+
+
+# ── TestDiffSpecDerived ──────────────────────────────────────────────────────
+
+
+class TestDiffSpecDerived:
+    """Spec-derived tests for the diff CLI command.
+
+    Spec: specs/cli/diff.spec.md
+    """
+
+    def test_ac1_diff_two_sessions(self, tmp_path):
+        """AC-1: Diff of two valid sessions exits 0."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=True)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=False)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", str(s1), str(s2)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "Diff" in output or "Session" in output
+
+    def test_ac2_diff_json(self, tmp_path):
+        """AC-2: --json outputs valid JSON."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=True)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=False)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", str(s1), str(s2), "--json"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "session1" in data
+        assert "session2" in data
+        assert "changes" in data
+
+    def test_ac5_no_changes(self, tmp_path):
+        """AC-5: No changes between sessions prints appropriate message."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=True)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=True)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", str(s1), str(s2)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "No changes" in output
+
+    def test_ac6_invalid_session(self, tmp_path):
+        """AC-6: Invalid session ID exits 1."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", "999", "1000"])
+
+        assert result.exit_code == 1
+
+    def test_ac7_regression_detected(self, tmp_path):
+        """AC-7: Regressions (pass→fail) appear as REGRESSION."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=True)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=False)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", str(s1), str(s2)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "REGRESSION" in output
+
+    def test_ac8_resolved_detected(self, tmp_path):
+        """AC-8: Resolved (fail→pass) appear as RESOLVED."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=False)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=True)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", str(s1), str(s2)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "RESOLVED" in output
+
+    def test_ac10_missing_positional_args(self):
+        """AC-10: Missing positional arguments shows usage error."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff"])
+
+        assert result.exit_code != 0
