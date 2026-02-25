@@ -1391,3 +1391,802 @@ class TestDiffSpecDerived:
         result = runner.invoke(main, ["diff"])
 
         assert result.exit_code != 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# coverage — specs/cli/coverage.spec.md
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _make_mock_mapping(
+    mapping_id="test-framework",
+    title="Test Framework",
+    sections=None,
+    platform=None,
+    controls=None,
+    unimplemented=None,
+):
+    """Build a mock FrameworkMapping for coverage/list-frameworks tests."""
+    mock = MagicMock()
+    mock.id = mapping_id
+    mock.title = title
+    mock.platform = platform
+    mock.sections = sections or {}
+    mock.controls = controls or []
+    mock.unimplemented = unimplemented or {}
+    mock.implemented_count = len(mock.sections)
+    mock.unimplemented_count = len(mock.unimplemented)
+    return mock
+
+
+def _make_coverage_report(
+    mapping_id="test-framework",
+    total_controls=10,
+    implemented=8,
+    unimplemented=1,
+    unaccounted=None,
+    missing_rules=None,
+    has_manifest=True,
+):
+    """Build a CoverageReport for tests."""
+    from runner.mappings import CoverageReport
+
+    return CoverageReport(
+        mapping_id=mapping_id,
+        total_controls=total_controls,
+        implemented=implemented,
+        unimplemented=unimplemented,
+        unaccounted=unaccounted or [],
+        missing_rules=missing_rules or [],
+        has_manifest=has_manifest,
+    )
+
+
+class TestCoverageSpecDerived:
+    """Spec-derived tests for ``kensa coverage``.
+
+    Source spec: specs/cli/coverage.spec.md (8 ACs)
+    """
+
+    def test_ac1_valid_framework_exits_0(self, tmp_path):
+        """AC-1: Valid framework exits 0 with coverage stats."""
+        mapping = _make_mock_mapping()
+        report = _make_coverage_report()
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": mapping},
+            ),
+            patch("runner.cli.load_rules", return_value=[{"id": "test-rule"}]),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["coverage", "--framework", "test-fw", "--rules", str(tmp_path)]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "Implemented" in output or "coverage" in output.lower()
+
+    def test_ac2_json_output(self, tmp_path):
+        """AC-2: --json outputs valid JSON with framework metadata."""
+        report = _make_coverage_report()
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch("runner.cli.load_rules", return_value=[{"id": "test-rule"}]),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "coverage",
+                    "--framework",
+                    "test-fw",
+                    "--rules",
+                    str(tmp_path),
+                    "--json",
+                ],
+            )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "framework" in data
+        assert "coverage" in data
+
+    def test_ac3_unknown_framework_exits_1(self):
+        """AC-3: Unknown framework exits 1 with available list."""
+        with patch(
+            "runner.mappings.load_all_mappings", return_value={"known-fw": MagicMock()}
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["coverage", "--framework", "bogus"])
+
+        assert result.exit_code == 1
+        output = strip_ansi(result.output)
+        assert "Unknown framework" in output or "bogus" in output
+
+    def test_ac4_invalid_rules_path_exits_1(self):
+        """AC-4: Invalid rules path exits 1."""
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch(
+                "runner.cli.load_rules", side_effect=FileNotFoundError("no such dir")
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                ["coverage", "--framework", "test-fw", "--rules", "/nonexistent"],
+            )
+
+        assert result.exit_code == 1
+
+    def test_ac5_missing_manifest_warning(self, tmp_path):
+        """AC-5: Missing manifest shows warning."""
+        report = _make_coverage_report(has_manifest=False)
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch("runner.cli.load_rules", return_value=[{"id": "test-rule"}]),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["coverage", "--framework", "test-fw", "--rules", str(tmp_path)]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "manifest" in output.lower() or "approximate" in output.lower()
+
+    def test_ac6_missing_rules_listed(self, tmp_path):
+        """AC-6: Missing rules are listed in output."""
+        report = _make_coverage_report(missing_rules=["ghost-rule-1", "ghost-rule-2"])
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch("runner.cli.load_rules", return_value=[{"id": "test-rule"}]),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["coverage", "--framework", "test-fw", "--rules", str(tmp_path)]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "ghost-rule-1" in output
+
+    def test_ac7_json_includes_completeness_fields(self, tmp_path):
+        """AC-7: --json includes is_complete and has_manifest."""
+        report = _make_coverage_report(has_manifest=True)
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch("runner.cli.load_rules", return_value=[{"id": "test-rule"}]),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "coverage",
+                    "--framework",
+                    "test-fw",
+                    "--rules",
+                    str(tmp_path),
+                    "--json",
+                ],
+            )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "is_complete" in data["coverage"]
+        assert "has_manifest" in data["coverage"]
+
+    def test_ac8_json_coverage_percent_rounded(self, tmp_path):
+        """AC-8: Coverage percentages are rounded to 1 decimal in JSON."""
+        report = _make_coverage_report(total_controls=3, implemented=1)
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch("runner.cli.load_rules", return_value=[{"id": "test-rule"}]),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "coverage",
+                    "--framework",
+                    "test-fw",
+                    "--rules",
+                    str(tmp_path),
+                    "--json",
+                ],
+            )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        pct = data["coverage"]["coverage_percent"]
+        # 1/3 = 33.333... → rounded to 33.3
+        assert pct == round(pct, 1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# list-frameworks — specs/cli/list_frameworks.spec.md
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestListFrameworksSpecDerived:
+    """Spec-derived tests for ``kensa list-frameworks``.
+
+    Source spec: specs/cli/list_frameworks.spec.md (5 ACs)
+    """
+
+    def test_ac1_with_mappings_exits_0(self):
+        """AC-1: With mappings present, exits 0 and displays list."""
+        mapping = _make_mock_mapping(
+            mapping_id="cis-rhel9-v2.0.0", title="CIS RHEL 9 v2.0.0"
+        )
+
+        with patch(
+            "runner.mappings.load_all_mappings",
+            return_value={"cis-rhel9-v2.0.0": mapping},
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["list-frameworks"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "cis-rhel9-v2.0.0" in output
+
+    def test_ac2_no_mappings_exits_0(self):
+        """AC-2: With no mappings, exits 0 and prints message."""
+        with patch("runner.mappings.load_all_mappings", return_value={}):
+            runner = CliRunner()
+            result = runner.invoke(main, ["list-frameworks"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "No framework mappings found" in output
+
+    def test_ac3_sorted_alphabetically(self):
+        """AC-3: Mappings sorted alphabetically by ID."""
+        m_b = _make_mock_mapping(mapping_id="b-framework", title="B Framework")
+        m_a = _make_mock_mapping(mapping_id="a-framework", title="A Framework")
+
+        with patch(
+            "runner.mappings.load_all_mappings",
+            return_value={"b-framework": m_b, "a-framework": m_a},
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["list-frameworks"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        pos_a = output.find("a-framework")
+        pos_b = output.find("b-framework")
+        assert pos_a < pos_b
+
+    def test_ac4_platform_info_displayed(self):
+        """AC-4: Platform info included when mapping has platform constraints."""
+        platform = MagicMock()
+        platform.family = "rhel"
+        platform.min_version = "9"
+        platform.max_version = None
+        mapping = _make_mock_mapping(
+            mapping_id="cis-rhel9", title="CIS RHEL 9", platform=platform
+        )
+
+        with patch(
+            "runner.mappings.load_all_mappings", return_value={"cis-rhel9": mapping}
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["list-frameworks"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "rhel" in output
+
+    def test_ac5_section_counts_shown(self):
+        """AC-5: Section counts show implemented and skipped."""
+        mapping = _make_mock_mapping(
+            mapping_id="test-fw",
+            title="Test FW",
+            sections={"1.1": MagicMock(), "1.2": MagicMock()},
+            unimplemented={"2.1": MagicMock()},
+        )
+        mapping.implemented_count = 2
+        mapping.unimplemented_count = 1
+
+        with patch(
+            "runner.mappings.load_all_mappings", return_value={"test-fw": mapping}
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["list-frameworks"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "2 implemented" in output
+        assert "1 skipped" in output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# info — specs/cli/info.spec.md
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _make_mock_rule_index(rule_ids=None):
+    """Return a dict of rule_id → rule data for mocking build_rule_index."""
+    if rule_ids is None:
+        rule_ids = ["test-rule"]
+    return {
+        rid: {
+            "id": rid,
+            "title": f"Title for {rid}",
+            "description": f"Description for {rid}",
+            "severity": "medium",
+            "category": "kernel",
+            "tags": ["test"],
+            "platforms": [{"family": "rhel"}],
+            "references": {
+                "cis": {
+                    "rhel9": {"section": "5.2.2", "level": "L1"},
+                },
+                "stig": {
+                    "rhel9": {"vuln_id": "V-258036", "severity": "medium"},
+                },
+                "nist_800_53": ["AC-3"],
+            },
+            "implementations": [
+                {
+                    "default": True,
+                    "check": {"method": "command"},
+                    "remediation": {"mechanism": "config_set"},
+                }
+            ],
+        }
+        for rid in rule_ids
+    }
+
+
+class TestInfoSpecDerived:
+    """Spec-derived tests for ``kensa info``.
+
+    Source spec: specs/cli/info.spec.md (15 ACs)
+    """
+
+    def test_ac1_positional_rule_id_exits_0(self):
+        """AC-1: Positional rule ID exits 0 with full detail."""
+        rules = _make_mock_rule_index(["sudo-use-pty"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.classify_query",
+                return_value=("rule", "sudo-use-pty"),
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "sudo-use-pty"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "sudo-use-pty" in output
+
+    def test_ac2_positional_rule_not_found_exits_1(self):
+        """AC-2: Positional rule ID not found exits 1."""
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value={}),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.classify_query",
+                return_value=("rule", "nonexistent-rule"),
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "nonexistent-rule"])
+
+        assert result.exit_code == 1
+
+    def test_ac3_positional_cis_auto_detect(self):
+        """AC-3: Positional CIS section auto-detected, exits 0."""
+        rules = _make_mock_rule_index(["test-rule"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.classify_query",
+                return_value=("cis", "5.2.2"),
+            ),
+            patch(
+                "runner.rule_info.search_rules_by_reference",
+                return_value=[
+                    {
+                        "rule_id": "test-rule",
+                        "title": "Test",
+                        "severity": "medium",
+                        "refs": [{"framework": "rhel9", "section": "5.2.2"}],
+                    }
+                ],
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "5.2.2"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "test-rule" in output
+
+    def test_ac4_positional_stig_auto_detect(self):
+        """AC-4: Positional STIG ID auto-detected, exits 0."""
+        rules = _make_mock_rule_index(["test-rule"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.classify_query",
+                return_value=("stig", "V-258036"),
+            ),
+            patch(
+                "runner.rule_info.search_rules_by_reference",
+                return_value=[
+                    {
+                        "rule_id": "test-rule",
+                        "title": "Test",
+                        "severity": "medium",
+                        "refs": [{"framework": "rhel9", "vuln_id": "V-258036"}],
+                    }
+                ],
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "V-258036"])
+
+        assert result.exit_code == 0
+
+    def test_ac5_positional_nist_auto_detect(self):
+        """AC-5: Positional NIST control auto-detected, exits 0."""
+        rules = _make_mock_rule_index(["test-rule"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.classify_query",
+                return_value=("nist", "AC-3"),
+            ),
+            patch(
+                "runner.rule_info.search_rules_by_reference",
+                return_value=[
+                    {
+                        "rule_id": "test-rule",
+                        "title": "Test",
+                        "severity": "medium",
+                        "refs": [],
+                    }
+                ],
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "AC-3"])
+
+        assert result.exit_code == 0
+
+    def test_ac6_explicit_cis_flag(self):
+        """AC-6: --cis explicit flag exits 0 with matching rules."""
+        rules = _make_mock_rule_index(["test-rule"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.search_rules_by_reference",
+                return_value=[
+                    {
+                        "rule_id": "test-rule",
+                        "title": "Test",
+                        "severity": "medium",
+                        "refs": [{"framework": "rhel9", "section": "5.2.2"}],
+                    }
+                ],
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "--cis", "5.2.2"])
+
+        assert result.exit_code == 0
+
+    def test_ac7_control_flag_exits_0(self):
+        """AC-7: --control with valid control exits 0."""
+        from runner.mappings import FrameworkIndex, FrameworkMapping, MappingEntry
+
+        mapping = FrameworkMapping(
+            id="test-fw",
+            framework="test",
+            title="Test",
+            sections={
+                "1.1": MappingEntry(
+                    rule_id="test-rule",
+                    title="Ctrl 1.1",
+                    metadata={"rules": ["test-rule"]},
+                ),
+            },
+        )
+        mappings = {"test-fw": mapping}
+        index = FrameworkIndex.build(mappings)
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch(
+                "runner.rule_info.build_rule_index",
+                return_value=_make_mock_rule_index(["test-rule"]),
+            ),
+            patch("runner.mappings.load_all_mappings", return_value=mappings),
+            patch("runner.mappings.FrameworkIndex") as mock_fi_cls,
+        ):
+            mock_fi_cls.build.return_value = index
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "--control", "test-fw:1.1"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "test-rule" in output
+
+    def test_ac8_rule_flag_exits_0(self):
+        """AC-8: --rule with known rule exits 0 with framework refs."""
+        from runner.mappings import FrameworkIndex, FrameworkMapping, MappingEntry
+
+        mapping = FrameworkMapping(
+            id="test-fw",
+            framework="test",
+            title="Test FW",
+            sections={
+                "1.1": MappingEntry(
+                    rule_id="test-rule",
+                    title="Ctrl 1.1",
+                    metadata={"rules": ["test-rule"]},
+                ),
+            },
+        )
+        mappings = {"test-fw": mapping}
+        index = FrameworkIndex.build(mappings)
+        rules = _make_mock_rule_index(["test-rule"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value=mappings),
+            patch("runner.mappings.FrameworkIndex") as mock_fi_cls,
+        ):
+            mock_fi_cls.build.return_value = index
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "--rule", "test-rule"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "test-rule" in output
+
+    def test_ac9_list_controls_exits_0(self):
+        """AC-9: --list-controls exits 0 with control listing."""
+        from runner.mappings import FrameworkIndex, FrameworkMapping, MappingEntry
+
+        mapping = FrameworkMapping(
+            id="test-fw",
+            framework="test",
+            title="Test FW",
+            sections={
+                "1.1": MappingEntry(
+                    rule_id="rule-a",
+                    title="Ctrl 1.1",
+                    metadata={"rules": ["rule-a"]},
+                ),
+                "1.2": MappingEntry(
+                    rule_id="rule-b",
+                    title="Ctrl 1.2",
+                    metadata={"rules": ["rule-b", "rule-c"]},
+                ),
+            },
+        )
+        mappings = {"test-fw": mapping}
+        index = FrameworkIndex.build(mappings)
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value={}),
+            patch("runner.mappings.load_all_mappings", return_value=mappings),
+            patch("runner.mappings.FrameworkIndex") as mock_fi_cls,
+        ):
+            mock_fi_cls.build.return_value = index
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "--list-controls"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "1.1" in output
+        assert "1.2" in output
+
+    def test_ac10_json_output(self):
+        """AC-10: --json outputs valid JSON."""
+        rules = _make_mock_rule_index(["test-rule"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+            patch(
+                "runner.rule_info.classify_query",
+                return_value=("rule", "test-rule"),
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "test-rule", "--json"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "rule" in data or "query" in data
+
+    def test_ac11_conflicting_flags_exits_1(self):
+        """AC-11: Multiple conflicting flags exits 1."""
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value={}),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "--control", "x:1.1", "--rule", "y"])
+
+        assert result.exit_code == 1
+        output = strip_ansi(result.output)
+        assert "Only one" in output
+
+    def test_ac12_no_arguments_exits_1(self):
+        """AC-12: No arguments exits 1 with usage examples."""
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value={}),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info"])
+
+        assert result.exit_code == 1
+        output = strip_ansi(result.output)
+        assert "Specify" in output or "Examples" in output
+
+    def test_ac13_prefix_match(self):
+        """AC-13: --prefix-match matches control prefixes."""
+        from runner.mappings import FrameworkIndex, FrameworkMapping, MappingEntry
+
+        mapping = FrameworkMapping(
+            id="test-fw",
+            framework="test",
+            title="Test FW",
+            sections={
+                "5.1.1": MappingEntry(
+                    rule_id="rule-a",
+                    title="Ctrl 5.1.1",
+                    metadata={"rules": ["rule-a"]},
+                ),
+                "5.1.2": MappingEntry(
+                    rule_id="rule-b",
+                    title="Ctrl 5.1.2",
+                    metadata={"rules": ["rule-b"]},
+                ),
+                "5.2.1": MappingEntry(
+                    rule_id="rule-c",
+                    title="Ctrl 5.2.1",
+                    metadata={"rules": ["rule-c"]},
+                ),
+            },
+        )
+        mappings = {"test-fw": mapping}
+        index = FrameworkIndex.build(mappings)
+        rules = _make_mock_rule_index(["rule-a", "rule-b", "rule-c"])
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value=rules),
+            patch("runner.mappings.load_all_mappings", return_value=mappings),
+            patch("runner.mappings.FrameworkIndex") as mock_fi_cls,
+        ):
+            mock_fi_cls.build.return_value = index
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["info", "--control", "test-fw:5.1", "--prefix-match"]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "rule-a" in output
+        assert "rule-b" in output
+
+    def test_ac14_list_controls_with_framework_filter(self):
+        """AC-14: --list-controls --framework filters to specified framework."""
+        from runner.mappings import FrameworkIndex, FrameworkMapping, MappingEntry
+
+        m1 = FrameworkMapping(
+            id="fw-a",
+            framework="test",
+            title="FW A",
+            sections={
+                "1.1": MappingEntry(
+                    rule_id="r1", title="C1", metadata={"rules": ["r1"]}
+                ),
+            },
+        )
+        m2 = FrameworkMapping(
+            id="fw-b",
+            framework="test",
+            title="FW B",
+            sections={
+                "2.1": MappingEntry(
+                    rule_id="r2", title="C2", metadata={"rules": ["r2"]}
+                ),
+            },
+        )
+        mappings = {"fw-a": m1, "fw-b": m2}
+        index = FrameworkIndex.build(mappings)
+
+        with (
+            patch("runner.paths.get_rules_path", return_value="rules/"),
+            patch("runner.rule_info.build_rule_index", return_value={}),
+            patch("runner.mappings.load_all_mappings", return_value=mappings),
+            patch("runner.mappings.FrameworkIndex") as mock_fi_cls,
+        ):
+            mock_fi_cls.build.return_value = index
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["info", "--list-controls", "--framework", "fw-a"]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "1.1" in output
+        # fw-b's controls should not appear
+        assert "2.1" not in output
+
+    def test_ac15_rules_dir_not_found_with_ref_flag(self):
+        """AC-15: Rules directory not found with explicit ref flag exits 1."""
+        with (
+            patch("runner.paths.get_rules_path", side_effect=FileNotFoundError),
+            patch("runner.mappings.load_all_mappings", return_value={}),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["info", "--cis", "5.2.2"])
+
+        assert result.exit_code == 1
+        output = strip_ansi(result.output)
+        assert "not found" in output.lower()

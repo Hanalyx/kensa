@@ -40,6 +40,9 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | [rollback](cli/rollback.spec.md) | `runner/cli.py` → `rollback()` | `tests/test_cli_spec.py` → `TestRollbackSpecDerived` | **Active** — 18 ACs, 12 tests |
 | [history](cli/history.spec.md) | `runner/cli.py` → `history()` | `tests/test_cli_spec.py` → `TestHistorySpecDerived` | **Active** — 12 ACs, 10 tests |
 | [diff](cli/diff.spec.md) | `runner/cli.py` → `diff()` | `tests/test_cli_spec.py` → `TestDiffSpecDerived` | **Active** — 10 ACs, 7 tests |
+| [coverage](cli/coverage.spec.md) | `runner/cli.py` → `coverage()` | `tests/test_cli_spec.py` → `TestCoverageSpecDerived` | **Active** — 8 ACs, 8 tests |
+| [list-frameworks](cli/list_frameworks.spec.md) | `runner/cli.py` → `list_frameworks()` | `tests/test_cli_spec.py` → `TestListFrameworksSpecDerived` | **Active** — 5 ACs, 5 tests |
+| [info](cli/info.spec.md) | `runner/cli.py` → `info()` | `tests/test_cli_spec.py` → `TestInfoSpecDerived` | **Active** — 15 ACs, 15 tests |
 
 ## Legend
 
