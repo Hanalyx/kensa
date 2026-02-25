@@ -1,0 +1,138 @@
+kind: CheckHandler
+metadata:
+  name: ServiceState
+  module: handlers/checks
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Verifies whether a systemd service matches expected enabled and/or
+    active state.
+  technical_context: >
+    Dispatched by runner.handlers.checks.run_check via
+    CHECK_HANDLERS["service_state"]. Implemented in
+    runner/handlers/checks/_service.py as _check_service_state.
+    Constants: ENABLED_STATES = frozenset({"enabled", "static", "indirect"}),
+    DISABLED_STATES = frozenset({"disabled", "masked", "not-found"}).
+  dependencies:
+    - runner.shell_util.quote
+    - runner._types.CheckResult
+    - runner._types.Evidence
+  callers:
+    - runner.handlers.checks.run_check
+
+objective:
+  summary: >
+    Check whether a systemd service is enabled (starts at boot) and/or
+    active (currently running) by executing systemctl is-enabled and/or
+    systemctl is-active over SSH and comparing the output against expected
+    state.
+  acceptance_criteria:
+    AC-1: "Service enabled=True and active=True with actual 'enabled'/'active' returns PASS with detail containing both 'enabled' and 'active'."
+    AC-2: "Service enabled=True but actual active=inactive returns FAIL with 'active=inactive' in detail."
+    AC-3: "Service enabled=False with actual 'disabled' returns PASS with 'not enabled' in detail."
+    AC-4: "Service enabled=True with actual 'static' returns PASS (static is in ENABLED_STATES)."
+    AC-5: "Service enabled=False with actual 'masked' returns PASS (masked is in DISABLED_STATES)."
+    AC-6: "Service enabled=False but actual 'enabled' returns FAIL with 'expected disabled' in detail."
+    AC-7: "Service enabled=True with actual 'indirect' returns PASS (indirect is in ENABLED_STATES)."
+    AC-8: "Service enabled=False with actual 'not-found' returns PASS (not-found is in DISABLED_STATES)."
+    AC-9: "Service enabled=True with actual 'masked' returns FAIL with 'expected enabled' in detail."
+    AC-10: "Service active=True with actual 'inactive' returns FAIL with 'expected active' in detail."
+    AC-11: "Service active=False with actual 'active' returns FAIL with 'expected inactive' in detail."
+    AC-12: "Service active=False with actual 'inactive' returns PASS with 'not active' in detail."
+    AC-13: "Only active specified (no enabled key) runs only is-active command; result based solely on active state."
+    AC-14: "Only enabled specified (no active key) runs only is-enabled command; result based solely on enabled state."
+    AC-15: "Evidence fields populated correctly on pass: method='service_state', exit_code=0, expected/actual contain dimension summaries."
+    AC-16: "Evidence fields populated correctly on fail: exit_code=1, stdout contains raw outputs."
+    AC-17: "Neither enabled nor active specified returns PASS vacuously (no failures possible)."
+    AC-18: "Both dimensions fail produces detail containing both failures joined by '; '."
+
+constraints:
+  - "MUST accept 'static' and 'indirect' as valid enabled states (not just 'enabled')."
+  - "MUST accept 'masked' and 'not-found' as valid disabled states (not just 'disabled')."
+  - "MUST use shell_util.quote() on the service name to prevent shell injection."
+  - "MUST redirect stderr to /dev/null in the systemctl commands (done via 2>/dev/null in command string)."
+  - "MUST NOT require both enabled and active -- each dimension is independently optional."
+  - "Active state comparison is exact string match against 'active' (only 'active' counts as active; 'activating', 'reloading' do not)."
+  - "Evidence command field is always the template string 'systemctl is-enabled/is-active <name>' regardless of which dimensions were actually checked."
+  - "Evidence exit_code is synthetic: 0 for pass, 1 for fail (not the actual systemctl exit code)."
+
+input_contract:
+  - field: method
+    type: str
+    required: true
+    description: "Must be 'service_state' (handled by dispatcher)."
+  - field: name
+    type: str
+    required: true
+    description: "Systemd service unit name (e.g., 'sshd')."
+  - field: enabled
+    type: bool
+    required: false
+    description: Expected enabled state; omit to skip enabled check.
+  - field: active
+    type: bool
+    required: false
+    description: Expected active state; omit to skip active check.
+
+behavior:
+  - "Read name from the check dict c."
+  - "Initialize empty lists: failures, details, all_stdout, all_stderr, expected_parts, actual_parts."
+  - "Record check_time as datetime.now(timezone.utc)."
+  - >
+    If 'enabled' key is present in c: run systemctl is-enabled <quoted-name>
+    2>/dev/null via SSH. Strip stdout to get actual_enabled. If
+    expected_enabled is True: actual_enabled in ENABLED_STATES means pass
+    with 'enabled (<actual_enabled>)' in details, otherwise failure with
+    'enabled=<actual_enabled> (expected enabled)'. If expected_enabled is
+    False: actual_enabled in ENABLED_STATES means failure with
+    'enabled=<actual_enabled> (expected disabled)', otherwise pass with
+    'not enabled (<actual_enabled>)' in details.
+  - >
+    If 'active' key is present in c: run systemctl is-active <quoted-name>
+    2>/dev/null via SSH. Strip stdout to get actual_active. If
+    expected_active is True: actual_active == "active" means pass with
+    'active' in details, otherwise failure with 'active=<actual_active>
+    (expected active)'. If expected_active is False: actual_active ==
+    "active" means failure with 'active=<actual_active> (expected
+    inactive)', otherwise pass with 'not active (<actual_active>)' in
+    details.
+  - "Determine outcome: passed = not failures."
+  - >
+    Build detail string: on failure, "<name>: <failures joined with '; '>";
+    on pass, "<name>: <details joined with ', '>".
+  - "Return CheckResult with passed, detail, and Evidence."
+
+output_contract:
+  returns: "CheckResult(passed, detail, evidence)"
+  paths:
+    pass:
+      passed: true
+      detail: "'<name>: <details joined with \", \">' (e.g., 'sshd: enabled (enabled), active')"
+    fail:
+      passed: false
+      detail: "'<name>: <failures joined with \"; \">' (e.g., 'sshd: active=inactive (expected active)')"
+  evidence_fields:
+    method: "service_state"
+    command: "'systemctl is-enabled/is-active <name>' (literal template)"
+    stdout: "Newline-joined entries like 'is-enabled: enabled\\nis-active: active'"
+    stderr: Newline-joined non-empty stderr from all commands
+    exit_code: "0 if passed, 1 if failed (synthetic)"
+    expected: "Comma-joined expected parts (e.g., 'enabled=enabled, active=active')"
+    actual: "Comma-joined actual parts (e.g., 'enabled=enabled, active=active')"
+    timestamp: UTC timestamp captured at start of check
+  invariants:
+    - "Evidence is always populated (never None)."
+    - "Evidence exit_code is synthetic (0 for pass, 1 for fail), not the actual systemctl exit code."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_checks.py
+    classes:
+      - TestServiceState
+      - TestServiceStateSpecDerived
+    count: 18

@@ -1,0 +1,132 @@
+kind: RemediationHandler
+metadata:
+  name: PamModuleConfigure
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Configures a PAM module entry in a service's PAM stack under /etc/pam.d/.
+    If a line for the same type+module already exists, replaces it in-place
+    via sed. If no matching line exists, appends the new PAM line to the file.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["pam_module_configure"].
+  dependencies:
+    - runner.shell_util.file_exists
+    - runner.shell_util.escape_grep_bre
+    - runner.shell_util.escape_sed
+    - runner.shell_util.quote
+    - runner.shell_util.append_line
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Ensure a specific PAM module line is present in a service's PAM
+    configuration file. If a line for the same type+module already exists,
+    replace it in-place via sed. If no matching line exists, append the new
+    PAM line to the file.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns (True, ...) with a message containing the module name,
+      pam file path, and constructed PAM line, without executing any SSH
+      commands.
+    AC-2: >
+      When the PAM service file does not exist, returns (False, "{pam_file}:
+      not found").
+    AC-3: >
+      When an existing line for the same type+module is found (grep succeeds),
+      replaces it in-place using sed and returns (True, "Updated {module} in
+      {pam_file}").
+    AC-4: >
+      When no existing line for the type+module is found (grep fails), appends
+      the new PAM line and returns (True, "Added {module} to {pam_file}").
+    AC-5: >
+      When args is provided (non-empty), the constructed PAM line includes the
+      args after the module.
+    AC-6: >
+      When args is absent or empty, the constructed PAM line has no trailing
+      arguments.
+    AC-7: >
+      When sed replacement fails, returns (False, "Failed to update
+      {pam_file}: {stderr}").
+    AC-8: >
+      When append_line fails, returns (False, "Failed to add {module} to
+      {pam_file}").
+    AC-9: >
+      The PAM line is constructed with 4-space separators:
+      "{type}    {control}    {module}".
+    AC-10: >
+      The grep pattern uses escape_grep_bre on type and module for safe BRE
+      matching.
+    AC-11: >
+      The sed command uses escape_sed on type, module, and the full
+      replacement line.
+
+constraints:
+  - MUST NOT modify the PAM file in dry-run mode.
+  - MUST use shell_util.quote() for the pam file path in shell commands.
+  - MUST use shell_util.escape_grep_bre() for grep pattern values derived from user input.
+  - MUST use shell_util.escape_sed() for sed pattern and replacement values.
+  - MUST return (False, ...) if the service file does not exist (never create PAM files).
+  - MUST NOT execute any SSH commands in dry-run mode.
+
+input_contract:
+  - field: service
+    type: str
+    required: true
+    description: PAM service name (maps to /etc/pam.d/{service})
+  - field: module
+    type: str
+    required: true
+    description: PAM module name (e.g., pam_faillock.so)
+  - field: type
+    type: str
+    required: true
+    description: PAM type (e.g., auth, account, password, session)
+  - field: control
+    type: str
+    required: true
+    description: PAM control value (e.g., required, sufficient, [default=die])
+  - field: args
+    type: str
+    required: false
+    default: '""'
+    description: Module arguments (appended after module if non-empty)
+
+behavior:
+  - "Extract required fields service, module, type, control from the remediation dict."
+  - "Extract optional args field, defaulting to empty string \"\"."
+  - "Compute pam_file as /etc/pam.d/{service}."
+  - "Construct pam_line as \"{type}    {control}    {module}\" (4-space separators)."
+  - "If args is truthy (non-empty), append \"    {args}\" to pam_line."
+  - "Dry-run path: If dry_run is True, return (True, \"Would configure {module} in {pam_file}: {pam_line}\")."
+  - "File existence check: Call shell_util.file_exists(ssh, pam_file). If False, return (False, \"{pam_file}: not found\")."
+  - "Existing line check: Escape type and module with escape_grep_bre, then run grep -E '^{escaped_type}\\s+.*{escaped_module}' {pam_file}."
+  - "Replace path (grep succeeds): Escape type, module, and the full pam_line with escape_sed. Run sed -i 's/^{sed_type}\\s\\+.*{sed_module}.*/{sed_replacement}/' {pam_file}. On sed failure: return (False, \"Failed to update {pam_file}: {stderr}\"). On success: return (True, \"Updated {module} in {pam_file}\")."
+  - "Append path (grep fails): Call shell_util.append_line(ssh, pam_file, pam_line). On append failure: return (False, \"Failed to add {module} to {pam_file}\"). On success: return (True, \"Added {module} to {pam_file}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would configure {module} in {pam_file}: {pam_line}\""
+    - "Replace success: \"Updated {module} in {pam_file}\""
+    - "Append success: \"Added {module} to {pam_file}\""
+    - "File not found: \"{pam_file}: not found\""
+    - "Sed failure: \"Failed to update {pam_file}: {stderr}\""
+    - "Append failure: \"Failed to add {module} to {pam_file}\""
+
+side_effects:
+  - "Modifies remote PAM configuration file via sed replacement or line append."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestPamModuleConfigureSpecDerived
+    count: 13

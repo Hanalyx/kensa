@@ -1,0 +1,148 @@
+kind: RemediationHandler
+metadata:
+  name: ConfigSet
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Sets a key-value pair in a configuration file on a remote host.
+    Replaces the line if the key already exists, or appends the key-value
+    pair if the key is absent.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["config_set"]. The public entry point is
+    run_remediation(ssh, rem) which wraps the dispatch and adds pre-state
+    capture and StepResult packaging.
+  dependencies:
+    - runner.shell_util.config_key_exists
+    - runner.shell_util.escape_grep_bre
+    - runner.shell_util.sed_replace_line
+    - runner.shell_util.quote
+    - runner.shell_util.service_action
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Given a remediation dict describing a target config file, key, value,
+    and optional separator, modify the remote file so the key is set to the
+    desired value. If the key already exists in the file, replace the matching
+    line via sed. If the key does not exist, append a new line. Optionally
+    reload or restart a service after modification.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns without execution: When dry_run=True, the handler
+      returns (True, detail) with a "Would set" message and no SSH commands
+      are executed.
+    AC-2: >
+      Existing key is replaced via sed: When the key already exists in the
+      file, the handler calls sed_replace_line to replace the matching line
+      in-place and returns success.
+    AC-3: >
+      Missing key is appended: When the key does not exist in the file, the
+      handler appends the key{sep}value line using echo-redirect and returns
+      success.
+    AC-4: >
+      Service reload on success: When reload is specified and modification
+      succeeds, the handler calls systemctl reload (falling back to restart)
+      on the named service.
+    AC-5: >
+      Service restart on success: When restart is specified (and no reload),
+      the handler calls systemctl restart on the named service.
+    AC-6: >
+      No service action without reload/restart: When neither reload nor
+      restart is specified, no systemctl command is issued.
+    AC-7: >
+      Separator customization: The separator between key and value in the
+      composed line uses the separator field, defaulting to a single space.
+    AC-8: >
+      Sed failure returns False: When sed_replace_line fails (returns False),
+      the handler returns (False, "Failed to set {key} in {path}") and does
+      not proceed to service action.
+    AC-9: >
+      Append failure returns False with stderr: When the echo-append command
+      fails, the handler returns (False, "Failed to set {key} in {path}:
+      {stderr}") and does not proceed to service action.
+    AC-10: >
+      Detail format on success: The success detail message is "Set
+      '{key}{sep}{value}' in {path}" (not "Would set").
+    AC-11: >
+      Detail format on dry-run: The dry-run detail message is "Would set
+      '{key}{sep}{value}' in {path}".
+    AC-12: >
+      Service action runs after both sed and append paths: The service
+      reload/restart is called after successful modification regardless of
+      whether the sed or append path was taken.
+
+constraints:
+  - MUST use shell_util.quote() when interpolating values into shell commands (the append path does this).
+  - MUST use shell_util.escape_grep_bre() to escape the key before embedding in sed patterns.
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST NOT call service_action if the modification step (sed or append) failed.
+  - MUST return a 2-tuple (bool, str) from the handler itself; the 3-tuple wrapping is done by the caller (run_remediation).
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "config_set" (used by dispatch, not by handler directly)
+  - field: path
+    type: str
+    required: true
+    description: Absolute path to the config file on the remote host
+  - field: key
+    type: str
+    required: true
+    description: Configuration key to set
+  - field: value
+    type: str
+    required: true
+    description: Value to assign to the key
+  - field: separator
+    type: str
+    required: false
+    default: '" "'
+    description: String placed between key and value in the line
+  - field: reload
+    type: str
+    required: false
+    description: Service name to reload after modification
+  - field: restart
+    type: str
+    required: false
+    description: Service name to restart after modification
+
+behavior:
+  - "Extract fields: Read path, key, value from the remediation dict. Read separator with default \" \"."
+  - "Compose target line: Build the desired line as f\"{key}{separator}{value}\"."
+  - "Dry-run check: If dry_run=True, return (True, \"Would set '{line}' in {path}\") immediately without executing any remote commands."
+  - "Key existence check: Call shell_util.config_key_exists(ssh, path, key) which runs grep -h '^ *{escaped_key}' {path} to determine if the key is already present."
+  - "Key exists path (sed replacement): Escape the key for grep BRE via shell_util.escape_grep_bre(key). Call shell_util.sed_replace_line(ssh, path, f\"^ *{escaped_key}.*\", line) which runs sed -i 's/^ *{escaped_key}.*/line/' {path}. If sed fails (returns non-zero), return (False, \"Failed to set {key} in {path}\")."
+  - "Key absent path (append): Run ssh.run(f\"echo {quote(line)} >> {quote(path)}\") to append the new line. If the echo command fails, return (False, \"Failed to set {key} in {path}: {stderr}\")."
+  - "Service action: Call shell_util.service_action(ssh, r) which checks for reload or restart keys and performs the corresponding systemctl operation. This runs regardless of which path (sed or append) was taken, but only when modification succeeded."
+  - "Success return: Return (True, \"Set '{line}' in {path}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run success: \"Would set '{key}{sep}{value}' in {path}\""
+    - "Success: \"Set '{key}{sep}{value}' in {path}\""
+    - "Sed failure: \"Failed to set {key} in {path}\""
+    - "Append failure: \"Failed to set {key} in {path}: {stderr}\""
+
+side_effects:
+  - "Modifies remote configuration file via sed replacement or echo-append."
+  - "Optionally reloads or restarts a systemd service via systemctl."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestConfigSet
+      - TestConfigSetSpecDerived
+    count: 17

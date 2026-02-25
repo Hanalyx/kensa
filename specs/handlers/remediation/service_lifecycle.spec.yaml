@@ -1,0 +1,147 @@
+kind: RemediationHandler
+metadata:
+  name: ServiceLifecycle
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Two complementary remediation handlers that manage systemd service
+    lifecycle on remote RHEL hosts. service_enabled ensures a service is
+    enabled at boot (and optionally started immediately). service_disabled
+    ensures a service is disabled at boot (and optionally stopped immediately).
+    Both support dry-run mode for previewing changes without applying them.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation via
+    REMEDIATION_HANDLERS registry (keys: "service_enabled", "service_disabled").
+    Implemented in runner/handlers/remediation/_service.py as
+    _remediate_service_enabled and _remediate_service_disabled.
+  dependencies:
+    - runner.shell_util.quote
+    - runner.ssh.SSHSession
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Two complementary remediation handlers that manage systemd service
+    lifecycle on remote RHEL hosts. service_enabled ensures a service is
+    enabled at boot and optionally started immediately. service_disabled
+    ensures a service is disabled at boot and optionally stopped immediately.
+  acceptance_criteria:
+    AC-1: >
+      service_enabled dry-run with start=True (default) returns (True,
+      "Would enable and start {name}") and issues no SSH commands.
+    AC-2: >
+      service_enabled dry-run with start=False returns (True, "Would enable
+      {name}") and issues no SSH commands.
+    AC-3: >
+      service_enabled when enable succeeds and start succeeds returns (True,
+      "Enabled and started {name}").
+    AC-4: >
+      service_enabled when enable succeeds but start fails returns (False,
+      "Enabled {name} but failed to start: {stderr}").
+    AC-5: >
+      service_enabled when enable fails returns (False, "Failed to enable
+      {name}: {stderr}") and does not attempt start.
+    AC-6: >
+      service_enabled when start=False and enable succeeds returns (True,
+      "Enabled {name}") and does not run systemctl start.
+    AC-7: >
+      service_enabled service name is shell-quoted via shell_util.quote() in
+      all systemctl commands.
+    AC-8: >
+      service_disabled dry-run with stop=True (default) returns (True,
+      "Would disable and stop {name}") and issues no SSH commands.
+    AC-9: >
+      service_disabled dry-run with stop=False returns (True, "Would disable
+      {name}") and issues no SSH commands.
+    AC-10: >
+      service_disabled when stop and disable both succeed returns (True,
+      "Stopped and disabled {name}").
+    AC-11: >
+      service_disabled when stop fails but disable succeeds returns (True,
+      "Stopped and disabled {name}") -- stop failure is intentionally ignored.
+    AC-12: >
+      service_disabled when disable fails (regardless of stop result) returns
+      (False, "Failed to disable {name}: {stderr}").
+    AC-13: >
+      service_disabled when stop=False and disable succeeds returns (True,
+      "Disabled {name}") and does not run systemctl stop.
+    AC-14: >
+      service_disabled service name is shell-quoted via shell_util.quote() in
+      all systemctl commands.
+
+constraints:
+  - Both handlers assume systemctl is available (systemd-based host). No fallback for non-systemd systems.
+  - Shell quoting uses shlex.quote() via shell_util.quote() to prevent injection from service names containing special characters.
+  - The service_disabled handler deliberately ignores stop failures. This is by design -- a service may already be stopped, and the primary goal is to disable it from starting at boot.
+  - The service_enabled handler does NOT ignore start failures -- if the service was enabled but cannot start, this is reported as a failure since the intent is a running service.
+  - Neither handler verifies post-condition (e.g., checking is-enabled/is-active after the action). Post-remediation verification is handled at the run_remediation level via optional check parameter.
+  - "The order of operations differs between the two handlers: service_enabled enables first then starts (enable is the prerequisite); service_disabled stops first then disables (stop the running service before removing boot entry)."
+
+input_contract:
+  - field: name
+    type: str
+    required: true
+    description: "[service_enabled] Systemd service unit name (e.g., \"sshd\")"
+  - field: start
+    type: bool
+    required: false
+    default: true
+    description: "[service_enabled] Whether to also start the service after enabling"
+  - field: name
+    type: str
+    required: true
+    description: "[service_disabled] Systemd service unit name (e.g., \"cups\")"
+  - field: stop
+    type: bool
+    required: false
+    default: true
+    description: "[service_disabled] Whether to also stop the service before disabling"
+
+behavior:
+  - "[service_enabled] Extract name from remediation dict (r[\"name\"])."
+  - "[service_enabled] Extract start flag from remediation dict, defaulting to True (r.get(\"start\", True))."
+  - "[service_enabled] Dry-run check: If dry_run is True and start is True, return (True, \"Would enable and start {name}\"). If start is False, return (True, \"Would enable {name}\")."
+  - "[service_enabled] Enable: Run systemctl enable {quoted_name} via SSH. If the command fails (exit code != 0), return (False, \"Failed to enable {name}: {stderr}\")."
+  - "[service_enabled] Conditional start: If start is True, run systemctl start {quoted_name} via SSH. If the command fails, return (False, \"Enabled {name} but failed to start: {stderr}\"). If the command succeeds, return (True, \"Enabled and started {name}\")."
+  - "[service_enabled] Enable-only success: If start is False, return (True, \"Enabled {name}\")."
+  - "[service_disabled] Extract name from remediation dict (r[\"name\"])."
+  - "[service_disabled] Extract stop flag from remediation dict, defaulting to True (r.get(\"stop\", True))."
+  - "[service_disabled] Dry-run check: If dry_run is True and stop is True, return (True, \"Would disable and stop {name}\"). If stop is False, return (True, \"Would disable {name}\")."
+  - "[service_disabled] Conditional stop: If stop is True, run systemctl stop {quoted_name} via SSH. The stop result is intentionally discarded -- stop failure does NOT cause the handler to fail."
+  - "[service_disabled] Disable: Run systemctl disable {quoted_name} via SSH. If the command fails (exit code != 0), return (False, \"Failed to disable {name}: {stderr}\")."
+  - "[service_disabled] Success with stop: If stop is True, return (True, \"Stopped and disabled {name}\")."
+  - "[service_disabled] Success disable-only: If stop is False, return (True, \"Disabled {name}\")."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "[service_enabled] Dry-run with start: \"Would enable and start {name}\""
+    - "[service_enabled] Dry-run without start: \"Would enable {name}\""
+    - "[service_enabled] Enable failure: \"Failed to enable {name}: {stderr}\""
+    - "[service_enabled] Start failure: \"Enabled {name} but failed to start: {stderr}\""
+    - "[service_enabled] Full success: \"Enabled and started {name}\""
+    - "[service_enabled] Enable-only success: \"Enabled {name}\""
+    - "[service_disabled] Dry-run with stop: \"Would disable and stop {name}\""
+    - "[service_disabled] Dry-run without stop: \"Would disable {name}\""
+    - "[service_disabled] Disable failure: \"Failed to disable {name}: {stderr}\""
+    - "[service_disabled] Full success: \"Stopped and disabled {name}\""
+    - "[service_disabled] Disable-only success: \"Disabled {name}\""
+
+side_effects:
+  - "Enables or disables a systemd service unit via systemctl enable/disable."
+  - "Optionally starts or stops the service via systemctl start/stop."
+
+testing:
+  spec_derived:
+    file: tests/test_service_lifecycle.py
+    classes:
+      - TestServiceEnabledSpecDerived
+      - TestServiceDisabledSpecDerived
+    count: 22

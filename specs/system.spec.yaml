@@ -1,0 +1,66 @@
+kind: SystemContext
+metadata:
+  name: Kensa
+  module: system
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Kensa is an SSH-based compliance test runner for RHEL systems. It connects
+    to remote hosts, evaluates YAML compliance rules, captures machine-verifiable
+    evidence, and maps results to frameworks (CIS, STIG, NIST 800-53, PCI-DSS,
+    FedRAMP).
+  technical_context: >
+    Python 3.10+ CLI built with Click. Remote execution via paramiko SSH.
+    Results persisted to SQLite. Rules defined as YAML with JSON Schema
+    validation. Framework mappings in a unified YAML format. 508 rules across
+    8 categories covering access-control, audit, services, system, filesystem,
+    network, kernel, and logging.
+  dependencies:
+    - Python 3.10+
+    - Click (CLI framework)
+    - paramiko (SSH)
+    - SQLite3 (storage)
+    - PyYAML (rule/config parsing)
+    - jsonschema (rule validation)
+    - Rich (terminal output)
+  assumptions:
+    - Target hosts run RHEL 8 or RHEL 9 with systemd
+    - SSH access is available to target hosts
+    - Rules are read-only YAML files validated against schema
+    - Framework mappings use a unified controls/rules format
+
+objective:
+  summary: >
+    Provide a modular, evidence-first compliance testing and remediation
+    platform for RHEL systems with capability-gated handlers, framework
+    mappings, and safe-by-default remediation with rollback support.
+  acceptance_criteria:
+    AC-1: >
+      22 capability probes detect host features for implementation gating.
+    AC-2: >
+      21 check handler types evaluate compliance rules against remote state.
+    AC-3: >
+      23 remediation handler types apply fixes with pre-state capture.
+    AC-4: >
+      Rollback system reverses remediations from stored snapshots.
+    AC-5: >
+      10 CLI commands provide check, remediate, rollback, history, diff,
+      detect, coverage, list-frameworks, info, and lookup functionality.
+    AC-6: >
+      Framework mappings support CIS, STIG, NIST 800-53, PCI-DSS, and
+      FedRAMP with unified format and completeness tracking.
+
+constraints:
+  - MUST connect to remote hosts only via SSH (no agents, no persistent state on targets).
+  - MUST capture machine-verifiable evidence for every check execution.
+  - MUST gate implementations on detected host capabilities.
+  - MUST capture pre-state snapshots by default during remediation.
+  - MUST support rollback from stored snapshots within retention window.
+  - MUST validate all rule YAML against JSON Schema before use.
+  - MUST NOT modify remote host state during check operations (pure measurement).
+  - MUST map rules to multiple frameworks without duplication.

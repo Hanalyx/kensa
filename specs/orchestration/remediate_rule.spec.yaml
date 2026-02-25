@@ -1,0 +1,273 @@
+kind: Orchestration
+metadata:
+  name: RemediateRule
+  module: orchestration
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    Full remediation lifecycle -- check -> remediate -> re-check -> rollback.
+  technical_context: >
+    Located in runner/_orchestration.py as remediate_rule(). Re-exported via
+    runner/engine.py.
+  dependencies:
+    - runner._orchestration.evaluate_rule
+    - runner._orchestration._selection.select_implementation
+    - runner._orchestration._remediation.run_remediation
+    - runner._orchestration._checks.run_check
+    - runner.handlers.rollback._execute_rollback
+  callers:
+    - runner._orchestration._host_runner.run_remediation
+    - runner/engine.py
+
+objective:
+  summary: >
+    Orchestrate the full remediation lifecycle for a single rule on a single host.
+    The function performs an initial compliance check, and if the rule is failing,
+    attempts remediation. After successful remediation (non-dry-run), it re-checks
+    to verify the fix. If any step fails and rollback_on_failure is enabled, it
+    rolls back to restore the pre-remediation state.
+  acceptance_criteria:
+    AC-1: >
+      Rule already passes -> return early with passed=True, remediated=False,
+      no remediation attempted.
+    AC-2: >
+      Rule is skipped -> return early with skipped=True, remediated=False,
+      no remediation attempted.
+    AC-3: >
+      No matching implementation after initial check ->
+      remediation_detail="No matching implementation", remediated=False.
+    AC-4: >
+      Implementation exists but no remediation block ->
+      remediation_detail="No remediation defined", remediated=False.
+    AC-5: >
+      Remediation succeeds, re-check passes -> remediated=True, passed=True,
+      evidence updated from re-check.
+    AC-6: >
+      Dry-run remediation -> remediated=True, no re-check performed, passed
+      remains from initial check (False).
+    AC-7: >
+      Remediation fails -> remediated=True, passed=False, step_results
+      populated.
+    AC-8: >
+      Remediation fails + rollback_on_failure=True -> rolled_back=True,
+      rollback_results populated.
+    AC-9: >
+      Re-check after remediation fails -> passed=False, remediated=True.
+    AC-10: >
+      Re-check fails + rollback_on_failure=True -> rolled_back=True,
+      rollback_results populated.
+    AC-11: >
+      run_remediation throws exception -> caught, remediation_detail has
+      "Error:" prefix, remediated=False.
+    AC-12: >
+      run_check throws exception during re-check -> caught, detail has
+      "Re-check error:" prefix.
+    AC-13: >
+      Remediation fails + rollback_on_failure=True + dry_run=True -> no rollback
+      (dry_run guard).
+    AC-14: >
+      No check block in implementation -> re-check phase is skipped after
+      successful remediation.
+    AC-15: >
+      select_implementation is called twice (once inside evaluate_rule, once
+      directly) -- both must use the same rule and capabilities.
+
+constraints:
+  - The function must never modify the rule or capabilities dicts.
+  - >
+    All SSH interaction is delegated to dependency functions; remediate_rule
+    itself never calls ssh.run().
+  - >
+    Exception handling is limited to run_remediation and the re-check run_check;
+    other exceptions propagate.
+  - >
+    _execute_rollback is only called when rollback_on_failure=True and
+    dry_run=False.
+  - >
+    The snapshot parameter is passed through to run_remediation but does not
+    affect orchestration logic.
+
+input_contract:
+  - field: ssh
+    type: SSHSession
+    required: true
+    description: Active SSH connection to the target host.
+  - field: rule
+    type: dict
+    required: true
+    description: Parsed YAML rule definition.
+  - field: capabilities
+    type: dict[str, bool]
+    required: true
+    description: Host capability probe results.
+  - field: dry_run
+    type: bool
+    required: false
+    default: false
+    description: Preview remediation without applying changes.
+  - field: rollback_on_failure
+    type: bool
+    required: false
+    default: false
+    description: Auto-rollback if remediation or re-check fails.
+  - field: snapshot
+    type: bool
+    required: false
+    default: true
+    description: Capture pre-state for rollback support.
+
+behavior:
+  - >
+    Call evaluate_rule(ssh, rule, capabilities) to get an initial RuleResult.
+  - >
+    Exit: already passing -- If result.passed is True, return immediately.
+  - >
+    Exit: skipped -- If result.skipped is True, return immediately.
+  - >
+    Call select_implementation(rule, capabilities) to find a matching
+    implementation.
+  - >
+    Exit: no implementation -- If impl is None, set
+    result.remediation_detail = "No matching implementation" and return.
+  - Extract remediation = impl.get("remediation").
+  - >
+    Exit: no remediation defined -- If remediation is None, set
+    result.remediation_detail = "No remediation defined" and return.
+  - Extract check = impl.get("check").
+  - >
+    Call run_remediation(ssh, remediation, dry_run=dry_run, check=check,
+    snapshot=snapshot).
+  - >
+    Exit: run_remediation exception -- If run_remediation raises, set
+    result.remediation_detail = "Error: {exc}" and return.
+  - >
+    Set result.remediated = True, result.remediation_detail = detail,
+    result.step_results = step_results.
+  - >
+    Exit: remediation failed -- If ok is False: if rollback_on_failure and not
+    dry_run, call _execute_rollback(ssh, step_results), set
+    result.rollback_results and result.rolled_back = True. Return result.
+  - >
+    Exit: dry-run -- If dry_run is True, return result (no re-check).
+  - >
+    Re-check phase -- If check is not None: call run_check(ssh, check). Update
+    result.passed, result.detail, result.evidence from the CheckResult.
+    Re-check exception: if run_check raises, set result.detail =
+    "Re-check error: {exc}".
+  - >
+    Post-re-check rollback -- If rollback_on_failure and result.passed is False:
+    call _execute_rollback(ssh, step_results), set result.rollback_results and
+    result.rolled_back = True.
+  - Return final result.
+
+output_contract:
+  returns: RuleResult
+  paths:
+    already_passing:
+      passed: true
+      skipped: false
+      remediated: false
+      remediation_detail: ""
+      step_results: "[]"
+      rolled_back: false
+      rollback_results: "[]"
+    skipped:
+      passed: false
+      skipped: true
+      remediated: false
+      remediation_detail: ""
+      step_results: "[]"
+      rolled_back: false
+      rollback_results: "[]"
+    no_implementation:
+      passed: false
+      skipped: false
+      remediated: false
+      remediation_detail: "No matching implementation"
+      step_results: "[]"
+      rolled_back: false
+      rollback_results: "[]"
+    no_remediation_defined:
+      passed: false
+      skipped: false
+      remediated: false
+      remediation_detail: "No remediation defined"
+      step_results: "[]"
+      rolled_back: false
+      rollback_results: "[]"
+    run_remediation_exception:
+      passed: false
+      skipped: false
+      remediated: false
+      remediation_detail: "Error: ..."
+      step_results: "[]"
+      rolled_back: false
+      rollback_results: "[]"
+    remediation_failed:
+      passed: false
+      skipped: false
+      remediated: true
+      remediation_detail: from run_remediation
+      step_results: populated
+      rolled_back: false
+      rollback_results: "[]"
+    remediation_failed_with_rollback:
+      passed: false
+      skipped: false
+      remediated: true
+      remediation_detail: from run_remediation
+      step_results: populated
+      rolled_back: true
+      rollback_results: populated
+    dry_run_success:
+      passed: false
+      skipped: false
+      remediated: true
+      remediation_detail: from run_remediation
+      step_results: populated
+      rolled_back: false
+      rollback_results: "[]"
+    recheck_passes:
+      passed: true
+      skipped: false
+      remediated: true
+      remediation_detail: from run_check
+      step_results: populated
+      rolled_back: false
+      rollback_results: "[]"
+    recheck_fails:
+      passed: false
+      skipped: false
+      remediated: true
+      remediation_detail: from run_check
+      step_results: populated
+      rolled_back: false
+      rollback_results: "[]"
+    recheck_fails_with_rollback:
+      passed: false
+      skipped: false
+      remediated: true
+      remediation_detail: from run_check
+      step_results: populated
+      rolled_back: true
+      rollback_results: populated
+    recheck_exception:
+      passed: false
+      skipped: false
+      remediated: true
+      remediation_detail: "Re-check error: ..."
+      step_results: populated
+      rolled_back: varies
+      rollback_results: varies
+
+testing:
+  spec_derived:
+    file: tests/test_orchestration_remediate.py
+    classes:
+      - TestRemediateRuleSpecDerived
+    count: 23

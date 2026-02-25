@@ -1,0 +1,66 @@
+kind: CLICommand
+metadata:
+  name: ListFrameworks
+  module: cli
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2025-02-10"
+  updated: "2025-02-25"
+
+context:
+  description: >
+    List all available framework mappings found in the mappings/ directory.
+  technical_context: >
+    Module runner/cli.py -> list_frameworks(). Click decorators:
+    @main.command("list-frameworks").
+  dependencies:
+    - runner.mappings.load_all_mappings
+  callers:
+    - CLI entry point (kensa list-frameworks)
+
+objective:
+  summary: >
+    List all available framework mappings found in the mappings/ directory.
+  acceptance_criteria:
+    AC-1: "With mappings present, exits 0 and displays mapping list."
+    AC-2: "With no mappings, exits 0 and prints 'No framework mappings found'."
+    AC-3: "Mappings are sorted alphabetically by ID."
+    AC-4: "Platform info is included when mapping has platform constraints."
+    AC-5: "Section counts show implemented and skipped counts."
+
+constraints:
+  - "MUST always exit 0."
+  - "MUST sort mappings alphabetically."
+  - "MUST handle empty mappings gracefully."
+
+input_contract: []
+
+behavior:
+  - "Load all framework mappings via load_all_mappings()."
+  - "If no mappings: print 'No framework mappings found', exit 0."
+  - "Print header with mapping count."
+  - >
+    For each mapping (sorted by ID):
+    (a) Print mapping ID.
+    (b) Print title with optional platform info.
+    (c) Print section counts (implemented, skipped).
+
+exit_codes:
+  - code: 0
+    condition: "Always"
+
+output_contract:
+  returns: Terminal output only
+  modes:
+    terminal: "Header with count, then per-mapping block with ID, title (+ platform), section counts. No --json mode."
+
+side_effects:
+  - "None. Read-only operation."
+
+testing:
+  spec_derived:
+    file: tests/test_cli_spec.py
+    classes:
+      - TestListFrameworksSpecDerived
+    count: 5
