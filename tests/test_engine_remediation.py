@@ -61,6 +61,7 @@ from runner.ssh import Result
 
 class TestConfigSet:
     def test_dry_run(self, mock_ssh):
+        """AC-1: Dry-run returns without execution."""
         ssh = mock_ssh({})
         rem = {
             "mechanism": "config_set",
@@ -74,6 +75,7 @@ class TestConfigSet:
         assert "Would set" in detail
 
     def test_replaces_existing_key(self, mock_ssh):
+        """AC-2: Existing key is replaced via sed."""
         ssh = mock_ssh(
             {
                 "grep -h": Result(exit_code=0, stdout="Foo old_value", stderr=""),
@@ -92,6 +94,7 @@ class TestConfigSet:
         assert any("sed" in cmd for cmd in ssh.commands_run)
 
     def test_appends_when_key_absent(self, mock_ssh):
+        """AC-3: Missing key is appended."""
         ssh = mock_ssh(
             {
                 "grep -h": Result(exit_code=1, stdout="", stderr=""),
@@ -110,6 +113,7 @@ class TestConfigSet:
         assert any("echo" in cmd and ">>" in cmd for cmd in ssh.commands_run)
 
     def test_calls_reload(self, mock_ssh):
+        """AC-4: Service reload on success."""
         ssh = mock_ssh(
             {
                 "grep -h": Result(exit_code=1, stdout="", stderr=""),
@@ -123,6 +127,249 @@ class TestConfigSet:
             "key": "K",
             "value": "V",
             "separator": " ",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert any("systemctl" in cmd and "sshd" in cmd for cmd in ssh.commands_run)
+
+
+class TestConfigSetSpecDerived:
+    """Spec-derived gap tests for config_set remediation handler."""
+
+    def test_dry_run_no_ssh_commands(self, mock_ssh):
+        """AC-1: Dry-run must not execute any SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/sshd_config",
+            "key": "PermitRootLogin",
+            "value": "no",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_detail_format(self, mock_ssh):
+        """AC-11: Dry-run detail message includes key, separator, value, and path."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "MaxAuthTries",
+            "value": "4",
+            "separator": " ",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert detail == "Would set 'MaxAuthTries 4' in /etc/conf"
+
+    def test_success_detail_format_sed_path(self, mock_ssh):
+        """AC-10: Success detail after sed replacement matches expected format."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="Foo old_value", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "Foo",
+            "value": "bar",
+            "separator": " ",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert detail == "Set 'Foo bar' in /etc/conf"
+
+    def test_success_detail_format_append_path(self, mock_ssh):
+        """AC-10: Success detail after append matches expected format."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/myapp.conf",
+            "key": "LogLevel",
+            "value": "INFO",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert detail == "Set 'LogLevel INFO' in /etc/myapp.conf"
+
+    def test_restart_service_on_success(self, mock_ssh):
+        """AC-5: Service restart (not reload) is invoked when restart key is present."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "K",
+            "value": "V",
+            "restart": "auditd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert any(
+            "systemctl restart" in cmd and "auditd" in cmd for cmd in ssh.commands_run
+        )
+
+    def test_no_service_action_when_absent(self, mock_ssh):
+        """AC-6: No systemctl command when neither reload nor restart is specified."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "K",
+            "value": "V",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_custom_separator(self, mock_ssh):
+        """AC-7: Custom separator is used between key and value."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/sysctl.conf",
+            "key": "net.ipv4.ip_forward",
+            "value": "0",
+            "separator": " = ",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert detail == "Set 'net.ipv4.ip_forward = 0' in /etc/sysctl.conf"
+        # Verify the echo command includes the separator
+        echo_cmds = [cmd for cmd in ssh.commands_run if "echo" in cmd and ">>" in cmd]
+        assert len(echo_cmds) == 1
+        assert "net.ipv4.ip_forward = 0" in echo_cmds[0]
+
+    def test_default_separator_is_space(self, mock_ssh):
+        """AC-7: Default separator is a single space when not specified."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "MyKey",
+            "value": "MyVal",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert detail == "Set 'MyKey MyVal' in /etc/conf"
+
+    def test_sed_failure_returns_false(self, mock_ssh):
+        """AC-8: Sed failure returns (False, ...) with failure detail."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="Foo old_value", stderr=""),
+                "sed -i": Result(exit_code=1, stdout="", stderr="sed: error"),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "Foo",
+            "value": "bar",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "Failed to set Foo in /etc/conf" in detail
+
+    def test_append_failure_returns_false_with_stderr(self, mock_ssh):
+        """AC-9: Append failure returns (False, ...) including stderr."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=1, stdout="", stderr="Permission denied"),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "Foo",
+            "value": "bar",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "Failed to set Foo in /etc/conf" in detail
+        assert "Permission denied" in detail
+
+    def test_sed_failure_skips_service_action(self, mock_ssh):
+        """AC-8: When sed fails, service_action is not called."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="Foo old", stderr=""),
+                "sed -i": Result(exit_code=1, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "Foo",
+            "value": "bar",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_append_failure_skips_service_action(self, mock_ssh):
+        """AC-9: When append fails, service_action is not called."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=1, stdout="", stderr="err"),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "Foo",
+            "value": "bar",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_service_reload_after_sed_path(self, mock_ssh):
+        """AC-12: Service reload is called after successful sed replacement."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="K old", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set",
+            "path": "/etc/conf",
+            "key": "K",
+            "value": "V",
             "reload": "sshd",
         }
         ok, detail, _ = run_remediation(ssh, rem)
@@ -278,6 +525,7 @@ class TestFilePermissions:
 
 class TestSysctlSet:
     def test_applies_and_persists(self, mock_ssh):
+        """AC-2: sysctl -w success + write_file success returns (True, detail)."""
         ssh = mock_ssh(
             {
                 "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
@@ -291,11 +539,193 @@ class TestSysctlSet:
         assert any("printf" in cmd and "sysctl.d" in cmd for cmd in ssh.commands_run)
 
     def test_dry_run(self, mock_ssh):
+        """AC-1: dry_run returns (True, 'Would set ...') with no SSH commands."""
         ssh = mock_ssh({})
         rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
         ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
         assert ok is True
         assert "Would set" in detail
+
+
+class TestSysctlSetSpecDerived:
+    """Spec-derived gap tests for sysctl_set remediation handler."""
+
+    def test_sysctl_w_failure_returns_false_with_stderr(self, mock_ssh):
+        """AC-3: sysctl -w failure returns (False, 'sysctl -w failed: {stderr}')."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(
+                    exit_code=1, stdout="", stderr="sysctl: permission denied"
+                ),
+            }
+        )
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "sysctl -w failed" in detail
+        assert "permission denied" in detail
+
+    def test_sysctl_w_failure_skips_persistence(self, mock_ssh):
+        """AC-3: When sysctl -w fails, no persistence write is attempted."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=1, stdout="", stderr="error"),
+            }
+        )
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        run_remediation(ssh, rem)
+        assert not any("printf" in cmd for cmd in ssh.commands_run)
+
+    def test_persistence_failure_returns_false(self, mock_ssh):
+        """AC-4: sysctl -w succeeds but write_file fails returns (False, ...)."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                # printf (write_file) fails
+            }
+        )
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "Failed to persist" in detail
+
+    def test_default_persist_file_dots_to_dashes(self, mock_ssh):
+        """AC-5: Default persist_file replaces dots in key with dashes."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "sysctl_set",
+            "key": "net.ipv4.conf.all.accept_redirects",
+            "value": "0",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        expected_path = "/etc/sysctl.d/99-kensa-net-ipv4-conf-all-accept_redirects.conf"
+        assert expected_path in detail
+
+    def test_custom_persist_file(self, mock_ssh):
+        """AC-6: Custom persist_file overrides the default path."""
+        custom_path = "/etc/sysctl.d/50-custom.conf"
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "sysctl_set",
+            "key": "net.ipv4.ip_forward",
+            "value": "0",
+            "persist_file": custom_path,
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert custom_path in detail
+
+    def test_shell_quoting_in_sysctl_command(self, mock_ssh):
+        """AC-7: key and value are shell-quoted in the sysctl -w command."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        # Use a value with spaces to force visible quoting
+        rem = {
+            "mechanism": "sysctl_set",
+            "key": "net.ipv4.ip_forward",
+            "value": "hello world",
+        }
+        run_remediation(ssh, rem)
+        sysctl_cmds = [c for c in ssh.commands_run if "sysctl -w" in c]
+        assert len(sysctl_cmds) == 1
+        # shell_util.quote wraps values with spaces in single quotes
+        assert "'hello world'" in sysctl_cmds[0]
+
+    def test_persistence_content_format(self, mock_ssh):
+        """AC-8: Persisted file contains '{key} = {value}\\n'."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        run_remediation(ssh, rem)
+        printf_cmds = [c for c in ssh.commands_run if "printf" in c]
+        assert len(printf_cmds) == 1
+        # write_file uses: printf %s {quoted_content} > {quoted_path}
+        # Content should be "net.ipv4.ip_forward = 0\n"
+        assert "net.ipv4.ip_forward = 0" in printf_cmds[0]
+
+    def test_value_coercion_to_str(self, mock_ssh):
+        """AC-9: Integer value is coerced to str before quoting."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        # Pass an integer value (as YAML might produce)
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": 0}
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert "net.ipv4.ip_forward=0" in detail
+
+    def test_dry_run_no_ssh_commands(self, mock_ssh):
+        """AC-1: Dry-run executes zero SSH commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        run_remediation(ssh, rem, dry_run=True)
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_detail_contains_key_value_and_path(self, mock_ssh):
+        """AC-1: Dry-run detail contains key, value, and persist file path."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "net.ipv4.ip_forward" in detail
+        assert "0" in detail
+        assert "/etc/sysctl.d/" in detail
+
+    def test_success_detail_format(self, mock_ssh):
+        """AC-2: Success detail is 'Set {key}={value}, persisted to {path}'."""
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "sysctl_set", "key": "net.ipv4.ip_forward", "value": "0"}
+        ok, detail, _ = run_remediation(ssh, rem)
+        # Note: replace('.', '-') only replaces dots, not underscores
+        assert detail == (
+            "Set net.ipv4.ip_forward=0, persisted to "
+            "/etc/sysctl.d/99-kensa-net-ipv4-ip_forward.conf"
+        )
+
+    def test_persistence_failure_detail_includes_path(self, mock_ssh):
+        """AC-4: Persistence failure detail includes the persist_file path."""
+        custom_path = "/etc/sysctl.d/50-custom.conf"
+        ssh = mock_ssh(
+            {
+                "sysctl -w": Result(exit_code=0, stdout="", stderr=""),
+                # printf not mocked -> fails
+            }
+        )
+        rem = {
+            "mechanism": "sysctl_set",
+            "key": "net.ipv4.ip_forward",
+            "value": "0",
+            "persist_file": custom_path,
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert custom_path in detail
 
 
 class TestPackagePresent:
@@ -1837,7 +2267,10 @@ class TestRollbackAuditRuleSet:
 
 
 class TestRollbackPamModuleConfigure:
+    """Rollback tests for pam_module_configure (not direct remediation)."""
+
     def test_restores_pam_file(self, mock_ssh):
+        """Rollback: restores PAM file content from captured pre-state."""
         ssh = mock_ssh(
             {
                 "printf": Result(exit_code=0, stdout="", stderr=""),
@@ -1859,6 +2292,7 @@ class TestRollbackPamModuleConfigure:
         assert "system-auth" in detail
 
     def test_removes_file_if_not_existed(self, mock_ssh):
+        """Rollback: removes PAM file if it did not exist before remediation."""
         ssh = mock_ssh(
             {
                 "rm -f": Result(exit_code=0, stdout="", stderr=""),
@@ -1879,6 +2313,7 @@ class TestRollbackPamModuleConfigure:
         assert "Removed" in detail
 
     def test_fails_without_captured_content(self, mock_ssh):
+        """Rollback: fails gracefully when no content was captured."""
         ssh = mock_ssh({})
         ps = PreState(
             mechanism="pam_module_configure",
@@ -1895,6 +2330,7 @@ class TestRollbackPamModuleConfigure:
         assert "Cannot restore" in detail
 
     def test_write_failure(self, mock_ssh):
+        """Rollback: reports failure when file write fails."""
         ssh = mock_ssh(
             {
                 "printf": Result(exit_code=1, stdout="", stderr="permission denied"),
@@ -1916,7 +2352,10 @@ class TestRollbackPamModuleConfigure:
 
 
 class TestCapturePamModuleConfigure:
+    """Capture tests for pam_module_configure (not direct remediation)."""
+
     def test_captures_existing_file(self, mock_ssh):
+        """Capture: records existing PAM file content and authselect profile."""
         ssh = mock_ssh(
             {
                 "cat": Result(
@@ -1945,6 +2384,7 @@ class TestCapturePamModuleConfigure:
         assert "sssd" in ps.data["authselect_profile"]
 
     def test_captures_nonexistent_file(self, mock_ssh):
+        """Capture: records non-existence when PAM file is missing."""
         ssh = mock_ssh(
             {
                 "cat": Result(exit_code=1, stdout="", stderr="No such file"),
@@ -1964,6 +2404,301 @@ class TestCapturePamModuleConfigure:
         assert ps.data["existed"] is False
         assert ps.data["old_content"] is None
         assert ps.data["authselect_profile"] is None
+
+
+# ── Spec-derived gap tests: pam_module_configure ────────────────────────
+
+
+class TestPamModuleConfigureSpecDerived:
+    """Spec-derived gap tests for pam_module_configure remediation handler.
+
+    See specs/handlers/remediation/pam_module_configure.spec.md for full
+    specification. No direct remediation tests existed prior to this class;
+    existing tests cover only capture and rollback paths.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns success with preview message, no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+            "args": "deny=5 unlock_time=900",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would configure" in detail
+        assert "pam_faillock.so" in detail
+        assert "/etc/pam.d/system-auth" in detail
+        assert "auth    required    pam_faillock.so    deny=5 unlock_time=900" in detail
+        # No SSH commands should have been executed
+        assert len(ssh.commands_run) == 0
+
+    def test_file_not_found(self, mock_ssh):
+        """AC-2: Returns failure when PAM service file does not exist."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "nonexistent-svc",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "/etc/pam.d/nonexistent-svc" in detail
+        assert "not found" in detail
+
+    def test_replaces_existing_line_via_sed(self, mock_ssh):
+        """AC-3: Replaces existing type+module line in-place via sed."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(
+                    exit_code=0,
+                    stdout="auth    sufficient    pam_faillock.so old_args",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+            "args": "deny=5",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert "Updated" in detail
+        assert "pam_faillock.so" in detail
+        assert "/etc/pam.d/system-auth" in detail
+        # Verify sed command was issued
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 1
+
+    def test_appends_new_module_line(self, mock_ssh):
+        """AC-4: Appends new PAM line when no existing type+module line found."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+            "args": "deny=5",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert "Added" in detail
+        assert "pam_faillock.so" in detail
+        assert "/etc/pam.d/system-auth" in detail
+        # Verify echo/append command was issued (not sed)
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 0
+
+    def test_pam_line_includes_args_when_provided(self, mock_ssh):
+        """AC-5: Constructed PAM line includes args after the module."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "password-auth",
+            "module": "pam_pwquality.so",
+            "type": "password",
+            "control": "requisite",
+            "args": "retry=3 minlen=14",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        # Verify the echo command includes the full PAM line with args
+        echo_cmds = [c for c in ssh.commands_run if "echo" in c]
+        assert len(echo_cmds) == 1
+        assert "pam_pwquality.so" in echo_cmds[0]
+        assert "retry=3 minlen=14" in echo_cmds[0]
+
+    def test_pam_line_no_trailing_args_when_absent(self, mock_ssh):
+        """AC-6: PAM line has no trailing arguments when args is absent."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_unix.so",
+            "type": "auth",
+            "control": "sufficient",
+        }
+        # Use dry-run to inspect the constructed line
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        # Line should end with module name, no trailing spaces/args
+        assert "auth    sufficient    pam_unix.so" in detail
+        assert detail.endswith("auth    sufficient    pam_unix.so")
+
+    def test_pam_line_no_trailing_args_when_empty_string(self, mock_ssh):
+        """AC-6: PAM line has no trailing arguments when args is empty string."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_unix.so",
+            "type": "auth",
+            "control": "sufficient",
+            "args": "",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail.endswith("auth    sufficient    pam_unix.so")
+
+    def test_sed_replacement_failure(self, mock_ssh):
+        """AC-7: Returns failure when sed replacement command fails."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(
+                    exit_code=0,
+                    stdout="auth    required    pam_faillock.so",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=1, stdout="", stderr="permission denied"),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "Failed to update" in detail
+        assert "/etc/pam.d/system-auth" in detail
+
+    def test_append_failure(self, mock_ssh):
+        """AC-8: Returns failure when append_line fails."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=1, stdout="", stderr="permission denied"),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is False
+        assert "Failed to add" in detail
+        assert "pam_faillock.so" in detail
+
+    def test_pam_line_four_space_separators(self, mock_ssh):
+        """AC-9: PAM line uses 4-space separators between fields."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_unix.so",
+            "type": "session",
+            "control": "optional",
+            "args": "revoke",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        # Verify 4-space separation between type, control, module, and args
+        expected_line = "session    optional    pam_unix.so    revoke"
+        assert expected_line in detail
+
+    def test_grep_uses_escaped_bre_patterns(self, mock_ssh):
+        """AC-10: The grep pattern escapes BRE metacharacters in type and module."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_unix.so",
+            "type": "auth",
+            "control": "required",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        # The grep command should escape the dot in pam_unix.so
+        grep_cmds = [c for c in ssh.commands_run if "grep -E" in c]
+        assert len(grep_cmds) == 1
+        # Dot in "pam_unix.so" should be escaped as "pam_unix\.so"
+        assert "pam_unix\\.so" in grep_cmds[0]
+
+    def test_sed_uses_escaped_patterns(self, mock_ssh):
+        """AC-11: The sed command escapes metacharacters in type, module, and replacement."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep -E": Result(
+                    exit_code=0,
+                    stdout="auth    required    pam_unix.so",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_unix.so",
+            "type": "auth",
+            "control": "required",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        # The sed command should have escaped dots
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 1
+        # The dot in "pam_unix.so" should be escaped in the sed pattern
+        assert "pam_unix\\.so" in sed_cmds[0]
+
+    def test_bracket_control_value(self, mock_ssh):
+        """AC-9: Control values with brackets like [default=die] are handled."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "pam_module_configure",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "[default=die]",
+            "args": "authfail",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "[default=die]" in detail
+        assert "auth    [default=die]    pam_faillock.so    authfail" in detail
 
 
 # ── New capture tests (Phase 3) ──────────────────────────────────────────
