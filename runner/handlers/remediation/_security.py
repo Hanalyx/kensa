@@ -46,6 +46,43 @@ def _remediate_selinux_boolean_set(
     return True, f"Set {name} = {value_str}{' (persistent)' if persistent else ''}"
 
 
+def _remediate_selinux_state_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Set the SELinux enforcement state.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - state (str): Target state (enforcing, permissive, disabled).
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    state = r["state"]
+
+    if dry_run:
+        return True, f"Would set SELinux to {state}"
+
+    # Update /etc/selinux/config for persistence
+    result = ssh.run(
+        f"sed -i 's/^SELINUX=.*/SELINUX={shell_util.quote(state)}/' "
+        f"{shell_util.quote('/etc/selinux/config')}"
+    )
+    if not result.ok:
+        return False, f"Failed to set SELinux config: {result.stderr}"
+
+    # Apply runtime change if not "disabled" (disabled requires reboot)
+    if state != "disabled":
+        enforce_val = "1" if state == "enforcing" else "0"
+        result = ssh.run(f"setenforce {enforce_val}")
+        if not result.ok:
+            return False, f"setenforce failed: {result.stderr}"
+
+    return True, f"Set SELinux to {state}"
+
+
 def _remediate_audit_rule_set(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
