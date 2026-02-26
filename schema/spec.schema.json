@@ -20,6 +20,12 @@
       ],
       "description": "Type of artifact this spec describes."
     },
+    "handlers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Handler registry names covered by this spec. Used by spec_coverage.py to resolve many-to-one handler-spec mappings."
+    },
     "metadata": {
       "$ref": "#/$defs/metadata"
     },

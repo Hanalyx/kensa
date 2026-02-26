@@ -1,4 +1,7 @@
 kind: RemediationHandler
+handlers:
+  - service_enabled
+  - service_disabled
 metadata:
   name: ServiceLifecycle
   module: handlers/remediation

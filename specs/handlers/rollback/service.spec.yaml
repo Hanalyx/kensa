@@ -1,4 +1,8 @@
 kind: InternalModule
+handlers:
+  - service_enabled
+  - service_disabled
+  - service_masked
 
 metadata:
   name: RollbackService

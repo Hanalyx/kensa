@@ -15,6 +15,8 @@ import json
 import sys
 from pathlib import Path
 
+import yaml
+
 # Project root is one level above scripts/
 ROOT = Path(__file__).resolve().parent.parent
 SPECS_DIR = ROOT / "specs"
@@ -67,14 +69,27 @@ def _load_rollback_handlers() -> dict[str, object]:
 # ---------------------------------------------------------------------------
 
 def _find_specs(subdir: str) -> dict[str, Path]:
-    """Return a mapping of handler-name -> spec path for a specs subdirectory."""
+    """Return a mapping of handler-name -> spec path for a specs subdirectory.
+
+    If a spec file declares a top-level ``handlers:`` list, each listed handler
+    name is mapped to that spec path.  Otherwise falls back to deriving one
+    handler name from the filename.
+    """
     d = SPECS_DIR / subdir
     if not d.is_dir():
         return {}
     specs: dict[str, Path] = {}
     for p in sorted(d.glob("*.spec.yaml")):
-        name = p.stem.replace(".spec", "")
-        specs[name] = p
+        try:
+            data = yaml.safe_load(p.read_text())
+        except Exception:
+            data = None
+        if data and isinstance(data.get("handlers"), list):
+            for handler_name in data["handlers"]:
+                specs[handler_name] = p
+        else:
+            name = p.stem.replace(".spec", "")
+            specs[name] = p
     return specs
 
 
