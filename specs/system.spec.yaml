@@ -45,7 +45,7 @@ objective:
     AC-2: >
       21 check handler types evaluate compliance rules against remote state.
     AC-3: >
-      23 remediation handler types apply fixes with pre-state capture.
+      24 remediation handler types apply fixes with pre-state capture.
     AC-4: >
       Rollback system reverses remediations from stored snapshots.
     AC-5: >
@@ -64,3 +64,9 @@ constraints:
   - MUST validate all rule YAML against JSON Schema before use.
   - MUST NOT modify remote host state during check operations (pure measurement).
   - MUST map rules to multiple frameworks without duplication.
+
+testing:
+  spec_derived:
+    file: tests/spec/test_system_spec.py
+    classes: [TestSystemSpecDerived]
+    count: 6
