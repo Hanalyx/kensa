@@ -130,8 +130,10 @@ class TestRuleSelectionSpecDerived:
     @patch(_P_FW_INDEX)
     @patch(_P_RULES_FOR_FW)
     @patch(_P_BUILD_MAP)
+    @patch("runner.paths.get_rules_path")
     def test_ac3_no_path_with_control_defaults_to_rules(
         self,
+        mock_get_rules_path,
         mock_build_map,
         mock_rules_for_fw,
         mock_fw_index_cls,
@@ -141,7 +143,11 @@ class TestRuleSelectionSpecDerived:
         mock_parse_var,
         mock_load_config,
     ):
-        """AC-3: When no path and --control set, defaults rules_path to 'rules/'."""
+        """AC-3: When no path and --control set, resolves via get_rules_path()."""
+        from pathlib import Path
+
+        mock_get_rules_path.return_value = Path("/resolved/rules")
+
         rules = [_make_rule("rule-1")]
         mock_load_rules.return_value = rules
         mock_order_rules.return_value = _make_ordering_result(rules)
@@ -169,9 +175,10 @@ class TestRuleSelectionSpecDerived:
             control="cis-rhel9-v2.0.0:1.1.1",
         )
 
-        # Should have used "rules/" as the default path
+        # Should have resolved via get_rules_path(), not hardcoded "rules/"
+        mock_get_rules_path.assert_called_once()
         mock_load_rules.assert_called_once_with(
-            "rules/", severity=None, tags=None, category=None
+            str(Path("/resolved/rules")), severity=None, tags=None, category=None
         )
         assert isinstance(result, RuleSelection)
 

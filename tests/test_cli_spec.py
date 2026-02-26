@@ -2906,4 +2906,4 @@ class TestInfoSpecDerived:
 
         assert result.exit_code == 1
         output = strip_ansi(result.output)
-        assert "not found" in output.lower()
+        assert "unable to locate rules directory" in output.lower()

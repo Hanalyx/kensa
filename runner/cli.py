@@ -1590,7 +1590,7 @@ def diff(session1, session2, host, show_unchanged, json_output):
     required=True,
     help="Framework mapping ID (e.g., cis-rhel9-v2.0.0)",
 )
-@click.option("--rules", "-r", default="rules/", help="Path to rules directory")
+@click.option("--rules", "-r", default=None, help="Path to rules directory")
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def coverage(framework, rules, json_output):
     """Show coverage report for a framework mapping.
@@ -1603,6 +1603,15 @@ def coverage(framework, rules, json_output):
       kensa coverage --framework cis-rhel9-v2.0.0 --json
     """
     from runner.mappings import check_coverage, load_all_mappings
+    from runner.paths import get_rules_path
+
+    # Resolve rules path
+    if rules is None:
+        try:
+            rules = str(get_rules_path())
+        except FileNotFoundError:
+            console.print("[red]Error:[/red] Unable to locate rules directory")
+            sys.exit(1)
 
     # Load mappings
     mappings = load_all_mappings()
@@ -2155,7 +2164,7 @@ def info(
     explicit_ref = cis_section or stig_id or nist_control
     if explicit_ref:
         if not rules_by_id:
-            console.print("[red]Error:[/red] rules/ directory not found")
+            console.print("[red]Error:[/red] Unable to locate rules directory")
             sys.exit(1)
         if cis_section:
             _info_by_reference(
@@ -2355,7 +2364,7 @@ def info(
                 sys.exit(1)
         else:
             if not rules_by_id:
-                console.print("[red]Error:[/red] rules/ directory not found")
+                console.print("[red]Error:[/red] Unable to locate rules directory")
                 sys.exit(1)
             _info_by_reference(
                 query_type,
@@ -2459,7 +2468,7 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
     try:
         rules_path = get_rules_path()
     except FileNotFoundError:
-        console.print("[red]Error:[/red] rules/ directory not found")
+        console.print("[red]Error:[/red] Unable to locate rules directory")
         sys.exit(1)
 
     rules_by_id = build_rule_index(rules_path)

@@ -30,9 +30,10 @@ def _find_package_data_dir() -> Path | None:
 
     """
     # Check various possible installation prefixes
-    prefixes = [
+    prefixes: list[str | Path] = [
         sys.prefix,  # Virtual env or system Python
         sys.base_prefix,  # Base Python (if in venv)
+        Path.home() / ".local",  # pip --user
         "/usr/local",
         "/usr",
     ]
@@ -41,6 +42,16 @@ def _find_package_data_dir() -> Path | None:
         data_dir = Path(prefix) / "share" / "kensa"
         if data_dir.exists():
             return data_dir
+
+    # Fallback: site-packages layout (pip install with package_data)
+    try:
+        import kensa as _pkg
+
+        pkg_dir = Path(_pkg.__file__).parent / "data"
+        if pkg_dir.exists():
+            return pkg_dir
+    except (ImportError, AttributeError):
+        pass
 
     return None
 

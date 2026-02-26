@@ -53,7 +53,8 @@ objective:
     AC-2: >
       select_rules with --rule path loads a single rule file.
     AC-3: >
-      When no path is provided and --control is set, defaults rules_path to "rules/".
+      When no path is provided and --control is set, resolves rules_path via
+      get_rules_path() (not a hardcoded literal).
     AC-4: >
       When no path is provided and --control is not set, raises ValueError with
       "Specify --rules or --rule".
@@ -135,7 +136,7 @@ input_contract:
 behavior:
   - "1. Parse CLI variable overrides via parse_var_overrides(var)."
   - "2. Load variable configuration from config directory via load_config(config_dir)."
-  - "3. Determine path: use rule_path or rules_path; default to 'rules/' if --control is set; raise ValueError if no path."
+  - "3. Determine path: use rule_path or rules_path; resolve via get_rules_path() if --control is set; raise ValueError if no path."
   - "4. Load rules via load_rules(path, severity, tags, category). Raise ValueError if empty."
   - "5. If --control specified, call _resolve_control() to filter rules and optionally infer framework."
   - "6. If --framework specified (not 'auto'), call _apply_framework_filter() to narrow rules and build rule_to_section map."
