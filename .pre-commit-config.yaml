@@ -96,3 +96,10 @@ repos:
         language: system
         files: ^specs/.*\.spec\.yaml$
         pass_filenames: true
+
+      - id: spec-traceability
+        name: Validate spec-to-test traceability
+        entry: bash -c 'PYTHONPATH=. python3 scripts/spec_traceability.py'
+        language: system
+        files: ^(specs/.*\.spec\.yaml|tests/.*_spec\.py)$
+        pass_filenames: false

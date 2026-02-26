@@ -257,8 +257,8 @@ def main() -> int:
             f"spec_coverage: {unspecced} handler(s) without specs",
             file=sys.stderr,
         )
+        return 1
 
-    # Always exit 0 (informational)
     return 0
 
 
