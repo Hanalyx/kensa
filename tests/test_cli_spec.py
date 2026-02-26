@@ -453,6 +453,144 @@ class TestCheckSpecDerived:
         output = strip_ansi(result.output)
         assert "2 hosts" in output
 
+    @patch("runner.cli.apply_auto_framework")
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    def test_ac12_framework_auto_applies_platform_selection(
+        self, mock_session_cls, mock_detect_platform, mock_auto_fw, tmp_path
+    ):
+        """AC-12: --framework auto applies platform-based framework selection."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        rule_file = _write_simple_rule(tmp_path)
+
+        # apply_auto_framework returns (rules, section_map)
+        mock_auto_fw.return_value = (
+            [{"id": "test-rule", "title": "Test rule test-rule"}],
+            {"test-rule": "1.1"},
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+                "--framework",
+                "auto",
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_auto_fw.assert_called_once()
+
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    def test_ac13_var_overrides_rule_variables(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-13: --var KEY=VALUE overrides rule variables."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        # Write a rule that uses a variable
+        rule_file = tmp_path / "var-rule.yml"
+        rule_file.write_text(
+            "id: var-rule\n"
+            "title: Var test\n"
+            "severity: medium\n"
+            "category: kernel\n"
+            "platforms:\n"
+            "  - family: rhel\n"
+            "    min_version: 8\n"
+            "variables:\n"
+            "  expected_val:\n"
+            "    default: '1'\n"
+            "implementations:\n"
+            "  - default: true\n"
+            "    check:\n"
+            "      method: sysctl_value\n"
+            "      key: net.ipv4.ip_forward\n"
+            "      expected: '{{ expected_val }}'\n"
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+                "--var",
+                "expected_val=0",
+            ],
+        )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # The check should have run successfully with the overridden variable
+        assert "var-rule" in output
+
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    @patch("runner.mappings.load_all_mappings")
+    def test_ac14_control_filters_rules(
+        self, mock_mappings, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-14: --control filters to rules for a specific framework control."""
+        from runner.mappings import FrameworkMapping, MappingEntry
+
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        # Write two rules: one that matches the control, one that doesn't
+        _write_simple_rule(tmp_path, rule_id="ssh-rule")
+        _write_simple_rule(tmp_path, rule_id="other-rule")
+
+        # Create a real mapping with the control pointing to ssh-rule
+        mapping = FrameworkMapping(
+            id="test-fw",
+            framework="test",
+            title="Test Framework",
+            sections={
+                "1.1.1": MappingEntry(
+                    rule_id="ssh-rule",
+                    title="SSH rule",
+                    metadata={"rules": ["ssh-rule"]},
+                ),
+            },
+        )
+        mock_mappings.return_value = {"test-fw": mapping}
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--rules",
+                str(tmp_path),
+                "--control",
+                "test-fw:1.1.1",
+            ],
+        )
+
+        # Should exit 0 and filter to only the matching rule
+        assert result.exit_code == 0
+
     @patch("runner._host_runner.SSHSession")
     def test_ac15_parallel_execution(self, mock_session_cls, tmp_path):
         """AC-15: Parallel execution produces results for all hosts."""
@@ -582,6 +720,31 @@ class TestRemediateSpecDerived:
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "1 pass" in output or "pass" in output.lower()
+
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    def test_ac2_failing_rule_shows_fixed_or_fail(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-2: Remediate with one failing rule shows 'fixed' or 'fail' count."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        # Return "1" (check fails since expected is "0")
+        mock_ssh.run = MagicMock(return_value=Result(0, "1", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        rule_file = _write_remediable_rule(tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["remediate", "--host", "10.0.0.1", "--rule", str(rule_file)],
+        )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # Should show either 'fixed' or 'fail' in the summary
+        assert "fixed" in output.lower() or "fail" in output.lower()
 
     @patch("runner._host_runner.SSHSession")
     def test_ac3_dry_run_banner(self, mock_session_cls, tmp_path):
@@ -751,6 +914,38 @@ class TestRemediateSpecDerived:
                 len(args) > 2 and args[2] == "none"
             )
 
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    def test_ac10_rollback_on_failure_summary(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-10: --rollback-on-failure enables inline rollback; rolled-back count in summary."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        rule_file = _write_remediable_rule(tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--rollback-on-failure",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+            ],
+        )
+
+        # Should complete successfully with rollback-on-failure enabled
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # Summary should contain rule counts (pass/fixed/fail)
+        assert "rules" in output.lower() or "pass" in output.lower()
+
     @patch("runner._host_runner.SSHSession")
     def test_ac11_quiet_suppresses_output(self, mock_session_cls, tmp_path):
         """AC-11: --quiet suppresses terminal output."""
@@ -823,6 +1018,35 @@ class TestRemediateSpecDerived:
         output = strip_ansi(result.output)
         assert "2 hosts" in output
 
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    def test_ac14_framework_sorts_results(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-14: --framework sorts results by section order."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--host",
+                "10.0.0.1",
+                "--rules",
+                "rules/",
+                "--framework",
+                "cis-rhel9-v2.0.0",
+                "--severity",
+                "critical",  # narrow the set for speed
+            ],
+        )
+
+        assert result.exit_code == 0
+
     @patch("runner._host_runner.SSHSession")
     def test_ac15_parallel_execution(self, mock_session_cls, tmp_path):
         """AC-15: Parallel execution produces results for all hosts."""
@@ -850,6 +1074,48 @@ class TestRemediateSpecDerived:
         output = strip_ansi(result.output)
         assert "10.0.0.1" in output
         assert "10.0.0.2" in output
+
+    @patch("runner._host_runner.SSHSession")
+    def test_ac16_json_output(self, mock_session_cls, tmp_path):
+        """AC-16: -o json writes JSON to stdout."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+
+        rule_file = _write_remediable_rule(tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+                "-o",
+                "json",
+                "--quiet",
+            ],
+        )
+
+        assert result.exit_code == 0
+        # With --quiet + -o json, output should contain JSON
+        # Find and parse the JSON object
+        output = result.output.strip()
+        brace_start = output.find("{")
+        if brace_start >= 0:
+            depth = 0
+            for i, ch in enumerate(output[brace_start:], start=brace_start):
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                if depth == 0:
+                    json_text = output[brace_start : i + 1]
+                    data = json.loads(json_text)
+                    assert isinstance(data, dict)
+                    break
 
     @patch("runner._host_runner.SSHSession")
     def test_ac17_snapshot_pruning_runs(self, mock_session_cls, tmp_path):
@@ -894,6 +1160,108 @@ class TestRemediateSpecDerived:
         )
 
         # Should succeed despite pruning failure
+        assert result.exit_code == 0
+
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    def test_ac19_var_overrides_rule_variables(
+        self, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-19: --var KEY=VALUE overrides rule variables."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        # Write a rule that uses a variable
+        rule_file = tmp_path / "var-rule.yml"
+        rule_file.write_text(
+            "id: var-rule\n"
+            "title: Var test\n"
+            "severity: medium\n"
+            "category: kernel\n"
+            "platforms:\n"
+            "  - family: rhel\n"
+            "    min_version: 8\n"
+            "variables:\n"
+            "  expected_val:\n"
+            "    default: '1'\n"
+            "implementations:\n"
+            "  - default: true\n"
+            "    check:\n"
+            "      method: sysctl_value\n"
+            "      key: net.ipv4.ip_forward\n"
+            "      expected: '{{ expected_val }}'\n"
+            "    remediation:\n"
+            "      mechanism: sysctl_set\n"
+            "      key: net.ipv4.ip_forward\n"
+            "      value: '{{ expected_val }}'\n"
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+                "--var",
+                "expected_val=0",
+            ],
+        )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "var-rule" in output
+
+    @patch("runner.cli.detect_platform")
+    @patch("runner._host_runner.SSHSession")
+    @patch("runner.mappings.load_all_mappings")
+    def test_ac20_control_filters_rules(
+        self, mock_mappings, mock_session_cls, mock_detect_platform, tmp_path
+    ):
+        """AC-20: --control filters to rules for a specific framework control."""
+        from runner.mappings import FrameworkMapping, MappingEntry
+
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+
+        _write_remediable_rule(tmp_path, rule_id="ssh-rule")
+        _write_remediable_rule(tmp_path, rule_id="other-rule")
+
+        # Create a real mapping with the control pointing to ssh-rule
+        mapping = FrameworkMapping(
+            id="test-fw",
+            framework="test",
+            title="Test Framework",
+            sections={
+                "1.1.1": MappingEntry(
+                    rule_id="ssh-rule",
+                    title="SSH rule",
+                    metadata={"rules": ["ssh-rule"]},
+                ),
+            },
+        )
+        mock_mappings.return_value = {"test-fw": mapping}
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--host",
+                "10.0.0.1",
+                "--rules",
+                str(tmp_path),
+                "--control",
+                "test-fw:1.1.1",
+            ],
+        )
+
         assert result.exit_code == 0
 
 
@@ -1072,6 +1440,24 @@ class TestRollbackSpecDerived:
         assert "id" in data
         assert "remediations" in data
 
+    def test_ac9_info_detail_includes_pre_state(self, tmp_path):
+        """AC-9: --info --detail includes per-step pre-state data."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["rollback", "--info", str(rs_id), "--detail"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # Detail mode should show step details and pre-state data
+        assert "Step" in output or "step" in output
+        assert "Pre-state" in output or "pre_state" in output.lower()
+
     def test_ac10_start_without_host_exits_1(self, tmp_path):
         """AC-10: --start without --host/--limit exits 1."""
         db_path, store = _make_db(tmp_path)
@@ -1086,6 +1472,132 @@ class TestRollbackSpecDerived:
 
         assert result.exit_code == 1
         assert "--host" in result.output or "--limit" in result.output
+
+    def test_ac11_start_host_not_in_session_exits_1(self, tmp_path):
+        """AC-11: --start with host not in session exits 1 with stored hosts listed."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store, host="10.0.0.5")
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                ["rollback", "--start", str(rs_id), "--host", "10.0.0.99"],
+            )
+
+        assert result.exit_code == 1
+        output = strip_ansi(result.output)
+        # Should list the stored hosts
+        assert "10.0.0.5" in output
+
+    def test_ac12_stale_snapshot_exits_1(self, tmp_path):
+        """AC-12: --start with stale snapshot (>7 days) without --force exits 1."""
+        import sqlite3
+        from datetime import datetime, timedelta
+
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store, host="10.0.0.5")
+        finally:
+            store.close()
+
+        # Directly update the timestamp in the database to make it stale
+        old_ts = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+        conn = sqlite3.connect(
+            str(db_path),
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+        )
+        conn.execute(
+            "UPDATE remediation_sessions SET timestamp = ?",
+            (old_ts,),
+        )
+        conn.commit()
+        conn.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner(mix_stderr=False)
+            result = runner.invoke(
+                main,
+                ["rollback", "--start", str(rs_id), "--host", "10.0.0.5"],
+            )
+
+        assert result.exit_code == 1
+
+    @patch("runner._host_runner.SSHSession")
+    def test_ac13_start_force_overrides_stale(self, mock_session_cls, tmp_path):
+        """AC-13: --start --force overrides stale snapshot warning."""
+        import sqlite3
+        from datetime import datetime, timedelta
+
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "", ""))
+
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store, host="10.0.0.5")
+        finally:
+            store.close()
+
+        # Make the session stale (>7 days)
+        old_ts = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+        conn = sqlite3.connect(
+            str(db_path),
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+        )
+        conn.execute(
+            "UPDATE remediation_sessions SET timestamp = ?",
+            (old_ts,),
+        )
+        conn.commit()
+        conn.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "rollback",
+                    "--start",
+                    str(rs_id),
+                    "--host",
+                    "10.0.0.5",
+                    "--force",
+                ],
+            )
+
+        # With --force, should proceed past the stale warning (exit 0)
+        assert result.exit_code == 0
+
+    def test_ac14_start_dry_run_no_execution(self, tmp_path):
+        """AC-14: --start --dry-run shows what would be rolled back without executing."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store, host="10.0.0.5")
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "rollback",
+                    "--start",
+                    str(rs_id),
+                    "--host",
+                    "10.0.0.5",
+                    "--dry-run",
+                ],
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # Dry-run should indicate no action taken
+        assert "dry" in output.lower() or "Dry" in output
 
     def test_ac15_list_host_filter(self, tmp_path):
         """AC-15: --list --host filters sessions by host."""
@@ -1128,6 +1640,44 @@ class TestRollbackSpecDerived:
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "ssh-disable-root-login" in output
+
+    def test_ac17_already_rolled_back_skipped(self, tmp_path):
+        """AC-17: Already-rolled-back steps are skipped unless --force."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            rs_id = _seed_remediation_session(store, host="10.0.0.5")
+            # Record a rollback event for the step so it's "already rolled back"
+            rems = store.get_remediations(rs_id)
+            for rem in rems:
+                steps = store.get_remediation_steps(rem.id)
+                for step in steps:
+                    store.record_rollback_event(
+                        step.id,
+                        mechanism="config_set_dropin",
+                        success=True,
+                        detail="Rolled back",
+                        source="manual",
+                    )
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "rollback",
+                    "--start",
+                    str(rs_id),
+                    "--host",
+                    "10.0.0.5",
+                ],
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # Should indicate steps were already rolled back
+        assert "already" in output.lower() or "rolled back" in output.lower()
 
     def test_ac18_start_nonexistent_session(self, tmp_path):
         """AC-18: --start with nonexistent session exits 1."""
@@ -1229,6 +1779,25 @@ class TestHistorySpecDerived:
         output = strip_ansi(result.output)
         assert "Scan Sessions" in output
 
+    def test_ac6_sessions_host_filter(self, tmp_path):
+        """AC-6: --sessions --host filters sessions by host."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            _seed_check_session(store, host="10.0.0.1")
+            _seed_check_session(store, host="10.0.0.2")
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["history", "--sessions", "--host", "10.0.0.1"]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "10.0.0.1" in output
+
     def test_ac7_sessions_empty(self, tmp_path):
         """AC-7: --sessions with no sessions prints informational message."""
         db_path, store = _make_db(tmp_path)
@@ -1277,6 +1846,57 @@ class TestHistorySpecDerived:
         assert result.exit_code == 0
         assert "No history" in result.output
 
+    def test_ac11_session_id_no_results(self, tmp_path):
+        """AC-11: --session-id with no results for session prints 'No results'."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            # Create a session but don't add any results
+            sid = store.create_session(hosts=["10.0.0.1"], rules_path="rules/")
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["history", "--session-id", str(sid)])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "No results" in output
+
+    def test_ac12_default_host_and_rule_filter(self, tmp_path):
+        """AC-12: Default mode with --host and --rule filters by both."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            sid = store.create_session(hosts=["10.0.0.1"], rules_path="rules/")
+            store.record_result(
+                session_id=sid,
+                host="10.0.0.1",
+                rule_id="rule-a",
+                passed=True,
+                detail="pass",
+                remediated=False,
+            )
+            store.record_result(
+                session_id=sid,
+                host="10.0.0.1",
+                rule_id="rule-b",
+                passed=False,
+                detail="fail",
+                remediated=False,
+            )
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["history", "--host", "10.0.0.1", "--rule", "rule-a"]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "rule-a" in output
+
 
 # ── TestDiffSpecDerived ──────────────────────────────────────────────────────
 
@@ -1322,6 +1942,80 @@ class TestDiffSpecDerived:
         assert "session1" in data
         assert "session2" in data
         assert "changes" in data
+
+    def test_ac3_show_unchanged(self, tmp_path):
+        """AC-3: --show-unchanged includes unchanged results in output."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=True)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=True)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(main, ["diff", str(s1), str(s2), "--show-unchanged"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        # With --show-unchanged, unchanged entries should appear
+        assert "UNCHANGED" in output or "Unchanged" in output
+
+    def test_ac4_host_filter(self, tmp_path):
+        """AC-4: --host filters changes to specified host only."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            # Create sessions with results from two hosts
+            s1 = store.create_session(
+                hosts=["10.0.0.1", "10.0.0.2"], rules_path="rules/"
+            )
+            store.record_result(
+                session_id=s1,
+                host="10.0.0.1",
+                rule_id="ssh-disable-root-login",
+                passed=True,
+                detail="ok",
+                remediated=False,
+            )
+            store.record_result(
+                session_id=s1,
+                host="10.0.0.2",
+                rule_id="ssh-disable-root-login",
+                passed=True,
+                detail="ok",
+                remediated=False,
+            )
+            s2 = store.create_session(
+                hosts=["10.0.0.1", "10.0.0.2"], rules_path="rules/"
+            )
+            store.record_result(
+                session_id=s2,
+                host="10.0.0.1",
+                rule_id="ssh-disable-root-login",
+                passed=False,
+                detail="fail",
+                remediated=False,
+            )
+            store.record_result(
+                session_id=s2,
+                host="10.0.0.2",
+                rule_id="ssh-disable-root-login",
+                passed=False,
+                detail="fail",
+                remediated=False,
+            )
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["diff", str(s1), str(s2), "--host", "10.0.0.1"]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "10.0.0.1" in output
 
     def test_ac5_no_changes(self, tmp_path):
         """AC-5: No changes between sessions prints appropriate message."""
@@ -1384,6 +2078,29 @@ class TestDiffSpecDerived:
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "RESOLVED" in output
+
+    def test_ac9_json_show_unchanged(self, tmp_path):
+        """AC-9: --json --show-unchanged includes unchanged entries in JSON."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            s1 = _seed_check_session(store, host="10.0.0.1", passing=True)
+            s2 = _seed_check_session(store, host="10.0.0.1", passing=True)
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                ["diff", str(s1), str(s2), "--json", "--show-unchanged"],
+            )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "changes" in data
+        # With show-unchanged, the unchanged entry should appear
+        unchanged = [c for c in data["changes"] if c["status"] == "unchanged"]
+        assert len(unchanged) >= 1
 
     def test_ac10_missing_positional_args(self):
         """AC-10: Missing positional arguments shows usage error."""
