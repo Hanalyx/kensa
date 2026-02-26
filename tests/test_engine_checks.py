@@ -3015,6 +3015,1197 @@ class TestConfigAbsentSpecDerived:
         assert r.evidence.expected is None
 
 
+class TestAuditRuleExistsSpecDerived:
+    """Spec-derived tests for audit_rule_exists handler.
+
+    See specs/handlers/checks/audit_rule_exists.spec.yaml for full specification.
+    """
+
+    def test_rule_found_returns_pass(self, mock_ssh):
+        """AC-1: Rule pattern found in normalized auditctl output returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout="-w /etc/passwd -p wa -k identity",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "audit_rule_exists",
+            "rule": "-w /etc/passwd -p wa -k identity",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "Audit rule found"
+
+    def test_rule_not_found_returns_fail(self, mock_ssh):
+        """AC-2: Rule pattern not found returns passed=False with truncated detail."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout="-w /etc/shadow -p wa -k identity",
+                    stderr="",
+                ),
+            }
+        )
+        rule = "-w /etc/passwd -p wa -k identity"
+        check = {"method": "audit_rule_exists", "rule": rule}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "Audit rule not found" in r.detail
+        assert rule[:50] in r.detail
+
+    def test_auditctl_failure_returns_fail(self, mock_ssh):
+        """AC-3: auditctl command failing returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(exit_code=1, stdout="", stderr="error"),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": "-w /etc/passwd"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "auditctl failed - auditd may not be running"
+
+    def test_normalize_key_format(self, mock_ssh):
+        """AC-4: Normalization converts '-F key=X' to '-k X' before matching."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout="-a always,exit -F arch=b64 -S open -F key=access",
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": "-k access"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_normalize_auid_unset(self, mock_ssh):
+        """AC-5: Normalization converts 'auid!=-1' and 'auid!=4294967295' to 'auid!=unset'."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0,
+                    stdout="-a always,exit -F auid>=1000 -F auid!=4294967295 -F key=priv",
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": "auid!=unset -k priv"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+    def test_evidence_method_always_audit_rule_exists(self, mock_ssh):
+        """AC-6: Evidence method is always 'audit_rule_exists'."""
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(exit_code=1, stdout="", stderr="err"),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": "-w /etc/passwd"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "audit_rule_exists"
+
+    def test_evidence_expected_truncated_pattern(self, mock_ssh):
+        """AC-7: Evidence expected contains rule pattern truncated to 50 chars."""
+        long_rule = "a" * 100
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(exit_code=0, stdout="no match", stderr=""),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": long_rule}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected == f"contains '{long_rule[:50]}'"
+
+    def test_evidence_actual_values(self, mock_ssh):
+        """AC-8: Evidence actual is 'found'/'not found'/None depending on path."""
+        # Pass path: actual = 'found'
+        ssh = mock_ssh(
+            {
+                "auditctl -l": Result(
+                    exit_code=0, stdout="-w /etc/passwd -p wa", stderr=""
+                ),
+            }
+        )
+        check = {"method": "audit_rule_exists", "rule": "-w /etc/passwd -p wa"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.actual == "found"
+
+        # Fail path: actual = 'not found'
+        ssh2 = mock_ssh(
+            {
+                "auditctl -l": Result(exit_code=0, stdout="other rule", stderr=""),
+            }
+        )
+        r2 = run_check(ssh2, check)
+        assert r2.evidence is not None
+        assert r2.evidence.actual == "not found"
+
+        # Command failure path: actual = None
+        ssh3 = mock_ssh(
+            {
+                "auditctl -l": Result(exit_code=1, stdout="", stderr="err"),
+            }
+        )
+        r3 = run_check(ssh3, check)
+        assert r3.evidence is not None
+        assert r3.evidence.actual is None
+
+
+class TestGrubParameterSpecDerived:
+    """Spec-derived tests for grub_parameter handler.
+
+    See specs/handlers/checks/grub_parameter.spec.yaml for full specification.
+    """
+
+    def test_value_match_returns_pass(self, mock_ssh):
+        """AC-1: Parameter found with value matching expected returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro crashkernel=auto audit=1"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "audit", "expected": "1"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "audit=1"
+
+    def test_value_mismatch_returns_fail(self, mock_ssh):
+        """AC-2: Parameter found with value not matching returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro audit=0"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "audit", "expected": "1"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "audit=0" in r.detail
+        assert "expected 1" in r.detail
+
+    def test_parameter_not_found(self, mock_ssh):
+        """AC-3: Parameter not found in kernel args returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro crashkernel=auto"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "audit", "expected": "1"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "audit not found in kernel args"
+
+    def test_grubby_not_available(self, mock_ssh):
+        """AC-4: Grubby command failing returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=1, stdout="", stderr="not found"),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "audit", "expected": "1"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "grubby not available"
+
+    def test_presence_only_check_pass(self, mock_ssh):
+        """AC-5: Presence-only check (expected is None) with parameter present returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro quiet splash"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "quiet"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "quiet present"
+
+    def test_presence_without_value_but_value_expected(self, mock_ssh):
+        """AC-6: Parameter present without value but expected has a value returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=0,
+                    stdout='args="ro quiet splash"',
+                    stderr="",
+                ),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "quiet", "expected": "1"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "quiet present but expected value 1"
+
+    def test_evidence_method_always_grub_parameter(self, mock_ssh):
+        """AC-7: Evidence method is always 'grub_parameter'."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=1, stdout="", stderr="err"),
+            }
+        )
+        check = {"method": "grub_parameter", "key": "audit"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "grub_parameter"
+
+
+class TestKernelModuleStateSpecDerived:
+    """Spec-derived tests for kernel_module_state handler.
+
+    See specs/handlers/checks/kernel_module_state.spec.yaml for full specification.
+    """
+
+    def test_blacklisted_not_loaded_with_directive(self, mock_ssh):
+        """AC-1: Module not loaded and blacklist directive present returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=1, stdout="", stderr=""),
+                "modprobe": Result(exit_code=0, stdout="install /bin/true", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "cramfs",
+            "state": "blacklisted",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "cramfs: blacklisted"
+
+    def test_still_loaded_returns_fail(self, mock_ssh):
+        """AC-2: Module still loaded when state is blacklisted returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=0, stdout="cramfs 16384 0", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "cramfs",
+            "state": "blacklisted",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "cramfs: still loaded"
+
+    def test_not_loaded_no_directive_returns_fail(self, mock_ssh):
+        """AC-3: Module not loaded but no blacklist directive returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=1, stdout="", stderr=""),
+                "modprobe": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "cramfs",
+            "state": "blacklisted",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "cramfs: not blacklisted"
+
+    def test_loaded_when_expected_loaded(self, mock_ssh):
+        """AC-4: Module loaded when state='loaded' returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=0, stdout="ip_tables 16384 0", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "ip_tables",
+            "state": "loaded",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "ip_tables: loaded"
+
+    def test_not_loaded_when_expected_loaded(self, mock_ssh):
+        """AC-5: Module not loaded when state='loaded' returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "ip_tables",
+            "state": "loaded",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "ip_tables: not loaded"
+
+    def test_unknown_state_returns_fail(self, mock_ssh):
+        """AC-6: Unknown state value returns passed=False with error detail."""
+        ssh = mock_ssh({})
+        check = {
+            "method": "kernel_module_state",
+            "name": "cramfs",
+            "state": "invalid_state",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "Unknown module state: invalid_state"
+        assert r.evidence is not None
+        assert r.evidence.method == "error"
+
+    def test_evidence_method_valid_vs_error(self, mock_ssh):
+        """AC-7: Evidence method is 'kernel_module_state' for valid, 'error' for unknown."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=0, stdout="cramfs 16384 0", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "cramfs",
+            "state": "blacklisted",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "kernel_module_state"
+
+    def test_disabled_treated_same_as_blacklisted(self, mock_ssh):
+        """AC-8: 'disabled' and 'blacklisted' states are treated identically."""
+        ssh = mock_ssh(
+            {
+                "lsmod": Result(exit_code=1, stdout="", stderr=""),
+                "modprobe": Result(exit_code=0, stdout="install /bin/false", stderr=""),
+            }
+        )
+        check = {
+            "method": "kernel_module_state",
+            "name": "cramfs",
+            "state": "disabled",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "cramfs: blacklisted"
+
+
+class TestMountOptionSpecDerived:
+    """Spec-derived tests for mount_option handler.
+
+    See specs/handlers/checks/mount_option.spec.yaml for full specification.
+    """
+
+    def test_all_options_present_returns_pass(self, mock_ssh):
+        """AC-1: All required options present returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(
+                    exit_code=0, stdout="rw,nosuid,nodev,noexec,relatime", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid", "nodev", "noexec"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "/tmp: has required options"
+
+    def test_missing_options_returns_fail(self, mock_ssh):
+        """AC-2: One or more options missing returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=0, stdout="rw,nosuid,relatime", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid", "nodev", "noexec"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "nodev" in r.detail
+        assert "noexec" in r.detail
+
+    def test_not_mounted_returns_fail(self, mock_ssh):
+        """AC-3: Mount point not mounted returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "/tmp: not mounted"
+
+    def test_evidence_method_always_mount_option(self, mock_ssh):
+        """AC-4: Evidence method is always 'mount_option'."""
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid"],
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "mount_option"
+
+    def test_evidence_expected_comma_joined(self, mock_ssh):
+        """AC-5: Evidence expected is the comma-joined list of required options."""
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(
+                    exit_code=0, stdout="rw,nosuid,nodev,noexec", stderr=""
+                ),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid", "nodev", "noexec"],
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.expected == "nosuid,nodev,noexec"
+
+    def test_fail_detail_lists_specific_missing_options(self, mock_ssh):
+        """AC-6: Detail on failure lists the specific missing options comma-separated."""
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=0, stdout="rw,relatime", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/var",
+            "options": ["nosuid", "nodev"],
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "nosuid" in r.detail
+        assert "nodev" in r.detail
+
+    def test_evidence_timestamp_is_utc(self, mock_ssh):
+        """AC-7: Evidence timestamp is a UTC datetime captured before the command executes."""
+        before = datetime.now(timezone.utc)
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=0, stdout="rw,nosuid,nodev", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid"],
+        }
+        r = run_check(ssh, check)
+        after = datetime.now(timezone.utc)
+        assert r.evidence is not None
+        assert isinstance(r.evidence.timestamp, datetime)
+        assert r.evidence.timestamp.tzinfo is not None
+        assert before <= r.evidence.timestamp <= after
+
+    def test_evidence_actual_none_when_not_mounted(self, mock_ssh):
+        """AC-8: Evidence actual is None when not mounted, full options string on success."""
+        # Not mounted: actual = None
+        ssh = mock_ssh(
+            {
+                "findmnt": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "mount_option",
+            "mount_point": "/tmp",
+            "options": ["nosuid"],
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.actual is None
+
+        # Mounted: actual = stripped stdout
+        ssh2 = mock_ssh(
+            {
+                "findmnt": Result(
+                    exit_code=0, stdout="rw,nosuid,nodev,relatime", stderr=""
+                ),
+            }
+        )
+        r2 = run_check(ssh2, check)
+        assert r2.evidence is not None
+        assert r2.evidence.actual == "rw,nosuid,nodev,relatime"
+
+
+class TestPackageStateSpecDerived:
+    """Spec-derived tests for package_state handler.
+
+    See specs/handlers/checks/package_state.spec.yaml for full specification.
+    """
+
+    def test_present_installed_returns_pass_with_version(self, mock_ssh):
+        """AC-1: Package installed when state='present' returns passed=True with version."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(
+                    exit_code=0, stdout="aide-0.16-14.el9.x86_64", stderr=""
+                ),
+            }
+        )
+        check = {"method": "package_state", "name": "aide", "state": "present"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "aide: aide-0.16-14.el9.x86_64"
+
+    def test_present_not_installed_returns_fail(self, mock_ssh):
+        """AC-2: Package not installed when state='present' returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {"method": "package_state", "name": "aide", "state": "present"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "aide: not installed"
+
+    def test_absent_not_installed_returns_pass(self, mock_ssh):
+        """AC-3: Package not installed when state='absent' returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {"method": "package_state", "name": "telnet", "state": "absent"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "telnet: not installed (as required)"
+
+    def test_absent_but_installed_returns_fail(self, mock_ssh):
+        """AC-4: Package installed when state='absent' returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(
+                    exit_code=0, stdout="telnet-0.17-85.el9.x86_64", stderr=""
+                ),
+            }
+        )
+        check = {"method": "package_state", "name": "telnet", "state": "absent"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "telnet: installed (should be absent)"
+
+    def test_unknown_state_returns_fail(self, mock_ssh):
+        """AC-5: Unknown state value returns passed=False with error evidence."""
+        ssh = mock_ssh({})
+        check = {"method": "package_state", "name": "aide", "state": "invalid"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "Unknown package state: invalid"
+        assert r.evidence is not None
+        assert r.evidence.method == "error"
+
+    def test_evidence_method_valid_vs_error(self, mock_ssh):
+        """AC-6: Evidence method is 'package_state' for valid, 'error' for unknown."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(
+                    exit_code=0, stdout="aide-0.16-14.el9.x86_64", stderr=""
+                ),
+            }
+        )
+        check = {"method": "package_state", "name": "aide", "state": "present"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "package_state"
+
+
+class TestPamModuleSpecDerived:
+    """Spec-derived tests for pam_module handler.
+
+    See specs/handlers/checks/pam_module.spec.yaml for full specification.
+    """
+
+    def test_module_found_matching_all_criteria(self, mock_ssh):
+        """AC-1: Module found matching all specified criteria returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0,
+                    stdout="auth        required      pam_faillock.so preauth",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert "auth" in r.detail
+        assert "required" in r.detail
+        assert "pam_faillock.so" in r.detail
+
+    def test_module_not_found_in_pam_file(self, mock_ssh):
+        """AC-2: Module not found in PAM file returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "pam_faillock.so not found in /etc/pam.d/system-auth"
+
+    def test_pam_file_does_not_exist(self, mock_ssh):
+        """AC-3: PAM file does not exist returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+                "test -e": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "nonexistent",
+            "module": "pam_faillock.so",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "/etc/pam.d/nonexistent: not found"
+
+    def test_type_mismatch_skips_line(self, mock_ssh):
+        """AC-4: Module found but type mismatch skips the line, returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0,
+                    stdout="password    required      pam_pwquality.so",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_pwquality.so",
+            "type": "auth",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_control_mismatch_skips_line(self, mock_ssh):
+        """AC-5: Module found but control mismatch skips the line, returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0,
+                    stdout="auth        sufficient    pam_faillock.so",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_args_mismatch_skips_line(self, mock_ssh):
+        """AC-6: Module found but args substring not present skips the line."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0,
+                    stdout="auth        required      pam_faillock.so preauth",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+            "type": "auth",
+            "control": "required",
+            "args": "authfail",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+
+    def test_evidence_method_always_pam_module(self, mock_ssh):
+        """AC-7: Evidence method is always 'pam_module'."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_faillock.so",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "pam_module"
+
+    def test_criteria_mismatch_detail_includes_unmatched(self, mock_ssh):
+        """AC-8: Criteria mismatch detail includes the specific criteria not found."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "grep": Result(
+                    exit_code=0,
+                    stdout="password    sufficient    pam_unix.so sha512",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "pam_module",
+            "service": "system-auth",
+            "module": "pam_unix.so",
+            "type": "auth",
+            "control": "required",
+            "args": "nullok",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert "type=auth" in r.detail
+        assert "control=required" in r.detail
+        assert "nullok" in r.detail
+
+
+class TestSelinuxBooleanSpecDerived:
+    """Spec-derived tests for selinux_boolean handler.
+
+    See specs/handlers/checks/selinux_boolean.spec.yaml for full specification.
+    """
+
+    def test_value_matches_returns_pass(self, mock_ssh):
+        """AC-1: Boolean value matching expected returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(
+                    exit_code=0,
+                    stdout="httpd_can_network_connect --> on",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "httpd_can_network_connect",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "httpd_can_network_connect = on"
+
+    def test_value_mismatch_returns_fail(self, mock_ssh):
+        """AC-2: Boolean value not matching expected returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(
+                    exit_code=0,
+                    stdout="httpd_can_network_connect --> off",
+                    stderr="",
+                ),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "httpd_can_network_connect",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "httpd_can_network_connect = off (expected on)"
+
+    def test_not_found_returns_fail(self, mock_ssh):
+        """AC-3: Boolean not found or SELinux disabled returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(exit_code=1, stdout="", stderr="not found"),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "nonexistent_bool",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "nonexistent_bool: not found or SELinux disabled"
+
+    def test_unexpected_output_format(self, mock_ssh):
+        """AC-4: Unexpected output format (fewer than 3 tokens) returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(exit_code=0, stdout="garbled", stderr=""),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "test_bool",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "test_bool: unexpected output format"
+
+    def test_evidence_method_always_selinux_boolean(self, mock_ssh):
+        """AC-5: Evidence method is always 'selinux_boolean'."""
+        ssh = mock_ssh(
+            {
+                "getsebool": Result(exit_code=1, stdout="", stderr="err"),
+            }
+        )
+        check = {
+            "method": "selinux_boolean",
+            "name": "test_bool",
+            "value": True,
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "selinux_boolean"
+
+    def test_evidence_expected_on_off_string(self, mock_ssh):
+        """AC-6: Evidence expected is 'on' when value=True, 'off' when value=False."""
+        ssh_on = mock_ssh(
+            {
+                "getsebool": Result(exit_code=0, stdout="test --> on", stderr=""),
+            }
+        )
+        check_on = {
+            "method": "selinux_boolean",
+            "name": "test",
+            "value": True,
+        }
+        r = run_check(ssh_on, check_on)
+        assert r.evidence is not None
+        assert r.evidence.expected == "on"
+
+        ssh_off = mock_ssh(
+            {
+                "getsebool": Result(exit_code=0, stdout="test --> off", stderr=""),
+            }
+        )
+        check_off = {
+            "method": "selinux_boolean",
+            "name": "test",
+            "value": False,
+        }
+        r2 = run_check(ssh_off, check_off)
+        assert r2.evidence is not None
+        assert r2.evidence.expected == "off"
+
+
+class TestSelinuxStateSpecDerived:
+    """Spec-derived tests for selinux_state handler.
+
+    See specs/handlers/checks/selinux_state.spec.yaml for full specification.
+    """
+
+    def test_mode_matches_returns_pass(self, mock_ssh):
+        """AC-1: SELinux mode matching expected (case-insensitive) returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=0, stdout="Enforcing", stderr=""),
+            }
+        )
+        check = {"method": "selinux_state", "state": "Enforcing"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "SELinux: Enforcing"
+
+    def test_mode_mismatch_returns_fail(self, mock_ssh):
+        """AC-2: SELinux mode not matching expected returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=0, stdout="Permissive", stderr=""),
+            }
+        )
+        check = {"method": "selinux_state", "state": "Enforcing"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "SELinux: Permissive (expected Enforcing)"
+
+    def test_getenforce_fails_returns_fail(self, mock_ssh):
+        """AC-3: getenforce command failing returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=1, stdout="", stderr="not found"),
+            }
+        )
+        check = {"method": "selinux_state"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "getenforce failed - SELinux may not be installed"
+
+    def test_evidence_method_always_selinux_state(self, mock_ssh):
+        """AC-4: Evidence method is always 'selinux_state'."""
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=1, stdout="", stderr="err"),
+            }
+        )
+        check = {"method": "selinux_state"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "selinux_state"
+
+    def test_case_insensitive_comparison(self, mock_ssh):
+        """AC-5: Comparison uses case-insensitive matching."""
+        ssh = mock_ssh(
+            {
+                "getenforce": Result(exit_code=0, stdout="enforcing", stderr=""),
+            }
+        )
+        check = {"method": "selinux_state", "state": "Enforcing"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+
+
+class TestSysctlValueSpecDerived:
+    """Spec-derived tests for sysctl_value handler.
+
+    See specs/handlers/checks/sysctl_value.spec.yaml for full specification.
+    """
+
+    def test_value_matches_returns_pass(self, mock_ssh):
+        """AC-1: Sysctl value matching expected returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "sysctl -n": Result(exit_code=0, stdout="0", stderr=""),
+            }
+        )
+        check = {
+            "method": "sysctl_value",
+            "key": "net.ipv4.ip_forward",
+            "expected": "0",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "net.ipv4.ip_forward=0"
+
+    def test_value_mismatch_returns_fail(self, mock_ssh):
+        """AC-2: Sysctl value not matching expected returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "sysctl -n": Result(exit_code=0, stdout="1", stderr=""),
+            }
+        )
+        check = {
+            "method": "sysctl_value",
+            "key": "net.ipv4.ip_forward",
+            "expected": "0",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "net.ipv4.ip_forward=1 (expected 0)"
+
+    def test_sysctl_not_available_returns_fail(self, mock_ssh):
+        """AC-3: Sysctl command failing returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "sysctl": Result(exit_code=1, stdout="", stderr="error"),
+            }
+        )
+        check = {
+            "method": "sysctl_value",
+            "key": "nonexistent.param",
+            "expected": "0",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert r.detail == "sysctl nonexistent.param: not available"
+
+    def test_evidence_method_always_sysctl_value(self, mock_ssh):
+        """AC-4: Evidence method is always 'sysctl_value'."""
+        ssh = mock_ssh(
+            {
+                "sysctl": Result(exit_code=1, stdout="", stderr="err"),
+            }
+        )
+        check = {
+            "method": "sysctl_value",
+            "key": "net.ipv4.ip_forward",
+            "expected": "0",
+        }
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "sysctl_value"
+
+    def test_detail_format_pass_and_mismatch(self, mock_ssh):
+        """AC-5: Detail format on pass is 'key=actual'; on mismatch includes expected."""
+        ssh = mock_ssh(
+            {
+                "sysctl -n": Result(exit_code=0, stdout="1", stderr=""),
+            }
+        )
+        check = {
+            "method": "sysctl_value",
+            "key": "net.ipv4.ip_forward",
+            "expected": "1",
+        }
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "net.ipv4.ip_forward=1"
+
+    def test_evidence_timestamp_is_utc(self, mock_ssh):
+        """AC-6: Evidence timestamp is a UTC datetime captured before the command executes."""
+        before = datetime.now(timezone.utc)
+        ssh = mock_ssh(
+            {
+                "sysctl -n": Result(exit_code=0, stdout="0", stderr=""),
+            }
+        )
+        check = {
+            "method": "sysctl_value",
+            "key": "net.ipv4.ip_forward",
+            "expected": "0",
+        }
+        r = run_check(ssh, check)
+        after = datetime.now(timezone.utc)
+        assert r.evidence is not None
+        assert isinstance(r.evidence.timestamp, datetime)
+        assert r.evidence.timestamp.tzinfo is not None
+        assert before <= r.evidence.timestamp <= after
+
+
+class TestSystemdTargetSpecDerived:
+    """Spec-derived tests for systemd_target handler.
+
+    See specs/handlers/checks/systemd_target.spec.yaml for full specification.
+    """
+
+    def test_expected_target_matches(self, mock_ssh):
+        """AC-1: Default target matching expected returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="multi-user.target", stderr=""
+                ),
+            }
+        )
+        check = {"method": "systemd_target", "expected": "multi-user.target"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "default target is multi-user.target"
+
+    def test_expected_target_mismatch(self, mock_ssh):
+        """AC-2: Default target not matching expected returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="graphical.target", stderr=""
+                ),
+            }
+        )
+        check = {"method": "systemd_target", "expected": "multi-user.target"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert (
+            r.detail
+            == "default target is graphical.target (expected multi-user.target)"
+        )
+
+    def test_not_expected_passes_when_different(self, mock_ssh):
+        """AC-3: Default target not matching not_expected returns passed=True."""
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="multi-user.target", stderr=""
+                ),
+            }
+        )
+        check = {"method": "systemd_target", "not_expected": "graphical.target"}
+        r = run_check(ssh, check)
+        assert r.passed is True
+        assert r.detail == "default target is multi-user.target"
+
+    def test_not_expected_fails_when_matching(self, mock_ssh):
+        """AC-4: Default target matching not_expected returns passed=False."""
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="graphical.target", stderr=""
+                ),
+            }
+        )
+        check = {"method": "systemd_target", "not_expected": "graphical.target"}
+        r = run_check(ssh, check)
+        assert r.passed is False
+        assert (
+            r.detail
+            == "default target is graphical.target (should not be graphical.target)"
+        )
+
+    def test_evidence_method_always_systemd_target(self, mock_ssh):
+        """AC-5: Evidence method is always 'systemd_target'."""
+        ssh = mock_ssh(
+            {
+                "systemctl get-default": Result(
+                    exit_code=0, stdout="multi-user.target", stderr=""
+                ),
+            }
+        )
+        check = {"method": "systemd_target", "expected": "multi-user.target"}
+        r = run_check(ssh, check)
+        assert r.evidence is not None
+        assert r.evidence.method == "systemd_target"
+
+
 class TestUnknownMethod:
     def test_unknown_check_method(self, mock_ssh):
         ssh = mock_ssh({})
