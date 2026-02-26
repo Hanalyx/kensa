@@ -3,7 +3,7 @@ metadata:
   name: Rollback
   module: cli
   version: 1.0.0
-  status: approved
+  status: released
   system_spec: system.spec.yaml@1.0.0
   created: "2025-02-10"
   updated: "2025-02-25"

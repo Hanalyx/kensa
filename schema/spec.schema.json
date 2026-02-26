@@ -127,8 +127,18 @@
         },
         "status": {
           "type": "string",
-          "enum": ["draft", "review", "approved", "deprecated"],
-          "description": "Spec lifecycle status."
+          "enum": ["draft", "review", "approved", "released", "deprecated"],
+          "description": "Spec lifecycle status: draft → review → approved → released."
+        },
+        "issue": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "GitHub Issue number that tracks this spec."
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["p1", "p2", "p3"],
+          "description": "Implementation priority (p1=critical, p2=important, p3=normal)."
         },
         "owner": {
           "type": "string",
