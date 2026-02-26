@@ -3208,3 +3208,649 @@ class TestRollbackFilePermissionsReturnCode:
         ok, detail = _rollback_file_permissions(ssh, ps)
         assert ok is False
         assert "Failed" in detail
+
+
+# ── Spec-derived tests: security + service + package remediation handlers ───
+
+
+class TestSelinuxBooleanSetSpecDerived:
+    """Spec-derived tests for selinux_boolean_set remediation handler.
+
+    See specs/handlers/remediation/selinux_boolean_set.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would run: setsebool" in detail
+        assert "httpd_can_network_connect" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_includes_persistent_flag(self, mock_ssh):
+        """AC-2: Dry-run includes -P when persistent=True (default)."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "-P " in detail
+
+    def test_dry_run_explicit_persistent_true(self, mock_ssh):
+        """AC-2: Dry-run includes -P when persistent=True explicitly."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "selinux_boolean_set",
+            "name": "httpd_can_network_connect",
+            "persistent": True,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "-P " in detail
+
+    def test_dry_run_without_persistent_flag(self, mock_ssh):
+        """AC-3: Dry-run without -P when persistent=False."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "selinux_boolean_set",
+            "name": "httpd_can_network_connect",
+            "persistent": False,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "-P " not in detail
+        assert "Would run: setsebool httpd_can_network_connect" in detail
+
+    def test_success_persistent(self, mock_ssh):
+        """AC-4: Success path with persistent=True returns expected detail."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set httpd_can_network_connect = on (persistent)"
+
+    def test_success_non_persistent(self, mock_ssh):
+        """AC-5: Success path with persistent=False omits '(persistent)'."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        rem = {
+            "mechanism": "selinux_boolean_set",
+            "name": "httpd_can_network_connect",
+            "persistent": False,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set httpd_can_network_connect = on"
+        assert "(persistent)" not in detail
+
+    def test_setsebool_failure(self, mock_ssh):
+        """AC-6: Setsebool failure returns (False, 'setsebool failed: {stderr}')."""
+        ssh = mock_ssh(
+            {
+                "setsebool": Result(
+                    exit_code=1, stdout="", stderr="Could not change boolean"
+                )
+            }
+        )
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "setsebool failed" in detail
+        assert "Could not change boolean" in detail
+
+    def test_default_value_is_true(self, mock_ssh):
+        """AC-7: Default value is True, which maps to 'on'."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert "= on" in detail
+
+    def test_default_persistent_is_true(self, mock_ssh):
+        """AC-8: Default persistent is True, so (persistent) appears in detail."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert "(persistent)" in detail
+
+    def test_value_conversion_true_to_on(self, mock_ssh):
+        """AC-9: Boolean True maps to 'on'."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        rem = {
+            "mechanism": "selinux_boolean_set",
+            "name": "httpd_can_network_connect",
+            "value": True,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert "= on" in detail
+
+    def test_value_conversion_false_to_off(self, mock_ssh):
+        """AC-9: Boolean False maps to 'off'."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        rem = {
+            "mechanism": "selinux_boolean_set",
+            "name": "httpd_can_network_connect",
+            "value": False,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert "= off" in detail
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-10: Boolean name is passed through shell_util.quote()."""
+        ssh = mock_ssh({"setsebool": Result(exit_code=0, stdout="", stderr="")})
+        # Use a name with a space to force visible quoting by shlex.quote
+        rem = {
+            "mechanism": "selinux_boolean_set",
+            "name": "my boolean",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        setsebool_cmds = [c for c in ssh.commands_run if "setsebool" in c]
+        assert len(setsebool_cmds) == 1
+        assert "'my boolean'" in setsebool_cmds[0]
+
+    def test_extended_timeout(self, mock_ssh):
+        """AC-11: The setsebool command uses a 60-second timeout."""
+        timeouts = []
+
+        class TimeoutSSH:
+            def __init__(self):
+                self.commands_run = []
+                self.sudo = False
+
+            def run(self, cmd, *, timeout=None):
+                self.commands_run.append(cmd)
+                timeouts.append(timeout)
+                return Result(exit_code=0, stdout="", stderr="")
+
+        ssh = TimeoutSSH()
+        rem = {"mechanism": "selinux_boolean_set", "name": "httpd_can_network_connect"}
+        from runner.handlers.remediation import _dispatch_remediation
+
+        _dispatch_remediation(ssh, rem)
+        assert 60 in timeouts
+
+
+class TestSelinuxStateSetSpecDerived:
+    """Spec-derived tests for selinux_state_set remediation handler.
+
+    See specs/handlers/remediation/selinux_state_set.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "selinux_state_set", "state": "enforcing"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would set SELinux to enforcing"
+        assert len(ssh.commands_run) == 0
+
+    def test_config_file_update(self, mock_ssh):
+        """AC-2: Config file /etc/selinux/config is modified with SELINUX={state}."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "setenforce": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "enforcing"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 1
+        assert "SELINUX=" in sed_cmds[0]
+        assert "/etc/selinux/config" in sed_cmds[0]
+
+    def test_runtime_enforcement_enforcing(self, mock_ssh):
+        """AC-3: setenforce 1 is called when state is 'enforcing'."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "setenforce": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "enforcing"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        setenforce_cmds = [c for c in ssh.commands_run if "setenforce" in c]
+        assert len(setenforce_cmds) == 1
+        assert "setenforce 1" in setenforce_cmds[0]
+
+    def test_runtime_enforcement_permissive(self, mock_ssh):
+        """AC-3: setenforce 0 is called when state is 'permissive'."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "setenforce": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "permissive"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        setenforce_cmds = [c for c in ssh.commands_run if "setenforce" in c]
+        assert len(setenforce_cmds) == 1
+        assert "setenforce 0" in setenforce_cmds[0]
+
+    def test_disabled_state_no_setenforce(self, mock_ssh):
+        """AC-4: When state is 'disabled', setenforce is not called."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "disabled"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert not any("setenforce" in cmd for cmd in ssh.commands_run)
+
+    def test_success_path(self, mock_ssh):
+        """AC-5: Success returns (True, 'Set SELinux to {state}')."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "setenforce": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "enforcing"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set SELinux to enforcing"
+
+    def test_success_disabled(self, mock_ssh):
+        """AC-5: Success with disabled state."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "disabled"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set SELinux to disabled"
+
+    def test_config_update_failure(self, mock_ssh):
+        """AC-6: Config modification failure returns failure detail."""
+        ssh = mock_ssh(
+            {
+                "sed -i": Result(exit_code=1, stdout="", stderr="Permission denied"),
+            }
+        )
+        rem = {"mechanism": "selinux_state_set", "state": "enforcing"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to set SELinux config" in detail
+        assert "Permission denied" in detail
+
+
+class TestServiceMaskedSpecDerived:
+    """Spec-derived tests for service_masked remediation handler.
+
+    See specs/handlers/remediation/service_masked.spec.yaml.
+    """
+
+    def test_dry_run_with_stop_default(self, mock_ssh):
+        """AC-1: Dry-run with stop=True (default) returns expected message."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "service_masked", "name": "autofs"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would stop and mask autofs"
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_with_stop_false(self, mock_ssh):
+        """AC-2: Dry-run with stop=False returns 'Would mask {name}'."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "service_masked", "name": "autofs", "stop": False}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would mask autofs"
+        assert len(ssh.commands_run) == 0
+
+    def test_full_success_with_stop(self, mock_ssh):
+        """AC-3: Full success with stop returns 'Stopped and masked {name}'."""
+        ssh = mock_ssh(
+            {
+                "systemctl stop": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl mask": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Stopped and masked autofs"
+
+    def test_stop_failure_ignored(self, mock_ssh):
+        """AC-4: Stop failure is ignored; handler proceeds to mask."""
+        ssh = mock_ssh(
+            {
+                "systemctl stop": Result(
+                    exit_code=5, stdout="", stderr="Unit not loaded"
+                ),
+                "systemctl mask": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Stopped and masked autofs" in detail
+
+    def test_mask_failure(self, mock_ssh):
+        """AC-5: Mask failure returns failure detail with stderr."""
+        ssh = mock_ssh(
+            {
+                "systemctl stop": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl mask": Result(
+                    exit_code=1, stdout="", stderr="Access denied"
+                ),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to mask autofs" in detail
+        assert "Access denied" in detail
+
+    def test_mask_only_success(self, mock_ssh):
+        """AC-6: Mask-only success with stop=False returns 'Masked {name}'."""
+        ssh = mock_ssh(
+            {
+                "systemctl mask": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs", "stop": False}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Masked autofs"
+        assert not any("systemctl stop" in cmd for cmd in ssh.commands_run)
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-7: Service name is passed through shell_util.quote()."""
+        ssh = mock_ssh(
+            {
+                "systemctl stop": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl mask": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        # Use a name with space to force visible quoting
+        rem = {"mechanism": "service_masked", "name": "my service"}
+        run_remediation(ssh, rem, snapshot=False)
+        systemctl_cmds = [c for c in ssh.commands_run if "systemctl" in c]
+        assert len(systemctl_cmds) >= 1
+        for cmd in systemctl_cmds:
+            assert "'my service'" in cmd
+
+    def test_mask_failure_with_stop_false(self, mock_ssh):
+        """AC-5: Mask failure with stop=False also returns failure."""
+        ssh = mock_ssh(
+            {
+                "systemctl mask": Result(
+                    exit_code=1, stdout="", stderr="Failed to mask"
+                ),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs", "stop": False}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to mask autofs" in detail
+
+    def test_stop_default_is_true(self, mock_ssh):
+        """AC-8: When stop is not provided, defaults to True."""
+        ssh = mock_ssh(
+            {
+                "systemctl stop": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl mask": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("systemctl stop" in cmd for cmd in ssh.commands_run)
+        assert "Stopped and masked" in detail
+
+    def test_stop_before_mask_ordering(self, mock_ssh):
+        """AC-8: Stop runs before mask."""
+        ssh = mock_ssh(
+            {
+                "systemctl stop": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl mask": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "service_masked", "name": "autofs"}
+        run_remediation(ssh, rem, snapshot=False)
+        systemctl_cmds = [c for c in ssh.commands_run if "systemctl" in c]
+        stop_idx = next(i for i, c in enumerate(systemctl_cmds) if "stop" in c)
+        mask_idx = next(i for i, c in enumerate(systemctl_cmds) if "mask" in c)
+        assert stop_idx < mask_idx
+
+
+class TestPackageAbsentSpecDerived:
+    """Spec-derived tests for package_absent remediation handler.
+
+    See specs/handlers/remediation/package_absent.spec.yaml.
+    """
+
+    def test_already_absent(self, mock_ssh):
+        """AC-1: When package is not installed, returns success immediately."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "telnet: already not installed" in detail
+        assert not any("dnf" in cmd for cmd in ssh.commands_run)
+
+    def test_already_absent_skips_dry_run_check(self, mock_ssh):
+        """AC-1: Already absent returns immediately even when dry_run=True."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "already not installed" in detail
+
+    def test_dry_run_with_package_present(self, mock_ssh):
+        """AC-2: Dry-run with package installed returns 'Would remove {name}'."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=0, stdout="telnet-0.17-83.el9", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would remove telnet"
+        assert not any("dnf remove" in cmd for cmd in ssh.commands_run)
+
+    def test_success_path(self, mock_ssh):
+        """AC-3: Successful removal returns (True, 'Removed {name}')."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=0, stdout="telnet-0.17-83.el9", stderr=""),
+                "dnf remove": Result(exit_code=0, stdout="Complete!", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Removed telnet"
+
+    def test_remove_failure(self, mock_ssh):
+        """AC-4: Remove failure returns failure detail with stderr."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=0, stdout="telnet-0.17-83.el9", stderr=""),
+                "dnf remove": Result(exit_code=1, stdout="", stderr="Error: depsolve"),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "dnf remove failed" in detail
+        assert "depsolve" in detail
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-5: Package name is passed through shell_util.quote()."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=0, stdout="my pkg-0.1", stderr=""),
+                "dnf remove": Result(exit_code=0, stdout="Complete!", stderr=""),
+            }
+        )
+        # Use a name with a space to force visible quoting
+        rem = {"mechanism": "package_absent", "name": "my pkg"}
+        run_remediation(ssh, rem, snapshot=False)
+        rpm_cmds = [c for c in ssh.commands_run if "rpm -q" in c]
+        dnf_cmds = [c for c in ssh.commands_run if "dnf remove" in c]
+        assert len(rpm_cmds) == 1
+        assert "'my pkg'" in rpm_cmds[0]
+        assert len(dnf_cmds) == 1
+        assert "'my pkg'" in dnf_cmds[0]
+
+    def test_extended_timeout(self, mock_ssh):
+        """AC-6: The dnf remove command uses a 300-second timeout."""
+        timeouts = []
+
+        class TimeoutSSH:
+            def __init__(self):
+                self.commands_run = []
+                self.sudo = False
+
+            def run(self, cmd, *, timeout=None):
+                self.commands_run.append(cmd)
+                timeouts.append(timeout)
+                if "rpm -q" in cmd:
+                    return Result(exit_code=0, stdout="telnet-0.17", stderr="")
+                return Result(exit_code=0, stdout="Complete!", stderr="")
+
+        ssh = TimeoutSSH()
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        from runner.handlers.remediation import _dispatch_remediation
+
+        _dispatch_remediation(ssh, rem)
+        assert 300 in timeouts
+
+    def test_idempotency_check_suppresses_stderr(self, mock_ssh):
+        """AC-7: The rpm -q command uses 2>/dev/null to suppress stderr."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        run_remediation(ssh, rem, snapshot=False)
+        rpm_cmds = [c for c in ssh.commands_run if "rpm -q" in c]
+        assert len(rpm_cmds) == 1
+        assert "2>/dev/null" in rpm_cmds[0]
+
+    def test_absent_check_before_dry_run(self, mock_ssh):
+        """AC-1: The absent check runs before the dry_run check by design."""
+        ssh = mock_ssh(
+            {
+                "rpm -q": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_absent", "name": "telnet"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "already not installed" in detail
+        assert "Would remove" not in detail
+
+
+class TestPackagePresentSpecDerived:
+    """Spec-derived tests for package_present remediation handler.
+
+    See specs/handlers/remediation/package_present.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "package_present", "name": "aide"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would install aide"
+        assert len(ssh.commands_run) == 0
+
+    def test_success_path(self, mock_ssh):
+        """AC-2: Successful install returns (True, 'Installed {name}')."""
+        ssh = mock_ssh(
+            {
+                "dnf install": Result(exit_code=0, stdout="Complete!", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_present", "name": "aide"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Installed aide"
+
+    def test_install_failure(self, mock_ssh):
+        """AC-3: Install failure returns failure detail with stderr."""
+        ssh = mock_ssh(
+            {
+                "dnf install": Result(
+                    exit_code=1, stdout="", stderr="No package aide available"
+                ),
+            }
+        )
+        rem = {"mechanism": "package_present", "name": "aide"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "dnf install failed" in detail
+        assert "No package aide available" in detail
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-4: Package name is passed through shell_util.quote()."""
+        ssh = mock_ssh(
+            {
+                "dnf install": Result(exit_code=0, stdout="Complete!", stderr=""),
+            }
+        )
+        # Use a name with a space to force visible quoting
+        rem = {"mechanism": "package_present", "name": "my pkg"}
+        run_remediation(ssh, rem, snapshot=False)
+        dnf_cmds = [c for c in ssh.commands_run if "dnf install" in c]
+        assert len(dnf_cmds) == 1
+        assert "'my pkg'" in dnf_cmds[0]
+
+    def test_extended_timeout(self, mock_ssh):
+        """AC-5: The dnf install command uses a 300-second timeout."""
+        timeouts = []
+
+        class TimeoutSSH:
+            def __init__(self):
+                self.commands_run = []
+                self.sudo = False
+
+            def run(self, cmd, *, timeout=None):
+                self.commands_run.append(cmd)
+                timeouts.append(timeout)
+                return Result(exit_code=0, stdout="Complete!", stderr="")
+
+        ssh = TimeoutSSH()
+        rem = {"mechanism": "package_present", "name": "aide"}
+        from runner.handlers.remediation import _dispatch_remediation
+
+        _dispatch_remediation(ssh, rem)
+        assert 300 in timeouts
+
+    def test_uses_dash_y_flag(self, mock_ssh):
+        """AC-5: The dnf install command uses -y flag for non-interactive install."""
+        ssh = mock_ssh(
+            {
+                "dnf install": Result(exit_code=0, stdout="Complete!", stderr=""),
+            }
+        )
+        rem = {"mechanism": "package_present", "name": "aide"}
+        run_remediation(ssh, rem, snapshot=False)
+        dnf_cmds = [c for c in ssh.commands_run if "dnf install" in c]
+        assert len(dnf_cmds) == 1
+        assert "-y" in dnf_cmds[0]
+
+    def test_dry_run_no_dnf_command(self, mock_ssh):
+        """AC-1: Dry-run does not execute any dnf commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "package_present", "name": "aide"}
+        run_remediation(ssh, rem, dry_run=True)
+        assert not any("dnf" in cmd for cmd in ssh.commands_run)

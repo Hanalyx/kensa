@@ -60,6 +60,7 @@ from runner.handlers.remediation._security import (
     _remediate_audit_rule_set,
     _remediate_pam_module_configure,
     _remediate_selinux_boolean_set,
+    _remediate_selinux_state_set,
 )
 from runner.handlers.remediation._service import (
     _remediate_service_disabled,
@@ -106,6 +107,7 @@ REMEDIATION_HANDLERS = {
     "cron_job": _remediate_cron_job,
     # Security handlers
     "selinux_boolean_set": _remediate_selinux_boolean_set,
+    "selinux_state_set": _remediate_selinux_state_set,
     "audit_rule_set": _remediate_audit_rule_set,
     "pam_module_configure": _remediate_pam_module_configure,
     # Command handlers
