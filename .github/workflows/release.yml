@@ -6,6 +6,12 @@
 #   - feat!: or BREAKING CHANGE: -> major version bump (0.1.0 -> 1.0.0)
 #
 # Manual trigger available to force a specific version bump.
+#
+# Branch protection prevents direct pushes to main, so this workflow:
+#   1. Determines the next version via semantic-release (no commit/push)
+#   2. Bumps pyproject.toml on a release branch and opens a PR
+#   3. Creates a GitHub release + tag via the API (tags are not branch-protected)
+#   4. Builds and attaches RPMs to the release
 
 name: Release
 
@@ -38,6 +44,7 @@ on:
 permissions:
   contents: write
   packages: write
+  pull-requests: write
 
 jobs:
   release:
@@ -70,51 +77,78 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Semantic Release
+      - name: Determine next version
         id: semrel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Determine version bump (semantic-release pushes commits and tags via GitHub API)
+          # Check if a release is needed (dry run)
           if [ -n "${{ inputs.force_version }}" ]; then
-            echo "Forcing ${{ inputs.force_version }} version bump"
-            semantic-release version --${{ inputs.force_version }}
+            NEXT=$(semantic-release --strict version --print --${{ inputs.force_version }} 2>/dev/null || echo "")
           else
-            semantic-release version
+            NEXT=$(semantic-release --strict version --print 2>/dev/null || echo "")
           fi
 
-          # Get the new version if created
-          NEW_VERSION=$(semantic-release version --print 2>/dev/null || echo "")
-          if [ -n "$NEW_VERSION" ]; then
-            echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-            echo "released=true" >> $GITHUB_OUTPUT
-            echo "New version: $NEW_VERSION"
-          else
+          if [ -z "$NEXT" ]; then
             echo "released=false" >> $GITHUB_OUTPUT
             echo "No release needed"
+            exit 0
           fi
+
+          echo "version=$NEXT" >> $GITHUB_OUTPUT
+          echo "released=true" >> $GITHUB_OUTPUT
+          echo "Next version: $NEXT"
+
+      - name: Bump version and create release branch
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          BRANCH="release/v${VERSION}"
+          git checkout -b "$BRANCH"
+
+          # Bump version in pyproject.toml
+          sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
+
+          # Generate changelog update
+          semantic-release changelog 2>/dev/null || true
+
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore(release): ${VERSION} [skip ci]" || echo "No changes to commit"
+          git push origin "$BRANCH"
+
+          # Create and auto-merge the version bump PR
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(release): ${VERSION}" \
+            --body "Automated version bump to ${VERSION}. This PR is auto-merged by the release workflow.")
+
+          # Enable auto-merge (will merge once CI passes)
+          gh pr merge "$PR_URL" --auto --merge || true
 
       - name: Build package
         if: steps.semrel.outputs.released == 'true'
-        run: python -m build
+        env:
+          VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          # Build from the release branch (has updated version)
+          git checkout "release/v${VERSION}"
+          python -m build
 
       - name: Create GitHub Release
         if: steps.semrel.outputs.released == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.semrel.outputs.version }}
-          name: Release v${{ steps.semrel.outputs.version }}
-          files: dist/*
-          generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to GitHub Packages
-        if: steps.semrel.outputs.released == 'true'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.semrel.outputs.version }}
         run: |
-          # Create pip-installable release asset info
-          echo "Package can be installed with:"
-          echo "  pip install git+https://github.com/${{ github.repository }}.git@v${{ steps.semrel.outputs.version }}"
+          # Create tag and release via GitHub API (bypasses branch protection)
+          gh release create "v${VERSION}" \
+            --title "Release v${VERSION}" \
+            --generate-notes \
+            --target main \
+            dist/*
 
   rpm:
     name: Build RPM (${{ matrix.distro }})
