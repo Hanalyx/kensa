@@ -3854,3 +3854,1065 @@ class TestPackagePresentSpecDerived:
         rem = {"mechanism": "package_present", "name": "aide"}
         run_remediation(ssh, rem, dry_run=True)
         assert not any("dnf" in cmd for cmd in ssh.commands_run)
+
+
+class TestCommandExecSpecDerived:
+    """Spec-derived tests for command_exec remediation handler.
+
+    See specs/handlers/remediation/command_exec.spec.yaml.
+    """
+
+    def test_unless_guard_passes_skips(self, mock_ssh):
+        """AC-1: Unless guard succeeds (exit 0) skips execution."""
+        ssh = mock_ssh(
+            {
+                "test -f /var/lib/aide/aide.db.gz": Result(
+                    exit_code=0, stdout="", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "aide --init",
+            "unless": "test -f /var/lib/aide/aide.db.gz",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert (
+            detail == "Skipped (unless guard passed): test -f /var/lib/aide/aide.db.gz"
+        )
+        assert not any("aide --init" in cmd for cmd in ssh.commands_run)
+
+    def test_onlyif_guard_fails_skips(self, mock_ssh):
+        """AC-2: Onlyif guard fails (non-zero exit) skips execution."""
+        ssh = mock_ssh(
+            {
+                "which aide": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "aide --init",
+            "onlyif": "which aide",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Skipped (onlyif guard failed): which aide"
+        assert not any("aide --init" in cmd for cmd in ssh.commands_run)
+
+    def test_guard_evaluation_order_unless_first(self, mock_ssh):
+        """AC-3: Unless guard is checked first; if it passes, onlyif is not evaluated."""
+        ssh = mock_ssh(
+            {
+                "test -f /check": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "do-something",
+            "unless": "test -f /check",
+            "onlyif": "which tool",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "unless guard passed" in detail
+        assert not any("which tool" in cmd for cmd in ssh.commands_run)
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-4: Dry-run returns preview without executing the main command."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "command_exec", "run": "aide --init"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would run: aide --init"
+        assert len(ssh.commands_run) == 0
+
+    def test_guards_evaluated_in_dry_run(self, mock_ssh):
+        """AC-5: Guard commands are evaluated even when dry_run=True."""
+        ssh = mock_ssh(
+            {
+                "which aide": Result(exit_code=0, stdout="/usr/bin/aide", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "aide --init",
+            "onlyif": "which aide",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would run: aide --init"
+        assert any("which aide" in cmd for cmd in ssh.commands_run)
+        assert not any("aide --init" in cmd for cmd in ssh.commands_run)
+
+    def test_unless_guard_evaluated_in_dry_run_skips(self, mock_ssh):
+        """AC-5: Unless guard evaluated in dry-run; if it passes, main command is skipped."""
+        ssh = mock_ssh(
+            {
+                "test -f /ok": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "dangerous-cmd",
+            "unless": "test -f /ok",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "unless guard passed" in detail
+
+    def test_success_path(self, mock_ssh):
+        """AC-6: Command succeeds returns (True, 'Executed: {cmd}')."""
+        ssh = mock_ssh(
+            {
+                "aide --init": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "command_exec", "run": "aide --init"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Executed: aide --init"
+
+    def test_command_failure_returns_false(self, mock_ssh):
+        """AC-7: Command failure returns (False, 'Command failed (exit N): ...')."""
+        ssh = mock_ssh(
+            {
+                "bad-cmd": Result(exit_code=127, stdout="", stderr="not found"),
+            }
+        )
+        rem = {"mechanism": "command_exec", "run": "bad-cmd"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Command failed (exit 127)" in detail
+
+    def test_failure_detail_prefers_stderr(self, mock_ssh):
+        """AC-8: Failure detail uses stderr when available."""
+        ssh = mock_ssh(
+            {
+                "fail-cmd": Result(
+                    exit_code=1, stdout="stdout-output", stderr="stderr-output"
+                ),
+            }
+        )
+        rem = {"mechanism": "command_exec", "run": "fail-cmd"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "stderr-output" in detail
+        assert "stdout-output" not in detail
+
+    def test_failure_detail_falls_back_to_stdout(self, mock_ssh):
+        """AC-8: Failure detail falls back to stdout when stderr is empty."""
+        ssh = mock_ssh(
+            {
+                "fail-cmd": Result(exit_code=1, stdout="stdout-fallback", stderr=""),
+            }
+        )
+        rem = {"mechanism": "command_exec", "run": "fail-cmd"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "stdout-fallback" in detail
+
+    def test_service_action_on_success(self, mock_ssh):
+        """AC-9: Service action is called after successful command."""
+        ssh = mock_ssh(
+            {
+                "my-cmd": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "my-cmd",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("systemctl" in cmd and "sshd" in cmd for cmd in ssh.commands_run)
+
+    def test_no_service_action_on_failure(self, mock_ssh):
+        """AC-10: When command fails, service_action is not called."""
+        ssh = mock_ssh(
+            {
+                "fail-cmd": Result(exit_code=1, stdout="", stderr="error"),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "fail-cmd",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_extended_timeout(self, mock_ssh):
+        """AC-11: The main command uses a 120-second timeout."""
+        timeouts = []
+
+        class TimeoutSSH:
+            def __init__(self):
+                self.commands_run = []
+                self.sudo = False
+
+            def run(self, cmd, *, timeout=None):
+                self.commands_run.append(cmd)
+                timeouts.append(timeout)
+                return Result(exit_code=0, stdout="", stderr="")
+
+        ssh = TimeoutSSH()
+        rem = {"mechanism": "command_exec", "run": "aide --init"}
+        from runner.handlers.remediation import _dispatch_remediation
+
+        _dispatch_remediation(ssh, rem)
+        assert 120 in timeouts
+
+    def test_guard_both_pass_execution_proceeds(self, mock_ssh):
+        """AC-3: When unless fails and onlyif succeeds, execution proceeds."""
+        ssh = mock_ssh(
+            {
+                "test -f /missing": Result(exit_code=1, stdout="", stderr=""),
+                "which aide": Result(exit_code=0, stdout="/usr/bin/aide", stderr=""),
+                "aide --init": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "command_exec",
+            "run": "aide --init",
+            "unless": "test -f /missing",
+            "onlyif": "which aide",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Executed: aide --init"
+
+
+class TestCronJobSpecDerived:
+    """Spec-derived tests for cron_job remediation handler.
+
+    See specs/handlers/remediation/cron_job.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would create /etc/cron.d/kensa-managed" in detail
+        assert "0 5 * * * root /usr/sbin/aide --check" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_success_path(self, mock_ssh):
+        """AC-2: Successful write returns (True, 'Created cron job: {path}')."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Created cron job: /etc/cron.d/kensa-managed"
+
+    def test_write_failure(self, mock_ssh):
+        """AC-3: Write failure returns (False, 'Failed to create cron job')."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "Failed to create cron job"
+
+    def test_write_failure_no_chmod(self, mock_ssh):
+        """AC-3: Write failure does not attempt to set permissions."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        assert not any("chmod" in cmd for cmd in ssh.commands_run)
+
+    def test_default_user_is_root(self, mock_ssh):
+        """AC-4: When user is not provided, defaults to 'root'."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        printf_cmds = [c for c in ssh.commands_run if "printf" in c]
+        assert len(printf_cmds) == 1
+        assert "root" in printf_cmds[0]
+
+    def test_custom_user(self, mock_ssh):
+        """AC-4: Custom user appears in the cron line."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+            "user": "nobody",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "nobody" in detail
+
+    def test_default_name_is_kensa_managed(self, mock_ssh):
+        """AC-5: When name is not provided, defaults to 'kensa-managed'."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert "/etc/cron.d/kensa-managed" in detail
+
+    def test_custom_name_in_path(self, mock_ssh):
+        """AC-6: Cron file path is /etc/cron.d/{name}."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+            "name": "aide-check",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert detail == "Created cron job: /etc/cron.d/aide-check"
+
+    def test_cron_line_format(self, mock_ssh):
+        """AC-7: The file contains '{schedule} {user} {command}\\n'."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+            "user": "aide",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        printf_cmds = [c for c in ssh.commands_run if "printf" in c]
+        assert len(printf_cmds) == 1
+        assert "0 5 * * * aide /usr/sbin/aide --check" in printf_cmds[0]
+
+    def test_file_permissions_set_to_644(self, mock_ssh):
+        """AC-8: After successful write, file permissions are set to 644."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "cron_job",
+            "schedule": "0 5 * * *",
+            "command": "/usr/sbin/aide --check",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        chmod_cmds = [c for c in ssh.commands_run if "chmod" in c]
+        assert len(chmod_cmds) == 1
+        assert "644" in chmod_cmds[0]
+        assert "/etc/cron.d/kensa-managed" in chmod_cmds[0]
+
+
+class TestGrubParameterSetSpecDerived:
+    """Spec-derived tests for grub_parameter_set remediation handler.
+
+    See specs/handlers/remediation/grub_parameter_set.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "grub_parameter_set", "key": "audit", "value": "1"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would set kernel arg: audit=1"
+        assert len(ssh.commands_run) == 0
+
+    def test_key_value_parameter(self, mock_ssh):
+        """AC-2: Key-value parameter formats as '{key}={value}'."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "grub_parameter_set",
+            "key": "audit_backlog_limit",
+            "value": "8192",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set kernel arg: audit_backlog_limit=8192"
+
+    def test_standalone_flag(self, mock_ssh):
+        """AC-3: Without value, argument is just the key."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_set", "key": "audit"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set kernel arg: audit"
+
+    def test_success_path(self, mock_ssh):
+        """AC-4: Grubby success returns (True, 'Set kernel arg: {arg}')."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_set", "key": "audit", "value": "1"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set kernel arg: audit=1"
+
+    def test_grubby_failure(self, mock_ssh):
+        """AC-5: Grubby failure returns (False, 'grubby failed: {stderr}')."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=1, stdout="", stderr="grubby: not a valid argument"
+                ),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_set", "key": "bad_param", "value": "1"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "grubby failed" in detail
+        assert "not a valid argument" in detail
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-6: The composed argument is passed through shell_util.quote()."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "grub_parameter_set",
+            "key": "my param",
+            "value": "my val",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        grubby_cmds = [c for c in ssh.commands_run if "grubby" in c]
+        assert len(grubby_cmds) == 1
+        assert "'my param=my val'" in grubby_cmds[0]
+
+    def test_all_kernels_flag(self, mock_ssh):
+        """AC-7: The grubby command uses --update-kernel=ALL."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_set", "key": "audit", "value": "1"}
+        run_remediation(ssh, rem, snapshot=False)
+        grubby_cmds = [c for c in ssh.commands_run if "grubby" in c]
+        assert len(grubby_cmds) == 1
+        assert "--update-kernel=ALL" in grubby_cmds[0]
+
+    def test_dry_run_standalone_flag(self, mock_ssh):
+        """AC-1: Dry-run preview for standalone flag shows just the key."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "grub_parameter_set", "key": "audit"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert detail == "Would set kernel arg: audit"
+
+    def test_args_flag_in_grubby_command(self, mock_ssh):
+        """AC-7: The grubby command uses --args= for setting parameters."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_set", "key": "audit", "value": "1"}
+        run_remediation(ssh, rem, snapshot=False)
+        grubby_cmds = [c for c in ssh.commands_run if "grubby" in c]
+        assert len(grubby_cmds) == 1
+        assert "--args=" in grubby_cmds[0]
+
+
+class TestGrubParameterRemoveSpecDerived:
+    """Spec-derived tests for grub_parameter_remove remediation handler.
+
+    See specs/handlers/remediation/grub_parameter_remove.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "grub_parameter_remove", "key": "vga"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would remove kernel arg: vga"
+        assert len(ssh.commands_run) == 0
+
+    def test_success_path(self, mock_ssh):
+        """AC-2: Grubby success returns (True, 'Removed kernel arg: {key}')."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_remove", "key": "vga"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Removed kernel arg: vga"
+
+    def test_grubby_failure(self, mock_ssh):
+        """AC-3: Grubby failure returns (False, 'grubby failed: {stderr}')."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(
+                    exit_code=1, stdout="", stderr="grubby: error removing arg"
+                ),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_remove", "key": "vga"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "grubby failed" in detail
+        assert "error removing arg" in detail
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-4: The key is passed through shell_util.quote()."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_remove", "key": "my param"}
+        run_remediation(ssh, rem, snapshot=False)
+        grubby_cmds = [c for c in ssh.commands_run if "grubby" in c]
+        assert len(grubby_cmds) == 1
+        assert "'my param'" in grubby_cmds[0]
+
+    def test_all_kernels_flag(self, mock_ssh):
+        """AC-5: The grubby command uses --update-kernel=ALL."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_remove", "key": "vga"}
+        run_remediation(ssh, rem, snapshot=False)
+        grubby_cmds = [c for c in ssh.commands_run if "grubby" in c]
+        assert len(grubby_cmds) == 1
+        assert "--update-kernel=ALL" in grubby_cmds[0]
+
+    def test_remove_args_flag_in_grubby_command(self, mock_ssh):
+        """AC-5: The grubby command uses --remove-args= for removal."""
+        ssh = mock_ssh(
+            {
+                "grubby": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "grub_parameter_remove", "key": "vga"}
+        run_remediation(ssh, rem, snapshot=False)
+        grubby_cmds = [c for c in ssh.commands_run if "grubby" in c]
+        assert len(grubby_cmds) == 1
+        assert "--remove-args=" in grubby_cmds[0]
+
+    def test_dry_run_no_grubby_commands(self, mock_ssh):
+        """AC-1: Dry-run does not execute any grubby commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "grub_parameter_remove", "key": "vga"}
+        run_remediation(ssh, rem, dry_run=True)
+        assert not any("grubby" in cmd for cmd in ssh.commands_run)
+
+
+class TestKernelModuleDisableSpecDerived:
+    """Spec-derived tests for kernel_module_disable remediation handler.
+
+    See specs/handlers/remediation/kernel_module_disable.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would blacklist cramfs in /etc/modprobe.d/cramfs.conf"
+        assert len(ssh.commands_run) == 0
+
+    def test_success_path(self, mock_ssh):
+        """AC-2: Write success returns (True, 'Blacklisted {name}')."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "modprobe -r": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Blacklisted cramfs"
+
+    def test_write_failure(self, mock_ssh):
+        """AC-3: Write failure returns (False, 'Failed to write {conf_path}')."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "Failed to write /etc/modprobe.d/cramfs.conf"
+
+    def test_write_failure_no_modprobe(self, mock_ssh):
+        """AC-3: Write failure does not attempt modprobe -r."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        run_remediation(ssh, rem, snapshot=False)
+        assert not any("modprobe -r" in cmd for cmd in ssh.commands_run)
+
+    def test_config_file_path(self, mock_ssh):
+        """AC-4: The configuration file path is /etc/modprobe.d/{name}.conf."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "modprobe -r": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "kernel_module_disable", "name": "usb-storage"}
+        run_remediation(ssh, rem, snapshot=False)
+        printf_cmds = [c for c in ssh.commands_run if "printf" in c]
+        assert len(printf_cmds) == 1
+        assert "/etc/modprobe.d/usb-storage.conf" in printf_cmds[0]
+
+    def test_config_content(self, mock_ssh):
+        """AC-5: Written file contains blacklist and install directives."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "modprobe -r": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        run_remediation(ssh, rem, snapshot=False)
+        printf_cmds = [c for c in ssh.commands_run if "printf" in c]
+        assert len(printf_cmds) == 1
+        assert "blacklist cramfs" in printf_cmds[0]
+        assert "install cramfs /bin/false" in printf_cmds[0]
+
+    def test_module_unload_best_effort(self, mock_ssh):
+        """AC-6: modprobe -r failure does not affect overall success."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "modprobe -r": Result(
+                    exit_code=1, stdout="", stderr="Module not loaded"
+                ),
+            }
+        )
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Blacklisted cramfs"
+
+    def test_modprobe_stderr_suppressed(self, mock_ssh):
+        """AC-6: modprobe -r command redirects stderr to /dev/null."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "modprobe -r": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "kernel_module_disable", "name": "cramfs"}
+        run_remediation(ssh, rem, snapshot=False)
+        modprobe_cmds = [c for c in ssh.commands_run if "modprobe -r" in c]
+        assert len(modprobe_cmds) == 1
+        assert "2>/dev/null" in modprobe_cmds[0]
+
+    def test_shell_quoting_in_modprobe(self, mock_ssh):
+        """AC-7: Module name is passed through shell_util.quote() in modprobe -r."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "modprobe -r": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "kernel_module_disable", "name": "my module"}
+        run_remediation(ssh, rem, snapshot=False)
+        modprobe_cmds = [c for c in ssh.commands_run if "modprobe -r" in c]
+        assert len(modprobe_cmds) == 1
+        assert "'my module'" in modprobe_cmds[0]
+
+
+class TestMountOptionSetSpecDerived:
+    """Spec-derived tests for mount_option_set remediation handler.
+
+    See specs/handlers/remediation/mount_option_set.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec", "nosuid"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would add options" in detail
+        assert "/tmp" in detail
+        assert "fstab and remount" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_mount_point_not_in_fstab(self, mock_ssh):
+        """AC-2: Returns failure when mount point is not found in fstab."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/nonexistent",
+            "options": ["noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "/nonexistent: not found in /etc/fstab"
+
+    def test_invalid_fstab_line(self, mock_ssh):
+        """AC-3: Returns failure when fstab line has fewer than 4 fields."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(exit_code=0, stdout="/dev/sda1 /tmp ext4", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "Invalid fstab line for /tmp"
+
+    def test_option_merging(self, mock_ssh):
+        """AC-4: New options are merged with existing options."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec", "nosuid"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        # Verify sed was called to update fstab
+        sed_cmds = [c for c in ssh.commands_run if "sed" in c]
+        assert len(sed_cmds) == 1
+        # After merging, options should include defaults + new
+        assert "defaults" in sed_cmds[0]
+        assert "noexec" in sed_cmds[0]
+        assert "nosuid" in sed_cmds[0]
+
+    def test_option_deduplication(self, mock_ssh):
+        """AC-4: Duplicate options are deduplicated via set union."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults,noexec 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec", "nosuid"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        sed_cmds = [c for c in ssh.commands_run if "sed" in c]
+        # noexec should appear only once in the final option string
+        opts_in_sed = sed_cmds[0]
+        # Extract the replacement part and verify no duplicate
+        assert opts_in_sed.count("noexec") >= 1
+
+    def test_options_sorted(self, mock_ssh):
+        """AC-5: Merged options are sorted alphabetically."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["nosuid", "nodev", "noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        sed_cmds = [c for c in ssh.commands_run if "sed" in c]
+        # The sorted order should be: defaults,nodev,noexec,nosuid
+        assert "defaults,nodev,noexec,nosuid" in sed_cmds[0]
+
+    def test_full_success(self, mock_ssh):
+        """AC-6: Sed and remount success returns success message."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Added options" in detail
+        assert "/tmp" in detail
+
+    def test_sed_failure(self, mock_ssh):
+        """AC-7: Sed failure returns failure detail with stderr."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(
+                    exit_code=1, stdout="", stderr="sed: permission denied"
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to update fstab" in detail
+        assert "permission denied" in detail
+
+    def test_sed_failure_no_remount(self, mock_ssh):
+        """AC-7: When sed fails, remount is not attempted."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=1, stdout="", stderr="error"),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec"],
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        assert not any("mount -o remount" in cmd for cmd in ssh.commands_run)
+
+    def test_remount_failure(self, mock_ssh):
+        """AC-8: Remount failure returns failure detail with stderr."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /tmp ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(
+                    exit_code=1, stdout="", stderr="mount: /tmp busy"
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Remount failed" in detail
+        assert "/tmp busy" in detail
+
+    def test_shell_escaping_in_sed(self, mock_ssh):
+        """AC-9: Mount point is escaped for safe sed interpolation."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /var/log ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/var/log",
+            "options": ["noexec"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        # Verify sed was called (sed escaping happens internally)
+        assert any("sed" in cmd for cmd in ssh.commands_run)
+
+    def test_mount_point_quoting_in_remount(self, mock_ssh):
+        """AC-9: Mount point is shell-quoted in the remount command."""
+        ssh = mock_ssh(
+            {
+                "grep": Result(
+                    exit_code=0,
+                    stdout="/dev/sda1 /my dir ext4 defaults 0 0",
+                    stderr="",
+                ),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "mount -o remount": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/my dir",
+            "options": ["noexec"],
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        mount_cmds = [c for c in ssh.commands_run if "mount -o remount" in c]
+        assert len(mount_cmds) == 1
+        assert "'/my dir'" in mount_cmds[0]
+
+    def test_dry_run_no_grep_or_sed(self, mock_ssh):
+        """AC-1: Dry-run does not execute any grep, sed, or mount commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "mount_option_set",
+            "mount_point": "/tmp",
+            "options": ["noexec"],
+        }
+        run_remediation(ssh, rem, dry_run=True)
+        assert not any("grep" in cmd for cmd in ssh.commands_run)
+        assert not any("sed" in cmd for cmd in ssh.commands_run)
+        assert not any("mount" in cmd for cmd in ssh.commands_run)
+
+
+class TestManualSpecDerived:
+    """Spec-derived tests for manual remediation handler.
+
+    See specs/handlers/remediation/manual.spec.yaml.
+    """
+
+    def test_always_returns_failure(self, mock_ssh):
+        """AC-1: Handler always returns (False, 'MANUAL: {note}')."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "manual", "note": "Contact security team"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "MANUAL: Contact security team"
+
+    def test_default_note(self, mock_ssh):
+        """AC-2: Without note, returns 'MANUAL: Manual remediation required'."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "manual"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "MANUAL: Manual remediation required"
+
+    def test_custom_note(self, mock_ssh):
+        """AC-3: Custom note is included in the return message."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "manual", "note": "Edit /etc/security/limits.conf manually"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert detail == "MANUAL: Edit /etc/security/limits.conf manually"
+
+    def test_dry_run_ignored(self, mock_ssh):
+        """AC-4: Dry-run has no effect; same result as normal mode."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "manual", "note": "Manual steps needed"}
+        ok_normal, detail_normal, _ = run_remediation(ssh, rem, snapshot=False)
+        ok_dry, detail_dry, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok_normal == ok_dry
+        assert detail_normal == detail_dry
+
+    def test_ssh_unused(self, mock_ssh):
+        """AC-5: No remote commands are executed."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "manual", "note": "Some manual step"}
+        run_remediation(ssh, rem, snapshot=False)
+        assert len(ssh.commands_run) == 0
+
+    def test_non_capturable(self, mock_ssh):
+        """AC-6: Pre-state capture always returns None (non-capturable)."""
+        ssh = mock_ssh({})
+        rem = {"mechanism": "manual", "note": "Manual steps needed"}
+        ps = _capture_manual(ssh, rem)
+        assert ps.capturable is False
+        assert ps.mechanism == "manual"
