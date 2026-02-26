@@ -1,4 +1,7 @@
 kind: InternalModule
+handlers:
+  - package_present
+  - package_absent
 
 metadata:
   name: CapturePackage

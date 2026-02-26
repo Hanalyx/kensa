@@ -1,4 +1,9 @@
 kind: InternalModule
+handlers:
+  - config_set
+  - config_remove
+  - config_block
+  - config_set_dropin
 
 metadata:
   name: RollbackConfig

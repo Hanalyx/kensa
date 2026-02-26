@@ -1,4 +1,7 @@
 kind: InternalModule
+handlers:
+  - command_exec
+  - manual
 
 metadata:
   name: RollbackCommand

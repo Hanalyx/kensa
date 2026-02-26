@@ -1,4 +1,8 @@
 kind: InternalModule
+handlers:
+  - file_permissions
+  - file_content
+  - file_absent
 
 metadata:
   name: RollbackFile

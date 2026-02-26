@@ -1,4 +1,11 @@
 kind: InternalModule
+handlers:
+  - sysctl_set
+  - kernel_module_disable
+  - mount_option_set
+  - grub_parameter_set
+  - grub_parameter_remove
+  - cron_job
 
 metadata:
   name: CaptureSystem

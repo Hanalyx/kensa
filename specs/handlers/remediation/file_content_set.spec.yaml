@@ -1,4 +1,6 @@
 kind: RemediationHandler
+handlers:
+  - file_content
 metadata:
   name: FileContentSet
   module: handlers/remediation

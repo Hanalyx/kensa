@@ -1,4 +1,8 @@
 kind: InternalModule
+handlers:
+  - selinux_boolean_set
+  - pam_module_configure
+  - audit_rule_set
 
 metadata:
   name: RollbackSecurity
