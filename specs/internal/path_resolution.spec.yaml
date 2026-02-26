@@ -1,0 +1,131 @@
+kind: InternalModule
+
+metadata:
+  name: PathResolution
+  module: runner.paths
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-26"
+  updated: "2026-02-26"
+
+context:
+  description: >
+    Path resolution utilities for locating Kensa resources (rules, schema,
+    config, mappings) across development and installed environments. Provides
+    a deterministic resolution order: env var, cwd-relative, source-relative,
+    installed package data. Callers (CLI commands, rule selection pipeline) must
+    use these functions instead of hardcoding paths.
+  technical_context: >
+    Entry points: get_rules_path(), get_schema_path(), get_config_path(),
+    get_mappings_path(), get_inventory_path(). Internal helper:
+    _find_package_data_dir() searches install prefixes for shared data.
+    Supports RPM/deb (/usr/share/kensa), venv (sys.prefix), pip --user
+    (~/.local/share/kensa), and site-packages package_data layouts.
+  dependencies:
+    - "os (environ)"
+    - "sys (prefix, base_prefix)"
+    - "pathlib (Path)"
+  callers:
+    - "runner.cli (check, remediate, coverage, info commands)"
+    - "runner._rule_selection (select_rules --control fallback)"
+    - "runner.engine (load_rules)"
+    - "schema.validate (rule validation)"
+  related_specs:
+    - "specs/internal/rule_selection.spec.yaml"
+    - "specs/cli/check.spec.yaml"
+  assumptions:
+    - "At least one rules directory exists in a supported location."
+    - "Environment variables, when set, point to valid directories."
+
+objective:
+  summary: >
+    Resolve paths to Kensa resources using a deterministic multi-tier search
+    across development and installed layouts, ensuring callers never hardcode
+    path literals.
+  acceptance_criteria:
+    AC-1: >
+      --control without --rules resolves rules via get_rules_path(), not a
+      hardcoded "rules/" literal.
+    AC-2: >
+      coverage command without --rules resolves via get_rules_path().
+    AC-3: >
+      _find_package_data_dir() finds rules in all supported install layouts:
+      RPM/deb (/usr/share/kensa), pip venv ({sys.prefix}/share/kensa),
+      pip --user (~/.local/share/kensa), and pip site-packages
+      ({site-packages}/kensa/data/).
+    AC-4: >
+      KENSA_RULES_PATH environment variable overrides all other resolution
+      paths.
+    AC-5: >
+      Error messages reference a generic path description, not the hardcoded
+      "rules/" literal.
+    AC-6: >
+      get_rules_path() raises FileNotFoundError when no rules directory exists
+      in any searched location.
+    AC-7: >
+      Resolution order is deterministic: env var, cwd-relative, source-relative,
+      installed package data.
+
+constraints:
+  - "MUST NOT hardcode 'rules/' as a fallback path in any caller."
+  - "MUST search ~/.local/share/kensa for pip --user installs."
+  - "MUST search site-packages kensa/data/ as final fallback."
+  - "MUST raise FileNotFoundError with descriptive message when no path found."
+  - "MUST respect KENSA_RULES_PATH as highest-priority override."
+
+input_contract:
+  - field: subpath
+    type: "str"
+    required: false
+    default: '""'
+    description: "Optional subdirectory or file within the resource directory."
+
+behavior:
+  - "1. Check KENSA_RULES_PATH env var; return if directory exists."
+  - "2. Check ./rules relative to cwd; return if exists."
+  - "3. Check ../rules relative to runner/paths.py source; return if exists."
+  - "4. Call _find_package_data_dir() to search install prefixes."
+  - "5. In _find_package_data_dir(): search sys.prefix, sys.base_prefix, ~/.local, /usr/local, /usr for share/kensa/."
+  - "6. If no prefix matches, try importing kensa package and check kensa/data/ in site-packages."
+  - "7. If package data found, check for rules/ subdirectory; return if exists."
+  - "8. Raise FileNotFoundError with descriptive message."
+
+output_contract:
+  returns: >
+    get_rules_path() -> Path to rules directory (or subpath within it).
+    _find_package_data_dir() -> Path to package data directory, or None.
+  paths:
+    env_var:
+      description: "KENSA_RULES_PATH is set and directory exists."
+      result: "Returns Path(env_var) / subpath."
+    cwd_relative:
+      description: "cwd/rules exists."
+      result: "Returns cwd/rules / subpath."
+    source_relative:
+      description: "runner/../rules exists."
+      result: "Returns source_tree/rules / subpath."
+    installed:
+      description: "Package data found at an install prefix."
+      result: "Returns prefix/share/kensa/rules / subpath."
+    not_found:
+      description: "No rules directory found anywhere."
+      result: "FileNotFoundError raised."
+  invariants:
+    - "env var always wins when set and directory exists."
+    - "cwd-relative always checked before source-relative."
+    - "FileNotFoundError message never contains hardcoded 'rules/' literal."
+
+side_effects:
+  - "Reads filesystem to check directory existence."
+  - "May import kensa package for site-packages fallback."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_path_resolution_spec.py
+    classes:
+      - TestPathResolutionSpecDerived
+    count: 7
+  unit:
+    - tests/test_paths.py

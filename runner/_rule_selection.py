@@ -236,7 +236,9 @@ def select_rules(
     path = rule_path or rules_path
     if not path:
         if control:
-            path = "rules/"
+            from runner.paths import get_rules_path
+
+            path = str(get_rules_path())
         else:
             raise ValueError("Specify --rules or --rule")
 
