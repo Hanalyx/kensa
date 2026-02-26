@@ -4916,3 +4916,1223 @@ class TestManualSpecDerived:
         ps = _capture_manual(ssh, rem)
         assert ps.capturable is False
         assert ps.mechanism == "manual"
+
+
+# ── Spec-derived tests: config/file remediation handlers ──────────────────
+
+
+class TestConfigBlockSpecDerived:
+    """Spec-derived tests for config_block remediation handler.
+
+    See specs/handlers/remediation/config_block.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/security/limits.conf",
+            "block": "* hard core 0",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would write block to /etc/security/limits.conf" in detail
+        assert "KENSA MANAGED BLOCK" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_no_ssh_commands(self, mock_ssh):
+        """AC-1: Dry-run executes zero SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+            "marker": "MY BLOCK",
+        }
+        run_remediation(ssh, rem, dry_run=True)
+        assert len(ssh.commands_run) == 0
+
+    def test_default_marker(self, mock_ssh):
+        """AC-2: Default marker is 'KENSA MANAGED BLOCK' when not provided."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "KENSA MANAGED BLOCK" in detail
+
+    def test_custom_marker(self, mock_ssh):
+        """AC-3: Custom marker is used when provided."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+            "marker": "CUSTOM MARKER",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert "CUSTOM MARKER" in detail
+
+    def test_existing_block_removal(self, mock_ssh):
+        """AC-4: Existing block is removed before appending new block."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "new content",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("sed" in cmd for cmd in ssh.commands_run)
+
+    def test_no_existing_block_skips_deletion(self, mock_ssh):
+        """AC-5: When grep does not find the begin marker, no deletion is attempted."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert not any("sed" in cmd for cmd in ssh.commands_run)
+
+    def test_block_format_includes_markers(self, mock_ssh):
+        """AC-6: Appended block includes begin/end markers around content."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "* hard core 0",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        echo_cmds = [c for c in ssh.commands_run if "echo" in c or "printf" in c]
+        assert len(echo_cmds) >= 1
+        appended = echo_cmds[0]
+        assert "# BEGIN KENSA MANAGED BLOCK" in appended
+        assert "# END KENSA MANAGED BLOCK" in appended
+
+    def test_append_success_returns_true(self, mock_ssh):
+        """AC-7: Append success returns (True, 'Wrote block to {path}')."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/security/limits.conf",
+            "block": "content",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Wrote block to /etc/security/limits.conf"
+
+    def test_append_failure_returns_false(self, mock_ssh):
+        """AC-8: Append failure returns (False, 'Failed to write block to {path}')."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                # echo not mocked -> fails
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to write block to /etc/conf" in detail
+
+    def test_service_action_on_success(self, mock_ssh):
+        """AC-9: Service action is called when append succeeds and reload specified."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("systemctl" in cmd and "sshd" in cmd for cmd in ssh.commands_run)
+
+    def test_no_service_action_on_failure(self, mock_ssh):
+        """AC-10: Service action is not called when append fails."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                # echo not mocked -> fails
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_service_restart_on_success(self, mock_ssh):
+        """AC-9: Service restart is called when append succeeds and restart specified."""
+        ssh = mock_ssh(
+            {
+                "grep -qF": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/conf",
+            "block": "content",
+            "restart": "auditd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any(
+            "systemctl restart" in cmd and "auditd" in cmd for cmd in ssh.commands_run
+        )
+
+    def test_dry_run_custom_marker_format(self, mock_ssh):
+        """AC-3: Dry-run detail includes custom marker name."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_block",
+            "path": "/etc/limits.conf",
+            "block": "content",
+            "marker": "LIMITS BLOCK",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert (
+            detail == "Would write block to /etc/limits.conf with marker 'LIMITS BLOCK'"
+        )
+
+
+class TestConfigRemoveSpecDerived:
+    """Spec-derived tests for config_remove remediation handler.
+
+    See specs/handlers/remediation/config_remove.spec.yaml.
+    """
+
+    def test_key_already_absent(self, mock_ssh):
+        """AC-1: When key is absent, returns success without modification."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "grep -rh": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+        }
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert "BadKey not found in /etc/conf" in detail
+        assert "already absent" in detail
+
+    def test_key_absent_no_sed_executed(self, mock_ssh):
+        """AC-1: When key is absent, no sed commands are executed."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "grep -rh": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+        }
+        run_remediation(ssh, rem)
+        assert not any("sed" in cmd for cmd in ssh.commands_run)
+
+    def test_dry_run_with_key_present(self, mock_ssh):
+        """AC-2: Dry-run with key present returns preview without executing sed."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="BadKey val", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would remove 'BadKey' from /etc/conf" in detail
+        assert not any("sed" in cmd for cmd in ssh.commands_run)
+
+    def test_success_path(self, mock_ssh):
+        """AC-3: Successful removal returns (True, "Removed '{key}' from {path}")."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Removed 'BadKey' from /etc/conf"
+
+    def test_sed_failure_returns_false(self, mock_ssh):
+        """AC-4: Sed failure returns (False, 'Failed to remove {key} from {path}')."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "sed -i": Result(exit_code=1, stdout="", stderr="permission denied"),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to remove BadKey from /etc/conf" in detail
+
+    def test_service_action_on_success(self, mock_ssh):
+        """AC-5: Service action called after successful removal."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("systemctl" in cmd and "sshd" in cmd for cmd in ssh.commands_run)
+
+    def test_no_service_action_on_failure(self, mock_ssh):
+        """AC-6: Service action not called when sed fails."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="BadKey val", stderr=""),
+                "sed -i": Result(exit_code=1, stdout="", stderr="error"),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "BadKey",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_key_escaping(self, mock_ssh):
+        """AC-7: Key is escaped with escape_grep_bre before sed pattern."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="key.with.dots val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="key.with.dots val", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "key.with.dots",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 1
+        # Dots should be escaped in the sed pattern
+        assert "key\\.with\\.dots" in sed_cmds[0]
+
+    def test_sed_pattern_format(self, mock_ssh):
+        """AC-8: Sed delete pattern is '^ *{escaped_key}' for leading space tolerance."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="MyKey val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="MyKey val", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "MyKey",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 1
+        # Pattern should match lines with optional leading spaces
+        assert "^ *MyKey" in sed_cmds[0]
+
+    def test_restart_service_on_success(self, mock_ssh):
+        """AC-5: Service restart (not reload) works when restart key is present."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=0, stdout="K val", stderr=""),
+                "grep -rh": Result(exit_code=0, stdout="K val", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "K",
+            "restart": "auditd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any(
+            "systemctl restart" in cmd and "auditd" in cmd for cmd in ssh.commands_run
+        )
+
+    def test_absent_key_skips_dry_run_check(self, mock_ssh):
+        """AC-1: Early return for absent key runs before dry_run check."""
+        ssh = mock_ssh(
+            {
+                "grep -h": Result(exit_code=1, stdout="", stderr=""),
+                "grep -rh": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_remove",
+            "path": "/etc/conf",
+            "key": "Missing",
+        }
+        # Even with dry_run=True, absent key returns the "already absent" message
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "already absent" in detail
+
+
+class TestConfigSetDropinSpecDerived:
+    """Spec-derived tests for config_set_dropin remediation handler.
+
+    See specs/handlers/remediation/config_set_dropin.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/ssh/sshd_config.d",
+            "file": "00-kensa.conf",
+            "key": "PermitRootLogin",
+            "value": "no",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would write" in detail
+        assert "PermitRootLogin no" in detail
+        assert "/etc/ssh/sshd_config.d/00-kensa.conf" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_no_ssh_commands(self, mock_ssh):
+        """AC-1: Dry-run executes zero SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/conf.d",
+            "file": "test.conf",
+            "key": "K",
+            "value": "V",
+        }
+        run_remediation(ssh, rem, dry_run=True)
+        assert len(ssh.commands_run) == 0
+
+    def test_success_path(self, mock_ssh):
+        """AC-2: Success returns (True, "Wrote '{key}{sep}{value}' to {dir}/{file}")."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/ssh/sshd_config.d",
+            "file": "00-kensa.conf",
+            "key": "PermitRootLogin",
+            "value": "no",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert (
+            detail
+            == "Wrote 'PermitRootLogin no' to /etc/ssh/sshd_config.d/00-kensa.conf"
+        )
+
+    def test_write_failure_returns_false(self, mock_ssh):
+        """AC-3: Write failure returns (False, 'Failed to write {dir}/{file}')."""
+        ssh = mock_ssh(
+            {
+                # printf not mocked -> fails
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/ssh/sshd_config.d",
+            "file": "00-kensa.conf",
+            "key": "K",
+            "value": "V",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to write /etc/ssh/sshd_config.d/00-kensa.conf" in detail
+
+    def test_default_separator_is_space(self, mock_ssh):
+        """AC-4: Default separator is a single space when not specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/conf.d",
+            "file": "test.conf",
+            "key": "MyKey",
+            "value": "MyVal",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "MyKey MyVal" in detail
+
+    def test_custom_separator(self, mock_ssh):
+        """AC-5: Custom separator is used between key and value."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/sysctl.d",
+            "file": "99-kensa.conf",
+            "key": "net.ipv4.ip_forward",
+            "value": "0",
+            "separator": " = ",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "net.ipv4.ip_forward = 0" in detail
+
+    def test_service_reload_on_success(self, mock_ssh):
+        """AC-6: Service reload is called when write succeeds and reload specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/ssh/sshd_config.d",
+            "file": "00-kensa.conf",
+            "key": "K",
+            "value": "V",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("systemctl" in cmd and "sshd" in cmd for cmd in ssh.commands_run)
+
+    def test_service_restart_on_success(self, mock_ssh):
+        """AC-7: Service restart is called when write succeeds and restart specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/conf.d",
+            "file": "test.conf",
+            "key": "K",
+            "value": "V",
+            "restart": "auditd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any(
+            "systemctl restart" in cmd and "auditd" in cmd for cmd in ssh.commands_run
+        )
+
+    def test_no_service_action_on_failure(self, mock_ssh):
+        """AC-8: Service action is not called when write fails."""
+        ssh = mock_ssh(
+            {
+                # printf not mocked -> fails
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/conf.d",
+            "file": "test.conf",
+            "key": "K",
+            "value": "V",
+            "reload": "sshd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_file_content_format(self, mock_ssh):
+        """AC-9: Written file contains '{key}{sep}{value}\\n'."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/ssh/sshd_config.d",
+            "file": "00-kensa.conf",
+            "key": "PermitRootLogin",
+            "value": "no",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        printf_cmds = [c for c in ssh.commands_run if "printf" in c]
+        assert len(printf_cmds) == 1
+        # write_file uses printf, content should include key-value with newline
+        assert "PermitRootLogin no" in printf_cmds[0]
+
+    def test_no_service_action_when_absent(self, mock_ssh):
+        """AC-6: No systemctl command when neither reload nor restart specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/conf.d",
+            "file": "test.conf",
+            "key": "K",
+            "value": "V",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert not any("systemctl" in cmd for cmd in ssh.commands_run)
+
+    def test_dry_run_detail_format(self, mock_ssh):
+        """AC-1: Dry-run detail includes key, separator, value, and full path."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_set_dropin",
+            "dir": "/etc/ssh/sshd_config.d",
+            "file": "00-kensa.conf",
+            "key": "PermitRootLogin",
+            "value": "no",
+            "separator": " ",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert (
+            detail == "Would write 'PermitRootLogin no' to"
+            " /etc/ssh/sshd_config.d/00-kensa.conf"
+        )
+
+
+class TestFileContentSetSpecDerived:
+    """Spec-derived tests for file_content (file_content_set) remediation handler.
+
+    See specs/handlers/remediation/file_content_set.spec.yaml.
+    Note: The mechanism name in the registry is 'file_content'.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "Authorized users only.",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would write content to /etc/issue"
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_no_ssh_commands(self, mock_ssh):
+        """AC-1: Dry-run executes zero SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue.net",
+            "content": "banner text",
+        }
+        run_remediation(ssh, rem, dry_run=True)
+        assert len(ssh.commands_run) == 0
+
+    def test_success_path(self, mock_ssh):
+        """AC-2: Success returns (True, 'Wrote content to {path}')."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "Authorized users only.",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Wrote content to /etc/issue"
+
+    def test_write_failure_returns_false(self, mock_ssh):
+        """AC-3: Write failure returns (False, 'Failed to write {path}')."""
+        ssh = mock_ssh(
+            {
+                # printf not mocked -> fails
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to write /etc/issue" in detail
+
+    def test_write_failure_skips_ownership_and_mode(self, mock_ssh):
+        """AC-3: When write fails, ownership and mode are not attempted."""
+        ssh = mock_ssh(
+            {
+                # printf not mocked -> fails
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+            "owner": "root",
+            "mode": "0644",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert not any("chown" in cmd for cmd in ssh.commands_run)
+        assert not any("chmod" in cmd for cmd in ssh.commands_run)
+
+    def test_owner_set_after_write(self, mock_ssh):
+        """AC-4: Owner is set via set_file_owner when specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("chown" in cmd for cmd in ssh.commands_run)
+
+    def test_group_set_after_write(self, mock_ssh):
+        """AC-5: Group is set via set_file_owner when specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+            "group": "wheel",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("chown" in cmd for cmd in ssh.commands_run)
+
+    def test_mode_set_after_write(self, mock_ssh):
+        """AC-6: Mode is set via set_file_mode when specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+            "mode": "0644",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("chmod" in cmd and "0644" in cmd for cmd in ssh.commands_run)
+
+    def test_no_ownership_change_without_owner_group(self, mock_ssh):
+        """AC-7: set_file_owner is not called when neither owner nor group specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert not any("chown" in cmd for cmd in ssh.commands_run)
+
+    def test_no_mode_change_without_mode(self, mock_ssh):
+        """AC-8: set_file_mode is not called when mode is not specified."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert not any("chmod" in cmd for cmd in ssh.commands_run)
+
+    def test_owner_and_group_and_mode_all_set(self, mock_ssh):
+        """AC-4/AC-5/AC-6: All three attributes set after successful write."""
+        ssh = mock_ssh(
+            {
+                "printf": Result(exit_code=0, stdout="", stderr=""),
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_content",
+            "path": "/etc/issue",
+            "content": "text",
+            "owner": "root",
+            "group": "root",
+            "mode": "0644",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("chown" in cmd for cmd in ssh.commands_run)
+        assert any("chmod" in cmd for cmd in ssh.commands_run)
+
+
+class TestFileAbsentSpecDerived:
+    """Spec-derived tests for file_absent remediation handler.
+
+    See specs/handlers/remediation/file_absent.spec.yaml.
+    """
+
+    def test_already_absent(self, mock_ssh):
+        """AC-1: When file is already absent, returns success immediately."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        ok, detail, _ = run_remediation(ssh, rem)
+        assert ok is True
+        assert "/etc/hosts.equiv: already absent" in detail
+
+    def test_already_absent_no_rm(self, mock_ssh):
+        """AC-1: When file is already absent, no rm command is executed."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        run_remediation(ssh, rem)
+        assert not any("rm" in cmd for cmd in ssh.commands_run)
+
+    def test_already_absent_skips_dry_run_check(self, mock_ssh):
+        """AC-1: Early return for absent file runs before dry_run check."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "already absent" in detail
+
+    def test_dry_run_with_file_present(self, mock_ssh):
+        """AC-2: Dry-run with file present returns preview without executing rm."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert detail == "Would remove /etc/hosts.equiv"
+        assert not any("rm" in cmd for cmd in ssh.commands_run)
+
+    def test_success_path(self, mock_ssh):
+        """AC-3: Successful removal returns (True, 'Removed {path}')."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
+                "rm -f": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Removed /etc/hosts.equiv"
+
+    def test_removal_failure(self, mock_ssh):
+        """AC-4: Removal failure returns (False, 'Failed to remove {path}: {stderr}')."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
+                "rm -f": Result(exit_code=1, stdout="", stderr="Permission denied"),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to remove /etc/hosts.equiv" in detail
+        assert "Permission denied" in detail
+
+    def test_shell_quoting(self, mock_ssh):
+        """AC-5: Path is passed through shell_util.quote() in rm command."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
+                "rm -f": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/my file.conf"}
+        run_remediation(ssh, rem, snapshot=False)
+        rm_cmds = [c for c in ssh.commands_run if "rm -f" in c]
+        assert len(rm_cmds) == 1
+        # Path with spaces should be quoted
+        assert "'/etc/my file.conf'" in rm_cmds[0]
+
+    def test_rm_f_is_used(self, mock_ssh):
+        """AC-3: rm -f (force flag) is used for file removal."""
+        ssh = mock_ssh(
+            {
+                "test -e": Result(exit_code=0, stdout="", stderr=""),
+                "rm -f": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {"mechanism": "file_absent", "path": "/etc/hosts.equiv"}
+        run_remediation(ssh, rem, snapshot=False)
+        rm_cmds = [c for c in ssh.commands_run if "rm" in c]
+        assert len(rm_cmds) == 1
+        assert "rm -f" in rm_cmds[0]
+
+
+class TestFilePermissionsSpecDerived:
+    """Spec-derived tests for file_permissions remediation handler.
+
+    See specs/handlers/remediation/file_permissions.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "owner": "root",
+            "group": "root",
+            "mode": "0000",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would run:" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_dry_run_no_ssh_commands(self, mock_ssh):
+        """AC-1: Dry-run executes zero SSH commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "mode": "0000",
+        }
+        run_remediation(ssh, rem, dry_run=True)
+        assert len(ssh.commands_run) == 0
+
+    def test_owner_and_group_set(self, mock_ssh):
+        """AC-2: When both owner and group are provided, chown uses 'owner:group'."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "owner": "root",
+            "group": "shadow",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        chown_cmds = [c for c in ssh.commands_run if "chown" in c]
+        assert len(chown_cmds) == 1
+        assert "root:shadow" in chown_cmds[0]
+
+    def test_owner_only(self, mock_ssh):
+        """AC-3: When only owner is provided, chown uses just the owner name."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        chown_cmds = [c for c in ssh.commands_run if "chown" in c]
+        assert len(chown_cmds) == 1
+        assert "root" in chown_cmds[0]
+        # Should not have a colon when group is absent
+        assert "root:" not in chown_cmds[0]
+
+    def test_group_only(self, mock_ssh):
+        """AC-4: When only group is provided, chown uses ':group'."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "group": "shadow",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        chown_cmds = [c for c in ssh.commands_run if "chown" in c]
+        assert len(chown_cmds) == 1
+        assert ":shadow" in chown_cmds[0]
+
+    def test_mode_set(self, mock_ssh):
+        """AC-5: When mode is provided, chmod is called with the octal mode."""
+        ssh = mock_ssh(
+            {
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "mode": "0000",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        chmod_cmds = [c for c in ssh.commands_run if "chmod" in c]
+        assert len(chmod_cmds) == 1
+        assert "0000" in chmod_cmds[0]
+
+    def test_combined_command(self, mock_ssh):
+        """AC-6: Both chown and chmod are joined with '&&' in one compound command."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "owner": "root",
+            "group": "root",
+            "mode": "0000",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        # The handler joins chown && chmod as a single command
+        combined = [c for c in ssh.commands_run if "chown" in c and "chmod" in c]
+        assert len(combined) == 1
+        assert "&&" in combined[0]
+
+    def test_glob_explicit_flag(self, mock_ssh):
+        """AC-7: Explicit glob flag allows unquoted glob path."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/ssh/ssh_host_*_key",
+            "owner": "root",
+            "group": "ssh_keys",
+            "mode": "0640",
+            "glob": "ssh_host_*_key",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        chown_cmd = [c for c in ssh.commands_run if "chown" in c][0]
+        # Glob path should NOT be single-quoted
+        assert "'/etc/ssh/ssh_host_*_key'" not in chown_cmd
+        assert "/etc/ssh/ssh_host_*_key" in chown_cmd
+
+    def test_glob_auto_detection(self, mock_ssh):
+        """AC-8: Glob characters in path are auto-detected by is_glob_path."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/ssh/ssh_host_*_key",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        chown_cmd = [c for c in ssh.commands_run if "chown" in c][0]
+        # Auto-detected glob should NOT be single-quoted
+        assert "'/etc/ssh/ssh_host_*_key'" not in chown_cmd
+
+    def test_success_path(self, mock_ssh):
+        """AC-9: Success returns (True, 'Set permissions on {path}')."""
+        ssh = mock_ssh(
+            {
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "mode": "0000",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set permissions on /etc/shadow"
+
+    def test_failure_path(self, mock_ssh):
+        """AC-10: Failure returns (False, 'Failed: {stderr}')."""
+        ssh = mock_ssh(
+            {
+                "chmod": Result(exit_code=1, stdout="", stderr="invalid mode"),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "mode": "9999",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed: invalid mode" in detail
+
+    def test_path_quoting_non_glob(self, mock_ssh):
+        """AC-11: Non-glob path is quoted via shell_util.quote_path."""
+        ssh = mock_ssh(
+            {
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/my file.conf",
+            "mode": "0644",
+        }
+        run_remediation(ssh, rem, snapshot=False)
+        chmod_cmds = [c for c in ssh.commands_run if "chmod" in c]
+        assert len(chmod_cmds) == 1
+        # Path with spaces should be quoted
+        assert "'/etc/my file.conf'" in chmod_cmds[0]
+
+    def test_dry_run_includes_chown_and_chmod(self, mock_ssh):
+        """AC-1: Dry-run detail includes both chown and chmod commands."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "owner": "root",
+            "group": "root",
+            "mode": "0000",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "chown" in detail
+        assert "chmod" in detail
+        assert "&&" in detail
+
+    def test_dry_run_mode_only(self, mock_ssh):
+        """AC-1: Dry-run with only mode shows chmod command."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "path": "/etc/shadow",
+            "mode": "0000",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "chmod" in detail
+        assert "chown" not in detail
