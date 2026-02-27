@@ -1,0 +1,166 @@
+kind: InternalModule
+
+metadata:
+  name: E2eResultStorage
+  module: tests.e2e.conftest
+  version: "1.0.0"
+  status: released
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-27"
+  updated: "2026-02-27"
+
+context:
+  description: >
+    Automatic result persistence for E2E test runs. Every run_kensa()
+    invocation saves stdout, stderr, and a meta.json manifest to a
+    timestamped session directory under results/e2e/. For commands that
+    support -o flags (check, remediate), JSON, CSV, evidence, and PDF
+    outputs are also captured. Multi-step tests get numbered step
+    subdirectories. A session summary and terminal hook report the
+    results path at end of run.
+  technical_context: >
+    Module tests/e2e/conftest.py. Uses pytest fixtures (session-scoped
+    e2e_session_dir, autouse _e2e_test_context) and a module-level
+    _current_test_ctx variable to thread context into run_kensa() without
+    changing any test files. E2ETestContext dataclass tracks test identity,
+    output directory, and step counter. _promote_to_multistep() lazily
+    restructures flat output into numbered step directories when a second
+    run_kensa() call occurs within the same test.
+  dependencies:
+    - "pytest (fixtures, hooks)"
+    - "subprocess (run_kensa execution)"
+    - "json (meta.json serialization)"
+    - "reportlab (optional, PDF output)"
+  callers:
+    - "tests/e2e/test_check_cycle.py"
+    - "tests/e2e/test_remediate_cycle.py"
+    - "tests/e2e/test_detect.py"
+    - "tests/e2e/test_livehost_check.py"
+    - "tests/e2e/test_livehost_remediate.py"
+    - "tests/e2e/test_livehost_detect.py"
+  related_specs:
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+    - "specs/cli/detect.spec.yaml"
+    - "specs/cli/rollback.spec.yaml"
+  assumptions:
+    - "results/ directory is gitignored."
+    - "run_kensa() is the sole entry point for CLI invocation in E2E tests."
+    - "CLI -o flags write to files without affecting stdout or exit codes."
+
+objective:
+  summary: >
+    Persist full command output and structured result files for every
+    E2E test invocation to a timestamped results directory.
+  acceptance_criteria:
+    AC-1: >
+      A session-scoped results directory is created at
+      results/e2e/<YYYY-MM-DD_HH-MM-SS>/ at the start of the E2E session.
+    AC-2: >
+      Each test gets a subdirectory under <session>/<module>/<Class__method>/
+      with meta.json, stdout.log, and stderr.log after run_kensa() completes.
+    AC-3: >
+      meta.json contains test_name, test_module, timestamp, command (full
+      argv list), subcommand, exit_code, host (hostname, port, user, distro,
+      is_container), duration_seconds, and output_files.
+    AC-4: >
+      For check and remediate subcommands, run_kensa() appends -o json:<path>,
+      -o csv:<path>, and -o evidence:<path> flags; the resulting files appear
+      in the output directory.
+    AC-5: >
+      PDF output is appended only when reportlab is importable; missing
+      reportlab does not cause an error.
+    AC-6: >
+      Single-call tests produce flat files directly in the test output
+      directory (no step subdirectories).
+    AC-7: >
+      When a second run_kensa() call occurs in the same test, step-1 files
+      are retroactively moved into step_001_<cmd>/ and subsequent calls
+      produce step_NNN_<cmd>/ subdirectories.
+    AC-8: >
+      For non-output commands (detect, rollback), only meta.json, stdout.log,
+      and stderr.log are written (no -o flags appended).
+    AC-9: >
+      run_kensa() return value (CompletedProcess) is unchanged; existing
+      test assertions pass without modification.
+    AC-10: >
+      session_meta.json is written on session teardown with session_start,
+      session_end, duration_seconds, total_runs, and results_dir.
+    AC-11: >
+      pytest_terminal_summary hook prints the session directory path and
+      run count at the end of the test session.
+    AC-12: >
+      output_files in meta.json lists only files that were actually created
+      (not expected but missing files).
+
+constraints:
+  - "MUST NOT modify any E2E test files — all logic lives in conftest.py."
+  - "MUST NOT change run_kensa() return type or observable behavior."
+  - "MUST NOT fail if reportlab is not installed."
+  - "MUST NOT append -o flags to commands that do not support them."
+  - "MUST create directories lazily (only when run_kensa is called)."
+
+input_contract:
+  - field: host
+    type: E2EHost
+    required: true
+    description: "Connection details for the target host."
+  - field: args
+    type: "list[str]"
+    required: true
+    description: "CLI arguments (subcommand + flags) passed to kensa."
+  - field: timeout
+    type: int
+    required: false
+    default: "120"
+    description: "Subprocess timeout in seconds."
+
+behavior:
+  - "1. _e2e_test_context fixture (autouse) sets _current_test_ctx with test identity and output path before each test."
+  - "2. run_kensa() extracts subcommand from args via _extract_subcommand()."
+  - "3. If _current_test_ctx is set, calls next_step() to get output directory."
+  - "4. If subcommand is in OUTPUT_COMMANDS (check, remediate), appends -o json, csv, evidence, and optionally pdf flags."
+  - "5. Builds full CLI command with host connection args."
+  - "6. Records start_time and runs subprocess."
+  - "7. After execution, calls _save_run_artifacts() to write stdout.log, stderr.log, meta.json."
+  - "8. Filters output_files to only those actually created on disk."
+  - "9. Returns the original CompletedProcess unchanged."
+  - "10. On second call within same test, _promote_to_multistep() moves flat files into step_001_<cmd>/ before creating step_002_<cmd>/."
+  - "11. On session teardown, e2e_session_dir fixture writes session_meta.json."
+  - "12. pytest_terminal_summary prints results path and count."
+
+output_contract:
+  returns: >
+    subprocess.CompletedProcess (unchanged from original run_kensa).
+  paths:
+    single_step:
+      description: "Test calls run_kensa() once."
+      result: "Flat files in <session>/<module>/<test>/: meta.json, stdout.log, stderr.log, plus output files for check/remediate."
+    multi_step:
+      description: "Test calls run_kensa() multiple times."
+      result: "Numbered step_NNN_<cmd>/ subdirectories, each with meta.json, stdout.log, stderr.log, plus output files."
+    non_output_command:
+      description: "Command is detect or rollback (no -o support)."
+      result: "Only meta.json, stdout.log, stderr.log written."
+  invariants:
+    - "run_kensa() always returns CompletedProcess regardless of context state."
+    - "meta.json is written for every run_kensa() call when context is active."
+    - "output_files list in meta.json matches actual files on disk."
+
+side_effects:
+  - "Creates results/e2e/<timestamp>/ directory tree."
+  - "Writes meta.json, stdout.log, stderr.log per invocation."
+  - "Writes results.json, results.csv, evidence.json, report.pdf for output commands."
+  - "Writes session_meta.json on session teardown."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_e2e_result_storage_spec.py
+    classes:
+      - TestE2eResultStorageSpecDerived
+    count: 12
+  integration:
+    - tests/e2e/test_check_cycle.py
+    - tests/e2e/test_remediate_cycle.py
+    - tests/e2e/test_detect.py
