@@ -25,6 +25,7 @@ import pytest
 
 CONTAINERS_DIR = Path(__file__).parent / "containers"
 IMAGE_PREFIX = "kensa-e2e"
+NETWORK_NAME = "kensa_network"
 SSH_USER = "kensa-test"
 CONTAINER_STARTUP_TIMEOUT = 30
 SSH_READY_TIMEOUT = 30
@@ -99,6 +100,18 @@ def _wait_for_ssh(host: str, port: int, key_path: str, user: str, timeout: int) 
     return False
 
 
+def _ensure_network(runtime: str) -> None:
+    """Create the kensa_network bridge network if it doesn't exist."""
+    result = _run([runtime, "network", "inspect", NETWORK_NAME], check=False)
+    if result.returncode != 0:
+        _run([runtime, "network", "create", NETWORK_NAME])
+
+
+def _remove_network(runtime: str) -> None:
+    """Remove the kensa_network if it exists."""
+    _run([runtime, "network", "rm", NETWORK_NAME], check=False)
+
+
 def _build_image(runtime: str, distro: str) -> str:
     """Build a container image for the given distro."""
     image_name = f"{IMAGE_PREFIX}-{distro}"
@@ -116,8 +129,9 @@ def _start_container(
     distro: str,
     ssh_port: int,
     pubkey_path: str,
+    network: str = NETWORK_NAME,
 ) -> str:
-    """Start a container and return its ID."""
+    """Start a container on kensa_network and return its ID."""
     container_name = f"kensa-e2e-{distro}-{ssh_port}"
 
     # Remove any stale container with the same name
@@ -131,6 +145,8 @@ def _start_container(
         container_name,
         "--hostname",
         f"kensa-{distro}",
+        "--network",
+        network,
         "-p",
         f"{ssh_port}:22",
         "--tmpfs",
@@ -199,6 +215,19 @@ def container_runtime():
 
 
 @pytest.fixture(scope="session")
+def kensa_network(container_runtime):
+    """Create an isolated Docker/Podman network for E2E tests.
+
+    The network is created once per session and torn down after all
+    container tests complete. Containers attach to this network so
+    they are isolated from the host's default bridge.
+    """
+    _ensure_network(container_runtime)
+    yield NETWORK_NAME
+    _remove_network(container_runtime)
+
+
+@pytest.fixture(scope="session")
 def ssh_keypair(tmp_path_factory):
     """Generate an ephemeral SSH key pair for the test session."""
     key_dir = tmp_path_factory.mktemp("ssh")
@@ -219,14 +248,16 @@ def ssh_keypair(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def el9_container(container_runtime, ssh_keypair):
+def el9_container(container_runtime, ssh_keypair, kensa_network):
     """Build and start a Rocky Linux 9 container for E2E tests."""
     runtime = container_runtime
     key_path, pubkey_path = ssh_keypair
     ssh_port = _find_free_port()
 
     image = _build_image(runtime, "el9")
-    container_id = _start_container(runtime, image, "el9", ssh_port, pubkey_path)
+    container_id = _start_container(
+        runtime, image, "el9", ssh_port, pubkey_path, network=kensa_network
+    )
 
     # Wait for SSH to be ready
     if not _wait_for_ssh("127.0.0.1", ssh_port, key_path, SSH_USER, SSH_READY_TIMEOUT):
@@ -253,14 +284,16 @@ def el9_container(container_runtime, ssh_keypair):
 
 
 @pytest.fixture(scope="session")
-def el8_container(container_runtime, ssh_keypair):
+def el8_container(container_runtime, ssh_keypair, kensa_network):
     """Build and start a Rocky Linux 8 container for E2E tests."""
     runtime = container_runtime
     key_path, pubkey_path = ssh_keypair
     ssh_port = _find_free_port()
 
     image = _build_image(runtime, "el8")
-    container_id = _start_container(runtime, image, "el8", ssh_port, pubkey_path)
+    container_id = _start_container(
+        runtime, image, "el8", ssh_port, pubkey_path, network=kensa_network
+    )
 
     if not _wait_for_ssh("127.0.0.1", ssh_port, key_path, SSH_USER, SSH_READY_TIMEOUT):
         logs = _run([runtime, "logs", container_id], check=False)
