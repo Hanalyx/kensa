@@ -1,0 +1,133 @@
+kind: InternalModule
+
+metadata:
+  name: SecurityPosture
+  module: runner
+  version: "1.0.0"
+  status: released
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-26"
+  updated: "2026-02-26"
+
+context:
+  description: >
+    Application-level security posture covering credential lifecycle, shell
+    injection prevention, host key verification, and remote command safety.
+    This spec formalizes the threat model documented in context/security.md
+    into testable acceptance criteria.
+  technical_context: >
+    Cross-cutting concerns spanning runner/cli.py (--password option),
+    runner/ssh.py (SSHSession credential handling, host key policy),
+    runner/shell_util.py (quote, escape_sed, escape_grep_bre), and
+    runner/handlers/ (all check/remediation handlers). The security model
+    is documented in context/security.md.
+  dependencies:
+    - runner.cli
+    - runner.ssh
+    - runner.shell_util
+    - runner.storage
+  callers:
+    - "All CLI commands that accept --password"
+    - "All handlers that execute remote commands"
+  related_specs:
+    - "specs/internal/ssh_session.spec.yaml"
+    - "specs/internal/shell_util.spec.yaml"
+    - "specs/cli/check.spec.yaml"
+    - "specs/cli/remediate.spec.yaml"
+  assumptions:
+    - "Rule YAML files are trusted (authored by the project team)."
+    - "The local machine running kensa is trusted."
+    - "SSH transport (paramiko) is trusted."
+
+objective:
+  summary: >
+    Ensure credentials are never leaked, shell commands are injection-safe,
+    host key verification is configurable, and the security threat model
+    is documented and enforced.
+  acceptance_criteria:
+    AC-1: >
+      The --password click option has hide_input=True and prompt_required=False
+      so that -p without a value prompts interactively with hidden input.
+    AC-2: >
+      SSHSession does not include the password value in __repr__ or __str__
+      output (password is never exposed in log/print contexts).
+    AC-3: >
+      Passwords are never passed as arguments to remote commands — no handler
+      interpolates credentials into ssh.run() call strings.
+    AC-4: >
+      shell_util.quote() wraps shlex.quote and is available for all handlers
+      to safely interpolate values into shell commands.
+    AC-5: >
+      shell_util.escape_sed() escapes BRE metacharacters and the sed delimiter
+      so values are treated as literals in sed expressions.
+    AC-6: >
+      When explicit credentials (key_path or password) are provided,
+      SSHSession.connect() sets look_for_keys=False and allow_agent=False.
+    AC-7: >
+      When strict_host_keys=True, SSHSession uses paramiko.RejectPolicy;
+      when False (default), it uses _AcceptPolicy.
+    AC-8: >
+      context/security.md documents the threat model, shell injection rules,
+      credential safety, host key policy, and idempotency patterns.
+    AC-9: >
+      Pre-state snapshots are persisted to SQLite with configurable retention
+      (default 7 days active, 90 days archived).
+    AC-10: >
+      Click type validation is applied to CLI inputs (--port uses IntRange,
+      --workers uses IntRange(1, 50), --severity/--tag use multiple=True).
+
+constraints:
+  - "MUST never log, print, or include passwords in error messages."
+  - "MUST never pass credentials as arguments to remote commands."
+  - "MUST use shell_util.quote() for all values interpolated into shell commands."
+  - "MUST use shell_util.escape_sed() for values in sed replacement strings."
+  - "MUST disable look_for_keys and allow_agent when explicit credentials are given."
+  - "MUST prompt interactively with hidden input when -p is given without a value."
+
+input_contract:
+  - field: --password / -p
+    type: "str | None"
+    required: false
+    default: null
+    description: >
+      SSH password. When flag is given without a value, prompts
+      interactively with hidden input. When given with a value, uses
+      it directly (discouraged — visible in ps and shell history).
+  - field: --strict-host-keys / --no-strict-host-keys
+    type: bool
+    required: false
+    default: false
+    description: >
+      Verify SSH host keys against ~/.ssh/known_hosts. Default off
+      (accepts unknown keys via _AcceptPolicy).
+
+behavior:
+  - "1. CLI parses --password with hide_input=True and prompt_required=False."
+  - "2. If -p given without value, click prompts with 'Password:' and hidden input."
+  - "3. If -p given with value, click uses it directly (no prompt)."
+  - "4. If -p not given, password is None (key auth or agent used)."
+  - "5. SSHSession.connect() builds connect_kwargs; explicit credentials disable key/agent fallback."
+  - "6. Host key policy set based on strict_host_keys flag."
+  - "7. All handlers use shell_util.quote() for value interpolation into commands."
+  - "8. All handlers use shell_util.escape_sed() for sed replacement values."
+  - "9. Pre-state snapshots persisted to SQLite; expired snapshots pruned before remediation."
+
+output_contract:
+  returns: >
+    No direct return value — this spec covers cross-cutting security
+    properties enforced across the application.
+  invariants:
+    - "Password is never visible in stdout, stderr, or log output."
+    - "All shell command arguments are properly quoted or escaped."
+    - "Host key policy matches the --strict-host-keys flag."
+
+side_effects:
+  - "Interactive password prompt writes 'Password:' to stderr when -p given without value."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_security_spec.py
+    classes:
+      - TestSecuritySpecDerived
+    count: 10

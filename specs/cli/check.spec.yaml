@@ -25,6 +25,7 @@ context:
     - runner.engine
     - runner.inventory
     - runner.output
+    - runner.paths
     - runner.storage
   callers:
     - CLI entry point (kensa check)
@@ -66,7 +67,9 @@ input_contract:
     type: str
     required: false
     default: null
-    description: Rules directory path
+    description: >
+      Rules directory path. Required unless --rule is specified or --control
+      is used (which auto-resolves via get_rules_path()).
   - field: --rule
     type: str
     required: false
