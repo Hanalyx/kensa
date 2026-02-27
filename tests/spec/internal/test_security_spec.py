@@ -36,6 +36,7 @@ class TestSecuritySpecDerived:
 
         assert pw_param is not None, "--password parameter not found"
         assert pw_param.hide_input is True, "hide_input should be True"
+        assert pw_param.prompt is not None, "prompt should be enabled"
         assert pw_param.prompt_required is False, "prompt_required should be False"
 
     def test_ac2_ssh_session_no_password_in_repr(self):
