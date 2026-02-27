@@ -1,9 +1,10 @@
 Name:           kensa
-Version:        1.13.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        SSH-based compliance scanner for SysAdmin
 License:        MIT
 URL:            https://github.com/hanalyx/kensa
+Vendor:         Hanalyx
 Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      noarch
