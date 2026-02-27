@@ -586,8 +586,10 @@ def check(
                 summary += f" | [red]{host_error} error[/red]"
             if host_skip:
                 summary += f" | [dim]{host_skip} skip[/dim]"
+            summary += f" | [dim]{host_result.duration_seconds:.1f}s[/dim]"
             out.print(summary)
 
+        run_duration = time.monotonic() - run_start
         if host_count > 1:
             out.print()
             out.rule("[bold]Summary[/bold]")
@@ -602,6 +604,7 @@ def check(
                 summary += f" | [red]{total_error} error[/red]"
             if total_skip:
                 summary += f" | [dim]{total_skip} skip[/dim]"
+            summary += f" | [dim]{run_duration:.1f}s[/dim]"
             out.print(summary)
         out.print()
     else:
@@ -669,6 +672,7 @@ def check(
             )
             run_result.hosts.append(host_result)
 
+        run_duration = time.monotonic() - run_start
         if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
@@ -683,6 +687,7 @@ def check(
                 summary += f" | [red]{total_error} error[/red]"
             if total_skip:
                 summary += f" | [dim]{total_skip} skip[/dim]"
+            summary += f" | [dim]{run_duration:.1f}s[/dim]"
             console.print(summary)
         if not quiet:
             console.print()
@@ -1173,8 +1178,10 @@ def remediate(
                 summary += f" | [dim]{host_skip} skip[/dim]"
             if host_rolled_back:
                 summary += f" | [magenta]{host_rolled_back} rolled back[/magenta]"
+            summary += f" | [dim]{host_result.duration_seconds:.1f}s[/dim]"
             out.print(summary)
 
+        run_duration = time.monotonic() - run_start
         if host_count > 1:
             out.print()
             out.rule("[bold]Summary[/bold]")
@@ -1194,6 +1201,7 @@ def remediate(
                 summary += f" | [dim]{total_skip} skip[/dim]"
             if total_rolled_back:
                 summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
+            summary += f" | [dim]{run_duration:.1f}s[/dim]"
             out.print(summary)
         out.print()
     else:
@@ -1263,6 +1271,7 @@ def remediate(
             )
             run_result.hosts.append(host_result)
 
+        run_duration = time.monotonic() - run_start
         if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
@@ -1282,6 +1291,7 @@ def remediate(
                 summary += f" | [dim]{total_skip} skip[/dim]"
             if total_rolled_back:
                 summary += f" | [magenta]{total_rolled_back} rolled back[/magenta]"
+            summary += f" | [dim]{run_duration:.1f}s[/dim]"
             console.print(summary)
         if not quiet:
             console.print()
