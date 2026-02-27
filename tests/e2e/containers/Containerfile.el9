@@ -1,0 +1,63 @@
+# Rocky Linux 9 with systemd + sshd + known-bad compliance state
+# Used by E2E tests to validate the full kensa pipeline.
+#
+# Known-bad state baked in:
+#   - PermitRootLogin yes (sshd hardening)
+#   - /etc/motd missing required banner (file_content)
+#   - /etc/issue wrong permissions (file_permission)
+#   - aide package missing (package_state)
+#   - /etc/security/faillock.conf wrong deny value (config_value)
+
+FROM docker.io/rockylinux/rockylinux:9
+
+# systemd support
+ENV container=docker
+RUN (cd /lib/systemd/system/sysinit.target.wants/ && \
+     for i in *; do [ "$i" = "systemd-tmpfiles-setup.service" ] || rm -f "$i"; done) && \
+    rm -f /lib/systemd/system/multi-user.target.wants/* && \
+    rm -f /etc/systemd/system/*.wants/* && \
+    rm -f /lib/systemd/system/local-fs.target.wants/* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl* && \
+    rm -f /lib/systemd/system/basic.target.wants/* && \
+    rm -f /lib/systemd/system/anaconda.target.wants/*
+
+# Install sshd and basic packages
+RUN dnf install -y openssh-server openssh-clients passwd sudo && \
+    dnf clean all
+
+# Generate host keys
+RUN ssh-keygen -A
+
+# Create test user with sudo access
+RUN useradd -m -s /bin/bash kensa-test && \
+    echo "kensa-test ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kensa-test && \
+    chmod 0440 /etc/sudoers.d/kensa-test && \
+    mkdir -p /home/kensa-test/.ssh && \
+    chmod 700 /home/kensa-test/.ssh && \
+    chown -R kensa-test:kensa-test /home/kensa-test/.ssh
+
+# --- Known-bad compliance state ---
+
+# BAD: PermitRootLogin yes (should be no)
+RUN sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# BAD: Missing login banner in /etc/motd (should have DoD/org banner)
+RUN echo "" > /etc/motd
+
+# BAD: /etc/issue with wrong permissions (0644 instead of 0644 — set to 0666)
+RUN chmod 0666 /etc/issue
+
+# BAD: faillock deny not configured (should be ≤5)
+RUN mkdir -p /etc/security && \
+    echo "# faillock defaults" > /etc/security/faillock.conf
+
+# Enable sshd
+RUN systemctl enable sshd
+
+# SSH port
+EXPOSE 22
+
+# Authorized keys will be mounted at runtime via volume
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/sbin/init"]
