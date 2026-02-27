@@ -53,6 +53,8 @@ CHECK_COLUMNS = [
     "severity",
     "passed",
     "skipped",
+    "error",
+    "error_detail",
     "detail",
 ]
 
@@ -65,6 +67,8 @@ REMEDIATE_COLUMNS = [
     "severity",
     "passed",
     "skipped",
+    "error",
+    "error_detail",
     "remediated",
     "detail",
 ]
@@ -163,6 +167,8 @@ def _build_error_row(hostname: str, error: str, command: str) -> dict:
         "severity": "",
         "passed": "",
         "skipped": "",
+        "error": "",
+        "error_detail": "",
         "detail": f"Connection error: {error}",
     }
     if command == "remediate":
@@ -192,6 +198,8 @@ def _build_result_row(hostname: str, platform: str, result, command: str) -> dic
         "severity": result.severity,
         "passed": str(result.passed).lower(),
         "skipped": str(result.skipped).lower(),
+        "error": str(result.error).lower(),
+        "error_detail": result.error_detail or "",
         "detail": result.detail or result.skip_reason or "",
     }
 

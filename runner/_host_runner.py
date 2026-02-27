@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from io import StringIO
 from typing import TYPE_CHECKING, Any, Literal
@@ -38,9 +39,11 @@ class HostCheckResult:
     capabilities: dict = field(default_factory=dict)
     pass_count: int = 0
     fail_count: int = 0
+    error_count: int = 0
     skip_count: int = 0
     rule_results: list = field(default_factory=list)
     output: str = ""
+    duration_seconds: float | None = None
 
 
 @dataclass
@@ -55,10 +58,12 @@ class HostRemediateResult:
     pass_count: int = 0
     fail_count: int = 0
     fixed_count: int = 0
+    error_count: int = 0
     skip_count: int = 0
     rolled_back_count: int = 0
     rule_results: list = field(default_factory=list)
     output: str = ""
+    duration_seconds: float | None = None
 
 
 @dataclass
@@ -262,10 +267,10 @@ def run_checks(
     verbose: bool,
     rule_to_section: dict[str, str] | None = None,
 ):
-    """Run checks for a single host. Returns (pass, fail, skip, rule_results)."""
+    """Run checks for a single host. Returns (pass, fail, error, skip, rule_results)."""
     from runner._types import RuleResult
 
-    host_pass = host_fail = host_skip = 0
+    host_pass = host_fail = host_error = host_skip = 0
     rule_results = []
     failed_rules: set[str] = set()
     rule_to_section = rule_to_section or {}
@@ -327,6 +332,15 @@ def run_checks(
             out.print(
                 f"  {section_prefix}[dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
             )
+        elif result.error:
+            host_error += 1
+            failed_rules.add(rule_id)
+            detail = (
+                f"  [dim]{result.error_detail}[/dim]" if result.error_detail else ""
+            )
+            out.print(
+                f"  {section_prefix}[red]ERROR[/red] {result.rule_id:<40s} {result.title}{detail}"
+            )
         elif result.passed:
             host_pass += 1
             out.print(
@@ -339,7 +353,7 @@ def run_checks(
             out.print(
                 f"  {section_prefix}[red]FAIL[/red]  {result.rule_id:<40s} {result.title}{detail}"
             )
-    return host_pass, host_fail, host_skip, rule_results
+    return host_pass, host_fail, host_error, host_skip, rule_results
 
 
 # ── Remediation execution ────────────────────────────────────────────────
@@ -358,10 +372,10 @@ def run_remediation(
     snapshot: bool = True,
     rule_to_section: dict[str, str] | None = None,
 ):
-    """Run remediation for a single host. Returns (pass, fail, fixed, skip, rolled_back, rule_results)."""
+    """Run remediation for a single host. Returns (pass, fail, fixed, error, skip, rolled_back, rule_results)."""
     from runner._types import RuleResult
 
-    host_pass = host_fail = host_fixed = host_skip = host_rolled_back = 0
+    host_pass = host_fail = host_fixed = host_error = host_skip = host_rolled_back = 0
     rule_results = []
     failed_rules: set[str] = set()
     rule_to_section = rule_to_section or {}
@@ -430,6 +444,15 @@ def run_remediation(
             out.print(
                 f"  {section_prefix}[dim]SKIP[/dim]  {result.rule_id:<40s} {result.title}  [dim]({result.skip_reason})[/dim]"
             )
+        elif result.error:
+            host_error += 1
+            failed_rules.add(rule_id)
+            detail = (
+                f"  [dim]{result.error_detail}[/dim]" if result.error_detail else ""
+            )
+            out.print(
+                f"  {section_prefix}[red]ERROR[/red] {result.rule_id:<40s} {result.title}{detail}"
+            )
         elif result.passed and not result.remediated:
             host_pass += 1
             out.print(
@@ -475,7 +498,15 @@ def run_remediation(
                         out.print(
                             f"    rollback step {rb.step_index}: {rb.mechanism}  [{status}]  {rb.detail[:80]}"
                         )
-    return host_pass, host_fail, host_fixed, host_skip, host_rolled_back, rule_results
+    return (
+        host_pass,
+        host_fail,
+        host_fixed,
+        host_error,
+        host_skip,
+        host_rolled_back,
+        rule_results,
+    )
 
 
 # ── Unified host execution ───────────────────────────────────────────────
@@ -497,6 +528,7 @@ def execute_on_host(
     """
     out.print()
     out.rule(f"[bold]Host: {hi.hostname}[/bold]")
+    host_start = time.monotonic()
 
     try:
         with connect(hi, password, sudo=sudo, strict_host_keys=strict_host_keys) as ssh:
@@ -533,7 +565,7 @@ def execute_on_host(
                 ]
 
             if config.mode == "check":
-                host_pass, host_fail, host_skip, rule_results = run_checks(
+                host_pass, host_fail, host_error, host_skip, rule_results = run_checks(
                     ssh,
                     host_rules,
                     caps,
@@ -547,6 +579,7 @@ def execute_on_host(
                     host_pass,
                     host_fail,
                     host_fixed,
+                    host_error,
                     host_skip,
                     host_rolled_back,
                     rule_results,
@@ -578,14 +611,20 @@ def execute_on_host(
             output=out.file.getvalue() if isinstance(out.file, StringIO) else "",
         )
 
+    host_duration = time.monotonic() - host_start
+
     if config.mode == "check":
-        total = host_pass + host_fail + host_skip
-        out.print(
+        total = host_pass + host_fail + host_error + host_skip
+        summary = (
             f"  [bold]{total} rules[/bold] | "
             f"[green]{host_pass} pass[/green] | "
             f"[red]{host_fail} fail[/red]"
-            + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
         )
+        if host_error:
+            summary += f" | [red]{host_error} error[/red]"
+        if host_skip:
+            summary += f" | [dim]{host_skip} skip[/dim]"
+        out.print(summary)
         return HostCheckResult(
             hostname=hi.hostname,
             success=True,
@@ -593,19 +632,23 @@ def execute_on_host(
             capabilities=caps,
             pass_count=host_pass,
             fail_count=host_fail,
+            error_count=host_error,
             skip_count=host_skip,
             rule_results=rule_results,
             output=out.file.getvalue() if isinstance(out.file, StringIO) else "",
+            duration_seconds=host_duration,
         )
 
     # Remediate summary
-    total = host_pass + host_fail + host_fixed + host_skip
+    total = host_pass + host_fail + host_fixed + host_error + host_skip
     summary = (
         f"  [bold]{total} rules[/bold] | "
         f"[green]{host_pass} pass[/green] | "
         f"[yellow]{host_fixed} fixed[/yellow] | "
         f"[red]{host_fail} fail[/red]"
     )
+    if host_error:
+        summary += f" | [red]{host_error} error[/red]"
     if host_skip:
         summary += f" | [dim]{host_skip} skip[/dim]"
     if host_rolled_back:
@@ -620,8 +663,10 @@ def execute_on_host(
         pass_count=host_pass,
         fail_count=host_fail,
         fixed_count=host_fixed,
+        error_count=host_error,
         skip_count=host_skip,
         rolled_back_count=host_rolled_back,
         rule_results=rule_results,
         output=out.file.getvalue() if isinstance(out.file, StringIO) else "",
+        duration_seconds=host_duration,
     )

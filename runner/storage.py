@@ -157,7 +157,7 @@ class ResultStore:
 
     """
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     def __init__(
         self,
@@ -233,6 +233,9 @@ class ResultStore:
 
         if current_version < 3:
             self._migrate_to_v3(conn)
+
+        if current_version < 4:
+            self._migrate_to_v4(conn)
 
         # Set or update schema version
         if row is None:
@@ -364,6 +367,16 @@ class ResultStore:
                 ON rollback_events(step_id);
             """
         )
+
+    def _migrate_to_v4(self, conn: sqlite3.Connection) -> None:
+        """Migrate database to schema version 4 (add session duration)."""
+        # Check if column already exists (idempotent)
+        cursor = conn.execute("PRAGMA table_info(sessions)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "duration_seconds" not in columns:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN duration_seconds REAL DEFAULT NULL"
+            )
 
     def close(self) -> None:
         """Close the database connection."""

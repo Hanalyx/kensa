@@ -83,6 +83,7 @@ def format_evidence(run_result: RunResult, host: HostResult | None = None) -> st
             "total": len(host.results),
             "pass": host.pass_count,
             "fail": host.fail_count,
+            "error": host.error_count,
             "skip": host.skip_count,
         },
     }
@@ -100,6 +101,8 @@ def format_evidence(run_result: RunResult, host: HostResult | None = None) -> st
             "severity": result.severity,
             "passed": result.passed,
             "skipped": result.skipped,
+            "error": result.error,
+            "error_detail": result.error_detail,
             "detail": result.detail,
         }
 

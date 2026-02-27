@@ -25,10 +25,10 @@ def session_id(store: ResultStore) -> int:
 
 
 class TestSchemaV3Migration:
-    def test_schema_version_is_3(self, store: ResultStore) -> None:
+    def test_schema_version_is_current(self, store: ResultStore) -> None:
         conn = store._get_conn()
         row = conn.execute("SELECT version FROM schema_version").fetchone()
-        assert row[0] == 3
+        assert row[0] == store.SCHEMA_VERSION
 
     def test_remediation_sessions_table_exists(self, store: ResultStore) -> None:
         conn = store._get_conn()
@@ -120,9 +120,9 @@ class TestSchemaV3Migration:
         store = ResultStore(db_path=db)
         conn = store._get_conn()
 
-        # Schema version should be 3
+        # Schema version should be current
         row = conn.execute("SELECT version FROM schema_version").fetchone()
-        assert row[0] == 3
+        assert row[0] == store.SCHEMA_VERSION
 
         # Existing data should survive
         results = store.get_results(1)

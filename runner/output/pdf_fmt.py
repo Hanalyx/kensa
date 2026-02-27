@@ -68,6 +68,7 @@ except ImportError:
 STATUS_COLORS = {
     "PASS": "lightgreen",  # colors.lightgreen when reportlab loaded
     "FAIL": "lightcoral",
+    "ERROR": "lightsalmon",
     "SKIP": "lightgrey",
 }
 
@@ -210,10 +211,16 @@ def _build_summary_table(run_result: RunResult) -> list:
         ["Hosts", str(run_result.host_count)],
         [
             "Total Checks",
-            str(run_result.total_pass + run_result.total_fail + run_result.total_skip),
+            str(
+                run_result.total_pass
+                + run_result.total_fail
+                + run_result.total_error
+                + run_result.total_skip
+            ),
         ],
         ["Passed", str(run_result.total_pass)],
         ["Failed", str(run_result.total_fail)],
+        ["Errors", str(run_result.total_error)],
         ["Skipped", str(run_result.total_skip)],
     ]
 
@@ -326,6 +333,8 @@ def _get_status_label(result) -> str:
     """
     if result.skipped:
         return "SKIP"
+    elif result.error:
+        return "ERROR"
     elif result.passed:
         return "PASS"
     else:
@@ -375,19 +384,18 @@ def _build_table_style(data: list, *, has_framework: bool = False) -> list:
     ]
 
     # Color-code status cells based on value
+    status_color_map = {
+        "PASS": colors.lightgreen if REPORTLAB_AVAILABLE else None,
+        "FAIL": colors.lightcoral if REPORTLAB_AVAILABLE else None,
+        "ERROR": colors.lightsalmon if REPORTLAB_AVAILABLE else None,
+        "SKIP": colors.lightgrey if REPORTLAB_AVAILABLE else None,
+    }
     for i, row in enumerate(data[1:], start=1):
         status = row[status_col]
-        if status == "PASS":
-            style.append(
-                ("BACKGROUND", (status_col, i), (status_col, i), colors.lightgreen)
-            )
-        elif status == "FAIL":
-            style.append(
-                ("BACKGROUND", (status_col, i), (status_col, i), colors.lightcoral)
-            )
-        else:  # SKIP
-            style.append(
-                ("BACKGROUND", (status_col, i), (status_col, i), colors.lightgrey)
-            )
+        color = status_color_map.get(
+            status, colors.lightgrey if REPORTLAB_AVAILABLE else None
+        )
+        if color is not None:
+            style.append(("BACKGROUND", (status_col, i), (status_col, i), color))
 
     return style
