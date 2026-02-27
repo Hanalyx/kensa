@@ -13,15 +13,22 @@ inject it into the container, and clean up on teardown.
 
 Live host fixtures read targets from the project inventory.ini file.
 Hosts, IPs, and users may change — the inventory path is the constant.
+
+Result storage:
+    Every run_kensa() invocation persists its output to results/e2e/<timestamp>/.
+    For commands that support -o (check, remediate), JSON, CSV, evidence, and
+    PDF outputs are captured alongside stdout/stderr and a meta.json manifest.
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import socket
 import subprocess
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -30,6 +37,10 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CONTAINERS_DIR = Path(__file__).parent / "containers"
 INVENTORY_PATH = PROJECT_ROOT / "inventory.ini"
+RESULTS_BASE = PROJECT_ROOT / "results" / "e2e"
+
+# ── Result storage constants ─────────────────────────────────────────────────
+OUTPUT_COMMANDS = {"check", "remediate"}  # Commands that support -o flags
 
 # ── Container constants ──────────────────────────────────────────────────────
 IMAGE_PREFIX = "kensa-e2e"
@@ -37,6 +48,40 @@ NETWORK_NAME = "kensa_network"
 SSH_USER = "kensa-test"
 CONTAINER_STARTUP_TIMEOUT = 30
 SSH_READY_TIMEOUT = 30
+
+# ── Module-level test context (set by autouse fixture) ───────────────────────
+_current_test_ctx: E2ETestContext | None = None
+
+
+@dataclass
+class E2ETestContext:
+    """Tracks test identity, output directory, and step counter."""
+
+    test_name: str  # e.g. "TestCheckKnownBadE2E::test_gpgcheck_fails"
+    test_module: str  # e.g. "test_check_cycle"
+    output_dir: Path  # e.g. results/e2e/<ts>/test_check_cycle/TestCheck...
+    step_count: int = 0
+    first_step_subcommand: str = ""
+
+    def next_step(self, subcommand: str) -> Path:
+        """Return the output path for the next run_kensa step.
+
+        For single-call tests, returns output_dir directly.
+        When step 2 triggers, retroactively moves step-1 files into
+        step_001_<cmd>/ and returns step_002_<cmd>/.
+        """
+        self.step_count += 1
+
+        if self.step_count == 1:
+            self.first_step_subcommand = subcommand
+            return self.output_dir
+
+        if self.step_count == 2:
+            _promote_to_multistep(self.output_dir, self.first_step_subcommand)
+
+        step_dir = self.output_dir / f"step_{self.step_count:03d}_{subcommand}"
+        step_dir.mkdir(parents=True, exist_ok=True)
+        return step_dir
 
 
 @dataclass
@@ -53,6 +98,67 @@ class E2EHost:
     groups: list[str] = field(default_factory=list)
 
 
+def _extract_subcommand(args: list[str]) -> str:
+    """Extract the kensa subcommand from args (first non-flag arg)."""
+    for arg in args:
+        if not arg.startswith("-"):
+            return arg
+    return "unknown"
+
+
+def _promote_to_multistep(output_dir: Path, first_subcommand: str) -> None:
+    """Move flat step-1 files into step_001_<cmd>/ subdirectory."""
+    step1_dir = output_dir / f"step_001_{first_subcommand}"
+    step1_dir.mkdir(parents=True, exist_ok=True)
+
+    for item in output_dir.iterdir():
+        if item.is_file():
+            item.rename(step1_dir / item.name)
+
+
+def _save_run_artifacts(
+    output_dir: Path,
+    *,
+    cmd: list[str],
+    subcommand: str,
+    host: E2EHost,
+    result: subprocess.CompletedProcess,
+    start_time: datetime,
+    duration: float,
+    output_files: list[str],
+    test_name: str,
+    test_module: str,
+) -> None:
+    """Write stdout.log, stderr.log, and meta.json to output_dir."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # stdout.log
+    (output_dir / "stdout.log").write_text(result.stdout or "")
+
+    # stderr.log
+    (output_dir / "stderr.log").write_text(result.stderr or "")
+
+    # meta.json
+    meta = {
+        "test_name": test_name,
+        "test_module": test_module,
+        "timestamp": start_time.isoformat(),
+        "command": cmd,
+        "subcommand": subcommand,
+        "exit_code": result.returncode,
+        "host": {
+            "hostname": host.host,
+            "port": host.port,
+            "user": host.user,
+            "distro": host.distro,
+            "is_container": host.is_container,
+        },
+        "duration_seconds": round(duration, 3),
+        "output_files": output_files,
+    }
+    (output_dir / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+
+
 def run_kensa(
     host: E2EHost, args: list[str], timeout: int = 120
 ) -> subprocess.CompletedProcess:
@@ -60,12 +166,53 @@ def run_kensa(
 
     Builds the CLI invocation from the host's connection details.
     Shared by both container and live host tests.
+
+    When a test context is active, persists all output to the session
+    results directory and appends -o flags for supported commands.
     """
+    global _current_test_ctx
+
+    subcommand = _extract_subcommand(args)
+    output_dir: Path | None = None
+    output_files: list[str] = []
+    extra_args: list[str] = []
+
+    if _current_test_ctx is not None:
+        output_dir = _current_test_ctx.next_step(subcommand)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if subcommand in OUTPUT_COMMANDS:
+            # JSON
+            json_path = output_dir / "results.json"
+            extra_args.extend(["-o", f"json:{json_path}"])
+            output_files.append("results.json")
+
+            # CSV
+            csv_path = output_dir / "results.csv"
+            extra_args.extend(["-o", f"csv:{csv_path}"])
+            output_files.append("results.csv")
+
+            # Evidence
+            evidence_path = output_dir / "evidence.json"
+            extra_args.extend(["-o", f"evidence:{evidence_path}"])
+            output_files.append("evidence.json")
+
+            # PDF (guarded by reportlab availability)
+            try:
+                import reportlab  # noqa: F401
+
+                pdf_path = output_dir / "report.pdf"
+                extra_args.extend(["-o", f"pdf:{pdf_path}"])
+                output_files.append("report.pdf")
+            except ImportError:
+                pass
+
     cmd = [
         "python3",
         "-m",
         "runner.cli",
         *args,
+        *extra_args,
         "--host",
         f"{host.user}@{host.host}:{host.port}",
     ]
@@ -73,12 +220,36 @@ def run_kensa(
         cmd.extend(["--key", host.key_path])
     if host.sudo:
         cmd.append("--sudo")
-    return subprocess.run(
+
+    start_time = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+
+    result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         timeout=timeout,
     )
+
+    duration = time.monotonic() - t0
+
+    if _current_test_ctx is not None and output_dir is not None:
+        # Filter output_files to only those actually created
+        actual_files = [f for f in output_files if (output_dir / f).exists()]
+        _save_run_artifacts(
+            output_dir,
+            cmd=cmd,
+            subcommand=subcommand,
+            host=host,
+            result=result,
+            start_time=start_time,
+            duration=duration,
+            output_files=actual_files,
+            test_name=_current_test_ctx.test_name,
+            test_module=_current_test_ctx.test_module,
+        )
+
+    return result
 
 
 def _find_runtime() -> str | None:
@@ -238,6 +409,83 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "container: E2E tests using containers")
     config.addinivalue_line("markers", "livehost: E2E tests using live hosts")
     config.addinivalue_line("markers", "e2e: all E2E tests")
+
+
+# ── Result storage fixtures ──────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def e2e_session_dir(request):
+    """Create a timestamped session directory under results/e2e/.
+
+    Writes session_meta.json on teardown with timing and test counts.
+    """
+    ts = datetime.now(timezone.utc)
+    session_dir = RESULTS_BASE / ts.strftime("%Y-%m-%d_%H-%M-%S")
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # Stash on config so the terminal summary hook can find it
+    request.config._e2e_session_dir = session_dir
+    request.config._e2e_session_start = ts
+
+    yield session_dir
+
+    # Write session summary on teardown
+    duration = (datetime.now(timezone.utc) - ts).total_seconds()
+    test_dirs = list(session_dir.rglob("meta.json"))
+    meta = {
+        "session_start": ts.isoformat(),
+        "session_end": datetime.now(timezone.utc).isoformat(),
+        "duration_seconds": round(duration, 3),
+        "total_runs": len(test_dirs),
+        "results_dir": str(session_dir),
+    }
+    (session_dir / "session_meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+
+
+@pytest.fixture(autouse=True)
+def _e2e_test_context(request, e2e_session_dir):
+    """Set module-level test context before each test.
+
+    Automatically active for all e2e tests. Provides run_kensa() with
+    the test identity and output directory for result persistence.
+    """
+    global _current_test_ctx
+
+    # Build test identity from pytest node
+    node = request.node
+    # Class::method or just function name
+    test_name = f"{node.cls.__name__}::{node.name}" if node.cls else node.name
+
+    # Module name without path prefix (e.g. "test_check_cycle")
+    test_module = Path(node.fspath).stem
+
+    # Directory name: TestClass__method or just method
+    dir_name = test_name.replace("::", "__")
+    output_dir = e2e_session_dir / test_module / dir_name
+
+    _current_test_ctx = E2ETestContext(
+        test_name=test_name,
+        test_module=test_module,
+        output_dir=output_dir,
+    )
+
+    yield
+
+    _current_test_ctx = None
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Print the results directory path at end of session."""
+    session_dir = getattr(config, "_e2e_session_dir", None)
+    if session_dir and session_dir.exists():
+        # Count meta.json files to see how many runs were captured
+        meta_count = len(list(session_dir.rglob("meta.json")))
+        if meta_count > 0:
+            terminalreporter.write_sep("=", "E2E result storage")
+            terminalreporter.write_line(
+                f"  {meta_count} run(s) saved to: {session_dir}"
+            )
 
 
 # ── Session-scoped fixtures ───────────────────────────────────────────────────
