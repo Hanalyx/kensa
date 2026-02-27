@@ -61,9 +61,9 @@ class TestResultStoreSpecDerived:
         actual_tables = {row["name"] for row in cursor.fetchall()}
         assert expected_tables.issubset(actual_tables)
 
-        # Schema version is 3
+        # Schema version is 4
         row = conn.execute("SELECT version FROM schema_version").fetchone()
-        assert row[0] == 3
+        assert row[0] == 4
         store.close()
 
     def test_ac2_v2_migration_preserves_data(self, tmp_path):
@@ -108,13 +108,13 @@ class TestResultStoreSpecDerived:
         conn.commit()
         conn.close()
 
-        # Open with ResultStore — should migrate to v3
+        # Open with ResultStore — should migrate to v4
         store = ResultStore(db_path=db)
         conn2 = store._get_conn()
 
         # Schema version updated
         row = conn2.execute("SELECT version FROM schema_version").fetchone()
-        assert row[0] == 3
+        assert row[0] == 4
 
         # Existing data preserved
         results = store.get_results(1)

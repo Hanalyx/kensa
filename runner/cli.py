@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
 from threading import Lock
@@ -475,10 +476,13 @@ def check(
         framework=selection.framework,
     )
 
+    run_start = time.monotonic()
+
     if workers == 1:
         # Sequential execution
         total_pass = 0
         total_fail = 0
+        total_error = 0
         total_skip = 0
         host_count = 0
 
@@ -486,6 +490,7 @@ def check(
             out.print()
             out.rule(f"[bold]Host: {hi.hostname}[/bold]")
             host_result = HostResult(hostname=hi.hostname, groups=hi.groups)
+            host_start = time.monotonic()
             try:
                 with connect(
                     hi, password, sudo=sudo, strict_host_keys=strict_host_keys
@@ -545,14 +550,16 @@ def check(
                         platform.version if platform else None
                     )
                     host_result.capabilities = caps
-                    host_pass, host_fail, host_skip, rule_results = run_checks(
-                        ssh,
-                        host_rules,
-                        caps,
-                        platform,
-                        out=out,
-                        verbose=verbose,
-                        rule_to_section=rule_to_section,
+                    host_pass, host_fail, host_error, host_skip, rule_results = (
+                        run_checks(
+                            ssh,
+                            host_rules,
+                            caps,
+                            platform,
+                            out=out,
+                            verbose=verbose,
+                            rule_to_section=rule_to_section,
+                        )
                     )
                     host_result.results = rule_results
             except Exception as exc:
@@ -561,31 +568,41 @@ def check(
                 run_result.hosts.append(host_result)
                 continue
 
+            host_result.duration_seconds = time.monotonic() - host_start
             run_result.hosts.append(host_result)
             host_count += 1
             total_pass += host_pass
             total_fail += host_fail
+            total_error += host_error
             total_skip += host_skip
 
-            total = host_pass + host_fail + host_skip
-            out.print(
+            total = host_pass + host_fail + host_error + host_skip
+            summary = (
                 f"  [bold]{total} rules[/bold] | "
                 f"[green]{host_pass} pass[/green] | "
                 f"[red]{host_fail} fail[/red]"
-                + (f" | [dim]{host_skip} skip[/dim]" if host_skip else "")
             )
+            if host_error:
+                summary += f" | [red]{host_error} error[/red]"
+            if host_skip:
+                summary += f" | [dim]{host_skip} skip[/dim]"
+            out.print(summary)
 
         if host_count > 1:
             out.print()
             out.rule("[bold]Summary[/bold]")
-            grand_total = total_pass + total_fail + total_skip
-            out.print(
+            grand_total = total_pass + total_fail + total_error + total_skip
+            summary = (
                 f"  {host_count} hosts | "
                 f"{grand_total} total checks | "
                 f"[green]{total_pass} pass[/green] | "
                 f"[red]{total_fail} fail[/red]"
-                + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
             )
+            if total_error:
+                summary += f" | [red]{total_error} error[/red]"
+            if total_skip:
+                summary += f" | [dim]{total_skip} skip[/dim]"
+            out.print(summary)
         out.print()
     else:
         # Parallel execution - use buffered output
@@ -634,6 +651,7 @@ def check(
         successful_results = [r for r in results if r.success]
         total_pass = sum(r.pass_count for r in successful_results)
         total_fail = sum(r.fail_count for r in successful_results)
+        total_error = sum(r.error_count for r in successful_results)
         total_skip = sum(r.skip_count for r in successful_results)
         host_count = len(successful_results)
 
@@ -647,22 +665,29 @@ def check(
                 results=r.rule_results,
                 error=r.error,
                 groups=host_groups_map.get(r.hostname, []),
+                duration_seconds=r.duration_seconds,
             )
             run_result.hosts.append(host_result)
 
         if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
-            grand_total = total_pass + total_fail + total_skip
-            console.print(
+            grand_total = total_pass + total_fail + total_error + total_skip
+            summary = (
                 f"  {host_count} hosts | "
                 f"{grand_total} total checks | "
                 f"[green]{total_pass} pass[/green] | "
                 f"[red]{total_fail} fail[/red]"
-                + (f" | [dim]{total_skip} skip[/dim]" if total_skip else "")
             )
+            if total_error:
+                summary += f" | [red]{total_error} error[/red]"
+            if total_skip:
+                summary += f" | [dim]{total_skip} skip[/dim]"
+            console.print(summary)
         if not quiet:
             console.print()
+
+    run_result.duration_seconds = time.monotonic() - run_start
 
     # Sort results by framework section if framework is active
     if framework:
@@ -1022,11 +1047,14 @@ def remediate(
         framework=selection.framework,
     )
 
+    run_start = time.monotonic()
+
     if workers == 1:
         # Sequential execution
         total_pass = 0
         total_fail = 0
         total_fixed = 0
+        total_error = 0
         total_skip = 0
         total_rolled_back = 0
         host_count = 0
@@ -1035,6 +1063,7 @@ def remediate(
             out.print()
             out.rule(f"[bold]Host: {hi.hostname}[/bold]")
             host_result = HostResult(hostname=hi.hostname, groups=hi.groups)
+            host_start = time.monotonic()
             try:
                 with connect(
                     hi, password, sudo=sudo, strict_host_keys=strict_host_keys
@@ -1098,6 +1127,7 @@ def remediate(
                         host_pass,
                         host_fail,
                         host_fixed,
+                        host_error,
                         host_skip,
                         host_rolled_back,
                         rule_results,
@@ -1120,21 +1150,25 @@ def remediate(
                 run_result.hosts.append(host_result)
                 continue
 
+            host_result.duration_seconds = time.monotonic() - host_start
             run_result.hosts.append(host_result)
             host_count += 1
             total_pass += host_pass
             total_fail += host_fail
             total_fixed += host_fixed
+            total_error += host_error
             total_skip += host_skip
             total_rolled_back += host_rolled_back
 
-            total = host_pass + host_fail + host_fixed + host_skip
+            total = host_pass + host_fail + host_fixed + host_error + host_skip
             summary = (
                 f"  [bold]{total} rules[/bold] | "
                 f"[green]{host_pass} pass[/green] | "
                 f"[yellow]{host_fixed} fixed[/yellow] | "
                 f"[red]{host_fail} fail[/red]"
             )
+            if host_error:
+                summary += f" | [red]{host_error} error[/red]"
             if host_skip:
                 summary += f" | [dim]{host_skip} skip[/dim]"
             if host_rolled_back:
@@ -1144,7 +1178,9 @@ def remediate(
         if host_count > 1:
             out.print()
             out.rule("[bold]Summary[/bold]")
-            grand_total = total_pass + total_fail + total_fixed + total_skip
+            grand_total = (
+                total_pass + total_fail + total_fixed + total_error + total_skip
+            )
             summary = (
                 f"  {host_count} hosts | "
                 f"{grand_total} total checks | "
@@ -1152,6 +1188,8 @@ def remediate(
                 f"[yellow]{total_fixed} fixed[/yellow] | "
                 f"[red]{total_fail} fail[/red]"
             )
+            if total_error:
+                summary += f" | [red]{total_error} error[/red]"
             if total_skip:
                 summary += f" | [dim]{total_skip} skip[/dim]"
             if total_rolled_back:
@@ -1206,6 +1244,7 @@ def remediate(
         total_pass = sum(r.pass_count for r in successful_results)
         total_fail = sum(r.fail_count for r in successful_results)
         total_fixed = sum(r.fixed_count for r in successful_results)
+        total_error = sum(r.error_count for r in successful_results)
         total_skip = sum(r.skip_count for r in successful_results)
         total_rolled_back = sum(r.rolled_back_count for r in successful_results)
         host_count = len(successful_results)
@@ -1220,13 +1259,16 @@ def remediate(
                 results=r.rule_results,
                 error=r.error,
                 groups=host_groups_map.get(r.hostname, []),
+                duration_seconds=r.duration_seconds,
             )
             run_result.hosts.append(host_result)
 
         if not quiet and host_count > 1:
             console.print()
             console.rule("[bold]Summary[/bold]")
-            grand_total = total_pass + total_fail + total_fixed + total_skip
+            grand_total = (
+                total_pass + total_fail + total_fixed + total_error + total_skip
+            )
             summary = (
                 f"  {host_count} hosts | "
                 f"{grand_total} total checks | "
@@ -1234,6 +1276,8 @@ def remediate(
                 f"[yellow]{total_fixed} fixed[/yellow] | "
                 f"[red]{total_fail} fail[/red]"
             )
+            if total_error:
+                summary += f" | [red]{total_error} error[/red]"
             if total_skip:
                 summary += f" | [dim]{total_skip} skip[/dim]"
             if total_rolled_back:
@@ -1241,6 +1285,8 @@ def remediate(
             console.print(summary)
         if not quiet:
             console.print()
+
+    run_result.duration_seconds = time.monotonic() - run_start
 
     # Sort results by framework section if framework is active
     if framework:

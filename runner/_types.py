@@ -135,6 +135,8 @@ class RuleResult:
     skipped: bool = False
     skip_reason: str = ""
     detail: str = ""
+    error: bool = False
+    error_detail: str = ""
     evidence: Evidence | None = None
     framework_refs: dict[str, str] = field(default_factory=dict)
     remediated: bool = False

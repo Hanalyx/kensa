@@ -1,0 +1,180 @@
+kind: InternalModule
+
+metadata:
+  name: RunDiagnostics
+  module: runner
+  version: "1.0.0"
+  status: draft
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-02-26"
+  updated: "2026-02-26"
+
+context:
+  description: >
+    Run diagnostics enhancements that provide better feedback for check, remediate,
+    and rollback operations. Adds error vs fail distinction, run/host timing, skip
+    reason categorization, and remediation/rollback step counts. All changes stay
+    within existing output channels (terminal, JSON, CSV, PDF, evidence) with no
+    new dependencies.
+  technical_context: >
+    Touches RuleResult (error/error_detail fields), HostResult/RunResult (error_count,
+    duration_seconds, skip_reasons properties), orchestration exception handlers,
+    host_runner display logic, CLI summary accumulation, and all four output formatters.
+    Storage gets a v4 migration for session duration.
+  dependencies:
+    - "runner._types.RuleResult"
+    - "runner.output.HostResult"
+    - "runner.output.RunResult"
+    - "runner._orchestration (evaluate_rule, remediate_rule)"
+    - "runner._host_runner (run_checks, run_remediation, execute_on_host)"
+    - "runner.cli (check, remediate commands)"
+    - "runner.output.json_fmt"
+    - "runner.output.csv_fmt"
+    - "runner.output.pdf_fmt"
+    - "runner.output.evidence_fmt"
+    - "runner.storage.ResultStore"
+  callers:
+    - "runner.cli (check and remediate commands)"
+    - "runner._host_runner (execute_on_host)"
+  related_specs:
+    - "specs/internal/output_formatter.spec.yaml"
+    - "specs/orchestration/evaluate_rule.spec.yaml"
+    - "specs/orchestration/remediate_rule.spec.yaml"
+    - "specs/orchestration/host_runner.spec.yaml"
+    - "specs/data/result_store.spec.yaml"
+  assumptions:
+    - "Exception handlers in evaluate_rule and remediate_rule currently set detail='Error: ...' but passed=False without distinguishing errors from failures."
+    - "Terminal output currently shows only PASS/FAIL/SKIP with no ERROR state."
+    - "No timing data is captured at run or host level."
+    - "Skip reasons are strings with no structured categorization."
+
+objective:
+  summary: >
+    Enrich Kensa's existing output channels with error distinction, timing data,
+    skip reason breakdowns, and remediation step counts to improve run diagnostics
+    without adding new dependencies or output formats.
+  acceptance_criteria:
+    AC-1: >
+      RuleResult has an `error` bool field (default False) and `error_detail` str
+      field (default "") that distinguish infrastructure errors from compliance failures.
+    AC-2: >
+      evaluate_rule sets error=True and error_detail=str(exc) when an exception occurs
+      during check execution, instead of only setting detail="Error: ...".
+    AC-3: >
+      remediate_rule sets error=True and error_detail=str(exc) when an exception occurs
+      during remediation or re-check, preserving the existing detail for the user.
+    AC-4: >
+      HostResult.error_count property returns the count of results where error=True
+      and skipped=False. HostResult.fail_count excludes errors (not r.error).
+    AC-5: >
+      RunResult.total_error property returns the sum of error_count across all hosts.
+    AC-6: >
+      Terminal output displays ERROR (red) for results where error=True, before the
+      FAIL branch, with the error_detail shown.
+    AC-7: >
+      Terminal summary lines include an error segment (e.g., "E error") when errors > 0,
+      in both check and remediate modes, for both sequential and parallel execution paths.
+    AC-8: >
+      JSON output includes "error" and "error_detail" fields per result, and "error"
+      count in both host-level and run-level summary objects.
+    AC-9: >
+      CSV output includes "error" and "error_detail" columns after the "skipped" column,
+      in both check and remediate column sets.
+    AC-10: >
+      PDF output renders "ERROR" status label with a distinct color (lightsalmon) and
+      includes an "Errors" row in the summary table.
+    AC-11: >
+      Evidence output includes "error" and "error_detail" fields per result data, and
+      "error" count in the summary object.
+    AC-12: >
+      HostResult has a duration_seconds field (float | None, default None).
+      RunResult has a duration_seconds field (float | None, default None).
+    AC-13: >
+      Host execution timing is captured via time.monotonic() and set on the
+      HostCheckResult/HostRemediateResult, then propagated to HostResult.duration_seconds.
+    AC-14: >
+      JSON output includes duration_seconds at both run level and per-host level when
+      the value is not None.
+    AC-15: >
+      HostResult.skip_reasons property returns a dict categorizing skip_reason strings
+      into keys: platform, capability, dependency, no_check, other. Each key maps to
+      the count of skipped results in that category.
+    AC-16: >
+      RunResult.total_skip_reasons property returns aggregated skip_reasons across all hosts.
+    AC-17: >
+      JSON output includes skip_reasons dict in host and run summaries when any
+      skips are present.
+    AC-18: >
+      Storage schema v4 migration adds a duration_seconds REAL column to the sessions
+      table with a default of NULL.
+
+constraints:
+  - "MUST NOT add any new external dependencies."
+  - "MUST NOT change the terminal output for PASS/FAIL/SKIP rules (only adds ERROR)."
+  - "MUST be backward-compatible: error defaults to False, duration defaults to None."
+  - "MUST preserve existing test behavior for non-error results."
+  - "Storage migration MUST be additive (ALTER TABLE, not recreate)."
+
+input_contract:
+  - field: error
+    type: bool
+    required: false
+    default: "False"
+    description: "Whether the result represents an infrastructure error vs compliance failure."
+  - field: error_detail
+    type: str
+    required: false
+    default: "''"
+    description: "Human-readable error message when error=True."
+  - field: duration_seconds
+    type: "float | None"
+    required: false
+    default: "None"
+    description: "Elapsed wall-clock seconds for a host or run."
+
+behavior:
+  - "1. RuleResult gains error and error_detail fields with backward-compatible defaults."
+  - "2. Orchestration exception handlers set error=True alongside the existing detail message."
+  - "3. HostResult.fail_count excludes errors; new error_count property counts errors."
+  - "4. Terminal display adds ERROR branch before FAIL in both check and remediate loops."
+  - "5. CLI accumulates error counts and includes them in summary lines."
+  - "6. All formatters include error/error_detail in their output."
+  - "7. Timing is captured with time.monotonic() at CLI and host_runner levels."
+  - "8. Skip reasons are categorized by prefix matching on skip_reason strings."
+  - "9. Storage v4 migration adds duration_seconds column to sessions table."
+
+output_contract:
+  returns: >
+    Modified RuleResult, HostResult, RunResult dataclasses; updated terminal output;
+    enriched JSON/CSV/PDF/evidence output; schema v4 database.
+  paths:
+    error_result:
+      description: "Rule evaluation raises an exception."
+      result: "RuleResult with error=True, error_detail set, displayed as ERROR in terminal."
+    normal_fail:
+      description: "Rule check fails normally (compliance failure)."
+      result: "RuleResult with error=False, displayed as FAIL (unchanged behavior)."
+    timing:
+      description: "Run completes successfully."
+      result: "duration_seconds set on RunResult and each HostResult."
+    skip_categorized:
+      description: "Rule is skipped."
+      result: "skip_reason string categorized into platform/capability/dependency/no_check/other."
+  invariants:
+    - "error=True implies passed=False and skipped=False."
+    - "error_count + fail_count + pass_count + skip_count = total results per host."
+    - "duration_seconds is always >= 0 when set."
+
+side_effects:
+  - "Schema v4 migration alters sessions table (additive, non-destructive)."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_run_diagnostics_spec.py
+    classes:
+      - TestRunDiagnosticsSpecDerived
+    count: 18
+  unit:
+    - tests/test_output.py
+    - tests/test_orchestration.py

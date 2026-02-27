@@ -92,6 +92,7 @@ class HostResult:
     error: str | None = None
     groups: list[str] = field(default_factory=list)
     effective_variables: dict[str, Any] = field(default_factory=dict)
+    duration_seconds: float | None = None
 
     @property
     def pass_count(self) -> int:
@@ -100,8 +101,15 @@ class HostResult:
 
     @property
     def fail_count(self) -> int:
-        """Count of failed rules (excludes skipped)."""
-        return sum(1 for r in self.results if not r.passed and not r.skipped)
+        """Count of failed rules (excludes skipped and errors)."""
+        return sum(
+            1 for r in self.results if not r.passed and not r.skipped and not r.error
+        )
+
+    @property
+    def error_count(self) -> int:
+        """Count of rules that errored (excludes skipped)."""
+        return sum(1 for r in self.results if r.error and not r.skipped)
 
     @property
     def skip_count(self) -> int:
@@ -112,6 +120,32 @@ class HostResult:
     def fixed_count(self) -> int:
         """Count of successfully remediated rules."""
         return sum(1 for r in self.results if r.remediated and r.passed)
+
+    @property
+    def skip_reasons(self) -> dict[str, int]:
+        """Categorize skip reasons into platform/capability/dependency/no_check/other."""
+        counts: dict[str, int] = {
+            "platform": 0,
+            "capability": 0,
+            "dependency": 0,
+            "no_check": 0,
+            "other": 0,
+        }
+        for r in self.results:
+            if not r.skipped:
+                continue
+            reason = r.skip_reason.lower()
+            if reason.startswith("platform:"):
+                counts["platform"] += 1
+            elif reason == "no matching implementation":
+                counts["capability"] += 1
+            elif reason.startswith("dependency_failed:"):
+                counts["dependency"] += 1
+            elif reason == "implementation has no check":
+                counts["no_check"] += 1
+            else:
+                counts["other"] += 1
+        return counts
 
 
 @dataclass
@@ -144,6 +178,7 @@ class RunResult:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     command: str = "check"  # "check" or "remediate"
     hosts: list[HostResult] = field(default_factory=list)
+    duration_seconds: float | None = None
 
     @property
     def total_pass(self) -> int:
@@ -156,6 +191,11 @@ class RunResult:
         return sum(h.fail_count for h in self.hosts)
 
     @property
+    def total_error(self) -> int:
+        """Sum of errored rules across all hosts."""
+        return sum(h.error_count for h in self.hosts)
+
+    @property
     def total_skip(self) -> int:
         """Sum of skipped rules across all hosts."""
         return sum(h.skip_count for h in self.hosts)
@@ -164,6 +204,21 @@ class RunResult:
     def total_fixed(self) -> int:
         """Sum of remediated rules across all hosts."""
         return sum(h.fixed_count for h in self.hosts)
+
+    @property
+    def total_skip_reasons(self) -> dict[str, int]:
+        """Aggregated skip reasons across all hosts."""
+        totals: dict[str, int] = {
+            "platform": 0,
+            "capability": 0,
+            "dependency": 0,
+            "no_check": 0,
+            "other": 0,
+        }
+        for h in self.hosts:
+            for key, count in h.skip_reasons.items():
+                totals[key] += count
+        return totals
 
     @property
     def host_count(self) -> int:

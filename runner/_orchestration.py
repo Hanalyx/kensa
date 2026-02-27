@@ -98,6 +98,8 @@ def evaluate_rule(
             severity=severity,
             passed=False,
             detail=f"Error: {exc}",
+            error=True,
+            error_detail=str(exc),
             framework_refs=framework_refs,
         )
 
@@ -150,6 +152,8 @@ def remediate_rule(
         )
     except Exception as exc:
         result.remediation_detail = f"Error: {exc}"
+        result.error = True
+        result.error_detail = str(exc)
         return result
 
     result.remediated = True
@@ -174,6 +178,8 @@ def remediate_rule(
             result.evidence = cr.evidence
         except Exception as exc:
             result.detail = f"Re-check error: {exc}"
+            result.error = True
+            result.error_detail = str(exc)
 
     # Rollback if re-check failed
     if rollback_on_failure and not result.passed:

@@ -77,12 +77,20 @@ def format_json(run_result: RunResult) -> str:
             "hosts": run_result.host_count,
             "total": run_result.total_pass
             + run_result.total_fail
+            + run_result.total_error
             + run_result.total_skip,
             "pass": run_result.total_pass,
             "fail": run_result.total_fail,
+            "error": run_result.total_error,
             "skip": run_result.total_skip,
         },
     }
+
+    if run_result.duration_seconds is not None:
+        data["duration_seconds"] = round(run_result.duration_seconds, 1)
+
+    if run_result.total_skip > 0:
+        data["summary"]["skip_reasons"] = run_result.total_skip_reasons
 
     if run_result.command == "remediate":
         data["summary"]["fixed"] = run_result.total_fixed
@@ -102,9 +110,16 @@ def format_json(run_result: RunResult) -> str:
                 "total": len(host.results),
                 "pass": host.pass_count,
                 "fail": host.fail_count,
+                "error": host.error_count,
                 "skip": host.skip_count,
             },
         }
+
+        if host.duration_seconds is not None:
+            host_data["duration_seconds"] = round(host.duration_seconds, 1)
+
+        if host.skip_count > 0:
+            host_data["summary"]["skip_reasons"] = host.skip_reasons
 
         if host.error:
             host_data["error"] = host.error
@@ -119,8 +134,12 @@ def format_json(run_result: RunResult) -> str:
                 "severity": result.severity,
                 "passed": result.passed,
                 "skipped": result.skipped,
+                "error": result.error,
                 "detail": result.detail,
             }
+
+            if result.error:
+                result_data["error_detail"] = result.error_detail
 
             if result.skipped:
                 result_data["skip_reason"] = result.skip_reason
