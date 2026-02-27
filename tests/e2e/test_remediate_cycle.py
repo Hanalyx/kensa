@@ -13,42 +13,20 @@ reverse them on a live system.
 
 from __future__ import annotations
 
-import subprocess
-
 import pytest
 
-
-def _run_kensa(
-    host, args: list[str], timeout: int = 120
-) -> subprocess.CompletedProcess:
-    """Run a kensa CLI command against the E2E host."""
-    cmd = [
-        "python3",
-        "-m",
-        "runner.cli",
-        *args,
-        "--host",
-        f"{host.user}@{host.host}:{host.port}",
-        "--ssh-key",
-        host.key_path,
-    ]
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+from tests.e2e.conftest import run_kensa
 
 
 def _check_rule(host, rule_path: str) -> tuple[int, str]:
     """Run a check and return (exit_code, output)."""
-    result = _run_kensa(host, ["check", "--rule", rule_path])
+    result = run_kensa(host, ["check", "--rule", rule_path])
     return result.returncode, result.stdout + result.stderr
 
 
 def _remediate_rule(host, rule_path: str) -> tuple[int, str]:
     """Run remediation and return (exit_code, output)."""
-    result = _run_kensa(host, ["remediate", "--rule", rule_path, "--yes"])
+    result = run_kensa(host, ["remediate", "--rule", rule_path, "--yes"])
     return result.returncode, result.stdout + result.stderr
 
 
@@ -80,7 +58,7 @@ class TestRemediateCycleE2E:
         assert code == 0, f"Post-remediation check failed: {output}"
 
         # Step 4: Rollback (using most recent remediation session)
-        rollback_result = _run_kensa(
+        rollback_result = run_kensa(
             el9_container,
             ["rollback", "--start", "1"],
         )

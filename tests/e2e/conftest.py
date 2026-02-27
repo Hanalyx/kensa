@@ -10,6 +10,9 @@ Usage:
 
 Container fixtures generate an ephemeral SSH key pair per session,
 inject it into the container, and clean up on teardown.
+
+Live host fixtures read targets from the project inventory.ini file.
+Hosts, IPs, and users may change — the inventory path is the constant.
 """
 
 from __future__ import annotations
@@ -18,12 +21,17 @@ import shutil
 import socket
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
+# ── Paths ────────────────────────────────────────────────────────────────────
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CONTAINERS_DIR = Path(__file__).parent / "containers"
+INVENTORY_PATH = PROJECT_ROOT / "inventory.ini"
+
+# ── Container constants ──────────────────────────────────────────────────────
 IMAGE_PREFIX = "kensa-e2e"
 NETWORK_NAME = "kensa_network"
 SSH_USER = "kensa-test"
@@ -38,9 +46,39 @@ class E2EHost:
     host: str
     port: int
     user: str
-    key_path: str
-    distro: str  # "el8" or "el9"
-    is_container: bool
+    key_path: str | None = None
+    distro: str = "unknown"
+    is_container: bool = False
+    sudo: bool = False
+    groups: list[str] = field(default_factory=list)
+
+
+def run_kensa(
+    host: E2EHost, args: list[str], timeout: int = 120
+) -> subprocess.CompletedProcess:
+    """Run a kensa CLI command against an E2E host.
+
+    Builds the CLI invocation from the host's connection details.
+    Shared by both container and live host tests.
+    """
+    cmd = [
+        "python3",
+        "-m",
+        "runner.cli",
+        *args,
+        "--host",
+        f"{host.user}@{host.host}:{host.port}",
+    ]
+    if host.key_path:
+        cmd.extend(["--key", host.key_path])
+    if host.sudo:
+        cmd.append("--sudo")
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
 
 
 def _find_runtime() -> str | None:
@@ -315,3 +353,53 @@ def el8_container(container_runtime, ssh_keypair, kensa_network):
     yield host
 
     _stop_container(runtime, container_id)
+
+
+# ── Live host fixtures ───────────────────────────────────────────────────────
+
+
+def _parse_inventory_hosts() -> list[E2EHost]:
+    """Parse inventory.ini and return E2EHost entries.
+
+    Reads the project inventory.ini (INI format with ansible_user).
+    Returns an empty list if the file doesn't exist.
+    """
+    if not INVENTORY_PATH.exists():
+        return []
+
+    from runner.inventory import resolve_targets
+
+    targets = resolve_targets(inventory=str(INVENTORY_PATH))
+    hosts = []
+    for t in targets:
+        hosts.append(
+            E2EHost(
+                host=t.hostname,
+                port=t.port,
+                user=t.user or "root",
+                key_path=t.key_path,
+                distro="unknown",
+                is_container=False,
+                sudo=True,
+                groups=list(t.groups),
+            )
+        )
+    return hosts
+
+
+@pytest.fixture(scope="session")
+def livehost_targets() -> list[E2EHost]:
+    """Resolve live hosts from inventory.ini.
+
+    Skips if inventory.ini doesn't exist or contains no hosts.
+    """
+    hosts = _parse_inventory_hosts()
+    if not hosts:
+        pytest.skip("No live hosts in inventory.ini (file missing or empty)")
+    return hosts
+
+
+@pytest.fixture(scope="session")
+def livehost(livehost_targets) -> E2EHost:
+    """Return the first live host from inventory for single-host tests."""
+    return livehost_targets[0]

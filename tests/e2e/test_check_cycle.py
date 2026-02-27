@@ -6,31 +6,9 @@ rules with known-bad state baked into the container image.
 
 from __future__ import annotations
 
-import subprocess
-
 import pytest
 
-
-def _run_kensa(
-    host, args: list[str], timeout: int = 120
-) -> subprocess.CompletedProcess:
-    """Run a kensa CLI command against the E2E host."""
-    cmd = [
-        "python3",
-        "-m",
-        "runner.cli",
-        *args,
-        "--host",
-        f"{host.user}@{host.host}:{host.port}",
-        "--ssh-key",
-        host.key_path,
-    ]
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+from tests.e2e.conftest import run_kensa
 
 
 @pytest.mark.container
@@ -44,7 +22,7 @@ class TestCheckKnownBadE2E:
         The container has default dnf.conf which may or may not have gpgcheck.
         This tests the config_value handler end-to-end.
         """
-        result = _run_kensa(
+        result = run_kensa(
             el9_container,
             ["check", "--rule", "rules/system/gpgcheck-enabled.yml"],
         )
@@ -62,7 +40,7 @@ class TestCheckKnownBadE2E:
         Container has /etc/motd with 0666 permissions (should be 0644).
         Tests the file_permission handler.
         """
-        result = _run_kensa(
+        result = run_kensa(
             el9_container,
             ["check", "--rule", "rules/filesystem/motd-permissions.yml"],
         )
@@ -78,7 +56,7 @@ class TestCheckKnownBadE2E:
         Container does not have audit package installed.
         Tests the package_state handler.
         """
-        result = _run_kensa(
+        result = run_kensa(
             el9_container,
             ["check", "--rule", "rules/audit/auditd-installed.yml"],
         )
@@ -93,7 +71,7 @@ class TestCheckKnownBadE2E:
 
         Tests the config_value handler with comparator.
         """
-        result = _run_kensa(
+        result = run_kensa(
             el9_container,
             ["check", "--rule", "rules/access-control/password-min-age.yml"],
         )
@@ -109,7 +87,7 @@ class TestCheckKnownBadE2E:
         Tests that kensa can load and evaluate a directory of rules
         against a real host.
         """
-        result = _run_kensa(
+        result = run_kensa(
             el9_container,
             ["check", "--rules", "rules/filesystem/", "--severity", "low"],
         )
@@ -120,7 +98,7 @@ class TestCheckKnownBadE2E:
 
     def test_check_el8(self, el8_container):
         """Check rules against Rocky Linux 8 container."""
-        result = _run_kensa(
+        result = run_kensa(
             el8_container,
             ["check", "--rule", "rules/system/gpgcheck-enabled.yml"],
         )
