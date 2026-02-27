@@ -624,6 +624,7 @@ def execute_on_host(
             summary += f" | [red]{host_error} error[/red]"
         if host_skip:
             summary += f" | [dim]{host_skip} skip[/dim]"
+        summary += f" | [dim]{host_duration:.1f}s[/dim]"
         out.print(summary)
         return HostCheckResult(
             hostname=hi.hostname,
@@ -653,6 +654,7 @@ def execute_on_host(
         summary += f" | [dim]{host_skip} skip[/dim]"
     if host_rolled_back:
         summary += f" | [magenta]{host_rolled_back} rolled back[/magenta]"
+    summary += f" | [dim]{host_duration:.1f}s[/dim]"
     out.print(summary)
 
     return HostRemediateResult(
