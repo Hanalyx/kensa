@@ -1518,7 +1518,7 @@ class TestRollbackSpecDerived:
         conn.close()
 
         with patch("runner.storage.get_db_path", return_value=db_path):
-            runner = CliRunner(mix_stderr=False)
+            runner = CliRunner()
             result = runner.invoke(
                 main,
                 ["rollback", "--start", str(rs_id), "--host", "10.0.0.5"],
