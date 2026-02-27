@@ -52,8 +52,10 @@ input_contract:
   - field: --rules / -r
     type: str
     required: false
-    default: "rules/"
-    description: Path to rules directory
+    default: null
+    description: >
+      Rules directory path. If not specified, auto-resolves via
+      get_rules_path() (env var KENSA_RULES_PATH, ./rules, installed package).
   - field: --json
     type: bool
     required: false

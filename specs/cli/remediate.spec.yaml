@@ -24,6 +24,7 @@ context:
     - runner.engine
     - runner.inventory
     - runner.output
+    - runner.paths
     - runner.conflicts
     - runner.storage
   callers:

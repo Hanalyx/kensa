@@ -86,7 +86,9 @@ The `shlex.quote()` around the entire command handles nested quoting. This is do
 
 ### SSH Credentials
 
-- Passwords are accepted via `--password` CLI flag (visible in process list — users should prefer keys)
+- **Preferred:** Run `kensa check -p --host server` — the `-p` flag without a value triggers a secure interactive prompt with hidden input (not visible in `ps`, shell history, or terminal echo)
+- **Supported but discouraged:** `kensa check -p mysecret --host server` — inline password is visible in process list and shell history
+- SSH key authentication (`--key`) is the recommended approach for non-interactive use
 - Private key paths are stored in `HostInfo.key_path` but contents are never read by kensa (paramiko handles this)
 - Neither passwords nor key contents are ever logged or included in error messages
 

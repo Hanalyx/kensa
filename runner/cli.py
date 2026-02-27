@@ -77,7 +77,16 @@ def target_options(f):
     )(f)
     f = click.option("--user", "-u", default=None, help="SSH username")(f)
     f = click.option("--key", "-k", default=None, help="SSH private key path")(f)
-    f = click.option("--password", "-p", default=None, help="SSH password")(f)
+    f = click.option(
+        "--password",
+        "-p",
+        default=None,
+        is_eager=True,
+        prompt=False,
+        prompt_required=False,
+        hide_input=True,
+        help="SSH password (prompts securely if flag given without value)",
+    )(f)
     f = click.option(
         "--port", "-P", default=22, type=int, help="SSH port (default: 22)"
     )(f)
