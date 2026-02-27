@@ -262,17 +262,30 @@ class TestInfoNoArgs:
 class TestDeprecatedLookup:
     """Test that ``kensa lookup`` still works with deprecation warning."""
 
+    @staticmethod
+    def _all_output(result):
+        """Combine stdout and stderr from CliRunner result.
+
+        click 8.1 raises ValueError on result.stderr unless
+        mix_stderr=False; click 8.2+ removed mix_stderr entirely
+        and always separates streams.
+        """
+        try:
+            return result.output + (result.stderr or "")
+        except (ValueError, AttributeError):
+            return result.output
+
     def test_lookup_shows_deprecation_warning(self):
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         result = runner.invoke(main, ["lookup", "5.2.2"])
         assert result.exit_code == 0
-        assert "deprecated" in result.stderr.lower()
+        assert "deprecated" in self._all_output(result).lower()
 
     def test_lookup_still_returns_results(self):
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         result = runner.invoke(main, ["lookup", "5.2.2"])
         assert result.exit_code == 0
-        output = strip_ansi(result.output)
+        output = strip_ansi(self._all_output(result))
         assert "CIS" in output
 
     def test_lookup_hidden_from_help(self):
