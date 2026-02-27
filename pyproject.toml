@@ -112,7 +112,12 @@ explicit_package_bases = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --ignore=tests/e2e"
+markers = [
+    "container: E2E tests using containers (require podman/docker)",
+    "livehost: E2E tests using live hosts (require inventory)",
+    "e2e: all E2E integration tests",
+]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Semantic Release configuration
