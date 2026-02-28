@@ -73,6 +73,7 @@ class HostResult:
         hostname: The target host's address or hostname.
         platform_family: Detected OS family (e.g., "rhel", "ubuntu"), or None.
         platform_version: Detected major version number, or None.
+        platform_version_id: Full version string for display (e.g., "9.3"), or None.
         capabilities: Dict of capability name -> bool from detect_capabilities().
         results: List of RuleResult objects from rule evaluation.
         error: Connection or execution error message, or None if successful.
@@ -87,6 +88,7 @@ class HostResult:
     hostname: str
     platform_family: str | None = None
     platform_version: int | None = None
+    platform_version_id: str | None = None
     capabilities: dict[str, bool] = field(default_factory=dict)
     results: list[RuleResult] = field(default_factory=list)
     error: str | None = None

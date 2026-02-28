@@ -40,12 +40,13 @@ if TYPE_CHECKING:
 
 # ── Platform detection ─────────────────────────────────────────────────────
 
-PlatformInfo = namedtuple("PlatformInfo", ["family", "version"])
+PlatformInfo = namedtuple("PlatformInfo", ["family", "version", "version_id"])
 """Platform information for rule filtering.
 
 Attributes:
     family (str): Normalized OS family (e.g., "rhel", "ubuntu", "debian").
-    version (int): Major version number.
+    version (int): Major version number for rule/mapping matching.
+    version_id (str): Full version string for display (e.g., "9.3", "22.04").
 """
 
 # OS IDs that are RHEL-compatible and normalized to family "rhel"
@@ -98,7 +99,7 @@ def detect_platform(ssh: SSHSession) -> PlatformInfo | None:
             version = 0
 
         family = "rhel" if os_id in RHEL_FAMILY else os_id
-        return PlatformInfo(family=family, version=version)
+        return PlatformInfo(family=family, version=version, version_id=ver_str)
 
     # Fallback: /etc/redhat-release for older RHEL/CentOS
     result = ssh.run("cat /etc/redhat-release 2>/dev/null")
@@ -107,19 +108,22 @@ def detect_platform(ssh: SSHSession) -> PlatformInfo | None:
 
         content = result.stdout.strip().lower()
         version = 0
-        match = re.search(r"(\d+)", content)
+        version_id = "0"
+        match = re.search(r"(\d+[\d.]*)", content)
         if match:
-            version = int(match.group(1))
-        return PlatformInfo(family="rhel", version=version)
+            version_id = match.group(1)
+            version = int(version_id.split(".")[0])
+        return PlatformInfo(family="rhel", version=version, version_id=version_id)
 
     # Fallback: /etc/debian_version for Debian-based
     result = ssh.run("cat /etc/debian_version 2>/dev/null")
     if result.ok and result.stdout.strip():
+        version_id = result.stdout.strip()
         try:
-            version = int(result.stdout.strip().split(".")[0])
+            version = int(version_id.split(".")[0])
         except (ValueError, IndexError):
             version = 0
-        return PlatformInfo(family="debian", version=version)
+        return PlatformInfo(family="debian", version=version, version_id=version_id)
 
     return None
 

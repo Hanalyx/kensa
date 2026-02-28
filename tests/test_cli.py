@@ -188,7 +188,9 @@ class TestCLIVerbose:
         mock_ssh.run = MagicMock(
             return_value=Result(exit_code=0, stdout="0", stderr="")
         )
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         rule_file = tmp_path / "test-rule.yml"
         rule_file.write_text(
@@ -330,7 +332,9 @@ class TestCLIPlatformSkip:
         )
 
         # Host is RHEL 8
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=8)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=8, version_id="8.0"
+        )
 
         # Rule requires min_version: 9
         rule_file = tmp_path / "rhel9-only.yml"

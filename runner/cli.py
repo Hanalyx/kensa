@@ -372,7 +372,9 @@ def _detect_host(
             "  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]"
         )
     else:
-        buf_console.print(f"  Platform: {platform.family.upper()} {platform.version}")
+        buf_console.print(
+            f"  Platform: {platform.family.upper()} {platform.version_id}"
+        )
 
     # Build capability table
     table = Table(show_header=True, header_style="bold")
@@ -557,6 +559,9 @@ def check(
                     host_result.platform_version = (
                         platform.version if platform else None
                     )
+                    host_result.platform_version_id = (
+                        platform.version_id if platform else None
+                    )
                     host_result.capabilities = caps
                     host_pass, host_fail, host_error, host_skip, rule_results = (
                         run_checks(
@@ -672,6 +677,7 @@ def check(
                 hostname=r.hostname,
                 platform_family=r.platform.family if r.platform else None,
                 platform_version=r.platform.version if r.platform else None,
+                platform_version_id=r.platform.version_id if r.platform else None,
                 capabilities=r.capabilities,
                 results=r.rule_results,
                 error=r.error,
@@ -1135,6 +1141,9 @@ def remediate(
                     host_result.platform_version = (
                         platform.version if platform else None
                     )
+                    host_result.platform_version_id = (
+                        platform.version_id if platform else None
+                    )
                     host_result.capabilities = caps
                     (
                         host_pass,
@@ -1271,6 +1280,7 @@ def remediate(
                 hostname=r.hostname,
                 platform_family=r.platform.family if r.platform else None,
                 platform_version=r.platform.version if r.platform else None,
+                platform_version_id=r.platform.version_id if r.platform else None,
                 capabilities=r.capabilities,
                 results=r.rule_results,
                 error=r.error,

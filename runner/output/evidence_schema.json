@@ -58,8 +58,8 @@
               "description": "OS family (rhel, ubuntu, etc.)"
             },
             "version": {
-              "type": "integer",
-              "description": "Major OS version number"
+              "type": ["string", "integer"],
+              "description": "OS version string (e.g., '9.3') or major version integer"
             }
           }
         },

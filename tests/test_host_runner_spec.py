@@ -18,7 +18,7 @@ from runner._host_runner import (
 from runner._types import RuleResult
 from runner.inventory import HostInfo
 
-PlatformInfo = namedtuple("PlatformInfo", ["family", "version"])
+PlatformInfo = namedtuple("PlatformInfo", ["family", "version", "version_id"])
 
 
 def _quiet_console() -> Console:
@@ -127,7 +127,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {"sshd_config_d": True}
 
         hi = self._make_hi()
@@ -165,7 +165,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        platform = PlatformInfo("rhel", 9)
+        platform = PlatformInfo("rhel", 9, "9.3")
         mock_platform.return_value = platform
         mock_caps.return_value = {}
 
@@ -198,7 +198,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {"sshd_config_d": True, "authselect": False}
 
         hi = self._make_hi()
@@ -234,7 +234,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        platform = PlatformInfo("rhel", 9)
+        platform = PlatformInfo("rhel", 9, "9.3")
         mock_platform.return_value = platform
         mock_caps.return_value = {}
 
@@ -278,7 +278,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {}
 
         rule = _make_rule("rule-a")
@@ -346,7 +346,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {"sshd_config_d": True}
 
         rule_a = _make_rule("rule-a")
@@ -404,7 +404,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {}
 
         rule = _make_rule("rule-a")
@@ -448,7 +448,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {}
 
         rule = _make_rule("rule-a", depends_on=["rule-x"])
@@ -541,7 +541,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {}
 
         rules = [_make_rule(f"rule-{i}") for i in range(4)]
@@ -601,7 +601,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {}
 
         rules = [_make_rule(f"rule-{i}") for i in range(5)]
@@ -665,7 +665,7 @@ class TestHostRunnerSpecDerived:
         mock_ssh.__exit__ = MagicMock(return_value=False)
         mock_connect.return_value = mock_ssh
 
-        mock_platform.return_value = PlatformInfo("rhel", 9)
+        mock_platform.return_value = PlatformInfo("rhel", 9, "9.3")
         mock_caps.return_value = {}
 
         rule_a = _make_rule("rule-a")

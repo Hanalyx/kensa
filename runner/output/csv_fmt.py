@@ -119,7 +119,9 @@ def format_csv(run_result: RunResult) -> str:
             writer.writerow(row)
             continue
 
-        platform_str = _format_platform(host.platform_family, host.platform_version)
+        platform_str = _format_platform(
+            host.platform_family, host.platform_version, host.platform_version_id
+        )
 
         for result in host.results:
             row = _build_result_row(
@@ -130,20 +132,26 @@ def format_csv(run_result: RunResult) -> str:
     return output.getvalue()
 
 
-def _format_platform(family: str | None, version: int | None) -> str:
+def _format_platform(
+    family: str | None,
+    version: int | None,
+    version_id: str | None = None,
+) -> str:
     """Format platform info as 'family version' string.
 
     Args:
         family: OS family (e.g., "rhel") or None.
         version: Major version number or None.
+        version_id: Full version string (e.g., "9.3") or None.
 
     Returns:
-        Formatted string like "rhel 9", or empty string if no family.
+        Formatted string like "rhel 9.3", or empty string if no family.
 
     """
     if not family:
         return ""
-    return f"{family} {version or ''}"
+    display_version = version_id or version or ""
+    return f"{family} {display_version}"
 
 
 def _build_error_row(hostname: str, error: str, command: str) -> dict:
