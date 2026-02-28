@@ -791,6 +791,14 @@ class TestRemediateSpecDerived:
         # Should NOT get "Specify --rules or --rule" — auto-resolves via get_rules_path()
         assert "Specify --rules or --rule" not in (result.output or "")
 
+    def test_ac21_no_rules_auto_resolves_default(self):
+        """AC-21: Remediate with no --rules auto-resolves via get_rules_path()."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["remediate", "--host", "10.0.0.1"])
+
+        # Auto-resolution should not produce the old "Specify --rules" error
+        assert "Specify --rules or --rule" not in (result.output or "")
+
     @patch("runner._host_runner.SSHSession")
     @patch("runner.conflicts.detect_conflicts")
     def test_ac6_unresolved_conflicts_exits_1(
