@@ -49,6 +49,7 @@ objective:
     AC-16: "'--info --rule' filters to a specific rule."
     AC-17: "Already-rolled-back steps are skipped unless '--force'."
     AC-18: "'--start' with nonexistent session exits 1."
+    AC-19: "'-p' without a value prompts securely for SSH password with hidden input."
 
 constraints:
   - "MUST require exactly one of '--list', '--info', '--start'."
@@ -121,7 +122,7 @@ input_contract:
     type: str
     required: false
     default: null
-    description: SSH password
+    description: SSH password (prompts securely if flag given without value)
   - field: --port / -P
     type: int
     required: false
@@ -185,4 +186,4 @@ testing:
     file: tests/test_cli_spec.py
     classes:
       - TestRollbackSpecDerived
-    count: 12
+    count: 13

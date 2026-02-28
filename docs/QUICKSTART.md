@@ -68,7 +68,7 @@ kensa check -h 192.168.1.10 -u admin -p --sudo
 
 The `-p` flag without a value prompts interactively with hidden input. You can also pass a password inline with `-p mypassword`, but interactive prompting is more secure.
 
-**Sudo access:** Most compliance checks require root privileges. Configure passwordless sudo for the SSH user, or use `--password` to provide the sudo password:
+**Sudo access:** Most compliance checks require root privileges. Configure passwordless sudo for the SSH user:
 
 ```bash
 # On the target host, grant passwordless sudo:
@@ -180,7 +180,7 @@ kensa check -i hosts.ini --sudo -l webservers
 List all framework mappings installed with Kensa:
 
 ```bash
-kensa list-frameworks
+kensa list frameworks
 ```
 
 | Framework | Mapping ID | Description |

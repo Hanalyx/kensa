@@ -40,10 +40,10 @@ class TestSystemSpecDerived:
         assert len(CAPTURE_HANDLERS) > 0
 
     def test_ac5_cli_commands(self):
-        """AC-5: 10 CLI commands provide the expected functionality."""
+        """AC-5: CLI commands provide the expected functionality."""
         from runner.cli import main
 
-        assert len(main.commands) == 10
+        assert len(main.commands) == 11
         expected = {
             "detect",
             "check",
@@ -52,7 +52,8 @@ class TestSystemSpecDerived:
             "history",
             "diff",
             "coverage",
-            "list-frameworks",
+            "list",
+            "list-frameworks",  # deprecated alias
             "info",
             "lookup",
         }

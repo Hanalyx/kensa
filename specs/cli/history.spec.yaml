@@ -15,8 +15,8 @@ context:
     pruning old data, and querying per-host result history.
   technical_context: >
     Module runner/cli.py -> history(). Click decorators: @main.command(),
-    individual options. Five modes: --stats, --prune DAYS, --session-id ID,
-    --sessions, default (result history).
+    individual options. Four modes: --stats, --prune DAYS, --id ID,
+    default (list sessions or per-host result history).
   dependencies:
     - runner.storage.ResultStore
   callers:
@@ -30,21 +30,20 @@ objective:
   acceptance_criteria:
     AC-1: "'--stats' exits 0 and displays database statistics table."
     AC-2: "'--prune 30' exits 0 and prints deletion count."
-    AC-3: "'--session-id' with valid session exits 0 and shows session header + results."
-    AC-4: "'--session-id' with nonexistent session exits 1 with 'not found'."
-    AC-5: "'--sessions' exits 0 and lists sessions."
-    AC-6: "'--sessions --host' filters sessions by host."
-    AC-7: "'--sessions' with no sessions prints 'No sessions found'."
-    AC-8: "Default mode without '--host' exits 1 with error message."
-    AC-9: "Default mode with '--host' exits 0 and shows history table."
-    AC-10: "Default mode with '--host' and no history prints 'No history for host'."
-    AC-11: "'--session-id' with no results for session prints 'No results'."
-    AC-12: "Default mode with '--host' and '--rule' filters by both."
+    AC-3: "'--id' with valid session exits 0 and shows session header + results."
+    AC-4: "'--id' with nonexistent session exits 1 with 'not found'."
+    AC-5: "Default mode (no flags) exits 0 and lists sessions."
+    AC-6: "'--host' without '--id' filters session list by host."
+    AC-7: "Default mode with no sessions prints 'No sessions found'."
+    AC-8: "'--host --rule' shows per-host result history."
+    AC-9: "'--host' with no history prints 'No history for host'."
+    AC-10: "'--id' with no results for session prints 'No results'."
+    AC-11: "'--host --rule' filters by both host and rule."
 
 constraints:
-  - "MUST require '--host' for default result history mode."
+  - "MUST list sessions by default when no mode flag is given."
   - "MUST handle empty result sets gracefully (informational message, exit 0)."
-  - "MUST exit 1 only for session-not-found or missing required flags."
+  - "MUST exit 1 only for session-not-found."
 
 input_contract:
   - field: --host / -h
@@ -57,12 +56,7 @@ input_contract:
     required: false
     default: null
     description: Filter by rule ID
-  - field: --sessions / -s
-    type: bool
-    required: false
-    default: "false"
-    description: List sessions
-  - field: --session-id / -S
+  - field: --id / -S
     type: int
     required: false
     default: null
@@ -86,15 +80,14 @@ input_contract:
 behavior:
   - "'--stats': Display database statistics table (session count, result count, oldest/newest, path). Return immediately."
   - "'--prune DAYS': Delete sessions older than N days, print count. Return immediately."
-  - "'--session-id ID': Look up session, display header + results table. Exit 1 if not found."
-  - "'--sessions': List sessions with optional '--host' filter."
-  - "Default (no mode flag): Require '--host'. Query per-host result history. Show 'No history' if empty."
+  - "'--id ID': Look up session, display header + results table. Exit 1 if not found."
+  - "Default (no mode flag): List sessions. '--host' filters sessions. '--host --rule' shows per-host result history."
 
 exit_codes:
   - code: 0
     condition: "Successful query (including empty results)"
   - code: 1
-    condition: "'--session-id' not found, default mode without '--host'"
+    condition: "'--id' not found"
 
 output_contract:
   returns: Terminal output
@@ -102,8 +95,8 @@ output_contract:
     stats: "Rich table with Metric/Value columns."
     prune: "'Deleted N sessions older than N days'."
     session_id: "Session header + results table (Host, Rule, Status, Remediated, Detail)."
-    sessions: "Sessions table (ID, Timestamp, Hosts, Rules Path)."
-    default: "History table (Session, Timestamp, Rule, Status, Remediated)."
+    sessions: "Sessions table (ID, Timestamp, Hosts, Rules Path) — shown by default."
+    host_history: "History table (Session, Timestamp, Rule, Status, Remediated) — when --host --rule."
 
 side_effects:
   - "SQLite reads: All modes except --prune."
@@ -114,4 +107,4 @@ testing:
     file: tests/test_cli_spec.py
     classes:
       - TestHistorySpecDerived
-    count: 10
+    count: 9

@@ -8,6 +8,7 @@ Output Formats:
     - JSON: Structured data with full details, ideal for programmatic parsing
     - CSV: Flat tabular format, one row per host+rule, for spreadsheets
     - PDF: Formatted report with color-coded status, for human review
+    - Evidence: Full machine-verifiable evidence per check, for auditors
 
 Usage Pattern:
     Results flow through: RuleResult -> HostResult -> RunResult -> formatter
@@ -267,7 +268,7 @@ def write_output(run_result: RunResult, fmt: str, filepath: str | None = None) -
 
     Args:
         run_result: The aggregated run results to format.
-        fmt: Output format name ("json", "csv", or "pdf").
+        fmt: Output format name ("json", "csv", "pdf", or "evidence").
         filepath: Optional file path to write output. Required for PDF.
 
     Returns:
