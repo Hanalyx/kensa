@@ -5,10 +5,12 @@
 
 FROM docker.io/rockylinux/rockylinux:8
 
-# systemd support
+# systemd support — prune unnecessary units for container use
 ENV container=docker
-RUN (cd /lib/systemd/system/sysinit.target.wants/ && \
-     for i in *; do [ "$i" = "systemd-tmpfiles-setup.service" ] || rm -f "$i"; done) && \
+RUN if [ -d /lib/systemd/system/sysinit.target.wants ]; then \
+      cd /lib/systemd/system/sysinit.target.wants/ && \
+      for i in *; do [ "$i" = "systemd-tmpfiles-setup.service" ] || rm -f "$i"; done; \
+    fi && \
     rm -f /lib/systemd/system/multi-user.target.wants/* && \
     rm -f /etc/systemd/system/*.wants/* && \
     rm -f /lib/systemd/system/local-fs.target.wants/* && \
@@ -24,8 +26,13 @@ RUN dnf install -y openssh-server openssh-clients passwd sudo && \
 # Generate host keys
 RUN ssh-keygen -A
 
-# Create test user with sudo access
+# Create test user with sudo access. Set a password so the account is
+# not locked, and make /etc/shadow readable by root (0640) so that
+# pam_unix account checks work inside containers where the setuid
+# unix_chkpwd helper cannot elevate privileges.
 RUN useradd -m -s /bin/bash kensa-test && \
+    echo "kensa-test:kensa-test" | chpasswd && \
+    chmod 0640 /etc/shadow && \
     echo "kensa-test ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kensa-test && \
     chmod 0440 /etc/sudoers.d/kensa-test && \
     mkdir -p /home/kensa-test/.ssh && \
@@ -47,8 +54,11 @@ RUN chmod 0666 /etc/issue
 RUN mkdir -p /etc/security && \
     echo "# faillock defaults" > /etc/security/faillock.conf
 
-# Enable sshd
-RUN systemctl enable sshd
+# Enable sshd. Mask pam_nologin in sshd PAM config so systemd's
+# /run/nologin file (created at boot, removed by systemd-user-sessions)
+# does not block SSH login before user-sessions starts.
+RUN systemctl enable sshd && \
+    sed -i 's/^account.*pam_nologin.so/#&/' /etc/pam.d/sshd
 
 EXPOSE 22
 

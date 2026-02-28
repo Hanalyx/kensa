@@ -214,7 +214,9 @@ def run_kensa(
         *args,
         *extra_args,
         "--host",
-        f"{host.user}@{host.host}:{host.port}",
+        f"{host.host}:{host.port}",
+        "--user",
+        host.user,
     ]
     if host.key_path:
         cmd.extend(["--key", host.key_path])
@@ -363,20 +365,30 @@ def _start_container(
         "--tmpfs",
         "/run/lock",
         "-v",
-        "/sys/fs/cgroup:/sys/fs/cgroup:ro",
+        "/sys/fs/cgroup:/sys/fs/cgroup:rw",
     ]
 
-    # Podman has native systemd support
+    # Podman has native systemd support; Docker needs extra flags for
+    # systemd on cgroup v2 hosts with AppArmor.
     if runtime == "podman":
         cmd.extend(["--systemd=true"])
     else:
-        cmd.extend(["--privileged"])
+        cmd.extend(
+            [
+                "--privileged",
+                "--cgroupns=host",
+                "--security-opt",
+                "apparmor=unconfined",
+            ]
+        )
 
     cmd.append(image)
     result = _run(cmd)
     container_id = result.stdout.strip()
 
-    # Inject the SSH public key into the container
+    # Inject the SSH public key into the container and remove /run/nologin
+    # (systemd creates it during boot; in stripped containers the service
+    # that removes it may not run).
     _run(
         [
             runtime,
@@ -384,6 +396,7 @@ def _start_container(
             container_name,
             "bash",
             "-c",
+            f"rm -f /run/nologin && "
             f"cat > /home/{SSH_USER}/.ssh/authorized_keys << 'KEYEOF'\n"
             f"{Path(pubkey_path).read_text()}"
             f"KEYEOF\n"

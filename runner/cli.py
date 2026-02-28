@@ -3154,3 +3154,7 @@ def _rollback_start(
             f"[red]Rollback completed with errors:[/red] "
             f"{success_count} ok, {fail_count} failed"
         )
+
+
+if __name__ == "__main__":
+    main()
