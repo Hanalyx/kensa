@@ -69,14 +69,14 @@ Index of behavioral specifications, linking each spec to its source code, test c
 
 | Spec | Source | Tests | Status |
 |------|--------|-------|--------|
-| [check](cli/check.spec.yaml) | `runner/cli.py` → `check()` | `tests/test_cli_spec.py` → `TestCheckSpecDerived` | **Active** — 18 ACs, 14 tests |
-| [remediate](cli/remediate.spec.yaml) | `runner/cli.py` → `remediate()` | `tests/test_cli_spec.py` → `TestRemediateSpecDerived` | **Active** — 20 ACs, 15 tests |
+| [check](cli/check.spec.yaml) | `runner/cli.py` → `check()` | `tests/test_cli_spec.py` → `TestCheckSpecDerived` | **Active** — 19 ACs, 15 tests |
+| [remediate](cli/remediate.spec.yaml) | `runner/cli.py` → `remediate()` | `tests/test_cli_spec.py` → `TestRemediateSpecDerived` | **Active** — 22 ACs, 16 tests |
 | [detect](cli/detect.spec.yaml) | `runner/cli.py` → `detect()` | `tests/test_cli_spec.py` → `TestDetectSpecDerived` | **Active** — 8 ACs, 8 tests |
-| [rollback](cli/rollback.spec.yaml) | `runner/cli.py` → `rollback()` | `tests/test_cli_spec.py` → `TestRollbackSpecDerived` | **Active** — 18 ACs, 12 tests |
-| [history](cli/history.spec.yaml) | `runner/cli.py` → `history()` | `tests/test_cli_spec.py` → `TestHistorySpecDerived` | **Active** — 12 ACs, 10 tests |
+| [rollback](cli/rollback.spec.yaml) | `runner/cli.py` → `rollback()` | `tests/test_cli_spec.py` → `TestRollbackSpecDerived` | **Active** — 19 ACs, 13 tests |
+| [history](cli/history.spec.yaml) | `runner/cli.py` → `history()` | `tests/test_cli_spec.py` → `TestHistorySpecDerived` | **Active** — 11 ACs, 9 tests |
 | [diff](cli/diff.spec.yaml) | `runner/cli.py` → `diff()` | `tests/test_cli_spec.py` → `TestDiffSpecDerived` | **Active** — 10 ACs, 7 tests |
 | [coverage](cli/coverage.spec.yaml) | `runner/cli.py` → `coverage()` | `tests/test_cli_spec.py` → `TestCoverageSpecDerived` | **Active** — 8 ACs, 8 tests |
-| [list-frameworks](cli/list_frameworks.spec.yaml) | `runner/cli.py` → `list_frameworks()` | `tests/test_cli_spec.py` → `TestListFrameworksSpecDerived` | **Active** — 5 ACs, 5 tests |
+| [list-frameworks](cli/list_frameworks.spec.yaml) | `runner/cli.py` → `list_frameworks()` | `tests/test_cli_spec.py` → `TestListFrameworksSpecDerived` | **Active** — 5 ACs, 6 tests |
 | [info](cli/info.spec.yaml) | `runner/cli.py` → `info()` | `tests/test_cli_spec.py` → `TestInfoSpecDerived` | **Active** — 15 ACs, 15 tests |
 
 ## Data
@@ -84,6 +84,12 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | Spec | Source | Tests | Status |
 |------|--------|-------|--------|
 | [result_store](data/result_store.spec.yaml) | `runner/storage.py` → `ResultStore` | `tests/test_storage_spec.py` → `TestResultStoreSpecDerived` | **Active** — 18 ACs, 18 tests |
+
+## System
+
+| Spec | Source | Tests | Status |
+|------|--------|-------|--------|
+| [system](system.spec.yaml) | `runner/` → system-level context | `tests/spec/test_system_spec.py` → `TestSystemSpecDerived` | **Active** — 6 ACs |
 
 ## Internal Modules
 
@@ -100,6 +106,10 @@ Index of behavioral specifications, linking each spec to its source code, test c
 | [output_formatter](internal/output_formatter.spec.yaml) | `runner/output/` → `write_output` | `tests/test_output_formatter_spec.py` → `TestOutputFormatterSpecDerived` | **Active** — 12 ACs, 12 tests |
 | [rule_selection](internal/rule_selection.spec.yaml) | `runner/_rule_selection.py` → `select_rules` | `tests/test_rule_selection_spec.py` → `TestRuleSelectionSpecDerived` | **Active** — 10 ACs, 10 tests |
 | [shell_util](internal/shell_util.spec.yaml) | `runner/shell_util.py` | `tests/test_shell_util_spec.py` → `TestShellUtilSpecDerived` | **Active** — 10 ACs, 10 tests |
+| [path_resolution](internal/path_resolution.spec.yaml) | `runner/` → path resolution logic | `tests/spec/internal/test_path_resolution_spec.py` → `TestPathResolutionSpecDerived` | **Draft** — 7 ACs |
+| [run_diagnostics](internal/run_diagnostics.spec.yaml) | `runner/` → diagnostic routines | `tests/spec/internal/test_run_diagnostics_spec.py` → `TestRunDiagnosticsSpecDerived` | **Draft** — 18 ACs |
+| [security](internal/security.spec.yaml) | `runner/` → security posture analysis | `tests/spec/internal/test_security_spec.py` → `TestSecuritySpecDerived` | **Active** — 10 ACs |
+| [e2e_result_storage](internal/e2e_result_storage.spec.yaml) | `runner/storage.py` → E2E result storage flows | `tests/spec/internal/test_e2e_result_storage_spec.py` → `TestE2eResultStorageSpecDerived` | **Active** — 12 ACs |
 
 ## Handlers — Capture
 

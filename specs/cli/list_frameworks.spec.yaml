@@ -13,11 +13,13 @@ context:
     List all available framework mappings found in the mappings/ directory.
   technical_context: >
     Module runner/cli.py -> list_frameworks(). Click decorators:
-    @main.command("list-frameworks").
+    @list_group.command("frameworks"). Also registered as deprecated hidden
+    alias via @main.command("list-frameworks", hidden=True, deprecated=True).
   dependencies:
     - runner.mappings.load_all_mappings
   callers:
-    - CLI entry point (kensa list-frameworks)
+    - CLI entry point (kensa list frameworks)
+    - Deprecated alias (kensa list-frameworks)
 
 objective:
   summary: >

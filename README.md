@@ -195,7 +195,7 @@ kensa check --sudo -h 192.168.1.10 -u admin -r rules/ -f cis-rhel9-v2.0.0
 kensa check --sudo -i inventory.yml -r rules/ -w 10
 
 # Output as JSON with evidence
-kensa check --sudo -h 192.168.1.10 -u admin -r rules/ -o evidence:results.json
+kensa check --sudo -h 192.168.1.10 -u admin -r rules/ -o evidence:evidence.json
 
 # Dry-run remediation (preview changes, apply nothing)
 kensa remediate --sudo -h 192.168.1.10 -u admin -r rules/ --dry-run
@@ -212,7 +212,7 @@ kensa info AC-6
 kensa coverage -f cis-rhel9-v2.0.0
 
 # Compare two scan sessions for drift
-kensa diff session-001 session-002
+kensa diff 1 2
 ```
 
 ## Output Formats

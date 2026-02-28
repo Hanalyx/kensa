@@ -49,8 +49,9 @@ objective:
     AC-4: >
       Rollback system reverses remediations from stored snapshots.
     AC-5: >
-      10 CLI commands provide check, remediate, rollback, history, diff,
-      detect, coverage, list-frameworks, info, and lookup functionality.
+      11 CLI commands provide check, remediate, rollback, history, diff,
+      detect, coverage, list (group), list-frameworks (deprecated alias),
+      info, and lookup functionality.
     AC-6: >
       Framework mappings support CIS, STIG, NIST 800-53, PCI-DSS, and
       FedRAMP with unified format and completeness tracking.

@@ -144,13 +144,16 @@ kensa rollback --start 3 --rule ssh-root-login -h 192.168.1.10 -u admin --sudo
 Query the local scan database. Requires previous scans run with `--store`.
 
 ```bash
-# List recent scan sessions
-kensa history --sessions
+# List recent scan sessions (default)
+kensa history
+
+# Filter sessions by host
+kensa history --host web1.example.com
 
 # Show results for a specific session
-kensa history --session-id 5
+kensa history --id 5
 
-# Filter by host and rule
+# Per-host result history for a rule
 kensa history --host web1.example.com --rule ssh-root-login
 
 # Show database statistics
@@ -163,9 +166,8 @@ kensa history --prune 90
 | Option | Description |
 |--------|-------------|
 | `-h, --host TEXT` | Filter by hostname |
-| `-r, --rule TEXT` | Filter by rule ID |
-| `-s, --sessions` | List sessions instead of individual results |
-| `-S, --session-id N` | Show results for a specific session |
+| `-r, --rule TEXT` | Filter by rule ID (with `--host` for result history) |
+| `-S, --id N` | Show results for a specific session |
 | `-n, --limit N` | Max entries to show |
 | `--stats` | Show database statistics |
 | `--prune DAYS` | Remove results older than N days |
@@ -232,17 +234,17 @@ kensa coverage --framework stig-rhel9-v2r7 --json
 
 Reports the total number of controls in the framework, how many are mapped to rules, how many are explicitly marked unimplemented (with reasons), and how many are missing.
 
-### list-frameworks
+### list frameworks
 
 List all installed framework mappings.
 
 ```bash
-kensa list-frameworks
+kensa list frameworks
 ```
 
 ## Connection Options
 
-These options are shared across all commands that connect to hosts.
+These options are shared across `detect`, `check`, and `remediate`. The `rollback --start` mode accepts a subset (`-h`, `-i`, `-l`, `-u`, `-k`, `-p`, `-P`, `--sudo`, `--strict-host-keys`).
 
 | Option | Description |
 |--------|-------------|
@@ -503,7 +505,7 @@ kensa check -h 192.168.1.10 -u admin --sudo --store
 kensa check -h 192.168.1.10 -u admin --sudo --store
 
 # Compare
-kensa history --sessions                    # Find session IDs
+kensa history                               # Find session IDs
 kensa diff 1 2                              # See what changed
 ```
 

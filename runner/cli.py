@@ -164,7 +164,7 @@ def output_options(f):
         "-o",
         "outputs",
         multiple=True,
-        help="Output format (csv, json, pdf). Add :path to write to file (e.g., -o json:results.json)",
+        help="Output format (csv, json, pdf, evidence). Add :path to write to file (e.g., -o json:results.json)",
     )(f)
     f = click.option(
         "--quiet", "-q", is_flag=True, help="Suppress terminal output (useful with -o)"
@@ -176,13 +176,13 @@ def output_options(f):
 
 MAIN_HELP_EPILOG = """
 \b
-Common Options (all commands):
+Connection Options (detect/check/remediate):
   -h, --host TEXT          Target host(s), comma-separated
   -i, --inventory TEXT     Ansible inventory file (INI/YAML)
   -l, --limit TEXT         Limit to group or hostname glob
   -u, --user TEXT          SSH username
   -k, --key TEXT           SSH private key path
-  -p, --password TEXT      SSH password
+  -p, --password TEXT      SSH password (-p alone prompts securely)
   -P, --port INTEGER       SSH port (default: 22)
   --sudo                   Run commands via sudo
   -w, --workers INTEGER    Parallel connections (1-50, default: 1)
@@ -199,19 +199,26 @@ Rule Options (check/remediate):
   -c, --category TEXT      Filter by category
   -f, --framework TEXT     Filter to framework (e.g., cis-rhel9-v2.0.0)
   -V, --var KEY=VALUE      Override rule variable (repeatable)
+  --config-dir PATH        Config directory (default: auto-detect)
 
 \b
 Output Options (check/remediate):
-  -o, --output FORMAT      Output format: csv, json, pdf
+  -o, --output FORMAT      Output format: csv, json, pdf, evidence
                            Add :path to write to file (e.g., -o json:report.json)
                            PDF requires a filepath (e.g., -o pdf:report.pdf)
                            Can be repeated for multiple outputs
   -q, --quiet              Suppress terminal output (useful with -o)
 
 \b
+Check Options:
+  --store                  Persist results to local SQLite database
+
+\b
 Remediation Options:
   --dry-run                Preview without changes
   --rollback-on-failure    Auto-rollback on failure
+  --allow-conflicts        Proceed despite rule conflicts
+  --no-snapshot            Skip pre-state capture (faster, no rollback)
 
 \b
 Examples:
@@ -1385,20 +1392,25 @@ def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
 @main.command()
 @click.option("--host", "-h", default=None, help="Filter by host")
 @click.option("--rule", "-r", default=None, help="Filter by rule ID")
-@click.option("--sessions", "-s", is_flag=True, help="List sessions instead of results")
-@click.option("--session-id", "-S", type=int, help="Show results for specific session")
+@click.option(
+    "--id", "-S", "session_id", type=int, help="Show results for specific session"
+)
 @click.option("--limit", "-n", default=20, type=int, help="Max entries to show")
 @click.option("--stats", is_flag=True, help="Show database statistics")
 @click.option(
     "--prune", type=int, metavar="DAYS", help="Remove results older than N days"
 )
-def history(host, rule, sessions, session_id, limit, stats, prune):
+def history(host, rule, session_id, limit, stats, prune):
     """Query compliance scan history.
 
+    By default, lists recent scan sessions. Use --host to filter sessions,
+    or --host --rule to show per-host result history.
+
     Examples:
+      kensa history
       kensa history --host 192.168.1.100
-      kensa history --sessions
-      kensa history --session-id 5
+      kensa history --host 192.168.1.100 --rule ssh-root-login
+      kensa history --id 5
       kensa history --stats
       kensa history --prune 30
     """
@@ -1458,52 +1470,47 @@ def history(host, rule, sessions, session_id, limit, stats, prune):
             console.print(table)
             return
 
-        if sessions:
-            session_list = store.list_sessions(host=host, limit=limit)
-            if not session_list:
-                console.print("[yellow]No sessions found[/yellow]")
+        # Per-host result history mode (--host --rule)
+        if host and rule:
+            entries = store.get_history(host, rule_id=rule, limit=limit)
+            if not entries:
+                console.print(f"[yellow]No history for host {host}[/yellow]")
                 return
 
-            table = Table(title="Scan Sessions")
-            table.add_column("ID", style="cyan")
+            table = Table(title=f"History for {host}")
+            table.add_column("Session", style="cyan")
             table.add_column("Timestamp", style="white")
-            table.add_column("Hosts", style="green")
-            table.add_column("Rules Path", style="dim")
+            table.add_column("Rule", style="white")
+            table.add_column("Status", style="green")
+            table.add_column("Remediated", style="yellow")
 
-            for s in session_list:
-                hosts_str = ", ".join(s.hosts[:3])
-                if len(s.hosts) > 3:
-                    hosts_str += f" (+{len(s.hosts) - 3})"
-                table.add_row(str(s.id), str(s.timestamp), hosts_str, s.rules_path)
+            for e in entries:
+                status = "[green]PASS[/green]" if e.passed else "[red]FAIL[/red]"
+                remediated = "Yes" if e.remediated else ""
+                table.add_row(
+                    str(e.session_id), str(e.timestamp), e.rule_id, status, remediated
+                )
 
             console.print(table)
             return
 
-        # Default: show result history
-        if not host:
-            console.print(
-                "[red]Error:[/red] Specify --host for result history, or use --sessions"
-            )
-            sys.exit(1)
-
-        entries = store.get_history(host, rule_id=rule, limit=limit)
-        if not entries:
-            console.print(f"[yellow]No history for host {host}[/yellow]")
+        # Default: list sessions (optionally filtered by host)
+        session_list = store.list_sessions(host=host, limit=limit)
+        if not session_list:
+            console.print("[yellow]No sessions found[/yellow]")
             return
 
-        table = Table(title=f"History for {host}")
-        table.add_column("Session", style="cyan")
+        table = Table(title="Scan Sessions")
+        table.add_column("ID", style="cyan")
         table.add_column("Timestamp", style="white")
-        table.add_column("Rule", style="white")
-        table.add_column("Status", style="green")
-        table.add_column("Remediated", style="yellow")
+        table.add_column("Hosts", style="green")
+        table.add_column("Rules Path", style="dim")
 
-        for e in entries:
-            status = "[green]PASS[/green]" if e.passed else "[red]FAIL[/red]"
-            remediated = "Yes" if e.remediated else ""
-            table.add_row(
-                str(e.session_id), str(e.timestamp), e.rule_id, status, remediated
-            )
+        for s in session_list:
+            hosts_str = ", ".join(s.hosts[:3])
+            if len(s.hosts) > 3:
+                hosts_str += f" (+{len(s.hosts) - 3})"
+            table.add_row(str(s.id), str(s.timestamp), hosts_str, s.rules_path)
 
         console.print(table)
 
@@ -1780,15 +1787,19 @@ def coverage(framework, rules, json_output):
             console.print(f"    - {rule_id}")
 
 
-# ── list-frameworks ──────────────────────────────────────────────────────────
+# ── list (group) ────────────────────────────────────────────────────────────
 
 
-@main.command("list-frameworks")
-def list_frameworks():
-    """List available framework mappings.
+@main.group("list", invoke_without_command=True)
+@click.pass_context
+def list_group(ctx):
+    """List available resources (frameworks, etc.)."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
-    Shows all framework mapping files found in the mappings/ directory.
-    """
+
+def _list_frameworks_impl():
+    """Shared implementation for list frameworks."""
     from runner.mappings import load_all_mappings
 
     mappings = load_all_mappings()
@@ -1817,6 +1828,21 @@ def list_frameworks():
             f"    Sections: {mapping.implemented_count} implemented, {mapping.unimplemented_count} skipped"
         )
         console.print()
+
+
+@list_group.command("frameworks")
+def list_frameworks():
+    """List available framework mappings.
+
+    Shows all framework mapping files found in the mappings/ directory.
+    """
+    _list_frameworks_impl()
+
+
+@main.command("list-frameworks", hidden=True, deprecated=True)
+def list_frameworks_deprecated():
+    """Deprecated: use 'kensa list frameworks'."""
+    _list_frameworks_impl()
 
 
 # ── info ─────────────────────────────────────────────────────────────────────
@@ -2603,7 +2629,15 @@ def lookup(section, cis_section, stig_id, nist_control, rhel_version, show_all):
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.option("--user", "-u", default=None, help="SSH username")
 @click.option("--key", "-k", default=None, help="SSH private key path")
-@click.option("--password", "-p", default=None, help="SSH password")
+@click.option(
+    "--password",
+    "-p",
+    default=None,
+    prompt=True,
+    prompt_required=False,
+    hide_input=True,
+    help="SSH password (prompts securely if flag given without value)",
+)
 @click.option("--port", "-P", default=22, type=int, help="SSH port (default: 22)")
 @click.option("--sudo", is_flag=True, help="Run commands via sudo")
 @click.option(

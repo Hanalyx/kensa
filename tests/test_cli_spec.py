@@ -704,6 +704,39 @@ class TestCheckSpecDerived:
 
         assert result.exit_code == 0
 
+    @patch("runner._host_runner.SSHSession")
+    def test_ac19_evidence_output(self, mock_session_cls, tmp_path):
+        """AC-19: '-o evidence:path' writes evidence JSON export to file."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+
+        rule_file = _write_simple_rule(tmp_path)
+        evidence_path = tmp_path / "evidence.json"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+                "-o",
+                f"evidence:{evidence_path}",
+                "-q",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert evidence_path.exists()
+        import json
+
+        data = json.loads(evidence_path.read_text())
+        assert "results" in data
+        assert "host" in data
+
 
 # ── TestRemediateSpecDerived ─────────────────────────────────────────────────
 
@@ -1294,6 +1327,39 @@ class TestRemediateSpecDerived:
 
         assert result.exit_code == 0
 
+    @patch("runner._host_runner.SSHSession")
+    def test_ac22_evidence_output(self, mock_session_cls, tmp_path):
+        """AC-22: '-o evidence:path' writes evidence JSON export to file."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+
+        rule_file = _write_remediable_rule(tmp_path)
+        evidence_path = tmp_path / "evidence.json"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "remediate",
+                "--host",
+                "10.0.0.1",
+                "--rule",
+                str(rule_file),
+                "-o",
+                f"evidence:{evidence_path}",
+                "-q",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert evidence_path.exists()
+        import json
+
+        data = json.loads(evidence_path.read_text())
+        assert "results" in data
+        assert "host" in data
+
 
 # ── Helpers for storage-backed tests ─────────────────────────────────────────
 
@@ -1724,6 +1790,21 @@ class TestRollbackSpecDerived:
         assert result.exit_code == 1
         assert "not found" in result.output
 
+    def test_ac19_password_prompt(self):
+        """AC-19: -p without a value prompts securely for SSH password."""
+        runner = CliRunner()
+        # Invoke rollback with -p (no value) — Click should prompt for input.
+        # We provide the password via input parameter to simulate user typing.
+        result = runner.invoke(
+            main,
+            ["rollback", "--list", "-p"],
+            input="secret\n",
+        )
+        # The command should proceed (not error on missing password value).
+        # It may exit 0 (list mode) or error for other reasons, but not
+        # "Error: Option '-p' requires an argument".
+        assert "requires an argument" not in (result.output or "")
+
 
 # ── TestHistorySpecDerived ───────────────────────────────────────────────────
 
@@ -1766,7 +1847,7 @@ class TestHistorySpecDerived:
         assert "Deleted" in result.output
 
     def test_ac3_session_id_valid(self, tmp_path):
-        """AC-3: --session-id with valid session exits 0."""
+        """AC-3: --id with valid session exits 0."""
         db_path, store = _make_db(tmp_path)
         try:
             sid = _seed_check_session(store)
@@ -1775,26 +1856,26 @@ class TestHistorySpecDerived:
 
         with patch("runner.storage.get_db_path", return_value=db_path):
             runner = CliRunner()
-            result = runner.invoke(main, ["history", "--session-id", str(sid)])
+            result = runner.invoke(main, ["history", "--id", str(sid)])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert f"Session {sid}" in output
 
     def test_ac4_session_id_not_found(self, tmp_path):
-        """AC-4: --session-id with nonexistent session exits 1."""
+        """AC-4: --id with nonexistent session exits 1."""
         db_path, store = _make_db(tmp_path)
         store.close()
 
         with patch("runner.storage.get_db_path", return_value=db_path):
             runner = CliRunner()
-            result = runner.invoke(main, ["history", "--session-id", "999"])
+            result = runner.invoke(main, ["history", "--id", "999"])
 
         assert result.exit_code == 1
         assert "not found" in result.output
 
-    def test_ac5_sessions_list(self, tmp_path):
-        """AC-5: --sessions exits 0 and lists sessions."""
+    def test_ac5_default_lists_sessions(self, tmp_path):
+        """AC-5: Default mode (no flags) exits 0 and lists sessions."""
         db_path, store = _make_db(tmp_path)
         try:
             _seed_check_session(store)
@@ -1803,56 +1884,18 @@ class TestHistorySpecDerived:
 
         with patch("runner.storage.get_db_path", return_value=db_path):
             runner = CliRunner()
-            result = runner.invoke(main, ["history", "--sessions"])
+            result = runner.invoke(main, ["history"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "Scan Sessions" in output
 
-    def test_ac6_sessions_host_filter(self, tmp_path):
-        """AC-6: --sessions --host filters sessions by host."""
+    def test_ac6_host_filters_session_list(self, tmp_path):
+        """AC-6: --host without --id filters session list by host."""
         db_path, store = _make_db(tmp_path)
         try:
             _seed_check_session(store, host="10.0.0.1")
             _seed_check_session(store, host="10.0.0.2")
-        finally:
-            store.close()
-
-        with patch("runner.storage.get_db_path", return_value=db_path):
-            runner = CliRunner()
-            result = runner.invoke(
-                main, ["history", "--sessions", "--host", "10.0.0.1"]
-            )
-
-        assert result.exit_code == 0
-        output = strip_ansi(result.output)
-        assert "10.0.0.1" in output
-
-    def test_ac7_sessions_empty(self, tmp_path):
-        """AC-7: --sessions with no sessions prints informational message."""
-        db_path, store = _make_db(tmp_path)
-        store.close()
-
-        with patch("runner.storage.get_db_path", return_value=db_path):
-            runner = CliRunner()
-            result = runner.invoke(main, ["history", "--sessions"])
-
-        assert result.exit_code == 0
-        assert "No sessions found" in result.output
-
-    def test_ac8_default_without_host_exits_1(self):
-        """AC-8: Default mode without --host exits 1."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["history"])
-
-        assert result.exit_code == 1
-        assert "--host" in result.output or "--sessions" in result.output
-
-    def test_ac9_default_with_host(self, tmp_path):
-        """AC-9: Default mode with --host exits 0."""
-        db_path, store = _make_db(tmp_path)
-        try:
-            _seed_check_session(store, host="10.0.0.1")
         finally:
             store.close()
 
@@ -1864,20 +1907,60 @@ class TestHistorySpecDerived:
         output = strip_ansi(result.output)
         assert "10.0.0.1" in output
 
-    def test_ac10_default_no_history(self, tmp_path):
-        """AC-10: Default mode with --host and no history prints message."""
+    def test_ac7_default_empty(self, tmp_path):
+        """AC-7: Default mode with no sessions prints 'No sessions found'."""
         db_path, store = _make_db(tmp_path)
         store.close()
 
         with patch("runner.storage.get_db_path", return_value=db_path):
             runner = CliRunner()
-            result = runner.invoke(main, ["history", "--host", "10.0.0.99"])
+            result = runner.invoke(main, ["history"])
+
+        assert result.exit_code == 0
+        assert "No sessions found" in result.output
+
+    def test_ac8_host_rule_shows_history(self, tmp_path):
+        """AC-8: --host --rule shows per-host result history."""
+        db_path, store = _make_db(tmp_path)
+        try:
+            sid = store.create_session(hosts=["10.0.0.1"], rules_path="rules/")
+            store.record_result(
+                session_id=sid,
+                host="10.0.0.1",
+                rule_id="rule-a",
+                passed=True,
+                detail="pass",
+                remediated=False,
+            )
+        finally:
+            store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["history", "--host", "10.0.0.1", "--rule", "rule-a"]
+            )
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "rule-a" in output
+
+    def test_ac9_host_no_history(self, tmp_path):
+        """AC-9: --host with no history prints 'No history for host'."""
+        db_path, store = _make_db(tmp_path)
+        store.close()
+
+        with patch("runner.storage.get_db_path", return_value=db_path):
+            runner = CliRunner()
+            result = runner.invoke(
+                main, ["history", "--host", "10.0.0.99", "--rule", "nonexistent"]
+            )
 
         assert result.exit_code == 0
         assert "No history" in result.output
 
-    def test_ac11_session_id_no_results(self, tmp_path):
-        """AC-11: --session-id with no results for session prints 'No results'."""
+    def test_ac10_session_id_no_results(self, tmp_path):
+        """AC-10: --id with no results for session prints 'No results'."""
         db_path, store = _make_db(tmp_path)
         try:
             # Create a session but don't add any results
@@ -1887,14 +1970,14 @@ class TestHistorySpecDerived:
 
         with patch("runner.storage.get_db_path", return_value=db_path):
             runner = CliRunner()
-            result = runner.invoke(main, ["history", "--session-id", str(sid)])
+            result = runner.invoke(main, ["history", "--id", str(sid)])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "No results" in output
 
-    def test_ac12_default_host_and_rule_filter(self, tmp_path):
-        """AC-12: Default mode with --host and --rule filters by both."""
+    def test_ac11_host_and_rule_filter(self, tmp_path):
+        """AC-11: --host --rule filters by both host and rule."""
         db_path, store = _make_db(tmp_path)
         try:
             sid = store.create_session(hosts=["10.0.0.1"], rules_path="rules/")
@@ -2388,9 +2471,9 @@ class TestCoverageSpecDerived:
 
 
 class TestListFrameworksSpecDerived:
-    """Spec-derived tests for ``kensa list-frameworks``.
+    """Spec-derived tests for ``kensa list frameworks``.
 
-    Source spec: specs/cli/list_frameworks.spec.md (5 ACs)
+    Source spec: specs/cli/list_frameworks.spec.yaml (5 ACs)
     """
 
     def test_ac1_with_mappings_exits_0(self):
@@ -2404,7 +2487,7 @@ class TestListFrameworksSpecDerived:
             return_value={"cis-rhel9-v2.0.0": mapping},
         ):
             runner = CliRunner()
-            result = runner.invoke(main, ["list-frameworks"])
+            result = runner.invoke(main, ["list", "frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
@@ -2414,7 +2497,7 @@ class TestListFrameworksSpecDerived:
         """AC-2: With no mappings, exits 0 and prints message."""
         with patch("runner.mappings.load_all_mappings", return_value={}):
             runner = CliRunner()
-            result = runner.invoke(main, ["list-frameworks"])
+            result = runner.invoke(main, ["list", "frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
@@ -2430,7 +2513,7 @@ class TestListFrameworksSpecDerived:
             return_value={"b-framework": m_b, "a-framework": m_a},
         ):
             runner = CliRunner()
-            result = runner.invoke(main, ["list-frameworks"])
+            result = runner.invoke(main, ["list", "frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
@@ -2452,7 +2535,7 @@ class TestListFrameworksSpecDerived:
             "runner.mappings.load_all_mappings", return_value={"cis-rhel9": mapping}
         ):
             runner = CliRunner()
-            result = runner.invoke(main, ["list-frameworks"])
+            result = runner.invoke(main, ["list", "frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
@@ -2473,12 +2556,29 @@ class TestListFrameworksSpecDerived:
             "runner.mappings.load_all_mappings", return_value={"test-fw": mapping}
         ):
             runner = CliRunner()
-            result = runner.invoke(main, ["list-frameworks"])
+            result = runner.invoke(main, ["list", "frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "2 implemented" in output
         assert "1 skipped" in output
+
+    def test_deprecated_alias_still_works(self):
+        """Backward compat: 'kensa list-frameworks' still works as deprecated alias."""
+        mapping = _make_mock_mapping(
+            mapping_id="cis-rhel9-v2.0.0", title="CIS RHEL 9 v2.0.0"
+        )
+
+        with patch(
+            "runner.mappings.load_all_mappings",
+            return_value={"cis-rhel9-v2.0.0": mapping},
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["list-frameworks"])
+
+        assert result.exit_code == 0
+        output = strip_ansi(result.output)
+        assert "cis-rhel9-v2.0.0" in output
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
