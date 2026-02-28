@@ -60,11 +60,12 @@ class TestCLIErrors:
         assert result.exit_code == 1
         assert "No target hosts" in result.output
 
-    def test_check_no_rules(self):
+    def test_check_no_rules_auto_resolves(self):
+        """Without --rules, check auto-resolves the default rules directory."""
         runner = CliRunner()
         result = runner.invoke(main, ["check", "--host", "10.0.0.1"])
-        assert result.exit_code == 1
-        assert "Specify --rules or --rule" in result.output
+        # Should NOT get "Specify --rules or --rule" — auto-resolves via get_rules_path()
+        assert "Specify --rules or --rule" not in (result.output or "")
 
 
 class TestCLICheck:

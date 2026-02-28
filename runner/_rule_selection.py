@@ -235,12 +235,9 @@ def select_rules(
 
     path = rule_path or rules_path
     if not path:
-        if control:
-            from runner.paths import get_rules_path
+        from runner.paths import get_rules_path
 
-            path = str(get_rules_path())
-        else:
-            raise ValueError("Specify --rules or --rule")
+        path = str(get_rules_path())
 
     # Parse CLI variable overrides
     cli_overrides = parse_var_overrides(var)

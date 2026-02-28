@@ -286,13 +286,13 @@ class TestCheckSpecDerived:
         assert result.exit_code == 1
         assert "No target hosts" in result.output
 
-    def test_ac4_no_rules_exits_1(self):
-        """AC-4: Check with no rules exits 1."""
+    def test_ac4_no_rules_auto_resolves(self):
+        """AC-4: Check with no --rules auto-resolves default rules directory."""
         runner = CliRunner()
         result = runner.invoke(main, ["check", "--host", "10.0.0.1"])
 
-        assert result.exit_code == 1
-        assert "Specify --rules or --rule" in result.output
+        # Should NOT get "Specify --rules or --rule" — auto-resolves via get_rules_path()
+        assert "Specify --rules or --rule" not in (result.output or "")
 
     def test_ac5_bad_rules_path_exits_1(self):
         """AC-5: Check with bad rules path exits 1."""
@@ -783,13 +783,13 @@ class TestRemediateSpecDerived:
         assert result.exit_code == 1
         assert "No target hosts" in result.output
 
-    def test_ac5_no_rules_exits_1(self):
-        """AC-5: No rules exits 1."""
+    def test_ac5_no_rules_auto_resolves(self):
+        """AC-5: No --rules auto-resolves default rules directory."""
         runner = CliRunner()
         result = runner.invoke(main, ["remediate", "--host", "10.0.0.1"])
 
-        assert result.exit_code == 1
-        assert "Specify --rules or --rule" in result.output
+        # Should NOT get "Specify --rules or --rule" — auto-resolves via get_rules_path()
+        assert "Specify --rules or --rule" not in (result.output or "")
 
     @patch("runner._host_runner.SSHSession")
     @patch("runner.conflicts.detect_conflicts")
