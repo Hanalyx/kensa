@@ -56,6 +56,7 @@ objective:
     AC-18: "Snapshot pruning failure does not block remediation."
     AC-19: "'--var KEY=VALUE' overrides rule variables."
     AC-20: "'--control' filters to rules for a specific framework control."
+    AC-21: "Remediate with no --rules and no --rule auto-resolves the default rules directory via get_rules_path()."
 
 constraints:
   - "MUST always persist remediation results to SQLite (unlike check which requires --store)."

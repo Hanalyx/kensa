@@ -39,7 +39,7 @@ objective:
     AC-1: "Check with one host and one passing rule exits 0, output contains 'PASS' and '1 pass'."
     AC-2: "Check with one host and one failing rule exits 0, output contains 'FAIL' and '1 fail'."
     AC-3: "Check with no target hosts exits 1 with 'No target hosts' error."
-    AC-4: "Check with no rules (no --rules, no --rule) exits 1 with 'Specify --rules or --rule' error."
+    AC-4: "Check with no --rules and no --rule auto-resolves the default rules directory via get_rules_path()."
     AC-5: "Check with bad rules path exits 1."
     AC-6: "'--quiet' suppresses terminal output (result.output is empty or minimal)."
     AC-7: "'-o json' writes JSON to stdout containing host results."
@@ -68,8 +68,8 @@ input_contract:
     required: false
     default: null
     description: >
-      Rules directory path. Required unless --rule is specified or --control
-      is used (which auto-resolves via get_rules_path()).
+      Rules directory path. When omitted (and --rule not specified), the
+      default rules directory is auto-resolved via get_rules_path().
   - field: --rule
     type: str
     required: false
