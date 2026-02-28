@@ -95,6 +95,13 @@ jobs:
             exit 0
           fi
 
+          # Skip if this version was already released (tag exists)
+          if git tag -l "v${NEXT}" | grep -q .; then
+            echo "released=false" >> $GITHUB_OUTPUT
+            echo "Version v${NEXT} already released — skipping"
+            exit 0
+          fi
+
           echo "version=$NEXT" >> $GITHUB_OUTPUT
           echo "released=true" >> $GITHUB_OUTPUT
           echo "Next version: $NEXT"
@@ -106,6 +113,10 @@ jobs:
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
           BRANCH="release/v${VERSION}"
+
+          # Clean up stale remote branch from a previous failed run
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+
           git checkout -b "$BRANCH"
 
           # Bump version in pyproject.toml
@@ -115,7 +126,12 @@ jobs:
           semantic-release changelog 2>/dev/null || true
 
           git add pyproject.toml CHANGELOG.md
-          git commit -m "chore(release): ${VERSION} [skip ci]" || echo "No changes to commit"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): ${VERSION} [skip ci]"
+          else
+            echo "No version changes to commit — skipping release branch PR"
+            exit 0
+          fi
           git push origin "$BRANCH"
 
           # Create and auto-merge the version bump PR
