@@ -100,7 +100,7 @@ def format_json(run_result: RunResult) -> str:
             "hostname": host.hostname,
             "platform": {
                 "family": host.platform_family,
-                "version": host.platform_version,
+                "version": host.platform_version_id or host.platform_version,
             }
             if host.platform_family
             else None,

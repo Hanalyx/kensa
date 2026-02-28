@@ -266,9 +266,10 @@ def _build_host_section(host, command: str, styles: dict) -> list:
         return elements
 
     if host.platform_family:
+        display_version = host.platform_version_id or host.platform_version or ""
         elements.append(
             Paragraph(
-                f"Platform: {host.platform_family} {host.platform_version or ''}",
+                f"Platform: {host.platform_family} {display_version}",
                 styles["normal"],
             )
         )

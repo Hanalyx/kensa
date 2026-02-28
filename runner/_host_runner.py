@@ -136,7 +136,7 @@ def print_platform(platform, out: Console) -> None:
             "  [yellow]Platform: unknown (could not read /etc/os-release)[/yellow]"
         )
     else:
-        out.print(f"  Platform: {platform.family.upper()} {platform.version}")
+        out.print(f"  Platform: {platform.family.upper()} {platform.version_id}")
 
 
 def print_caps_verbose(caps: dict[str, bool], out: Console, verbose: bool) -> None:

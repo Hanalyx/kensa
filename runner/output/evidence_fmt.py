@@ -72,7 +72,7 @@ def format_evidence(run_result: RunResult, host: HostResult | None = None) -> st
             "effective_variables": host.effective_variables,
             "platform": {
                 "family": host.platform_family,
-                "version": host.platform_version,
+                "version": host.platform_version_id or host.platform_version,
             }
             if host.platform_family
             else None,

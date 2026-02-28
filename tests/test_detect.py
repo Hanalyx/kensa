@@ -82,6 +82,7 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
+        assert p.version_id == "9.3"
 
     def test_detect_rhel8(self, mock_ssh):
         ssh = mock_ssh(
@@ -94,6 +95,7 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 8
+        assert p.version_id == "8.9"
 
     def test_detect_rocky9(self, mock_ssh):
         ssh = mock_ssh(
@@ -106,6 +108,7 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
+        assert p.version_id == "9.4"
 
     def test_detect_almalinux(self, mock_ssh):
         ssh = mock_ssh(
@@ -118,6 +121,7 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
+        assert p.version_id == "9.2"
 
     def test_detect_centos_stream(self, mock_ssh):
         ssh = mock_ssh(
@@ -130,6 +134,7 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 9
+        assert p.version_id == "9"
 
     def test_detect_oracle_linux(self, mock_ssh):
         ssh = mock_ssh(
@@ -142,6 +147,7 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "rhel"
         assert p.version == 8
+        assert p.version_id == "8.7"
 
     def test_detect_unreadable(self, mock_ssh):
         ssh = mock_ssh(
@@ -164,3 +170,4 @@ class TestDetectPlatform:
         p = detect_platform(ssh)
         assert p.family == "debian"
         assert p.version == 12
+        assert p.version_id == "12"

@@ -19,7 +19,7 @@ class TestDetectCapabilitySpecDerived:
     """
 
     def test_ac1_detect_platform_reads_os_release(self, mock_ssh):
-        """AC-1: detect_platform reads /etc/os-release and returns PlatformInfo(family, version)."""
+        """AC-1: detect_platform reads /etc/os-release and returns PlatformInfo(family, version, version_id)."""
         ssh = mock_ssh(
             {
                 "cat /etc/os-release": Result(
@@ -34,6 +34,7 @@ class TestDetectCapabilitySpecDerived:
         assert isinstance(platform, PlatformInfo)
         assert platform.family == "rhel"
         assert platform.version == 9
+        assert platform.version_id == "9.3"
 
     def test_ac2_rhel_derivatives_normalized(self, mock_ssh):
         """AC-2: RHEL derivatives (centos, rocky, almalinux, ol) normalized to 'rhel'."""
@@ -71,6 +72,7 @@ class TestDetectCapabilitySpecDerived:
         assert platform is not None
         assert platform.family == "rhel"
         assert platform.version == 7
+        assert platform.version_id == "7.9.2009"
 
         # Fallback to /etc/debian_version
         ssh2 = mock_ssh(
@@ -88,6 +90,7 @@ class TestDetectCapabilitySpecDerived:
         assert platform2 is not None
         assert platform2.family == "debian"
         assert platform2.version == 12
+        assert platform2.version_id == "12.1"
 
     def test_ac4_all_detection_methods_fail_returns_none(self, mock_ssh):
         """AC-4: When all detection methods fail, returns None."""
@@ -206,7 +209,7 @@ class TestDetectCapabilitySpecDerived:
         assert set(CAPABILITY_PROBES.keys()) == expected_probes
 
     def test_ac10_version_id_dotted_parsing(self, mock_ssh):
-        """AC-10: VERSION_ID parsing handles dotted versions ('9.3') extracting major as int."""
+        """AC-10: VERSION_ID parsing preserves full string as version_id, extracts major as int."""
         ssh = mock_ssh(
             {
                 "cat /etc/os-release": Result(
@@ -220,6 +223,7 @@ class TestDetectCapabilitySpecDerived:
         assert platform is not None
         assert platform.version == 9
         assert isinstance(platform.version, int)
+        assert platform.version_id == "9.3"
 
         # Also test without quotes around VERSION_ID
         ssh2 = mock_ssh(
@@ -235,3 +239,4 @@ class TestDetectCapabilitySpecDerived:
         assert platform2 is not None
         assert platform2.family == "ubuntu"
         assert platform2.version == 22
+        assert platform2.version_id == "22.04"

@@ -20,10 +20,10 @@ context:
   technical_context: >
     Entry points: detect_platform(ssh) -> PlatformInfo | None,
     detect_capabilities(ssh, verbose=False) -> dict[str, bool].
-    PlatformInfo is a namedtuple(family, version). CAPABILITY_PROBES is a
-    dict[str, str] mapping 22 capability names to shell commands where
-    exit code 0 = capability present. RHEL_FAMILY set defines OS IDs
-    normalized to "rhel" (rhel, centos, rocky, almalinux, ol).
+    PlatformInfo is a namedtuple(family, version, version_id).
+    CAPABILITY_PROBES is a dict[str, str] mapping 22 capability names to
+    shell commands where exit code 0 = capability present. RHEL_FAMILY set
+    defines OS IDs normalized to "rhel" (rhel, centos, rocky, almalinux, ol).
   dependencies:
     - "runner.ssh (SSHSession)"
   callers:
@@ -46,8 +46,8 @@ objective:
   acceptance_criteria:
     AC-1: >
       detect_platform reads /etc/os-release and returns PlatformInfo(family,
-      version) with family normalized to lowercase and version as integer
-      major version.
+      version, version_id) with family normalized to lowercase, version as
+      integer major version, and version_id as the full version string.
     AC-2: >
       RHEL derivatives (centos, rocky, almalinux, ol) are normalized to
       family "rhel" via the RHEL_FAMILY set.
@@ -76,7 +76,8 @@ objective:
       aide, tpm2, usbguard, dnf_automatic, gdm, tmux.
     AC-10: >
       VERSION_ID parsing handles dotted versions (e.g., "9.3") by extracting
-      only the major version as an integer.
+      the major version as an integer for version, and preserving the full
+      string as version_id.
 
 constraints:
   - "MUST normalize RHEL derivatives to family 'rhel'."
@@ -113,12 +114,12 @@ behavior:
 
 output_contract:
   returns: >
-    detect_platform -> PlatformInfo(family: str, version: int) | None;
+    detect_platform -> PlatformInfo(family: str, version: int, version_id: str) | None;
     detect_capabilities -> dict[str, bool] with 22 entries.
   paths:
     platform_detected:
       description: "OS release file found and parsed."
-      result: "PlatformInfo with normalized family and integer version."
+      result: "PlatformInfo with normalized family, integer version, and full version_id string."
     platform_unknown:
       description: "No release file found or parseable."
       result: "None returned."

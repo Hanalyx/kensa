@@ -237,7 +237,9 @@ class TestCheckSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         rule_file = _write_simple_rule(tmp_path, failing=False)
 
@@ -261,7 +263,9 @@ class TestCheckSpecDerived:
         mock_session_cls.return_value = mock_ssh
         # Rule expects "0" but mock returns "1" → FAIL
         mock_ssh.run = MagicMock(return_value=Result(0, "1", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         rule_file = _write_simple_rule(tmp_path, failing=False)  # expected="0"
 
@@ -463,7 +467,9 @@ class TestCheckSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         rule_file = _write_simple_rule(tmp_path)
 
@@ -499,7 +505,9 @@ class TestCheckSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         # Write a rule that uses a variable
         rule_file = tmp_path / "var-rule.yml"
@@ -553,7 +561,9 @@ class TestCheckSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         # Write two rules: one that matches the control, one that doesn't
         _write_simple_rule(tmp_path, rule_id="ssh-rule")
@@ -672,7 +682,9 @@ class TestCheckSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         runner = CliRunner()
         result = runner.invoke(
@@ -731,7 +743,9 @@ class TestRemediateSpecDerived:
         mock_session_cls.return_value = mock_ssh
         # Return "1" (check fails since expected is "0")
         mock_ssh.run = MagicMock(return_value=Result(0, "1", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         rule_file = _write_remediable_rule(tmp_path)
 
@@ -931,7 +945,9 @@ class TestRemediateSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         rule_file = _write_remediable_rule(tmp_path)
 
@@ -1035,7 +1051,9 @@ class TestRemediateSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         runner = CliRunner()
         result = runner.invoke(
@@ -1179,7 +1197,9 @@ class TestRemediateSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         # Write a rule that uses a variable
         rule_file = tmp_path / "var-rule.yml"
@@ -1236,7 +1256,9 @@ class TestRemediateSpecDerived:
         mock_ssh = _make_mock_ssh()
         mock_session_cls.return_value = mock_ssh
         mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
-        mock_detect_platform.return_value = PlatformInfo(family="rhel", version=9)
+        mock_detect_platform.return_value = PlatformInfo(
+            family="rhel", version=9, version_id="9.3"
+        )
 
         _write_remediable_rule(tmp_path, rule_id="ssh-rule")
         _write_remediable_rule(tmp_path, rule_id="other-rule")
