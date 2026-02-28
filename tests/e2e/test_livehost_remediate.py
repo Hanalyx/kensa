@@ -29,7 +29,6 @@ class TestLivehostRemediateDryRun:
                 "remediate",
                 "--rule",
                 "rules/system/gpgcheck-enabled.yml",
-                "--yes",
                 "--dry-run",
             ],
         )
@@ -46,7 +45,6 @@ class TestLivehostRemediateDryRun:
                 "remediate",
                 "--rules",
                 "rules/filesystem/",
-                "--yes",
                 "--dry-run",
                 "--severity",
                 "low",
@@ -65,7 +63,6 @@ class TestLivehostRemediateDryRun:
                 "remediate",
                 "--rules",
                 "rules/access-control/",
-                "--yes",
                 "--dry-run",
                 "--severity",
                 "low",
@@ -86,7 +83,6 @@ class TestLivehostRemediateDryRun:
                     "remediate",
                     "--rule",
                     "rules/system/gpgcheck-enabled.yml",
-                    "--yes",
                     "--dry-run",
                 ],
             )

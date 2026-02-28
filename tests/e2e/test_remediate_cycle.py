@@ -26,7 +26,7 @@ def _check_rule(host, rule_path: str) -> tuple[int, str]:
 
 def _remediate_rule(host, rule_path: str) -> tuple[int, str]:
     """Run remediation and return (exit_code, output)."""
-    result = run_kensa(host, ["remediate", "--rule", rule_path, "--yes"])
+    result = run_kensa(host, ["remediate", "--rule", rule_path])
     return result.returncode, result.stdout + result.stderr
 
 
