@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.2.3 (2026-02-28)
+
+- Fix README crash: `kensa diff` example used string args instead of int
+- Convert `kensa list-frameworks` to `kensa list frameworks` group
+- Simplify `kensa history`: bare invocation lists sessions, `--session-id` renamed to `--id`
+- Add rollback `--password/-p` secure prompt
+- Add `evidence` to output format help text
+- Add missing options to CLI help epilog
+- Fix QUICKSTART `--password` description
+- Add root-level BACKLOG.md and SESSION_LOG.md to gitignore
+
 ## v1.0.0 (2026-02-20)
 
 - Initial Release
