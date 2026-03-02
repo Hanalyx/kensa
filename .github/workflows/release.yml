@@ -95,11 +95,15 @@ jobs:
             exit 0
           fi
 
-          # Skip if this version was already released (tag exists)
+          # Skip if this version already has a complete release (tag + assets)
           if git tag -l "v${NEXT}" | grep -q .; then
-            echo "released=false" >> $GITHUB_OUTPUT
-            echo "Version v${NEXT} already released — skipping"
-            exit 0
+            ASSET_COUNT=$(gh release view "v${NEXT}" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
+            if [ "$ASSET_COUNT" -gt "0" ]; then
+              echo "released=false" >> $GITHUB_OUTPUT
+              echo "Version v${NEXT} already released with ${ASSET_COUNT} assets — skipping"
+              exit 0
+            fi
+            echo "Tag v${NEXT} exists but release is missing or has no assets — rebuilding"
           fi
 
           echo "version=$NEXT" >> $GITHUB_OUTPUT
@@ -112,6 +116,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
+          # Skip version bump if pyproject.toml already has the correct version
+          CURRENT=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          if [ "$CURRENT" = "$VERSION" ]; then
+            echo "Version already set to ${VERSION} in pyproject.toml — skipping bump"
+            exit 0
+          fi
+
           BRANCH="release/v${VERSION}"
 
           # Clean up stale remote branch from a previous failed run
@@ -149,8 +160,14 @@ jobs:
         env:
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
-          # Build from the release branch (has updated version)
-          git checkout "release/v${VERSION}"
+          # Build from the release branch if it exists, otherwise from the tag
+          if git rev-parse --verify "release/v${VERSION}" &>/dev/null; then
+            git checkout "release/v${VERSION}"
+          elif git rev-parse --verify "origin/release/v${VERSION}" &>/dev/null; then
+            git checkout "origin/release/v${VERSION}"
+          else
+            git checkout "v${VERSION}"
+          fi
           python -m build
 
       - name: Create GitHub Release
@@ -159,12 +176,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
-          # Create tag and release via GitHub API (bypasses branch protection)
-          gh release create "v${VERSION}" \
-            --title "Release v${VERSION}" \
-            --generate-notes \
-            --target main \
-            dist/*
+          # Upload to existing release, or create a new one
+          if gh release view "v${VERSION}" &>/dev/null; then
+            gh release upload "v${VERSION}" dist/* --clobber
+          else
+            gh release create "v${VERSION}" \
+              --title "Release v${VERSION}" \
+              --generate-notes \
+              --target main \
+              dist/*
+          fi
 
   rpm:
     name: Build RPM (${{ matrix.distro }})
