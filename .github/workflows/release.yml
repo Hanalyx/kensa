@@ -176,6 +176,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
+          # Determine the commit to tag — prefer the release branch (has bumped version)
+          if git rev-parse --verify "release/v${VERSION}" &>/dev/null; then
+            TARGET_SHA=$(git rev-parse "release/v${VERSION}")
+          elif git rev-parse --verify "origin/release/v${VERSION}" &>/dev/null; then
+            TARGET_SHA=$(git rev-parse "origin/release/v${VERSION}")
+          else
+            TARGET_SHA=$(git rev-parse HEAD)
+          fi
+
           # Upload to existing release, or create a new one
           if gh release view "v${VERSION}" &>/dev/null; then
             gh release upload "v${VERSION}" dist/* --clobber
@@ -183,7 +192,7 @@ jobs:
             gh release create "v${VERSION}" \
               --title "Release v${VERSION}" \
               --generate-notes \
-              --target main \
+              --target "$TARGET_SHA" \
               dist/*
           fi
 

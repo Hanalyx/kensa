@@ -223,13 +223,13 @@ Remediation Options:
 \b
 Examples:
   kensa detect --host 192.168.1.100 -u admin --sudo
-  kensa check -i hosts.ini --sudo -r rules/ -w 4
-  kensa check -i hosts.ini --sudo -r rules/ -o json -q
-  kensa check -i hosts.ini --sudo -r rules/ -o csv:results.csv -o pdf:report.pdf
-  kensa check -i hosts.ini --sudo -r rules/ -V pam_pwquality_minlen=20
+  kensa check -i hosts.ini --sudo -w 4
+  kensa check -i hosts.ini --sudo -o json -q
+  kensa check -i hosts.ini --sudo -o csv:results.csv -o pdf:report.pdf
+  kensa check -i hosts.ini --sudo -V pam_pwquality_minlen=20
   kensa check -i hosts.ini --sudo --control cis-rhel9-v2.0.0:5.1.12
   kensa remediate -i hosts.ini --sudo --control 5.1.12
-  kensa remediate -i hosts.ini --sudo -r rules/ --dry-run
+  kensa remediate -i hosts.ini --sudo --dry-run
 """
 
 
