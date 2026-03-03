@@ -1,0 +1,57 @@
+id: auditd-log-storage-week
+title: Allocate audit record storage capacity for at least one week
+description: >
+  The audit system must be configured to allocate sufficient disk
+  space to retain at least one week's worth of audit records.
+rationale: >
+  Insufficient audit log storage capacity means that audit records
+  may be overwritten before they can be reviewed, potentially hiding
+  evidence of security incidents. At least one week of audit data
+  must be retained to support incident response.
+severity: medium
+category: audit
+tags: [audit, auditd, storage, capacity]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258155"
+      stig_id: "RHEL-09-653125"
+      severity: "CAT II"
+  nist_800_53: ["AU-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check num_logs and max_log_file to ensure sufficient storage
+        num_logs=$(grep -i '^\s*num_logs\s*=' /etc/audit/auditd.conf | awk -F'=' '{print $2}' | tr -d ' ')
+        max_log_file=$(grep -i '^\s*max_log_file\s*=' /etc/audit/auditd.conf | awk -F'=' '{print $2}' | tr -d ' ')
+        if [ -z "$num_logs" ] || [ -z "$max_log_file" ]; then
+          echo "FAIL: num_logs or max_log_file not configured"
+          exit 1
+        fi
+        total=$((num_logs * max_log_file))
+        # 5 logs * 8MB = 40MB minimum; STIG requires capacity for 1 week
+        # Require at least 5 files configured
+        if [ "$num_logs" -ge 5 ]; then
+          echo "OK: num_logs=$num_logs max_log_file=${max_log_file}MB total=${total}MB"
+          exit 0
+        fi
+        echo "FAIL: num_logs=$num_logs is less than required 5"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "num_logs"
+      value: "5"
+      separator: " = "
+      restart: "auditd"

@@ -1,0 +1,49 @@
+id: usbguard-audit-logging
+title: Ensure USBGuard daemon enables Linux audit logging
+description: >
+  The USBGuard daemon must be configured to enable Linux audit logging
+  so that USB device authorization decisions are recorded in the audit log.
+rationale: >
+  Without audit logging from USBGuard, there is no record of USB device
+  connection attempts, including unauthorized devices that were blocked.
+  Audit logging provides visibility into potential physical attacks via
+  unauthorized USB devices.
+severity: medium
+category: services
+tags: [usbguard, audit, usb, security]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258037"
+      stig_id: "RHEL-09-291010"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf="/etc/usbguard/usbguard-daemon.conf"
+        if [ ! -f "$conf" ]; then
+          echo "FAIL: USBGuard configuration file not found"
+          exit 1
+        fi
+        if grep -qiE '^\s*AuditBackend\s*=\s*LinuxAudit' "$conf" 2>/dev/null; then
+          echo "OK: USBGuard audit logging to Linux Audit is enabled"
+          exit 0
+        fi
+        echo "FAIL: USBGuard AuditBackend is not set to LinuxAudit"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/usbguard/usbguard-daemon.conf"
+      key: "AuditBackend"
+      value: "LinuxAudit"
+      restart: "usbguard"

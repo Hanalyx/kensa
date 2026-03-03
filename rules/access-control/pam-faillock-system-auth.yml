@@ -1,0 +1,46 @@
+id: pam-faillock-system-auth
+title: Configure pam_faillock.so in /etc/pam.d/system-auth
+description: >
+  The pam_faillock.so module must be configured in /etc/pam.d/system-auth
+  to enforce account lockout after repeated failed authentication attempts.
+rationale: >
+  Without pam_faillock in the system-auth PAM configuration, interactive
+  logins that use system-auth will not be subject to account lockout
+  on failed attempts, leaving the system vulnerable to brute-force attacks.
+severity: medium
+category: access-control
+tags: [pam, authentication, faillock, system-auth]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258095"
+      stig_id: "RHEL-09-412060"
+      severity: "CAT II"
+  nist_800_53: ["AC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: authselect
+    check:
+      method: command
+      run: 'authselect current 2>/dev/null | grep -q with-faillock'
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "authselect enable-feature with-faillock"
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -qE '^\s*auth\s+(required|sufficient)\s+pam_faillock\.so'
+        /etc/pam.d/system-auth 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add pam_faillock.so to the auth stack in /etc/pam.d/system-auth.
+        Preferred: use authselect enable-feature with-faillock.

@@ -1,0 +1,70 @@
+id: gdm-disable-restart-buttons-override
+title: Ensure GDM disable-restart-buttons setting cannot be overridden
+description: >
+  If GNOME Display Manager is in use, users must not be able to
+  override the disable-restart-buttons setting for the graphical
+  user interface login screen.
+rationale: >
+  Without locking the disable-restart-buttons setting, a local user
+  could re-enable power control buttons on the login screen, allowing
+  unauthorized system restarts that could be used to boot alternate
+  media and bypass security controls.
+severity: medium
+category: services
+tags: [gdm, gnome, login-screen, restart, security]
+
+depends_on: [gdm-disable-restart-buttons]
+conflicts_with: [gdm-removed]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258030"
+      stig_id: "RHEL-09-271085"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: gdm_installed
+    check:
+      method: command
+      run: |
+        # Check if disable-restart-buttons is locked
+        found=0
+        for lockdir in /etc/dconf/db/gdm.d/locks /etc/dconf/db/local.d/locks; do
+          if [ -d "$lockdir" ]; then
+            for lockfile in "$lockdir"/*; do
+              if [ -f "$lockfile" ] && grep -q "/org/gnome/login-screen/disable-restart-buttons" "$lockfile" 2>/dev/null; then
+                found=1
+                break 2
+              fi
+            done
+          fi
+        done
+        if [ "$found" -eq 1 ]; then
+          echo "OK: GDM disable-restart-buttons setting is locked"
+          exit 0
+        fi
+        echo "FAIL: GDM disable-restart-buttons setting can be overridden"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Lock the disable-restart-buttons setting in
+        /etc/dconf/db/gdm.d/locks/00-security-settings-locks:
+        /org/gnome/login-screen/disable-restart-buttons
+        Then run: dconf update
+
+  - default: true
+    check:
+      method: package_state
+      name: "gdm"
+      state: "absent"
+    remediation:
+      mechanism: package_absent
+      name: "gdm"

@@ -1,0 +1,38 @@
+id: pam-maxlogins
+title: Limit concurrent sessions to ten for all accounts
+description: >
+  The system must limit the number of concurrent sessions to ten
+  for all accounts and account types using PAM limits.
+rationale: >
+  Limiting concurrent sessions reduces the risk of resource exhaustion
+  and limits the damage from compromised accounts by preventing an
+  attacker from opening many simultaneous sessions.
+severity: medium
+category: access-control
+tags: [pam, sessions, limits, access-control]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258069"
+      stig_id: "RHEL-09-412060"
+      severity: "CAT II"
+  nist_800_53: ["AC-10"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        grep -rE '^\*\s+hard\s+maxlogins\s+[0-9]+' /etc/security/limits.conf /etc/security/limits.d/ 2>/dev/null | \
+          awk '{print $NF}' | awk 'BEGIN{max=9999} {if ($1+0 < max) max=$1+0} END{if (max <= 10) exit 0; exit 1}'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add the following to /etc/security/limits.d/maxlogins.conf:
+        * hard maxlogins 10

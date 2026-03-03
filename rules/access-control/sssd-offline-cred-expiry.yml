@@ -1,0 +1,52 @@
+id: sssd-offline-cred-expiry
+title: Prohibit use of cached authenticators after one day
+description: >
+  RHEL 9 must be configured to prohibit the use of cached authenticators
+  after one day to ensure revoked credentials are not usable offline.
+rationale: >
+  Cached credentials allow users to authenticate when the authentication
+  server is unavailable. If credentials are revoked (e.g., account
+  terminated), cached credentials could still allow access for an
+  extended period. Limiting cached credential lifetime to one day
+  reduces this window of unauthorized access.
+severity: medium
+category: access-control
+tags: [sssd, authentication, credentials, caching, security]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258133"
+      stig_id: "RHEL-09-611195"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(13)", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check sssd.conf for offline_credentials_expiration
+        if ! grep -qrE '^\s*offline_credentials_expiration\s*=' /etc/sssd/sssd.conf /etc/sssd/conf.d/ 2>/dev/null; then
+          echo "FAIL: offline_credentials_expiration not configured in SSSD"
+          exit 1
+        fi
+        value=$(grep -rE '^\s*offline_credentials_expiration\s*=' /etc/sssd/sssd.conf /etc/sssd/conf.d/ 2>/dev/null | \
+                awk -F'=' '{print $2}' | tr -d ' ' | tail -1)
+        if [ "$value" -ge 1 ] 2>/dev/null && [ "$value" -le 1 ] 2>/dev/null; then
+          echo "OK: offline_credentials_expiration=$value"
+          exit 0
+        fi
+        echo "FAIL: offline_credentials_expiration=$value (must be 1)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to the [domain/<domain>] section in /etc/sssd/sssd.conf:
+        offline_credentials_expiration = 1
+        Then restart SSSD: systemctl restart sssd

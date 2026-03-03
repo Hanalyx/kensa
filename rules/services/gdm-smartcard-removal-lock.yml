@@ -1,0 +1,67 @@
+id: gdm-smartcard-removal-lock
+title: Ensure GDM smart card removal action cannot be overridden
+description: >
+  If GNOME Display Manager is in use, the smart card removal action
+  must be set to lock the screen and users must not be able to
+  override this setting.
+rationale: >
+  Preventing users from overriding the smart card removal action
+  ensures that removing a smart card automatically locks the screen,
+  maintaining access control when the authentication token is removed.
+severity: medium
+category: services
+tags: [gdm, gnome, smartcard, screen-lock, security]
+
+conflicts_with: [gdm-removed]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258020"
+      stig_id: "RHEL-09-271040"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "IA-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: gdm_installed
+    check:
+      method: command
+      run: |
+        # Check if smart card removal action is locked
+        found=0
+        for lockfile in /etc/dconf/db/local.d/locks/*; do
+          if [ -f "$lockfile" ] && grep -q "/org/gnome/settings-daemon/peripherals/smartcard/removal-action" "$lockfile" 2>/dev/null; then
+            found=1
+            break
+          fi
+        done
+        if [ "$found" -eq 1 ]; then
+          echo "OK: GDM smart card removal action is locked"
+          exit 0
+        fi
+        echo "FAIL: GDM smart card removal action can be overridden"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure and lock the smart card removal action:
+        1. Create /etc/dconf/db/local.d/00-smartcard with:
+           [org/gnome/settings-daemon/peripherals/smartcard]
+           removal-action='lock-screen'
+        2. Create /etc/dconf/db/local.d/locks/00-smartcard with:
+           /org/gnome/settings-daemon/peripherals/smartcard/removal-action
+        3. Run: dconf update
+
+  - default: true
+    check:
+      method: package_state
+      name: "gdm"
+      state: "absent"
+    remediation:
+      mechanism: package_absent
+      name: "gdm"

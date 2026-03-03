@@ -1,0 +1,52 @@
+id: user-primary-group-exists
+title: Ensure all local interactive users have a primary group that exists
+description: >
+  All local interactive user accounts must be assigned a primary group
+  that actually exists in /etc/group.
+rationale: >
+  If a user's primary group does not exist, the user may be granted
+  unintended access permissions or encounter errors accessing the
+  system. Group consistency ensures the integrity of access controls.
+severity: medium
+category: access-control
+tags: [user-accounts, groups, integrity]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258048"
+      stig_id: "RHEL-09-411035"
+      severity: "CAT II"
+  nist_800_53: ["IA-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check for users with non-existent primary groups (UID >= 1000)
+        bad_users=""
+        while IFS=: read -r user _ uid gid _ _ _; do
+          if [ "$uid" -ge 1000 ] 2>/dev/null; then
+            if ! grep -q "^[^:]*:[^:]*:${gid}:" /etc/group 2>/dev/null; then
+              bad_users="$bad_users $user(gid=$gid)"
+            fi
+          fi
+        done < /etc/passwd
+        if [ -z "$bad_users" ]; then
+          echo "OK: All interactive users have valid primary groups"
+          exit 0
+        fi
+        echo "FAIL: Users with non-existent primary groups:$bad_users"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each user with a non-existent primary group, either create the
+        missing group with groupadd, or assign the user to an existing group
+        with usermod -g <valid_group> <username>.

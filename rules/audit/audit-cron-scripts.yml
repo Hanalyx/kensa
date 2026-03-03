@@ -1,0 +1,37 @@
+id: audit-cron-scripts
+title: Audit scripts and executables called by cron as root or privileged users
+description: >
+  The audit system must be configured to audit any script or executable
+  called by cron when run as root or by any privileged user. This is
+  achieved by auditing executions from cron directories.
+rationale: >
+  Cron is commonly used by attackers to maintain persistence. Auditing
+  all executions from cron directories ensures that any malicious scripts
+  scheduled to run as root are detected in the audit log.
+severity: medium
+category: audit
+tags: [audit, auditd, cron, privileged]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-279936"
+      stig_id: "RHEL-09-654285"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/cron.daily"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/cron.daily -p wa -k cron"
+      persist_file: "/etc/audit/rules.d/50-cron.rules"

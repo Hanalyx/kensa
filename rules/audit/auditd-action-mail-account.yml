@@ -1,0 +1,43 @@
+id: auditd-action-mail-account
+title: Configure mail alias for audit processing failure notification
+description: >
+  The action_mail_acct parameter in /etc/audit/auditd.conf must be set
+  to notify the information system security officer (ISSO) and system
+  administrator in the event of an audit processing failure.
+rationale: >
+  Without proper notification when audit processing fails, security
+  personnel may be unaware of audit system failures that leave the
+  system unmonitored. The action_mail_acct setting directs failure
+  notifications to the appropriate security personnel.
+severity: medium
+category: audit
+tags: [audit, auditd, notification, mail]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258174"
+      stig_id: "RHEL-09-653055"
+      severity: "CAT II"
+  nist_800_53: ["AU-5(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/audit/auditd.conf"
+      key: "action_mail_acct"
+      expected: "root"
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "action_mail_acct"
+      value: "root"
+      separator: " = "
+      restart: "auditd"

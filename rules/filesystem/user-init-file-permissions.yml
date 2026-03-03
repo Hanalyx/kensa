@@ -1,0 +1,59 @@
+id: user-init-file-permissions
+title: Ensure local user initialization files have mode 0740 or less permissive
+description: >
+  All local interactive user initialization files (such as .bash_profile,
+  .bashrc, .bash_logout) must have permissions of 0740 or more restrictive.
+rationale: >
+  User initialization files control the environment when a user logs in.
+  If these files are world-writable, a local attacker could modify them
+  to execute arbitrary code when the file owner logs in, enabling
+  privilege escalation or persistent access.
+severity: medium
+category: filesystem
+tags: [permissions, user-accounts, initialization-files, hardening]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257889"
+      stig_id: "RHEL-09-232245"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        # Check all local user init files (UID >= 1000)
+        while IFS=: read -r user _ uid _ _ home _; do
+          if [ "$uid" -ge 1000 ] 2>/dev/null && [ -d "$home" ]; then
+            for init_file in "$home"/.bash_profile "$home"/.bashrc "$home"/.bash_logout \
+                             "$home"/.profile "$home"/.cshrc "$home"/.tcshrc; do
+              if [ -f "$init_file" ]; then
+                mode=$(stat -c '%a' "$init_file" 2>/dev/null)
+                # Check if world-writable (bit 2 of "others" field)
+                if [ -n "$mode" ] && [ "$((8#$mode & 2))" -ne 0 ]; then
+                  echo "FAIL: $init_file has world-writable mode $mode"
+                  fail=1
+                fi
+              fi
+            done
+          fi
+        done < /etc/passwd
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: All user initialization files have mode 0740 or more restrictive"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each world-writable initialization file found, remove world-write
+        permission: chmod o-w /home/<user>/.<init_file>

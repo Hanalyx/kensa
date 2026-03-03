@@ -1,0 +1,44 @@
+id: shell-profile-umask
+title: Ensure system default profile defines restrictive default permissions
+description: >
+  The system default shell profile (/etc/profile) must define a
+  restrictive umask to limit permissions on newly created files.
+rationale: >
+  The /etc/profile script runs for all interactive login shells and
+  sets the default environment. A restrictive umask of 077 in this
+  file ensures that all users have a restrictive default regardless
+  of their specific shell configuration.
+severity: medium
+category: access-control
+tags: [shell, profile, umask, permissions]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258075"
+      stig_id: "RHEL-09-412095"
+      severity: "CAT II"
+  nist_800_53: ["AC-6(1)", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -qE '^\s*umask\s+0?0?7[57]' /etc/profile 2>/dev/null; then
+          exit 0
+        fi
+        if grep -rqE '^\s*umask\s+0?0?7[57]' /etc/profile.d/ 2>/dev/null; then
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to /etc/profile or /etc/profile.d/umask.sh:
+        umask 077

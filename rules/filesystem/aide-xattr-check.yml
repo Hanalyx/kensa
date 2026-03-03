@@ -1,0 +1,46 @@
+id: aide-xattr-check
+title: Ensure the file integrity tool verifies extended attributes
+description: >
+  The AIDE file integrity tool must be configured to verify extended
+  attributes (xattrs) on monitored files and directories.
+rationale: >
+  Extended attributes include SELinux security labels. Without extended
+  attribute verification, an attacker could modify SELinux labels or
+  other security-relevant xattrs without triggering AIDE alerts,
+  potentially undermining mandatory access control enforcement.
+severity: medium
+category: filesystem
+tags: [aide, file-integrity, xattr, selinux, security]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258139"
+      stig_id: "RHEL-09-651025"
+      severity: "CAT II"
+  nist_800_53: ["AU-7", "CM-3", "SI-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check if AIDE is configured with xattrs option
+        if grep -qiE 'xattr|xattrs' /etc/aide.conf /etc/aide.d/*.conf 2>/dev/null; then
+          echo "OK: AIDE is configured to verify extended attributes"
+          exit 0
+        fi
+        echo "FAIL: AIDE is not configured to verify extended attributes"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add 'xattrs' to the AIDE check groups in /etc/aide.conf.
+        For example, add to your NORMAL or PERMS rule set:
+        PERMS = p+i+u+g+acl+xattrs+sha256
+        Then reinitialize the AIDE database: aide --init

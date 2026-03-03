@@ -1,0 +1,60 @@
+id: cron-config-permissions
+title: Ensure cron configuration files and directories have OS default permissions
+description: >
+  The permissions on cron configuration files and directories must not
+  be more permissive than the operating system defaults.
+rationale: >
+  Cron jobs run with elevated privileges. If cron configuration files
+  or directories have permissions more permissive than the OS defaults,
+  unauthorized users may be able to modify scheduled tasks to execute
+  malicious code with elevated privileges.
+severity: medium
+category: filesystem
+tags: [cron, permissions, security, hardening]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257888"
+      stig_id: "RHEL-09-232240"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        # Check crontab file: must be 0600 or more restrictive
+        mode=$(stat -c '%a' /etc/crontab 2>/dev/null)
+        if [ -n "$mode" ] && [ "$((8#$mode & ~8#600))" -ne 0 ]; then
+          echo "FAIL: /etc/crontab has mode $mode (expected 0600 or more restrictive)"
+          fail=1
+        fi
+        # Check cron directories: must be 0700 or more restrictive
+        for dir in /etc/cron.d /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly; do
+          if [ -d "$dir" ]; then
+            mode=$(stat -c '%a' "$dir" 2>/dev/null)
+            if [ -n "$mode" ] && [ "$((8#$mode & ~8#700))" -ne 0 ]; then
+              echo "FAIL: $dir has mode $mode (expected 0700 or more restrictive)"
+              fail=1
+            fi
+          fi
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: Cron configuration files and directories have correct permissions"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Reset cron file/directory permissions to OS defaults:
+        chmod 0600 /etc/crontab
+        chmod 0700 /etc/cron.d /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly

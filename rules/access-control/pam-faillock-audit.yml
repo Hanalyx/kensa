@@ -1,0 +1,39 @@
+id: pam-faillock-audit
+title: Enable audit logging for failed logon attempts
+description: >
+  The audit option in /etc/security/faillock.conf must be enabled so
+  that username information is logged when unsuccessful logon attempts occur.
+rationale: >
+  Without auditing of failed logon attempts, it is difficult to detect
+  brute-force attacks or unauthorized access attempts. The audit option
+  causes pam_faillock to send information about failed attempts to the
+  audit log.
+severity: medium
+category: access-control
+tags: [pam, authentication, faillock, audit]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258070"
+      stig_id: "RHEL-09-411080"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/security/faillock.conf"
+      key: "audit"
+      expected: ""
+    remediation:
+      mechanism: config_set
+      path: "/etc/security/faillock.conf"
+      key: "audit"
+      value: ""
+      separator: ""
