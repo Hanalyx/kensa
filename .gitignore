@@ -67,3 +67,10 @@ docs/prd/
 .aegis/
 specs/
 project_review/
+
+# Generated coverage reports (local visibility tooling)
+reports/
+
+# Local strategy and scoping documents
+docs/COMPLIANCE_SCOPE.md
+docs/CIS8_COVERAGE_PLAN.md
