@@ -1,0 +1,52 @@
+id: user-home-in-passwd
+title: Ensure all local interactive users have a home directory in /etc/passwd
+description: >
+  All local interactive user accounts must have a home directory
+  configured in the /etc/passwd file.
+rationale: >
+  Without a configured home directory, users may not be able to
+  log in properly, and their activity may not be fully audited.
+  A missing home directory entry may also indicate an improperly
+  configured account.
+severity: medium
+category: access-control
+tags: [user-accounts, home-directory, passwd]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258051"
+      stig_id: "RHEL-09-411045"
+      severity: "CAT II"
+  nist_800_53: ["IA-4", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check all interactive users (UID >= 1000) have a home directory set
+        bad_users=""
+        while IFS=: read -r user _ uid _ _ home _; do
+          if [ "$uid" -ge 1000 ] 2>/dev/null; then
+            if [ -z "$home" ]; then
+              bad_users="$bad_users $user"
+            fi
+          fi
+        done < /etc/passwd
+        if [ -z "$bad_users" ]; then
+          echo "OK: All interactive users have a home directory in /etc/passwd"
+          exit 0
+        fi
+        echo "FAIL: Users without home directory in /etc/passwd:$bad_users"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each user without a home directory configured, use
+        usermod -d /home/<username> <username> to assign a home directory.

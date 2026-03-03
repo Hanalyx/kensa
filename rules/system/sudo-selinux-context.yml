@@ -1,0 +1,54 @@
+id: sudo-selinux-context
+title: Ensure sudo elevates the SELinux context when called by an administrator
+description: >
+  The sudo command must be configured to elevate the SELinux security
+  context when an administrator calls it, ensuring commands run with
+  appropriate mandatory access controls.
+rationale: >
+  Without SELinux context elevation in sudo, administrators may execute
+  commands in their own user SELinux context rather than the privileged
+  context. This can prevent legitimate administrative actions and may
+  indicate a misconfigured or missing SELinux integration in the
+  sudoers policy.
+severity: medium
+category: system
+tags: [selinux, sudo, privilege, mandatory-access-control]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-272496"
+      stig_id: "RHEL-09-432025"
+      severity: "CAT II"
+  nist_800_53: ["AC-3", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check if sudo has role/type elevation configured
+        # Look for ROLE= or TYPE= in sudoers configuration
+        if grep -rqE '^\s*[^#].*ROLE=|^\s*[^#].*TYPE=' /etc/sudoers /etc/sudoers.d/ 2>/dev/null; then
+          echo "OK: sudo is configured to elevate SELinux context"
+          exit 0
+        fi
+        # Also check if selinux_role_map or rolespec_enabled is configured
+        if sudo -l 2>/dev/null | grep -qE 'ROLE=|TYPE='; then
+          echo "OK: sudo has SELinux role elevation configured"
+          exit 0
+        fi
+        echo "FAIL: sudo is not configured to elevate SELinux context"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure sudo to elevate SELinux context by adding ROLE and TYPE
+        specifications to /etc/sudoers.d/selinux-elevation:
+        %wheel ALL=(ALL) TYPE=sysadm_t ROLE=sysadm_r ALL
+        Consult your SELinux policy for the appropriate role and type.

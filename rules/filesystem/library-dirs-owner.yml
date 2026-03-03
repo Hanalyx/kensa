@@ -1,0 +1,52 @@
+id: library-dirs-owner
+title: Ensure system library directories are owned by root
+description: >
+  All system library directories must be owned by root to prevent
+  unauthorized modification of shared libraries.
+rationale: >
+  Library directories owned by non-root users could allow those users
+  to replace legitimate libraries with malicious ones, enabling
+  privilege escalation through library injection attacks.
+severity: medium
+category: filesystem
+tags: [permissions, libraries, ownership, hardening]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257922"
+      stig_id: "RHEL-09-232380"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check ownership of standard library directories
+        fail=0
+        for libdir in /lib /lib64 /usr/lib /usr/lib64 /usr/local/lib /usr/local/lib64; do
+          if [ -d "$libdir" ]; then
+            owner=$(stat -c '%U' "$libdir" 2>/dev/null)
+            if [ "$owner" != "root" ]; then
+              echo "FAIL: $libdir is owned by $owner (expected root)"
+              fail=1
+            fi
+          fi
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: All library directories are owned by root"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each library directory not owned by root, run:
+        chown root <directory>

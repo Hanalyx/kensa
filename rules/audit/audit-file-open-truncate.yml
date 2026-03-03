@@ -1,0 +1,37 @@
+id: audit-file-open-truncate
+title: Audit truncate, ftruncate, creat, open, openat, and open_by_handle_at syscalls
+description: >
+  The truncate, ftruncate, creat, open, openat, and open_by_handle_at
+  system calls must be audited to track unauthorized file access and
+  modification attempts.
+rationale: >
+  Auditing file open and truncation syscalls provides visibility into
+  unauthorized file access, creation, and modification. This is essential
+  for detecting data exfiltration and malicious file manipulation.
+severity: medium
+category: audit
+tags: [audit, auditd, syscall, file-access]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258188"
+      stig_id: "RHEL-09-654230"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F arch=b64 -S truncate,ftruncate,creat,open,openat,open_by_handle_at"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F arch=b64 -S truncate,ftruncate,creat,open,openat,open_by_handle_at -F exit=-EPERM -F auid>=1000 -F auid!=unset -k access"
+      persist_file: "/etc/audit/rules.d/50-file-access.rules"

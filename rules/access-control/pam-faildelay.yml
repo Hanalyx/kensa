@@ -1,0 +1,44 @@
+id: pam-faildelay
+title: Enforce delay after failed logon attempt
+description: >
+  The pam_faildelay.so module must be configured with a delay of at
+  least 4 seconds (4000000 microseconds) between logon prompts following
+  a failed logon attempt.
+rationale: >
+  Inserting a delay after a failed logon attempt limits the rate of
+  brute-force attacks. A minimum 4-second delay significantly slows
+  automated attack tools.
+severity: medium
+category: access-control
+tags: [pam, authentication, faildelay, brute-force]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258071"
+      stig_id: "RHEL-09-412015"
+      severity: "CAT II"
+  nist_800_53: ["AC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -qE '^\s*auth\s+required\s+pam_faildelay\.so\s+delay=[0-9]+'
+        /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null &&
+        delay=$(grep -hE '^\s*auth\s+required\s+pam_faildelay\.so'
+        /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null |
+        grep -oP 'delay=\K[0-9]+' | sort -n | head -1) &&
+        [ -n "$delay" ] && [ "$delay" -ge 4000000 ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add 'auth required pam_faildelay.so delay=4000000' to
+        /etc/pam.d/system-auth and /etc/pam.d/password-auth in the
+        auth section.

@@ -1,0 +1,38 @@
+id: pwquality-root-enforce
+title: Enforce password complexity rules for root account
+description: >
+  The enforce_for_root option must be set in /etc/security/pwquality.conf
+  to ensure that password complexity rules apply even when the root
+  account changes its own password.
+rationale: >
+  Without enforce_for_root, the root account can bypass password complexity
+  requirements. Requiring complex root passwords reduces the risk of
+  root account compromise.
+severity: medium
+category: access-control
+tags: [pam, pwquality, password-complexity, root]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258101"
+      stig_id: "RHEL-09-611055"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(1)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'grep -qE "^\s*enforce_for_root" /etc/security/pwquality.conf'
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/security/pwquality.conf"
+      key: "enforce_for_root"
+      value: ""
+      separator: ""

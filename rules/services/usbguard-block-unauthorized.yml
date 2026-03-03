@@ -1,0 +1,36 @@
+id: usbguard-block-unauthorized
+title: Ensure USBGuard blocks unauthorized peripheral devices
+description: >
+  USBGuard must be installed and active to block unauthorized USB
+  peripheral devices before they can be connected to the system.
+rationale: >
+  Unauthorized USB devices can be used to exfiltrate data, inject
+  malware, or perform BadUSB attacks. USBGuard enforces a whitelist
+  policy that blocks all USB devices not explicitly authorized,
+  preventing these attack vectors.
+severity: medium
+category: services
+tags: [usbguard, usb, peripherals, security]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258038"
+      stig_id: "RHEL-09-291015"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "SI-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: service_state
+      name: "usbguard"
+      state: "running"
+      enabled: true
+    remediation:
+      mechanism: service_enabled
+      name: "usbguard"

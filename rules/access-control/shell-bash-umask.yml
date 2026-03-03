@@ -1,0 +1,44 @@
+id: shell-bash-umask
+title: Ensure bash shell defines restrictive default permissions
+description: >
+  The bash shell default umask must be configured to restrict
+  permissions on newly created files and directories.
+rationale: >
+  A restrictive bash umask of 077 ensures that files and directories
+  created during a bash session are not readable or writable by
+  other users by default, protecting user data from unauthorized access.
+severity: medium
+category: access-control
+tags: [shell, bash, umask, permissions]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258072"
+      stig_id: "RHEL-09-412085"
+      severity: "CAT II"
+  nist_800_53: ["AC-6(1)", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check /etc/bashrc and /etc/profile.d/*.sh for umask
+        if grep -qE '^\s*umask\s+0?0?7[57]' /etc/bashrc 2>/dev/null; then
+          exit 0
+        fi
+        if grep -rqE '^\s*umask\s+0?0?7[57]' /etc/profile.d/ 2>/dev/null; then
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to /etc/bashrc or /etc/profile.d/umask.sh:
+        umask 077

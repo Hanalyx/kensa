@@ -1,0 +1,52 @@
+id: user-home-directory-group-owner
+title: Ensure local interactive user home directories are group-owned by the user's primary group
+description: >
+  All local interactive user home directories must be group-owned
+  by the home directory owner's primary group.
+rationale: >
+  If a home directory is group-owned by a different group than the
+  user's primary group, other group members may have unintended
+  access to the user's files, creating a confidentiality risk.
+severity: medium
+category: access-control
+tags: [user-accounts, home-directory, permissions, group-ownership]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258053"
+      stig_id: "RHEL-09-411055"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check home directories are group-owned by user's primary group
+        bad_dirs=""
+        while IFS=: read -r user _ uid gid _ home _; do
+          if [ "$uid" -ge 1000 ] 2>/dev/null && [ -d "$home" ]; then
+            dir_gid=$(stat -c '%g' "$home" 2>/dev/null)
+            if [ -n "$dir_gid" ] && [ "$dir_gid" != "$gid" ]; then
+              bad_dirs="$bad_dirs $user:$home(dir_gid=$dir_gid,user_gid=$gid)"
+            fi
+          fi
+        done < /etc/passwd
+        if [ -z "$bad_dirs" ]; then
+          echo "OK: All home directories are group-owned by the user's primary group"
+          exit 0
+        fi
+        echo "FAIL: Home directories with wrong group ownership:$bad_dirs"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each home directory with incorrect group ownership, use:
+        chgrp <primary_group> /home/<username>

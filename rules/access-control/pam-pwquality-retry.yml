@@ -1,0 +1,40 @@
+id: pam-pwquality-retry
+title: Set maximum password complexity retries to 3 or fewer
+description: >
+  The retry option in /etc/security/pwquality.conf must be set to 3
+  or less, limiting the number of times a user can attempt to enter
+  a new password that satisfies complexity requirements.
+rationale: >
+  Limiting password retry attempts reduces the window for observing
+  password complexity feedback and forces users to choose a compliant
+  password more carefully.
+severity: medium
+category: access-control
+tags: [pam, pwquality, password-complexity, authentication]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258091"
+      stig_id: "RHEL-09-611045"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(1)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/security/pwquality.conf"
+      key: "retry"
+      expected: "3"
+      comparator: "<="
+    remediation:
+      mechanism: config_set
+      path: "/etc/security/pwquality.conf"
+      key: "retry"
+      value: "3"
+      separator: " = "

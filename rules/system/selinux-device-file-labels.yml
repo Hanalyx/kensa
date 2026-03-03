@@ -1,0 +1,44 @@
+id: selinux-device-file-labels
+title: Ensure all system device files are correctly labeled by SELinux
+description: >
+  All system device files must have correct SELinux labels to prevent
+  unauthorized modification and enforce mandatory access controls on
+  device access.
+rationale: >
+  Incorrectly labeled device files may allow processes to access them
+  in ways not intended by the SELinux policy. Unlabeled device files
+  can bypass SELinux access controls entirely, undermining the
+  mandatory access control system.
+severity: medium
+category: system
+tags: [selinux, device-files, labels, mandatory-access-control]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257932"
+      stig_id: "RHEL-09-231040"
+      severity: "CAT II"
+  nist_800_53: ["AC-3", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check for unlabeled device files
+        unlabeled=$(find /dev -context "*unlabeled_t*" -type b -o -type c 2>/dev/null | head -5)
+        if [ -z "$unlabeled" ]; then
+          echo "OK: No unlabeled device files found"
+          exit 0
+        fi
+        echo "FAIL: Unlabeled device files found: $unlabeled"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "restorecon -R /dev"

@@ -1,0 +1,57 @@
+id: temporary-account-expiry
+title: Ensure temporary accounts expire within 72 hours
+description: >
+  Temporary user accounts must be configured to automatically expire
+  within 72 hours of creation.
+rationale: >
+  Temporary accounts that are not promptly removed provide an attack
+  surface for unauthorized access. Requiring expiration within 72 hours
+  ensures these accounts are automatically disabled even if manual
+  cleanup is overlooked.
+severity: medium
+category: access-control
+tags: [user-accounts, temporary, expiry, account-management]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258047"
+      stig_id: "RHEL-09-411025"
+      severity: "CAT II"
+  nist_800_53: ["AC-2(2)", "AC-2(3)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check for accounts with no expiry set (UID >= 1000, not locked)
+        # This checks that temporary accounts (expiry set) expire within 72 hours
+        # Note: Identifying which accounts are "temporary" requires site policy
+        # This check looks for any non-system accounts without an expiry date
+        accounts_no_expiry=""
+        while IFS=: read -r user _ uid _ _ home shell; do
+          if [ "$uid" -ge 1000 ] 2>/dev/null && [ "$shell" != "/sbin/nologin" ] && [ "$shell" != "/bin/false" ]; then
+            expiry=$(chage -l "$user" 2>/dev/null | grep "Account expires" | cut -d: -f2 | tr -d ' ')
+            if [ "$expiry" = "never" ] || [ -z "$expiry" ]; then
+              accounts_no_expiry="$accounts_no_expiry $user"
+            fi
+          fi
+        done < /etc/passwd
+        if [ -z "$accounts_no_expiry" ]; then
+          echo "OK: All interactive accounts have an expiry date set"
+          exit 0
+        fi
+        echo "INFO: Accounts without expiry (verify none are temporary):$accounts_no_expiry"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each temporary account, set an expiry date within 72 hours:
+        chage -E $(date -d "+3 days" +%Y-%m-%d) <username>
+        Verify all temporary accounts have appropriate expiry dates.

@@ -1,0 +1,54 @@
+id: library-dirs-group-owner
+title: Ensure system library directories are group-owned by root or a system account
+description: >
+  All system library directories must be group-owned by root or a
+  system account to prevent unauthorized modification.
+rationale: >
+  Library directories group-owned by non-system accounts could allow
+  group members to replace legitimate libraries with malicious ones,
+  enabling privilege escalation through library injection attacks.
+severity: medium
+category: filesystem
+tags: [permissions, libraries, group-ownership, hardening]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257923"
+      stig_id: "RHEL-09-232385"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check group ownership of standard library directories
+        # Group must be root (GID 0) or a system account (GID < 1000)
+        fail=0
+        for libdir in /lib /lib64 /usr/lib /usr/lib64 /usr/local/lib /usr/local/lib64; do
+          if [ -d "$libdir" ]; then
+            gid=$(stat -c '%g' "$libdir" 2>/dev/null)
+            if [ -n "$gid" ] && [ "$gid" -ge 1000 ] 2>/dev/null; then
+              group=$(stat -c '%G' "$libdir" 2>/dev/null)
+              echo "FAIL: $libdir is group-owned by $group (GID $gid, expected system group)"
+              fail=1
+            fi
+          fi
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: All library directories are group-owned by root or a system group"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each library directory with non-system group ownership, run:
+        chgrp root <directory>

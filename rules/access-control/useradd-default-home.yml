@@ -1,0 +1,36 @@
+id: useradd-default-home
+title: Ensure local interactive user accounts are assigned a home directory upon creation
+description: >
+  The useradd command defaults must be configured to assign a home
+  directory to new local interactive user accounts.
+rationale: >
+  Without a home directory, users may not have a consistent location
+  for their files and configuration, and audit trails for their
+  activity may be incomplete.
+severity: medium
+category: access-control
+tags: [user-accounts, home-directory, useradd]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258043"
+      stig_id: "RHEL-09-411015"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "grep -iE '^CREATE_HOME\\s*yes' /etc/login.defs"
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/login.defs"
+      key: "CREATE_HOME"
+      value: "yes"

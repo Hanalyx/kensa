@@ -1,0 +1,36 @@
+id: audit-execve
+title: Audit uses of the execve system call
+description: >
+  The execve system call must be audited so that all program executions
+  are recorded in the audit log for both 32-bit and 64-bit architectures.
+rationale: >
+  Without auditing execve, it is not possible to track what programs are
+  executed on the system. This information is critical for forensic
+  investigations and detecting unauthorized activity.
+severity: medium
+category: audit
+tags: [audit, auditd, syscall, execve]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258176"
+      stig_id: "RHEL-09-654195"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F arch=b64 -S execve"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"
+      persist_file: "/etc/audit/rules.d/50-execve.rules"

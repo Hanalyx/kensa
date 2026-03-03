@@ -1,0 +1,64 @@
+id: gdm-dconf-database-current
+title: Ensure GDM effective dconf policy matches the policy keyfiles
+description: >
+  The GNOME dconf database must be compiled from the current policy
+  keyfiles so that the effective policy matches the configured policy.
+rationale: >
+  If the dconf database is not regenerated after policy keyfiles are
+  updated, the effective policy in use may not match the intended
+  security configuration. Running dconf update ensures all policy
+  settings take effect immediately.
+severity: medium
+category: services
+tags: [gdm, gnome, dconf, policy, security]
+
+conflicts_with: [gdm-removed]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258028"
+      stig_id: "RHEL-09-271075"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: gdm_installed
+    check:
+      method: command
+      run: |
+        # Check if dconf database is newer than keyfiles
+        db_file="/etc/dconf/db/local"
+        keyfile_dir="/etc/dconf/db/local.d"
+        if [ ! -d "$keyfile_dir" ]; then
+          echo "OK: No local dconf keyfiles found"
+          exit 0
+        fi
+        if [ ! -f "$db_file" ]; then
+          echo "FAIL: dconf database /etc/dconf/db/local does not exist"
+          exit 1
+        fi
+        # Check if any keyfile is newer than the database
+        if find "$keyfile_dir" -newer "$db_file" -type f 2>/dev/null | grep -q .; then
+          echo "FAIL: dconf keyfiles are newer than compiled database"
+          exit 1
+        fi
+        echo "OK: dconf database is current"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "dconf update"
+
+  - default: true
+    check:
+      method: package_state
+      name: "gdm"
+      state: "absent"
+    remediation:
+      mechanism: package_absent
+      name: "gdm"

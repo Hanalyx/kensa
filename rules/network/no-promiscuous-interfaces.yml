@@ -1,0 +1,47 @@
+id: no-promiscuous-interfaces
+title: Ensure network interfaces are not in promiscuous mode
+description: >
+  Network interfaces on RHEL 9 must not operate in promiscuous mode
+  unless required for authorized network monitoring purposes.
+rationale: >
+  A network interface in promiscuous mode captures all network traffic
+  on its segment, not just traffic destined for the host. This is a
+  common technique used by attackers to eavesdrop on network communications
+  and harvest credentials.
+severity: medium
+category: network
+tags: [network, promiscuous, eavesdropping, security]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-257941"
+      stig_id: "RHEL-09-251025"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "SC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check for any interface in PROMISC mode
+        promisc=$(ip link show 2>/dev/null | grep -i PROMISC | grep -v "^$")
+        if [ -z "$promisc" ]; then
+          echo "OK: No network interfaces are in promiscuous mode"
+          exit 0
+        fi
+        echo "FAIL: Interfaces in promiscuous mode: $promisc"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each interface found in promiscuous mode, disable it:
+        ip link set <interface> promisc off
+        If the interface requires promiscuous mode for authorized monitoring,
+        document the exception with the system's ISSM.

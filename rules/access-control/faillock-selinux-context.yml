@@ -1,0 +1,48 @@
+id: faillock-selinux-context
+title: Configure SELinux context for faillock tally directory
+description: >
+  The SELinux context type must be configured to allow the use of a
+  nondefault faillock tally directory when faillock is configured to
+  use a nondefault directory path.
+rationale: >
+  If faillock is configured to use a directory other than the default
+  /var/run/faillock, that directory must have the correct SELinux
+  context type (faillog_t) applied. Without correct labeling, SELinux
+  will deny faillock access and authentication will fail.
+severity: medium
+category: access-control
+tags: [pam, selinux, faillock, authentication]
+
+references:
+  stig:
+    rhel9_v2r7:
+      vuln_id: "V-258080"
+      stig_id: "RHEL-09-431010"
+      severity: "CAT II"
+  nist_800_53: ["AC-7", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        dir=$(grep -Po '^\s*dir\s*=\s*\K\S+' /etc/security/faillock.conf 2>/dev/null)
+        if [ -z "$dir" ]; then
+          dir="/var/run/faillock"
+        fi
+        if [ -d "$dir" ]; then
+          ls -dZ "$dir" 2>/dev/null | grep -q 'faillog_t'
+        else
+          semanage fcontext -l 2>/dev/null | grep -q "$(echo "$dir" | sed 's|/|\\\\|g')"
+        fi
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Run: semanage fcontext -a -t faillog_t "/custom/faillock/dir(/.*)?"
+        then restorecon -Rv /custom/faillock/dir to apply the context.
+        Use the default /var/run/faillock unless a custom dir is required.

@@ -1,23 +1,24 @@
 id: auditd-disk-error-action
-title: Configure auditd disk_error_action
+title: Configure action on critical audit processing failure
 description: >
-  The auditd daemon must take appropriate action when disk errors occur
-  during audit logging.
+  The disk_error_action parameter in /etc/audit/auditd.conf must be
+  set to SYSLOG, SINGLE, or HALT to take appropriate action when a
+  critical audit processing failure occurs.
 rationale: >
-  Disk errors could indicate failing hardware or filesystem issues that
-  could lead to loss of audit data. Taking action on errors helps
-  preserve audit integrity.
+  When a disk error occurs during audit logging, the system must take
+  appropriate action to preserve the integrity of the audit trail.
+  Silently ignoring disk errors could allow audit data to be lost.
 severity: medium
 category: audit
-tags: [audit, auditd, disk-error, stig]
+tags: [audit, auditd, disk-error, failure-action]
 
 depends_on: [auditd-service-enabled]
 
 references:
   stig:
     rhel9_v2r7:
-      vuln_id: "V-257810"
-      stig_id: "RHEL-09-653025"
+      vuln_id: "V-258227"
+      stig_id: "RHEL-09-653085"
       severity: "CAT II"
   nist_800_53: ["AU-5"]
 
@@ -28,14 +29,13 @@ platforms:
 implementations:
   - default: true
     check:
-      method: config_value
-      path: "/etc/audit/auditd.conf"
-      key: "disk_error_action"
-      expected: "halt"
+      method: command
+      run: "grep -qiE '^\\s*disk_error_action\\s*=\\s*(SYSLOG|SINGLE|HALT)' /etc/audit/auditd.conf"
+      expected_exit: 0
     remediation:
       mechanism: config_set
       path: "/etc/audit/auditd.conf"
       key: "disk_error_action"
-      value: "halt"
+      value: "SYSLOG"
       separator: " = "
-      reload: "auditd"
+      restart: "auditd"
