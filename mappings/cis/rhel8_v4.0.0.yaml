@@ -1377,11 +1377,660 @@ controls:
     type: Automated
     title: "Ensure access to all logfiles has been configured"
 
-unimplemented:
-  "1.1.1.5":
-    title: "Ensure jffs2 kernel module is not available"
-    reason: "Needs rule implementation"
+  "1.2.1.2":
+    rules:
+      - gpgcheck-enabled
+    level: L1
     type: Automated
+    title: "Ensure gpgcheck is globally activated"
+  "1.2.1.3":
+    rules:
+      - repo-gpgcheck-enabled
+    level: L1
+    type: Automated
+    title: "Ensure repo_gpgcheck is globally activated"
+  "1.3.1.1":
+    rules:
+      - selinux-not-disabled
+    level: L1
+    type: Automated
+    title: "Ensure SELinux is installed"
+  "1.3.1.5":
+    rules:
+      - selinux-enforcing
+    level: L1
+    type: Automated
+    title: "Ensure the SELinux mode is enforcing"
+  "1.5.1":
+    rules:
+      - coredump-restricted
+    level: L1
+    type: Automated
+    title: "Ensure core dump storage is disabled"
+  "1.5.2":
+    rules:
+      - kernel-hardlink-protect
+    level: L1
+    type: Automated
+    title: "Ensure fs.protected_hardlinks is enabled"
+  "1.5.3":
+    rules:
+      - kernel-symlink-protect
+    level: L1
+    type: Automated
+    title: "Ensure fs.protected_symlinks is enabled"
+  "1.8.1":
+    rules:
+      - gdm-login-banner
+    level: L1
+    type: Automated
+    title: "Ensure GDM login banner is configured"
+  "1.8.2":
+    rules:
+      - gdm-disable-user-list
+    level: L1
+    type: Automated
+    title: "Ensure GDM disable-user-list option is enabled"
+  "1.8.3":
+    rules:
+      - gdm-screen-lock-idle
+    level: L1
+    type: Automated
+    title: "Ensure GDM screen locks when the user is idle"
+  "1.8.4":
+    rules:
+      - gdm-automount-disabled
+    level: L1
+    type: Automated
+    title: "Ensure GDM automatic mounting of removable media is disabled"
+  "1.8.5":
+    rules:
+      - gdm-autorun-never
+    level: L1
+    type: Automated
+    title: "Ensure GDM autorun-never is enabled"
+  "1.8.6":
+    rules:
+      - gdm-xdmcp-disabled
+    level: L1
+    type: Automated
+    title: "Ensure XDMCP is not enabled"
+  "2.1.2":
+    rules:
+      - service-disable-avahi
+    level: L1
+    type: Automated
+    title: "Ensure avahi daemon services are not in use"
+  "2.1.4":
+    rules:
+      - service-disable-dhcpd
+    level: L1
+    type: Automated
+    title: "Ensure dhcp server services are not in use"
+  "2.1.5":
+    rules:
+      - service-disable-named
+      - package-bind-removed
+    level: L1
+    type: Automated
+    title: "Ensure dns server services are not in use"
+  "2.1.6":
+    rules:
+      - service-disable-dnsmasq
+      - package-dnsmasq-removed
+    level: L1
+    type: Automated
+    title: "Ensure dnsmasq services are not in use"
+  "2.1.7":
+    rules:
+      - service-disable-vsftpd
+      - pkg-vsftpd-absent
+    level: L1
+    type: Automated
+    title: "Ensure ftp server services are not in use"
+  "2.1.8":
+    rules:
+      - service-disable-dovecot
+      - package-dovecot-removed
+    level: L1
+    type: Automated
+    title: "Ensure message access server services are not in use"
+  "2.1.9":
+    rules:
+      - service-disable-nfs
+      - pkg-nfs-utils-absent
+    level: L1
+    type: Automated
+    title: "Ensure network file system services are not in use"
+  "2.1.10":
+    rules:
+      - service-disable-ypserv
+      - package-ypserv-removed
+    level: L1
+    type: Automated
+    title: "Ensure nis server services are not in use"
+  "2.1.11":
+    rules:
+      - service-disable-cups
+    level: L1
+    type: Automated
+    title: "Ensure print server services are not in use"
+  "2.1.12":
+    rules:
+      - service-disable-rpcbind
+    level: L1
+    type: Automated
+    title: "Ensure rpcbind services are not in use"
+  "2.1.13":
+    rules:
+      - service-disable-rsyncd
+    level: L1
+    type: Automated
+    title: "Ensure rsync services are not in use"
+  "2.1.14":
+    rules:
+      - service-disable-smb
+    level: L1
+    type: Automated
+    title: "Ensure samba file server services are not in use"
+  "2.1.15":
+    rules:
+      - service-disable-snmpd
+      - package-net-snmp-removed
+    level: L1
+    type: Automated
+    title: "Ensure snmp services are not in use"
+  "2.1.16":
+    rules:
+      - service-disable-telnet
+      - pkg-telnet-server-absent
+    level: L1
+    type: Automated
+    title: "Ensure telnet server services are not in use"
+  "2.1.17":
+    rules:
+      - service-disable-tftp
+      - package-tftp-removed
+    level: L1
+    type: Automated
+    title: "Ensure tftp server services are not in use"
+  "2.1.18":
+    rules:
+      - service-disable-squid
+    level: L1
+    type: Automated
+    title: "Ensure web proxy server services are not in use"
+  "2.1.19":
+    rules:
+      - service-disable-httpd
+      - package-nginx-removed
+    level: L1
+    type: Automated
+    title: "Ensure web server services are not in use"
+  "2.1.20":
+    rules:
+      - service-disable-xinetd
+      - package-xinetd-removed
+    level: L1
+    type: Automated
+    title: "Ensure xinetd services are not in use"
+  "2.1.21":
+    rules:
+      - gdm-removed
+    level: L1
+    type: Automated
+    title: "Ensure GNOME Display Manager is removed"
+  "2.1.22":
+    rules:
+      - xorg-removed
+    level: L1
+    type: Automated
+    title: "Ensure X window server services are not in use"
+  "2.3.2":
+    rules:
+      - chrony-sources
+    level: L1
+    type: Automated
+    title: "Ensure chrony is configured"
+  "2.3.3":
+    rules:
+      - chrony-user
+    level: L1
+    type: Automated
+    title: "Ensure chrony is not run as the root user"
+  "2.4.1.9":
+    rules:
+      - cron-access-control
+    level: L1
+    type: Automated
+    title: "Ensure access to crontab is configured"
+  "3.1.3":
+    rules:
+      - kmod-disable-bluetooth
+    level: L1
+    type: Automated
+    title: "Ensure bluetooth services are not in use"
+  "5.1.1":
+    rules:
+      - ssh-crypto-policy
+    level: L1
+    type: Automated
+    title: "Ensure sshd crypto_policy is not set"
+  "5.1.16":
+    rules:
+      - ssh-log-level
+    level: L1
+    type: Automated
+    title: "Ensure sshd LogLevel is configured"
+  "5.1.23":
+    rules:
+      - ssh-permit-user-environment
+    level: L1
+    type: Automated
+    title: "Ensure sshd PermitUserEnvironment is disabled"
+  "5.1.24":
+    rules:
+      - ssh-use-pam
+    level: L1
+    type: Automated
+    title: "Ensure sshd UsePAM is enabled"
+  "5.2.1":
+    rules:
+      - package-sudo-installed
+    level: L1
+    type: Automated
+    title: "Ensure sudo is installed"
+  "5.3.1.1":
+    rules:
+      - package-pam-installed
+    level: L1
+    type: Automated
+    title: "Ensure latest version of pam is installed"
+  "5.3.1.2":
+    rules:
+      - package-authselect-installed
+    level: L1
+    type: Automated
+    title: "Ensure latest version of authselect is installed"
+  "5.3.2.2":
+    rules:
+      - pam-faillock-enabled
+    level: L1
+    type: Automated
+    title: "Ensure pam_faillock module is enabled"
+  "5.3.2.3":
+    rules:
+      - pam-pwquality-enabled
+    level: L1
+    type: Automated
+    title: "Ensure pam_pwquality module is enabled"
+  "5.3.3.1.1":
+    rules:
+      - pam-faillock-deny
+    level: L1
+    type: Automated
+    title: "Ensure password failed attempts lockout is configured"
+  "5.3.3.1.2":
+    rules:
+      - pam-faillock-unlock-time
+    level: L1
+    type: Automated
+    title: "Ensure password unlock time is configured"
+  "5.3.3.1.3":
+    rules:
+      - pam-faillock-even-deny-root
+    level: L1
+    type: Automated
+    title: "Ensure password failed attempts lockout includes root account"
+  "5.4.2.5":
+    rules:
+      - root-path-integrity
+    level: L1
+    type: Automated
+    title: "Ensure root path integrity"
+  "6.3.2.1":
+    rules:
+      - auditd-max-log-file
+    level: L2
+    type: Automated
+    title: "Ensure audit log storage size is configured"
+  "6.3.2.2":
+    rules:
+      - auditd-max-log-file-action
+    level: L2
+    type: Automated
+    title: "Ensure audit logs are not automatically deleted"
+  "6.3.2.3":
+    rules:
+      - auditd-space-left-action
+    level: L2
+    type: Automated
+    title: "Ensure system is disabled when audit logs are full"
+  "6.3.4.2":
+    rules:
+      - audit-log-permissions
+    level: L2
+    type: Automated
+    title: "Ensure audit log files mode is configured"
+  "6.3.4.3":
+    rules:
+      - audit-log-owner
+    level: L2
+    type: Automated
+    title: "Ensure audit log files owner is configured"
+  "6.3.4.4":
+    rules:
+      - audit-log-group
+    level: L2
+    type: Automated
+    title: "Ensure audit log files group owner is configured"
+  "6.3.4.5":
+    rules:
+      - audit-config-permissions
+    level: L2
+    type: Automated
+    title: "Ensure audit configuration files mode is configured"
+  "6.3.4.6":
+    rules:
+      - audit-config-owner
+    level: L2
+    type: Automated
+    title: "Ensure audit configuration files owner is configured"
+  "6.3.4.7":
+    rules:
+      - audit-config-group
+    level: L2
+    type: Automated
+    title: "Ensure audit configuration files group owner is configured"
+  "6.3.4.8":
+    rules:
+      - audit-tools-permissions
+    level: L2
+    type: Automated
+    title: "Ensure audit tools mode is configured"
+  "6.3.4.9":
+    rules:
+      - audit-tools-owner
+    level: L2
+    type: Automated
+    title: "Ensure audit tools owner is configured"
+  "6.3.4.10":
+    rules:
+      - audit-tools-group
+    level: L2
+    type: Automated
+    title: "Ensure audit tools group owner is configured"
+  "7.1.9":
+    rules:
+      - fs-permissions-etc-shells
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/shells is configured"
+  "7.1.10":
+    rules:
+      - fs-permissions-opasswd
+    level: L1
+    type: Automated
+    title: "Ensure access to /etc/security/opasswd is configured"
+  "7.2.1":
+    rules:
+      - passwd-shadowed
+    level: L1
+    type: Automated
+    title: "Ensure accounts in /etc/passwd use shadowed passwords"
+  "7.2.2":
+    rules:
+      - accounts-no-empty-passwords
+    level: L1
+    type: Automated
+    title: "Ensure /etc/shadow password fields are not empty"
+  "1.6.3":
+    rules:
+      - crypto-policy-strong-macs
+    level: L1
+    type: Automated
+    title: "Ensure system wide crypto policy is not over-ridden"
+  "1.6.4":
+    rules:
+      - crypto-policy-no-cbc-ssh
+    level: L1
+    type: Automated
+    title: "Ensure system wide crypto policy disables cbc for ssh"
+  "5.2.4":
+    rules:
+      - sudo-require-password
+    level: L1
+    type: Automated
+    title: "Ensure users must provide password for escalation"
+  "5.3.2.1":
+    rules:
+      - authselect-profile-pam
+    level: L1
+    type: Automated
+    title: "Ensure active authselect profile includes pam modules"
+  "5.3.2.4":
+    rules:
+      - pam-pwhistory-enabled
+    level: L1
+    type: Automated
+    title: "Ensure pam_pwhistory module is enabled"
+  "5.3.2.5":
+    rules:
+      - pam-unix-enabled
+    level: L1
+    type: Automated
+    title: "Ensure pam_unix module is enabled"
+  "5.3.3.3.3":
+    rules:
+      - pam-pwhistory-use-authtok
+    level: L1
+    type: Automated
+    title: "Ensure pam_pwhistory includes use_authtok"
+  "5.4.2.2":
+    rules:
+      - root-only-gid0
+    level: L1
+    type: Automated
+    title: "Ensure root is the only GID 0 account"
+  "5.4.2.3":
+    rules:
+      - root-group-only-gid0
+    level: L1
+    type: Automated
+    title: "Ensure group root is the only GID 0 group"
+  "5.4.2.6":
+    rules:
+      - root-umask
+    level: L1
+    type: Automated
+    title: "Ensure root user umask is configured"
+  "5.4.2.7":
+    rules:
+      - accounts-locked-no-shell
+    level: L1
+    type: Automated
+    title: "Ensure system accounts do not have a valid login shell"
+  "5.4.2.8":
+    rules:
+      - accounts-locked-no-shell
+    level: L1
+    type: Automated
+    title: "Ensure accounts without a valid login shell are locked"
+  "6.3.2.4":
+    rules:
+      - auditd-space-low-warning
+    level: L2
+    type: Automated
+    title: "Ensure system warns when audit logs are low on space"
+  "1.1.1.5":
+    rules:
+      - kmod-disable-jffs2
+    level: L1
+    type: Automated
+    title: "Ensure jffs2 kernel module is not available"
+  "1.7.3":
+    rules:
+      - issue-net-configured
+    level: L1
+    type: Automated
+    title: "Ensure /etc/issue.net is configured"
+  "2.1.23":
+    rules:
+      - mta-local-only
+    level: L1
+    type: Automated
+    title: "Ensure mail transfer agents are configured for local-only mode"
+  "3.2.5":
+    rules:
+      - kmod-disable-sctp
+    level: L1
+    type: Automated
+    title: "Ensure sctp kernel module is not available"
+  "3.2.6":
+    rules:
+      - kmod-disable-tipc
+    level: L1
+    type: Automated
+    title: "Ensure tipc kernel module is not available"
+  "3.3.1.2":
+    rules:
+      - sysctl-net-ipv4-ip-forward
+    level: L1
+    type: Automated
+    title: "Ensure net.ipv4.conf.all.forwarding is configured"
+  "3.3.1.3":
+    rules:
+      - sysctl-ip-forward-disabled
+    level: L1
+    type: Automated
+    title: "Ensure net.ipv4.conf.default.forwarding is configured"
+  "3.3.2.2":
+    rules:
+      - sysctl-net-ipv6-conf-all-forwarding
+    level: L1
+    type: Automated
+    title: "Ensure net.ipv6.conf.default.forwarding is configured"
+  "4.1.1":
+    rules:
+      - pkg-firewalld-present
+    level: L1
+    type: Automated
+    title: "Ensure firewalld is installed"
+  "4.1.3":
+    rules:
+      - service-enable-firewalld
+    level: L1
+    type: Automated
+    title: "Ensure firewalld.service is enabled and active"
+  "5.2.7":
+    rules:
+      - pam-wheel-su
+    level: L1
+    type: Automated
+    title: "Ensure access to the su command is restricted"
+  "6.1.2":
+    rules:
+      - aide-cron-check
+    level: L1
+    type: Automated
+    title: "Ensure filesystem integrity is regularly checked"
+  "6.2.1.1.1":
+    rules:
+      - journald-service-enabled
+    level: L1
+    type: Automated
+    title: "Ensure journald service is active"
+  "6.3.3.2":
+    rules:
+      - audit-user-emulation
+    level: L2
+    type: Automated
+    title: "Ensure actions as another user are always logged"
+  "6.3.3.3":
+    rules:
+      - audit-sudo-log
+    level: L2
+    type: Automated
+    title: "Ensure events that modify the sudo log file are collected"
+  "6.3.4.1":
+    rules:
+      - audit-log-dir-permissions
+    level: L2
+    type: Automated
+    title: "Ensure the audit log file directory mode is configured"
+  "1.1.2.3.1":
+    rules:
+      - separate-filesystem-home
+    level: L1
+    type: Automated
+    title: "Ensure separate partition exists for /home"
+  "1.1.2.4.1":
+    rules:
+      - separate-filesystem-var
+    level: L1
+    type: Automated
+    title: "Ensure separate partition exists for /var"
+  "1.1.2.4.2":
+    rules:
+      - mount-var-options
+    level: L1
+    type: Automated
+    title: "Ensure nodev option set on /var partition"
+  "1.1.2.6.1":
+    rules:
+      - separate-filesystem-var-log
+    level: L1
+    type: Automated
+    title: "Ensure separate partition exists for /var/log"
+  "1.1.2.6.2":
+    rules:
+      - mount-var-log-options
+    level: L1
+    type: Automated
+    title: "Ensure nodev option set on /var/log partition"
+  "1.1.2.6.3":
+    rules:
+      - mount-var-log-options
+    level: L1
+    type: Automated
+    title: "Ensure nosuid option set on /var/log partition"
+  "1.1.2.6.4":
+    rules:
+      - mount-var-log-options
+    level: L1
+    type: Automated
+    title: "Ensure noexec option set on /var/log partition"
+  "1.1.2.7.2":
+    rules:
+      - mount-var-log-audit-options
+    level: L1
+    type: Automated
+    title: "Ensure nodev option set on /var/log/audit partition"
+  "1.1.2.7.3":
+    rules:
+      - mount-var-log-audit-options
+    level: L1
+    type: Automated
+    title: "Ensure nosuid option set on /var/log/audit partition"
+  "1.1.2.7.4":
+    rules:
+      - mount-var-log-audit-options
+    level: L1
+    type: Automated
+    title: "Ensure noexec option set on /var/log/audit partition"
+  "7.2.8":
+    rules:
+      - home-directories-exist
+    level: L1
+    type: Automated
+    title: "Ensure local interactive user home directories are configured"
+  "7.2.9":
+    rules:
+      - home-dotfiles-permissions
+    level: L1
+    type: Automated
+    title: "Ensure local interactive user dot files access is configured"
+unimplemented:
   "1.1.1.6":
     title: "Ensure overlay kernel module is not available"
     reason: "Needs rule implementation"
@@ -1398,18 +2047,6 @@ unimplemented:
     title: "Ensure /dev/shm is tmpfs"
     reason: "Needs rule implementation"
     type: Automated
-  "1.1.2.3.1":
-    title: "Ensure separate partition exists for /home"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.4.1":
-    title: "Ensure separate partition exists for /var"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.4.2":
-    title: "Ensure nodev option set on /var partition"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.1.2.4.3":
     title: "Ensure nosuid option set on /var partition"
     reason: "Needs rule implementation"
@@ -1418,48 +2055,12 @@ unimplemented:
     title: "Ensure separate partition exists for /var/tmp"
     reason: "Needs rule implementation"
     type: Automated
-  "1.1.2.6.1":
-    title: "Ensure separate partition exists for /var/log"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.6.2":
-    title: "Ensure nodev option set on /var/log partition"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.6.3":
-    title: "Ensure nosuid option set on /var/log partition"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.6.4":
-    title: "Ensure noexec option set on /var/log partition"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.1.2.7.1":
     title: "Ensure separate partition exists for /var/log/audit"
     reason: "Needs rule implementation"
     type: Automated
-  "1.1.2.7.2":
-    title: "Ensure nodev option set on /var/log/audit partition"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.7.3":
-    title: "Ensure nosuid option set on /var/log/audit partition"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.1.2.7.4":
-    title: "Ensure noexec option set on /var/log/audit partition"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.2.1.1":
     title: "Ensure GPG keys are configured"
-    reason: "Manual check - requires human verification"
-    type: Manual
-  "1.2.1.2":
-    title: "Ensure gpgcheck is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.2.1.3":
-    title: "Ensure repo_gpgcheck is globally activated"
     reason: "Manual check - requires human verification"
     type: Manual
   "1.2.1.4":
@@ -1474,38 +2075,10 @@ unimplemented:
     title: "Ensure updates, patches, and additional security software are installed"
     reason: "Manual check - requires human verification"
     type: Manual
-  "1.3.1.1":
-    title: "Ensure SELinux is installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.3.1.5":
-    title: "Ensure the SELinux mode is enforcing"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.3.1.6":
     title: "Ensure no unconfined services exist"
     reason: "Manual check - requires human verification"
     type: Manual
-  "1.5.1":
-    title: "Ensure core file size is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.5.2":
-    title: "Ensure fs.protected_hardlinks is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.5.3":
-    title: "Ensure fs.protected_symlinks is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.6.3":
-    title: "Ensure system wide crypto policy macs are configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.6.4":
-    title: "Ensure system wide crypto policy disables cbc for ssh"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.6.5":
     title: "Ensure system wide crypto policy disables chacha20-poly1305 for ssh"
     reason: "Manual check - requires human verification"
@@ -1514,176 +2087,20 @@ unimplemented:
     title: "Ensure system wide crypto policy disables EtM for ssh"
     reason: "Manual check - requires human verification"
     type: Manual
-  "1.7.3":
-    title: "Ensure /etc/issue.net is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.8.1":
-    title: "Ensure GDM login banner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.8.2":
-    title: "Ensure GDM disable-user-list is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.8.3":
-    title: "Ensure GDM screen lock is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.8.4":
-    title: "Ensure GDM automount is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.8.5":
-    title: "Ensure GDM autorun-never is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "1.8.6":
-    title: "Ensure XDMCP is not enabled"
-    reason: "Needs rule implementation"
-    type: Automated
   "1.8.7":
     title: "Ensure Xwayland is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.2":
-    title: "Ensure avahi daemon services are not in use"
     reason: "Needs rule implementation"
     type: Automated
   "2.1.3":
     title: "Ensure cockpit web services are not in use"
     reason: "Needs rule implementation"
     type: Automated
-  "2.1.4":
-    title: "Ensure dhcp server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.5":
-    title: "Ensure dns server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.6":
-    title: "Ensure dnsmasq services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.7":
-    title: "Ensure ftp server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.8":
-    title: "Ensure message access server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.9":
-    title: "Ensure network file system services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.10":
-    title: "Ensure nis server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.11":
-    title: "Ensure print server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.12":
-    title: "Ensure rpcbind services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.13":
-    title: "Ensure rsync services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.14":
-    title: "Ensure samba file server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.15":
-    title: "Ensure snmp services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.16":
-    title: "Ensure telnet server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.17":
-    title: "Ensure tftp server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.18":
-    title: "Ensure web proxy server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.19":
-    title: "Ensure web server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.20":
-    title: "Ensure xinetd services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.21":
-    title: "Ensure GNOME Display Manager is removed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.22":
-    title: "Ensure X window server services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.1.23":
-    title: "Ensure mail transfer agents are configured for local-only mode"
-    reason: "Needs rule implementation"
-    type: Automated
   "2.1.24":
     title: "Ensure only approved services are listening on a network interface"
     reason: "Manual check - requires human verification"
     type: Manual
-  "2.3.2":
-    title: "Ensure chrony is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.3.3":
-    title: "Ensure chrony is not run as the root user"
-    reason: "Needs rule implementation"
-    type: Automated
-  "2.4.1.9":
-    title: "Ensure access to crontab is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "3.1.3":
-    title: "Ensure bluetooth services are not in use"
-    reason: "Needs rule implementation"
-    type: Automated
-  "3.2.5":
-    title: "Ensure sctp kernel module is not available"
-    reason: "Needs rule implementation"
-    type: Automated
-  "3.2.6":
-    title: "Ensure tipc kernel module is not available"
-    reason: "Needs rule implementation"
-    type: Automated
-  "3.3.1.2":
-    title: "Ensure net.ipv4.conf.all.forwarding is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "3.3.1.3":
-    title: "Ensure net.ipv4.conf.default.forwarding is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "3.3.2.2":
-    title: "Ensure net.ipv6.conf.default.forwarding is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "4.1.1":
-    title: "Ensure firewalld is installed"
-    reason: "Needs rule implementation"
-    type: Automated
   "4.1.2":
     title: "Ensure firewalld backend is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "4.1.3":
-    title: "Ensure firewalld.service is configured"
     reason: "Needs rule implementation"
     type: Automated
   "4.1.4":
@@ -1702,110 +2119,6 @@ unimplemented:
     title: "Ensure firewalld services and ports are configured"
     reason: "Manual check - requires human verification"
     type: Manual
-  "5.1.1":
-    title: "Ensure sshd crypto_policy is not set"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.1.16":
-    title: "Ensure sshd LogLevel is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.1.23":
-    title: "Ensure sshd PermitUserEnvironment is disabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.1.24":
-    title: "Ensure sshd UsePAM is enabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.2.1":
-    title: "Ensure sudo is installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.2.4":
-    title: "Ensure users must provide password for escalation"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.2.7":
-    title: "Ensure access to the su command is restricted"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.1.1":
-    title: "Ensure latest version of pam is installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.1.2":
-    title: "Ensure latest version of authselect is installed"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.2.1":
-    title: "Ensure active authselect profile includes pam modules"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.2.2":
-    title: "Ensure pam_faillock module is enabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.2.3":
-    title: "Ensure pam_pwquality module is enabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.2.4":
-    title: "Ensure pam_pwhistory module is enabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.2.5":
-    title: "Ensure pam_unix module is enabled"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.3.1.1":
-    title: "Ensure password failed attempts lockout is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.3.1.2":
-    title: "Ensure password unlock time is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.3.1.3":
-    title: "Ensure password failed attempts lockout includes root account"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.3.3.3.3":
-    title: "Ensure pam_pwhistory includes use_authtok"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.4.2.2":
-    title: "Ensure root is the only GID 0 account"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.4.2.3":
-    title: "Ensure group root is the only GID 0 group"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.4.2.5":
-    title: "Ensure root path integrity"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.4.2.6":
-    title: "Ensure root user umask is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.4.2.7":
-    title: "Ensure system accounts do not have a valid login shell"
-    reason: "Needs rule implementation"
-    type: Automated
-  "5.4.2.8":
-    title: "Ensure accounts without a valid login shell are locked"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.1.2":
-    title: "Ensure filesystem integrity is regularly checked"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.2.1.1.1":
-    title: "Ensure journald service is active"
-    reason: "Needs rule implementation"
-    type: Automated
   "6.2.1.1.2":
     title: "Ensure journald log file access is configured"
     reason: "Manual check - requires human verification"
@@ -1842,95 +2155,7 @@ unimplemented:
     reason: "Manual check - requires human verification"
     type: Manual
   # 6.2.3.1: implemented (logfiles-access-configured)
-  "6.3.2.1":
-    title: "Ensure audit log storage size is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.2.2":
-    title: "Ensure audit logs are not automatically deleted"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.2.3":
-    title: "Ensure system is disabled when audit logs are full"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.2.4":
-    title: "Ensure system warns when audit logs are low on space"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.3.2":
-    title: "Ensure actions as another user are always logged"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.3.3":
-    title: "Ensure events that modify the sudo log file are collected"
-    reason: "Needs rule implementation"
-    type: Automated
   "6.3.3.22":
     title: "Ensure the running and on disk configuration is the same"
     reason: "Manual check - requires human verification"
     type: Manual
-  "6.3.4.1":
-    title: "Ensure the audit log file directory mode is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.2":
-    title: "Ensure audit log files mode is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.3":
-    title: "Ensure audit log files owner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.4":
-    title: "Ensure audit log files group owner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.5":
-    title: "Ensure audit configuration files mode is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.6":
-    title: "Ensure audit configuration files owner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.7":
-    title: "Ensure audit configuration files group owner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.8":
-    title: "Ensure audit tools mode is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.9":
-    title: "Ensure audit tools owner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "6.3.4.10":
-    title: "Ensure audit tools group owner is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.1.9":
-    title: "Ensure access to /etc/shells is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.1.10":
-    title: "Ensure access to /etc/security/opasswd is configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.1":
-    title: "Ensure accounts in /etc/passwd use shadowed passwords"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.2":
-    title: "Ensure /etc/shadow password fields are not empty"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.8":
-    title: "Ensure local interactive user home directories are configured"
-    reason: "Needs rule implementation"
-    type: Automated
-  "7.2.9":
-    title: "Ensure local interactive user dot files access is configured"
-    reason: "Needs rule implementation"
-    type: Automated
