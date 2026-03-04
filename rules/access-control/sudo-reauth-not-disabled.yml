@@ -15,11 +15,15 @@ depends_on: [package-sudo-installed]
 references:
   cis:
     rhel9_v2: { section: "5.2.5", level: "L1", type: "Automated" }
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-251712"
+      severity: "CAT II"
   nist_800_53: ["IA-11", "AC-6"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true

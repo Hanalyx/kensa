@@ -1,0 +1,37 @@
+id: mount-var-log-audit-separate-fs
+title: Ensure /var/log/audit is on a separate filesystem
+description: >
+  The /var/log/audit directory must be on a separate filesystem or logical
+  volume. A dedicated partition for audit data prevents audit log growth
+  from consuming other filesystem space.
+rationale: >
+  Without a separate /var/log/audit filesystem, audit log accumulation
+  could fill the /var/log or /var filesystem, disabling the audit subsystem.
+  A separate audit partition ensures audit data is preserved independently
+  of other system activity.
+severity: medium
+category: filesystem
+tags: [mount, audit, filesystem, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230294"
+      severity: "CAT II"
+  nist_800_53: ["AU-4", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt /var/log/audit 2>/dev/null | grep -v '^TARGET' | awk '{print $1}' | grep -q '/var/log/audit$'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Create a separate partition or logical volume for /var/log/audit and
+        add it to /etc/fstab. Migrate existing audit data to the new partition.

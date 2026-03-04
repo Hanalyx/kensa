@@ -1,0 +1,37 @@
+id: mount-var-separate-fs
+title: Ensure /var is on a separate filesystem
+description: >
+  The /var directory must be on a separate filesystem or logical volume.
+  A dedicated partition for /var prevents log and spool growth from
+  filling the root filesystem.
+rationale: >
+  Without a separate /var filesystem, log files and other variable data
+  could fill the root filesystem, causing system instability or preventing
+  auditing from functioning correctly. A separate partition provides
+  isolation and allows independent capacity management.
+severity: low
+category: filesystem
+tags: [mount, var, filesystem, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230292"
+      severity: "CAT III"
+  nist_800_53: ["CM-6", "SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt /var 2>/dev/null | grep -v '^TARGET' | awk '{print $1}' | grep -q '/var$'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Create a separate partition or logical volume for /var and add it
+        to /etc/fstab. Migrate existing /var data to the new partition.

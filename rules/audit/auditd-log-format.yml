@@ -21,6 +21,9 @@ references:
     rhel8_v2r6:
       vuln_id: "V-230394"
       severity: "CAT II"
+    rhel8_v2r6:
+      vuln_id: "V-244542"
+      severity: "CAT II"
   nist_800_53: ["AU-3"]
 
 platforms:

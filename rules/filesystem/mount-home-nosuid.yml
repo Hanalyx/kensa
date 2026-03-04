@@ -1,20 +1,22 @@
 id: mount-home-nosuid
-title: Ensure nosuid option on /home partition
+title: Mount /home with nosuid option
 description: >
-  The nosuid mount option prevents setuid/setgid bits from being honored on
-  /home. Users should not be able to create setuid programs in their home.
+  The /home filesystem must be mounted with the nosuid option to prevent
+  setuid and setgid files from being executed from user home directories.
 rationale: >
-  Setuid programs in /home could be used for privilege escalation if a user
-  can trick another user or root into executing them.
+  Allowing setuid/setgid execution from /home could allow a user to place
+  a setuid binary in their home directory and escalate privileges. The nosuid
+  mount option prevents this attack vector on user home directories.
 severity: medium
 category: filesystem
-tags: [mount, home, hardening]
+tags: [mount, home, nosuid, security]
 
 references:
-  cis:
-    rhel8_v4:  { section: "1.1.2.3.3", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "1.1.4.3", level: "L1", type: "Automated" }
-  nist_800_53: ["CM-6", "AC-3", "AC-6"]
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230299"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
 
 platforms:
   - family: rhel
