@@ -1,0 +1,121 @@
+kind: CLICommand
+
+metadata:
+  name: OutputPathValidation
+  module: runner.cli
+  version: 1.0.0
+  status: draft
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-03"
+  updated: "2026-03-03"
+
+context:
+  description: >
+    Validates output file paths specified via --output (-o) before any SSH
+    connections are attempted, and surfaces all output-write failures as
+    human-readable CLI errors instead of raw Python tracebacks.
+  technical_context: >
+    runner/cli.py -> _validate_output_paths(outputs, console). Called in check()
+    and remediate() after argument parsing but before any SSH work. Parses each
+    "fmt:path" spec via parse_output_spec(), then checks Path(filepath).parent
+    for existence and write permission. On failure, prints "Error: ..." and
+    calls sys.exit(1). _write_outputs() also wraps open() in a try/except to
+    catch runtime I/O failures and convert them to human-readable errors.
+  dependencies:
+    - runner.output (parse_output_spec)
+    - pathlib.Path
+    - os (access, W_OK)
+  callers:
+    - CLI check command (runner.cli.check)
+    - CLI remediate command (runner.cli.remediate)
+
+objective:
+  summary: >
+    Validate output file paths before starting compliance scans and ensure all
+    output-related errors are surfaced as human-readable messages rather than
+    Python tracebacks.
+  acceptance_criteria:
+    AC-1: >
+      When -o specifies a path whose parent directory does not exist, the CLI
+      exits 1 with a human-readable error containing the invalid path, before
+      any SSH connections are made.
+    AC-2: >
+      When -o specifies a path whose parent directory exists but is not writable,
+      the CLI exits 1 with a human-readable error before any SSH connections.
+    AC-3: >
+      When -o specifies a valid path (parent directory exists and is writable),
+      the scan proceeds normally without an early exit.
+    AC-4: >
+      Error output for invalid paths contains no Python traceback ("Traceback"
+      not present in output) and includes the invalid path string so the user
+      knows which path to fix.
+    AC-5: >
+      When multiple -o specs are given and one has an invalid path, the CLI
+      exits 1 without proceeding to scan any hosts.
+    AC-6: >
+      Unexpected I/O exceptions during output writing (e.g., disk full, race
+      condition on directory removal) are caught and displayed as
+      "Error: <message>" with exit 1, not as a raw Python traceback.
+    AC-7: >
+      Output path validation applies to both the check command and the
+      remediate command.
+
+constraints:
+  - "MUST validate paths before connecting to any SSH hosts."
+  - "MUST NOT surface Python tracebacks to users for output path errors."
+  - "MUST include the invalid path in the error message for actionability."
+  - "MUST exit 1 on any output path validation failure."
+  - "Output specs without a filepath (e.g., '-o json' to stdout) are always valid and require no path check."
+  - "PDF format without a filepath is already rejected by write_output(); path validation only applies to specs with an explicit filepath."
+
+input_contract:
+  - field: outputs
+    type: tuple[str, ...]
+    required: true
+    description: >
+      Raw -o spec strings from Click, each in "format" or "format:path" form.
+      Only specs with an explicit path component are subject to path validation.
+
+behavior:
+  - "1. For each spec in outputs, call parse_output_spec(spec) to obtain (fmt, filepath)."
+  - "2. If filepath is None, skip (stdout output requires no path validation)."
+  - "3. Compute parent = Path(filepath).parent."
+  - "4. If not parent.exists(), print 'Error: output directory \"{parent}\" does not exist. Create it first or choose a different path.' and sys.exit(1)."
+  - "5. If not os.access(parent, os.W_OK), print 'Error: output directory \"{parent}\" is not writable.' and sys.exit(1)."
+  - "6. Validation runs before resolve_hosts() connects via SSH."
+  - "7. In _write_outputs(), wrap the write_output() call in try/except (OSError, Exception) to catch runtime I/O failures; print 'Error: <exc>' and sys.exit(1) instead of propagating."
+
+exit_codes:
+  - code: 0
+    condition: "All output paths valid, scan completes normally."
+  - code: 1
+    condition: "Any output path has a non-existent or non-writable parent directory, or any runtime I/O failure occurs during output writing."
+
+output_contract:
+  returns: Human-readable error message on validation failure; normal scan output on success.
+  paths:
+    invalid_parent_dir:
+      description: "Parent directory does not exist."
+      result: >
+        'Error: output directory "<parent>" does not exist. Create it first or
+        choose a different path.' printed; exit 1; no SSH attempted.
+    non_writable_parent:
+      description: "Parent directory exists but is not writable."
+      result: "'Error: output directory \"<parent>\" is not writable.' printed; exit 1; no SSH attempted."
+    valid_path:
+      description: "Parent directory exists and is writable."
+      result: "Scan proceeds; output written to file normally."
+    runtime_io_error:
+      description: "OSError raised during write (e.g., disk full mid-scan)."
+      result: "'Error: <exc message>' printed; exit 1; no Python traceback."
+
+side_effects:
+  - "No files written on validation failure."
+  - "No SSH connections made on validation failure."
+
+testing:
+  spec_derived:
+    file: tests/spec/cli/test_output_path_validation_spec.py
+    classes:
+      - TestOutputPathValidationSpecDerived
+    count: 7
