@@ -1578,6 +1578,161 @@ controls:
       - wireless-disabled
     severity: "CAT II"
     title: "RHEL 8 must disable wireless interfaces"
+  "V-230298":
+    rules:
+      - rsyslog-enabled
+    severity: "CAT II"
+    title: "RHEL 8 rsyslog service must be running"
+  "V-230387":
+    rules:
+      - cron-logging
+    severity: "CAT II"
+    title: "RHEL 8 must implement cron logging via rsyslog"
+  "V-230388":
+    rules:
+      - auditd-admin-space-left-action
+    severity: "CAT II"
+    title: "RHEL 8 must notify SA when audit storage is critically low"
+  "V-230389":
+    rules:
+      - auditd-admin-space-action
+    severity: "CAT II"
+    title: "RHEL 8 must notify ISSO when audit storage is critically low"
+  "V-230390":
+    rules:
+      - auditd-action-mail-acct
+    severity: "CAT II"
+    title: "RHEL 8 must configure action_mail_acct for audit failure notifications"
+  "V-230392":
+    rules:
+      - auditd-disk-full-action
+    severity: "CAT II"
+    title: "RHEL 8 must take action when audit storage volume is full"
+  "V-230393":
+    rules:
+      - auditd-local-events
+    severity: "CAT II"
+    title: "RHEL 8 audit system must audit local events"
+  "V-230394":
+    rules:
+      - auditd-log-format
+    severity: "CAT II"
+    title: "RHEL 8 must label audit records with ENRICHED format for off-loading"
+  "V-230395":
+    rules:
+      - auditd-flush
+    severity: "CAT II"
+    title: "RHEL 8 must resolve audit information before writing to disk"
+  "V-230468":
+    rules:
+      - grub-audit-enabled
+    severity: "CAT II"
+    title: "RHEL 8 must enable audit kernel parameter before auditd starts"
+  "V-230469":
+    rules:
+      - grub-audit-backlog
+    severity: "CAT II"
+    title: "RHEL 8 must configure audit_backlog_limit kernel parameter"
+  "V-230480":
+    rules:
+      - auditd-overflow-action
+    severity: "CAT II"
+    title: "RHEL 8 must take action when audit queue is full"
+  "V-230483":
+    rules:
+      - auditd-space-action
+    severity: "CAT II"
+    title: "RHEL 8 must notify when 75% audit storage capacity is reached"
+  "V-230484":
+    rules:
+      - chrony-sources
+    severity: "CAT II"
+    title: "RHEL 8 must synchronize internal system clock to authoritative time sources"
+  "V-230240":
+    rules:
+      - selinux-enforcing
+    severity: "CAT I"
+    title: "RHEL 8 must use a Linux Security Module configured to enforce policy"
+  "V-230241":
+    rules:
+      - pkg-policycoreutils-present
+    severity: "CAT III"
+    title: "RHEL 8 must have policycoreutils package installed"
+  "V-272484":
+    rules:
+      - sudo-selinux-context
+    severity: "CAT II"
+    title: "RHEL 8 must elevate the SELinux context when administrator uses sudo"
+  "V-244547":
+    rules:
+      - pkg-usbguard-present
+    severity: "CAT II"
+    title: "RHEL 8 must have the USBGuard package installed"
+  "V-244548":
+    rules:
+      - usbguard-enabled
+    severity: "CAT II"
+    title: "RHEL 8 must enable the USBGuard service"
+  "V-230470":
+    rules:
+      - usbguard-audit-logging
+    severity: "CAT III"
+    title: "RHEL 8 must enable USBGuard audit logging"
+  "V-230523":
+    rules:
+      - pkg-fapolicyd-present
+    severity: "CAT II"
+    title: "RHEL 8 must have the fapolicyd package installed"
+  "V-244545":
+    rules:
+      - fapolicyd-enabled
+    severity: "CAT II"
+    title: "RHEL 8 must enable the fapolicyd service"
+  "V-244546":
+    rules:
+      - fapolicyd-deny-all
+    severity: "CAT II"
+    title: "RHEL 8 fapolicyd must employ a deny-all allow-by-exception policy"
+  "V-230502":
+    rules:
+      - service-disable-autofs
+    severity: "CAT II"
+    title: "RHEL 8 file system automounter must be disabled"
+  "V-230532":
+    rules:
+      - service-disable-debug-shell
+    severity: "CAT II"
+    title: "RHEL 8 debug-shell systemd service must be disabled"
+  "V-230310":
+    rules:
+      - kdump-disabled
+    severity: "CAT II"
+    title: "RHEL 8 must disable kernel dumps unless needed"
+  "V-230311":
+    rules:
+      - coredump-storage-disabled
+    severity: "CAT II"
+    title: "RHEL 8 must disable the kernel.core_pattern"
+  "V-230315":
+    rules:
+      - coredump-suid-disabled
+    severity: "CAT II"
+    title: "RHEL 8 must disable core dump backtraces"
+  "V-230485":
+    rules:
+      - chrony-server-disabled
+    severity: "CAT II"
+    title: "RHEL 8 must disable chrony from acting as a time server"
+  "V-230486":
+    rules:
+      - chrony-network-management-disabled
+    severity: "CAT II"
+    title: "RHEL 8 must disable network management of the chrony daemon"
+  "V-230385":
+    rules:
+      - default-umask
+    severity: "CAT II"
+    title: "RHEL 8 must define default permissions for logon and non-logon shells"
 
 unimplemented:
 
@@ -1612,14 +1767,6 @@ unimplemented:
   "V-230238":
     title: "RHEL 8 must prevent system daemons from using Kerberos for authentication."
     severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230240":
-    title: "RHEL 8 must use a Linux Security Module configured to enforce limits on system services."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230241":
-    title: "RHEL 8 must have policycoreutils package installed."
-    severity: "CAT III"
     reason: "Needs rule implementation"
   "V-230244":
     title: "RHEL 8 must be configured so that all network connections associated with SSH traffic terminate after becoming unresponsive."
@@ -1681,10 +1828,6 @@ unimplemented:
     title: "RHEL 8 must not permit direct logons to the root account using remote access via SSH."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230298":
-    title: "The rsyslog service must be running in RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230299":
     title: "RHEL 8 must prevent files with the setuid and setgid bit set from being executed on file systems that contain user home directories."
     severity: "CAT II"
@@ -1695,18 +1838,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230306":
     title: "RHEL 8 must prevent code from being executed on file systems that are imported via Network File System (NFS)."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230310":
-    title: "RHEL 8 must disable kernel dumps unless needed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230311":
-    title: "RHEL 8 must disable the kernel.core_pattern."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230315":
-    title: "RHEL 8 must disable core dump backtraces."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230316":
@@ -1809,54 +1940,6 @@ unimplemented:
     title: "RHEL 8 must display the date and time of the last successful account logon upon an SSH logon."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230385":
-    title: "RHEL 8 must define default permissions for logon and non-logon shells."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230387":
-    title: "Cron logging must be implemented in RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230388":
-    title: "The RHEL 8 System Administrator (SA) and Information System Security Officer (ISSO) (at a minimum) must be alerted of an audit processing failure event."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230389":
-    title: "The RHEL 8 Information System Security Officer (ISSO) and System Administrator (SA) (at a minimum) must have mail aliases to be notified of an audit processing failure."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230390":
-    title: "The RHEL 8 System must take appropriate action when an audit processing failure occurs."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230392":
-    title: "The RHEL 8 audit system must take appropriate action when the audit storage volume is full."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230393":
-    title: "The RHEL 8 audit system must audit local events."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230394":
-    title: "RHEL 8 must label all off-loaded audit logs before sending them to the central log server."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230395":
-    title: "RHEL 8 must resolve audit information before writing to disk."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230468":
-    title: "RHEL 8 must enable auditing of processes that start prior to the audit daemon."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230469":
-    title: "RHEL 8 must allocate an audit_backlog_limit of sufficient size to capture processes that start prior to the audit daemon."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230470":
-    title: "RHEL 8 must enable Linux audit logging for the USBGuard daemon."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
   "V-230476":
     title: "RHEL 8 must allocate audit record storage capacity to store at least one week of audit records, when audit records are not immediately sent to a central audit record storage facility."
     severity: "CAT II"
@@ -1873,10 +1956,6 @@ unimplemented:
     title: "The RHEL 8 audit records must be off-loaded onto a different system or storage media from the system being audited."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230480":
-    title: "RHEL 8 must take appropriate action when the internal event queue is full."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230481":
     title: "RHEL 8 must encrypt the transfer of audit records off-loaded onto a different system or media from the system being audited."
     severity: "CAT II"
@@ -1884,22 +1963,6 @@ unimplemented:
   "V-230482":
     title: "RHEL 8 must authenticate the remote logging server for off-loading audit logs."
     severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230483":
-    title: "RHEL 8 must take action when allocated audit record storage volume reaches 75 percent of the repository maximum audit record storage capacity."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230484":
-    title: "RHEL 8 must securely compare internal information system clocks at least every 24 hours with a server synchronized to an authoritative time source, such as the United States Naval Observatory (USNO) time servers, or a time server designated for the appropriate DoD network (NIPRNet/SIPRNet), and/or the Global Positioning System (GPS)."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230485":
-    title: "RHEL 8 must disable the chrony daemon from acting as a server."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230486":
-    title: "RHEL 8 must disable network management of the chrony daemon."
-    severity: "CAT III"
     reason: "Needs rule implementation"
   "V-230491":
     title: "RHEL 8 must enable mitigations against processor-based vulnerabilities."
@@ -1933,14 +1996,6 @@ unimplemented:
     title: "RHEL 8 must be configured to prohibit or restrict the use of functions, ports, protocols, and/or services, as defined in the Ports, Protocols, and Services Management (PPSM) Category Assignments List (CAL) and vulnerability assessments."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230502":
-    title: "The RHEL 8 file system automounter must be disabled."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230523":
-    title: "The RHEL 8 fapolicy module must be installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230524":
     title: "RHEL 8 must block unauthorized peripherals before establishing a connection."
     severity: "CAT II"
@@ -1951,10 +2006,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230527":
     title: "RHEL 8 must force a frequent session key renegotiation for SSH connections to the server."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230532":
-    title: "The debug-shell systemd service must be disabled on RHEL 8."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230551":
@@ -2033,22 +2084,6 @@ unimplemented:
     title: "RHEL 8 must notify the System Administrator (SA) and Information System Security Officer (ISSO) (at a minimum) when allocated audit record storage volume 75 percent utilization."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-244545":
-    title: "The RHEL 8 fapolicy module must be enabled."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244546":
-    title: "The RHEL 8 fapolicy module must be configured to employ a deny-all, permit-by-exception policy to allow the execution of authorized software programs."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244547":
-    title: "RHEL 8 must have the USBGuard installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244548":
-    title: "RHEL 8 must enable the USBGuard."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-250315":
     title: "RHEL 8 systems, versions 8.2 and above, must configure SELinux context type to allow the use of a non-default faillock tally directory."
     severity: "CAT II"
@@ -2079,10 +2114,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-256974":
     title: "RHEL 8 must be configured to allow sending email notifications of unauthorized configuration changes to designated personnel."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-272484":
-    title: "RHEL 8 must elevate the SELinux context when an administrator calls the sudo command."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-274877":

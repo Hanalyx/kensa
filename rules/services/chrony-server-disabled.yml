@@ -1,0 +1,40 @@
+id: chrony-server-disabled
+title: Ensure chrony is not acting as a network time server
+description: >
+  The chrony daemon must not be configured to act as a network time server
+  (NTP server) unless the system is specifically designated as a time server.
+  The chrony.conf file must not contain a port directive that enables NTP
+  server mode.
+rationale: >
+  A system that provides unauthorized NTP service could be used to manipulate
+  time on other systems, affecting audit log integrity and authentication.
+  Only designated time servers should provide NTP service.
+severity: medium
+category: services
+tags: [chrony, ntp, server, time]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230485"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "AU-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -qE '^\s*port\s+[1-9]' /etc/chrony.conf 2>/dev/null &&
+        echo "FAIL: chrony acting as NTP server" && exit 1 || exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Remove or comment out the 'port' directive from /etc/chrony.conf
+        to disable NTP server mode. Restart chronyd after changes:
+        systemctl restart chronyd

@@ -15,6 +15,10 @@ tags: [grub, audit, boot, kernel]
 references:
   cis:
     rhel9_v2:  { section: "6.3.1.2", level: "L2", type: "Automated" }
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230468"
+      severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]
 
 platforms:

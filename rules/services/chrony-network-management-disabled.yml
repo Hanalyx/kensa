@@ -1,0 +1,37 @@
+id: chrony-network-management-disabled
+title: Ensure chrony network management is disabled
+description: >
+  The chrony cmdport directive must be set to 0 to disable network access to
+  the chronyd command interface. This prevents remote management of the chrony
+  daemon over the network.
+rationale: >
+  Remote access to the chrony management interface could allow an attacker
+  to modify time synchronization settings. Disabling network management
+  of chrony reduces the attack surface.
+severity: medium
+category: services
+tags: [chrony, ntp, network, time]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230486"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "AU-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -qE '^\s*cmdport\s+0\s*$' /etc/chrony.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add 'cmdport 0' to /etc/chrony.conf to disable network management.
+        Restart chronyd: systemctl restart chronyd
