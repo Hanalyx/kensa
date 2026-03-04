@@ -4,6 +4,26 @@ All notable changes to Kensa are documented here. Most recent release first.
 
 ---
 
+## v1.3.0 (2026-03-04)
+
+### Added
+
+- Raise STIG RHEL 8 V2R6 coverage from 31.7% to 95.1% (116→348 of 366 controls) across 6 PRs (#135–#140)
+  - 79 new rules across audit, filesystem, kernel, access-control, services, network, and system categories
+  - New rule families: GDM graphical login hardening, audisp remote log offloading, PAM faillock messaging, home directory security, kernel module restrictions (ATM/CAN/SCTP/TIPC), mount point isolation (/var, /var/log, /var/log/audit, /home), TFTP secure mode, Kerberos daemon auth prevention
+  - 50+ existing rules updated with RHEL 8 V2R6 references; 10 rules widened from RHEL 9-only to RHEL 8+
+- Raise CIS RHEL 8 v4.0.0 coverage from 56.0% to 90.7% (174→282 of 311 controls) (#129)
+- Raise STIG RHEL 9 V2R7 coverage from 81.2% to 95.1% (362→424 of 446 controls) (#130)
+- Add static HTML coverage report script (`scripts/coverage_report.py`) (#128)
+- Validate output file paths before scan to surface I/O errors as readable messages (#131)
+- Add changelog spec and `scripts/update_changelog.py` for automated CHANGELOG generation (#134)
+
+### Fixed
+
+- Fix `sqlite3.IntegrityError` when `kensa check --store` omits `--rules` (#132)
+
+---
+
 ## v1.2.5 (2026-03-02)
 
 ### Fixed

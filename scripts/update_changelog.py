@@ -202,7 +202,21 @@ def main() -> None:
     parser.add_argument("--version", required=True, help="Version to document (e.g. 1.2.6)")
     parser.add_argument("--since-tag", help="Git tag lower bound (default: previous tag)")
     parser.add_argument("--date", help="Release date YYYY-MM-DD (default: today)")
+    parser.add_argument(
+        "--skip-if-exists",
+        action="store_true",
+        help="Skip update if a section for this version already exists in CHANGELOG.md",
+    )
     args = parser.parse_args()
+
+    if args.skip_if_exists and CHANGELOG_PATH.exists():
+        existing = CHANGELOG_PATH.read_text()
+        version_pattern = re.compile(
+            rf"^## v{re.escape(args.version)} ", re.MULTILINE
+        )
+        if version_pattern.search(existing):
+            print(f"CHANGELOG.md already has v{args.version} section — skipping.")
+            return
 
     release_date = args.date or date.today().isoformat()
     since_tag = args.since_tag or get_previous_tag()
