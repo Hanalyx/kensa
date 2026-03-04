@@ -7,11 +7,11 @@ produces correctly formatted CHANGELOG.md entries.
 
 from __future__ import annotations
 
+import importlib.util
+import re
 import subprocess
 import sys
 from pathlib import Path
-
-import pytest
 
 
 def _run_script(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -25,90 +25,129 @@ def _run_script(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     )
 
 
+def _load_mod():
+    """Load update_changelog module for direct function calls."""
+    repo_root = Path(__file__).parents[3]
+    script = repo_root / "scripts" / "update_changelog.py"
+    sys.path.insert(0, str(repo_root))
+    spec = importlib.util.spec_from_file_location("update_changelog", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_SAMPLE_LOG = [
+    "abc1234 Add new sysctl check handler (#99)",
+    "def5678 Fix sqlite3.IntegrityError in --store (#132)",
+    "ghi9012 Update release workflow",
+]
+
+
 class TestChangelogSpecDerived:
     """Spec-derived tests for changelog format and generation (AC-1 through AC-10)."""
 
     def test_ac1_ac2_header_and_version_format(self, tmp_path):
         """AC-1/AC-2: CHANGELOG starts with heading; version header is ## vX.Y.Z (YYYY-MM-DD)."""
+        mod = _load_mod()
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text("# Changelog\n\nAll notable changes.\n\n---\n")
 
-        with pytest.MonkeyPatch().context():
-            result = _run_script(
-                ["--version", "1.9.0", "--date", "2026-03-03", "--since-tag", "v1.8.0"],
-                tmp_path,
-            )
+        entries = [mod.parse_log_entry(line) for line in _SAMPLE_LOG]
+        section = mod.build_section("1.9.0", "2026-03-03", entries)
+        mod.CHANGELOG_PATH = changelog
+        mod.update_changelog("1.9.0", "2026-03-03", section)
 
-        # Script may not exist yet; just verify it exits (0 when implemented)
-        content = changelog.read_text() if changelog.exists() else ""
-        if result.returncode == 0:
-            assert "# Changelog" in content
-            assert "## v1.9.0 (2026-03-03)" in content
+        content = changelog.read_text()
+        assert "# Changelog" in content
+        assert "## v1.9.0 (2026-03-03)" in content
 
     def test_ac3_subheadings_grouped_correctly(self, tmp_path):
         """AC-3: Changes grouped under Added/Fixed/Changed/Removed; empty groups omitted."""
+        mod = _load_mod()
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text("# Changelog\n\nAll notable changes.\n\n---\n")
 
-        result = _run_script(
-            ["--version", "1.9.0", "--date", "2026-03-03", "--since-tag", "v1.8.0"],
-            tmp_path,
-        )
+        entries = [mod.parse_log_entry(line) for line in _SAMPLE_LOG]
+        section = mod.build_section("1.9.0", "2026-03-03", entries)
+        mod.CHANGELOG_PATH = changelog
+        mod.update_changelog("1.9.0", "2026-03-03", section)
 
-        if result.returncode == 0:
-            content = changelog.read_text()
-            # At minimum one subheading must appear
-            assert any(
-                h in content
-                for h in ["### Added", "### Fixed", "### Changed", "### Removed"]
-            )
-            # Empty subheadings must not appear
-            lines = content.splitlines()
-            for i, line in enumerate(lines):
-                if line.startswith("### "):
-                    # Next non-blank line must not be another heading or ---
-                    rest = [ln for ln in lines[i + 1 :] if ln.strip()]
-                    if rest:
-                        assert not rest[0].startswith(
-                            "###"
-                        ), f"Empty subheading: {line}"
+        content = changelog.read_text()
+        assert any(
+            h in content
+            for h in ["### Added", "### Fixed", "### Changed", "### Removed"]
+        )
+        lines = content.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("### "):
+                rest = [ln for ln in lines[i + 1 :] if ln.strip()]
+                if rest:
+                    assert not rest[0].startswith("###"), f"Empty subheading: {line}"
 
     def test_ac4_entries_are_bullets_with_pr_number(self, tmp_path):
         """AC-4: Each entry is a "- " bullet; PR number appears as (#NNN)."""
+        mod = _load_mod()
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text("# Changelog\n\nAll notable changes.\n\n---\n")
 
-        result = _run_script(
-            ["--version", "1.9.0", "--date", "2026-03-03", "--since-tag", "v1.8.0"],
-            tmp_path,
-        )
+        entries = [mod.parse_log_entry(line) for line in _SAMPLE_LOG]
+        section = mod.build_section("1.9.0", "2026-03-03", entries)
+        mod.CHANGELOG_PATH = changelog
+        mod.update_changelog("1.9.0", "2026-03-03", section)
 
-        if result.returncode == 0:
-            content = changelog.read_text()
-            entry_lines = [ln for ln in content.splitlines() if ln.startswith("- ")]
-            assert len(entry_lines) > 0
-            for line in entry_lines:
-                # Each entry should reference a PR or be a standalone line
-                assert line.startswith("- ")
+        content = changelog.read_text()
+        entry_lines = [ln for ln in content.splitlines() if ln.startswith("- ")]
+        assert len(entry_lines) > 0
+        for line in entry_lines:
+            assert line.startswith("- ")
 
     def test_ac5_no_commit_hashes_or_boilerplate(self, tmp_path):
         """AC-5: No commit hashes, repo URLs, or semantic-release boilerplate in output."""
+        mod = _load_mod()
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text("# Changelog\n\nAll notable changes.\n\n---\n")
 
-        result = _run_script(
-            ["--version", "1.9.0", "--date", "2026-03-03", "--since-tag", "v1.8.0"],
-            tmp_path,
+        entries = [mod.parse_log_entry(line) for line in _SAMPLE_LOG]
+        section = mod.build_section("1.9.0", "2026-03-03", entries)
+        mod.CHANGELOG_PATH = changelog
+        mod.update_changelog("1.9.0", "2026-03-03", section)
+
+        content = changelog.read_text()
+        assert "github.com/Hanalyx/aegis" not in content
+        assert "Co-Authored-By" not in content
+        assert not re.search(r"\b[0-9a-f]{7,40}\b", content)
+
+    def test_ac6_script_extracts_categorizes_and_prepends(self, tmp_path, monkeypatch):
+        """AC-6: update_changelog.py extracts PR titles, categorizes, prepends to CHANGELOG.md."""
+        mod = _load_mod()
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text("# Changelog\n\nAll notable changes.\n\n---\n")
+
+        monkeypatch.setattr(mod, "CHANGELOG_PATH", changelog)
+        monkeypatch.setattr(
+            mod,
+            "get_git_log",
+            lambda _tag: "\n".join(
+                [
+                    "abc1234 Add new output format (#99)",
+                    "def5678 Fix crash on --store (#100)",
+                ]
+            ),
         )
 
-        if result.returncode == 0:
-            content = changelog.read_text()
-            assert "github.com/Hanalyx/aegis" not in content
-            assert "Co-Authored-By" not in content
-            # Commit hashes are 7+ hex chars alone on a word boundary
-            import re
+        raw_log = mod.get_git_log("v1.8.0")
+        raw_lines = [ln for ln in raw_log.splitlines() if ln.strip()]
+        filtered = mod.filter_log_lines(raw_lines)
+        entries = [mod.parse_log_entry(line) for line in filtered]
+        section = mod.build_section("1.9.0", "2026-03-03", entries)
+        mod.update_changelog("1.9.0", "2026-03-03", section)
 
-            assert not re.search(r"\b[0-9a-f]{7,40}\b", content)
+        content = changelog.read_text()
+        assert "## v1.9.0 (2026-03-03)" in content
+        assert "### Added" in content
+        assert "### Fixed" in content
+        assert "(#99)" in content
+        assert "(#100)" in content
 
     def test_ac7_categorization_rules(self, tmp_path):
         """AC-7: First-word categorization maps correctly to Added/Fixed/Changed/Removed."""
@@ -138,28 +177,18 @@ class TestChangelogSpecDerived:
 
     def test_ac9_exits_0_on_success(self, tmp_path, monkeypatch):
         """AC-9: Script exits 0 when CHANGELOG.md is updated successfully."""
-        # Run from the actual repo root so git log works; redirect CHANGELOG output to tmp
-        repo_root = Path(__file__).parents[3]
+        mod = _load_mod()
         tmp_changelog = tmp_path / "CHANGELOG.md"
         tmp_changelog.write_text("# Changelog\n\nAll notable changes.\n\n---\n")
 
-        script = repo_root / "scripts" / "update_changelog.py"
-
-        # Patch CHANGELOG_PATH via env var by calling with explicit cwd and patching in script
-        # Simplest: call the module functions directly
-        import sys
-
-        sys.path.insert(0, str(repo_root))
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("update_changelog", script)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        # Patch the CHANGELOG_PATH to write to tmp
         monkeypatch.setattr(mod, "CHANGELOG_PATH", tmp_changelog)
+        monkeypatch.setattr(
+            mod,
+            "get_git_log",
+            lambda _tag: "abc1234 Fix CI failures (#50)\ndef5678 Add coverage script (#51)\n",
+        )
 
-        raw_log = mod.get_git_log("v1.2.3")
+        raw_log = mod.get_git_log("v1.0.0")
         raw_lines = [ln for ln in raw_log.splitlines() if ln.strip()]
         filtered = mod.filter_log_lines(raw_lines)
         entries = [mod.parse_log_entry(line) for line in filtered] or [
@@ -171,3 +200,11 @@ class TestChangelogSpecDerived:
         content = tmp_changelog.read_text()
         assert "## v1.9.0 (2026-03-03)" in content
         assert "# Changelog" in content
+
+    def test_ac10_release_workflow_calls_script(self, tmp_path):
+        """AC-10: release.yml calls update_changelog.py (not semantic-release changelog)."""
+        repo_root = Path(__file__).parents[3]
+        release_yml = repo_root / ".github" / "workflows" / "release.yml"
+        content = release_yml.read_text()
+        assert "update_changelog.py" in content
+        assert "semantic-release changelog" not in content

@@ -119,4 +119,4 @@ testing:
     file: tests/spec/internal/test_changelog_spec.py
     classes:
       - TestChangelogSpecDerived
-    count: 6
+    count: 9
