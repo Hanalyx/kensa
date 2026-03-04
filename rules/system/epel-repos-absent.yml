@@ -1,0 +1,35 @@
+id: epel-repos-absent
+title: Ensure EPEL repository is not configured
+description: >
+  Extra Packages for Enterprise Linux (EPEL) repositories must not be
+  enabled on RHEL 8 systems. Only DoD-approved repositories should
+  be configured.
+rationale: >
+  EPEL packages are community-maintained and not covered by Red Hat's
+  security response process. Installing packages from EPEL bypasses
+  the verified software supply chain required for DoD systems.
+severity: critical
+category: system
+tags: [repository, package, supply-chain, attack-surface]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230492"
+      severity: "CAT I"
+  nist_800_53: ["CM-7", "SI-7", "SA-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+    max_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "dnf repolist enabled 2>/dev/null | grep -i epel || true"
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "dnf config-manager --disable epel 2>/dev/null || true; find /etc/yum.repos.d/ -name '*epel*' -exec rm -f {} +"

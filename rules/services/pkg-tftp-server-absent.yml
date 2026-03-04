@@ -1,0 +1,34 @@
+id: pkg-tftp-server-absent
+title: Ensure tftp-server package is not installed
+description: >
+  The tftp-server package provides the TFTP daemon which allows
+  file transfer using the insecure TFTP protocol. This package must
+  not be installed.
+rationale: >
+  TFTP does not provide authentication or encryption. The tftp-server
+  must not be installed as it presents an unnecessary security risk
+  and attack surface.
+severity: critical
+category: services
+tags: [package, tftp, server, attack-surface]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230533"
+      severity: "CAT I"
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "tftp-server"
+      state: "absent"
+    remediation:
+      mechanism: package_absent
+      name: "tftp-server"

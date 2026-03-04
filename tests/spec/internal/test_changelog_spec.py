@@ -185,7 +185,9 @@ class TestChangelogSpecDerived:
         monkeypatch.setattr(
             mod,
             "get_git_log",
-            lambda _tag: "abc1234 Fix CI failures (#50)\ndef5678 Add coverage script (#51)\n",
+            lambda _tag: (
+                "abc1234 Fix CI failures (#50)\ndef5678 Add coverage script (#51)\n"
+            ),
         )
 
         raw_log = mod.get_git_log("v1.0.0")

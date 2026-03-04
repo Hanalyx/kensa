@@ -1,33 +1,38 @@
 id: crypto-policy-not-overridden
-title: Ensure crypto policy is not overridden
+title: Ensure system-wide crypto policy is not overridden
 description: >
-  The system-wide cryptographic policy must not be overridden
-  by individual applications or configuration files.
+  Individual application crypto settings must not override the
+  system-wide cryptographic policy set by crypto-policies. The policy
+  must be applied consistently across all subsystems.
 rationale: >
-  Overriding crypto policy allows use of weak algorithms that
-  could compromise security of encrypted communications.
+  If individual applications override the system-wide crypto policy,
+  they may use weaker algorithms than required. RHEL 8 must be
+  configured so the system-wide policy is enforced for all applications.
 severity: critical
 category: system
-tags: [crypto, security, policy]
+tags: [crypto-policies, fips, cryptography]
 
 references:
   stig:
-    rhel9_v2r7:
-      vuln_id: "V-258236"
-      stig_id: "RHEL-09-672025"
+    rhel8_v2r6:
+      vuln_id: "V-279932"
       severity: "CAT I"
-  nist_800_53: ["SC-13", "IA-7"]
+  nist_800_53: ["SC-13", "AC-17"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
+    max_version: 8
 
 implementations:
   - default: true
     check:
       method: command
-      run: "ls /etc/crypto-policies/local.d/*.pmod 2>/dev/null | wc -l | grep -q '^0$'"
-      expected_exit: 0
+      run: "update-crypto-policies --show 2>/dev/null"
+      expected_stdout: "FIPS"
     remediation:
       mechanism: manual
-      note: "Remove any .pmod files from /etc/crypto-policies/local.d/ that override the system crypto policy"
+      note: >
+        Review and remove any application-specific crypto policy overrides.
+        Run: update-crypto-policies --set FIPS to apply the FIPS policy.
+        Remove any --set or --set-scope overrides in /etc/crypto-policies/.

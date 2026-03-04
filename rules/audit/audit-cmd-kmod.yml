@@ -18,11 +18,14 @@ references:
       vuln_id: "V-258195"
       stig_id: "RHEL-09-654225"
       severity: "CAT II"
+    rhel8_v2r6:
+      vuln_id: "V-230465"
+      severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true

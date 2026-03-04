@@ -962,14 +962,240 @@ controls:
     severity: "CAT II"
     title: "RHEL 8 IP tunnels must use FIPS 140-3-approved cryptographic algorithms."
 
+  "V-230412":
+    rules:
+      - audit-cmd-su
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the su command in RHEL 8 must generate an audit record."
+  "V-230418":
+    rules:
+      - audit-cmd-chage
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the chage command in RHEL 8 must generate an audit record."
+  "V-230419":
+    rules:
+      - audit-cmd-chcon
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the chcon command in RHEL 8 must generate an audit record."
+  "V-230421":
+    rules:
+      - audit-cmd-ssh-agent
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the ssh-agent in RHEL 8 must generate an audit record."
+  "V-230422":
+    rules:
+      - audit-cmd-passwd
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the passwd command in RHEL 8 must generate an audit record."
+  "V-230426":
+    rules:
+      - audit-cmd-unix-update
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of unix_update in RHEL 8 must generate an audit record."
+  "V-230427":
+    rules:
+      - audit-cmd-postdrop
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of postdrop in RHEL 8 must generate an audit record."
+  "V-230428":
+    rules:
+      - audit-cmd-postqueue
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of postqueue in RHEL 8 must generate an audit record."
+  "V-230429":
+    rules:
+      - audit-cmd-semanage
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of semanage in RHEL 8 must generate an audit record."
+  "V-230430":
+    rules:
+      - audit-cmd-setfiles
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of setfiles in RHEL 8 must generate an audit record."
+  "V-230431":
+    rules:
+      - audit-cmd-userhelper
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of userhelper in RHEL 8 must generate an audit record."
+  "V-230432":
+    rules:
+      - audit-cmd-setsebool
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of setsebool in RHEL 8 must generate an audit record."
+  "V-230433":
+    rules:
+      - audit-cmd-unix-chkpwd
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of unix_chkpwd in RHEL 8 must generate an audit record."
+  "V-230434":
+    rules:
+      - audit-cmd-ssh-keysign
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the ssh-keysign in RHEL 8 must generate an audit record."
+  "V-230435":
+    rules:
+      - audit-cmd-setfacl
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the setfacl command in RHEL 8 must generate an audit record."
+  "V-230436":
+    rules:
+      - audit-cmd-pam-timestamp-check
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the pam_timestamp_check command in RHEL 8 must generate an audit record."
+  "V-230437":
+    rules:
+      - audit-cmd-newgrp
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the newgrp command in RHEL 8 must generate an audit record."
+  "V-230444":
+    rules:
+      - audit-cmd-gpasswd
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the gpasswd command in RHEL 8 must generate an audit record."
+  "V-230446":
+    rules:
+      - audit-kernel-modules
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the delete_module system call in RHEL 8 must generate an audit record."
+  "V-230447":
+    rules:
+      - audit-cmd-crontab
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the crontab command in RHEL 8 must generate an audit record."
+  "V-230448":
+    rules:
+      - audit-cmd-chsh
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the chsh command in RHEL 8 must generate an audit record."
+  "V-230449":
+    rules:
+      - audit-file-open-truncate
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of truncate, ftruncate, creat, open, openat, and open_by_handle_at in RHEL 8 must generate an audit record."
+  "V-230455":
+    rules:
+      - audit-chown-changes
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the chown, fchown, fchownat, and lchown system calls in RHEL 8 must generate an audit record."
+  "V-230456":
+    rules:
+      - audit-chmod-changes
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the chmod, fchmod, and fchmodat system calls in RHEL 8 must generate an audit record."
+  "V-230462":
+    rules:
+      - audit-cmd-sudo
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the sudo command in RHEL 8 must generate an audit record."
+  "V-230463":
+    rules:
+      - audit-cmd-usermod
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the usermod command in RHEL 8 must generate an audit record."
+  "V-230464":
+    rules:
+      - audit-cmd-chacl
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the chacl command in RHEL 8 must generate an audit record."
+  "V-230465":
+    rules:
+      - audit-cmd-kmod
+    severity: "CAT II"
+    title: "Successful/unsuccessful uses of the kmod command in RHEL 8 must generate an audit record."
+  "V-230466":
+    rules:
+      - audit-file-faillock
+    severity: "CAT II"
+    title: "Successful/unsuccessful modifications to the faillock log file in RHEL 8 must generate an audit record."
+  "V-230467":
+    rules:
+      - audit-file-lastlog
+    severity: "CAT II"
+    title: "Successful/unsuccessful modifications to the lastlog file in RHEL 8 must generate an audit record."
+  "V-230487":
+    rules:
+      - pkg-telnet-server-absent
+    severity: "CAT I"
+    title: "RHEL 8 must not have the telnet-server package installed."
+  "V-230533":
+    rules:
+      - pkg-tftp-server-absent
+    severity: "CAT I"
+    title: "RHEL 8 must not have the tftp-server package installed."
+  "V-230558":
+    rules:
+      - pkg-vsftpd-absent
+    severity: "CAT I"
+    title: "RHEL 8 must not have the vsftpd package installed."
+  "V-230239":
+    rules:
+      - pkg-krb5-workstation-absent
+    severity: "CAT II"
+    title: "The krb5-workstation package must not be installed on RHEL 8."
+  "V-237640":
+    rules:
+      - pkg-krb5-server-absent
+    severity: "CAT II"
+    title: "RHEL 8 must not have the krb5-server package installed."
+  "V-230489":
+    rules:
+      - pkg-sendmail-absent
+    severity: "CAT II"
+    title: "RHEL 8 must not have the sendmail package installed."
+  "V-230559":
+    rules:
+      - pkg-gssproxy-absent
+    severity: "CAT II"
+    title: "RHEL 8 must not have the gssproxy package installed."
+  "V-230560":
+    rules:
+      - pkg-iprutils-absent
+    severity: "CAT II"
+    title: "RHEL 8 must not have the iprutils package installed."
+  "V-230561":
+    rules:
+      - pkg-tuned-absent
+    severity: "CAT II"
+    title: "RHEL 8 must not have the tuned package installed."
+  "V-230488":
+    rules:
+      - pkg-abrt-absent
+    severity: "CAT II"
+    title: "RHEL 8 must not have the abrt, abrt-libs, or libreport packages installed."
+  "V-230283":
+    rules:
+      - shosts-equiv-absent
+    severity: "CAT I"
+    title: "There must be no shosts.equiv files on the RHEL 8 operating system."
+  "V-230284":
+    rules:
+      - shosts-user-files-absent
+    severity: "CAT I"
+    title: "There must be no .shosts files on the RHEL 8 operating system."
+  "V-230221":
+    rules:
+      - rhel-vendor-supported
+    severity: "CAT I"
+    title: "RHEL 8 must be a vendor-supported release."
+  "V-230492":
+    rules:
+      - epel-repos-absent
+    severity: "CAT I"
+    title: "RHEL 8 must not have the rsh-server package installed."
+  "V-279933":
+    rules:
+      - crypto-policies-installed
+    severity: "CAT I"
+    title: "RHEL 8 must have the crypto-policies package installed."
+  "V-279932":
+    rules:
+      - crypto-policy-not-overridden
+    severity: "CAT I"
+    title: "RHEL 8 must implement NIST-approved or NSA-approved key management technology and processes."
 
 
 unimplemented:
 
-  "V-230221":
-    title: "RHEL 8 must be a vendor-supported release."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
   "V-230222":
     title: "RHEL 8 vendor packaged system security patches and updates must be installed and up to date."
     severity: "CAT II"
@@ -1004,10 +1230,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230238":
     title: "RHEL 8 must prevent system daemons from using Kerberos for authentication."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230239":
-    title: "The krb5-workstation package must not be installed on RHEL 8."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230240":
@@ -1125,14 +1347,6 @@ unimplemented:
   "V-230281":
     title: "YUM must remove all software components after updated versions have been installed on RHEL 8."
     severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230283":
-    title: "There must be no shosts.equiv files on the RHEL 8 operating system."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
-  "V-230284":
-    title: "There must be no .shosts files on the RHEL 8 operating system."
-    severity: "CAT I"
     reason: "Needs rule implementation"
   "V-230285":
     title: "RHEL 8 must enable the hardware random number generator entropy gatherer service."
@@ -1430,126 +1644,6 @@ unimplemented:
     title: "RHEL 8 audit system must protect logon UIDs from unauthorized change."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230412":
-    title: "Successful/unsuccessful uses of the su command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230418":
-    title: "Successful/unsuccessful uses of the chage command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230419":
-    title: "Successful/unsuccessful uses of the chcon command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230421":
-    title: "Successful/unsuccessful uses of the ssh-agent in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230422":
-    title: "Successful/unsuccessful uses of the passwd command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230426":
-    title: "Successful/unsuccessful uses of the unix_update in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230427":
-    title: "Successful/unsuccessful uses of postdrop in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230428":
-    title: "Successful/unsuccessful uses of postqueue in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230429":
-    title: "Successful/unsuccessful uses of semanage in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230430":
-    title: "Successful/unsuccessful uses of setfiles in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230431":
-    title: "Successful/unsuccessful uses of userhelper in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230432":
-    title: "Successful/unsuccessful uses of setsebool in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230433":
-    title: "Successful/unsuccessful uses of unix_chkpwd in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230434":
-    title: "Successful/unsuccessful uses of the ssh-keysign in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230435":
-    title: "Successful/unsuccessful uses of the setfacl command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230436":
-    title: "Successful/unsuccessful uses of the pam_timestamp_check command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230437":
-    title: "Successful/unsuccessful uses of the newgrp command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230444":
-    title: "Successful/unsuccessful uses of the gpasswd command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230446":
-    title: "Successful/unsuccessful uses of the delete_module command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230447":
-    title: "Successful/unsuccessful uses of the crontab command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230448":
-    title: "Successful/unsuccessful uses of the chsh command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230449":
-    title: "Successful/unsuccessful uses of the truncate, ftruncate, creat, open, openat, and open_by_handle_at system calls in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230455":
-    title: "Successful/unsuccessful uses of the chown, fchown, fchownat, and lchown system calls in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230456":
-    title: "Successful/unsuccessful uses of the chmod, fchmod, and fchmodat system calls in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230462":
-    title: "Successful/unsuccessful uses of the sudo command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230463":
-    title: "Successful/unsuccessful uses of the usermod command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230464":
-    title: "Successful/unsuccessful uses of the chacl command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230465":
-    title: "Successful/unsuccessful uses of the kmod command in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230466":
-    title: "Successful/unsuccessful modifications to the faillock log file in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230467":
-    title: "Successful/unsuccessful modifications to the lastlog file in RHEL 8 must generate an audit record."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230468":
     title: "RHEL 8 must enable auditing of processes that start prior to the audit daemon."
     severity: "CAT III"
@@ -1626,25 +1720,9 @@ unimplemented:
     title: "RHEL 8 must disable network management of the chrony daemon."
     severity: "CAT III"
     reason: "Needs rule implementation"
-  "V-230487":
-    title: "RHEL 8 must not have the telnet-server package installed."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
-  "V-230488":
-    title: "RHEL 8 must not have any automated bug reporting tools installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230489":
-    title: "RHEL 8 must not have the sendmail package installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230491":
     title: "RHEL 8 must enable mitigations against processor-based vulnerabilities."
     severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230492":
-    title: "RHEL 8 must not install packages from the Extra Packages for Enterprise Linux (EPEL) repository."
-    severity: "CAT I"
     reason: "Needs rule implementation"
   "V-230493":
     title: "RHEL 8 must cover or disable the built-in or attached camera when not in use."
@@ -1738,10 +1816,6 @@ unimplemented:
     title: "The debug-shell systemd service must be disabled on RHEL 8."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230533":
-    title: "The Trivial File Transfer Protocol (TFTP) server package must not be installed if not required for RHEL 8 operational support."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
   "V-230547":
     title: "RHEL 8 must restrict exposed kernel pointer addresses access."
     severity: "CAT II"
@@ -1776,26 +1850,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230557":
     title: "If the Trivial File Transfer Protocol (TFTP) server is required, the RHEL 8 TFTP daemon must be configured to operate in secure mode."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230558":
-    title: "A File Transfer Protocol (FTP) server package must not be installed unless mission essential on RHEL 8."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
-  "V-230559":
-    title: "The gssproxy package must not be installed unless mission essential on RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230560":
-    title: "The iprutils package must not be installed unless mission essential on RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230561":
-    title: "The tuned package must not be installed unless mission essential on RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-237640":
-    title: "The krb5-server package must not be installed on RHEL 8."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-237642":
@@ -1957,12 +2011,4 @@ unimplemented:
   "V-279931":
     title: "RHEL 8 must implement DOD-approved encryption in the bind package."
     severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-279932":
-    title: "RHEL 8 cryptographic policy must not be overridden."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
-  "V-279933":
-    title: "RHEL 8 must have the crypto-policies package installed."
-    severity: "CAT I"
     reason: "Needs rule implementation"
