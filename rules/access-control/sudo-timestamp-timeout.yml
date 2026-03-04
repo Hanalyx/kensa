@@ -1,0 +1,38 @@
+id: sudo-timestamp-timeout
+title: Configure sudo authentication reauthentication timeout
+description: >
+  The sudo timestamp_timeout must be set to 0 to require reauthentication
+  for every sudo command. This prevents privilege escalation by ensuring
+  each sudo invocation requires explicit authentication.
+rationale: >
+  The default sudo caching period allows subsequent sudo commands to execute
+  without reauthentication. Setting timestamp_timeout=0 eliminates this
+  window, requiring users to authenticate for every elevated command.
+severity: medium
+category: access-control
+tags: [sudo, authentication, timestamp, timeout]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230272"
+      severity: "CAT II"
+  nist_800_53: ["IA-11", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -rE '^\s*Defaults.*timestamp_timeout\s*=' /etc/sudoers /etc/sudoers.d/ 2>/dev/null |
+        grep -q 'timestamp_timeout\s*=\s*0'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add "Defaults timestamp_timeout=0" to /etc/sudoers using visudo.
+        This forces reauthentication for every sudo command invocation.

@@ -1,0 +1,40 @@
+id: sudo-nopasswd-prohibited
+title: Ensure sudo does not allow NOPASSWD authentication
+description: >
+  The sudoers configuration must not include the NOPASSWD tag. The NOPASSWD
+  option allows users to execute sudo commands without entering their
+  password, bypassing the authentication requirement.
+rationale: >
+  Using NOPASSWD in sudoers bypasses the purpose of sudo — to require
+  authentication before granting elevated privileges. An attacker who
+  compromises an account configured with NOPASSWD gains immediate
+  unrestricted elevated access without knowing any password.
+severity: high
+category: access-control
+tags: [sudo, authentication, privilege, nopasswd]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230271"
+      severity: "CAT II"
+  nist_800_53: ["IA-11", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -r 'NOPASSWD' /etc/sudoers /etc/sudoers.d/ 2>/dev/null |
+        grep -v '^\s*#' | head -1
+      expected_stdout: ""
+    remediation:
+      mechanism: manual
+      note: >
+        Remove all NOPASSWD entries from /etc/sudoers and files in
+        /etc/sudoers.d/. Use visudo to safely edit sudo configuration.
+        Each elevated command must require password authentication.

@@ -1,0 +1,37 @@
+id: kernel-nx-enabled
+title: Verify kernel non-executable memory protection is active
+description: >
+  The operating system must verify the kernel non-executable (NX) memory
+  protection mechanism is active. NX prevents execution of code in
+  non-executable memory regions, mitigating stack and heap-based exploits.
+rationale: >
+  Non-executable memory protection prevents attackers from executing
+  shellcode placed in data segments such as the stack or heap. Without NX
+  enabled, buffer overflow attacks can execute arbitrary code more easily.
+severity: medium
+category: kernel
+tags: [kernel, nx, memory-protection, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230276"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SI-16"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "dmesg 2>/dev/null | grep -i ' NX' | grep -i 'protection: active' | head -1"
+      expected_stdout: "protection: active"
+    remediation:
+      mechanism: manual
+      note: >
+        NX protection is a hardware feature. Ensure the system BIOS/UEFI has
+        Execute Disable (XD/NX) enabled. Verify the kernel is not booted with
+        the 'noexec=off' parameter. Check: dmesg | grep -i 'NX (Execute Disable)'

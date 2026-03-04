@@ -1,0 +1,39 @@
+id: mount-removable-noexec
+title: Ensure noexec option on removable media
+description: >
+  The noexec mount option must be set on all removable media filesystems
+  to prevent execution of programs directly from removable storage.
+rationale: >
+  Removable media may contain malicious executables. The noexec option
+  prevents running programs directly from removable media, reducing the
+  risk of malware execution from untrusted storage devices.
+severity: medium
+category: filesystem
+tags: [mount, removable-media, noexec, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230304"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -E '\s(vfat|ext[234]|xfs|ntfs|iso9660)\s' /proc/mounts 2>/dev/null |
+        grep -vE '^(tmpfs|/dev/sd[a-z][1-9]* / |overlay|/dev/(nvme|vd|sda))' |
+        grep -v ' /boot' | grep -v ' /home' | grep -v ' /var' | grep -v ' /tmp' |
+        grep -v 'noexec' | head -1
+      expected_stdout: ""
+    remediation:
+      mechanism: manual
+      note: >
+        Add the noexec option to all removable media mount points in /etc/fstab.
+        For automounted media, configure udev rules or autofs to include noexec.

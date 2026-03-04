@@ -1348,6 +1348,236 @@ controls:
     severity: "CAT II"
     title: "The RHEL 8 file integrity tool must use FIPS 140-2-approved cryptographic algorithms."
 
+  "V-230514":
+    rules:
+      - mount-var-log-options
+    severity: "CAT II"
+    title: "RHEL 8 must mount /var/log with nodev"
+  "V-230515":
+    rules:
+      - mount-var-log-options
+    severity: "CAT II"
+    title: "RHEL 8 must mount /var/log with nosuid"
+  "V-230516":
+    rules:
+      - mount-var-log-options
+    severity: "CAT II"
+    title: "RHEL 8 must mount /var/log with noexec"
+  "V-230517":
+    rules:
+      - mount-var-log-audit-options
+    severity: "CAT II"
+    title: "RHEL 8 must mount /var/log/audit with nodev"
+  "V-230518":
+    rules:
+      - mount-var-log-audit-options
+    severity: "CAT II"
+    title: "RHEL 8 must mount /var/log/audit with nosuid"
+  "V-230519":
+    rules:
+      - mount-var-log-audit-options
+    severity: "CAT II"
+    title: "RHEL 8 must mount /var/log/audit with noexec"
+  "V-230295":
+    rules:
+      - mount-tmp-separate-fs
+    severity: "CAT II"
+    title: "RHEL 8 must use a separate file system for /tmp"
+  "V-244529":
+    rules:
+      - mount-var-tmp-separate-fs
+    severity: "CAT II"
+    title: "RHEL 8 must use a separate file system for /var/tmp"
+  "V-230301":
+    rules:
+      - mount-home-nodev
+    severity: "CAT II"
+    title: "RHEL 8 must mount /home with nodev"
+  "V-230302":
+    rules:
+      - mount-home-noexec
+    severity: "CAT II"
+    title: "RHEL 8 must mount /home with noexec"
+  "V-230300":
+    rules:
+      - mount-boot-nosuid
+    severity: "CAT II"
+    title: "RHEL 8 must mount /boot with nosuid"
+  "V-244530":
+    rules:
+      - mount-boot-efi-nosuid
+    severity: "CAT II"
+    title: "RHEL 8 must mount /boot/efi with nosuid"
+  "V-230303":
+    rules:
+      - mount-removable-nodev
+    severity: "CAT II"
+    title: "RHEL 8 must mount removable media with nodev"
+  "V-230304":
+    rules:
+      - mount-removable-noexec
+    severity: "CAT II"
+    title: "RHEL 8 must mount removable media with noexec"
+  "V-230307":
+    rules:
+      - mount-nfs-nodev
+    severity: "CAT II"
+    title: "RHEL 8 must mount NFS filesystems with nodev"
+  "V-230308":
+    rules:
+      - mount-nfs-nosuid
+    severity: "CAT II"
+    title: "RHEL 8 must mount NFS filesystems with nosuid"
+  "V-230267":
+    rules:
+      - kernel-symlink-protect
+    severity: "CAT II"
+    title: "RHEL 8 must enable kernel symlink protection"
+  "V-230268":
+    rules:
+      - kernel-hardlink-protect
+    severity: "CAT II"
+    title: "RHEL 8 must enable kernel hardlink protection"
+  "V-230276":
+    rules:
+      - kernel-nx-enabled
+    severity: "CAT II"
+    title: "RHEL 8 must enable non-executable memory (NX) protection"
+  "V-230277":
+    rules:
+      - grub-page-alloc-shuffle
+    severity: "CAT II"
+    title: "RHEL 8 must configure init_on_alloc=1 in GRUB"
+  "V-230278":
+    rules:
+      - grub-vsyscall-none
+    severity: "CAT II"
+    title: "RHEL 8 must configure vsyscall=none in GRUB"
+  "V-230279":
+    rules:
+      - grub-page-poison
+    severity: "CAT II"
+    title: "RHEL 8 must configure page_poison=1 in GRUB"
+  "V-230547":
+    rules:
+      - sysctl-kptr-restrict
+    severity: "CAT II"
+    title: "RHEL 8 must restrict access to kernel symbol addresses"
+  "V-244554":
+    rules:
+      - sysctl-bpf-jit-harden
+    severity: "CAT II"
+    title: "RHEL 8 must enable BPF JIT hardening"
+  "V-230233":
+    rules:
+      - shadow-hashing-rounds
+    severity: "CAT II"
+    title: "RHEL 8 must configure SHA512 minimum hashing rounds"
+  "V-230338":
+    rules:
+      - pam-faillock-enabled
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_faillock module"
+  "V-230339":
+    rules:
+      - faillock-dir-configured
+    severity: "CAT II"
+    title: "RHEL 8 must configure faillock persistent directory"
+  "V-230342":
+    rules:
+      - pam-faillock-audit
+    severity: "CAT II"
+    title: "RHEL 8 must log failed auth in system-auth via pam_faillock"
+  "V-230343":
+    rules:
+      - pam-faillock-audit
+    severity: "CAT II"
+    title: "RHEL 8 must log failed auth in password-auth via pam_faillock"
+  "V-244533":
+    rules:
+      - pam-faillock-system-auth
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_faillock.so in /etc/pam.d/system-auth"
+  "V-244534":
+    rules:
+      - pam-faillock-password-auth
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_faillock.so in /etc/pam.d/password-auth"
+  "V-230356":
+    rules:
+      - pam-pwquality-password-auth
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_pwquality in /etc/pam.d/password-auth"
+  "V-251713":
+    rules:
+      - pam-pwquality-system-auth
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_pwquality in /etc/pam.d/system-auth"
+  "V-230271":
+    rules:
+      - sudo-nopasswd-prohibited
+    severity: "CAT II"
+    title: "RHEL 8 must prohibit NOPASSWD in sudoers"
+  "V-230272":
+    rules:
+      - sudo-timestamp-timeout
+    severity: "CAT II"
+    title: "RHEL 8 must configure sudo timestamp_timeout=0"
+  "V-230371":
+    rules:
+      - no-duplicate-uids
+    severity: "CAT II"
+    title: "RHEL 8 must not have duplicate UIDs in /etc/passwd"
+  "V-230378":
+    rules:
+      - pam-faildelay
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_faildelay with 4 second minimum delay"
+  "V-230360":
+    rules:
+      - pam-password-sha512
+    severity: "CAT II"
+    title: "RHEL 8 must configure pam_unix SHA512 password hashing"
+  "V-230505":
+    rules:
+      - pkg-firewalld-present
+    severity: "CAT II"
+    title: "RHEL 8 must have firewalld installed"
+  "V-244544":
+    rules:
+      - service-enable-firewalld
+    severity: "CAT II"
+    title: "RHEL 8 must enable the firewalld service"
+  "V-230504":
+    rules:
+      - firewalld-default-deny
+    severity: "CAT II"
+    title: "RHEL 8 firewalld must implement a deny-all allow-by-exception policy"
+  "V-230526":
+    rules:
+      - pkg-openssh-server-present
+    severity: "CAT II"
+    title: "RHEL 8 must have openssh-server installed"
+  "V-244549":
+    rules:
+      - pkg-openssh-server-present
+    severity: "CAT II"
+    title: "RHEL 8 must have openssh-server installed for remote management"
+  "V-230554":
+    rules:
+      - no-promiscuous-interfaces
+    severity: "CAT II"
+    title: "RHEL 8 must prohibit network interfaces in promiscuous mode"
+  "V-230550":
+    rules:
+      - postfix-local-only
+    severity: "CAT II"
+    title: "RHEL 8 mail transfer agent must be configured for local-only mode"
+  "V-230506":
+    rules:
+      - wireless-disabled
+    severity: "CAT II"
+    title: "RHEL 8 must disable wireless interfaces"
 
 unimplemented:
 
@@ -1379,10 +1609,6 @@ unimplemented:
     title: "RHEL 8, for certificate-based authentication, must enforce authorized access to the corresponding private key."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230233":
-    title: "The RHEL 8 shadow password suite must be configured to use a sufficient number of hashing rounds."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230238":
     title: "RHEL 8 must prevent system daemons from using Kerberos for authentication."
     severity: "CAT II"
@@ -1407,22 +1633,6 @@ unimplemented:
     title: "The RHEL 8 file integrity tool must notify the system administrator when changes to the baseline configuration or anomalies in the operation of any security functions are discovered within an organizationally defined frequency."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230267":
-    title: "RHEL 8 must enable kernel parameters to enforce discretionary access control on symlinks."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230268":
-    title: "RHEL 8 must enable kernel parameters to enforce discretionary access control on hardlinks."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230271":
-    title: "RHEL 8 must require users to provide a password for privilege escalation."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230272":
-    title: "RHEL 8 must require users to reauthenticate for privilege escalation."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230273":
     title: "RHEL 8 must have the packages required for multifactor authentication installed."
     severity: "CAT II"
@@ -1433,22 +1643,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230275":
     title: "RHEL 8 must accept Personal Identity Verification (PIV) credentials."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230276":
-    title: "RHEL 8 must implement non-executable data to protect its memory from unauthorized code execution."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230277":
-    title: "RHEL 8 must clear the page allocator to prevent use-after-free attacks."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230278":
-    title: "RHEL 8 must disable virtual syscalls."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230279":
-    title: "RHEL 8 must clear memory when it is freed to prevent use-after-free attacks."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230281":
@@ -1483,10 +1677,6 @@ unimplemented:
     title: "RHEL 8 must use a separate file system for the system audit data path."
     severity: "CAT III"
     reason: "Needs rule implementation"
-  "V-230295":
-    title: "A separate RHEL 8 filesystem must be used for the /tmp directory."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230296":
     title: "RHEL 8 must not permit direct logons to the root account using remote access via SSH."
     severity: "CAT II"
@@ -1499,40 +1689,12 @@ unimplemented:
     title: "RHEL 8 must prevent files with the setuid and setgid bit set from being executed on file systems that contain user home directories."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230300":
-    title: "RHEL 8 must prevent files with the setuid and setgid bit set from being executed on the /boot directory."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230301":
-    title: "RHEL 8 must prevent special devices on non-root local partitions."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230302":
-    title: "RHEL 8 must prevent code from being executed on file systems that contain user home directories."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230303":
-    title: "RHEL 8 must prevent special devices on file systems that are used with removable media."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230304":
-    title: "RHEL 8 must prevent code from being executed on file systems that are used with removable media."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230305":
     title: "RHEL 8 must prevent files with the setuid and setgid bit set from being executed on file systems that are used with removable media."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230306":
     title: "RHEL 8 must prevent code from being executed on file systems that are imported via Network File System (NFS)."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230307":
-    title: "RHEL 8 must prevent special devices on file systems that are imported via Network File System (NFS)."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230308":
-    title: "RHEL 8 must prevent files with the setuid and setgid bit set from being executed on file systems that are imported via Network File System (NFS)."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230310":
@@ -1595,28 +1757,12 @@ unimplemented:
     title: "Unattended or automatic logon via the RHEL 8 graphical user interface must not be allowed."
     severity: "CAT I"
     reason: "Needs rule implementation"
-  "V-230338":
-    title: "RHEL 8 must ensure account lockouts persist."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230339":
-    title: "RHEL 8 must ensure account lockouts persist."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230340":
     title: "RHEL 8 must prevent system messages from being presented when three unsuccessful logon attempts occur."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230341":
     title: "RHEL 8 must prevent system messages from being presented when three unsuccessful logon attempts occur."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230342":
-    title: "RHEL 8 must log user name information when unsuccessful logon attempts occur."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230343":
-    title: "RHEL 8 must log user name information when unsuccessful logon attempts occur."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230346":
@@ -1643,14 +1789,6 @@ unimplemented:
     title: "RHEL 8 must map the authenticated identity to the user or group account for PKI-based authentication."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230356":
-    title: "RHEL 8 must ensure the password complexity module is enabled in the password-auth file."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230371":
-    title: "RHEL 8 duplicate User IDs (UIDs) must not exist for interactive users."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230372":
     title: "RHEL 8 must implement smart card logon for multifactor authentication for access to interactive accounts."
     severity: "CAT II"
@@ -1661,10 +1799,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230376":
     title: "RHEL 8 must prohibit the use of cached authentications after one day."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230378":
-    title: "RHEL 8 must enforce a delay of at least four seconds between logon prompts following a failed logon attempt."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230379":
@@ -1803,42 +1937,6 @@ unimplemented:
     title: "The RHEL 8 file system automounter must be disabled."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230504":
-    title: "A RHEL 8 firewall must employ a deny-all, allow-by-exception policy for allowing connections to other systems."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230505":
-    title: "A firewall must be installed on RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230506":
-    title: "RHEL 8 wireless network adapters must be disabled."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230514":
-    title: "RHEL 8 must mount /var/log with the nodev option."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230515":
-    title: "RHEL 8 must mount /var/log with the nosuid option."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230516":
-    title: "RHEL 8 must mount /var/log with the noexec option."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230517":
-    title: "RHEL 8 must mount /var/log/audit with the nodev option."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230518":
-    title: "RHEL 8 must mount /var/log/audit with the nosuid option."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230519":
-    title: "RHEL 8 must mount /var/log/audit with the noexec option."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230523":
     title: "The RHEL 8 fapolicy module must be installed."
     severity: "CAT II"
@@ -1851,24 +1949,12 @@ unimplemented:
     title: "A firewall must be able to protect against or limit the effects of Denial of Service (DoS) attacks by ensuring RHEL 8 can implement rate-limiting measures on impacted network interfaces."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230526":
-    title: "All RHEL 8 networked systems must have and implement SSH to protect the confidentiality and integrity of transmitted and received information, as well as information during preparation for transmission."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230527":
     title: "RHEL 8 must force a frequent session key renegotiation for SSH connections to the server."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230532":
     title: "The debug-shell systemd service must be disabled on RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230547":
-    title: "RHEL 8 must restrict exposed kernel pointer addresses access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230550":
-    title: "RHEL 8 must be configured to prevent unrestricted mail relaying."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230551":
@@ -1881,10 +1967,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230553":
     title: "The graphical display manager must not be installed on RHEL 8 unless approved."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230554":
-    title: "RHEL 8 network interfaces must not be in promiscuous mode."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230555":
@@ -1919,28 +2001,12 @@ unimplemented:
     title: "The RHEL 8 SSH daemon must not allow GSSAPI authentication, except to fulfill documented and validated mission requirements."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-244529":
-    title: "RHEL 8 must use a separate file system for /var/tmp."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244530":
-    title: "RHEL 8 must prevent files with the setuid and setgid bit set from being executed on the /boot/efi directory."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-244531":
     title: "All RHEL 8 local interactive user home directory files must have mode 0750 or less permissive."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-244532":
     title: "RHEL 8 must be configured so that all files and directories contained in local interactive user home directories are group-owned by a group of which the home directory owner is a member."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244533":
-    title: "RHEL 8 must configure the use of the pam_faillock.so module in the /etc/pam.d/system-auth file."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244534":
-    title: "RHEL 8 must configure the use of the pam_faillock.so module in the /etc/pam.d/password-auth file."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-244535":
@@ -1967,10 +2033,6 @@ unimplemented:
     title: "RHEL 8 must notify the System Administrator (SA) and Information System Security Officer (ISSO) (at a minimum) when allocated audit record storage volume 75 percent utilization."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-244544":
-    title: "A firewall must be active on RHEL 8."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-244545":
     title: "The RHEL 8 fapolicy module must be enabled."
     severity: "CAT II"
@@ -1987,14 +2049,6 @@ unimplemented:
     title: "RHEL 8 must enable the USBGuard."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-244549":
-    title: "All RHEL 8 networked systems must have SSH installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244554":
-    title: "RHEL 8 must enable hardening for the Berkeley Packet Filter Just-in-time compiler."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-250315":
     title: "RHEL 8 systems, versions 8.2 and above, must configure SELinux context type to allow the use of a non-default faillock tally directory."
     severity: "CAT II"
@@ -2009,10 +2063,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-251712":
     title: "The RHEL 8 operating system must not be configured to bypass password requirements for privilege escalation."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-251713":
-    title: "RHEL 8 must ensure the password complexity module is enabled in the system-auth file."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-251716":

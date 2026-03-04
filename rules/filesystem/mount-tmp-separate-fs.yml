@@ -1,0 +1,38 @@
+id: mount-tmp-separate-fs
+title: Ensure /tmp is on a separate filesystem
+description: >
+  The /tmp directory must be on a separate filesystem or logical volume.
+  Using a dedicated partition for /tmp prevents temporary files from filling
+  the root filesystem and allows separate mount option enforcement.
+rationale: >
+  Without a separate /tmp filesystem, an attacker who fills /tmp can crash
+  the operating system or prevent new logins. A separate partition also
+  allows noexec and nosuid mount options to be enforced.
+severity: medium
+category: filesystem
+tags: [mount, tmp, filesystem, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230295"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt /tmp 2>/dev/null | grep -v '^TARGET' | awk '{print $1}' | grep -q '/tmp'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Create a separate partition or logical volume for /tmp and add it to
+        /etc/fstab. Alternatively, configure systemd-tmpfiles or use a tmpfs
+        mount: echo 'tmpfs /tmp tmpfs defaults,nodev,nosuid,noexec 0 0' >> /etc/fstab
+        then mount -a.

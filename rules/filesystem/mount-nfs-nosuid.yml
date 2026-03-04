@@ -1,0 +1,37 @@
+id: mount-nfs-nosuid
+title: Ensure nosuid option on NFS mounts
+description: >
+  The nosuid mount option must be set on all NFS mounts to prevent
+  setuid programs from executing via NFS-mounted filesystems.
+rationale: >
+  NFS-mounted filesystems could contain setuid programs. The nosuid option
+  prevents setuid bits from being honored on NFS mounts, preventing
+  privilege escalation through remotely-mounted files.
+severity: medium
+category: filesystem
+tags: [mount, nfs, nosuid, network, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230308"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -E '\snfs[0-9]?\s' /proc/mounts 2>/dev/null |
+        grep -v 'nosuid' | head -1
+      expected_stdout: ""
+    remediation:
+      mechanism: manual
+      note: >
+        Add the nosuid option to all NFS mount entries in /etc/fstab.
+        Example: server:/share /mnt/nfs nfs defaults,nodev,nosuid 0 0

@@ -1,0 +1,41 @@
+id: firewalld-default-deny
+title: Ensure firewalld implements a deny-all allow-by-exception policy
+description: >
+  Firewalld must be configured with a deny-all default policy, allowing
+  only explicitly permitted traffic. The default zone must drop or reject
+  all unauthorized traffic.
+rationale: >
+  A deny-all firewall policy ensures that only traffic explicitly authorized
+  by the ISSM is permitted. Without a default deny policy, unauthorized
+  network connections may be allowed, increasing the attack surface.
+severity: medium
+category: network
+tags: [firewall, firewalld, default-deny, network]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230504"
+      severity: "CAT II"
+  nist_800_53: ["SC-7", "CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        zone=$(firewall-cmd --get-default-zone 2>/dev/null) &&
+        target=$(firewall-cmd --zone="$zone" --list-all 2>/dev/null | grep 'target:' | awk '{print $2}') &&
+        echo "$target" | grep -qiE 'DROP|REJECT|%%REJECT%%'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure the default firewalld zone to use a deny-all policy:
+        firewall-cmd --set-default-zone=drop --permanent
+        firewall-cmd --reload
+        Then explicitly allow required services and ports.
