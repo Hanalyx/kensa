@@ -1,0 +1,43 @@
+id: tftp-secure-mode
+title: Configure TFTP daemon to operate in secure mode
+description: >
+  If the Trivial File Transfer Protocol (TFTP) server is required, the RHEL 8
+  TFTP daemon must be configured to operate in secure mode. The secure option
+  restricts TFTP to a specific directory and prevents directory traversal.
+rationale: >
+  Without the secure option, the TFTP daemon serves files from the root
+  filesystem, allowing unauthenticated access to any world-readable file.
+  Secure mode restricts TFTP to a designated directory, limiting the exposure
+  of sensitive files.
+severity: medium
+category: system
+tags: [tftp, service, security, hardening, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230557"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q tftp-server &>/dev/null; then exit 0; fi
+        grep -qE '^\s*server_args\s*=.*--secure|-s\s+/' \
+          /etc/xinetd.d/tftp /usr/lib/systemd/system/tftp.service 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure the TFTP daemon to run in secure mode by adding the --secure
+        flag and specifying a restricted directory in /etc/xinetd.d/tftp:
+          server_args = -s /var/lib/tftpboot
+        Or add '--secure /var/lib/tftpboot' to the ExecStart line in the
+        systemd unit file, then restart the tftp service.

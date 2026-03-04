@@ -1,0 +1,42 @@
+id: audisp-remote-server
+title: Configure audisp to offload audit records to a remote server
+description: >
+  RHEL 8 audit records must be off-loaded onto a different system or storage
+  media from the system being audited. The audisp-remote plugin must be
+  configured with a remote server address.
+rationale: >
+  Storing audit records only on the audited system means that if the system
+  is compromised, the attacker can modify or destroy the audit trail. Off-loading
+  audit records to a remote server provides an independent copy of the audit
+  data that cannot be modified by a local attacker.
+severity: medium
+category: audit
+tags: [audit, audisp, remote, syslog, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230479"
+      severity: "CAT II"
+  nist_800_53: ["AU-4", "AU-9"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        remote_server=$(grep -E '^\s*remote_server\s*=' \
+          /etc/audisp/audisp-remote.conf /etc/audit/audisp-remote.conf 2>/dev/null |
+          awk -F= '{print $2}' | tr -d ' ' | head -1)
+        [ -n "$remote_server" ] && [ "$remote_server" != "" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure the audisp-remote plugin with a remote server address:
+        Set remote_server = <hostname-or-IP> in /etc/audisp/audisp-remote.conf
+        or /etc/audit/audisp-remote.conf, then restart the auditd service.

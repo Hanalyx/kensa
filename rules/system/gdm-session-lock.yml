@@ -1,0 +1,42 @@
+id: gdm-session-lock
+title: Enable graphical session lock until user re-establishes access
+description: >
+  RHEL 8 must enable a user session lock until the user re-establishes
+  access using established identification and authentication procedures
+  for graphical user sessions.
+rationale: >
+  A session lock is a temporary action taken to prevent access after a
+  period of inactivity. Enabling the session lock ensures that a locked
+  session can only be unlocked with proper authentication.
+severity: medium
+category: system
+tags: [gdm, graphical, session-lock, authentication, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230347"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(gsettings get org.gnome.desktop.screensaver lock-enabled 2>/dev/null)
+        [ "$val" = "true" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure dconf settings for session lock:
+        Create /etc/dconf/db/local.d/00-screensaver with:
+          [org/gnome/desktop/screensaver]
+          lock-enabled=true
+        Then run: dconf update

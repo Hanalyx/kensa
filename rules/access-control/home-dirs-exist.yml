@@ -1,0 +1,45 @@
+id: home-dirs-exist
+title: Verify local interactive user home directories exist
+description: >
+  All RHEL 8 local interactive user home directories defined in the
+  /etc/passwd file must exist on the filesystem. User accounts with
+  non-existent home directories may be exploited.
+rationale: >
+  If a user account home directory does not exist, the user could log in
+  and their session would be placed in the root directory. This could
+  allow users to access files they should not see. Additionally, missing
+  home directories indicate inconsistent user account management.
+severity: medium
+category: access-control
+tags: [home-directory, users, filesystem, account-management]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230323"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        bad=$(awk -F: '$3 >= 1000 && $3 < 65534 && $7 != "/sbin/nologin" && $7 != "/bin/false" && $7 != "" {print $6}' \
+          /etc/passwd 2>/dev/null |
+          while read hd; do
+            [ -d "$hd" ] || echo "MISSING: $hd"
+          done)
+        [ -z "$bad" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each missing home directory, create it with appropriate ownership:
+        mkdir -p <home-directory>
+        chown <user>:<group> <home-directory>
+        chmod 0750 <home-directory>

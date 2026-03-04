@@ -1,0 +1,46 @@
+id: gdm-banner
+title: Enable DoD banner message for graphical logon
+description: >
+  The GNOME Display Manager (GDM) must display the Standard Mandatory DoD
+  Notice and Consent Banner before granting access via graphical logon.
+  The banner-message-enable and banner-message-text dconf settings must be
+  configured in the GDM profile.
+rationale: >
+  Displaying a consent banner before granting access informs users of the
+  monitoring, recording, and access limitations applicable to that system.
+  Failure to display the required logon banner prior to a logon attempt
+  makes the system non-compliant with DoD requirements.
+severity: medium
+category: system
+tags: [gdm, graphical, banner, dod-consent, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244519"
+      severity: "CAT II"
+  nist_800_53: ["AC-8", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/banner-message-enable 2>/dev/null)
+        [ "$val" = "true" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure GDM dconf settings:
+        1. Create /etc/dconf/profile/gdm with: user-db:user and system-db:gdm
+        2. Create /etc/dconf/db/gdm.d/00-security-settings with:
+           [org/gnome/login-screen]
+           banner-message-enable=true
+           banner-message-text='<DoD warning banner text>'
+        3. Run: dconf update

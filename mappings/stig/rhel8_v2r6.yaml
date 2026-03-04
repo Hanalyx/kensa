@@ -1983,19 +1983,156 @@ controls:
       - mount-nfs-noexec
     severity: "CAT II"
     title: "RHEL 8 must prevent code from being executed on file systems imported via Network File System (NFS)"
+  "V-230551":
+    rules:
+      - aide-xattr-check
+    severity: "CAT III"
+    title: "RHEL 8 file integrity tool must be configured to verify extended attributes"
+  "V-230552":
+    rules:
+      - aide-acl-check
+    severity: "CAT III"
+    title: "RHEL 8 file integrity tool must be configured to verify Access Control Lists"
+  "V-230228":
+    rules:
+      - ssh-log-level
+    severity: "CAT II"
+    title: "All RHEL 8 remote access methods must be monitored"
+  "V-230253":
+    rules:
+      - ssh-max-auth-tries
+    severity: "CAT III"
+    title: "RHEL 8 must ensure the SSH server uses strong entropy"
+  "V-251711":
+    rules:
+      - sudo-logfile
+    severity: "CAT II"
+    title: "RHEL 8 must specify the default include directory for the /etc/sudoers file"
+  "V-230329":
+    rules:
+      - gdm-no-autologin
+    severity: "CAT I"
+    title: "Unattended or automatic logon via RHEL 8 graphical user interface must not be allowed"
+  "V-244519":
+    rules:
+      - gdm-banner
+    severity: "CAT II"
+    title: "RHEL 8 must display a banner before granting local or remote access via graphical user logon"
+  "V-244535":
+    rules:
+      - gdm-screensaver-lock
+    severity: "CAT II"
+    title: "RHEL 8 must initiate a session lock for graphical user interfaces when screensaver is activated"
+  "V-230352":
+    rules:
+      - gdm-idle-delay
+    severity: "CAT II"
+    title: "RHEL 8 must automatically lock graphical user sessions after 15 minutes of inactivity"
+  "V-244536":
+    rules:
+      - gdm-disable-user-list
+    severity: "CAT II"
+    title: "RHEL 8 must disable the user list at logon for graphical user interfaces"
+  "V-230354":
+    rules:
+      - gdm-lock-delay
+    severity: "CAT II"
+    title: "RHEL 8 must prevent a user from overriding session lock-delay for graphical user interface"
+  "V-230347":
+    rules:
+      - gdm-session-lock
+    severity: "CAT II"
+    title: "RHEL 8 must enable user session lock until user re-establishes access for graphical sessions"
+  "V-230553":
+    rules:
+      - pkg-gdm-absent
+    severity: "CAT II"
+    title: "Graphical display manager must not be installed on RHEL 8 unless approved"
+  "V-244539":
+    rules:
+      - gdm-screensaver-lock-override
+    severity: "CAT II"
+    title: "RHEL 8 must prevent a user from overriding screensaver lock-enabled for graphical interface"
+  "V-244538":
+    rules:
+      - gdm-idle-delay-override
+    severity: "CAT II"
+    title: "RHEL 8 must prevent a user from overriding session idle-delay for graphical interface"
+  "V-230226":
+    rules:
+      - gdm-graphical-banner
+    severity: "CAT II"
+    title: "RHEL 8 must display Standard Mandatory DoD Notice and Consent Banner before granting graphical access"
+  "V-230281":
+    rules:
+      - dnf-clean-requirements
+    severity: "CAT III"
+    title: "YUM must remove all software components after updated versions have been installed on RHEL 8"
+  "V-230316":
+    rules:
+      - dns-nameservers-configured
+    severity: "CAT II"
+    title: "For RHEL 8 systems using DNS resolution, at least two name servers must be configured"
+  "V-230340":
+    rules:
+      - pam-faillock-silent
+    severity: "CAT II"
+    title: "RHEL 8 must prevent system messages from being presented when three unsuccessful logon attempts occur"
+  "V-230341":
+    rules:
+      - pam-faillock-silent
+    severity: "CAT II"
+    title: "RHEL 8 must prevent system messages from being presented when three unsuccessful logon attempts occur"
+  "V-230321":
+    rules:
+      - home-dir-permissions
+    severity: "CAT II"
+    title: "All RHEL 8 local interactive user home directories must have mode 0750 or less permissive"
+  "V-230323":
+    rules:
+      - home-dirs-exist
+    severity: "CAT II"
+    title: "All RHEL 8 local interactive user home directories defined in /etc/passwd file must exist"
+  "V-230557":
+    rules:
+      - tftp-secure-mode
+    severity: "CAT II"
+    title: "If TFTP server is required, RHEL 8 TFTP daemon must be configured to operate in secure mode"
+  "V-230238":
+    rules:
+      - krb5-no-daemon-auth
+    severity: "CAT II"
+    title: "RHEL 8 must prevent system daemons from using Kerberos for authentication"
+  "V-230273":
+    rules:
+      - pkg-opensc-present
+    severity: "CAT II"
+    title: "RHEL 8 must have packages required for multifactor authentication installed"
+  "V-230478":
+    rules:
+      - pkg-audispd-plugins-present
+    severity: "CAT II"
+    title: "RHEL 8 must have packages required for encrypting offloaded audit logs installed"
+  "V-230479":
+    rules:
+      - audisp-remote-server
+    severity: "CAT II"
+    title: "RHEL 8 audit records must be off-loaded onto a different system or storage media"
+  "V-230481":
+    rules:
+      - audisp-encrypt-connection
+    severity: "CAT II"
+    title: "RHEL 8 must encrypt the transfer of audit records off-loaded onto a different system"
+  "V-230482":
+    rules:
+      - audisp-verify-remote-server
+    severity: "CAT II"
+    title: "RHEL 8 must authenticate the remote logging server for off-loading audit logs"
 
 unimplemented:
 
   "V-230222":
     title: "RHEL 8 vendor packaged system security patches and updates must be installed and up to date."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230226":
-    title: "RHEL 8 must display the Standard Mandatory DoD Notice and Consent Banner before granting local or remote access to the system via a graphical user logon."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230228":
-    title: "All RHEL 8 remote access methods must be monitored."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230229":
@@ -2006,18 +2143,6 @@ unimplemented:
     title: "RHEL 8, for certificate-based authentication, must enforce authorized access to the corresponding private key."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230238":
-    title: "RHEL 8 must prevent system daemons from using Kerberos for authentication."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230253":
-    title: "RHEL 8 must ensure the SSH server uses strong entropy."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230273":
-    title: "RHEL 8 must have the packages required for multifactor authentication installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230274":
     title: "RHEL 8 must implement certificate status checking for multifactor authentication."
     severity: "CAT II"
@@ -2026,24 +2151,8 @@ unimplemented:
     title: "RHEL 8 must accept Personal Identity Verification (PIV) credentials."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230281":
-    title: "YUM must remove all software components after updated versions have been installed on RHEL 8."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230316":
-    title: "For RHEL 8 systems using Domain Name Servers (DNS) resolution, at least two name servers must be configured."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230317":
     title: "Executable search paths within the initialization files of all local interactive RHEL 8 users must only contain paths that resolve to the system default or the users home directory."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230321":
-    title: "All RHEL 8 local interactive user home directories must have mode 0750 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230323":
-    title: "All RHEL 8 local interactive user home directories defined in the /etc/passwd file must exist."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230325":
@@ -2058,32 +2167,8 @@ unimplemented:
     title: "All RHEL 8 local files and directories must have a valid group owner."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230329":
-    title: "Unattended or automatic logon via the RHEL 8 graphical user interface must not be allowed."
-    severity: "CAT I"
-    reason: "Needs rule implementation"
-  "V-230340":
-    title: "RHEL 8 must prevent system messages from being presented when three unsuccessful logon attempts occur."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230341":
-    title: "RHEL 8 must prevent system messages from being presented when three unsuccessful logon attempts occur."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230347":
-    title: "RHEL 8 must enable a user session lock until that user re-establishes access using established identification and authentication procedures for graphical user sessions."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230351":
     title: "RHEL 8 must be able to initiate directly a session lock for all connection types using smartcard when the smartcard is removed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230352":
-    title: "RHEL 8 must automatically lock graphical user sessions after 15 minutes of inactivity."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230354":
-    title: "RHEL 8 must prevent a user from overriding the session lock-delay setting for the graphical user interface."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230355":
@@ -2092,22 +2177,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-230372":
     title: "RHEL 8 must implement smart card logon for multifactor authentication for access to interactive accounts."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230478":
-    title: "RHEL 8 must have the packages required for encrypting offloaded audit logs installed."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230479":
-    title: "The RHEL 8 audit records must be off-loaded onto a different system or storage media from the system being audited."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230481":
-    title: "RHEL 8 must encrypt the transfer of audit records off-loaded onto a different system or media from the system being audited."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230482":
-    title: "RHEL 8 must authenticate the remote logging server for off-loading audit logs."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230493":
@@ -2122,52 +2191,12 @@ unimplemented:
     title: "A firewall must be able to protect against or limit the effects of Denial of Service (DoS) attacks by ensuring RHEL 8 can implement rate-limiting measures on impacted network interfaces."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230551":
-    title: "The RHEL 8 file integrity tool must be configured to verify extended attributes."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230552":
-    title: "The RHEL 8 file integrity tool must be configured to verify Access Control Lists (ACLs)."
-    severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230553":
-    title: "The graphical display manager must not be installed on RHEL 8 unless approved."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230557":
-    title: "If the Trivial File Transfer Protocol (TFTP) server is required, the RHEL 8 TFTP daemon must be configured to operate in secure mode."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244519":
-    title: "RHEL 8 must display a banner before granting local or remote access to the system via a graphical user logon."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-244531":
     title: "All RHEL 8 local interactive user home directory files must have mode 0750 or less permissive."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-244532":
     title: "RHEL 8 must be configured so that all files and directories contained in local interactive user home directories are group-owned by a group of which the home directory owner is a member."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244535":
-    title: "RHEL 8 must initiate a session lock for graphical user interfaces when the screensaver is activated."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244536":
-    title: "RHEL 8 must disable the user list at logon for graphical user interfaces."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244538":
-    title: "RHEL 8 must prevent a user from overriding the session idle-delay setting for the graphical user interface."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-244539":
-    title: "RHEL 8 must prevent a user from overriding the screensaver lock-enabled setting for the graphical user interface."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-251711":
-    title: "RHEL 8 must specify the default \"include\" directory for the /etc/sudoers file."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-279931":

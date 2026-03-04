@@ -1,0 +1,45 @@
+id: home-dir-permissions
+title: Set local interactive user home directory permissions to 0750 or less
+description: >
+  All RHEL 8 local interactive user home directories must have mode 0750 or
+  less permissive. Home directory permissions that are too permissive allow
+  other users to read, write, or access files in those directories.
+rationale: >
+  Group-readable or world-readable home directories allow unauthorized access
+  to user files. Restricting home directory permissions to 0750 or less
+  ensures only the owner and their primary group can access the directory.
+severity: medium
+category: access-control
+tags: [home-directory, permissions, file-security, users]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230321"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        bad=$(awk -F: '$3 >= 1000 && $3 < 65534 && $7 != "/sbin/nologin" && $7 != "/bin/false" && $7 != "" {print $6}' \
+          /etc/passwd 2>/dev/null |
+          while read hd; do
+            [ -d "$hd" ] || continue
+            mode=$(stat -c "%a" "$hd" 2>/dev/null)
+            [ $(( 0$mode & 027 )) -ne 0 ] && echo "$hd ($mode)"
+          done)
+        [ -z "$bad" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each home directory with permissions greater than 0750, run:
+        chmod 0750 <home-directory>
+        Review each case before modifying to avoid breaking legitimate access.

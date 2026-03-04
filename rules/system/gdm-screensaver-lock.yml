@@ -1,0 +1,42 @@
+id: gdm-screensaver-lock
+title: Enable session lock when screensaver is activated
+description: >
+  RHEL 8 must initiate a session lock for graphical user interfaces when
+  the screensaver is activated. The lock-enabled dconf setting must be
+  set to true in the local user database.
+rationale: >
+  A session lock is a temporary action taken when a user stops work and moves
+  away from their workstation. Configuring a session lock ensures the screen
+  is locked when the screensaver activates, preventing unauthorized access.
+severity: medium
+category: system
+tags: [gdm, graphical, screensaver, session-lock, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244535"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(gsettings get org.gnome.desktop.screensaver lock-enabled 2>/dev/null)
+        [ "$val" = "true" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure dconf settings for graphical session lock:
+        Create /etc/dconf/db/local.d/00-screensaver with:
+          [org/gnome/desktop/screensaver]
+          lock-enabled=true
+        Then run: dconf update

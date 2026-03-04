@@ -1,0 +1,42 @@
+id: audisp-verify-remote-server
+title: Authenticate the remote logging server for audit offloading
+description: >
+  RHEL 8 must authenticate the remote logging server for off-loading audit
+  logs. The audisp-remote plugin must be configured to verify the server's
+  certificate when using encrypted transport.
+rationale: >
+  Without verifying the identity of the remote logging server, audit records
+  could be sent to a rogue server. Configuring certificate verification ensures
+  the audit data is sent only to the authorized remote logging system.
+severity: medium
+category: audit
+tags: [audit, audisp, authentication, remote, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230482"
+      severity: "CAT II"
+  nist_800_53: ["AU-9", "SC-8", "IA-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        val=$(grep -E '^\s*verify_cert\s*=' \
+          /etc/audisp/audisp-remote.conf /etc/audit/audisp-remote.conf 2>/dev/null |
+          awk -F= '{print $2}' | tr -d ' ' | head -1)
+        [ "$val" = "yes" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure the audisp-remote plugin to verify the remote server's
+        certificate: Set verify_cert = yes in /etc/audisp/audisp-remote.conf.
+        Ensure the trust_file or ca_file is configured with the CA certificate,
+        then restart the auditd service.

@@ -1,0 +1,42 @@
+id: gdm-idle-delay
+title: Set graphical session idle delay to 15 minutes or less
+description: >
+  RHEL 8 must automatically lock graphical user sessions after 15 minutes
+  of inactivity. The idle-delay dconf setting must be set to 900 seconds
+  (15 minutes) or less.
+rationale: >
+  Terminating inactive sessions after a set period reduces the exposure of
+  unattended workstations. The session lock should activate automatically
+  after 15 minutes of inactivity to prevent unauthorized access.
+severity: medium
+category: system
+tags: [gdm, graphical, idle, session-lock, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230352"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(gsettings get org.gnome.desktop.session idle-delay 2>/dev/null | grep -o '[0-9]*')
+        [ -n "$val" ] && [ "$val" -le 900 ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure dconf settings for graphical idle delay:
+        Create /etc/dconf/db/local.d/00-screensaver with:
+          [org/gnome/desktop/session]
+          idle-delay=uint32 900
+        Then run: dconf update

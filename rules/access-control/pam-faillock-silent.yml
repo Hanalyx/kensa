@@ -1,0 +1,55 @@
+id: pam-faillock-silent
+title: Configure faillock to suppress failure messages after lockout
+description: >
+  RHEL 8 must prevent system messages from being presented when three
+  unsuccessful logon attempts occur. The pam_faillock module must have
+  the silent option configured or the audit option must be set to ensure
+  system messages are not displayed to the user after the account is locked.
+rationale: >
+  Displaying detailed error messages when an account is locked could allow
+  an attacker to determine valid account names and lockout policies.
+  Suppressing these messages reduces the information available to an attacker.
+severity: medium
+category: access-control
+tags: [pam, faillock, authentication, lockout, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230340"
+      severity: "CAT II"
+  nist_800_53: ["AC-7", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: authselect
+    check:
+      method: command
+      run: >
+        grep -q '^\s*silent\s*$\|^\s*audit\s*$\|silent\|audit' \
+          /etc/security/faillock.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add "silent" or "audit" to /etc/security/faillock.conf to suppress
+        system messages when the account lockout threshold is reached.
+        Then run authselect apply-changes.
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -q 'silent\|audit' \
+          /etc/pam.d/password-auth /etc/pam.d/system-auth 2>/dev/null ||
+        grep -q '^\s*silent\s*$\|^\s*audit\s*$' \
+          /etc/security/faillock.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add "silent" option to the pam_faillock.so lines in
+        /etc/pam.d/password-auth and /etc/pam.d/system-auth, or add
+        "silent" or "audit" to /etc/security/faillock.conf.

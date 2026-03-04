@@ -1,0 +1,42 @@
+id: gdm-disable-user-list
+title: Disable user list at graphical logon
+description: >
+  RHEL 8 must disable the user list at logon for graphical user interfaces.
+  The disable-user-list dconf setting must be set to true in the GDM profile.
+rationale: >
+  Displaying a list of usernames at logon enables an attacker to enumerate
+  valid accounts on the system without needing credentials. Disabling the
+  user list forces users to type their username and reduces information
+  disclosure.
+severity: medium
+category: system
+tags: [gdm, graphical, user-list, security, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244536"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/disable-user-list 2>/dev/null)
+        [ "$val" = "true" ]
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure GDM dconf settings to disable user list:
+        Create /etc/dconf/db/gdm.d/00-security-settings with:
+          [org/gnome/login-screen]
+          disable-user-list=true
+        Then run: dconf update
