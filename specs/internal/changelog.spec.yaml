@@ -1,0 +1,122 @@
+kind: InternalModule
+
+metadata:
+  name: Changelog
+  module: scripts.update_changelog
+  version: 1.0.0
+  status: draft
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-03"
+  updated: "2026-03-03"
+
+context:
+  description: >
+    Defines the format, content rules, and generation process for CHANGELOG.md.
+    Changes are recorded in human-readable prose grouped by category, not as raw
+    git messages. A script (scripts/update_changelog.py) generates a new section
+    for each release and prepends it to CHANGELOG.md. The release workflow calls
+    this script before committing the version bump.
+  technical_context: >
+    scripts/update_changelog.py --version VERSION [--since-tag TAG] [--date DATE].
+    Reads merged PR titles from git log between the previous version tag and HEAD,
+    filters release commits, categorizes by keyword, formats as a Markdown section,
+    and prepends to CHANGELOG.md. The release workflow calls this script in place of
+    semantic-release changelog.
+  dependencies:
+    - git (subprocess, for log extraction)
+    - pathlib.Path (for CHANGELOG.md write)
+  callers:
+    - .github/workflows/release.yml (Bump version and create release branch step)
+    - Developer manually when backfilling entries
+
+objective:
+  summary: >
+    Produce a clear, readable, concise CHANGELOG.md where each version section
+    describes what changed in plain language, grouped by impact category.
+  acceptance_criteria:
+    AC-1: >
+      CHANGELOG.md begins with a top-level "# Changelog" heading followed by a
+      brief description line, then a "---" separator, then version sections
+      newest-first.
+    AC-2: >
+      Each version section header is "## vX.Y.Z (YYYY-MM-DD)" with a blank line
+      before and after.
+    AC-3: >
+      Changes within a version are grouped under "### Added", "### Fixed",
+      "### Changed", or "### Removed" subheadings. Subheadings with no entries
+      are omitted.
+    AC-4: >
+      Each change entry is a single bullet ("- ") written as a concise human
+      sentence (not a raw git message). Entries end without a period. PR number
+      is appended in parentheses, e.g. "(#131)".
+    AC-5: >
+      No commit hashes, no repository URLs, no "Co-Authored-By" lines, and no
+      semantic-release boilerplate appear in any entry.
+    AC-6: >
+      update_changelog.py --version VERSION extracts merged PR titles from
+      git log since the previous version tag, categorizes them, and prepends
+      a correctly formatted section to CHANGELOG.md.
+    AC-7: >
+      Categorization rules: titles starting with Add/Implement/Introduce/Support/
+      Raise/New → Added; Fix/Correct/Resolve/Patch/Handle → Fixed;
+      Remove/Delete/Drop/Deprecate → Removed; all others → Changed.
+      Matching is case-insensitive on the first word.
+    AC-8: >
+      Release commits (matching "chore(release):", "Merge pull request", "Release v",
+      "[skip ci]") are excluded from changelog entries.
+    AC-9: >
+      update_changelog.py exits 0 on success and exits 1 with a human-readable
+      error if the git log command fails or CHANGELOG.md cannot be written.
+    AC-10: >
+      The release workflow (release.yml) calls update_changelog.py after bumping
+      pyproject.toml and before committing the release branch, so each release
+      tag corresponds to an up-to-date CHANGELOG.md entry.
+
+constraints:
+  - "MUST NOT use semantic-release changelog for entry generation."
+  - "MUST exclude merge commits and release commits from entries."
+  - "Each entry MUST reference the PR number from the git log line."
+  - "CHANGELOG.md MUST remain human-readable without tooling."
+  - "Script MUST be idempotent: re-running for the same version replaces the existing section."
+
+input_contract:
+  - field: --version
+    type: str
+    required: true
+    description: The version string to create an entry for (e.g., "1.2.6").
+  - field: --since-tag
+    type: str
+    required: false
+    default: "auto-detected as the previous git tag"
+    description: The git tag to use as the lower bound for log extraction.
+  - field: --date
+    type: str
+    required: false
+    default: "today's date in YYYY-MM-DD format"
+    description: Override the date for the changelog section header.
+
+behavior:
+  - "1. Determine since_tag: use --since-tag if provided, else find the most recent tag before HEAD."
+  - "2. Run: git log --oneline <since_tag>..HEAD"
+  - "3. Filter out lines matching: 'chore(release)', 'Merge pull request', 'Release v', '[skip ci]', 'chore(release)'."
+  - "4. Extract PR number from lines containing '(#NNN)'; fall back to no PR number if absent."
+  - "5. Categorize each line by its first word (case-insensitive) using AC-7 rules."
+  - "6. Build the Markdown section with subheadings in order: Added, Fixed, Changed, Removed (omit empty ones)."
+  - "7. Read existing CHANGELOG.md content."
+  - "8. If a section for this version already exists, replace it; otherwise prepend after the header block."
+  - "9. Write the updated content back to CHANGELOG.md."
+
+output_contract:
+  returns: >
+    CHANGELOG.md updated in-place. Stdout prints 'Updated CHANGELOG.md for vX.Y.Z
+    (N entries).' Exit 0 on success, exit 1 on error.
+
+side_effects:
+  - "Modifies CHANGELOG.md in-place."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_changelog_spec.py
+    classes:
+      - TestChangelogSpecDerived
+    count: 9
