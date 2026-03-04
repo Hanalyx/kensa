@@ -134,7 +134,7 @@ jobs:
           sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
 
           # Generate changelog update
-          semantic-release changelog 2>/dev/null || true
+          python3 scripts/update_changelog.py --version "${VERSION}"
 
           git add pyproject.toml CHANGELOG.md
           if ! git diff --cached --quiet; then
