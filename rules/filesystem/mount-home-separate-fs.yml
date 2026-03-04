@@ -1,0 +1,38 @@
+id: mount-home-separate-fs
+title: Ensure /home is on a separate filesystem
+description: >
+  User home directories must reside on a separate filesystem or logical volume.
+  A dedicated partition for /home prevents user data growth from consuming
+  the root filesystem.
+rationale: >
+  Without a separate /home filesystem, user files could fill the root
+  filesystem, causing system instability. A separate partition also allows
+  distinct mount options (nodev, nosuid, noexec) to be enforced on home
+  directories independently of the root filesystem.
+severity: low
+category: filesystem
+tags: [mount, home, filesystem, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230328"
+      severity: "CAT III"
+  nist_800_53: ["CM-6", "SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt /home 2>/dev/null | grep -v '^TARGET' | awk '{print $1}' | grep -q '/home$'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Create a separate partition or logical volume for /home and add it
+        to /etc/fstab with nodev and nosuid mount options. Migrate existing
+        user home directories to the new partition.

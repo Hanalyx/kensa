@@ -1,0 +1,42 @@
+id: mount-nfs-noexec
+title: Mount NFS filesystems with noexec option
+description: >
+  NFS (Network File System) filesystems must be mounted with the noexec
+  option to prevent code execution from network-mounted filesystems.
+rationale: >
+  Allowing code execution from NFS-mounted filesystems could allow an
+  attacker who has write access to the NFS server to execute arbitrary
+  code on client systems. The noexec mount option prevents this attack
+  vector.
+severity: medium
+category: filesystem
+tags: [mount, nfs, noexec, network, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230306"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        findmnt -t nfs,nfs4 -o TARGET,OPTIONS -n 2>/dev/null |
+        while read line; do
+          mp=$(echo "$line" | awk '{print $1}')
+          opts=$(echo "$line" | awk '{print $2}')
+          echo "$opts" | grep -q 'noexec' || { echo "FAIL: $mp missing noexec"; exit 1; }
+        done; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add noexec to the mount options for all NFS mount points in /etc/fstab.
+        Remount existing NFS mounts with: mount -o remount,noexec <mountpoint>
