@@ -1,0 +1,32 @@
+id: ssh-host-key-public-mode
+title: Ensure SSH public host key files have mode 0644 or less
+description: >
+  SSH public host key files must have mode 0644 or less permissive.
+rationale: >
+  SSH public host key files must be protected from unauthorized modification.
+  If a public key is replaced, clients will receive certificate validation
+  errors when connecting.
+severity: medium
+category: filesystem
+tags: [file-permissions, ssh, cryptography]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230286"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "SC-28"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /etc/ssh -name '*.pub' -type f -perm /133 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "find /etc/ssh -name '*.pub' -type f -perm /133 -exec chmod go-wx {} +"

@@ -1,0 +1,33 @@
+id: system-commands-mode
+title: Ensure system command files have mode 755 or less
+description: >
+  All files in /usr/bin and /usr/sbin must have mode 755 or less permissive
+  to prevent unauthorized modification of system commands.
+rationale: >
+  If system commands are world-writable, local users can replace them with
+  malicious versions. Restricting permissions to 755 prevents unauthorized
+  modification.
+severity: medium
+category: filesystem
+tags: [file-permissions, system-commands, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230257"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /usr/bin /usr/sbin -perm /022 -type f 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "find /usr/bin /usr/sbin -perm /022 -type f -exec chmod go-w {} +"
