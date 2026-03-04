@@ -1,0 +1,37 @@
+id: mount-nfs-nodev
+title: Ensure nodev option on NFS mounts
+description: >
+  The nodev mount option must be set on all NFS mounts to prevent
+  device special files from being used across the network.
+rationale: >
+  NFS mounts from untrusted or compromised servers could contain device
+  files. The nodev option prevents interpretation of device special files
+  on NFS-mounted filesystems, reducing the attack surface.
+severity: medium
+category: filesystem
+tags: [mount, nfs, nodev, network, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230307"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -E '\snfs[0-9]?\s' /proc/mounts 2>/dev/null |
+        grep -v 'nodev' | head -1
+      expected_stdout: ""
+    remediation:
+      mechanism: manual
+      note: >
+        Add the nodev option to all NFS mount entries in /etc/fstab.
+        Example: server:/share /mnt/nfs nfs defaults,nodev,nosuid 0 0

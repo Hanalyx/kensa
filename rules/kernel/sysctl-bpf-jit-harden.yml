@@ -1,0 +1,37 @@
+id: sysctl-bpf-jit-harden
+title: Enable BPF JIT hardening
+description: >
+  The net.core.bpf_jit_harden sysctl parameter must be set to 2 to enable
+  JIT spraying countermeasures for the Berkeley Packet Filter (BPF) JIT
+  compiler. This hardens BPF against JIT spraying attacks.
+rationale: >
+  The BPF JIT compiler can be exploited via JIT spraying attacks that use
+  BPF programs to place attacker-controlled values at predictable locations.
+  Setting bpf_jit_harden=2 applies hardening mitigations to prevent this
+  attack vector.
+severity: medium
+category: kernel
+tags: [kernel, sysctl, bpf, jit, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244554"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SI-16"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: sysctl_value
+      key: "net.core.bpf_jit_harden"
+      expected: "2"
+    remediation:
+      mechanism: sysctl_set
+      key: "net.core.bpf_jit_harden"
+      value: "2"
+      persist_file: "/etc/sysctl.d/99-kensa-bpf-jit.conf"

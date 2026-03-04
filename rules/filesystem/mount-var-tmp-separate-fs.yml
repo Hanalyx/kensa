@@ -1,0 +1,36 @@
+id: mount-var-tmp-separate-fs
+title: Ensure /var/tmp is on a separate filesystem
+description: >
+  The /var/tmp directory must be on a separate filesystem or logical volume.
+  A dedicated partition for /var/tmp prevents temporary files from consuming
+  the /var filesystem and allows enforcement of separate mount options.
+rationale: >
+  Without a separate /var/tmp filesystem, an attacker filling /var/tmp can
+  cause system instability. A separate partition allows noexec and nosuid
+  options to be enforced independently of /var.
+severity: medium
+category: filesystem
+tags: [mount, var-tmp, filesystem, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244529"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt /var/tmp 2>/dev/null | grep -v '^TARGET' | awk '{print $1}' | grep -q '/var/tmp'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Create a separate partition or logical volume for /var/tmp and add it
+        to /etc/fstab with nodev, nosuid, and noexec options.

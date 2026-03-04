@@ -1,0 +1,34 @@
+id: mount-home-noexec
+title: Ensure noexec option on /home partition
+description: >
+  The noexec mount option must be set on the /home partition to prevent
+  direct execution of binaries placed there by users.
+rationale: >
+  Preventing execution on /home stops users from running unauthorized
+  or malicious programs from their home directories, reducing the risk
+  of privilege escalation and unauthorized code execution.
+severity: medium
+category: filesystem
+tags: [mount, home, hardening]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230302"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: mount_option
+      mount_point: "/home"
+      options: ["noexec"]
+    remediation:
+      mechanism: mount_option_set
+      mount_point: "/home"
+      options: ["noexec"]

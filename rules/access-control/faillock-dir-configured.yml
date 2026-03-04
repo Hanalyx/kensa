@@ -1,0 +1,39 @@
+id: faillock-dir-configured
+title: Configure faillock persistent tally directory
+description: >
+  The dir option in /etc/security/faillock.conf must be set to a persistent
+  directory path to ensure failed login attempt counts survive reboots.
+  The default /var/run/faillock is cleared on reboot.
+rationale: >
+  Without a persistent tally directory, failed login counters are lost on
+  reboot, allowing attackers to circumvent account lockout by rebooting
+  the system. Using a persistent directory such as /var/log/faillock
+  ensures lockout state is maintained across reboots.
+severity: medium
+category: access-control
+tags: [pam, authentication, faillock, persistence]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230339"
+      severity: "CAT II"
+  nist_800_53: ["AC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/security/faillock.conf"
+      key: "dir"
+      expected: "/var/log/faillock"
+    remediation:
+      mechanism: config_set
+      path: "/etc/security/faillock.conf"
+      key: "dir"
+      value: "/var/log/faillock"
+      separator: " = "

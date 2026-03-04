@@ -1,0 +1,36 @@
+id: grub-page-poison
+title: Enable page poisoning in GRUB kernel parameters
+description: >
+  The page_poison=1 kernel parameter must be set to enable memory page
+  poisoning. This fills freed pages with a poison pattern to detect and
+  prevent use-after-free attacks.
+rationale: >
+  Page poisoning overwrites freed memory with a known pattern, causing
+  crashes when use-after-free vulnerabilities are triggered instead of
+  allowing exploitation. This makes kernel memory corruption bugs more
+  detectable and harder to exploit.
+severity: medium
+category: kernel
+tags: [grub, kernel, memory, security, boot]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230279"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SC-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: grub_parameter
+      key: "page_poison"
+      expected: "1"
+    remediation:
+      mechanism: grub_parameter_set
+      key: "page_poison"
+      value: "1"
