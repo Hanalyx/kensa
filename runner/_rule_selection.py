@@ -24,6 +24,7 @@ class RuleSelection:
     ordering: OrderingResult
     rule_to_section: dict[str, str]
     control_ctx: ControlContext | None
+    rules_path: str = ""
     config: RuleConfig | None = None
     cli_overrides: dict[str, Any] = field(default_factory=dict)
     framework: str | None = None
@@ -303,6 +304,7 @@ def select_rules(
         ordering=ordering_result,
         rule_to_section=rule_to_section,
         control_ctx=control_ctx,
+        rules_path=path,
         config=config,
         cli_overrides=cli_overrides,
         framework=framework if framework != "auto" else None,

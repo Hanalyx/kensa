@@ -732,7 +732,7 @@ def check(
 
     # Store results if requested
     if store:
-        _store_results(run_result, hosts, rules or rule)
+        _store_results(run_result, hosts, selection.rules_path)
 
 
 def _store_results(run_result: RunResult, hosts: list, rules_path: str) -> None:
@@ -1343,7 +1343,7 @@ def remediate(
     _store_remediation_results(
         run_result,
         hosts,
-        rules or rule or "",
+        selection.rules_path,
         dry_run=dry_run,
         rollback_on_failure=rollback_on_failure,
         snapshot_mode="none" if no_snapshot else "all",
