@@ -737,6 +737,47 @@ class TestCheckSpecDerived:
         assert "results" in data
         assert "host" in data
 
+    @patch("runner._host_runner.SSHSession")
+    @patch("runner.storage.ResultStore")
+    def test_ac20_store_without_rules_passes_resolved_path(
+        self, mock_store_cls, mock_session_cls, tmp_path
+    ):
+        """AC-20: --store without --rules passes auto-resolved path (not None) to session store."""
+        mock_ssh = _make_mock_ssh()
+        mock_session_cls.return_value = mock_ssh
+        mock_ssh.run = MagicMock(return_value=Result(0, "0", ""))
+
+        mock_store = MagicMock()
+        mock_store_cls.return_value = mock_store
+        mock_store.create_session.return_value = 1
+
+        # Create a minimal rules dir for get_rules_path to resolve to
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        rule_file = rules_dir / "test-rule.yml"
+        rule_file.write_text(
+            "id: test-rule\ntitle: T\nseverity: medium\ncategory: kernel\n"
+            "platforms:\n  - family: rhel\nimplementations:\n"
+            "  - default: true\n    check:\n      method: sysctl_value\n"
+            "      key: net.ipv4.ip_forward\n      expected: '0'\n"
+        )
+
+        runner = CliRunner()
+        with patch("runner.paths.get_rules_path", return_value=rules_dir):
+            result = runner.invoke(
+                main,
+                ["check", "--host", "10.0.0.1", "--store"],
+            )
+
+        assert result.exit_code == 0
+        mock_store.create_session.assert_called_once()
+        call_kwargs = mock_store.create_session.call_args
+        rules_path_arg = call_kwargs[1].get(
+            "rules_path", call_kwargs[0][1] if len(call_kwargs[0]) > 1 else None
+        )
+        assert rules_path_arg is not None
+        assert rules_path_arg != ""
+
 
 # ── TestRemediateSpecDerived ─────────────────────────────────────────────────
 

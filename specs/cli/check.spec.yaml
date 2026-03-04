@@ -55,6 +55,7 @@ objective:
     AC-17: "Invalid output format exits 1 with error."
     AC-18: "'--framework' sorts results by framework section order."
     AC-19: "'-o evidence:path' writes evidence JSON export to file."
+    AC-20: "'--store' without '--rules' or '--rule' passes the auto-resolved rules path (non-empty string) to the session store, not None."
 
 constraints:
   - "MUST exit 0 on normal completion, even with check failures or connection errors."
@@ -172,4 +173,4 @@ testing:
     file: tests/test_cli_spec.py
     classes:
       - TestCheckSpecDerived
-    count: 15
+    count: 16
