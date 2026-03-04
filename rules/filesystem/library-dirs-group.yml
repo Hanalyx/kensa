@@ -1,0 +1,31 @@
+id: library-dirs-group
+title: Ensure library directories are group-owned by root
+description: >
+  All shared library directories must be group-owned by root.
+rationale: >
+  Library directories group-owned by non-root accounts could allow group
+  members to add malicious libraries. Root group ownership prevents this.
+severity: medium
+category: filesystem
+tags: [file-permissions, library-files, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-251709"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /lib /lib64 /usr/lib /usr/lib64 ! -group root -type d 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "find /lib /lib64 /usr/lib /usr/lib64 ! -group root -type d -exec chgrp root {} +"

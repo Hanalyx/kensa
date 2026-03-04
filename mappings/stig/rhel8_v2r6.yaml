@@ -1192,6 +1192,161 @@ controls:
       - crypto-policy-not-overridden
     severity: "CAT I"
     title: "RHEL 8 must implement NIST-approved or NSA-approved key management technology and processes."
+  "V-230396":
+    rules:
+      - audit-log-permissions
+    severity: "CAT II"
+    title: "RHEL 8 audit logs must have a mode of 0600 or less permissive to prevent unauthorized read access."
+  "V-230397":
+    rules:
+      - audit-log-owner
+    severity: "CAT II"
+    title: "RHEL 8 audit logs must be owned by root to prevent unauthorized read access."
+  "V-230398":
+    rules:
+      - audit-log-group
+    severity: "CAT II"
+    title: "RHEL 8 audit logs must be group-owned by root to prevent unauthorized read access."
+  "V-230399":
+    rules:
+      - audit-log-dir-permissions
+    severity: "CAT II"
+    title: "RHEL 8 audit log directory must be owned by root to prevent unauthorized read access."
+  "V-230400":
+    rules:
+      - audit-config-dir-owner
+    severity: "CAT II"
+    title: "RHEL 8 audit log directory must be group-owned by root to prevent unauthorized read access."
+  "V-230401":
+    rules:
+      - audit-config-dir-group
+    severity: "CAT II"
+    title: "RHEL 8 audit log directory must have a mode of 0700 or less permissive to prevent unauthorized read access."
+  "V-230402":
+    rules:
+      - audit-rules-immutable
+    severity: "CAT II"
+    title: "RHEL 8 audit system must protect auditing rules from unauthorized change."
+  "V-230403":
+    rules:
+      - auditd-loginuid-immutable
+    severity: "CAT II"
+    title: "RHEL 8 audit system must protect logon UIDs from unauthorized change."
+  "V-230471":
+    rules:
+      - audit-binary-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 audit system must protect audit tools from unauthorized access."
+  "V-230472":
+    rules:
+      - audit-tools-permissions
+    severity: "CAT II"
+    title: "RHEL 8 audit tools must have a mode of 0755 or less permissive."
+  "V-230473":
+    rules:
+      - audit-tools-owner
+    severity: "CAT II"
+    title: "RHEL 8 audit tools must be owned by root."
+  "V-230474":
+    rules:
+      - audit-tools-group
+    severity: "CAT II"
+    title: "RHEL 8 audit tools must be group-owned by root."
+  "V-230475":
+    rules:
+      - auditd-tools-integrity
+    severity: "CAT II"
+    title: "RHEL 8 audit tools must use cryptographic mechanisms to protect the integrity of audit tools."
+  "V-230245":
+    rules:
+      - var-log-messages-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 /var/log/messages file must have mode 0640 or less permissive."
+  "V-230246":
+    rules:
+      - var-log-messages-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 /var/log/messages file must be owned by root."
+  "V-230247":
+    rules:
+      - var-log-messages-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 /var/log/messages file must be group-owned by root."
+  "V-230248":
+    rules:
+      - var-log-dir-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 /var/log directory must have mode 0755 or less permissive."
+  "V-230249":
+    rules:
+      - var-log-dir-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 /var/log directory must be owned by root."
+  "V-230250":
+    rules:
+      - var-log-dir-permissions
+    severity: "CAT II"
+    title: "The RHEL 8 /var/log directory must be group-owned by root."
+  "V-230257":
+    rules:
+      - system-commands-mode
+    severity: "CAT II"
+    title: "RHEL 8 system commands must have mode 755 or less permissive."
+  "V-230258":
+    rules:
+      - system-commands-owner
+    severity: "CAT II"
+    title: "RHEL 8 system commands must be owned by root."
+  "V-230259":
+    rules:
+      - system-commands-group
+    severity: "CAT II"
+    title: "RHEL 8 system commands must be group-owned by root or a system account."
+  "V-230260":
+    rules:
+      - library-files-mode
+    severity: "CAT II"
+    title: "RHEL 8 library files must have mode 755 or less permissive."
+  "V-230261":
+    rules:
+      - library-files-owner
+    severity: "CAT II"
+    title: "RHEL 8 library files must be owned by root."
+  "V-230262":
+    rules:
+      - library-files-group
+    severity: "CAT II"
+    title: "RHEL 8 library files must be group-owned by root."
+  "V-251707":
+    rules:
+      - library-dirs-mode
+    severity: "CAT II"
+    title: "RHEL 8 library directories must have mode 755 or less permissive."
+  "V-251708":
+    rules:
+      - library-dirs-owner
+    severity: "CAT II"
+    title: "RHEL 8 library directories must be owned by root."
+  "V-251709":
+    rules:
+      - library-dirs-group
+    severity: "CAT II"
+    title: "RHEL 8 library directories must be group-owned by root."
+  "V-230286":
+    rules:
+      - ssh-host-key-public-mode
+    severity: "CAT II"
+    title: "The RHEL 8 SSH public host key files must have mode 0644 or less permissive."
+  "V-230287":
+    rules:
+      - ssh-host-key-private-mode
+    severity: "CAT II"
+    title: "The RHEL 8 SSH private host key files must have mode 0640 or less permissive."
+  "V-251710":
+    rules:
+      - aide-installed
+    severity: "CAT II"
+    title: "The RHEL 8 file integrity tool must use FIPS 140-2-approved cryptographic algorithms."
 
 
 unimplemented:
@@ -1244,57 +1399,9 @@ unimplemented:
     title: "RHEL 8 must be configured so that all network connections associated with SSH traffic terminate after becoming unresponsive."
     severity: "CAT II"
     reason: "Needs rule implementation"
-  "V-230245":
-    title: "The RHEL 8 /var/log/messages file must have mode 0640 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230246":
-    title: "The RHEL 8 /var/log/messages file must be owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230247":
-    title: "The RHEL 8 /var/log/messages file must be group-owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230248":
-    title: "The RHEL 8 /var/log directory must have mode 0755 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230249":
-    title: "The RHEL 8 /var/log directory must be owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230250":
-    title: "The RHEL 8 /var/log directory must be group-owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230253":
     title: "RHEL 8 must ensure the SSH server uses strong entropy."
     severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230257":
-    title: "RHEL 8 system commands must have mode 755 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230258":
-    title: "RHEL 8 system commands must be owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230259":
-    title: "RHEL 8 system commands must be group-owned by root or a system account."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230260":
-    title: "RHEL 8 library files must have mode 755 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230261":
-    title: "RHEL 8 library files must be owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230262":
-    title: "RHEL 8 library files must be group-owned by root."
-    severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230263":
     title: "The RHEL 8 file integrity tool must notify the system administrator when changes to the baseline configuration or anomalies in the operation of any security functions are discovered within an organizationally defined frequency."
@@ -1351,14 +1458,6 @@ unimplemented:
   "V-230285":
     title: "RHEL 8 must enable the hardware random number generator entropy gatherer service."
     severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230286":
-    title: "The RHEL 8 SSH public host key files must have mode 0644 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230287":
-    title: "The RHEL 8 SSH private host key files must have mode 0640 or less permissive."
-    severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230288":
     title: "The RHEL 8 SSH daemon must perform strict mode checking of home directory configuration files."
@@ -1612,38 +1711,6 @@ unimplemented:
     title: "RHEL 8 must resolve audit information before writing to disk."
     severity: "CAT III"
     reason: "Needs rule implementation"
-  "V-230396":
-    title: "RHEL 8 audit logs must have a mode of 0600 or less permissive to prevent unauthorized read access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230397":
-    title: "RHEL 8 audit logs must be owned by root to prevent unauthorized read access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230398":
-    title: "RHEL 8 audit logs must be group-owned by root to prevent unauthorized read access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230399":
-    title: "RHEL 8 audit log directory must be owned by root to prevent unauthorized read access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230400":
-    title: "RHEL 8 audit log directory must be group-owned by root to prevent unauthorized read access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230401":
-    title: "RHEL 8 audit log directory must have a mode of 0700 or less permissive to prevent unauthorized read access."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230402":
-    title: "RHEL 8 audit system must protect auditing rules from unauthorized change."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230403":
-    title: "RHEL 8 audit system must protect logon UIDs from unauthorized change."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
   "V-230468":
     title: "RHEL 8 must enable auditing of processes that start prior to the audit daemon."
     severity: "CAT III"
@@ -1655,26 +1722,6 @@ unimplemented:
   "V-230470":
     title: "RHEL 8 must enable Linux audit logging for the USBGuard daemon."
     severity: "CAT III"
-    reason: "Needs rule implementation"
-  "V-230471":
-    title: "RHEL 8 must allow only the Information System Security Manager (ISSM) (or individuals or roles appointed by the ISSM) to select which auditable events are to be audited."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230472":
-    title: "RHEL 8 audit tools must have a mode of 0755 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230473":
-    title: "RHEL 8 audit tools must be owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230474":
-    title: "RHEL 8 audit tools must be group-owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-230475":
-    title: "RHEL 8 must use cryptographic mechanisms to protect the integrity of audit tools."
-    severity: "CAT II"
     reason: "Needs rule implementation"
   "V-230476":
     title: "RHEL 8 must allocate audit record storage capacity to store at least one week of audit records, when audit records are not immediately sent to a central audit record storage facility."
@@ -1954,22 +2001,6 @@ unimplemented:
     reason: "Needs rule implementation"
   "V-250316":
     title: "RHEL 8 systems below version 8.2 must configure SELinux context type to allow the use of a non-default faillock tally directory."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-251707":
-    title: "RHEL 8 library directories must have mode 755 or less permissive."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-251708":
-    title: "RHEL 8 library directories must be owned by root."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-251709":
-    title: "RHEL 8 library directories must be group-owned by root or a system account."
-    severity: "CAT II"
-    reason: "Needs rule implementation"
-  "V-251710":
-    title: "The RHEL 8 operating system must use a file integrity tool to verify correct operation of all security functions."
     severity: "CAT II"
     reason: "Needs rule implementation"
   "V-251711":

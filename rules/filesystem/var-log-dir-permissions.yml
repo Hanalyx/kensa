@@ -1,0 +1,38 @@
+id: var-log-dir-permissions
+title: Set permissions on /var/log directory
+description: >
+  The /var/log directory must have mode 0755 or less permissive and
+  be owned by root with group root.
+rationale: >
+  The /var/log directory stores system and application logs. Improper
+  permissions could allow unauthorized access to or modification of
+  log data.
+severity: medium
+category: filesystem
+tags: [file-permissions, logging, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230248"
+      severity: "CAT II"
+  nist_800_53: ["AU-9", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: "/var/log"
+      owner: "root"
+      group: "root"
+      mode: "0755"
+    remediation:
+      mechanism: file_permissions
+      path: "/var/log"
+      owner: "root"
+      group: "root"
+      mode: "0755"

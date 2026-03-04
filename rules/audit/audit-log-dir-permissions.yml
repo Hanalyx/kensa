@@ -16,6 +16,10 @@ depends_on: [auditd-service-enabled]
 references:
   cis:
     rhel9_v2:  { section: "6.3.4.1", level: "L1", type: "Automated" }
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230399"
+      severity: "CAT II"
   nist_800_53: ["AU-9", "AC-6"]
 
 platforms:

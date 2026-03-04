@@ -1,0 +1,33 @@
+id: library-files-mode
+title: Ensure library files have mode 755 or less
+description: >
+  All shared library files in /lib, /lib64, /usr/lib, and /usr/lib64 must
+  have mode 755 or less permissive.
+rationale: >
+  World-writable library files could be replaced with malicious versions
+  that are loaded by any application that uses them. Restrictive permissions
+  prevent this.
+severity: medium
+category: filesystem
+tags: [file-permissions, library-files, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230260"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /lib /lib64 /usr/lib /usr/lib64 -perm /022 -type f 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "find /lib /lib64 /usr/lib /usr/lib64 -perm /022 -type f -exec chmod go-w {} +"

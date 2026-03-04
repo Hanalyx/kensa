@@ -1,23 +1,21 @@
 id: library-dirs-owner
-title: Ensure system library directories are owned by root
+title: Ensure library directories are owned by root
 description: >
-  All system library directories must be owned by root to prevent
-  unauthorized modification of shared libraries.
+  All shared library directories must be owned by root to prevent
+  unauthorized modification.
 rationale: >
-  Library directories owned by non-root users could allow those users
-  to replace legitimate libraries with malicious ones, enabling
-  privilege escalation through library injection attacks.
+  Library directories not owned by root could allow non-privileged users
+  to add malicious libraries that are loaded by system applications.
 severity: medium
 category: filesystem
-tags: [permissions, libraries, ownership, hardening]
+tags: [file-permissions, library-files, security]
 
 references:
   stig:
-    rhel9_v2r7:
-      vuln_id: "V-257922"
-      stig_id: "RHEL-09-232380"
+    rhel8_v2r6:
+      vuln_id: "V-251708"
       severity: "CAT II"
-  nist_800_53: ["AC-6", "CM-6"]
+  nist_800_53: ["AC-6", "CM-5"]
 
 platforms:
   - family: rhel
@@ -27,26 +25,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: |
-        # Check ownership of standard library directories
-        fail=0
-        for libdir in /lib /lib64 /usr/lib /usr/lib64 /usr/local/lib /usr/local/lib64; do
-          if [ -d "$libdir" ]; then
-            owner=$(stat -c '%U' "$libdir" 2>/dev/null)
-            if [ "$owner" != "root" ]; then
-              echo "FAIL: $libdir is owned by $owner (expected root)"
-              fail=1
-            fi
-          fi
-        done
-        if [ "$fail" -eq 0 ]; then
-          echo "OK: All library directories are owned by root"
-          exit 0
-        fi
-        exit 1
-      expected_exit: 0
+      run: "find /lib /lib64 /usr/lib /usr/lib64 ! -user root -type d 2>/dev/null | head -1"
+      expected_stdout: ""
     remediation:
-      mechanism: manual
-      note: >
-        For each library directory not owned by root, run:
-        chown root <directory>
+      mechanism: command_exec
+      run: "find /lib /lib64 /usr/lib /usr/lib64 ! -user root -type d -exec chown root {} +"
