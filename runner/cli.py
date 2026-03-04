@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
+from pathlib import Path
 from threading import Lock
 
 import click
@@ -452,6 +454,7 @@ def check(
     store,
 ):
     """Run compliance checks on target hosts."""
+    _validate_output_paths(outputs)
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     try:
         selection = select_rules(
@@ -994,6 +997,7 @@ def remediate(
     no_snapshot,
 ):
     """Check rules and remediate failures on target hosts."""
+    _validate_output_paths(outputs)
     hosts = _resolve_hosts(host, inventory, limit, user, key, port)
     try:
         selection = select_rules(
@@ -1370,6 +1374,31 @@ def _resolve_hosts(host, inventory, limit, user, key, port) -> list[HostInfo]:
         sys.exit(1)
 
 
+def _validate_output_paths(outputs: tuple[str, ...]) -> None:
+    """Validate output file paths before starting a scan.
+
+    Checks that every path-bearing output spec (e.g., 'json:./results/out.json')
+    has a parent directory that exists and is writable. Exits 1 with a human-
+    readable error if not, so users get immediate feedback before any SSH work.
+    """
+    for spec in outputs:
+        _, filepath = parse_output_spec(spec)
+        if not filepath:
+            continue
+        parent = Path(filepath).parent
+        if not parent.exists():
+            console.print(
+                f'[red]Error:[/red] output directory "{parent}" does not exist.'
+                " Create it first or choose a different path."
+            )
+            sys.exit(1)
+        if not os.access(parent, os.W_OK):
+            console.print(
+                f'[red]Error:[/red] output directory "{parent}" is not writable.'
+            )
+            sys.exit(1)
+
+
 def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
     """Write formatted outputs based on --output flags."""
     for spec in outputs:
@@ -1381,7 +1410,7 @@ def _write_outputs(run_result: RunResult, outputs: tuple[str, ...]) -> None:
             else:
                 # Print to stdout
                 print(output)
-        except ValueError as exc:
+        except (ValueError, OSError) as exc:
             console.print(f"[red]Error:[/red] {exc}")
             sys.exit(1)
 
