@@ -16,11 +16,14 @@ references:
     rhel9_v2r7:
       vuln_id: "V-258035"
       severity: "CAT II"
+    rhel8_v2r6:
+      vuln_id: "V-244547"
+      severity: "CAT II"
   nist_800_53: ["CM-7", "IA-3"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true

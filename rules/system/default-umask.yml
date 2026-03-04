@@ -1,0 +1,42 @@
+id: default-umask
+title: Configure default umask for user accounts
+description: >
+  The default umask for all users must be configured to 077 to prevent
+  newly created files and directories from being accessible by other users
+  by default.
+rationale: >
+  A weak umask allows users to create world-readable or group-readable
+  files, potentially exposing sensitive information. Setting umask to 077
+  ensures new files have the most restrictive permissions by default.
+severity: medium
+category: system
+tags: [umask, permissions, security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230385"
+      severity: "CAT II"
+  nist_800_53: ["AC-3", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -hE '^\s*UMASK\s' /etc/login.defs /etc/profile /etc/bashrc
+        /etc/profile.d/*.sh 2>/dev/null |
+        grep -v '^\s*#' | awk '{print $2}' | grep -qv '^077$' |
+        head -1 || umask_val=$(grep -hE '^\s*UMASK\s' /etc/login.defs 2>/dev/null |
+        awk '{print $2}') && [ "$umask_val" = "077" ]
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/login.defs"
+      key: "UMASK"
+      value: "077"
+      separator: "\t\t"

@@ -14,6 +14,10 @@ tags: [audit, notification, mail, configuration]
 depends_on: [auditd-service-enabled]
 
 references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230390"
+      severity: "CAT II"
   nist_800_53: ["AU-4", "AU-5"]
 
 platforms:
