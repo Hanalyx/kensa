@@ -1,0 +1,45 @@
+id: audisp-encrypt-connection
+title: Encrypt audit records transfer to remote logging server
+description: >
+  RHEL 8 must encrypt the transfer of audit records off-loaded onto a
+  different system or storage media from the system being audited.
+  The enable_krb5 or transport option in audisp-remote.conf must be
+  configured to use encryption.
+rationale: >
+  If audit records are transferred without encryption, a man-in-the-middle
+  attacker could intercept or modify the audit data in transit. Encrypting
+  the transfer ensures the integrity and confidentiality of the audit records.
+severity: medium
+category: audit
+tags: [audit, audisp, encryption, remote, tls, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230481"
+      severity: "CAT II"
+  nist_800_53: ["AU-9", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        val=$(grep -E '^\s*enable_krb5\s*=' \
+          /etc/audisp/audisp-remote.conf /etc/audit/audisp-remote.conf 2>/dev/null |
+          awk -F= '{print $2}' | tr -d ' ' | head -1)
+        [ "$val" = "yes" ] || \
+        grep -qE '^\s*transport\s*=\s*(KRB5|TLS)' \
+          /etc/audisp/audisp-remote.conf /etc/audit/audisp-remote.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure encryption for the audisp-remote plugin:
+        Set enable_krb5 = yes (or transport = KRB5) in
+        /etc/audisp/audisp-remote.conf. Ensure the Kerberos keytab is
+        configured correctly, then restart the auditd service.

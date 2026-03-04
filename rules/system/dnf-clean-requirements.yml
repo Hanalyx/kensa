@@ -1,0 +1,38 @@
+id: dnf-clean-requirements
+title: Configure DNF to remove obsolete packages after updates
+description: >
+  The DNF package manager must be configured to remove all software
+  components after updated versions have been installed. The
+  clean_requirements_on_remove option must be set to True in dnf.conf.
+rationale: >
+  Failing to remove outdated packages can leave old, potentially vulnerable
+  software on the system. Configuring DNF to clean dependencies on removal
+  reduces software bloat and removes obsolete packages that could be exploited.
+severity: low
+category: system
+tags: [dnf, package, updates, cleanup, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230281"
+      severity: "CAT III"
+  nist_800_53: ["CM-6", "SI-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/dnf/dnf.conf"
+      key: "clean_requirements_on_remove"
+      expected: "True"
+    remediation:
+      mechanism: config_set
+      path: "/etc/dnf/dnf.conf"
+      key: "clean_requirements_on_remove"
+      value: "True"
+      separator: "="

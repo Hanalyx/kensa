@@ -1,0 +1,45 @@
+id: gdm-lock-delay
+title: Configure and lock graphical session lock-delay setting
+description: >
+  RHEL 8 must prevent a user from overriding the session lock-delay setting
+  for the graphical user interface. The lock-delay dconf setting must be
+  configured and locked in the system database.
+rationale: >
+  Allowing users to override the session lock-delay setting could allow a
+  user to prevent the automatic screen lock from activating. Locking this
+  setting via dconf ensures all users have the required idle lock behavior
+  regardless of individual preferences.
+severity: medium
+category: system
+tags: [gdm, graphical, lock-delay, dconf, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230354"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        grep -rq 'lock-delay' /etc/dconf/db/local.d/locks/ 2>/dev/null ||
+        grep -rq '/org/gnome/desktop/screensaver/lock-delay' /etc/dconf/db/local.d/locks/ 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Lock the dconf lock-delay setting:
+        1. Create /etc/dconf/db/local.d/00-screensaver with:
+             [org/gnome/desktop/screensaver]
+             lock-delay=uint32 5
+        2. Create /etc/dconf/db/local.d/locks/00-screensaver with:
+             /org/gnome/desktop/screensaver/lock-delay
+        3. Run: dconf update

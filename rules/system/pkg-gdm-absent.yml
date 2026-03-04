@@ -1,0 +1,34 @@
+id: pkg-gdm-absent
+title: Ensure graphical display manager is not installed unless approved
+description: >
+  The GNOME Display Manager (GDM) package must not be installed on RHEL 8
+  unless a graphical user interface is required. Unnecessary graphical
+  display managers increase the attack surface of the system.
+rationale: >
+  Installing GDM on a system that does not require a graphical interface
+  introduces an unnecessary attack surface. If a graphical interface is
+  needed, it should be explicitly approved and the system secured accordingly.
+severity: medium
+category: system
+tags: [gdm, graphical, package, attack-surface, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230553"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: "gdm"
+      state: "absent"
+    remediation:
+      mechanism: package_absent
+      name: "gdm"

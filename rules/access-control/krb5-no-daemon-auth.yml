@@ -1,0 +1,42 @@
+id: krb5-no-daemon-auth
+title: Prevent system daemons from using Kerberos for authentication
+description: >
+  RHEL 8 must prevent system daemons from using Kerberos for authentication.
+  The /etc/krb5.conf file must not be configured to allow all daemons to use
+  Kerberos tickets unless specifically required.
+rationale: >
+  System daemons using Kerberos authentication without explicit configuration
+  and approval could allow compromised Kerberos credentials to be used for
+  lateral movement. Controlling Kerberos use by daemons limits the impact of
+  credential compromise.
+severity: medium
+category: access-control
+tags: [kerberos, authentication, daemons, security, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230238"
+      severity: "CAT II"
+  nist_800_53: ["AC-17", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q krb5-libs &>/dev/null; then exit 0; fi
+        ! grep -qiE '^\s*no_addresses\s*=\s*true\b' /etc/krb5.conf 2>/dev/null &&
+        ! grep -qiE '^\s*allow_weak_crypto\s*=\s*true\b' /etc/krb5.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Review /etc/krb5.conf and ensure daemons are not configured to use
+        Kerberos authentication unless required. Remove or restrict the
+        [appdefaults] section entries that permit daemon authentication.
+        Contact the security team to document any approved Kerberos daemon use.

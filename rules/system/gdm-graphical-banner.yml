@@ -1,0 +1,47 @@
+id: gdm-graphical-banner
+title: Display DoD banner before graphical user logon
+description: >
+  RHEL 8 must display the Standard Mandatory DoD Notice and Consent Banner
+  before granting local or remote access to the system via a graphical
+  user logon. The GDM banner-message-enable setting must be true.
+rationale: >
+  Displaying a required logon banner before granting access informs users
+  of the monitoring and access restrictions in place. This is required for
+  DoD systems to enforce proper authorized use acknowledgment.
+severity: medium
+category: system
+tags: [gdm, graphical, banner, dod-consent, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230226"
+      severity: "CAT II"
+  nist_800_53: ["AC-8", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(grep -i '^\s*banner-message-enable\s*=\s*' \
+          /etc/dconf/db/gdm.d/*.ini /etc/dconf/db/gdm.d/00-security-settings 2>/dev/null |
+          grep -o 'true' | head -1)
+        [ "$val" = "true" ] || \
+        (DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+          /org/gnome/login-screen/banner-message-enable 2>/dev/null | grep -q 'true')
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure GDM dconf settings to display the DoD banner:
+        Create /etc/dconf/db/gdm.d/00-security-settings with:
+          [org/gnome/login-screen]
+          banner-message-enable=true
+          banner-message-text='<DoD warning banner text>'
+        Then run: dconf update

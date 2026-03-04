@@ -1,0 +1,44 @@
+id: gdm-idle-delay-override
+title: Prevent users from overriding the session idle-delay setting
+description: >
+  RHEL 8 must prevent a user from overriding the session idle-delay setting
+  for the graphical user interface. The idle-delay setting must be locked
+  in the dconf system database.
+rationale: >
+  Allowing users to override the idle-delay setting lets them prevent the
+  automatic screen lock from activating. Locking this setting ensures all
+  graphical sessions have the required inactivity timeout.
+severity: medium
+category: system
+tags: [gdm, graphical, dconf, idle-delay, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244538"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        grep -rq '/org/gnome/desktop/session/idle-delay' \
+          /etc/dconf/db/local.d/locks/ 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Lock the session idle-delay dconf setting:
+        1. Create /etc/dconf/db/local.d/00-screensaver with:
+             [org/gnome/desktop/session]
+             idle-delay=uint32 900
+        2. Create /etc/dconf/db/local.d/locks/00-screensaver with:
+             /org/gnome/desktop/session/idle-delay
+        3. Run: dconf update
