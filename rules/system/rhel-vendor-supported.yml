@@ -1,0 +1,38 @@
+id: rhel-vendor-supported
+title: Ensure RHEL is a vendor-supported release
+description: >
+  The operating system must be a vendor-supported release. Red Hat
+  must continue to provide security patches and support for the
+  installed version of RHEL.
+rationale: >
+  An operating system that is no longer supported by the vendor will
+  not receive security updates. Running unsupported software exposes
+  the system to unpatched vulnerabilities.
+severity: critical
+category: system
+tags: [vendor-support, patching, lifecycle]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230221"
+      severity: "CAT I"
+  nist_800_53: ["SI-2", "SA-22"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+    max_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "subscription-manager status 2>/dev/null | grep -i 'overall status' || echo 'Unknown'"
+      expected_stdout: "Current"
+    remediation:
+      mechanism: manual
+      note: >
+        Register the system with Red Hat Subscription Manager and ensure
+        an active RHEL subscription is applied. Run: subscription-manager
+        register --auto-attach

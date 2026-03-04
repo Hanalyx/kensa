@@ -16,6 +16,9 @@ references:
     rhel9_v2r7:
       vuln_id: "V-257830"
       severity: "CAT II"
+    rhel8_v2r6:
+      vuln_id: "V-237640"
+      severity: "CAT II"
   nist_800_53: ["CM-7", "AC-6"]
 
 platforms:
