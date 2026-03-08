@@ -127,9 +127,7 @@ def build_snapshot(data: dict) -> dict:
 
 def _fw_data_changed(conn: sqlite3.Connection, snapshot: dict) -> bool:
     """Return True if framework coverage differs from the most recent snapshot."""
-    row = conn.execute(
-        "SELECT id FROM snapshots ORDER BY id DESC LIMIT 1"
-    ).fetchone()
+    row = conn.execute("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()
     if row is None:
         return True
     last_id = row["id"]
@@ -138,7 +136,11 @@ def _fw_data_changed(conn: sqlite3.Connection, snapshot: dict) -> bool:
             "SELECT pct, implemented FROM fw_snapshots WHERE snapshot_id=? AND fw_id=?",
             (last_id, fw_id),
         ).fetchone()
-        if prev is None or prev["pct"] != fw["pct"] or prev["implemented"] != fw["implemented"]:
+        if (
+            prev is None
+            or prev["pct"] != fw["pct"]
+            or prev["implemented"] != fw["implemented"]
+        ):
             return True
     prev_rules = conn.execute(
         "SELECT total_rules FROM snapshots WHERE id=?", (last_id,)
@@ -160,14 +162,27 @@ def save_snapshot(conn: sqlite3.Connection, snapshot: dict) -> bool:
     for fw_id, fw in snapshot["frameworks"].items():
         conn.execute(
             "INSERT INTO fw_snapshots VALUES (?,?,?,?,?,?)",
-            (snap_id, fw_id, fw["implemented"], fw["unimplemented"], fw["total"], fw["pct"]),
+            (
+                snap_id,
+                fw_id,
+                fw["implemented"],
+                fw["unimplemented"],
+                fw["total"],
+                fw["pct"],
+            ),
         )
     for cat, fw_data in snapshot["matrix"].items():
         for fw_id, cell in fw_data.items():
             conn.execute(
                 "INSERT INTO matrix_snapshots VALUES (?,?,?,?,?,?)",
-                (snap_id, cat, fw_id, cell["count"],
-                 snapshot["frameworks"].get(fw_id, {}).get("total", 0), cell["pct"]),
+                (
+                    snap_id,
+                    cat,
+                    fw_id,
+                    cell["count"],
+                    snapshot["frameworks"].get(fw_id, {}).get("total", 0),
+                    cell["pct"],
+                ),
             )
     conn.commit()
     return True
@@ -202,6 +217,7 @@ def load_history(conn: sqlite3.Connection) -> list[dict]:
 
 # ── Data loading ───────────────────────────────────────────────────────────────
 
+
 def load_rules() -> dict[str, dict]:
     """Load all rule YAMLs keyed by rule ID."""
     rules = {}
@@ -213,6 +229,27 @@ def load_rules() -> dict[str, dict]:
         except Exception as e:
             print(f"Warning: could not load rule {f}: {e}", file=sys.stderr)
     return rules
+
+
+REVIEW_FILE = OUTPUT_DIR / "review.yaml"
+
+
+def load_reviews(path: Path | None = None) -> dict[str, list[dict]]:
+    """Load review sidecar YAML. Returns empty dict on missing/empty/malformed."""
+    p = path or REVIEW_FILE
+    if not p.exists():
+        return {}
+    try:
+        data = yaml.safe_load(p.read_text())
+        if not data or not isinstance(data, dict):
+            return {}
+        reviews = data.get("reviews", {})
+        if not isinstance(reviews, dict):
+            return {}
+        return reviews
+    except Exception as e:
+        print(f"Warning: could not load review file {p}: {e}", file=sys.stderr)
+        return {}
 
 
 def load_mappings() -> dict[str, dict]:
@@ -255,12 +292,25 @@ def load_control_titles() -> dict[str, str]:
     return titles
 
 
+def _resolve_flag_status(entries: list[dict]) -> str | None:
+    """Return the active flag type for a rule's review entries, or None."""
+    if not entries:
+        return None
+    # Sort chronologically and take the last entry's flag
+    sorted_entries = sorted(entries, key=lambda e: e.get("date", ""))
+    last_flag = sorted_entries[-1].get("flag", "")
+    return None if last_flag == "cleared" else (last_flag or None)
+
+
 def compute_data(
     mappings: dict[str, dict],
     rules: dict[str, dict],
     control_titles: dict[str, str],
+    reviews: dict[str, list[dict]] | None = None,
 ) -> dict:
     """Build the full data structure for the HTML report."""
+    if reviews is None:
+        reviews = {}
     rule_to_frameworks: dict[str, list[str]] = {}
     frameworks_data = []
 
@@ -329,16 +379,27 @@ def compute_data(
             }
         )
 
-    rules_data = [
-        {
-            "id": rule_id,
-            "title": rule.get("title", ""),
-            "category": rule.get("category", ""),
-            "severity": rule.get("severity", ""),
-            "frameworks": rule_to_frameworks.get(rule_id, []),
-        }
-        for rule_id, rule in sorted(rules.items())
-    ]
+    rules_data = []
+    for rule_id, rule in sorted(rules.items()):
+        rule_reviews = reviews.get(rule_id, [])
+        sorted_reviews = sorted(rule_reviews, key=lambda e: e.get("date", ""))
+        rules_data.append(
+            {
+                "id": rule_id,
+                "title": rule.get("title", ""),
+                "description": rule.get("description", ""),
+                "rationale": rule.get("rationale", ""),
+                "category": rule.get("category", ""),
+                "severity": rule.get("severity", ""),
+                "tags": rule.get("tags", []),
+                "references": rule.get("references", {}),
+                "platforms": rule.get("platforms", []),
+                "implementations": rule.get("implementations", []),
+                "frameworks": rule_to_frameworks.get(rule_id, []),
+                "reviews": sorted_reviews,
+                "flag_status": _resolve_flag_status(sorted_reviews),
+            }
+        )
 
     matrix: dict[str, dict[str, dict]] = {}
     for cat in CATEGORIES:
@@ -396,6 +457,17 @@ def compute_data(
         for cat in CATEGORIES
     ]
 
+    # Review summary
+    flagged_rules = [r for r in rules_data if r.get("flag_status")]
+    flag_by_type: dict[str, int] = {}
+    for r in flagged_rules:
+        ft = r["flag_status"]
+        flag_by_type[ft] = flag_by_type.get(ft, 0) + 1
+    review_summary = {
+        "total_flagged": len(flagged_rules),
+        "by_type": flag_by_type,
+    }
+
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "total_rules": len(rules),
@@ -407,10 +479,12 @@ def compute_data(
         "categories": category_stats,
         "framework_order": FRAMEWORK_ORDER,
         "framework_short": FRAMEWORK_SHORT,
+        "review_summary": review_summary,
     }
 
 
 # ── HTML renderer ──────────────────────────────────────────────────────────────
+
 
 def render_html(data: dict, history: list[dict]) -> str:
     """Render the full self-contained HTML report."""
@@ -506,6 +580,29 @@ select{{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-s
 .delta-eq{{color:var(--gray);font-size:12px}}
 .sparkline-cell{{min-width:110px}}
 .hist-table td{{vertical-align:middle}}
+.rule-link{{color:var(--accent);cursor:pointer;text-decoration:none;font-size:12px}}
+.rule-link:hover{{text-decoration:underline}}
+.modal-overlay{{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;justify-content:center;align-items:flex-start;padding:40px 20px;overflow-y:auto}}
+.modal-overlay.open{{display:flex}}
+.modal{{background:var(--surface);border-radius:12px;max-width:900px;width:100%;max-height:calc(100vh - 80px);overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}}
+.modal-header{{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1;border-radius:12px 12px 0 0}}
+.modal-header h3{{font-size:16px;font-weight:600}}
+.modal-close{{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px 8px;border-radius:4px}}
+.modal-close:hover{{background:#f1f5f9;color:var(--text)}}
+.modal-body{{padding:24px}}
+.detail-section{{margin-bottom:20px}}
+.detail-section h4{{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}}
+.detail-section p{{font-size:13px;line-height:1.6;color:var(--text)}}
+.detail-grid{{display:grid;grid-template-columns:120px 1fr;gap:4px 12px;font-size:13px}}
+.detail-grid dt{{color:var(--muted);font-weight:500}}
+.detail-grid dd{{color:var(--text)}}
+.impl-block{{background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px;font-size:13px}}
+.impl-block code{{font-size:12px;background:#e2e8f0;padding:1px 4px;border-radius:3px}}
+.impl-block pre{{margin:6px 0 0;padding:8px;background:#1e293b;color:#e2e8f0;border-radius:4px;font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all}}
+.flag-dot{{display:inline-block;width:10px;height:10px;border-radius:50%}}
+.review-entry{{border-left:3px solid var(--border);padding:8px 12px;margin-bottom:8px;font-size:13px;background:#f8fafc;border-radius:0 6px 6px 0}}
+.review-entry .re-meta{{font-size:12px;color:var(--muted);margin-bottom:4px}}
+.review-entry .re-note{{color:var(--text)}}
 </style>
 </head>
 <body>
@@ -527,6 +624,15 @@ select{{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-s
   <section id="tab-rules"></section>
   <section id="tab-history"></section>
 </main>
+<div class="modal-overlay" id="rule-modal" onclick="if(event.target===this)closeRuleDetail()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Rule Detail</h3>
+      <button class="modal-close" onclick="closeRuleDetail()">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
 <script>
 const DATA = {data_json};
 const HISTORY = {history_json};
@@ -614,6 +720,7 @@ function renderSummary() {{
       <div class="stat"><div class="val">${{d.total_frameworks}}</div><div class="lbl">Frameworks</div></div>
       <div class="stat"><div class="val">${{d.categories.length}}</div><div class="lbl">Categories</div></div>
       <div class="stat"><div class="val">${{HISTORY.length}}</div><div class="lbl">History Snapshots</div></div>
+      ${{(d.review_summary&&d.review_summary.total_flagged>0)?`<div class="stat" style="border-color:var(--orange)"><div class="val" style="color:var(--orange)">${{d.review_summary.total_flagged}}</div><div class="lbl">Flagged for Review</div></div>`:''}}
     </div>
     ${{deltaNote}}
     <div class="card">
@@ -803,6 +910,130 @@ function innerTab(btn,id){{
   btn.classList.add('active');document.getElementById(id).classList.add('active');
 }}
 
+// ── Flag colors ──────────────────────────────────────────────────────────────
+const FLAG_COLORS={{'incorrect-check':'#dc2626','verify':'#ca8a04','stale-reference':'#ea580c','missing-coverage':'#3b82f6','cleared':'#16a34a'}};
+function flagDot(status){{
+  if(!status) return '';
+  const col=FLAG_COLORS[status]||'var(--gray)';
+  return `<span class="flag-dot" style="background:${{col}}" title="${{status}}"></span>`;
+}}
+
+// ── Rule detail modal ────────────────────────────────────────────────────────
+function showRuleDetail(ruleId){{
+  const r=DATA.rules.find(x=>x.id===ruleId);
+  if(!r) return;
+  document.getElementById('modal-title').textContent=r.id;
+  let html='';
+
+  // Metadata
+  html+=`<div class="detail-section"><h4>Metadata</h4>
+    <dl class="detail-grid">
+      <dt>ID</dt><dd><code>${{r.id}}</code></dd>
+      <dt>Title</dt><dd>${{r.title}}</dd>
+      <dt>Severity</dt><dd>${{severityBadge(r.severity)}}</dd>
+      <dt>Category</dt><dd><span class="badge badge-info">${{r.category}}</span></dd>
+      <dt>Tags</dt><dd>${{(r.tags||[]).map(t=>`<span class="tag">${{t}}</span>`).join(' ')||'—'}}</dd>
+    </dl></div>`;
+
+  // Description & Rationale
+  if(r.description) html+=`<div class="detail-section"><h4>Description</h4><p>${{r.description}}</p></div>`;
+  if(r.rationale) html+=`<div class="detail-section"><h4>Rationale</h4><p>${{r.rationale}}</p></div>`;
+
+  // References
+  const refs=r.references||{{}};
+  if(Object.keys(refs).length) {{
+    html+=`<div class="detail-section"><h4>Framework References</h4><dl class="detail-grid">`;
+    for(const[fw,val] of Object.entries(refs)) {{
+      if(Array.isArray(val)) {{
+        html+=`<dt>${{fw}}</dt><dd>${{val.join(', ')}}</dd>`;
+      }} else if(typeof val==='object') {{
+        for(const[sub,sv] of Object.entries(val)) {{
+          const parts=[];
+          if(typeof sv==='object') {{
+            for(const[k,v] of Object.entries(sv)) parts.push(`${{k}}: ${{v}}`);
+          }} else parts.push(String(sv));
+          html+=`<dt>${{fw}} / ${{sub}}</dt><dd>${{parts.join(', ')}}</dd>`;
+        }}
+      }}
+    }}
+    html+=`</dl></div>`;
+  }}
+
+  // Platforms
+  const plats=r.platforms||[];
+  if(plats.length) {{
+    html+=`<div class="detail-section"><h4>Platforms</h4>`;
+    plats.forEach(p=>{{
+      const parts=[p.family||''];
+      if(p.min_version) parts.push(`min: ${{p.min_version}}`);
+      if(p.max_version) parts.push(`max: ${{p.max_version}}`);
+      html+=`<div style="font-size:13px;margin-bottom:4px">${{parts.join(' · ')}}</div>`;
+    }});
+    html+=`</div>`;
+  }}
+
+  // Implementations
+  const impls=r.implementations||[];
+  if(impls.length) {{
+    html+=`<div class="detail-section"><h4>Implementations</h4>`;
+    impls.forEach((impl,i)=>{{
+      const gate=impl.when?`<code>when: ${{impl.when}}</code>`:impl.default?'<code>default</code>':'';
+      html+=`<div class="impl-block"><div style="margin-bottom:6px"><strong>Implementation ${{i+1}}</strong> ${{gate}}</div>`;
+      const chk=impl.check||{{}};
+      html+=`<div style="margin-bottom:4px"><strong>Check:</strong> <code>${{chk.method||chk.checks?'multi_check':'unknown'}}</code></div>`;
+      if(chk.method==='command'&&chk.run) html+=`<pre>${{chk.run}}</pre>`;
+      else if(chk.checks) {{
+        chk.checks.forEach(c=>{{
+          html+=`<div style="margin-left:12px;font-size:12px">• <code>${{c.method}}</code>`;
+          if(c.name) html+=` name=${{c.name}}`;
+          if(c.path) html+=` path=${{c.path}}`;
+          if(c.key) html+=` key=${{c.key}} expected=${{c.expected||''}}`;
+          html+=`</div>`;
+        }});
+      }} else {{
+        const ck=Object.entries(chk).filter(([k])=>k!=='method').map(([k,v])=>`${{k}}=${{v}}`).join(', ');
+        if(ck) html+=`<div style="font-size:12px;margin-left:12px">${{ck}}</div>`;
+      }}
+      const rem=impl.remediation||{{}};
+      html+=`<div style="margin-top:6px"><strong>Remediation:</strong> <code>${{rem.mechanism||rem.steps?'multi_step':'unknown'}}</code></div>`;
+      if(rem.note) html+=`<div style="font-size:12px;margin-left:12px;color:var(--muted)">${{rem.note}}</div>`;
+      if(rem.steps) {{
+        rem.steps.forEach(s=>{{
+          html+=`<div style="margin-left:12px;font-size:12px">• <code>${{s.mechanism}}</code>`;
+          if(s.name) html+=` ${{s.name}}`;
+          if(s.run) html+=` run: ${{s.run.substring(0,80)}}${{s.run.length>80?'…':''}}`;
+          html+=`</div>`;
+        }});
+      }}
+      html+=`</div>`;
+    }});
+    html+=`</div>`;
+  }}
+
+  // Reviews
+  const revs=r.reviews||[];
+  if(revs.length) {{
+    html+=`<div class="detail-section"><h4>Review History</h4>`;
+    revs.forEach(rv=>{{
+      const col=FLAG_COLORS[rv.flag]||'var(--gray)';
+      html+=`<div class="review-entry" style="border-left-color:${{col}}">
+        <div class="re-meta">${{rv.date}} · ${{rv.reviewer}} · <span style="color:${{col}};font-weight:500">${{rv.flag}}</span></div>
+        <div class="re-note">${{rv.note||''}}</div>
+      </div>`;
+    }});
+    html+=`</div>`;
+  }}
+
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('rule-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+}}
+function closeRuleDetail(){{
+  document.getElementById('rule-modal').classList.remove('open');
+  document.body.style.overflow='';
+}}
+document.addEventListener('keydown',e=>{{if(e.key==='Escape')closeRuleDetail();}});
+
 // ── Rules ─────────────────────────────────────────────────────────────────────
 function renderRules() {{
   const fws=DATA.framework_order.filter(id=>DATA.frameworks.find(f=>f.id===id));
@@ -811,17 +1042,20 @@ function renderRules() {{
     const cols=fws.map(fw=>r.frameworks.includes(fw)
       ?`<td style="text-align:center"><span class="fw-check">✓</span></td>`
       :`<td style="text-align:center"><span class="fw-dash">·</span></td>`).join('');
-    return `<tr data-cat="${{r.category}}" data-sev="${{(r.severity||'').toLowerCase()}}">
-      <td><code style="font-size:12px">${{r.id}}</code></td>
+    const flagCell=r.flag_status?flagDot(r.flag_status):'';
+    const flagAttr=r.flag_status?r.flag_status:(r.reviews&&r.reviews.length&&r.reviews[r.reviews.length-1].flag==='cleared'?'cleared':'none');
+    return `<tr data-cat="${{r.category}}" data-sev="${{(r.severity||'').toLowerCase()}}" data-flag="${{flagAttr}}">
+      <td><a class="rule-link" onclick="showRuleDetail('${{r.id}}')">${{r.id}}</a></td>
       <td style="max-width:280px">${{r.title}}</td>
       <td><span class="badge badge-info">${{r.category}}</span></td>
       <td>${{severityBadge(r.severity)}}</td>
+      <td style="text-align:center">${{flagCell}}</td>
       ${{cols}}
     </tr>`;
   }}).join('');
   document.getElementById('tab-rules').innerHTML=`
     <h2>Rule Cross-Reference</h2>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">${{DATA.total_rules}} rules · ✓ = mapped to framework</p>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">${{DATA.total_rules}} rules · ✓ = mapped to framework · Click rule ID for details</p>
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
       <input type="search" id="rule-search" placeholder="Search by ID or title…" style="flex:1;min-width:200px">
       <select id="rule-cat" onchange="filterRules()">
@@ -833,9 +1067,15 @@ function renderRules() {{
         <option value="critical">Critical</option><option value="high">High</option>
         <option value="medium">Medium</option><option value="low">Low</option>
       </select>
+      <select id="rule-flag" onchange="filterRules()">
+        <option value="">All flags</option>
+        <option value="flagged">Flagged</option>
+        <option value="cleared">Cleared</option>
+        <option value="unflagged">Unflagged</option>
+      </select>
     </div>
     <div class="card" style="padding:0;overflow:auto">
-      <table><thead><tr><th>Rule ID</th><th>Title</th><th>Category</th><th>Severity</th>${{hdrs}}</tr></thead>
+      <table><thead><tr><th>Rule ID</th><th>Title</th><th>Category</th><th>Severity</th><th style="text-align:center">Flag</th>${{hdrs}}</tr></thead>
       <tbody id="rules-body">${{rows}}</tbody></table>
     </div>
     <div id="rules-count" style="font-size:12px;color:var(--muted);margin-top:8px"></div>`;
@@ -846,10 +1086,15 @@ function filterRules(){{
   const q=document.getElementById('rule-search').value.toLowerCase();
   const cat=document.getElementById('rule-cat').value;
   const sev=document.getElementById('rule-sev').value;
+  const flag=document.getElementById('rule-flag').value;
   const rows=document.querySelectorAll('#rules-body tr');
   let v=0;
   rows.forEach(r=>{{
-    const m=(!q||r.textContent.toLowerCase().includes(q))&&(!cat||r.dataset.cat===cat)&&(!sev||r.dataset.sev===sev);
+    let fm=true;
+    if(flag==='flagged') fm=r.dataset.flag&&r.dataset.flag!=='none'&&r.dataset.flag!=='cleared';
+    else if(flag==='cleared') fm=r.dataset.flag==='cleared';
+    else if(flag==='unflagged') fm=r.dataset.flag==='none';
+    const m=fm&&(!q||r.textContent.toLowerCase().includes(q))&&(!cat||r.dataset.cat===cat)&&(!sev||r.dataset.sev===sev);
     r.style.display=m?'':'none';if(m)v++;
   }});
   document.getElementById('rules-count').textContent=v===rows.length?`Showing all ${{rows.length}} rules`:`Showing ${{v}} of ${{rows.length}} rules`;
@@ -948,6 +1193,7 @@ renderHistory();
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -975,8 +1221,18 @@ def main() -> None:
     control_titles = load_control_titles()
     print(f"  {len(control_titles)} control titles loaded", file=sys.stderr)
 
+    print("Loading reviews...", file=sys.stderr)
+    reviews = load_reviews()
+    review_count = sum(len(v) for v in reviews.values())
+    print(
+        f"  {len(reviews)} rules with reviews ({review_count} entries)"
+        if reviews
+        else "  No review.yaml found",
+        file=sys.stderr,
+    )
+
     print("Computing coverage data...", file=sys.stderr)
-    data = compute_data(mappings, rules, control_titles)
+    data = compute_data(mappings, rules, control_titles, reviews)
 
     # History
     history: list[dict] = []
@@ -990,7 +1246,10 @@ def main() -> None:
         if saved:
             print(f"  Snapshot saved ({len(history)} total)", file=sys.stderr)
         else:
-            print(f"  No changes — snapshot skipped ({len(history)} total)", file=sys.stderr)
+            print(
+                f"  No changes — snapshot skipped ({len(history)} total)",
+                file=sys.stderr,
+            )
     else:
         print("History skipped (--no-history)", file=sys.stderr)
 
