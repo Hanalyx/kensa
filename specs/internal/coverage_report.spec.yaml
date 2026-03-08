@@ -1,0 +1,183 @@
+kind: InternalModule
+metadata:
+  name: CoverageReportEnhancement
+  module: scripts/coverage_report
+  version: 1.0.0
+  status: approved
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-03-08"
+  updated: "2026-03-08"
+
+context:
+  description: >
+    Enhance the coverage report HTML generator with clickable rule detail
+    panels and a YAML sidecar review workflow for AI-human collaborative
+    rule verification.
+  technical_context: >
+    scripts/coverage_report.py generates a self-contained HTML report
+    (reports/coverage.html) with embedded JSON data and client-side JS
+    rendering. History is tracked in reports/history.db (SQLite). The
+    enhancement adds: (1) full rule detail data in the embedded JSON and
+    clickable rule IDs that open a detail modal, (2) loading of an optional
+    reports/review.yaml sidecar file containing dated review flags and
+    notes from AI and human reviewers, rendered inline on rule detail
+    pages and as filter/summary in the Rules and Summary tabs.
+  dependencies:
+    - scripts/coverage_report.py (existing report generator)
+    - reports/review.yaml (new, optional sidecar file)
+    - rules/**/*.yml (rule YAML source data)
+    - mappings/**/*.yaml (framework mapping source data)
+  related_specs:
+    - specs/cli/coverage.spec.yaml
+    - specs/internal/framework_mappings.spec.yaml
+
+objective:
+  summary: >
+    Add rule detail drill-down and YAML-based review workflow to the
+    coverage report, enabling systematic AI-human rule verification
+    against STIG/CIS check text.
+  acceptance_criteria:
+    # Rule Detail
+    AC-1: >
+      Rule IDs in the Rules tab are rendered as clickable links that
+      open a detail panel/modal.
+    AC-2: >
+      Detail panel displays rule metadata: id, title, description,
+      rationale, severity, category, and tags.
+    AC-3: >
+      Detail panel displays all framework references from the rule
+      YAML (CIS sections, STIG vuln_ids, NIST controls).
+    AC-4: >
+      Detail panel displays platform constraints (family, min/max
+      version).
+    AC-5: >
+      Detail panel displays implementation details: check method and
+      parameters, remediation mechanism and parameters, capability
+      gates (when: field).
+    AC-6: >
+      Detail panel has a close mechanism (button or overlay click)
+      that returns to the rules table.
+    AC-7: >
+      compute_data() includes full rule detail fields (description,
+      rationale, tags, references, platforms, implementations) in the
+      embedded JSON data structure.
+
+    # Review Workflow
+    AC-8: >
+      coverage_report.py loads reports/review.yaml when the file
+      exists and merges review data into the report.
+    AC-9: >
+      Missing, empty, or malformed review.yaml is handled gracefully:
+      no error raised, no flags shown, report generates normally.
+    AC-10: >
+      Rules with active (non-cleared) flags show a visual indicator
+      (colored dot) in the Rules tab table row.
+    AC-11: >
+      Rule detail panel displays full review history with date,
+      reviewer, flag type, and note for each entry, in chronological
+      order (oldest first).
+    AC-12: >
+      Summary tab shows count of rules with active flags as a
+      stat card.
+    AC-13: >
+      Rules tab supports filtering by flag status: all, flagged,
+      cleared, unflagged.
+    AC-14: >
+      Flag types are visually differentiated by color:
+      incorrect-check=red, verify=yellow, stale-reference=orange,
+      missing-coverage=blue, cleared=green.
+    AC-15: >
+      Review entries within a rule are displayed in chronological
+      order (oldest first, by date field).
+    AC-16: >
+      The review.yaml sidecar file is independent of report
+      generation — review state persists across report rebuilds
+      and is never overwritten by the script.
+
+input_contract:
+  - field: mappings
+    type: "dict[str, dict]"
+    required: true
+    description: "Framework mapping dicts keyed by framework ID."
+  - field: rules
+    type: "dict[str, dict]"
+    required: true
+    description: "Rule YAML dicts keyed by rule ID."
+  - field: control_titles
+    type: "dict[str, str]"
+    required: true
+    description: "Control ID to title lookup from context baselines."
+  - field: reviews
+    type: "dict[str, list[dict]]"
+    required: false
+    default: "{}"
+    description: >
+      Review entries keyed by rule ID, loaded from reports/review.yaml.
+      Each entry has date, reviewer, flag, and note fields.
+
+output_contract:
+  returns: >
+    dict — the full data structure for the HTML report, including rules
+    with detail fields, review data, and review_summary.
+
+constraints:
+  - >
+    The script MUST NOT write to or overwrite reports/review.yaml.
+    It is read-only from the script's perspective.
+  - >
+    The HTML report MUST remain self-contained (single file, no
+    external dependencies) after this enhancement.
+  - >
+    Malformed review.yaml entries (missing fields, bad dates) MUST
+    be skipped with a stderr warning, not crash the generator.
+  - >
+    Rule detail data MUST be sourced from the already-loaded rule
+    YAML dicts — no additional file I/O beyond what load_rules()
+    already performs.
+
+behavior:
+  - >
+    1. load_rules() loads all rule YAMLs as before, returning full
+    dicts (not just id/title/severity/category).
+  - >
+    2. load_reviews() loads reports/review.yaml if it exists. Returns
+    empty dict if missing, empty, or malformed. Warns on stderr for
+    parse errors.
+  - >
+    3. compute_data() is extended to include full rule detail fields
+    in the rules list: description, rationale, tags, references,
+    platforms, implementations.
+  - >
+    4. compute_data() merges review data into each rule entry:
+    rule.reviews = list of review entries, rule.flag_status = active
+    flag type or null.
+  - >
+    5. compute_data() adds review_summary to the top-level data:
+    total_flagged (active flags), by_type counts.
+  - >
+    6. render_html() generates a detail modal/panel in the Rules tab
+    JS. Clicking a rule ID populates and shows the modal.
+  - >
+    7. The detail modal renders: metadata section, references section,
+    platforms section, implementations section, review history section.
+  - >
+    8. The Rules tab table adds a Flag column with colored dots for
+    flagged rules.
+  - >
+    9. The Rules tab filter bar adds a flag-status dropdown (All,
+    Flagged, Cleared, Unflagged).
+  - >
+    10. The Summary tab adds a "Flagged for Review" stat card showing
+    the count of actively flagged rules.
+  - >
+    11. Flag colors: incorrect-check (#dc2626 red), verify (#ca8a04
+    yellow), stale-reference (#ea580c orange), missing-coverage
+    (#3b82f6 blue), cleared (#16a34a green).
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_coverage_report_spec.py
+    classes:
+      - TestCoverageReportRuleDetail
+      - TestCoverageReportReviewWorkflow
+    count: 16
