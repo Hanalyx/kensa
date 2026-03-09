@@ -1234,7 +1234,7 @@ controls:
     title: "RHEL 8 audit system must protect logon UIDs from unauthorized change."
   "V-230471":
     rules:
-      - audit-binary-permissions
+      - audit-config-permissions
     severity: "CAT II"
     title: "The RHEL 8 audit system must protect audit tools from unauthorized access."
   "V-230472":
