@@ -1,16 +1,18 @@
 id: gdm-graphical-banner
-title: Display DoD banner before graphical user logon
+title: Configure GDM graphical login banner text
 description: >
-  RHEL 8 must display the Standard Mandatory DoD Notice and Consent Banner
-  before granting local or remote access to the system via a graphical
-  user logon. The GDM banner-message-enable setting must be true.
+  The GDM banner-message-text dconf setting must contain a warning banner
+  before granting graphical logon access. The check verifies that banner
+  text is configured and non-empty. Customize the text by setting the
+  banner_text variable in config/conf.d/ with your organization's consent
+  language.
 rationale: >
-  Displaying a required logon banner before granting access informs users
-  of the monitoring and access restrictions in place. This is required for
-  DoD systems to enforce proper authorized use acknowledgment.
+  A pre-authentication banner establishes the legal basis for monitoring
+  and prosecution of unauthorized access. Without meaningful banner text,
+  users are not informed of acceptable use policies and system monitoring.
 severity: medium
 category: system
-tags: [gdm, graphical, banner, dod-consent, stig]
+tags: [gdm, graphical, banner, compliance]
 
 references:
   stig:
@@ -27,21 +29,42 @@ implementations:
   - default: true
     check:
       method: command
-      run: >
+      run: |
         if ! rpm -q gdm &>/dev/null; then exit 0; fi
-        val=$(grep -i '^\s*banner-message-enable\s*=\s*' \
-          /etc/dconf/db/gdm.d/*.ini /etc/dconf/db/gdm.d/00-security-settings 2>/dev/null |
-          grep -o 'true' | head -1)
-        [ "$val" = "true" ] || \
-        (DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
-          /org/gnome/login-screen/banner-message-enable 2>/dev/null | grep -q 'true')
+        # Check banner-message-enable is true
+        enable=$(grep -rhs '^\s*banner-message-enable\s*=' \
+          /etc/dconf/db/gdm.d/ /etc/dconf/db/local.d/ 2>/dev/null |
+          tail -1 | grep -io 'true' || true)
+        if [ -z "$enable" ]; then
+          enable=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/login-screen/banner-message-enable 2>/dev/null || true)
+        fi
+        if [ "$enable" != "true" ]; then
+          echo "FAIL: banner-message-enable is not true"
+          exit 1
+        fi
+        # Check banner-message-text is set and non-empty
+        text=$(grep -rhs '^\s*banner-message-text\s*=' \
+          /etc/dconf/db/gdm.d/ /etc/dconf/db/local.d/ 2>/dev/null |
+          tail -1 | sed "s/^[^=]*=\s*//;s/^['\"]//;s/['\"]$//" || true)
+        if [ -z "$text" ]; then
+          text=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/login-screen/banner-message-text 2>/dev/null |
+            sed "s/^'//;s/'$//" || true)
+        fi
+        textlen=$(echo "$text" | tr -d '[:space:]' | wc -c)
+        if [ "$textlen" -lt 20 ]; then
+          echo "FAIL: banner-message-text is empty or too short ($textlen chars)"
+          exit 1
+        fi
+        echo "OK: GDM banner enabled with $textlen chars of text"
       expected_exit: 0
     remediation:
       mechanism: manual
       note: >
-        Configure GDM dconf settings to display the DoD banner:
+        Configure GDM dconf settings with your organization's banner:
         Create /etc/dconf/db/gdm.d/00-security-settings with:
           [org/gnome/login-screen]
           banner-message-enable=true
-          banner-message-text='<DoD warning banner text>'
+          banner-message-text='{{ banner_text }}'
         Then run: dconf update
