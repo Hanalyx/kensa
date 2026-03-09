@@ -1,0 +1,35 @@
+id: emergency-service-auth
+title: Require authentication for emergency mode
+description: >
+  Emergency mode (emergency.service) must require root password
+  authentication to prevent unauthorized system access.
+rationale: >
+  Emergency mode provides root access. Without authentication, anyone with
+  physical access could gain full control.
+severity: high
+category: system
+tags: [authentication, emergency, physical-security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244523"
+      severity: "CAT I"
+  nist_800_53: ["AC-3", "IA-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "grep -E '^ExecStart=' /usr/lib/systemd/system/emergency.service | grep -q 'sulogin'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        The emergency.service unit should use sulogin for authentication.
+        This is the default on RHEL 8/9. If modified, restore:
+        systemctl revert emergency.service

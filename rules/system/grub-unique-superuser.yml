@@ -1,0 +1,55 @@
+id: grub-unique-superuser
+title: Ensure GRUB uses a unique superusers name
+description: >
+  The GRUB bootloader must define a unique superusers name that is not
+  a default or predictable value (root, admin, superuser, unlock).
+rationale: >
+  Using default or predictable GRUB superuser names makes it easier for
+  attackers to guess credentials. A unique name adds a layer of obscurity.
+severity: medium
+category: system
+tags: [grub, bootloader, authentication, physical-security]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-244521"
+      severity: "CAT II"
+  nist_800_53: ["AC-3", "IA-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check for GRUB superusers setting
+        superuser=""
+        for f in /boot/grub2/grub.cfg /boot/efi/EFI/redhat/grub.cfg; do
+          if [ -f "$f" ]; then
+            superuser=$(grep -E '^\s*set\s+superusers=' "$f" 2>/dev/null | sed 's/.*superusers="\{0,1\}\([^"]*\)"\{0,1\}/\1/' | head -1)
+            break
+          fi
+        done
+        if [ -z "$superuser" ]; then
+          echo "FAIL: No superusers directive found in GRUB config"
+          exit 1
+        fi
+        for bad in root admin superuser unlock; do
+          if [ "$superuser" = "$bad" ]; then
+            echo "FAIL: GRUB superusers name is default/predictable: $superuser"
+            exit 1
+          fi
+        done
+        echo "OK: GRUB superusers name is unique: $superuser"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure a unique GRUB superuser name: grub2-setpassword.
+        Edit /etc/grub.d/01_users to set a unique superusers name,
+        then regenerate grub.cfg.
