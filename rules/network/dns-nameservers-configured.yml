@@ -28,9 +28,19 @@ implementations:
   - default: true
     check:
       method: command
-      run: >
+      run: |
+        # First verify DNS is used for host resolution (nsswitch.conf)
+        if ! grep -qE '^\s*hosts:.*\bdns\b' /etc/nsswitch.conf 2>/dev/null; then
+          echo "NOT APPLICABLE: DNS not configured in /etc/nsswitch.conf hosts line"
+          exit 0
+        fi
+        # Then check at least two nameservers are configured
         count=$(grep -c '^\s*nameserver\s' /etc/resolv.conf 2>/dev/null || echo 0)
-        [ "$count" -ge 2 ]
+        if [ "$count" -lt 2 ]; then
+          echo "FAIL: Only $count nameserver(s) in /etc/resolv.conf (need at least 2)"
+          exit 1
+        fi
+        echo "OK: $count nameservers configured"
       expected_exit: 0
     remediation:
       mechanism: manual
