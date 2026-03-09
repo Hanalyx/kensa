@@ -26,17 +26,13 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: >
-        grep -hE '^\s*UMASK\s' /etc/login.defs /etc/profile /etc/bashrc
-        /etc/profile.d/*.sh 2>/dev/null |
-        grep -v '^\s*#' | awk '{print $2}' | grep -qv '^077$' |
-        head -1 || umask_val=$(grep -hE '^\s*UMASK\s' /etc/login.defs 2>/dev/null |
-        awk '{print $2}') && [ "$umask_val" = "077" ]
-      expected_exit: 0
+      method: config_value
+      path: "/etc/login.defs"
+      key: "UMASK"
+      expected: "{{ login_defs_umask }}"
     remediation:
       mechanism: config_set
       path: "/etc/login.defs"
       key: "UMASK"
-      value: "077"
+      value: "{{ login_defs_umask }}"
       separator: "\t\t"

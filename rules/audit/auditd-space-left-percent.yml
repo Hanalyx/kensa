@@ -1,29 +1,29 @@
 id: auditd-space-left-percent
-title: Configure auditd space_left notification threshold
+title: Configure auditd space_left threshold to 25 percent
 description: >
-  The auditd space_left parameter must be set to 25 percent
-  to notify administrators when audit storage reaches 75 percent
-  utilization.
+  The auditd space_left parameter must be configured to notify the
+  system administrator when the audit log storage volume has 25
+  percent or less capacity remaining.
 rationale: >
-  Administrators must be warned before audit storage is exhausted
-  so they can take corrective action. A 25 percent threshold
-  provides adequate advance warning.
+  Configuring a space_left threshold ensures administrators are alerted
+  before audit storage is exhausted. A 25 percent threshold provides
+  adequate warning time to take corrective action.
 severity: medium
 category: audit
-tags: [audit, auditd, storage, notification]
+tags: [audit, auditd, storage, stig]
 
 depends_on: [auditd-service-enabled]
 
 references:
   stig:
-    rhel9_v2r7:
-      vuln_id: "V-258157"
+    rhel8_v2r6:
+      vuln_id: "V-230483"
       severity: "CAT II"
   nist_800_53: ["AU-5"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true
@@ -38,4 +38,4 @@ implementations:
       key: "space_left"
       value: "25%"
       separator: " = "
-      restart: "auditd"
+      reload: "auditd"

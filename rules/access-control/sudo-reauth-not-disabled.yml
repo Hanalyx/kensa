@@ -30,20 +30,32 @@ implementations:
     check:
       method: command
       run: |
+        fail=0
         # Check for negative timestamp_timeout (disables re-auth)
-        timeout=$(sudo -V 2>/dev/null | grep -i 'timestamp timeout' | grep -oE '[-]?[0-9]+' || echo "5")
-        if [ "$timeout" -lt 0 ] 2>/dev/null; then
+        timeout=$(sudo -V 2>/dev/null | grep -i 'timestamp timeout' | grep -oE '[-]?[0-9]+\.?[0-9]*' || echo "5")
+        timeout_int=$(echo "$timeout" | cut -d. -f1)
+        if [ "$timeout_int" -lt 0 ] 2>/dev/null; then
           echo "FAIL: timestamp_timeout is negative ($timeout), re-auth disabled"
-          exit 1
+          fail=1
         fi
-        # Also check sudoers for !authenticate
+        # Check for !authenticate in sudoers
         if grep -rE '^\s*[^#].*!authenticate' /etc/sudoers /etc/sudoers.d/ 2>/dev/null; then
           echo "FAIL: !authenticate found in sudoers"
-          exit 1
+          fail=1
         fi
-        echo "OK: Re-authentication not disabled (timeout: ${timeout})"
-        exit 0
+        # Check PAM config for sudo re-authentication (V-251712)
+        if [ -f /etc/pam.d/sudo ]; then
+          if ! grep -qE 'pam_succeed_if|pam_unix' /etc/pam.d/sudo 2>/dev/null; then
+            echo "FAIL: /etc/pam.d/sudo missing authentication module"
+            fail=1
+          fi
+        fi
+        [ "$fail" -eq 0 ] && echo "OK: re-authentication not disabled"
+        exit $fail
       expected_exit: 0
     remediation:
       mechanism: manual
-      note: "Remove negative timestamp_timeout values and !authenticate from sudoers"
+      note: >
+        Remove negative timestamp_timeout values and !authenticate from sudoers.
+        Ensure /etc/pam.d/sudo includes proper authentication modules
+        (pam_unix.so or pam_succeed_if.so).

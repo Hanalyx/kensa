@@ -1,0 +1,41 @@
+id: auditd-name-format
+title: Configure auditd name format to include hostname
+description: >
+  The auditd name_format parameter must be set to hostname so that
+  audit records include the originating system's hostname for
+  identification when off-loaded to a central log server.
+rationale: >
+  Without hostname identification in audit records, it becomes
+  difficult to determine which system generated a particular audit
+  event when records are aggregated centrally.
+severity: medium
+category: audit
+tags: [audit, auditd, configuration]
+
+depends_on: [auditd-service-enabled]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230394"
+      severity: "CAT II"
+  nist_800_53: ["AU-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/audit/auditd.conf"
+      key: "name_format"
+      expected: "hostname"
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "name_format"
+      value: "hostname"
+      separator: " = "
+      restart: "auditd"
