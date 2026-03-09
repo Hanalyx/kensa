@@ -24,11 +24,14 @@ from pathlib import Path
 try:
     from flask import Flask, abort, jsonify, redirect, request, url_for
 except ImportError:
-    print(
-        "Flask is required for the review server.\nInstall it with: pip install flask",
-        file=sys.stderr,
-    )
-    sys.exit(1)
+    if __name__ == "__main__":
+        print(
+            "Flask is required for the review server.\n"
+            "Install it with: pip install flask",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    raise
 
 import yaml
 

@@ -10,10 +10,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
+
+flask = pytest.importorskip("flask", reason="Flask not installed")
 
 from scripts.review_server import (  # noqa: E402, I001
     add_review,
