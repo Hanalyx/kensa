@@ -13,6 +13,9 @@ tags: [sysctl, dmesg, kernel, privacy, stig]
 
 references:
   stig:
+    rhel8_v2r6:
+      vuln_id: "V-230269"
+      severity: "CAT II"
     rhel9_v2r7:
       vuln_id: "V-257797"
       severity: "CAT II"

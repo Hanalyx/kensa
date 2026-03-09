@@ -34,8 +34,8 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -k perm_mod"
+      rule: "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod"
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -k perm_mod"
+      rule: "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod"
       persist_file: "/etc/audit/rules.d/50-perm-mod.rules"

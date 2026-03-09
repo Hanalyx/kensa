@@ -1,8 +1,8 @@
 id: system-commands-owner
 title: Ensure system command files are owned by root
 description: >
-  All files in /usr/bin and /usr/sbin must be owned by root to prevent
-  unauthorized modification.
+  All files in /usr/bin, /usr/sbin, /usr/local/bin, and /usr/local/sbin must
+  be owned by root to prevent unauthorized modification.
 rationale: >
   System commands not owned by root could be modified by non-privileged
   users, enabling privilege escalation or system compromise.
@@ -25,8 +25,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "find /usr/bin /usr/sbin ! -user root -type f 2>/dev/null | head -1"
+      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -user root -type f 2>/dev/null | head -1"
       expected_stdout: ""
     remediation:
       mechanism: command_exec
-      run: "find /usr/bin /usr/sbin ! -user root -type f -exec chown root {} +"
+      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -user root -type f -exec chown root {} +"
