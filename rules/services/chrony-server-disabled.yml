@@ -27,14 +27,14 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: >
-        grep -qE '^\s*port\s+[1-9]' /etc/chrony.conf 2>/dev/null &&
-        echo "FAIL: chrony acting as NTP server" && exit 1 || exit 0
-      expected_exit: 0
+      method: config_value
+      path: "/etc/chrony.conf"
+      key: "port"
+      expected: "0"
     remediation:
-      mechanism: manual
-      note: >
-        Remove or comment out the 'port' directive from /etc/chrony.conf
-        to disable NTP server mode. Restart chronyd after changes:
-        systemctl restart chronyd
+      mechanism: config_set
+      path: "/etc/chrony.conf"
+      key: "port"
+      value: "0"
+      separator: " "
+      restart: "chronyd"

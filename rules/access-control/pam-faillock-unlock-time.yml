@@ -38,7 +38,6 @@ implementations:
       path: "/etc/security/faillock.conf"
       key: "unlock_time"
       expected: "{{ pam_faillock_unlock_time }}"
-      comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/security/faillock.conf"

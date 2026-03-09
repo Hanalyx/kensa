@@ -25,7 +25,19 @@ implementations:
   - when: authselect
     check:
       method: command
-      run: 'authselect current 2>/dev/null | grep -q with-faillock'
+      run: |
+        authselect current 2>/dev/null | grep -q with-faillock || {
+          echo "FAIL: faillock not enabled in authselect"
+          exit 1
+        }
+        dir=$(grep -E '^\s*dir\s*=' /etc/security/faillock.conf 2>/dev/null |
+          awk -F= '{print $2}' | tr -d ' ')
+        if [ -z "$dir" ]; then dir="/var/run/faillock"; fi
+        case "$dir" in
+          /var/log/*|/var/lib/*|/etc/*) echo "OK: faillock dir=$dir (persistent)"; exit 0 ;;
+          /var/run/*|/run/*|/tmp/*) echo "FAIL: faillock dir=$dir (not persistent)"; exit 1 ;;
+          *) echo "OK: faillock dir=$dir"; exit 0 ;;
+        esac
       expected_exit: 0
     remediation:
       mechanism: command_exec
@@ -33,7 +45,19 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'grep -qE ''^\s*auth\s+required\s+pam_faillock\.so'' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null'
+      run: |
+        grep -qE '^\s*auth\s+required\s+pam_faillock\.so' /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null || {
+          echo "FAIL: pam_faillock not in PAM config"
+          exit 1
+        }
+        dir=$(grep -E '^\s*dir\s*=' /etc/security/faillock.conf 2>/dev/null |
+          awk -F= '{print $2}' | tr -d ' ')
+        if [ -z "$dir" ]; then dir="/var/run/faillock"; fi
+        case "$dir" in
+          /var/log/*|/var/lib/*|/etc/*) echo "OK: faillock enabled, dir=$dir (persistent)"; exit 0 ;;
+          /var/run/*|/run/*|/tmp/*) echo "FAIL: faillock dir=$dir (not persistent)"; exit 1 ;;
+          *) echo "OK: faillock enabled, dir=$dir"; exit 0 ;;
+        esac
       expected_exit: 0
     remediation:
       mechanism: manual

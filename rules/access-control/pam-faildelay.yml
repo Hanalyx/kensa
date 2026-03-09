@@ -30,18 +30,14 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: >
-        grep -qE '^\s*auth\s+required\s+pam_faildelay\.so\s+delay=[0-9]+'
-        /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null &&
-        delay=$(grep -hE '^\s*auth\s+required\s+pam_faildelay\.so'
-        /etc/pam.d/system-auth /etc/pam.d/password-auth 2>/dev/null |
-        grep -oP 'delay=\K[0-9]+' | sort -n | head -1) &&
-        [ -n "$delay" ] && [ "$delay" -ge 4000000 ]
-      expected_exit: 0
+      method: config_value
+      path: "/etc/login.defs"
+      key: "FAIL_DELAY"
+      expected: "4"
+      comparator: ">="
     remediation:
-      mechanism: manual
-      note: >
-        Add 'auth required pam_faildelay.so delay=4000000' to
-        /etc/pam.d/system-auth and /etc/pam.d/password-auth in the
-        auth section.
+      mechanism: config_set
+      path: "/etc/login.defs"
+      key: "FAIL_DELAY"
+      value: "4"
+      separator: " "

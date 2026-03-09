@@ -34,12 +34,18 @@ implementations:
       run: |
         # Check if AIDE is configured to monitor audit binaries
         if [ -f /etc/aide.conf ]; then
-          if grep -qE '/sbin/auditctl|/sbin/aureport|/sbin/ausearch' /etc/aide.conf 2>/dev/null; then
-            echo "OK: AIDE monitors audit tools"
+          missing=""
+          for bin in auditctl aureport ausearch autrace auditd rsyslogd augenrules; do
+            if ! grep -qE "/sbin/$bin|/usr/sbin/$bin" /etc/aide.conf 2>/dev/null; then
+              missing="$missing $bin"
+            fi
+          done
+          if [ -z "$missing" ]; then
+            echo "OK: AIDE monitors all audit tools"
             exit 0
           fi
         fi
-        echo "FAIL: Audit tool integrity monitoring not configured"
+        echo "FAIL: Audit tool integrity monitoring not configured${missing:+ (missing:$missing)}"
         exit 1
       expected_exit: 0
     remediation:
@@ -51,3 +57,5 @@ implementations:
         /sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512
         /sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512
         /sbin/auditd p+i+n+u+g+s+b+acl+xattrs+sha512
+        /sbin/rsyslogd p+i+n+u+g+s+b+acl+xattrs+sha512
+        /sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512

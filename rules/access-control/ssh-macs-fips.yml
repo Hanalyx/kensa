@@ -34,11 +34,19 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grep -E '^MACs' /etc/ssh/sshd_config | grep -qE 'hmac-sha2-256|hmac-sha2-512'"
+      run: |
+        if ! command -v sshd &>/dev/null; then exit 0; fi
+        macs=$(sshd -T 2>/dev/null | awk '/^macs /{print $2}')
+        echo "$macs" | tr ',' '\n' | grep -qvE '^(hmac-sha2-256|hmac-sha2-512|hmac-sha2-256-etm@openssh\.com|hmac-sha2-512-etm@openssh\.com)$' && {
+          echo "FAIL: non-FIPS MAC in effective config: $macs"
+          exit 1
+        }
+        echo "OK: $macs"
       expected_exit: 0
     remediation:
-      mechanism: config_set
-      path: "/etc/ssh/sshd_config"
-      key: "MACs"
-      value: "hmac-sha2-512,hmac-sha2-256"
-      reload: "sshd"
+      mechanism: manual
+      note: >
+        Configure system crypto policy to use only FIPS-approved MACs:
+        update-crypto-policies --set FIPS
+        Or override in /etc/ssh/sshd_config:
+        MACs hmac-sha2-512,hmac-sha2-256,hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com

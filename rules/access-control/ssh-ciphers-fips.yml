@@ -35,11 +35,19 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grep -E '^Ciphers' /etc/ssh/sshd_config | grep -qE 'aes256-ctr|aes192-ctr|aes128-ctr|aes256-gcm|aes128-gcm'"
+      run: |
+        if ! command -v sshd &>/dev/null; then exit 0; fi
+        ciphers=$(sshd -T 2>/dev/null | awk '/^ciphers /{print $2}')
+        echo "$ciphers" | tr ',' '\n' | grep -qvE '^(aes128-ctr|aes192-ctr|aes256-ctr|aes128-gcm@openssh\.com|aes256-gcm@openssh\.com)$' && {
+          echo "FAIL: non-FIPS cipher in effective config: $ciphers"
+          exit 1
+        }
+        echo "OK: $ciphers"
       expected_exit: 0
     remediation:
-      mechanism: config_set
-      path: "/etc/ssh/sshd_config"
-      key: "Ciphers"
-      value: "aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-gcm@openssh.com,aes128-ctr"
-      reload: "sshd"
+      mechanism: manual
+      note: >
+        Configure system crypto policy to use only FIPS-approved ciphers:
+        update-crypto-policies --set FIPS
+        Or override in /etc/ssh/sshd_config:
+        Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-gcm@openssh.com,aes128-ctr

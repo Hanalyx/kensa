@@ -24,8 +24,21 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'ss -lntu | grep -E '':25\s'' | grep -qv ''127.0.0.1\|::1'' && exit 1 || exit 0'
+      run: |
+        if ! rpm -q postfix &>/dev/null; then exit 0; fi
+        ifaces=$(postconf -h inet_interfaces 2>/dev/null)
+        if [ -z "$ifaces" ]; then
+          echo "FAIL: cannot query postfix effective config"
+          exit 1
+        fi
+        case "$ifaces" in
+          loopback-only|localhost|"127.0.0.1") echo "OK: inet_interfaces=$ifaces"; exit 0 ;;
+        esac
+        echo "FAIL: inet_interfaces=$ifaces (expected loopback-only)"
+        exit 1
       expected_exit: 0
     remediation:
       mechanism: manual
-      note: "Configure postfix inet_interfaces = loopback-only in /etc/postfix/main.cf"
+      note: >
+        Set inet_interfaces = loopback-only in /etc/postfix/main.cf
+        and run: systemctl restart postfix

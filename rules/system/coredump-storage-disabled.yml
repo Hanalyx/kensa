@@ -15,10 +15,6 @@ tags: [coredump, security, memory, privacy]
 references:
   cis:
     rhel9_v2: { section: "1.5.4", level: "L1", type: "Automated" }
-  stig:
-    rhel8_v2r6:
-      vuln_id: "V-230311"
-      severity: "CAT II"
   nist_800_53: ["SC-4"]
 
 platforms:

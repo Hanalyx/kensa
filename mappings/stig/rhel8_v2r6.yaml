@@ -473,7 +473,7 @@ controls:
     title: "RHEL 8 must enable the SELinux targeted policy."
   "V-230312":
     rules:
-      - coredump-restricted
+      - coredump-socket-disabled
     severity: "CAT II"
     title: "RHEL 8 must disable acquiring, saving, and processing core dumps."
   "V-230313":
@@ -1610,12 +1610,12 @@ controls:
     title: "RHEL 8 audit system must audit local events"
   "V-230394":
     rules:
-      - auditd-log-format
+      - auditd-name-format
     severity: "CAT II"
     title: "RHEL 8 must label audit records with ENRICHED format for off-loading"
   "V-230395":
     rules:
-      - auditd-flush
+      - auditd-log-format
     severity: "CAT II"
     title: "RHEL 8 must resolve audit information before writing to disk"
   "V-230468":
@@ -1635,7 +1635,7 @@ controls:
     title: "RHEL 8 must take action when audit queue is full"
   "V-230483":
     rules:
-      - auditd-space-action
+      - auditd-space-left-percent
     severity: "CAT II"
     title: "RHEL 8 must notify when 75% audit storage capacity is reached"
   "V-230484":
@@ -1705,7 +1705,7 @@ controls:
     title: "RHEL 8 must disable kernel dumps unless needed"
   "V-230311":
     rules:
-      - coredump-storage-disabled
+      - coredump-core-pattern
     severity: "CAT II"
     title: "RHEL 8 must disable the kernel.core_pattern"
   "V-230315":

@@ -2,7 +2,7 @@ id: shadow-hashing-rounds
 title: Ensure SHA512 minimum rounds are configured for password hashing
 description: >
   The SHA_CRYPT_MIN_ROUNDS and SHA_CRYPT_MAX_ROUNDS parameters in
-  /etc/login.defs must be set to a minimum of 5000 rounds to increase
+  /etc/login.defs must be set to the minimum required number of rounds to increase
   the computational cost of password cracking.
 rationale: >
   A higher number of hashing rounds makes offline password cracking more
@@ -26,15 +26,14 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: >
-        rounds=$(grep -E '^\s*SHA_CRYPT_MIN_ROUNDS\s' /etc/login.defs 2>/dev/null |
-        awk '{print $2}' | head -1);
-        [ -n "$rounds" ] && [ "$rounds" -ge 5000 ]
-      expected_exit: 0
+      method: config_value
+      path: "/etc/login.defs"
+      key: "SHA_CRYPT_MIN_ROUNDS"
+      expected: "{{ shadow_crypt_min_rounds }}"
+      comparator: ">="
     remediation:
       mechanism: config_set
       path: "/etc/login.defs"
       key: "SHA_CRYPT_MIN_ROUNDS"
-      value: "5000"
+      value: "{{ shadow_crypt_min_rounds }}"
       separator: " "

@@ -1,9 +1,10 @@
 id: gdm-screensaver-lock
-title: Enable session lock when screensaver is activated
+title: Ensure screensaver lock delay is 5 seconds or less
 description: >
   RHEL 8 must initiate a session lock for graphical user interfaces when
-  the screensaver is activated. The lock-enabled dconf setting must be
-  set to true in the local user database.
+  the screensaver is activated. The lock-delay dconf setting must be
+  configured to 5 seconds or less (lock-delay=uint32 5) in the local
+  user database.
 rationale: >
   A session lock is a temporary action taken when a user stops work and moves
   away from their workstation. Configuring a session lock ensures the screen
@@ -27,16 +28,33 @@ implementations:
   - default: true
     check:
       method: command
-      run: >
+      run: |
         if ! rpm -q gdm &>/dev/null; then exit 0; fi
-        val=$(gsettings get org.gnome.desktop.screensaver lock-enabled 2>/dev/null)
-        [ "$val" = "true" ]
+        # Check lock-delay setting from dconf database files
+        delay=$(grep -rhs '^\s*lock-delay\s*=' \
+          /etc/dconf/db/local.d/ /etc/dconf/db/gdm.d/ 2>/dev/null |
+          tail -1 | sed 's/^[^=]*=\s*//' | tr -d "'" | grep -oE '^uint32 [0-9]+|^[0-9]+' |
+          grep -oE '[0-9]+' || true)
+        if [ -z "$delay" ]; then
+          delay=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/desktop/screensaver/lock-delay 2>/dev/null |
+            sed "s/^uint32 //" | tr -d "'" || true)
+        fi
+        if [ -z "$delay" ]; then
+          echo "FAIL: lock-delay not configured"
+          exit 1
+        fi
+        if [ "$delay" -gt 5 ] 2>/dev/null; then
+          echo "FAIL: lock-delay=$delay (must be <= 5)"
+          exit 1
+        fi
+        echo "OK: lock-delay=$delay"
       expected_exit: 0
     remediation:
       mechanism: manual
       note: >
-        Configure dconf settings for graphical session lock:
+        Configure dconf settings for screensaver lock delay:
         Create /etc/dconf/db/local.d/00-screensaver with:
           [org/gnome/desktop/screensaver]
-          lock-enabled=true
+          lock-delay=uint32 5
         Then run: dconf update
