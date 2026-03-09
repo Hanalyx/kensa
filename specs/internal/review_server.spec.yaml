@@ -1,0 +1,155 @@
+kind: InternalModule
+metadata:
+  name: ReviewServer
+  module: scripts/review_server
+  version: 1.0.0
+  status: approved
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-03-08"
+  updated: "2026-03-08"
+
+context:
+  description: >
+    Lightweight Flask server for interactive AI-human rule review
+    workflow. Serves the coverage report with clickable rule IDs
+    linking to dedicated rule detail pages. Each rule page shows
+    full metadata, implementation details, framework references,
+    and an inline review form for flagging and noting issues.
+    Reviews are persisted to SQLite.
+  technical_context: >
+    Reuses compute_data(), load_rules(), load_mappings(), render_html()
+    from scripts/coverage_report.py. Adds a SQLite review database
+    (reports/review.db), REST API endpoints for review CRUD, and
+    per-rule detail pages. Imports existing reports/review.yaml on
+    first run. Dev-time tool only — not packaged in RPM.
+  dependencies:
+    - scripts/coverage_report.py
+    - flask (pip install flask)
+    - reports/review.db (SQLite, created on first run)
+    - reports/review.yaml (optional, imported on first run)
+
+objective:
+  summary: >
+    Provide an interactive browser-based review workflow for
+    systematic rule verification against STIG/CIS check text.
+  acceptance_criteria:
+    # SQLite layer
+    AC-1: >
+      open_review_db() creates the reviews table and index on a
+      fresh database file.
+    AC-2: >
+      add_review() inserts a row with auto-generated date (today)
+      if date is not provided, and returns the created row dict
+      including its id.
+    AC-3: >
+      get_rule_reviews() returns entries for a specific rule sorted
+      chronologically (oldest first by date field).
+    AC-4: >
+      compute_flag_status() returns the latest non-cleared flag type
+      for a rule with active flags.
+    AC-5: >
+      compute_flag_status() returns None when the most recent entry
+      for a rule has flag='cleared'.
+    AC-6: >
+      import_from_yaml() imports entries from reports/review.yaml
+      into the database on first run.
+    AC-7: >
+      import_from_yaml() is idempotent — skips import if the
+      reviews table already contains data.
+    AC-8: >
+      delete_review() removes a specific entry by id and returns
+      True, or returns False if the id does not exist.
+
+    # Flask routes
+    AC-9: >
+      GET / returns 200 with HTML containing the coverage report
+      where rule IDs link to /rule/<rule_id> pages.
+    AC-10: >
+      POST /api/reviews creates a review entry and returns JSON
+      with the created row and computed flag_status.
+    AC-11: >
+      POST /api/reviews returns 400 for invalid flag types.
+    AC-12: >
+      POST /api/reviews returns 400 when rule_id or flag fields
+      are missing from the request body.
+    AC-13: >
+      GET /rule/<rule_id> returns a full HTML page with rule
+      metadata, references, implementations, and review history.
+    AC-14: >
+      GET /api/reviews/<rule_id> returns JSON with entries and
+      computed flag_status.
+    AC-15: >
+      DELETE /api/reviews/<id> removes the entry and returns 204.
+    AC-16: >
+      GET /api/summary returns JSON with total_flagged and
+      by_type counts.
+
+    # Rule detail page
+    AC-17: >
+      Rule detail page displays rule metadata: id, title,
+      description, rationale, severity, category, tags.
+    AC-18: >
+      Rule detail page contains an inline review form with flag
+      type dropdown, reviewer input, note textarea, and submit
+      button.
+
+input_contract:
+  - field: --port
+    type: int
+    required: false
+    default: 5050
+    description: "Port for the Flask dev server."
+  - field: --host
+    type: str
+    required: false
+    default: "127.0.0.1"
+    description: "Host to bind the server to."
+
+output_contract:
+  returns: >
+    Flask dev server running at http://host:port serving the
+    interactive coverage report and review API.
+
+constraints:
+  - >
+    Flask must be imported with a try/except that prints a helpful
+    install message if missing.
+  - >
+    The server MUST NOT modify rule YAML files or mapping files.
+  - >
+    VALID_FLAGS list: incorrect-check, verify, stale-reference,
+    missing-coverage, cleared.
+  - >
+    Rule data (rules, mappings) is loaded once at startup. Only
+    review data is dynamic per-request.
+
+behavior:
+  - >
+    1. On startup: load rules, mappings, control titles via
+    coverage_report.py functions. Open/create review.db. Import
+    review.yaml if DB is empty and YAML exists.
+  - >
+    2. Compute coverage data with reviews from DB. Cache result.
+  - >
+    3. GET / serves the coverage report HTML with rule IDs
+    rendered as <a href="/rule/{id}"> links instead of onclick
+    modal openers.
+  - >
+    4. GET /rule/<rule_id> serves a full detail page with all
+    rule fields, review history loaded from DB, and an inline
+    form for adding new reviews.
+  - >
+    5. POST /api/reviews validates input, inserts into DB,
+    returns the created row with computed flag_status.
+  - >
+    6. Review form submission reloads the rule detail page to
+    show the new entry (simple form POST, no AJAX required).
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_review_server_spec.py
+    classes:
+      - TestReviewDB
+      - TestReviewAPI
+      - TestRuleDetailPage
+    count: 18
