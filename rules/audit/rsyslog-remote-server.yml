@@ -1,9 +1,9 @@
-id: audisp-remote-server
-title: Configure audisp to offload audit records to a remote server
+id: rsyslog-remote-server
+title: Configure rsyslog to offload audit records to a remote server
 description: >
   RHEL 8 audit records must be off-loaded onto a different system or storage
-  media from the system being audited. The audisp-remote plugin must be
-  configured with a remote server address.
+  media from the system being audited. Rsyslog must be configured with a
+  remote server using TCP (@@) forwarding.
 rationale: >
   Storing audit records only on the audited system means that if the system
   is compromised, the attacker can modify or destroy the audit trail. Off-loading
@@ -11,7 +11,7 @@ rationale: >
   data that cannot be modified by a local attacker.
 severity: medium
 category: audit
-tags: [audit, audisp, remote, syslog, stig]
+tags: [audit, rsyslog, remote, stig]
 
 references:
   stig:
@@ -29,14 +29,13 @@ implementations:
     check:
       method: command
       run: >
-        remote_server=$(grep -E '^\s*remote_server\s*=' \
-          /etc/audisp/audisp-remote.conf /etc/audit/audisp-remote.conf 2>/dev/null |
-          awk -F= '{print $2}' | tr -d ' ' | head -1)
-        [ -n "$remote_server" ] && [ "$remote_server" != "" ]
+        grep -E '^\s*\*\.\*\s+@@' /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null |
+        grep -v '^\s*#'
       expected_exit: 0
     remediation:
       mechanism: manual
       note: >
-        Configure the audisp-remote plugin with a remote server address:
-        Set remote_server = <hostname-or-IP> in /etc/audisp/audisp-remote.conf
-        or /etc/audit/audisp-remote.conf, then restart the auditd service.
+        Configure rsyslog to offload audit records to a remote server by
+        adding a forwarding rule to /etc/rsyslog.conf or /etc/rsyslog.d/*.conf:
+        *.* @@[logaggregationserver.example.mil]:[port]
+        Then restart the rsyslog service.

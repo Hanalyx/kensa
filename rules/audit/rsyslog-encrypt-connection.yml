@@ -1,0 +1,44 @@
+id: rsyslog-encrypt-connection
+title: Encrypt rsyslog audit record transfer with GNUTLS
+description: >
+  RHEL 8 must encrypt the transfer of audit records off-loaded onto a
+  different system or storage media from the system being audited. Rsyslog
+  must be configured to use the gtls network stream driver with stream
+  driver mode set to 1 (TLS).
+rationale: >
+  If audit records are transferred without encryption, a man-in-the-middle
+  attacker could intercept or modify the audit data in transit. Encrypting
+  the transfer ensures the integrity and confidentiality of the audit records.
+severity: medium
+category: audit
+tags: [audit, rsyslog, encryption, tls, stig]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230481"
+      severity: "CAT II"
+  nist_800_53: ["AU-9", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -qE '^\s*\$DefaultNetstreamDriver\s+gtls'
+        /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null &&
+        grep -qE '^\s*\$ActionSendStreamDriverMode\s+1'
+        /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure rsyslog to encrypt off-loaded audit records by adding these
+        lines to /etc/rsyslog.conf or /etc/rsyslog.d/[customfile].conf:
+        $DefaultNetstreamDriver gtls
+        $ActionSendStreamDriverMode 1
+        Then restart the rsyslog service.

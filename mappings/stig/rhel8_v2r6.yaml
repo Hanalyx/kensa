@@ -2115,17 +2115,17 @@ controls:
     title: "RHEL 8 must have packages required for encrypting offloaded audit logs installed"
   "V-230479":
     rules:
-      - audisp-remote-server
+      - rsyslog-remote-server
     severity: "CAT II"
     title: "RHEL 8 audit records must be off-loaded onto a different system or storage media"
   "V-230481":
     rules:
-      - audisp-encrypt-connection
+      - rsyslog-encrypt-connection
     severity: "CAT II"
     title: "RHEL 8 must encrypt the transfer of audit records off-loaded onto a different system"
   "V-230482":
     rules:
-      - audisp-verify-remote-server
+      - rsyslog-verify-remote-server
     severity: "CAT II"
     title: "RHEL 8 must authenticate the remote logging server for off-loading audit logs"
 
