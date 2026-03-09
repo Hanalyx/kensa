@@ -1,0 +1,47 @@
+id: sudo-restrict-privilege-escalation
+title: Restrict overly permissive sudo privilege escalation
+description: >
+  RHEL 8 must restrict privilege elevation to authorized personnel. Users
+  with sudo access must not have unrestricted ALL=(ALL) ALL entries unless
+  specifically justified.
+rationale: >
+  Overly broad sudo rules grant users unrestricted root access which
+  violates least-privilege principles.
+severity: medium
+category: access-control
+tags: [sudo, privilege-escalation, access-control, least-privilege]
+
+depends_on: [package-sudo-installed]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-237641"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "AC-6(5)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check for overly broad sudo rules granting ALL=(ALL) ALL
+        result=$(grep -rE '^\s*[^#%].*ALL\s*=\s*\(ALL\)\s*ALL' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || true)
+        if [ -n "$result" ]; then
+          echo "FAIL: Overly broad sudo rules found:"
+          echo "$result"
+          exit 1
+        fi
+        echo "OK: No unrestricted ALL=(ALL) ALL entries found"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Review and restrict any overly broad sudo rules that grant
+        ALL=(ALL) ALL access. Replace with specific commands and paths
+        per least-privilege principles.

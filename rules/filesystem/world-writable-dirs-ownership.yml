@@ -1,0 +1,43 @@
+id: world-writable-dirs-ownership
+title: Ensure world-writable directories are owned by root or system accounts
+description: >
+  All world-writable directories must be owned by root, sys, bin, or an
+  application user to prevent unauthorized file creation and manipulation.
+rationale: >
+  World-writable directories owned by non-system users can be exploited
+  for privilege escalation or denial-of-service attacks.
+severity: medium
+category: filesystem
+tags: [filesystem, permissions, world-writable, ownership]
+
+references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230318"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Find world-writable directories owned by non-system users (UID > 999)
+        result=$(find / -xdev -type d -perm -0002 -uid +999 -print 2>/dev/null || true)
+        if [ -n "$result" ]; then
+          echo "FAIL: World-writable directories owned by non-system users:"
+          echo "$result"
+          exit 1
+        fi
+        echo "OK: All world-writable directories are owned by system accounts"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Change ownership of world-writable directories to root or a
+        system account: chown root <directory>

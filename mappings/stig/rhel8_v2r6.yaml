@@ -403,12 +403,12 @@ controls:
     title: "RHEL 8 must employ FIPS 140-2 approved cryptographic hashing algorithms for all stored passwords."
   "V-230234":
     rules:
-      - single-user-auth
+      - grub-password
     severity: "CAT I"
     title: "RHEL 8 operating systems booted with United Extensible Firmware Interface (UEFI) must require authentication upon booting into single-user mode and maintenance."
   "V-230235":
     rules:
-      - single-user-auth
+      - grub-password
     severity: "CAT I"
     title: "RHEL 8 operating systems booted with a BIOS must require authentication upon booting into single-user and maintenance modes."
   "V-230236":
@@ -488,12 +488,12 @@ controls:
     title: "RHEL 8 must disable storing core dumps."
   "V-230318":
     rules:
-      - no-world-writable-files
+      - world-writable-dirs-ownership
     severity: "CAT II"
     title: "All RHEL 8 world-writable directories must be owned by root, sys, bin, or an application user."
   "V-230319":
     rules:
-      - no-world-writable-files
+      - world-writable-dirs-ownership
     severity: "CAT II"
     title: "All RHEL 8 world-writable directories must be group-owned by root, sys, bin, or an application group."
   "V-230330":
@@ -863,7 +863,7 @@ controls:
     title: "RHEL 8 must use reverse path filtering on all IPv4 interfaces."
   "V-237641":
     rules:
-      - su-require-wheel
+      - sudo-restrict-privilege-escalation
     severity: "CAT II"
     title: "RHEL 8 must restrict privilege elevation to authorized personnel."
   "V-237643":
@@ -873,17 +873,17 @@ controls:
     title: "RHEL 8 must require re-authentication when using the \"sudo\" command."
   "V-244521":
     rules:
-      - grub-password
+      - grub-unique-superuser
     severity: "CAT II"
     title: "RHEL 8 operating systems booted with United Extensible Firmware Interface (UEFI) must require a unique superusers name upon booting into single-user mode and maintenance."
   "V-244522":
     rules:
-      - grub-password
+      - grub-unique-superuser
     severity: "CAT II"
     title: "RHEL 8 operating systems booted with a BIOS must require  a unique superusers name upon booting into single-user and maintenance modes."
   "V-244523":
     rules:
-      - single-user-auth
+      - emergency-service-auth
     severity: "CAT II"
     title: "RHEL 8 operating systems must require authentication upon booting into emergency mode."
   "V-244524":
@@ -1179,7 +1179,7 @@ controls:
     title: "RHEL 8 must be a vendor-supported release."
   "V-230492":
     rules:
-      - epel-repos-absent
+      - package-rsh-server-removed
     severity: "CAT I"
     title: "RHEL 8 must not have the rsh-server package installed."
   "V-279933":
@@ -1520,9 +1520,9 @@ controls:
     title: "RHEL 8 must prohibit NOPASSWD in sudoers"
   "V-230272":
     rules:
-      - sudo-timestamp-timeout
+      - sudo-reauth-not-disabled
     severity: "CAT II"
-    title: "RHEL 8 must configure sudo timestamp_timeout=0"
+    title: "RHEL 8 must require re-authentication when using the sudo command"
   "V-230371":
     rules:
       - no-duplicate-uids
@@ -1533,11 +1533,6 @@ controls:
       - pam-faildelay
     severity: "CAT II"
     title: "RHEL 8 must configure pam_faildelay with 4 second minimum delay"
-  "V-230360":
-    rules:
-      - pam-password-sha512
-    severity: "CAT II"
-    title: "RHEL 8 must configure pam_unix SHA512 password hashing"
   "V-230505":
     rules:
       - pkg-firewalld-present
@@ -1590,9 +1585,9 @@ controls:
     title: "RHEL 8 must implement cron logging via rsyslog"
   "V-230388":
     rules:
-      - auditd-admin-space-left-action
+      - auditd-action-mail-acct
     severity: "CAT II"
-    title: "RHEL 8 must notify SA when audit storage is critically low"
+    title: "RHEL 8 must notify the SA when the audit record storage volume default action is changed"
   "V-230389":
     rules:
       - auditd-admin-space-action
@@ -1735,9 +1730,9 @@ controls:
     title: "RHEL 8 must define default permissions for logon and non-logon shells"
   "V-230244":
     rules:
-      - ssh-client-alive-interval
+      - ssh-client-alive-count-max
     severity: "CAT II"
-    title: "RHEL 8 must configure SSH connections to terminate after becoming unresponsive"
+    title: "RHEL 8 must be configured so that all network connections associated with SSH traffic terminate after becoming unresponsive"
   "V-244525":
     rules:
       - ssh-client-alive-count-max
@@ -2005,7 +2000,7 @@ controls:
     title: "RHEL 8 must ensure the SSH server uses strong entropy"
   "V-251711":
     rules:
-      - sudo-logfile
+      - sudo-include-directory
     severity: "CAT II"
     title: "RHEL 8 must specify the default include directory for the /etc/sudoers file"
   "V-230329":
