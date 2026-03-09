@@ -14,6 +14,9 @@ conflicts_with:
 
 references:
   stig:
+    rhel8_v2r6:
+      vuln_id: "V-230540"
+      severity: "CAT II"
     rhel9_v2r7:
       vuln_id: "V-257974"
       severity: "CAT II"

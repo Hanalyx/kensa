@@ -13,6 +13,10 @@ conflicts_with:
   - sysctl-icmp-redirects-disabled
 
 references:
+  stig:
+    rhel8_v2r6:
+      vuln_id: "V-230535"
+      severity: "CAT II"
   cis:
     rhel8_v4: { section: "3.3.2.3", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "SC-5"]

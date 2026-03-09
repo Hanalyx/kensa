@@ -1,8 +1,9 @@
 id: system-commands-group
 title: Ensure system command files are group-owned by root or system account
 description: >
-  All files in /usr/bin and /usr/sbin must be group-owned by root or a
-  system account to prevent unauthorized modification.
+  All files in /usr/bin, /usr/sbin, /usr/local/bin, and /usr/local/sbin must
+  be group-owned by root or a system account to prevent unauthorized
+  modification.
 rationale: >
   System commands group-owned by non-system accounts could be modified by
   members of those groups. Root or system group ownership prevents this.
@@ -25,8 +26,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "find /usr/bin /usr/sbin -type f ! -group root 2>/dev/null | xargs -r stat --format='%G %n' | grep -v '^bin ' | grep -v '^sys ' | head -1"
+      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f ! -group root 2>/dev/null | xargs -r stat --format='%G %n' | grep -v '^bin ' | grep -v '^sys ' | head -1"
       expected_stdout: ""
     remediation:
       mechanism: command_exec
-      run: "find /usr/bin /usr/sbin ! -group root -type f -exec chgrp root {} +"
+      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -group root -type f -exec chgrp root {} +"
