@@ -117,8 +117,9 @@ constraints:
   - >
     The server MUST NOT modify rule YAML files or mapping files.
   - >
-    VALID_FLAGS list: incorrect-check, verify, stale-reference,
-    missing-coverage, cleared.
+    VALID_FLAGS list: wrong-mapping, incorrect-check,
+    incorrect-remediation, verify, stale-reference,
+    missing-coverage, need-pr, cleared.
   - >
     Rule data (rules, mappings) is loaded once at startup. Only
     review data is dynamic per-request.

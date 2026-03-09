@@ -52,18 +52,24 @@ REVIEW_DB = ROOT / "reports" / "review.db"
 REVIEW_YAML = ROOT / "reports" / "review.yaml"
 
 VALID_FLAGS = [
+    "wrong-mapping",
     "incorrect-check",
+    "incorrect-remediation",
     "verify",
     "stale-reference",
     "missing-coverage",
+    "need-pr",
     "cleared",
 ]
 
 FLAG_COLORS = {
+    "wrong-mapping": "#7c3aed",
     "incorrect-check": "#dc2626",
+    "incorrect-remediation": "#e11d48",
     "verify": "#ca8a04",
     "stale-reference": "#ea580c",
     "missing-coverage": "#3b82f6",
+    "need-pr": "#f97316",
     "cleared": "#16a34a",
 }
 
@@ -491,18 +497,22 @@ def create_app(
         """Get a DB connection (reuse or reopen)."""
         return open_review_db(Path(app.config["REVIEW_DB_PATH"]))
 
-    # Build coverage data with current reviews
-    all_reviews = get_all_reviews(conn)
-    data = compute_data(mappings, rules, control_titles, all_reviews)
-    base_html = render_html(data, history)
-    index_html = _rewrite_rule_links(base_html)
-
-    # Store rules for detail pages
+    # Store static data for re-rendering
     app.config["RULES"] = rules
+    app.config["MAPPINGS"] = mappings
+    app.config["CONTROL_TITLES"] = control_titles
+    app.config["HISTORY"] = history
+
+    conn.close()
 
     @app.route("/")
     def index():
-        return index_html
+        db = get_db()
+        live_reviews = get_all_reviews(db)
+        db.close()
+        data = compute_data(mappings, rules, control_titles, live_reviews)
+        base_html = render_html(data, history)
+        return _rewrite_rule_links(base_html)
 
     @app.route("/rule/<rule_id>")
     def rule_detail(rule_id):

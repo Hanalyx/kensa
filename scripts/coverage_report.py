@@ -911,7 +911,7 @@ function innerTab(btn,id){{
 }}
 
 // ── Flag colors ──────────────────────────────────────────────────────────────
-const FLAG_COLORS={{'incorrect-check':'#dc2626','verify':'#ca8a04','stale-reference':'#ea580c','missing-coverage':'#3b82f6','cleared':'#16a34a'}};
+const FLAG_COLORS={{'wrong-mapping':'#7c3aed','incorrect-check':'#dc2626','incorrect-remediation':'#e11d48','verify':'#ca8a04','stale-reference':'#ea580c','missing-coverage':'#3b82f6','need-pr':'#f97316','cleared':'#16a34a'}};
 function flagDot(status){{
   if(!status) return '';
   const col=FLAG_COLORS[status]||'var(--gray)';
