@@ -458,11 +458,6 @@ controls:
     rules:
       - banner-dod-consent
     title: RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access to the system via a command line user logon.
-  V-257784:
-    rules:
-      - ctrl-alt-del-disabled
-    severity: CAT I
-    title: The systemd Ctrl-Alt-Delete burst key sequence in RHEL 9 must be disabled.
   V-257785:
     rules:
       - ctrl-alt-del-disabled
@@ -475,7 +470,7 @@ controls:
     title: RHEL 9 must require a boot loader superuser password.
   V-257789:
     rules:
-      - single-user-auth
+      - grub-unique-superuser
     severity: CAT I
     title: RHEL 9 must require a unique superusers name upon booting into single-user and maintenance modes.
   V-257790:
@@ -503,7 +498,7 @@ controls:
     title: RHEL 9 must prevent the loading of a new kernel for later execution.
   V-257800:
     rules:
-      - kernel-dmesg-restrict
+      - sysctl-kptr-restrict
     title: RHEL 9 must restrict exposed kernel pointer addresses access.
   V-257803:
     rules:
@@ -551,12 +546,12 @@ controls:
     title: RHEL 9 must disable storing core dumps.
   V-257814:
     rules:
-      - coredump-suid-disabled
+      - coredump-restricted
     severity: CAT II
     title: RHEL 9 must disable core dumps for all users.
   V-257815:
     rules:
-      - coredump-suid-disabled
+      - coredump-socket-disabled
     severity: CAT II
     title: RHEL 9 must disable acquiring, saving, and processing core dumps.
   V-257816:
@@ -564,10 +559,6 @@ controls:
       - user-namespaces-disabled
     severity: CAT II
     title: RHEL 9 must disable the use of user namespaces.
-  V-257817:
-    rules:
-      - aslr-enabled
-    title: RHEL 9 must implement nonexecutable data to protect its memory from unauthorized code execution.
   V-257819:
     rules:
       - gpgcheck-enabled
@@ -700,11 +691,11 @@ controls:
     title: RHEL 9 must have the s-nail package installed.
   V-257847:
     rules:
-      - audit-time-change
+      - mount-var-log-audit-separate-fs
     title: RHEL 9 must use a separate file system for the system audit data path.
   V-257848:
     rules:
-      - audit-time-change
+      - mount-var-tmp-separate-fs
     title: RHEL 9 must use a separate file system for /var/tmp.
   V-257849:
     rules:
@@ -831,33 +822,29 @@ controls:
     rules:
       - kmod-disable-cramfs
     title: RHEL 9 must disable mounting of cramfs.
-  V-257881:
-    rules:
-      - kmod-disable-firewire
-    title: RHEL 9 must prevent special devices on non-root local partitions.
   V-257882:
     rules:
-      - kmod-disable-tipc
+      - system-commands-mode
     title: RHEL 9 system commands must have mode 755 or less permissive.
   V-257883:
     rules:
-      - kmod-disable-bluetooth
+      - library-dirs-mode
     title: RHEL 9 library directories must have mode 755 or less permissive.
   V-257884:
     rules:
-      - kmod-disable-usb-storage
+      - library-files-mode
     title: RHEL 9 library files must have mode 755 or less permissive.
   V-257885:
     rules:
-      - kmod-disable-dccp
+      - var-log-dir-permissions
     title: RHEL 9 /var/log directory must have mode 0755 or less permissive.
   V-257886:
     rules:
-      - kmod-disable-sctp
+      - var-log-messages-permissions
     title: RHEL 9 /var/log/messages file must have mode 0640 or less permissive.
   V-257887:
     rules:
-      - kmod-disable-rds
+      - audit-tools-permissions
     title: RHEL 9 audit tools must have a mode of 0755 or less permissive.
   V-257890:
     rules:
@@ -968,23 +955,23 @@ controls:
     title: RHEL 9 /var/log directory must be owned by root.
   V-257915:
     rules:
-      - fs-permissions-etc-shadow-backup
+      - var-log-dir-permissions
     title: RHEL 9 /var/log directory must be group-owned by root.
   V-257916:
     rules:
-      - fs-permissions-etc-shadow-backup
+      - var-log-messages-permissions
     title: RHEL 9 /var/log/messages file must be owned by root.
   V-257917:
     rules:
-      - fs-permissions-etc-shadow-backup
+      - var-log-messages-permissions
     title: RHEL 9 /var/log/messages file must be group-owned by root.
   V-257918:
     rules:
-      - no-world-writable-files
+      - system-commands-owner
     title: RHEL 9 system commands must be owned by root.
   V-257919:
     rules:
-      - no-unowned-files
+      - system-commands-group
     title: RHEL 9 system commands must be group-owned by root or a system account.
   V-257920:
     rules:
@@ -992,7 +979,7 @@ controls:
     title: RHEL 9 library files must be owned by root.
   V-257921:
     rules:
-      - sticky-bit-world-writable
+      - library-files-group
     title: RHEL 9 library files must be group-owned by root or a system account.
   V-257928:
     rules:
@@ -1043,7 +1030,7 @@ controls:
     title: RHEL 9 network interfaces must not be in promiscuous mode.
   V-257942:
     rules:
-      - kernel-unprivileged-bpf
+      - sysctl-bpf-jit-harden
     severity: CAT II
     title: RHEL 9 must enable hardening for the Berkeley Packet Filter just-in-time compiler.
   V-257943:
@@ -1096,7 +1083,7 @@ controls:
     title: There must be no shosts.equiv files on RHEL 9.
   V-257956:
     rules:
-      - login-defs-pass-warn-age
+      - shosts-user-files-absent
     title: There must be no .shosts files on RHEL 9.
   V-257957:
     rules:
@@ -1120,7 +1107,7 @@ controls:
     title: RHEL 9 must log IPv4 packets with impossible addresses.
   V-257961:
     rules:
-      - sysctl-net-ipv4-conf-all-log-martians
+      - sysctl-net-ipv4-conf-default-log-martians
     severity: CAT II
     title: RHEL 9 must log IPv4 packets with impossible addresses by default.
   V-257962:
@@ -1130,17 +1117,17 @@ controls:
     title: RHEL 9 must use reverse path filtering on all IPv4 interfaces.
   V-257963:
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-net-ipv4-conf-default-accept-redirects
     severity: CAT II
     title: RHEL 9 must prevent IPv4 Internet Control Message Protocol (ICMP) redirect messages from being accepted.
   V-257964:
     rules:
-      - sysctl-net-ipv4-conf-all-accept-source-route
+      - sysctl-net-ipv4-conf-default-accept-source-route
     severity: CAT II
     title: RHEL 9 must not forward IPv4 source-routed packets by default.
   V-257965:
     rules:
-      - sysctl-net-ipv4-conf-all-rp-filter
+      - sysctl-net-ipv4-conf-default-rp-filter
     severity: CAT II
     title: RHEL 9 must use a reverse-path filter for IPv4 network traffic when possible by default.
   V-257966:
@@ -1160,7 +1147,7 @@ controls:
     title: RHEL 9 must not send Internet Control Message Protocol (ICMP) redirects.
   V-257969:
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-net-ipv4-conf-default-send-redirects
     severity: CAT II
     title: RHEL 9 must not allow interfaces to perform Internet Control Message Protocol (ICMP) redirects by default.
   V-257970:
@@ -1190,17 +1177,17 @@ controls:
     title: RHEL 9 must not enable IPv6 packet forwarding unless the system is a router.
   V-257975:
     rules:
-      - sysctl-net-ipv6-conf-all-accept-ra
+      - sysctl-net-ipv6-conf-default-accept-ra
     severity: CAT II
     title: RHEL 9 must not accept router advertisements on all IPv6 interfaces by default.
   V-257976:
     rules:
-      - sysctl-net-ipv6-conf-all-accept-redirects
+      - sysctl-net-ipv6-conf-default-accept-redirects
     severity: CAT II
     title: RHEL 9 must prevent IPv6 Internet Control Message Protocol (ICMP) redirect messages from being accepted.
   V-257977:
     rules:
-      - sysctl-net-ipv6-conf-all-accept-source-route
+      - sysctl-net-ipv6-conf-default-accept-source-route
     severity: CAT II
     title: RHEL 9 must not forward IPv6 source-routed packets by default.
   V-257980:
@@ -1214,7 +1201,7 @@ controls:
     title: RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access to the system via a SSH logon.
   V-257982:
     rules:
-      - repo-gpgcheck-enabled
+      - ssh-log-level
     title: RHEL 9 must log SSH connection attempts and failures to the server.
   V-257984:
     rules:
@@ -1289,11 +1276,11 @@ controls:
     title: RHEL 9 must disable the graphical user interface automount function unless required.
   V-258018:
     rules:
-      - coredump-suid-disabled
+      - gdm-no-autologin
     title: RHEL 9 must not allow unattended or automatic logon via the graphical user interface.
   V-258019:
     rules:
-      - kernel-yama-ptrace
+      - gdm-smartcard-removal-lock
     title: RHEL 9 must be able to initiate directly a session lock for all connection types using smart card when the smart card is removed.
   V-258031:
     rules:
@@ -1778,7 +1765,7 @@ controls:
     title: RHEL 9 must enable FIPS mode.
   V-258231:
     rules:
-      - fips-mode-enabled
+      - login-defs-encrypt-method
     severity: CAT II
     title: RHEL 9 must employ FIPS 140-3 approved cryptographic hashing algorithms for all stored passwords.
   V-258232:
@@ -1788,7 +1775,7 @@ controls:
     title: RHEL 9 IP tunnels must use FIPS 140-3 approved cryptographic algorithms.
   V-258233:
     rules:
-      - fips-mode-enabled
+      - pam-password-sha512
     severity: CAT II
     title: RHEL 9 pam_unix.so module must be configured in the password-auth file to use a FIPS 140-3 approved cryptographic hashing algorithm for system authentication.
   V-258241:
@@ -2078,7 +2065,7 @@ controls:
   # Sudo rules
   V-258085:
     rules:
-      - sudo-require-auth
+      - sudo-require-password
     severity: CAT II
     title: RHEL 9 must use the invoking user's password for privilege escalation when using sudo.
   V-258086:
@@ -2093,7 +2080,7 @@ controls:
     title: RHEL 9 must require users to provide a password for privilege escalation.
   V-258118:
     rules:
-      - sudo-require-auth
+      - sudo-reauth-not-disabled
     severity: CAT II
     title: RHEL 9 must not be configured to bypass password requirements for privilege escalation.
   # Shadow password rules
@@ -2215,7 +2202,7 @@ controls:
     title: RHEL 9 must have the opensc package installed.
   V-258157:
     rules:
-      - auditd-space-left-percent
+      - auditd-space-left-action
     severity: CAT II
     title: RHEL 9 must notify the SA and ISSO when allocated audit record storage volume reaches 75 percent utilization.
   V-258158:
@@ -2283,11 +2270,6 @@ controls:
       - gdm-login-banner
     severity: CAT II
     title: "RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access via graphical user logon."
-  V-258013:
-    rules:
-      - gdm-login-banner
-    severity: CAT II
-    title: "RHEL 9 must prevent a user from overriding the banner-message-enable setting for the graphical user interface."
   V-258015:
     rules:
       - gdm-automount-override
@@ -2305,7 +2287,7 @@ controls:
     title: "RHEL 9 must prevent a user from overriding the disabling of the graphical user interface autorun function."
   V-258021:
     rules:
-      - gdm-screen-lock-idle
+      - gdm-lock-enabled
     severity: CAT II
     title: "RHEL 9 must enable a user session lock until that user re-establishes access using established identification and authentication procedures for graphical user sessions."
   V-258022:
@@ -2500,6 +2482,22 @@ controls:
     title: RHEL 9 must elevate the SELinux context when an administrator calls the sudo command.
 
 unimplemented:
+  "V-257784":
+    title: "Disable Ctrl-Alt-Delete burst key sequence"
+    severity: "CAT II"
+    reason: "CtrlAltDelBurstAction=none check differs from masking ctrl-alt-del.target — needs new rule"
+  "V-257817":
+    title: "Implement nonexecutable data (NX bit)"
+    severity: "CAT II"
+    reason: "NX bit/ExecShield check requires CPU flag inspection — no existing rule"
+  "V-257881":
+    title: "Prevent special devices on non-root local partitions"
+    severity: "CAT II"
+    reason: "General nodev-on-all-non-root check not implemented — individual mount-*-nodev rules cover known mount points"
+  "V-258013":
+    title: "Prevent user from overriding GDM banner-message-enable"
+    severity: "CAT II"
+    reason: "No dconf lock/override rule for banner-message-enable exists yet"
   V-257777:
     title: RHEL 9 must be a vendor-supported release.
     severity: CAT I
