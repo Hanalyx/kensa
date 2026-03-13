@@ -62,9 +62,8 @@ implementations:
     remediation:
       mechanism: manual
       note: >
-        Configure GDM dconf settings with your organization's banner:
+        Banner text is organization-specific and must be customized.
         Create /etc/dconf/db/gdm.d/00-security-settings with:
           [org/gnome/login-screen]
-          banner-message-enable=true
-          banner-message-text='{{ banner_text }}'
+          banner-message-text='<your organization consent banner>'
         Then run: dconf update

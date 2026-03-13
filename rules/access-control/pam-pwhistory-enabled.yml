@@ -53,5 +53,9 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Add pam_pwhistory.so to /etc/pam.d/system-auth password stack"
+      mechanism: pam_module_configure
+      service: system-auth
+      module: pam_pwhistory.so
+      type: password
+      control: requisite
+      args: "use_authtok"

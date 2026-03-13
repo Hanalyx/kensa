@@ -40,12 +40,12 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Disable restart buttons in /etc/dconf/db/gdm.d/00-security-settings:
-        [org/gnome/login-screen]
-        disable-restart-buttons=true
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/login-screen
+      key: disable-restart-buttons
+      value: "true"
+      file: 00-security-settings
+      db: gdm
 
   - default: true
     check:

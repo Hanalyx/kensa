@@ -38,5 +38,9 @@ implementations:
             echo "OK: wheel group is empty"
           expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: 'sed -i ''s/^#\(auth.*required.*pam_wheel.so.*use_uid\)/\1/'' /etc/pam.d/su'
+      mechanism: pam_module_configure
+      service: su
+      module: pam_wheel.so
+      type: auth
+      control: required
+      args: "use_uid"

@@ -1,0 +1,90 @@
+kind: RemediationHandler
+metadata:
+  name: CryptoPolicySet
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-13"
+  updated: "2026-03-13"
+
+context:
+  description: >
+    Sets the system-wide crypto policy using update-crypto-policies --set.
+    Supports optional subpolicy modifiers (e.g., FIPS:NO-SHA1).
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["crypto_policy_set"]. Implemented in
+    runner/handlers/remediation/_system.py as _remediate_crypto_policy_set.
+  dependencies:
+    - runner.shell_util.quote
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Set the system-wide cryptographic policy by running
+    update-crypto-policies --set {policy}[:{subpolicy}]. Supports dry-run
+    preview and subpolicy modifiers.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, returns (True,
+      "Would set crypto policy to {full_policy}") and no SSH commands
+      are executed.
+    AC-2: >
+      Policy set: Runs update-crypto-policies --set {policy} and returns
+      (True, "Set crypto policy to {policy}") on success.
+    AC-3: >
+      Subpolicy support: When subpolicy is provided, runs
+      update-crypto-policies --set {policy}:{subpolicy} and returns
+      success with the full policy string in detail.
+    AC-4: >
+      Command failure: Returns (False, "update-crypto-policies failed:
+      {stderr}") when the command fails.
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST use shell_util.quote() for policy value interpolation.
+  - MUST return a 2-tuple (bool, str) from the handler.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "crypto_policy_set"
+  - field: policy
+    type: str
+    required: true
+    description: >
+      Crypto policy name (e.g., "DEFAULT", "FIPS", "FUTURE").
+  - field: subpolicy
+    type: str
+    required: false
+    description: >
+      Optional subpolicy modifier (e.g., "NO-SHA1").
+      When present, full policy is "{policy}:{subpolicy}".
+
+behavior:
+  - "Extract fields: Read policy from dict. Read optional subpolicy."
+  - "Compose full policy: If subpolicy is set, compose '{policy}:{subpolicy}'. Otherwise, use policy as-is."
+  - "Dry-run check: If dry_run=True, return preview."
+  - "Run update-crypto-policies --set {full_policy}."
+  - "Return success or failure."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would set crypto policy to {full_policy}\""
+    - "Success: \"Set crypto policy to {full_policy}\""
+    - "Failure: \"update-crypto-policies failed: {stderr}\""
+
+side_effects:
+  - "Changes the system-wide cryptographic policy on the remote host."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestCryptoPolicySetSpecDerived
+    count: 4

@@ -43,7 +43,9 @@ implementations:
         /etc/pam.d/system-auth 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add pam_pwquality.so to the password stack in
-        /etc/pam.d/system-auth. Preferred: authselect enable-feature with-pwquality.
+      mechanism: pam_module_configure
+      service: system-auth
+      module: pam_pwquality.so
+      type: password
+      control: requisite
+      args: "local_users_only"

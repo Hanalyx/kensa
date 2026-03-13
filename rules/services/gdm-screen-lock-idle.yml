@@ -36,14 +36,19 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure screen lock in /etc/dconf/db/local.d/00-screensaver:
-        [org/gnome/desktop/session]
-        idle-delay=uint32 900
-        [org/gnome/desktop/screensaver]
-        lock-delay=uint32 5
-        Then run: dconf update
+      steps:
+        - mechanism: dconf_set
+          schema: org/gnome/desktop/session
+          key: idle-delay
+          value: "900"
+          value_type: uint32
+          file: 00-screensaver
+        - mechanism: dconf_set
+          schema: org/gnome/desktop/screensaver
+          key: lock-delay
+          value: "5"
+          value_type: uint32
+          file: 00-screensaver
 
   - default: true
     check:

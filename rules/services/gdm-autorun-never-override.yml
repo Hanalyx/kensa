@@ -38,11 +38,12 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Lock autorun setting in /etc/dconf/db/local.d/locks/00-media-autorun:
-        /org/gnome/desktop/media-handling/autorun-never
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/media-handling
+      key: autorun-never
+      value: "true"
+      file: 00-media-autorun
+      lock: true
 
   - default: true
     check:

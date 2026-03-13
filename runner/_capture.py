@@ -41,6 +41,8 @@ from runner.handlers.capture._service import (  # noqa: F401
 )
 from runner.handlers.capture._system import (  # noqa: F401
     _capture_cron_job,
+    _capture_crypto_policy_set,
+    _capture_dconf_set,
     _capture_grub_parameter_remove,
     _capture_grub_parameter_set,
     _capture_kernel_module_disable,

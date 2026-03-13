@@ -47,6 +47,9 @@ implementations:
       run: "grep -E '^auth\\s+required\\s+pam_wheel.so\\s+use_uid' /etc/pam.d/su"
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: "sed -i 's/^#\\(auth\\s\\+required\\s\\+pam_wheel.so\\s\\+use_uid\\)/\\1/' /etc/pam.d/su || echo 'auth required pam_wheel.so use_uid' >> /etc/pam.d/su"
-      unless: "grep -E '^auth\\s+required\\s+pam_wheel.so\\s+use_uid' /etc/pam.d/su"
+      mechanism: pam_module_configure
+      service: su
+      module: pam_wheel.so
+      type: auth
+      control: required
+      args: "use_uid"

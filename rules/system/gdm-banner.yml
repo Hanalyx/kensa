@@ -35,12 +35,10 @@ implementations:
         [ "$val" = "true" ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure GDM dconf settings:
-        1. Create /etc/dconf/profile/gdm with: user-db:user and system-db:gdm
-        2. Create /etc/dconf/db/gdm.d/00-security-settings with:
-           [org/gnome/login-screen]
-           banner-message-enable=true
-           banner-message-text='<DoD warning banner text>'
-        3. Run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/login-screen
+      key: banner-message-enable
+      value: "true"
+      file: 00-security-settings
+      db: gdm
+      lock: true

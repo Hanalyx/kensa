@@ -41,6 +41,8 @@ from runner.handlers.rollback._service import (  # noqa: F401
 )
 from runner.handlers.rollback._system import (  # noqa: F401
     _rollback_cron_job,
+    _rollback_crypto_policy_set,
+    _rollback_dconf_set,
     _rollback_grub_parameter_remove,
     _rollback_grub_parameter_set,
     _rollback_kernel_module_disable,

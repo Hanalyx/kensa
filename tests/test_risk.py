@@ -65,9 +65,9 @@ class TestMechanismRisk:
     def test_na_mechanisms(self, mechanism):
         assert MECHANISM_RISK[mechanism] == "na"
 
-    def test_all_23_mechanisms_classified(self):
-        """All 23 known mechanisms have a risk classification."""
-        assert len(MECHANISM_RISK) == 23
+    def test_all_25_mechanisms_classified(self):
+        """All 25 known mechanisms have a risk classification."""
+        assert len(MECHANISM_RISK) == 25
 
 
 class TestClassifyStepRisk:
