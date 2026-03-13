@@ -545,7 +545,9 @@
         "command_exec",
         "manual",
         "dconf_set",
-        "crypto_policy_set"
+        "crypto_policy_set",
+        "authselect_feature_enable",
+        "crypto_policy_subpolicy"
       ]
     }
   }

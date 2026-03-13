@@ -6735,3 +6735,209 @@ class TestCryptoPolicySetSpecDerived:
         ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
         assert ok is False
         assert "update-crypto-policies failed" in detail
+
+
+class TestAuthselectFeatureEnableSpecDerived:
+    """Spec-derived tests for authselect_feature_enable handler.
+
+    See specs/handlers/remediation/authselect_feature_enable.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "authselect_feature_enable",
+            "feature": "with-faillock",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would run: authselect enable-feature with-faillock" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_feature_enabled_success(self, mock_ssh):
+        """AC-2: Feature enabled successfully."""
+        ssh = mock_ssh(
+            {
+                "authselect enable-feature": Result(
+                    exit_code=0, stdout="Feature enabled\n", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "authselect_feature_enable",
+            "feature": "with-faillock",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Enabled authselect feature 'with-faillock'" in detail
+
+    def test_unless_guard_skips(self, mock_ssh):
+        """AC-3: Unless guard skips when feature already active."""
+        ssh = mock_ssh(
+            {
+                "authselect current": Result(
+                    exit_code=0, stdout="with-faillock\n", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "authselect_feature_enable",
+            "feature": "with-faillock",
+            "unless": "authselect current | grep -q with-faillock",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "already active (skipped)" in detail
+
+    def test_command_failure(self, mock_ssh):
+        """AC-4: Command failure returns error detail."""
+        ssh = mock_ssh(
+            {
+                "authselect enable-feature": Result(
+                    exit_code=1, stdout="", stderr="authselect not configured"
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "authselect_feature_enable",
+            "feature": "with-faillock",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "authselect enable-feature failed" in detail
+
+    def test_unless_guard_failure_proceeds(self, mock_ssh):
+        """AC-5: Unless guard failure proceeds to enable feature."""
+        ssh = mock_ssh(
+            {
+                "authselect current": Result(exit_code=1, stdout="", stderr=""),
+                "authselect enable-feature": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "authselect_feature_enable",
+            "feature": "with-pwhistory",
+            "unless": "authselect current | grep -q with-pwhistory",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Enabled authselect feature 'with-pwhistory'" in detail
+
+
+class TestCryptoPolicySubpolicySpecDerived:
+    """Spec-derived tests for crypto_policy_subpolicy handler.
+
+    See specs/handlers/remediation/crypto_policy_subpolicy.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "crypto_policy_subpolicy",
+            "subpolicy": "NO-SHA1",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would append subpolicy :NO-SHA1" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_subpolicy_appended(self, mock_ssh):
+        """AC-2: Subpolicy appended to current policy."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies --show": Result(
+                    exit_code=0, stdout="DEFAULT\n", stderr=""
+                ),
+                "update-crypto-policies --set": Result(
+                    exit_code=0, stdout="", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_subpolicy",
+            "subpolicy": "NO-SHA1",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Set crypto policy to DEFAULT:NO-SHA1" in detail
+
+    def test_unless_guard_skips(self, mock_ssh):
+        """AC-3: Unless guard skips when subpolicy already active."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies --show": Result(
+                    exit_code=0, stdout="DEFAULT:NO-SHA1\n", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_subpolicy",
+            "subpolicy": "NO-SHA1",
+            "unless": "update-crypto-policies --show | grep -q ':NO-SHA1'",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "already active (skipped)" in detail
+
+    def test_read_failure(self, mock_ssh):
+        """AC-4: Current policy read failure returns error."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies --show": Result(
+                    exit_code=1, stdout="", stderr="not found"
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_subpolicy",
+            "subpolicy": "NO-CBC",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to read current crypto policy" in detail
+
+    def test_set_failure(self, mock_ssh):
+        """AC-5: Policy set failure returns error detail."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies --show": Result(
+                    exit_code=0, stdout="DEFAULT\n", stderr=""
+                ),
+                "update-crypto-policies --set": Result(
+                    exit_code=1, stdout="", stderr="invalid policy"
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_subpolicy",
+            "subpolicy": "NO-CBC",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "update-crypto-policies --set failed" in detail
+
+    def test_deduplication(self, mock_ssh):
+        """AC-6: Existing subpolicy is stripped before re-appending."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies --show": Result(
+                    exit_code=0, stdout="DEFAULT:NO-SHA1\n", stderr=""
+                ),
+                "update-crypto-policies --set": Result(
+                    exit_code=0, stdout="", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_subpolicy",
+            "subpolicy": "NO-SHA1",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Set crypto policy to DEFAULT:NO-SHA1" in detail
+        # Ensure the command used DEFAULT:NO-SHA1, not DEFAULT:NO-SHA1:NO-SHA1
+        set_cmds = [c for c in ssh.commands_run if "update-crypto-policies --set" in c]
+        assert len(set_cmds) == 1
+        assert ":NO-SHA1:NO-SHA1" not in set_cmds[0]

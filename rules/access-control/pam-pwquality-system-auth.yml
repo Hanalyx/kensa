@@ -33,8 +33,8 @@ implementations:
       run: 'authselect current 2>/dev/null | grep -q with-pwquality'
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: "authselect enable-feature with-pwquality"
+      mechanism: authselect_feature_enable
+      feature: with-pwquality
   - default: true
     check:
       method: command

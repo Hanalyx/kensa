@@ -40,12 +40,9 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: |
-        if grep -q '^enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
-          exit 0
-        fi
-        echo 'enforce_for_root' >> /etc/security/pwhistory.conf
+      mechanism: config_append
+      path: "/etc/security/pwhistory.conf"
+      line: "enforce_for_root"
 
   - default: true
     check:

@@ -33,11 +33,9 @@ implementations:
           /etc/security/faillock.conf 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add "silent" or "audit" to /etc/security/faillock.conf to suppress
-        system messages when the account lockout threshold is reached.
-        Then run authselect apply-changes.
+      mechanism: config_append
+      path: "/etc/security/faillock.conf"
+      line: "silent"
   - default: true
     check:
       method: command

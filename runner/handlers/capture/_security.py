@@ -55,6 +55,22 @@ def _capture_audit_rule_set(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_authselect_feature_enable(ssh: SSHSession, r: dict) -> PreState:
+    """Capture authselect feature state before enabling."""
+    feature = r["feature"]
+    # Check if feature is currently active
+    result = ssh.run("authselect current 2>/dev/null")
+    feature_was_active = result.ok and feature in result.stdout
+    return PreState(
+        mechanism="authselect_feature_enable",
+        data={
+            "feature": feature,
+            "feature_was_active": feature_was_active,
+            "authselect_output": result.stdout.strip() if result.ok else None,
+        },
+    )
+
+
 def _capture_pam_module_configure(ssh: SSHSession, r: dict) -> PreState:
     """Capture PAM file content and authselect state before modification.
 

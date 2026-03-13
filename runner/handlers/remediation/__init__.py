@@ -59,6 +59,7 @@ from runner.handlers.remediation._package import (
 )
 from runner.handlers.remediation._security import (
     _remediate_audit_rule_set,
+    _remediate_authselect_feature_enable,
     _remediate_pam_module_configure,
     _remediate_selinux_boolean_set,
     _remediate_selinux_state_set,
@@ -71,6 +72,7 @@ from runner.handlers.remediation._service import (
 from runner.handlers.remediation._system import (
     _remediate_cron_job,
     _remediate_crypto_policy_set,
+    _remediate_crypto_policy_subpolicy,
     _remediate_dconf_set,
     _remediate_grub_parameter_remove,
     _remediate_grub_parameter_set,
@@ -116,6 +118,9 @@ REMEDIATION_HANDLERS = {
     "selinux_state_set": _remediate_selinux_state_set,
     "audit_rule_set": _remediate_audit_rule_set,
     "pam_module_configure": _remediate_pam_module_configure,
+    "authselect_feature_enable": _remediate_authselect_feature_enable,
+    # System handlers (continued)
+    "crypto_policy_subpolicy": _remediate_crypto_policy_subpolicy,
     # Command handlers
     "command_exec": _remediate_command_exec,
     "manual": _remediate_manual,

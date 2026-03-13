@@ -95,6 +95,19 @@ def _rollback_cron_job(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]
     return True, "Cron file restored"
 
 
+def _rollback_crypto_policy_subpolicy(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
+    """Restore previous crypto policy."""
+    old_policy = pre_state.data.get("old_policy")
+    if not old_policy:
+        return False, "No previous crypto policy captured"
+    result = ssh.run(f"update-crypto-policies --set {shell_util.quote(old_policy)}")
+    if not result.ok:
+        return False, f"Failed to restore crypto policy: {result.stderr}"
+    return True, f"Restored crypto policy to {old_policy}"
+
+
 def _rollback_dconf_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Restore dconf setting and lock files, then run dconf update."""
     d = pre_state.data

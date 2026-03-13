@@ -124,6 +124,16 @@ def _capture_cron_job(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_crypto_policy_subpolicy(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current crypto policy before appending subpolicy."""
+    result = ssh.run("update-crypto-policies --show 2>/dev/null")
+    current = result.stdout.strip() if result.ok else None
+    return PreState(
+        mechanism="crypto_policy_subpolicy",
+        data={"old_policy": current},
+    )
+
+
 def _capture_dconf_set(ssh: SSHSession, r: dict) -> PreState:
     """Capture dconf setting and lock file state before modification."""
     db = r.get("db", "local")

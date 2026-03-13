@@ -36,8 +36,8 @@ implementations:
         [ -n "$rounds" ] && [ "$rounds" -ge 5000 ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add rounds=5000 (or higher) to the pam_unix.so entry in the
-        password stack of /etc/pam.d/system-auth, or set
-        SHA_CRYPT_MIN_ROUNDS 5000 in /etc/login.defs.
+      mechanism: config_set
+      path: "/etc/login.defs"
+      key: "SHA_CRYPT_MIN_ROUNDS"
+      value: "5000"
+      separator: "\t"

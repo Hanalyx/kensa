@@ -31,6 +31,7 @@ from runner.handlers.rollback._package import (  # noqa: F401
 )
 from runner.handlers.rollback._security import (  # noqa: F401
     _rollback_audit_rule_set,
+    _rollback_authselect_feature_enable,
     _rollback_pam_module_configure,
     _rollback_selinux_boolean_set,
 )
@@ -42,6 +43,7 @@ from runner.handlers.rollback._service import (  # noqa: F401
 from runner.handlers.rollback._system import (  # noqa: F401
     _rollback_cron_job,
     _rollback_crypto_policy_set,
+    _rollback_crypto_policy_subpolicy,
     _rollback_dconf_set,
     _rollback_grub_parameter_remove,
     _rollback_grub_parameter_set,

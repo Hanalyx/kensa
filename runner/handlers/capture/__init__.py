@@ -38,6 +38,7 @@ from runner.handlers.capture._package import (
 )
 from runner.handlers.capture._security import (
     _capture_audit_rule_set,
+    _capture_authselect_feature_enable,
     _capture_pam_module_configure,
     _capture_selinux_boolean_set,
 )
@@ -49,6 +50,7 @@ from runner.handlers.capture._service import (
 from runner.handlers.capture._system import (
     _capture_cron_job,
     _capture_crypto_policy_set,
+    _capture_crypto_policy_subpolicy,
     _capture_dconf_set,
     _capture_grub_parameter_remove,
     _capture_grub_parameter_set,
@@ -93,6 +95,9 @@ CAPTURE_HANDLERS = {
     "selinux_boolean_set": _capture_selinux_boolean_set,
     "audit_rule_set": _capture_audit_rule_set,
     "pam_module_configure": _capture_pam_module_configure,
+    "authselect_feature_enable": _capture_authselect_feature_enable,
+    # System handlers (continued)
+    "crypto_policy_subpolicy": _capture_crypto_policy_subpolicy,
     # Command handlers
     "command_exec": _capture_command_exec,
     "manual": _capture_manual,
