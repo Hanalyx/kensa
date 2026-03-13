@@ -36,13 +36,10 @@ controls:
       - ssh-ciphers-fips
       - ssh-macs-fips
       - ssh-kex-fips
-      - sysctl-net-ipv4-conf-all-send-redirects
-      - sysctl-net-ipv4-conf-default-send-redirects
-      - sysctl-net-ipv4-conf-all-accept-redirects
-      - sysctl-net-ipv4-conf-default-accept-redirects
-      - sysctl-net-ipv4-conf-all-accept-source-route
-      - sysctl-net-ipv4-conf-default-accept-source-route
-      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+      - sysctl-send-redirects-disabled
+      - sysctl-icmp-redirects-disabled
+      - sysctl-source-route-disabled
+      - sysctl-ignore-broadcast-icmp
       - aslr-enabled
       - coredump-restricted
 
@@ -51,7 +48,7 @@ controls:
     description: "Vendor default accounts removed or disabled if not necessary"
     rules:
       - ssh-disable-root-login
-      - accounts-no-uid-zero
+      - root-only-uid0
       - accounts-no-empty-passwords
       - nologin-system-accounts
 
@@ -60,12 +57,12 @@ controls:
     description: "Each server performs only its primary function"
     rules:
       - service-disable-cups
-      - service-disable-avahi-daemon
+      - service-disable-avahi
       - service-disable-dhcpd
       - service-disable-httpd
       - service-disable-named
       - service-disable-nfs
-      - service-disable-samba
+      - service-disable-smb
       - service-disable-squid
       - service-disable-vsftpd
       - service-disable-telnet
@@ -79,9 +76,9 @@ controls:
     description: "Only services, ports, protocols necessary for system function"
     rules:
       - service-disable-rpcbind
-      - service-disable-rsync
+      - service-disable-rsyncd
       - service-disable-autofs
-      - service-disable-kdump
+      - kdump-disabled
       - service-disable-mcstrans
       - service-enable-firewalld
       - package-xinetd-removed
@@ -100,8 +97,8 @@ controls:
       - sudo-use-pty
       - sudo-require-auth
       - sudo-timeout
-      - su-require-wheel
-      - login-defs-umask
+      - pam-wheel-su
+      - umask-default
       - shell-timeout
       - ctrl-alt-del-disabled
 
@@ -147,7 +144,7 @@ controls:
     description: "Anti-malware mechanisms actively running and cannot be disabled"
     rules:
       - aide-cron-check
-      - auditd-service-enabled
+      - auditd-enabled
 
   "5.3.1":
     title: "Anti-malware solution current"
@@ -166,16 +163,16 @@ controls:
     rules:
       - selinux-enforcing
       - selinux-policy-targeted
-      - fs-permissions-etc-passwd
-      - fs-permissions-etc-shadow
-      - fs-permissions-etc-group
+      - etc-passwd-permissions
+      - etc-shadow-permissions
+      - etc-group-permissions
       - ssh-access-control
 
   "7.2.2":
     title: "Access assigned based on job classification"
     description: "Access is assigned based on personnel job classification"
     rules:
-      - su-require-wheel
+      - pam-wheel-su
       - sudo-use-pty
       - sudo-require-auth
 
@@ -184,15 +181,15 @@ controls:
     description: "Required privileges are documented and approved"
     rules:
       - sudo-logfile
-      - audit-sudoers-changes
+      - audit-sudoers
 
   "7.2.5":
     title: "System and application accounts restricted"
     description: "System and application accounts assigned minimal necessary"
     rules:
       - nologin-system-accounts
-      - accounts-no-uid-zero
-      - root-gid
+      - root-only-uid0
+      - root-only-gid0
       - chrony-user
 
   # ════════════════════════════════════════════════════════════════════════════
@@ -203,14 +200,14 @@ controls:
     title: "Unique IDs for all users"
     description: "All users assigned unique ID before access is allowed"
     rules:
-      - accounts-no-uid-zero
+      - root-only-uid0
 
   "8.2.2":
     title: "Shared/group authentication prohibited"
     description: "Group/shared authentication prohibited except specified"
     rules:
       - ssh-disable-root-login
-      - accounts-no-uid-zero
+      - root-only-uid0
 
   "8.2.3":
     title: "Strong authentication for admin access"
@@ -232,7 +229,7 @@ controls:
     title: "Inactive accounts disabled"
     description: "Inactive accounts removed or disabled within 90 days"
     rules:
-      - inactive-password-lock
+      - password-inactive
 
   "8.3.1":
     title: "Password/passphrase requirements"
@@ -290,22 +287,22 @@ controls:
     title: "Audit logs enabled and active"
     description: "Audit logs enabled and active for all system components"
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
       - audit-rules-immutable
 
   "10.2.1.1":
     title: "Audit log all user access"
     description: "Log all individual user access to cardholder data"
     rules:
-      - audit-login-logout
-      - audit-session-initiation
+      - audit-logins
+      - audit-session
       - audit-privileged-commands
 
   "10.2.1.2":
     title: "Audit log all actions by admin"
     description: "Log all actions taken by any with admin privileges"
     rules:
-      - audit-sudoers-changes
+      - audit-sudoers
       - audit-cmd-sudo
       - audit-cmd-su
       - audit-user-group-changes
@@ -348,15 +345,15 @@ controls:
     description: "Log creation and deletion of system-level objects"
     rules:
       - audit-kernel-modules
-      - audit-file-deletion
+      - audit-delete
       - audit-mount-operations
-      - audit-permission-changes
+      - audit-perm-mod
 
   "10.2.2":
     title: "Audit log content requirements"
     description: "Audit logs contain all required elements"
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
       - audit-time-change
       - cron-logging
 
@@ -373,7 +370,7 @@ controls:
     rules:
       - audit-log-permissions
       - audit-log-dir-permissions
-      - rsyslog-default-permissions
+      - rsyslog-file-permissions
 
   "10.3.3":
     title: "Audit logs protected from tampering"
@@ -381,7 +378,7 @@ controls:
     rules:
       - auditd-max-log-file
       - auditd-max-log-file-action
-      - auditd-space-action
+      - auditd-space-left-action
       - auditd-admin-space-action
 
   "10.3.4":
@@ -389,7 +386,7 @@ controls:
     description: "File integrity monitoring used on audit logs"
     rules:
       - aide-installed
-      - aide-audit-tools
+      - auditd-tools-integrity
       - aide-cron-check
 
   "10.4.1":
@@ -431,7 +428,7 @@ controls:
     rules:
       - aide-installed
       - aide-cron-check
-      - aide-audit-tools
+      - auditd-tools-integrity
 
   "11.5.1.1":
     title: "Change detection responds to alerts"

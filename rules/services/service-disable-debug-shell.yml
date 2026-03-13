@@ -1,36 +1,45 @@
 id: service-disable-debug-shell
 title: Disable debug-shell service
-description: >
-  The debug-shell service provides a root shell on tty9 during boot
-  for debugging purposes. It should be disabled in production.
-rationale: >
-  The debug-shell provides unauthenticated root access during boot,
-  which could be exploited by attackers with physical access to
-  gain complete control of the system.
+description: 'The debug-shell service provides a root shell on tty9 during boot for
+  debugging purposes. It should be disabled in production.
+
+  '
+rationale: 'The debug-shell provides unauthenticated root access during boot, which
+  could be exploited by attackers with physical access to gain complete control of
+  the system.
+
+  '
 severity: high
 category: services
-tags: [service, debug, console, physical-security, stig]
-
-conflicts_with: [debug-shell-disabled]
-
+tags:
+- service
+- debug
+- console
+- physical-security
+- stig
 references:
   stig:
     rhel8:
-      vuln_id: "V-230532"
-      severity: "CAT II"
-  nist_800_53: ["AC-3", "IA-2"]
-
+      vuln_id: V-230532
+      severity: CAT II
+    rhel9:
+      vuln_id: V-257786
+      stig_id: RHEL-09-211025
+      severity: CAT II
+  nist_800_53:
+  - AC-3
+  - IA-2
+  - CM-7
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: service_state
-      name: "debug-shell"
-      active: false
-      enabled: false
-    remediation:
-      mechanism: service_masked
-      name: "debug-shell"
+- default: true
+  check:
+    method: service_state
+    name: debug-shell
+    active: false
+    enabled: false
+  remediation:
+    mechanism: service_masked
+    name: debug-shell

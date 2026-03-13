@@ -1,30 +1,43 @@
 id: sysctl-ignore-bogus-icmp
 title: Ensure bogus icmp responses are ignored
-description: >
-  The kernel parameter(s) net.ipv4.icmp_ignore_bogus_error_responses must be configured to enforce this network security control.
-rationale: >
-  Improper network kernel parameters can allow network-based attacks including packet redirection, source routing, and denial of service.
+description: 'The kernel parameter(s) net.ipv4.icmp_ignore_bogus_error_responses must
+  be configured to enforce this network security control.
+
+  '
+rationale: 'Improper network kernel parameters can allow network-based attacks including
+  packet redirection, source routing, and denial of service.
+
+  '
 severity: medium
 category: network
-tags: [sysctl, networking, hardening]
-conflicts_with:
-  - sysctl-net-ipv4-icmp-ignore-bogus-error-responses
-
+tags:
+- sysctl
+- networking
+- hardening
 references:
   cis:
-    rhel9: { section: "3.3.3", level: "L1", type: "Automated" }
-  nist_800_53: ["SC-7", "CM-7"]
-
+    rhel9:
+      section: 3.3.3
+      level: L1
+      type: Automated
+    rhel8:
+      section: 3.3.1.6
+      level: L1
+      type: Automated
+  nist_800_53:
+  - SC-7
+  - CM-7
+  - SC-5
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: sysctl_value
-      key: "net.ipv4.icmp_ignore_bogus_error_responses"
-      expected: "1"
-    remediation:
-      mechanism: sysctl_set
-      key: "net.ipv4.icmp_ignore_bogus_error_responses"
-      value: "1"
+- default: true
+  check:
+    method: sysctl_value
+    key: net.ipv4.icmp_ignore_bogus_error_responses
+    expected: '1'
+  remediation:
+    mechanism: sysctl_set
+    key: net.ipv4.icmp_ignore_bogus_error_responses
+    value: '1'

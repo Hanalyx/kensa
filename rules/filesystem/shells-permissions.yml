@@ -1,37 +1,43 @@
 id: shells-permissions
 title: Ensure permissions on /etc/shells are configured
-description: >
-  The /etc/shells file should have appropriate permissions to prevent
+description: 'The /etc/shells file should have appropriate permissions to prevent
   unauthorized modification of valid login shells.
-rationale: >
-  If /etc/shells permissions are not restrictive, unauthorized users could
+
+  '
+rationale: 'If /etc/shells permissions are not restrictive, unauthorized users could
   add malicious shells or modify the list of valid shells.
+
+  '
 severity: low
 category: filesystem
-tags: [permissions, shells, security]
-conflicts_with:
-  - fs-permissions-etc-shells
-
+tags:
+- permissions
+- shells
+- security
 references:
   cis:
-    rhel9: { section: "7.1.9", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3", "CM-6"]
-
+    rhel9:
+      section: 7.1.9
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-3
+  - CM-6
+  - AC-6
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: file_permission
-      path: "/etc/shells"
-      mode: "0644"
-      owner: "root"
-      group: "root"
-    remediation:
-      mechanism: file_permissions
-      path: "/etc/shells"
-      mode: "0644"
-      owner: "root"
-      group: "root"
+- default: true
+  check:
+    method: file_permission
+    path: /etc/shells
+    mode: '0644'
+    owner: root
+    group: root
+  remediation:
+    mechanism: file_permissions
+    path: /etc/shells
+    mode: '0644'
+    owner: root
+    group: root

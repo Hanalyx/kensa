@@ -1,36 +1,47 @@
 id: audit-network-change
 title: Ensure events that modify the system's network environment are collected
-description: >
-  Changes to the network environment must be collected.
-rationale: >
-  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+description: 'Changes to the network environment must be collected.
+
+  '
+rationale: 'Without auditing these events, malicious activity could go undetected,
+  compromising forensic capabilities.
+
+  '
 severity: medium
 category: audit
-tags: [audit, auditd]
-
-supersedes: [audit-network-changes]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- auditd
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel8: { section: "6.3.3.5", level: "L2", type: "Automated" }
-    rhel9: { section: "6.3.3.5", level: "L1", type: "Automated" }
+    rhel8:
+      section: 6.3.3.5
+      level: L2
+      type: Automated
+    rhel9:
+      section: 6.3.3.5
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257872"
-      stig_id: "RHEL-09-654020"
-      severity: "CAT II"
-  nist_800_53: ["AU-2", "AU-12", "CM-6"]
-
+      vuln_id: V-257872
+      stig_id: RHEL-09-654020
+      severity: CAT II
+  nist_800_53:
+  - AU-2
+  - AU-12
+  - CM-6
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: audit_rule_exists
-      rule: "-k system-locale"
-    remediation:
-      mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale"
-      persist_file: "/etc/audit/rules.d/50-system_locale.rules"
+- default: true
+  check:
+    method: audit_rule_exists
+    rule: -k system-locale
+  remediation:
+    mechanism: audit_rule_set
+    rule: -a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale
+    persist_file: /etc/audit/rules.d/50-system_locale.rules

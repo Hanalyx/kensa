@@ -1,30 +1,40 @@
 id: service-disable-avahi
 title: Ensure avahi daemon services are not in use
-description: >
-  The avahi-daemon service should be stopped and masked unless required by the organization.
-rationale: >
-  Unnecessary services increase the attack surface. Disabling unused services reduces the number of potential entry points.
+description: 'The avahi-daemon service should be stopped and masked unless required
+  by the organization.
+
+  '
+rationale: 'Unnecessary services increase the attack surface. Disabling unused services
+  reduces the number of potential entry points.
+
+  '
 severity: medium
 category: services
-tags: [service, attack-surface]
-
-conflicts_with: [service-disable-avahi-daemon]
-
+tags:
+- service
+- attack-surface
 references:
   cis:
-    rhel9: { section: "2.1.2", level: "L1", type: "Automated" }
-  nist_800_53: ["CM-7"]
-
+    rhel9:
+      section: 2.1.2
+      level: L1
+      type: Automated
+    rhel8:
+      section: 2.1.2
+      level: L1
+      type: Automated
+  nist_800_53:
+  - CM-7
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: service_state
-      name: "avahi-daemon"
-      active: false
-      enabled: false
-    remediation:
-      mechanism: service_masked
-      name: "avahi-daemon"
+- default: true
+  check:
+    method: service_state
+    name: avahi-daemon
+    active: false
+    enabled: false
+  remediation:
+    mechanism: service_masked
+    name: avahi-daemon

@@ -1,40 +1,51 @@
 id: audit-logins
 title: Ensure login and logout events are collected
-description: >
-  Login and logout events must be collected.
-rationale: >
-  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+description: 'Login and logout events must be collected.
+
+  '
+rationale: 'Without auditing these events, malicious activity could go undetected,
+  compromising forensic capabilities.
+
+  '
 severity: medium
 category: audit
-tags: [audit, auditd]
-
-supersedes: [audit-login-logout]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- auditd
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel8: { section: "6.3.3.10", level: "L2", type: "Automated" }
-    rhel9: { section: "6.3.3.12", level: "L1", type: "Automated" }
+    rhel8:
+      section: 6.3.3.10
+      level: L2
+      type: Automated
+    rhel9:
+      section: 6.3.3.12
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257873"
-      stig_id: "RHEL-09-654025"
-      severity: "CAT II"
-  nist_800_53: ["AU-2", "AU-12", "AC-7"]
-
+      vuln_id: V-257873
+      stig_id: RHEL-09-654025
+      severity: CAT II
+  nist_800_53:
+  - AU-2
+  - AU-12
+  - AC-7
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: audit_rule_exists
-      rule: "-k logins"
-    remediation:
-      steps:
-        - mechanism: audit_rule_set
-          rule: "-w /var/log/lastlog -p wa -k logins"
-          persist_file: "/etc/audit/rules.d/50-logins.rules"
-        - mechanism: audit_rule_set
-          rule: "-w /var/run/faillock -p wa -k logins"
-          persist_file: "/etc/audit/rules.d/50-logins.rules"
+- default: true
+  check:
+    method: audit_rule_exists
+    rule: -k logins
+  remediation:
+    steps:
+    - mechanism: audit_rule_set
+      rule: -w /var/log/lastlog -p wa -k logins
+      persist_file: /etc/audit/rules.d/50-logins.rules
+    - mechanism: audit_rule_set
+      rule: -w /var/run/faillock -p wa -k logins
+      persist_file: /etc/audit/rules.d/50-logins.rules

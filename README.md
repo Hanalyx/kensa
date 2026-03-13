@@ -2,7 +2,7 @@
 
 **Compliance as Code — Scan, Remediate, Rollback.**
 
-`630 rules` · `26 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
+`564 rules` · `25 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
 
 ---
 
@@ -10,7 +10,7 @@ Your auditor wants evidence that 300 RHEL servers meet STIG. Your team has two w
 
 The current playbook: SSH into each box, run commands by hand, copy stdout into spreadsheets, cross-reference against framework controls, and pray nothing drifts before the assessor arrives. It takes days per server. The evidence is stale before you finish. And when something fails, remediation is a Bash script that might break SSH access at 2 AM with no way to undo it.
 
-Kensa replaces that entire workflow. It connects over SSH, evaluates 630 compliance rules with machine-verifiable evidence for every check, maps results to CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP, ISO 27001, and SRG simultaneously, and remediates failures with 22 typed mechanisms that capture pre-state and automatically roll back on failure.
+Kensa replaces that entire workflow. It connects over SSH, evaluates 564 compliance rules with machine-verifiable evidence for every check, maps results to CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP, ISO 27001, and SRG simultaneously, and remediates failures with 22 typed mechanisms that capture pre-state and automatically roll back on failure.
 
 No agent. No XML. No Ansible. Just YAML rules, SSH, and structured evidence your auditor can independently verify.
 

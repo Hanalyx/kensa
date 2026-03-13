@@ -81,6 +81,9 @@ jobs:
       - name: Check spec-to-test traceability
         run: python scripts/spec_traceability.py
 
+      - name: Check rule duplication
+        run: python scripts/rule_dedup_check.py --baseline
+
   build:
     name: Build Package
     runs-on: ubuntu-latest

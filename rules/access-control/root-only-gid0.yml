@@ -1,38 +1,49 @@
 id: root-only-gid0
 title: Ensure root is the only GID 0 account
-description: >
-  Only the root account should have GID 0 as its primary group.
-  Other accounts with GID 0 have root group privileges.
-rationale: >
-  Having multiple accounts with GID 0 complicates accountability and
-  may grant unintended root group access to files and resources.
+description: 'Only the root account should have GID 0 as its primary group. Other
+  accounts with GID 0 have root group privileges.
+
+  '
+rationale: 'Having multiple accounts with GID 0 complicates accountability and may
+  grant unintended root group access to files and resources.
+
+  '
 severity: high
 category: access-control
-tags: [root, gid, accounts, privilege]
-
+tags:
+- root
+- gid
+- accounts
+- privilege
 references:
   cis:
-    rhel9: { section: "5.4.2.2", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-6"]
-
+    rhel9:
+      section: 5.4.2.2
+      level: L1
+      type: Automated
+    rhel8:
+      section: 5.6.6
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-6
+  stig:
+    rhel9:
+      vuln_id: V-258090
+      stig_id: RHEL-09-411050
+      severity: CAT I
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: command
-      run: |
-        # Find accounts with GID 0 that are not root
-        gid0_users=$(awk -F: '$4 == 0 && $1 != "root" { print $1 }' /etc/passwd)
-        if [ -n "$gid0_users" ]; then
-          echo "FAIL: Non-root accounts with GID 0: $gid0_users"
-          exit 1
-        fi
-        echo "OK: Only root has GID 0"
-        exit 0
-      expected_exit: 0
-    remediation:
-      mechanism: manual
-      note: "Change primary GID for non-root accounts with GID 0"
+- default: true
+  check:
+    method: command
+    run: "# Find accounts with GID 0 that are not root\ngid0_users=$(awk -F: '$4 ==\
+      \ 0 && $1 != \"root\" { print $1 }' /etc/passwd)\nif [ -n \"$gid0_users\" ];\
+      \ then\n  echo \"FAIL: Non-root accounts with GID 0: $gid0_users\"\n  exit 1\n\
+      fi\necho \"OK: Only root has GID 0\"\nexit 0\n"
+    expected_exit: 0
+  remediation:
+    mechanism: manual
+    note: Change primary GID for non-root accounts with GID 0

@@ -1515,7 +1515,7 @@ controls:
     title: Ensure AIDE is installed
   "6.1.2":
     rules:
-      - aide-scheduled
+      - aide-cron-check
     level: L1
     type: Automated
     title: Ensure filesystem integrity is regularly checked
@@ -1701,7 +1701,7 @@ controls:
     title: Ensure use of privileged commands are collected
   "6.3.3.7":
     rules:
-      - audit-file-access-failed
+      - audit-unsuccessful-access
     level: L1
     type: Automated
     title: Ensure unsuccessful file access attempts are collected
@@ -1719,7 +1719,7 @@ controls:
     title: Ensure discretionary access control permission modification events are collected
   "6.3.3.10":
     rules:
-      - audit-mounts
+      - audit-mount-operations
     level: L1
     type: Automated
     title: Ensure successful file system mounts are collected
@@ -1779,7 +1779,7 @@ controls:
     title: Ensure kernel module loading unloading and modification is collected
   "6.3.3.20":
     rules:
-      - audit-immutable
+      - audit-rules-immutable
     level: L1
     type: Automated
     title: Ensure the audit configuration is immutable
@@ -1905,7 +1905,7 @@ controls:
     title: Ensure permissions on /etc/security/opasswd are configured
   "7.1.11":
     rules:
-      - no-world-writable
+      - no-world-writable-files
     level: L1
     type: Automated
     title: Ensure world writable files and directories are secured

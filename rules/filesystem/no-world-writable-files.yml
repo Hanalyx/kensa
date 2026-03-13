@@ -1,37 +1,49 @@
 id: no-world-writable-files
 title: Audit world-writable files
-description: >
-  World-writable files can be modified by any user on the system and
-  represent a security risk. Such files should be audited and permissions
-  corrected.
-rationale: >
-  World-writable files could be modified by attackers to inject malicious
-  code or data. Regular auditing ensures no unauthorized world-writable
-  files exist.
+description: 'World-writable files can be modified by any user on the system and represent
+  a security risk. Such files should be audited and permissions corrected.
+
+  '
+rationale: 'World-writable files could be modified by attackers to inject malicious
+  code or data. Regular auditing ensures no unauthorized world-writable files exist.
+
+  '
 severity: medium
 category: filesystem
-tags: [permissions, world-writable, audit, security]
-conflicts_with:
-  - no-world-writable
-
+tags:
+- permissions
+- world-writable
+- audit
+- security
 references:
   cis:
-    rhel8:  { section: "7.1.11", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-6", "CM-6"]
-
+    rhel8:
+      section: 7.1.11
+      level: L1
+      type: Automated
+    rhel9:
+      section: 7.1.11
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-6
+  - CM-6
+  - AC-3
+  - MP-2
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: command
-      run: "find / -xdev -type f -perm -0002 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
-      expected_exit: 0
-    remediation:
-      mechanism: file_permissions
-      find_paths: ["/"]
-      find_type: "f"
-      find_args: "-xdev -perm -0002"
-      mode: "o-w"
+- default: true
+  check:
+    method: command
+    run: find / -xdev -type f -perm -0002 2>/dev/null | head -1 | grep -q . && exit
+      1 || exit 0
+    expected_exit: 0
+  remediation:
+    mechanism: file_permissions
+    find_paths:
+    - /
+    find_type: f
+    find_args: -xdev -perm -0002
+    mode: o-w

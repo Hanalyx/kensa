@@ -1,37 +1,47 @@
 id: no-unowned-files
 title: Audit files without valid owner
-description: >
-  Files without a valid owner (user) may indicate deleted user accounts
+description: 'Files without a valid owner (user) may indicate deleted user accounts
   or improperly installed software and should be investigated.
-rationale: >
-  Unowned files could have been left behind by deleted users and may
-  contain sensitive data or be exploitable. They should be assigned
-  to an appropriate owner or removed.
+
+  '
+rationale: 'Unowned files could have been left behind by deleted users and may contain
+  sensitive data or be exploitable. They should be assigned to an appropriate owner
+  or removed.
+
+  '
 severity: medium
 category: filesystem
-tags: [permissions, ownership, audit, security]
-
+tags:
+- permissions
+- ownership
+- audit
+- security
 references:
   cis:
-    rhel8:  { section: "7.1.12", level: "L1", type: "Automated" }
-    rhel9:  { section: "7.1.12", level: "L1", type: "Automated" }
-  nist_800_53: ["CM-8"]
-
+    rhel8:
+      section: 7.1.12
+      level: L1
+      type: Automated
+    rhel9:
+      section: 7.1.12
+      level: L1
+      type: Automated
+  nist_800_53:
+  - CM-8
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: command
-      run: "find / -xdev -nouser 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
-      expected_exit: 0
-    remediation:
-      mechanism: manual
-      note: >
-        Review files without valid owners and assign appropriate ownership:
-        find / -xdev -nouser
-        For each file, either assign to an appropriate user:
-        chown <user> <file>
-        Or remove if no longer needed.
+- default: true
+  check:
+    method: command
+    run: find / -xdev -nouser 2>/dev/null | head -1 | grep -q . && exit 1 || exit
+      0
+    expected_exit: 0
+  remediation:
+    mechanism: manual
+    note: 'Review files without valid owners and assign appropriate ownership: find
+      / -xdev -nouser For each file, either assign to an appropriate user: chown <user>
+      <file> Or remove if no longer needed.
+
+      '

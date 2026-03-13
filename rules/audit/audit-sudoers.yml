@@ -1,40 +1,54 @@
 id: audit-sudoers
 title: Ensure changes to system administration scope (sudoers) is collected
-description: >
-  Changes to sudoers files must be audited to detect privilege escalation attempts.
-rationale: >
-  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+description: 'Changes to sudoers files must be audited to detect privilege escalation
+  attempts.
+
+  '
+rationale: 'Without auditing these events, malicious activity could go undetected,
+  compromising forensic capabilities.
+
+  '
 severity: high
 category: audit
-tags: [audit, auditd, sudo, privilege-escalation]
-
-supersedes: [audit-sudoers-changes]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- auditd
+- sudo
+- privilege-escalation
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel8: { section: "6.3.3.1", level: "L2", type: "Automated" }
-    rhel9: { section: "6.3.3.1", level: "L1", type: "Automated" }
+    rhel8:
+      section: 6.3.3.1
+      level: L2
+      type: Automated
+    rhel9:
+      section: 6.3.3.1
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257875"
-      stig_id: "RHEL-09-654035"
-      severity: "CAT II"
-  nist_800_53: ["AU-2", "AU-12", "AC-6"]
-
+      vuln_id: V-257875
+      stig_id: RHEL-09-654035
+      severity: CAT II
+  nist_800_53:
+  - AU-2
+  - AU-12
+  - AC-6
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: audit_rule_exists
-      rule: "-w /etc/sudoers"
-    remediation:
-      steps:
-        - mechanism: audit_rule_set
-          rule: "-w /etc/sudoers -p wa -k scope"
-          persist_file: "/etc/audit/rules.d/50-scope.rules"
-        - mechanism: audit_rule_set
-          rule: "-w /etc/sudoers.d -p wa -k scope"
-          persist_file: "/etc/audit/rules.d/50-scope.rules"
+- default: true
+  check:
+    method: audit_rule_exists
+    rule: -w /etc/sudoers
+  remediation:
+    steps:
+    - mechanism: audit_rule_set
+      rule: -w /etc/sudoers -p wa -k scope
+      persist_file: /etc/audit/rules.d/50-scope.rules
+    - mechanism: audit_rule_set
+      rule: -w /etc/sudoers.d -p wa -k scope
+      persist_file: /etc/audit/rules.d/50-scope.rules

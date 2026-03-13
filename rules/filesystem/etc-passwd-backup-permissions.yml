@@ -1,34 +1,45 @@
 id: etc-passwd-backup-permissions
 title: Ensure permissions on /etc/passwd- are configured
-description: >
-  The /etc/passwd- file must have correct ownership and permissions.
-rationale: >
-  Incorrect permissions on /etc/passwd- could allow unauthorized access or modification of sensitive system data.
+description: 'The /etc/passwd- file must have correct ownership and permissions.
+
+  '
+rationale: 'Incorrect permissions on /etc/passwd- could allow unauthorized access
+  or modification of sensitive system data.
+
+  '
 severity: medium
 category: filesystem
-tags: [file-permissions, authentication]
-conflicts_with:
-  - fs-permissions-etc-passwd-backup
-
+tags:
+- file-permissions
+- authentication
 references:
   cis:
-    rhel9: { section: "7.1.2", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3", "MP-2"]
-
+    rhel9:
+      section: 7.1.2
+      level: L1
+      type: Automated
+    rhel8:
+      section: 7.1.2
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-3
+  - MP-2
+  - AC-6
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: file_permission
-      path: "/etc/passwd-"
-      owner: "root"
-      group: "root"
-      mode: "0644"
-    remediation:
-      mechanism: file_permissions
-      path: "/etc/passwd-"
-      owner: "root"
-      group: "root"
-      mode: "0644"
+- default: true
+  check:
+    method: file_permission
+    path: /etc/passwd-
+    owner: root
+    group: root
+    mode: '0644'
+  remediation:
+    mechanism: file_permissions
+    path: /etc/passwd-
+    owner: root
+    group: root
+    mode: '0644'

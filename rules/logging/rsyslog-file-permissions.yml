@@ -1,36 +1,44 @@
 id: rsyslog-file-permissions
 title: Ensure rsyslog log file creation mode is configured
-description: >
-  The $FileCreateMode setting in /etc/rsyslog.conf must be properly configured.
-rationale: >
-  Improper $FileCreateMode configuration could weaken system security controls.
+description: 'The $FileCreateMode setting in /etc/rsyslog.conf must be properly configured.
+
+  '
+rationale: 'Improper $FileCreateMode configuration could weaken system security controls.
+
+  '
 severity: medium
 category: logging
-tags: [rsyslog, logging, permissions]
-
-conflicts_with:
-  - rsyslog-default-permissions
-
+tags:
+- rsyslog
+- logging
+- permissions
 references:
   cis:
-    rhel8: { section: "6.2.2.4", level: "L1", type: "Automated" }
-    rhel9: { section: "6.2.3.4", level: "L1", type: "Automated" }
-  nist_800_53: ["AU-9"]
-
+    rhel8:
+      section: 6.2.2.4
+      level: L1
+      type: Automated
+    rhel9:
+      section: 6.2.3.4
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AU-9
+  - AC-6
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: config_value
-      path: "/etc/rsyslog.conf"
-      key: "$FileCreateMode"
-      expected: "0640"
-    remediation:
-      mechanism: config_set
-      path: "/etc/rsyslog.conf"
-      key: "$FileCreateMode"
-      value: "0640"
-      separator: " "
-      reload: "rsyslog"
+- default: true
+  check:
+    method: config_value
+    path: /etc/rsyslog.conf
+    key: $FileCreateMode
+    expected: '0640'
+  remediation:
+    mechanism: config_set
+    path: /etc/rsyslog.conf
+    key: $FileCreateMode
+    value: '0640'
+    separator: ' '
+    reload: rsyslog

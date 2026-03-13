@@ -1,35 +1,46 @@
 id: audit-delete
 title: Ensure file deletion events by users are collected
-description: >
-  File deletion events must be collected to detect unauthorized data destruction.
-rationale: >
-  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+description: 'File deletion events must be collected to detect unauthorized data destruction.
+
+  '
+rationale: 'Without auditing these events, malicious activity could go undetected,
+  compromising forensic capabilities.
+
+  '
 severity: medium
 category: audit
-tags: [audit, auditd]
-
-supersedes: [audit-file-deletion]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- auditd
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel9: { section: "6.3.3.13", level: "L1", type: "Automated" }
+    rhel9:
+      section: 6.3.3.13
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257877"
-      stig_id: "RHEL-09-654045"
-      severity: "CAT II"
-  nist_800_53: ["AU-2", "AU-12"]
-
+      vuln_id: V-257877
+      stig_id: RHEL-09-654045
+      severity: CAT II
+    rhel8:
+      vuln_id: V-230439
+      severity: CAT II
+  nist_800_53:
+  - AU-2
+  - AU-12
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: audit_rule_exists
-      rule: "-k delete"
-    remediation:
-      mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S rename,unlink,unlinkat,renameat -F auid>=1000 -F auid!=unset -k delete"
-      persist_file: "/etc/audit/rules.d/50-delete.rules"
+- default: true
+  check:
+    method: audit_rule_exists
+    rule: -k delete
+  remediation:
+    mechanism: audit_rule_set
+    rule: -a always,exit -F arch=b64 -S rename,unlink,unlinkat,renameat -F auid>=1000
+      -F auid!=unset -k delete
+    persist_file: /etc/audit/rules.d/50-delete.rules

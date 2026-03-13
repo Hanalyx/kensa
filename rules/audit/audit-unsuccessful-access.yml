@@ -1,39 +1,53 @@
 id: audit-unsuccessful-access
 title: Audit unsuccessful file access attempts
-description: >
-  The system must audit unsuccessful access attempts to files and
-  directories to detect potential intrusion attempts.
-rationale: >
-  Failed file access attempts may indicate an attacker probing the
-  system for vulnerabilities. Auditing these events helps detect
-  reconnaissance and unauthorized access attempts.
+description: 'The system must audit unsuccessful access attempts to files and directories
+  to detect potential intrusion attempts.
+
+  '
+rationale: 'Failed file access attempts may indicate an attacker probing the system
+  for vulnerabilities. Auditing these events helps detect reconnaissance and unauthorized
+  access attempts.
+
+  '
 severity: medium
 category: audit
-tags: [audit, file-access, failed, intrusion-detection, stig]
-
-conflicts_with: [audit-file-access-failed]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- file-access
+- failed
+- intrusion-detection
+- stig
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel8: { section: "6.3.3.12", level: "L2", type: "Automated" }
+    rhel8:
+      section: 6.3.3.12
+      level: L2
+      type: Automated
+    rhel9:
+      section: 6.3.3.7
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257802"
-      stig_id: "RHEL-09-654015"
-      severity: "CAT II"
-  nist_800_53: ["AU-2", "AU-12"]
-
+      vuln_id: V-257802
+      stig_id: RHEL-09-654015
+      severity: CAT II
+  nist_800_53:
+  - AU-2
+  - AU-12
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES -k access"
-    remediation:
-      mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES -k access"
-      persist_file: "/etc/audit/rules.d/50-access.rules"
+- default: true
+  check:
+    method: audit_rule_exists
+    rule: -a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES
+      -k access
+  remediation:
+    mechanism: audit_rule_set
+    rule: -a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES
+      -k access
+    persist_file: /etc/audit/rules.d/50-access.rules

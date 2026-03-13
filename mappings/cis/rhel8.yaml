@@ -711,133 +711,133 @@ controls:
     title: "Ensure net.ipv4.ip_forward is configured"
   "3.3.1.4":
     rules:
-      - sysctl-net-ipv4-conf-all-send-redirects
+      - sysctl-send-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.send_redirects is configured"
   "3.3.1.5":
     rules:
-      - sysctl-net-ipv4-conf-default-send-redirects
+      - sysctl-send-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.send_redirects is configured"
   "3.3.1.6":
     rules:
-      - sysctl-net-ipv4-icmp-ignore-bogus-error-responses
+      - sysctl-ignore-bogus-icmp
     level: L1
     type: Automated
     title: "Ensure net.ipv4.icmp_ignore_bogus_error_responses is configured"
   "3.3.1.7":
     rules:
-      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+      - sysctl-ignore-broadcast-icmp
     level: L1
     type: Automated
     title: "Ensure net.ipv4.icmp_echo_ignore_broadcasts is configured"
   "3.3.1.8":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.accept_redirects is configured"
   "3.3.1.9":
     rules:
-      - sysctl-net-ipv4-conf-default-accept-redirects
+      - sysctl-icmp-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.accept_redirects is configured"
   "3.3.1.10":
     rules:
-      - sysctl-net-ipv4-conf-all-secure-redirects
+      - sysctl-secure-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.secure_redirects is configured"
   "3.3.1.11":
     rules:
-      - sysctl-net-ipv4-conf-default-secure-redirects
+      - sysctl-secure-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.secure_redirects is configured"
   "3.3.1.12":
     rules:
-      - sysctl-net-ipv4-conf-all-rp-filter
+      - sysctl-rp-filter
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.rp_filter is configured"
   "3.3.1.13":
     rules:
-      - sysctl-net-ipv4-conf-default-rp-filter
+      - sysctl-rp-filter
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.rp_filter is configured"
   "3.3.1.14":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.accept_source_route is configured"
   "3.3.1.15":
     rules:
-      - sysctl-net-ipv4-conf-default-accept-source-route
+      - sysctl-source-route-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.accept_source_route is configured"
   "3.3.1.16":
     rules:
-      - sysctl-net-ipv4-conf-all-log-martians
+      - sysctl-log-martians
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.log_martians is configured"
   "3.3.1.17":
     rules:
-      - sysctl-net-ipv4-conf-all-log-martians
+      - sysctl-log-martians
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.default.log_martians is configured"
   "3.3.1.18":
     rules:
-      - sysctl-net-ipv4-tcp-syncookies
+      - sysctl-tcp-syncookies
     level: L1
     type: Automated
     title: "Ensure net.ipv4.tcp_syncookies is configured"
   "3.3.2.1":
     rules:
-      - sysctl-net-ipv6-conf-all-forwarding
+      - sysctl-ip-forward-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.all.forwarding is configured"
   "3.3.2.3":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.all.accept_redirects is configured"
   "3.3.2.4":
     rules:
-      - sysctl-net-ipv6-conf-default-accept-redirects
+      - sysctl-icmp-redirects-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.default.accept_redirects is configured"
   "3.3.2.5":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.all.accept_source_route is configured"
   "3.3.2.6":
     rules:
-      - sysctl-net-ipv6-conf-default-accept-source-route
+      - sysctl-source-route-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.default.accept_source_route is configured"
   "3.3.2.7":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-ra
+      - sysctl-ipv6-ra-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.all.accept_ra is configured"
   "3.3.2.8":
     rules:
-      - sysctl-net-ipv6-conf-default-accept-ra
+      - sysctl-ipv6-ra-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.default.accept_ra is configured"
@@ -975,7 +975,7 @@ controls:
     title: "Ensure sudo log file exists"
   "5.2.6":
     rules:
-      - su-require-wheel
+      - pam-wheel-su
     level: L1
     type: Automated
     title: "Ensure sudo timestamp_timeout is configured"
@@ -1065,19 +1065,19 @@ controls:
     title: "Ensure password expiration is configured"
   "5.4.1.2":
     rules:
-      - login-defs-pass-min-days
+      - password-min-age
     level: L2
     type: Manual
     title: "Ensure minimum password days is configured"
   "5.4.1.3":
     rules:
-      - login-defs-pass-warn-age
+      - password-warn-age
     level: L1
     type: Automated
     title: "Ensure password expiration warning days is configured"
   "5.4.1.4":
     rules:
-      - inactive-password-lock
+      - password-inactive
     level: L1
     type: Automated
     title: "Ensure strong password hashing algorithm is configured"
@@ -1089,13 +1089,13 @@ controls:
     title: "Ensure inactive password lock is configured"
   "5.4.1.6":
     rules:
-      - root-gid
+      - root-only-gid0
     level: L1
     type: Automated
     title: "Ensure all users last password change date is in the past"
   "5.4.2.1":
     rules:
-      - login-defs-umask
+      - umask-default
     level: L1
     type: Automated
     title: "Ensure root is the only UID 0 account"
@@ -1107,13 +1107,13 @@ controls:
     title: "Ensure root account access is controlled"
   "5.4.3.1":
     rules:
-      - accounts-no-uid-zero
+      - root-only-uid0
     level: L2
     type: Automated
     title: "Ensure nologin is not listed in /etc/shells"
   "5.4.3.2":
     rules:
-      - root-gid
+      - root-only-gid0
     level: L1
     type: Automated
     title: "Ensure default user shell timeout is configured"
@@ -1131,13 +1131,13 @@ controls:
     title: "Ensure AIDE is installed"
   "6.3.1.1":
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     level: L2
     type: Automated
     title: "Ensure auditd packages are installed"
   "6.3.1.2":
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     level: L2
     type: Automated
     title: "Ensure auditing for processes that start prior to auditd is enabled"
@@ -1149,7 +1149,7 @@ controls:
     title: "Ensure audit_backlog_limit is configured"
   "6.3.1.4":
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     level: L2
     type: Automated
     title: "Ensure auditd service is enabled and active"
@@ -1167,25 +1167,25 @@ controls:
     title: "Ensure use of privileged commands are collected"
   "6.3.3.7":
     rules:
-      - audit-file-access-failed
+      - audit-unsuccessful-access
     level: L2
     type: Automated
     title: "Ensure unsuccessful file access attempts are collected"
   "6.3.3.8":
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     level: L2
     type: Automated
     title: "Ensure events that modify user/group information are collected"
   "6.3.3.10":
     rules:
-      - audit-login-logout
+      - audit-logins
     level: L2
     type: Automated
     title: "Ensure successful file system mounts are collected"
   "6.3.3.11":
     rules:
-      - audit-session-initiation
+      - audit-session
     level: L2
     type: Automated
     title: "Ensure session initiation information is collected"
@@ -1221,49 +1221,49 @@ controls:
     title: "Ensure the audit configuration is immutable"
   "7.1.1":
     rules:
-      - fs-permissions-etc-passwd
+      - etc-passwd-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/passwd is configured"
   "7.1.2":
     rules:
-      - fs-permissions-etc-passwd-backup
+      - etc-passwd-backup-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/passwd- is configured"
   "7.1.3":
     rules:
-      - fs-permissions-etc-group
+      - etc-group-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/group is configured"
   "7.1.4":
     rules:
-      - fs-permissions-etc-group-backup
+      - etc-group-backup-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/group- is configured"
   "7.1.5":
     rules:
-      - fs-permissions-etc-shadow
+      - etc-shadow-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/shadow is configured"
   "7.1.6":
     rules:
-      - fs-permissions-etc-shadow-backup
+      - etc-shadow-backup-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/shadow- is configured"
   "7.1.7":
     rules:
-      - fs-permissions-etc-gshadow
+      - etc-gshadow-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/gshadow is configured"
   "7.1.8":
     rules:
-      - fs-permissions-etc-gshadow-backup
+      - etc-gshadow-backup-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/gshadow- is configured"
@@ -1281,7 +1281,7 @@ controls:
     title: "Ensure no files or directories without an owner and a group exist"
   "7.1.13":
     rules:
-      - no-ungrouped-files
+      - no-unowned-files
     level: L1
     type: Manual
     title: "Ensure SUID and SGID files are reviewed"
@@ -1323,7 +1323,7 @@ controls:
     title: "Ensure journald ForwardToSyslog is disabled"
   "6.2.1.1.5":
     rules:
-      - journald-storage
+      - journald-storage-persistent
     level: L1
     type: Automated
     title: "Ensure journald Storage is configured"
@@ -1516,7 +1516,7 @@ controls:
   "2.1.10":
     rules:
       - service-disable-ypserv
-      - package-ypserv-removed
+      - pkg-ypserv-absent
     level: L1
     type: Automated
     title: "Ensure nis server services are not in use"
@@ -1773,13 +1773,13 @@ controls:
     title: "Ensure audit tools group owner is configured"
   "7.1.9":
     rules:
-      - fs-permissions-etc-shells
+      - shells-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/shells is configured"
   "7.1.10":
     rules:
-      - fs-permissions-opasswd
+      - opasswd-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/security/opasswd is configured"
@@ -1917,7 +1917,7 @@ controls:
     title: "Ensure net.ipv4.conf.default.forwarding is configured"
   "3.3.2.2":
     rules:
-      - sysctl-net-ipv6-conf-all-forwarding
+      - sysctl-ip-forward-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv6.conf.default.forwarding is configured"

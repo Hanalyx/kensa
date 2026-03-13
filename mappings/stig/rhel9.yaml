@@ -587,7 +587,7 @@ controls:
     title: RHEL 9 systemd-journald service must be enabled.
   V-257786:
     rules:
-      - debug-shell-disabled
+      - service-disable-debug-shell
     severity: CAT II
     title: RHEL 9 debug-shell systemd service must be disabled.
   V-257788:
@@ -704,39 +704,39 @@ controls:
     title: RHEL 9 file system automount function must be disabled unless required.
   V-257850:
     rules:
-      - audit-network-changes
+      - audit-network-change
     title: RHEL 9 must prevent device files from being interpreted on file systems that contain user home directories.
   V-257851:
     rules:
-      - audit-network-changes
+      - audit-network-change
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on file systems that contain user home directories.
   V-257852:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9 must prevent code from being executed on file systems that contain user home directories.
   V-257854:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9 must prevent special devices on file systems that are imported via Network File System (NFS).
   V-257855:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9  must prevent code from being executed on file systems that are imported via Network File System (NFS).
   V-257856:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on file systems that are imported via Network File System (NFS).
   V-257857:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9 must prevent code from being executed on file systems that are used with removable media.
   V-257858:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9 must prevent special devices on file systems that are used with removable media.
   V-257859:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     title: RHEL 9 must prevent files with the setuid and setgid bit set from being executed on file systems that are used with removable media.
   V-257860:
     rules:
@@ -782,7 +782,7 @@ controls:
     title: RHEL 9 must mount /tmp with the nosuid option.
   V-257869:
     rules:
-      - audit-file-deletion
+      - audit-delete
     title: RHEL 9 must mount /var with the nodev option.
   V-257870:
     rules:
@@ -849,110 +849,110 @@ controls:
     title: RHEL 9 audit tools must have a mode of 0755 or less permissive.
   V-257890:
     rules:
-      - root-gid
+      - root-only-gid0
     title: All RHEL 9 local interactive user home directories must have mode 0750 or less permissive.
   V-257891:
     rules:
-      - fs-permissions-etc-group
+      - etc-group-permissions
     severity: CAT II
     title: RHEL 9 /etc/group file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257892:
     rules:
-      - fs-permissions-etc-group-backup
+      - etc-group-backup-permissions
     severity: CAT II
     title: RHEL 9 /etc/group- file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257893:
     rules:
-      - fs-permissions-etc-gshadow
+      - etc-gshadow-permissions
     severity: CAT II
     title: RHEL 9 /etc/gshadow file must have mode 0000 or less permissive to prevent unauthorized access.
   V-257894:
     rules:
-      - fs-permissions-etc-gshadow-backup
+      - etc-gshadow-backup-permissions
     severity: CAT II
     title: RHEL 9 /etc/gshadow- file must have mode 0000 or less permissive to prevent unauthorized access.
   V-257895:
     rules:
-      - fs-permissions-etc-passwd
+      - etc-passwd-permissions
     severity: CAT II
     title: RHEL 9 /etc/passwd file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257896:
     rules:
-      - fs-permissions-etc-passwd-backup
+      - etc-passwd-backup-permissions
     severity: CAT II
     title: RHEL 9 /etc/passwd- file must have mode 0644 or less permissive to prevent unauthorized access.
   V-257897:
     rules:
-      - fs-permissions-etc-shadow-backup
+      - etc-shadow-backup-permissions
     severity: CAT II
     title: RHEL 9 /etc/shadow- file must have mode 0000 or less permissive to prevent unauthorized access.
   V-257898:
     rules:
-      - fs-permissions-etc-group
+      - etc-group-permissions
     title: RHEL 9 /etc/group file must be owned by root.
   V-257899:
     rules:
-      - fs-permissions-etc-group
+      - etc-group-permissions
     title: RHEL 9 /etc/group file must be group-owned by root.
   V-257900:
     rules:
-      - fs-permissions-etc-group-backup
+      - etc-group-backup-permissions
     title: RHEL 9 /etc/group- file must be owned by root.
   V-257901:
     rules:
-      - fs-permissions-etc-group-backup
+      - etc-group-backup-permissions
     title: RHEL 9 /etc/group- file must be group-owned by root.
   V-257902:
     rules:
-      - fs-permissions-etc-gshadow
+      - etc-gshadow-permissions
     title: RHEL 9 /etc/gshadow file must be owned by root.
   V-257903:
     rules:
-      - fs-permissions-etc-gshadow
+      - etc-gshadow-permissions
     title: RHEL 9 /etc/gshadow file must be group-owned by root.
   V-257904:
     rules:
-      - fs-permissions-etc-gshadow-backup
+      - etc-gshadow-backup-permissions
     title: RHEL 9 /etc/gshadow- file must be owned by root.
   V-257905:
     rules:
-      - fs-permissions-etc-gshadow-backup
+      - etc-gshadow-backup-permissions
     title: RHEL 9 /etc/gshadow- file must be group-owned by root.
   V-257906:
     rules:
-      - fs-permissions-etc-passwd
+      - etc-passwd-permissions
     title: RHEL 9 /etc/passwd file must be owned by root.
   V-257907:
     rules:
-      - fs-permissions-etc-passwd
+      - etc-passwd-permissions
     title: RHEL 9 /etc/passwd file must be group-owned by root.
   V-257908:
     rules:
-      - fs-permissions-etc-passwd
+      - etc-passwd-permissions
     title: RHEL 9 /etc/passwd- file must be owned by root.
   V-257909:
     rules:
-      - fs-permissions-etc-passwd-backup
+      - etc-passwd-backup-permissions
     title: RHEL 9 /etc/passwd- file must be group-owned by root.
   V-257910:
     rules:
-      - fs-permissions-etc-passwd-backup
+      - etc-passwd-backup-permissions
     title: RHEL 9 /etc/shadow file must be owned by root.
   V-257911:
     rules:
-      - fs-permissions-etc-passwd-backup
+      - etc-passwd-backup-permissions
     title: RHEL 9 /etc/shadow file must be group-owned by root.
   V-257912:
     rules:
-      - fs-permissions-etc-shadow
+      - etc-shadow-permissions
     title: RHEL 9 /etc/shadow- file must be owned by root.
   V-257913:
     rules:
-      - fs-permissions-etc-shadow
+      - etc-shadow-permissions
     title: RHEL 9 /etc/shadow- file must be group-owned by root.
   V-257914:
     rules:
-      - fs-permissions-etc-shadow
+      - etc-shadow-permissions
     title: RHEL 9 /var/log directory must be owned by root.
   V-257915:
     rules:
@@ -976,7 +976,7 @@ controls:
     title: RHEL 9 system commands must be group-owned by root or a system account.
   V-257920:
     rules:
-      - no-ungrouped-files
+      - no-unowned-files
     title: RHEL 9 library files must be owned by root.
   V-257921:
     rules:
@@ -994,7 +994,7 @@ controls:
     title: A sticky bit must be set on all RHEL 9 public directories.
   V-257930:
     rules:
-      - no-ungrouped-files
+      - no-unowned-files
     severity: CAT II
     title: All RHEL 9 local files and directories must have a valid group owner.
   V-257931:
@@ -1004,7 +1004,7 @@ controls:
     title: All RHEL 9 local files and directories must have a valid owner.
   V-257934:
     rules:
-      - fs-permissions-etc-shadow
+      - etc-shadow-permissions
     severity: CAT II
     title: RHEL 9 /etc/shadow file must have mode 0000 to prevent unauthorized access.
   V-257932:
@@ -1022,7 +1022,7 @@ controls:
     title: The RHEL 9 firewall must employ a deny-all, allow-by-exception policy for allowing connections to other systems.
   V-257939:
     rules:
-      - inactive-password-lock
+      - password-inactive
     title: RHEL 9 must protect against or limit the effects of denial-of-service (DoS) attacks by ensuring rate-limiting measures on impacted network interfaces are implemented.
   V-257941:
     rules:
@@ -1080,7 +1080,7 @@ controls:
     title: RHEL 9 libreswan package must be installed.
   V-257955:
     rules:
-      - login-defs-pass-min-days
+      - password-min-age
     title: There must be no shosts.equiv files on RHEL 9.
   V-257956:
     rules:
@@ -1088,67 +1088,67 @@ controls:
     title: There must be no .shosts files on RHEL 9.
   V-257957:
     rules:
-      - sysctl-net-ipv4-tcp-syncookies
+      - sysctl-tcp-syncookies
     severity: CAT II
     title: RHEL 9 must be configured to use TCP syncookies.
   V-257958:
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: CAT II
     title: RHEL 9 must ignore Internet Protocol version 4 (IPv4) Internet Control Message Protocol (ICMP) redirect messages.
   V-257959:
     rules:
-      - sysctl-net-ipv4-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     severity: CAT II
     title: RHEL 9 must not forward Internet Protocol version 4 (IPv4) source-routed packets.
   V-257960:
     rules:
-      - sysctl-net-ipv4-conf-all-log-martians
+      - sysctl-log-martians
     severity: CAT II
     title: RHEL 9 must log IPv4 packets with impossible addresses.
   V-257961:
     rules:
-      - sysctl-net-ipv4-conf-default-log-martians
+      - sysctl-log-martians
     severity: CAT II
     title: RHEL 9 must log IPv4 packets with impossible addresses by default.
   V-257962:
     rules:
-      - sysctl-net-ipv4-conf-all-rp-filter
+      - sysctl-rp-filter
     severity: CAT II
     title: RHEL 9 must use reverse path filtering on all IPv4 interfaces.
   V-257963:
     rules:
-      - sysctl-net-ipv4-conf-default-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: CAT II
     title: RHEL 9 must prevent IPv4 Internet Control Message Protocol (ICMP) redirect messages from being accepted.
   V-257964:
     rules:
-      - sysctl-net-ipv4-conf-default-accept-source-route
+      - sysctl-source-route-disabled
     severity: CAT II
     title: RHEL 9 must not forward IPv4 source-routed packets by default.
   V-257965:
     rules:
-      - sysctl-net-ipv4-conf-default-rp-filter
+      - sysctl-rp-filter
     severity: CAT II
     title: RHEL 9 must use a reverse-path filter for IPv4 network traffic when possible by default.
   V-257966:
     rules:
-      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+      - sysctl-ignore-broadcast-icmp
     severity: CAT II
     title: RHEL 9 must not respond to Internet Control Message Protocol (ICMP) echoes sent to a broadcast address.
   V-257967:
     rules:
-      - sysctl-net-ipv4-icmp-ignore-bogus-error-responses
+      - sysctl-ignore-bogus-icmp
     severity: CAT II
     title: RHEL 9 must limit the number of bogus Internet Control Message Protocol (ICMP) response errors logs.
   V-257968:
     rules:
-      - sysctl-net-ipv4-conf-all-send-redirects
+      - sysctl-send-redirects-disabled
     severity: CAT II
     title: RHEL 9 must not send Internet Control Message Protocol (ICMP) redirects.
   V-257969:
     rules:
-      - sysctl-net-ipv4-conf-default-send-redirects
+      - sysctl-send-redirects-disabled
     severity: CAT II
     title: RHEL 9 must not allow interfaces to perform Internet Control Message Protocol (ICMP) redirects by default.
   V-257970:
@@ -1158,37 +1158,37 @@ controls:
     title: RHEL 9 must not enable IPv4 packet forwarding unless the system is a router.
   V-257971:
     rules:
-      - sysctl-net-ipv6-conf-all-accept-ra
+      - sysctl-ipv6-ra-disabled
     severity: CAT II
     title: RHEL 9 must not accept router advertisements on all IPv6 interfaces.
   V-257972:
     rules:
-      - sysctl-net-ipv6-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: CAT II
     title: RHEL 9 must ignore IPv6 Internet Control Message Protocol (ICMP) redirect messages.
   V-257973:
     rules:
-      - sysctl-net-ipv6-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     severity: CAT II
     title: RHEL 9 must not forward IPv6 source-routed packets.
   V-257974:
     rules:
-      - sysctl-net-ipv6-conf-all-forwarding
+      - sysctl-ip-forward-disabled
     severity: CAT II
     title: RHEL 9 must not enable IPv6 packet forwarding unless the system is a router.
   V-257975:
     rules:
-      - sysctl-net-ipv6-conf-default-accept-ra
+      - sysctl-ipv6-ra-disabled
     severity: CAT II
     title: RHEL 9 must not accept router advertisements on all IPv6 interfaces by default.
   V-257976:
     rules:
-      - sysctl-net-ipv6-conf-default-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: CAT II
     title: RHEL 9 must prevent IPv6 Internet Control Message Protocol (ICMP) redirect messages from being accepted.
   V-257977:
     rules:
-      - sysctl-net-ipv6-conf-default-accept-source-route
+      - sysctl-source-route-disabled
     severity: CAT II
     title: RHEL 9 must not forward IPv6 source-routed packets by default.
   V-257980:
@@ -1325,7 +1325,7 @@ controls:
     title: RHEL 9 user account passwords must have a 60-day maximum password lifetime restriction.
   V-258044:
     rules:
-      - login-defs-umask
+      - umask-default
     severity: CAT II
     title: RHEL 9 must set the umask value to 077 for all local interactive user accounts.
   V-258046:
@@ -1335,7 +1335,7 @@ controls:
     title: RHEL 9 system accounts must not have an interactive login shell.
   V-258049:
     rules:
-      - inactive-password-lock
+      - password-inactive
     severity: CAT II
     title: RHEL 9 must disable account identifiers (individuals, groups, roles, and devices) after 35 days of inactivity.
   V-258054:
@@ -1360,7 +1360,7 @@ controls:
     title: RHEL 9 must maintain an account lock until the locked account is released by an administrator.
   V-258059:
     rules:
-      - accounts-no-uid-zero
+      - root-only-uid0
     severity: CAT I
     title: The root account must be the only account having unrestricted access to RHEL 9 system.
   V-258068:
@@ -1385,12 +1385,12 @@ controls:
     title: RHEL 9 must require reauthentication when using the "sudo" command.
   V-258087:
     rules:
-      - su-require-wheel
+      - pam-wheel-su
     severity: CAT II
     title: RHEL 9 must restrict privilege elevation to authorized personnel.
   V-258088:
     rules:
-      - su-require-wheel
+      - pam-wheel-su
     severity: CAT II
     title: RHEL 9 must restrict the use of the "su" command.
   V-258094:
@@ -1410,12 +1410,12 @@ controls:
     title: RHEL 9 must enforce password complexity by requiring that at least one numeric character be used.
   V-258104:
     rules:
-      - login-defs-pass-min-days
+      - password-min-age
     severity: CAT II
     title: RHEL 9 passwords for new users or password changes must have a 24 hours minimum password lifetime restriction in /etc/login.defs.
   V-258105:
     rules:
-      - login-defs-pass-min-days
+      - password-min-age
     severity: CAT II
     title: RHEL 9 passwords must have a 24 hours minimum password lifetime restriction in /etc/shadow.
   V-258107:
@@ -1480,17 +1480,17 @@ controls:
     title: RHEL 9 must use a file integrity tool that is configured to use FIPS 140-3-approved cryptographic hashes for validating file contents and directories.
   V-258151:
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     severity: CAT II
     title: RHEL 9 audit package must be installed.
   V-258152:
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     severity: CAT II
     title: RHEL 9 audit service must be enabled.
   V-258177:
     rules:
-      - audit-permission-changes
+      - audit-perm-mod
     severity: CAT II
     title: RHEL 9 must audit all uses of the chmod, fchmod, and fchmodat system calls.
   V-258178:
@@ -1510,7 +1510,7 @@ controls:
     title: RHEL 9 must audit all uses of umount system calls.
   V-258187:
     rules:
-      - audit-file-deletion
+      - audit-delete
     severity: CAT II
     title: RHEL 9 must audit all uses of the rename, unlink, rmdir, renameat, and unlinkat system calls.
   V-258189:
@@ -1766,7 +1766,7 @@ controls:
     title: RHEL 9 must enable FIPS mode.
   V-258231:
     rules:
-      - login-defs-encrypt-method
+      - password-hashing-algorithm
     severity: CAT II
     title: RHEL 9 must employ FIPS 140-3 approved cryptographic hashing algorithms for all stored passwords.
   V-258232:
@@ -2029,7 +2029,7 @@ controls:
     title: RHEL 9 must use a Linux Security Module configured to enforce limits on system services.
   V-258074:
     rules:
-      - login-defs-umask
+      - umask-default
     severity: CAT II
     title: RHEL 9 must define default permissions for all authenticated users.
   V-258060:
@@ -2060,7 +2060,7 @@ controls:
     title: RHEL 9 must routinely check the baseline configuration for unauthorized changes.
   V-258137:
     rules:
-      - aide-audit-tools
+      - auditd-tools-integrity
     severity: CAT II
     title: RHEL 9 must use cryptographic mechanisms to protect the integrity of audit tools.
   # Sudo rules
@@ -2087,7 +2087,7 @@ controls:
   # Shadow password rules
   V-258116:
     rules:
-      - login-defs-encrypt-method
+      - password-hashing-algorithm
     severity: CAT II
     title: RHEL 9 must be configured so that user and group account administration utilities store only encrypted passwords.
   V-258117:
@@ -2113,7 +2113,7 @@ controls:
     title: RHEL 9 must allocate audit record storage capacity to store at least one week's worth of audit records.
   V-258156:
     rules:
-      - auditd-space-action
+      - auditd-space-left-action
     severity: CAT II
     title: RHEL 9 must take action when allocated audit record storage volume reaches 75 percent.
   V-258160:

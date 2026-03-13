@@ -1,40 +1,51 @@
 id: auditd-space-left-action
 title: Ensure system is disabled when audit logs are full
-description: >
-  The space_left_action setting in /etc/audit/auditd.conf must be properly configured.
-rationale: >
-  Improper space_left_action configuration could weaken system security controls.
+description: 'The space_left_action setting in /etc/audit/auditd.conf must be properly
+  configured.
+
+  '
+rationale: 'Improper space_left_action configuration could weaken system security
+  controls.
+
+  '
 severity: medium
 category: audit
-tags: [audit, auditd, storage]
-
-supersedes: [auditd-space-action]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- auditd
+- storage
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel9: { section: "6.3.2.3", level: "L1", type: "Automated" }
+    rhel9:
+      section: 6.3.2.3
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257807"
-      stig_id: "RHEL-09-653010"
-      severity: "CAT II"
-  nist_800_53: ["AU-5"]
-
+      vuln_id: V-257807
+      stig_id: RHEL-09-653010
+      severity: CAT II
+    rhel8:
+      vuln_id: V-244543
+      severity: CAT II
+  nist_800_53:
+  - AU-5
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: config_value
-      path: "/etc/audit/auditd.conf"
-      key: "space_left_action"
-      expected: "email"
-    remediation:
-      mechanism: config_set
-      path: "/etc/audit/auditd.conf"
-      key: "space_left_action"
-      value: "email"
-      separator: " = "
-      restart: "auditd"
+- default: true
+  check:
+    method: config_value
+    path: /etc/audit/auditd.conf
+    key: space_left_action
+    expected: email
+  remediation:
+    mechanism: config_set
+    path: /etc/audit/auditd.conf
+    key: space_left_action
+    value: email
+    separator: ' = '
+    restart: auditd

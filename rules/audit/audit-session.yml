@@ -1,38 +1,49 @@
 id: audit-session
 title: Ensure session initiation information is collected
-description: >
-  Session initiation information must be collected.
-rationale: >
-  Without auditing these events, malicious activity could go undetected, compromising forensic capabilities.
+description: 'Session initiation information must be collected.
+
+  '
+rationale: 'Without auditing these events, malicious activity could go undetected,
+  compromising forensic capabilities.
+
+  '
 severity: medium
 category: audit
-tags: [audit, auditd]
-
-supersedes: [audit-session-initiation]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- auditd
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel8: { section: "6.3.3.11", level: "L2", type: "Automated" }
-    rhel9: { section: "6.3.3.11", level: "L1", type: "Automated" }
-  nist_800_53: ["AU-2", "AU-12", "AC-2"]
-
+    rhel8:
+      section: 6.3.3.11
+      level: L2
+      type: Automated
+    rhel9:
+      section: 6.3.3.11
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AU-2
+  - AU-12
+  - AC-2
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: audit_rule_exists
-      rule: "-k session"
-    remediation:
-      steps:
-        - mechanism: audit_rule_set
-          rule: "-w /var/run/utmp -p wa -k session"
-          persist_file: "/etc/audit/rules.d/50-session.rules"
-        - mechanism: audit_rule_set
-          rule: "-w /var/log/wtmp -p wa -k session"
-          persist_file: "/etc/audit/rules.d/50-session.rules"
-        - mechanism: audit_rule_set
-          rule: "-w /var/log/btmp -p wa -k session"
-          persist_file: "/etc/audit/rules.d/50-session.rules"
+- default: true
+  check:
+    method: audit_rule_exists
+    rule: -k session
+  remediation:
+    steps:
+    - mechanism: audit_rule_set
+      rule: -w /var/run/utmp -p wa -k session
+      persist_file: /etc/audit/rules.d/50-session.rules
+    - mechanism: audit_rule_set
+      rule: -w /var/log/wtmp -p wa -k session
+      persist_file: /etc/audit/rules.d/50-session.rules
+    - mechanism: audit_rule_set
+      rule: -w /var/log/btmp -p wa -k session
+      persist_file: /etc/audit/rules.d/50-session.rules

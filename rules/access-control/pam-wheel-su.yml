@@ -1,46 +1,62 @@
 id: pam-wheel-su
 title: Ensure access to the su command is restricted
-description: >
-  Access to the su command must be restricted to the wheel group via
-  pam_wheel.so, and the wheel group must have no members beyond those
-  explicitly authorized. An empty wheel group is the most restrictive
-  configuration, ensuring only root can use su.
-rationale: >
-  Unrestricted su access allows any user to attempt to become root,
-  increasing brute-force attack surface. Requiring wheel group membership
-  limits su to explicitly authorized users.
+description: 'Access to the su command must be restricted to the wheel group via pam_wheel.so,
+  and the wheel group must have no members beyond those explicitly authorized. An
+  empty wheel group is the most restrictive configuration, ensuring only root can
+  use su.
+
+  '
+rationale: 'Unrestricted su access allows any user to attempt to become root, increasing
+  brute-force attack surface. Requiring wheel group membership limits su to explicitly
+  authorized users.
+
+  '
 severity: medium
 category: access-control
-tags: [pam, su, access-control]
-
+tags:
+- pam
+- su
+- access-control
 references:
   cis:
-    rhel9: { section: "5.2.7", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3", "AC-6"]
-
+    rhel9:
+      section: 5.2.7
+      level: L1
+      type: Automated
+    rhel8:
+      section: 5.3.5
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-3
+  - AC-6
+  stig:
+    rhel9:
+      vuln_id: V-258039
+      stig_id: RHEL-09-432030
+      severity: CAT II
+    rhel8:
+      vuln_id: V-237641
+      severity: CAT II
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      checks:
-        - method: command
-          run: 'grep -qE ''^\s*auth\s+required\s+pam_wheel\.so\s+use_uid'' /etc/pam.d/su'
-          expected_exit: 0
-        - method: command
-          run: |
-            members=$(getent group wheel | cut -d: -f4)
-            if [ -n "$members" ]; then
-              echo "FAIL: wheel group has members: $members"
-              exit 1
-            fi
-            echo "OK: wheel group is empty"
-          expected_exit: 0
-    remediation:
-      mechanism: pam_module_configure
-      service: su
-      module: pam_wheel.so
-      type: auth
-      control: required
-      args: "use_uid"
+- default: true
+  check:
+    checks:
+    - method: command
+      run: grep -qE '^\s*auth\s+required\s+pam_wheel\.so\s+use_uid' /etc/pam.d/su
+      expected_exit: 0
+    - method: command
+      run: "members=$(getent group wheel | cut -d: -f4)\nif [ -n \"$members\" ]; then\n\
+        \  echo \"FAIL: wheel group has members: $members\"\n  exit 1\nfi\necho \"\
+        OK: wheel group is empty\"\n"
+      expected_exit: 0
+  remediation:
+    mechanism: pam_module_configure
+    service: su
+    module: pam_wheel.so
+    type: auth
+    control: required
+    args: use_uid

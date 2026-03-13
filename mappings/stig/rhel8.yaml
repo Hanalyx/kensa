@@ -394,7 +394,7 @@ controls:
     title: "RHEL 8 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access to the system via a ssh logon."
   "V-230231":
     rules:
-      - login-defs-encrypt-method
+      - password-hashing-algorithm
     severity: "CAT II"
     title: "RHEL 8 must encrypt all stored passwords with a FIPS 140-2 approved cryptographic hashing algorithm."
   "V-230232":
@@ -579,12 +579,12 @@ controls:
     title: "RHEL 8 must require the change of at least 8 characters when passwords are changed."
   "V-230364":
     rules:
-      - login-defs-pass-min-days
+      - password-min-age
     severity: "CAT II"
     title: "RHEL 8 passwords must have a 24 hours/1 day minimum password lifetime restriction in /etc/shadow."
   "V-230365":
     rules:
-      - login-defs-pass-min-days
+      - password-min-age
     severity: "CAT II"
     title: "RHEL 8 passwords for new users or password changes must have a 24 hours/1 day minimum password lifetime restriction in /etc/login.defs."
   "V-230366":
@@ -609,7 +609,7 @@ controls:
     title: "RHEL 8 passwords for new users must have a minimum of 15 characters."
   "V-230373":
     rules:
-      - inactive-password-lock
+      - password-inactive
     severity: "CAT II"
     title: "RHEL 8 account identifiers (individuals, groups, roles, and devices) must be disabled after 35 days of inactivity."
   "V-230375":
@@ -629,17 +629,17 @@ controls:
     title: "RHEL 8 must not allow accounts configured with blank or null passwords."
   "V-230383":
     rules:
-      - login-defs-umask
+      - umask-default
     severity: "CAT II"
     title: "RHEL 8 must define default permissions for all authenticated users in such a way that the user can only read and modify their own files."
   "V-230384":
     rules:
-      - login-defs-umask
+      - umask-default
     severity: "CAT II"
     title: "RHEL 8 must set the umask value to 077 for all local interactive user accounts."
   "V-230386":
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     severity: "CAT II"
     title: "The RHEL 8 audit system must be configured to audit the execution of privileged functions and prevent all software from executing at higher privilege levels than users executing the software."
   "V-230404":
@@ -679,7 +679,7 @@ controls:
     title: "RHEL 8 must generate audit records for all account creations, modifications, disabling, and termination events that affect /etc/sudoers.d/."
   "V-230411":
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
     severity: "CAT II"
     title: "The RHEL 8 audit package must be installed."
   "V-230413":
@@ -709,7 +709,7 @@ controls:
     title: "Successful/unsuccessful uses of the init_module and finit_module system calls in RHEL 8 must generate an audit record."
   "V-230439":
     rules:
-      - audit-file-deletion
+      - audit-delete
     severity: "CAT II"
     title: "Successful/unsuccessful uses of the rename, unlink, rmdir, renameat, and unlinkat system calls in RHEL 8 must generate an audit record."
   "V-230499":
@@ -789,57 +789,57 @@ controls:
     title: "The systemd Ctrl-Alt-Delete burst key sequence in RHEL 8 must be disabled."
   "V-230534":
     rules:
-      - accounts-no-uid-zero
+      - root-only-uid0
     severity: "CAT I"
     title: "The root account must be the only account having unrestricted access to the RHEL 8 system."
   "V-230535":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: "CAT II"
     title: "RHEL 8 must prevent IPv6 Internet Control Message Protocol (ICMP) redirect messages from being accepted."
   "V-230536":
     rules:
-      - sysctl-net-ipv4-conf-all-send-redirects
+      - sysctl-send-redirects-disabled
     severity: "CAT II"
     title: "RHEL 8 must not send Internet Control Message Protocol (ICMP) redirects."
   "V-230537":
     rules:
-      - sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+      - sysctl-ignore-broadcast-icmp
     severity: "CAT II"
     title: "RHEL 8 must not respond to Internet Control Message Protocol (ICMP) echoes sent to a broadcast address."
   "V-230538":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     severity: "CAT II"
     title: "RHEL 8 must not forward IPv6 source-routed packets."
   "V-230539":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     severity: "CAT II"
     title: "RHEL 8 must not forward IPv6 source-routed packets by default."
   "V-230540":
     rules:
-      - sysctl-net-ipv6-conf-all-forwarding
+      - sysctl-ip-forward-disabled
     severity: "CAT II"
     title: "RHEL 8 must not enable IPv6 packet forwarding unless the system is a router."
   "V-230541":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-ra
+      - sysctl-ipv6-ra-disabled
     severity: "CAT II"
     title: "RHEL 8 must not accept router advertisements on all IPv6 interfaces."
   "V-230542":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-ra
+      - sysctl-ipv6-ra-disabled
     severity: "CAT II"
     title: "RHEL 8 must not accept router advertisements on all IPv6 interfaces by default."
   "V-230543":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: "CAT II"
     title: "RHEL 8 must not allow interfaces to perform Internet Control Message Protocol (ICMP) redirects by default."
   "V-230544":
     rules:
-      - sysctl-net-ipv6-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: "CAT II"
     title: "RHEL 8 must ignore IPv6 Internet Control Message Protocol (ICMP) redirect messages."
   "V-230545":
@@ -859,7 +859,7 @@ controls:
     title: "RHEL 8 must disable the use of user namespaces."
   "V-230549":
     rules:
-      - sysctl-net-ipv4-conf-all-rp-filter
+      - sysctl-rp-filter
     severity: "CAT II"
     title: "RHEL 8 must use reverse path filtering on all IPv4 interfaces."
   "V-237641":
@@ -899,22 +899,22 @@ controls:
     title: "RHEL 8 must not allow blank or null passwords in the password-auth file."
   "V-244550":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: "CAT II"
     title: "RHEL 8 must prevent IPv4 Internet Control Message Protocol (ICMP) redirect messages from being accepted."
   "V-244551":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     severity: "CAT II"
     title: "RHEL 8 must not forward IPv4 source-routed packets."
   "V-244552":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-source-route
+      - sysctl-source-route-disabled
     severity: "CAT II"
     title: "RHEL 8 must not forward IPv4 source-routed packets by default."
   "V-244553":
     rules:
-      - sysctl-net-ipv4-conf-all-accept-redirects
+      - sysctl-icmp-redirects-disabled
     severity: "CAT II"
     title: "RHEL 8 must ignore IPv4 Internet Control Message Protocol (ICMP) redirect messages."
   "V-250317":
@@ -1931,7 +1931,7 @@ controls:
     title: "RHEL 8 audit records must contain information to establish type, source, location, and outcome of events"
   "V-244543":
     rules:
-      - auditd-space-action
+      - auditd-space-left-action
     severity: "CAT II"
     title: "RHEL 8 must notify SA and ISSO when allocated audit record storage volume 75 percent utilization"
   "V-274877":

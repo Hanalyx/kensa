@@ -1,44 +1,53 @@
 id: umask-default
 title: Ensure default user umask is configured
-description: >
-  A restrictive default umask must be configured for all users.
-rationale: >
-  A permissive umask allows newly created files to be accessible to other users by default.
+description: 'A restrictive default umask must be configured for all users.
+
+  '
+rationale: 'A permissive umask allows newly created files to be accessible to other
+  users by default.
+
+  '
 severity: medium
 category: access-control
-tags: [umask, defaults]
-
+tags:
+- umask
+- defaults
 references:
   cis:
-    rhel9: { section: "5.4.3.3", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3"]
-
+    rhel9:
+      section: 5.4.3.3
+      level: L1
+      type: Automated
+    rhel8:
+      section: 5.6.5
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-3
+  - AC-6(1)
+  stig:
+    rhel9:
+      vuln_id: V-258096
+      stig_id: RHEL-09-412020
+      severity: CAT II
+    rhel8:
+      vuln_id: V-230383
+      severity: CAT II
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: command
-      run: |
-        # Check all sources where umask can be configured
-        found=0
-        for f in /etc/profile /etc/bashrc /etc/profile.d/*.sh; do
-          if grep -qE '^\s*umask\s+0?[0-2][2-7]7' "$f" 2>/dev/null; then
-            found=1
-            break
-          fi
-        done
-        # Also check /etc/login.defs UMASK
-        if grep -qE '^\s*UMASK\s+0?[0-2][2-7]7' /etc/login.defs 2>/dev/null; then
-          found=1
-        fi
-        if [ "$found" -eq 0 ]; then
-          echo "FAIL: No restrictive umask (027 or stricter) found"
-          exit 1
-        fi
-        echo "OK: Restrictive umask configured"
-      expected_exit: 0
-    remediation:
-      mechanism: manual
-      note: "Set umask 027 in /etc/profile, /etc/bashrc, or /etc/login.defs"
+- default: true
+  check:
+    method: command
+    run: "# Check all sources where umask can be configured\nfound=0\nfor f in /etc/profile\
+      \ /etc/bashrc /etc/profile.d/*.sh; do\n  if grep -qE '^\\s*umask\\s+0?[0-2][2-7]7'\
+      \ \"$f\" 2>/dev/null; then\n    found=1\n    break\n  fi\ndone\n# Also check\
+      \ /etc/login.defs UMASK\nif grep -qE '^\\s*UMASK\\s+0?[0-2][2-7]7' /etc/login.defs\
+      \ 2>/dev/null; then\n  found=1\nfi\nif [ \"$found\" -eq 0 ]; then\n  echo \"\
+      FAIL: No restrictive umask (027 or stricter) found\"\n  exit 1\nfi\necho \"\
+      OK: Restrictive umask configured\"\n"
+    expected_exit: 0
+  remediation:
+    mechanism: manual
+    note: Set umask 027 in /etc/profile, /etc/bashrc, or /etc/login.defs

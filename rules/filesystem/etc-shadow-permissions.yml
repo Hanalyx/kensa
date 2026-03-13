@@ -1,34 +1,56 @@
 id: etc-shadow-permissions
 title: Ensure permissions on /etc/shadow are configured
-description: >
-  The /etc/shadow file must have correct ownership and permissions.
-rationale: >
-  Incorrect permissions on /etc/shadow could allow unauthorized access or modification of sensitive system data.
+description: 'The /etc/shadow file must have correct ownership and permissions.
+
+  '
+rationale: 'Incorrect permissions on /etc/shadow could allow unauthorized access or
+  modification of sensitive system data.
+
+  '
 severity: high
 category: filesystem
-tags: [file-permissions, authentication]
-conflicts_with:
-  - fs-permissions-etc-shadow
-
+tags:
+- file-permissions
+- authentication
 references:
   cis:
-    rhel9: { section: "7.1.5", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3", "MP-2"]
-
+    rhel9:
+      section: 7.1.5
+      level: L1
+      type: Automated
+    rhel8:
+      section: 7.1.5
+      level: L1
+      type: Automated
+    rhel10:
+      section: 7.1.3
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-3
+  - MP-2
+  stig:
+    rhel8:
+      vuln_id: V-230256
+      stig_id: RHEL-08-010150
+      severity: CAT II
+    rhel9:
+      vuln_id: V-257934
+      severity: CAT II
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: file_permission
-      path: "/etc/shadow"
-      owner: "root"
-      group: "root"
-      mode: "0000"
-    remediation:
-      mechanism: file_permissions
-      path: "/etc/shadow"
-      owner: "root"
-      group: "root"
-      mode: "0000"
+- default: true
+  check:
+    method: file_permission
+    path: /etc/shadow
+    owner: root
+    group: root
+    mode: '0000'
+  remediation:
+    mechanism: file_permissions
+    path: /etc/shadow
+    owner: root
+    group: root
+    mode: '0000'

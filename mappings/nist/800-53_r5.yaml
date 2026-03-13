@@ -28,43 +28,42 @@ controls:
   "AC-2":
     title: "Account Management"
     rules:
-      - accounts-no-uid-zero
+      - root-only-uid0
       - nologin-system-accounts
-      - inactive-password-lock
-      - root-gid
+      - password-inactive
+      - root-only-gid0
 
   "AC-2(1)":
     title: "Account Management | Automated System Account Management"
     rules:
       - nologin-system-accounts
-      - inactive-password-lock
+      - password-inactive
 
   "AC-3":
     title: "Access Enforcement"
     rules:
       - selinux-enforcing
       - selinux-policy-targeted
-      - fs-permissions-etc-passwd
-      - fs-permissions-etc-shadow
-      - fs-permissions-etc-group
-      - fs-permissions-etc-gshadow
+      - etc-passwd-permissions
+      - etc-shadow-permissions
+      - etc-group-permissions
+      - etc-gshadow-permissions
       - sudo-use-pty
-      - su-require-wheel
+      - pam-wheel-su
 
   "AC-3(4)":
     title: "Access Enforcement | Discretionary Access Control"
     rules:
-      - fs-permissions-etc-passwd
-      - fs-permissions-etc-passwd-backup
-      - fs-permissions-etc-shadow
-      - fs-permissions-etc-shadow-backup
-      - fs-permissions-etc-group
-      - fs-permissions-etc-group-backup
-      - fs-permissions-etc-gshadow
-      - fs-permissions-etc-gshadow-backup
+      - etc-passwd-permissions
+      - etc-passwd-backup-permissions
+      - etc-shadow-permissions
+      - etc-shadow-backup-permissions
+      - etc-group-permissions
+      - etc-group-backup-permissions
+      - etc-gshadow-permissions
+      - etc-gshadow-backup-permissions
       - no-world-writable-files
       - no-unowned-files
-      - no-ungrouped-files
       - sticky-bit-world-writable
 
   "AC-4":
@@ -72,10 +71,8 @@ controls:
     rules:
       - service-enable-firewalld
       - selinux-enforcing
-      - sysctl-net-ipv4-conf-all-accept-redirects
-      - sysctl-net-ipv4-conf-default-accept-redirects
-      - sysctl-net-ipv4-conf-all-send-redirects
-      - sysctl-net-ipv4-conf-default-send-redirects
+      - sysctl-icmp-redirects-disabled
+      - sysctl-send-redirects-disabled
 
   "AC-6":
     title: "Least Privilege"
@@ -84,9 +81,9 @@ controls:
       - sudo-use-pty
       - sudo-logfile
       - sudo-timeout
-      - su-require-wheel
-      - accounts-no-uid-zero
-      - root-gid
+      - pam-wheel-su
+      - root-only-uid0
+      - root-only-gid0
       - root-path-integrity
 
   "AC-6(1)":
@@ -94,7 +91,7 @@ controls:
     rules:
       - sudo-use-pty
       - sudo-logfile
-      - su-require-wheel
+      - pam-wheel-su
       - grub-password
 
   "AC-6(2)":
@@ -103,7 +100,7 @@ controls:
       - ssh-disable-root-login
       - nologin-system-accounts
       - sudo-use-pty
-      - su-require-wheel
+      - pam-wheel-su
 
   "AC-6(5)":
     title: "Least Privilege | Privileged Accounts"
@@ -111,20 +108,20 @@ controls:
       - ssh-disable-root-login
       - sudo-use-pty
       - sudo-timeout
-      - su-require-wheel
+      - pam-wheel-su
 
   "AC-6(9)":
     title: "Least Privilege | Log Use of Privileged Functions"
     rules:
       - sudo-logfile
       - audit-privileged-commands
-      - audit-sudoers-changes
+      - audit-sudoers
 
   "AC-6(10)":
     title: "Least Privilege | Prohibit Non-Privileged Users from Executing Privileged Functions"
     rules:
       - sudo-use-pty
-      - su-require-wheel
+      - pam-wheel-su
       - audit-suid-files
       - audit-sgid-files
 
@@ -186,8 +183,8 @@ controls:
     title: "Remote Access | Monitoring and Control"
     rules:
       - ssh-log-level
-      - audit-login-logout
-      - audit-session-initiation
+      - audit-logins
+      - audit-session
 
   "AC-17(2)":
     title: "Remote Access | Protection of Confidentiality and Integrity Using Encryption"
@@ -222,26 +219,26 @@ controls:
   "AU-2":
     title: "Event Logging"
     rules:
-      - auditd-service-enabled
-      - audit-login-logout
-      - audit-session-initiation
+      - auditd-enabled
+      - audit-logins
+      - audit-session
       - audit-privileged-commands
-      - audit-permission-changes
-      - audit-file-deletion
+      - audit-perm-mod
+      - audit-delete
       - audit-user-group-changes
-      - audit-sudoers-changes
+      - audit-sudoers
       - audit-time-change
-      - audit-network-changes
+      - audit-network-change
       - audit-kernel-modules
       - audit-mount-operations
 
   "AU-3":
     title: "Content of Audit Records"
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
       - audit-time-change
       - audit-user-group-changes
-      - audit-network-changes
+      - audit-network-change
 
   "AU-3(1)":
     title: "Content of Audit Records | Additional Audit Information"
@@ -254,7 +251,7 @@ controls:
   "AU-4":
     title: "Audit Log Storage Capacity"
     rules:
-      - auditd-space-action
+      - auditd-space-left-action
       - auditd-admin-space-action
       - auditd-disk-full-action
       - auditd-disk-error-action
@@ -262,7 +259,7 @@ controls:
   "AU-5":
     title: "Response to Audit Logging Process Failures"
     rules:
-      - auditd-space-action
+      - auditd-space-left-action
       - auditd-admin-space-action
       - auditd-disk-full-action
       - auditd-disk-error-action
@@ -270,15 +267,15 @@ controls:
   "AU-5(1)":
     title: "Response to Audit Logging Process Failures | Storage Capacity Warning"
     rules:
-      - auditd-space-action
+      - auditd-space-left-action
       - auditd-admin-space-action
 
   "AU-6":
     title: "Audit Record Review, Analysis, and Reporting"
     rules:
-      - journald-storage
+      - journald-storage-persistent
       - journald-compress
-      - rsyslog-default-permissions
+      - rsyslog-file-permissions
 
   "AU-8":
     title: "Time Stamps"
@@ -288,36 +285,36 @@ controls:
   "AU-9":
     title: "Protection of Audit Information"
     rules:
-      - rsyslog-default-permissions
-      - journald-storage
+      - rsyslog-file-permissions
+      - journald-storage-persistent
 
   "AU-9(4)":
     title: "Protection of Audit Information | Access by Subset of Privileged Users"
     rules:
-      - rsyslog-default-permissions
+      - rsyslog-file-permissions
 
   "AU-12":
     title: "Audit Record Generation"
     rules:
-      - auditd-service-enabled
-      - audit-login-logout
-      - audit-session-initiation
+      - auditd-enabled
+      - audit-logins
+      - audit-session
       - audit-privileged-commands
-      - audit-permission-changes
+      - audit-perm-mod
       - audit-user-group-changes
-      - audit-sudoers-changes
+      - audit-sudoers
 
   "AU-12(1)":
     title: "Audit Record Generation | System-Wide and Time-Correlated Audit Trail"
     rules:
-      - auditd-service-enabled
+      - auditd-enabled
       - audit-time-change
 
   "AU-12(3)":
     title: "Audit Record Generation | Changes by Authorized Individuals"
     rules:
-      - audit-sudoers-changes
-      - audit-permission-changes
+      - audit-sudoers
+      - audit-perm-mod
       - audit-chown-changes
 
   # ════════════════════════════════════════════════════════════════════════════
@@ -332,14 +329,14 @@ controls:
       - grub-user-cfg-permissions
       - sudo-use-pty
       - sudo-logfile
-      - audit-sudoers-changes
+      - audit-sudoers
 
   "CM-5(1)":
     title: "Access Restrictions for Change | Automated Access Enforcement and Audit Records"
     rules:
       - sudo-logfile
-      - audit-sudoers-changes
-      - audit-permission-changes
+      - audit-sudoers
+      - audit-perm-mod
 
   "CM-6":
     title: "Configuration Settings"
@@ -353,17 +350,17 @@ controls:
     title: "Least Functionality"
     rules:
       - service-disable-autofs
-      - service-disable-avahi-daemon
+      - service-disable-avahi
       - service-disable-cups
       - service-disable-debug-shell
       - service-disable-dhcpd
       - service-disable-httpd
-      - service-disable-kdump
+      - kdump-disabled
       - service-disable-named
       - service-disable-nfs
       - service-disable-rpcbind
-      - service-disable-rsync
-      - service-disable-samba
+      - service-disable-rsyncd
+      - service-disable-smb
       - service-disable-snmpd
       - service-disable-squid
       - service-disable-telnet
@@ -374,7 +371,7 @@ controls:
     title: "Least Functionality | Periodic Review"
     rules:
       - service-disable-autofs
-      - service-disable-avahi-daemon
+      - service-disable-avahi
       - service-disable-debug-shell
 
   "CM-7(2)":
@@ -411,7 +408,7 @@ controls:
       - repo-gpgcheck-enabled
       - localpkg-gpgcheck-enabled
       - sudo-use-pty
-      - su-require-wheel
+      - pam-wheel-su
 
   # ════════════════════════════════════════════════════════════════════════════
   # IDENTIFICATION AND AUTHENTICATION (IA)
@@ -435,7 +432,7 @@ controls:
     title: "Identification and Authentication | Individual Authentication with Group Authentication"
     rules:
       - ssh-pubkey-authentication
-      - accounts-no-uid-zero
+      - root-only-uid0
 
   "IA-2(8)":
     title: "Identification and Authentication | Access to Accounts — Replay Resistant"
@@ -458,14 +455,14 @@ controls:
   "IA-4":
     title: "Identifier Management"
     rules:
-      - accounts-no-uid-zero
-      - root-gid
+      - root-only-uid0
+      - root-only-gid0
       - nologin-system-accounts
 
   "IA-4(4)":
     title: "Identifier Management | Identify User Status"
     rules:
-      - inactive-password-lock
+      - password-inactive
       - nologin-system-accounts
 
   "IA-5":
@@ -483,9 +480,9 @@ controls:
       - pam-pwquality-dictcheck
       - password-remember
       - login-defs-pass-max-days
-      - login-defs-pass-min-days
-      - login-defs-pass-warn-age
-      - login-defs-encrypt-method
+      - password-min-age
+      - password-warn-age
+      - password-hashing-algorithm
 
   "IA-5(1)":
     title: "Authenticator Management | Password-Based Authentication"
@@ -500,7 +497,7 @@ controls:
       - pam-pwquality-maxrepeat
       - pam-pwquality-dictcheck
       - password-remember
-      - login-defs-encrypt-method
+      - password-hashing-algorithm
 
   "IA-5(2)":
     title: "Authenticator Management | Public Key-Based Authentication"
@@ -555,7 +552,7 @@ controls:
   "SC-5":
     title: "Denial-of-Service Protection"
     rules:
-      - sysctl-net-ipv4-tcp-syncookies
+      - sysctl-tcp-syncookies
       - ssh-max-startups
       - ssh-max-sessions
 
@@ -564,9 +561,8 @@ controls:
     rules:
       - service-enable-firewalld
       - sysctl-net-ipv4-ip-forward
-      - sysctl-net-ipv6-conf-all-forwarding
-      - sysctl-net-ipv4-conf-all-send-redirects
-      - sysctl-net-ipv4-conf-default-send-redirects
+      - sysctl-ip-forward-disabled
+      - sysctl-send-redirects-disabled
 
   "SC-7(5)":
     title: "Boundary Protection | Deny by Default — Allow by Exception"
@@ -619,11 +615,11 @@ controls:
       - fips-mode-enabled
       - crypto-policy-fips
       - crypto-policy-no-weak
-      - crypto-policy-disable-sha1-signatures
+      - crypto-policy-no-sha1
       - ssh-ciphers-fips
       - ssh-macs-fips
       - ssh-kex-fips
-      - login-defs-encrypt-method
+      - password-hashing-algorithm
 
   "SC-23":
     title: "Session Authenticity"
@@ -637,15 +633,15 @@ controls:
     rules:
       - crypto-policy-fips
       - selinux-enforcing
-      - fs-permissions-etc-shadow
-      - fs-permissions-etc-gshadow
+      - etc-shadow-permissions
+      - etc-gshadow-permissions
 
   "SC-28(1)":
     title: "Protection of Information at Rest | Cryptographic Protection"
     rules:
       - crypto-policy-fips
       - fips-mode-enabled
-      - login-defs-encrypt-method
+      - password-hashing-algorithm
 
   # ════════════════════════════════════════════════════════════════════════════
   # SYSTEM AND INFORMATION INTEGRITY (SI)
@@ -670,23 +666,23 @@ controls:
   "SI-4":
     title: "System Monitoring"
     rules:
-      - auditd-service-enabled
-      - audit-login-logout
-      - audit-session-initiation
+      - auditd-enabled
+      - audit-logins
+      - audit-session
       - audit-privileged-commands
-      - journald-storage
-      - rsyslog-default-permissions
+      - journald-storage-persistent
+      - rsyslog-file-permissions
 
   "SI-4(4)":
     title: "System Monitoring | Inbound and Outbound Communications Traffic"
     rules:
-      - audit-network-changes
+      - audit-network-change
       - service-enable-firewalld
 
   "SI-4(5)":
     title: "System Monitoring | System-Generated Alerts"
     rules:
-      - auditd-space-action
+      - auditd-space-left-action
       - auditd-admin-space-action
 
   "SI-6":
@@ -713,7 +709,7 @@ controls:
     title: "Software, Firmware, and Information Integrity | Integration of Detection and Response"
     rules:
       - aide-installed
-      - auditd-service-enabled
+      - auditd-enabled
 
   "SI-10":
     title: "Information Input Validation"

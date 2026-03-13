@@ -1,40 +1,50 @@
 id: audit-rules-immutable
 title: Ensure audit rules are immutable
-description: >
-  The audit configuration should be made immutable by adding '-e 2' as the
-  last rule. This prevents any modification of audit rules until the system
+description: 'The audit configuration should be made immutable by adding ''-e 2''
+  as the last rule. This prevents any modification of audit rules until the system
   is rebooted.
-rationale: >
-  Making audit rules immutable prevents attackers from disabling or modifying
-  audit rules to hide their activities. Any attempt to change rules after
-  boot requires a reboot, making such tampering more detectable.
+
+  '
+rationale: 'Making audit rules immutable prevents attackers from disabling or modifying
+  audit rules to hide their activities. Any attempt to change rules after boot requires
+  a reboot, making such tampering more detectable.
+
+  '
 severity: high
 category: audit
-tags: [audit, immutable, security, hardening]
-
-conflicts_with: [audit-immutable]
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- immutable
+- security
+- hardening
+depends_on:
+- auditd-service-enabled
 references:
   cis:
-    rhel9:  { section: "6.3.3.20", level: "L2", type: "Automated" }
+    rhel9:
+      section: 6.3.3.20
+      level: L2
+      type: Automated
   stig:
     rhel8:
-      vuln_id: "V-230402"
-      severity: "CAT II"
-  nist_800_53: ["AU-9", "AC-6"]
-
+      vuln_id: V-230402
+      severity: CAT II
+  nist_800_53:
+  - AU-9
+  - AC-6
+  - AU-2
+  - AU-12
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: command
-      run: "grep -E '^\\s*-e\\s+2\\s*$' /etc/audit/rules.d/*.rules 2>/dev/null && auditctl -s 2>/dev/null | grep -qE '^enabled\\s+2'"
-      expected_exit: 0
-    remediation:
-      mechanism: audit_rule_set
-      rule: "-e 2"
-      persist_file: "/etc/audit/rules.d/99-finalize.rules"
+- default: true
+  check:
+    method: command
+    run: grep -E '^\s*-e\s+2\s*$' /etc/audit/rules.d/*.rules 2>/dev/null && auditctl
+      -s 2>/dev/null | grep -qE '^enabled\s+2'
+    expected_exit: 0
+  remediation:
+    mechanism: audit_rule_set
+    rule: -e 2
+    persist_file: /etc/audit/rules.d/99-finalize.rules

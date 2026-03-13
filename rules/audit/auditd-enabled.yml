@@ -1,37 +1,49 @@
 id: auditd-enabled
 title: Ensure auditd service is enabled and active
-description: >
-  The auditd service must be enabled and running.
-rationale: >
-  The auditd service provides essential system functionality. If it is not running, the system may not meet security requirements.
+description: 'The auditd service must be enabled and running.
+
+  '
+rationale: 'The auditd service provides essential system functionality. If it is not
+  running, the system may not meet security requirements.
+
+  '
 severity: high
 category: audit
-tags: [service, audit, auditd]
-
-supersedes: [auditd-service-enabled]
-depends_on: [auditd-installed]
-
+tags:
+- service
+- audit
+- auditd
+depends_on:
+- auditd-installed
 references:
   cis:
-    rhel8: { section: "6.3.1.4", level: "L2", type: "Automated" }
-    rhel9: { section: "6.3.1.4", level: "L1", type: "Automated" }
+    rhel8:
+      section: 6.3.1.4
+      level: L2
+      type: Automated
+    rhel9:
+      section: 6.3.1.4
+      level: L1
+      type: Automated
   stig:
     rhel9:
-      vuln_id: "V-257868"
-      stig_id: "RHEL-09-653010"
-      severity: "CAT II"
-  nist_800_53: ["AU-2", "AU-3", "AU-12"]
-
+      vuln_id: V-257868
+      stig_id: RHEL-09-653010
+      severity: CAT II
+  nist_800_53:
+  - AU-2
+  - AU-3
+  - AU-12
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: service_state
-      name: "auditd"
-      enabled: true
-      active: true
-    remediation:
-      mechanism: service_enabled
-      name: "auditd"
+- default: true
+  check:
+    method: service_state
+    name: auditd
+    enabled: true
+    active: true
+  remediation:
+    mechanism: service_enabled
+    name: auditd

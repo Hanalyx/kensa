@@ -1,36 +1,44 @@
 id: journald-no-forward-syslog
 title: Ensure journald ForwardToSyslog is disabled
-description: >
-  The ForwardToSyslog setting in /etc/systemd/journald.conf must be properly configured.
-rationale: >
-  Improper ForwardToSyslog configuration could weaken system security controls.
+description: 'The ForwardToSyslog setting in /etc/systemd/journald.conf must be properly
+  configured.
+
+  '
+rationale: 'Improper ForwardToSyslog configuration could weaken system security controls.
+
+  '
 severity: low
 category: logging
-tags: [journald, logging]
-
-conflicts_with:
-  - journald-forward-syslog
-
+tags:
+- journald
+- logging
 references:
   cis:
-    rhel8: { section: "6.2.1.1.4", level: "L1", type: "Automated" }
-    rhel9: { section: "6.2.2.2", level: "L1", type: "Automated" }
-  nist_800_53: ["AU-4"]
-
+    rhel8:
+      section: 6.2.1.1.4
+      level: L1
+      type: Automated
+    rhel9:
+      section: 6.2.2.2
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AU-4
+  - AU-12
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: config_value
-      path: "/etc/systemd/journald.conf"
-      key: "ForwardToSyslog"
-      expected: "no"
-    remediation:
-      mechanism: config_set
-      path: "/etc/systemd/journald.conf"
-      key: "ForwardToSyslog"
-      value: "no"
-      separator: "="
-      reload: "systemd-journald"
+- default: true
+  check:
+    method: config_value
+    path: /etc/systemd/journald.conf
+    key: ForwardToSyslog
+    expected: 'no'
+  remediation:
+    mechanism: config_set
+    path: /etc/systemd/journald.conf
+    key: ForwardToSyslog
+    value: 'no'
+    separator: '='
+    reload: systemd-journald

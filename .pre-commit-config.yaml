@@ -96,3 +96,10 @@ repos:
         language: system
         files: ^specs/.*\.spec\.yaml$
         pass_filenames: true
+
+      - id: rule-dedup-check
+        name: Check for rule duplication
+        entry: bash -c 'PYTHONPATH=. python3 scripts/rule_dedup_check.py --warn-only "$@"' --
+        language: system
+        files: ^rules/.*\.ya?ml$
+        pass_filenames: true
