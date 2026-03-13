@@ -42,6 +42,7 @@ from runner.handlers.remediation._command import (
     _remediate_manual,
 )
 from runner.handlers.remediation._config import (
+    _remediate_config_append,
     _remediate_config_block,
     _remediate_config_remove,
     _remediate_config_set,
@@ -87,6 +88,7 @@ REMEDIATION_HANDLERS = {
     "config_set_dropin": _remediate_config_set_dropin,
     "config_remove": _remediate_config_remove,
     "config_block": _remediate_config_block,
+    "config_append": _remediate_config_append,
     # File handlers
     "file_permissions": _remediate_file_permissions,
     "file_content": _remediate_file_content,

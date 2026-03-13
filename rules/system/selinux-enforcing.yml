@@ -34,5 +34,8 @@ implementations:
       method: selinux_state
       state: "Enforcing"
     remediation:
-      mechanism: command_exec
-      run: "sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config"
+      mechanism: config_set
+      path: "/etc/selinux/config"
+      key: "SELINUX"
+      value: "enforcing"
+      separator: "="

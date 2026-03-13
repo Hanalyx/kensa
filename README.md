@@ -2,7 +2,7 @@
 
 **Compliance as Code — Scan, Remediate, Rollback.**
 
-`630 rules` · `18 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
+`630 rules` · `19 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
 
 ---
 
@@ -158,7 +158,7 @@ Kensa takes a different architectural approach than most compliance tools. Where
 | | Kensa | Manual Checks | Ansible Lockdown | Point-in-Time Scanners |
 |---|---|---|---|---|
 | **Architecture** | Canonical rules, capability-gated | N/A | Per-OS per-framework repos | Per-benchmark content |
-| **Remediation** | 18 typed mechanisms | Run commands by hand | Ansible tasks | Basic scripts or none |
+| **Remediation** | 19 typed mechanisms | Run commands by hand | Ansible tasks | Basic scripts or none |
 | **Rollback** | Automatic | None | None | None |
 | **Rule format** | YAML | N/A | Ansible YAML | Varies (XCCDF/OVAL, Ruby DSL, etc.) |
 | **Frameworks per rule** | All simultaneously | Whatever you check | One repo per framework+OS | One profile per scan |

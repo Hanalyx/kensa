@@ -30,8 +30,8 @@ implementations:
       run: "find / -xdev -type f -perm -0002 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Review and remove world-writable permissions from files:
-        find / -xdev -type f -perm -0002 -exec chmod o-w {} \;
-        Investigate each file to ensure the change won't break applications.
+      mechanism: file_permissions
+      find_paths: ["/"]
+      find_type: "f"
+      find_args: "-xdev -perm -0002"
+      mode: "o-w"

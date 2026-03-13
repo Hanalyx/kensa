@@ -48,7 +48,7 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        For each library directory with non-system group ownership, run:
-        chgrp root <directory>
+      mechanism: file_permissions
+      find_paths: ["/lib", "/lib64", "/usr/lib", "/usr/lib64", "/usr/local/lib", "/usr/local/lib64"]
+      find_type: "d"
+      group: "root"

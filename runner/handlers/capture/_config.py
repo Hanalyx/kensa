@@ -50,6 +50,25 @@ def _capture_config_set_dropin(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_config_append(ssh: SSHSession, r: dict) -> PreState:
+    """Capture whether the line already exists before appending."""
+    path = r["path"]
+    line = r["line"]
+    check = ssh.run(
+        f"grep -Fxq {shell_util.quote(line)} {shell_util.quote(path)} 2>/dev/null"
+    )
+    return PreState(
+        mechanism="config_append",
+        data={
+            "path": path,
+            "line": line,
+            "existed": check.ok,
+            "reload": r.get("reload"),
+            "restart": r.get("restart"),
+        },
+    )
+
+
 def _capture_config_remove(ssh: SSHSession, r: dict) -> PreState:
     """Capture config line before removal."""
     path = r["path"]

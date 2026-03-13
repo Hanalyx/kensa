@@ -37,7 +37,8 @@ implementations:
         exit 0
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Change ownership of world-writable directories to root or a
-        system account: chown root <directory>
+      mechanism: file_permissions
+      find_paths: ["/"]
+      find_type: "d"
+      find_args: "-xdev -perm -0002 -uid +999"
+      owner: "root"

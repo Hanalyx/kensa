@@ -14,6 +14,7 @@ from runner.handlers.capture._command import (  # noqa: F401
     _capture_manual,
 )
 from runner.handlers.capture._config import (  # noqa: F401
+    _capture_config_append,
     _capture_config_block,
     _capture_config_remove,
     _capture_config_set,

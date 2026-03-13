@@ -27,5 +27,12 @@ implementations:
       run: "find /lib /lib64 /usr/lib /usr/lib64 ! -group root -type d 2>/dev/null | head -1"
       expected_stdout: ""
     remediation:
-      mechanism: command_exec
-      run: "find /lib /lib64 /usr/lib /usr/lib64 ! -group root -type d -exec chgrp root {} +"
+      mechanism: file_permissions
+      find_paths:
+        - /lib
+        - /lib64
+        - /usr/lib
+        - /usr/lib64
+      find_type: d
+      find_args: "! -group root"
+      group: root

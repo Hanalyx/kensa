@@ -53,8 +53,34 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Reset cron file/directory permissions to OS defaults:
-        chmod 0600 /etc/crontab
-        chmod 0700 /etc/cron.d /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly
+      steps:
+        - mechanism: file_permissions
+          path: "/etc/crontab"
+          mode: "0600"
+          owner: "root"
+          group: "root"
+        - mechanism: file_permissions
+          path: "/etc/cron.hourly"
+          mode: "0700"
+          owner: "root"
+          group: "root"
+        - mechanism: file_permissions
+          path: "/etc/cron.daily"
+          mode: "0700"
+          owner: "root"
+          group: "root"
+        - mechanism: file_permissions
+          path: "/etc/cron.weekly"
+          mode: "0700"
+          owner: "root"
+          group: "root"
+        - mechanism: file_permissions
+          path: "/etc/cron.monthly"
+          mode: "0700"
+          owner: "root"
+          group: "root"
+        - mechanism: file_permissions
+          path: "/etc/cron.d"
+          mode: "0700"
+          owner: "root"
+          group: "root"

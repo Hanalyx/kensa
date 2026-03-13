@@ -30,5 +30,12 @@ implementations:
       run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -perm /022 -type f 2>/dev/null | head -1"
       expected_stdout: ""
     remediation:
-      mechanism: command_exec
-      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -perm /022 -type f -exec chmod go-w {} +"
+      mechanism: file_permissions
+      find_paths:
+        - /usr/bin
+        - /usr/sbin
+        - /usr/local/bin
+        - /usr/local/sbin
+      find_type: f
+      find_args: "-perm /022"
+      mode: "go-w"

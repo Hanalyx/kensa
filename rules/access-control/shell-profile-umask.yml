@@ -38,7 +38,8 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add to /etc/profile or /etc/profile.d/umask.sh:
-        umask 077
+      mechanism: config_set_dropin
+      dir: "/etc/profile.d"
+      file: "00-kensa-umask.sh"
+      key: "umask"
+      value: "077"

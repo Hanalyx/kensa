@@ -38,8 +38,8 @@ implementations:
         [ -z "$bad" ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        For each home directory with permissions greater than 0750, run:
-        chmod 0750 <home-directory>
-        Review each case before modifying to avoid breaking legitimate access.
+      mechanism: file_permissions
+      find_paths: ["/home"]
+      find_type: "d"
+      find_args: "-maxdepth 1 -mindepth 1 -perm /027"
+      mode: "0750"

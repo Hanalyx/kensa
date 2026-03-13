@@ -39,5 +39,6 @@ implementations:
       key: "even_deny_root"
       expected: ""
     remediation:
-      mechanism: command_exec
-      run: "grep -q '^even_deny_root' /etc/security/faillock.conf || echo 'even_deny_root' >> /etc/security/faillock.conf"
+      mechanism: config_append
+      path: "/etc/security/faillock.conf"
+      line: "even_deny_root"

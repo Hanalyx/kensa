@@ -29,5 +29,12 @@ implementations:
       run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f ! -group root 2>/dev/null | xargs -r stat --format='%G %n' | grep -v '^bin ' | grep -v '^sys ' | head -1"
       expected_stdout: ""
     remediation:
-      mechanism: command_exec
-      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -group root -type f -exec chgrp root {} +"
+      mechanism: file_permissions
+      find_paths:
+        - /usr/bin
+        - /usr/sbin
+        - /usr/local/bin
+        - /usr/local/sbin
+      find_type: f
+      find_args: "! -group root"
+      group: root

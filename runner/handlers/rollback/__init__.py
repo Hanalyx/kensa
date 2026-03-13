@@ -20,6 +20,7 @@ from runner.handlers.rollback._command import (
     _rollback_manual,
 )
 from runner.handlers.rollback._config import (
+    _rollback_config_append,
     _rollback_config_block,
     _rollback_config_remove,
     _rollback_config_set,
@@ -64,6 +65,7 @@ ROLLBACK_HANDLERS = {
     "config_set_dropin": _rollback_config_set_dropin,
     "config_remove": _rollback_config_remove,
     "config_block": _rollback_config_block,
+    "config_append": _rollback_config_append,
     # File handlers
     "file_permissions": _rollback_file_permissions,
     "file_content": _rollback_file_content,

@@ -35,7 +35,8 @@ implementations:
           awk '{print $NF}' | awk 'BEGIN{max=9999} {if ($1+0 < max) max=$1+0} END{if (max <= 10) exit 0; exit 1}'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add the following to /etc/security/limits.d/maxlogins.conf:
-        * hard maxlogins 10
+      mechanism: config_set_dropin
+      dir: "/etc/security/limits.d"
+      file: "00-kensa-maxlogins.conf"
+      key: "* hard maxlogins"
+      value: "10"

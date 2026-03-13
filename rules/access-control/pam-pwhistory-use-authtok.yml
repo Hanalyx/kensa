@@ -39,12 +39,9 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: |
-        if grep -q '^use_authtok' /etc/security/pwhistory.conf 2>/dev/null; then
-          exit 0
-        fi
-        echo 'use_authtok' >> /etc/security/pwhistory.conf
+      mechanism: config_append
+      path: "/etc/security/pwhistory.conf"
+      line: "use_authtok"
 
   - default: true
     check:

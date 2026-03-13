@@ -23,5 +23,9 @@ implementations:
       run: 'awk -F: ''($3>=1000 && $7 !~ /nologin|false/) {print $6}'' /etc/passwd | while read dir; do find "$dir" -maxdepth 1 -name ''.*'' -type f -perm /go+w 2>/dev/null; done | head -1 | grep -q . && exit 1 || exit 0'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Remove group and world write permissions from user dot files"
+      mechanism: file_permissions
+      find_paths: ["/home"]
+      find_name: ".*"
+      find_type: "f"
+      find_args: "-maxdepth 2 -perm /go+w"
+      mode: "go-w"

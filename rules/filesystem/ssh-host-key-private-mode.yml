@@ -29,5 +29,10 @@ implementations:
       run: "find /etc/ssh -name 'ssh_host_*_key' ! -name '*.pub' -type f -perm /137 2>/dev/null | head -1"
       expected_stdout: ""
     remediation:
-      mechanism: command_exec
-      run: "find /etc/ssh -name 'ssh_host_*_key' ! -name '*.pub' -type f -exec chmod go-rwx {} +"
+      mechanism: file_permissions
+      find_paths:
+        - /etc/ssh
+      find_name: "ssh_host_*_key"
+      find_type: f
+      find_args: "! -name '*.pub'"
+      mode: "go-rwx"

@@ -21,6 +21,7 @@ from runner.handlers.capture._command import (
     _capture_manual,
 )
 from runner.handlers.capture._config import (
+    _capture_config_append,
     _capture_config_block,
     _capture_config_remove,
     _capture_config_set,
@@ -65,6 +66,7 @@ CAPTURE_HANDLERS = {
     "config_set_dropin": _capture_config_set_dropin,
     "config_remove": _capture_config_remove,
     "config_block": _capture_config_block,
+    "config_append": _capture_config_append,
     # File handlers
     "file_permissions": _capture_file_permissions,
     "file_content": _capture_file_content,

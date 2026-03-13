@@ -56,6 +56,29 @@ def _rollback_config_set_dropin(
     return True, detail
 
 
+def _rollback_config_append(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Remove appended line if it was not previously present."""
+    d = pre_state.data
+    path = d["path"]
+    line = d["line"]
+
+    if d["existed"]:
+        return True, f"Line was already present in {path}, nothing to rollback"
+
+    # Remove the exact line we appended
+    escaped_line = shell_util.escape_sed(line)
+    result = ssh.run(f"sed -i '/^{escaped_line}$/d' {shell_util.quote(path)}")
+    if not result.ok:
+        return False, f"Failed to remove appended line from {path}: {result.stderr}"
+
+    if d.get("reload") or d.get("restart"):
+        shell_util.service_action(
+            ssh, {"reload": d.get("reload"), "restart": d.get("restart")}
+        )
+
+    return True, f"Removed appended line from {path}"
+
+
 def _rollback_config_remove(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
     """Restore removed config lines."""
     d = pre_state.data

@@ -33,5 +33,6 @@ implementations:
       expected_exit: 0
       expected_stdout: "-e 2"
     remediation:
-      mechanism: command_exec
-      run: "grep -q '^-e 2' /etc/audit/rules.d/audit.rules || echo '-e 2' >> /etc/audit/rules.d/audit.rules"
+      mechanism: config_append
+      path: "/etc/audit/rules.d/audit.rules"
+      line: "-e 2"

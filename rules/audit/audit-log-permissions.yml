@@ -35,5 +35,10 @@ implementations:
       expected_exit: 0
       expected_stdout: ""
     remediation:
-      mechanism: command_exec
-      run: "find /var/log/audit -type f -exec chmod 0600 {} \\; -exec chown root:root {} \\;"
+      mechanism: file_permissions
+      find_paths:
+        - /var/log/audit
+      find_type: f
+      owner: root
+      group: root
+      mode: "0600"

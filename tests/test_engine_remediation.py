@@ -6136,3 +6136,330 @@ class TestFilePermissionsSpecDerived:
         assert ok is True
         assert "chmod" in detail
         assert "chown" not in detail
+
+
+class TestConfigAppendSpecDerived:
+    """Spec-derived tests for config_append remediation handler.
+
+    See specs/handlers/remediation/config_append.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/audit/rules.d/audit.rules",
+            "line": "-e 2",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would append" in detail
+        assert "-e 2" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_idempotent_skip_when_present(self, mock_ssh):
+        """AC-2: Line already present returns success without modification."""
+        ssh = mock_ssh(
+            {
+                "grep -Fxq": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/audit/rules.d/audit.rules",
+            "line": "-e 2",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "already present" in detail
+        # No echo command should have been run
+        echo_cmds = [c for c in ssh.commands_run if "echo" in c]
+        assert len(echo_cmds) == 0
+
+    def test_append_when_absent(self, mock_ssh):
+        """AC-3: Line absent is appended and returns success."""
+        ssh = mock_ssh(
+            {
+                "grep -Fxq": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/audit/rules.d/audit.rules",
+            "line": "-e 2",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Appended" in detail
+
+    def test_append_failure(self, mock_ssh):
+        """AC-4: Append failure returns False with stderr."""
+        ssh = mock_ssh(
+            {
+                "grep -Fxq": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=1, stdout="", stderr="read-only fs"),
+            }
+        )
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/audit/rules.d/audit.rules",
+            "line": "-e 2",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to append" in detail
+        assert "read-only fs" in detail
+
+    def test_service_action_on_modification(self, mock_ssh):
+        """AC-5: Service action called after successful append."""
+        ssh = mock_ssh(
+            {
+                "grep -Fxq": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+                "systemctl": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/security/faillock.conf",
+            "line": "even_deny_root",
+            "restart": "sssd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        svc_cmds = [c for c in ssh.commands_run if "systemctl" in c]
+        assert len(svc_cmds) >= 1
+
+    def test_no_service_action_on_skip(self, mock_ssh):
+        """AC-6: No service action when line already present."""
+        ssh = mock_ssh(
+            {
+                "grep -Fxq": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/security/faillock.conf",
+            "line": "even_deny_root",
+            "restart": "sssd",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        svc_cmds = [c for c in ssh.commands_run if "systemctl" in c]
+        assert len(svc_cmds) == 0
+
+    def test_no_service_action_without_reload_restart(self, mock_ssh):
+        """AC-7: No systemctl when neither reload nor restart specified."""
+        ssh = mock_ssh(
+            {
+                "grep -Fxq": Result(exit_code=1, stdout="", stderr=""),
+                "echo": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "config_append",
+            "path": "/etc/audit/rules.d/audit.rules",
+            "line": "-e 2",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        svc_cmds = [c for c in ssh.commands_run if "systemctl" in c]
+        assert len(svc_cmds) == 0
+
+
+class TestFilePermissionsBulkSpecDerived:
+    """Spec-derived tests for file_permissions bulk find mode.
+
+    See specs/handlers/remediation/file_permissions.spec.yaml v2.0.0.
+    """
+
+    def test_bulk_mode_activation(self, mock_ssh):
+        """AC-12: find_paths activates bulk find mode."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc/audit"],
+            "find_type": "f",
+            "owner": "root",
+            "group": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmds = [c for c in ssh.commands_run if c.startswith("find ")]
+        assert len(find_cmds) == 1
+        assert "/etc/audit" in find_cmds[0]
+
+    def test_bulk_find_name_filter(self, mock_ssh):
+        """AC-13: find_name adds -name filter to find command."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/lib", "/usr/lib"],
+            "find_name": "*.so*",
+            "find_type": "f",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmd = [c for c in ssh.commands_run if c.startswith("find ")][0]
+        assert "-name" in find_cmd
+        assert "*.so*" in find_cmd
+
+    def test_bulk_find_type_filter(self, mock_ssh):
+        """AC-14: find_type adds -type filter to find command."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc/audit"],
+            "find_type": "d",
+            "mode": "0755",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmd = [c for c in ssh.commands_run if c.startswith("find ")][0]
+        assert "-type d" in find_cmd
+
+    def test_bulk_find_extra_args(self, mock_ssh):
+        """AC-15: find_args string is appended to find command."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/lib", "/lib64"],
+            "find_name": "*.so*",
+            "find_type": "f",
+            "find_args": "! -user root",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmd = [c for c in ssh.commands_run if c.startswith("find ")][0]
+        assert "! -user root" in find_cmd
+
+    def test_bulk_chown(self, mock_ssh):
+        """AC-16: Bulk mode includes -exec chown with correct spec."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/lib"],
+            "find_type": "f",
+            "owner": "root",
+            "group": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmd = [c for c in ssh.commands_run if c.startswith("find ")][0]
+        assert "-exec chown root:root {} +" in find_cmd
+
+    def test_bulk_chmod(self, mock_ssh):
+        """AC-17: Bulk mode includes -exec chmod with mode."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc/audit"],
+            "find_type": "f",
+            "mode": "0640",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmd = [c for c in ssh.commands_run if c.startswith("find ")][0]
+        assert "-exec chmod 0640 {} +" in find_cmd
+
+    def test_bulk_combined_chown_chmod(self, mock_ssh):
+        """AC-18: Bulk mode includes both -exec chown and -exec chmod."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc/audit"],
+            "find_type": "f",
+            "owner": "root",
+            "group": "root",
+            "mode": "0640",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        find_cmd = [c for c in ssh.commands_run if c.startswith("find ")][0]
+        assert "-exec chown root:root {} +" in find_cmd
+        assert "-exec chmod 0640 {} +" in find_cmd
+
+    def test_bulk_dry_run(self, mock_ssh):
+        """AC-19: Bulk dry-run returns preview without SSH execution."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/lib", "/lib64"],
+            "find_name": "*.so*",
+            "find_type": "f",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would run:" in detail
+        assert "find" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_bulk_success_message(self, mock_ssh):
+        """AC-20: Bulk success returns paths in message."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/lib", "/lib64"],
+            "find_type": "f",
+            "owner": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Set permissions via find in" in detail
+        assert "/lib" in detail
+        assert "/lib64" in detail
+
+    def test_bulk_failure(self, mock_ssh):
+        """AC-21: Bulk failure returns stderr in message."""
+        ssh = mock_ssh(
+            {
+                "find": Result(exit_code=1, stdout="", stderr="Permission denied"),
+            }
+        )
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/restricted"],
+            "find_type": "f",
+            "mode": "0644",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed:" in detail
+        assert "Permission denied" in detail

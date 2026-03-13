@@ -23,5 +23,8 @@ implementations:
       run: 'grep -qE ''^\s*remember\s*=\s*[0-9]+'' /etc/security/pwhistory.conf 2>/dev/null || grep -qE ''pam_pwhistory\.so.*remember='' /etc/pam.d/system-auth'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Configure remember in /etc/security/pwhistory.conf or pam_pwhistory.so"
+      mechanism: config_set
+      path: "/etc/security/pwhistory.conf"
+      key: "remember"
+      value: "{{ password_remember }}"
+      separator: " = "

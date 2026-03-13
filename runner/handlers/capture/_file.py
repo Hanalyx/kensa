@@ -11,17 +11,50 @@ from runner import shell_util
 from runner._types import PreState
 
 if TYPE_CHECKING:
-    from runner.ssh import SSHSession
+    from runner.ssh import Result, SSHSession
 
 
 def _capture_file_permissions(ssh: SSHSession, r: dict) -> PreState:
-    """Capture current file ownership and permissions."""
+    """Capture current file ownership and permissions.
+
+    Supports both direct path mode and bulk find mode.
+    In bulk find mode, uses find + stat to enumerate matching files.
+    """
+    if "find_paths" in r:
+        return _capture_bulk_find_permissions(ssh, r)
+
     path = r["path"]
     is_glob = r.get("glob") or shell_util.is_glob_path(path)
     quoted = shell_util.quote_path(path, allow_glob=is_glob)
     result = ssh.run(f"stat -c '%U %G %a %n' {quoted} 2>/dev/null")
-    entries = []
-    if result.ok and result.stdout.strip():
+    entries = _parse_stat_output(result)
+    return PreState(mechanism="file_permissions", data={"entries": entries})
+
+
+def _capture_bulk_find_permissions(ssh: SSHSession, r: dict) -> PreState:
+    """Capture pre-state for bulk find mode using find + stat."""
+    find_paths = r["find_paths"]
+    quoted_paths = " ".join(shell_util.quote(p) for p in find_paths)
+    cmd_parts = [f"find {quoted_paths}"]
+
+    if "find_name" in r:
+        cmd_parts.append(f"-name {shell_util.quote(r['find_name'])}")
+    if "find_type" in r:
+        cmd_parts.append(f"-type {r['find_type']}")
+    if "find_args" in r:
+        cmd_parts.append(r["find_args"])
+
+    cmd_parts.append("-exec stat -c '%U %G %a %n' {} +")
+    cmd = " ".join(cmd_parts) + " 2>/dev/null"
+    result = ssh.run(cmd)
+    entries = _parse_stat_output(result)
+    return PreState(mechanism="file_permissions", data={"entries": entries})
+
+
+def _parse_stat_output(result: Result) -> list[dict[str, str]]:
+    """Parse stat -c '%U %G %a %n' output into entry dicts."""
+    entries: list[dict[str, str]] = []
+    if getattr(result, "ok", False) and getattr(result, "stdout", "").strip():
         for line in result.stdout.strip().splitlines():
             parts = line.split()
             if len(parts) >= 4:
@@ -33,7 +66,7 @@ def _capture_file_permissions(ssh: SSHSession, r: dict) -> PreState:
                         "mode": parts[2],
                     }
                 )
-    return PreState(mechanism="file_permissions", data={"entries": entries})
+    return entries
 
 
 def _capture_file_content(ssh: SSHSession, r: dict) -> PreState:

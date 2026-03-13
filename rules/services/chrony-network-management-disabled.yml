@@ -31,7 +31,8 @@ implementations:
         grep -qE '^\s*cmdport\s+0\s*$' /etc/chrony.conf 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add 'cmdport 0' to /etc/chrony.conf to disable network management.
-        Restart chronyd: systemctl restart chronyd
+      mechanism: config_set
+      path: "/etc/chrony.conf"
+      key: "cmdport"
+      value: "0"
+      restart: "chronyd"

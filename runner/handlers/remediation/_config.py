@@ -96,6 +96,47 @@ def _remediate_config_set_dropin(
     return True, f"Wrote '{line}' to {full_path}"
 
 
+def _remediate_config_append(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Append a line to a config file if not already present.
+
+    Idempotent: checks for exact whole-line match via grep -Fxq before
+    appending. See specs/handlers/remediation/config_append.spec.yaml.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - path (str): Config file path.
+            - line (str): Line to append if absent.
+            - reload/restart (str, optional): Service to reload.
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    path = r["path"]
+    line = r["line"]
+
+    if dry_run:
+        return True, f"Would append '{line}' to {path}"
+
+    # Check if line already exists (exact whole-line match)
+    check = ssh.run(
+        f"grep -Fxq {shell_util.quote(line)} {shell_util.quote(path)} 2>/dev/null"
+    )
+    if check.ok:
+        return True, f"Line already present in {path}"
+
+    # Append the line
+    result = ssh.run(f"echo {shell_util.quote(line)} >> {shell_util.quote(path)}")
+    if not result.ok:
+        return False, f"Failed to append to {path}: {result.stderr}"
+
+    shell_util.service_action(ssh, r)
+    return True, f"Appended '{line}' to {path}"
+
+
 def _remediate_config_remove(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
