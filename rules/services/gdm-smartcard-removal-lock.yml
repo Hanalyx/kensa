@@ -47,15 +47,12 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure and lock the smart card removal action:
-        1. Create /etc/dconf/db/local.d/00-smartcard with:
-           [org/gnome/settings-daemon/peripherals/smartcard]
-           removal-action='lock-screen'
-        2. Create /etc/dconf/db/local.d/locks/00-smartcard with:
-           /org/gnome/settings-daemon/peripherals/smartcard/removal-action
-        3. Run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/settings-daemon/peripherals/smartcard
+      key: removal-action
+      value: "'lock-screen'"
+      file: 00-smartcard
+      lock: true
 
   - default: true
     check:

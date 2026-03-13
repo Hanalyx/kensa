@@ -447,7 +447,13 @@
             "reload": { "type": "string" },
             "restart": { "type": "string" },
             "notify": { "type": "string" },
-            "note": { "type": "string", "description": "Guidance for manual remediation" }
+            "note": { "type": "string", "description": "Guidance for manual remediation" },
+            "schema": { "type": "string", "description": "Dconf schema path" },
+            "db": { "type": "string", "description": "Dconf database name" },
+            "lock": { "type": "boolean", "description": "Create dconf lock file" },
+            "value_type": { "type": "string", "description": "Dconf value type prefix" },
+            "policy": { "type": "string", "description": "Crypto policy name" },
+            "subpolicy": { "type": "string", "description": "Crypto subpolicy modifier" }
           }
         },
         {
@@ -495,7 +501,13 @@
                   "onlyif": { "type": "string" },
                   "reload": { "type": "string" },
                   "restart": { "type": "string" },
-                  "notify": { "type": "string" }
+                  "notify": { "type": "string" },
+                  "schema": { "type": "string", "description": "Dconf schema path" },
+                  "db": { "type": "string", "description": "Dconf database name" },
+                  "lock": { "type": "boolean", "description": "Create dconf lock file" },
+                  "value_type": { "type": "string", "description": "Dconf value type prefix" },
+                  "policy": { "type": "string", "description": "Crypto policy name" },
+                  "subpolicy": { "type": "string", "description": "Crypto subpolicy modifier" }
                 }
               },
               "minItems": 2
@@ -531,7 +543,9 @@
         "selinux_boolean_set",
         "cron_job",
         "command_exec",
-        "manual"
+        "manual",
+        "dconf_set",
+        "crypto_policy_set"
       ]
     }
   }

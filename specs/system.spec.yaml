@@ -45,7 +45,7 @@ objective:
     AC-2: >
       21 check handler types evaluate compliance rules against remote state.
     AC-3: >
-      24 remediation handler types apply fixes with pre-state capture.
+      27 remediation handler types apply fixes with pre-state capture.
     AC-4: >
       Rollback system reverses remediations from stored snapshots.
     AC-5: >

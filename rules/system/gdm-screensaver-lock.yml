@@ -51,10 +51,9 @@ implementations:
         echo "OK: lock-delay=$delay"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure dconf settings for screensaver lock delay:
-        Create /etc/dconf/db/local.d/00-screensaver with:
-          [org/gnome/desktop/screensaver]
-          lock-delay=uint32 5
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: lock-delay
+      value: "5"
+      value_type: uint32
+      file: 00-screensaver

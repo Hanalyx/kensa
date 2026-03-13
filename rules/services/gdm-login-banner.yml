@@ -37,13 +37,12 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure GDM login banner in /etc/dconf/db/gdm.d/01-banner-message:
-        [org/gnome/login-screen]
-        banner-message-enable=true
-        banner-message-text='Your warning message'
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/login-screen
+      key: banner-message-enable
+      value: "true"
+      file: 01-banner-message
+      db: gdm
 
   - default: true
     check:

@@ -31,5 +31,5 @@ implementations:
       run: "update-crypto-policies --show | grep -qE '^FIPS'"
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: "update-crypto-policies --set FIPS"
+      mechanism: crypto_policy_set
+      policy: FIPS

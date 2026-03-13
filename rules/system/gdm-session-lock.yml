@@ -33,10 +33,8 @@ implementations:
         [ "$val" = "true" ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure dconf settings for session lock:
-        Create /etc/dconf/db/local.d/00-screensaver with:
-          [org/gnome/desktop/screensaver]
-          lock-enabled=true
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: lock-enabled
+      value: "true"
+      file: 00-screensaver

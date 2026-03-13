@@ -33,10 +33,10 @@ implementations:
         [ "$val" = "true" ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure GDM dconf settings to disable user list:
-        Create /etc/dconf/db/gdm.d/00-security-settings with:
-          [org/gnome/login-screen]
-          disable-user-list=true
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/login-screen
+      key: disable-user-list
+      value: "true"
+      file: 00-security-settings
+      db: gdm
+      lock: true

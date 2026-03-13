@@ -40,12 +40,11 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Enable session lock in /etc/dconf/db/local.d/00-screensaver:
-        [org/gnome/desktop/screensaver]
-        lock-enabled=true
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: lock-enabled
+      value: "true"
+      file: 00-screensaver
 
   - default: true
     check:

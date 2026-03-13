@@ -33,12 +33,10 @@ implementations:
           /etc/dconf/db/local.d/locks/ 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Lock the session idle-delay dconf setting:
-        1. Create /etc/dconf/db/local.d/00-screensaver with:
-             [org/gnome/desktop/session]
-             idle-delay=uint32 900
-        2. Create /etc/dconf/db/local.d/locks/00-screensaver with:
-             /org/gnome/desktop/session/idle-delay
-        3. Run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/session
+      key: idle-delay
+      value: "900"
+      value_type: uint32
+      file: 00-screensaver
+      lock: true

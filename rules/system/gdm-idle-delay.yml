@@ -33,10 +33,9 @@ implementations:
         [ -n "$val" ] && [ "$val" -le 900 ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure dconf settings for graphical idle delay:
-        Create /etc/dconf/db/local.d/00-screensaver with:
-          [org/gnome/desktop/session]
-          idle-delay=uint32 900
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/session
+      key: idle-delay
+      value: "900"
+      value_type: uint32
+      file: 00-screensaver

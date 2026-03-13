@@ -43,13 +43,17 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure blank screensaver in /etc/dconf/db/local.d/00-screensaver:
-        [org/gnome/desktop/screensaver]
-        picture-uri=''
-        picture-options='none'
-        Then run: dconf update
+      steps:
+        - mechanism: dconf_set
+          schema: org/gnome/desktop/screensaver
+          key: picture-uri
+          value: "''"
+          file: 00-screensaver
+        - mechanism: dconf_set
+          schema: org/gnome/desktop/screensaver
+          key: picture-options
+          value: "'none'"
+          file: 00-screensaver
 
   - default: true
     check:

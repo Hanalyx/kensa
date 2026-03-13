@@ -32,5 +32,5 @@ implementations:
       run: "update-crypto-policies --show | grep -qvE 'LEGACY|DEFAULT:.*weak'"
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: "update-crypto-policies --set DEFAULT"
+      mechanism: crypto_policy_set
+      policy: DEFAULT

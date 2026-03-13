@@ -48,5 +48,9 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Add pam_pwquality.so to the password stack in /etc/pam.d/system-auth and /etc/pam.d/password-auth"
+      mechanism: pam_module_configure
+      service: system-auth
+      module: pam_pwquality.so
+      type: password
+      control: requisite
+      args: "local_users_only"

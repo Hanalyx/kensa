@@ -93,3 +93,40 @@ def _rollback_cron_job(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]
         return True, f"Restored {cron_file}"
 
     return True, "Cron file restored"
+
+
+def _rollback_dconf_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore dconf setting and lock files, then run dconf update."""
+    d = pre_state.data
+    setting_path = d["setting_path"]
+    lock_path = d["lock_path"]
+
+    # Restore or remove setting file
+    if d["setting_existed"] and d["old_setting"] is not None:
+        if not shell_util.write_file(ssh, setting_path, d["old_setting"]):
+            return False, f"Failed to restore {setting_path}"
+    elif not d["setting_existed"]:
+        ssh.run(f"rm -f {shell_util.quote(setting_path)}")
+
+    # Restore or remove lock file
+    if d["lock_existed"] and d["old_lock"] is not None:
+        if not shell_util.write_file(ssh, lock_path, d["old_lock"]):
+            return False, f"Failed to restore {lock_path}"
+    elif not d["lock_existed"]:
+        ssh.run(f"rm -f {shell_util.quote(lock_path)}")
+
+    ssh.run("dconf update")
+    return True, f"Restored dconf settings at {setting_path}"
+
+
+def _rollback_crypto_policy_set(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
+    """Restore previous crypto policy."""
+    old_policy = pre_state.data.get("old_policy")
+    if not old_policy:
+        return False, "No previous crypto policy captured"
+    result = ssh.run(f"update-crypto-policies --set {shell_util.quote(old_policy)}")
+    if not result.ok:
+        return False, f"Failed to restore crypto policy: {result.stderr}"
+    return True, f"Restored crypto policy to {old_policy}"

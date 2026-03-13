@@ -26,10 +26,10 @@ class TestSystemSpecDerived:
         assert len(CHECK_HANDLERS) == 21
 
     def test_ac3_remediation_handlers(self):
-        """AC-3: 25 remediation handler types apply fixes with pre-state capture."""
+        """AC-3: 27 remediation handler types apply fixes with pre-state capture."""
         from runner.handlers.remediation import REMEDIATION_HANDLERS
 
-        assert len(REMEDIATION_HANDLERS) == 25
+        assert len(REMEDIATION_HANDLERS) == 27
 
     def test_ac4_rollback_system(self):
         """AC-4: Rollback system reverses remediations from stored snapshots."""

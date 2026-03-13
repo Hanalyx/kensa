@@ -48,6 +48,8 @@ from runner.handlers.capture._service import (
 )
 from runner.handlers.capture._system import (
     _capture_cron_job,
+    _capture_crypto_policy_set,
+    _capture_dconf_set,
     _capture_grub_parameter_remove,
     _capture_grub_parameter_set,
     _capture_kernel_module_disable,
@@ -85,6 +87,8 @@ CAPTURE_HANDLERS = {
     "grub_parameter_set": _capture_grub_parameter_set,
     "grub_parameter_remove": _capture_grub_parameter_remove,
     "cron_job": _capture_cron_job,
+    "dconf_set": _capture_dconf_set,
+    "crypto_policy_set": _capture_crypto_policy_set,
     # Security handlers
     "selinux_boolean_set": _capture_selinux_boolean_set,
     "audit_rule_set": _capture_audit_rule_set,

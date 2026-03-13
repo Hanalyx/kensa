@@ -28,6 +28,8 @@ MECHANISM_RISK: dict[str, str] = {
     "service_disabled": "medium",
     "audit_rule_set": "medium",
     "selinux_boolean_set": "medium",
+    "dconf_set": "medium",
+    "crypto_policy_set": "medium",
     "file_content": "medium",
     # Low risk — narrow blast radius, easily reversed
     "file_permissions": "low",

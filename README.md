@@ -2,7 +2,7 @@
 
 **Compliance as Code — Scan, Remediate, Rollback.**
 
-`630 rules` · `19 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
+`630 rules` · `22 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
 
 ---
 

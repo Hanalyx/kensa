@@ -60,5 +60,9 @@ implementations:
         esac
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Enable pam_faillock in /etc/pam.d/system-auth and /etc/pam.d/password-auth"
+      mechanism: pam_module_configure
+      service: system-auth
+      module: pam_faillock.so
+      type: auth
+      control: required
+      args: "preauth silent"

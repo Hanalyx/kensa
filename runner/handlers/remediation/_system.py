@@ -222,3 +222,101 @@ def _remediate_cron_job(
 
     shell_util.set_file_mode(ssh, cron_file, "644")
     return True, f"Created cron job: {cron_file}"
+
+
+def _remediate_dconf_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Set a dconf key in a system database drop-in file.
+
+    Writes the setting, optionally creates a lock file, and runs
+    dconf update. See specs/handlers/remediation/dconf_set.spec.yaml.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - schema (str): Dconf schema path (e.g., "org/gnome/login-screen").
+            - key (str): Dconf key name.
+            - value (str): Value to set.
+            - file (str): Drop-in file name.
+            - db (str, optional): Database name. Defaults to "local".
+            - value_type (str, optional): Type prefix (e.g., "uint32").
+            - lock (bool, optional): Create lock file.
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    schema = r["schema"]
+    key = r["key"]
+    value = r["value"]
+    file_name = r["file"]
+    db = r.get("db", "local")
+    value_type = r.get("value_type")
+    lock = r.get("lock", False)
+
+    composed = f"{value_type} {value}" if value_type else value
+    display = f"{schema}/{key}={composed}"
+
+    if dry_run:
+        return True, f"Would set dconf {display}"
+
+    # Write setting file
+    db_dir = f"/etc/dconf/db/{db}.d"
+    setting_path = f"{db_dir}/{file_name}"
+    content = f"[{schema}]\n{key}={composed}\n"
+
+    result = ssh.run(
+        f"mkdir -p {shell_util.quote(db_dir)} && "
+        f"cat > {shell_util.quote(setting_path)} << 'DCONF_EOF'\n{content}DCONF_EOF"
+    )
+    if not result.ok:
+        return False, f"Failed to write dconf setting: {result.stderr}"
+
+    # Write lock file if requested
+    if lock:
+        lock_dir = f"{db_dir}/locks"
+        lock_path = f"{lock_dir}/{file_name}"
+        lock_content = f"/{schema}/{key}\n"
+        lock_result = ssh.run(
+            f"mkdir -p {shell_util.quote(lock_dir)} && "
+            f"cat > {shell_util.quote(lock_path)} << 'DCONF_EOF'\n{lock_content}DCONF_EOF"
+        )
+        if not lock_result.ok:
+            return False, f"Failed to write dconf lock: {lock_result.stderr}"
+
+    # Run dconf update
+    update = ssh.run("dconf update")
+    if not update.ok:
+        return False, f"Failed to run dconf update: {update.stderr}"
+
+    return True, f"Set dconf {display}"
+
+
+def _remediate_crypto_policy_set(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Set the system-wide crypto policy.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - policy (str): Crypto policy name (e.g., "DEFAULT", "FIPS").
+            - subpolicy (str, optional): Subpolicy modifier (e.g., "NO-SHA1").
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    policy = r["policy"]
+    subpolicy = r.get("subpolicy")
+    full_policy = f"{policy}:{subpolicy}" if subpolicy else policy
+
+    if dry_run:
+        return True, f"Would set crypto policy to {full_policy}"
+
+    result = ssh.run(f"update-crypto-policies --set {shell_util.quote(full_policy)}")
+    if not result.ok:
+        return False, f"update-crypto-policies failed: {result.stderr}"
+
+    return True, f"Set crypto policy to {full_policy}"

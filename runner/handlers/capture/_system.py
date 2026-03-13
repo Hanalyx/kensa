@@ -122,3 +122,40 @@ def _capture_cron_job(ssh: SSHSession, r: dict) -> PreState:
             "old_content": old_content,
         },
     )
+
+
+def _capture_dconf_set(ssh: SSHSession, r: dict) -> PreState:
+    """Capture dconf setting and lock file state before modification."""
+    db = r.get("db", "local")
+    file_name = r["file"]
+    db_dir = f"/etc/dconf/db/{db}.d"
+    setting_path = f"{db_dir}/{file_name}"
+    lock_path = f"{db_dir}/locks/{file_name}"
+
+    setting_exists = shell_util.file_exists(ssh, setting_path)
+    old_setting = shell_util.read_file(ssh, setting_path) if setting_exists else None
+
+    lock_exists = shell_util.file_exists(ssh, lock_path)
+    old_lock = shell_util.read_file(ssh, lock_path) if lock_exists else None
+
+    return PreState(
+        mechanism="dconf_set",
+        data={
+            "setting_path": setting_path,
+            "lock_path": lock_path,
+            "setting_existed": setting_exists,
+            "old_setting": old_setting,
+            "lock_existed": lock_exists,
+            "old_lock": old_lock,
+        },
+    )
+
+
+def _capture_crypto_policy_set(ssh: SSHSession, r: dict) -> PreState:
+    """Capture current crypto policy before modification."""
+    result = ssh.run("update-crypto-policies --show 2>/dev/null")
+    current = result.stdout.strip() if result.ok else None
+    return PreState(
+        mechanism="crypto_policy_set",
+        data={"old_policy": current},
+    )

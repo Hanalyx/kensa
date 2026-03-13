@@ -48,8 +48,6 @@ implementations:
           /etc/security/faillock.conf 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add "silent" option to the pam_faillock.so lines in
-        /etc/pam.d/password-auth and /etc/pam.d/system-auth, or add
-        "silent" or "audit" to /etc/security/faillock.conf.
+      mechanism: config_append
+      path: /etc/security/faillock.conf
+      line: "silent"

@@ -47,6 +47,8 @@ from runner.handlers.rollback._service import (
 )
 from runner.handlers.rollback._system import (
     _rollback_cron_job,
+    _rollback_crypto_policy_set,
+    _rollback_dconf_set,
     _rollback_grub_parameter_remove,
     _rollback_grub_parameter_set,
     _rollback_kernel_module_disable,
@@ -84,6 +86,8 @@ ROLLBACK_HANDLERS = {
     "grub_parameter_set": _rollback_grub_parameter_set,
     "grub_parameter_remove": _rollback_grub_parameter_remove,
     "cron_job": _rollback_cron_job,
+    "dconf_set": _rollback_dconf_set,
+    "crypto_policy_set": _rollback_crypto_policy_set,
     # Security handlers
     "selinux_boolean_set": _rollback_selinux_boolean_set,
     "audit_rule_set": _rollback_audit_rule_set,

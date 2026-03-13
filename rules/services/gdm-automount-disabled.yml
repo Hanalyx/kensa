@@ -35,13 +35,11 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Disable automount in /etc/dconf/db/local.d/00-media-automount:
-        [org/gnome/desktop/media-handling]
-        automount=false
-        automount-open=false
-        Then run: dconf update
+      mechanism: dconf_set
+      schema: org/gnome/desktop/media-handling
+      key: automount
+      value: "false"
+      file: 00-media-automount
 
   - default: true
     check:

@@ -12,6 +12,8 @@ from runner.engine import (
     _capture_config_set,
     _capture_config_set_dropin,
     _capture_cron_job,
+    _capture_crypto_policy_set,  # noqa: F401
+    _capture_dconf_set,  # noqa: F401
     _capture_file_absent,
     _capture_file_content,
     _capture_file_permissions,
@@ -35,6 +37,8 @@ from runner.engine import (
     _rollback_config_set,
     _rollback_config_set_dropin,
     _rollback_cron_job,
+    _rollback_crypto_policy_set,  # noqa: F401
+    _rollback_dconf_set,  # noqa: F401
     _rollback_file_absent,
     _rollback_file_content,
     _rollback_file_permissions,
@@ -6463,3 +6467,271 @@ class TestFilePermissionsBulkSpecDerived:
         assert ok is False
         assert "Failed:" in detail
         assert "Permission denied" in detail
+
+
+# ── dconf_set spec-derived tests ──────────────────────────────────────────────
+
+
+class TestDconfSetSpecDerived:
+    """Spec-derived tests for dconf_set remediation handler.
+
+    See specs/handlers/remediation/dconf_set.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "banner-message-enable",
+            "value": "true",
+            "file": "00-security-settings",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would set dconf" in detail
+        assert "org/gnome/login-screen/banner-message-enable=true" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_setting_file_written(self, mock_ssh):
+        """AC-2: Setting file written in INI format."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "banner-message-enable",
+            "value": "true",
+            "file": "00-security-settings",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Set dconf" in detail
+        write_cmds = [c for c in ssh.commands_run if "cat >" in c]
+        assert len(write_cmds) >= 1
+        assert "/etc/dconf/db/local.d/00-security-settings" in write_cmds[0]
+
+    def test_value_type_prefix(self, mock_ssh):
+        """AC-3: Value type prefix prepended to value."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/desktop/session",
+            "key": "idle-delay",
+            "value": "900",
+            "value_type": "uint32",
+            "file": "00-screensaver",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "uint32 900" in detail
+
+    def test_lock_file_created(self, mock_ssh):
+        """AC-4: Lock file created when lock=true."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/desktop/session",
+            "key": "idle-delay",
+            "value": "900",
+            "value_type": "uint32",
+            "file": "00-screensaver",
+            "lock": True,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        lock_cmds = [c for c in ssh.commands_run if "locks" in c]
+        assert len(lock_cmds) >= 1
+
+    def test_dconf_update_executed(self, mock_ssh):
+        """AC-5: dconf update runs after writing files."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "disable-user-list",
+            "value": "true",
+            "file": "00-security-settings",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("dconf update" in cmd for cmd in ssh.commands_run)
+
+    def test_success_path(self, mock_ssh):
+        """AC-6: Success returns correct detail format."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "disable-user-list",
+            "value": "true",
+            "file": "00-security-settings",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert detail == "Set dconf org/gnome/login-screen/disable-user-list=true"
+
+    def test_write_failure(self, mock_ssh):
+        """AC-7: Write failure returns error detail."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=1, stdout="", stderr="Permission denied"),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "disable-user-list",
+            "value": "true",
+            "file": "00-security-settings",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to write dconf setting" in detail
+
+    def test_default_database(self, mock_ssh):
+        """AC-8: Default database is 'local'."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "disable-user-list",
+            "value": "true",
+            "file": "00-security-settings",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("/etc/dconf/db/local.d/" in cmd for cmd in ssh.commands_run)
+
+    def test_gdm_database(self, mock_ssh):
+        """AC-9: Lock directory created for non-default database."""
+        ssh = mock_ssh(
+            {
+                "mkdir -p": Result(exit_code=0, stdout="", stderr=""),
+                "cat >": Result(exit_code=0, stdout="", stderr=""),
+                "dconf update": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "dconf_set",
+            "schema": "org/gnome/login-screen",
+            "key": "banner-message-enable",
+            "value": "true",
+            "file": "00-security-settings",
+            "db": "gdm",
+            "lock": True,
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert any("/etc/dconf/db/gdm.d/" in cmd for cmd in ssh.commands_run)
+        lock_cmds = [c for c in ssh.commands_run if "locks" in c]
+        assert len(lock_cmds) >= 1
+
+
+# ── crypto_policy_set spec-derived tests ──────────────────────────────────────
+
+
+class TestCryptoPolicySetSpecDerived:
+    """Spec-derived tests for crypto_policy_set remediation handler.
+
+    See specs/handlers/remediation/crypto_policy_set.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "crypto_policy_set",
+            "policy": "FIPS",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would set crypto policy to FIPS" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_policy_set_success(self, mock_ssh):
+        """AC-2: Policy set successfully."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies": Result(
+                    exit_code=0, stdout="Setting system policy to FIPS\n", stderr=""
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_set",
+            "policy": "FIPS",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Set crypto policy to FIPS" in detail
+
+    def test_subpolicy_support(self, mock_ssh):
+        """AC-3: Subpolicy modifier appended to policy."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_set",
+            "policy": "DEFAULT",
+            "subpolicy": "NO-SHA1",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Set crypto policy to DEFAULT:NO-SHA1" in detail
+        assert any("DEFAULT:NO-SHA1" in cmd for cmd in ssh.commands_run)
+
+    def test_command_failure(self, mock_ssh):
+        """AC-4: Command failure returns error detail."""
+        ssh = mock_ssh(
+            {
+                "update-crypto-policies": Result(
+                    exit_code=1, stdout="", stderr="Error: unknown policy"
+                ),
+            }
+        )
+        rem = {
+            "mechanism": "crypto_policy_set",
+            "policy": "INVALID",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "update-crypto-policies failed" in detail

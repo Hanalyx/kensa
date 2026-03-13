@@ -70,6 +70,8 @@ from runner.handlers.remediation._service import (
 )
 from runner.handlers.remediation._system import (
     _remediate_cron_job,
+    _remediate_crypto_policy_set,
+    _remediate_dconf_set,
     _remediate_grub_parameter_remove,
     _remediate_grub_parameter_set,
     _remediate_kernel_module_disable,
@@ -107,6 +109,8 @@ REMEDIATION_HANDLERS = {
     "grub_parameter_set": _remediate_grub_parameter_set,
     "grub_parameter_remove": _remediate_grub_parameter_remove,
     "cron_job": _remediate_cron_job,
+    "dconf_set": _remediate_dconf_set,
+    "crypto_policy_set": _remediate_crypto_policy_set,
     # Security handlers
     "selinux_boolean_set": _remediate_selinux_boolean_set,
     "selinux_state_set": _remediate_selinux_state_set,
