@@ -14,10 +14,10 @@ class TestLicenseConsistencySpecDerived:
     """Spec-derived tests for license consistency."""
 
     def test_ac1_pyproject_license_is_bsl(self):
-        """AC-1: pyproject.toml license field is BSL-1.1."""
+        """AC-1: pyproject.toml license field is BUSL-1.1."""
         pyproject = (REPO_ROOT / "pyproject.toml").read_text()
-        # Match the TOML line: license = "BSL-1.1"
-        assert 'license = "BSL-1.1"' in pyproject
+        # Match the TOML line: license = "BUSL-1.1" (SPDX identifier)
+        assert 'license = "BUSL-1.1"' in pyproject
 
     def test_ac2_pyproject_classifiers_no_mit(self):
         """AC-2: pyproject.toml classifiers do not contain any MIT license classifier."""
