@@ -16,7 +16,7 @@ Probe a target host's platform and capabilities before running checks.
 kensa detect -h 192.168.1.10 -u admin --sudo
 ```
 
-Output shows the OS family and version (e.g., RHEL 9.3) and the state of all 22 capability probes: authselect, crypto policies, sshd_config.d support, FIPS mode, firewalld backend, GRUB variant, and more.
+Output shows the OS family and version (e.g., RHEL 9.3) and the state of all 24 capability probes: authselect, crypto policies, sshd_config.d support, FIPS mode, firewalld backend, GRUB variant, and more.
 
 Use `detect` to verify connectivity and understand which implementation variants Kensa will select on a given host. Add `-v` to see probe details.
 
@@ -525,7 +525,7 @@ Remediation snapshots follow their own retention policy (configurable in `defaul
 
 ## Capability Overrides
 
-Kensa's 22 capability probes determine which implementation variant runs for each rule. In rare cases, you may need to override a detection result:
+Kensa's 24 capability probes determine which implementation variant runs for each rule. In rare cases, you may need to override a detection result:
 
 ```bash
 # Force sshd_config_d capability to false

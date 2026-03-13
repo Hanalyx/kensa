@@ -141,7 +141,7 @@ Anyone can read a rule, understand what it checks, and verify the remediation is
 
 ### 5. Adapts to Each Host Automatically
 
-22 runtime probes detect what each host supports — sshd drop-in directories, authselect, crypto policies, FIPS mode, SELinux, firewalld backend, and more. Kensa selects the correct implementation variant for each host. One rule works across RHEL 8, 9, and 10 without version-specific content.
+24 runtime probes detect what each host supports — sshd drop-in directories, authselect, crypto policies, FIPS mode, SELinux, firewalld backend, and more. Kensa selects the correct implementation variant for each host. One rule works across RHEL 8, 9, and 10 without version-specific content.
 
 This is capability detection, not version-string matching. The question isn't "is this RHEL 9?" — it's "does this system support sshd_config.d drop-in files?" A capability-based model extends forward to new OS versions without modification.
 
@@ -164,7 +164,7 @@ Kensa takes a different architectural approach than most compliance tools. Where
 | **Frameworks per rule** | All simultaneously | Whatever you check | One repo per framework+OS | One profile per scan |
 | **Evidence** | Structured JSON per check | Screenshots | Unstructured logs | Varies by tool |
 | **Agent required** | No (SSH) | No | No (SSH + Ansible) | Varies |
-| **OS adaptation** | 22 capability probes | N/A | Version-specific repos | Version-specific content |
+| **OS adaptation** | 24 capability probes | N/A | Version-specific repos | Version-specific content |
 | **License** | BSL 1.1 (free for <$5M) | N/A | MIT | Varies |
 
 ## Framework Coverage

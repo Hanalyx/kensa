@@ -121,7 +121,7 @@ class TestDetectCapabilitySpecDerived:
         caps = detect_capabilities(ssh)
 
         assert isinstance(caps, dict)
-        assert len(caps) == 22
+        assert len(caps) == 24
         assert all(isinstance(v, bool) for v in caps.values())
         # All probe names present
         for name in CAPABILITY_PROBES:
@@ -176,11 +176,11 @@ class TestDetectCapabilitySpecDerived:
         # The second probe should still succeed despite others failing
         assert caps[probe_names[1]] is True
         assert caps[probe_names[0]] is False
-        # All 22 probes still executed
-        assert len(caps) == 22
+        # All 24 probes still executed
+        assert len(caps) == 24
 
     def test_ac9_twenty_two_probes_cover_documented_set(self):
-        """AC-9: 22 probes cover the documented set."""
+        """AC-9: 24 probes cover the documented set."""
         expected_probes = {
             "sshd_config_d",
             "authselect",
@@ -188,6 +188,7 @@ class TestDetectCapabilitySpecDerived:
             "crypto_policies",
             "crypto_policy_modules",
             "fips_mode",
+            "firewalld",
             "firewalld_nftables",
             "firewalld_iptables",
             "systemd_resolved",
@@ -202,10 +203,11 @@ class TestDetectCapabilitySpecDerived:
             "tpm2",
             "usbguard",
             "dnf_automatic",
+            "nftables_active",
             "gdm",
             "tmux",
         }
-        assert len(CAPABILITY_PROBES) == 22
+        assert len(CAPABILITY_PROBES) == 24
         assert set(CAPABILITY_PROBES.keys()) == expected_probes
 
     def test_ac10_version_id_dotted_parsing(self, mock_ssh):

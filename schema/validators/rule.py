@@ -129,19 +129,58 @@ def _get_known_mechanisms() -> set[str] | None:
         return None
 
 
+def _get_known_capabilities() -> set[str] | None:
+    """Load known capability probe names from the detect module.
+
+    Returns None if the import fails (e.g., running outside the project).
+    """
+    try:
+        from runner.detect import CAPABILITY_PROBES
+
+        return set(CAPABILITY_PROBES.keys())
+    except Exception:
+        return None
+
+
 # Cache handler lookups (loaded once per validation run)
 _KNOWN_CHECK_METHODS: set[str] | None = None
 _KNOWN_MECHANISMS: set[str] | None = None
+_KNOWN_CAPABILITIES: set[str] | None = None
 _REGISTRIES_LOADED = False
+_CAPABILITIES_LOADED = False
 
 
 def _ensure_registries() -> None:
     """Load handler registries once."""
     global _KNOWN_CHECK_METHODS, _KNOWN_MECHANISMS, _REGISTRIES_LOADED
+    global _KNOWN_CAPABILITIES, _CAPABILITIES_LOADED
     if not _REGISTRIES_LOADED:
         _KNOWN_CHECK_METHODS = _get_known_check_methods()
         _KNOWN_MECHANISMS = _get_known_mechanisms()
         _REGISTRIES_LOADED = True
+    if not _CAPABILITIES_LOADED:
+        _KNOWN_CAPABILITIES = _get_known_capabilities()
+        _CAPABILITIES_LOADED = True
+
+
+def _extract_unknown_capabilities(
+    when: str | dict,
+    known: set[str],
+) -> list[str]:
+    """Extract capability names from a when condition that are not in known set.
+
+    Handles simple strings, {all: [...]}, and {any: [...]}.
+    """
+    unknown: list[str] = []
+    if isinstance(when, str):
+        if when not in known:
+            unknown.append(when)
+    elif isinstance(when, dict):
+        for key in ("all", "any"):
+            for cap in when.get(key, []):
+                if isinstance(cap, str) and cap not in known:
+                    unknown.append(cap)
+    return unknown
 
 
 def validate_rule_business(data: dict, filepath: Path) -> list[ValidationError]:
@@ -281,6 +320,26 @@ def validate_rule_business(data: dict, filepath: Path) -> list[ValidationError]:
                                     severity="warning",
                                 )
                             )
+
+    # Rule 7: when capability references must exist in CAPABILITY_PROBES
+    if _KNOWN_CAPABILITIES is not None:
+        for i, impl in enumerate(implementations):
+            when = impl.get("when")
+            if when is None:
+                continue
+            unknown = _extract_unknown_capabilities(when, _KNOWN_CAPABILITIES)
+            for cap_name in unknown:
+                errors.append(
+                    ValidationError(
+                        code="unknown-capability",
+                        message=(
+                            f"implementations[{i}].when references "
+                            f"unknown capability '{cap_name}'"
+                        ),
+                        path=str(filepath),
+                        severity="warning",
+                    )
+                )
 
     return errors
 
