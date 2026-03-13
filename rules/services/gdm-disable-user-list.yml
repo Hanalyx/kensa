@@ -8,14 +8,18 @@ rationale: >
   used in brute force attacks. Disabling the list improves security.
 severity: medium
 category: services
-tags: [gdm, gnome, user-list, security]
+tags: [gdm, gnome, user-list, security, stig]
 
 conflicts_with: [gdm-removed]
 
 references:
   cis:
     rhel9: { section: "1.8.3", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-9"]
+  stig:
+    rhel8:
+      vuln_id: "V-244536"
+      severity: "CAT II"
+  nist_800_53: ["AC-3", "AC-9", "CM-6"]
 
 platforms:
   - family: rhel
@@ -25,22 +29,19 @@ implementations:
   - when: gdm
     check:
       method: command
-      run: |
-        # Check if user list is disabled
-        if grep -qr "disable-user-list=true" /etc/dconf/db/gdm.d/ 2>/dev/null; then
-          echo "OK: GDM user list is disabled"
-          exit 0
-        fi
-        echo "FAIL: GDM user list is not disabled"
-        exit 1
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        val=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/disable-user-list 2>/dev/null)
+        [ "$val" = "true" ]
       expected_exit: 0
     remediation:
       mechanism: dconf_set
       schema: org/gnome/login-screen
       key: disable-user-list
       value: "true"
-      file: 00-login-screen
+      file: 00-security-settings
       db: gdm
+      lock: true
 
   - default: true
     check:

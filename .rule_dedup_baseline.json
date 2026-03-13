@@ -1,10 +1,5 @@
 {
-  "duplicate_ids": [
-    "gdm-disable-user-list",
-    "issue-net-permissions",
-    "issue-permissions",
-    "motd-permissions"
-  ],
+  "duplicate_ids": [],
   "duplicate_controls": [
     "cis:rhel8:5.1.7",
     "cis:rhel8:5.1.9",

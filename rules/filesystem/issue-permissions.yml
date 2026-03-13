@@ -14,7 +14,7 @@ references:
   cis:
     rhel9: { section: "1.7.5", level: "L1", type: "Automated" }
     rhel8: { section: "1.7.5", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3", "CM-6"]
+  nist_800_53: ["AC-3", "AC-8", "CM-6"]
 
 platforms:
   - family: rhel
