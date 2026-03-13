@@ -394,7 +394,7 @@ Framework defaults sit at priority level 5, below all site and host overrides bu
 Each rule prints a status line. The summary shows totals:
 
 ```
-508 rules: 312 pass, 142 fail, 48 skip, 6 error (45.2s)
+630 rules: 312 pass, 142 fail, 48 skip, 6 error (45.2s)
 ```
 
 Use `-q` to suppress terminal output when writing to files with `-o`.

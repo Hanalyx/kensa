@@ -103,6 +103,47 @@ def validate_rule_schema(
     return errors
 
 
+def _get_known_check_methods() -> set[str] | None:
+    """Load known check methods from the handler registry.
+
+    Returns None if the import fails (e.g., running outside the project).
+    """
+    try:
+        from runner.handlers.checks import CHECK_HANDLERS
+
+        return set(CHECK_HANDLERS.keys())
+    except Exception:
+        return None
+
+
+def _get_known_mechanisms() -> set[str] | None:
+    """Load known remediation mechanisms from the handler registry.
+
+    Returns None if the import fails (e.g., running outside the project).
+    """
+    try:
+        from runner.handlers.remediation import REMEDIATION_HANDLERS
+
+        return set(REMEDIATION_HANDLERS.keys())
+    except Exception:
+        return None
+
+
+# Cache handler lookups (loaded once per validation run)
+_KNOWN_CHECK_METHODS: set[str] | None = None
+_KNOWN_MECHANISMS: set[str] | None = None
+_REGISTRIES_LOADED = False
+
+
+def _ensure_registries() -> None:
+    """Load handler registries once."""
+    global _KNOWN_CHECK_METHODS, _KNOWN_MECHANISMS, _REGISTRIES_LOADED
+    if not _REGISTRIES_LOADED:
+        _KNOWN_CHECK_METHODS = _get_known_check_methods()
+        _KNOWN_MECHANISMS = _get_known_mechanisms()
+        _REGISTRIES_LOADED = True
+
+
 def validate_rule_business(data: dict, filepath: Path) -> list[ValidationError]:
     """Validate business rules beyond JSON Schema.
 
@@ -111,6 +152,8 @@ def validate_rule_business(data: dict, filepath: Path) -> list[ValidationError]:
     - category field matches parent directory name
     - Exactly one implementation has default: true
     - All non-default implementations have a 'when' field
+    - Check methods exist in CHECK_HANDLERS (warning)
+    - Remediation mechanisms exist in REMEDIATION_HANDLERS (warning)
 
     Args:
         data: Parsed rule YAML data.
@@ -183,6 +226,61 @@ def validate_rule_business(data: dict, filepath: Path) -> list[ValidationError]:
                         path=str(filepath),
                     )
                 )
+
+    # Rule 5: check methods must exist in CHECK_HANDLERS
+    _ensure_registries()
+    if _KNOWN_CHECK_METHODS is not None:
+        for i, impl in enumerate(implementations):
+            check = impl.get("check", {})
+            if isinstance(check, dict):
+                method = check.get("method")
+                if method and method not in _KNOWN_CHECK_METHODS:
+                    errors.append(
+                        ValidationError(
+                            code="unknown-check-method",
+                            message=(
+                                f"implementations[{i}].check.method '{method}' "
+                                f"is not in CHECK_HANDLERS"
+                            ),
+                            path=str(filepath),
+                            severity="warning",
+                        )
+                    )
+
+    # Rule 6: remediation mechanisms must exist in REMEDIATION_HANDLERS
+    if _KNOWN_MECHANISMS is not None:
+        for i, impl in enumerate(implementations):
+            rem = impl.get("remediation", {})
+            if isinstance(rem, dict):
+                mech = rem.get("mechanism")
+                if mech and mech not in _KNOWN_MECHANISMS:
+                    errors.append(
+                        ValidationError(
+                            code="unknown-mechanism",
+                            message=(
+                                f"implementations[{i}].remediation.mechanism '{mech}' "
+                                f"is not in REMEDIATION_HANDLERS"
+                            ),
+                            path=str(filepath),
+                            severity="warning",
+                        )
+                    )
+                for j, step in enumerate(rem.get("steps", [])):
+                    if isinstance(step, dict):
+                        smech = step.get("mechanism")
+                        if smech and smech not in _KNOWN_MECHANISMS:
+                            errors.append(
+                                ValidationError(
+                                    code="unknown-mechanism",
+                                    message=(
+                                        f"implementations[{i}].remediation.steps[{j}]"
+                                        f".mechanism '{smech}' "
+                                        f"is not in REMEDIATION_HANDLERS"
+                                    ),
+                                    path=str(filepath),
+                                    severity="warning",
+                                )
+                            )
 
     return errors
 

@@ -450,6 +450,10 @@ class CoverageReport:
     unaccounted: list[str]
     missing_rules: list[str]
     has_manifest: bool = True
+    automated: int = 0
+    remediable: int = 0
+    typed_remediable: int = 0
+    rollback_safe: int = 0
 
     # Backward compatibility aliases
     @property
@@ -482,15 +486,108 @@ class CoverageReport:
         return len(self.unaccounted) == 0
 
 
+# Mechanisms that are not typed/declarative
+_NON_TYPED_MECHANISMS = {"command_exec", "manual"}
+
+# Mechanisms that are not capturable (no rollback support)
+_NON_CAPTURABLE_MECHANISMS = {
+    "command_exec",
+    "manual",
+    "grub_parameter_set",
+    "grub_parameter_remove",
+}
+
+
+def _compute_quality_metrics(
+    rule_index: dict[str, dict],
+    mapped_rule_ids: set[str],
+) -> dict[str, int]:
+    """Compute quality metrics for mapped rules.
+
+    Analyzes implementation blocks of each mapped rule to determine:
+    - automated: rule has at least one non-manual check method
+    - remediable: rule has at least one non-manual remediation
+    - typed_remediable: rule has at least one typed (declarative) remediation
+    - rollback_safe: all remediation mechanisms are capturable
+
+    Args:
+        rule_index: Dict mapping rule_id to parsed rule dict.
+        mapped_rule_ids: Set of rule IDs mapped in the framework.
+
+    Returns:
+        Dict with automated, remediable, typed_remediable, rollback_safe counts.
+
+    """
+    automated = 0
+    remediable = 0
+    typed_remediable = 0
+    rollback_safe = 0
+
+    for rule_id in mapped_rule_ids:
+        rule = rule_index.get(rule_id)
+        if rule is None:
+            continue
+
+        impls = rule.get("implementations", [])
+        if not impls:
+            continue
+
+        # Collect all check methods and remediation mechanisms
+        check_methods: list[str] = []
+        rem_mechanisms: list[str] = []
+
+        for impl in impls:
+            check = impl.get("check", {})
+            if isinstance(check, dict) and check.get("method"):
+                check_methods.append(check["method"])
+
+            rem = impl.get("remediation", {})
+            if isinstance(rem, dict):
+                if rem.get("mechanism"):
+                    rem_mechanisms.append(rem["mechanism"])
+                for step in rem.get("steps", []):
+                    if isinstance(step, dict) and step.get("mechanism"):
+                        rem_mechanisms.append(step["mechanism"])
+
+        # automated: at least one check method is not 'manual'
+        if any(m != "manual" for m in check_methods):
+            automated += 1
+
+        # remediable: at least one mechanism is not 'manual'
+        if any(m != "manual" for m in rem_mechanisms):
+            remediable += 1
+
+        # typed_remediable: at least one mechanism is typed
+        if any(m not in _NON_TYPED_MECHANISMS for m in rem_mechanisms):
+            typed_remediable += 1
+
+        # rollback_safe: all mechanisms are capturable (none non-capturable)
+        if rem_mechanisms and all(
+            m not in _NON_CAPTURABLE_MECHANISMS for m in rem_mechanisms
+        ):
+            rollback_safe += 1
+
+    return {
+        "automated": automated,
+        "remediable": remediable,
+        "typed_remediable": typed_remediable,
+        "rollback_safe": rollback_safe,
+    }
+
+
 def check_coverage(
     mapping: FrameworkMapping,
     available_rules: set[str],
+    rule_data: list[dict] | None = None,
 ) -> CoverageReport:
     """Check coverage of a mapping against available rules.
 
     Args:
         mapping: FrameworkMapping to check.
         available_rules: Set of available rule IDs.
+        rule_data: Optional list of parsed rule dicts for quality metrics.
+            When provided, computes automated, remediable, typed_remediable,
+            and rollback_safe counts.
 
     Returns:
         CoverageReport with coverage details.
@@ -516,6 +613,21 @@ def check_coverage(
         total = len(mapping.sections) + len(mapping.unimplemented)
         unaccounted = []
 
+    # Compute quality metrics if rule data is available
+    automated = 0
+    remediable = 0
+    typed_remediable = 0
+    rollback_safe = 0
+
+    if rule_data is not None:
+        rule_index = {r["id"]: r for r in rule_data if isinstance(r, dict)}
+        mapped_rule_ids = mapping.rule_ids & available_rules
+        metrics = _compute_quality_metrics(rule_index, mapped_rule_ids)
+        automated = metrics["automated"]
+        remediable = metrics["remediable"]
+        typed_remediable = metrics["typed_remediable"]
+        rollback_safe = metrics["rollback_safe"]
+
     return CoverageReport(
         mapping_id=mapping.id,
         total_controls=total,
@@ -524,6 +636,10 @@ def check_coverage(
         unaccounted=unaccounted,
         missing_rules=missing_rules,
         has_manifest=has_manifest,
+        automated=automated,
+        remediable=remediable,
+        typed_remediable=typed_remediable,
+        rollback_safe=rollback_safe,
     )
 
 

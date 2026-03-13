@@ -2,11 +2,11 @@ kind: CLICommand
 metadata:
   name: Coverage
   module: cli
-  version: 1.0.0
+  version: 1.1.0
   status: released
   system_spec: system.spec.yaml@1.0.0
   created: "2025-02-10"
-  updated: "2025-02-25"
+  updated: "2026-03-13"
 
 context:
   description: >
@@ -37,6 +37,11 @@ objective:
     AC-6: "Missing rules (referenced in mapping but absent) are listed."
     AC-7: "'--json' includes 'is_complete' and 'has_manifest' fields."
     AC-8: "Coverage percentages are rounded to 1 decimal place in JSON."
+    AC-9: "CoverageReport includes automated count — controls with non-manual check methods."
+    AC-10: "CoverageReport includes remediable count — controls with non-manual remediation."
+    AC-11: "CoverageReport includes typed_remediable count — controls using typed mechanisms (not command_exec or manual)."
+    AC-12: "CoverageReport includes rollback_safe count — controls using capturable mechanisms (not command_exec, manual, or grub_parameter_*)."
+    AC-13: "'--json' coverage object includes automated, remediable, typed_remediable, and rollback_safe counts."
 
 constraints:
   - "MUST require '--framework' flag."
@@ -67,7 +72,7 @@ behavior:
   - "If '--framework' not in mappings: print error with available frameworks, exit 1."
   - "Load rules from '--rules' path via load_rules()."
   - "If rules load fails (ValueError or FileNotFoundError): print error, exit 1."
-  - "Call check_coverage(mapping, available_rules) to generate report."
+  - "Call check_coverage(mapping, available_rules, rule_data) to generate report with quality metrics."
   - "If '--json': output JSON with framework metadata, coverage stats, unaccounted controls, missing rules."
   - >
     If terminal:
@@ -91,8 +96,8 @@ output_contract:
     json: >
       JSON object with framework (id, title), coverage (total_controls,
       implemented, unimplemented, unaccounted, coverage_percent,
-      accounted_percent, is_complete, has_manifest), unaccounted_controls,
-      missing_rules.
+      accounted_percent, is_complete, has_manifest, automated, remediable,
+      typed_remediable, rollback_safe), unaccounted_controls, missing_rules.
 
 side_effects:
   - "None. Read-only operation."
@@ -102,4 +107,4 @@ testing:
     file: tests/test_cli_spec.py
     classes:
       - TestCoverageSpecDerived
-    count: 8
+    count: 13

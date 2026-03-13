@@ -9,6 +9,7 @@ from runner.mappings import (
     FrameworkMapping,
     MappingEntry,
     UnimplementedEntry,
+    _compute_quality_metrics,
     check_coverage,
     get_applicable_mappings,
     load_all_mappings,
@@ -389,3 +390,156 @@ class TestFrameworkMappingsSpecDerived:
         # Exact match without mapping_id
         exact_no_mid = index.query_by_control("5.2.1")
         assert "rule-c" in exact_no_mid
+
+
+class TestQualityMetrics:
+    """Tests for _compute_quality_metrics coverage quality classification."""
+
+    def test_automated_check_counted(self):
+        """Rule with automated check method is counted as automated."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "config_value"},
+                        "remediation": {"mechanism": "config_set"},
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["automated"] == 1
+
+    def test_manual_check_not_automated(self):
+        """Rule with only manual check is not counted as automated."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "manual"},
+                        "remediation": {"mechanism": "manual"},
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["automated"] == 0
+
+    def test_remediable_excludes_manual(self):
+        """Rule with manual remediation is not counted as remediable."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "config_value"},
+                        "remediation": {"mechanism": "manual"},
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["remediable"] == 0
+
+    def test_typed_excludes_command_exec(self):
+        """command_exec is remediable but not typed."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "command"},
+                        "remediation": {"mechanism": "command_exec"},
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["remediable"] == 1
+        assert result["typed_remediable"] == 0
+
+    def test_rollback_safe_excludes_grub(self):
+        """grub_parameter_set is typed but not rollback-safe."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "grub_parameter"},
+                        "remediation": {"mechanism": "grub_parameter_set"},
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["typed_remediable"] == 1
+        assert result["rollback_safe"] == 0
+
+    def test_multi_step_remediation(self):
+        """Multi-step remediation counts mechanisms from steps."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "config_value"},
+                        "remediation": {
+                            "steps": [
+                                {"mechanism": "config_set"},
+                                {"mechanism": "service_masked"},
+                            ]
+                        },
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["typed_remediable"] == 1
+        assert result["rollback_safe"] == 1
+
+    def test_mixed_step_breaks_rollback_safe(self):
+        """If any step uses command_exec, rule is not rollback-safe."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "command"},
+                        "remediation": {
+                            "steps": [
+                                {"mechanism": "config_set"},
+                                {"mechanism": "command_exec"},
+                            ]
+                        },
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-a"})
+        assert result["rollback_safe"] == 0
+
+    def test_unmapped_rules_ignored(self):
+        """Rules not in mapped_rule_ids are not counted."""
+        rules = {
+            "rule-a": {
+                "id": "rule-a",
+                "implementations": [
+                    {
+                        "default": True,
+                        "check": {"method": "config_value"},
+                        "remediation": {"mechanism": "config_set"},
+                    }
+                ],
+            }
+        }
+        result = _compute_quality_metrics(rules, {"rule-b"})
+        assert result["automated"] == 0
