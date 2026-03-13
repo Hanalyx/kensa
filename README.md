@@ -2,7 +2,7 @@
 
 **Compliance as Code — Scan, Remediate, Rollback.**
 
-`630 rules` · `22 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
+`630 rules` · `23 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
 
 ---
 
@@ -10,7 +10,7 @@ Your auditor wants evidence that 300 RHEL servers meet STIG. Your team has two w
 
 The current playbook: SSH into each box, run commands by hand, copy stdout into spreadsheets, cross-reference against framework controls, and pray nothing drifts before the assessor arrives. It takes days per server. The evidence is stale before you finish. And when something fails, remediation is a Bash script that might break SSH access at 2 AM with no way to undo it.
 
-Kensa replaces that entire workflow. It connects over SSH, evaluates 630 compliance rules with machine-verifiable evidence for every check, maps results to CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP, ISO 27001, and SRG simultaneously, and remediates failures with 18 typed mechanisms that capture pre-state and automatically roll back on failure.
+Kensa replaces that entire workflow. It connects over SSH, evaluates 630 compliance rules with machine-verifiable evidence for every check, maps results to CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP, ISO 27001, and SRG simultaneously, and remediates failures with 22 typed mechanisms that capture pre-state and automatically roll back on failure.
 
 No agent. No XML. No Ansible. Just YAML rules, SSH, and structured evidence your auditor can independently verify.
 
@@ -41,7 +41,7 @@ kensa remediate --sudo -h 192.168.1.10 -u admin -r rules/ --rollback-on-failure
 
 Most compliance tools stop at scanning. A few generate Bash scripts for remediation. Kensa does both — and does remediation safely.
 
-Every remediation uses one of **19 typed, declarative mechanisms** (not scripts). Before any change, Kensa captures the current state. If a step fails, all completed steps are reversed automatically. Your system is never left half-remediated.
+Every remediation uses one of **22 typed, declarative mechanisms** (not scripts). Before any change, Kensa captures the current state. If a step fails, all completed steps are reversed automatically. Your system is never left half-remediated.
 
 ```yaml
 # This is a Kensa rule — not a script. Kensa decides HOW to apply it safely.
@@ -158,7 +158,7 @@ Kensa takes a different architectural approach than most compliance tools. Where
 | | Kensa | Manual Checks | Ansible Lockdown | Point-in-Time Scanners |
 |---|---|---|---|---|
 | **Architecture** | Canonical rules, capability-gated | N/A | Per-OS per-framework repos | Per-benchmark content |
-| **Remediation** | 19 typed mechanisms | Run commands by hand | Ansible tasks | Basic scripts or none |
+| **Remediation** | 22 typed mechanisms | Run commands by hand | Ansible tasks | Basic scripts or none |
 | **Rollback** | Automatic | None | None | None |
 | **Rule format** | YAML | N/A | Ansible YAML | Varies (XCCDF/OVAL, Ruby DSL, etc.) |
 | **Frameworks per rule** | All simultaneously | Whatever you check | One repo per framework+OS | One profile per scan |
@@ -171,9 +171,9 @@ Kensa takes a different architectural approach than most compliance tools. Where
 
 | Framework | Mapping ID | Total Controls | Mapped | Coverage |
 |---|---|---|---|---|
-| CIS RHEL 9 v2.0.0 | `cis-rhel9` | 318 | 303 | 95.3% |
+| CIS RHEL 9 v2.0.0 | `cis-rhel9` | 297 | 276 | 92.9% |
 | STIG RHEL 9 V2R7 | `stig-rhel9` | 446 | 420 | 94.2% |
-| CIS RHEL 8 v4.0.0 | `cis-rhel8` | 311 | 282 | 90.7% |
+| CIS RHEL 8 v4.0.0 | `cis-rhel8` | 322 | 293 | 91.0% |
 | STIG RHEL 8 V2R6 | `stig-rhel8` | 366 | 348 | 95.1% |
 | NIST 800-53 R5 | `nist-800-53-r5` | 87 | 87 | Selective |
 | PCI-DSS v4.0 | `pci-dss-v4.0` | 45 | 45 | Selective |

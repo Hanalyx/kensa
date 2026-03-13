@@ -27,6 +27,30 @@ from runner._types import Evidence
 if TYPE_CHECKING:
     pass
 
+# Register explicit datetime adapters/converters for sqlite3.
+# Python 3.12 deprecated the default TIMESTAMP converter; these replacements
+# follow the recommended recipe from the sqlite3 documentation.
+
+
+def _adapt_datetime(val: datetime) -> str:
+    """Serialize datetime to ISO-8601 string for SQLite storage."""
+    return val.isoformat()
+
+
+def _convert_timestamp(val: bytes) -> datetime:
+    """Deserialize ISO-8601 or SQLite CURRENT_TIMESTAMP string to datetime."""
+    text = val.decode()
+    # SQLite CURRENT_TIMESTAMP uses "YYYY-MM-DD HH:MM:SS" format (space separator)
+    # Python's fromisoformat handles both space and T separators in 3.11+
+    # For 3.10 compatibility, replace space with T
+    if " " in text and "T" not in text:
+        text = text.replace(" ", "T", 1)
+    return datetime.fromisoformat(text)
+
+
+sqlite3.register_adapter(datetime, _adapt_datetime)
+sqlite3.register_converter("TIMESTAMP", _convert_timestamp)
+
 
 @dataclass
 class Session:

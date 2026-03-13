@@ -1741,8 +1741,8 @@ def coverage(framework, rules, json_output):
 
     available_rules = {r["id"] for r in rule_list}
 
-    # Check coverage
-    report = check_coverage(mapping, available_rules)
+    # Check coverage (pass rule data for quality metrics)
+    report = check_coverage(mapping, available_rules, rule_data=rule_list)
 
     if json_output:
         import json
@@ -1761,6 +1761,10 @@ def coverage(framework, rules, json_output):
                 "accounted_percent": round(report.accounted_percent, 1),
                 "is_complete": report.is_complete,
                 "has_manifest": report.has_manifest,
+                "automated": report.automated,
+                "remediable": report.remediable,
+                "typed_remediable": report.typed_remediable,
+                "rollback_safe": report.rollback_safe,
             },
             "unaccounted_controls": report.unaccounted,
             "missing_rules": report.missing_rules,
@@ -1795,6 +1799,15 @@ def coverage(framework, rules, json_output):
         console.print(
             f"  Mapping complete: [bold]{'Yes' if report.is_complete else 'No'}[/bold]"
         )
+
+    # Quality metrics (only when rule data was provided)
+    if report.automated or report.remediable:
+        console.print()
+        console.print("[bold]Quality:[/bold]")
+        console.print(f"  Automated checks: {report.automated}")
+        console.print(f"  Remediable: {report.remediable}")
+        console.print(f"  Typed (declarative): {report.typed_remediable}")
+        console.print(f"  Rollback-safe: {report.rollback_safe}")
 
     if report.unaccounted and len(report.unaccounted) <= 20:
         console.print()

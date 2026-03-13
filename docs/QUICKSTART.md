@@ -29,7 +29,7 @@ pip install "git+https://github.com/Hanalyx/kensa.git#egg=kensa[pdf]"
 Download the RPM for your distribution from the [latest release](https://github.com/Hanalyx/kensa/releases/latest):
 
 ```bash
-dnf install ./kensa-1.2.2-1.el9.noarch.rpm
+dnf install ./kensa-1.3.0-1.el9.noarch.rpm
 ```
 
 RPM packages are available for EL8, EL9, EL10, and Fedora.
@@ -103,7 +103,7 @@ Kensa auto-discovers the rules directory and runs all applicable rules against t
 The summary line at the end shows totals:
 
 ```
-508 rules: 312 pass, 142 fail, 48 skip, 6 error (45.2s)
+630 rules: 312 pass, 142 fail, 48 skip, 6 error (45.2s)
 ```
 
 ### Step 3: Generate structured output
@@ -127,7 +127,7 @@ kensa check -h 192.168.1.10 -u admin --sudo -o evidence:evidence.json
 
 ## Filtering Rules
 
-You rarely need to run all 508 rules. Kensa provides several ways to focus your scan:
+You rarely need to run all 630 rules. Kensa provides several ways to focus your scan:
 
 **By framework** — run only rules mapped to a specific benchmark:
 

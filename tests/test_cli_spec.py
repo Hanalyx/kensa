@@ -2298,6 +2298,10 @@ def _make_coverage_report(
     unaccounted=None,
     missing_rules=None,
     has_manifest=True,
+    automated=0,
+    remediable=0,
+    typed_remediable=0,
+    rollback_safe=0,
 ):
     """Build a CoverageReport for tests."""
     from runner.mappings import CoverageReport
@@ -2310,6 +2314,10 @@ def _make_coverage_report(
         unaccounted=unaccounted or [],
         missing_rules=missing_rules or [],
         has_manifest=has_manifest,
+        automated=automated,
+        remediable=remediable,
+        typed_remediable=typed_remediable,
+        rollback_safe=rollback_safe,
     )
 
 
@@ -2504,6 +2512,68 @@ class TestCoverageSpecDerived:
         pct = data["coverage"]["coverage_percent"]
         # 1/3 = 33.333... → rounded to 33.3
         assert pct == round(pct, 1)
+
+    def test_ac9_automated_count(self):
+        """AC-9: CoverageReport includes automated count — controls with non-manual check methods."""
+
+        report = _make_coverage_report(automated=7)
+        assert report.automated == 7
+
+    def test_ac10_remediable_count(self):
+        """AC-10: CoverageReport includes remediable count — controls with non-manual remediation."""
+
+        report = _make_coverage_report(remediable=6)
+        assert report.remediable == 6
+
+    def test_ac11_typed_remediable_count(self):
+        """AC-11: CoverageReport includes typed_remediable count — typed mechanisms only."""
+
+        report = _make_coverage_report(typed_remediable=5)
+        assert report.typed_remediable == 5
+
+    def test_ac12_rollback_safe_count(self):
+        """AC-12: CoverageReport includes rollback_safe count — capturable mechanisms only."""
+
+        report = _make_coverage_report(rollback_safe=4)
+        assert report.rollback_safe == 4
+
+    def test_ac13_json_includes_quality_metrics(self, tmp_path):
+        """AC-13: --json coverage object includes automated, remediable, typed_remediable, rollback_safe."""
+        report = _make_coverage_report(
+            automated=7, remediable=6, typed_remediable=5, rollback_safe=4
+        )
+
+        with (
+            patch(
+                "runner.mappings.load_all_mappings",
+                return_value={"test-fw": _make_mock_mapping()},
+            ),
+            patch(
+                "runner.cli.load_rules",
+                return_value=[{"id": "test-rule"}],
+            ),
+            patch("runner.mappings.check_coverage", return_value=report),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "coverage",
+                    "--framework",
+                    "test-fw",
+                    "--rules",
+                    str(tmp_path),
+                    "--json",
+                ],
+            )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        cov = data["coverage"]
+        assert cov["automated"] == 7
+        assert cov["remediable"] == 6
+        assert cov["typed_remediable"] == 5
+        assert cov["rollback_safe"] == 4
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
