@@ -224,6 +224,49 @@ def _remediate_cron_job(
     return True, f"Created cron job: {cron_file}"
 
 
+def _remediate_crypto_policy_subpolicy(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Append a subpolicy modifier to the current crypto policy.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - subpolicy (str): Subpolicy name (e.g., "NO-SHA1").
+            - unless (str, optional): Guard command.
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    subpolicy = r["subpolicy"]
+
+    if dry_run:
+        return True, f"Would append subpolicy :{subpolicy} to current crypto policy"
+
+    unless = r.get("unless")
+    if unless:
+        guard = ssh.run(unless)
+        if guard.ok:
+            return True, f"Subpolicy :{subpolicy} already active (skipped)"
+
+    # Read current policy
+    show = ssh.run("update-crypto-policies --show 2>/dev/null")
+    if not show.ok:
+        return False, "Failed to read current crypto policy"
+
+    current = show.stdout.strip()
+    # Strip existing subpolicy to prevent duplication
+    stripped = current.replace(f":{subpolicy}", "")
+    new_policy = f"{stripped}:{subpolicy}"
+
+    result = ssh.run(f"update-crypto-policies --set {shell_util.quote(new_policy)}")
+    if not result.ok:
+        return False, f"update-crypto-policies --set failed: {result.stderr}"
+
+    return True, f"Set crypto policy to {new_policy}"
+
+
 def _remediate_dconf_set(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:

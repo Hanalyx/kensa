@@ -54,6 +54,20 @@ def _rollback_audit_rule_set(ssh: SSHSession, pre_state: PreState) -> tuple[bool
     return True, "Removed audit rule"
 
 
+def _rollback_authselect_feature_enable(
+    ssh: SSHSession, pre_state: PreState
+) -> tuple[bool, str]:
+    """Disable authselect feature if it was not active before."""
+    d = pre_state.data
+    feature = d["feature"]
+    if d["feature_was_active"]:
+        return True, f"Feature '{feature}' was already active, nothing to rollback"
+    result = ssh.run(f"authselect disable-feature {shell_util.quote(feature)}")
+    if not result.ok:
+        return False, f"Failed to disable feature '{feature}': {result.stderr}"
+    return True, f"Disabled authselect feature '{feature}'"
+
+
 def _rollback_pam_module_configure(
     ssh: SSHSession, pre_state: PreState
 ) -> tuple[bool, str]:

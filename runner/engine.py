@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 # ── Pre-state capture (used by tests) ─────────────────────────────────────
 from runner._capture import (  # noqa: F401
     _capture_audit_rule_set,
+    _capture_authselect_feature_enable,
     _capture_command_exec,
     _capture_config_append,
     _capture_config_block,
@@ -51,6 +52,7 @@ from runner._capture import (  # noqa: F401
     _capture_config_set_dropin,
     _capture_cron_job,
     _capture_crypto_policy_set,
+    _capture_crypto_policy_subpolicy,
     _capture_dconf_set,
     _capture_file_absent,
     _capture_file_content,
@@ -104,6 +106,7 @@ from runner._remediation import (  # noqa: F401
 from runner._rollback import (  # noqa: F401
     _execute_rollback,
     _rollback_audit_rule_set,
+    _rollback_authselect_feature_enable,
     _rollback_command_exec,
     _rollback_config_append,
     _rollback_config_block,
@@ -112,6 +115,7 @@ from runner._rollback import (  # noqa: F401
     _rollback_config_set_dropin,
     _rollback_cron_job,
     _rollback_crypto_policy_set,
+    _rollback_crypto_policy_subpolicy,
     _rollback_dconf_set,
     _rollback_file_absent,
     _rollback_file_content,

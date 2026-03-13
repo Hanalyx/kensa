@@ -117,6 +117,39 @@ def _remediate_audit_rule_set(
     return True, f"Added audit rule, persisted to {persist_file}"
 
 
+def _remediate_authselect_feature_enable(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Enable an authselect feature.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - feature (str): Feature name (e.g., "with-faillock").
+            - unless (str, optional): Guard command.
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    feature = r["feature"]
+
+    if dry_run:
+        return True, f"Would run: authselect enable-feature {feature}"
+
+    unless = r.get("unless")
+    if unless:
+        guard = ssh.run(unless)
+        if guard.ok:
+            return True, f"Feature '{feature}' already active (skipped)"
+
+    result = ssh.run(f"authselect enable-feature {shell_util.quote(feature)}")
+    if not result.ok:
+        return False, f"authselect enable-feature failed: {result.stderr}"
+
+    return True, f"Enabled authselect feature '{feature}'"
+
+
 def _remediate_pam_module_configure(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:
