@@ -10,7 +10,7 @@ tags: [pam, password, pwquality]
 
 references:
   cis:
-    rhel9_v2: { section: "5.3.3.2.7", level: "L1", type: "Automated" }
+    rhel9: { section: "5.3.3.2.7", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
 
 platforms:

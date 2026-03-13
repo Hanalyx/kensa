@@ -78,7 +78,7 @@ class TestVariableResolutionSpecDerived:
             variables={"x": 1},
             framework_overrides={"cis": {"x": 99}},
         )
-        result = _get_effective_variables(config, framework="cis-rhel9-v2.0.0")
+        result = _get_effective_variables(config, framework="cis-rhel9")
         assert result["x"] == 99
 
     def test_ac5_group_overrides_last_wins(self):
@@ -120,7 +120,7 @@ class TestVariableResolutionSpecDerived:
         )
         result = _get_effective_variables(
             config,
-            framework="cis-rhel9-v2.0.0",
+            framework="cis-rhel9",
             groups=["pci"],
             hostname="bastion",
             cli_overrides={"x": 999},

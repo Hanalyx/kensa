@@ -14,7 +14,7 @@ tags: [permissions, user-accounts, initialization-files, hardening]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257889"
       stig_id: "RHEL-09-232245"
       severity: "CAT II"

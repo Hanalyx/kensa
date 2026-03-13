@@ -16,13 +16,13 @@ conflicts_with: [ssh-crypto-policy]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.1.7", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.1.7", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257813"
       stig_id: "RHEL-09-255020"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230252"
       severity: "CAT II"
   nist_800_53: ["SC-12", "SC-13"]

@@ -48,7 +48,7 @@ input_contract:
     type: str
     required: true
     default: null
-    description: "Framework mapping ID (e.g., cis-rhel9-v2.0.0)"
+    description: "Framework mapping ID (e.g., cis-rhel9)"
   - field: --rules / -r
     type: str
     required: false

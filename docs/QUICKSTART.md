@@ -132,13 +132,13 @@ You rarely need to run all 508 rules. Kensa provides several ways to focus your 
 **By framework** — run only rules mapped to a specific benchmark:
 
 ```bash
-kensa check -h 192.168.1.10 -u admin --sudo -f cis-rhel9-v2.0.0
+kensa check -h 192.168.1.10 -u admin --sudo -f cis-rhel9
 ```
 
 **By specific control** — run the rules for a single framework section:
 
 ```bash
-kensa check -h 192.168.1.10 -u admin --sudo --control cis-rhel9-v2.0.0:5.1.12
+kensa check -h 192.168.1.10 -u admin --sudo --control cis-rhel9:5.1.12
 ```
 
 **By severity** — run only high and critical rules:
@@ -185,13 +185,13 @@ kensa list frameworks
 
 | Framework | Mapping ID | Description |
 |-----------|-----------|-------------|
-| CIS RHEL 9 v2.0.0 | `cis-rhel9-v2.0.0` | Center for Internet Security Benchmark |
-| STIG RHEL 9 V2R7 | `stig-rhel9-v2r7` | DISA Security Technical Implementation Guide |
+| CIS RHEL 9 v2.0.0 | `cis-rhel9` | Center for Internet Security Benchmark |
+| STIG RHEL 9 V2R7 | `stig-rhel9` | DISA Security Technical Implementation Guide |
 | NIST 800-53 R5 | `nist-800-53-r5` | NIST Security Controls |
 | PCI-DSS v4.0 | `pci-dss-v4.0` | Payment Card Industry Data Security Standard |
 | FedRAMP Moderate | `fedramp-moderate` | Federal Risk and Authorization Management Program |
-| CIS RHEL 8 v4.0.0 | `cis-rhel8-v4.0.0` | CIS Benchmark for RHEL 8 |
-| STIG RHEL 8 V2R6 | `stig-rhel8-v2r6` | STIG for RHEL 8 |
+| CIS RHEL 8 v4.0.0 | `cis-rhel8` | CIS Benchmark for RHEL 8 |
+| STIG RHEL 8 V2R6 | `stig-rhel8` | STIG for RHEL 8 |
 
 ## Next Steps
 

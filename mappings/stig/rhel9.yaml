@@ -1,6 +1,7 @@
-id: stig-rhel9-v2r7
+id: stig-rhel9
 framework: stig
 title: DISA STIG Red Hat Enterprise Linux 9 V2R7
+version: "V2R7"
 published: 2026-01-05
 platform:
   family: rhel

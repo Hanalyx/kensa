@@ -91,8 +91,8 @@ Every check captures structured, machine-verifiable evidence — not screenshots
     "timestamp": "2025-02-09T12:00:00Z"
   },
   "frameworks": {
-    "cis_rhel9_v2": "5.1.20",
-    "stig_rhel9_v2r7": "V-257947",
+    "cis_rhel9": "5.1.20",
+    "stig_rhel9": "V-257947",
     "nist_800_53": "AC-6(2), AC-17(2)"
   }
 }
@@ -171,10 +171,10 @@ Kensa takes a different architectural approach than most compliance tools. Where
 
 | Framework | Mapping ID | Total Controls | Mapped | Coverage |
 |---|---|---|---|---|
-| CIS RHEL 9 v2.0.0 | `cis-rhel9-v2.0.0` | 318 | 303 | 95.3% |
-| STIG RHEL 9 V2R7 | `stig-rhel9-v2r7` | 446 | 420 | 94.2% |
-| CIS RHEL 8 v4.0.0 | `cis-rhel8-v4.0.0` | 311 | 282 | 90.7% |
-| STIG RHEL 8 V2R6 | `stig-rhel8-v2r6` | 366 | 348 | 95.1% |
+| CIS RHEL 9 v2.0.0 | `cis-rhel9` | 318 | 303 | 95.3% |
+| STIG RHEL 9 V2R7 | `stig-rhel9` | 446 | 420 | 94.2% |
+| CIS RHEL 8 v4.0.0 | `cis-rhel8` | 311 | 282 | 90.7% |
+| STIG RHEL 8 V2R6 | `stig-rhel8` | 366 | 348 | 95.1% |
 | NIST 800-53 R5 | `nist-800-53-r5` | 87 | 87 | Selective |
 | PCI-DSS v4.0 | `pci-dss-v4.0` | 45 | 45 | Selective |
 | FedRAMP Moderate | `fedramp-moderate` | 323 | 91 | 28.2% |
@@ -205,7 +205,7 @@ kensa detect --sudo -h 192.168.1.10 -u admin
 kensa check --sudo -h 192.168.1.10 -u admin -r rules/
 
 # Check a specific framework
-kensa check --sudo -h 192.168.1.10 -u admin -r rules/ -f cis-rhel9-v2.0.0
+kensa check --sudo -h 192.168.1.10 -u admin -r rules/ -f cis-rhel9
 
 # Check across an inventory (10 hosts in parallel)
 kensa check --sudo -i inventory.yml -r rules/ -w 10
@@ -225,7 +225,7 @@ kensa info V-257947
 kensa info AC-6
 
 # Show framework coverage
-kensa coverage -f cis-rhel9-v2.0.0
+kensa coverage -f cis-rhel9
 
 # Compare two scan sessions for drift
 kensa diff 1 2

@@ -13,14 +13,14 @@ tags: [password, authentication, user-accounts, login-defs]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.6.1.1", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.6.1.1", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.6.1.1", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.6.1.1", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258097"
       stig_id: "RHEL-09-411025"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230366"
       severity: "CAT II"
   nist_800_53: ["IA-5(1)(d)"]

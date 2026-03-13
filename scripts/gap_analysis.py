@@ -358,7 +358,7 @@ def generate_report(
     report = []
     report.append("# CIS RHEL 9 Gap Analysis: KENSA vs OpenSCAP\n")
     report.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report.append("**KENSA Framework:** cis-rhel9-v2.0.0")
+    report.append("**KENSA Framework:** cis-rhel9")
     report.append("**OpenSCAP Profile:** xccdf_org.ssgproject.content_profile_cis")
     report.append("")
     report.append("---\n")

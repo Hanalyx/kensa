@@ -15,7 +15,7 @@ tags: [systemd, target, gui, attack-surface]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-251718"
       severity: "CAT II"
   nist_800_53: ["CM-7"]

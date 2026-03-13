@@ -72,9 +72,7 @@ class TestPathResolutionSpecDerived:
         with patch(
             "runner.paths.get_rules_path", side_effect=FileNotFoundError("no rules")
         ) as mock_grp:
-            result = runner.invoke(
-                main, ["coverage", "--framework", "cis-rhel9-v2.0.0"]
-            )
+            result = runner.invoke(main, ["coverage", "--framework", "cis-rhel9"])
             mock_grp.assert_called_once()
             assert result.exit_code != 0
 

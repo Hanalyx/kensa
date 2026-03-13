@@ -20,9 +20,9 @@ depends_on: [pkg-openssh-server-present]
 
 references:
   cis:
-    rhel10_v1:  { section: "5.1.18", level: "L1", type: "Automated" }
-    rhel8_v4:  { section: "5.1.19", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.1.18", level: "L1", type: "Automated" }
+    rhel10:  { section: "5.1.18", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.1.19", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.1.18", level: "L1", type: "Automated" }
   nist_800_53: ["AC-10", "CM-6"]
 
 platforms:

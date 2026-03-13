@@ -13,7 +13,7 @@ tags: [shell, bash, umask, permissions]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258072"
       stig_id: "RHEL-09-412085"
       severity: "CAT II"

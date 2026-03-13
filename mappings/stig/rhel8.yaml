@@ -1,9 +1,10 @@
 # DISA STIG Red Hat Enterprise Linux 8 V2R6
 # Maps STIG findings to Kensa canonical rules
 
-id: stig-rhel8-v2r6
+id: stig-rhel8
 framework: stig
 title: "DISA STIG Red Hat Enterprise Linux 8 V2R6"
+version: "V2R6"
 published: 2026-01-05
 platform:
   family: rhel

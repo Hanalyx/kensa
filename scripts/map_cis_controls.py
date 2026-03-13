@@ -18,26 +18,26 @@ BENCHMARK_CONFIGS = {
     # CIS benchmarks
     "cis-rhel8": {
         "json": "extracted/cis_rhel8_rules.json",
-        "mapping": "mappings/cis/rhel8_v4.0.0.yaml",
+        "mapping": "mappings/cis/rhel8.yaml",
         "framework": "cis",
         "id_field": "number",
     },
     "cis-rhel9": {
         "json": "extracted/cis_rhel9_rules.json",
-        "mapping": "mappings/cis/rhel9_v2.0.0.yaml",
+        "mapping": "mappings/cis/rhel9.yaml",
         "framework": "cis",
         "id_field": "number",
     },
     # STIG benchmarks
     "stig-rhel8": {
         "json": "extracted/stig_rhel8_rules.json",
-        "mapping": "mappings/stig/rhel8_v2r6.yaml",
+        "mapping": "mappings/stig/rhel8.yaml",
         "framework": "stig",
         "id_field": "vuln_id",
     },
     "stig-rhel9": {
         "json": "extracted/stig_rhel9_rules.json",
-        "mapping": "mappings/stig/rhel9_v2r7.yaml",
+        "mapping": "mappings/stig/rhel9.yaml",
         "framework": "stig",
         "id_field": "vuln_id",
     },
@@ -84,7 +84,7 @@ def load_rules(rules_dir: str = "rules") -> dict[str, dict]:
     return rules
 
 
-def load_current_mapping(path: str = "mappings/cis/rhel9_v2.0.0.yaml") -> dict:
+def load_current_mapping(path: str = "mappings/cis/rhel9.yaml") -> dict:
     """Load current mapping to see what's already mapped."""
     import yaml
 

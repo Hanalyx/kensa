@@ -14,13 +14,13 @@ depends_on: [auditd-service-enabled]
 
 references:
   cis:
-    rhel9_v2: { section: "6.3.3.15", level: "L1", type: "Automated" }
+    rhel9: { section: "6.3.3.15", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258183"
       stig_id: "RHEL-09-654165"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230419"
       severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]

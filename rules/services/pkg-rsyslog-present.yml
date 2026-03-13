@@ -12,7 +12,7 @@ tags: [package, logging, rsyslog]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258140"
       stig_id: "RHEL-09-652010"
       severity: "CAT II"

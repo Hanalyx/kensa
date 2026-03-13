@@ -12,7 +12,7 @@ tags: [package, crypto, nss]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257840"
       stig_id: "RHEL-09-215085"
       severity: "CAT II"

@@ -13,8 +13,8 @@ tags: [package, tftp, client, security]
 
 references:
   cis:
-    rhel9_v2:  { section: "2.2.5", level: "L1", type: "Automated" }
-    rhel8_v4:  { section: "2.2.5", level: "L1", type: "Automated" }
+    rhel9:  { section: "2.2.5", level: "L1", type: "Automated" }
+    rhel8:  { section: "2.2.5", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

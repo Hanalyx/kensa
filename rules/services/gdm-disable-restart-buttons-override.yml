@@ -18,7 +18,7 @@ conflicts_with: [gdm-removed]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258030"
       stig_id: "RHEL-09-271085"
       severity: "CAT II"

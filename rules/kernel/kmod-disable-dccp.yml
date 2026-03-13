@@ -13,9 +13,9 @@ tags: [kernel-module, dccp, network, attack-surface, stig]
 
 references:
   cis:
-    rhel9_v2: { section: "3.2.1", level: "L1", type: "Automated" }
+    rhel9: { section: "3.2.1", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257885"
       severity: "CAT II"
   nist_800_53: ["CM-7"]

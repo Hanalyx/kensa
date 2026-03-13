@@ -13,10 +13,10 @@ tags: [grub, bootloader, permissions, physical-security]
 
 references:
   cis:
-    rhel8_v4:  { section: "1.4.2", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "1.4.2", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.4.2", level: "L1", type: "Automated" }
+    rhel9:  { section: "1.4.2", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257790"
       severity: "CAT II"
   nist_800_53: ["AC-3", "AC-6"]

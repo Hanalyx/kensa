@@ -12,7 +12,7 @@ tags: [root, access-control, security, privilege]
 
 references:
   cis:
-    rhel9_v2: { section: "5.4.2.4", level: "L1", type: "Automated" }
+    rhel9: { section: "5.4.2.4", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6", "IA-2"]
 
 platforms:

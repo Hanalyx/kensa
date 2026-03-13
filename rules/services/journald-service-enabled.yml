@@ -14,7 +14,7 @@ tags: [service, logging, journald, systemd]
 
 references:
   cis:
-    rhel9_v2:  { section: "6.2.1.1", level: "L1", type: "Automated" }
+    rhel9:  { section: "6.2.1.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-2", "AU-3", "AU-12"]
 
 platforms:

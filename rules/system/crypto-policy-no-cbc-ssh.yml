@@ -13,7 +13,7 @@ tags: [crypto-policy, ssh, cbc, security, cryptography]
 
 references:
   cis:
-    rhel9_v2: { section: "1.6.5", level: "L1", type: "Automated" }
+    rhel9: { section: "1.6.5", level: "L1", type: "Automated" }
   nist_800_53: ["SC-13", "SC-8"]
 
 platforms:

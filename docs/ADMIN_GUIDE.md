@@ -29,10 +29,10 @@ Evaluate compliance rules against target hosts.
 kensa check -h 192.168.1.10 -u admin --sudo
 
 # Filter to a framework
-kensa check -h 192.168.1.10 -u admin --sudo -f cis-rhel9-v2.0.0
+kensa check -h 192.168.1.10 -u admin --sudo -f cis-rhel9
 
 # Filter to a specific control
-kensa check -h 192.168.1.10 -u admin --sudo --control cis-rhel9-v2.0.0:5.1.12
+kensa check -h 192.168.1.10 -u admin --sudo --control cis-rhel9:5.1.12
 
 # Filter by severity and category
 kensa check -h 192.168.1.10 -u admin --sudo -s high -s critical -c access-control
@@ -54,7 +54,7 @@ kensa check -h 192.168.1.10 -u admin --sudo --store
 |--------|-------------|
 | `-r, --rules PATH` | Rules directory (recursive search) |
 | `--rule PATH` | Single rule file |
-| `--control ID` | Framework control (e.g., `cis-rhel9-v2.0.0:5.1.12`) |
+| `--control ID` | Framework control (e.g., `cis-rhel9:5.1.12`) |
 | `-s, --severity TEXT` | Filter by severity (repeatable: `-s high -s critical`) |
 | `-t, --tag TEXT` | Filter by tag (repeatable) |
 | `-c, --category TEXT` | Filter by category |
@@ -82,7 +82,7 @@ kensa remediate -h 192.168.1.10 -u admin --sudo --rollback-on-failure
 
 # Remediate a single framework control
 kensa remediate -h 192.168.1.10 -u admin --sudo \
-  --control cis-rhel9-v2.0.0:5.1.20 --rollback-on-failure
+  --control cis-rhel9:5.1.20 --rollback-on-failure
 
 # Skip pre-state snapshots (faster, but rollback unavailable)
 kensa remediate -h 192.168.1.10 -u admin --sudo --no-snapshot
@@ -209,13 +209,13 @@ kensa info V-257947
 kensa info AC-6
 
 # Find rules implementing a specific control
-kensa info --control cis-rhel9-v2.0.0:5.1.20
+kensa info --control cis-rhel9:5.1.20
 
 # Find which frameworks reference a rule
 kensa info --rule ssh-root-login
 
 # List all controls with rule counts
-kensa info --list-controls --framework cis-rhel9-v2.0.0
+kensa info --list-controls --framework cis-rhel9
 
 # Prefix matching (5.1 matches 5.1.1, 5.1.2, etc.)
 kensa info 5.1 --prefix-match
@@ -226,10 +226,10 @@ kensa info 5.1 --prefix-match
 Show how completely a framework mapping is implemented.
 
 ```bash
-kensa coverage --framework cis-rhel9-v2.0.0
+kensa coverage --framework cis-rhel9
 
 # JSON output for tooling
-kensa coverage --framework stig-rhel9-v2r7 --json
+kensa coverage --framework stig-rhel9 --json
 ```
 
 Reports the total number of controls in the framework, how many are mapped to rules, how many are explicitly marked unimplemented (with reasons), and how many are missing.
@@ -381,9 +381,9 @@ The full set of variables and their default values is documented in `config/defa
 
 ### Framework-Specific Defaults
 
-When you filter by framework (`-f cis-rhel9-v2.0.0`), Kensa automatically loads framework-specific variable values. This adjusts thresholds to match the framework's requirements without manual overrides.
+When you filter by framework (`-f cis-rhel9`), Kensa automatically loads framework-specific variable values. This adjusts thresholds to match the framework's requirements without manual overrides.
 
-For example, CIS allows `pam_pwquality_minlen: 14` while STIG requires `15`. Running with `-f cis-rhel9-v2.0.0` uses the CIS value; running without a framework filter uses the STIG default.
+For example, CIS allows `pam_pwquality_minlen: 14` while STIG requires `15`. Running with `-f cis-rhel9` uses the CIS value; running without a framework filter uses the STIG default.
 
 Framework defaults sit at priority level 5, below all site and host overrides but above the global defaults.
 

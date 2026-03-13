@@ -12,7 +12,7 @@ depends_on: [chrony-installed]
 
 references:
   cis:
-    rhel9_v2: { section: "2.3.1", level: "L1", type: "Automated" }
+    rhel9: { section: "2.3.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-8"]
 
 platforms:

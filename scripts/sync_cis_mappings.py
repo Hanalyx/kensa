@@ -8,13 +8,13 @@ This script uses the mapping file as the source of truth and:
 
 Usage:
     # Report discrepancies
-    python3 scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9_v2.0.0.yaml
+    python3 scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9.yaml
 
     # Fix rule files
-    python3 scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9_v2.0.0.yaml --fix
+    python3 scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9.yaml --fix
 
     # Verbose output
-    python3 scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9_v2.0.0.yaml -v
+    python3 scripts/sync_cis_mappings.py --mapping mappings/cis/rhel9.yaml -v
 """
 
 from __future__ import annotations
@@ -158,7 +158,7 @@ def fix_rule(rule_path: str, ref_key: str, old_section: str, new_section: str) -
             content = f.read()
 
         # Pattern to match the section line within the ref_key block
-        # This handles: rhel9_v2: { section: "X.X.X", ... }
+        # This handles: rhel9: { section: "X.X.X", ... }
         pattern = rf'({ref_key}:\s*\{{\s*section:\s*["\'])({re.escape(old_section)})(["\'])'
         replacement = rf'\g<1>{new_section}\g<3>'
 
@@ -248,7 +248,7 @@ def main():
 
     print(f"Loading canonical mapping: {args.mapping}")
     mapping = load_mapping(args.mapping)
-    ref_key = mapping.get("framework", {}).get("reference_key", "rhel9_v2")
+    ref_key = mapping.get("framework", {}).get("reference_key", "rhel9")
     print(f"  Reference key: {ref_key}")
     print(f"  Controls: {len(mapping.get('controls', {}))}")
 

@@ -12,7 +12,7 @@ tags: [shell, csh, umask, permissions]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258073"
       stig_id: "RHEL-09-412090"
       severity: "CAT II"

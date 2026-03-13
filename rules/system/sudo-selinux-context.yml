@@ -16,11 +16,11 @@ tags: [selinux, sudo, privilege, mandatory-access-control]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-272496"
       stig_id: "RHEL-09-432025"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-272484"
       severity: "CAT II"
   nist_800_53: ["AC-3", "CM-6"]

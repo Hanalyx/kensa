@@ -83,8 +83,8 @@ The capability set determines which implementation variant Kensa selected for ea
     "actual": "no"
   },
   "frameworks": {
-    "cis-rhel9-v2.0.0": "5.1.20",
-    "stig-rhel9-v2r7": "V-257947",
+    "cis-rhel9": "5.1.20",
+    "stig-rhel9": "V-257947",
     "nist-800-53-r5": "AC-6(2)"
   }
 }
@@ -164,8 +164,8 @@ Each result includes a `frameworks` field that maps the rule to one or more comp
 
 ```json
 "frameworks": {
-  "cis-rhel9-v2.0.0": "5.1.20",
-  "stig-rhel9-v2r7": "V-257947",
+  "cis-rhel9": "5.1.20",
+  "stig-rhel9": "V-257947",
   "nist-800-53-r5": "AC-6(2)",
   "pci-dss-v4.0": "2.2.6"
 }
@@ -178,7 +178,7 @@ This means the single rule `ssh-disable-root-login` satisfies control 5.1.20 in 
 Administrators can generate a coverage report showing which framework controls are implemented:
 
 ```bash
-kensa coverage --framework cis-rhel9-v2.0.0
+kensa coverage --framework cis-rhel9
 ```
 
 This shows the total number of controls in the framework, how many are mapped to rules, how many are explicitly marked unimplemented (with documented reasons), and how many are missing. When reviewing Kensa output, check the coverage report to understand which controls are and are not covered by the scan.
@@ -277,7 +277,7 @@ kensa detect -h 192.168.1.10 -u admin --sudo
 kensa list-frameworks
 
 # How complete is the framework coverage?
-kensa coverage --framework cis-rhel9-v2.0.0
+kensa coverage --framework cis-rhel9
 ```
 
 ### Phase 2: Collect Evidence
@@ -286,7 +286,7 @@ Run the scan with evidence export and any additional formats needed:
 
 ```bash
 kensa check -h 192.168.1.10 -u admin --sudo \
-  -f cis-rhel9-v2.0.0 \
+  -f cis-rhel9 \
   -o evidence:evidence.json \
   -o json:results.json \
   -o csv:results.csv \

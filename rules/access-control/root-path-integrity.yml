@@ -14,8 +14,8 @@ tags: [root, path, security]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.6.7", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.4.2.5", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.6.7", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.4.2.5", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6"]
 
 platforms:

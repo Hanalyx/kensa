@@ -14,7 +14,7 @@ conflicts_with: [service-disable-debug-shell]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257786"
       stig_id: "RHEL-09-211025"
       severity: "CAT II"

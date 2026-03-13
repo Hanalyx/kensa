@@ -12,7 +12,7 @@ tags: [shells, nologin, authentication, security]
 
 references:
   cis:
-    rhel9_v2: { section: "5.4.3.1", level: "L1", type: "Automated" }
+    rhel9: { section: "5.4.3.1", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "AC-3"]
 
 platforms:

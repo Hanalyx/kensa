@@ -250,7 +250,7 @@ class TestGetEffectiveVariables:
             variables={"x": 1},
             framework_overrides={"cis": {"x": 99}},
         )
-        result = _get_effective_variables(config, framework="cis-rhel9-v2.0.0")
+        result = _get_effective_variables(config, framework="cis-rhel9")
         assert result["x"] == 99
 
     def test_group_overrides_framework(self):
@@ -260,9 +260,7 @@ class TestGetEffectiveVariables:
             framework_overrides={"cis": {"x": 10}},
             group_overrides={"pci": {"x": 50}},
         )
-        result = _get_effective_variables(
-            config, framework="cis-rhel9-v2.0.0", groups=["pci"]
-        )
+        result = _get_effective_variables(config, framework="cis-rhel9", groups=["pci"])
         assert result["x"] == 50
 
     def test_group_order_last_wins(self):
@@ -301,7 +299,7 @@ class TestGetEffectiveVariables:
         )
         result = _get_effective_variables(
             config,
-            framework="cis-rhel9-v2.0.0",
+            framework="cis-rhel9",
             groups=["pci"],
             hostname="bastion-01",
             cli_overrides={"x": 999},
@@ -383,7 +381,7 @@ class TestPrecedenceChain:
         config = load_config(str(tmp_path))
         result = _get_effective_variables(
             config,
-            framework="cis-rhel9-v2.0.0",
+            framework="cis-rhel9",
             groups=["mygroup"],
             hostname="myhost",
             cli_overrides={"f": "cli"},

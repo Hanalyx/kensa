@@ -14,7 +14,7 @@ tags: [cron, permissions, security, hardening]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257888"
       stig_id: "RHEL-09-232240"
       severity: "CAT II"

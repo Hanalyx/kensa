@@ -15,14 +15,14 @@ conflicts_with:
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230549"
       severity: "CAT II"
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257962"
       severity: "CAT II"
   cis:
-    rhel8_v4: { section: "3.3.1.12", level: "L1", type: "Automated" }
+    rhel8: { section: "3.3.1.12", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "SC-5", "SC-7"]
 
 platforms:

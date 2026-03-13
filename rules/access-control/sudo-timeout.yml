@@ -16,14 +16,14 @@ depends_on: [package-sudo-installed]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.3.4", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.2.6", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.3.4", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.2.6", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258035"
       stig_id: "RHEL-09-432010"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-237643"
       severity: "CAT II"
   nist_800_53: ["IA-11"]

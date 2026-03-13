@@ -12,10 +12,10 @@ tags: [root, user-accounts, security]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.6.6", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.6.6", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.6.6", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.6.6", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258090"
       stig_id: "RHEL-09-411050"
       severity: "CAT I"

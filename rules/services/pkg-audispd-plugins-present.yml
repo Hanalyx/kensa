@@ -12,11 +12,11 @@ tags: [package, audit, auditd]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258175"
       stig_id: "RHEL-09-653125"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230477"
       severity: "CAT II"
   nist_800_53: ["AU-4", "AU-9"]

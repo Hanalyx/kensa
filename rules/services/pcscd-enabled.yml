@@ -15,7 +15,7 @@ depends_on: [pkg-pcsc-lite-present]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258125"
       severity: "CAT II"
   nist_800_53: ["IA-2(1)", "IA-2(2)"]

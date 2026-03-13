@@ -13,13 +13,13 @@ tags: [kernel-module, usb, data-protection]
 
 references:
   cis:
-    rhel8_v4:  { section: "1.1.1.10", level: "L2", type: "Automated" }
-    rhel9_v2:  { section: "1.1.1.8", level: "L2", type: "Automated" }
+    rhel8:  { section: "1.1.1.10", level: "L2", type: "Automated" }
+    rhel9:  { section: "1.1.1.8", level: "L2", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230503"
       severity: "CAT II"
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258034"
       severity: "CAT II"
   nist_800_53: ["CM-7", "MP-7"]

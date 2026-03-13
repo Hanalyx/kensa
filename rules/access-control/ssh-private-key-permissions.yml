@@ -21,16 +21,16 @@ depends_on: [pkg-openssh-server-present]
 
 references:
   cis:
-    rhel10_v1:  { section: "5.1.2", level: "L1", type: "Automated" }
-    rhel8_v4:  { section: "5.1.4", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.1.2", level: "L1", type: "Automated" }
+    rhel10:  { section: "5.1.2", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.1.4", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.1.2", level: "L1", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230287"
       stig_id: "RHEL-08-010490"
       severity: "CAT II"
       cci: ["CCI-000366"]
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258000"
       stig_id: "RHEL-09-255120"
       severity: "CAT II"

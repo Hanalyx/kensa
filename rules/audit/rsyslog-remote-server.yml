@@ -15,7 +15,7 @@ tags: [audit, rsyslog, remote, stig]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230479"
       severity: "CAT II"
   nist_800_53: ["AU-4", "AU-9"]

@@ -12,7 +12,7 @@ tags: [root, gid, groups, privilege]
 
 references:
   cis:
-    rhel9_v2: { section: "5.4.2.3", level: "L1", type: "Automated" }
+    rhel9: { section: "5.4.2.3", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6"]
 
 platforms:

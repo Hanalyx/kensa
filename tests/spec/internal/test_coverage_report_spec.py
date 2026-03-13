@@ -36,8 +36,8 @@ def _make_rule(rule_id: str, **overrides) -> dict:
         "category": "audit",
         "tags": ["test", "audit"],
         "references": {
-            "cis": {"rhel9_v2": {"section": "1.1.1", "level": "L1"}},
-            "stig": {"rhel8_v2r6": {"vuln_id": "V-999999", "severity": "CAT II"}},
+            "cis": {"rhel9": {"section": "1.1.1", "level": "L1"}},
+            "stig": {"rhel8": {"vuln_id": "V-999999", "severity": "CAT II"}},
             "nist_800_53": ["AC-1", "SC-1"],
         },
         "platforms": [{"family": "rhel", "min_version": 8}],
@@ -88,11 +88,7 @@ def _build_data(
     if rules is None:
         rules = {"test-rule": _make_rule("test-rule")}
     if mappings is None:
-        mappings = {
-            "cis-rhel9-v2.0.0": _make_mapping(
-                "cis-rhel9-v2.0.0", {"1.1.1": ["test-rule"]}
-            )
-        }
+        mappings = {"cis-rhel9": _make_mapping("cis-rhel9", {"1.1.1": ["test-rule"]})}
     if reviews is None:
         reviews = {}
     return compute_data(mappings, rules, {}, reviews)

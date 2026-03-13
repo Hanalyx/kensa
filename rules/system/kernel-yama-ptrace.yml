@@ -13,10 +13,10 @@ tags: [sysctl, ptrace, yama, security, stig]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230546"
       severity: "CAT II"
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257811"
       severity: "CAT II"
   nist_800_53: ["CM-6"]

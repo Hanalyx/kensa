@@ -45,13 +45,13 @@ def rule_with_refs():
         "severity": "medium",
         "references": {
             "cis": {
-                "rhel9_v2": {
+                "rhel9": {
                     "section": "5.1.12",
                     "level": "1",
                 },
             },
             "stig": {
-                "rhel9_v2r7": {
+                "rhel9": {
                     "vuln_id": "V-257844",
                     "rule_id": "SV-257844r925618",
                 },
@@ -221,9 +221,9 @@ class TestEvaluateRuleSpecDerived:
             result = evaluate_rule(mock_ssh, rule_with_refs, empty_caps)
 
             assert result.framework_refs != {}
-            assert "cis_rhel9_v2" in result.framework_refs
-            assert result.framework_refs["cis_rhel9_v2"] == "5.1.12"
-            assert "stig_rhel9_v2r7" in result.framework_refs
+            assert "cis_rhel9" in result.framework_refs
+            assert result.framework_refs["cis_rhel9"] == "5.1.12"
+            assert "stig_rhel9" in result.framework_refs
             assert "nist_800_53" in result.framework_refs
 
     def test_framework_refs_attached_on_skip(
@@ -237,7 +237,7 @@ class TestEvaluateRuleSpecDerived:
 
             assert result.skipped is True
             assert result.framework_refs != {}
-            assert "cis_rhel9_v2" in result.framework_refs
+            assert "cis_rhel9" in result.framework_refs
 
     def test_framework_refs_attached_on_error(
         self, mock_ssh, rule_with_refs, empty_caps
@@ -254,7 +254,7 @@ class TestEvaluateRuleSpecDerived:
 
             assert result.passed is False
             assert result.framework_refs != {}
-            assert "cis_rhel9_v2" in result.framework_refs
+            assert "cis_rhel9" in result.framework_refs
 
     def test_rule_metadata_propagated_on_all_paths(self, mock_ssh, empty_caps):
         """AC-7: Rule metadata (id, title, severity) propagated on all paths."""
@@ -466,7 +466,7 @@ class TestExtractFrameworkRefs:
         rule = {
             "references": {
                 "cis": {
-                    "rhel9_v2": {
+                    "rhel9": {
                         "section": "5.1.12",
                         "level": "1",
                     }
@@ -474,14 +474,14 @@ class TestExtractFrameworkRefs:
             }
         }
         refs = _extract_framework_refs(rule)
-        assert refs["cis_rhel9_v2"] == "5.1.12"
+        assert refs["cis_rhel9"] == "5.1.12"
 
     def test_stig_vuln_id_extraction(self):
         """AC-11: STIG vuln_id extracted from nested dict."""
         rule = {
             "references": {
                 "stig": {
-                    "rhel9_v2r7": {
+                    "rhel9": {
                         "vuln_id": "V-257844",
                         "rule_id": "SV-257844r925618",
                     }
@@ -489,7 +489,7 @@ class TestExtractFrameworkRefs:
             }
         }
         refs = _extract_framework_refs(rule)
-        assert refs["stig_rhel9_v2r7"] == "V-257844"
+        assert refs["stig_rhel9"] == "V-257844"
 
     def test_pci_dss_requirement_extraction(self):
         """AC-11: PCI-DSS requirement extracted from nested dict."""
@@ -548,19 +548,19 @@ class TestExtractFrameworkRefs:
         rule = {
             "references": {
                 "cis": {
-                    "rhel9_v2": {"section": "1.2.3"},
-                    "rhel8_v4": {"section": "1.2.4"},
+                    "rhel9": {"section": "1.2.3"},
+                    "rhel8": {"section": "1.2.4"},
                 },
                 "stig": {
-                    "rhel9_v2r7": {"vuln_id": "V-100000"},
+                    "rhel9": {"vuln_id": "V-100000"},
                 },
                 "nist_800_53": ["AC-1", "AC-2"],
             }
         }
         refs = _extract_framework_refs(rule)
-        assert refs["cis_rhel9_v2"] == "1.2.3"
-        assert refs["cis_rhel8_v4"] == "1.2.4"
-        assert refs["stig_rhel9_v2r7"] == "V-100000"
+        assert refs["cis_rhel9"] == "1.2.3"
+        assert refs["cis_rhel8"] == "1.2.4"
+        assert refs["stig_rhel9"] == "V-100000"
         assert refs["nist_800_53"] == "AC-1, AC-2"
 
     def test_nested_dict_without_known_keys_skipped(self):
@@ -582,10 +582,10 @@ class TestExtractFrameworkRefs:
         rule = {
             "references": {
                 "cis": {
-                    "rhel9_v2": {"section": "5.1.1"},
+                    "rhel9": {"section": "5.1.1"},
                 }
             }
         }
         refs = _extract_framework_refs(rule)
-        assert "cis_rhel9_v2" in refs
+        assert "cis_rhel9" in refs
         assert "cis" not in refs  # Parent key alone is not a valid ref

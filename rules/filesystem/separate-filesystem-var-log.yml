@@ -14,7 +14,7 @@ tags: [filesystem, partitioning, storage, logging]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257846"
       severity: "CAT III"
   nist_800_53: ["CM-6", "AU-4"]

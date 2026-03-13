@@ -12,7 +12,7 @@ depends_on: [auditd-service-enabled]
 
 references:
   cis:
-    rhel9_v2: { section: "6.3.3.3", level: "L1", type: "Automated" }
+    rhel9: { section: "6.3.3.3", level: "L1", type: "Automated" }
   nist_800_53: ["AU-2", "AU-12"]
 
 platforms:

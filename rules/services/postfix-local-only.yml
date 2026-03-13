@@ -10,9 +10,9 @@ tags: [postfix, mail, network]
 
 references:
   cis:
-    rhel9_v2: { section: "2.1.21", level: "L1", type: "Automated" }
+    rhel9: { section: "2.1.21", level: "L1", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230550"
       severity: "CAT II"
   nist_800_53: ["CM-7"]

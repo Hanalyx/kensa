@@ -12,7 +12,7 @@ tags: [filesystem, permissions, world-writable, ownership]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230318"
       severity: "CAT II"
   nist_800_53: ["CM-6", "AC-6"]

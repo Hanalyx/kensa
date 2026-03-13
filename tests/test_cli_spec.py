@@ -696,7 +696,7 @@ class TestCheckSpecDerived:
                 "--rules",
                 "rules/",
                 "--framework",
-                "cis-rhel9-v2.0.0",
+                "cis-rhel9",
                 "--severity",
                 "critical",  # narrow the set for speed
             ],
@@ -1139,7 +1139,7 @@ class TestRemediateSpecDerived:
                 "--rules",
                 "rules/",
                 "--framework",
-                "cis-rhel9-v2.0.0",
+                "cis-rhel9",
                 "--severity",
                 "critical",  # narrow the set for speed
             ],
@@ -2519,20 +2519,18 @@ class TestListFrameworksSpecDerived:
 
     def test_ac1_with_mappings_exits_0(self):
         """AC-1: With mappings present, exits 0 and displays list."""
-        mapping = _make_mock_mapping(
-            mapping_id="cis-rhel9-v2.0.0", title="CIS RHEL 9 v2.0.0"
-        )
+        mapping = _make_mock_mapping(mapping_id="cis-rhel9", title="CIS RHEL 9 v2.0.0")
 
         with patch(
             "runner.mappings.load_all_mappings",
-            return_value={"cis-rhel9-v2.0.0": mapping},
+            return_value={"cis-rhel9": mapping},
         ):
             runner = CliRunner()
             result = runner.invoke(main, ["list", "frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
-        assert "cis-rhel9-v2.0.0" in output
+        assert "cis-rhel9" in output
 
     def test_ac2_no_mappings_exits_0(self):
         """AC-2: With no mappings, exits 0 and prints message."""
@@ -2606,20 +2604,18 @@ class TestListFrameworksSpecDerived:
 
     def test_deprecated_alias_still_works(self):
         """Backward compat: 'kensa list-frameworks' still works as deprecated alias."""
-        mapping = _make_mock_mapping(
-            mapping_id="cis-rhel9-v2.0.0", title="CIS RHEL 9 v2.0.0"
-        )
+        mapping = _make_mock_mapping(mapping_id="cis-rhel9", title="CIS RHEL 9 v2.0.0")
 
         with patch(
             "runner.mappings.load_all_mappings",
-            return_value={"cis-rhel9-v2.0.0": mapping},
+            return_value={"cis-rhel9": mapping},
         ):
             runner = CliRunner()
             result = runner.invoke(main, ["list-frameworks"])
 
         assert result.exit_code == 0
         output = strip_ansi(result.output)
-        assert "cis-rhel9-v2.0.0" in output
+        assert "cis-rhel9" in output
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

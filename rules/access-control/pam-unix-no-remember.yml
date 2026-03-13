@@ -12,7 +12,7 @@ tags: [pam, password, history, security]
 
 references:
   cis:
-    rhel9_v2: { section: "5.3.3.4.2", level: "L1", type: "Automated" }
+    rhel9: { section: "5.3.3.4.2", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
 
 platforms:

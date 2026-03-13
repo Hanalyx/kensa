@@ -15,7 +15,7 @@ tags: [kernel, sysctl, kaslr, security, information-disclosure]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230547"
       severity: "CAT II"
   nist_800_53: ["CM-6", "SC-4"]

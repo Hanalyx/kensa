@@ -118,7 +118,7 @@ class RuleResult:
         skip_reason: Reason for skipping (if skipped).
         detail: Human-readable check result detail.
         evidence: Raw evidence from the check (for audit).
-        framework_refs: All framework references (e.g., {"cis_rhel9_v2": "5.1.12"}).
+        framework_refs: All framework references (e.g., {"cis_rhel9": "5.1.12"}).
         remediated: Whether remediation was attempted.
         remediation_detail: Remediation outcome message.
         step_results: Individual remediation step outcomes.

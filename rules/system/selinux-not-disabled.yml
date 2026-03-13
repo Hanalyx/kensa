@@ -13,7 +13,7 @@ tags: [selinux, security, access-control]
 
 references:
   cis:
-    rhel9_v2:  { section: "1.3.1.4", level: "L1", type: "Automated" }
+    rhel9:  { section: "1.3.1.4", level: "L1", type: "Automated" }
   nist_800_53: ["AC-3", "AC-6"]
 
 platforms:

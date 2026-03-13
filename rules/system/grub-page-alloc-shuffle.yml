@@ -14,11 +14,11 @@ tags: [grub, kernel, memory, security, boot]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257793"
       stig_id: "RHEL-09-212040"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230277"
       severity: "CAT II"
   nist_800_53: ["CM-6", "SC-4"]

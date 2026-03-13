@@ -208,12 +208,12 @@ def main() -> int:
 
     configs = [
         {
-            "mapping": project_root / "mappings" / "cis" / "rhel9_v2.0.0.yaml",
+            "mapping": project_root / "mappings" / "cis" / "rhel9.yaml",
             "output": project_root / "context" / "cis" / "rhel9-v2.0.0-baseline.yaml",
             "label": "CIS RHEL 9 v2.0.0",
         },
         {
-            "mapping": project_root / "mappings" / "cis" / "rhel8_v4.0.0.yaml",
+            "mapping": project_root / "mappings" / "cis" / "rhel8.yaml",
             "output": project_root / "context" / "cis" / "rhel8-v4.0.0-baseline.yaml",
             "label": "CIS RHEL 8 v4.0.0",
         },

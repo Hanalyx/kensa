@@ -14,7 +14,7 @@ tags: [mount, removable, nosuid, security]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230305"
       severity: "CAT II"
   nist_800_53: ["CM-6", "AC-19"]

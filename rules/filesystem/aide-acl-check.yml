@@ -14,11 +14,11 @@ tags: [aide, file-integrity, acl, security]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258138"
       stig_id: "RHEL-09-651020"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230552"
       severity: "CAT III"
   nist_800_53: ["AU-7", "CM-3", "SI-7"]

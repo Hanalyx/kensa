@@ -12,11 +12,11 @@ tags: [package, ftp, attack-surface]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257826"
       stig_id: "RHEL-09-215015"
       severity: "CAT I"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230558"
       severity: "CAT I"
   nist_800_53: ["CM-7", "SC-8"]

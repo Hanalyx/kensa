@@ -1,9 +1,10 @@
 # CIS Red Hat Enterprise Linux 8 Benchmark v4.0.0
 # Maps CIS sections to Kensa canonical rules
 
-id: cis-rhel8-v4.0.0
+id: cis-rhel8
 framework: cis
 title: "CIS Red Hat Enterprise Linux 8 Benchmark v4.0.0"
+version: "v4.0.0"
 published: 2024-06-28
 platform:
   family: rhel

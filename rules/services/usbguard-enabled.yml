@@ -14,10 +14,10 @@ depends_on: [pkg-usbguard-present]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258036"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-244548"
       severity: "CAT II"
   nist_800_53: ["CM-7", "IA-3"]

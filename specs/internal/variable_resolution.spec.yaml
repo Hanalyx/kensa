@@ -115,7 +115,7 @@ input_contract:
     required: false
     default: "None"
     description: >
-      Framework identifier (e.g., "cis-rhel9-v2.0.0"). Base name extracted for lookup.
+      Framework identifier (e.g., "cis-rhel9"). Base name extracted for lookup.
   - field: cli_overrides
     type: "dict[str, Any] | None"
     required: false

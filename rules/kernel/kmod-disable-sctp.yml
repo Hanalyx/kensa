@@ -13,12 +13,12 @@ tags: [kernel-module, sctp, network, attack-surface, stig]
 
 references:
   cis:
-    rhel9_v2: { section: "3.2.4", level: "L1", type: "Automated" }
+    rhel9: { section: "3.2.4", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257807"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230496"
       severity: "CAT II"
   nist_800_53: ["CM-7"]
