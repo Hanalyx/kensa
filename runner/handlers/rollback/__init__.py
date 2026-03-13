@@ -38,6 +38,7 @@ from runner.handlers.rollback._package import (
 from runner.handlers.rollback._security import (
     _rollback_audit_rule_set,
     _rollback_authselect_feature_enable,
+    _rollback_pam_module_arg,
     _rollback_pam_module_configure,
     _rollback_selinux_boolean_set,
 )
@@ -93,6 +94,7 @@ ROLLBACK_HANDLERS = {
     # Security handlers
     "selinux_boolean_set": _rollback_selinux_boolean_set,
     "audit_rule_set": _rollback_audit_rule_set,
+    "pam_module_arg": _rollback_pam_module_arg,
     "pam_module_configure": _rollback_pam_module_configure,
     "authselect_feature_enable": _rollback_authselect_feature_enable,
     # System handlers (continued)

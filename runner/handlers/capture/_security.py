@@ -71,6 +71,20 @@ def _capture_authselect_feature_enable(ssh: SSHSession, r: dict) -> PreState:
     )
 
 
+def _capture_pam_module_arg(ssh: SSHSession, r: dict) -> PreState:
+    """Capture PAM file contents before arg modification."""
+    files = r.get("files", [])
+    file_contents = {}
+    for path in files:
+        content = shell_util.read_file(ssh, path)
+        if content is not None:
+            file_contents[path] = content
+    return PreState(
+        mechanism="pam_module_arg",
+        data={"files": file_contents},
+    )
+
+
 def _capture_pam_module_configure(ssh: SSHSession, r: dict) -> PreState:
     """Capture PAM file content and authselect state before modification.
 

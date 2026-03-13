@@ -60,6 +60,7 @@ from runner.handlers.remediation._package import (
 from runner.handlers.remediation._security import (
     _remediate_audit_rule_set,
     _remediate_authselect_feature_enable,
+    _remediate_pam_module_arg,
     _remediate_pam_module_configure,
     _remediate_selinux_boolean_set,
     _remediate_selinux_state_set,
@@ -117,6 +118,7 @@ REMEDIATION_HANDLERS = {
     "selinux_boolean_set": _remediate_selinux_boolean_set,
     "selinux_state_set": _remediate_selinux_state_set,
     "audit_rule_set": _remediate_audit_rule_set,
+    "pam_module_arg": _remediate_pam_module_arg,
     "pam_module_configure": _remediate_pam_module_configure,
     "authselect_feature_enable": _remediate_authselect_feature_enable,
     # System handlers (continued)

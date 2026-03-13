@@ -150,6 +150,89 @@ def _remediate_authselect_feature_enable(
     return True, f"Enabled authselect feature '{feature}'"
 
 
+def _remediate_pam_module_arg(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Ensure or remove a specific argument on PAM module lines.
+
+    Args:
+        ssh: Active SSH session to the target host.
+        r: Remediation definition with required fields:
+            - action (str): "ensure" or "remove"
+            - module (str): PAM module name (e.g., "pam_unix.so")
+            - arg (str): Argument to ensure/remove
+            - files (list[str]): PAM files to edit
+            - type (str, optional): PAM type filter (e.g., "password")
+            - arg_regex (bool, optional): Treat arg as regex for remove
+
+    Returns:
+        Tuple of (success, detail).
+
+    """
+    action = r["action"]
+    module = r["module"]
+    arg = r["arg"]
+    files = r["files"]
+    pam_type = r.get("type")
+    arg_regex = r.get("arg_regex", False)
+
+    if dry_run:
+        return (
+            True,
+            f"Would {action} arg '{arg}' on {module} lines in {len(files)} file(s)",
+        )
+
+    processed = 0
+    for path in files:
+        if not shell_util.file_exists(ssh, path):
+            continue
+
+        escaped_module = shell_util.escape_sed(module)
+
+        if action == "remove":
+            # Build line match pattern
+            if pam_type:
+                escaped_type = shell_util.escape_sed(pam_type)
+                line_match = f"/^{escaped_type}.*{escaped_module}/"
+            else:
+                line_match = f"/{escaped_module}/"
+
+            # Build arg removal pattern
+            arg_pattern = arg if arg_regex else f"\\b{shell_util.escape_sed(arg)}\\b"
+
+            # Remove arg and clean up extra whitespace
+            cmd = (
+                f"sed -i '{line_match}s/{arg_pattern}//g; "
+                f"s/  */ /g; s/ $//' "
+                f"{shell_util.quote(path)}"
+            )
+        elif action == "ensure":
+            if not pam_type:
+                return False, "type is required for ensure action"
+
+            escaped_type = shell_util.escape_sed(pam_type)
+            escaped_arg = shell_util.escape_sed(arg)
+
+            # Only add arg to lines that match type+module but don't already have it
+            cmd = (
+                f"sed -i '/^{escaped_type}.*{escaped_module}/ "
+                f"{{ /{escaped_arg}/! s/$/ {escaped_arg}/ }}' "
+                f"{shell_util.quote(path)}"
+            )
+        else:
+            return False, f"Unknown action: {action}"
+
+        result = ssh.run(cmd)
+        if not result.ok:
+            return False, f"Failed to edit {path}: {result.stderr}"
+        processed += 1
+
+    if action == "remove":
+        return True, f"Removed arg '{arg}' from {module} in {processed} file(s)"
+    else:
+        return True, f"Ensured arg '{arg}' on {module} in {processed} file(s)"
+
+
 def _remediate_pam_module_configure(
     ssh: SSHSession, r: dict, *, dry_run: bool = False
 ) -> tuple[bool, str]:

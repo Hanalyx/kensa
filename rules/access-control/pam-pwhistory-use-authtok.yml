@@ -55,7 +55,6 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add use_authtok to the pam_pwhistory.so line in /etc/pam.d/system-auth
-        or to /etc/security/pwhistory.conf.
+      mechanism: config_append
+      path: "/etc/security/pwhistory.conf"
+      line: "use_authtok"

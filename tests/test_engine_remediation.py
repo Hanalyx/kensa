@@ -6941,3 +6941,168 @@ class TestCryptoPolicySubpolicySpecDerived:
         set_cmds = [c for c in ssh.commands_run if "update-crypto-policies --set" in c]
         assert len(set_cmds) == 1
         assert ":NO-SHA1:NO-SHA1" not in set_cmds[0]
+
+
+class TestPamModuleArgSpecDerived:
+    """Spec-derived tests for pam_module_arg remediation handler.
+
+    See specs/handlers/remediation/pam_module_arg.spec.yaml.
+    """
+
+    def test_dry_run_returns_preview(self, mock_ssh):
+        """AC-1: Dry-run returns preview with no SSH commands executed."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "remove",
+            "module": "pam_unix.so",
+            "arg": "nullok",
+            "files": ["/etc/pam.d/system-auth", "/etc/pam.d/password-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, dry_run=True)
+        assert ok is True
+        assert "Would remove arg 'nullok'" in detail
+        assert "2 file(s)" in detail
+        assert len(ssh.commands_run) == 0
+
+    def test_remove_exact_arg(self, mock_ssh):
+        """AC-2: Remove exact arg from matching lines."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "remove",
+            "module": "pam_unix.so",
+            "arg": "nullok",
+            "files": ["/etc/pam.d/system-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Removed arg 'nullok'" in detail
+        assert "1 file(s)" in detail
+
+    def test_remove_regex_arg(self, mock_ssh):
+        """AC-3: Remove regex-matched arg from matching lines."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "remove",
+            "module": "pam_unix.so",
+            "arg": "remember=[0-9]*",
+            "arg_regex": True,
+            "files": ["/etc/pam.d/system-auth", "/etc/pam.d/password-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Removed arg 'remember=[0-9]*'" in detail
+
+    def test_ensure_arg_present(self, mock_ssh):
+        """AC-4: Ensure arg adds it to matching lines."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "ensure",
+            "module": "pam_unix.so",
+            "arg": "use_authtok",
+            "type": "password",
+            "files": ["/etc/pam.d/system-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "Ensured arg 'use_authtok'" in detail
+
+    def test_ensure_idempotent(self, mock_ssh):
+        """AC-5: Ensure is idempotent when arg already present."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "ensure",
+            "module": "pam_unix.so",
+            "arg": "sha512",
+            "type": "password",
+            "files": ["/etc/pam.d/system-auth", "/etc/pam.d/password-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        # The sed command itself handles idempotency via the negative match
+        assert "Ensured arg 'sha512'" in detail
+        assert "2 file(s)" in detail
+
+    def test_type_filter(self, mock_ssh):
+        """AC-6: Type filter narrows matching lines."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "remove",
+            "module": "pam_unix.so",
+            "arg": "nullok",
+            "type": "auth",
+            "files": ["/etc/pam.d/system-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        # Verify the sed command includes the type filter
+        sed_cmds = [c for c in ssh.commands_run if "sed -i" in c]
+        assert len(sed_cmds) == 1
+        assert "auth" in sed_cmds[0]
+
+    def test_missing_file_skipped(self, mock_ssh):
+        """AC-7: Non-existent files are skipped."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=1, stdout="", stderr=""),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "remove",
+            "module": "pam_unix.so",
+            "arg": "nullok",
+            "files": ["/etc/pam.d/nonexistent"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is True
+        assert "0 file(s)" in detail
+
+    def test_sed_failure(self, mock_ssh):
+        """AC-8: sed failure returns error detail."""
+        ssh = mock_ssh(
+            {
+                "test -f": Result(exit_code=0, stdout="", stderr=""),
+                "sed -i": Result(exit_code=1, stdout="", stderr="sed: can't read file"),
+            }
+        )
+        rem = {
+            "mechanism": "pam_module_arg",
+            "action": "remove",
+            "module": "pam_unix.so",
+            "arg": "nullok",
+            "files": ["/etc/pam.d/system-auth"],
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert "Failed to edit" in detail
