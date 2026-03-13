@@ -57,8 +57,6 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure pam_pwhistory to enforce password history for root.
-        Add 'enforce_for_root' to /etc/security/pwhistory.conf or to the
-        pam_pwhistory.so line in /etc/pam.d/system-auth.
+      mechanism: config_append
+      path: "/etc/security/pwhistory.conf"
+      line: "enforce_for_root"

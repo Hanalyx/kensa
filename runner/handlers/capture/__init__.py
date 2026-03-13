@@ -39,6 +39,7 @@ from runner.handlers.capture._package import (
 from runner.handlers.capture._security import (
     _capture_audit_rule_set,
     _capture_authselect_feature_enable,
+    _capture_pam_module_arg,
     _capture_pam_module_configure,
     _capture_selinux_boolean_set,
 )
@@ -94,6 +95,7 @@ CAPTURE_HANDLERS = {
     # Security handlers
     "selinux_boolean_set": _capture_selinux_boolean_set,
     "audit_rule_set": _capture_audit_rule_set,
+    "pam_module_arg": _capture_pam_module_arg,
     "pam_module_configure": _capture_pam_module_configure,
     "authselect_feature_enable": _capture_authselect_feature_enable,
     # System handlers (continued)

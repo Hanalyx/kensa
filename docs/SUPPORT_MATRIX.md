@@ -81,8 +81,8 @@ Manual remediations exist for controls that require organizational judgment (e.g
 | Total rules | 630 |
 | Rule categories | 8 |
 | Check handler types | 21 |
-| Remediation mechanism types (registered) | 29 |
-| Remediation mechanisms used in rules | 25 |
+| Remediation mechanism types (registered) | 30 |
+| Remediation mechanisms used in rules | 26 |
 | Capability probes | 24 |
 
 ### Rules by category

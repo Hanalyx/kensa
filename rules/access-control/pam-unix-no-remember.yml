@@ -49,5 +49,11 @@ implementations:
         exit 0
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: "sed -i 's/\\bremember=[0-9]*//g' /etc/pam.d/system-auth /etc/pam.d/password-auth"
+      mechanism: pam_module_arg
+      action: remove
+      module: pam_unix.so
+      arg: "remember=[0-9]*"
+      arg_regex: true
+      files:
+        - /etc/pam.d/system-auth
+        - /etc/pam.d/password-auth

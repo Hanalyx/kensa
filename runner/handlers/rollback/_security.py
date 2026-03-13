@@ -68,6 +68,20 @@ def _rollback_authselect_feature_enable(
     return True, f"Disabled authselect feature '{feature}'"
 
 
+def _rollback_pam_module_arg(ssh: SSHSession, pre_state: PreState) -> tuple[bool, str]:
+    """Restore PAM files to pre-modification state."""
+    files = pre_state.data.get("files", {})
+    if not files:
+        return False, "No file contents captured"
+    restored = 0
+    for path, content in files.items():
+        if shell_util.write_file(ssh, path, content):
+            restored += 1
+        else:
+            return False, f"Failed to restore {path}"
+    return True, f"Restored {restored} PAM file(s)"
+
+
 def _rollback_pam_module_configure(
     ssh: SSHSession, pre_state: PreState
 ) -> tuple[bool, str]:
