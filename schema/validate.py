@@ -5,6 +5,7 @@ Validates rule files, mapping files, and cross-rule dependencies.
 
 Usage:
     python3 schema/validate.py                     # Validate all rules
+    python3 -m schema.validate                     # Module invocation
     python3 schema/validate.py rules/access-control/ssh-disable-root-login.yml
     python3 schema/validate.py --format json       # JSON output
     python3 schema/validate.py --format github     # GitHub Actions annotations
@@ -20,8 +21,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from schema.validators import ValidationError
-from schema.validators.rule import validate_all_rules, validate_rule
+# Ensure repo root is on sys.path for direct script execution
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
+from schema.validators import ValidationError  # noqa: E402
+from schema.validators.rule import validate_all_rules, validate_rule  # noqa: E402
 
 # -- Paths -------------------------------------------------------------------
 SCHEMA_DIR = Path(__file__).resolve().parent

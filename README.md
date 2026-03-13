@@ -2,7 +2,7 @@
 
 **Compliance as Code — Scan, Remediate, Rollback.**
 
-`508 rules` · `23 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
+`630 rules` · `18 remediation mechanisms` · `7 frameworks` · `Automatic rollback` · `No agent`
 
 ---
 
@@ -10,7 +10,7 @@ Your auditor wants evidence that 300 RHEL servers meet STIG. Your team has two w
 
 The current playbook: SSH into each box, run commands by hand, copy stdout into spreadsheets, cross-reference against framework controls, and pray nothing drifts before the assessor arrives. It takes days per server. The evidence is stale before you finish. And when something fails, remediation is a Bash script that might break SSH access at 2 AM with no way to undo it.
 
-Kensa replaces that entire workflow. It connects over SSH, evaluates 508 compliance rules with machine-verifiable evidence for every check, maps results to CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP, ISO 27001, and SRG simultaneously, and remediates failures with 23 typed mechanisms that capture pre-state and automatically roll back on failure.
+Kensa replaces that entire workflow. It connects over SSH, evaluates 630 compliance rules with machine-verifiable evidence for every check, maps results to CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP, ISO 27001, and SRG simultaneously, and remediates failures with 18 typed mechanisms that capture pre-state and automatically roll back on failure.
 
 No agent. No XML. No Ansible. Just YAML rules, SSH, and structured evidence your auditor can independently verify.
 
@@ -41,7 +41,7 @@ kensa remediate --sudo -h 192.168.1.10 -u admin -r rules/ --rollback-on-failure
 
 Most compliance tools stop at scanning. A few generate Bash scripts for remediation. Kensa does both — and does remediation safely.
 
-Every remediation uses one of **23 typed, declarative mechanisms** (not scripts). Before any change, Kensa captures the current state. If a step fails, all completed steps are reversed automatically. Your system is never left half-remediated.
+Every remediation uses one of **19 typed, declarative mechanisms** (not scripts). Before any change, Kensa captures the current state. If a step fails, all completed steps are reversed automatically. Your system is never left half-remediated.
 
 ```yaml
 # This is a Kensa rule — not a script. Kensa decides HOW to apply it safely.
@@ -158,7 +158,7 @@ Kensa takes a different architectural approach than most compliance tools. Where
 | | Kensa | Manual Checks | Ansible Lockdown | Point-in-Time Scanners |
 |---|---|---|---|---|
 | **Architecture** | Canonical rules, capability-gated | N/A | Per-OS per-framework repos | Per-benchmark content |
-| **Remediation** | 23 typed mechanisms | Run commands by hand | Ansible tasks | Basic scripts or none |
+| **Remediation** | 18 typed mechanisms | Run commands by hand | Ansible tasks | Basic scripts or none |
 | **Rollback** | Automatic | None | None | None |
 | **Rule format** | YAML | N/A | Ansible YAML | Varies (XCCDF/OVAL, Ruby DSL, etc.) |
 | **Frameworks per rule** | All simultaneously | Whatever you check | One repo per framework+OS | One profile per scan |
@@ -169,15 +169,31 @@ Kensa takes a different architectural approach than most compliance tools. Where
 
 ## Framework Coverage
 
-| Framework | Mapping ID | Controls | Coverage |
-|---|---|---|---|
-| CIS RHEL 9 v2.0.0 | `cis-rhel9-v2.0.0` | 271 | 95%+ |
-| STIG RHEL 9 V2R7 | `stig-rhel9-v2r7` | 338 | 75%+ |
-| NIST 800-53 R5 | `nist-800-53-r5` | 87 | Complete |
-| PCI-DSS v4.0 | `pci-dss-v4.0` | 45 | Complete |
-| FedRAMP Moderate | `fedramp-moderate` | 87 | Complete |
-| CIS RHEL 8 v4.0.0 | `cis-rhel8-v4.0.0` | 120 | ~80% |
-| STIG RHEL 8 V2R6 | `stig-rhel8-v2r6` | 116 | ~70% |
+| Framework | Mapping ID | Total Controls | Mapped | Coverage |
+|---|---|---|---|---|
+| CIS RHEL 9 v2.0.0 | `cis-rhel9-v2.0.0` | 318 | 303 | 95.3% |
+| STIG RHEL 9 V2R7 | `stig-rhel9-v2r7` | 446 | 420 | 94.2% |
+| CIS RHEL 8 v4.0.0 | `cis-rhel8-v4.0.0` | 311 | 282 | 90.7% |
+| STIG RHEL 8 V2R6 | `stig-rhel8-v2r6` | 366 | 348 | 95.1% |
+| NIST 800-53 R5 | `nist-800-53-r5` | 87 | 87 | Selective |
+| PCI-DSS v4.0 | `pci-dss-v4.0` | 45 | 45 | Selective |
+| FedRAMP Moderate | `fedramp-moderate` | 323 | 91 | 28.2% |
+
+NIST and PCI-DSS use selective mapping — Kensa maps automatable controls, not every control in the framework. FedRAMP coverage reflects OS-level controls verifiable on RHEL; many FedRAMP controls are organizational or procedural.
+
+## Supported Platforms
+
+| Platform | Versions | Status |
+|---|---|---|
+| Red Hat Enterprise Linux | 8, 9 | Production |
+| CentOS Stream | 8, 9 | Production |
+| AlmaLinux / Rocky Linux | 8, 9 | Production |
+| Oracle Linux | 8, 9 | Community-tested |
+| Fedora | 38+ | Experimental |
+
+**Frameworks:** CIS Benchmarks (RHEL 8 v4.0.0, RHEL 9 v2.0.0), DISA STIG (RHEL 8 V2R6, RHEL 9 V2R7), NIST 800-53 Rev 5, PCI-DSS v4.0, FedRAMP Moderate Rev 5.
+
+**What "manual" controls mean:** Some compliance controls require human judgment, physical access, or organizational policy decisions that cannot be automated via SSH. These are mapped in framework files as `unimplemented` with a reason, and are surfaced in coverage reports so auditors know they must be verified separately.
 
 ## CLI Reference
 

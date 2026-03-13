@@ -3,29 +3,30 @@ kind: InternalModule
 metadata:
   name: RuleLoading
   module: runner._loading
-  version: "1.0.0"
-  status: released
+  version: "2.0.0"
+  status: approved
   owner: kensa-core
   system_spec: "system.spec.yaml@1.0.0"
   created: "2026-02-25"
-  updated: "2026-02-25"
+  updated: "2026-03-11"
 
 context:
   description: >
     Rule loading and platform filtering. Loads YAML rule files from a single
     file or recursively from a directory, applies optional severity/tag/category
     filters, and provides platform applicability checking against detected
-    host family and version.
+    host family and version. Defaults to strict mode where malformed files
+    raise errors rather than being silently skipped.
   technical_context: >
-    Entry points: load_rules(path, severity, tags, category) -> list[dict],
+    Entry points: load_rules(path, severity, tags, category, strict) -> list[dict],
     rule_applies_to_platform(rule, family, version) -> bool. load_rules
     accepts a single .yml/.yaml file or a directory (recursive glob).
-    Rules are dicts with required "id" key; files without "id" are skipped.
-    Severity filter is case-insensitive set membership. Tag filter is
-    case-insensitive intersection (any tag matches). Category filter is
-    case-insensitive exact match.
+    Rules are dicts with required "id" key. In strict mode (default), files
+    that fail parsing or lack an "id" key raise RuleLoadError. In lenient
+    mode (strict=False), such files are skipped with a warning logged.
   dependencies:
     - "yaml (PyYAML)"
+    - "logging (stdlib)"
   callers:
     - "runner.cli (check, remediate, info commands)"
     - "runner.engine (rule evaluation)"
@@ -42,6 +43,7 @@ objective:
   summary: >
     Load YAML rule files from filesystem, filter by severity/tag/category,
     and check platform applicability for host-specific rule selection.
+    Fail closed by default to prevent silent coverage loss.
   acceptance_criteria:
     AC-1: >
       load_rules with a file path loads that single file and returns a
@@ -50,9 +52,12 @@ objective:
       load_rules with a directory path recursively discovers all .yml and
       .yaml files sorted by path.
     AC-3: >
-      Files that fail YAML parsing are silently skipped without raising.
+      In strict mode (default), files that fail YAML parsing raise
+      RuleLoadError with a message containing the file path and the
+      underlying parse error.
     AC-4: >
-      Files that parse to non-dict or lack an "id" key are silently skipped.
+      In strict mode, files that parse to non-dict or lack an "id" key
+      raise RuleLoadError with a message containing the file path.
     AC-5: >
       severity filter is case-insensitive; only rules whose severity field
       matches one of the given values are returned.
@@ -71,11 +76,20 @@ objective:
     AC-10: >
       rule_applies_to_platform returns False when platforms is an empty list
       or no platform entry matches.
+    AC-11: >
+      load_rules accepts a strict keyword parameter defaulting to True.
+    AC-12: >
+      In lenient mode (strict=False), files that fail YAML parsing are
+      skipped and a warning is logged including the file path.
+    AC-13: >
+      In lenient mode, files that parse to non-dict or lack an "id" key
+      are skipped and a warning is logged including the file path.
 
 constraints:
   - "MUST use yaml.safe_load for all YAML parsing."
-  - "MUST skip malformed YAML files without crashing."
-  - "MUST skip files that do not contain a mapping with an 'id' key."
+  - "MUST raise RuleLoadError on malformed files in strict mode (default)."
+  - "MUST skip and log malformed files in lenient mode (strict=False)."
+  - "MUST include the file path in all error messages and warnings."
   - "MUST apply all specified filters (severity, tags, category) when provided."
   - "MUST raise ValueError when path is None."
   - "MUST raise FileNotFoundError when path does not exist."
@@ -104,6 +118,13 @@ input_contract:
     default: "None"
     description: >
       Category to filter by (case-insensitive exact match). None means no filter.
+  - field: strict
+    type: bool
+    required: false
+    default: "True"
+    description: >
+      If True (default), malformed files raise RuleLoadError.
+      If False, malformed files are skipped with a warning logged.
   - field: rule
     type: dict
     required: false
@@ -125,12 +146,15 @@ behavior:
   - "2. If path is a file, load it as a single-element list."
   - "3. If path is a directory, recursively glob *.yml and *.yaml, sorted by path."
   - "4. If path does not exist, raise FileNotFoundError."
-  - "5. For each file, safe_load YAML; skip on YAMLError."
-  - "6. Skip if result is not a dict or has no 'id' key."
-  - "7. Apply severity filter (case-insensitive set membership)."
-  - "8. Apply tags filter (case-insensitive intersection)."
-  - "9. Apply category filter (case-insensitive exact match)."
-  - "10. Return filtered list of rule dicts."
+  - "5. For each file, safe_load YAML."
+  - "6. If YAMLError and strict=True, raise RuleLoadError with file path."
+  - "7. If YAMLError and strict=False, log warning with file path and continue."
+  - "8. If result is not a dict or has no 'id' key and strict=True, raise RuleLoadError."
+  - "9. If result is not a dict or has no 'id' key and strict=False, log warning and continue."
+  - "10. Apply severity filter (case-insensitive set membership)."
+  - "11. Apply tags filter (case-insensitive intersection)."
+  - "12. Apply category filter (case-insensitive exact match)."
+  - "13. Return filtered list of rule dicts."
 
 output_contract:
   returns: >
@@ -142,13 +166,19 @@ output_contract:
       result: "List of rule dicts passing all filters."
     no_rules:
       description: "No valid rule files found or all filtered out."
-      result: "Empty list returned."
+      result: "Empty list returned (lenient mode) or RuleLoadError raised (strict mode)."
     path_none:
       description: "path parameter is None."
       result: "ValueError raised."
     path_missing:
       description: "Path does not exist on filesystem."
       result: "FileNotFoundError raised."
+    malformed_strict:
+      description: "Malformed file encountered in strict mode."
+      result: "RuleLoadError raised with file path in message."
+    malformed_lenient:
+      description: "Malformed file encountered in lenient mode."
+      result: "File skipped, warning logged with file path."
   invariants:
     - "Every returned rule dict has an 'id' key."
     - "Filters are cumulative (all must pass)."
@@ -156,6 +186,7 @@ output_contract:
 
 side_effects:
   - "Reads YAML files from filesystem."
+  - "Logs warnings to 'runner._loading' logger in lenient mode."
   - "No writes or network access."
 
 testing:
@@ -163,6 +194,6 @@ testing:
     file: tests/test_rule_loading_spec.py
     classes:
       - TestRuleLoadingSpecDerived
-    count: 11
+    count: 14
   unit:
     - tests/test_loading.py

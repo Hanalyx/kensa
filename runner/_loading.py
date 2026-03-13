@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
+
+
+class RuleLoadError(Exception):
+    """Raised when a rule file cannot be loaded in strict mode."""
 
 
 def load_rules(
@@ -13,8 +20,19 @@ def load_rules(
     severity: list[str] | None = None,
     tags: list[str] | None = None,
     category: str | None = None,
+    strict: bool = True,
 ) -> list[dict]:
-    """Load rules from a file or directory (recursive). Apply optional filters."""
+    """Load rules from a file or directory (recursive). Apply optional filters.
+
+    Args:
+        path: Path to a single rule file or directory of rules.
+        severity: Severity values to include (case-insensitive).
+        tags: Tag values to include (case-insensitive intersection).
+        category: Category to filter by (case-insensitive exact match).
+        strict: If True (default), malformed files raise RuleLoadError.
+            If False, malformed files are skipped with a warning logged.
+
+    """
     if path is None:
         raise ValueError("No rules path specified")
 
@@ -30,9 +48,17 @@ def load_rules(
     for f in files:
         try:
             data = yaml.safe_load(f.read_text())
-        except yaml.YAMLError:
+        except yaml.YAMLError as exc:
+            if strict:
+                raise RuleLoadError(f"Failed to parse YAML in {f}: {exc}") from exc
+            logger.warning("Skipping %s: YAML parse error: %s", f, exc)
             continue
         if not isinstance(data, dict) or "id" not in data:
+            if strict:
+                raise RuleLoadError(
+                    f"Rule file {f} does not contain a mapping with an 'id' key"
+                )
+            logger.warning("Skipping %s: not a valid rule (missing 'id' key)", f)
             continue
         rules.append(data)
 

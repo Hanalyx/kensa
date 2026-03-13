@@ -1,0 +1,65 @@
+kind: InternalModule
+
+metadata:
+  name: LicenseConsistency
+  module: "project_metadata"
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-03-11"
+  updated: "2026-03-11"
+
+context:
+  description: >
+    Ensures license declarations are consistent across all project artifacts.
+    The canonical license is BUSL-1.1 (Business Source License 1.1) as
+    defined in the LICENSE file. All metadata files must agree.
+  technical_context: >
+    Validates pyproject.toml license field (SPDX identifier BUSL-1.1),
+    pyproject.toml classifiers, and LICENSE file all declare BSL 1.1
+    consistently.
+  dependencies: []
+  callers: []
+  related_specs: []
+  assumptions:
+    - "LICENSE file is the canonical source of truth for license terms."
+
+objective:
+  summary: >
+    All project metadata files must declare BUSL-1.1 consistently.
+    No artifact may claim MIT or any other license.
+  acceptance_criteria:
+    AC-1: >
+      pyproject.toml license field is "BUSL-1.1" (SPDX identifier).
+    AC-2: >
+      pyproject.toml classifiers do not contain any MIT license classifier.
+    AC-3: >
+      LICENSE file contains "Business Source License 1.1".
+
+input_contract: []
+
+constraints:
+  - "pyproject.toml MUST declare license = \"BUSL-1.1\"."
+  - "pyproject.toml classifiers MUST NOT include MIT."
+  - "LICENSE file MUST contain BSL 1.1 terms."
+
+behavior:
+  - "1. Read pyproject.toml and verify license field is BUSL-1.1."
+  - "2. Verify no MIT classifier in pyproject.toml classifiers."
+  - "3. Read LICENSE file and verify it contains BSL 1.1 terms."
+
+output_contract:
+  returns: >
+    No runtime output. This spec defines static file invariants
+    enforced by CI tests.
+  paths: {}
+  invariants:
+    - "All license declarations are BUSL-1.1."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_license_consistency_spec.py
+    classes:
+      - TestLicenseConsistencySpecDerived
+    count: 3
