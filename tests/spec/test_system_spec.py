@@ -14,10 +14,10 @@ class TestSystemSpecDerived:
     """Spec-derived tests for Kensa system context (AC-1 through AC-6)."""
 
     def test_ac1_capability_probes(self):
-        """AC-1: 22 capability probes detect host features for implementation gating."""
+        """AC-1: 24 capability probes detect host features for implementation gating."""
         from runner.detect import CAPABILITY_PROBES
 
-        assert len(CAPABILITY_PROBES) == 22
+        assert len(CAPABILITY_PROBES) == 24
 
     def test_ac2_check_handlers(self):
         """AC-2: 21 check handler types evaluate compliance rules against remote state."""

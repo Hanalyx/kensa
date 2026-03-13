@@ -28,7 +28,7 @@ platforms:
     min_version: 8
 
 implementations:
-  - when: gdm_installed
+  - when: gdm
     check:
       method: command
       run: |

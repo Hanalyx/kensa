@@ -179,6 +179,11 @@ CAPABILITY_PROBES: dict[str, str] = {
     "tpm2": "test -c /dev/tpmrm0 || test -c /dev/tpm0",
     "usbguard": "rpm -q usbguard >/dev/null 2>&1",
     "dnf_automatic": "rpm -q dnf-automatic >/dev/null 2>&1",
+    "firewalld": "systemctl is-active firewalld >/dev/null 2>&1",
+    "nftables_active": (
+        "systemctl is-active nftables >/dev/null 2>&1 && "
+        "! systemctl is-active firewalld >/dev/null 2>&1"
+    ),
     "gdm": "rpm -q gdm >/dev/null 2>&1",
     "tmux": "command -v tmux >/dev/null 2>&1",
 }

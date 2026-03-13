@@ -19,7 +19,7 @@ CLI flags (--host, --inventory, --rules, --sudo, ...)
                            │
                     ┌──────▼───────┐
                     │  detect.py   │
-                    │ 22 probes    │──▶ dict[str, bool] (capabilities)
+                    │ 24 probes    │──▶ dict[str, bool] (capabilities)
                     └──────┬───────┘
                            │
                ┌───────────▼────────────┐

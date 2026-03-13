@@ -1,0 +1,70 @@
+kind: InternalModule
+metadata:
+  name: RuleCapabilityValidation
+  module: schema.validators.rule
+  version: 1.0.0
+  status: approved
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-14"
+  updated: "2026-03-14"
+
+context:
+  description: >
+    Validate that rule `when:` capability references match defined probes
+    in runner/detect.py CAPABILITY_PROBES. Catches unreachable implementations
+    caused by typos or missing probes.
+  technical_context: >
+    Module schema/validators/rule.py -> validate_rule_business().
+    Loads CAPABILITY_PROBES from runner.detect and validates all `when:`
+    fields in rule implementations.
+  dependencies:
+    - runner.detect.CAPABILITY_PROBES
+    - schema.validators.rule.validate_rule_business
+  callers:
+    - schema/validate.py (pre-commit hook)
+    - python3 -m schema.validate rules/
+
+objective:
+  summary: >
+    Validate that every capability name referenced in rule `when:` fields
+    exists in the CAPABILITY_PROBES registry. Report undefined capabilities
+    as warnings to prevent unreachable implementation blocks.
+  acceptance_criteria:
+    AC-1: "Undefined capability in `when: capname` is detected as a warning."
+    AC-2: "Valid capability in `when: capname` produces no warning."
+    AC-3: "Complex `when: {all: [...]}` validates all items."
+    AC-4: "Complex `when: {any: [...]}` validates all items."
+    AC-5: "Known capabilities are loaded from runner.detect.CAPABILITY_PROBES and cached."
+
+constraints:
+  - "MUST report as warning severity (not error) to avoid breaking CI for existing rules during migration."
+  - "MUST gracefully handle import failure of runner.detect."
+  - "MUST cache the capability set for performance (loaded once per validation run)."
+
+input_contract:
+  - field: data
+    type: dict
+    required: true
+    description: "Parsed rule YAML data with implementations[].when fields."
+  - field: filepath
+    type: Path
+    required: true
+    description: "Path to rule file for error reporting."
+
+behavior:
+  - "Extract `when:` value from each non-default implementation."
+  - "For string when: look up capability name in CAPABILITY_PROBES."
+  - "For dict when with all:/any: validate each item in the list."
+  - "Report unknown capabilities as warnings (code: unknown-capability)."
+  - "Cache CAPABILITY_PROBES set on first call (loaded once per run)."
+  - "If runner.detect import fails, skip capability validation silently."
+
+output_contract:
+  returns: "list[ValidationError] — warnings for unknown capability references."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_rule_capability_validation_spec.py
+    classes:
+      - TestCapabilityValidationSpecDerived
+    count: 5
