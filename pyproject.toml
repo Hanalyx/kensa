@@ -14,7 +14,7 @@ name = "kensa"
 version = "1.3.0"
 description = "SSH-based compliance test runner for RHEL systems"
 readme = "README.md"
-license = "MIT"
+license = "BSL-1.1"
 requires-python = ">=3.10"
 authors = [
     { name = "Hanalyx", email = "dev@hanalyx.com" }
@@ -24,7 +24,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",

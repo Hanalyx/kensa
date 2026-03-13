@@ -24,16 +24,31 @@ class TestLoadRules:
         rules = load_rules(str(d))
         assert len(rules) == 2
 
-    def test_skip_non_rule_yaml(self, tmp_path):
-        # File without an 'id' field
+    def test_skip_non_rule_yaml_lenient(self, tmp_path):
+        # File without an 'id' field — lenient mode skips it
         (tmp_path / "not-a-rule.yml").write_text("some_key: some_value\n")
-        rules = load_rules(str(tmp_path))
+        rules = load_rules(str(tmp_path), strict=False)
         assert len(rules) == 0
 
-    def test_skip_malformed_yaml(self, tmp_path):
+    def test_reject_non_rule_yaml_strict(self, tmp_path):
+        # File without an 'id' field — strict mode raises
+        from runner._loading import RuleLoadError
+
+        (tmp_path / "not-a-rule.yml").write_text("some_key: some_value\n")
+        with pytest.raises(RuleLoadError):
+            load_rules(str(tmp_path))
+
+    def test_skip_malformed_yaml_lenient(self, tmp_path):
         (tmp_path / "bad.yml").write_text(": : : not valid yaml [[[")
-        rules = load_rules(str(tmp_path))
+        rules = load_rules(str(tmp_path), strict=False)
         assert len(rules) == 0
+
+    def test_reject_malformed_yaml_strict(self, tmp_path):
+        from runner._loading import RuleLoadError
+
+        (tmp_path / "bad.yml").write_text(": : : not valid yaml [[[")
+        with pytest.raises(RuleLoadError):
+            load_rules(str(tmp_path))
 
     def test_filter_severity(self, tmp_rule_dir, sample_rule, sample_rule_gated):
         d = tmp_rule_dir([sample_rule, sample_rule_gated])

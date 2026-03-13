@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
+import pytest
 import yaml
 
-from runner._loading import load_rules, rule_applies_to_platform
+from runner._loading import RuleLoadError, load_rules, rule_applies_to_platform
 
 
 class TestRuleLoadingSpecDerived:
@@ -41,35 +44,33 @@ class TestRuleLoadingSpecDerived:
         assert "b-rule" in ids
         assert "c-rule" in ids
 
-    def test_ac3_invalid_yaml_silently_skipped(self, tmp_path):
-        """AC-3: Files that fail YAML parsing are silently skipped."""
+    def test_ac3_strict_mode_raises_on_invalid_yaml(self, tmp_path):
+        """AC-3: In strict mode, files that fail YAML parsing raise RuleLoadError with file path."""
         good = tmp_path / "good.yml"
         good.write_text(yaml.dump({"id": "good-rule", "title": "Good"}))
 
         bad = tmp_path / "bad.yml"
         bad.write_text("{{invalid: yaml: [unclosed")
 
-        result = load_rules(str(tmp_path))
-        assert len(result) == 1
-        assert result[0]["id"] == "good-rule"
+        with pytest.raises(RuleLoadError, match="bad.yml"):
+            load_rules(str(tmp_path))
 
-    def test_ac4_non_dict_or_missing_id_skipped(self, tmp_path):
-        """AC-4: Files that parse to non-dict or lack 'id' key are silently skipped."""
+    def test_ac4_strict_mode_raises_on_missing_id(self, tmp_path):
+        """AC-4: In strict mode, files that parse to non-dict or lack 'id' raise RuleLoadError with file path."""
         # A file that parses to a list (non-dict)
         list_file = tmp_path / "list.yml"
         list_file.write_text(yaml.dump(["item1", "item2"]))
 
-        # A file that parses to a dict but lacks "id"
-        no_id_file = tmp_path / "no_id.yml"
-        no_id_file.write_text(yaml.dump({"title": "No ID", "severity": "low"}))
+        with pytest.raises(RuleLoadError, match="list.yml"):
+            load_rules(str(tmp_path))
 
-        # A valid file
-        valid = tmp_path / "valid.yml"
-        valid.write_text(yaml.dump({"id": "valid", "title": "Valid"}))
+    def test_ac4_strict_mode_raises_on_no_id_key(self, tmp_path):
+        """AC-4: In strict mode, dict without 'id' key raises RuleLoadError."""
+        no_id = tmp_path / "no_id.yml"
+        no_id.write_text(yaml.dump({"title": "No ID", "severity": "low"}))
 
-        result = load_rules(str(tmp_path))
-        assert len(result) == 1
-        assert result[0]["id"] == "valid"
+        with pytest.raises(RuleLoadError, match="no_id.yml"):
+            load_rules(str(tmp_path))
 
     def test_ac5_severity_filter_case_insensitive(self, tmp_path):
         """AC-5: severity filter is case-insensitive."""
@@ -155,3 +156,50 @@ class TestRuleLoadingSpecDerived:
             ],
         }
         assert rule_applies_to_platform(rule_version, "rhel", 9) is False
+
+    def test_ac11_strict_parameter_defaults_to_true(self, tmp_path):
+        """AC-11: load_rules accepts a strict keyword parameter defaulting to True."""
+        bad = tmp_path / "bad.yml"
+        bad.write_text("{{invalid yaml")
+
+        # Default (strict=True) should raise
+        with pytest.raises(RuleLoadError):
+            load_rules(str(tmp_path))
+
+        # Explicit strict=True should raise
+        with pytest.raises(RuleLoadError):
+            load_rules(str(tmp_path), strict=True)
+
+    def test_ac12_lenient_mode_skips_invalid_yaml_with_warning(self, tmp_path, caplog):
+        """AC-12: In lenient mode, files that fail YAML parsing are skipped and a warning is logged."""
+        good = tmp_path / "good.yml"
+        good.write_text(yaml.dump({"id": "good-rule", "title": "Good"}))
+
+        bad = tmp_path / "bad.yml"
+        bad.write_text("{{invalid: yaml: [unclosed")
+
+        with caplog.at_level(logging.WARNING, logger="runner._loading"):
+            result = load_rules(str(tmp_path), strict=False)
+
+        assert len(result) == 1
+        assert result[0]["id"] == "good-rule"
+        assert "bad.yml" in caplog.text
+
+    def test_ac13_lenient_mode_skips_non_dict_with_warning(self, tmp_path, caplog):
+        """AC-13: In lenient mode, files without 'id' are skipped and a warning is logged."""
+        valid = tmp_path / "valid.yml"
+        valid.write_text(yaml.dump({"id": "valid", "title": "Valid"}))
+
+        list_file = tmp_path / "list.yml"
+        list_file.write_text(yaml.dump(["item1", "item2"]))
+
+        no_id = tmp_path / "no_id.yml"
+        no_id.write_text(yaml.dump({"title": "No ID"}))
+
+        with caplog.at_level(logging.WARNING, logger="runner._loading"):
+            result = load_rules(str(tmp_path), strict=False)
+
+        assert len(result) == 1
+        assert result[0]["id"] == "valid"
+        assert "list.yml" in caplog.text
+        assert "no_id.yml" in caplog.text
