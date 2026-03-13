@@ -15,7 +15,6 @@ depends_on: [pkg-firewalld-present]
 references:
   cis:
     rhel8:  { section: "3.4.1.1", level: "L1", type: "Automated" }
-    rhel9:  { section: "3.4.1.1", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-244544"

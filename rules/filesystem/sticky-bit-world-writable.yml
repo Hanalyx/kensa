@@ -12,8 +12,6 @@ category: filesystem
 tags: [permissions, sticky-bit, world-writable, security]
 
 references:
-  cis:
-    rhel9:  { section: "6.1.8", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6", "CM-6"]
 
 platforms:

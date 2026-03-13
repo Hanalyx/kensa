@@ -15,7 +15,6 @@ conflicts_with: [auditd-enabled]
 references:
   cis:
     rhel8:  { section: "6.3.1.4", level: "L2", type: "Automated" }
-    rhel9:  { section: "4.1.1.1", level: "L2", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-257868"

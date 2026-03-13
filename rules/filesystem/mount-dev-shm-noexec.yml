@@ -13,7 +13,6 @@ tags: [mount, dev-shm, hardening]
 references:
   cis:
     rhel8:  { section: "1.1.2.2.4", level: "L1", type: "Automated" }
-    rhel9:  { section: "1.1.5.4", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "AC-3", "AC-6"]
 
 platforms:

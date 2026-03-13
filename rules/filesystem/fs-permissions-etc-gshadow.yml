@@ -15,7 +15,6 @@ conflicts_with:
 references:
   cis:
     rhel8:  { section: "7.1.7", level: "L1", type: "Automated" }
-    rhel9:  { section: "6.1.6", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-257893"

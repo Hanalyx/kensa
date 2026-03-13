@@ -14,7 +14,6 @@ tags: [authentication, single-user, rescue, physical-security]
 references:
   cis:
     rhel8:  { section: "1.4.4", level: "L1", type: "Automated" }
-    rhel9:  { section: "1.4.4", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-257789"

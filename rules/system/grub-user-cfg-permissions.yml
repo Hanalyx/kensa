@@ -14,7 +14,6 @@ tags: [grub, bootloader, permissions, physical-security]
 references:
   cis:
     rhel8:  { section: "1.4.3", level: "L1", type: "Automated" }
-    rhel9:  { section: "1.4.3", level: "L1", type: "Automated" }
   nist_800_53: ["AC-3", "AC-6"]
 
 platforms:

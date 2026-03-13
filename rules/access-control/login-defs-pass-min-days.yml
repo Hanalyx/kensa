@@ -14,7 +14,6 @@ tags: [password, authentication, user-accounts, login-defs]
 references:
   cis:
     rhel8:  { section: "5.6.1.2", level: "L1", type: "Automated" }
-    rhel9:  { section: "5.6.1.2", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258098"

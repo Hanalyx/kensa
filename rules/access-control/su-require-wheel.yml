@@ -14,7 +14,6 @@ tags: [pam, su, privilege-escalation, wheel]
 references:
   cis:
     rhel8:  { section: "5.3.5", level: "L1", type: "Automated" }
-    rhel9:  { section: "5.3.5", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258039"

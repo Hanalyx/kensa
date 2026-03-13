@@ -13,7 +13,7 @@ depends_on: [auditd-service-enabled]
 
 references:
   cis:
-    rhel8: { section: "6.3.3.8", level: "L2", type: "Automated" }
+    rhel8: { section: "6.3.3.9", level: "L2", type: "Automated" }
     rhel9: { section: "6.3.3.9", level: "L1", type: "Automated" }
   stig:
     rhel9:

@@ -16,7 +16,6 @@ depends_on: [pam-faillock-deny]
 references:
   cis:
     rhel8:  { section: "5.4.2.3", level: "L1", type: "Automated" }
-    rhel9:  { section: "5.4.2",   level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258056"
