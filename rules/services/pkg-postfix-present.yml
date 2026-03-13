@@ -12,7 +12,7 @@ tags: [package, mail, postfix]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-272488"
       stig_id: "RHEL-09-247010"
       severity: "CAT II"

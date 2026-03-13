@@ -12,7 +12,7 @@ tags: [package, nfs, attack-surface]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257828"
       stig_id: "RHEL-09-215025"
       severity: "CAT II"

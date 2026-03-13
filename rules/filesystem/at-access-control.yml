@@ -13,7 +13,7 @@ tags: [at, access-control, scheduling, security]
 
 references:
   cis:
-    rhel9_v2:  { section: "2.4.2.1", level: "L1", type: "Automated" }
+    rhel9:  { section: "2.4.2.1", level: "L1", type: "Automated" }
   nist_800_53: ["AC-3", "AC-6"]
 
 platforms:

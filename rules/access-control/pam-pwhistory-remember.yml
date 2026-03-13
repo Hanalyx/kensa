@@ -10,7 +10,7 @@ tags: [pam, password, history]
 
 references:
   cis:
-    rhel9_v2: { section: "5.3.3.3.1", level: "L1", type: "Automated" }
+    rhel9: { section: "5.3.3.3.1", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
 
 platforms:
@@ -23,5 +23,8 @@ implementations:
       run: 'grep -qE ''^\s*remember\s*=\s*[0-9]+'' /etc/security/pwhistory.conf 2>/dev/null || grep -qE ''pam_pwhistory\.so.*remember='' /etc/pam.d/system-auth'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Configure remember in /etc/security/pwhistory.conf or pam_pwhistory.so"
+      mechanism: config_set
+      path: "/etc/security/pwhistory.conf"
+      key: "remember"
+      value: "{{ password_remember }}"
+      separator: " = "

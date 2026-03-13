@@ -90,7 +90,7 @@
           "type": "object",
           "description": "CIS Benchmark references keyed by os_version",
           "patternProperties": {
-            "^[a-z]+[0-9]+_v[0-9]+$": { "$ref": "#/$defs/cis_reference" }
+            "^[a-z]+[0-9]+$": { "$ref": "#/$defs/cis_reference" }
           },
           "additionalProperties": false
         },
@@ -98,7 +98,7 @@
           "type": "object",
           "description": "DISA STIG references keyed by os_version",
           "patternProperties": {
-            "^[a-z]+[0-9]+_v[0-9]+r[0-9]+$": { "$ref": "#/$defs/stig_reference" }
+            "^[a-z]+[0-9]+$": { "$ref": "#/$defs/stig_reference" }
           },
           "additionalProperties": false
         },
@@ -512,6 +512,7 @@
         "config_set_dropin",
         "config_remove",
         "config_block",
+        "config_append",
         "file_permissions",
         "file_absent",
         "file_content",

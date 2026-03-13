@@ -14,7 +14,7 @@ conflicts_with:
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257960"
       severity: "CAT II"
   nist_800_53: ["AU-12", "SC-5"]

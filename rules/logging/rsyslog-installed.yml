@@ -10,8 +10,8 @@ tags: [rsyslog, logging, packages]
 
 references:
   cis:
-    rhel8_v4: { section: "6.2.2.1", level: "L1", type: "Automated" }
-    rhel9_v2: { section: "6.2.3.1", level: "L1", type: "Automated" }
+    rhel8: { section: "6.2.2.1", level: "L1", type: "Automated" }
+    rhel9: { section: "6.2.3.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-2"]
 
 platforms:

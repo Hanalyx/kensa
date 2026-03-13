@@ -12,7 +12,7 @@ tags: [package, ssh, remote-access]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257980"
       stig_id: "RHEL-09-255010"
       severity: "CAT II"

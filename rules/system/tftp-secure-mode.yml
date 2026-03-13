@@ -15,7 +15,7 @@ tags: [tftp, service, security, hardening, stig]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230557"
       severity: "CAT II"
   nist_800_53: ["CM-7", "CM-6"]

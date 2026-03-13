@@ -106,7 +106,7 @@ input_contract:
     type: str
     required: false
     default: null
-    description: "Control filter (e.g., cis-rhel9-v2.0.0:5.1.12)"
+    description: "Control filter (e.g., cis-rhel9:5.1.12)"
   - field: --config-dir
     type: str
     required: false

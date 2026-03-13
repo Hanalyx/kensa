@@ -208,7 +208,7 @@ class TestInfoExistingBehavior:
 
     def test_control_lookup(self):
         runner = CliRunner()
-        result = runner.invoke(main, ["info", "--control", "cis-rhel9-v2.0.0:5.2.2"])
+        result = runner.invoke(main, ["info", "--control", "cis-rhel9:5.2.2"])
         assert result.exit_code == 0
         output = strip_ansi(result.output)
         assert "sudo-use-pty" in output or "Rules implementing" in output
@@ -216,7 +216,7 @@ class TestInfoExistingBehavior:
     def test_list_controls(self):
         runner = CliRunner()
         result = runner.invoke(
-            main, ["info", "--list-controls", "--framework", "cis-rhel9-v2.0.0"]
+            main, ["info", "--list-controls", "--framework", "cis-rhel9"]
         )
         assert result.exit_code == 0
         output = strip_ansi(result.output)
@@ -230,7 +230,7 @@ class TestInfoExistingBehavior:
                 "info",
                 "--list-controls",
                 "--framework",
-                "cis-rhel9-v2.0.0",
+                "cis-rhel9",
                 "--json",
             ],
         )

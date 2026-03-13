@@ -8,7 +8,7 @@ back to extracting data directly from the mapping YAML.
 
 Usage:
     python scripts/cis_validate.py                              # All CIS mappings
-    python scripts/cis_validate.py --mapping cis-rhel9-v2.0.0   # Specific benchmark
+    python scripts/cis_validate.py --mapping cis-rhel9   # Specific benchmark
     python scripts/cis_validate.py --json                        # Machine-readable
     python scripts/cis_validate.py --chapter 5                   # Single chapter
 """
@@ -170,7 +170,7 @@ def discover_mappings() -> list[Path]:
 
 
 def resolve_mapping_path(mapping_id: str) -> Path | None:
-    """Resolve a mapping ID like 'cis-rhel9-v2.0.0' to a file path.
+    """Resolve a mapping ID like 'cis-rhel9' to a file path.
 
     Checks the 'id' field inside each mapping YAML, then falls back to
     filename-based matching.
@@ -208,7 +208,7 @@ def load_baseline(mapping_id: str) -> dict | None:
     if not BASELINES_DIR.is_dir():
         return None
     # Derive baseline filename from mapping ID
-    # cis-rhel9-v2.0.0 -> rhel9-v2.0.0-baseline.yaml
+    # cis-rhel9 -> rhel9-v2.0.0-baseline.yaml
     stem = mapping_id.replace("cis-", "")
     baseline_path = BASELINES_DIR / f"{stem}-baseline.yaml"
     if baseline_path.exists():
@@ -624,7 +624,7 @@ def main() -> int:
         "--mapping",
         type=str,
         default=None,
-        help="Mapping ID (e.g. cis-rhel9-v2.0.0) or path to mapping YAML",
+        help="Mapping ID (e.g. cis-rhel9) or path to mapping YAML",
     )
     parser.add_argument(
         "--json",

@@ -14,7 +14,7 @@ tags: [chrony, ntp, network, time]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230486"
       severity: "CAT II"
   nist_800_53: ["CM-7", "AU-8"]
@@ -31,7 +31,8 @@ implementations:
         grep -qE '^\s*cmdport\s+0\s*$' /etc/chrony.conf 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add 'cmdport 0' to /etc/chrony.conf to disable network management.
-        Restart chronyd: systemctl restart chronyd
+      mechanism: config_set
+      path: "/etc/chrony.conf"
+      key: "cmdport"
+      value: "0"
+      restart: "chronyd"

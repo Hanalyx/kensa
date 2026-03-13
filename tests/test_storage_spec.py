@@ -157,7 +157,7 @@ class TestResultStoreSpecDerived:
             actual="PermitRootLogin no",
             timestamp=datetime.now(timezone.utc),
         )
-        refs = {"cis_rhel9_v2": "5.1.12", "stig_rhel9": "V-123456"}
+        refs = {"cis_rhel9": "5.1.12", "stig_rhel9": "V-123456"}
 
         rid = store.record_result(
             session_id,

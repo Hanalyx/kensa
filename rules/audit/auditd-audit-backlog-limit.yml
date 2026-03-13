@@ -14,7 +14,7 @@ tags: [audit, grub, boot, configuration]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258173"
       severity: "CAT III"
   nist_800_53: ["AU-12"]

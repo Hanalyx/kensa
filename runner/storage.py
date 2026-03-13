@@ -435,7 +435,7 @@ class ResultStore:
             remediated: Whether remediation was applied.
             rule_hash: Hash of rule content for change detection.
             evidence: Raw evidence from the check (for audit).
-            framework_refs: Framework references (e.g., {"cis_rhel9_v2": "5.1.12"}).
+            framework_refs: Framework references (e.g., {"cis_rhel9": "5.1.12"}).
 
         Returns:
             Result record ID.

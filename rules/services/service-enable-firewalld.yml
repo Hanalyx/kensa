@@ -14,10 +14,9 @@ depends_on: [pkg-firewalld-present]
 
 references:
   cis:
-    rhel8_v4:  { section: "3.4.1.1", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "3.4.1.1", level: "L1", type: "Automated" }
+    rhel8:  { section: "3.4.1.1", level: "L1", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-244544"
       severity: "CAT II"
   nist_800_53: ["SC-7", "CM-7"]

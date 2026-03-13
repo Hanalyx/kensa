@@ -12,7 +12,7 @@ tags: [package, updates, security]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257825"
       stig_id: "RHEL-09-215010"
       severity: "CAT II"

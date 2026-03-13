@@ -13,9 +13,10 @@ depends_on: [auditd-service-enabled]
 
 references:
   cis:
-    rhel9_v2: { section: "6.3.3.7", level: "L1", type: "Automated" }
+    rhel8: { section: "6.3.3.7", level: "L2", type: "Automated" }
+    rhel9: { section: "6.3.3.7", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257802"
       stig_id: "RHEL-09-654015"
       severity: "CAT II"

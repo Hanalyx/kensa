@@ -16,10 +16,10 @@ depends_on: [auditd-service-enabled]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258228"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230403"
       severity: "CAT II"
   nist_800_53: ["AU-9", "AC-6"]
@@ -35,5 +35,6 @@ implementations:
       run: "grep -c '\\-\\-loginuid-immutable' /etc/audit/rules.d/audit.rules"
       expected_exit: 0
     remediation:
-      mechanism: command_exec
-      run: "grep -q '\\-\\-loginuid-immutable' /etc/audit/rules.d/audit.rules || echo '--loginuid-immutable' >> /etc/audit/rules.d/audit.rules"
+      mechanism: config_append
+      path: "/etc/audit/rules.d/audit.rules"
+      line: "--loginuid-immutable"

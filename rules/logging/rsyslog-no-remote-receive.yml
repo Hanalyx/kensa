@@ -12,10 +12,10 @@ tags: [logging, rsyslog, remote]
 
 references:
   cis:
-    rhel8_v4:  { section: "6.2.2.7", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "6.2.3.7", level: "L1", type: "Automated" }
+    rhel8:  { section: "6.2.2.7", level: "L1", type: "Automated" }
+    rhel9:  { section: "6.2.3.7", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258143"
       stig_id: "RHEL-09-652025"
       severity: "CAT II"

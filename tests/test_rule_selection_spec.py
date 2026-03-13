@@ -161,7 +161,7 @@ class TestRuleSelectionSpecDerived:
         mock_mapping = MagicMock()
         mock_mapping.title = "CIS RHEL 9 v2.0.0"
         mock_mapping.implemented_count = 100
-        mock_load_all_mappings.return_value = {"cis-rhel9-v2.0.0": mock_mapping}
+        mock_load_all_mappings.return_value = {"cis-rhel9": mock_mapping}
         mock_rules_for_fw.return_value = rules
         mock_build_map.return_value = {"rule-1": "1.1.1"}
 
@@ -171,7 +171,7 @@ class TestRuleSelectionSpecDerived:
             severity=(),
             tag=(),
             category=None,
-            control="cis-rhel9-v2.0.0:1.1.1",
+            control="cis-rhel9:1.1.1",
         )
 
         # Should have resolved via get_rules_path(), not hardcoded "rules/"
@@ -238,7 +238,7 @@ class TestRuleSelectionSpecDerived:
 
         mock_index = MagicMock()
         mock_fw_index_cls.build.return_value = mock_index
-        mock_load_all_mappings.return_value = {"cis-rhel9-v2.0.0": MagicMock()}
+        mock_load_all_mappings.return_value = {"cis-rhel9": MagicMock()}
 
         with pytest.raises(ValueError, match="mutually exclusive"):
             select_rules(
@@ -284,7 +284,7 @@ class TestRuleSelectionSpecDerived:
         mock_mapping = MagicMock()
         mock_mapping.title = "CIS RHEL 9 v2.0.0"
         mock_mapping.implemented_count = 100
-        mock_load_all_mappings.return_value = {"cis-rhel9-v2.0.0": mock_mapping}
+        mock_load_all_mappings.return_value = {"cis-rhel9": mock_mapping}
         mock_rules_for_fw.return_value = filtered
         mock_build_map.return_value = {"rule-1": "1.1.2.4"}
 
@@ -294,13 +294,13 @@ class TestRuleSelectionSpecDerived:
             severity=(),
             tag=(),
             category=None,
-            control="cis-rhel9-v2.0.0:1.1.2.4",
+            control="cis-rhel9:1.1.2.4",
         )
 
         mock_index.query_by_control.assert_called()
         assert isinstance(result, RuleSelection)
         # Framework should be inferred from the control prefix
-        assert result.framework == "cis-rhel9-v2.0.0"
+        assert result.framework == "cis-rhel9"
 
     @patch(_P_LOAD_CONFIG)
     @patch(_P_PARSE_VAR, return_value={})
@@ -327,7 +327,7 @@ class TestRuleSelectionSpecDerived:
         mock_index.query_by_control.return_value = ["rule-1"]
         mock_index.controls_to_rules = {}
         mock_fw_index_cls.build.return_value = mock_index
-        mock_load_all_mappings.return_value = {"cis-rhel9-v2.0.0": MagicMock()}
+        mock_load_all_mappings.return_value = {"cis-rhel9": MagicMock()}
 
         result = select_rules(
             rules_path="rules/",
@@ -366,7 +366,7 @@ class TestRuleSelectionSpecDerived:
         mock_index.query_by_control.return_value = []
         mock_index.controls_to_rules = {}
         mock_fw_index_cls.build.return_value = mock_index
-        mock_load_all_mappings.return_value = {"cis-rhel9-v2.0.0": MagicMock()}
+        mock_load_all_mappings.return_value = {"cis-rhel9": MagicMock()}
 
         with pytest.raises(ValueError, match="No rules found for control"):
             select_rules(
@@ -375,7 +375,7 @@ class TestRuleSelectionSpecDerived:
                 severity=(),
                 tag=(),
                 category=None,
-                control="cis-rhel9-v2.0.0:99.99.99",
+                control="cis-rhel9:99.99.99",
             )
 
     @patch(_P_LOAD_CONFIG)
@@ -405,7 +405,7 @@ class TestRuleSelectionSpecDerived:
         mock_mapping = MagicMock()
         mock_mapping.title = "CIS RHEL 9 v2.0.0"
         mock_mapping.implemented_count = 100
-        mock_load_all_mappings.return_value = {"cis-rhel9-v2.0.0": mock_mapping}
+        mock_load_all_mappings.return_value = {"cis-rhel9": mock_mapping}
         mock_rules_for_fw.return_value = filtered
         mock_build_map.return_value = {"rule-1": "1.1.1"}
 
@@ -415,11 +415,11 @@ class TestRuleSelectionSpecDerived:
             severity=(),
             tag=(),
             category=None,
-            framework="cis-rhel9-v2.0.0",
+            framework="cis-rhel9",
         )
 
         assert isinstance(result, RuleSelection)
-        assert result.framework == "cis-rhel9-v2.0.0"
+        assert result.framework == "cis-rhel9"
         mock_rules_for_fw.assert_called_once_with(mock_mapping, rules)
 
         # Unknown framework raises ValueError

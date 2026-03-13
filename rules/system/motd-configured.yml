@@ -13,7 +13,7 @@ tags: [banner, motd, login, security]
 
 references:
   cis:
-    rhel9_v2: { section: "1.7.1", level: "L1", type: "Automated" }
+    rhel9: { section: "1.7.1", level: "L1", type: "Automated" }
   nist_800_53: ["AC-8"]
 
 platforms:

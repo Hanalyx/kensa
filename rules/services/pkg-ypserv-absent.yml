@@ -14,7 +14,7 @@ conflicts_with: [package-ypserv-removed]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257829"
       stig_id: "RHEL-09-215030"
       severity: "CAT II"

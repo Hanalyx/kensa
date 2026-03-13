@@ -14,11 +14,11 @@ tags: [package, telnet, server, attack-surface]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257837"
       stig_id: "RHEL-09-215065"
       severity: "CAT I"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230487"
       severity: "CAT I"
   nist_800_53: ["CM-7", "SC-8", "IA-5"]

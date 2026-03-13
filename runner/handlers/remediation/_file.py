@@ -18,22 +18,41 @@ def _remediate_file_permissions(
 ) -> tuple[bool, str]:
     """Set file ownership and permissions.
 
-    Uses chown and chmod to set the specified attributes.
-    Supports glob patterns.
+    Supports two modes:
+    - Direct mode: chown/chmod on a single path or glob pattern.
+    - Bulk find mode: find files in directory trees, apply changes via -exec.
+
+    Bulk mode is activated when ``find_paths`` is present in the remediation
+    dict. See specs/handlers/remediation/file_permissions.spec.yaml v2.0.0
+    for AC-12 through AC-21.
 
     Args:
         ssh: Active SSH session to the target host.
-        r: Remediation definition with required fields:
+        r: Remediation definition. Direct mode fields:
             - path (str): File path or glob pattern.
             - owner (str, optional): Owner to set.
             - group (str, optional): Group to set.
-            - mode (str, optional): Octal mode.
+            - mode (str, optional): Octal or symbolic mode.
             - glob (bool, optional): Explicit glob flag.
+           Bulk find mode fields:
+            - find_paths (list[str]): Directories to search.
+            - find_name (str, optional): -name pattern.
+            - find_type (str, optional): -type filter (f/d).
+            - find_args (str, optional): Extra find arguments.
 
     Returns:
         Tuple of (success, detail).
 
     """
+    if "find_paths" in r:
+        return _bulk_find_permissions(ssh, r, dry_run=dry_run)
+    return _direct_permissions(ssh, r, dry_run=dry_run)
+
+
+def _direct_permissions(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Direct path mode: chown/chmod on a single path or glob."""
     path = r["path"]
     is_glob = "glob" in r or shell_util.is_glob_path(path)
     parts = []
@@ -57,6 +76,42 @@ def _remediate_file_permissions(
     if not result.ok:
         return False, f"Failed: {result.stderr}"
     return True, f"Set permissions on {path}"
+
+
+def _bulk_find_permissions(
+    ssh: SSHSession, r: dict, *, dry_run: bool = False
+) -> tuple[bool, str]:
+    """Bulk find mode: discover files via find, apply changes via -exec."""
+    find_paths = r["find_paths"]
+    quoted_paths = " ".join(shell_util.quote(p) for p in find_paths)
+    cmd_parts = [f"find {quoted_paths}"]
+
+    if "find_name" in r:
+        cmd_parts.append(f"-name {shell_util.quote(r['find_name'])}")
+    if "find_type" in r:
+        cmd_parts.append(f"-type {r['find_type']}")
+    if "find_args" in r:
+        cmd_parts.append(r["find_args"])
+
+    if "owner" in r or "group" in r:
+        owner = r.get("owner", "")
+        group = r.get("group", "")
+        chown_spec = f"{owner}:{group}" if group else owner
+        cmd_parts.append(f"-exec chown {chown_spec} {{}} +")
+
+    if "mode" in r:
+        cmd_parts.append(f"-exec chmod {r['mode']} {{}} +")
+
+    cmd = " ".join(cmd_parts)
+
+    if dry_run:
+        return True, f"Would run: {cmd}"
+
+    result = ssh.run(cmd)
+    if not result.ok:
+        return False, f"Failed: {result.stderr}"
+    paths_str = ", ".join(find_paths)
+    return True, f"Set permissions via find in {paths_str}"
 
 
 def _remediate_file_content(

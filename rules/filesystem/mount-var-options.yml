@@ -13,7 +13,7 @@ tags: [mount, var, security]
 
 references:
   cis:
-    rhel9_v2:  { section: "1.1.2.4.2", level: "L1", type: "Automated" }
+    rhel9:  { section: "1.1.2.4.2", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6", "CM-6"]
 
 platforms:

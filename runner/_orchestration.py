@@ -19,8 +19,8 @@ def _extract_framework_refs(rule: dict) -> dict[str, str]:
     """Extract flattened framework references from a rule.
 
     Converts nested reference structures into flat key-value pairs
-    for easy lookup and display. For example: "cis_rhel9_v2" -> "5.1.12",
-    "stig_rhel9_v2r7" -> "V-123456", "nist_800_53" -> "AU-2, AU-3".
+    for easy lookup and display. For example: "cis_rhel9" -> "5.1.12",
+    "stig_rhel9" -> "V-123456", "nist_800_53" -> "AU-2, AU-3".
 
     Args:
         rule: Rule definition with optional references section.

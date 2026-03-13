@@ -12,7 +12,7 @@ tags: [package, smartcard, authentication]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257838"
       stig_id: "RHEL-09-215075"
       severity: "CAT II"

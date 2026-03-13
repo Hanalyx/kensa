@@ -43,7 +43,7 @@ def _make_rule(rule_id: str, **overrides) -> dict:
         "category": "audit",
         "tags": ["test"],
         "references": {
-            "stig": {"rhel8_v2r6": {"vuln_id": "V-999999", "severity": "CAT II"}},
+            "stig": {"rhel8": {"vuln_id": "V-999999", "severity": "CAT II"}},
             "nist_800_53": ["AC-1"],
         },
         "platforms": [{"family": "rhel", "min_version": 8}],

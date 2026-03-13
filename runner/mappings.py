@@ -5,7 +5,7 @@ identifiers (CIS, STIG, NIST, etc.) without embedding mappings in rules.
 
 Example:
     >>> from runner.mappings import load_mapping, rules_for_framework
-    >>> mapping = load_mapping("mappings/cis/rhel9_v2.0.0.yaml")
+    >>> mapping = load_mapping("mappings/cis/rhel9.yaml")
     >>> filtered_rules = rules_for_framework(mapping, all_rules)
 
 """
@@ -72,9 +72,10 @@ class FrameworkMapping:
     """A complete framework mapping.
 
     Attributes:
-        id: Unique mapping identifier (e.g., "cis-rhel9-v2.0.0").
+        id: Unique mapping identifier (e.g., "cis-rhel9").
         framework: Framework type (cis, stig, nist_800_53, pci_dss).
         title: Human-readable title.
+        version: Benchmark edition (e.g., "v2.0.0", "V2R7"). Optional.
         published: Publication date (optional).
         platform: Platform constraint (optional).
         controls: List of all control IDs that must be accounted for.
@@ -86,6 +87,7 @@ class FrameworkMapping:
     id: str
     framework: str
     title: str
+    version: str | None = None
     published: date | None = None
     platform: PlatformConstraint | None = None
     controls: list[str] = field(default_factory=list)
@@ -244,6 +246,7 @@ def load_mapping(path: str | Path) -> FrameworkMapping:
         id=data.get("id", ""),
         framework=framework,
         title=data.get("title", ""),
+        version=data.get("version"),
         published=published,
         platform=_parse_platform(data.get("platform")),
         controls=controls,
@@ -532,7 +535,7 @@ class FrameworkReference:
     """A reference from a framework to a rule.
 
     Attributes:
-        mapping_id: Framework mapping ID (e.g., "cis-rhel9-v2.0.0").
+        mapping_id: Framework mapping ID (e.g., "cis-rhel9").
         mapping_title: Human-readable framework title.
         section_id: Section/control ID within the framework.
         title: Section title from the framework.

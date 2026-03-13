@@ -10,8 +10,8 @@ tags: [at, access-control]
 
 references:
   cis:
-    rhel9_v2: { section: "2.4.2.1", level: "L1", type: "Automated" }
-    rhel8_v4:  { section: "2.4.2.1", level: "L1", type: "Automated" }
+    rhel9: { section: "2.4.2.1", level: "L1", type: "Automated" }
+    rhel8:  { section: "2.4.2.1", level: "L1", type: "Automated" }
   nist_800_53: ["AC-3", "CM-6"]
 
 platforms:

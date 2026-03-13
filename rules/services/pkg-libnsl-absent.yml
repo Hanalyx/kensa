@@ -14,7 +14,7 @@ tags: [package, nis, yp, attack-surface]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257835"
       severity: "CAT III"
   nist_800_53: ["CM-7", "IA-5"]

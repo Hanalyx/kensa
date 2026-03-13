@@ -12,7 +12,7 @@ tags: [package, routing, attack-surface]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257836"
       severity: "CAT II"
   nist_800_53: ["CM-7"]

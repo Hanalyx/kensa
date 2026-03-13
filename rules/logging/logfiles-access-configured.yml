@@ -12,8 +12,8 @@ tags: [logging, permissions, security]
 
 references:
   cis:
-    rhel8_v4: { section: "6.2.3.1", level: "L1", type: "Automated" }
-    rhel9_v2: { section: "6.2.4.1", level: "L1", type: "Automated" }
+    rhel8: { section: "6.2.3.1", level: "L1", type: "Automated" }
+    rhel9: { section: "6.2.4.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-9"]
 
 platforms:
@@ -36,7 +36,8 @@ implementations:
         exit 0
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Review and fix permissions on log files. Remove world-readable
-        permissions: find /var/log -type f -perm /o+r -exec chmod o-r {} \;
+      mechanism: file_permissions
+      find_paths: ["/var/log"]
+      find_type: "f"
+      find_args: "-perm /o+r"
+      mode: "o-r"

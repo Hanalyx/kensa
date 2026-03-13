@@ -10,9 +10,9 @@ tags: [pam, authentication, faillock]
 
 references:
   cis:
-    rhel9_v2: { section: "5.3.2.2", level: "L1", type: "Automated" }
+    rhel9: { section: "5.3.2.2", level: "L1", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230338"
       severity: "CAT II"
   nist_800_53: ["AC-7"]

@@ -13,8 +13,10 @@ category: filesystem
 tags: [mount, var-log, filesystem, hardening]
 
 references:
+  cis:
+    rhel9:  { section: "1.1.2.6.1", level: "L2", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230293"
       severity: "CAT III"
   nist_800_53: ["CM-6", "AU-4"]

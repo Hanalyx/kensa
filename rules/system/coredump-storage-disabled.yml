@@ -14,7 +14,7 @@ tags: [coredump, security, memory, privacy]
 
 references:
   cis:
-    rhel9_v2: { section: "1.5.4", level: "L1", type: "Automated" }
+    rhel9: { section: "1.5.4", level: "L1", type: "Automated" }
   nist_800_53: ["SC-4"]
 
 platforms:

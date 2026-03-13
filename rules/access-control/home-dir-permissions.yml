@@ -14,7 +14,7 @@ tags: [home-directory, permissions, file-security, users]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230321"
       severity: "CAT II"
   nist_800_53: ["CM-6", "AC-6"]
@@ -38,8 +38,8 @@ implementations:
         [ -z "$bad" ]
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        For each home directory with permissions greater than 0750, run:
-        chmod 0750 <home-directory>
-        Review each case before modifying to avoid breaking legitimate access.
+      mechanism: file_permissions
+      find_paths: ["/home"]
+      find_type: "d"
+      find_args: "-maxdepth 1 -mindepth 1 -perm /027"
+      mode: "0750"

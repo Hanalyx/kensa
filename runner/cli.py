@@ -135,7 +135,7 @@ def rule_options(f):
         "--framework",
         "-f",
         default=None,
-        help="Filter to rules in framework mapping (e.g., cis-rhel9-v2.0.0)",
+        help="Filter to rules in framework mapping (e.g., cis-rhel9)",
     )(f)
     f = click.option(
         "--var",
@@ -148,7 +148,7 @@ def rule_options(f):
     f = click.option(
         "--control",
         default=None,
-        help="Run only rules for a framework control (e.g., cis-rhel9-v2.0.0:5.1.12 or 5.1.12)",
+        help="Run only rules for a framework control (e.g., cis-rhel9:5.1.12 or 5.1.12)",
     )(f)
     f = click.option(
         "--config-dir",
@@ -195,11 +195,11 @@ Connection Options (detect/check/remediate):
 Rule Options (check/remediate):
   -r, --rules PATH         Rules directory
   --rule PATH              Single rule file
-  --control ID             Run rules for a control (e.g., cis-rhel9-v2.0.0:5.1.12)
+  --control ID             Run rules for a control (e.g., cis-rhel9:5.1.12)
   -s, --severity TEXT      Filter by severity (repeatable)
   -t, --tag TEXT           Filter by tag (repeatable)
   -c, --category TEXT      Filter by category
-  -f, --framework TEXT     Filter to framework (e.g., cis-rhel9-v2.0.0)
+  -f, --framework TEXT     Filter to framework (e.g., cis-rhel9)
   -V, --var KEY=VALUE      Override rule variable (repeatable)
   --config-dir PATH        Config directory (default: auto-detect)
 
@@ -229,7 +229,7 @@ Examples:
   kensa check -i hosts.ini --sudo -o json -q
   kensa check -i hosts.ini --sudo -o csv:results.csv -o pdf:report.pdf
   kensa check -i hosts.ini --sudo -V pam_pwquality_minlen=20
-  kensa check -i hosts.ini --sudo --control cis-rhel9-v2.0.0:5.1.12
+  kensa check -i hosts.ini --sudo --control cis-rhel9:5.1.12
   kensa remediate -i hosts.ini --sudo --control 5.1.12
   kensa remediate -i hosts.ini --sudo --dry-run
 """
@@ -1698,7 +1698,7 @@ def diff(session1, session2, host, show_unchanged, json_output):
     "--framework",
     "-f",
     required=True,
-    help="Framework mapping ID (e.g., cis-rhel9-v2.0.0)",
+    help="Framework mapping ID (e.g., cis-rhel9)",
 )
 @click.option("--rules", "-r", default=None, help="Path to rules directory")
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
@@ -1709,8 +1709,8 @@ def coverage(framework, rules, json_output):
     unimplemented, and which have missing rules.
 
     Examples:
-      kensa coverage --framework cis-rhel9-v2.0.0
-      kensa coverage --framework cis-rhel9-v2.0.0 --json
+      kensa coverage --framework cis-rhel9
+      kensa coverage --framework cis-rhel9 --json
     """
     from runner.mappings import check_coverage, load_all_mappings
     from runner.paths import get_rules_path
@@ -1895,7 +1895,7 @@ def _get_control_info(
     """Get control info (title, metadata) from mappings.
 
     Args:
-        control_spec: Control specification (e.g., "cis-rhel9-v2.0.0:5.1.12").
+        control_spec: Control specification (e.g., "cis-rhel9:5.1.12").
         mappings: Dict of mapping_id -> FrameworkMapping.
         prefix_match: Whether to match as prefix.
 
@@ -2191,7 +2191,7 @@ def _info_by_reference(
     "--control",
     "-c",
     default=None,
-    help="Find rules implementing a control (e.g., cis-rhel9-v2.0.0:5.1.12 or just 5.1.12)",
+    help="Find rules implementing a control (e.g., cis-rhel9:5.1.12 or just 5.1.12)",
 )
 @click.option(
     "--rule",
@@ -2268,8 +2268,8 @@ def info(
       kensa info --cis 5.2.2 --rhel 9                # Explicit CIS
       kensa info --stig V-258036                      # Explicit STIG
       kensa info --nist AC-3                          # Explicit NIST
-      kensa info --control cis-rhel9-v2.0.0:5.1.12   # Mapping-based control
-      kensa info --list-controls -f cis-rhel9-v2.0.0  # List controls
+      kensa info --control cis-rhel9:5.1.12   # Mapping-based control
+      kensa info --list-controls -f cis-rhel9  # List controls
     """
     from runner.mappings import FrameworkIndex, load_all_mappings
     from runner.paths import get_rules_path
@@ -2515,8 +2515,8 @@ def info(
     console.print("  kensa info 5.2.2                 # CIS section")
     console.print("  kensa info V-258036              # STIG ID")
     console.print("  kensa info AC-3                  # NIST control")
-    console.print("  kensa info --control cis-rhel9-v2.0.0:5.1.12")
-    console.print("  kensa info --list-controls -f cis-rhel9-v2.0.0")
+    console.print("  kensa info --control cis-rhel9:5.1.12")
+    console.print("  kensa info --list-controls -f cis-rhel9")
     sys.exit(1)
 
 

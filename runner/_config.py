@@ -217,7 +217,7 @@ def _get_effective_variables(
 
     # Apply framework overrides if specified
     if framework:
-        # Extract base framework name (e.g., "cis" from "cis-rhel9-v2.0.0")
+        # Extract base framework name (e.g., "cis" from "cis-rhel9")
         fw_base = framework.split("-")[0].lower()
         if fw_base in config.framework_overrides:
             effective.update(config.framework_overrides[fw_base])

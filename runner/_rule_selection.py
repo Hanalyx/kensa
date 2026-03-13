@@ -151,7 +151,7 @@ def _apply_framework_filter(
     """Filter rules to those in a specific framework mapping.
 
     Args:
-        framework: Framework mapping ID (e.g., "cis-rhel9-v2.0.0").
+        framework: Framework mapping ID (e.g., "cis-rhel9").
         rule_list: Rules to filter.
         out: Console for output messages (None = suppress).
 

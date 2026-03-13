@@ -13,13 +13,13 @@ tags: [user-accounts, system-accounts, shell, security]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.6.8", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.4.2.7", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.6.8", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.4.2.7", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258046"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230379"
       severity: "CAT II"
   nist_800_53: ["AC-6"]

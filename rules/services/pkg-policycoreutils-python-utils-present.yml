@@ -12,7 +12,7 @@ tags: [package, selinux, security]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258082"
       stig_id: "RHEL-09-431020"
       severity: "CAT II"

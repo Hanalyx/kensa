@@ -14,7 +14,7 @@ conflicts_with: [package-xorg-x11-server-common-removed]
 
 references:
   cis:
-    rhel9_v2: { section: "2.1.20", level: "L1", type: "Automated" }
+    rhel9: { section: "2.1.20", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

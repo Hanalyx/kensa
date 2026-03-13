@@ -16,7 +16,7 @@ depends_on: [service-enable-firewalld]
 
 references:
   cis:
-    rhel9_v2:  { section: "4.1.2", level: "L1", type: "Automated" }
+    rhel9:  { section: "4.1.2", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6"]
 
 platforms:

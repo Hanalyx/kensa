@@ -14,7 +14,7 @@ tags: [pam, password, sha512, hashing, system-auth]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258100"
       stig_id: "RHEL-09-611105"
       severity: "CAT II"

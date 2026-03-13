@@ -14,7 +14,7 @@ tags: [pam, pwquality, password-complexity, root]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258101"
       stig_id: "RHEL-09-611055"
       severity: "CAT II"

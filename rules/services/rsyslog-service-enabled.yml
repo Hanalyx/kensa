@@ -14,9 +14,9 @@ depends_on: [pkg-rsyslog-present]
 
 references:
   cis:
-    rhel9_v2:  { section: "6.2.3.2", level: "L1", type: "Automated" }
+    rhel9:  { section: "6.2.3.2", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258142"
       stig_id: "RHEL-09-652020"
       severity: "CAT II"

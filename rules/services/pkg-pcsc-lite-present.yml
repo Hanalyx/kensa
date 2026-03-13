@@ -13,7 +13,7 @@ tags: [package, smartcard, authentication, pki]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258124"
       severity: "CAT II"
   nist_800_53: ["IA-2(1)", "IA-2(2)"]

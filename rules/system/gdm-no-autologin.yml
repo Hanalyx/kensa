@@ -14,7 +14,7 @@ tags: [gdm, graphical, autologin, authentication, stig]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230329"
       severity: "CAT I"
   nist_800_53: ["AC-3", "IA-2", "CM-6"]

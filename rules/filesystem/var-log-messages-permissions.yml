@@ -12,7 +12,7 @@ tags: [file-permissions, logging, security]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230245"
       severity: "CAT II"
   nist_800_53: ["AU-9", "AC-6"]

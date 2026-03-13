@@ -6,14 +6,14 @@ Usage:
     python -m scripts.benchmark.benchmark_cli \\
         --kensa results/kensa-211.json \\
         --openscap results/openscap/rhel9-211.xml \\
-        --framework cis-rhel9-v2.0.0 \\
+        --framework cis-rhel9 \\
         --output benchmark-report.md
 
     # Multi-host mode
     python -m scripts.benchmark.benchmark_cli \\
         --pair rhel9-211:results/kensa-211.json:results/openscap/rhel9-211.xml \\
         --pair rhel9-213:results/kensa-213.json:results/openscap/rhel9-213.xml \\
-        --framework cis-rhel9-v2.0.0 \\
+        --framework cis-rhel9 \\
         --output benchmark-multihost.md
 """
 
@@ -54,7 +54,7 @@ def _load_control_titles(framework: str) -> dict[str, str]:
     """Load control titles from a framework mapping file.
 
     Args:
-        framework: Framework mapping ID (e.g., "cis-rhel9-v2.0.0").
+        framework: Framework mapping ID (e.g., "cis-rhel9").
 
     Returns:
         Dict mapping control_id -> title.
@@ -377,7 +377,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--framework",
         default="",
-        help="Framework mapping ID (e.g., cis-rhel9-v2.0.0) for control titles",
+        help="Framework mapping ID (e.g., cis-rhel9) for control titles",
     )
     parser.add_argument(
         "--format",

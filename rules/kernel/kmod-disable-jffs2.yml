@@ -13,7 +13,7 @@ tags: [kernel-module, filesystem, attack-surface]
 
 references:
   cis:
-    rhel9_v2:  { section: "1.1.1.5", level: "L2", type: "Automated" }
+    rhel9:  { section: "1.1.1.5", level: "L2", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

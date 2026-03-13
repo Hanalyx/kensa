@@ -17,7 +17,7 @@ depends_on: [aide-installed]
 
 references:
   cis:
-    rhel9_v2: { section: "6.1.2", level: "L1", type: "Automated" }
+    rhel9: { section: "6.1.2", level: "L1", type: "Automated" }
   nist_800_53: ["SI-7"]
 
 platforms:

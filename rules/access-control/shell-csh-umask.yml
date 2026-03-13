@@ -12,7 +12,7 @@ tags: [shell, csh, umask, permissions]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258073"
       stig_id: "RHEL-09-412090"
       severity: "CAT II"
@@ -37,7 +37,7 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add to /etc/csh.cshrc:
-        umask 077
+      mechanism: config_set
+      path: "/etc/csh.cshrc"
+      key: "umask"
+      value: "077"

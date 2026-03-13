@@ -14,6 +14,7 @@ from runner.handlers.rollback._command import (  # noqa: F401
     _rollback_manual,
 )
 from runner.handlers.rollback._config import (  # noqa: F401
+    _rollback_config_append,
     _rollback_config_block,
     _rollback_config_remove,
     _rollback_config_set,

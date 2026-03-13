@@ -13,8 +13,8 @@ tags: [journald, logging, compression, storage]
 
 references:
   cis:
-    rhel8_v4:  { section: "6.2.1.1.6", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "6.2.2.3", level: "L1", type: "Automated" }
+    rhel8:  { section: "6.2.1.1.6", level: "L1", type: "Automated" }
+    rhel9:  { section: "6.2.2.3", level: "L1", type: "Automated" }
   nist_800_53: ["AU-4"]
 
 platforms:

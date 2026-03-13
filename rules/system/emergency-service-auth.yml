@@ -12,7 +12,7 @@ tags: [authentication, emergency, physical-security]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-244523"
       severity: "CAT I"
   nist_800_53: ["AC-3", "IA-2"]

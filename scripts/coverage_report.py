@@ -43,20 +43,20 @@ CATEGORIES = [
 ]
 
 FRAMEWORK_ORDER = [
-    "cis-rhel9-v2.0.0",
-    "cis-rhel8-v4.0.0",
-    "stig-rhel9-v2r7",
-    "stig-rhel8-v2r6",
+    "cis-rhel9",
+    "cis-rhel8",
+    "stig-rhel9",
+    "stig-rhel8",
     "nist-800-53-r5",
     "fedramp-moderate",
     "pci-dss-v4.0",
 ]
 
 FRAMEWORK_SHORT = {
-    "cis-rhel9-v2.0.0": "CIS9",
-    "cis-rhel8-v4.0.0": "CIS8",
-    "stig-rhel9-v2r7": "STIG9",
-    "stig-rhel8-v2r6": "STIG8",
+    "cis-rhel9": "CIS9",
+    "cis-rhel8": "CIS8",
+    "stig-rhel9": "STIG9",
+    "stig-rhel8": "STIG8",
     "nist-800-53-r5": "NIST",
     "fedramp-moderate": "FedRAMP",
     "pci-dss-v4.0": "PCI-DSS",

@@ -13,14 +13,13 @@ tags: [root, user-accounts, uid, security]
 
 references:
   cis:
-    rhel8_v4:  { section: "5.6.2", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "5.6.2", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.6.2", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258089"
       stig_id: "RHEL-09-411045"
       severity: "CAT I"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230534"
       severity: "CAT I"
   nist_800_53: ["AC-6"]

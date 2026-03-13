@@ -14,7 +14,7 @@ conflicts_with:
 
 references:
   cis:
-    rhel9_v2: { section: "7.1.10", level: "L1", type: "Automated" }
+    rhel9: { section: "7.1.10", level: "L1", type: "Automated" }
   nist_800_53: ["AC-3", "IA-5"]
 
 platforms:

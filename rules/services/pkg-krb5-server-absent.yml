@@ -13,10 +13,10 @@ tags: [package, kerberos, attack-surface]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257830"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-237640"
       severity: "CAT II"
   nist_800_53: ["CM-7", "AC-6"]

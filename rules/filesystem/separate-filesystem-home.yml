@@ -14,7 +14,7 @@ tags: [filesystem, partitioning, storage]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257843"
       severity: "CAT II"
   nist_800_53: ["CM-6"]

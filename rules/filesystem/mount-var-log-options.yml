@@ -14,9 +14,9 @@ tags: [mount, logging, security]
 
 references:
   cis:
-    rhel9_v2:  { section: "1.1.2.6.2", level: "L1", type: "Automated" }
+    rhel9:  { section: "1.1.2.6.2", level: "L1", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230514"
       severity: "CAT II"
   nist_800_53: ["AC-6", "CM-6"]

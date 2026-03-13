@@ -15,14 +15,14 @@ depends_on: [pam-faillock-deny]
 
 references:
   cis:
-    rhel9_v2: { section: "5.3.3.1.3", level: "L1", type: "Automated" }
-    rhel8_v4:  { section: "5.3.3.4.4", level: "L1", type: "Automated" }
+    rhel9: { section: "5.3.3.1.3", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.3.3.4.4", level: "L1", type: "Automated" }
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257816"
       stig_id: "RHEL-09-411085"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230344"
       severity: "CAT II"
   nist_800_53: ["AC-7"]
@@ -39,5 +39,6 @@ implementations:
       key: "even_deny_root"
       expected: ""
     remediation:
-      mechanism: command_exec
-      run: "grep -q '^even_deny_root' /etc/security/faillock.conf || echo 'even_deny_root' >> /etc/security/faillock.conf"
+      mechanism: config_append
+      path: "/etc/security/faillock.conf"
+      line: "even_deny_root"

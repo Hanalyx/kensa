@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 from runner._capture import (  # noqa: F401
     _capture_audit_rule_set,
     _capture_command_exec,
+    _capture_config_append,
     _capture_config_block,
     _capture_config_remove,
     _capture_config_set,
@@ -102,6 +103,7 @@ from runner._rollback import (  # noqa: F401
     _execute_rollback,
     _rollback_audit_rule_set,
     _rollback_command_exec,
+    _rollback_config_append,
     _rollback_config_block,
     _rollback_config_remove,
     _rollback_config_set,

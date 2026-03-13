@@ -12,8 +12,8 @@ tags: [mount, var-tmp, hardening]
 
 references:
   cis:
-    rhel8_v4:  { section: "1.1.2.5.2", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "1.1.3.2", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.1.2.5.2", level: "L1", type: "Automated" }
+    rhel9:  { section: "1.1.2.5.2", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "AC-3"]
 
 platforms:

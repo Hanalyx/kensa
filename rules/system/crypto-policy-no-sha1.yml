@@ -20,7 +20,8 @@ conflicts_with: [crypto-policy-disable-sha1-signatures]
 
 references:
   cis:
-    rhel9_v2: { section: "1.6.3", level: "L1", type: "Automated" }
+    rhel8: { section: "1.6.2", level: "L1", type: "Automated" }
+    rhel9: { section: "1.6.3", level: "L1", type: "Automated" }
   nist_800_53: ["SC-13", "SC-12"]
 
 platforms:

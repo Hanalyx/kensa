@@ -64,7 +64,7 @@ class ControlComparison:
 
     Attributes:
         control_id: Framework control identifier (e.g., CIS "5.1.20").
-        framework: Framework name (e.g., "cis-rhel9-v2.0.0").
+        framework: Framework name (e.g., "cis-rhel9").
         title: Control title from the framework mapping.
         tool_results: Map of tool_name -> ToolControlResult.
         ground_truth: Verified ground truth, if available.

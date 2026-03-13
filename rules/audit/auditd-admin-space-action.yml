@@ -15,11 +15,11 @@ depends_on: [auditd-service-enabled]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257808"
       stig_id: "RHEL-09-653015"
       severity: "CAT II"
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230389"
       severity: "CAT II"
   nist_800_53: ["AU-5"]

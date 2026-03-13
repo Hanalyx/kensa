@@ -13,7 +13,7 @@ tags: [mount, removable-media, noexec, hardening]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230304"
       severity: "CAT II"
   nist_800_53: ["CM-6", "AC-3"]

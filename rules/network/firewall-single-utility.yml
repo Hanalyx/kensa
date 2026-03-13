@@ -13,7 +13,7 @@ tags: [firewall, nftables, firewalld, security]
 
 references:
   cis:
-    rhel9_v2: { section: "4.1.2", level: "L1", type: "Automated" }
+    rhel9: { section: "4.1.2", level: "L1", type: "Automated" }
   nist_800_53: ["SC-7", "CM-6"]
 
 platforms:

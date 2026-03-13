@@ -14,7 +14,7 @@ tags: [permissions, user-accounts, initialization-files, hardening]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257889"
       stig_id: "RHEL-09-232245"
       severity: "CAT II"
@@ -53,7 +53,8 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        For each world-writable initialization file found, remove world-write
-        permission: chmod o-w /home/<user>/.<init_file>
+      mechanism: file_permissions
+      find_paths: ["/home"]
+      find_type: "f"
+      find_args: "-maxdepth 2 -name '.*' -perm /o+w"
+      mode: "o-w"

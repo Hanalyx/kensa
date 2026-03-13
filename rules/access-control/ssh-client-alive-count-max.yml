@@ -21,12 +21,12 @@ depends_on: [pkg-openssh-server-present]
 
 references:
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-244525"
       stig_id: "RHEL-08-010201"
       severity: "CAT II"
       cci: ["CCI-001133"]
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257996"
       stig_id: "RHEL-09-255100"
       severity: "CAT II"

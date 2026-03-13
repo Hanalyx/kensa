@@ -14,7 +14,7 @@ tags: [shell, profile, umask, permissions]
 
 references:
   stig:
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-258075"
       stig_id: "RHEL-09-412095"
       severity: "CAT II"
@@ -38,7 +38,8 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add to /etc/profile or /etc/profile.d/umask.sh:
-        umask 077
+      mechanism: config_set_dropin
+      dir: "/etc/profile.d"
+      file: "00-kensa-umask.sh"
+      key: "umask"
+      value: "077"

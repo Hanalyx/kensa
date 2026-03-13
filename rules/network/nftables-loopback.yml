@@ -12,7 +12,7 @@ tags: [firewall, nftables, loopback, security]
 
 references:
   cis:
-    rhel9_v2: { section: "4.3.4", level: "L1", type: "Automated" }
+    rhel9: { section: "4.3.4", level: "L1", type: "Automated" }
   nist_800_53: ["SC-7"]
 
 platforms:

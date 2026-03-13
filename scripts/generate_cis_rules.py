@@ -20,7 +20,7 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RULES_DIR = PROJECT_ROOT / "rules"
-MAPPING_PATH = PROJECT_ROOT / "mappings" / "cis" / "rhel9_v2.0.0.yaml"
+MAPPING_PATH = PROJECT_ROOT / "mappings" / "cis" / "rhel9.yaml"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -14,13 +14,13 @@ tags: [aslr, security, memory, sysctl]
 
 references:
   cis:
-    rhel8_v4:  { section: "1.5.3", level: "L1", type: "Automated" }
-    rhel9_v2:  { section: "1.5.3", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.5.3", level: "L1", type: "Automated" }
+    rhel9:  { section: "1.5.3", level: "L1", type: "Automated" }
   stig:
-    rhel8_v2r6:
+    rhel8:
       vuln_id: "V-230280"
       severity: "CAT II"
-    rhel9_v2r7:
+    rhel9:
       vuln_id: "V-257809"
       severity: "CAT II"
   nist_800_53: ["SC-39"]
