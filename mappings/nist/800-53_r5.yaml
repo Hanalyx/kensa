@@ -560,7 +560,6 @@ controls:
     title: "Boundary Protection"
     rules:
       - service-enable-firewalld
-      - sysctl-net-ipv4-ip-forward
       - sysctl-ip-forward-disabled
       - sysctl-send-redirects-disabled
 
