@@ -23,13 +23,8 @@ references:
     rhel8:  { section: "5.1.13", level: "L1", type: "Automated" }
     rhel9:  { section: "5.1.13", level: "L1", type: "Automated" }
   stig:
-    rhel8:
-      vuln_id: "V-230288"
-      stig_id: "RHEL-08-010500"
-      severity: "CAT II"
-      cci: ["CCI-000366"]
     rhel9:
-      vuln_id: "V-257983"
+      vuln_id: "V-257999"
       stig_id: "RHEL-09-255035"
       severity: "CAT II"
       cci: ["CCI-000366"]

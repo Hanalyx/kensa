@@ -29,7 +29,7 @@ references:
   - AC-6
   stig:
     rhel9:
-      vuln_id: V-258090
+      vuln_id: V-257890
       stig_id: RHEL-09-411050
       severity: CAT I
 platforms:

@@ -23,7 +23,7 @@ references:
       stig_id: "RHEL-08-010359"
       severity: "CAT II"
     rhel9:
-      vuln_id: "V-257850"
+      vuln_id: "V-258134"
       stig_id: "RHEL-09-651010"
       severity: "CAT II"
     rhel8:

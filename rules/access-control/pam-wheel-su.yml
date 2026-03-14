@@ -32,11 +32,8 @@ references:
   - AC-6
   stig:
     rhel9:
-      vuln_id: V-258039
+      vuln_id: V-258087
       stig_id: RHEL-09-432030
-      severity: CAT II
-    rhel8:
-      vuln_id: V-237641
       severity: CAT II
 platforms:
 - family: rhel

@@ -25,12 +25,6 @@ references:
     rhel10: { section: "1.6.4", level: "L1", type: "Automated" }
     rhel8:  { section: "5.1.1", level: "L1", type: "Automated" }
     rhel9:  { section: "1.6.2", level: "L1", type: "Automated" }
-  stig:
-    rhel9:
-      vuln_id: "V-258236"
-      stig_id: "RHEL-09-672020"
-      severity: "CAT I"
-      cci: ["CCI-002450", "CCI-002890", "CCI-003123"]
   nist_800_53: ["SC-13", "AC-17(2)"]
 
 platforms:
