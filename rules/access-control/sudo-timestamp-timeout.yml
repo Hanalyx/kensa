@@ -28,7 +28,9 @@ implementations:
         grep -q 'timestamp_timeout\s*=\s*0'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add "Defaults timestamp_timeout=0" to /etc/sudoers using visudo.
-        This forces reauthentication for every sudo command invocation.
+      mechanism: file_content
+      path: "/etc/sudoers.d/00-kensa-timestamp"
+      content: "Defaults timestamp_timeout=0\n"
+      owner: "root"
+      group: "root"
+      mode: "0440"

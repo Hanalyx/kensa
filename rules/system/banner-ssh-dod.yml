@@ -29,8 +29,9 @@ implementations:
       run: "grep -Ei 'authorized|consent|monitoring|privacy' /etc/issue.net 2>/dev/null"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure /etc/issue.net with your organization's approved SSH
-        banner. For DoD systems, use the Standard Mandatory DoD Notice
-        and Consent Banner.
+      mechanism: file_content
+      path: "/etc/issue.net"
+      content: "{{ banner_text }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"

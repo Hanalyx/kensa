@@ -38,5 +38,9 @@ implementations:
         exit 0
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Remove OS version information from /etc/motd or replace with authorized use warning"
+      mechanism: file_content
+      path: "/etc/motd"
+      content: "{{ banner_text }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"

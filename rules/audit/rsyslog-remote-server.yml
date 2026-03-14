@@ -33,9 +33,9 @@ implementations:
         grep -v '^\s*#'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure rsyslog to offload audit records to a remote server by
-        adding a forwarding rule to /etc/rsyslog.conf or /etc/rsyslog.d/*.conf:
-        *.* @@[logaggregationserver.example.mil]:[port]
-        Then restart the rsyslog service.
+      mechanism: config_set_dropin
+      dir: "/etc/rsyslog.d"
+      file: "00-kensa-remote.conf"
+      key: "*.*"
+      value: "@@{{ rsyslog_remote_server }}"
+      restart: "rsyslog"
