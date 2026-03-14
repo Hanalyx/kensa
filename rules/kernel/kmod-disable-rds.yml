@@ -14,10 +14,6 @@ tags: [kernel-module, rds, network, attack-surface, stig]
 references:
   cis:
     rhel9: { section: "3.2.3", level: "L1", type: "Automated" }
-  stig:
-    rhel9:
-      vuln_id: "V-257887"
-      severity: "CAT II"
   nist_800_53: ["CM-7"]
 
 platforms:

@@ -20,7 +20,7 @@ references:
       vuln_id: "V-230264"
       severity: "CAT II"
     rhel9:
-      vuln_id: "V-257782"
+      vuln_id: "V-257819"
       stig_id: "RHEL-09-214010"
       severity: "CAT I"
   nist_800_53: ["CM-11(a)", "SI-7"]

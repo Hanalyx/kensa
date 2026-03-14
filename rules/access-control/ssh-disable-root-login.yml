@@ -27,7 +27,7 @@ references:
       severity: "CAT II"
       cci: ["CCI-000770"]
     rhel9:
-      vuln_id: "V-257947"
+      vuln_id: "V-257985"
       stig_id: "RHEL-09-255045"
       severity: "CAT II"
       cci: ["CCI-000770"]

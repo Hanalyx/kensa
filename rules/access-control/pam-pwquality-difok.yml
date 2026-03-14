@@ -30,7 +30,7 @@ references:
       type: Automated
   stig:
     rhel9:
-      vuln_id: V-258047
+      vuln_id: V-257948
       stig_id: RHEL-09-611070
       severity: CAT II
     rhel8:

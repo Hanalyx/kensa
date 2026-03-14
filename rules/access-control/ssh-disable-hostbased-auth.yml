@@ -35,12 +35,6 @@ references:
   - CM-6
   - AC-3
   stig:
-    rhel8:
-      vuln_id: V-230332
-      stig_id: RHEL-08-010860
-      severity: CAT II
-      cci:
-      - CCI-000366
     rhel9:
       vuln_id: V-257987
       stig_id: RHEL-09-255055

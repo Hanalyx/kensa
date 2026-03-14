@@ -27,11 +27,6 @@ references:
       section: 6.3.3.1
       level: L1
       type: Automated
-  stig:
-    rhel9:
-      vuln_id: V-257875
-      stig_id: RHEL-09-654035
-      severity: CAT II
   nist_800_53:
   - AU-2
   - AU-12

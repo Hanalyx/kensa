@@ -13,10 +13,6 @@ category: system
 tags: [repository, package, supply-chain, attack-surface]
 
 references:
-  stig:
-    rhel8:
-      vuln_id: "V-230492"
-      severity: "CAT I"
   nist_800_53: ["CM-7", "SI-7", "SA-12"]
 
 platforms:

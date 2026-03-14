@@ -16,11 +16,6 @@ depends_on: [auditd-enabled]
 references:
   cis:
     rhel9: { section: "6.3.3.6", level: "L1", type: "Automated" }
-  stig:
-    rhel9:
-      vuln_id: "V-257801"
-      stig_id: "RHEL-09-654010"
-      severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]
 
 platforms:
