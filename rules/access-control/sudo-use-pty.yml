@@ -32,6 +32,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: config_set_dropin
-      directory: "/etc/sudoers.d"
-      filename: "00-kensa-use-pty"
-      content: "Defaults use_pty"
+      dir: "/etc/sudoers.d"
+      file: "00-kensa-use-pty"
+      key: "Defaults"
+      value: "use_pty"

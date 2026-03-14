@@ -32,6 +32,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: config_set_dropin
-      directory: "/etc/sudoers.d"
-      filename: "00-kensa-logfile"
-      content: "Defaults logfile=\"/var/log/sudo.log\""
+      dir: "/etc/sudoers.d"
+      file: "00-kensa-logfile"
+      key: "Defaults"
+      value: "logfile=\"/var/log/sudo.log\""

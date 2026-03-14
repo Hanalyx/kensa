@@ -43,9 +43,9 @@ implementations:
         echo "OK: $ciphers"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure system crypto policy to use only FIPS-approved ciphers:
-        update-crypto-policies --set FIPS
-        Or override in /etc/ssh/sshd_config:
-        Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-gcm@openssh.com,aes128-ctr
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-fips-ciphers.conf"
+      key: "Ciphers"
+      value: "aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-gcm@openssh.com,aes128-ctr"
+      restart: sshd

@@ -42,9 +42,9 @@ implementations:
         echo "OK: $macs"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure system crypto policy to use only FIPS-approved MACs:
-        update-crypto-policies --set FIPS
-        Or override in /etc/ssh/sshd_config:
-        MACs hmac-sha2-512,hmac-sha2-256,hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-fips-macs.conf"
+      key: "MACs"
+      value: "hmac-sha2-512,hmac-sha2-256,hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com"
+      restart: sshd
