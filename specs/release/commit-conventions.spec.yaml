@@ -1,0 +1,187 @@
+kind: SystemContext
+
+metadata:
+  name: CommitConventions
+  module: release.commits
+  version: 1.0.0
+  status: draft
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-14"
+  updated: "2026-03-14"
+
+context:
+  description: >
+    Defines commit message and PR title conventions for the Kensa project.
+    Kensa uses descriptive titles that focus on what changed, not conventional
+    commit prefixes. Titles should be specific enough to understand the change
+    without reading the diff. Planning-stage terms are banned from titles.
+
+
+    Note on semantic-release: the release workflow uses semantic-release to
+    detect version bumps, but Kensa commits do not use conventional commit
+    prefixes. Releases are triggered manually via workflow dispatch with
+    force_version (patch/minor/major). The semantic-release config exists
+    for version management, not commit enforcement.
+  technical_context: >
+    PR titles become CHANGELOG.md entries via scripts/update_changelog.py,
+    which categorizes by first word — this makes descriptive titles important
+    since they become the changelog. Claude Code is used as an engineering
+    tool and is attributed in commits via Co-Authored-By trailer.
+  related_specs:
+    - specs/release/changelog.spec.yaml
+  assumptions:
+    - Releases are manually triggered, not driven by commit message parsing
+    - PR titles become changelog entries via update_changelog.py
+    - Claude Code is used as an engineering tool and is attributed in commits
+
+objective:
+  summary: >
+    Ensure commit messages and PR titles are descriptive, specific, and
+    focused on what changed rather than process milestones.
+  acceptance_criteria:
+    AC-1: >
+      Commit and PR titles use the descriptive format defined in the appendix
+      format section. No conventional commit prefixes (feat:, fix:, etc.).
+    AC-2: >
+      Titles follow the subject rules defined in the appendix: start with a
+      capital letter, use imperative mood, describe the concrete deliverable,
+      and are specific enough to understand without reading the diff.
+    AC-3: >
+      Titles do not contain any of the banned planning/process terms defined
+      in the appendix banned_terms section.
+    AC-4: >
+      PR titles follow the rules in the appendix pr_title_rules section:
+      under 70 characters preferred, 100 max, describe the aggregate outcome.
+    AC-5: >
+      Changes that affect a specific subsystem use the scope prefixes defined
+      in the appendix scope_conventions section for consistency.
+    AC-6: >
+      Commit body (when present) explains WHY the change was made, not WHAT
+      was changed. References specs, issues, or decisions when relevant.
+    AC-7: >
+      Claude Code contributions include a Co-Authored-By trailer with the
+      model name and Anthropic noreply address.
+    AC-8: >
+      The first word of the title determines changelog categorization (Added,
+      Fixed, Changed, Removed) per the changelog spec. Titles should start
+      with verbs that map cleanly to these categories.
+
+constraints:
+  - "MUST NOT use planning or process terms in commit or PR titles."
+  - "MUST use imperative mood in the title (Add, Fix, Remove — not Added, Fixed, Removed)."
+  - "MUST be specific enough to understand the change without reading the diff."
+  - "MUST NOT exceed 100 characters for commit or PR titles."
+  - "MUST include Co-Authored-By trailer when Claude Code assists with the change."
+  - "SHOULD start titles with verbs that map to changelog categories (Add, Fix, Change, Remove)."
+  - "MUST NOT end titles with a period."
+
+testing:
+  spec_derived:
+    file: tests/spec/release/test_commit_conventions_spec.py
+    classes:
+      - TestCommitConventionsSpecDerived
+    count: 8
+
+appendix:
+  format:
+    standard: Descriptive titles (no conventional commit prefixes)
+
+    title:
+      pattern: "<Verb> <description of what changed>"
+      max_length: 100
+      examples:
+        - "Add file_content check handler for exact banner matching"
+        - "Correct 5 check bugs found via benchmark comparison"
+        - "Normalize auditctl output and rewrite 5 audit rule checks"
+        - "Convert 7 manual remediations to typed mechanisms (Wave 1)"
+
+    body:
+      leading_blank: true
+      max_line_length: 100
+      purpose: >
+        Explain WHY the change was made, not WHAT was changed (the diff shows
+        that). Reference specs, issues, or decisions when relevant.
+
+    footer:
+      leading_blank: true
+      ai_attribution: >
+        Commit messages MUST include a Co-Authored-By trailer when Claude Code
+        assists with the change. Format:
+        Co-Authored-By: Claude <model> <noreply@anthropic.com>
+
+  subject_rules:
+    must:
+      - "Start with a capital letter"
+      - "Use imperative mood (Add, Fix, Change — not Added, Fixed, Changed)"
+      - "Describe the concrete deliverable or outcome, not the process"
+      - "Be specific enough to understand without reading the diff"
+      - "Start with a verb that maps to a changelog category"
+
+    must_not:
+      - "End with a period"
+      - "Exceed 100 characters"
+      - "Use conventional commit prefixes (feat:, fix:, chore:, etc.)"
+      - "Use planning or process terms as the primary subject"
+      - "Use vague descriptions (update stuff, various improvements, misc changes)"
+
+  banned_terms:
+    description: >
+      These terms describe planning stages or process milestones, not
+      deliverables. Commit titles MUST describe what was built, fixed, or
+      changed — not which planning step produced the change.
+    terms:
+      - phase
+      - step
+      - stage
+      - milestone
+      - sprint
+      - iteration
+      - backlog
+      - epic
+      - story
+      - task
+      - ticket
+    applies_to:
+      - commit title (first line of commit message)
+      - PR title
+
+    examples:
+      bad:
+        - "SDD Phase 0 — governance, schema, validation tooling"
+        - "Step 3 of migration plan"
+        - "Sprint 4 cleanup"
+        - "Complete milestone 2 deliverables"
+        - "Backlog item B-7 documentation"
+        - "Wave 1 typed mechanism migration"
+      good:
+        - "Add spec governance rules, JSON Schema, and validation scripts"
+        - "Correct 79 wrong STIG V-IDs in rule files"
+        - "Remove deprecated lookup CLI command"
+        - "Convert 7 manual remediations to typed mechanisms"
+        - "Add operator quickstart guide with SSH setup instructions"
+        - "Consolidate 66 duplicate rules and add dedup prevention tooling"
+
+  pr_title_rules:
+    format: "Same as commit title: <Verb> <description>"
+    constraints:
+      - "Same banned terms apply as commit titles"
+      - "Must describe the aggregate outcome of the PR, not individual commits"
+      - "Under 70 characters preferred, 100 max"
+      - "No conventional commit prefixes"
+
+  scope_conventions:
+    description: >
+      While Kensa does not use conventional commit scopes, PR titles often
+      naturally include a subsystem scope for clarity. These are the common
+      scope areas, typically expressed in the title description itself.
+    common_scopes:
+      - rules: rule YAML files, rule schema, rule validation
+      - handlers: check, remediation, capture, rollback handlers
+      - mappings: CIS, STIG, NIST, PCI-DSS, FedRAMP mapping files
+      - cli: CLI commands, Click options, output formatting
+      - ssh: SSH connection management, paramiko
+      - config: variable resolution, defaults, per-host overrides
+      - storage: SQLite persistence, schema migrations
+      - specs: behavioral specifications, spec tooling
+      - packaging: RPM builds, pyproject.toml, release workflow
+      - ci: GitHub Actions workflows, pre-commit hooks

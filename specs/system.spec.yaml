@@ -17,7 +17,7 @@ context:
   technical_context: >
     Python 3.10+ CLI built with Click. Remote execution via paramiko SSH.
     Results persisted to SQLite. Rules defined as YAML with JSON Schema
-    validation. Framework mappings in a unified YAML format. 508 rules across
+    validation. Framework mappings in a unified YAML format. 539 rules across
     8 categories covering access-control, audit, services, system, filesystem,
     network, kernel, and logging.
   dependencies:
@@ -28,6 +28,8 @@ context:
     - PyYAML (rule/config parsing)
     - jsonschema (rule validation)
     - Rich (terminal output)
+  related_specs:
+    - specs/rules.spec.yaml
   assumptions:
     - Target hosts run RHEL 8 or RHEL 9 with systemd
     - SSH access is available to target hosts

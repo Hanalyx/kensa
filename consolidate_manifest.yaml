@@ -1,0 +1,720 @@
+# Reviewed and corrected manifest for rule consolidation
+# Keepers chosen for: cleaner naming, typed remediation, RHEL9 conventions
+
+generated: '2026-03-13'
+pairs:
+- keep: auditd-tools-integrity
+  keep_file: rules/audit/auditd-tools-integrity.yml
+  keep_score: 8
+  delete: aide-audit-tools
+  delete_file: rules/audit/aide-audit-tools.yml
+  delete_score: 7
+  reason: more framework refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: aide-cron-check
+  keep_file: rules/audit/aide-cron-check.yml
+  keep_score: 23
+  delete: aide-scheduled
+  delete_file: rules/audit/aide-scheduled.yml
+  delete_score: 4
+  reason: typed remediation (cron_job)
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-delete
+  keep_file: rules/audit/audit-delete.yml
+  keep_score: 11
+  delete: audit-file-deletion
+  delete_file: rules/audit/audit-file-deletion.yml
+  delete_score: 16
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-unsuccessful-access
+  keep_file: rules/audit/audit-unsuccessful-access.yml
+  keep_score: 15
+  delete: audit-file-access-failed
+  delete_file: rules/audit/audit-file-access-failed.yml
+  delete_score: 13
+  reason: equal remediation quality
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-rules-immutable
+  keep_file: rules/audit/audit-rules-immutable.yml
+  keep_score: 12
+  delete: audit-immutable
+  delete_file: rules/audit/audit-immutable.yml
+  delete_score: 9
+  reason: equal remediation quality; more framework refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-logins
+  keep_file: rules/audit/audit-logins.yml
+  keep_score: 15
+  delete: audit-login-logout
+  delete_file: rules/audit/audit-login-logout.yml
+  delete_score: 21
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-mount-operations
+  keep_file: rules/audit/audit-mount-operations.yml
+  keep_score: 20
+  delete: audit-mounts
+  delete_file: rules/audit/audit-mounts.yml
+  delete_score: 11
+  reason: equal remediation quality
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-network-change
+  keep_file: rules/audit/audit-network-change.yml
+  keep_score: 13
+  delete: audit-network-changes
+  delete_file: rules/audit/audit-network-changes.yml
+  delete_score: 15
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-perm-mod
+  keep_file: rules/audit/audit-perm-mod.yml
+  keep_score: 13
+  delete: audit-permission-changes
+  delete_file: rules/audit/audit-permission-changes.yml
+  delete_score: 25
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-session
+  keep_file: rules/audit/audit-session.yml
+  keep_score: 17
+  delete: audit-session-initiation
+  delete_file: rules/audit/audit-session-initiation.yml
+  delete_score: 23
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: audit-sudoers
+  keep_file: rules/audit/audit-sudoers.yml
+  keep_score: 16
+  delete: audit-sudoers-changes
+  delete_file: rules/audit/audit-sudoers-changes.yml
+  delete_score: 25
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: auditd-enabled
+  keep_file: rules/audit/auditd-enabled.yml
+  keep_score: 12
+  delete: auditd-service-enabled
+  delete_file: rules/audit/auditd-service-enabled.yml
+  delete_score: 31
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: auditd-space-left-action
+  keep_file: rules/audit/auditd-space-left-action.yml
+  keep_score: 12
+  delete: auditd-space-action
+  delete_file: rules/audit/auditd-space-action.yml
+  delete_score: 17
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: crypto-policy-no-sha1
+  keep_file: rules/system/crypto-policy-no-sha1.yml
+  keep_score: 13
+  delete: crypto-policy-disable-sha1-signatures
+  delete_file: rules/system/crypto-policy-disable-sha1-signatures.yml
+  delete_score: 7
+  reason: typed remediation (file_content, crypto_policy_subpolicy); more framework
+    refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: service-disable-debug-shell
+  keep_file: rules/services/service-disable-debug-shell.yml
+  keep_score: 11
+  delete: debug-shell-disabled
+  delete_file: rules/services/debug-shell-disabled.yml
+  delete_score: 10
+  reason: equal remediation quality
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-group-backup-permissions
+  keep_file: rules/filesystem/etc-group-backup-permissions.yml
+  keep_score: 9
+  delete: fs-permissions-etc-group-backup
+  delete_file: rules/filesystem/fs-permissions-etc-group-backup.yml
+  delete_score: 12
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-group-permissions
+  keep_file: rules/filesystem/etc-group-permissions.yml
+  keep_score: 10
+  delete: fs-permissions-etc-group
+  delete_file: rules/filesystem/fs-permissions-etc-group.yml
+  delete_score: 17
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-gshadow-backup-permissions
+  keep_file: rules/filesystem/etc-gshadow-backup-permissions.yml
+  keep_score: 9
+  delete: fs-permissions-etc-gshadow-backup
+  delete_file: rules/filesystem/fs-permissions-etc-gshadow-backup.yml
+  delete_score: 12
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-gshadow-permissions
+  keep_file: rules/filesystem/etc-gshadow-permissions.yml
+  keep_score: 10
+  delete: fs-permissions-etc-gshadow
+  delete_file: rules/filesystem/fs-permissions-etc-gshadow.yml
+  delete_score: 17
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-passwd-backup-permissions
+  keep_file: rules/filesystem/etc-passwd-backup-permissions.yml
+  keep_score: 9
+  delete: fs-permissions-etc-passwd-backup
+  delete_file: rules/filesystem/fs-permissions-etc-passwd-backup.yml
+  delete_score: 13
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-passwd-permissions
+  keep_file: rules/filesystem/etc-passwd-permissions.yml
+  keep_score: 10
+  delete: fs-permissions-etc-passwd
+  delete_file: rules/filesystem/fs-permissions-etc-passwd.yml
+  delete_score: 18
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-shadow-backup-permissions
+  keep_file: rules/filesystem/etc-shadow-backup-permissions.yml
+  keep_score: 9
+  delete: fs-permissions-etc-shadow-backup
+  delete_file: rules/filesystem/fs-permissions-etc-shadow-backup.yml
+  delete_score: 10
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: etc-shadow-permissions
+  keep_file: rules/filesystem/etc-shadow-permissions.yml
+  keep_score: 10
+  delete: fs-permissions-etc-shadow
+  delete_file: rules/filesystem/fs-permissions-etc-shadow.yml
+  delete_score: 22
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: shells-permissions
+  keep_file: rules/filesystem/shells-permissions.yml
+  keep_score: 10
+  delete: fs-permissions-etc-shells
+  delete_file: rules/filesystem/fs-permissions-etc-shells.yml
+  delete_score: 9
+  reason: equal remediation quality
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: opasswd-permissions
+  keep_file: rules/filesystem/opasswd-permissions.yml
+  keep_score: 10
+  delete: fs-permissions-opasswd
+  delete_file: rules/filesystem/fs-permissions-opasswd.yml
+  delete_score: 9
+  reason: equal remediation quality
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: journald-no-forward-syslog
+  keep_file: rules/logging/journald-no-forward-syslog.yml
+  keep_score: 10
+  delete: journald-forward-syslog
+  delete_file: rules/logging/journald-forward-syslog.yml
+  delete_score: 8
+  reason: equal remediation quality; more framework refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: journald-storage-persistent
+  keep_file: rules/logging/journald-storage-persistent.yml
+  keep_score: 8
+  delete: journald-storage
+  delete_file: rules/logging/journald-storage.yml
+  delete_score: 13
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: kdump-disabled
+  keep_file: rules/services/kdump-disabled.yml
+  keep_score: 11
+  delete: service-disable-kdump
+  delete_file: rules/services/service-disable-kdump.yml
+  delete_score: 9
+  reason: equal remediation quality; more framework refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: no-world-writable-files
+  keep_file: rules/filesystem/no-world-writable-files.yml
+  keep_score: 10
+  delete: no-world-writable
+  delete_file: rules/filesystem/no-world-writable.yml
+  delete_score: 5
+  reason: typed remediation (file_permissions)
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: xorg-removed
+  keep_file: rules/services/xorg-removed.yml
+  keep_score: 10
+  delete: package-xorg-x11-server-common-removed
+  delete_file: rules/services/package-xorg-x11-server-common-removed.yml
+  delete_score: 6
+  reason: equal remediation quality; more framework refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: pkg-ypserv-absent
+  keep_file: rules/services/pkg-ypserv-absent.yml
+  keep_score: 10
+  delete: package-ypserv-removed
+  delete_file: rules/services/package-ypserv-removed.yml
+  delete_score: 9
+  reason: equal remediation quality; more framework refs
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: rsyslog-file-permissions
+  keep_file: rules/logging/rsyslog-file-permissions.yml
+  keep_score: 11
+  delete: rsyslog-default-permissions
+  delete_file: rules/logging/rsyslog-default-permissions.yml
+  delete_score: 12
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: service-disable-avahi
+  keep_file: rules/services/service-disable-avahi.yml
+  keep_score: 10
+  delete: service-disable-avahi-daemon
+  delete_file: rules/services/service-disable-avahi-daemon.yml
+  delete_score: 11
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: service-disable-rsyncd
+  keep_file: rules/services/service-disable-rsyncd.yml
+  keep_score: 10
+  delete: service-disable-rsync
+  delete_file: rules/services/service-disable-rsync.yml
+  delete_score: 11
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: service-disable-smb
+  keep_file: rules/services/service-disable-smb.yml
+  keep_score: 10
+  delete: service-disable-samba
+  delete_file: rules/services/service-disable-samba.yml
+  delete_score: 12
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-icmp-redirects-disabled
+  keep_file: rules/network/sysctl-icmp-redirects-disabled.yml
+  keep_score: 24
+  delete:
+  - sysctl-net-ipv4-conf-all-accept-redirects
+  - sysctl-net-ipv4-conf-default-accept-redirects
+  - sysctl-net-ipv6-conf-all-accept-redirects
+  - sysctl-net-ipv6-conf-default-accept-redirects
+  delete_file:
+  - rules/network/sysctl-net-ipv4-conf-all-accept-redirects.yml
+  - rules/network/sysctl-net-ipv4-conf-default-accept-redirects.yml
+  - rules/network/sysctl-net-ipv6-conf-all-accept-redirects.yml
+  - rules/network/sysctl-net-ipv6-conf-default-accept-redirects.yml
+  delete_score:
+  - 18
+  - 13
+  - 13
+  - 10
+  reason: Consolidated rule covers 4 separate rules
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-ignore-bogus-icmp
+  keep_file: rules/network/sysctl-ignore-bogus-icmp.yml
+  keep_score: 10
+  delete: sysctl-net-ipv4-icmp-ignore-bogus-error-responses
+  delete_file: rules/network/sysctl-net-ipv4-icmp-ignore-bogus-error-responses.yml
+  delete_score: 11
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-ignore-broadcast-icmp
+  keep_file: rules/network/sysctl-ignore-broadcast-icmp.yml
+  keep_score: 9
+  delete: sysctl-net-ipv4-icmp-echo-ignore-broadcasts
+  delete_file: rules/network/sysctl-net-ipv4-icmp-echo-ignore-broadcasts.yml
+  delete_score: 15
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-ip-forward-disabled
+  keep_file: rules/network/sysctl-ip-forward-disabled.yml
+  keep_score: 15
+  delete: sysctl-net-ipv6-conf-all-forwarding
+  delete_file: rules/network/sysctl-net-ipv6-conf-all-forwarding.yml
+  delete_score: 15
+  reason: typed remediation (sysctl_set, sysctl_set)
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-ipv6-ra-disabled
+  keep_file: rules/network/sysctl-ipv6-ra-disabled.yml
+  keep_score: 15
+  delete:
+  - sysctl-net-ipv6-conf-all-accept-ra
+  - sysctl-net-ipv6-conf-default-accept-ra
+  delete_file:
+  - rules/network/sysctl-net-ipv6-conf-all-accept-ra.yml
+  - rules/network/sysctl-net-ipv6-conf-default-accept-ra.yml
+  delete_score:
+  - 13
+  - 10
+  reason: Consolidated rule covers 2 separate rules
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-log-martians
+  keep_file: rules/network/sysctl-log-martians.yml
+  keep_score: 15
+  delete:
+  - sysctl-net-ipv4-conf-all-log-martians
+  - sysctl-net-ipv4-conf-default-log-martians
+  delete_file:
+  - rules/network/sysctl-net-ipv4-conf-all-log-martians.yml
+  - rules/network/sysctl-net-ipv4-conf-default-log-martians.yml
+  delete_score:
+  - 11
+  - 8
+  reason: Consolidated rule covers 2 separate rules
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-source-route-disabled
+  keep_file: rules/network/sysctl-source-route-disabled.yml
+  keep_score: 24
+  delete:
+  - sysctl-net-ipv4-conf-all-accept-source-route
+  - sysctl-net-ipv6-conf-all-accept-source-route
+  - sysctl-net-ipv4-conf-default-accept-source-route
+  - sysctl-net-ipv6-conf-default-accept-source-route
+  delete_file:
+  - rules/network/sysctl-net-ipv4-conf-all-accept-source-route.yml
+  - rules/network/sysctl-net-ipv6-conf-all-accept-source-route.yml
+  - rules/network/sysctl-net-ipv4-conf-default-accept-source-route.yml
+  - rules/network/sysctl-net-ipv6-conf-default-accept-source-route.yml
+  delete_score:
+  - 15
+  - 13
+  - 11
+  - 10
+  reason: Consolidated rule covers 4 separate rules
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-rp-filter
+  keep_file: rules/network/sysctl-rp-filter.yml
+  keep_score: 15
+  delete:
+  - sysctl-net-ipv4-conf-all-rp-filter
+  - sysctl-net-ipv4-conf-default-rp-filter
+  delete_file:
+  - rules/network/sysctl-net-ipv4-conf-all-rp-filter.yml
+  - rules/network/sysctl-net-ipv4-conf-default-rp-filter.yml
+  delete_score:
+  - 13
+  - 10
+  reason: Consolidated rule covers 2 separate rules
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-secure-redirects-disabled
+  keep_file: rules/network/sysctl-secure-redirects-disabled.yml
+  keep_score: 14
+  delete:
+  - sysctl-net-ipv4-conf-all-secure-redirects
+  - sysctl-net-ipv4-conf-default-secure-redirects
+  delete_file:
+  - rules/network/sysctl-net-ipv4-conf-all-secure-redirects.yml
+  - rules/network/sysctl-net-ipv4-conf-default-secure-redirects.yml
+  delete_score:
+  - 9
+  - 9
+  reason: Consolidated rule covers 2 separate rules
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-send-redirects-disabled
+  keep_file: rules/network/sysctl-send-redirects-disabled.yml
+  keep_score: 14
+  delete:
+  - sysctl-net-ipv4-conf-all-send-redirects
+  - sysctl-net-ipv4-conf-default-send-redirects
+  delete_file:
+  - rules/network/sysctl-net-ipv4-conf-all-send-redirects.yml
+  - rules/network/sysctl-net-ipv4-conf-default-send-redirects.yml
+  delete_score:
+  - 15
+  - 14
+  reason: Consolidated rule checks both conf.all and conf.default
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: sysctl-tcp-syncookies
+  keep_file: rules/network/sysctl-tcp-syncookies.yml
+  keep_score: 10
+  delete: sysctl-net-ipv4-tcp-syncookies
+  delete_file: rules/network/sysctl-net-ipv4-tcp-syncookies.yml
+  delete_score: 12
+  reason: cleaner name; merge refs from old rule
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: root-only-uid0
+  keep_file: rules/access-control/root-only-uid0.yml
+  keep_score: manual
+  delete: accounts-no-uid-zero
+  delete_file: rules/access-control/accounts-no-uid-zero.yml
+  delete_score: manual
+  reason: 'same control: only root should have UID 0'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: root-only-gid0
+  keep_file: rules/access-control/root-only-gid0.yml
+  keep_score: manual
+  delete: root-gid
+  delete_file: rules/access-control/root-gid.yml
+  delete_score: manual
+  reason: 'same control: only root should have GID 0'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: pam-wheel-su
+  keep_file: rules/access-control/pam-wheel-su.yml
+  keep_score: manual
+  delete: su-require-wheel
+  delete_file: rules/access-control/su-require-wheel.yml
+  delete_score: manual
+  reason: 'same control: restrict su to wheel group'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: password-inactive
+  keep_file: rules/access-control/password-inactive.yml
+  keep_score: manual
+  delete: inactive-password-lock
+  delete_file: rules/access-control/inactive-password-lock.yml
+  delete_score: manual
+  reason: 'same control: lock inactive accounts'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: password-min-age
+  keep_file: rules/access-control/password-min-age.yml
+  keep_score: manual
+  delete: login-defs-pass-min-days
+  delete_file: rules/access-control/login-defs-pass-min-days.yml
+  delete_score: manual
+  reason: 'same control: minimum password age'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: password-warn-age
+  keep_file: rules/access-control/password-warn-age.yml
+  keep_score: manual
+  delete: login-defs-pass-warn-age
+  delete_file: rules/access-control/login-defs-pass-warn-age.yml
+  delete_score: manual
+  reason: 'same control: password expiry warning'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: password-hashing-algorithm
+  keep_file: rules/access-control/password-hashing-algorithm.yml
+  keep_score: manual
+  delete: login-defs-encrypt-method
+  delete_file: rules/access-control/login-defs-encrypt-method.yml
+  delete_score: manual
+  reason: 'same control: password hashing algorithm'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: umask-default
+  keep_file: rules/access-control/umask-default.yml
+  keep_score: manual
+  delete: login-defs-umask
+  delete_file: rules/access-control/login-defs-umask.yml
+  delete_score: manual
+  reason: 'same control: default umask'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule
+- keep: no-unowned-files
+  keep_file: rules/filesystem/no-unowned-files.yml
+  keep_score: manual
+  delete: no-ungrouped-files
+  delete_file: rules/filesystem/no-ungrouped-files.yml
+  delete_score: manual
+  reason: 'same control: no unowned/ungrouped files'
+  actions:
+  - merge_references
+  - clean_metadata
+  - update_mappings
+  - delete_rule

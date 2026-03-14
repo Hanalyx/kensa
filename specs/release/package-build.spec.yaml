@@ -1,0 +1,100 @@
+kind: SystemContext
+
+metadata:
+  name: PackageBuild
+  module: release.packaging
+  version: 1.0.0
+  status: draft
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-14"
+  updated: "2026-03-14"
+
+context:
+  description: >
+    Defines the package build jobs that produce installable Kensa artifacts.
+    Two distribution formats are built: Python wheel/sdist (pip install) and
+    RPM packages (el8, el9, el10, Fedora). Wheel builds run on every CI
+    pipeline. RPM builds run on CI and as part of the release workflow, where
+    built packages are uploaded as GitHub Release assets.
+  technical_context: >
+    Build backend is hatchling (pyproject.toml). The wheel includes the runner/
+    Python package and shared data (rules/, schema/, mappings/, config/) via
+    hatch wheel.shared-data. RPM builds use the kensa.spec file with
+    pyproject-rpm-macros (%pyproject_wheel, %pyproject_install). RPMs are built
+    inside containers: rockylinux:8, rockylinux:9, almalinux:10, fedora:latest.
+    El8 and el9 require explicit Python 3.11 (--define '__python3
+    /usr/bin/python3.11'). The kensa.spec Version field is updated via sed
+    at build time.
+
+
+    Version source of truth: pyproject.toml:project.version. The release
+    workflow bumps this with sed, then the RPM build reads it to set the
+    Version field in kensa.spec.
+  related_specs:
+    - specs/release/changelog.spec.yaml
+  assumptions:
+    - RPM builds require pyproject-rpm-macros and python3-hatchling
+    - El8 and el9 use Python 3.11 explicitly (system Python is 3.6/3.9)
+    - Wheel shared-data maps rules/, schema/, mappings/, config/ into the package
+    - kensa.spec installs config to /etc/kensa/ with noreplace flags
+
+objective:
+  summary: >
+    Produce correct, installable Kensa packages (wheel and RPM) for all
+    supported platforms with version consistency across all artifacts.
+  acceptance_criteria:
+    AC-1: >
+      pyproject.toml:project.version is the single source of truth for the
+      version string. All built artifacts (wheel, RPM) derive their version
+      from this field.
+    AC-2: >
+      Python wheel and sdist are built with hatchling via "python -m build".
+      The wheel includes runner/ as the Python package and rules/, schema/,
+      mappings/, config/ as shared data.
+    AC-3: >
+      RPM packages are built for four targets: el8 (rockylinux:8),
+      el9 (rockylinux:9), el10 (almalinux:10), fc (fedora:latest). All
+      four build successfully on every CI run and release.
+    AC-4: >
+      kensa.spec uses pyproject-rpm-macros (%pyproject_wheel, %pyproject_install)
+      for the Python build. The Version field is updated via sed from
+      pyproject.toml before rpmbuild runs.
+    AC-5: >
+      El8 and el9 RPM builds use Python 3.11 explicitly via
+      --define '__python3 /usr/bin/python3.11' because the system Python is
+      too old (3.6 on el8, 3.9 on el9).
+    AC-6: >
+      RPM installs rules/ to %{_datadir}/kensa/rules, schema/ to
+      %{_datadir}/kensa/schema, mappings/ to %{_datadir}/kensa/mappings.
+      Config files install to /etc/kensa/ with %config(noreplace) on
+      defaults.yml and conf.d/ contents.
+    AC-7: >
+      The release workflow creates a GitHub Release with tag vX.Y.Z, uploads
+      wheel + sdist, then uploads RPMs from all four platform builds.
+      RPM uploads use --clobber to handle re-runs.
+    AC-8: >
+      CI builds (non-release) produce RPM artifacts but do not upload to
+      GitHub Releases. They are available as workflow artifacts for testing.
+    AC-9: >
+      The git tag (stripped of leading "v") matches pyproject.toml:project.version.
+      The release workflow fails if they disagree.
+    AC-10: >
+      RPM build dependencies are installed inside disposable containers.
+      No build dependencies leak into the host runner.
+
+constraints:
+  - "MUST derive all artifact versions from pyproject.toml:project.version."
+  - "MUST NOT hardcode version strings in kensa.spec — use sed injection at build time."
+  - "MUST build RPMs inside containers, not on the bare runner."
+  - "MUST use Python 3.11 explicitly on el8 and el9 RPM builds."
+  - "MUST mark /etc/kensa/defaults.yml as %config(noreplace) so site customizations survive upgrades."
+  - "MUST include rules/, schema/, mappings/, and config/ in both wheel and RPM artifacts."
+  - "MUST NOT include tests/, docs/, or scripts/ in distributed packages."
+  - "MUST verify tag-to-version consistency before creating a release."
+
+testing:
+  spec_derived:
+    file: tests/spec/release/test_package_build_spec.py
+    classes:
+      - TestPackageBuildSpecDerived
+    count: 5

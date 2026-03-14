@@ -66,6 +66,11 @@
     },
     "testing": {
       "$ref": "#/$defs/testing"
+    },
+    "appendix": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Structured reference data (conventions, formats, examples). Free-form — not validated beyond being a valid YAML/JSON object."
     }
   },
   "allOf": [

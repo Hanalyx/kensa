@@ -65,7 +65,6 @@ docs/BENCHMARK_DISAGREEMENT_PLAN.md
 docs/comparison/
 docs/prd/
 .aegis/
-specs/
 project_review/
 
 # Generated coverage reports (local visibility tooling)
@@ -75,3 +74,18 @@ reports/
 docs/COMPLIANCE_SCOPE.md
 docs/CIS8_COVERAGE_PLAN.md
 docs/STIG9_COVERAGE_PLAN.md
+
+# SSH keys and host-specific data
+owadmin@*/
+
+# Source-of-truth reference PDFs (large binaries)
+SOT/
+
+# Copies of root-level docs
+core/
+
+# Old consolidation manifests (already merged)
+manifests/
+
+# Temporary working files
+tmp/

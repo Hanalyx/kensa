@@ -1,0 +1,190 @@
+kind: SystemContext
+metadata:
+  name: CanonicalRuleSystem
+  module: rules
+  version: 1.0.0
+  status: released
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-13"
+  updated: "2026-03-13"
+
+context:
+  description: >
+    The canonical rule system is the core abstraction of Kensa. Each rule is a
+    single, framework-independent statement of desired system state. Rules carry
+    their own check logic, remediation logic, framework cross-references, and
+    capability-gated implementation variants. They are written once and apply
+    across all supported OS versions and compliance frameworks.
+
+
+    This spec codifies the design principles, schema constraints, and review
+    criteria defined in the core/ source documents. It is not directly testable
+    via spec-derived tests — constraints are enforced by schema validation
+    (schema/rule.schema.json), pre-commit hooks, and the review process. This
+    spec exists to prevent architectural drift by making the core design
+    decisions machine-readable and referenceable.
+
+
+    Source documents:
+      - core/TECHNICAL_REMEDIATION_MP_V0.md — Philosophical foundation,
+        six guiding principles, three-layer architecture
+      - core/CANONICAL_RULE_SCHEMA_V0.md — Schema specification, field
+        definitions, check methods, remediation mechanisms, capabilities
+      - core/RULE_REVIEW_GUIDE_V0.md — Quality criteria, five review
+        dimensions, common defects, review workflow
+  technical_context: >
+    539 YAML rules across 8 categories (access-control, audit, services, system,
+    filesystem, network, kernel, logging). Validated at rest by JSON Schema
+    (schema/rule.schema.json) and at commit time by pre-commit hooks. Framework
+    mappings (CIS, STIG, NIST 800-53, PCI-DSS, FedRAMP) are a separate data
+    layer that references rules by ID.
+
+
+    Architecture (three layers from TECHNICAL_REMEDIATION_MP_V0.md §3.1):
+      Layer 1 — Framework Mappings (mappings/): metadata labels mapping
+        framework control IDs to canonical rule IDs.
+      Layer 2 — Canonical Rules (rules/): one rule per security control,
+        independent of framework or OS version.
+      Layer 3 — Platform Implementations: check+remediation pairs embedded
+        in rules, selected at runtime by capability detection.
+
+
+    Rule classification (TECHNICAL_REMEDIATION_MP_V0.md §3.5):
+      Category A (~70-75%): identical across all OS versions, one implementation.
+      Category B (~15-20%): same desired state, capability-gated mechanism variation.
+      Category C (~5-10%): genuinely OS-specific, the true exceptions.
+
+
+    Review dimensions (RULE_REVIEW_GUIDE_V0.md §2), ordered by impact:
+      1. Check Accuracy (critical) — does the check measure effective state?
+      2. Remediation Effectiveness (critical) — does remediation produce desired state?
+      3. Schema Compliance (high) — does the rule conform to the canonical schema?
+      4. Framework References (medium) — are all mappings present and correct?
+      5. Forward Compatibility (medium) — will this rule work on future OS versions?
+  related_specs:
+    - specs/system.spec.yaml
+  assumptions:
+    - Rules are YAML files validated against schema/rule.schema.json
+    - Framework mappings use a unified controls/rules format in mappings/
+    - Capability detection runs once per host at session start
+    - Check operations are read-only (pure measurement)
+    - Remediation captures pre-state for rollback by default
+
+objective:
+  summary: >
+    Maintain a canonical set of compliance rules that separate policy from
+    mechanism, target capabilities instead of version strings, and support
+    multiple frameworks without rule duplication.
+  acceptance_criteria:
+    AC-1: >
+      Every rule has a globally unique kebab-case ID that never changes once
+      assigned. Filename matches {id}.yml. Category field matches parent
+      directory. ID format follows one of the established naming patterns:
+      {scope}-{action}-{target} (e.g., ssh-disable-root-login,
+      kmod-disable-cramfs), {scope}-{target}-{property} (e.g.,
+      sysctl-net-ipv4-ip-forward, audit-tools-permissions),
+      {target}-{state} for service/package rules (e.g., auditd-enabled,
+      chrony-installed), or {scope}-{descriptive} for compound controls
+      (e.g., cron-access-control, password-remember). Scope prefixes
+      identify the subsystem: ssh-, pam-, sshd-, sysctl-, kmod-, audit-,
+      pkg-, mount-, gdm-, sudo-, etc. The ID describes the desired
+      security state, not the directive name — prefer ssh-disable-root-login
+      over ssh-permit-root-login, and ssh-deny-empty-passwords over
+      ssh-permit-empty-passwords. IDs are never reused.
+      (CANONICAL_RULE_SCHEMA_V0.md §3.2, §6.2, RULE_REVIEW_GUIDE_V0.md §5.3)
+    AC-2: >
+      Every rule has exactly one default: true implementation. Capability-gated
+      variants use when: clauses referencing detected capabilities, never OS
+      version numbers. First matching implementation wins.
+      (CANONICAL_RULE_SCHEMA_V0.md §3.5)
+    AC-3: >
+      Checks verify effective system state (sshd -T, sysctl -n, auditctl -l),
+      not only static config files. Typed check methods are preferred over the
+      command escape hatch. (RULE_REVIEW_GUIDE_V0.md §3.1, §3.2)
+    AC-4: >
+      After remediation runs, the corresponding check passes. Path/key/value in
+      remediation matches what the check reads. Reload/restart triggers so
+      effective state reflects the change. (RULE_REVIEW_GUIDE_V0.md §4.1)
+    AC-5: >
+      Remediations prefer durable mechanisms: drop-in files over direct edits,
+      authselect over direct PAM edits, dedicated config files over main config.
+      Runtime-only changes are always paired with persistent counterparts.
+      (RULE_REVIEW_GUIDE_V0.md §4.2)
+    AC-6: >
+      Every mechanism is idempotent. command_exec requires an unless or onlyif
+      guard. manual is reserved for controls requiring human judgment,
+      organizational policy, or physical access. (CANONICAL_RULE_SCHEMA_V0.md
+      §3.5, RULE_REVIEW_GUIDE_V0.md §4.3)
+    AC-7: >
+      Rules reference every framework that includes the control. The rule's
+      references section and mapping files are consistent. Discrepancies are
+      detected by cis_validate.py and rule_dedup_check.py.
+      (RULE_REVIEW_GUIDE_V0.md §6.1, §6.3)
+    AC-8: >
+      Platform scope defaults to min_version: 8 with no max_version for
+      open-ended forward compatibility. max_version is set only when a feature
+      is genuinely removed. (CANONICAL_RULE_SCHEMA_V0.md §3.4)
+    AC-9: >
+      Schema changes are additive only. Breaking changes require a version bump
+      and automated migration. All existing rules remain valid after any schema
+      change. (CANONICAL_RULE_SCHEMA_V0.md §7)
+    AC-10: >
+      Framework identifiers are cross-references attached to rules as metadata.
+      They do not define the structure of the rule set. Adding a new framework
+      means adding a new mapping file, not new rules.
+      (TECHNICAL_REMEDIATION_MP_V0.md §2.4)
+
+# RFC 2119 constraints distilled from core/ documents
+constraints:
+  - >
+    MUST separate the rule from its implementation. The rule is the stable core;
+    implementations are the variable shell. (P-1, TECHNICAL_REMEDIATION_MP_V0.md §2.1)
+  - >
+    MUST target capabilities, not version strings. Implementation variants use
+    when: clauses referencing capabilities detected at runtime, never OS version
+    conditionals. (P-2, TECHNICAL_REMEDIATION_MP_V0.md §2.2)
+  - >
+    MUST maintain one canonical rule set with thin overlays for genuine
+    differences. Adding a new OS version requires modifying fewer than 10% of
+    rules. (P-3, TECHNICAL_REMEDIATION_MP_V0.md §2.3)
+  - >
+    MUST treat framework identifiers as metadata labels, not structural
+    organizers. Adding a new framework requires zero rule changes — only a new
+    mapping file. (P-4, TECHNICAL_REMEDIATION_MP_V0.md §2.4)
+  - >
+    MUST prefer durable, idempotent, minimally invasive remediations. Drop-in
+    files over direct edits. Authselect over direct PAM. Runtime changes paired
+    with persistent config. (P-5, TECHNICAL_REMEDIATION_MP_V0.md §2.5)
+  - >
+    MUST design for forward compatibility. A new OS version should require only
+    the addition of its genuinely new exceptions. (P-6, TECHNICAL_REMEDIATION_MP_V0.md §2.6)
+  - >
+    MUST validate all rule YAML against JSON Schema (schema/rule.schema.json)
+    before entering the canonical set. (CANONICAL_RULE_SCHEMA_V0.md §6.1)
+  - >
+    MUST NOT modify remote host state during check operations (pure measurement).
+    (TECHNICAL_REMEDIATION_MP_V0.md §3.7)
+  - >
+    MUST verify effective system state in checks, not only static config files.
+    (RULE_REVIEW_GUIDE_V0.md §3.1)
+  - >
+    MUST ensure round-trip consistency: after remediation, the check passes.
+    (RULE_REVIEW_GUIDE_V0.md §4.1)
+  - >
+    MUST declare operational dependencies (depends_on) and mutual exclusions
+    (conflicts_with) between rules. (CANONICAL_RULE_SCHEMA_V0.md §3.6)
+  - >
+    MUST NOT use command_exec without an unless or onlyif idempotency guard,
+    unless the command is inherently idempotent. (RULE_REVIEW_GUIDE_V0.md §4.3)
+  - >
+    MUST NOT set max_version on platform scope unless the controlled feature is
+    genuinely removed in a later OS version. (CANONICAL_RULE_SCHEMA_V0.md §3.4)
+  - >
+    MUST NOT introduce breaking schema changes without a version bump and
+    automated migration for existing rules. (CANONICAL_RULE_SCHEMA_V0.md §7)
+
+testing:
+  spec_derived:
+    file: ""
+    classes: []
+    count: 0

@@ -1,0 +1,99 @@
+kind: RemediationHandler
+metadata:
+  name: AuthselectFeatureEnable
+  module: handlers/remediation
+  version: 1.0.0
+  status: approved
+  owner: kensa-core
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-14"
+  updated: "2026-03-14"
+
+context:
+  description: >
+    Enables an authselect feature on the remote host using
+    `authselect enable-feature <feature>`. Used by PAM rules to activate
+    features like with-faillock, with-pwhistory, with-pwquality, and
+    without-nullok on authselect-managed systems.
+  technical_context: >
+    Dispatched by runner.handlers.remediation._dispatch_remediation
+    via REMEDIATION_HANDLERS["authselect_feature_enable"]. Implemented in
+    runner/handlers/remediation/_security.py as _remediate_authselect_feature_enable.
+  dependencies:
+    - runner.shell_util.quote
+  callers:
+    - runner.handlers.remediation._dispatch_remediation
+
+objective:
+  summary: >
+    Enable an authselect feature by running `authselect enable-feature <feature>`.
+    Supports dry-run preview and an optional `unless` guard to skip if the
+    feature is already active.
+  acceptance_criteria:
+    AC-1: >
+      Dry-run returns preview: When dry_run=True, returns (True,
+      "Would run: authselect enable-feature {feature}") and no SSH
+      commands are executed.
+    AC-2: >
+      Feature enabled: Runs `authselect enable-feature {feature}` and
+      returns (True, "Enabled authselect feature '{feature}'") on success.
+    AC-3: >
+      Unless guard: When `unless` is provided and the guard command
+      succeeds (exit 0), returns (True, "Feature '{feature}' already
+      active (skipped)") without running enable-feature.
+    AC-4: >
+      Command failure: When `authselect enable-feature` fails, returns
+      (False, "authselect enable-feature failed: {stderr}").
+    AC-5: >
+      Unless guard failure: When `unless` is provided but the guard
+      command fails (exit non-zero), proceeds to run enable-feature.
+
+constraints:
+  - MUST NOT execute any remote commands when dry_run=True.
+  - MUST use shell_util.quote() for the feature name in shell commands.
+  - MUST return a 2-tuple (bool, str) from the handler.
+  - MUST support the standard `unless` guard pattern used by other handlers.
+
+input_contract:
+  - field: mechanism
+    type: str
+    required: true
+    description: Must be "authselect_feature_enable"
+  - field: feature
+    type: str
+    required: true
+    description: >
+      Authselect feature name (e.g., "with-faillock", "with-pwhistory",
+      "with-pwquality", "without-nullok").
+  - field: unless
+    type: str
+    required: false
+    description: >
+      Shell command guard. If this command succeeds (exit 0), the
+      enable-feature step is skipped. Typically used to check if the
+      feature is already active.
+
+behavior:
+  - "Extract feature name from remediation dict."
+  - "Dry-run check: If dry_run=True, return preview message."
+  - "Unless guard: If `unless` is provided, run it. If exit 0, return skip message."
+  - "Run `authselect enable-feature {feature}`."
+  - "Return success or failure tuple."
+
+output_contract:
+  returns: "tuple[bool, str]"
+  detail_formats:
+    - "Dry-run: \"Would run: authselect enable-feature {feature}\""
+    - "Success: \"Enabled authselect feature '{feature}'\""
+    - "Skipped: \"Feature '{feature}' already active (skipped)\""
+    - "Failure: \"authselect enable-feature failed: {stderr}\""
+
+side_effects:
+  - "Modifies PAM stack on the remote host via authselect."
+
+testing:
+  spec_derived:
+    file: tests/test_engine_remediation.py
+    classes:
+      - TestAuthselectFeatureEnableSpecDerived
+    count: 5
