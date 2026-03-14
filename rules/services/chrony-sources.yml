@@ -27,5 +27,9 @@ implementations:
       run: 'chronyc sources 2>/dev/null | grep -E ''^\^'' | head -1'
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Configure NTP sources in /etc/chrony.conf with site-specific time servers"
+      mechanism: config_set_dropin
+      dir: "/etc/chrony.d"
+      file: "00-kensa-sources.conf"
+      key: "pool"
+      value: "{{ chrony_ntp_pool }}"
+      restart: chronyd
