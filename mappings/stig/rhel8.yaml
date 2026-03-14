@@ -499,7 +499,7 @@ controls:
     title: "All RHEL 8 world-writable directories must be group-owned by root, sys, bin, or an application group."
   "V-230330":
     rules:
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
     severity: "CAT II"
     title: "RHEL 8 must not allow users to override SSH environment variables."
   "V-230332":
@@ -624,7 +624,7 @@ controls:
     title: "RHEL 8 must prevent the use of dictionary words for passwords."
   "V-230380":
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: "CAT I"
     title: "RHEL 8 must not allow accounts configured with blank or null passwords."
   "V-230383":
@@ -894,7 +894,7 @@ controls:
     title: "The RHEL 8 pam_unix.so module must be configured in the system-auth file to use a FIPS 140-2 approved cryptographic hashing algorithm for system authentication."
   "V-244541":
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: "CAT I"
     title: "RHEL 8 must not allow blank or null passwords in the password-auth file."
   "V-244550":
@@ -924,7 +924,7 @@ controls:
     title: "RHEL 8 must not enable IPv4 packet forwarding unless the system is a router."
   "V-251706":
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: "CAT I"
     title: "The RHEL 8 operating system must not have accounts configured with blank or null passwords."
   "V-256973":
@@ -939,7 +939,7 @@ controls:
     title: "RHEL 8.7 and higher must terminate idle user sessions."
   "V-268322":
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: "CAT I"
     title: "RHEL 8 must not allow blank or null passwords in the system-auth file."
   "V-272482":
@@ -1766,7 +1766,7 @@ controls:
     title: "RHEL 8 SSH daemon must prevent remote hosts from connecting to proxy display"
   "V-244528":
     rules:
-      - ssh-gssapi-authentication
+      - ssh-disable-gssapi
     severity: "CAT II"
     title: "RHEL 8 SSH daemon must not allow GSSAPI authentication"
   "V-230288":

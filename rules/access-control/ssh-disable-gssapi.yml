@@ -1,32 +1,77 @@
 id: ssh-disable-gssapi
 title: Ensure sshd GSSAPIAuthentication is disabled
-description: >
-  The sshd GSSAPIAuthentication directive must be properly configured.
-rationale: >
-  Improper SSH GSSAPIAuthentication configuration could weaken the security of remote access to the system.
+description: 'The sshd GSSAPIAuthentication directive must be properly configured.
+
+  '
+rationale: 'Improper SSH GSSAPIAuthentication configuration could weaken the security
+  of remote access to the system.
+
+  '
 severity: medium
 category: access-control
-tags: [ssh, sshd, access-control]
-
-depends_on: [pkg-openssh-server-present]
-
+tags:
+- ssh
+- sshd
+- access-control
+depends_on:
+- pkg-openssh-server-present
 references:
   cis:
-    rhel9: { section: "5.1.11", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-17", "SC-8"]
-
+    rhel9:
+      section: 5.1.11
+      level: L1
+      type: Automated
+    rhel10:
+      section: 5.1.9
+      level: L2
+      type: Automated
+    rhel8:
+      section: 5.1.11
+      level: L2
+      type: Automated
+  nist_800_53:
+  - AC-17
+  - SC-8
+  - CM-6
+  - IA-2
+  stig:
+    rhel8:
+      vuln_id: V-244528
+      stig_id: RHEL-08-010522
+      severity: CAT II
+      cci:
+      - CCI-000366
+    rhel9:
+      vuln_id: V-258003
+      stig_id: RHEL-09-255135
+      severity: CAT II
+      cci:
+      - CCI-001813
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: sshd_effective_config
-      key: "GSSAPIAuthentication"
-      expected: "no"
-    remediation:
-      mechanism: config_set_dropin
-      dir: "/etc/ssh/sshd_config.d"
-      file: "99-kensa.conf"
-      key: "GSSAPIAuthentication"
-      value: "no"
+- when: sshd_config_d
+  check:
+    method: sshd_effective_config
+    key: gssapiauthentication
+    expected: 'no'
+  remediation:
+    mechanism: config_set_dropin
+    dir: /etc/ssh/sshd_config.d
+    file: 00-kensa-gssapi-authentication.conf
+    key: GSSAPIAuthentication
+    value: 'no'
+    reload: sshd
+- default: true
+  check:
+    method: sshd_effective_config
+    key: gssapiauthentication
+    expected: 'no'
+  remediation:
+    mechanism: config_set
+    path: /etc/ssh/sshd_config
+    key: GSSAPIAuthentication
+    value: 'no'
+    separator: ' '
+    reload: sshd

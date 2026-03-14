@@ -171,8 +171,8 @@ controls:
     title: "Remote Access"
     rules:
       - ssh-disable-root-login
-      - ssh-permit-empty-passwords
-      - ssh-hostbased-authentication
+      - ssh-deny-empty-passwords
+      - ssh-disable-hostbased-auth
       - ssh-ignore-rhosts
       - ssh-use-pam
       - ssh-max-auth-tries
@@ -449,7 +449,7 @@ controls:
   "IA-3":
     title: "Device Identification and Authentication"
     rules:
-      - ssh-hostbased-authentication
+      - ssh-disable-hostbased-auth
       - ssh-strict-modes
 
   "IA-4":
@@ -509,7 +509,7 @@ controls:
   "IA-5(7)":
     title: "Authenticator Management | No Embedded Unencrypted Static Authenticators"
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
 
   "IA-6":
     title: "Authentication Feedback"
@@ -626,7 +626,7 @@ controls:
     rules:
       - ssh-strict-modes
       - ssh-use-pam
-      - ssh-hostbased-authentication
+      - ssh-disable-hostbased-auth
 
   "SC-28":
     title: "Protection of Information at Rest"
@@ -714,7 +714,7 @@ controls:
   "SI-10":
     title: "Information Input Validation"
     rules:
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
       - ssh-ignore-rhosts
 
   "SI-11":
