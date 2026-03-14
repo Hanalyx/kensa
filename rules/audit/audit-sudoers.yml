@@ -16,7 +16,7 @@ tags:
 - sudo
 - privilege-escalation
 depends_on:
-- auditd-service-enabled
+- auditd-enabled
 references:
   cis:
     rhel8:

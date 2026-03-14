@@ -8,7 +8,7 @@ severity: medium
 category: audit
 tags: [audit, permissions]
 
-depends_on: [auditd-service-enabled]
+depends_on: [auditd-enabled]
 
 references:
   cis:

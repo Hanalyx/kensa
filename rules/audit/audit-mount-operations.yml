@@ -17,7 +17,7 @@ tags:
 - filesystem
 - stig
 depends_on:
-- auditd-service-enabled
+- auditd-enabled
 references:
   stig:
     rhel9:

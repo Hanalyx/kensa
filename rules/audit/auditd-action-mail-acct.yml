@@ -1,40 +1,50 @@
 id: auditd-action-mail-acct
 title: Configure auditd action_mail_acct
-description: >
-  The auditd action_mail_acct parameter should be set to root so that
+description: 'The auditd action_mail_acct parameter should be set to root so that
   critical audit alerts are sent to the root administrator.
-rationale: >
-  Audit events that require action (disk full, errors) should be
-  communicated to administrators. Setting action_mail_acct ensures
-  the root user receives these critical notifications.
+
+  '
+rationale: 'Audit events that require action (disk full, errors) should be communicated
+  to administrators. Setting action_mail_acct ensures the root user receives these
+  critical notifications.
+
+  '
 severity: low
 category: audit
-tags: [audit, notification, mail, configuration]
-
-depends_on: [auditd-service-enabled]
-
+tags:
+- audit
+- notification
+- mail
+- configuration
+depends_on:
+- auditd-enabled
 references:
   stig:
     rhel8:
-      vuln_id: "V-230390"
-      severity: "CAT II"
-  nist_800_53: ["AU-4", "AU-5"]
-
+      vuln_id: V-230390
+      severity: CAT II
+    rhel9:
+      vuln_id: V-258174
+      stig_id: RHEL-09-653055
+      severity: CAT II
+  nist_800_53:
+  - AU-4
+  - AU-5
+  - AU-5(2)
 platforms:
-  - family: rhel
-    min_version: 8
-
+- family: rhel
+  min_version: 8
 implementations:
-  - default: true
-    check:
-      method: config_value
-      path: "/etc/audit/auditd.conf"
-      key: "action_mail_acct"
-      expected: "root"
-    remediation:
-      mechanism: config_set
-      path: "/etc/audit/auditd.conf"
-      key: "action_mail_acct"
-      value: "root"
-      separator: " = "
-      restart: "auditd"
+- default: true
+  check:
+    method: config_value
+    path: /etc/audit/auditd.conf
+    key: action_mail_acct
+    expected: root
+  remediation:
+    mechanism: config_set
+    path: /etc/audit/auditd.conf
+    key: action_mail_acct
+    value: root
+    separator: ' = '
+    restart: auditd

@@ -12,7 +12,7 @@ severity: high
 category: audit
 tags: [audit, permissions, configuration, security]
 
-depends_on: [auditd-service-enabled]
+depends_on: [auditd-enabled]
 
 references:
   cis:

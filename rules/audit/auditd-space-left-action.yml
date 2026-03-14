@@ -15,7 +15,7 @@ tags:
 - auditd
 - storage
 depends_on:
-- auditd-service-enabled
+- auditd-enabled
 references:
   cis:
     rhel9:
