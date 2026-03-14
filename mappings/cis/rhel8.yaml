@@ -657,13 +657,13 @@ controls:
     title: "Ensure access to /etc/cron.d is configured"
   "2.4.1.8":
     rules:
-      - cron-allow
+      - cron-access-control
     level: L1
     type: Automated
     title: "Ensure crontab is restricted to authorized users"
   "2.4.2.1":
     rules:
-      - at-allow
+      - at-access-control
     level: L1
     type: Automated
     title: "Ensure at is restricted to authorized users"
@@ -1287,7 +1287,7 @@ controls:
     title: "Ensure SUID and SGID files are reviewed"
   "7.2.3":
     rules:
-      - groups-in-passwd-exist
+      - passwd-groups-exist
     level: L1
     type: Automated
     title: "Ensure all groups in /etc/passwd exist in /etc/group"

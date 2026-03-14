@@ -1335,12 +1335,12 @@ controls:
     title: "RHEL 8 library directories must be group-owned by root."
   "V-230286":
     rules:
-      - ssh-host-key-public-mode
+      - ssh-public-key-permissions
     severity: "CAT II"
     title: "The RHEL 8 SSH public host key files must have mode 0644 or less permissive."
   "V-230287":
     rules:
-      - ssh-host-key-private-mode
+      - ssh-private-key-permissions
     severity: "CAT II"
     title: "The RHEL 8 SSH private host key files must have mode 0640 or less permissive."
   "V-251710":

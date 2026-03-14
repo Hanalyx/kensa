@@ -897,7 +897,7 @@ controls:
     title: Ensure chrony is not run as the root user
   "2.4.1.1":
     rules:
-      - cron-enabled
+      - crond-service-enabled
     level: L1
     type: Automated
     title: Ensure cron daemon is enabled and active
@@ -939,13 +939,13 @@ controls:
     title: Ensure permissions on /etc/cron.d are configured
   "2.4.1.8":
     rules:
-      - cron-allow
+      - cron-access-control
     level: L1
     type: Automated
     title: Ensure crontab is restricted to authorized users
   "2.4.2.1":
     rules:
-      - at-allow
+      - at-access-control
     level: L1
     type: Automated
     title: Ensure at is restricted to authorized users
