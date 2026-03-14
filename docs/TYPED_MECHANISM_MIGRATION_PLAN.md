@@ -6,21 +6,21 @@
 
 ---
 
-## Current State (post-Wave 1)
+## Current State (post-Wave 2)
 
-After Wave 1, 117 rules use non-capturable remediation paths:
+After Wave 2, 110 rules use non-capturable remediation paths:
 
 | Mechanism | Rules | Notes |
 |---|---|---|
-| manual | 89 | Human judgment, org-specific, or high-risk |
+| manual | 82 | Human judgment, org-specific, or high-risk |
 | command_exec | 20 | Arbitrary shell commands, no pre-state capture |
 | grub_parameter_set | 7 | Requires regenerating boot config |
 | grub_parameter_remove | 1 | Requires regenerating boot config |
-| **Total non-capturable** | **117** | |
+| **Total non-capturable** | **110** | |
 
-Typed/declarative remediation coverage: ~83% of all remediation steps (up from ~82%).
+Typed/declarative remediation coverage: ~85% of all remediation steps (up from ~83% post-Wave 1).
 
-GRUB parameter rules (8) are structurally non-capturable and out of scope for this plan. The migration target is the remaining 109 manual + command_exec rules.
+GRUB parameter rules (8) are structurally non-capturable and out of scope for this plan. The migration target is the remaining 102 manual + command_exec rules.
 
 ---
 
@@ -71,38 +71,29 @@ All 5 write to `/etc/ssh/sshd_config.d/` and restart sshd. Variable-driven rules
 
 **Also fixed:** `sudo-use-pty` and `sudo-logfile` had wrong field names (`directory`/`filename`/`content` → `dir`/`file`/`key`/`value`) that would have caused runtime KeyErrors.
 
-### Sudo policy rules (4 rules) — new: `sudoers_policy_set`
+### Sudo and chrony conversions (2 rules) — ✅ COMPLETE via existing handlers
 
-| Rule ID | Current | Policy |
-|---|---|---|
-| sudo-nopasswd-prohibited | manual | Remove NOPASSWD entries |
-| sudo-require-password | manual | Ensure Defaults !authenticate removed |
-| sudo-restrict-privilege-escalation | manual | Restrict escalation paths |
-| sudo-include-directory | manual | Ensure #includedir /etc/sudoers.d |
+| Rule ID | Was | Now | Target |
+|---|---|---|---|
+| sudo-include-directory | manual | config_append | /etc/sudoers (@includedir line) |
+| chrony-sources | manual | config_set_dropin | /etc/chrony.d/00-kensa-sources.conf (`{{ chrony_ntp_pool }}`) |
 
-A `sudoers_policy_set` mechanism that writes to `/etc/sudoers.d/` drop-ins and runs `visudo -c` before committing. Syntax safety is critical — sudoers errors can lock out administrative access.
+Variable `chrony_ntp_pool` added to `config/defaults.yml` (default: `2.rhel.pool.ntp.org iburst`).
 
-### Firewall policy rules (4 rules) — new: `firewalld_policy_*` / `nftables_rule_*`
+### Moved to Wave 3 (stay manual — need new mechanisms or human judgment)
 
-| Rule ID | Current | Target |
-|---|---|---|
-| firewalld-default-deny | manual | firewalld_policy mechanism |
-| nftables-default-deny | manual | nftables_rule mechanism |
-| nftables-loopback | manual | nftables_rule mechanism |
-| firewall-single-utility | manual | validation-only (no remediation) |
+| Rule ID | Reason |
+|---|---|
+| sudo-nopasswd-prohibited | Removal of NOPASSWD is org-specific and destructive |
+| sudo-require-password | Multi-file sudoers editing with org-specific policies |
+| sudo-restrict-privilege-escalation | Requires human judgment about privilege scope |
+| firewalld-default-deny | Needs dedicated firewalld handler for typed remediation |
+| nftables-default-deny | Needs dedicated nftables handler |
+| nftables-loopback | Needs dedicated nftables handler |
+| firewall-single-utility | Validation-only — no remediation applicable |
+| dns-nameservers-configured | resolv.conf managed by NetworkManager, not safe for direct manipulation |
 
-Lower priority than SSH and sudo clusters. These rules are rarely auto-remediated in practice.
-
-### DNS and chrony site-config rules (2 rules) — variable-driven config_set
-
-| Rule ID | Current | Target |
-|---|---|---|
-| dns-nameservers-configured | manual | config_set with `{{ dns_servers }}` variable |
-| chrony-sources | manual | config_set with `{{ ntp_servers }}` variable |
-
-Convertible if made variable-driven and explicit about ownership of the target config file.
-
-**Estimated impact:** ~15 rules converted, 2-4 new mechanisms added.
+**Actual impact:** 7 rules converted in Wave 2 (5 SSH crypto + sudo-include-directory + chrony-sources), 2 sudo field-name bugs fixed, 8 rules reclassified to Wave 3.
 
 ---
 
@@ -128,20 +119,29 @@ Invasive and highly site-specific. Partitioning decisions depend on disk layout,
 
 High blast radius, often need human judgment. Automatically deleting unowned files or modifying UIDs can break running services.
 
+### Sudo policy (3 rules — moved from Wave 2)
+`sudo-nopasswd-prohibited`, `sudo-require-password`, `sudo-restrict-privilege-escalation` — removal/policy operations that are org-specific and require human judgment. A `sudoers_policy_set` mechanism with visudo validation would be needed to automate safely.
+
+### Firewall policy (4 rules — moved from Wave 2)
+`firewalld-default-deny`, `nftables-default-deny`, `nftables-loopback`, `firewall-single-utility` — need dedicated firewalld/nftables handlers. `firewall-single-utility` is validation-only (no remediation). `firewalld-loopback` (already command_exec) also needs a firewalld handler.
+
+### DNS resolution
+`dns-nameservers-configured` — resolv.conf is managed by NetworkManager on RHEL; direct file manipulation is overwritten on restart. Remediation must go through nmcli or systemd-resolved.
+
 ### Other legitimately manual
-`aide-acl-check`, `aide-xattr-check`, `audit-suid-files`, `audit-sgid-files`, `crypto-policy-not-overridden`, `emergency-service-auth`, `single-user-auth`, `ssh-access-control`, `single-logging-system`, `kernel-nx-enabled`, `rhel-vendor-supported`, `no-promiscuous-interfaces`
+`aide-acl-check`, `aide-xattr-check`, `audit-suid-files`, `audit-sgid-files`, `crypto-policy-not-overridden`, `emergency-service-auth`, `single-user-auth`, `ssh-access-control`, `single-logging-system`, `kernel-nx-enabled`, `rhel-vendor-supported`, `no-promiscuous-interfaces`, `gdm-xdmcp-disabled` (needs section-aware INI handler)
 
 ---
 
-## Recommended Priority (Next 5)
+## Recommended Priority (Future Work)
 
-Wave 1 completed items 2-8 from the original top 10. Remaining high-value targets:
+Waves 1 and 2 converted 14 rules total. Remaining high-value targets needing new handler code:
 
-1. **firewalld-loopback** — needs firewalld handler (Wave 2)
-2. **gdm-xdmcp-disabled** — needs section-aware INI handler (Wave 2)
-3. **ssh-approved-ciphers** / **ssh-approved-macs** — needs list-normalization in config_set_dropin (Wave 2)
-4. **dns-nameservers-configured** / **chrony-sources** — variable-driven config_set (Wave 2)
-5. **sudo-nopasswd-prohibited** / **sudo-require-password** — needs sudoers_policy_set handler (Wave 2)
+1. **firewalld-loopback** — needs dedicated firewalld handler (currently command_exec)
+2. **gdm-xdmcp-disabled** — needs section-aware INI handler
+3. **firewalld-default-deny** — needs firewalld handler
+4. **nftables-default-deny** / **nftables-loopback** — need nftables handler
+5. **sudo-nopasswd-prohibited** / **sudo-require-password** — need sudoers_policy_set with visudo validation
 
 ---
 

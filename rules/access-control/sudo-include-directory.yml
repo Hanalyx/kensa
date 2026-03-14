@@ -30,7 +30,6 @@ implementations:
       run: "grep -rE '^(@includedir|#includedir|#include)\\s+/etc/sudoers\\.d' /etc/sudoers"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Add '@includedir /etc/sudoers.d' to the end of /etc/sudoers
-        using visudo.
+      mechanism: config_append
+      path: "/etc/sudoers"
+      line: "@includedir /etc/sudoers.d"
