@@ -1206,7 +1206,7 @@ controls:
     title: RHEL 9 must log SSH connection attempts and failures to the server.
   V-257984:
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: CAT I
     title: RHEL 9 SSHD must not allow blank passwords.
   V-257985:
@@ -1232,7 +1232,7 @@ controls:
     title: RHEL 9 must not allow a noncertificate trusted host SSH logon to the system.
   V-257993:
     rules:
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
     severity: CAT II
     title: RHEL 9 must not allow users to override SSH environment variables.
   V-257994:
@@ -1269,7 +1269,7 @@ controls:
     title: RHEL 9 SSH daemon must disable remote X connections for interactive users.
   V-258011:
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     title: RHEL 9 SSH daemon must prevent remote hosts from connecting to the proxy display.
   V-258014:
     rules:
@@ -1395,7 +1395,7 @@ controls:
     title: RHEL 9 must restrict the use of the "su" command.
   V-258094:
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: CAT I
     title: RHEL 9 must not allow blank or null passwords.
   V-258102:
@@ -1460,7 +1460,7 @@ controls:
     title: RHEL 9 must require the change of at least four character classes when passwords are changed.
   V-258120:
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     severity: CAT II
     title: RHEL 9 must not have accounts configured with blank or null passwords.
   V-258128:
@@ -1947,7 +1947,7 @@ controls:
     title: RHEL 9 SSH daemon must not allow compression or must only allow compression after successful authentication.
   V-258003:
     rules:
-      - ssh-gssapi-authentication
+      - ssh-disable-gssapi
     severity: CAT II
     title: RHEL 9 SSH daemon must not allow GSSAPI authentication.
   V-258008:
@@ -1967,12 +1967,12 @@ controls:
     title: RHEL 9 must be configured so that all network connections associated with SSH traffic are terminated after becoming unresponsive.
   V-257997:
     rules:
-      - ssh-config-permissions
+      - sshd-config-permissions
     severity: CAT II
     title: RHEL 9 SSH server configuration file must be group-owned by root.
   V-257998:
     rules:
-      - ssh-config-permissions
+      - sshd-config-permissions
     severity: CAT II
     title: RHEL 9 SSH server configuration file must be owned by root.
   V-258001:
@@ -2076,7 +2076,7 @@ controls:
     title: RHEL 9 must require users to reauthenticate for privilege escalation.
   V-258106:
     rules:
-      - sudo-require-auth
+      - sudo-require-password
     severity: CAT II
     title: RHEL 9 must require users to provide a password for privilege escalation.
   V-258118:

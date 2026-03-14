@@ -1329,19 +1329,19 @@ controls:
     title: Ensure password failed attempts lockout includes root account
   "5.3.3.2.1":
     rules:
-      - pwquality-difok
+      - pam-pwquality-difok
     level: L1
     type: Automated
     title: Ensure password number of changed characters is configured
   "5.3.3.2.2":
     rules:
-      - pwquality-minlen
+      - pam-pwquality-minlen
     level: L1
     type: Automated
     title: Ensure password length is configured
   "5.3.3.2.4":
     rules:
-      - pwquality-maxrepeat
+      - pam-pwquality-maxrepeat
     level: L1
     type: Automated
     title: Ensure password same consecutive characters is configured
@@ -1917,7 +1917,7 @@ controls:
     title: Ensure no files or directories without an owner and a group exist
   "7.2.1":
     rules:
-      - passwd-shadowed
+      - accounts-password-shadowed
     level: L1
     type: Automated
     title: Ensure accounts in /etc/passwd use shadowed passwords

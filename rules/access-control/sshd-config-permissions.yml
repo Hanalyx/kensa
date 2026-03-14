@@ -1,70 +1,83 @@
 id: sshd-config-permissions
 title: Ensure permissions on /etc/ssh/sshd_config are configured
-description: >
-  The /etc/ssh/sshd_config file must have correct ownership and permissions.
-rationale: >
-  Incorrect permissions on /etc/ssh/sshd_config could allow unauthorized access or modification of sensitive system data.
+description: 'The /etc/ssh/sshd_config file must have correct ownership and permissions.
+
+  '
+rationale: 'Incorrect permissions on /etc/ssh/sshd_config could allow unauthorized
+  access or modification of sensitive system data.
+
+  '
 severity: medium
 category: access-control
-tags: [file-permissions, ssh]
-
-depends_on: [pkg-openssh-server-present]
-
+tags:
+- file-permissions
+- ssh
+depends_on:
+- pkg-openssh-server-present
 references:
   cis:
-    rhel9: { section: "5.1.1", level: "L1", type: "Automated" }
-  nist_800_53: ["AC-3", "MP-2"]
-
+    rhel9:
+      section: 5.1.1
+      level: L1
+      type: Automated
+    rhel10:
+      section: 5.1.1
+      level: L1
+      type: Automated
+    rhel8:
+      section: 5.1.2
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-3
+  - MP-2
+  - AC-6
+  stig:
+    rhel8:
+      vuln_id: V-230291
+      stig_id: RHEL-08-010530
+      severity: CAT II
+      cci:
+      - CCI-000366
+    rhel9:
+      vuln_id: V-257999
+      stig_id: RHEL-09-255115
+      severity: CAT II
+      cci:
+      - CCI-000366
 platforms:
-  - family: rhel
-    min_version: 8
+- family: rhel
+  min_version: 8
 implementations:
-  - when: sshd_config_d
-    check:
-      method: command
-      run: |
-        fail=0
-        # Check main config
-        stat -c '%U %G %a' /etc/ssh/sshd_config 2>/dev/null | while read owner group mode; do
-          if [ "$owner" != "root" ] || [ "$group" != "root" ] || [ "$mode" -gt 600 ]; then
-            echo "FAIL: /etc/ssh/sshd_config ($owner:$group $mode)"
-            exit 1
-          fi
-        done || fail=1
-        # Check drop-in configs
-        for f in /etc/ssh/sshd_config.d/*.conf; do
-          [ -f "$f" ] || continue
-          stat -c '%U %G %a' "$f" 2>/dev/null | while read owner group mode; do
-            if [ "$owner" != "root" ] || [ "$group" != "root" ] || [ "$mode" -gt 600 ]; then
-              echo "FAIL: $f ($owner:$group $mode)"
-              exit 1
-            fi
-          done || fail=1
-        done
-        if [ "$fail" -eq 1 ]; then exit 1; fi
-        echo "OK: sshd_config and drop-ins have correct permissions"
-      expected_exit: 0
-    remediation:
-      mechanism: command_exec
-      run: |
-        chmod 600 /etc/ssh/sshd_config
-        chown root:root /etc/ssh/sshd_config
-        for f in /etc/ssh/sshd_config.d/*.conf; do
-          [ -f "$f" ] || continue
-          chmod 600 "$f"
-          chown root:root "$f"
-        done
-
-  - default: true
-    check:
-      method: file_permission
-      path: "/etc/ssh/sshd_config"
-      owner: "root"
-      group: "root"
-      mode: "0600"
-    remediation:
-      mechanism: file_permissions
-      path: "/etc/ssh/sshd_config"
-      owner: "root"
-      group: "root"
-      mode: "0600"
+- when: sshd_config_d
+  check:
+    method: command
+    run: "fail=0\n# Check main config\nstat -c '%U %G %a' /etc/ssh/sshd_config 2>/dev/null\
+      \ | while read owner group mode; do\n  if [ \"$owner\" != \"root\" ] || [ \"\
+      $group\" != \"root\" ] || [ \"$mode\" -gt 600 ]; then\n    echo \"FAIL: /etc/ssh/sshd_config\
+      \ ($owner:$group $mode)\"\n    exit 1\n  fi\ndone || fail=1\n# Check drop-in\
+      \ configs\nfor f in /etc/ssh/sshd_config.d/*.conf; do\n  [ -f \"$f\" ] || continue\n\
+      \  stat -c '%U %G %a' \"$f\" 2>/dev/null | while read owner group mode; do\n\
+      \    if [ \"$owner\" != \"root\" ] || [ \"$group\" != \"root\" ] || [ \"$mode\"\
+      \ -gt 600 ]; then\n      echo \"FAIL: $f ($owner:$group $mode)\"\n      exit\
+      \ 1\n    fi\n  done || fail=1\ndone\nif [ \"$fail\" -eq 1 ]; then exit 1; fi\n\
+      echo \"OK: sshd_config and drop-ins have correct permissions\"\n"
+    expected_exit: 0
+  remediation:
+    mechanism: command_exec
+    run: "chmod 600 /etc/ssh/sshd_config\nchown root:root /etc/ssh/sshd_config\nfor\
+      \ f in /etc/ssh/sshd_config.d/*.conf; do\n  [ -f \"$f\" ] || continue\n  chmod\
+      \ 600 \"$f\"\n  chown root:root \"$f\"\ndone\n"
+- default: true
+  check:
+    method: file_permission
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+  remediation:
+    mechanism: file_permissions
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'

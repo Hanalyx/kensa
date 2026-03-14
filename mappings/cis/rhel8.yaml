@@ -843,7 +843,7 @@ controls:
     title: "Ensure net.ipv6.conf.default.accept_ra is configured"
   "5.1.2":
     rules:
-      - ssh-config-permissions
+      - sshd-config-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/ssh/sshd_config is configured"
@@ -927,19 +927,19 @@ controls:
     title: "Ensure sshd LoginGraceTime is configured"
   "5.1.17":
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
     level: L1
     type: Automated
     title: "Ensure sshd MACs are configured"
   "5.1.18":
     rules:
-      - ssh-hostbased-authentication
+      - ssh-disable-hostbased-auth
     level: L1
     type: Automated
     title: "Ensure sshd MaxAuthTries is configured"
   "5.1.19":
     rules:
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
     level: L1
     type: Automated
     title: "Ensure sshd MaxSessions is configured"
@@ -1635,7 +1635,7 @@ controls:
     title: "Ensure sshd LogLevel is configured"
   "5.1.23":
     rules:
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
     level: L1
     type: Automated
     title: "Ensure sshd PermitUserEnvironment is disabled"
@@ -1785,7 +1785,7 @@ controls:
     title: "Ensure access to /etc/security/opasswd is configured"
   "7.2.1":
     rules:
-      - passwd-shadowed
+      - accounts-password-shadowed
     level: L1
     type: Automated
     title: "Ensure accounts in /etc/passwd use shadowed passwords"

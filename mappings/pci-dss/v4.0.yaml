@@ -29,8 +29,8 @@ controls:
     description: "System components are configured according to secure standards"
     rules:
       - ssh-disable-root-login
-      - ssh-permit-empty-passwords
-      - ssh-hostbased-authentication
+      - ssh-deny-empty-passwords
+      - ssh-disable-hostbased-auth
       - ssh-ignore-rhosts
       - ssh-max-auth-tries
       - ssh-ciphers-fips
@@ -91,11 +91,11 @@ controls:
     description: "System security parameters set to prevent misuse"
     rules:
       - ssh-strict-modes
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
       - ssh-x11-use-localhost
       - ssh-compression
       - sudo-use-pty
-      - sudo-require-auth
+      - sudo-require-password
       - sudo-timeout
       - pam-wheel-su
       - umask-default
@@ -174,7 +174,7 @@ controls:
     rules:
       - pam-wheel-su
       - sudo-use-pty
-      - sudo-require-auth
+      - sudo-require-password
 
   "7.2.3":
     title: "Required privileges documented and approved"
@@ -214,7 +214,7 @@ controls:
     description: "Strong cryptography used for admin authentication"
     rules:
       - ssh-pubkey-authentication
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
       - ssh-ciphers-fips
       - ssh-macs-fips
       - ssh-kex-fips

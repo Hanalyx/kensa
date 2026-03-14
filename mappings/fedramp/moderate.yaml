@@ -478,14 +478,14 @@ controls:
     title: "Separation of Duties"
     rules:
       - pam-wheel-su
-      - sudo-require-auth
+      - sudo-require-password
       - root-only-uid0
 
   "AC-6":
     title: "Least Privilege"
     rules:
       - sudo-use-pty
-      - sudo-require-auth
+      - sudo-require-password
       - sudo-timeout
       - pam-wheel-su
       - nologin-system-accounts
@@ -495,7 +495,7 @@ controls:
     title: "Least Privilege | Authorize Access to Security Functions"
     rules:
       - pam-wheel-su
-      - sudo-require-auth
+      - sudo-require-password
       - selinux-enforcing
 
   "AC-6(2)":
@@ -522,7 +522,7 @@ controls:
   "AC-6(10)":
     title: "Least Privilege | Prohibit Non-Privileged Users from Executing Privileged Functions"
     rules:
-      - sudo-require-auth
+      - sudo-require-password
       - pam-wheel-su
       - selinux-enforcing
 
@@ -714,7 +714,7 @@ controls:
   "CM-5":
     title: "Access Restrictions for Change"
     rules:
-      - sudo-require-auth
+      - sudo-require-password
       - pam-wheel-su
       - audit-sudoers
 
@@ -729,8 +729,8 @@ controls:
     title: "Configuration Settings"
     rules:
       - ssh-disable-root-login
-      - ssh-permit-empty-passwords
-      - ssh-hostbased-authentication
+      - ssh-deny-empty-passwords
+      - ssh-disable-hostbased-auth
       - ssh-ignore-rhosts
       - ssh-strict-modes
       - sysctl-send-redirects-disabled
@@ -816,7 +816,7 @@ controls:
   "IA-3":
     title: "Device Identification and Authentication"
     rules:
-      - ssh-hostbased-authentication
+      - ssh-disable-hostbased-auth
 
   "IA-4(4)":
     title: "Identifier Management | Identify User Status"
@@ -859,7 +859,7 @@ controls:
   "IA-6":
     title: "Authentication Feedback"
     rules:
-      - ssh-permit-empty-passwords
+      - ssh-deny-empty-passwords
       - accounts-no-empty-passwords
 
   "IA-7":
@@ -945,7 +945,7 @@ controls:
     rules:
       - ssh-private-key-permissions
       - ssh-public-key-permissions
-      - ssh-config-permissions
+      - sshd-config-permissions
 
   "SC-13":
     title: "Cryptographic Protection"
@@ -1067,7 +1067,7 @@ controls:
     title: "Information Input Validation"
     rules:
       - ssh-strict-modes
-      - ssh-permit-user-environment
+      - ssh-disable-user-environment
 
   "SI-11":
     title: "Error Handling"
