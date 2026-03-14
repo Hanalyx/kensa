@@ -44,5 +44,9 @@ implementations:
         echo "OK: all mac algorithms approved ($configured)"
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Configure MACs with site-approved algorithms per crypto policy"
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-macs.conf"
+      key: "MACs"
+      value: "{{ ssh_approved_macs }}"
+      restart: sshd

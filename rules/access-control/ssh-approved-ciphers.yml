@@ -25,5 +25,9 @@ implementations:
       run: 'sshd -T 2>/dev/null | grep -qi ''^ciphers\s'''
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: "Configure Ciphers with site-approved algorithms per crypto policy"
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-ciphers.conf"
+      key: "Ciphers"
+      value: "{{ ssh_approved_ciphers }}"
+      restart: sshd

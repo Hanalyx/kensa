@@ -57,17 +57,19 @@ High-value, straightforward conversions using existing handlers. No new handler 
 
 The biggest leverage area. Many manual rules cluster around a few config families. Adding a small number of targeted mechanisms unlocks large groups of rules.
 
-### SSH crypto rules (5 rules) — new: `sshd_option_set` or extend `config_set_dropin`
+### SSH crypto rules (5 rules) — ✅ COMPLETE via `config_set_dropin`
 
-| Rule ID | Current | sshd directive |
-|---|---|---|
-| ssh-approved-ciphers | manual | Ciphers |
-| ssh-approved-kex | manual | KexAlgorithms |
-| ssh-approved-macs | manual | MACs |
-| ssh-ciphers-fips | manual | Ciphers (FIPS subset) |
-| ssh-macs-fips | manual | MACs (FIPS subset) |
+| Rule ID | Was | Now | sshd directive |
+|---|---|---|---|
+| ssh-approved-ciphers | manual | config_set_dropin | Ciphers (`{{ ssh_approved_ciphers }}`) |
+| ssh-approved-kex | manual | config_set_dropin | KexAlgorithms (`{{ ssh_approved_kex }}`) |
+| ssh-approved-macs | manual | config_set_dropin | MACs (`{{ ssh_approved_macs }}`) |
+| ssh-ciphers-fips | manual | config_set_dropin | Ciphers (hardcoded FIPS subset) |
+| ssh-macs-fips | manual | config_set_dropin | MACs (hardcoded FIPS subset) |
 
-These want `config_set_dropin` with list-value normalization (comma-separated cipher/MAC/KEX lists). Minimal new code — extend the existing dropin handler to handle ordered list values.
+All 5 write to `/etc/ssh/sshd_config.d/` and restart sshd. Variable-driven rules use site-configurable algorithm lists; FIPS rules use hardcoded validated sets. Variable `ssh_approved_ciphers` added to `config/defaults.yml`.
+
+**Also fixed:** `sudo-use-pty` and `sudo-logfile` had wrong field names (`directory`/`filename`/`content` → `dir`/`file`/`key`/`value`) that would have caused runtime KeyErrors.
 
 ### Sudo policy rules (4 rules) — new: `sudoers_policy_set`
 
