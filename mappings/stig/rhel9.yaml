@@ -1153,7 +1153,7 @@ controls:
     title: RHEL 9 must not allow interfaces to perform Internet Control Message Protocol (ICMP) redirects by default.
   V-257970:
     rules:
-      - sysctl-net-ipv4-ip-forward
+      - sysctl-ip-forward-disabled
     severity: CAT II
     title: RHEL 9 must not enable IPv4 packet forwarding unless the system is a router.
   V-257971:

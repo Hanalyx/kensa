@@ -621,7 +621,7 @@ controls:
     title: "Ensure cron daemon is enabled and active"
   "2.4.1.2":
     rules:
-      - crontab-permissions
+      - cron-permissions
     level: L1
     type: Automated
     title: "Ensure access to /etc/crontab is configured"
@@ -705,7 +705,7 @@ controls:
     title: "Ensure rds kernel module is not available"
   "3.3.1.1":
     rules:
-      - sysctl-net-ipv4-ip-forward
+      - sysctl-ip-forward-disabled
     level: L2
     type: Automated
     title: "Ensure net.ipv4.ip_forward is configured"
@@ -1905,7 +1905,7 @@ controls:
     title: "Ensure tipc kernel module is not available"
   "3.3.1.2":
     rules:
-      - sysctl-net-ipv4-ip-forward
+      - sysctl-ip-forward-disabled
     level: L1
     type: Automated
     title: "Ensure net.ipv4.conf.all.forwarding is configured"

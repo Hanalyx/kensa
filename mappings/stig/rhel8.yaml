@@ -919,7 +919,7 @@ controls:
     title: "RHEL 8 must ignore IPv4 Internet Control Message Protocol (ICMP) redirect messages."
   "V-250317":
     rules:
-      - sysctl-net-ipv4-ip-forward
+      - sysctl-ip-forward-disabled
     severity: "CAT II"
     title: "RHEL 8 must not enable IPv4 packet forwarding unless the system is a router."
   "V-251706":

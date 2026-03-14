@@ -903,7 +903,7 @@ controls:
     title: Ensure cron daemon is enabled and active
   "2.4.1.2":
     rules:
-      - crontab-permissions
+      - cron-permissions
     level: L1
     type: Automated
     title: Ensure permissions on /etc/crontab are configured
