@@ -33,9 +33,7 @@ implementations:
         /etc/fapolicyd/rules.d/*.rules 2>/dev/null
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Configure fapolicyd with a deny-all rule as the final rule in the
-        policy. Add to /etc/fapolicyd/fapolicyd.rules:
-        deny_audit perm=any all : all
-        Then restart fapolicyd: systemctl restart fapolicyd
+      mechanism: config_append
+      path: "/etc/fapolicyd/fapolicyd.rules"
+      line: "deny_audit perm=any all : all"
+      restart: "fapolicyd"

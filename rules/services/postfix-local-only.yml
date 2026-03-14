@@ -38,7 +38,9 @@ implementations:
         exit 1
       expected_exit: 0
     remediation:
-      mechanism: manual
-      note: >
-        Set inet_interfaces = loopback-only in /etc/postfix/main.cf
-        and run: systemctl restart postfix
+      mechanism: config_set
+      path: "/etc/postfix/main.cf"
+      key: "inet_interfaces"
+      value: "loopback-only"
+      separator: " = "
+      restart: "postfix"

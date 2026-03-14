@@ -44,6 +44,10 @@ variables:
   banner_text: |
     Authorized uses only. All activity may be monitored and reported.
 
+  # Rsyslog remote server — address:port for remote log forwarding.
+  # Override in config/conf.d/ with your organization's log aggregation server.
+  rsyslog_remote_server: "logserver.example.com:514"
+
   # SSH settings
   ssh_client_alive_interval: 900
   ssh_client_alive_count_max: 1
