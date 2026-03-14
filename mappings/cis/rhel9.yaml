@@ -1587,7 +1587,7 @@ controls:
     title: Ensure rsyslog is installed
   "6.2.3.2":
     rules:
-      - rsyslog-enabled
+      - rsyslog-service-enabled
     level: L1
     type: Automated
     title: Ensure rsyslog service is enabled and active

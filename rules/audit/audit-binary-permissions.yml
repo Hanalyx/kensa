@@ -13,7 +13,7 @@ category: audit
 tags: [audit, permissions, binaries, security]
 
 conflicts_with: [audit-tools-permissions, audit-tools-owner, audit-tools-group]
-depends_on: [auditd-service-enabled]
+depends_on: [auditd-enabled]
 
 references:
   nist_800_53: ["AU-9", "AC-6"]

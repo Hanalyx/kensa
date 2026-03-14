@@ -1185,7 +1185,7 @@ controls:
     title: "RHEL 8 must not have the rsh-server package installed."
   "V-279933":
     rules:
-      - crypto-policies-installed
+      - pkg-crypto-policies-present
     severity: "CAT I"
     title: "RHEL 8 must have the crypto-policies package installed."
   "V-279932":
@@ -1576,7 +1576,7 @@ controls:
     title: "RHEL 8 must disable wireless interfaces"
   "V-230298":
     rules:
-      - rsyslog-enabled
+      - rsyslog-service-enabled
     severity: "CAT II"
     title: "RHEL 8 rsyslog service must be running"
   "V-230387":

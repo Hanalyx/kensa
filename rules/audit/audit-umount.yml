@@ -11,7 +11,7 @@ severity: medium
 category: audit
 tags: [audit, auditd, syscall, mount]
 
-depends_on: [auditd-service-enabled]
+depends_on: [auditd-enabled]
 
 references:
   stig:

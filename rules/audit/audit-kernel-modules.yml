@@ -10,7 +10,7 @@ severity: high
 category: audit
 tags: [audit, auditd, kernel, modules]
 
-depends_on: [auditd-service-enabled]
+depends_on: [auditd-enabled]
 
 references:
   cis:

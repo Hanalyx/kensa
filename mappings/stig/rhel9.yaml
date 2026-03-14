@@ -1716,7 +1716,7 @@ controls:
     title: RHEL 9 must take action when allocated audit record storage volume reaches 95 percent of the repository maximum audit record storage capacity.
   V-258174:
     rules:
-      - auditd-action-mail-account
+      - auditd-action-mail-acct
     severity: CAT II
     title: RHEL 9 must have mail aliases to notify the information system security officer (ISSO) and system administrator (SA) (at a minimum) in the event of an audit processing failure.
   V-258176:
