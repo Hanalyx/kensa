@@ -1,0 +1,88 @@
+kind: SystemContext
+
+metadata:
+  name: CleanupOperations
+  module: release.cleanup
+  version: 1.0.0
+  status: draft
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-14"
+  updated: "2026-03-14"
+
+context:
+  description: >
+    Defines constraints, dry-run requirements, and verification steps for all
+    cleanup operations: code removal, dead code pruning, dependency updates,
+    file deletion, rule consolidation, documentation cleanup, and deprecation.
+    Every cleanup PR must include a dry-run report proving nothing breaks.
+  technical_context: >
+    Kensa cleanup operations typically involve: removing dead Python code from
+    runner/, deleting obsolete rule YAML files, consolidating duplicate rules
+    (via scripts/consolidate_rules.py), removing unused dependencies from
+    pyproject.toml, and cleaning up stale documentation or spec files. The
+    validation toolchain includes ruff (lint), mypy (types), pytest (tests),
+    schema/validate.py (rule schema), scripts/rule_dedup_check.py (dedup),
+    and scripts/cis_validate.py (framework coverage).
+  assumptions:
+    - All cleanup changes are verified against the full validation toolchain
+    - Rule consolidation uses scripts/consolidate_rules.py with manifests
+    - CLAUDE.md, SPEC_REGISTRY.md, and mapping files may reference deleted items
+
+objective:
+  summary: >
+    Ensure all cleanup operations are safe, verified, and reversible by
+    classifying changes by blast radius and requiring appropriate safeguards.
+  acceptance_criteria:
+    AC-1: >
+      Cleanup operations are classified into four tiers by blast radius:
+      tier 1 (cosmetic — formatting, imports), tier 2 (removal — deleting
+      files, functions, dependencies), tier 3 (structural — moves, renames,
+      reorganization), tier 4 (destructive — schema changes, data deletion,
+      API removal).
+    AC-2: >
+      Every tier 2+ cleanup PR includes a dry-run report listing what will
+      be removed and verification results (grep evidence, test results).
+    AC-3: >
+      Code removal PRs include grep evidence showing zero references to the
+      deleted code in the codebase, including dynamic references.
+    AC-4: >
+      All tests pass after cleanup changes. No regressions introduced.
+      Validation includes: pytest, ruff, mypy, schema validation, dedup
+      check, and CIS coverage validation.
+    AC-5: >
+      Cleanup PRs do not contain feature or bugfix changes (single concern
+      per PR).
+    AC-6: >
+      File moves use git mv to preserve history. Rule category changes
+      update the category field in the YAML.
+    AC-7: >
+      Dependency removal is verified with import grep and pip check.
+    AC-8: >
+      Spec references (SPEC_REGISTRY.md, CLAUDE.md) are updated when
+      removing or renaming specced files. Mapping files are updated when
+      removing rules.
+    AC-9: >
+      Deprecated code is marked before removal. Spec status is set to
+      deprecated with a note about the replacement.
+    AC-10: >
+      Large cleanups are broken into staged PRs, not combined into a single
+      large PR. Each stage is independently verified.
+
+constraints:
+  - "MUST NOT combine cleanup changes with feature or bugfix changes in the same PR."
+  - "MUST use git mv for file moves to preserve history."
+  - "MUST NOT delete files referenced in active specs without updating the spec."
+  - "MUST verify no broken imports after file deletion or moves."
+  - "MUST grep the entire codebase for references before deleting a module or function."
+  - "MUST check mapping files (mappings/) when deleting or renaming rules."
+  - "MUST run full validation toolchain after cleanup: pytest, ruff, mypy, schema validate, dedup check."
+  - "SHOULD break large cleanups into multiple PRs (one concern per PR)."
+  - "MUST NOT remove code that is imported by name in __init__.py without updating the export."
+  - "SHOULD check git log for recent usage before assuming code is dead."
+
+testing:
+  spec_derived:
+    file: tests/spec/release/test_cleanup_operations_spec.py
+    classes:
+      - TestCleanupOperationsSpecDerived
+    count: 3

@@ -1,0 +1,85 @@
+kind: InternalModule
+
+metadata:
+  name: RuleValidatorCLI
+  module: schema.validate
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-03-11"
+  updated: "2026-03-11"
+
+context:
+  description: >
+    The rule validation orchestrator must be runnable both as a module
+    (python -m schema.validate) and as a direct script (python3 schema/validate.py)
+    from the repository root without requiring PYTHONPATH workarounds.
+  technical_context: >
+    schema/validate.py imports from schema.validators which requires the
+    repo root on sys.path. Direct script execution does not add the repo
+    root automatically, so validate.py must handle this itself.
+  dependencies:
+    - "schema.validators"
+    - "schema.validators.rule"
+  callers:
+    - "pre-commit hook"
+    - "CI workflow (.github/workflows/ci.yml)"
+    - "developer manual invocation"
+  related_specs: []
+  assumptions:
+    - "Developers run validation from the repository root directory."
+
+objective:
+  summary: >
+    schema/validate.py must be importable and executable from the repo root
+    via both direct script invocation and python -m module invocation.
+  acceptance_criteria:
+    AC-1: >
+      schema.validate is importable as a module (python -m schema.validate)
+      from the repository root.
+    AC-2: >
+      schema/validate.py is executable as a direct script
+      (python3 schema/validate.py) from the repository root without
+      requiring PYTHONPATH to be set.
+    AC-3: >
+      The docstring documents both invocation methods correctly.
+
+input_contract:
+  - field: files
+    type: "list[str]"
+    required: false
+    description: >
+      Specific files or directories to validate. Defaults to all rules.
+
+behavior:
+  - "1. When invoked as python3 schema/validate.py, add repo root to sys.path."
+  - "2. Import schema.validators and schema.validators.rule."
+  - "3. Parse CLI arguments (files, --format, --strict, --rules-dir)."
+  - "4. Load JSON schema and validate specified rule files."
+  - "5. Render output in requested format and exit with appropriate code."
+
+output_contract:
+  returns: >
+    Exit code 0 on success, 1 on validation failure, 2 on schema load error.
+  paths:
+    success:
+      description: "All validated files pass."
+      result: "Exit code 0."
+    failure:
+      description: "One or more files fail validation."
+      result: "Exit code 1."
+  invariants:
+    - "Direct script invocation and module invocation produce identical results."
+
+constraints:
+  - "MUST NOT require PYTHONPATH workaround for direct script execution."
+  - "MUST remain compatible with python -m schema.validate invocation."
+  - "MUST NOT break pre-commit hook or CI invocation."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_rule_validator_cli_spec.py
+    classes:
+      - TestRuleValidatorCLISpecDerived
+    count: 3

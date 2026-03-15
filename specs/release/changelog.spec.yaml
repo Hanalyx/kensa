@@ -1,0 +1,107 @@
+kind: SystemContext
+
+metadata:
+  name: ReleaseChangelog
+  module: release.changelog
+  version: 1.0.0
+  status: draft
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-14"
+  updated: "2026-03-14"
+
+context:
+  description: >
+    Defines the format, content rules, and update workflow for CHANGELOG.md.
+    CHANGELOG.md is the human-readable record of all notable changes to Kensa
+    across every version. A script (scripts/update_changelog.py) auto-generates
+    entries from merged PR titles, categorized by first word. The release
+    workflow calls this script before committing the version bump.
+
+
+    This spec covers the format and process. The script behavior is specified
+    separately in specs/internal/changelog.spec.yaml.
+  technical_context: >
+    scripts/update_changelog.py --version VERSION [--since-tag TAG] [--date DATE]
+    [--skip-if-exists]. Reads merged PR titles from git log, filters release
+    commits, categorizes by keyword, formats as Markdown, prepends to
+    CHANGELOG.md. The release workflow (release.yml) calls this after bumping
+    pyproject.toml and before committing the release branch.
+
+
+    Roles of the three changelog surfaces:
+
+    CHANGELOG.md — human-readable, lives in repo root, updated every release.
+
+    GitHub Releases — auto-generated from PR titles by release.yml, targets
+    users downloading packages.
+
+    RPM %changelog — in kensa.spec, brief 1-3 line entries per version.
+
+    These three serve different audiences and must not replace each other.
+  related_specs:
+    - specs/internal/changelog.spec.yaml
+    - specs/release/commit-conventions.spec.yaml
+  assumptions:
+    - Version source of truth is pyproject.toml:project.version
+    - Release workflow calls update_changelog.py automatically
+    - Past version sections are immutable records
+
+objective:
+  summary: >
+    Maintain a clear, readable CHANGELOG.md where each version section describes
+    what changed in plain language, grouped by impact category.
+  acceptance_criteria:
+    AC-1: >
+      CHANGELOG.md begins with a top-level "# Changelog" heading followed by a
+      brief description line, then a "---" separator, then version sections
+      newest-first.
+    AC-2: >
+      Each version section header is "## vX.Y.Z (YYYY-MM-DD)" with a blank
+      line before and after. No codenames.
+    AC-3: >
+      Changes within a version are grouped under "### Added", "### Fixed",
+      "### Changed", or "### Removed" subheadings. Subheadings with no entries
+      are omitted. Order: Added, Changed, Fixed, Removed.
+    AC-4: >
+      Each change entry is a single bullet ("- ") written as a concise human
+      sentence (not a raw git message). No trailing period. PR number appended
+      in parentheses, e.g. "(#131)".
+    AC-5: >
+      No commit hashes, no repository URLs, no semantic-release boilerplate
+      appear in any entry.
+    AC-6: >
+      update_changelog.py --version VERSION extracts merged PR titles from git
+      log since the previous version tag, categorizes them, and prepends a
+      correctly formatted section to CHANGELOG.md.
+    AC-7: >
+      Categorization rules: titles starting with Add/Implement/Introduce/Support/
+      Raise/New → Added; Fix/Correct/Resolve/Patch/Handle → Fixed;
+      Remove/Delete/Drop/Deprecate → Removed; all others → Changed. Matching
+      is case-insensitive on the first word.
+    AC-8: >
+      Release commits (matching "chore(release):", "Merge pull request",
+      "Release v", "[skip ci]") are excluded from changelog entries.
+    AC-9: >
+      The release workflow (release.yml) calls update_changelog.py after
+      bumping pyproject.toml and before committing the release branch, so
+      each release tag corresponds to an up-to-date CHANGELOG.md entry.
+    AC-10: >
+      The --skip-if-exists flag preserves hand-crafted CHANGELOG sections so
+      manual entries survive the automated release.
+
+constraints:
+  - "MUST NOT use semantic-release changelog for entry generation."
+  - "MUST exclude merge commits and release commits from entries."
+  - "Each entry MUST reference the PR number from the git log line."
+  - "CHANGELOG.md MUST remain human-readable without tooling."
+  - "Script MUST be idempotent: re-running for the same version replaces the existing section."
+  - "MUST NOT edit past version sections — they are immutable records."
+  - "MUST NOT add entries for internal refactoring invisible to users or developers."
+  - "MUST NOT add entries for typo fixes, whitespace, or formatting-only changes."
+
+testing:
+  spec_derived:
+    file: tests/spec/release/test_changelog_spec.py
+    classes:
+      - TestReleaseChangelogSpecDerived
+    count: 5

@@ -1,0 +1,88 @@
+kind: InternalModule
+
+metadata:
+  name: ReadmeAccuracy
+  module: "project_metadata"
+  version: "1.0.0"
+  status: approved
+  owner: kensa-core
+  system_spec: "system.spec.yaml@1.0.0"
+  created: "2026-03-11"
+  updated: "2026-03-13"
+
+context:
+  description: >
+    README.md must contain accurate metrics that match the actual repository
+    state, and must include a clear support boundary section so prospects
+    know exactly what is and is not supported.
+  technical_context: >
+    Rule count comes from rules/**/*.yml glob. Mechanism count comes from
+    distinct mechanism: values in rule YAML files. Coverage table must
+    reflect current mapping state.
+  dependencies: []
+  callers: []
+  related_specs: []
+  assumptions:
+    - "README.md is in the repository root."
+    - "Rules live under rules/ as .yml files."
+
+objective:
+  summary: >
+    README metrics must match repository reality and include a support
+    boundary section.
+  acceptance_criteria:
+    AC-1: >
+      README rule count matches the actual number of .yml files under rules/.
+    AC-2: >
+      README remediation mechanism count matches the actual number of
+      distinct mechanism: values used in the rule corpus.
+    AC-3: >
+      README contains a "Supported Platforms" or "Support Boundary" section
+      that lists supported OS families and versions.
+    AC-4: >
+      README contains supported frameworks with accurate control counts.
+    AC-5: >
+      README CIS RHEL 8 coverage percentage matches the actual mapping
+      (mapped / total controls in mapping file).
+    AC-6: >
+      README CIS RHEL 9 coverage percentage matches the actual mapping
+      (mapped / total controls in mapping file).
+    AC-7: >
+      Every check method referenced in a rule exists in CHECK_HANDLERS.
+    AC-8: >
+      Every remediation mechanism referenced in a rule exists in
+      REMEDIATION_HANDLERS.
+
+input_contract: []
+
+behavior:
+  - "1. README badge line contains rule count matching rules/**/*.yml file count."
+  - "2. README badge line contains mechanism count matching distinct mechanism: values."
+  - "3. README contains a support boundary section with platform information."
+  - "4. README contains framework coverage table with control counts."
+  - "5. README coverage percentages match actual mapping state."
+  - "6. Rule check methods exist in the handler registry."
+  - "7. Rule remediation mechanisms exist in the handler registry."
+
+output_contract:
+  returns: >
+    No runtime output. This spec defines static documentation invariants
+    and rule consistency checks enforced by CI tests.
+  paths: {}
+  invariants:
+    - "README metrics match repository reality."
+    - "Rule handler references are valid."
+
+constraints:
+  - "README rule count MUST match actual file count."
+  - "README mechanism count MUST match actual usage in rules."
+  - "README MUST include a support boundary section."
+  - "All check methods in rules MUST exist in CHECK_HANDLERS."
+  - "All remediation mechanisms in rules MUST exist in REMEDIATION_HANDLERS."
+
+testing:
+  spec_derived:
+    file: tests/spec/internal/test_readme_accuracy_spec.py
+    classes:
+      - TestReadmeAccuracySpecDerived
+    count: 8
