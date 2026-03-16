@@ -7,14 +7,16 @@ tests/spec/internal/test_changelog_spec.py.
 
 from __future__ import annotations
 
+import importlib
 import re
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parents[3]
 
 
 class TestReleaseChangelogSpecDerived:
-    """Spec-derived tests for changelog format conventions (AC-1 through AC-5)."""
+    """Spec-derived tests for changelog format conventions (AC-1 through AC-10)."""
 
     def test_ac1_changelog_header_format(self):
         """AC-1: CHANGELOG.md starts with # Changelog heading and --- separator."""
@@ -90,3 +92,89 @@ class TestReleaseChangelogSpecDerived:
                 ), f"Entry appears to contain a commit hash: {line!r}"
         assert "Co-Authored-By" not in content
         assert "semantic-release" not in content.lower()
+
+    def test_ac6_update_changelog_script_generates_section(self):
+        """AC-6: update_changelog.py extracts merged PR titles and prepends a formatted section."""
+        # Verify the script exists and has the build_section function
+        script = REPO_ROOT / "scripts" / "update_changelog.py"
+        assert script.exists(), "scripts/update_changelog.py must exist"
+
+        # Import the module and test build_section produces correct format
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        try:
+            mod = importlib.import_module("update_changelog")
+            entries = [("Add new check handler", "42"), ("Fix lint errors", "43")]
+            section = mod.build_section("9.9.9", "2026-01-01", entries)
+            assert section.startswith("## v9.9.9 (2026-01-01)")
+            assert "- Add new check handler (#42)" in section
+            assert "- Fix lint errors (#43)" in section
+        finally:
+            sys.path.pop(0)
+
+    def test_ac7_categorization_rules(self):
+        """AC-7: Titles starting with Add/Implement/etc map to Added; Fix/Correct/etc to Fixed; Remove/Delete/etc to Removed; others to Changed."""
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        try:
+            mod = importlib.import_module("update_changelog")
+            # Added keywords
+            for word in ("Add", "Implement", "Introduce", "Support", "Raise", "New"):
+                assert (
+                    mod.categorize(f"{word} something") == "Added"
+                ), f"{word} should map to Added"
+            # Fixed keywords
+            for word in ("Fix", "Correct", "Resolve", "Patch", "Handle"):
+                assert (
+                    mod.categorize(f"{word} something") == "Fixed"
+                ), f"{word} should map to Fixed"
+            # Removed keywords
+            for word in ("Remove", "Delete", "Drop", "Deprecate"):
+                assert (
+                    mod.categorize(f"{word} something") == "Removed"
+                ), f"{word} should map to Removed"
+            # Default → Changed
+            assert mod.categorize("Update something") == "Changed"
+            assert mod.categorize("Refactor something") == "Changed"
+        finally:
+            sys.path.pop(0)
+
+    def test_ac8_release_commits_excluded(self):
+        """AC-8: Release commits matching chore(release), Merge pull request, Release v, [skip ci] are excluded."""
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        try:
+            mod = importlib.import_module("update_changelog")
+            lines = [
+                "abc1234 chore(release): v1.2.3",
+                "def5678 Merge pull request #99 from main",
+                "ghi9012 Release v1.2.3",
+                "jkl3456 [skip ci] bump version",
+                "mno7890 Add new feature (#50)",
+            ]
+            filtered = mod.filter_log_lines(lines)
+            assert len(filtered) == 1, f"Expected 1 remaining line, got {len(filtered)}"
+            assert "Add new feature" in filtered[0]
+        finally:
+            sys.path.pop(0)
+
+    def test_ac9_release_workflow_calls_update_changelog(self):
+        """AC-9: The release workflow calls update_changelog.py after bumping pyproject.toml."""
+        release_yml = REPO_ROOT / ".github" / "workflows" / "release.yml"
+        assert release_yml.exists(), "release.yml must exist"
+        content = release_yml.read_text()
+        assert (
+            "update_changelog.py" in content
+        ), "release.yml must call update_changelog.py"
+
+    def test_ac10_skip_if_exists_flag(self):
+        """AC-10: The --skip-if-exists flag preserves hand-crafted CHANGELOG sections."""
+        # Verify the script accepts --skip-if-exists
+        script = REPO_ROOT / "scripts" / "update_changelog.py"
+        content = script.read_text()
+        assert (
+            "--skip-if-exists" in content
+        ), "update_changelog.py must support --skip-if-exists flag"
+        # Verify release workflow passes the flag
+        release_yml = REPO_ROOT / ".github" / "workflows" / "release.yml"
+        release_content = release_yml.read_text()
+        assert (
+            "--skip-if-exists" in release_content
+        ), "release.yml must pass --skip-if-exists to update_changelog.py"

@@ -185,6 +185,7 @@ constraints:
 
 testing:
   spec_derived:
-    file: ""
-    classes: []
-    count: 0
+    file: tests/spec/test_rules_spec.py
+    classes:
+      - TestCanonicalRuleSystemSpecDerived
+    count: 10
