@@ -120,6 +120,19 @@ def target_options(f):
     return f
 
 
+def _complete_framework(ctx, param, incomplete):
+    """Shell completion callback for --framework."""
+    from click.shell_completion import CompletionItem
+
+    try:
+        from runner.mappings import load_all_mappings
+
+        ids = list(load_all_mappings().keys())
+    except Exception:
+        return []
+    return [CompletionItem(fid) for fid in ids if fid.startswith(incomplete)]
+
+
 def rule_options(f):
     """Rule selection options for check/remediate."""
     f = click.option(
@@ -127,7 +140,11 @@ def rule_options(f):
     )(f)
     f = click.option("--rule", default=None, help="Path to single rule file")(f)
     f = click.option(
-        "--severity", "-s", multiple=True, help="Filter by severity (repeatable)"
+        "--severity",
+        "-s",
+        multiple=True,
+        type=click.Choice(["critical", "high", "medium", "low"], case_sensitive=False),
+        help="Filter by severity (repeatable)",
     )(f)
     f = click.option("--tag", "-t", multiple=True, help="Filter by tag (repeatable)")(f)
     f = click.option("--category", "-c", default=None, help="Filter by category")(f)
@@ -135,6 +152,7 @@ def rule_options(f):
         "--framework",
         "-f",
         default=None,
+        shell_complete=_complete_framework,
         help="Filter to rules in framework mapping (e.g., cis-rhel9)",
     )(f)
     f = click.option(
@@ -159,6 +177,14 @@ def rule_options(f):
     return f
 
 
+def _complete_output_format(ctx, param, incomplete):
+    """Shell completion callback for --output format."""
+    from click.shell_completion import CompletionItem
+
+    formats = ["csv", "json", "pdf", "evidence"]
+    return [CompletionItem(f) for f in formats if f.startswith(incomplete)]
+
+
 def output_options(f):
     """Output format options for check/remediate."""
     f = click.option(
@@ -166,6 +192,7 @@ def output_options(f):
         "-o",
         "outputs",
         multiple=True,
+        shell_complete=_complete_output_format,
         help="Output format (csv, json, pdf, evidence). Add :path to write to file (e.g., -o json:results.json)",
     )(f)
     f = click.option(
@@ -1698,6 +1725,7 @@ def diff(session1, session2, host, show_unchanged, json_output):
     "--framework",
     "-f",
     required=True,
+    shell_complete=_complete_framework,
     help="Framework mapping ID (e.g., cis-rhel9)",
 )
 @click.option("--rules", "-r", default=None, help="Path to rules directory")

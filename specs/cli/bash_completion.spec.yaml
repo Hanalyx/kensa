@@ -1,0 +1,90 @@
+kind: CLICommand
+
+metadata:
+  name: BashCompletion
+  module: runner.cli
+  version: 1.0.0
+  status: released
+  system_spec: system.spec.yaml@1.0.0
+  created: "2026-03-22"
+  updated: "2026-03-22"
+
+context:
+  description: >
+    Bash shell completion for the kensa CLI. Leverages Click's built-in
+    shell completion to provide tab-completion for subcommands, options,
+    and option values (output formats, severity levels, framework names).
+  technical_context: >
+    Click 8.x provides shell completion via the _KENSA_COMPLETE environment
+    variable. --severity uses click.Choice for static completion. --output
+    and --framework use shell_complete callbacks because --output accepts
+    format:path syntax that click.Choice would reject, and --framework
+    values are dynamic. The completion script is generated via
+    `_KENSA_COMPLETE=bash_source kensa` and installed to
+    /usr/share/bash-completion/completions/kensa in the RPM.
+  dependencies:
+    - click (shell_completion module)
+    - runner.mappings (load_all_mappings for --framework completion)
+  callers:
+    - Bash shell (sources completion script)
+    - RPM %install section (generates script)
+
+objective:
+  summary: >
+    Provide bash tab-completion for kensa subcommands, options, and
+    frequently-used option values (output format, severity, framework).
+  acceptance_criteria:
+    AC-1: >
+      The --output/-o option has a shell_complete callback that offers
+      csv, json, pdf, and evidence as completion values while still
+      accepting format:path syntax (e.g., json:results.json) at runtime.
+    AC-2: >
+      The --severity/-s option uses click.Choice so that tab-completion
+      offers critical, high, medium, and low as values.
+    AC-3: >
+      The --framework/-f option has a shell_complete callback that returns
+      framework IDs from load_all_mappings().
+    AC-4: >
+      Click's _KENSA_COMPLETE=bash_source mechanism generates a valid
+      bash completion script (non-empty output containing Click's
+      completion function).
+    AC-5: >
+      The --output option still accepts format:path syntax at runtime
+      (e.g., json:results.json) — the completion callback does not
+      constrain runtime validation.
+
+behavior:
+  - "When _KENSA_COMPLETE=bash_source is set, Click outputs a bash completion script and exits."
+  - "--severity offers click.Choice completions for critical, high, medium, low."
+  - "--output shell_complete callback returns csv, json, pdf, evidence as completion items."
+  - "--framework shell_complete callback loads framework IDs from load_all_mappings() and returns matching completions."
+  - "All completion callbacks filter results by the incomplete prefix typed so far."
+
+constraints:
+  - "MUST NOT add any new Python dependencies — use Click built-in only."
+  - "MUST NOT break existing CLI behavior for --output or --severity."
+  - "--output MUST still accept format:path syntax (e.g., json:out.json) in addition to bare format names."
+  - "--severity MUST still accept multiple values via repeated -s flags."
+  - "Framework completion callback MUST handle import failure gracefully (return empty list)."
+
+input_contract:
+  - field: _KENSA_COMPLETE
+    type: env_var
+    required: true
+    description: "Set to 'bash_source' to generate completion script."
+
+output_contract:
+  returns: >
+    Bash completion script on stdout when _KENSA_COMPLETE=bash_source is set.
+    Normal CLI behavior otherwise.
+
+exit_codes:
+  - code: 0
+    condition: "Completion script generated successfully, or normal CLI operation"
+
+testing:
+  spec_derived:
+    file: tests/spec/cli/test_bash_completion_spec.py
+    classes:
+      - TestBashCompletionSpecDerived
+    count: 5
