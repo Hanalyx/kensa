@@ -40,6 +40,7 @@ def _capture_bulk_find_permissions(ssh: SSHSession, r: dict) -> PreState:
     if "find_name" in r:
         cmd_parts.append(f"-name {shell_util.quote(r['find_name'])}")
     if "find_type" in r:
+        shell_util.validate_find_type(r["find_type"])
         cmd_parts.append(f"-type {r['find_type']}")
     if "find_args" in r:
         cmd_parts.append(r["find_args"])

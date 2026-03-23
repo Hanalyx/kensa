@@ -21,6 +21,16 @@ def _rollback_file_permissions(
     entries = pre_state.data.get("entries", [])
     if not entries:
         return False, "No file entries to restore"
+
+    # Validate all entries before executing any commands (AC-9)
+    for entry in entries:
+        try:
+            shell_util.validate_chown_spec(
+                entry.get("owner"), entry.get("group"), entry.get("mode")
+            )
+        except ValueError as e:
+            return False, f"Invalid pre-state data for {entry['path']}: {e}"
+
     errors: list[str] = []
     for entry in entries:
         p = shell_util.quote(entry["path"])

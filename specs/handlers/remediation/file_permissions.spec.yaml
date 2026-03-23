@@ -108,6 +108,18 @@ objective:
     AC-21: >
       Bulk failure: When the find command fails, returns (False, "Failed:
       {stderr}").
+    AC-22: >
+      find_type validation: When find_type is provided, it must be validated
+      to be a single character from the set {f, d, l, b, c, p, s} before
+      being appended to the find command. An invalid find_type value must
+      cause the handler to return (False, error_detail) rather than being
+      passed unvalidated to the shell.
+    AC-23: >
+      chown_spec and mode quoting: In both direct and bulk modes, the
+      owner, group, and mode values interpolated into chown and chmod
+      commands must be validated or quoted to prevent shell injection.
+      Values containing shell metacharacters (;, |, $, backtick, newline)
+      must be rejected.
 
 constraints:
   - MUST NOT execute any remote commands when dry_run=True.
@@ -207,4 +219,4 @@ testing:
     classes:
       - TestFilePermissionsSpecDerived
       - TestFilePermissionsBulkSpecDerived
-    count: 24
+    count: 26

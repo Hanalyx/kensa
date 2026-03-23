@@ -76,6 +76,21 @@ objective:
     AC-10: >
       Click type validation is applied to CLI inputs (--port uses IntRange,
       --workers uses IntRange(1, 50), --severity/--tag use multiple=True).
+    AC-11: >
+      The find_type field in bulk file permissions handlers is validated to
+      accept only valid single-character find type codes (f, d, l, b, c, p, s)
+      before being interpolated into shell commands. Invalid values must be
+      rejected, not passed to the shell.
+    AC-12: >
+      Pre-state data used in rollback commands (owner, group, mode) is
+      validated before interpolation into chown/chmod commands. Owner and
+      group must match ^[a-zA-Z0-9._-]+$ and mode must match ^[0-7]{3,4}$
+      or a valid symbolic mode. Invalid values must cause the rollback step
+      to fail safely rather than execute with unvalidated input.
+    AC-13: >
+      The chown_spec (owner:group) and mode values in shell_util.set_file_owner()
+      and shell_util.set_file_mode() are quoted or validated before interpolation
+      into shell commands, preventing injection via crafted owner/group/mode values.
 
 constraints:
   - "MUST never log, print, or include passwords in error messages."
@@ -130,4 +145,4 @@ testing:
     file: tests/spec/internal/test_security_spec.py
     classes:
       - TestSecuritySpecDerived
-    count: 10
+    count: 13

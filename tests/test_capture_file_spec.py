@@ -151,3 +151,34 @@ class TestCaptureFileSpecDerived:
         assert _capture_file_permissions(ssh, r).capturable is True
         assert _capture_file_content(ssh, r).capturable is True
         assert _capture_file_absent(ssh, r).capturable is True
+
+    def test_ac9_bulk_find_type_validation_rejects_invalid(self, mock_ssh):
+        """AC-9: In bulk find mode, invalid find_type values are rejected."""
+        from runner.handlers.capture._file import _capture_bulk_find_permissions
+
+        ssh = mock_ssh({})
+        r = {
+            "find_paths": ["/etc"],
+            "find_type": "f; rm -rf /",
+            "find_name": "*.conf",
+        }
+        # Should raise ValueError or skip the type filter — not pass to shell
+        import pytest
+
+        with pytest.raises(ValueError):
+            _capture_bulk_find_permissions(ssh, r)
+        # Verify no commands were run with the malicious input
+        assert len(ssh.commands_run) == 0
+
+    def test_ac9_bulk_find_type_accepts_valid(self, mock_ssh):
+        """AC-9: In bulk find mode, valid find_type values are accepted."""
+        from runner.handlers.capture._file import _capture_bulk_find_permissions
+
+        for valid_type in ["f", "d", "l"]:
+            ssh = mock_ssh({"find": Result(exit_code=0, stdout="", stderr="")})
+            r = {
+                "find_paths": ["/etc"],
+                "find_type": valid_type,
+            }
+            result = _capture_bulk_find_permissions(ssh, r)
+            assert result.mechanism == "file_permissions"

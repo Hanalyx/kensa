@@ -78,6 +78,10 @@ objective:
     AC-11: >
       FIPS-safe MD5 patch wraps hashlib.md5 with usedforsecurity=False
       before paramiko import to prevent ValueError on FIPS-enabled systems.
+    AC-12: >
+      When _AcceptPolicy accepts an unknown host key (strict_host_keys=False),
+      the event is logged at WARNING level (not DEBUG) so that security-aware
+      deployments have visibility into unverified host connections.
 
 constraints:
   - "MUST patch hashlib.md5 with usedforsecurity=False before importing paramiko."
@@ -181,6 +185,6 @@ testing:
     file: tests/test_ssh_session_spec.py
     classes:
       - TestSSHSessionSpecDerived
-    count: 12
+    count: 13
   unit:
     - tests/test_ssh.py

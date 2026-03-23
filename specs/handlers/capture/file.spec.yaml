@@ -69,12 +69,20 @@ objective:
       fields are None.
     AC-8: >
       All file capture handlers return PreState with capturable=True.
+    AC-9: >
+      In bulk find mode (_capture_bulk_find_permissions), the find_type
+      field is validated to accept only single-character find type codes
+      (f, d, l, b, c, p, s) before being interpolated into the find
+      command. Invalid values must cause the handler to skip the -type
+      filter or raise ValueError rather than passing unvalidated input
+      to the shell.
 
 constraints:
   - "MUST handle glob paths for file_permissions via is_glob_path and quote_path."
   - "MUST capture both content and metadata (owner, group, mode) for file_content and file_absent."
   - "MUST return empty entries list when no files match (file_permissions)."
   - "MUST NOT modify the remote host during capture."
+  - "MUST validate find_type before shell interpolation in bulk mode."
 
 input_contract:
   - field: ssh
@@ -112,6 +120,6 @@ testing:
     file: tests/test_capture_file_spec.py
     classes:
       - TestCaptureFileSpecDerived
-    count: 10
+    count: 11
   unit:
     - tests/test_capture_handlers.py

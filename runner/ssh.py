@@ -51,7 +51,7 @@ class _AcceptPolicy(paramiko.MissingHostKeyPolicy):
         hostname: str,
         key: paramiko.PKey,
     ) -> None:
-        log.debug("Accepting %s host key for %s", key.get_name(), hostname)
+        log.warning("Accepting unverified %s host key for %s", key.get_name(), hostname)
 
 
 def _shell_quote(s: str) -> str:
