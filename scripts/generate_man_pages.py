@@ -26,11 +26,6 @@ from runner.cli import main as cli_main  # noqa: E402
 from runner.paths import get_version  # noqa: E402
 
 
-def _escape_groff(text: str) -> str:
-    """Escape characters that are special in groff."""
-    return text.replace("\\", "\\\\").replace("-", "\\-").replace(".", "\\&.")
-
-
 def _format_option_flags(param: click.Parameter) -> str:
     """Build the flag string for an option (e.g. '\\-h, \\-\\-host HOST')."""
     if not isinstance(param, click.Option):
@@ -80,10 +75,7 @@ def _generate_main_page(commands: list[tuple[str, click.Command]], version: str)
         ".I command",
         "[options]",
         ".SH DESCRIPTION",
-        ".B kensa",
-        "connects to remote hosts over SSH, evaluates YAML compliance rules,",
-        "captures machine\\-verifiable evidence, and maps results to frameworks",
-        "(CIS, STIG, NIST 800\\-53, PCI\\-DSS, FedRAMP).",
+        " ".join((cli_main.help or "Kensa CLI").strip().split()),
         ".SH COMMANDS",
     ]
 

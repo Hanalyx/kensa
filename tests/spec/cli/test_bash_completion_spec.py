@@ -21,16 +21,6 @@ def _get_option(command, option_name):
     return None
 
 
-def _get_completions(args, incomplete=""):
-    """Get completion items for a given command line using Click internals."""
-    from click.shell_completion import ShellComplete
-
-    comp = ShellComplete(main, {}, "kensa", incomplete)
-    # Build a fake completion context
-    completions = comp.get_completions(args, incomplete)
-    return [c.value for c in completions]
-
-
 class TestBashCompletionSpecDerived:
     """Spec-derived tests for bash completion.
 
@@ -150,7 +140,10 @@ class TestBashCompletionSpecDerived:
             ],
         )
 
-        # We expect a connection error (no host), NOT an invalid option error
+        # We expect a connection error (no host), NOT a usage/option error
+        assert (
+            result.exit_code != 2
+        ), f"Click rejected the command (exit code 2): {result.output}"
         try:
             stderr = result.stderr or ""
         except ValueError:

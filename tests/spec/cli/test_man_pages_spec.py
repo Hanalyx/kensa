@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -29,7 +30,7 @@ HIDDEN_COMMANDS = {"lookup", "list-frameworks"}
 def _generate_man_pages(output_dir: str) -> list[str]:
     """Run the man page generator and return list of created files."""
     result = subprocess.run(
-        ["python3", "scripts/generate_man_pages.py", "-o", output_dir],
+        [sys.executable, "scripts/generate_man_pages.py", "-o", output_dir],
         capture_output=True,
         text=True,
     )
@@ -71,7 +72,7 @@ class TestManPagesSpecDerived:
                 path = os.path.join(tmpdir, f"kensa-{cmd}.1")
                 content = Path(path).read_text()
                 assert (
-                    ".SH SYNOPSIS" in content or ".SH Synopsis" in content.title()
+                    ".SH SYNOPSIS" in content
                 ), f"kensa-{cmd}.1 missing SYNOPSIS section"
                 # 'list' group may not have options of its own
                 if cmd != "list":
@@ -111,7 +112,7 @@ class TestManPagesSpecDerived:
             assert (
                 content.startswith(".TH ") or ".TH " in content
             ), "Man page missing .TH title header"
-            assert ".SH NAME" in content or ".SH Name" in content.title()
+            assert ".SH NAME" in content, "Man page missing .SH NAME section"
 
     def test_ac7_main_page_see_also_references(self):
         """AC-7: Main man page includes SEE ALSO referencing subcommand pages."""
