@@ -20,8 +20,11 @@ from runner.cli import main
 
 
 def strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences for assertion clarity."""
-    return re.compile(r"\x1b\[[0-9;]*m").sub("", text)
+    """Remove ANSI escape sequences and Rich line-wrapping for assertion clarity."""
+    text = re.compile(r"\x1b\[[0-9;]*m").sub("", text)
+    # Rich wraps long lines mid-word; remove wrapping newlines for reliable matching
+    text = text.replace("\n", "")
+    return text
 
 
 def _write_simple_rule(tmp_path, rule_id: str = "test-rule") -> str:

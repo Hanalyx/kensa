@@ -3,11 +3,11 @@ metadata:
   name: CryptoPolicySet
   module: handlers/remediation
   version: 1.0.0
-  status: approved
+  status: released
   owner: kensa-core
   system_spec: system.spec.yaml@1.0.0
   created: "2026-03-13"
-  updated: "2026-03-13"
+  updated: "2026-03-23"
 
 context:
   description: >

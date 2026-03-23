@@ -4,11 +4,11 @@ metadata:
   name: RuleLoading
   module: runner._loading
   version: "2.0.0"
-  status: approved
+  status: released
   owner: kensa-core
   system_spec: "system.spec.yaml@1.0.0"
   created: "2026-02-25"
-  updated: "2026-03-11"
+  updated: "2026-03-23"
 
 context:
   description: >
