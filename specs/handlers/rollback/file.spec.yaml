@@ -68,12 +68,19 @@ objective:
     AC-8: >
       _rollback_file_absent when file existed and content captured: writes
       old_content, restores owner/group and mode; returns (True, "Restored {path}").
+    AC-9: >
+      Pre-state owner, group, and mode values from capture data are validated
+      before interpolation into chown/chmod commands. Owner and group must
+      match ^[a-zA-Z0-9._-]+$ and mode must match ^[0-7]{3,4}$. Invalid
+      values must cause the rollback step to return (False, error_detail)
+      rather than executing with unvalidated input.
 
 constraints:
   - "MUST use shell_util.quote for all path interpolation in commands."
   - "MUST restore both content and metadata (owner, group, mode) when available."
   - "MUST return (False, detail) on failure, never raise exceptions."
   - "MUST handle empty entries list for file_permissions."
+  - "MUST validate owner, group, and mode from pre-state before shell interpolation."
 
 input_contract:
   - field: ssh
@@ -117,6 +124,6 @@ testing:
     file: tests/test_rollback_file_spec.py
     classes:
       - TestRollbackFileSpecDerived
-    count: 10
+    count: 11
   unit:
     - tests/test_rollback_handlers.py

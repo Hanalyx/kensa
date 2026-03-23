@@ -3211,7 +3211,7 @@ class TestRollbackFilePermissionsReturnCode:
         )
         ok, detail = _rollback_file_permissions(ssh, ps)
         assert ok is False
-        assert "Failed" in detail
+        assert "Invalid" in detail or "Failed" in detail
 
 
 # ── Spec-derived tests: security + service + package remediation handlers ───
@@ -6082,17 +6082,17 @@ class TestFilePermissionsSpecDerived:
         """AC-10: Failure returns (False, 'Failed: {stderr}')."""
         ssh = mock_ssh(
             {
-                "chmod": Result(exit_code=1, stdout="", stderr="invalid mode"),
+                "chmod": Result(exit_code=1, stdout="", stderr="chmod: bad mode"),
             }
         )
         rem = {
             "mechanism": "file_permissions",
             "path": "/etc/shadow",
-            "mode": "9999",
+            "mode": "0644",
         }
         ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
         assert ok is False
-        assert "Failed: invalid mode" in detail
+        assert "Failed:" in detail
 
     def test_path_quoting_non_glob(self, mock_ssh):
         """AC-11: Non-glob path is quoted via shell_util.quote_path."""
@@ -6467,6 +6467,61 @@ class TestFilePermissionsBulkSpecDerived:
         assert ok is False
         assert "Failed:" in detail
         assert "Permission denied" in detail
+
+    def test_ac22_find_type_validation_rejects_invalid(self, mock_ssh):
+        """AC-22: find_type validation rejects invalid values before shell interpolation."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc"],
+            "find_type": "f; rm -rf /",
+            "mode": "0644",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        # Should not have executed any commands
+        assert len(ssh.commands_run) == 0
+
+    def test_ac22_find_type_validation_accepts_valid(self, mock_ssh):
+        """AC-22: find_type validation accepts valid single-character codes."""
+        for valid_type in ["f", "d", "l", "b", "c", "p", "s"]:
+            ssh = mock_ssh({"find": Result(exit_code=0, stdout="", stderr="")})
+            rem = {
+                "mechanism": "file_permissions",
+                "find_paths": ["/etc"],
+                "find_type": valid_type,
+                "mode": "0644",
+            }
+            ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+            assert ok is True, f"Valid find_type '{valid_type}' should be accepted"
+
+    def test_ac23_chown_spec_rejects_shell_metacharacters(self, mock_ssh):
+        """AC-23: owner/group/mode with shell metacharacters are rejected."""
+        ssh = mock_ssh({})
+        # Malicious owner with shell injection
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc"],
+            "find_type": "f",
+            "owner": "root;rm -rf /",
+            "group": "root",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert len(ssh.commands_run) == 0
+
+    def test_ac23_mode_rejects_shell_metacharacters(self, mock_ssh):
+        """AC-23: mode with shell metacharacters is rejected."""
+        ssh = mock_ssh({})
+        rem = {
+            "mechanism": "file_permissions",
+            "find_paths": ["/etc"],
+            "find_type": "f",
+            "mode": "0644;id",
+        }
+        ok, detail, _ = run_remediation(ssh, rem, snapshot=False)
+        assert ok is False
+        assert len(ssh.commands_run) == 0
 
 
 # ── dconf_set spec-derived tests ──────────────────────────────────────────────

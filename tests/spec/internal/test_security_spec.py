@@ -246,3 +246,66 @@ class TestSecuritySpecDerived:
         assert isinstance(
             workers_param.type, click.IntRange
         ), "--workers should be IntRange type"
+
+    def test_ac11_find_type_validated_before_shell_interpolation(self):
+        """AC-11: find_type is validated to single-char type codes before shell use."""
+        from runner.handlers.remediation._file import _bulk_find_permissions
+
+        ssh = MagicMock()
+        # Invalid find_type with shell injection
+        r = {
+            "find_paths": ["/etc"],
+            "find_type": "f; rm -rf /",
+            "mode": "0644",
+        }
+        ok, detail = _bulk_find_permissions(ssh, r)
+        assert ok is False
+        # Should not have called ssh.run with the malicious input
+        ssh.run.assert_not_called()
+
+    def test_ac12_prestate_owner_group_mode_validated(self):
+        """AC-12: Pre-state owner/group/mode are validated before rollback shell interpolation."""
+        from runner._types import PreState
+        from runner.handlers.rollback._file import _rollback_file_permissions
+
+        ssh = MagicMock()
+        # Malicious owner value
+        pre_state = PreState(
+            mechanism="file_permissions",
+            data={
+                "entries": [
+                    {
+                        "path": "/etc/passwd",
+                        "owner": "$(id)",
+                        "group": "root",
+                        "mode": "0644",
+                    }
+                ]
+            },
+        )
+        ok, detail = _rollback_file_permissions(ssh, pre_state)
+        assert ok is False
+        ssh.run.assert_not_called()
+
+    def test_ac13_shell_util_set_file_owner_quotes_values(self):
+        """AC-13: shell_util.set_file_owner() validates or quotes chown_spec."""
+        from runner import shell_util
+
+        ssh = MagicMock()
+        ssh.run.return_value = MagicMock(ok=True)
+
+        # Valid call should work
+        shell_util.set_file_owner(ssh, "/etc/test", "root", "wheel")
+        assert ssh.run.called
+        cmd = ssh.run.call_args[0][0]
+        # The chown_spec should be safe (quoted or validated)
+        assert "root:wheel" in cmd or "'root':'wheel'" in cmd
+
+        ssh.reset_mock()
+        # Malicious owner should be rejected with ValueError
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid owner/group"):
+            shell_util.set_file_owner(ssh, "/etc/test", "root;id", "root")
+        # No command should have been executed
+        ssh.run.assert_not_called()

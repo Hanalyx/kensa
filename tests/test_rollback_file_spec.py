@@ -188,3 +188,68 @@ class TestRollbackFileSpecDerived:
         ok, detail = _rollback_file_absent(ssh, pre_state)
         assert ok is True
         assert detail == "Restored /etc/hosts.equiv"
+
+    def test_ac9_rejects_malicious_owner_in_prestate(self, mock_ssh):
+        """AC-9: Pre-state owner/group/mode values are validated before shell interpolation."""
+        ssh = mock_ssh({})
+        pre_state = PreState(
+            mechanism="file_permissions",
+            data={
+                "entries": [
+                    {
+                        "path": "/etc/passwd",
+                        "owner": "root;rm -rf /",
+                        "group": "root",
+                        "mode": "0644",
+                    },
+                ]
+            },
+        )
+        ok, detail = _rollback_file_permissions(ssh, pre_state)
+        assert ok is False
+        # Should not have executed any commands with the malicious input
+        assert len(ssh.commands_run) == 0
+
+    def test_ac9_rejects_malicious_mode_in_prestate(self, mock_ssh):
+        """AC-9: Pre-state mode is validated to match octal pattern."""
+        ssh = mock_ssh({})
+        pre_state = PreState(
+            mechanism="file_permissions",
+            data={
+                "entries": [
+                    {
+                        "path": "/etc/passwd",
+                        "owner": "root",
+                        "group": "root",
+                        "mode": "0644$(id)",
+                    },
+                ]
+            },
+        )
+        ok, detail = _rollback_file_permissions(ssh, pre_state)
+        assert ok is False
+        assert len(ssh.commands_run) == 0
+
+    def test_ac9_accepts_valid_prestate_values(self, mock_ssh):
+        """AC-9: Valid owner/group/mode values are accepted."""
+        ssh = mock_ssh(
+            {
+                "chown": Result(exit_code=0, stdout="", stderr=""),
+                "chmod": Result(exit_code=0, stdout="", stderr=""),
+            }
+        )
+        pre_state = PreState(
+            mechanism="file_permissions",
+            data={
+                "entries": [
+                    {
+                        "path": "/etc/passwd",
+                        "owner": "root",
+                        "group": "wheel",
+                        "mode": "0644",
+                    },
+                ]
+            },
+        )
+        ok, detail = _rollback_file_permissions(ssh, pre_state)
+        assert ok is True

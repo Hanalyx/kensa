@@ -141,6 +141,96 @@ def quote(value: str) -> str:
     return shlex.quote(str(value))
 
 
+# ── Validation helpers ───────────────────────────────────────────────────
+
+import re  # noqa: E402
+
+_SHELL_META_RE = re.compile(r"[;|$`\n]")
+_VALID_FIND_TYPES = frozenset("fdlbcps")
+_VALID_OWNER_GROUP_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
+_VALID_OCTAL_MODE_RE = re.compile(r"^[0-7]{3,4}$")
+_VALID_SYMBOLIC_MODE_RE = re.compile(r"^[ugoa]*[+-=][rwxXst]+$")
+
+
+def validate_find_type(value: str) -> str:
+    """Validate a find -type argument is a single valid type character.
+
+    Args:
+        value: find_type value to validate.
+
+    Returns:
+        The validated single-character type code.
+
+    Raises:
+        ValueError: If value is not a valid single-character find type.
+
+    """
+    if len(value) != 1 or value not in _VALID_FIND_TYPES:
+        raise ValueError(
+            f"Invalid find_type {value!r}: must be one of {sorted(_VALID_FIND_TYPES)}"
+        )
+    return value
+
+
+def validate_owner_group(value: str) -> str:
+    """Validate an owner or group name for safe shell interpolation.
+
+    Args:
+        value: Owner or group name.
+
+    Returns:
+        The validated value.
+
+    Raises:
+        ValueError: If value contains invalid characters.
+
+    """
+    if not _VALID_OWNER_GROUP_RE.match(value):
+        raise ValueError(f"Invalid owner/group {value!r}: must match [a-zA-Z0-9._-]+")
+    return value
+
+
+def validate_mode(value: str) -> str:
+    """Validate a file mode string for safe shell interpolation.
+
+    Accepts octal modes (e.g. "0644", "755") and simple symbolic modes
+    (e.g. "go-w", "+t").
+
+    Args:
+        value: Mode string.
+
+    Returns:
+        The validated value.
+
+    Raises:
+        ValueError: If value is not a valid mode.
+
+    """
+    if _VALID_OCTAL_MODE_RE.match(value):
+        return value
+    if _VALID_SYMBOLIC_MODE_RE.match(value):
+        return value
+    # Also accept compound symbolic like "u=rwx,g=rx,o=rx"
+    if all(_VALID_SYMBOLIC_MODE_RE.match(p) for p in value.split(",")):
+        return value
+    raise ValueError(f"Invalid mode {value!r}: must be octal (0644) or symbolic (go-w)")
+
+
+def validate_chown_spec(owner: str | None, group: str | None, mode: str | None) -> None:
+    """Validate owner, group, and mode values for safe shell use.
+
+    Raises ValueError if any value contains shell metacharacters or
+    does not match the expected pattern.
+
+    """
+    if owner:
+        validate_owner_group(owner)
+    if group:
+        validate_owner_group(group)
+    if mode:
+        validate_mode(mode)
+
+
 def is_glob_path(path: str) -> bool:
     """Check if a path contains glob characters.
 
@@ -502,6 +592,11 @@ def set_file_owner(
     if not owner and not group:
         return True
 
+    if owner:
+        validate_owner_group(owner)
+    if group:
+        validate_owner_group(group)
+
     chown_spec = f"{owner or ''}:{group or ''}" if group else owner
     quoted = quote_path(path, allow_glob=allow_glob)
     return ssh.run(f"chown {chown_spec} {quoted}").ok
@@ -526,6 +621,7 @@ def set_file_mode(
         True if successful.
 
     """
+    validate_mode(mode)
     quoted = quote_path(path, allow_glob=allow_glob)
     return ssh.run(f"chmod {mode} {quoted}").ok
 

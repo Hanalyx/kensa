@@ -57,6 +57,12 @@ def _direct_permissions(
     is_glob = "glob" in r or shell_util.is_glob_path(path)
     parts = []
 
+    # Validate owner/group/mode before interpolation
+    try:
+        shell_util.validate_chown_spec(r.get("owner"), r.get("group"), r.get("mode"))
+    except ValueError as e:
+        return False, str(e)
+
     if "owner" in r or "group" in r:
         owner = r.get("owner", "")
         group = r.get("group", "")
@@ -89,9 +95,19 @@ def _bulk_find_permissions(
     if "find_name" in r:
         cmd_parts.append(f"-name {shell_util.quote(r['find_name'])}")
     if "find_type" in r:
+        try:
+            shell_util.validate_find_type(r["find_type"])
+        except ValueError as e:
+            return False, str(e)
         cmd_parts.append(f"-type {r['find_type']}")
     if "find_args" in r:
         cmd_parts.append(r["find_args"])
+
+    # Validate owner/group/mode before interpolation
+    try:
+        shell_util.validate_chown_spec(r.get("owner"), r.get("group"), r.get("mode"))
+    except ValueError as e:
+        return False, str(e)
 
     if "owner" in r or "group" in r:
         owner = r.get("owner", "")

@@ -213,3 +213,19 @@ class TestSSHSessionSpecDerived:
         h = hashlib.md5(b"test")
         assert h is not None
         assert len(h.hexdigest()) == 32
+
+    def test_ac12_accept_policy_logs_at_warning(self):
+        """AC-12: _AcceptPolicy logs at WARNING level when accepting unknown host keys."""
+        policy = _AcceptPolicy()
+        mock_client = MagicMock()
+        mock_key = MagicMock()
+        mock_key.get_name.return_value = "ssh-rsa"
+
+        with patch("runner.ssh.log") as mock_log:
+            policy.missing_host_key(mock_client, "testhost.example.com", mock_key)
+            # Should log at WARNING, not DEBUG
+            mock_log.warning.assert_called_once()
+            call_args = mock_log.warning.call_args
+            assert "testhost.example.com" in str(call_args)
+            # Ensure it was NOT logged at debug level
+            mock_log.debug.assert_not_called()
