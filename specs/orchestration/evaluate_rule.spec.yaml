@@ -80,6 +80,15 @@ constraints:
   - >
     select_implementation and _extract_framework_refs are called unconditionally
     before any early-return path.
+  - >
+    The `when:` capability gate and the `check:` within an implementation serve
+    independent concerns. The gate selects the remediation mechanism appropriate
+    for the target system. The check verifies the observable desired state.
+    A check must not verify that a specific mechanism was used to achieve the
+    state — that conflates compliance (current state) with durability (how the
+    state was achieved). Exception: when the desired state IS a specific
+    mechanism (e.g., "authselect must be active"), the mechanism check is the
+    state check.
 
 input_contract:
   - field: ssh

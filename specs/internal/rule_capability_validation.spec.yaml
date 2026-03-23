@@ -35,11 +35,26 @@ objective:
     AC-3: "Complex `when: {all: [...]}` validates all items."
     AC-4: "Complex `when: {any: [...]}` validates all items."
     AC-5: "Known capabilities are loaded from runner.detect.CAPABILITY_PROBES and cached."
+    AC-6: >
+      When a `when: authselect` implementation uses a `command` check whose
+      `run:` string contains `authselect current` but does not also reference
+      a PAM file path (e.g., `/etc/pam.d/` or `pam_`), emit a warning that
+      the check may verify the mechanism rather than the observable desired
+      state.
+    AC-7: >
+      When a `when: authselect` implementation uses a `command` check whose
+      `run:` string both references `authselect current` AND a PAM file path,
+      no warning is emitted (dual-check pattern is acceptable).
 
 constraints:
   - "MUST report as warning severity (not error) to avoid breaking CI for existing rules during migration."
   - "MUST gracefully handle import failure of runner.detect."
   - "MUST cache the capability set for performance (loaded once per validation run)."
+  - >
+    Mechanism-as-check warnings exist to catch the anti-pattern where a
+    capability-gated check verifies the gate mechanism instead of the
+    observable system state. The `when:` gate selects the remediation path;
+    the check must verify the desired state independently.
 
 input_contract:
   - field: data
@@ -58,6 +73,11 @@ behavior:
   - "Report unknown capabilities as warnings (code: unknown-capability)."
   - "Cache CAPABILITY_PROBES set on first call (loaded once per run)."
   - "If runner.detect import fails, skip capability validation silently."
+  - >
+    For each `when: authselect` implementation with a `command` check: inspect
+    the `run:` string. If it contains `authselect current` but does not also
+    contain a PAM file reference (`/etc/pam.d/` or `pam_`), emit a warning
+    (code: mechanism-as-check). If the run string contains both, no warning.
 
 output_contract:
   returns: "list[ValidationError] — warnings for unknown capability references."
@@ -67,4 +87,4 @@ testing:
     file: tests/spec/internal/test_rule_capability_validation_spec.py
     classes:
       - TestCapabilityValidationSpecDerived
-    count: 5
+    count: 7

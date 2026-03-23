@@ -321,6 +321,33 @@ def validate_rule_business(data: dict, filepath: Path) -> list[ValidationError]:
                                 )
                             )
 
+    # Rule 7a: mechanism-as-check detection for authselect
+    for i, impl in enumerate(implementations):
+        when = impl.get("when")
+        if when != "authselect":
+            continue
+        check = impl.get("check", {})
+        if not isinstance(check, dict) or check.get("method") != "command":
+            continue
+        run_str = check.get("run", "")
+        if "authselect current" in run_str:
+            has_pam_ref = "/etc/pam.d/" in run_str or "pam_" in run_str
+            if not has_pam_ref:
+                errors.append(
+                    ValidationError(
+                        code="mechanism-as-check",
+                        message=(
+                            f"implementations[{i}]: when: authselect check "
+                            f"references 'authselect current' without also "
+                            f"verifying PAM file contents — check may verify "
+                            f"the mechanism rather than the observable desired "
+                            f"state"
+                        ),
+                        path=str(filepath),
+                        severity="warning",
+                    )
+                )
+
     # Rule 7: when capability references must exist in CAPABILITY_PROBES
     if _KNOWN_CAPABILITIES is not None:
         for i, impl in enumerate(implementations):

@@ -30,7 +30,9 @@ implementations:
   - when: authselect
     check:
       method: command
-      run: 'authselect current 2>/dev/null | grep -q with-faillock'
+      run: >
+        grep -qE '^\s*auth\s+(required|sufficient)\s+pam_faillock\.so'
+        /etc/pam.d/system-auth 2>/dev/null
       expected_exit: 0
     remediation:
       mechanism: authselect_feature_enable
