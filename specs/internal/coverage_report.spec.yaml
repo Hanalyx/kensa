@@ -3,10 +3,10 @@ metadata:
   name: CoverageReportEnhancement
   module: scripts/coverage_report
   version: 1.0.0
-  status: approved
+  status: released
   system_spec: "system.spec.yaml@1.0.0"
   created: "2026-03-08"
-  updated: "2026-03-08"
+  updated: "2026-03-23"
 
 context:
   description: >
