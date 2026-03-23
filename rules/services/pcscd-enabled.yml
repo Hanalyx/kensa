@@ -28,9 +28,9 @@ implementations:
   - default: true
     check:
       method: service_state
-      name: "pcscd"
+      name: "pcscd.socket"
       enabled: true
       active: true
     remediation:
       mechanism: service_enabled
-      name: "pcscd"
+      name: "pcscd.socket"

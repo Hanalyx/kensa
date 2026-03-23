@@ -37,7 +37,7 @@ implementations:
     check:
       method: sshd_effective_config
       key: "rekeylimit"
-      expected: "1G 1h"
+      expected: "1073741824 3600"
     remediation:
       mechanism: config_set_dropin
       dir: "/etc/ssh/sshd_config.d"
@@ -50,7 +50,7 @@ implementations:
     check:
       method: sshd_effective_config
       key: "rekeylimit"
-      expected: "1G 1h"
+      expected: "1073741824 3600"
     remediation:
       mechanism: config_set
       path: "/etc/ssh/sshd_config"
