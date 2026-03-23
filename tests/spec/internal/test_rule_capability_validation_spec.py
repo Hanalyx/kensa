@@ -48,7 +48,7 @@ def _validate_with_caps(rule, caps):
 class TestCapabilityValidationSpecDerived:
     """Spec-derived tests for rule capability validation.
 
-    Source spec: specs/internal/rule_capability_validation.spec.yaml (5 ACs)
+    Source spec: specs/internal/rule_capability_validation.spec.yaml (7 ACs)
     """
 
     def test_ac1_undefined_capability_detected(self):
@@ -95,3 +95,59 @@ class TestCapabilityValidationSpecDerived:
         assert "sshd_config_d" in caps
         assert "gdm" in caps
         assert "authselect" in caps
+
+    def test_ac6_mechanism_as_check_warning(self):
+        """AC-6: when: authselect check with only 'authselect current' emits mechanism-as-check warning."""
+        rule = {
+            "id": "test-rule",
+            "category": "test",
+            "implementations": [
+                {
+                    "when": "authselect",
+                    "check": {
+                        "method": "command",
+                        "run": "authselect current 2>/dev/null | grep -q with-faillock",
+                    },
+                    "remediation": {"mechanism": "manual"},
+                },
+                {
+                    "default": True,
+                    "check": {"method": "command"},
+                    "remediation": {"mechanism": "manual"},
+                },
+            ],
+        }
+        errors = _validate_with_caps(rule, {"authselect"})
+        mech_warnings = [e for e in errors if e.code == "mechanism-as-check"]
+        assert len(mech_warnings) == 1
+        assert "authselect current" in mech_warnings[0].message
+        assert mech_warnings[0].severity == "warning"
+
+    def test_ac7_dual_check_no_warning(self):
+        """AC-7: when: authselect check with both 'authselect current' AND PAM file reference emits no warning."""
+        rule = {
+            "id": "test-rule",
+            "category": "test",
+            "implementations": [
+                {
+                    "when": "authselect",
+                    "check": {
+                        "method": "command",
+                        "run": (
+                            "if authselect current 2>/dev/null | grep -q with-pwquality; then "
+                            "exit 0; fi; "
+                            "grep -qE 'pam_pwquality' /etc/pam.d/system-auth"
+                        ),
+                    },
+                    "remediation": {"mechanism": "manual"},
+                },
+                {
+                    "default": True,
+                    "check": {"method": "command"},
+                    "remediation": {"mechanism": "manual"},
+                },
+            ],
+        }
+        errors = _validate_with_caps(rule, {"authselect"})
+        mech_warnings = [e for e in errors if e.code == "mechanism-as-check"]
+        assert len(mech_warnings) == 0

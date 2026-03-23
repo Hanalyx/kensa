@@ -60,6 +60,13 @@ constraints:
   - "Active state comparison is exact string match against 'active' (only 'active' counts as active; 'activating', 'reloading' do not)."
   - "Evidence command field is always the template string 'systemctl is-enabled/is-active <name>' regardless of which dimensions were actually checked."
   - "Evidence exit_code is synthetic: 0 for pass, 1 for fail (not the actual systemctl exit code)."
+  - >
+    Socket-activated services (e.g., pcscd, cockpit, cups) must be checked
+    via their `.socket` unit name, not the `.service` unit. Socket-activated
+    services are intentionally inactive until a client connects to the socket.
+    Checking `active: true` on the `.service` unit produces false failures.
+    Rules must pass `name: "pcscd.socket"` rather than `name: "pcscd"` for
+    socket-activated services.
 
 input_contract:
   - field: method
