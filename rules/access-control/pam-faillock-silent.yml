@@ -28,9 +28,7 @@ implementations:
   - when: authselect
     check:
       method: command
-      run: >
-        grep -q '^\s*silent\s*$\|^\s*audit\s*$\|silent\|audit' \
-          /etc/security/faillock.conf 2>/dev/null
+      run: 'grep -qE "^\s*silent\s*$" /etc/security/faillock.conf 2>/dev/null'
       expected_exit: 0
     remediation:
       mechanism: config_append
