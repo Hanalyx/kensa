@@ -4,6 +4,64 @@ All notable changes to Kensa are documented here. Most recent release first.
 
 ---
 
+## v1.4.0 (2026-03-24)
+
+### Added
+- Add least-privilege permissions to CI workflow
+- Add mechanism-as-check lint and fix 2 remaining faillock rules
+- Add input validation for shell-interpolated values across file handlers
+- Add man page generator and bash shell completion
+- Add missing spec-derived tests for 24 unmapped acceptance criteria
+- Add Kensa Labs strategic vision document
+- Add release specs, CIS extraction scripts, and track spec directory
+- Add pam_module_arg remediation handler and convert 6 PAM rules
+- Add authselect_feature_enable and crypto_policy_subpolicy remediation handlers, convert 15 rules
+- Add capability validation to rule validator, fix 19 broken capability references
+- Add dconf_set and crypto_policy_set handlers, convert 35 rules to typed mechanisms
+- Add need-pr flag type to review system
+- Add review DB posting to /keb skill assessments
+- Add KEB-8044 engineering advisor skill and add SOT URLs to /review
+- Add Flask review server for interactive rule verification workflow
+- Add rule detail drill-down and review workflow to coverage report
+
+### Fixed
+- Fix Rich line-wrap test failure and promote 14 specs to released
+- Correct 4 rule check bugs found via Kensa-vs-OpenSCAP STIG comparison
+- Correct audit key names in 25 privileged command rules to match STIG SOT
+- Correct 79 wrong STIG V-IDs and 2 wrong CIS sections in rule files
+- Fix 4 duplicate rule IDs across directories
+- Fix SPDX license identifier: BSL-1.1 → BUSL-1.1 for hatchling compatibility
+- Fix 5 P0 launch readiness findings: strict loading, license, README, validator
+- Correct 41 wrong-mappings in STIG RHEL 9 V2R7 mapping
+- Fix 24 incorrect-check rules: effective checks, typed handlers, new rules
+- Fix missing-coverage findings from STIG RHEL 8 V2R6 review
+- Fix 12 wrong-mapping findings from STIG RHEL 8 V2R6 review
+- Fix 23 rules from STIG RHEL 8 V2R6 review findings
+
+### Changed
+- Clean up man pages and bash completion from code review
+- Convert chrony-sources and sudo-include-directory to typed remediation
+- Convert 5 SSH crypto rules to typed remediation and fix 2 sudo field names
+- Convert 7 manual remediations to typed mechanisms (Wave 1)
+- Update dedup baseline after phase 2 consolidation (60 → 44 violations)
+- Consolidate 2 subset-overlap duplicate pairs
+- Consolidate 3 duplicate pairs and fix 94 stale depends_on references
+- Consolidate 6 cross-category duplicate rule pairs
+- Consolidate 10 duplicate access-control rule pairs
+- Consolidate 66 duplicate rules and add deduplication prevention tooling
+- Gap Closure Phases 1-2: trust, hardening, packaging, coverage semantics
+- Typed Migration Phase 1-2: bulk file_permissions and config_append handler
+- Map 32 missing CIS RHEL 9 controls to existing rules and unimplemented
+- Align CIS RHEL 8 and RHEL 9 mappings to SOT baselines
+- Remap V-230471 from audit-binary-permissions to audit-config-permissions
+- Rewrite audisp rules as rsyslog per STIG V-230479/481/482 check text
+- Skip review server tests when Flask is not installed
+
+### Removed
+- Drop version numbers from CIS/STIG mapping IDs and rule reference keys
+
+---
+
 ## v1.3.0 (2026-03-04)
 
 ### Added

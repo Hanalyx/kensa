@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kensa"
-version = "1.3.0"
+version = "1.4.0"
 description = "SSH-based compliance test runner for RHEL systems"
 readme = "README.md"
 license = "BUSL-1.1"
