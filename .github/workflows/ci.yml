@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  spec-sync:
+    # Specter runs before Go build — specs are the source of truth.
+    # A failing spec-sync blocks the build.
+    name: Spec Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Specter 0.4.1
+        run: |
+          # TODO: replace with release-download once Specter publishes artifacts
+          # For now, pin to 0.4.1 via the Hanalyx install script
+          echo "Specter install TBD — pin to 0.4.1"
+      - name: specter doctor
+        # doctor is the fast pre-flight; catches issues before sync runs
+        run: specter doctor
+      - name: specter sync
+        # parse + resolve + check + coverage; blocks on any failure
+        run: specter sync
+      - name: specter check --strict
+        # Warnings fail CI (tier-1 components have zero tolerance)
+        run: specter check --strict
+      - name: specter resolve --mermaid
+        # Capture the dependency graph for PR comment rendering
+        run: specter resolve --mermaid > spec-graph.mmd || true
+      - name: Upload spec graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-graph
+          path: spec-graph.mmd
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: spec-sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go test ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: spec-sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  # Future jobs (land as the codebase grows):
+  #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
+  #   fuzz: kensa-fuzz atomicity verification (after Week 7)
+  #   parity: Python vs Go fixture comparison (after Week 8)

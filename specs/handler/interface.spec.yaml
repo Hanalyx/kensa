@@ -1,0 +1,121 @@
+spec:
+    id: handler-interface
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-interface
+        description: |
+            The handler interface is the contract every mechanism handler
+            implements. It is the stable surface that the transaction engine
+            calls through and that concrete handlers (config_set,
+            file_permissions, service_enabled, …) implement. The interface
+            is frozen at commit 1 and remains stable under v1 semver so
+            OpenWatch, CLI, AI agents, and the Python→Go port all consume a
+            common shape.
+
+    objective:
+        summary: |
+            Define the Handler, CaptureHandler, RollbackHandler, and
+            CombinedHandler interfaces that every mechanism implements.
+            Separate interfaces per transaction phase make non-capturable
+            mechanisms (command_exec, manual, grub_parameter) statically
+            distinguishable from capturable ones.
+        scope:
+            includes:
+                - Handler.Name / Handler.Capturable / Handler.Apply signatures
+                - CaptureHandler.Capture signature
+                - RollbackHandler.Rollback signature
+                - CombinedHandler composition interface
+                - Params opaque type contract
+                - StepResult, PreState, RollbackResult return types
+            excludes:
+                - Concrete handler implementations (one spec per mechanism)
+                - Engine orchestration logic
+                - Transport semantics
+
+    constraints:
+        - id: C-01
+          description: |
+              The Handler interface MUST NOT change in a backwards-
+              incompatible way without a major version bump of the api/
+              package. Every downstream consumer — engine, handlers, CLI,
+              OpenWatch, AI agents — depends on it.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Handler.Capturable() MUST return false for command_exec,
+              manual, grub_parameter_set, and grub_parameter_remove. It
+              MUST return true for every other mechanism type.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Every type that satisfies Handler AND CaptureHandler AND
+              RollbackHandler MUST have Capturable() return true. The
+              compiler SHOULD enforce this via the CombinedHandler
+              interface.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Handler.Apply MUST accept a nil PreState when Capturable()
+              returns false, and a non-nil PreState when Capturable()
+              returns true. Mismatched nil-ness is a programmer error.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Handler interface defines Name() string, Capturable() bool,
+              and Apply(ctx, transport, params, pre) (*StepResult, error).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              CaptureHandler interface defines Capture(ctx, transport,
+              params) (*PreState, error). Only capturable handlers
+              implement it.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              RollbackHandler interface defines Rollback(ctx, transport,
+              pre) (*RollbackResult, error). Only capturable handlers
+              implement it.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              CombinedHandler is the interface union Handler +
+              CaptureHandler + RollbackHandler. Every capturable mechanism
+              satisfies it.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              Non-capturable handlers (command_exec, manual,
+              grub_parameter_set, grub_parameter_remove) implement only
+              Handler. Attempting to type-assert them to CombinedHandler
+              at runtime returns false.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              A handler's Apply receives a non-nil PreState when the
+              handler is capturable, and a nil PreState when it is not.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              Registering two handlers with the same Name() value panics
+              at init time, preventing silent collisions.
+          references_constraints: [C-01]
+          priority: high
+
+    trust_level: human_required
+    tags: [api, handler, tier-1, load-bearing, frozen-at-commit-1]

@@ -1,0 +1,194 @@
+spec:
+    id: engine-transaction
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: transaction-engine
+        description: |
+            The transaction engine executes a rule's remediation as an atomic
+            four-phase transaction (capture → apply → validate →
+            commit-or-rollback) against a target host. Its correctness IS the
+            atomicity commitment in TRANSACTION_CONTRACT_V1.md; a divergence
+            between this spec and the implementation produces an atomicity
+            violation.
+        related_specs:
+            - handler-interface
+            - deadman-timer
+            - transaction-log
+            - evidence-envelope
+        assumptions:
+            - Transport is a working SSH connection with sudo access
+            - Target host has at or systemd-run available for deadman timer
+            - SQLite transaction log is on durable storage (synchronous=FULL)
+
+    objective:
+        summary: |
+            Execute a rule's remediation as an atomic transaction. The engine
+            captures pre-state for every capturable step, applies steps in
+            order, validates, and commits or rolls back. On any failure the
+            system ends in exactly one of three outcomes: Committed,
+            RolledBack, or PartiallyApplied (only for transactional:false
+            rules).
+        scope:
+            includes:
+                - Four-phase transaction execution
+                - Per-host serialization
+                - Deadman timer activation for control-channel-sensitive changes
+                - Evidence envelope generation and signing
+                - Rollback-on-failure using captured pre-state
+            excludes:
+                - Multi-rule orchestration (see engine-orchestrator spec)
+                - Rule parsing (see rule-parser spec)
+                - Framework mapping (see framework-mapping spec)
+
+    constraints:
+        - id: C-01
+          description: |
+              The engine MUST return a TransactionResult with exactly one of
+              four Status values: Committed, RolledBack, PartiallyApplied, or
+              Errored. No other terminal state is permitted.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Pre-state MUST be persisted to the transaction log BEFORE any
+              apply step executes. Crash between persist and apply MUST leave
+              pre-state recoverable for out-of-band rollback.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              For rules declared transactional:true, the engine MUST reject
+              any implementation containing a non-capturable mechanism at
+              pre-flight, before any capture runs.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Control-channel-sensitive changes MUST arm a deadman timer
+              before apply runs. The timer MUST be cancelled only after
+              validation confirms success AND the transaction is recorded
+              as Committed in the log.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              Concurrent Run invocations against the same hostID MUST
+              serialize on a per-host mutex. Concurrent invocations against
+              different hostIDs MUST proceed in parallel.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Every TransactionResult MUST include a signed evidence
+              envelope. The signature MUST be Ed25519 over the
+              canonicalized envelope bytes.
+          type: security
+          enforcement: error
+        - id: C-07
+          description: |
+              The engine MUST NOT leave a system in an indeterminate state.
+              If the engine cannot complete capture, apply, validate, commit,
+              OR rollback within the transaction deadline, it MUST record
+              Status=Errored with a typed error identifying the phase that
+              could not complete.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Run returns TransactionResult{Status: Committed} when every
+              apply step succeeds and every validator passes.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Run returns TransactionResult{Status: RolledBack} when any
+              apply step fails; every preceding applied capturable step is
+              reversed in reverse order using its captured pre-state.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Run returns TransactionResult{Status: RolledBack} when all
+              apply steps succeed but any validator fails; rollback reverses
+              all applied capturable steps in reverse order.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              When the engine process crashes after CAPTURE persistence but
+              before APPLY completion, `kensa rollback --start N` reads the
+              persisted pre-state and restores the host to pre-capture state.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              For rules declared transactional:false, non-capturable steps
+              that have already executed are NOT reversed on failure. The
+              outcome is Status=PartiallyApplied with per-step stranded
+              flags in the result.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-06
+          description: |
+              For rules tagged control-channel-sensitive, the engine arms a
+              deadman timer before any apply step runs. On successful
+              commit the timer is cancelled. On mid-apply failure, in-band
+              rollback runs; the timer remains armed as a safety net and is
+              cancelled only after in-band rollback confirms success.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              Concurrent Run calls against the same host block on the
+              per-host mutex until the in-flight transaction completes.
+              Concurrent calls against different hosts proceed in parallel.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-08
+          description: |
+              When Run is called with WithNonBlocking() against a host with
+              an in-flight transaction, the call returns ErrHostBusy
+              immediately without waiting.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-09
+          description: |
+              Every TransactionResult includes an EvidenceEnvelope whose
+              Ed25519 signature verifies against the deployment's signing
+              key using api.Kensa.VerifyEnvelope.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-10
+          description: |
+              A CAPTURE-phase failure aborts the transaction before any
+              apply step runs. The result is Status=Errored with
+              ErrCaptureIncomplete and no post-state change on the host.
+          references_constraints: [C-02, C-07]
+          priority: critical
+        - id: AC-11
+          description: |
+              Pre-flight rejects an implementation whose
+              transactional:true rule contains a non-capturable mechanism.
+              The error identifies which step is non-capturable.
+          references_constraints: [C-03]
+          priority: critical
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+        - spec_id: deadman-timer
+          relationship: requires
+        - spec_id: transaction-log
+          relationship: requires
+        - spec_id: evidence-envelope
+          relationship: requires
+
+    trust_level: human_required
+
+    tags: [engine, atomicity, tier-1, load-bearing]

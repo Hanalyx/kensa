@@ -1,0 +1,180 @@
+spec:
+    id: evidence-envelope
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: evidence-envelope
+        description: |
+            The evidence envelope is the signed, structured record of a
+            Kensa transaction that auditors, OpenWatch's audit UI, and
+            third-party tools consume as proof of what happened on a
+            host. It contains timestamp, host context, pre-state, change
+            attempted, validation results, commit/rollback decision,
+            post-state, framework mappings, and an Ed25519 signature
+            over the canonicalized payload bytes. This spec is the
+            commitment named in KENSA_OPENWATCH_RESPONSE_2026-04-14.md
+            §5.2 — the canonical schema OpenWatch's audit UI renders
+            from without reverse-engineering Go types.
+        related_specs:
+            - engine-transaction
+            - transaction-log
+
+    objective:
+        summary: |
+            Define the EvidenceEnvelope structure, its canonicalization
+            rules, its Ed25519 signature contract, and its JSON Schema
+            for consumers. This is the cross-system interface between
+            Kensa's per-transaction attestation and every consumer that
+            verifies, displays, or exports it.
+        scope:
+            includes:
+                - EvidenceEnvelope Go struct and field contracts
+                - Canonicalization rules (field order, encoding, normalization)
+                - Ed25519 signature contract (what is signed, how verified)
+                - JSON Schema for envelope shape (shipped as evidence/envelope-v1.json)
+                - OSCAL export mapping
+                - VerifyResult shape returned by Kensa.VerifyEnvelope
+                - Key rotation and key history handling
+            excludes:
+                - Signing key storage (handled by the signer subsystem)
+                - HSM integration (future)
+                - Aggregate audit export signing (OpenWatch concern)
+
+    constraints:
+        - id: C-01
+          description: |
+              Canonicalization MUST produce byte-identical output for
+              semantically equal envelopes. JSON serialization uses
+              sorted keys, RFC 3339 timestamps in UTC, and no trailing
+              whitespace. Signature verification depends on exact byte
+              reproducibility.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              The Ed25519 signature covers the full canonicalized
+              payload bytes including every field EXCEPT the signature
+              itself and the signing_key_id. Signing the hash of the
+              payload is NOT acceptable — the algorithm signs the
+              bytes directly.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Every envelope MUST include a schema_version field. The
+              verifier rejects envelopes whose schema_version is
+              unknown to the current code. Forward compatibility is
+              explicit: adding a field bumps the schema version.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Key rotation is supported via a key_history list of
+              public keys. Verification tries keys in reverse
+              chronological order; success with a rotated key returns
+              VerifyResult with a KeyRotation warning.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              VerifyEnvelope MUST be side-effect free. It does not
+              write to the transaction log, emit events, or mutate
+              any state. Pure function from (envelope, key_history)
+              to (valid, warnings).
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              The envelope structure MUST be published as a JSON
+              Schema at evidence/envelope-v1.json AND mirrored in
+              kensa-spec/specs/evidence/envelope-v1.yaml so OpenWatch,
+              third-party tools, and the Python reference
+              implementation share one source of truth.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              EvidenceEnvelope struct contains: schema_version,
+              transaction_id, rule_id, host_id, fleet_id, started_at,
+              finished_at, pre_state_bundle, apply_steps,
+              validator_results, decision (committed|rolled_back|
+              partially_applied|errored), post_state_bundle,
+              framework_refs, signing_key_id, signature.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              Canonical serialization produces byte-identical output
+              for semantically equal envelopes across Go, Python, and
+              any future consumer. Verified by a cross-language
+              canonicalization test.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Ed25519 signature covers the full canonicalized payload
+              bytes (excluding signature and signing_key_id). A tamper
+              of any field invalidates the signature.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              VerifyEnvelope returns VerifyResult{Valid: true} when
+              the signature matches the current key, and
+              VerifyResult{Valid: true, Warnings: [KeyRotation]} when
+              matched against a rotated key from key_history.
+          references_constraints: [C-02, C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              VerifyEnvelope returns VerifyResult{Valid: false} with a
+              specific error when the signature matches no known key.
+              The error identifies whether the envelope is tampered
+              vs signed by a foreign key.
+          references_constraints: [C-02, C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              Unknown schema_version returns a specific error.
+              VerifyEnvelope refuses to verify envelopes whose schema
+              it does not understand — fail-closed.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-07
+          description: |
+              JSON Schema at evidence/envelope-v1.json validates
+              every legal envelope and rejects every illegal envelope
+              (missing required field, wrong type, unknown field).
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-08
+          description: |
+              OSCAL export maps every EvidenceEnvelope to a valid
+              OSCAL Assessment Result with the envelope contents
+              preserved in the observation structure. Verified by
+              round-tripping through an OSCAL validator.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-09
+          description: |
+              VerifyEnvelope is a pure function. Calling it repeatedly
+              with the same arguments produces the same result and
+              no observable side effects.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-10
+          description: |
+              The envelope schema published at
+              kensa-spec/specs/evidence/envelope-v1.yaml matches the
+              Go struct in api/envelope.go exactly. Mismatch is a
+              build-time error via a generation / verification step.
+          references_constraints: [C-06]
+          priority: critical
+
+    trust_level: human_required
+    tags: [evidence, signing, ed25519, tier-1, openwatch-interface, oscal]

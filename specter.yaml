@@ -1,0 +1,40 @@
+# Specter Project Manifest
+# See: https://github.com/Hanalyx/spec-dd
+#
+# Kensa Go spec discipline is tiered by atomicity risk. Components that the
+# atomicity commitment in docs/TRANSACTION_CONTRACT_V1.md depends on run at
+# Tier 1 (100% AC-to-test coverage). Everything else defaults to Tier 2.
+
+system:
+    name: kensa-go
+    tier: 2   # default for unclassified specs
+
+settings:
+    specs_dir: specs
+    coverage:
+        tier1: 100   # rollback-safety-critical components — zero unmapped ACs
+        tier2: 80    # apply-path / validation components
+        tier3: 50    # formatters, CLI wrappers, non-mutation paths
+    exclude:
+        - node_modules
+        - dist
+        - .git
+        - vendor
+        - fixtures     # fixtures are test data, not specs
+        - docs         # prose docs, not spec YAML
+
+# Per-directory tier overrides. Tier 1 is reserved for components where
+# a divergence between spec and code would produce an atomicity violation.
+tier_overrides:
+    - path: specs/engine
+      tier: 1         # The transaction coordinator — atomicity lives here
+    - path: specs/handlers
+      tier: 1         # Every capture/rollback handler is Tier 1
+    - path: specs/deadman
+      tier: 1         # Control-channel rollback path
+    - path: specs/checks
+      tier: 2         # Read-only, but wrong checks cause false commits/rollbacks
+    - path: specs/transport
+      tier: 2         # SSH correctness
+    - path: specs/api
+      tier: 2         # Public surface — compile-time safety catches most issues

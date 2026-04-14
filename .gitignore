@@ -1,0 +1,26 @@
+# Go
+*.test
+*.out
+*.prof
+coverage.txt
+coverage.html
+
+# Build artifacts
+/bin/
+/dist/
+kensa
+kensa-fuzz
+kensa-validate
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Kensa runtime state — never commit
+.kensa/
+/tmp-test-hosts/
+
+# Local
+CLAUDE.md

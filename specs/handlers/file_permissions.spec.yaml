@@ -1,0 +1,137 @@
+spec:
+    id: handler-file-permissions
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-file-permissions
+        description: |
+            The file_permissions handler sets owner, group, mode, and
+            SELinux context on a file or directory. It is the first
+            capturable handler to ship per KENSA_GO_DAY1_PLAN.md §5.4,
+            chosen as the proving ground for the handler pattern because
+            it has a simple, well-defined capture and no control-channel
+            implications.
+        related_specs:
+            - handler-interface
+            - engine-transaction
+
+    objective:
+        summary: |
+            Set owner, group, mode, and optional SELinux context on a target
+            path. Pre-state records the prior values so rollback restores
+            the exact original state.
+        scope:
+            includes:
+                - chown (owner and group)
+                - chmod (mode)
+                - chcon (SELinux context, when specified)
+                - Capture of all four attributes as pre-state
+                - Rollback that restores all four attributes
+            excludes:
+                - restorecon (default-policy context restoration)
+                - ACL manipulation
+                - File creation or deletion
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST be idempotent. Running twice against the same
+              target with the same parameters MUST produce the same
+              post-state.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record owner (name+uid), group (name+gid), mode
+              (octal), and SELinux context (user:role:type:range) as
+              observed on the target.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Apply MUST fail cleanly with a typed error when the caller
+              lacks permission. No partial change MUST be left behind —
+              chown, chmod, and chcon operate atomically as a unit.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Rollback MUST restore all four attributes verbatim from
+              captured pre-state. The implementation MUST NOT use
+              restorecon or any default-policy fallback.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              Capture MUST return ErrCaptureIncomplete if the target does
+              not exist or cannot be stat'd. The engine aborts before
+              apply.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply sets owner, group, mode, and SELinux context when all
+              four are specified. Missing optional fields leave existing
+              values unchanged.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent — second invocation against the same
+              target with same params produces no-op change detectable by
+              re-capture returning identical pre-state.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Capture against an existing file records owner (name+uid),
+              group (name+gid), mode (octal 4-digit), and SELinux context
+              (user:role:type:range).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture against a non-existent or unstattable target returns
+              ErrCaptureIncomplete; the engine aborts before any apply.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback restores owner, group, mode, and SELinux context
+              from captured pre-state. Post-rollback re-capture equals the
+              original pre-capture.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              Rollback is safe to invoke twice. Second invocation is a
+              no-op because the first already restored pre-state.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              Apply fails with a typed permission error when the caller
+              cannot chown/chmod/chcon the target. No attribute is
+              partially changed.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              SELinux context restoration uses chcon with the captured
+              context verbatim. The implementation does not call
+              restorecon under any circumstance.
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+
+    tags: [handler, capturable, tier-1, atomicity]

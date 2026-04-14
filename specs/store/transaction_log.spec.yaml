@@ -1,0 +1,159 @@
+spec:
+    id: transaction-log
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: transaction-log
+        description: |
+            The transaction log is the persistent record of every
+            Kensa transaction — committed, rolled back, errored, or
+            partially applied. It is the authoritative source for
+            evidence envelopes, rollback recovery, and the historical
+            query surface that OpenWatch's Eye identity consumes. The
+            log is stored in SQLite with synchronous=FULL so writes
+            hit disk before the engine proceeds; pre-state is
+            persisted BEFORE apply so crash-recovery rollback remains
+            possible.
+
+    objective:
+        summary: |
+            Persist every transaction to a local SQLite store such that
+            pre-state is durable before apply, committed/rolled-back
+            state is durable before the engine returns, and OpenWatch
+            can query historical transactions via LogQuery without
+            ever touching the raw SQLite file.
+        scope:
+            includes:
+                - "SQLite schema: transactions, steps, pre_states, rollback_events"
+                - Synchronous write discipline
+                - Retention policy (7-day active, 90-day info, prune)
+                - LogQuery implementation (Query, Get, Aggregate)
+                - Indexes sufficient for LogFilter + AggregateKey queries
+                - Schema migration support
+            excludes:
+                - Cross-deployment replication (v1.1.0+ push mode)
+                - Multi-fleet federation (OpenWatch concern)
+                - Non-SQLite backends
+
+    constraints:
+        - id: C-01
+          description: |
+              PreStates MUST be persisted to SQLite BEFORE the first
+              apply step executes. A crash between persist and apply
+              MUST leave pre-state recoverable via `kensa rollback
+              --start N`.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              All writes MUST use PRAGMA synchronous=FULL. Async writes
+              risk losing pre-state to a power failure between write
+              and fsync.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The transactions table MUST include denormalized severity
+              and phase columns so LogQuery.Query can filter by these
+              fields without joining against external rule metadata.
+          type: performance
+          enforcement: error
+        - id: C-04
+          description: |
+              LogQuery.Aggregate MUST support the five AggregateKey
+              values enumerated in api/log_query.go with p95 < 500ms
+              against a 500K-row / 1000-host corpus.
+          type: performance
+          enforcement: error
+        - id: C-05
+          description: |
+              Retention policy runs as a background task: pre_states
+              older than 7 days drop from active table (still queryable
+              for info); transactions older than 90 days prune entirely.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Schema migrations MUST be idempotent and append-only. A
+              migration that would remove or rename a column requires a
+              major version bump of the store package.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Pre-state bundle persistence completes (write + fsync)
+              before the engine enters the Apply phase. An engine
+              process kill between persist and apply leaves the
+              pre-state recoverable.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              Store writes fail loudly on disk-full or permission
+              errors. Silent write failure is not acceptable.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              LogQuery.Query returns transactions filtered by every
+              LogFilter field: HostIDs, FleetIDs, RuleIDs,
+              FrameworkRefs, Statuses, Phases, Severities, Mechanisms,
+              Transactional, Since, Until.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              LogQuery.Get returns full TransactionRecord with envelope
+              by default. WithoutEnvelope() option omits the envelope
+              payload. WithoutPreStates() omits pre-state bundles.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              LogQuery.Aggregate returns correct counts grouped by
+              each of the five AggregateKey values. TimeBucket option
+              (Hour/Day/Week) controls bucket granularity for
+              by_rule_then_status_over_time.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              Aggregate query p95 latency is under 500ms against a
+              500K-row corpus on 1000 hosts. Benchmark published in
+              scripts/bench_aggregate.go.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              Retention task moves pre_states older than 7 days to
+              info-only state; transactions older than 90 days are
+              pruned entirely. Retention is configurable per deployment.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-08
+          description: |
+              Schema migrations apply in order and are idempotent.
+              Running migrations twice produces no change. Partial
+              migration interrupted mid-way recovers on next startup.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-09
+          description: |
+              Indexes exist on (host_id), (rule_id), (status),
+              (started_at), (transactional, status), and the
+              framework-reference junction table such that every
+              LogFilter path is non-full-scan.
+          references_constraints: [C-03, C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: evidence-envelope
+          relationship: requires
+
+    trust_level: auto_with_review
+    tags: [store, persistence, sqlite, tier-1, log-query]

@@ -1,0 +1,175 @@
+spec:
+    id: deadman-timer
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: deadman-timer
+        description: |
+            The deadman timer is the architectural answer to the hardest
+            problem in the agentless SSH design: what happens when the
+            connection Kensa is using is the thing Kensa is changing? The
+            timer uploads a rollback script to the target host and
+            schedules it via `at` or `systemd-run`; if the control channel
+            survives apply+validate, the timer is cancelled, otherwise the
+            scheduled script fires out-of-band and restores pre-state.
+            Without this subsystem, the atomicity commitment in
+            TRANSACTION_CONTRACT_V1.md §2.2 is not honorable for changes
+            that affect SSH, networking, firewall, or PAM.
+        related_specs:
+            - engine-transaction
+            - handler-interface
+
+    objective:
+        summary: |
+            Provide out-of-band rollback for control-channel-affecting
+            transactions. Arm a scheduled rollback script before apply,
+            cancel on success, allow to fire on failure.
+        scope:
+            includes:
+                - Pre-flight detection of scheduler availability (at or systemd-run)
+                - Rollback script generation from captured PreStates (POSIX sh)
+                - Script upload to /tmp/kensa-rollback-<txn-id>.sh
+                - Schedule via at or systemd-run with configurable window
+                - Cancel path via atrm / systemctl stop transient unit
+                - Post-cancel verification of script removal
+                - Keep-alive extension for long-running applies
+            excludes:
+                - Handlers and their capture/apply/rollback logic (delegated)
+                - In-band rollback (handled by the engine directly)
+                - Pre-state capture (handler responsibility)
+
+    constraints:
+        - id: C-01
+          description: |
+              The scheduler subsystem MUST detect availability of at OR
+              systemd-run BEFORE apply runs. If neither is available, the
+              engine MUST refuse to execute control-channel-sensitive
+              rules and return ErrSchedulerUnavailable.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              The rollback script MUST be self-contained POSIX shell. It
+              MUST NOT depend on bash-specific syntax, Python, or any
+              runtime beyond what the minimal at/systemd-run environment
+              provides.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The scheduled timer window MUST be at least 120 seconds by
+              default. Shorter windows risk firing during normal apply;
+              longer windows risk leaving the system broken for longer
+              if apply hangs.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              On successful validate, the engine MUST cancel the timer
+              AND verify cancellation by checking that the scheduled
+              job no longer appears in atq / systemctl list-timers.
+              Silent cancel failure is not acceptable.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              The rollback script MUST self-delete after execution (rm -f
+              "$0") OR after successful cancel (engine removes the script
+              file). Residual /tmp/kensa-rollback-*.sh files are a
+              hygiene failure, not atomicity failure, but are still
+              reported to the operator.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              For long-running applies that exceed the default 120s
+              window, the engine MUST send a keep-alive that extends the
+              scheduled time by 60s. If the keep-alive cannot reach the
+              host, the engine MUST abort the transaction.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Pre-flight detection probes for at and systemd-run. At
+              least one is available, the engine proceeds. Neither
+              available, the engine returns ErrSchedulerUnavailable.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Script generation produces POSIX shell that reverses every
+              capturable step in the current transaction, in reverse
+              order, using captured PreStates.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Script is uploaded to /tmp/kensa-rollback-<txn-id>.sh with
+              mode 0700. Upload failure (disk full, permissions) aborts
+              the transaction before apply.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Scheduled via `at now + 120 seconds` or `systemd-run
+              --on-active=120`. Post-schedule verification confirms the
+              job appears in atq or systemctl list-timers.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              On successful validate, cancel removes the scheduled job
+              and verifies removal. If verification shows the job still
+              present, transaction is recorded as errored with an
+              anomaly flag.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              On connection loss mid-apply, the scheduled script fires
+              on its own; on reconnect the engine detects the deadman
+              ran and records rollback_source=deadman in the
+              transaction log.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              Long-running apply sends keep-alive every 30 seconds that
+              extends the scheduled fire time by 60 seconds. Failed
+              keep-alive aborts the transaction with a typed error.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-08
+          description: |
+              Script cleanup removes /tmp/kensa-rollback-<txn-id>.sh on
+              successful cancel. Residual files are detected by a
+              post-cancel scan and reported to the operator without
+              failing the transaction.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-09
+          description: |
+              CancelDeadman API (from api/deadman.go) executes an
+              in-band rollback cleanly and cancels the scheduled
+              script. Returns ErrNoActiveDeadman if no timer is armed.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-10
+          description: |
+              System clock skew detected via pre/post date comparison
+              produces a warning; if skew exceeds 30 seconds, the
+              timer window is extended proportionally before scheduling.
+          references_constraints: [C-03]
+          priority: medium
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [deadman, atomicity, tier-1, load-bearing, ssh-control-channel]
