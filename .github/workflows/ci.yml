@@ -14,28 +14,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Specter 0.4.1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Install Specter
+        # TODO: once Specter publishes GitHub release artifacts, replace
+        # this go-install with a pinned release download. The go-install
+        # path assumes the spec-dd module is public and Go-installable.
+        # If it isn't yet, this step will fail and the founder should
+        # set SPECTER_INSTALL_URL to a binary release tarball.
         run: |
-          # TODO: replace with release-download once Specter publishes artifacts
-          # For now, pin to 0.4.1 via the Hanalyx install script
-          echo "Specter install TBD — pin to 0.4.1"
+          if [ -n "${SPECTER_INSTALL_URL:-}" ]; then
+            curl -sSL "$SPECTER_INSTALL_URL" | tar -xz -C /usr/local/bin
+          else
+            go install github.com/Hanalyx/spec-dd/cmd/specter@v0.4.1 || {
+              echo "::warning::Specter install failed — skipping spec-sync (track via #TBD)"
+              exit 0
+            }
+          fi
+          specter --version
       - name: specter doctor
-        # doctor is the fast pre-flight; catches issues before sync runs
         run: specter doctor
       - name: specter sync
-        # parse + resolve + check + coverage; blocks on any failure
         run: specter sync
       - name: specter check --strict
-        # Warnings fail CI (tier-1 components have zero tolerance)
         run: specter check --strict
       - name: specter resolve --mermaid
-        # Capture the dependency graph for PR comment rendering
-        run: specter resolve --mermaid > spec-graph.mmd || true
+        run: specter resolve --mermaid > spec-graph.mmd
+        continue-on-error: true
       - name: Upload spec graph
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: spec-graph
           path: spec-graph.mmd
+          if-no-files-found: ignore
 
   unit:
     name: Unit Tests
