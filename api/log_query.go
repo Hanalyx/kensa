@@ -187,6 +187,20 @@ func WithoutEnvelope() GetOption { return func(o *getOptions) { o.includeEnvelop
 // response, reducing payload size for list views.
 func WithoutPreStates() GetOption { return func(o *getOptions) { o.includePreStates = false } }
 
+// ResolveGetOptions evaluates opts and returns the resulting
+// (includeEnvelope, includePreStates) flags. Used by [LogQuery]
+// implementations in other packages that need to honor the option
+// list without access to the unexported [getOptions] type.
+//
+// Defaults: both flags true (full record), correct for audit export.
+func ResolveGetOptions(opts []GetOption) (includeEnvelope, includePreStates bool) {
+	o := &getOptions{includeEnvelope: true, includePreStates: true}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.includeEnvelope, o.includePreStates
+}
+
 // aggregateOptions carries [LogQuery.Aggregate] modifier flags.
 type aggregateOptions struct {
 	bucket TimeBucket
@@ -199,4 +213,17 @@ type AggregateOption func(*aggregateOptions)
 // aggregations. Required when [AggregateKey] is a *OverTime variant.
 func WithTimeBucket(b TimeBucket) AggregateOption {
 	return func(o *aggregateOptions) { o.bucket = b }
+}
+
+// ResolveAggregateOptions evaluates opts and returns the resulting
+// time bucket. Used by [LogQuery] implementations in other packages
+// that need to honor the option list without access to the unexported
+// [aggregateOptions] type. Returns the zero [TimeBucket] when no
+// [WithTimeBucket] was passed.
+func ResolveAggregateOptions(opts []AggregateOption) TimeBucket {
+	o := &aggregateOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.bucket
 }

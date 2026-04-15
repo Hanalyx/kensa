@@ -11,7 +11,8 @@ import (
 // swallowed deliberately: the event stream must not stall the engine
 // (engine-transaction priority over OPENWATCH_VISION.md heartbeat).
 func (e *Engine) publish(ctx context.Context, event api.Event) {
-	_ = e.events.Publish(ctx, event)
+	var publisher api.EventPublisher = e.events
+	_ = publisher.Publish(ctx, event)
 }
 
 // publishStarted emits the [api.TransactionStarted] event at the top
