@@ -157,11 +157,11 @@ func TestCheckSysctlValue_Fail(t *testing.T) {
 }
 
 // TestCheckPackageInstalled_Pass verifies that package_installed passes
-// when rpm exits 0.
+// when the composite rpm-or-dpkg probe exits 0.
 func TestCheckPackageInstalled_Pass(t *testing.T) {
 	ft := &fakeTransport{
 		cmdResult: map[string]api.CommandResult{
-			"rpm -q 'aide' >/dev/null 2>&1": result(0, ""),
+			"rpm -q 'aide' >/dev/null 2>&1 || (command -v dpkg >/dev/null 2>&1 && dpkg -l 'aide' 2>/dev/null | grep -q '^ii')": result(0, ""),
 		},
 	}
 	chk := api.Check{
@@ -195,9 +195,13 @@ func TestCheckPackageInstalled_Fail(t *testing.T) {
 }
 
 // TestCheckPackageAbsent_Pass verifies that package_absent passes when
-// rpm exits non-zero (package not found).
+// the composite absent probe exits 0 (absent from both rpm and dpkg).
 func TestCheckPackageAbsent_Pass(t *testing.T) {
-	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{}}
+	ft := &fakeTransport{
+		cmdResult: map[string]api.CommandResult{
+			"! rpm -q 'telnet' >/dev/null 2>&1 && ! (command -v dpkg >/dev/null 2>&1 && dpkg -l 'telnet' 2>/dev/null | grep -q '^ii')": result(0, ""),
+		},
+	}
 	chk := api.Check{
 		Method: "package_absent",
 		Params: api.Params{"name": "telnet"},
@@ -212,11 +216,11 @@ func TestCheckPackageAbsent_Pass(t *testing.T) {
 }
 
 // TestCheckPackageAbsent_Fail verifies that package_absent fails when
-// rpm exits 0 (package is present).
+// the composite absent probe exits non-zero (package is present).
 func TestCheckPackageAbsent_Fail(t *testing.T) {
 	ft := &fakeTransport{
 		cmdResult: map[string]api.CommandResult{
-			"rpm -q 'telnet' >/dev/null 2>&1": result(0, ""),
+			"! rpm -q 'telnet' >/dev/null 2>&1 && ! (command -v dpkg >/dev/null 2>&1 && dpkg -l 'telnet' 2>/dev/null | grep -q '^ii')": result(1, ""),
 		},
 	}
 	chk := api.Check{

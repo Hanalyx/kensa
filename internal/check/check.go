@@ -33,6 +33,12 @@ func Run(ctx context.Context, transport api.Transport, chk api.Check) (bool, str
 		return checkPackageAbsent(ctx, transport, chk.Params)
 	case "package_state":
 		return checkPackageState(ctx, transport, chk.Params)
+	case "dpkg_installed":
+		return checkDpkgInstalled(ctx, transport, chk.Params)
+	case "dpkg_absent":
+		return checkDpkgAbsent(ctx, transport, chk.Params)
+	case "apparmor_state":
+		return checkApparmorState(ctx, transport, chk.Params)
 	case "file_exists":
 		return checkFileExists(ctx, transport, chk.Params)
 	case "file_absent":
@@ -230,14 +236,20 @@ func checkSysctlValue(ctx context.Context, transport api.Transport, params api.P
 	return true, fmt.Sprintf("sysctl_value: %s = %q", key, got), nil
 }
 
-// checkPackageInstalled checks whether an RPM package is installed.
-// Params: name.
+// checkPackageInstalled checks whether a package is installed, trying
+// rpm first (RHEL/EL) then dpkg (Debian/Ubuntu). Params: name.
 func checkPackageInstalled(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
 	name, err := stringParam(params, "name")
 	if err != nil {
 		return false, "", err
 	}
-	cmd := fmt.Sprintf("rpm -q %s >/dev/null 2>&1", shellQuote(name))
+	// Try rpm first; fall back to dpkg when rpm is absent or the package
+	// is not in the rpm database. This single command works on both
+	// RHEL (rpm path succeeds) and Debian/Ubuntu (dpkg path succeeds).
+	cmd := fmt.Sprintf(
+		`rpm -q %[1]s >/dev/null 2>&1 || (command -v dpkg >/dev/null 2>&1 && dpkg -l %[1]s 2>/dev/null | grep -q '^ii')`,
+		shellQuote(name),
+	)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return false, "", fmt.Errorf("check package_installed: transport error: %w", err)
@@ -248,22 +260,90 @@ func checkPackageInstalled(ctx context.Context, transport api.Transport, params 
 	return true, fmt.Sprintf("package_installed: %s is installed", name), nil
 }
 
-// checkPackageAbsent checks whether an RPM package is NOT installed.
-// Params: name.
+// checkPackageAbsent checks whether a package is absent from both rpm
+// and dpkg databases. Params: name.
 func checkPackageAbsent(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
 	name, err := stringParam(params, "name")
 	if err != nil {
 		return false, "", err
 	}
-	cmd := fmt.Sprintf("rpm -q %s >/dev/null 2>&1", shellQuote(name))
+	// A package is absent only when it appears in neither rpm nor dpkg.
+	// On RHEL, dpkg is absent so the second clause is always false — rpm
+	// result is authoritative. On Ubuntu, rpm is absent or returns
+	// nonzero for all packages, so dpkg is authoritative.
+	cmd := fmt.Sprintf(
+		`! rpm -q %[1]s >/dev/null 2>&1 && ! (command -v dpkg >/dev/null 2>&1 && dpkg -l %[1]s 2>/dev/null | grep -q '^ii')`,
+		shellQuote(name),
+	)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return false, "", fmt.Errorf("check package_absent: transport error: %w", err)
 	}
-	if res.ExitCode == 0 {
+	if res.ExitCode != 0 {
 		return false, fmt.Sprintf("package_absent: %s is installed but should be absent", name), nil
 	}
 	return true, fmt.Sprintf("package_absent: %s is not installed", name), nil
+}
+
+// checkDpkgInstalled checks whether a dpkg package is installed.
+// Use this in Ubuntu-specific rule implementations as an explicit
+// alternative to package_installed. Params: name.
+func checkDpkgInstalled(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	name, err := stringParam(params, "name")
+	if err != nil {
+		return false, "", err
+	}
+	cmd := fmt.Sprintf("dpkg -l %s 2>/dev/null | grep -q '^ii'", shellQuote(name))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check dpkg_installed: transport error: %w", err)
+	}
+	if res.ExitCode != 0 {
+		return false, fmt.Sprintf("dpkg_installed: %s is not installed", name), nil
+	}
+	return true, fmt.Sprintf("dpkg_installed: %s is installed", name), nil
+}
+
+// checkDpkgAbsent checks whether a dpkg package is NOT installed.
+// Params: name.
+func checkDpkgAbsent(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	name, err := stringParam(params, "name")
+	if err != nil {
+		return false, "", err
+	}
+	cmd := fmt.Sprintf("dpkg -l %s 2>/dev/null | grep -q '^ii'", shellQuote(name))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check dpkg_absent: transport error: %w", err)
+	}
+	if res.ExitCode == 0 {
+		return false, fmt.Sprintf("dpkg_absent: %s is installed but should be absent", name), nil
+	}
+	return true, fmt.Sprintf("dpkg_absent: %s is not installed", name), nil
+}
+
+// checkApparmorState checks whether AppArmor is loaded and enforcing.
+// Used on Ubuntu in place of selinux_state. Params: none required;
+// optional state (default "enforcing") — "enforcing" or "loaded".
+func checkApparmorState(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	want := optionalStringParam(params, "state", "enforcing")
+	var cmd string
+	switch want {
+	case "enforcing":
+		cmd = `aa-status 2>/dev/null | grep -q 'apparmor module is loaded' && [ "$(cat /sys/kernel/security/apparmor/profiles 2>/dev/null | wc -l)" -gt 0 ]`
+	case "loaded":
+		cmd = `aa-status 2>/dev/null | grep -q 'apparmor module is loaded'`
+	default:
+		return false, "", fmt.Errorf("check apparmor_state: unsupported state %q (want enforcing or loaded)", want)
+	}
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check apparmor_state: transport error: %w", err)
+	}
+	if res.ExitCode != 0 {
+		return false, fmt.Sprintf("apparmor_state: AppArmor is not %s", want), nil
+	}
+	return true, fmt.Sprintf("apparmor_state: AppArmor is %s", want), nil
 }
 
 // checkFileExists checks whether a path exists on the remote host.

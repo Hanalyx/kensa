@@ -33,7 +33,9 @@ var probes = []probe{
 	},
 	{
 		"fips_mode",
-		`fips-mode-setup --check 2>/dev/null | grep -q 'FIPS mode is enabled'`,
+		// RHEL: fips-mode-setup --check. Ubuntu Pro: same binary exists.
+		// Universal fallback: /proc/sys/crypto/fips_enabled = 1.
+		`fips-mode-setup --check 2>/dev/null | grep -q 'FIPS mode is enabled' || [ "$(cat /proc/sys/crypto/fips_enabled 2>/dev/null)" = "1" ]`,
 	},
 	{
 		"firewalld_nftables",
@@ -118,6 +120,43 @@ var probes = []probe{
 	{
 		"subscription_manager",
 		`command -v subscription-manager >/dev/null 2>&1`,
+	},
+
+	// ── Ubuntu / Debian-specific probes ──────────────────────────────────
+
+	// dpkg is the primary distro discriminator: present on all Debian-
+	// family systems, absent on RHEL/EL. Rules gate Ubuntu implementations
+	// on requires: [dpkg].
+	{
+		"dpkg",
+		`command -v dpkg >/dev/null 2>&1`,
+	},
+	// apt gates package_present/package_absent Ubuntu implementations.
+	{
+		"apt",
+		`command -v apt-get >/dev/null 2>&1`,
+	},
+	// apparmor is the Ubuntu equivalent of SELinux mandatory access control.
+	// Detected independently of selinux so rules can require one or the other.
+	{
+		"apparmor",
+		`aa-status 2>/dev/null | grep -q 'apparmor module is loaded'`,
+	},
+	// ufw is Ubuntu's front-end to nftables/iptables, analogous to firewalld.
+	{
+		"ufw",
+		`systemctl list-unit-files ufw.service 2>/dev/null | grep -q ufw`,
+	},
+	// apt_unattended_upgrades is the Ubuntu equivalent of dnf_automatic.
+	{
+		"apt_unattended_upgrades",
+		`dpkg -l unattended-upgrades 2>/dev/null | grep -q '^ii'`,
+	},
+	// ubuntu_advantage detects Ubuntu Pro / Ubuntu Advantage tooling,
+	// analogous to subscription_manager on RHEL.
+	{
+		"ubuntu_advantage",
+		`command -v ua >/dev/null 2>&1 || command -v pro >/dev/null 2>&1`,
 	},
 }
 
