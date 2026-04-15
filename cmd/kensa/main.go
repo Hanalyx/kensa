@@ -255,6 +255,8 @@ func runCheck(ctx context.Context, args []string) error {
 	switch *format {
 	case "json":
 		return printJSON(result)
+	case "jsonl":
+		return printJSONL(rules, result)
 	default:
 		printScanTable(*host, rules, result)
 	}
@@ -317,6 +319,10 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 		switch format {
 		case "json":
 			if err := printJSON(r.result); err != nil {
+				return err
+			}
+		case "jsonl":
+			if err := printJSONL(rules, r.result); err != nil {
 				return err
 			}
 		default:
@@ -759,6 +765,63 @@ func printJSON(v interface{}) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
+}
+
+// scanLine is the JSON Lines wire shape consumed by OpenWatch's ingestion
+// pipeline. One line per host per scan run; compact (no internal newlines)
+// so OpenWatch can stream-parse with jq or its own NDJSON reader.
+type scanLine struct {
+	ScannedAt  time.Time          `json:"scanned_at"`
+	HostID     string             `json:"host_id"`
+	Passed     int                `json:"passed"`
+	Failed     int                `json:"failed"`
+	Errors     int                `json:"errors"`
+	Rules      []scanLineRule     `json:"rules"`
+}
+
+type scanLineRule struct {
+	RuleID string `json:"rule_id"`
+	Status string `json:"status"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// printJSONL encodes result as a single compact JSON line (NDJSON) to stdout.
+// Each call emits exactly one newline-terminated JSON object — suitable for
+// appending to a file or piping to OpenWatch's ingest endpoint.
+// rules is indexed in parallel with result.Transactions to supply rule IDs
+// (the scan result does not embed them).
+func printJSONL(rules []*api.Rule, result *api.ScanResult) error {
+	line := scanLine{
+		ScannedAt: time.Now().UTC(),
+		HostID:    result.HostID,
+		Rules:     make([]scanLineRule, 0, len(result.Transactions)),
+	}
+	for i, txr := range result.Transactions {
+		ruleID := ""
+		if i < len(rules) {
+			ruleID = rules[i].ID
+		}
+		r := scanLineRule{RuleID: ruleID}
+		switch txr.Status {
+		case api.StatusCommitted:
+			r.Status = "pass"
+			line.Passed++
+		case api.StatusErrored:
+			r.Status = "error"
+			line.Errors++
+			if txr.Error != nil {
+				r.Detail = txr.Error.Error()
+			}
+		default:
+			r.Status = "fail"
+			line.Failed++
+		}
+		if r.Detail == "" && len(txr.Steps) > 0 {
+			r.Detail = txr.Steps[0].Detail
+		}
+		line.Rules = append(line.Rules, r)
+	}
+	return json.NewEncoder(os.Stdout).Encode(line)
 }
 
 // printHistoryTable prints a compact tabular summary of transactions.
