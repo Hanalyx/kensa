@@ -25,14 +25,18 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,13 +53,17 @@ import (
 
 	// Import all handler packages to trigger their init() registrations.
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/commandexec"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/configset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/configsetdropin"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/cronjob"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/fileabsent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/filepermissions"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/grubparameterremove"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/grubparameterset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/kernelmoduledisable"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/manual"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/mountoptionset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/packageabsent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/packagepresent"
@@ -197,26 +205,29 @@ func printCapsTable(hostID string, caps api.CapabilitySet) {
 
 // runCheck loads rule files and runs read-only compliance checks.
 func runCheck(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("check", flag.ContinueOnError)
-	host := fs.String("host", "", "target hostname (required)")
-	user := fs.String("user", "", "SSH user")
-	port := fs.Int("port", 22, "SSH port")
-	keyPath := fs.String("key", "", "SSH private key path")
-	sudo := fs.Bool("sudo", false, "wrap commands in sudo")
-	format := fs.String("format", "table", "output format: table or json")
-	if err := fs.Parse(args); err != nil {
+	fset := flag.NewFlagSet("check", flag.ContinueOnError)
+	host := fset.String("host", "", "target hostname (required if no --inventory)")
+	user := fset.String("user", "", "SSH user")
+	port := fset.Int("port", 22, "SSH port")
+	keyPath := fset.String("key", "", "SSH private key path")
+	sudo := fset.Bool("sudo", false, "wrap commands in sudo")
+	format := fset.String("format", "table", "output format: table or json")
+	rulesDir := fset.String("rules-dir", "", "directory to scan for *.yml rule files")
+	inventory := fset.String("inventory", "", "Ansible-style inventory.ini for multi-host check")
+	if err := fset.Parse(args); err != nil {
 		return err
-	}
-	if *host == "" {
-		return errors.New("--host is required")
-	}
-	if fs.NArg() == 0 {
-		return errors.New("at least one rule YAML file is required")
 	}
 
-	rules, err := loadRules(fs.Args())
+	rules, err := loadRulesFromDirOrFiles(*rulesDir, fset.Args())
 	if err != nil {
 		return err
+	}
+
+	if *inventory != "" {
+		return runCheckInventory(ctx, *inventory, *user, *port, *keyPath, *sudo, *format, rules)
+	}
+	if *host == "" {
+		return errors.New("-host or -inventory is required")
 	}
 
 	hostCfg := api.HostConfig{
@@ -240,6 +251,71 @@ func runCheck(ctx context.Context, args []string) error {
 		return printJSON(result)
 	default:
 		printScanTable(*host, rules, result)
+	}
+	return nil
+}
+
+// runCheckInventory fans out a check across all hosts in an inventory file.
+func runCheckInventory(ctx context.Context, inventoryPath, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule) error {
+	hosts, err := parseInventory(inventoryPath)
+	if err != nil {
+		return fmt.Errorf("inventory: %w", err)
+	}
+
+	type hostResult struct {
+		host   inventoryHost
+		result *api.ScanResult
+		err    error
+	}
+
+	results := make([]hostResult, len(hosts))
+	var wg sync.WaitGroup
+	for i, h := range hosts {
+		wg.Add(1)
+		go func(idx int, ih inventoryHost) {
+			defer wg.Done()
+			u := ih.user
+			if user != "" {
+				u = user
+			}
+			p := port
+			if ih.port != 0 {
+				p = ih.port
+			}
+			hostCfg := api.HostConfig{
+				Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath, Sudo: sudo,
+			}
+			transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
+			if err != nil {
+				results[idx] = hostResult{host: ih, err: fmt.Errorf("connect: %w", err)}
+				return
+			}
+			defer func() { _ = transport.Close() }()
+			runner := scan.New(nil)
+			res, err := runner.Scan(ctx, transport, rules)
+			if err != nil {
+				results[idx] = hostResult{host: ih, err: err}
+				return
+			}
+			res.HostID = ih.addr
+			results[idx] = hostResult{host: ih, result: res}
+		}(i, h)
+	}
+	wg.Wait()
+
+	for _, r := range results {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
+			continue
+		}
+		switch format {
+		case "json":
+			if err := printJSON(r.result); err != nil {
+				return err
+			}
+		default:
+			printScanTable(r.host.addr, rules, r.result)
+		}
 	}
 	return nil
 }
@@ -281,25 +357,23 @@ func printScanTable(hostID string, rules []*api.Rule, result *api.ScanResult) {
 
 // runRemediate loads rule files and remediates failing rules.
 func runRemediate(ctx context.Context, dbPath string, args []string) error {
-	fs := flag.NewFlagSet("remediate", flag.ContinueOnError)
-	host := fs.String("host", "", "target hostname (required)")
-	user := fs.String("user", "", "SSH user")
-	port := fs.Int("port", 22, "SSH port")
-	keyPath := fs.String("key", "", "SSH private key path")
-	sudo := fs.Bool("sudo", false, "wrap commands in sudo")
-	format := fs.String("format", "table", "output format: table or json")
-	oscalOut := fs.String("oscal", "", "write OSCAL Assessment Results to this file")
-	if err := fs.Parse(args); err != nil {
+	fset := flag.NewFlagSet("remediate", flag.ContinueOnError)
+	host := fset.String("host", "", "target hostname (required if no --inventory)")
+	user := fset.String("user", "", "SSH user")
+	port := fset.Int("port", 22, "SSH port")
+	keyPath := fset.String("key", "", "SSH private key path")
+	sudo := fset.Bool("sudo", false, "wrap commands in sudo")
+	format := fset.String("format", "table", "output format: table or json")
+	oscalOut := fset.String("oscal", "", "write OSCAL Assessment Results to this file")
+	rulesDir := fset.String("rules-dir", "", "directory to scan for *.yml rule files")
+	if err := fset.Parse(args); err != nil {
 		return err
 	}
 	if *host == "" {
-		return errors.New("--host is required")
-	}
-	if fs.NArg() == 0 {
-		return errors.New("at least one rule YAML file is required")
+		return errors.New("-host is required")
 	}
 
-	rules, err := loadRules(fs.Args())
+	rules, err := loadRulesFromDirOrFiles(*rulesDir, fset.Args())
 	if err != nil {
 		return err
 	}
@@ -579,6 +653,89 @@ func loadRules(paths []string) ([]*api.Rule, error) {
 		rules = append(rules, r)
 	}
 	return rules, nil
+}
+
+// loadRulesFromDirOrFiles loads rules from a directory (if dir != "") or
+// from the explicit file paths. Returns an error when both are empty.
+func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
+	if dir != "" {
+		var found []string
+		if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.HasSuffix(d.Name(), ".yml") {
+				found = append(found, path)
+			}
+			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("walk %s: %w", dir, err)
+		}
+		if len(found) == 0 {
+			return nil, fmt.Errorf("no *.yml files found in %s", dir)
+		}
+		return loadRulesSkipInvalid(found)
+	}
+	if len(paths) == 0 {
+		return nil, errors.New("at least one rule YAML file or -rules-dir is required")
+	}
+	return loadRules(paths)
+}
+
+// loadRulesSkipInvalid loads rules, printing a warning and skipping files
+// that fail to parse rather than aborting the whole load.
+func loadRulesSkipInvalid(paths []string) ([]*api.Rule, error) {
+	rules := make([]*api.Rule, 0, len(paths))
+	for _, p := range paths {
+		r, err := rule.ParseFile(p)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warn: skip %s: %v\n", p, err)
+			continue
+		}
+		rules = append(rules, r)
+	}
+	return rules, nil
+}
+
+// inventoryHost is a single entry from a parsed inventory file.
+type inventoryHost struct {
+	addr string
+	user string
+	port int
+}
+
+// parseInventory reads an Ansible-style INI inventory file and returns
+// all host entries. Lines starting with '#' or '[' (group headers) are
+// skipped. Host lines have the form:
+//
+//	<addr>  [ansible_user=<user>]  [ansible_port=<port>]
+func parseInventory(path string) ([]inventoryHost, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var hosts []inventoryHost
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
+			continue
+		}
+		fields := strings.Fields(line)
+		h := inventoryHost{addr: fields[0]}
+		for _, f := range fields[1:] {
+			if strings.HasPrefix(f, "ansible_user=") {
+				h.user = strings.TrimPrefix(f, "ansible_user=")
+			}
+			if strings.HasPrefix(f, "ansible_port=") {
+				_, _ = fmt.Sscanf(strings.TrimPrefix(f, "ansible_port="), "%d", &h.port)
+			}
+		}
+		hosts = append(hosts, h)
+	}
+	return hosts, scanner.Err()
 }
 
 // parseSince parses --since as either a duration (e.g. "24h") or an

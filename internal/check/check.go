@@ -31,18 +31,38 @@ func Run(ctx context.Context, transport api.Transport, chk api.Check) (bool, str
 		return checkPackageInstalled(ctx, transport, chk.Params)
 	case "package_absent":
 		return checkPackageAbsent(ctx, transport, chk.Params)
+	case "package_state":
+		return checkPackageState(ctx, transport, chk.Params)
 	case "file_exists":
 		return checkFileExists(ctx, transport, chk.Params)
 	case "file_absent":
 		return checkFileAbsent(ctx, transport, chk.Params)
-	case "file_permissions":
+	case "file_permissions", "file_permission":
 		return checkFilePermissions(ctx, transport, chk.Params)
 	case "file_content_match":
 		return checkFileContentMatch(ctx, transport, chk.Params)
+	case "file_content":
+		return checkFileContent(ctx, transport, chk.Params)
 	case "service_enabled":
 		return checkServiceEnabled(ctx, transport, chk.Params)
 	case "service_active":
 		return checkServiceActive(ctx, transport, chk.Params)
+	case "service_state":
+		return checkServiceState(ctx, transport, chk.Params)
+	case "audit_rule_exists":
+		return checkAuditRuleExists(ctx, transport, chk.Params)
+	case "sshd_effective_config":
+		return checkSshdEffectiveConfig(ctx, transport, chk.Params)
+	case "mount_option":
+		return checkMountOption(ctx, transport, chk.Params)
+	case "kernel_module_state":
+		return checkKernelModuleState(ctx, transport, chk.Params)
+	case "grub_parameter":
+		return checkGrubParameter(ctx, transport, chk.Params)
+	case "selinux_state":
+		return checkSelinuxState(ctx, transport, chk.Params)
+	case "systemd_target":
+		return checkSystemdTarget(ctx, transport, chk.Params)
 	case "command":
 		return checkCommand(ctx, transport, chk.Params)
 	default:
@@ -108,17 +128,39 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 	if err != nil {
 		return false, "", err
 	}
-	expected, err := stringParam(params, "expected")
-	if err != nil {
-		return false, "", err
+	// expected may be "" — meaning the key must be present as a bare
+	// directive (no value required), e.g. "audit" in faillock.conf.
+	expectedRaw, ok := params["expected"]
+	if !ok {
+		return false, "", fmt.Errorf("check: missing required param \"expected\"")
 	}
+	expected, _ := expectedRaw.(string)
 	delimiter := optionalStringParam(params, "delimiter", "=")
 	scanPattern := optionalStringParam(params, "scan_pattern", "")
 
+	// When expected is empty, the check is a bare-key existence check:
+	// the key must appear in the file as a standalone directive with no value.
+	if expected == "" {
+		barePattern := fmt.Sprintf(`^\s*%s\s*$`, key)
+		var bareCmd string
+		if scanPattern != "" {
+			bareCmd = fmt.Sprintf("grep -rqE %s %s/*.%s 2>/dev/null", shellQuote(barePattern), shellQuote(path), shellQuote(scanPattern))
+		} else {
+			bareCmd = fmt.Sprintf("grep -qE %s %s 2>/dev/null", shellQuote(barePattern), shellQuote(path))
+		}
+		res, err := transport.Run(ctx, bareCmd)
+		if err != nil {
+			return false, "", fmt.Errorf("check config_value: transport error: %w", err)
+		}
+		if res.ExitCode != 0 {
+			return false, fmt.Sprintf("config_value: bare key %q not found in %s", key, path), nil
+		}
+		return true, fmt.Sprintf("config_value: bare key %q present in %s", key, path), nil
+	}
+
 	var cmd string
 	if scanPattern != "" {
-		// Directory scan: grep recursively using the scan pattern as a
-		// file glob suffix.
+		// Directory scan: grep recursively using the scan pattern as a file glob suffix.
 		pattern := fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, key, delimiter)
 		cmd = fmt.Sprintf("grep -rE %s %s/*.%s 2>/dev/null", shellQuote(pattern), shellQuote(path), shellQuote(scanPattern))
 	} else {
@@ -261,19 +303,20 @@ func checkFileAbsent(ctx context.Context, transport api.Transport, params api.Pa
 }
 
 // checkFilePermissions checks the permissions, and optionally the
-// owner and group, of a file. Params: path, mode (octal string like
-// "0644"), optionally owner and group.
+// owner and group, of a file. Params: path, optionally mode (octal
+// string like "0644"), owner, and group. At least one of mode, owner,
+// or group must be specified.
 func checkFilePermissions(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
 	path, err := stringParam(params, "path")
 	if err != nil {
 		return false, "", err
 	}
-	mode, err := stringParam(params, "mode")
-	if err != nil {
-		return false, "", err
-	}
+	mode := optionalStringParam(params, "mode", "")
 	owner := optionalStringParam(params, "owner", "")
 	group := optionalStringParam(params, "group", "")
+	if mode == "" && owner == "" && group == "" {
+		return false, "", fmt.Errorf("check file_permissions: at least one of 'mode', 'owner', or 'group' is required")
+	}
 
 	cmd := fmt.Sprintf("stat -c '%%a %%U %%G' %s", shellQuote(path))
 	res, err := transport.Run(ctx, cmd)
@@ -301,7 +344,7 @@ func checkFilePermissions(ctx context.Context, transport api.Transport, params a
 	}
 
 	var failures []string
-	if gotModeNorm != wantMode {
+	if mode != "" && gotModeNorm != wantMode {
 		failures = append(failures, fmt.Sprintf("mode %s (want %s)", gotMode, mode))
 	}
 	if owner != "" && gotOwner != owner {
@@ -375,27 +418,457 @@ func checkServiceActive(ctx context.Context, transport api.Transport, params api
 	return true, fmt.Sprintf("service_active: %s is active", name), nil
 }
 
-// checkCommand runs an arbitrary command and checks the exit code.
-// Params: cmd, optionally expected_output (substring match against
-// stdout).
+// checkCommand runs an arbitrary command and checks the exit code and
+// optionally the output. Params:
+//
+//	cmd / run           string  command to execute (required; "run" is the corpus alias)
+//	expected_output /
+//	  expected_stdout   string  optional substring that must appear in stdout
+//	expected_exit       int     optional expected exit code (default 0)
 func checkCommand(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
-	rawCmd, err := stringParam(params, "cmd")
-	if err != nil {
-		return false, "", err
+	// Accept both "cmd" (internal) and "run" (corpus convention).
+	rawCmd := optionalStringParam(params, "cmd", "")
+	if rawCmd == "" {
+		rawCmd = optionalStringParam(params, "run", "")
 	}
+	if rawCmd == "" {
+		return false, "", fmt.Errorf("check: missing required param \"cmd\"")
+	}
+
+	// Accept both "expected_output" and "expected_stdout".
 	expectedOutput := optionalStringParam(params, "expected_output", "")
+	if expectedOutput == "" {
+		expectedOutput = optionalStringParam(params, "expected_stdout", "")
+	}
+
+	// Optional expected exit code (default 0).
+	expectedExit := 0
+	if v, ok := params["expected_exit"]; ok {
+		switch n := v.(type) {
+		case int:
+			expectedExit = n
+		case float64:
+			expectedExit = int(n)
+		}
+	}
 
 	res, err := transport.Run(ctx, rawCmd)
 	if err != nil {
 		return false, "", fmt.Errorf("check command: transport error: %w", err)
 	}
-	if res.ExitCode != 0 {
-		return false, fmt.Sprintf("command: %q exited with code %d", rawCmd, res.ExitCode), nil
+	if res.ExitCode != expectedExit {
+		return false, fmt.Sprintf("command: %q exited with code %d (expected %d)", rawCmd, res.ExitCode, expectedExit), nil
 	}
 	if expectedOutput != "" && !strings.Contains(res.Stdout, expectedOutput) {
 		return false, fmt.Sprintf("command: output does not contain %q", expectedOutput), nil
 	}
 	return true, fmt.Sprintf("command: %q passed", rawCmd), nil
+}
+
+// checkPackageState checks package presence or absence via rpm.
+// Params: name, state ("present" → installed, "absent" → not installed).
+func checkPackageState(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	// Validate that 'name' is present before dispatching.
+	if _, err := stringParam(params, "name"); err != nil {
+		return false, "", err
+	}
+	state := optionalStringParam(params, "state", "present")
+	if state == "absent" {
+		return checkPackageAbsent(ctx, transport, params)
+	}
+	return checkPackageInstalled(ctx, transport, params)
+}
+
+// checkFileContent checks whether a file's content matches an expected
+// literal string (not a regex). Params: path, expected_content.
+func checkFileContent(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	path, err := stringParam(params, "path")
+	if err != nil {
+		return false, "", err
+	}
+	expected, err := stringParam(params, "expected_content")
+	if err != nil {
+		return false, "", err
+	}
+	// Use fgrep for literal match.
+	cmd := fmt.Sprintf("grep -qF %s %s", shellQuote(expected), shellQuote(path))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check file_content: transport error: %w", err)
+	}
+	if res.ExitCode != 0 {
+		return false, fmt.Sprintf("file_content: expected content not found in %s", path), nil
+	}
+	return true, fmt.Sprintf("file_content: expected content found in %s", path), nil
+}
+
+// checkServiceState checks a service's enabled and/or active state.
+// Params: name, enabled (bool, optional), active (bool, optional).
+// All specified conditions must pass (AND semantics).
+func checkServiceState(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	name, err := stringParam(params, "name")
+	if err != nil {
+		return false, "", err
+	}
+
+	var details []string
+
+	if wantEnabled, ok := params["enabled"]; ok {
+		want, _ := wantEnabled.(bool)
+		cmd := fmt.Sprintf("systemctl is-enabled %s", shellQuote(name))
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return false, "", fmt.Errorf("check service_state: transport error: %w", err)
+		}
+		out := strings.TrimSpace(res.Stdout)
+		isEnabled := strings.Contains(out, "enabled")
+		if want && !isEnabled {
+			return false, fmt.Sprintf("service_state: %s is not enabled (status: %q)", name, out), nil
+		}
+		if !want && isEnabled {
+			return false, fmt.Sprintf("service_state: %s is enabled but should not be (status: %q)", name, out), nil
+		}
+		enabled := "enabled"
+		if !want {
+			enabled = "not enabled"
+		}
+		details = append(details, fmt.Sprintf("%s %s", name, enabled))
+	}
+
+	if wantActive, ok := params["active"]; ok {
+		want, _ := wantActive.(bool)
+		cmd := fmt.Sprintf("systemctl is-active %s", shellQuote(name))
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return false, "", fmt.Errorf("check service_state: transport error: %w", err)
+		}
+		isActive := res.ExitCode == 0
+		if want && !isActive {
+			out := strings.TrimSpace(res.Stdout)
+			return false, fmt.Sprintf("service_state: %s is not active (status: %q)", name, out), nil
+		}
+		if !want && isActive {
+			return false, fmt.Sprintf("service_state: %s is active but should not be", name), nil
+		}
+		active := "active"
+		if !want {
+			active = "not active"
+		}
+		details = append(details, active)
+	}
+
+	return true, fmt.Sprintf("service_state: %s %s", name, strings.Join(details, ", ")), nil
+}
+
+// checkAuditRuleExists verifies that an audit rule is present in the
+// effective kernel ruleset loaded by auditd. The check uses auditctl -l
+// and matches on the -k key field extracted from the rule string, falling
+// back to a full normalised-string search when no -k field is present.
+// Params: rule (full audit rule string).
+func checkAuditRuleExists(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	rule, err := stringParam(params, "rule")
+	if err != nil {
+		return false, "", err
+	}
+
+	// Extract the -k <key> token for targeted lookup.
+	key := extractAuditKey(rule)
+
+	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
+	if err != nil {
+		return false, "", fmt.Errorf("check audit_rule_exists: transport error: %w", err)
+	}
+
+	loaded := res.Stdout
+	if key != "" {
+		// Check that at least one loaded rule carries this key.
+		needle := "-k " + key
+		if strings.Contains(loaded, needle) {
+			return true, fmt.Sprintf("audit_rule_exists: key %q found in loaded ruleset", key), nil
+		}
+		return false, fmt.Sprintf("audit_rule_exists: key %q not found in loaded ruleset", key), nil
+	}
+
+	// No -k field: normalise whitespace and look for a matching line.
+	norm := normaliseAuditRule(rule)
+	for _, line := range strings.Split(loaded, "\n") {
+		if normaliseAuditRule(line) == norm {
+			return true, fmt.Sprintf("audit_rule_exists: rule found in loaded ruleset"), nil
+		}
+	}
+	return false, fmt.Sprintf("audit_rule_exists: rule not found in loaded ruleset"), nil
+}
+
+// extractAuditKey returns the value following -k in an audit rule string,
+// or empty string if none is present.
+func extractAuditKey(rule string) string {
+	fields := strings.Fields(rule)
+	for i, f := range fields {
+		if f == "-k" && i+1 < len(fields) {
+			return fields[i+1]
+		}
+		if strings.HasPrefix(f, "-k") && len(f) > 2 {
+			return f[2:]
+		}
+	}
+	return ""
+}
+
+// normaliseAuditRule collapses whitespace in a rule string for comparison.
+func normaliseAuditRule(s string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
+}
+
+// checkSshdEffectiveConfig checks a key's value in the effective sshd
+// configuration as reported by `sshd -T`. Params: key, expected.
+func checkSshdEffectiveConfig(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	key, err := stringParam(params, "key")
+	if err != nil {
+		return false, "", err
+	}
+	expected, err := stringParam(params, "expected")
+	if err != nil {
+		return false, "", err
+	}
+
+	// sshd -T dumps key value pairs (lowercase keys), one per line.
+	pattern := fmt.Sprintf(`^%s `, strings.ToLower(key))
+	cmd := fmt.Sprintf("sshd -T 2>/dev/null | grep -i %s", shellQuote(pattern))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check sshd_effective_config: transport error: %w", err)
+	}
+	if res.ExitCode != 0 {
+		return false, fmt.Sprintf("sshd_effective_config: key %q not found in sshd -T output", key), nil
+	}
+
+	line := strings.TrimSpace(strings.SplitN(res.Stdout, "\n", 2)[0])
+	parts := strings.SplitN(line, " ", 2)
+	if len(parts) < 2 {
+		return false, fmt.Sprintf("sshd_effective_config: could not parse value from %q", line), nil
+	}
+	got := strings.TrimSpace(parts[1])
+	if !strings.EqualFold(got, expected) {
+		return false, fmt.Sprintf("sshd_effective_config: %s = %q, expected %q", key, got, expected), nil
+	}
+	return true, fmt.Sprintf("sshd_effective_config: %s = %q", key, got), nil
+}
+
+// checkMountOption verifies that a mount point has all required mount
+// options set. Params: mount_point (string), options ([]interface{} of strings).
+func checkMountOption(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	mp, err := stringParam(params, "mount_point")
+	if err != nil {
+		return false, "", err
+	}
+	opts, err := stringSliceParam(params, "options")
+	if err != nil {
+		return false, "", err
+	}
+
+	cmd := fmt.Sprintf("findmnt -n -o OPTIONS %s 2>/dev/null", shellQuote(mp))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check mount_option: transport error: %w", err)
+	}
+	if res.ExitCode != 0 {
+		return false, fmt.Sprintf("mount_option: %s is not mounted", mp), nil
+	}
+
+	// findmnt returns comma-separated options; split into a set.
+	present := make(map[string]bool)
+	for _, o := range strings.Split(strings.TrimSpace(res.Stdout), ",") {
+		// Strip =value suffix for flag-only checks (e.g. "rw" not "rw=1").
+		present[strings.SplitN(strings.TrimSpace(o), "=", 2)[0]] = true
+	}
+
+	var missing []string
+	for _, want := range opts {
+		if !present[want] {
+			missing = append(missing, want)
+		}
+	}
+	if len(missing) > 0 {
+		return false, fmt.Sprintf("mount_option: %s missing options: %s", mp, strings.Join(missing, ", ")), nil
+	}
+	return true, fmt.Sprintf("mount_option: %s has required options %s", mp, strings.Join(opts, ", ")), nil
+}
+
+// checkKernelModuleState checks whether a kernel module is disabled or
+// blacklisted. Params: name, state ("disabled" or "blacklisted").
+//
+// "disabled" means modprobe would refuse to load it (install /bin/true or
+// similar in modprobe.d). "blacklisted" means it appears in a blacklist
+// directive. Both states imply the module is not currently loaded.
+func checkKernelModuleState(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	name, err := stringParam(params, "name")
+	if err != nil {
+		return false, "", err
+	}
+	state := optionalStringParam(params, "state", "disabled")
+
+	// Check that the module is not currently loaded.
+	lsmodCmd := fmt.Sprintf("lsmod 2>/dev/null | grep -qw %s", shellQuote(name))
+	res, err := transport.Run(ctx, lsmodCmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check kernel_module_state: transport error: %w", err)
+	}
+	if res.ExitCode == 0 {
+		return false, fmt.Sprintf("kernel_module_state: module %s is currently loaded", name), nil
+	}
+
+	switch state {
+	case "blacklisted":
+		cmd := fmt.Sprintf(`grep -rq 'blacklist\s\+%s' /etc/modprobe.d/ 2>/dev/null`, name)
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return false, "", fmt.Errorf("check kernel_module_state: transport error: %w", err)
+		}
+		if res.ExitCode != 0 {
+			return false, fmt.Sprintf("kernel_module_state: module %s is not blacklisted in /etc/modprobe.d/", name), nil
+		}
+		return true, fmt.Sprintf("kernel_module_state: %s is blacklisted and not loaded", name), nil
+	default: // "disabled"
+		// modprobe --dry-run exits 0 and prints "install /bin/true" when disabled.
+		cmd := fmt.Sprintf("modprobe -n --show-depends %s 2>&1 | grep -q 'install /bin/true'", shellQuote(name))
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return false, "", fmt.Errorf("check kernel_module_state: transport error: %w", err)
+		}
+		if res.ExitCode != 0 {
+			return false, fmt.Sprintf("kernel_module_state: module %s is not disabled (no install /bin/true in modprobe.d)", name), nil
+		}
+		return true, fmt.Sprintf("kernel_module_state: %s is disabled and not loaded", name), nil
+	}
+}
+
+// checkGrubParameter checks that a kernel command-line parameter is set
+// to the expected value. Checks both /proc/cmdline (running kernel) and
+// /etc/default/grub (persistent configuration). Params: key, expected.
+func checkGrubParameter(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	key, err := stringParam(params, "key")
+	if err != nil {
+		return false, "", err
+	}
+	expected, err := stringParam(params, "expected")
+	if err != nil {
+		return false, "", err
+	}
+
+	// Check running kernel cmdline first.
+	needle := key + "=" + expected
+	needleFlag := key // for boolean params like "audit=1" vs bare "audit"
+
+	cmdlineCmd := "cat /proc/cmdline 2>/dev/null"
+	res, err := transport.Run(ctx, cmdlineCmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check grub_parameter: transport error: %w", err)
+	}
+	cmdline := strings.TrimSpace(res.Stdout)
+	runningOK := containsCmdlineParam(cmdline, needleFlag, expected)
+
+	// Check persistent GRUB configuration.
+	grubCmd := fmt.Sprintf(`grep -E 'GRUB_CMDLINE_LINUX' /etc/default/grub 2>/dev/null`)
+	res, err = transport.Run(ctx, grubCmd)
+	if err != nil {
+		return false, "", fmt.Errorf("check grub_parameter: transport error: %w", err)
+	}
+	persistentOK := strings.Contains(res.Stdout, needle) || strings.Contains(res.Stdout, needleFlag)
+
+	if !runningOK {
+		return false, fmt.Sprintf("grub_parameter: %s not set to %q in /proc/cmdline", key, expected), nil
+	}
+	if !persistentOK {
+		return false, fmt.Sprintf("grub_parameter: %s not found in /etc/default/grub GRUB_CMDLINE_LINUX", key), nil
+	}
+	return true, fmt.Sprintf("grub_parameter: %s=%s (running and persistent)", key, expected), nil
+}
+
+// containsCmdlineParam checks whether a kernel cmdline string contains
+// key=expected or the bare key (for boolean 0/1 parameters).
+func containsCmdlineParam(cmdline, key, expected string) bool {
+	for _, token := range strings.Fields(cmdline) {
+		if token == key+"="+expected {
+			return true
+		}
+		// Boolean flag with no value (e.g. "quiet").
+		if expected == "1" && token == key {
+			return true
+		}
+	}
+	return false
+}
+
+// checkSelinuxState checks the current SELinux enforcement state.
+// Params: state ("Enforcing", "Permissive", or "Disabled").
+func checkSelinuxState(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	want, err := stringParam(params, "state")
+	if err != nil {
+		return false, "", err
+	}
+	res, err := transport.Run(ctx, "getenforce 2>/dev/null")
+	if err != nil {
+		return false, "", fmt.Errorf("check selinux_state: transport error: %w", err)
+	}
+	got := strings.TrimSpace(res.Stdout)
+	if !strings.EqualFold(got, want) {
+		return false, fmt.Sprintf("selinux_state: got %q, expected %q", got, want), nil
+	}
+	return true, fmt.Sprintf("selinux_state: %s", got), nil
+}
+
+// checkSystemdTarget checks the default systemd target. Params:
+// expected (exact target name, e.g. "multi-user.target") or
+// not_expected (target that must NOT be the default).
+func checkSystemdTarget(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
+	res, err := transport.Run(ctx, "systemctl get-default 2>/dev/null")
+	if err != nil {
+		return false, "", fmt.Errorf("check systemd_target: transport error: %w", err)
+	}
+	got := strings.TrimSpace(res.Stdout)
+
+	if expected, ok := params["expected"]; ok {
+		want, _ := expected.(string)
+		if !strings.EqualFold(got, want) {
+			return false, fmt.Sprintf("systemd_target: default is %q, expected %q", got, want), nil
+		}
+		return true, fmt.Sprintf("systemd_target: default is %q", got), nil
+	}
+
+	if notExpected, ok := params["not_expected"]; ok {
+		bad, _ := notExpected.(string)
+		if strings.EqualFold(got, bad) {
+			return false, fmt.Sprintf("systemd_target: default is %q (must not be %q)", got, bad), nil
+		}
+		return true, fmt.Sprintf("systemd_target: default is %q (not %q)", got, bad), nil
+	}
+
+	return false, "", fmt.Errorf("check systemd_target: must specify 'expected' or 'not_expected' param")
+}
+
+// stringSliceParam extracts a required []string parameter from params.
+// The YAML parser delivers this as []interface{} of strings.
+func stringSliceParam(params api.Params, key string) ([]string, error) {
+	v, ok := params[key]
+	if !ok {
+		return nil, fmt.Errorf("check: missing required param %q", key)
+	}
+	switch val := v.(type) {
+	case []interface{}:
+		out := make([]string, 0, len(val))
+		for _, item := range val {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("check: param %q elements must be strings, got %T", key, item)
+			}
+			out = append(out, s)
+		}
+		return out, nil
+	case []string:
+		return val, nil
+	default:
+		return nil, fmt.Errorf("check: param %q must be a list of strings, got %T", key, v)
+	}
 }
 
 // shellQuote wraps s in single quotes for safe inclusion in a shell
