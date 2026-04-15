@@ -6,52 +6,22 @@ Items are ordered roughly by priority within each section. No commitment to sche
 
 ## Capability Detection
 
-### Ubuntu/Debian probe support
-**Context:** `internal/detect` currently probes 25 capabilities, all RHEL/EL-family specific. Running `detect` against `.217` (Ubuntu `owas-ub5s2`) yields only 7/25 because probes like `authselect`, `crypto_policies`, `fapolicyd`, `selinux`, `subscription_manager`, `grub_bls`, and `dnf_automatic` do not exist on Debian-family systems.
+### Ubuntu/Debian probe support — PARTIALLY COMPLETE (2026-04-15)
 
-**Work required:**
-- Add Ubuntu/Debian equivalent probes alongside RHEL probes, keyed by the same capability name where a functional equivalent exists:
+**Shipped:** 6 new Ubuntu probes (`dpkg`, `apt`, `apparmor`, `ufw`,
+`apt_unattended_upgrades`, `ubuntu_advantage`) + `fips_mode` universal
+fallback + distro-aware `package_installed`/`package_absent` (rpm-or-dpkg)
++ new `dpkg_installed`, `dpkg_absent`, `apparmor_state` check methods.
 
-| Capability (RHEL probe) | Ubuntu/Debian equivalent |
-|---|---|
-| `authselect` | `pam-auth-update` — `command -v pam-auth-update` |
-| `crypto_policies` | No direct equivalent; detect via `dpkg -l libssl-dev` or `openssl version` |
-| `fips_mode` | `fips-mode-setup` exists on Ubuntu Pro; otherwise `/proc/sys/crypto/fips_enabled` = 1 |
-| `dnf_automatic` | `unattended-upgrades` — `dpkg -l unattended-upgrades` |
-| `subscription_manager` | `ua status` (Ubuntu Advantage / Pro) |
-| `selinux` | `apparmor_status` — detect AppArmor as a separate cap `apparmor` |
-| `fapolicyd` | No equivalent; mark false on Debian |
-| `grub_bls` | `[ -d /boot/loader/entries ]` works if systemd-boot; else `/etc/default/grub` |
-| `sshd_config_d` | Same probe works (directory check + Include grep) |
-| `pam_faillock` | `pam_tally2` or `pam_faillock` depending on Ubuntu version |
-| `usbguard` | Same `systemctl` probe works |
-| `sssd` | Same `systemctl` probe works |
-| `chronyd` | `chrony` package: same `systemctl` probe works |
-| `at` | Same `command -v at` works |
-| `auditd` | Same `systemctl` probe works |
-| `aide` | Same `command -v aide` works |
-| `cron` | Ubuntu uses `cron.service`, not `crond.service` — probe already handles both |
-| `rsyslog` | Same `systemctl` probe works |
-| `journald` | Same `systemctl` probe works |
-| `nftables` | Same `command -v nft` works |
-| `firewalld` | Ubuntu may use `ufw` instead — add `ufw` as a separate capability |
-| `coredump_systemd` | Same `systemctl` probe works |
+Live result on `.217`: 13/31 caps now detected (was 7/25).
 
-**New Ubuntu-specific capabilities to add:**
-- `apparmor` — `aa-status 2>/dev/null | grep -q 'apparmor module is loaded'`
-- `ufw` — `systemctl list-unit-files ufw.service 2>/dev/null | grep -q ufw`
-- `apt_unattended_upgrades` — `dpkg -l unattended-upgrades 2>/dev/null | grep -q '^ii'`
-- `ubuntu_advantage` — `command -v ua >/dev/null 2>&1 || command -v pro >/dev/null 2>&1`
-- `dpkg` — `command -v dpkg >/dev/null 2>&1` (distro discriminator for implementation selection)
-- `apt` — `command -v apt-get >/dev/null 2>&1` (gates `package_present`/`package_absent` Ubuntu impls)
-
-**Implementation approach:**
-- Add the new probes to `internal/detect/detect.go` alongside existing ones; the probe runner is already distro-agnostic.
-- Add `package_installed` / `package_absent` check methods for `dpkg -l` in `internal/check/check.go`.
-- Add `package_present` / `package_absent` handler impls gated on the `apt` capability.
-- Rules that have both RHEL and Ubuntu implementations should list them as separate `implementations` entries with `requires` capability constraints.
-
-**Test host:** `192.168.1.217` (`owas-ub5s2.hanalyx.local`) — Ubuntu, reachable as `owadmin`.
+**Remaining:**
+- Rules that only have RHEL implementations still fail on Ubuntu because
+  no Ubuntu `implementations` entry exists. Next step: add Ubuntu
+  `implementations` to common rules gated on `[dpkg]` or `[apt]`.
+- `package_present` / `package_absent` handler remediation impls gated
+  on the `apt` capability (check side is done; remediation side pending).
+- `pam_tally2` probe for older Ubuntu (pam_faillock may not be present).
 
 ---
 
