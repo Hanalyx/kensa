@@ -6,22 +6,23 @@ Items are ordered roughly by priority within each section. No commitment to sche
 
 ## Capability Detection
 
-### Ubuntu/Debian probe support — PARTIALLY COMPLETE (2026-04-15)
+### Ubuntu/Debian probe support — COMPLETE (2026-04-15)
 
 **Shipped:** 6 new Ubuntu probes (`dpkg`, `apt`, `apparmor`, `ufw`,
 `apt_unattended_upgrades`, `ubuntu_advantage`) + `fips_mode` universal
 fallback + distro-aware `package_installed`/`package_absent` (rpm-or-dpkg)
 + new `dpkg_installed`, `dpkg_absent`, `apparmor_state` check methods.
 
-Live result on `.217`: 13/31 caps now detected (was 7/25).
+`apt_present` / `apt_absent` Go handlers + Python runner handlers added.
+77 corpus rules patched with `when: apt` implementation blocks via
+`scripts/add_ubuntu_pkg_impls.py`.  `rule.schema.json`, `REMEDIATION_HANDLERS`,
+and `CAPABILITY_PROBES` all updated and committed.
 
-**Remaining:**
-- Rules that only have RHEL implementations still fail on Ubuntu because
-  no Ubuntu `implementations` entry exists. Next step: add Ubuntu
-  `implementations` to common rules gated on `[dpkg]` or `[apt]`.
-- `package_present` / `package_absent` handler remediation impls gated
-  on the `apt` capability (check side is done; remediation side pending).
+Live result on `.217`: 13/31 caps detected (was 7/25).
+
+**Remaining (lower priority):**
 - `pam_tally2` probe for older Ubuntu (pam_faillock may not be present).
+- Service rules where Ubuntu service name differs from RHEL (e.g. `chronyd` → `chrony`).
 
 ---
 
