@@ -34,7 +34,7 @@ repos:
         stages: [manual]
       - id: go-imports
         stages: [manual]
-      - id: go-vet-mod
+      - id: go-vet
         stages: [manual]
       - id: go-mod-tidy
         stages: [manual]
