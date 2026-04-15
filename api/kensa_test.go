@@ -27,6 +27,18 @@ func (f *fakeEngine) Run(_ context.Context, _ api.Transport, txn *api.Transactio
 	}, nil
 }
 
+func (f *fakeEngine) RollbackTransaction(_ context.Context, _ api.Transport, _ *api.TransactionRecord) (*api.RollbackResult, error) {
+	return &api.RollbackResult{Success: true}, nil
+}
+
+func (f *fakeEngine) PlanTransaction(_ context.Context, _ api.Transport, rule *api.Rule) (*api.Plan, error) {
+	return &api.Plan{RuleID: rule.ID}, nil
+}
+
+func (f *fakeEngine) ExecutePlan(_ context.Context, _ api.Transport, plan *api.Plan) (*api.TransactionResult, error) {
+	return &api.TransactionResult{Status: f.wantStat}, nil
+}
+
 // fakeFactory satisfies [api.TransportFactory] returning a no-op
 // transport.
 type fakeFactory struct{ closeCalled int }

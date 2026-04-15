@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
 )
@@ -88,4 +89,39 @@ func (e *Engine) rollback(ctx context.Context, transport api.Transport, applyRes
 		results = append(results, *rr)
 	}
 	return results
+}
+
+// RollbackTransaction implements manual rollback from a persisted
+// [api.TransactionRecord]. It satisfies the RollbackTransaction method
+// added to the [api.Engine] interface.
+//
+// The record must have its Steps field populated with the original
+// apply results and its PreStates field populated with the captured
+// pre-state bundle. Both are available from [api.LogQuery.Get] with
+// the default options.
+func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transport, record *api.TransactionRecord) (*api.RollbackResult, error) {
+	// Build a slice of StepResult from the record's step outcomes.
+	applyResults := make([]api.StepResult, len(record.Steps))
+	copy(applyResults, record.Steps)
+
+	preStates := record.PreStates
+
+	rbResults := e.rollback(ctx, transport, applyResults, preStates, "manual")
+
+	// Aggregate: return the first failure if any steps failed, otherwise
+	// return a synthetic success result for the transaction.
+	for i := range rbResults {
+		if !rbResults[i].Success {
+			return &rbResults[i], nil
+		}
+	}
+
+	return &api.RollbackResult{
+		StepIndex:  -1, // transaction-level result, not step-level
+		Mechanism:  "",
+		Success:    true,
+		Detail:     "all rollback steps succeeded",
+		Source:     "manual",
+		ExecutedAt: time.Now().UTC(),
+	}, nil
 }

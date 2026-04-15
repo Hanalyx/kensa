@@ -28,6 +28,7 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/deadman"
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/evidence"
+	"github.com/Hanalyx/kensa-go/internal/scan"
 	"github.com/Hanalyx/kensa-go/internal/store"
 	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
 )
@@ -37,7 +38,14 @@ import (
 // [Service.Close] to release them on shutdown.
 type Service struct {
 	*api.Kensa
-	store *store.SQLite
+	store    *store.SQLite
+	eventBus *engine.InMemoryEventBus
+}
+
+// Subscribe returns a channel of events matching filter. The channel
+// closes when ctx is done.
+func (s *Service) Subscribe(ctx context.Context, filter api.EventFilter) (<-chan api.Event, error) {
+	return s.eventBus.Subscribe(ctx, filter)
 }
 
 // Close releases owned resources. Safe to call multiple times.
@@ -73,23 +81,27 @@ func Default(ctx context.Context, storePath string) (*Service, error) {
 		_ = s.Close()
 		return nil, fmt.Errorf("kensa: generate signing key: %w", err)
 	}
+	bus := engine.NewInMemoryEventBus()
+	eng := engine.New(
+		engine.WithStore(storeAdapter{s}),
+		engine.WithDeadman(deadman.New(0, nil)),
+		engine.WithSigner(signer),
+		engine.WithEvents(bus),
+	)
 	cfg := api.Config{
-		StorePath: storePath,
-		Engine: engine.New(
-			engine.WithStore(storeAdapter{s}),
-			engine.WithDeadman(deadman.New(0, nil)),
-			engine.WithSigner(signer),
-		),
+		StorePath:        storePath,
+		Engine:           eng,
 		TransportFactory: ssh.Factory{},
 		Log:              s,
 		Verifier:         signer,
+		Scanner:          scan.New(eng),
 	}
 	k, err := api.New(cfg)
 	if err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("kensa: new: %w", err)
 	}
-	return &Service{Kensa: k, store: s}, nil
+	return &Service{Kensa: k, store: s, eventBus: bus}, nil
 }
 
 // storeAdapter bridges the [store.SQLite] type to the

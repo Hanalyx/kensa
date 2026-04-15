@@ -63,6 +63,20 @@ type Config struct {
 	// Verifier, when set, backs [Kensa.VerifyEnvelope]. If nil,
 	// [Kensa.VerifyEnvelope] returns [ErrNotYetImplemented].
 	Verifier EnvelopeVerifier
+
+	// Scanner, when set, backs [Kensa.Scan] and [Kensa.Remediate].
+	// If nil, those methods return [ErrNotYetImplemented].
+	Scanner ScannerBackend
+}
+
+// ScannerBackend is the interface backing [Kensa.Scan] and
+// [Kensa.Remediate]. The production implementation lives in
+// internal/scan; tests may substitute a fake.
+type ScannerBackend interface {
+	// Scan checks every rule against the host reachable via transport.
+	Scan(ctx context.Context, transport Transport, rules []*Rule) (*ScanResult, error)
+	// Remediate checks every rule and runs transactions for failing ones.
+	Remediate(ctx context.Context, transport Transport, rules []*Rule) (*RemediationResult, error)
 }
 
 // Engine is the interface [Kensa] delegates execution methods to. The
@@ -77,6 +91,21 @@ type Engine interface {
 	// nonBlocking flag selects [ErrHostBusy]-vs-wait behavior on
 	// per-host mutex contention.
 	Run(ctx context.Context, transport Transport, txn *Transaction, nonBlocking bool) (*TransactionResult, error)
+
+	// RollbackTransaction performs a manual rollback of a past
+	// transaction from its persisted [TransactionRecord]. Satisfies
+	// the rollback path for [Kensa.Rollback].
+	RollbackTransaction(ctx context.Context, transport Transport, record *TransactionRecord) (*RollbackResult, error)
+
+	// PlanTransaction performs capability-selection and the read-only
+	// capture phase for rule and returns a [Plan] without mutating the
+	// host. Satisfies [Planner].
+	PlanTransaction(ctx context.Context, transport Transport, rule *Rule) (*Plan, error)
+
+	// ExecutePlan runs a previously-produced [Plan] against transport.
+	// Returns [PlanStaleError] when host state has diverged since
+	// planning. Satisfies [Executor].
+	ExecutePlan(ctx context.Context, transport Transport, plan *Plan) (*TransactionResult, error)
 }
 
 // TransportFactory constructs a [Transport] from a [HostConfig].
@@ -156,32 +185,71 @@ func (k *Kensa) Transact(ctx context.Context, host HostConfig, txn *Transaction,
 // host and returns a [ScanResult]. No apply runs and no signed
 // envelopes are produced.
 //
-// Always returns [ErrNotYetImplemented] in v0.x: the rule parser plus
-// check-method dispatcher land Week 21 per docs/KENSA_GO_DAY1_PLAN.md
-// §11.5.
+// Returns [ErrNotYetImplemented] when [Config.Scanner] is nil. Use
+// the Default constructor in pkg/kensa to wire up the standard scanner.
 func (k *Kensa) Scan(ctx context.Context, host HostConfig, rules []*Rule, opts ...RunOption) (*ScanResult, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Scanner == nil || k.config.TransportFactory == nil {
+		return nil, ErrNotYetImplemented
+	}
+	transport, err := k.config.TransportFactory.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+
+	result, err := k.config.Scanner.Scan(ctx, transport, rules)
+	if err != nil {
+		return nil, err
+	}
+	result.HostID = host.Hostname
+	return result, nil
 }
 
 // Remediate runs full transactions for every rule whose check fails
 // during the scan phase and returns a [RemediationResult].
 //
-// Always returns [ErrNotYetImplemented] until the rule parser lands
-// Week 21.
+// Returns [ErrNotYetImplemented] when [Config.Scanner] is nil.
 func (k *Kensa) Remediate(ctx context.Context, host HostConfig, rules []*Rule, opts ...RunOption) (*RemediationResult, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Scanner == nil || k.config.TransportFactory == nil {
+		return nil, ErrNotYetImplemented
+	}
+	transport, err := k.config.TransportFactory.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+
+	result, err := k.config.Scanner.Remediate(ctx, transport, rules)
+	if err != nil {
+		return nil, err
+	}
+	result.HostID = host.Hostname
+	return result, nil
 }
 
 // Rollback executes rollback for the past transaction identified by
 // txnID, using pre-state loaded from the transaction log. Returns
 // the [RollbackResult] for the operation.
 //
-// Returns [ErrNotYetImplemented] when [Config.Log] is nil. Wiring
-// requires both a log to load pre-state from and an engine to invoke
-// the rollback handlers; the Default constructor in pkg/kensa does
-// this.
+// Returns [ErrNotYetImplemented] when [Config.Log] is nil or
+// [Config.Engine] is nil.
 func (k *Kensa) Rollback(ctx context.Context, host HostConfig, txnID uuid.UUID) (*RollbackResult, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Engine == nil || k.config.Log == nil || k.config.TransportFactory == nil {
+		return nil, ErrNotYetImplemented
+	}
+
+	record, err := k.config.Log.Get(ctx, txnID)
+	if err != nil {
+		return nil, err
+	}
+
+	transport, err := k.config.TransportFactory.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+
+	return k.config.Engine.RollbackTransaction(ctx, transport, record)
 }
 
 // optsToNonBlocking inspects opts for [WithNonBlocking].
@@ -198,15 +266,41 @@ func optsToNonBlocking(opts []RunOption) bool {
 // Plan produces a full [Plan] for rule against host without mutating
 // the host. The plan includes captured pre-state, apply steps,
 // validators, and the rollback plan.
+//
+// Returns [ErrNotYetImplemented] when [Config.Engine] or
+// [Config.TransportFactory] is nil.
 func (k *Kensa) Plan(ctx context.Context, host HostConfig, rule *Rule) (*Plan, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Engine == nil || k.config.TransportFactory == nil {
+		return nil, ErrNotYetImplemented
+	}
+	transport, err := k.config.TransportFactory.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+	return k.config.Engine.PlanTransaction(ctx, transport, rule)
 }
 
 // Execute runs a previously-produced plan against host. Returns
 // [PlanStaleError] if host state has diverged since planning; the
 // caller must re-plan and seek fresh approval before retrying.
+//
+// Returns [ErrNotYetImplemented] when [Config.Engine] or
+// [Config.TransportFactory] is nil.
 func (k *Kensa) Execute(ctx context.Context, host HostConfig, plan *Plan, opts ...RunOption) (*TransactionResult, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Engine == nil || k.config.TransportFactory == nil {
+		return nil, ErrNotYetImplemented
+	}
+	transport, err := k.config.TransportFactory.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+	// nonBlocking is accepted for API consistency but ExecutePlan does
+	// not currently expose the flag (the staleness check provides its
+	// own fast-fail path).
+	_ = optsToNonBlocking(opts)
+	return k.config.Engine.ExecutePlan(ctx, transport, plan)
 }
 
 // ─── Heartbeat: event subscription ─────────────────────────────────────
