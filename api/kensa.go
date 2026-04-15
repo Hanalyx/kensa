@@ -28,7 +28,13 @@ type Kensa struct {
 	config Config
 }
 
-// Config configures [New].
+// Config configures [New]. The bare config (zero-value) yields a
+// stub Kensa whose execution methods all return [ErrNotYetImplemented];
+// useful for OpenWatch's compile-against-the-API pattern. The kensa
+// factory package (github.com/Hanalyx/kensa-go/pkg/kensa) provides a
+// Default constructor that fills the [Config.Engine],
+// [Config.TransportFactory], [Config.Log], and [Config.Verifier]
+// fields with the standard internal implementations.
 type Config struct {
 	// StorePath is the filesystem path to the SQLite transaction
 	// log. The default ".kensa/results.db" is used when StorePath is
@@ -39,6 +45,45 @@ type Config struct {
 	// signing evidence envelopes. The default is a per-deployment
 	// path managed by kensa-keygen.
 	SigningKeyPath string
+
+	// Engine, when set, backs [Kensa.Transact], [Kensa.Rollback],
+	// and [Kensa.Execute]. If nil, those methods return
+	// [ErrNotYetImplemented].
+	Engine Engine
+
+	// TransportFactory, when set, lets execution methods construct
+	// an SSH transport from a [HostConfig]. If nil, execution
+	// methods return [ErrNotYetImplemented].
+	TransportFactory TransportFactory
+
+	// Log, when set, backs [Kensa.TransactionLog]. If nil,
+	// [Kensa.TransactionLog] returns nil.
+	Log LogQuery
+
+	// Verifier, when set, backs [Kensa.VerifyEnvelope]. If nil,
+	// [Kensa.VerifyEnvelope] returns [ErrNotYetImplemented].
+	Verifier EnvelopeVerifier
+}
+
+// Engine is the interface [Kensa] delegates execution methods to. The
+// production implementation lives in internal/engine; tests may
+// substitute a fake by implementing this interface directly.
+//
+// Engine is satisfied implicitly by *internal/engine.Engine because
+// Go interface satisfaction is structural — api/ does not import the
+// internal package.
+type Engine interface {
+	// Run executes txn against transport and returns the result. The
+	// nonBlocking flag selects [ErrHostBusy]-vs-wait behavior on
+	// per-host mutex contention.
+	Run(ctx context.Context, transport Transport, txn *Transaction, nonBlocking bool) (*TransactionResult, error)
+}
+
+// TransportFactory constructs a [Transport] from a [HostConfig].
+// [Kensa] uses this to translate the consumer-facing host description
+// into a connected SSH session before invoking [Engine.Run].
+type TransportFactory interface {
+	Connect(ctx context.Context, host HostConfig) (Transport, error)
 }
 
 // HostConfig identifies a target host for execution methods.
@@ -83,19 +128,46 @@ func New(cfg Config) (*Kensa, error) {
 // Transact runs txn against host end-to-end and returns the resulting
 // [TransactionResult]. The result's [TransactionResult.Status] is
 // always one of the four [TransactionStatus] values.
+//
+// Returns [ErrNotYetImplemented] when the engine is not wired (zero-
+// value [Config]). Use the Default constructor in pkg/kensa to wire up
+// the standard engine + SSH transport.
 func (k *Kensa) Transact(ctx context.Context, host HostConfig, txn *Transaction, opts ...RunOption) (*TransactionResult, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Engine == nil || k.config.TransportFactory == nil {
+		return nil, ErrNotYetImplemented
+	}
+	transport, err := k.config.TransportFactory.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+
+	nonBlocking := optsToNonBlocking(opts)
+	if txn != nil && txn.HostID == "" {
+		txn.HostID = host.Hostname
+	}
+	if txn != nil && txn.FleetID == "" {
+		txn.FleetID = host.FleetID
+	}
+	return k.config.Engine.Run(ctx, transport, txn, nonBlocking)
 }
 
 // Scan runs the read-only check phase of every rule in rules against
 // host and returns a [ScanResult]. No apply runs and no signed
 // envelopes are produced.
+//
+// Always returns [ErrNotYetImplemented] in v0.x: the rule parser plus
+// check-method dispatcher land Week 21 per docs/KENSA_GO_DAY1_PLAN.md
+// §11.5.
 func (k *Kensa) Scan(ctx context.Context, host HostConfig, rules []*Rule, opts ...RunOption) (*ScanResult, error) {
 	return nil, ErrNotYetImplemented
 }
 
 // Remediate runs full transactions for every rule whose check fails
 // during the scan phase and returns a [RemediationResult].
+//
+// Always returns [ErrNotYetImplemented] until the rule parser lands
+// Week 21.
 func (k *Kensa) Remediate(ctx context.Context, host HostConfig, rules []*Rule, opts ...RunOption) (*RemediationResult, error) {
 	return nil, ErrNotYetImplemented
 }
@@ -103,8 +175,22 @@ func (k *Kensa) Remediate(ctx context.Context, host HostConfig, rules []*Rule, o
 // Rollback executes rollback for the past transaction identified by
 // txnID, using pre-state loaded from the transaction log. Returns
 // the [RollbackResult] for the operation.
+//
+// Returns [ErrNotYetImplemented] when [Config.Log] is nil. Wiring
+// requires both a log to load pre-state from and an engine to invoke
+// the rollback handlers; the Default constructor in pkg/kensa does
+// this.
 func (k *Kensa) Rollback(ctx context.Context, host HostConfig, txnID uuid.UUID) (*RollbackResult, error) {
 	return nil, ErrNotYetImplemented
+}
+
+// optsToNonBlocking inspects opts for [WithNonBlocking].
+func optsToNonBlocking(opts []RunOption) bool {
+	o := &runOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.nonBlocking
 }
 
 // ─── Control Plane: preview-then-execute ───────────────────────────────
@@ -135,17 +221,23 @@ func (k *Kensa) Subscribe(ctx context.Context, filter EventFilter) (<-chan Event
 // ─── Eye: historical query and envelope verification ───────────────────
 
 // TransactionLog returns the [LogQuery] interface over the persisted
-// transaction log. Returns nil until the implementation lands per
-// docs/KENSA_GO_DAY1_PLAN.md §11.5.
+// transaction log. Returns nil when [Config.Log] is unset; the
+// Default constructor in pkg/kensa wires up a SQLite-backed
+// implementation.
 func (k *Kensa) TransactionLog() LogQuery {
-	return nil
+	return k.config.Log
 }
 
 // VerifyEnvelope checks the signature on envelope against the
 // deployment's registered keys and returns the [VerifyResult]. See
 // [EnvelopeVerifier.VerifyEnvelope] for the contract.
+//
+// Returns [ErrNotYetImplemented] when [Config.Verifier] is unset.
 func (k *Kensa) VerifyEnvelope(envelope *EvidenceEnvelope) (*VerifyResult, error) {
-	return nil, ErrNotYetImplemented
+	if k.config.Verifier == nil {
+		return nil, ErrNotYetImplemented
+	}
+	return k.config.Verifier.VerifyEnvelope(envelope)
 }
 
 // ─── Deadman control ───────────────────────────────────────────────────
