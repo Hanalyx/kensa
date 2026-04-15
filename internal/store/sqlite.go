@@ -150,11 +150,6 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 		errText = sql.NullString{String: result.Error.Error(), Valid: true}
 	}
 
-	severity := ""
-	for _, ref := range result.Envelope.FrameworkRefs {
-		_ = ref // reserved for future severity-from-rule lookup
-	}
-
 	if _, err := tx.ExecContext(ctx, `
         INSERT OR REPLACE INTO transactions (
             id, rule_id, host_id, fleet_id, status, transactional, severity,
@@ -167,7 +162,7 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 		result.Envelope.FleetID,
 		string(result.Status),
 		boolToInt(true), // engine populates result.Envelope; transactional comes from the transaction itself, recorded later
-		severity,
+		result.Envelope.Severity,
 		result.StartedAt.UTC().Format(time.RFC3339Nano),
 		result.FinishedAt.UTC().Format(time.RFC3339Nano),
 		committedAt, rolledBackAt,

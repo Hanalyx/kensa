@@ -53,7 +53,9 @@ func (e *Engine) finalize(
 		ApplySteps:       steps,
 		ValidatorResults: validators,
 		Decision:         status,
+		Severity:         txn.Severity,
 		PostStateBundle:  nil, // populated by post-state recapture in a later milestone
+		FrameworkRefs:    txn.FrameworkRefs,
 	}
 	sig, keyID, err := e.signer.Sign(envelope)
 	if err == nil {

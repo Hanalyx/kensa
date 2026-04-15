@@ -86,6 +86,14 @@ type Transaction struct {
 	// Pre-flight rejects a transaction where Transactional is true but
 	// any [Step] uses a non-capturable mechanism.
 	Transactional bool
+	// Severity is the rule severity (critical, high, medium, low).
+	// Denormalised here so the store can index it without a rule join.
+	Severity string
+	// FrameworkRefs are the compliance-framework references for the
+	// rule, expanded from the rule YAML references block by
+	// internal/mappings. The engine records them in the evidence
+	// envelope and in the framework_refs table.
+	FrameworkRefs []FrameworkRef
 }
 
 // Step is one mechanism invocation within a [Transaction].
@@ -210,10 +218,14 @@ type EvidenceEnvelope struct {
 	ApplySteps       []StepResult      `json:"apply_steps"`
 	ValidatorResults []ValidatorResult `json:"validator_results"`
 	Decision         TransactionStatus `json:"decision"`
-	PostStateBundle  []PreState        `json:"post_state_bundle"`
-	FrameworkRefs    []FrameworkRef    `json:"framework_refs"`
-	SigningKeyID     string            `json:"signing_key_id"`
-	Signature        []byte            `json:"signature"`
+	// Severity is denormalised from the rule at write time so the
+	// store can index by severity without joining against the rule
+	// corpus. Populated from [Transaction.Severity].
+	Severity        string         `json:"severity,omitempty"`
+	PostStateBundle []PreState     `json:"post_state_bundle"`
+	FrameworkRefs   []FrameworkRef `json:"framework_refs"`
+	SigningKeyID    string         `json:"signing_key_id"`
+	Signature       []byte         `json:"signature"`
 }
 
 // ValidatorResult is the outcome of one post-apply validator (for
