@@ -102,10 +102,10 @@ jobs:
           args: --config=.golangci.yml --timeout=5m
 
   pre-commit:
-    # Mirror the pre-commit framework checks so contributors who run
-    # `pre-commit run --all-files` locally see the same signal CI gives.
-    # Excludes hooks that need Go toolchain (handled by lint job above)
-    # and Specter (handled by spec-sync job above).
+    # Mirror the pre-commit framework checks contributors run locally.
+    # Default-stage hooks in .pre-commit-config.yaml are file hygiene
+    # only (no Go toolchain). Manual-stage hooks (Go fmt/vet/lint,
+    # Specter) are handled by the Lint and Spec Sync jobs above.
     name: Pre-commit hygiene
     runs-on: ubuntu-latest
     steps:
@@ -114,18 +114,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pre-commit
-        run: pip install pre-commit
-      - name: Run hygiene hooks
-        run: |
-          pre-commit run --all-files \
-            --config .pre-commit-config.yaml \
-            trailing-whitespace \
-            end-of-file-fixer \
-            check-yaml \
-            check-merge-conflict \
-            check-added-large-files \
-            detect-private-key \
-            mixed-line-ending
+        run: pip install pre-commit==3.7.1
+      - name: Run default-stage hooks
+        run: pre-commit run --all-files --show-diff-on-failure
 
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)

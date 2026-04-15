@@ -1,14 +1,18 @@
 # Pre-commit hooks for kensa-go.
 #
-# Install:  pip install pre-commit && pre-commit install
-# Run all:  pre-commit run --all-files
+# Install:           pip install pre-commit && pre-commit install
+# Run defaults:      pre-commit run --all-files
+# Run everything:    pre-commit run --all-files --hook-stage manual
 #
-# CI runs the same checks via .github/workflows/ci.yml so local and remote
-# enforcement match. The comment-style hooks enforce Google's Go Style
-# Guide and the upstream go.dev/doc/comment parsing rules.
+# Default-stage hooks are file hygiene only — they run fast and need
+# no language toolchain. Manual-stage hooks (Go toolchain, Specter)
+# require local installation; CI runs them in dedicated jobs (Lint,
+# Spec Sync) instead of through pre-commit. This lets `pre-commit
+# install` give every contributor instant local hygiene without
+# blocking on a Go install.
 
 repos:
-  # Generic file hygiene
+  # ─── Default stage: file hygiene (no language toolchain) ─────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -22,25 +26,30 @@ repos:
       - id: mixed-line-ending
         args: ["--fix=lf"]
 
-  # Go formatting and import order (fast, deterministic)
+  # ─── Manual stage: Go toolchain hooks ────────────────────────────────
   - repo: https://github.com/dnephin/pre-commit-golang
     rev: v0.5.1
     hooks:
       - id: go-fmt
+        stages: [manual]
       - id: go-imports
+        stages: [manual]
       - id: go-vet-mod
+        stages: [manual]
       - id: go-mod-tidy
+        stages: [manual]
 
-  # golangci-lint — runs the comment-style suite from .golangci.yml
-  # (revive, godot, misspell, gocritic, staticcheck).
+  # ─── Manual stage: golangci-lint with comment-style suite ────────────
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.61.0
     hooks:
       - id: golangci-lint
         args: ["--config=.golangci.yml"]
+        stages: [manual]
 
-  # Specter — spec-driven development pipeline.
-  # Local-only hook: requires Specter installed in PATH.
+  # ─── Manual stage: Specter spec validation ───────────────────────────
+  # Requires `specter` in PATH locally. CI runs spec validation via
+  # the dedicated Spec Sync workflow job.
   - repo: local
     hooks:
       - id: specter-doctor
@@ -49,9 +58,11 @@ repos:
         language: system
         pass_filenames: false
         files: \.spec\.yaml$|specter\.yaml$
+        stages: [manual]
       - id: specter-sync
         name: specter sync
         entry: specter sync
         language: system
         pass_filenames: false
         files: \.spec\.yaml$|specter\.yaml$
+        stages: [manual]
