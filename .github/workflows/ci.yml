@@ -96,6 +96,12 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
+          # install-mode: goinstall builds the linter from source using
+          # the runner's Go (1.25). Required because our deps
+          # (modernc/sqlite) require Go 1.25 and pre-built linter
+          # binaries shipped before that toolchain release can't read
+          # 1.25 export data.
+          install-mode: goinstall
           # Read .golangci.yml from the repo root. Comment-style rules
           # (revive exported, godot, misspell, gocritic) enforce
           # Google's Go Style Guide on the api/ surface.
