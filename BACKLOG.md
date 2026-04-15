@@ -75,3 +75,19 @@ Items are ordered roughly by priority within each section. No commitment to sche
 
 - `scripts/bench_aggregate.go` — aggregate benchmark across a rule corpus.
 - FIPS-mode enforcement option for the SSH transport (reject connections when `fips_mode` is false on target).
+
+---
+
+## Spec coverage gaps (surfaced by Specter)
+
+These are kensa-go implementation items required to remove `t.Skip` from existing spec tests.
+
+- **deadman AC-07** — `Armer.Extend(ctx, transport, txnID)` keep-alive that re-schedules the job +60s every 30s during long-running applies. Failed keep-alive must abort the transaction.
+- **deadman AC-10** — Clock skew detection in `Armer.Arm()`: compare host `date` before and after script upload; extend timer window if skew >30s.
+- **engine AC-03** — Add `engine.WithFakeValidator(fn)` test hook so a failing post-apply validator can be injected; verifies `Status=RolledBack` on validator failure.
+- **engine AC-04** — Crash-recovery integration test: kill the engine process after CAPTURE persistence but before APPLY; verify `kensa rollback` restores host state from the persisted pre-states.
+- **engine AC-06** — Wire `engine.WithDeadman(recordingArmer)` and a `ControlChannelSensitive=true` FakeTransport into engine tests; verify `Arm` is called before apply and `Cancel` after commit.
+- **store AC-07** — Implement `store.SQLite.Prune(preStateMaxAge, txnMaxAge)` and `RunRetention(interval)` background task.
+- **store AC-09** — Add `store.SQLite.DB() *sql.DB` (or `InspectIndexes() []string`) accessor to allow schema index inspection in tests.
+- **evidence-envelope AC-07** — Add `go:generate` that emits `internal/evidence/envelope-v1.json` from `api.EvidenceEnvelope` via a JSON Schema generator; add roundtrip validator test.
+- **evidence-envelope AC-10** — CI step that compares `kensa-spec/specs/evidence/envelope-v1.yaml` against the Go struct to fail the build on mismatch.
