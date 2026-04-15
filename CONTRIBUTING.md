@@ -3,6 +3,16 @@
 Kensa modifies production Linux systems. A bug here can break customer
 infrastructure at 3 AM. The discipline below is not optional.
 
+## Authorship Model
+
+The Kensa AI team and collaborator write all of the application code. The
+founders conduct rigorous tests and review every change. Human review of
+the code is non-negotiable — see `docs/HANALYX_MISSION_AND_ROADMAP.md`
+§"The human-review commitment" for the full statement.
+
+This means: PR authorship is typically AI; PR approval is always human.
+Every section below assumes that split.
+
 ## Spec Before Code
 
 Every component has a `.spec.yaml` in `specs/` with constraints and acceptance
@@ -19,8 +29,8 @@ tier threshold blocks at CI.
 ## Failure-Mode Analysis (engine, capture, rollback PRs)
 
 Every PR that touches `internal/engine/`, `internal/handlers/*/capture.go`, or
-`internal/handlers/*/rollback.go` includes a human-authored failure-mode
-analysis in the PR description, answering:
+`internal/handlers/*/rollback.go` includes a failure-mode analysis in the PR
+description, answering:
 
 1. What could this change do wrong in production?
 2. What state is captured before the change, and is it sufficient to restore
@@ -28,10 +38,11 @@ analysis in the PR description, answering:
 3. What real-world edge case is this change *not* safe for, and is that edge
    case documented and gated?
 
-The analysis is written by a human. AI tools may help structure or polish it;
-they may not be the final reasoner. The analysis is checked into permanent PR
-history — the git log is the audit trail that
-`TRANSACTION_CONTRACT_V1.md` §3.2 claims a human signed off on.
+AI may draft the analysis. The reviewing founder is the final reasoner: they
+walk through the change, the spec it satisfies, and the integration test
+that exercises the failure path before approving the PR. Their approval is
+the human signature `TRANSACTION_CONTRACT_V1.md` §3.2 claims is in the git
+history.
 
 ## Two-Human Review for Rollback Handlers
 
