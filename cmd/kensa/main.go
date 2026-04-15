@@ -52,6 +52,8 @@ import (
 	"github.com/Hanalyx/kensa-go/pkg/kensa"
 
 	// Import all handler packages to trigger their init() registrations.
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/aptabsent"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/aptpresent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/authselectfeatureenable"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/commandexec"
