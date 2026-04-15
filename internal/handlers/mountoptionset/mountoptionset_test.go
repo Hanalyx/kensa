@@ -10,6 +10,8 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/handlers/mountoptionset"
 )
 
+// @spec handler-mount-option-set
+// @ac AC-01
 func TestApply_AddsMountOptionAndRemounts(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := mountoptionset.New()
@@ -35,6 +37,9 @@ func TestApply_AddsMountOptionAndRemounts(t *testing.T) {
 	}
 }
 
+// @spec handler-mount-option-set
+// @ac AC-02
+// @ac AC-03
 func TestRollback_RestoresPriorLine(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := mountoptionset.New()
@@ -57,6 +62,8 @@ func TestRollback_RestoresPriorLine(t *testing.T) {
 	}
 }
 
+// @spec handler-interface
+// @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = mountoptionset.New()
 }

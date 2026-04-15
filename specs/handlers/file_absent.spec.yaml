@@ -99,6 +99,14 @@ spec:
           references_constraints: [C-03]
           priority: high
 
+        - id: AC-07
+          description: |
+              Capture returns ErrCaptureIncomplete when stat fails due to
+              a permissions error (EACCES), not mere absence — the engine
+              must not silently treat a denied stat as "file not present".
+          references_constraints: [C-04]
+          priority: critical
+
     depends_on:
         - spec_id: handler-interface
           relationship: requires

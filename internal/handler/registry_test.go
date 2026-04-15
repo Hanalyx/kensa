@@ -34,6 +34,8 @@ func TestRegistry_AC07_DuplicateRegistrationPanics(t *testing.T) {
 	r.Register(&stubHandler{name: "test_mechanism", capturable: true})
 }
 
+// @spec handler-interface
+// @ac AC-01
 func TestRegistry_GetReturnsRegisteredHandler(t *testing.T) {
 	r := handler.NewRegistry()
 	want := &stubHandler{name: "config_set", capturable: true}
@@ -52,6 +54,15 @@ func TestRegistry_GetUnregisteredReturnsFalse(t *testing.T) {
 	r := handler.NewRegistry()
 	if _, ok := r.Get("nonexistent"); ok {
 		t.Error("expected ok=false for unregistered handler")
+	}
+}
+
+// @spec handler-interface
+// @ac AC-05
+func TestNonCapturableHandler_DoesNotImplementCombinedHandler(t *testing.T) {
+	var h api.Handler = &stubHandler{name: "noncap", capturable: false}
+	if _, ok := h.(api.CombinedHandler); ok {
+		t.Error("non-capturable handler should not satisfy CombinedHandler")
 	}
 }
 

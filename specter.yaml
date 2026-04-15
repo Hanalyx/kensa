@@ -19,6 +19,7 @@ settings:
         - node_modules
         - dist
         - .git
+        - .claude      # AI worktrees and session state — not source specs
         - vendor
         - fixtures     # fixtures are test data, not specs
         - docs         # prose docs, not spec YAML

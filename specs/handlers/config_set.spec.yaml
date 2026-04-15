@@ -28,7 +28,7 @@ spec:
             includes:
                 - In-place line edit (sed-style)
                 - Append when key absent
-                - Three separator styles: "=", " = ", " "
+                - 'Three separator styles: "=", " = ", " "'
                 - Capture of prior line (or absent flag)
                 - Rollback restoring exact prior state
             excludes:

@@ -27,6 +27,8 @@ func makeTestEnvelope(status api.TransactionStatus, refs []api.FrameworkRef) *ap
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-08
 func TestExportOSCAL_CommittedIsSatisfied(t *testing.T) {
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
@@ -53,6 +55,8 @@ func TestExportOSCAL_CommittedIsSatisfied(t *testing.T) {
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-08
 func TestExportOSCAL_RolledBackIsNotSatisfied(t *testing.T) {
 	env := makeTestEnvelope(api.StatusRolledBack, nil)
 	b, err := ExportOSCAL(env)
@@ -71,6 +75,8 @@ func TestExportOSCAL_RolledBackIsNotSatisfied(t *testing.T) {
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-01
 func TestExportOSCAL_ValidJSON(t *testing.T) {
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
@@ -83,6 +89,8 @@ func TestExportOSCAL_ValidJSON(t *testing.T) {
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-08
 func TestExportOSCAL_FrameworkRefsAsControlSelections(t *testing.T) {
 	refs := []api.FrameworkRef{
 		{FrameworkID: "cis_rhel9_v2", ControlID: "5.2.3"},
@@ -115,6 +123,8 @@ func TestExportOSCAL_FrameworkRefsAsControlSelections(t *testing.T) {
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-08
 func TestWriteOSCAL(t *testing.T) {
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	var buf bytes.Buffer
@@ -127,6 +137,8 @@ func TestWriteOSCAL(t *testing.T) {
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-01
 func TestExportOSCAL_MetadataFields(t *testing.T) {
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
@@ -154,6 +166,8 @@ func TestExportOSCAL_MetadataFields(t *testing.T) {
 	}
 }
 
+// @spec evidence-envelope
+// @ac AC-08
 func TestExportOSCAL_ObservationLinkedToFinding(t *testing.T) {
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)

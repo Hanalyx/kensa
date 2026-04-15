@@ -10,6 +10,8 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/handlers/cronjob"
 )
 
+// @spec handler-cron-job
+// @ac AC-01
 func TestApply_WritesCronFile(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := cronjob.New()
@@ -34,6 +36,9 @@ func TestApply_WritesCronFile(t *testing.T) {
 	}
 }
 
+// @spec handler-cron-job
+// @ac AC-02
+// @ac AC-03
 func TestRollback_RemovesCronFileWhenAbsentAtCapture(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := cronjob.New()
@@ -55,6 +60,8 @@ func TestRollback_RemovesCronFileWhenAbsentAtCapture(t *testing.T) {
 	}
 }
 
+// @spec handler-interface
+// @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = cronjob.New()
 }

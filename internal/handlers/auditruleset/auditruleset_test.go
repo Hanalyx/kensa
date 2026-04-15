@@ -10,6 +10,8 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
 )
 
+// @spec handler-audit-rule-set
+// @ac AC-01
 func TestApply_WritesRuleAndLoads(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := auditruleset.New()
@@ -32,6 +34,9 @@ func TestApply_WritesRuleAndLoads(t *testing.T) {
 	}
 }
 
+// @spec handler-audit-rule-set
+// @ac AC-02
+// @ac AC-03
 func TestRollback_RemovesFileWhenAbsentAtCapture(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := auditruleset.New()
@@ -57,6 +62,8 @@ func TestRollback_RemovesFileWhenAbsentAtCapture(t *testing.T) {
 	}
 }
 
+// @spec handler-interface
+// @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = auditruleset.New()
 }

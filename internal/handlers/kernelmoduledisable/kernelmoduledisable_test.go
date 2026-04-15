@@ -10,6 +10,8 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/handlers/kernelmoduledisable"
 )
 
+// @spec handler-kernel-module-disable
+// @ac AC-01
 func TestApply_WritesBlacklistAndUnloads(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := kernelmoduledisable.New()
@@ -32,6 +34,9 @@ func TestApply_WritesBlacklistAndUnloads(t *testing.T) {
 	}
 }
 
+// @spec handler-kernel-module-disable
+// @ac AC-02
+// @ac AC-03
 func TestRollback_RemovesBlacklistWhenAbsentAtCapture(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := kernelmoduledisable.New()
@@ -55,6 +60,8 @@ func TestRollback_RemovesBlacklistWhenAbsentAtCapture(t *testing.T) {
 	}
 }
 
+// @spec handler-interface
+// @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = kernelmoduledisable.New()
 }

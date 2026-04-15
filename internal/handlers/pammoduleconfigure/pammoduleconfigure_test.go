@@ -11,6 +11,10 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/handlers/pammoduleconfigure"
 )
 
+// @spec handler-pam-module-configure
+// @ac AC-01
+// @spec handler-interface
+// @ac AC-06
 func TestApply_AddsPAMModuleLine(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := pammoduleconfigure.New()
@@ -33,6 +37,10 @@ func TestApply_AddsPAMModuleLine(t *testing.T) {
 	}
 }
 
+// @spec handler-pam-module-configure
+// @ac AC-02
+// @spec handler-interface
+// @ac AC-02
 func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	tp.Results["cat '/etc/pam.d/nonexistent'"] = &api.CommandResult{
@@ -52,6 +60,10 @@ func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
 	}
 }
 
+// @spec handler-pam-module-configure
+// @ac AC-03
+// @spec handler-interface
+// @ac AC-03
 func TestRollback_RestoresPriorContent(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := pammoduleconfigure.New()
@@ -74,6 +86,8 @@ func TestRollback_RestoresPriorContent(t *testing.T) {
 	}
 }
 
+// @spec handler-interface
+// @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = pammoduleconfigure.New()
 }

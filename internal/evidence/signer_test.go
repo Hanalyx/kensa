@@ -55,6 +55,9 @@ func TestGenerate_ReturnsFreshSigner(t *testing.T) {
 
 // TestSignAndVerify is the happy-path round-trip: sign an envelope, then
 // verify it using the same signer.
+// @spec evidence-envelope
+// @ac AC-03
+// @ac AC-04
 func TestSignAndVerify(t *testing.T) {
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -89,6 +92,8 @@ func TestSignAndVerify(t *testing.T) {
 }
 
 // TestVerify_WrongSignature verifies that a tampered signature is rejected.
+// @spec evidence-envelope
+// @ac AC-05
 func TestVerify_WrongSignature(t *testing.T) {
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -123,7 +128,9 @@ func TestVerify_MissingSchemaVersion(t *testing.T) {
 }
 
 // TestVerify_UnknownSchemaVersion verifies that an unknown schema_version
-// is rejected (evidence-envelope spec AC-04).
+// is rejected (evidence-envelope spec AC-06).
+// @spec evidence-envelope
+// @ac AC-06
 func TestVerify_UnknownSchemaVersion(t *testing.T) {
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -138,6 +145,9 @@ func TestVerify_UnknownSchemaVersion(t *testing.T) {
 // TestCanonical_ExcludesSignatureFields verifies that modifying Signature
 // or SigningKeyID does not change the canonical bytes (i.e., they are
 // excluded from signing) — evidence-envelope spec C-02.
+// @spec evidence-envelope
+// @ac AC-02
+// @ac AC-03
 func TestCanonical_ExcludesSignatureFields(t *testing.T) {
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -163,6 +173,8 @@ func TestCanonical_ExcludesSignatureFields(t *testing.T) {
 
 // TestWithRotationHistory_MatchesOldKey verifies that an envelope signed
 // by a rotated-out key is still verified, with a KeyRotation warning.
+// @spec evidence-envelope
+// @ac AC-04
 func TestWithRotationHistory_MatchesOldKey(t *testing.T) {
 	// oldSigner is the signer we previously used.
 	oldSigner, _ := evidence.Generate()
@@ -198,6 +210,8 @@ func TestWithRotationHistory_MatchesOldKey(t *testing.T) {
 
 // TestWithRotationHistory_NoMatch verifies that a signature by a completely
 // unknown key is rejected even with rotation history present.
+// @spec evidence-envelope
+// @ac AC-05
 func TestWithRotationHistory_NoMatch(t *testing.T) {
 	unknownSigner, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -217,6 +231,26 @@ func TestWithRotationHistory_NoMatch(t *testing.T) {
 	if result != nil && result.Valid {
 		t.Error("expected Valid=false when no key matches")
 	}
+}
+
+// @spec evidence-envelope
+// @ac AC-07
+func TestEvidence_AC07_JSONSchemaValidatesEnvelopes(t *testing.T) {
+	// AC-07: JSON Schema at evidence/envelope-v1.json must validate every
+	// legal envelope and reject illegal ones (missing required field, wrong
+	// type, unknown field). The schema file has not yet been generated;
+	// generate it via `go generate ./internal/evidence/...` once the
+	// generation script lands.
+	t.Skip("TODO: evidence/envelope-v1.json not yet generated; add go:generate + schema validation test")
+}
+
+// @spec evidence-envelope
+// @ac AC-10
+func TestEvidence_AC10_PublishedSchemMatchesGoStruct(t *testing.T) {
+	// AC-10: the schema at kensa-spec/specs/evidence/envelope-v1.yaml must
+	// match the Go struct in api/envelope.go exactly, enforced at build time.
+	// Requires a cross-repo schema comparison step (go generate or CI check).
+	t.Skip("TODO: cross-repo schema comparison not yet implemented; track in SPECTER_FEATURE_REQUEST.md")
 }
 
 // TestVerifyEnvelope_ImplementsInterface verifies that *Signer satisfies
@@ -240,6 +274,8 @@ func TestVerifyEnvelope_ImplementsInterface(t *testing.T) {
 
 // TestEnvelopeHash_Stable verifies that EnvelopeHash is deterministic for
 // the same envelope (evidence-envelope spec C-01).
+// @spec evidence-envelope
+// @ac AC-09
 func TestEnvelopeHash_Stable(t *testing.T) {
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -256,6 +292,8 @@ func TestEnvelopeHash_Stable(t *testing.T) {
 
 // TestNilSliceNormalization verifies that nil and empty slice envelopes
 // produce the same canonical bytes (evidence-envelope spec C-01).
+// @spec evidence-envelope
+// @ac AC-02
 func TestNilSliceNormalization(t *testing.T) {
 	s, _ := evidence.Generate()
 

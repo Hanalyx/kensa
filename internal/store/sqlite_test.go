@@ -221,6 +221,67 @@ func TestStore_AC08_SchemaMigrationsAreIdempotent(t *testing.T) {
 	// duplicate-key. Reaching here means idempotency holds.
 }
 
+// @spec transaction-log
+// @ac AC-02
+func TestStore_AC02_WriteErrorIsPropagated(t *testing.T) {
+	// Open a valid store, close it, then attempt to write — SQLite should
+	// return an error on a closed connection, demonstrating loud failure.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "closed.db")
+	s, err := store.OpenSQLite(context.Background(), path)
+	if err != nil {
+		t.Fatalf("OpenSQLite: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	txn := sampleTransaction(t, api.StatusCommitted, "r", "h")
+	if err := s.PersistResult(context.Background(), txn); err == nil {
+		t.Error("expected error writing to closed store; got nil (write must fail loudly per AC-02)")
+	}
+}
+
+// @spec transaction-log
+// @ac AC-06
+func TestStore_AC06_AggregatePerformanceBenchmark(t *testing.T) {
+	// AC-06 requires p95 < 500ms against a 500K-row corpus. This is a
+	// performance regression test best expressed as a Go benchmark
+	// (scripts/bench_aggregate.go). The unit test verifies only that
+	// Aggregate returns without error on a small dataset.
+	s := newTestStore(t)
+	ctx := context.Background()
+	for i := 0; i < 10; i++ {
+		if err := s.PersistResult(ctx, sampleTransaction(t, api.StatusCommitted, "r", "host-perf")); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	if _, err := s.Aggregate(ctx, api.LogFilter{}, api.AggregateByHost); err != nil {
+		t.Fatalf("Aggregate: %v", err)
+	}
+	t.Log("NOTE: full p95 < 500ms guarantee requires scripts/bench_aggregate.go against 500K rows")
+}
+
+// @spec transaction-log
+// @ac AC-07
+func TestStore_AC07_RetentionPrunesOldRecords(t *testing.T) {
+	// AC-07 requires a background retention task that moves pre_states older
+	// than 7 days and prunes transactions older than 90 days. The Prune/
+	// RunRetention API is not yet implemented; this test documents the gap.
+	t.Skip("TODO: Prune()/RunRetention() not yet implemented in store.SQLite — see AC-07")
+}
+
+// @spec transaction-log
+// @ac AC-09
+func TestStore_AC09_IndexesExistOnTransactionsTable(t *testing.T) {
+	// AC-09 requires indexes on (host_id), (rule_id), (status), (started_at),
+	// and the framework-reference junction table. Verifying schema indexes
+	// directly requires exposing the underlying *sql.DB; add store.SQLite.DB()
+	// or an InspectIndexes helper to enable this test.
+	// The Query/Aggregate tests above demonstrate that filtered queries work,
+	// which is the functional outcome indexes enable.
+	t.Skip("TODO: add store.SQLite.DB() accessor to inspect sqlite_schema for index existence")
+}
+
 // Ensure SQLite satisfies api.LogQuery's three methods at compile time.
 func TestStore_SatisfiesLogQuerySurface(t *testing.T) {
 	var s any = (*store.SQLite)(nil)

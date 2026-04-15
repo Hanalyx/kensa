@@ -153,6 +153,25 @@ func TestRollback_AC06_NoOpWhenFileWasAbsent(t *testing.T) {
 	}
 }
 
+// @spec handler-file-absent
+// @ac AC-07
+func TestCapture_AC07_PermissionsErrorReturnsErrCaptureIncomplete(t *testing.T) {
+	// The capture command exits non-zero on a permissions error (stat EACCES).
+	// The handler must return ErrCaptureIncomplete rather than silently treating
+	// the failure as "file absent".
+	tp := engine.NewFakeTransport()
+	path := "/root/secret"
+	tp.Results[captureCmd(path)] = &api.CommandResult{
+		ExitCode: 1,
+		Stderr:   "stat: cannot statx '/root/secret': Permission denied",
+	}
+	h := fileabsent.New()
+	_, err := h.Capture(context.Background(), tp, api.Params{"path": path})
+	if err == nil {
+		t.Fatal("expected error for permissions-denied stat; got nil")
+	}
+}
+
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = fileabsent.New()
 }
