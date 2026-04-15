@@ -1,0 +1,54 @@
+id: ssh-disable-root-login
+title: Disable SSH root login
+description: >
+  The SSH daemon must not permit direct login as the root account. Forcing
+  administrators to login as a normal user then escalate prevents credential
+  exposure and enables attribution of privileged actions.
+rationale: >
+  Direct root login over SSH exposes the highest-privilege account to
+  network brute-force attacks and eliminates the ability to attribute
+  administrative actions to individual users.
+severity: high
+category: access-control
+tags: [ssh, authentication, remote-access]
+
+references:
+  cis:
+    rhel9: { section: "5.1.20", level: "L1", type: "Automated" }
+  stig:
+    rhel9: { vuln_id: "V-257947", stig_id: "RHEL-09-255045", severity: "CAT II" }
+  nist_800_53: ["AC-6(2)", "AC-17(2)", "IA-2(5)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: sshd_config_d
+    check:
+      method: config_value
+      path: "/etc/ssh/sshd_config.d"
+      key: "PermitRootLogin"
+      expected: "no"
+      scan_pattern: "*.conf"
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-permit-root-login.conf"
+      key: "PermitRootLogin"
+      value: "no"
+      reload: "sshd"
+
+  - default: true
+    check:
+      method: config_value
+      path: "/etc/ssh/sshd_config"
+      key: "PermitRootLogin"
+      expected: "no"
+    remediation:
+      mechanism: config_set
+      path: "/etc/ssh/sshd_config"
+      key: "PermitRootLogin"
+      value: "no"
+      separator: " "
+      reload: "sshd"

@@ -1,0 +1,41 @@
+id: faillock-configure
+title: Configure faillock with deny threshold
+description: >
+  The faillock module must be configured with deny=3 and unlock_time=900
+  to lock accounts after repeated failed authentication attempts.
+rationale: >
+  Without account lockout, brute-force attacks against user accounts are
+  unconstrained. A deny threshold of 3 with a 15-minute lockout window
+  provides effective protection while minimizing operational impact.
+severity: high
+category: access-control
+tags: [pam, faillock, account-lockout]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      checks:
+        - method: config_value
+          path: "/etc/security/faillock.conf"
+          key: "deny"
+          expected: "3"
+        - method: config_value
+          path: "/etc/security/faillock.conf"
+          key: "unlock_time"
+          expected: "900"
+    remediation:
+      steps:
+        - mechanism: config_set
+          path: "/etc/security/faillock.conf"
+          key: "deny"
+          value: "3"
+          separator: " = "
+        - mechanism: config_set
+          path: "/etc/security/faillock.conf"
+          key: "unlock_time"
+          value: "900"
+          separator: " = "
