@@ -53,10 +53,15 @@ import (
 
 	// Import all handler packages to trigger their init() registrations.
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/authselectfeatureenable"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/commandexec"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/configappend"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/configset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/configsetdropin"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/cronjob"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/cryptopolicyset"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/cryptopolicysubpolicy"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/dconfset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/fileabsent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/filepermissions"
@@ -67,6 +72,7 @@ import (
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/mountoptionset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/packageabsent"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/packagepresent"
+	_ "github.com/Hanalyx/kensa-go/internal/handlers/pammodulearg"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/pammoduleconfigure"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/selinuxbooleanset"
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicedisabled"
