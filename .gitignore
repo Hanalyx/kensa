@@ -5,12 +5,13 @@
 coverage.txt
 coverage.html
 
-# Build artifacts
+# Build artifacts (root-level compiled binaries; anchored so cmd/ source dirs are not ignored)
 /bin/
 /dist/
-kensa
-kensa-fuzz
-kensa-validate
+/kensa
+/kensa-fuzz
+/kensa-validate
+/bench_aggregate
 
 # Editor
 .vscode/

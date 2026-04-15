@@ -1,0 +1,98 @@
+spec:
+    id: handler-package-present
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-package-present
+        description: |
+            The package_present handler installs an RPM package via dnf.
+            Capture records whether the package was already installed and
+            its version. Rollback removes the package when it was absent
+            before apply. If the package was already present at capture
+            time, rollback is a no-op (the rule was satisfied, not the
+            cause of the installation).
+        related_specs:
+            - handler-interface
+            - handler-package-absent
+
+    objective:
+        summary: |
+            Ensure an RPM package is installed. Rollback removes the
+            package only when it was absent at capture time.
+        scope:
+            includes:
+                - dnf install -y (apply)
+                - rpm -q for capture
+                - dnf remove -y for rollback (absent-at-capture case)
+            excludes:
+                - Version pinning (install installs latest available)
+                - Dependency tree removal on rollback (removes named pkg only)
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST use `dnf install -y <package>`. Idempotent:
+              installing an already-installed package is a no-op.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record pkg_installed (bool) and prior_version
+              (string, empty when not installed) via `rpm -q`.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST remove the package with `dnf remove -y` when
+              pkg_installed=false (package was absent at capture time).
+              When pkg_installed=true, rollback is a no-op (package was
+              already there; the rule did not install it).
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with name="aide" runs `dnf install -y aide` and
+              reports Success.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture records pkg_installed=true and a non-empty
+              prior_version when the package is installed.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture records pkg_installed=false and empty prior_version
+              when the package is not installed.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with pkg_installed=false runs `dnf remove -y
+              <name>` to reverse the installation.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Rollback with pkg_installed=true is a no-op (package was
+              already present; zero transport calls).
+          references_constraints: [C-03]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, package, rpm]

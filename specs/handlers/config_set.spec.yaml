@@ -1,0 +1,133 @@
+spec:
+    id: handler-config-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-config-set
+        description: |
+            The config_set handler sets a key-value pair in a
+            configuration file. It handles the three common separator
+            styles used across RHEL configuration files: "key=value"
+            (no spaces), "key = value" (spaces), and "key value"
+            (space-separated). The handler edits the file in place,
+            updating an existing key or appending a new one. Capture
+            records the prior line (or absence) for exact rollback.
+        related_specs:
+            - handler-interface
+            - handler-config-set-dropin
+
+    objective:
+        summary: |
+            Set a key-value pair in a configuration file, respecting
+            the file's native separator style. Rollback restores the
+            prior line verbatim or removes the appended line.
+        scope:
+            includes:
+                - In-place line edit (sed-style)
+                - Append when key absent
+                - Three separator styles: "=", " = ", " "
+                - Capture of prior line (or absent flag)
+                - Rollback restoring exact prior state
+            excludes:
+                - INI [section] scoping (config_set_dropin)
+                - Multi-value / list-style config lines
+                - JSON/YAML structured configs
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST be idempotent. Setting the same key to the
+              same value twice produces no change on the second run.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record line_existed (bool), prior_line
+              (the full matching line verbatim), and file_path. When
+              line_existed=false, prior_line is empty.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST restore line_existed=true lines verbatim
+              using sed. Rollback MUST remove the appended line when
+              line_existed=false.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              The separator parameter (one of "=", " = ", " ") MUST
+              default to "=" when omitted. Any other value is a params
+              error before transport is called.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Capture MUST return ErrCaptureIncomplete if the file does
+              not exist (cannot edit a non-existent config file).
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with key="SELINUX" value="enforcing" separator="="
+              writes "SELINUX=enforcing" replacing any prior SELINUX
+              line in the target file.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply with separator=" = " writes "SELINUX = enforcing".
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-03
+          description: |
+              Apply with separator=" " writes "SELINUX enforcing".
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-04
+          description: |
+              Apply is idempotent (second run produces same file state).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              Capture against an existing file with a matching key
+              records line_existed=true and the verbatim prior line.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: |
+              Capture against an existing file where the key is absent
+              records line_existed=false.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-07
+          description: |
+              Capture returns ErrCaptureIncomplete when the file does
+              not exist.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-08
+          description: |
+              Rollback with line_existed=true replaces the current line
+              with the prior_line verbatim.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-09
+          description: |
+              Rollback with line_existed=false removes the line that
+              was appended by apply.
+          references_constraints: [C-03]
+          priority: critical
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, config, file-edit]

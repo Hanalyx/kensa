@@ -39,12 +39,14 @@ import (
 // Engine is the transaction coordinator. Construct one with [New], then
 // call [Engine.Run] for each transaction.
 type Engine struct {
-	registry *handler.Registry
-	store    Store
-	signer   Signer
-	deadman  DeadmanArmer
-	events   EventBus
-	locks    *hostLocks
+	registry          *handler.Registry
+	store             Store
+	signer            Signer
+	deadman           DeadmanArmer
+	events            EventBus
+	locks             *hostLocks
+	validators        []Validator
+	forceValidateFail bool
 }
 
 // Option configures [Engine] at construction. The default zero-config
@@ -70,6 +72,14 @@ func WithDeadman(d DeadmanArmer) Option { return func(e *Engine) { e.deadman = d
 
 // WithEvents overrides the event bus.
 func WithEvents(b EventBus) Option { return func(e *Engine) { e.events = b } }
+
+// WithForceValidateFail forces the validate phase to return false for
+// every transaction. Used by kensa-fuzz to test the
+// apply→validate-fail→rollback path without requiring a real rule check
+// implementation to be wired.
+func WithForceValidateFail() Option {
+	return func(e *Engine) { e.forceValidateFail = true }
+}
 
 // New constructs an Engine with the given options. Defaults applied for
 // unset dependencies (in-memory store, no-op signer, no-op deadman, no-op
@@ -139,7 +149,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	// (engine-transaction spec AC-06, C-04).
 	armed := false
 	if shouldArmDeadman(txn, e.registry) {
-		if _, _, err := e.deadman.Arm(ctx, transport, txn.ID, rollbackPlanFromPreStates(preStates)); err != nil {
+		if _, _, err := e.deadman.Arm(ctx, transport, txn.ID, preStates); err != nil {
 			return e.errored(ctx, txn, startedAt, api.PhaseCapture, err), nil
 		}
 		armed = true

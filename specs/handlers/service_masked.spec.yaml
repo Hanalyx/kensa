@@ -1,0 +1,110 @@
+spec:
+    id: handler-service-masked
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-service-masked
+        description: |
+            The service_masked handler masks a systemd service
+            (systemctl mask --now), preventing it from being started
+            by any means. Masking is stronger than disabling: a masked
+            unit cannot be started even by a dependency chain. Capture
+            records prior enabled and active states for rollback.
+        related_specs:
+            - handler-interface
+            - handler-service-disabled
+
+    objective:
+        summary: |
+            Mask a systemd service so it cannot be started, and stop
+            it if currently running. Rollback unmasks and optionally
+            restarts based on prior captured state.
+        scope:
+            includes:
+                - systemctl mask --now (apply)
+                - systemctl unmask (rollback enable layer)
+                - systemctl start (rollback active layer when prior=active)
+                - capture of (enabled, active) tuple via systemctl show
+            excludes:
+                - simple disable without masking (service_disabled)
+                - unit file edits (config_set family)
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST run `systemctl mask --now <name>`. The --now
+              flag stops the unit if it is currently running; mask
+              alone prevents future starts.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record UnitFileState and ActiveState verbatim
+              so rollback can restore both layers correctly.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST unmask the unit unconditionally (the only
+              safe reverse of mask is unmask). It MUST restart the unit
+              if prior_active was "active". If prior_enabled was
+              "enabled" or "enabled-runtime", it MUST also re-enable
+              after unmasking.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Apply is idempotent. Masking an already-masked unit and
+              stopping an already-stopped unit are both no-ops.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with name="cups" runs `systemctl mask --now cups`
+              and reports Success based on exit code.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent against an already-masked-and-stopped
+              service.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture returns PreState with prior_enabled and
+              prior_active from systemctl show output.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Rollback always runs `systemctl unmask <name>`. When
+              prior_active=active it also runs `systemctl start <name>`.
+              When prior_enabled=enabled it also runs
+              `systemctl enable <name>`.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with prior_enabled=masked and prior_active=
+              inactive is a no-op beyond the unmask (service was
+              already masked; no enable or start needed).
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-06
+          description: |
+              Apply fails cleanly when the unit does not exist.
+          references_constraints: [C-01]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, systemd, service]

@@ -1,0 +1,79 @@
+package pammoduleconfigure_test
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/engine"
+	"github.com/Hanalyx/kensa-go/internal/handlers/pammoduleconfigure"
+)
+
+func TestApply_AddsPAMModuleLine(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	h := pammoduleconfigure.New()
+	res, err := h.Apply(context.Background(), tp, api.Params{
+		"service":     "sshd",
+		"module_type": "auth",
+		"control":     "required",
+		"module":      "pam_faillock.so",
+		"options":     "preauth silent deny=5",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Success=false: %s", res.Detail)
+	}
+	cmd := tp.Runs[0]
+	if !strings.Contains(cmd, "pam_faillock.so") {
+		t.Errorf("expected module in cmd; got %q", cmd)
+	}
+}
+
+func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	tp.Results["cat '/etc/pam.d/nonexistent'"] = &api.CommandResult{
+		ExitCode: 1,
+		Stderr:   "cat: /etc/pam.d/nonexistent: No such file or directory",
+	}
+	h := pammoduleconfigure.New()
+	_, err := h.Capture(context.Background(), tp, api.Params{
+		"service": "nonexistent", "module_type": "auth",
+		"control": "required", "module": "pam_faillock.so",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing PAM file")
+	}
+	if !errors.Is(err, api.ErrCaptureIncomplete) {
+		t.Errorf("got %v, want ErrCaptureIncomplete", err)
+	}
+}
+
+func TestRollback_RestoresPriorContent(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	h := pammoduleconfigure.New()
+	pre := &api.PreState{
+		Data: map[string]interface{}{
+			"service":       "sshd",
+			"path":          "/etc/pam.d/sshd",
+			"prior_content": "auth required pam_env.so\n",
+		},
+	}
+	res, err := h.Rollback(context.Background(), tp, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Success=false: %s", res.Detail)
+	}
+	if !strings.Contains(tp.Runs[0], "printf") {
+		t.Errorf("expected printf restore; got %q", tp.Runs[0])
+	}
+}
+
+func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
+	var _ api.CombinedHandler = pammoduleconfigure.New()
+}

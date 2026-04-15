@@ -1,0 +1,55 @@
+spec:
+    id: handler-cron-job
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa-go
+        feature: handler-cron-job
+        description: |
+            The cron_job handler writes a scheduled job to /etc/cron.d/.
+            Capture records prior file state for rollback.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Write a cron job file to /etc/cron.d/. Rollback restores
+            or removes the prior file.
+        scope:
+            includes:
+                - Write to /etc/cron.d/<name>
+                - capture of prior file state
+                - rollback restoring prior state
+            excludes:
+                - User crontabs (crontab -e)
+    constraints:
+        - id: C-01
+          description: Apply MUST write a valid cron.d file. Idempotent.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: Capture records file_existed and prior_content.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: Rollback restores or removes the cron file.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply writes cron file with schedule/user/command.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Capture records prior file state.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Rollback removes file when absent at capture.
+          references_constraints: [C-03]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, cron]

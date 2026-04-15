@@ -1,0 +1,100 @@
+spec:
+    id: handler-config-set-dropin
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-config-set-dropin
+        description: |
+            The config_set_dropin handler writes a single-key drop-in
+            configuration file to a drop-in directory (e.g.
+            /etc/sysconfig/, /etc/systemd/system/<unit>.d/). Drop-ins
+            override the main config file without editing it. Capture
+            records whether the drop-in file existed and its prior
+            content for rollback.
+        related_specs:
+            - handler-interface
+            - handler-config-set
+
+    objective:
+        summary: |
+            Write a drop-in configuration file with a single key=value
+            setting. Rollback restores the prior file or removes it if
+            it was newly created.
+        scope:
+            includes:
+                - Writing a complete drop-in file
+                - Capture of prior file existence and content
+                - Rollback restoring or removing the drop-in
+            excludes:
+                - Editing existing lines within the drop-in
+                - Multi-key drop-ins (use config_set on the drop-in path)
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST write a complete, syntactically correct drop-in
+              file containing at least the specified key=value line plus
+              a "# Managed by Kensa." header comment. Idempotent.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record file_existed and prior_content.
+              When file_existed=false, prior_content is empty and
+              rollback removes the file.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST restore the prior file content when
+              file_existed=true, or remove the file when
+              file_existed=false.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply writes a drop-in file at the specified path
+              containing "key=value" and a Kensa header. Reports
+              Success.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture records file_existed=true and prior_content when
+              the drop-in already exists.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture records file_existed=false when the drop-in is
+              absent.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with file_existed=true restores prior_content
+              verbatim.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Rollback with file_existed=false removes the drop-in file.
+          references_constraints: [C-03]
+          priority: critical
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, config, dropin]

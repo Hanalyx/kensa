@@ -51,11 +51,14 @@ type Signer interface {
 // invokes this only when the transaction's selected implementation
 // touches SSH, networking, PAM, or firewall state.
 type DeadmanArmer interface {
-	// Arm schedules a rollback script on the host that will run after
-	// the timer window if the engine does not call Cancel first.
-	// Returns the path to the script on the host and the absolute fire
-	// time, both surfaced via [api.DeadmanState].
-	Arm(ctx context.Context, transport api.Transport, txnID uuid.UUID, plan []api.RollbackStepPreview) (scriptPath string, firesAt int64, err error)
+	// Arm uploads a POSIX shell rollback script to the host and
+	// schedules it via at(1) or systemd-run. The script is generated
+	// by dry-running each capturable step's RollbackHandler against
+	// the captured preStates. Returns the remote script path and the
+	// absolute fire epoch (Unix seconds). Returns
+	// [api.ErrSchedulerUnavailable] when neither at(1) nor systemd-run
+	// is available on the host.
+	Arm(ctx context.Context, transport api.Transport, txnID uuid.UUID, preStates []api.PreState) (scriptPath string, firesAt int64, err error)
 
 	// Cancel removes the scheduled rollback script and verifies it no
 	// longer appears in the host's job list. Failure to verify is

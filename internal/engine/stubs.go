@@ -77,7 +77,7 @@ func (noopSigner) Verify(envelope *api.EvidenceEnvelope) (*api.VerifyResult, err
 // against production hosts before Week 16.
 type noopDeadman struct{}
 
-func (noopDeadman) Arm(_ context.Context, _ api.Transport, _ uuid.UUID, _ []api.RollbackStepPreview) (string, int64, error) {
+func (noopDeadman) Arm(_ context.Context, _ api.Transport, _ uuid.UUID, _ []api.PreState) (string, int64, error) {
 	return "/tmp/kensa-rollback-noop.sh", time.Now().Add(120 * time.Second).Unix(), nil
 }
 

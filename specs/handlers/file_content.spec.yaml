@@ -1,0 +1,117 @@
+spec:
+    id: handler-file-content
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-file-content
+        description: |
+            The file_content handler writes a complete file body to a
+            target path on the host. Capture records the prior content,
+            mode, ownership, and SELinux context so rollback can restore
+            the exact prior state. If the file did not exist before
+            apply, rollback removes it.
+        related_specs:
+            - handler-interface
+            - handler-file-permissions
+
+    objective:
+        summary: |
+            Write a complete file body to a target path. Capture records
+            prior content (or absent flag), mode, owner, group, and
+            SELinux context. Rollback restores the prior file state or
+            removes the file if it was absent before apply.
+        scope:
+            includes:
+                - Writing arbitrary file content via printf/tee
+                - Capture of prior content, mode, owner, group, SELinux
+                - Rollback restoring prior content and attributes
+                - Rollback removing file when it was absent at capture
+            excludes:
+                - File deletion (file_absent handler)
+                - Partial edits / key-value changes (config_set handler)
+                - Directory creation
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST write the exact content provided, including
+              embedded newlines. It MUST be idempotent: writing the same
+              content twice produces the same file.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record: file_existed (bool), content (string),
+              mode (4-digit octal), owner, group, and selinux_context.
+              When file_existed=false, content/mode/owner/group/selinux
+              are empty.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST restore the exact prior content and
+              attributes when file_existed=true. When file_existed=false,
+              rollback MUST remove the file.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Capture MUST return ErrCaptureIncomplete only on stat
+              failure due to permissions, not merely absence. An absent
+              file is a valid capture result (file_existed=false).
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply writes the specified content to the target path and
+              reports Success.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent (second call with same content succeeds
+              without error).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture against an existing file records file_existed=true
+              plus content, mode, owner, group, selinux_context.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture against an absent path records file_existed=false
+              with empty content/attrs. Does NOT return
+              ErrCaptureIncomplete.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with file_existed=true restores prior content and
+              attributes verbatim.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Rollback with file_existed=false removes the file.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-07
+          description: |
+              Rollback is idempotent. Second invocation against already-
+              restored state succeeds without error.
+          references_constraints: [C-03]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, file]

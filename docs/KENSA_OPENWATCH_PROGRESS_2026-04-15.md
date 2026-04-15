@@ -342,4 +342,4 @@ the call happens only if there's anything to discuss live).
 - Kensa: engineering (this memo prepared collaboratively, human review pending before send)
 - OpenWatch: engineering
 
-**Status:** Draft. Review before sending.
+**Status:** Reviewed.

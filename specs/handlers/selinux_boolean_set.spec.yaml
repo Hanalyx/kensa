@@ -1,0 +1,105 @@
+spec:
+    id: handler-selinux-boolean-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-selinux-boolean-set
+        description: |
+            The selinux_boolean_set handler sets an SELinux boolean both
+            at runtime and persistently (setsebool -P). Capture records
+            the prior boolean value via getsebool so rollback restores
+            the exact prior state.
+        related_specs:
+            - handler-interface
+
+    objective:
+        summary: |
+            Set an SELinux boolean persistently. Capture records the
+            prior on/off value. Rollback restores the prior value.
+        scope:
+            includes:
+                - setsebool -P (persistent + runtime)
+                - getsebool for capture
+                - rollback with captured prior value
+            excludes:
+                - SELinux module management
+                - SELinux policy recompilation
+                - Non-boolean SELinux policy changes
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST use `setsebool -P <boolean> <value>`. The -P
+              flag makes the change persistent across reboots; omitting
+              it would leave the boolean reset on next boot.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record the prior boolean value as "on" or
+              "off" via `getsebool`. If getsebool fails (SELinux not
+              enforcing, boolean unknown), Capture returns
+              ErrCaptureIncomplete.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST restore the prior boolean value with
+              `setsebool -P`. Idempotent.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Apply value MUST be either "on" or "off". Any other value
+              is a params error returned before transport is called.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with boolean="httpd_can_network_connect" value="on"
+              runs `setsebool -P httpd_can_network_connect on` and
+              reports Success.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent. Second invocation with same value
+              succeeds (setsebool -P is itself idempotent).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture records prior_value "on" or "off" from getsebool
+              output.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture returns ErrCaptureIncomplete when getsebool fails
+              (boolean unknown or SELinux disabled).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback runs `setsebool -P <boolean> <prior_value>` and
+              restores the captured state.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Apply returns a params error (not a transport error) when
+              value is not "on" or "off".
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, selinux]

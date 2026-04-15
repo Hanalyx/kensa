@@ -1,0 +1,105 @@
+spec:
+    id: handler-package-absent
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-package-absent
+        description: |
+            The package_absent handler removes an RPM package via dnf.
+            Capture records the installed version and its dependency
+            closure (packages that would be auto-removed). Rollback
+            reinstalls the package when it was present at capture time.
+            The reinstalled version may differ from the removed version
+            if the repo has been updated — this is surfaced as a
+            documented edge case (not gated, just disclosed).
+        related_specs:
+            - handler-interface
+            - handler-package-present
+
+    objective:
+        summary: |
+            Ensure an RPM package is removed. Capture records the prior
+            version for rollback. Rollback reinstalls the package when
+            it was present at capture time.
+        scope:
+            includes:
+                - dnf remove -y (apply)
+                - rpm -q for version capture
+                - dnf install -y for rollback (present-at-capture case)
+            excludes:
+                - Exact-version reinstall on rollback
+                - Dependency closure restore
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST use `dnf remove -y <package>`. Idempotent:
+              removing an already-absent package is a no-op.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record pkg_installed (bool) and prior_version
+              (string). When pkg_installed=false, prior_version is empty
+              and rollback is a no-op.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST reinstall via `dnf install -y` when
+              pkg_installed=true. The reinstalled version may differ
+              from prior_version if the repo has changed; this is an
+              explicit, disclosed edge case — not gated.
+          type: security
+          enforcement: warning
+        - id: C-04
+          description: |
+              When pkg_installed=false, rollback is a no-op.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with name="telnet" runs `dnf remove -y telnet` and
+              reports Success.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture records pkg_installed=true and prior_version when
+              the package is installed.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture records pkg_installed=false when the package is
+              not installed.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with pkg_installed=true runs `dnf install -y
+              <name>` to reinstate the package.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Rollback with pkg_installed=false is a no-op.
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, package, rpm]

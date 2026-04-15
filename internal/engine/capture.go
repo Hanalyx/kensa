@@ -61,21 +61,3 @@ func (e *Engine) capture(ctx context.Context, transport api.Transport, txn *api.
 	}
 	return preStates, nil
 }
-
-// rollbackPlanFromPreStates derives the rollback plan from the
-// pre-state bundle. Used by the deadman armer to generate the
-// out-of-band rollback script before any apply runs.
-func rollbackPlanFromPreStates(preStates []api.PreState) []api.RollbackStepPreview {
-	plan := make([]api.RollbackStepPreview, 0, len(preStates))
-	for _, p := range preStates {
-		if !p.Capturable {
-			continue
-		}
-		plan = append(plan, api.RollbackStepPreview{
-			Index:     p.StepIndex,
-			Mechanism: p.Mechanism,
-			Summary:   "restore captured pre-state",
-		})
-	}
-	return plan
-}

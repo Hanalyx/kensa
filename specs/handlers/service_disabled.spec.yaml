@@ -1,0 +1,111 @@
+spec:
+    id: handler-service-disabled
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-service-disabled
+        description: |
+            The service_disabled handler disables and stops a systemd
+            service (systemctl disable --now). Capture records the prior
+            enabled and active states so rollback restores both. It is
+            the direct reverse of service_enabled and shares the same
+            capture strategy.
+        related_specs:
+            - handler-interface
+            - handler-service-enabled
+
+    objective:
+        summary: |
+            Ensure a systemd service is both disabled at boot and
+            stopped right now. Rollback restores the prior enabled-
+            and-active state.
+        scope:
+            includes:
+                - systemctl disable / enable (rollback)
+                - systemctl stop / start (rollback)
+                - capture of (enabled, active) tuple via systemctl show
+                - rollback restoring both layers
+            excludes:
+                - service masking (handled by service_masked)
+                - unit file edits (handled by config_set family)
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST run `systemctl disable --now <name>`. The
+              --now flag stops as well as disables; both are required
+              to satisfy the disable contract.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record both UnitFileState and ActiveState
+              verbatim (via systemctl show) so rollback can choose the
+              correct restoration command for each layer independently.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST re-enable if prior_enabled was "enabled" or
+              "enabled-runtime". It MUST restart if prior_active was
+              "active". Static units are skipped on the enable layer
+              (they cannot be enabled/disabled). No command is issued
+              when both layers are already in the target disabled/
+              inactive state.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Apply is idempotent. systemctl disable --now against an
+              already-disabled-and-inactive service is a no-op.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with name="bluetooth" runs `systemctl disable --now
+              bluetooth` and reports Success based on exit code.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent against an already-disabled-and-
+              inactive service (second invocation returns Success).
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture returns PreState with prior_enabled and
+              prior_active strings from systemctl show output.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Rollback with prior_enabled=enabled runs
+              `systemctl enable --now <name>` restoring the service.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with prior_enabled=disabled is a no-op for the
+              enable layer; prior_active=inactive is a no-op for the
+              active layer.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-06
+          description: |
+              Apply fails cleanly when the unit does not exist. Handler
+              reports the systemctl stderr in StepResult.Detail.
+          references_constraints: [C-01]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, systemd, service]

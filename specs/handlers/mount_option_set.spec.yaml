@@ -1,0 +1,60 @@
+spec:
+    id: handler-mount-option-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa-go
+        feature: handler-mount-option-set
+        description: |
+            The mount_option_set handler adds a mount option to an
+            /etc/fstab entry and remounts the filesystem at runtime.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Add a mount option to a fstab entry and remount.
+            Rollback restores the prior fstab line and remounts.
+        scope:
+            includes:
+                - fstab edit via awk
+                - mount -o remount
+                - capture of prior fstab line
+                - rollback restoring prior line and remounting
+            excludes:
+                - bind mounts
+                - NFS/CIFS mounts
+    constraints:
+        - id: C-01
+          description: Apply MUST be idempotent.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record the full fstab line for the mount
+              point. Returns ErrCaptureIncomplete when no fstab entry
+              exists.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: Rollback MUST restore the prior fstab line and remount.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply adds the option to the fstab line and remounts.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Capture records the prior fstab line.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Rollback restores the prior line and remounts.
+          references_constraints: [C-03]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, mount, fstab]
