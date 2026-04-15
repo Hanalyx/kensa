@@ -7,46 +7,61 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrNotYetImplemented is returned by api methods whose implementation has
-// not yet landed per the KENSA_GO_DAY1_PLAN.md milestone sequence.
-// Signatures are stable from commit 1; bodies fill in progressively.
+// ErrNotYetImplemented signals that an [api] method's engine-side
+// implementation has not yet landed for the current milestone. Method
+// signatures are stable from commit 1; bodies fill in progressively per
+// docs/KENSA_GO_DAY1_PLAN.md §11. Consumers should treat this error as
+// transient and retry once the relevant milestone ships.
 var ErrNotYetImplemented = errors.New("kensa: not yet implemented")
 
-// ErrHostBusy is returned by non-blocking operations against a host that
-// has an in-flight transaction. Callers using WithNonBlocking() receive
-// this immediately instead of waiting for the per-host mutex.
+// ErrHostBusy signals that a non-blocking operation found the target
+// host's per-host mutex held by an in-flight transaction. Returned only
+// when the caller passed [WithNonBlocking]; otherwise the engine waits
+// for the mutex.
 var ErrHostBusy = errors.New("kensa: host has an in-flight transaction")
 
-// ErrSchedulerUnavailable is returned when a control-channel-sensitive
-// transaction cannot arm its deadman timer because neither `at` nor
-// `systemd-run` is available on the target host. The engine refuses to
-// execute such a transaction because atomicity cannot be honored.
+// ErrSchedulerUnavailable signals that the engine refused to execute a
+// control-channel-sensitive transaction because the target host has
+// neither at(1) nor systemd-run(1) available to arm a deadman timer.
+// Atomicity cannot be honored without one of them, so the engine
+// fails closed.
 var ErrSchedulerUnavailable = errors.New("kensa: no scheduler available for deadman timer")
 
-// ErrCaptureIncomplete is returned when a capture handler cannot record
+// ErrCaptureIncomplete signals that a capture handler could not record
 // sufficient pre-state to guarantee a clean rollback. The engine aborts
 // the transaction before any apply step runs.
 var ErrCaptureIncomplete = errors.New("kensa: capture handler could not record complete pre-state")
 
-// ErrNoActiveDeadman is returned by DeadmanControl.CancelDeadman when no
-// timer is armed for the specified transaction.
+// ErrNoActiveDeadman signals that [DeadmanControl.CancelDeadman] was
+// invoked for a transaction with no armed timer.
 var ErrNoActiveDeadman = errors.New("kensa: no active deadman timer for transaction")
 
-// PlanStaleError is returned by Executor.Execute when the host's state has
-// diverged from the plan's captured pre-state since the plan was produced.
-// Step-level detail lets UIs say "re-plan because X changed," not just
-// "re-plan."
+// PlanStaleError is returned by [Executor.Execute] when the host's state
+// has diverged from the plan's captured pre-state since planning. The
+// step-level fields let UIs report which mechanism's pre-state changed
+// and why a re-plan is required, rather than a generic staleness signal.
 type PlanStaleError struct {
-	PlanID         uuid.UUID
+	// PlanID is the [Plan.ID] of the stale plan.
+	PlanID uuid.UUID
+	// StaleStepIndex is the [StepPreview.Index] whose pre-state diverged.
 	StaleStepIndex int
-	Mechanism      string      // The mechanism whose pre-state diverged
-	Field          string      // Specific field, e.g. "content", "mode", "value"
-	Expected       interface{} // What the plan captured
-	Actual         interface{} // What the host has now
-	Message        string      // Human-readable summary
+	// Mechanism is the [Handler.Name] of the diverged step.
+	Mechanism string
+	// Field names the specific pre-state field that diverged
+	// (for example, "content", "mode", "value").
+	Field string
+	// Expected is the value the plan captured at planning time.
+	Expected interface{}
+	// Actual is the value present on the host at execution time.
+	Actual interface{}
+	// Message is an optional human-readable summary; if empty,
+	// [PlanStaleError.Error] composes one from the structured fields.
+	Message string
 }
 
-// Error implements the error interface.
+// Error reports the staleness condition. If [PlanStaleError.Message] is
+// set it is returned verbatim; otherwise a short summary is composed
+// from the structured fields.
 func (e *PlanStaleError) Error() string {
 	if e.Message != "" {
 		return e.Message

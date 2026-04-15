@@ -4,67 +4,90 @@ import "context"
 
 // Handler is the contract every mechanism handler implements.
 //
-// Satisfies the handler-interface spec (specs/handler/interface.spec.yaml):
-//   - AC-01: Name/Capturable/Apply signatures
-//   - AC-05: Non-capturable handlers implement only Handler, not CombinedHandler
-//   - AC-06: Apply receives nil PreState iff Capturable() returns false
-//   - AC-07: Duplicate Name() registration panics at init
+// A Handler knows how to apply a single kind of system change — for
+// example, setting a config key, enabling a service, or running a
+// command. The engine selects a Handler at remediation time using
+// [Handler.Name] and invokes [Handler.Apply] under the protection of
+// the four-phase transaction.
+//
+// Capturable handlers also implement [CaptureHandler] and
+// [RollbackHandler] (combined as [CombinedHandler]). Non-capturable
+// handlers — those returning false from [Handler.Capturable] — implement
+// only Handler. Type-asserting a non-capturable handler to
+// [CombinedHandler] returns false; this is the runtime enforcement of
+// the atomicity boundary.
+//
+// Spec: handler-interface (specs/handler/interface.spec.yaml).
 type Handler interface {
-	// Name returns the mechanism identifier used in rule YAML
-	// (e.g. "config_set", "service_enabled", "command_exec").
+	// Name returns the mechanism identifier used in rule YAML, such as
+	// "config_set", "service_enabled", or "command_exec".
 	Name() string
 
-	// Capturable reports whether this mechanism has capture and rollback
-	// handlers. Returns false for command_exec, manual, grub_parameter_set,
-	// and grub_parameter_remove; true for every other built-in mechanism.
-	//
-	// Per handler-interface spec C-02: the return value is a static property
-	// of the mechanism, not a runtime condition.
+	// Capturable reports whether this mechanism participates in atomic
+	// transactions. It returns false for command_exec, manual,
+	// grub_parameter_set, and grub_parameter_remove; true for every
+	// other built-in mechanism. The value is a static property of the
+	// mechanism, not a runtime condition.
 	Capturable() bool
 
-	// Apply executes the mechanism against the target host. For capturable
-	// mechanisms, pre is the PreState the engine captured; for non-capturable
-	// mechanisms, pre is nil (handler-interface spec AC-06).
+	// Apply executes the mechanism against the target host. For
+	// capturable mechanisms, pre is the [PreState] the engine captured
+	// before this step. For non-capturable mechanisms, pre is nil.
+	// Apply returns a [StepResult] describing the outcome, or an
+	// error if the step could not be attempted.
 	Apply(ctx context.Context, transport Transport, params Params, pre *PreState) (*StepResult, error)
 }
 
-// CaptureHandler records pre-state for a capturable mechanism.
-// Only implemented by handlers where Capturable() returns true
-// (handler-interface spec AC-02).
+// CaptureHandler records pre-state for a capturable mechanism. Only
+// handlers where [Handler.Capturable] returns true implement this
+// interface.
+//
+// The engine invokes [CaptureHandler.Capture] before the apply phase
+// and persists the returned [PreState] to the transaction log before
+// any mutation runs. If the engine crashes between capture and apply,
+// the persisted pre-state remains available for out-of-band rollback
+// via `kensa rollback --start N`.
 type CaptureHandler interface {
 	// Capture records the system's pre-state for this mechanism's
-	// parameters. The returned PreState is persisted to the transaction
-	// log before any apply runs (engine-transaction spec AC-04) and used
-	// by Rollback.
-	//
-	// Returns ErrCaptureIncomplete if pre-state cannot be reliably
-	// recorded; the engine aborts the transaction before apply.
+	// parameters. It returns [ErrCaptureIncomplete] if pre-state cannot
+	// be reliably recorded; the engine then aborts the transaction
+	// before any apply step runs.
 	Capture(ctx context.Context, transport Transport, params Params) (*PreState, error)
 }
 
 // RollbackHandler reverses an applied change using captured pre-state.
-// Only implemented by handlers where Capturable() returns true
-// (handler-interface spec AC-03).
+// Only handlers where [Handler.Capturable] returns true implement this
+// interface.
+//
+// Rollback must be idempotent. A second invocation against
+// already-restored state is a no-op — this is the property that makes
+// the deadman-timer rollback path safe to combine with in-band
+// rollback.
 type RollbackHandler interface {
-	// Rollback restores the system to the captured pre-state. Must be
-	// idempotent — a second invocation against already-restored state
-	// is a no-op (file_permissions spec AC-06, generalized).
+	// Rollback restores the system to the captured pre-state and
+	// returns a [RollbackResult] describing what was restored. A
+	// non-nil error indicates rollback could not complete; the
+	// transaction is recorded with the partial-restore detail in the
+	// returned result, not lost.
 	Rollback(ctx context.Context, transport Transport, pre *PreState) (*RollbackResult, error)
 }
 
 // CombinedHandler is the interface union every capturable mechanism
-// satisfies. Non-capturable mechanisms implement only Handler and thus
-// fail type-assertion to CombinedHandler at runtime — this is the
-// compile-time and runtime enforcement of handler-interface spec AC-04
-// and C-03.
+// satisfies. Non-capturable mechanisms implement only [Handler], so
+// type-asserting them to CombinedHandler at runtime returns false.
+// This compiler-enforced split is how the atomicity boundary stays
+// honest: a non-capturable handler cannot accidentally be treated as
+// capturable, and a capturable handler cannot ship without all three
+// methods.
 type CombinedHandler interface {
 	Handler
 	CaptureHandler
 	RollbackHandler
 }
 
-// Params is the opaque parameters container a handler decodes into its
-// mechanism-specific parameter struct. The engine passes the raw YAML
-// mapping through; each handler's private decodeParams function
-// validates shape and types.
+// Params is the opaque parameters container the engine passes from the
+// rule YAML mapping to a handler. Each handler's private decoder
+// validates shape and types against its mechanism-specific parameter
+// struct. Decoding errors surface as [Handler.Apply] errors during
+// pre-flight, not as runtime panics.
 type Params map[string]interface{}

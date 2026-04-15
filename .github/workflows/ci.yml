@@ -95,7 +95,37 @@ jobs:
           go-version: '1.22'
       - uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v1.61.0
+          # Read .golangci.yml from the repo root. Comment-style rules
+          # (revive exported, godot, misspell, gocritic) enforce
+          # Google's Go Style Guide on the api/ surface.
+          args: --config=.golangci.yml --timeout=5m
+
+  pre-commit:
+    # Mirror the pre-commit framework checks so contributors who run
+    # `pre-commit run --all-files` locally see the same signal CI gives.
+    # Excludes hooks that need Go toolchain (handled by lint job above)
+    # and Specter (handled by spec-sync job above).
+    name: Pre-commit hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pre-commit
+        run: pip install pre-commit
+      - name: Run hygiene hooks
+        run: |
+          pre-commit run --all-files \
+            --config .pre-commit-config.yaml \
+            trailing-whitespace \
+            end-of-file-fixer \
+            check-yaml \
+            check-merge-conflict \
+            check-added-large-files \
+            detect-private-key \
+            mixed-line-ending
 
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)

@@ -1,0 +1,57 @@
+# Pre-commit hooks for kensa-go.
+#
+# Install:  pip install pre-commit && pre-commit install
+# Run all:  pre-commit run --all-files
+#
+# CI runs the same checks via .github/workflows/ci.yml so local and remote
+# enforcement match. The comment-style hooks enforce Google's Go Style
+# Guide and the upstream go.dev/doc/comment parsing rules.
+
+repos:
+  # Generic file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # Go formatting and import order (fast, deterministic)
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+      - id: go-imports
+      - id: go-vet-mod
+      - id: go-mod-tidy
+
+  # golangci-lint — runs the comment-style suite from .golangci.yml
+  # (revive, godot, misspell, gocritic, staticcheck).
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.61.0
+    hooks:
+      - id: golangci-lint
+        args: ["--config=.golangci.yml"]
+
+  # Specter — spec-driven development pipeline.
+  # Local-only hook: requires Specter installed in PATH.
+  - repo: local
+    hooks:
+      - id: specter-doctor
+        name: specter doctor
+        entry: specter doctor
+        language: system
+        pass_filenames: false
+        files: \.spec\.yaml$|specter\.yaml$
+      - id: specter-sync
+        name: specter sync
+        entry: specter sync
+        language: system
+        pass_filenames: false
+        files: \.spec\.yaml$|specter\.yaml$

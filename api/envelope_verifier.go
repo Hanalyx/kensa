@@ -2,47 +2,55 @@ package api
 
 import "time"
 
-// EnvelopeVerifier verifies the authenticity of an evidence envelope.
-// Called by OpenWatch's audit UI, by the kensa CLI, and by third-party
-// auditor tools that import api/. Re-implementing verification on the
-// OpenWatch side would duplicate trust logic and risk divergence — so
-// Kensa owns this interface.
+// EnvelopeVerifier verifies the authenticity of an [EvidenceEnvelope].
+// OpenWatch's audit UI, the kensa CLI, and third-party auditor tools
+// call this rather than reimplementing trust logic — Kensa owns the
+// verification path so consumers cannot drift from the canonical
+// signature contract.
 //
-// Implemented by internal/evidence. Satisfies the evidence-envelope
-// spec (specs/evidence/envelope.spec.yaml) AC-04 through AC-06.
+// Spec: evidence-envelope (specs/evidence/envelope.spec.yaml) AC-04
+// through AC-06.
 type EnvelopeVerifier interface {
-	// VerifyEnvelope checks the signature against the deployment's
-	// registered keys and their rotation history. Side-effect free
-	// (evidence-envelope spec C-05): no log writes, no event emission,
-	// no state mutation.
+	// VerifyEnvelope checks the Ed25519 signature on envelope against
+	// the deployment's registered keys and rotation history. The
+	// returned [VerifyResult] reports whether the signature is valid,
+	// which key matched, and any non-fatal warnings such as
+	// [KeyRotation].
 	//
-	// Returns VerifyResult{Valid: true} on signature match with the
-	// current key. Returns Valid: true with a KeyRotation warning on
-	// match against a rotated key from the history. Returns
-	// Valid: false with a specific error for unknown signers or
-	// unknown schema versions (fail-closed).
+	// VerifyEnvelope is side-effect free: no log writes, no event
+	// emission, no state mutation. Callers may invoke it freely.
 	VerifyEnvelope(envelope *EvidenceEnvelope) (*VerifyResult, error)
 }
 
-// VerifyResult is the structured response from VerifyEnvelope.
+// VerifyResult is the structured response from
+// [EnvelopeVerifier.VerifyEnvelope].
 type VerifyResult struct {
-	Valid        bool
-	KeyID        string    // Which public key matched
-	SignedAt     time.Time // Per the envelope's FinishedAt
-	Warnings     []VerifyWarning
-	EnvelopeHash [32]byte // For audit trail cross-reference
+	// Valid is true when the signature matched a known key.
+	Valid bool
+	// KeyID identifies which public key the signature matched.
+	KeyID string
+	// SignedAt mirrors [EvidenceEnvelope.FinishedAt] for convenience.
+	SignedAt time.Time
+	// Warnings names any non-fatal conditions observed during
+	// verification, such as [KeyRotation].
+	Warnings []VerifyWarning
+	// EnvelopeHash is the SHA-256 of the canonicalized envelope, for
+	// audit-trail cross-reference.
+	EnvelopeHash [32]byte
 }
 
-// VerifyWarning names a non-fatal condition observed during verification.
+// VerifyWarning names a non-fatal condition from
+// [EnvelopeVerifier.VerifyEnvelope].
 type VerifyWarning string
 
+// Defined [VerifyWarning] values.
 const (
-	// KeyRotation: the signature matched a key in the rotation history,
-	// not the currently active key. The envelope is authentic but was
-	// signed by an older key.
+	// KeyRotation indicates the signature matched a key in the
+	// rotation history rather than the currently active key. The
+	// envelope is authentic but signed by an older key.
 	KeyRotation VerifyWarning = "signed_by_rotated_key"
 
-	// ClockSkew: the envelope's SignedAt timestamp is significantly
+	// ClockSkew indicates [VerifyResult.SignedAt] is significantly
 	// later than the verification time. May indicate a forward-dated
 	// envelope or a clock-sync issue.
 	ClockSkew VerifyWarning = "clock_skew_detected"

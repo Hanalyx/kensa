@@ -1,0 +1,154 @@
+# golangci-lint configuration for kensa-go.
+#
+# Comment style enforces Google's Go Style Guide:
+#   https://google.github.io/styleguide/go/guide
+#   https://google.github.io/styleguide/go/decisions
+#   https://google.github.io/styleguide/go/best-practices
+# and the upstream go.dev/doc/comment parsing rules.
+#
+# The intent is that godoc / pkg.go.dev renders the api/ package
+# legibly without extra context — "the code tells the story."
+
+run:
+  timeout: 5m
+  go: "1.22"
+
+linters:
+  disable-all: true
+  enable:
+    # Standard Go correctness
+    - gofmt
+    - goimports
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+
+    # Comment style (the focus of this config)
+    - revive       # Doc-comment + naming rules from the Google guide
+    - godot        # Doc comments end with a period
+    - misspell     # Spell-check identifiers and comments
+    - gocritic     # commentFormatting, commentedOutCode, etc.
+
+linters-settings:
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/Hanalyx/kensa-go
+
+  staticcheck:
+    # Comment-style checks from staticcheck:
+    #   ST1000 — at least one file in a package should have a package comment
+    #   ST1003 — naming conventions
+    #   ST1020 — comment on exported function
+    #   ST1021 — comment on exported type
+    #   ST1022 — comment on exported variable
+    # Style checks are opt-in; we enable the comment-relevant ones explicitly.
+    checks:
+      - all
+      - -ST1000   # We have package comment in api/doc.go; this would re-flag
+
+  revive:
+    severity: error
+    enable-all-rules: false
+    rules:
+      # Doc-comment rules per Google's guide
+      - name: exported
+        arguments:
+          - "checkPrivateReceivers"
+          - "disableStutteringCheck"
+      - name: package-comments
+      - name: comment-spacings
+        arguments: ["TODO", "FIXME", "NOTE", "Deprecated"]
+
+      # Naming
+      - name: var-naming
+      - name: receiver-naming
+      - name: unexported-return
+      - name: dot-imports
+
+      # Error strings — "kensa: foo" lower-case, no trailing punct
+      - name: error-strings
+      - name: error-naming
+
+      # Code hygiene that supports clean comments
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: error-return
+      - name: errorf
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: range
+      - name: superfluous-else
+      - name: time-naming
+      - name: unreachable-code
+      - name: var-declaration
+
+  godot:
+    # Only enforce on doc comments (preceding declarations), not inline.
+    scope: declarations
+    # Enforce capital first letter (per Google guide complete-sentence rule).
+    capital: true
+    # Period at end of last sentence.
+    period: true
+
+  gocritic:
+    enabled-checks:
+      - commentFormatting
+      - commentedOutCode
+      - deferInLoop
+      - emptyStringTest
+      - sloppyReassign
+      - typeAssertChain
+      - unnecessaryBlock
+      - whyNoLint
+    settings:
+      commentedOutCode:
+        minLength: 30   # short snippets in doc comments are fine
+
+  misspell:
+    locale: US
+    ignore-words:
+      - kensa
+      - openwatch
+      - hanalyx
+      - rhel
+      - sshd
+      - sysctl
+      - selinux
+      - authselect
+      - faillock
+      - fapolicyd
+      - usbguard
+      - dnf
+      - oscal
+
+issues:
+  # Show all issues, not just new ones.
+  new: false
+  # Don't auto-skip dirs that contain `.go` test files.
+  exclude-dirs:
+    - vendor
+    - bin
+    - dist
+  # Per-rule exemptions
+  exclude-rules:
+    # Test files: relax exported-comment rule (test types are local-by-convention).
+    - path: _test\.go
+      linters:
+        - revive
+      text: "exported"
+
+    # internal/ packages don't need the same exported-comment rigor as api/.
+    # They get exported, package-comments, and naming, but not godot strictness.
+    - path: internal/
+      linters:
+        - godot
+      text: "Comment should end in a period"
+
+  # Cap the noise — show all instances per linter.
+  max-issues-per-linter: 0
+  max-same-issues: 0
