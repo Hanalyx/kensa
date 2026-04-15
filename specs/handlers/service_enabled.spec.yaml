@@ -1,0 +1,120 @@
+spec:
+    id: handler-service-enabled
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-service-enabled
+        description: |
+            The service_enabled handler enables and starts a systemd
+            service (`systemctl enable --now`). Capture records the
+            prior enabled and active states so rollback restores both.
+            Reverse path uses `systemctl disable --now` only when the
+            service was previously disabled, preserving started-by-
+            default behavior on services like systemd-journald.
+        related_specs:
+            - handler-interface
+
+    objective:
+        summary: |
+            Ensure a systemd service is both enabled at boot and
+            active right now. Rollback restores the prior enabled-
+            and-active state.
+        scope:
+            includes:
+                - systemctl enable / disable
+                - systemctl start / stop
+                - capture of (enabled, active) tuple via systemctl
+                  is-enabled / is-active
+                - rollback restoring both
+            excludes:
+                - service masking (handled by service_masked)
+                - unit file edits / drop-ins (handled by config_set
+                  family)
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST run `systemctl enable --now <name>`. The
+              --now flag means start as well as enable; both are
+              required to satisfy the contract.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record both `is-enabled` and `is-active`
+              raw output. Possible values include enabled, disabled,
+              static, masked, alias, indirect, generated, transient,
+              enabled-runtime — capture preserves them verbatim so
+              rollback can choose the correct restoration.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST distinguish:
+              prior=enabled  → no enable change needed
+              prior=disabled → systemctl disable
+              prior=masked   → systemctl mask (rare; only if rule
+                              somehow unmasked first)
+              prior=static   → no enable change (static units are not
+                              enable/disable-able)
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Apply is idempotent. systemctl enable --now is itself
+              idempotent against already-enabled-and-active services.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with name="auditd" runs `systemctl enable --now
+              auditd` and reports Success based on exit code.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent against an already-enabled-and-active
+              service (a second invocation returns Success without
+              error).
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture returns PreState with prior_enabled and
+              prior_active strings matching `systemctl is-enabled` and
+              `systemctl is-active` raw output respectively.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Rollback with prior_enabled=disabled and
+              prior_active=inactive runs `systemctl disable --now
+              <name>` (or equivalent disable + stop sequence).
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with prior_enabled=enabled is a no-op for the
+              enable layer; prior_active controls only the start/stop
+              decision.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-06
+          description: |
+              Apply fails cleanly when the unit does not exist (exit
+              code != 0). The handler reports the systemctl stderr in
+              the StepResult.Detail.
+          references_constraints: [C-01]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, systemd, service]

@@ -1,0 +1,118 @@
+spec:
+    id: handler-sysctl-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: handler-sysctl-set
+        description: |
+            The sysctl_set handler sets a kernel parameter both at
+            runtime (via sysctl -w) and persistently (via a sysctl
+            drop-in file). Capture records the runtime value and the
+            persist-file content so rollback restores both layers.
+        related_specs:
+            - handler-interface
+
+    objective:
+        summary: |
+            Set a kernel sysctl parameter and ensure it persists across
+            reboot. Capture both the runtime and persist-file state so
+            rollback restores the exact prior configuration.
+        scope:
+            includes:
+                - sysctl -w (runtime)
+                - drop-in file management under /etc/sysctl.d/
+                - capture of runtime value + persist-file content
+                - rollback restoring both layers
+            excludes:
+                - sysctl namespaces (per-network-namespace tuning)
+                - bootloader cmdline parameters (handled by grub_*)
+
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST set both the runtime value and write to the
+              persist file. A rule that sets only one layer is not
+              persistent across reboot.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Apply MUST be idempotent. Re-running with the same key
+              and value MUST be a no-op (sysctl -w is itself
+              idempotent; the persist-file write checks for an
+              existing matching entry).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Capture MUST record the runtime value AND the persist
+              file content (or "absent" if the file does not exist).
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Rollback MUST restore both layers: runtime via sysctl -w
+              with the captured value (or `sysctl -p` if the captured
+              file content rewrites the value), and persist-file
+              content verbatim (or removal if it was absent).
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply with key="net.ipv4.ip_forward" value="0" sets the
+              runtime value via sysctl -w AND ensures the persist file
+              contains "net.ipv4.ip_forward = 0".
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply is idempotent. Two consecutive Apply calls with
+              the same parameters produce the same post-state.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              Capture returns PreState containing
+              {runtime_value, persist_file_content, persist_file_path}.
+              persist_file_content is empty string if the file does
+              not exist; the PreState records this with a separate
+              persist_file_existed boolean.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Rollback with persist_file_existed=true rewrites the
+              persist file to its captured content and re-loads
+              runtime via sysctl -w from the captured runtime value.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Rollback with persist_file_existed=false removes the
+              persist file and resets runtime via sysctl -w to the
+              captured runtime value (which preserves whatever the
+              kernel default was).
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              Apply fails cleanly with a typed error if the kernel
+              rejects the value (sysctl -w returns non-zero). No
+              partial change is committed: if runtime accepts but
+              persist-file write fails, the error is reported but the
+              runtime change remains; if runtime rejects, the
+              persist-file is not touched.
+          references_constraints: [C-01]
+          priority: high
+
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+
+    trust_level: human_required
+    tags: [handler, capturable, tier-1, kernel, sysctl]
