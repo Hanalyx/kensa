@@ -101,5 +101,4 @@ spec:
         - spec_id: handler-interface
           relationship: requires
 
-    trust_level: human_required
     tags: [handler, capturable, tier-1, package, rpm]

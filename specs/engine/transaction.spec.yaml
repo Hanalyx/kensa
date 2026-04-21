@@ -189,6 +189,4 @@ spec:
         - spec_id: evidence-envelope
           relationship: requires
 
-    trust_level: human_required
-
     tags: [engine, atomicity, tier-1, load-bearing]

@@ -155,5 +155,4 @@ spec:
         - spec_id: evidence-envelope
           relationship: requires
 
-    trust_level: auto_with_review
     tags: [store, persistence, sqlite, tier-1, log-query]

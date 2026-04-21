@@ -1,5 +1,5 @@
 # Specter Project Manifest
-# See: https://github.com/Hanalyx/spec-dd
+# See: https://github.com/Hanalyx/specter
 #
 # Kensa Go spec discipline is tiered by atomicity risk. Components that the
 # atomicity commitment in docs/TRANSACTION_CONTRACT_V1.md depends on run at
@@ -8,6 +8,38 @@
 system:
     name: kensa-go
     tier: 2   # default for unclassified specs
+
+domains:
+    core:
+        tier: 1         # The transaction coordinator — atomicity lives here
+        description: Transaction engine, deadman, evidence envelope, log — rollback-safety-critical.
+        specs:
+            - engine-transaction
+            - deadman-timer
+            - evidence-envelope
+            - transaction-log
+            - handler-interface
+    handlers:
+        tier: 1         # Every capture/rollback handler is Tier 1
+        description: Capture/rollback handlers. A spec/code divergence here is an atomicity violation.
+        specs:
+            - handler-audit-rule-set
+            - handler-config-set
+            - handler-config-set-dropin
+            - handler-cron-job
+            - handler-file-absent
+            - handler-file-content
+            - handler-file-permissions
+            - handler-kernel-module-disable
+            - handler-mount-option-set
+            - handler-package-absent
+            - handler-package-present
+            - handler-pam-module-configure
+            - handler-selinux-boolean-set
+            - handler-service-disabled
+            - handler-service-enabled
+            - handler-service-masked
+            - handler-sysctl-set
 
 settings:
     specs_dir: specs
@@ -23,19 +55,3 @@ settings:
         - vendor
         - fixtures     # fixtures are test data, not specs
         - docs         # prose docs, not spec YAML
-
-# Per-directory tier overrides. Tier 1 is reserved for components where
-# a divergence between spec and code would produce an atomicity violation.
-tier_overrides:
-    - path: specs/engine
-      tier: 1         # The transaction coordinator — atomicity lives here
-    - path: specs/handlers
-      tier: 1         # Every capture/rollback handler is Tier 1
-    - path: specs/deadman
-      tier: 1         # Control-channel rollback path
-    - path: specs/checks
-      tier: 2         # Read-only, but wrong checks cause false commits/rollbacks
-    - path: specs/transport
-      tier: 2         # SSH correctness
-    - path: specs/api
-      tier: 2         # Public surface — compile-time safety catches most issues

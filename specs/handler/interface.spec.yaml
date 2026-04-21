@@ -117,5 +117,4 @@ spec:
           references_constraints: [C-01]
           priority: high
 
-    trust_level: human_required
     tags: [api, handler, tier-1, load-bearing, frozen-at-commit-1]

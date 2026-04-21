@@ -56,5 +56,4 @@ spec:
     depends_on:
         - spec_id: handler-interface
           relationship: requires
-    trust_level: human_required
     tags: [handler, capturable, tier-1, mount, fstab]

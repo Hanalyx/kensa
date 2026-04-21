@@ -176,5 +176,4 @@ spec:
           references_constraints: [C-06]
           priority: critical
 
-    trust_level: human_required
     tags: [evidence, signing, ed25519, tier-1, openwatch-interface, oscal]
