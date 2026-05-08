@@ -256,7 +256,7 @@ Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob)
 - **Deps:** L-001..L-005
 - **Acceptance:** explicit "compiles once, runs RHEL 8 → RHEL 12 → Alpine; no glibc floor; no cgo" claim, with the CI gates that enforce it cited
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** **done** — merge `22c1c95` (2026-05-08); README "## Binary Portability" + KENSA_API_DOC §12 subsection; all four CI gates cited, forward-compat reasoning documented; 2-agent peer review clean (compliance-officer-friendly language strengthened); specter 22/22; tests pass; live-tested 192.168.1.211. **LL Phase 0 complete.**
 
 ### LL Phase 1 — Multi-call agent binary (the gate for LL Phases 2–7)
 
