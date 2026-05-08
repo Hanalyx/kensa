@@ -79,7 +79,7 @@ but do not gate Track L.
 - **Deps:** C-001
 - **Acceptance:** every subcommand parses GNU/POSIX-style; `--allow-command-exec` preserved with no short alias
 - **Size:** 2h
-- **Status:** pending
+- **Status:** **done** — merge `84778e0` (2026-05-08); 5 subcommand migrations + new runVersion function for parity; stdlib `flag` import removed entirely from main.go; all 7 subcommands' `--help`/`-h` exit 0; legacy single-dash long forms still parse with deprecation; 2-agent peer review clean (agent 2 caught `kensa version --help` silently printing version — fixed by adding runVersion function); specter 22/22; tests pass; live-tested 192.168.1.211. Note: `--allow-command-exec` doesn't exist on main yet (added on rollout branch in 402eded); will be a 1-line pflag addition when rollout merges.
 
 #### C-005 — Centralize short-letter table in `cmd/kensa/flags.go`
 - **Phase:** CLI Phase 1
