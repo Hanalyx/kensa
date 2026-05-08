@@ -605,6 +605,16 @@ change without notice:
 - The exact wire protocol of the `kensa agent --stdio` mode (when it
   exists; see `docs/roadmap/LOW_LEVEL_MIGRATION_V1.md`).
 
+### Binary portability commitment
+
+The kensa-go binary is built with `CGO_ENABLED=0` and `-tags netgo` and is
+verified on every CI run to (a) be statically linked, (b) run on glibc 2.28
+(RHEL 8 floor), and (c) run on musl (Alpine). One binary built today runs
+across the full supported distribution range without recompilation. The
+build-discipline regime is described in `README.md` §"Binary Portability"
+and tracked across deliverables L-001 through L-006 in
+`docs/roadmap/DELIVERABLES.md`.
+
 ---
 
 ## 13. What's Stubbed vs. Wired
