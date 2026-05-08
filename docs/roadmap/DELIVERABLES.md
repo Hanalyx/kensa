@@ -235,7 +235,7 @@ Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob)
 - **Deps:** L-001, L-002
 - **Acceptance:** CI fails if a dependency reintroduces dynamic linking
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** **done** — merge `798945d` (2026-05-08); new `build-static-verify` CI job; happy + failure paths verified locally; 2-agent peer review clean; specter 22/22; tests pass; live-tested 192.168.1.211
 
 #### L-004 — CI step running binary inside `glibc 2.28` container (RHEL 8 vintage)
 - **Phase:** LL Phase 0
