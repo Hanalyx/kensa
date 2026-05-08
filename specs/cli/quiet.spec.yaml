@@ -1,0 +1,198 @@
+spec:
+    id: cli-quiet
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-quiet-flag
+        description: |
+            The --quiet (-q) flag suppresses default human-readable
+            output to stdout. Operators use it in two scenarios:
+
+              1. CI scripts where only the exit code matters:
+                 `kensa check --quiet --rules-dir /etc/kensa && deploy.sh`
+                 The check runs to completion; on success the script
+                 proceeds; on failure the operator inspects exit code
+                 and stderr.
+
+              2. With `-o FORMAT:PATH` (CLI Phase 2 fan-out, C-019)
+                 to redirect formatted output to a file without a
+                 copy on stdout:
+                 `kensa remediate -H prod-01 --quiet -o oscal:report.json`
+
+            --quiet does NOT silence stderr. Errors, warnings,
+            informational logs, and the "kensa: --oscal: no envelopes
+            produced" stderr line all continue to emit. Exit codes
+            (0/1/2 per GNU/POSIX) are unchanged.
+
+            --quiet is registered on subcommands that produce a
+            default body (detect, check, remediate, rollback,
+            history, plan). It is NOT registered on `version` or
+            `coverage` because those subcommands exist specifically
+            to emit information the operator asked for; suppressing
+            their output would be surprising.
+
+    objective:
+        summary: |
+            Add a uniform --quiet/-q boolean flag to body-emitting
+            subcommands. When set, the writer's destination is
+            io.Discard instead of os.Stdout. Help output, version
+            output, and stderr-bound diagnostics are unaffected.
+        scope:
+            includes:
+                - ShortQuiet = "q" in cmd/kensa/flags.go
+                - --quiet/-q registered on detect, check, remediate, rollback, history, plan
+                - bodyOut helper in cmd/kensa/main.go selecting io.Discard or os.Stdout
+                - Tests confirming the flag is in each subcommand's --help and not in version/coverage
+            excludes:
+                - --quiet on `version` and `coverage` (intentional; operator-explicit queries)
+                - Suppression of stderr (errors and warnings continue)
+                - Effect on exit codes (0/1/2 unchanged)
+                - --verbose / log-level flags (separate concerns; ShortVerbose is reserved but not yet wired)
+
+    constraints:
+        - id: C-01
+          description: |
+              ShortQuiet MUST be "q" (lowercase). The GNU/POSIX
+              convention is `-q` for quiet/silent across coreutils,
+              git, ssh, etc. Operators with shell muscle memory
+              expect this letter.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              --quiet MUST suppress only stdout body output. stderr
+              MUST remain unaffected. Errors, usage messages, and
+              informational logs (via fmt.Fprintf(os.Stderr, ...))
+              continue to emit. Operators rely on stderr for
+              diagnostic context even when stdout is silenced.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              --quiet MUST NOT change exit codes. A quiet run that
+              would have exited 1 still exits 1; a quiet run that
+              would have exited 2 still exits 2. The exit code is
+              the operator's primary signal in --quiet mode.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              --quiet MUST be a bool flag taking no value. pflag's
+              BoolVarP handles this; an attempt to pass --quiet=value
+              with a non-bool string is rejected as a usage error
+              (exit 2).
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              --quiet MUST NOT be registered on `version` or
+              `coverage`, nor on the top-level `--version` flag.
+              Those surfaces exist specifically to produce output
+              the operator explicitly asked for; suppressing them
+              is contradictory to the request. The flag's absence
+              is locked by tests.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              --help takes precedence over --quiet. `kensa <cmd>
+              --quiet --help` MUST print the help text to stdout.
+              Operators scripting "tell me about this command but
+              don't run it" rely on this; --help is a meta-request
+              that supersedes other flags. Implementation follows
+              from the parser order (showHelp checked before quiet
+              in each subcommand's flag-parse block).
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              --quiet and --verbose (currently reserved as
+              ShortVerbose, unwired) target different sinks and
+              compose: --quiet controls stdout body emission;
+              --verbose will control stderr diagnostic detail.
+              `--quiet --verbose` means "give me a detailed log to
+              stderr but no body on stdout" — a valid CI script
+              invocation. The two flags do not conflict.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              ShortQuiet constant equals "q" in cmd/kensa/flags.go.
+              Locked by TestShortLetterTable_QuietRegistered.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              bodyOut(false) returns os.Stdout; bodyOut(true)
+              returns io.Discard. Both are exercised by TestBodyOut.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              io.Discard accepts any number of bytes without erroring
+              (stdlib contract; locked by
+              TestBodyOut_QuietActuallyDiscards so a future refactor
+              that swapped io.Discard for nil panics loudly).
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              `kensa detect --help` mentions --quiet and -q. Same
+              for check, remediate, rollback, history, plan.
+              Verified by TestQuietFlag_*Help.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              `kensa version --help` does NOT mention --quiet or -q.
+              Same for coverage. Verified by
+              TestQuietFlag_NotInVersion and
+              TestQuietFlag_NotInCoverage.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              `kensa detect --quiet=garbage --host h` exits 2 (usage
+              error). pflag rejects non-bool values for bool flags.
+              Verified by TestQuietFlag_BadValueRejected.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              Body-emitting subcommands route their writer to
+              bodyOut(quiet). End-to-end test:
+              `kensa --db <tmp> history --quiet` produces zero
+              bytes on stdout. Locked by
+              TestQuiet_HistoryProducesEmptyStdout. Contrast test
+              (TestQuiet_HistoryWithoutQuietProducesOutput)
+              confirms the same invocation without --quiet does
+              produce output, so the empty-stdout assertion isn't
+              trivially passing.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              `kensa <cmd> --quiet --help` prints help text to
+              stdout (--help wins over --quiet). Verified by code
+              inspection: each subcommand's flag-parse block checks
+              showHelp before invoking the body-write path, so
+              quiet has no effect when --help is set.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-09
+          description: |
+              The --quiet/--verbose composition rule is documented
+              in the spec context block: --quiet controls stdout
+              body emission; --verbose (when wired in a future
+              deliverable) controls stderr diagnostic detail. They
+              compose; neither wins over the other. C-018 does not
+              wire --verbose, so this AC is documentation-only.
+          references_constraints: [C-07]
+          priority: low
+
+    tags: [cli, gnu-posix, tier-1, c-018, quiet]

@@ -143,6 +143,33 @@ assert_exit "kensa remediate (no host)"      2 stderr-nonempty bin/kensa remedia
 assert_exit "kensa history --since invalid"  2 stderr-nonempty bin/kensa history --since not-a-duration
 echo
 
+# ─── kensa: --quiet flag advertised in --help (C-018) ─────────────────────
+echo "kensa subcommand --quiet flag in --help:"
+for cmd in detect check remediate rollback history plan; do
+    out=$(bin/kensa "${cmd}" --help 2>&1)
+    if echo "${out}" | grep -qE -- "--quiet"; then
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa ${cmd} --help advertises --quiet"
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa ${cmd} --help: --quiet missing")
+        echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help missing --quiet"
+    fi
+done
+# Negative case: version and coverage do NOT advertise --quiet.
+for cmd in version coverage; do
+    out=$(bin/kensa "${cmd}" --help 2>&1)
+    if echo "${out}" | grep -qE -- "--quiet"; then
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa ${cmd} --help: --quiet should NOT be advertised")
+        echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help advertises --quiet (operator-explicit query)"
+    else
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa ${cmd} --help correctly omits --quiet"
+    fi
+done
+echo
+
 # ─── kensa-validate ───────────────────────────────────────────────────────
 echo "kensa-validate:"
 assert_exit "kensa-validate --help"      0 stdout-nonempty bin/kensa-validate --help

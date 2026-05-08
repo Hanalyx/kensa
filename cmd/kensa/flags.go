@@ -116,4 +116,12 @@ const (
 
 	// ShortAggregate is `--aggregate` (history aggregation key).
 	ShortAggregate = "a"
+
+	// ShortQuiet is `--quiet`. Suppresses default human-readable
+	// output to stdout. Errors and warnings still go to stderr;
+	// exit codes are unchanged. Operators use --quiet in CI
+	// scripts where only the exit code matters, or with `-o` (CLI
+	// Phase 2) when they want the formatted output to land in a
+	// file without a copy on stdout.
+	ShortQuiet = "q"
 )
