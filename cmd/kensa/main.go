@@ -128,9 +128,9 @@ func runCLI(argv []string) int {
 		showVersion bool
 		dbPath      string
 	)
-	topFlags.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	topFlags.BoolVarP(&showVersion, "version", "V", false, "print version and exit")
-	topFlags.StringVarP(&dbPath, "db", "D", "", "SQLite transaction-log path (default: .kensa/results.db)")
+	topFlags.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	topFlags.BoolVarP(&showVersion, "version", ShortVersion, false, "print version and exit")
+	topFlags.StringVarP(&dbPath, "db", ShortDb, "", "SQLite transaction-log path (default: .kensa/results.db)")
 
 	if err := topFlags.Parse(argv); err != nil {
 		// pflag.ErrHelp shouldn't fire because we registered --help/-h
@@ -329,13 +329,13 @@ func runDetect(ctx context.Context, args []string) error {
 		sudo     bool
 		format   string
 	)
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
-	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
-	fs.IntVarP(&port, "port", "p", 22, "SSH port")
-	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
-	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", "f", "table", "output format: table or json")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
+	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -455,14 +455,14 @@ func runCheck(ctx context.Context, args []string) error {
 		rulesDir  string
 		inventory string
 	)
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	fs.StringVarP(&host, "host", "H", "", "target hostname (required if no --inventory)")
-	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
-	fs.IntVarP(&port, "port", "p", 22, "SSH port")
-	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
-	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", "f", "table", "output format: table, json, or jsonl")
-	fs.StringVarP(&rulesDir, "rules-dir", "r", "", "directory to scan for *.yml rule files")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
+	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl")
+	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.StringVar(&inventory, "inventory", "", "Ansible-style inventory.ini for multi-host check (long-only)")
 
 	if err := fs.Parse(args); err != nil {
@@ -659,15 +659,15 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		oscalOut string
 		rulesDir string
 	)
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
-	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
-	fs.IntVarP(&port, "port", "p", 22, "SSH port")
-	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
-	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", "f", "table", "output format: table or json")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
+	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (long-only)")
-	fs.StringVarP(&rulesDir, "rules-dir", "r", "", "directory to scan for *.yml rule files")
+	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -807,13 +807,13 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		sudo     bool
 		txnIDStr string
 	)
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
-	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
-	fs.IntVarP(&port, "port", "p", 22, "SSH port")
-	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
-	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
-	fs.StringVarP(&txnIDStr, "txn", "t", "", "transaction UUID to roll back (required)")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
+	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "transaction UUID to roll back (required)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -891,18 +891,14 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		txnIDStr  string
 		aggregate string
 	)
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	fs.StringVarP(&hostID, "host", "H", "", "filter by host ID")
-	// `--rule` uses capital -R per the migration plan §4.3 — `-r` is reserved
-	// for `--rules-dir` in target/rule scope (check / remediate / plan).
-	fs.StringVarP(&ruleID, "rule", "R", "", "filter by rule ID")
-	fs.StringVarP(&since, "since", "S", "", "filter since duration (e.g. 24h) or RFC3339 time")
-	// `--limit` uses -n (head/tail convention). `-l` is reserved for the
-	// host glob `--limit` in target_options on detect/check/remediate.
-	fs.IntVarP(&limit, "limit", "n", 50, "maximum rows to return")
-	fs.StringVarP(&format, "format", "f", "table", "output format: table or json")
-	fs.StringVarP(&txnIDStr, "txn", "t", "", "get a single transaction by UUID")
-	fs.StringVarP(&aggregate, "aggregate", "a", "", "aggregate key: by_host, by_rule, by_framework_control")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	fs.StringVarP(&hostID, "host", ShortHost, "", "filter by host ID")
+	fs.StringVarP(&ruleID, "rule", ShortRule, "", "filter by rule ID")
+	fs.StringVarP(&since, "since", ShortSince, "", "filter since duration (e.g. 24h) or RFC3339 time")
+	fs.IntVarP(&limit, "limit", ShortLimit, 50, "maximum rows to return")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
+	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "get a single transaction by UUID")
+	fs.StringVarP(&aggregate, "aggregate", ShortAggregate, "", "aggregate key: by_host, by_rule, by_framework_control")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -1016,13 +1012,13 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 		sudo     bool
 		format   string
 	)
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
-	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
-	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
-	fs.IntVarP(&port, "port", "p", 22, "SSH port")
-	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
-	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", "f", "text", "output format: text, markdown, json, plain")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
+	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
+	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, markdown, json, plain")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -1101,7 +1097,7 @@ func runCoverage(args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var showHelp bool
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -1142,7 +1138,7 @@ func runVersion(args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var showHelp bool
-	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
