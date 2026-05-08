@@ -65,8 +65,7 @@ but do not gate Track L.
 - **Phase:** CLI Phase 1
 - **Deps:** C-001
 - **Acceptance:** `kensa detect -H foo -u bar -i ~/key -s -f json` works; `kensa detect --help` exits 0; existing single-dash `-host` etc. continue to parse
-- **Size:** 1h
-- **Status:** pending
+- **Status:** **done** — merge `f91980d` (2026-05-08); pflag swap with -H/-u/-p/-k/-s/-f short forms; new generic `rewriteLegacyLongForm` helper (reusable by C-003/C-004); `printDetectUsage` with examples; 8 new subtests; 2-agent peer review clean. Note: used `-k, --key` (not `-i ~/key` as in literal spec text) per the migration plan's resolved short-letter table (§4.2) where `-i` is reserved for `--inventory`. Live-tested 192.168.1.211 with both new and legacy forms.
 
 #### C-003 — Migrate `runCheck` to pflag with short forms + `-r/--rules-dir`
 - **Phase:** CLI Phase 1
