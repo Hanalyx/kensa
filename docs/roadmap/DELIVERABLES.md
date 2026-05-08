@@ -72,7 +72,7 @@ but do not gate Track L.
 - **Deps:** C-001
 - **Acceptance:** all `kensa check` flags conform to GNU/POSIX; `--inventory` keeps long-only form
 - **Size:** 1.5h
-- **Status:** pending
+- **Status:** **done** — merge `f0a3975` (2026-05-08); pflag swap for runCheck with -H/-u/-p/-k/-s/-f/-r short forms; --inventory long-only per migration plan §4.2; reused rewriteLegacyLongForm helper from C-002; printCheckUsage with 3 examples; live-tested 192.168.1.211 (PASS on sysctl-ip-forward-disabled); 2-agent peer review clean.
 
 #### C-004 — Migrate `runRemediate`, `runRollback`, `runHistory`, `runPlan`, `runCoverage`, `runVersion`
 - **Phase:** CLI Phase 1
