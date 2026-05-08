@@ -1,0 +1,200 @@
+spec:
+    id: output-oscal
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-oscal
+        description: |
+            OSCAL (Open Security Controls Assessment Language)
+            Assessment Results is the structured JSON format that
+            compliance frameworks (FedRAMP, NIST 800-53, FedRAMP-li)
+            ingest directly. Auditors' tooling parses OSCAL JSON to
+            populate System Security Plans, Plan of Action and
+            Milestones (POA&M) reports, and Continuous Monitoring
+            dashboards.
+
+            kensa-go has had OSCAL export since M3 via
+            internal/evidence/oscal.go (ExportOSCAL takes a single
+            EvidenceEnvelope and returns OSCAL Assessment Results
+            JSON bytes). The cmd/kensa --oscal flag has been the
+            user-facing surface; this spec wires the same logic
+            through the writer interface so a future
+            -o oscal:foo.json invocation (C-018) goes through the
+            same code path.
+
+            Known design deficiency carried forward from M3
+            (NOT introduced by C-016): the current model emits one
+            OSCAL Assessment Results document per envelope, then
+            concatenates them. NIST OSCAL 1.0.6 expects ONE root
+            "assessment-results" object per file with N entries in
+            its "results" array. A combined-document mode requires a
+            new evidence.ExportOSCALCombined that takes a slice of
+            envelopes; tracked as a separate v1.0 ship-blocker
+            follow-up (currently unfiled). C-016's wiring is the
+            right shape for the eventual fix — only the byte-
+            production layer changes.
+
+            OSCAL is RemediationResult-only: the OSCAL
+            Assessment Results model requires a per-transaction
+            evidence trail (the EvidenceEnvelope), and ScanResult
+            transactions all carry a nil Envelope by API contract
+            (scan is read-only; envelopes are produced post-commit).
+            Registering an oscalScanWriter would silently emit
+            zero documents; not registering it makes the asymmetry
+            visible at the registry level.
+
+    objective:
+        summary: |
+            Add oscalRemediationWriter under internal/output/oscal.go
+            that delegates to evidence.WriteOSCAL for byte production;
+            register it in remediationResultWriters["oscal"]; refactor
+            cmd/kensa's writeOSCALFile (the legacy --oscal flag's
+            implementation) to delegate to the same writer so the two
+            surfaces share one byte-production path and stay in sync
+            during the deprecation cycle.
+        scope:
+            includes:
+                - oscalRemediationWriter (singleton in
+                  remediationResultWriters)
+                - Per-transaction OSCAL document emission (one doc
+                  per non-nil Envelope; transactions without
+                  envelopes are silently skipped)
+                - Refactor of cmd/kensa/writeOSCALFile to delegate
+                  via the registry
+                - Backward compatibility for the legacy --oscal flag
+                  (no behavior change visible to operators)
+            excludes:
+                - cmd/kensa wiring of `-o oscal:foo.json` (C-018)
+                - Single combined OSCAL document for multi-transaction
+                  remediation results (current model is concatenated
+                  per-envelope documents; a single combined doc would
+                  require model changes in internal/evidence/oscal.go)
+                - OSCAL for ScanResult / caps / history / JSONValue
+                  payloads (no envelopes; intentionally not registered)
+
+    constraints:
+        - id: C-01
+          description: |
+              The writer MUST delegate to evidence.WriteOSCAL for
+              byte production. Re-implementing the OSCAL serializer
+              under internal/output would create two implementations
+              that drift; the writer is a thin dispatch layer over
+              the existing logic.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Transactions without an Envelope (Envelope == nil) MUST
+              be silently skipped. Common causes: a non-capturable
+              rule that errored before the commit phase, or a stub
+              handler. Erroring on nil envelopes would corrupt the
+              output for partial-failure remediation runs.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The legacy cmd/kensa --oscal flag MUST keep working
+              for at least one minor version after the -o oscal:
+              mechanism lands (per DELIVERABLES.md C-016 acceptance:
+              "both work for one minor version"). cmd/kensa's
+              writeOSCALFile delegates to the registered writer so
+              both surfaces share one implementation.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              OSCAL is RemediationResult-only. ScanResult, capability
+              probes, history queries, and the JSONValue escape-hatch
+              payloads MUST NOT have an OSCAL writer registered. A
+              test asserts each absence so a future contributor who
+              tries to register one is forced to update the assertion.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Output is the concatenation of N JSON documents (one
+              per envelope) as produced by evidence.WriteOSCAL. The
+              first document starts at byte 0; subsequent documents
+              follow without separator. A JSON streaming decoder
+              (json.Decoder.More) parses the sequence cleanly. There
+              is no trailing newline; consumers expecting one should
+              add it explicitly.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              oscalRemediationWriter satisfies RemediationResultWriter
+              and is registered in remediationResultWriters["oscal"].
+              RemediationWriterFor("oscal") returns ok and the
+              writer's Format() returns "oscal".
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              WriteRemediationResult against a single-transaction
+              result with a non-nil Envelope produces one valid
+              OSCAL Assessment Results JSON document. The document
+              has a top-level "assessment-results" key.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Transactions with Envelope == nil are silently skipped.
+              A test mixing nil and non-nil envelopes asserts the
+              output contains exactly one document corresponding to
+              the single non-nil entry.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              A result with all-nil envelopes produces empty output
+              without erroring. (buf.Len() == 0 after the call.)
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-05
+          description: |
+              N non-nil envelopes produce N concatenated OSCAL
+              documents that a json.Decoder iterates cleanly. Test
+              asserts the count by decoding until !More().
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              OSCAL is NOT registered for ScanResult, capability
+              probes, history queries, or JSONValue payloads. Test
+              asserts (nil, false) from each registry's WriterFor("oscal")
+              call.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              The writer surfaces errors from a failing io.Writer;
+              it does not swallow them. Test passes errWriter and
+              asserts non-nil return when at least one envelope is
+              present.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-08
+          description: |
+              When zero envelopes are present, the writer does NOT
+              invoke the underlying io.Writer at all (no spurious
+              empty-document write). Test passes errWriter with an
+              all-nil-envelope result and asserts the error is nil
+              (because the failing writer was never called).
+          references_constraints: [C-02]
+          priority: medium
+        - id: AC-09
+          description: |
+              cmd/kensa/writeOSCALFile (the legacy --oscal flag's
+              implementation) routes byte production through the
+              registered "oscal" writer. The two surfaces share one
+              code path.
+          references_constraints: [C-03]
+          priority: critical
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-016, oscal]

@@ -84,11 +84,18 @@ var scanResultWriters = map[string]ScanResultWriter{
 }
 
 // remediationResultWriters maps format identifier → RemediationResultWriter.
+//
+// "oscal" is registered here only — OSCAL Assessment Results requires
+// a signed EvidenceEnvelope per transaction, which only the
+// remediation path produces. ScanResult transactions all carry a nil
+// Envelope by API contract, so an oscalScanWriter would emit zero
+// documents.
 var remediationResultWriters = map[string]RemediationResultWriter{
-	"text": textRemediationWriter{},
-	"json": jsonRemediationWriter{},
-	"csv":  csvRemediationWriter{},
-	"pdf":  pdfRemediationWriter{},
+	"text":  textRemediationWriter{},
+	"json":  jsonRemediationWriter{},
+	"csv":   csvRemediationWriter{},
+	"pdf":   pdfRemediationWriter{},
+	"oscal": oscalRemediationWriter{},
 }
 
 // historyWriters maps format identifier → HistoryWriter.

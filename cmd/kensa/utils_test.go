@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/google/uuid"
 )
 
 // ─── parseSince ────────────────────────────────────────────────────────────
@@ -337,38 +338,86 @@ implementations:
 	}
 }
 
-// ─── writeOSCALFile happy-path coverage ──────────────────────────────────
+// ─── writeOSCALFile coverage ──────────────────────────────────────────────
 
-// writeOSCALFile takes a path and a RemediationResult; covered by
-// constructing a result with a nil envelope (function should write
-// nothing and not error).
+// writeOSCALFile takes a path and a RemediationResult and writes one
+// OSCAL Assessment Results document per non-nil envelope.
 
-func TestWriteOSCALFile_EmptyResult(t *testing.T) {
+// TestWriteOSCALFile_NoEnvelopes_NoFile asserts the C-016 short-
+// circuit: when no transaction has an envelope, the function does
+// NOT create the file (a 0-byte OSCAL artifact would be operator-
+// hostile — auditors can't tell "Kensa crashed" from "empty result").
+func TestWriteOSCALFile_NoEnvelopes_NoFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "out.json")
 
 	result := &api.RemediationResult{
 		Transactions: []api.TransactionResult{
-			{Envelope: nil}, // skipped
+			{Envelope: nil},
 		},
 	}
 	if err := writeOSCALFile(path, result); err != nil {
 		t.Fatalf("writeOSCALFile: %v", err)
 	}
-	// File should exist (we created it) but be empty.
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat: %v", err)
-	}
-	if info.Size() != 0 {
-		t.Errorf("expected empty file, got %d bytes", info.Size())
+	// File should NOT exist.
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected file NOT to be created when no envelopes; got err=%v", err)
 	}
 }
 
 func TestWriteOSCALFile_BadPath(t *testing.T) {
-	result := &api.RemediationResult{}
+	// A bad path with at least one envelope present should error
+	// because os.Create runs (the short-circuit only fires for the
+	// no-envelopes case).
+	result := &api.RemediationResult{
+		Transactions: []api.TransactionResult{
+			{Envelope: makeOSCALTestEnvelope()},
+		},
+	}
 	err := writeOSCALFile("/nonexistent/dir/out.json", result)
 	if err == nil {
 		t.Errorf("writeOSCALFile(bad path): want error, got nil")
+	}
+}
+
+// TestWriteOSCALFile_DelegationToWriter locks AC-09 in
+// specs/output/oscal.spec.yaml: writeOSCALFile routes byte production
+// through the registered "oscal" writer rather than re-implementing
+// the loop. Verified by writing one envelope to a temp file and
+// asserting the output is a valid OSCAL Assessment Results JSON
+// document — the same shape the registered writer emits.
+func TestWriteOSCALFile_DelegationToWriter(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	result := &api.RemediationResult{
+		Transactions: []api.TransactionResult{
+			{Envelope: makeOSCALTestEnvelope()},
+		},
+	}
+	if err := writeOSCALFile(path, result); err != nil {
+		t.Fatalf("writeOSCALFile: %v", err)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !bytes.Contains(body, []byte(`"assessment-results"`)) {
+		t.Errorf("output missing OSCAL top-level key; body length=%d", len(body))
+	}
+}
+
+// makeOSCALTestEnvelope returns a minimally-valid envelope for OSCAL
+// serialization in cmd/kensa tests. Matches the makeEnvelope helper
+// in internal/output/oscal_test.go.
+func makeOSCALTestEnvelope() *api.EvidenceEnvelope {
+	return &api.EvidenceEnvelope{
+		TransactionID: uuid.MustParse("00000000-0000-0000-0000-000000000099"),
+		RuleID:        "test-rule",
+		HostID:        "test-host",
+		Decision:      api.StatusCommitted,
+		StartedAt:     time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+		FinishedAt:    time.Date(2026, 5, 8, 12, 0, 5, 0, time.UTC),
+		SigningKeyID:  "test-key-1",
 	}
 }
