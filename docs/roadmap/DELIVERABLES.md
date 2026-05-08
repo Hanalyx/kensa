@@ -137,7 +137,7 @@ but do not gate Track L.
 - **Deps:** C-011
 - **Acceptance:** existing `--format` still works; serializers behind `OutputWriter` interface
 - **Size:** 3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `639b874`)
 
 #### C-013 — CSV serializer
 - **Phase:** CLI Phase 2
