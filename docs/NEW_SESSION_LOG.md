@@ -1,5 +1,32 @@
 # Continuation Prompt — Kensa Go (paste into a fresh Claude Code session)
 
+> **⚠️ SUPERSEDED — 2026-05-07**
+>
+> This handoff prompt was authored 2026-04-15 at the M1 milestone (commit
+> `8af38ff`, three handlers shipped) and has not been refreshed. The project
+> is now at M6 complete with M7 in progress (29 handlers, full CLI, scan,
+> plan/execute, OSCAL output, security-input-validation infrastructure).
+> **Do not use this document as the orientation for a new session.**
+>
+> For current state, read in this order:
+>
+> 1. `CLAUDE.md` — milestone status, open M7 items, project orientation
+> 2. `docs/roadmap/README.md` — synthesized current plan
+> 3. `docs/roadmap/STATUS.md` — per-item state
+> 4. `docs/TRANSACTION_CONTRACT_V1.md` — customer commitment with
+>    "Current Implementation Status" preamble
+>
+> Note: Python kensa is no longer in active maintenance. It was an
+> internal-only prototype and is being phased out (decision recorded
+> 2026-05-07).
+>
+> The body of this document below is preserved as historical record of the
+> M1-era project state. Several specific claims in it (e.g., "Python kensa
+> is the source of behavioral truth", "40-week Go build", "Three handlers
+> ship today") are no longer accurate.
+
+---
+
 **Repo:** `git@github.com:Hanalyx/kensa-go.git` cloned at
 `/home/rracine/hanalyx/kensa-go`
 **Last commit at handoff:** `8af38ff` — "Add sysctl_set and service_enabled handlers"
