@@ -15,6 +15,50 @@ milestone (M1) lands at Week 4 per the Day-1 plan.
 See [`docs/context/KENSA_GO_DAY1_PLAN.md`](docs/context/KENSA_GO_DAY1_PLAN.md) for the build
 sequence, architectural principles, and the full list of interface commitments.
 
+## Binary Portability
+
+**Compile once, run on every supported Linux distribution.** kensa-go ships
+as a single static binary that depends only on the Linux kernel ABI, not on
+any specific libc. The same binary built today runs on:
+
+- **RHEL 8 / 9 / 10** and binary-compatible derivatives (Rocky, AlmaLinux,
+  CentOS Stream, Oracle Linux) — glibc 2.28 floor, no upper bound. RHEL 9
+  (glibc 2.34) and RHEL 10 (glibc 2.39+) inherit the guarantee because
+  glibc maintains strict backward compatibility; only the floor is
+  CI-tested.
+- **Ubuntu 22.04 LTS / 24.04 LTS** and Debian — glibc-based, same forward-
+  compatibility argument applies.
+- **Alpine** and any other distribution that uses the musl C library
+  instead of glibc.
+
+This portability is delivered by two build-discipline guarantees, both
+enforced on every CI run:
+
+| Guarantee | How | CI gate (`.github/workflows/ci.yml`) |
+|---|---|---|
+| Statically linked, no glibc floor | `CGO_ENABLED=0` (Makefile + workflow env) | `build-static-verify` — `ldd`/`file` assertion |
+| Pure-Go DNS resolver, no `getaddrinfo` cgo path | `-tags netgo` (Makefile) + `GODEBUG=netdns=go` (workflow env) | `build-static-verify` confirms flag honored |
+| Runs on glibc 2.28 (RHEL 8 floor) | static linking | `build-portability-glibc228` — runs binary inside `rockylinux:8` |
+| Runs on musl (Alpine) | static linking + pure-Go DNS | `build-portability-alpine` — runs binary inside `alpine:3` |
+
+A regression in any of the four — a transitive dependency that pulls cgo,
+a Makefile change that drops `-tags netgo`, a binary that links against
+glibc-specific symbols — fails the workflow before merge.
+
+**Verify locally:**
+```bash
+make build
+ldd bin/kensa  # "not a dynamic executable"
+file bin/kensa # "statically linked"
+```
+
+The strategic context (why kernel ABI is the only stable surface to bet on
+for a 5-year customer trust window) is in
+[`docs/context/AI_DEFENSIBILITY.md`](docs/context/AI_DEFENSIBILITY.md). The
+phased migration plan that established this discipline is
+[`docs/roadmap/LOW_LEVEL_MIGRATION_V1.md`](docs/roadmap/LOW_LEVEL_MIGRATION_V1.md)
+Phase 0 (deliverables L-001 through L-006).
+
 ## Foundational Documents
 
 Read in this order:
