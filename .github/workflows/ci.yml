@@ -184,6 +184,50 @@ jobs:
             exit 1
           fi
 
+  build-portability-glibc228:
+    # Deliverable L-004 (docs/roadmap/DELIVERABLES.md): proves the static
+    # binary actually runs on a glibc 2.28 system (RHEL 8 vintage). This
+    # is the supported "oldest glibc" floor; if the binary fails here, a
+    # transitive dependency or build-flag regression has reintroduced
+    # libc symbol dependencies that the L-001/L-002 discipline was
+    # supposed to prevent.
+    #
+    # Note: uses `kensa version` (subcommand) rather than `kensa --version`
+    # (flag) because the GNU/POSIX flag form is added in CLI Phase 1
+    # (deliverable C-001). Functionally equivalent for portability
+    # verification — both exercise the same startup path.
+    name: Portability — glibc 2.28 (RHEL 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Build static binary
+        run: make build
+      - name: Verify binary runs in rockylinux:8 (glibc 2.28)
+        run: |
+          set -e
+          # Confirm the container's glibc version matches the target.
+          glibc_version=$(docker run --rm rockylinux:8 \
+            bash -c '/lib64/libc.so.6 | head -1')
+          echo "Target container glibc: $glibc_version"
+          if ! echo "$glibc_version" | grep -q "version 2.28"; then
+            echo "::error::Expected glibc 2.28 in rockylinux:8 but got: $glibc_version"
+            exit 1
+          fi
+
+          # Run the static binary inside the glibc 2.28 container.
+          out=$(docker run --rm -v "$PWD/bin:/kensa-bin:ro" rockylinux:8 \
+            /kensa-bin/kensa version 2>&1)
+          echo "Output: $out"
+          if echo "$out" | grep -q "kensa "; then
+            echo "  ✓ kensa version succeeded on glibc 2.28"
+          else
+            echo "::error::Binary failed to run on glibc 2.28 — L-001/L-002 regression. Output: $out"
+            exit 1
+          fi
+
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
   #   fuzz: kensa-fuzz atomicity verification (after Week 7)
