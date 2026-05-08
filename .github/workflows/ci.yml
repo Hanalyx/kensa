@@ -6,14 +6,21 @@ on:
   pull_request:
     branches: [main]
 
-# Build discipline (deliverable L-001 in docs/roadmap/DELIVERABLES.md):
-# CGO_ENABLED=0 ensures the binary talks directly to the kernel ABI
-# rather than going through glibc. This delivers the binary-portability
-# claim — same binary runs on RHEL 8 (glibc 2.28) through RHEL 12 and
-# on Alpine (musl), with no glibc compatibility floor. Inherited by all
-# jobs and steps below.
+# Build discipline (deliverables L-001 and L-002 in docs/roadmap/DELIVERABLES.md):
+#   CGO_ENABLED=0      ensures the binary talks directly to the kernel ABI
+#                      rather than going through glibc, so the same binary
+#                      runs on RHEL 8 (glibc 2.28) through RHEL 12 and on
+#                      Alpine (musl), with no glibc compatibility floor.
+#   GODEBUG=netdns=go  defense-in-depth runtime hint that selects the
+#                      pure-Go DNS resolver. The compile-time guarantee
+#                      comes from the `-tags netgo` build flag in the
+#                      Makefile; this env var ensures any DNS lookups
+#                      during go test / go run also go through the pure-Go
+#                      path, keeping CI consistent with the shipped binary.
+# Both inherited by all jobs and steps below.
 env:
   CGO_ENABLED: '0'
+  GODEBUG: 'netdns=go'
 
 jobs:
   spec-sync:
