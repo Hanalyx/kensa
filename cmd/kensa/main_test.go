@@ -236,6 +236,32 @@ func TestUsageError_BasicShape(t *testing.T) {
 	})
 }
 
+// TestUsageError_UnwrapAndEdgeCases covers UsageError's Unwrap path
+// and the empty-Msg branch of Error() that aren't hit by the basic
+// shape tests.
+func TestUsageError_UnwrapAndEdgeCases(t *testing.T) {
+	t.Run("Unwrap returns Cause", func(t *testing.T) {
+		inner := errorString("inner-err")
+		ue := &UsageError{Msg: "outer", Cause: inner}
+		if ue.Unwrap() != inner {
+			t.Errorf("Unwrap = %v; want %v", ue.Unwrap(), inner)
+		}
+	})
+	t.Run("Unwrap on no-cause UsageError returns nil", func(t *testing.T) {
+		ue := &UsageError{Msg: "alone"}
+		if ue.Unwrap() != nil {
+			t.Errorf("Unwrap = %v; want nil", ue.Unwrap())
+		}
+	})
+	t.Run("Error with empty Msg returns Cause.Error()", func(t *testing.T) {
+		inner := errorString("only-cause")
+		ue := &UsageError{Cause: inner}
+		if ue.Error() != "only-cause" {
+			t.Errorf("Error() = %q; want %q", ue.Error(), "only-cause")
+		}
+	})
+}
+
 // TestRunCLI_UsageVsRuntimeExitCodes verifies the C-008 contract:
 // usage errors (bad flags, missing required args, malformed values)
 // exit 2; runtime errors exit 1; --help/--version exit 0.
