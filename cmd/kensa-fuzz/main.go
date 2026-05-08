@@ -25,10 +25,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 
 	// Import all handler packages to trigger their init() registrations.
 	// Each register.go calls handler.Register(New()), which populates the
@@ -91,49 +94,178 @@ type FuzzResult struct {
 	Error string `json:"error,omitempty"`
 }
 
-func main() {
-	var (
-		host       = flag.String("host", os.Getenv("KENSA_FUZZ_HOST"), "target host (or KENSA_FUZZ_HOST env)")
-		port       = flag.Int("port", 22, "SSH port")
-		user       = flag.String("user", "", "SSH user (default: ssh client default)")
-		keyPath    = flag.String("key", "", "SSH identity file (default: ssh-agent / ~/.ssh/config)")
-		sudo       = flag.Bool("sudo", false, "wrap remote commands in sudo -n sh -c")
-		mechanism  = flag.String("mechanism", "", "mechanism name, e.g. sysctl_set or file_content")
-		phase      = flag.String("phase", "apply", "phase to inject failure at: capture, apply, or validate")
-		paramsJSON = flag.String("params", "{}", "JSON-encoded mechanism params")
-		timeout    = flag.Duration("timeout", 60*time.Second, "per-run timeout")
-	)
-	flag.Parse()
+// Short-letter constants for kensa-fuzz. Mirror the kensa CLI
+// conventions (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §4):
+// -h is help, -H is host, -u user, -p port, -k key, -s sudo. -m for
+// --mechanism (no conflict in this binary). --phase, --params,
+// --timeout are long-only (run-shape parameters; rare enough to skip
+// short letters).
+const (
+	shortHelp      = "h"
+	shortHost      = "H"
+	shortUser      = "u"
+	shortPort      = "p"
+	shortKey       = "k"
+	shortSudo      = "s"
+	shortMechanism = "m"
+)
 
-	if *host == "" {
-		fmt.Fprintln(os.Stderr, "kensa-fuzz: --host is required (or set KENSA_FUZZ_HOST)")
-		os.Exit(1)
+func main() {
+	os.Exit(runCLI(os.Args[1:]))
+}
+
+// runCLI parses argv, runs the fuzz harness, and returns the process
+// exit code per the documented contract:
+//
+//	0  Success: failure injected, rollback ran, fingerprints match.
+//	1  Misconfiguration (flag parse error, unknown mechanism, missing host).
+//	2  Run-time error (connect failure, capture error, engine error).
+//	3  Fingerprint mismatch: rollback did not restore pre-state.
+//
+// Extracted from main for testability — call runCLI directly with
+// synthetic argv slices.
+func runCLI(argv []string) int {
+	// Backward-compat: stdlib flag accepted single-dash long forms
+	// (`-host`, `-mechanism`). Rewrite to pflag's `--host` form with
+	// a deprecation warning. Removed in v0.2.
+	argv = rewriteLegacyLongForm(argv, map[string]bool{
+		"host": true, "port": true, "user": true, "key": true,
+		"sudo": true, "mechanism": true, "phase": true,
+		"params": true, "timeout": true,
+	})
+
+	fs := pflag.NewFlagSet("kensa-fuzz", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp   bool
+		host       string
+		port       int
+		user       string
+		keyPath    string
+		sudo       bool
+		mechanism  string
+		phase      string
+		paramsJSON string
+		timeout    time.Duration
+	)
+	// Default for --host honors the KENSA_FUZZ_HOST env var (existing
+	// behavior preserved per C-007 acceptance).
+	hostDefault := os.Getenv("KENSA_FUZZ_HOST")
+
+	fs.BoolVarP(&showHelp, "help", shortHelp, false, "show this help and exit")
+	fs.StringVarP(&host, "host", shortHost, hostDefault, "target host (or KENSA_FUZZ_HOST env)")
+	fs.IntVarP(&port, "port", shortPort, 22, "SSH port")
+	fs.StringVarP(&user, "user", shortUser, "", "SSH user (default: ssh client default)")
+	fs.StringVarP(&keyPath, "key", shortKey, "", "SSH identity file (default: ssh-agent / ~/.ssh/config)")
+	fs.BoolVarP(&sudo, "sudo", shortSudo, false, "wrap remote commands in sudo -n sh -c")
+	fs.StringVarP(&mechanism, "mechanism", shortMechanism, "", "mechanism name, e.g. sysctl_set or file_content")
+	fs.StringVar(&phase, "phase", "apply", "phase to inject failure at: capture, apply, or validate (long-only)")
+	fs.StringVar(&paramsJSON, "params", "{}", "JSON-encoded mechanism params (long-only)")
+	fs.DurationVar(&timeout, "timeout", 60*time.Second, "per-run timeout (long-only)")
+
+	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			printUsage(os.Stdout, fs)
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "kensa-fuzz: %v\n", err)
+		fmt.Fprintln(os.Stderr, "Try 'kensa-fuzz --help' for usage.")
+		return 1
 	}
-	if *mechanism == "" {
+	if showHelp {
+		printUsage(os.Stdout, fs)
+		return 0
+	}
+
+	if host == "" {
+		fmt.Fprintln(os.Stderr, "kensa-fuzz: --host is required (or set KENSA_FUZZ_HOST)")
+		return 1
+	}
+	if mechanism == "" {
 		fmt.Fprintln(os.Stderr, "kensa-fuzz: --mechanism is required")
-		os.Exit(1)
+		return 1
 	}
 
 	var params api.Params
-	if err := json.Unmarshal([]byte(*paramsJSON), &params); err != nil {
+	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
 		fmt.Fprintf(os.Stderr, "kensa-fuzz: invalid --params JSON: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	cfg := config{
-		host:      *host,
-		port:      *port,
-		user:      *user,
-		keyPath:   *keyPath,
-		sudo:      *sudo,
-		mechanism: *mechanism,
-		phase:     *phase,
+		host:      host,
+		port:      port,
+		user:      user,
+		keyPath:   keyPath,
+		sudo:      sudo,
+		mechanism: mechanism,
+		phase:     phase,
 		params:    params,
-		timeout:   *timeout,
+		timeout:   timeout,
 	}
 
-	exitCode := run(cfg)
-	os.Exit(exitCode)
+	return run(cfg)
+}
+
+// printUsage writes the kensa-fuzz help text. --help → stdout per GNU;
+// usage errors → stderr; caller picks.
+func printUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa-fuzz [flags]
+
+Failure-injection harness for the Kensa transaction engine. Deliberately
+induces a failure at a specific transaction phase (capture, apply, or
+validate), then verifies that rollback restores the host to the exact
+pre-capture state.
+
+Flags:
+%s
+Exit codes:
+  0  Success: failure injected, rollback ran, fingerprints match.
+  1  Misconfiguration (flag parse error, unknown mechanism, missing host).
+  2  Run-time error (connect failure, capture error, engine error).
+  3  Fingerprint mismatch: rollback did not restore pre-state.
+
+The JSON result is always written to stdout. Logs go to stderr.
+
+Examples:
+  kensa-fuzz -H 192.0.2.1 -m sysctl_set --phase apply \
+    --params '{"key":"kernel.dmesg_restrict","value":"1"}'
+
+  KENSA_FUZZ_HOST=192.168.1.211 kensa-fuzz -m file_permissions \
+    --params '{"path":"/etc/ssh/sshd_config","mode":"0600"}' \
+    --phase validate
+`, fs.FlagUsages())
+}
+
+// rewriteLegacyLongForm converts stdlib-flag-style single-dash long
+// forms (`-host foo`, `-mechanism sysctl_set`) to pflag's double-dash
+// form. Mirrors the helpers in cmd/kensa and cmd/kensa-validate;
+// scoped to this binary. Removed in v0.2.
+func rewriteLegacyLongForm(argv []string, longNames map[string]bool) []string {
+	out := make([]string, 0, len(argv))
+	warned := false
+	for _, a := range argv {
+		if !strings.HasPrefix(a, "-") || strings.HasPrefix(a, "--") {
+			out = append(out, a)
+			continue
+		}
+		name := a[1:]
+		if eq := strings.Index(name, "="); eq != -1 {
+			name = name[:eq]
+		}
+		if len(name) > 1 && longNames[name] {
+			if !warned {
+				fmt.Fprintln(os.Stderr, "kensa-fuzz: warning: stdlib-style single-dash long flags are deprecated; use --"+name+" (will be removed in v0.2)")
+				warned = true
+			}
+			out = append(out, "-"+a)
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
 }
 
 // run executes the fuzz scenario and returns the process exit code.
