@@ -1,0 +1,256 @@
+spec:
+    id: output-parser
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-parser
+        description: |
+            The kensa CLI accepts the GNU/POSIX-style flag --output FORMAT[:PATH]
+            (short -o) to declare what serialized form a subcommand should
+            produce and where to write it. The flag is repeatable: a single
+            invocation can request multiple simultaneous outputs (e.g.
+            "kensa check -o json -o csv:results.csv -o oscal:assessment.json").
+
+            internal/output is the package that owns the parse layer for this
+            mechanism. It defines the Spec type, the Parse and ParseAll
+            functions, the format registry, and the validation rules that
+            govern which format names are accepted.
+
+            This spec covers C-011 (parser only). Concrete writers — the
+            JSON, JSONL, CSV, PDF, OSCAL, evidence, and markdown serializers
+            that take a kensa result and emit bytes — are added in C-012
+            through C-017 and ride on top of this parsed Spec.
+
+    objective:
+        summary: |
+            Define the Spec value type and Parse/ParseAll functions that
+            convert raw "--output" argv strings into validated Specs the
+            rest of the CLI can dispatch on. Parsing errors must be precise
+            enough that the operator can correct their command line without
+            reading documentation.
+        scope:
+            includes:
+                - Spec{Format, Path} value type
+                - Parse(string) → Spec parser for one --output value
+                - ParseAll([]string) → []Spec for the repeatable form
+                - "Format registry: text, json, jsonl, csv, pdf, evidence, oscal, markdown"
+                - Case-insensitive format normalization
+                - FormatRequiresPath predicate (currently pdf-only)
+                - Round-trippable Spec.String for diagnostics
+            excludes:
+                - The concrete serializer Writer interface (C-012)
+                - File-creation, fsync, or atomic rename behavior (C-018)
+                - Concurrent fan-out across multiple Specs (C-019)
+                - flag.Value adapter / pflag integration in cmd/kensa (C-013)
+
+    constraints:
+        - id: C-01
+          description: |
+              The format registry is the single source of truth for which
+              format names are accepted. Adding or removing a format
+              requires updating both knownFormats (lookup) and
+              knownFormatsOrder (display order) so the two never drift.
+              A test enforces that every name in KnownFormats() round-trips
+              through Parse without error.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Format names are case-insensitive — "json", "JSON", and "Json"
+              MUST all parse to Format="json". This matches operator
+              expectation for shell-typed input where SHIFT is easy to fat-
+              finger.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              "format:" with an empty path MUST be a parse error, not
+              silently treated as stdout. An explicit colon-with-nothing-
+              after is an operator typo. To request stdout the operator
+              passes "format" with no colon.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The error returned for unknown formats MUST list the known
+              formats in the message body so the operator can self-correct
+              without reading docs. The error MUST also echo the offending
+              input back so they see what was rejected.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              ParseAll preserves the operator's argv order. The fan-out
+              (C-019) runs Specs in this order for deterministic output;
+              reordering them silently would break that determinism.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              ParseAll fails fast on the first invalid value and reports
+              the index in the error (e.g., "output[2]: …") so the
+              operator knows which positional flag to fix.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              "format:-" MUST be normalized to a stdout Spec (Path="").
+              The Unix dash convention for stdin/stdout (cited as sacred
+              in CLI_GNU_POSIX_MIGRATION_V1.md §2) means an operator who
+              types "--output json:-" expects stdout, not a file named
+              "-" in cwd. Normalizing at parse time prevents the silent
+              footgun of os.Create("-").
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              Formats whose output is a binary blob (currently just
+              "pdf") MUST be rejected at parse time when no path is
+              given, returning ErrPathRequired. Catching this in Parse
+              rather than relying on the caller to invoke
+              FormatRequiresPath prevents binary output from reaching
+              the operator's terminal.
+          type: business
+          enforcement: error
+        - id: C-09
+          description: |
+              Error messages for unknown formats MUST echo the operator's
+              original (pre-lowercase) input so they see what they actually
+              typed. Lowercasing for lookup is correct, but lowercasing
+              for the error message disorients the operator.
+          type: business
+          enforcement: error
+        - id: C-10
+          description: |
+              Parse performs no whitespace trimming on either component.
+              "json:foo " preserves the trailing space in Path verbatim;
+              " json" is rejected as ErrUnknownFormat (not auto-trimmed
+              to "json"). Documented as a frozen policy so future
+              refactors don't accidentally start trimming.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Parse("json") returns Spec{Format:"json", Path:""} with no
+              error.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Parse("json:report.json") returns Spec{Format:"json",
+              Path:"report.json"} with no error.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Parse handles paths that themselves contain colons (e.g.,
+              "evidence:reports/2026-05-08:run.json") by splitting only
+              on the first colon. The Path is everything after the first
+              colon.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-04
+          description: |
+              Parse("") and Parse(":foo") return ErrEmptyFormat. An empty
+              format component is always rejected.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              Parse("json:") returns ErrEmptyPath. A trailing colon with
+              no path is a typo, not a request to write to stdout.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Parse of an unregistered format (e.g., "yaml", "xml")
+              returns an error chain that satisfies errors.Is(err,
+              ErrUnknownFormat) and whose message body includes the bad
+              format name and the list of known formats.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              Parse normalizes format case: Parse("JSON"), Parse("Json"),
+              and Parse("jsoN:foo.json") all produce Format="json".
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-08
+          description: |
+              ParseAll([]string) preserves argv order in the returned
+              []Spec slice; specs[i] corresponds to values[i].
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-09
+          description: |
+              ParseAll fails fast with an error of the form
+              "output[<i>]: <cause>" naming the first invalid index
+              and wrapping the underlying parse error so errors.Is still
+              works.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-10
+          description: |
+              KnownFormats() returns ["text", "json", "jsonl", "csv",
+              "pdf", "evidence", "oscal", "markdown"] in that order.
+              Mutating the returned slice MUST NOT affect subsequent
+              calls (KnownFormats returns a copy).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-11
+          description: |
+              FormatRequiresPath("pdf") returns true; every other
+              registered format returns false. Case-insensitive.
+              Unknown formats also return false (the path-required
+              check happens after format validation, so FormatRequiresPath
+              for an unknown name has no defined semantics — false is
+              the safe default).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-12
+          description: |
+              Spec.String() round-trips: for any string s that Parse
+              accepts and that does not contain the dash-stdout alias,
+              Parse(s).String() == s. (The "json:-" form normalizes
+              to "json" so the round-trip is intentionally lossy for
+              the stdout alias.)
+          references_constraints: [C-01]
+          priority: medium
+        - id: AC-13
+          description: |
+              Parse("json:-") returns Spec{Format:"json", Path:""}.
+              The Unix "-" stdout alias is normalized to an empty Path
+              so downstream writers don't accidentally create a file
+              named "-".
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-14
+          description: |
+              Parse("pdf") returns ErrPathRequired. Parse("pdf:-")
+              also returns ErrPathRequired (the "-" alias normalizes
+              to an empty path, then the path-required check fires).
+              Parse("pdf:report.pdf") succeeds.
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-15
+          description: |
+              Parse("XML") error message contains the substring "XML"
+              (operator's original case), not "xml" (the lowercased
+              lookup form). This applies to any unknown-format error.
+          references_constraints: [C-09]
+          priority: high
+        - id: AC-16
+          description: |
+              Parse("json:foo ") returns Spec{Format:"json",
+              Path:"foo "} with the trailing space preserved.
+              Parse(" json") returns ErrUnknownFormat (whitespace not
+              trimmed from the format component).
+          references_constraints: [C-10]
+          priority: medium
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-011]
