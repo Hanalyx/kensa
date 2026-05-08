@@ -35,6 +35,39 @@ what atomicity *means* and what it does not.
 
 ---
 
+## Current Implementation Status (as of 2026-05-07)
+
+This contract describes the **target** behavior of Kensa Go. The atomicity,
+auditability, and reversibility commitments below are honored today for the
+shipped, integration-tested mechanisms; some specific elements remain in
+flight per the M7 punch list in `CLAUDE.md` and the migration roadmap in
+`docs/roadmap/`. Where the code does not yet literally deliver a commitment,
+this section names it explicitly.
+
+- **Signing.** The Ed25519 signer (task #12) is not yet implemented;
+  envelopes are produced with the canonical schema but the `Signature`
+  field is empty bytes until task #12 ships. The envelope shape is final.
+- **Kernel-primitive atomicity.** File-handler atomicity is delivered today
+  through shell-level write-and-rename via the SSH transport, with rollback
+  via captured pre-state. Literal kernel-primitive atomicity (`renameat2`,
+  `O_TMPFILE`+`linkat`, `fsync` barriers) is the Phase 2 deliverable in
+  `docs/roadmap/LOW_LEVEL_MIGRATION_V1.md`.
+- **Deadman timer.** Today's deadman uses `at(1)` / `systemd-run` schedulers.
+  The `timerfd(CLOCK_BOOTTIME) + pidfd_open + epoll` rebuild that survives
+  suspend, clock jumps, and parent SIGSTOP is Phase 3 of the same roadmap.
+- **Integration-test coverage.** 19 of the 29 shipped handlers have full
+  integration tests under deliberate failure injection (`cmd/kensa-fuzz`).
+  6 capturable handlers (`authselectfeatureenable`, `configappend`,
+  `cryptopolicyset`, `cryptopolicysubpolicy`, `dconfset`, `pammodulearg`)
+  need first-principles integration tests to clear the M7 ship gate.
+
+External citations of this document (SSP, MSA, E&O insurance application,
+FedRAMP review) should reference this preamble alongside the commitments
+below — the contract is what we commit to deliver, scoped explicitly to the
+current implementation status.
+
+---
+
 ## 1. The Three Commitments
 
 Kensa makes three commitments to every customer installing it. Each commitment is a
@@ -88,7 +121,9 @@ containing:
   pre-state (on rollback).
 - **Framework mappings** — which compliance controls this transaction satisfies.
 - **Signature** — a cryptographic signature over the envelope, using a key managed per
-  deployment.
+  deployment. (See "Current Implementation Status" preamble above: the Ed25519 signer
+  is task #12; envelopes today carry the canonical shape with empty signature bytes
+  until that task lands.)
 
 Evidence is stored alongside the change, not in a separate silo that can drift out of
 sync. An auditor reviewing a compliance finding six months later can load the evidence
@@ -103,10 +138,13 @@ consumption, or in human-readable PDF/JSON for operator review.
 manually on human decision — using the captured pre-state.**
 
 Rollback is not a best-effort cleanup path. It is a first-class engine phase, tested
-against real failure conditions as part of every mechanism's qualification. Every
-capturable mechanism ships with a rollback handler that has been integration-tested by
-deliberately inducing a mid-transaction failure on a real system and verifying that the
-rollback restores the exact pre-state.
+against real failure conditions as part of every mechanism's qualification. The target
+state is that every capturable mechanism ships with a rollback handler that has been
+integration-tested by deliberately inducing a mid-transaction failure on a real system
+and verifying that the rollback restores the exact pre-state. (See "Current
+Implementation Status" preamble: 19 of the 29 shipped handlers meet this bar today;
+6 capturable handlers need first-principles integration tests to clear the M7 ship
+gate.)
 
 Manual rollback is available via `kensa rollback --start N` for any past transaction
 within the retention window. Snapshots are retained for 7 days in active-rollback mode

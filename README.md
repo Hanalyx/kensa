@@ -5,26 +5,26 @@ Transactional configuration management for Linux. The Go implementation of Kensa
 This repository is the production implementation of the Kensa Vision. The Python
 reference implementation lives at [Hanalyx/kensa](https://github.com/Hanalyx/kensa)
 and remains the source of behavioral truth during the 40-week Go build
-(per `docs/KENSA_GO_DAY1_PLAN.md`).
+(per `docs/context/KENSA_GO_DAY1_PLAN.md`).
 
 ## Status
 
 **Pre-alpha.** Week-0 scaffolding only. The first working transaction engine
 milestone (M1) lands at Week 4 per the Day-1 plan.
 
-See [`docs/KENSA_GO_DAY1_PLAN.md`](docs/KENSA_GO_DAY1_PLAN.md) for the build
+See [`docs/context/KENSA_GO_DAY1_PLAN.md`](docs/context/KENSA_GO_DAY1_PLAN.md) for the build
 sequence, architectural principles, and the full list of interface commitments.
 
 ## Foundational Documents
 
 Read in this order:
 
-1. [`docs/KENSA_VISION.md`](docs/KENSA_VISION.md) — what Kensa is and what category it defines
-2. [`docs/TECHNICAL_REMEDIATION_MP_V1.md`](docs/TECHNICAL_REMEDIATION_MP_V1.md) — the seven principles, the transaction model
-3. [`docs/CANONICAL_RULE_SCHEMA_V1.md`](docs/CANONICAL_RULE_SCHEMA_V1.md) — rule YAML contract with atomicity declaration
+1. [`docs/context/KENSA_VISION.md`](docs/context/KENSA_VISION.md) — what Kensa is and what category it defines
+2. [`docs/foundation_docs/TECHNICAL_REMEDIATION_MP_V1.md`](docs/foundation_docs/TECHNICAL_REMEDIATION_MP_V1.md) — the seven principles, the transaction model
+3. [`docs/foundation_docs/CANONICAL_RULE_SCHEMA_V1.md`](docs/foundation_docs/CANONICAL_RULE_SCHEMA_V1.md) — rule YAML contract with atomicity declaration
 4. [`docs/RULE_REVIEW_GUIDE_V1.md`](docs/RULE_REVIEW_GUIDE_V1.md) — six review dimensions
 5. [`docs/TRANSACTION_CONTRACT_V1.md`](docs/TRANSACTION_CONTRACT_V1.md) — customer-facing commitment
-6. [`docs/KENSA_GO_DAY1_PLAN.md`](docs/KENSA_GO_DAY1_PLAN.md) — this repo's architectural contract
+6. [`docs/context/KENSA_GO_DAY1_PLAN.md`](docs/context/KENSA_GO_DAY1_PLAN.md) — this repo's architectural contract
 
 ## Specs Before Code
 
