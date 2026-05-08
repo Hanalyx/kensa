@@ -193,7 +193,8 @@ but do not gate Track L.
 - **Deps:** C-011..C-019
 - **Acceptance:** `--format json` still works; CHANGELOG note added; printed deprecation warning when `--format` is used (only on stderr)
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `7c24dc3`)
+
 
 ### CLI Phase 3 — `target_options` + `rule_options` parity
 
