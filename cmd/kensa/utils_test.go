@@ -13,7 +13,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,180 +107,13 @@ func TestParseInventory_FileNotFound(t *testing.T) {
 	}
 }
 
-// ─── truncate ─────────────────────────────────────────────────────────────
-
-func TestTruncate(t *testing.T) {
-	cases := []struct {
-		in   string
-		n    int
-		want string
-	}{
-		{"short", 10, "short"},
-		{"exactly10!", 10, "exactly10!"},
-		{"longer than ten", 10, "longer th…"},
-		{"", 5, ""},
-	}
-	for _, tc := range cases {
-		got := truncate(tc.in, tc.n)
-		if got != tc.want {
-			t.Errorf("truncate(%q, %d) = %q; want %q", tc.in, tc.n, got, tc.want)
-		}
-	}
-}
-
-// ─── printCapsTable ───────────────────────────────────────────────────────
-
-func TestPrintCapsTable(t *testing.T) {
-	// Capture stdout via redirection.
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	caps := api.CapabilitySet{
-		"feature_x": true,
-		"feature_y": false,
-	}
-	printCapsTable("test-host", caps)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := buf.String()
-
-	if !strings.Contains(output, "test-host") {
-		t.Errorf("output missing host name; got: %s", output)
-	}
-	if !strings.Contains(output, "feature_x") || !strings.Contains(output, "feature_y") {
-		t.Errorf("output missing capability names; got: %s", output)
-	}
-	// One ✓ and one ✗ should appear.
-	if !strings.Contains(output, "✓") || !strings.Contains(output, "✗") {
-		t.Errorf("output missing ✓/✗ glyphs; got: %s", output)
-	}
-}
-
-// ─── printJSON ────────────────────────────────────────────────────────────
-
-func TestPrintJSON(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	v := map[string]interface{}{"foo": "bar", "n": 42}
-	if err := printJSON(v); err != nil {
-		t.Fatalf("printJSON: %v", err)
-	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-
-	var parsed map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
-		t.Fatalf("output is not valid JSON: %v\noutput: %s", err, buf.String())
-	}
-	if parsed["foo"] != "bar" {
-		t.Errorf("parsed[\"foo\"] = %v; want \"bar\"", parsed["foo"])
-	}
-}
-
-// ─── printScanTable / printRemediateTable / printHistoryTable ─────────────
-
-func TestPrintScanTable(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	rules := []*api.Rule{{ID: "rule-foo"}}
-	result := &api.ScanResult{
-		HostID: "test-host",
-		Transactions: []api.TransactionResult{
-			{Status: api.StatusCommitted, Steps: []api.StepResult{{Detail: "all good"}}},
-		},
-	}
-	printScanTable("test-host", rules, result)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := buf.String()
-
-	if !strings.Contains(output, "test-host") {
-		t.Errorf("missing host: %s", output)
-	}
-	if !strings.Contains(output, "rule-foo") {
-		t.Errorf("missing rule: %s", output)
-	}
-}
-
-func TestPrintRemediateTable(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	rules := []*api.Rule{
-		{ID: "rule-committed"},
-		{ID: "rule-rolled-back"},
-	}
-	result := &api.RemediationResult{
-		HostID: "test-host",
-		Transactions: []api.TransactionResult{
-			{Status: api.StatusCommitted},
-			{Status: api.StatusRolledBack},
-		},
-	}
-	printRemediateTable("test-host", rules, result)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := buf.String()
-
-	if !strings.Contains(output, "test-host") {
-		t.Errorf("missing host: %s", output)
-	}
-	if !strings.Contains(output, "1 committed") {
-		t.Errorf("missing committed count: %s", output)
-	}
-}
-
-func TestPrintHistoryTable(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	txns := []api.TransactionRecord{
-		{
-			RuleID:     "rule-foo",
-			HostID:     "test-host",
-			Status:     api.StatusCommitted,
-			FinishedAt: time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
-		},
-	}
-	printHistoryTable(txns)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := buf.String()
-
-	if !strings.Contains(output, "rule-foo") {
-		t.Errorf("missing rule: %s", output)
-	}
-	if !strings.Contains(output, "test-host") {
-		t.Errorf("missing host: %s", output)
-	}
-}
+// ─── moved to internal/output/ in C-012 ──────────────────────────────────
+//
+// The truncate / printCapsTable / printJSON / printJSONL / printScanTable /
+// printRemediateTable / printHistoryTable tests previously lived here.
+// The functions they tested moved to internal/output/{text,json,writer}.go
+// in C-012 and are now exercised by the tests in
+// internal/output/{text,json,writer}_test.go alongside the implementations.
 
 // ─── print*Usage helpers (writer-injected) ────────────────────────────────
 
@@ -502,41 +334,6 @@ implementations:
 	}
 	if !strings.Contains(stderrBuf.String(), "warn: skip") {
 		t.Errorf("missing skip warning on stderr; got: %s", stderrBuf.String())
-	}
-}
-
-// ─── printJSONL ───────────────────────────────────────────────────────────
-
-func TestPrintJSONL(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	rules := []*api.Rule{{ID: "rule-pass"}, {ID: "rule-fail"}}
-	result := &api.ScanResult{
-		HostID: "h1",
-		Transactions: []api.TransactionResult{
-			{Status: api.StatusCommitted, Steps: []api.StepResult{{Detail: "ok"}}},
-			{Status: api.StatusErrored},
-		},
-	}
-	if err := printJSONL(rules, result); err != nil {
-		t.Fatalf("printJSONL: %v", err)
-	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-
-	// Output should be valid JSON on a single line.
-	var parsed map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
-		t.Fatalf("output is not valid JSON: %v\noutput: %s", err, buf.String())
-	}
-	if parsed["host_id"] != "h1" {
-		t.Errorf("host_id = %v; want h1", parsed["host_id"])
 	}
 }
 

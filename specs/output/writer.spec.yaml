@@ -1,0 +1,252 @@
+spec:
+    id: output-writer
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-writers
+        description: |
+            internal/output owns every concrete serializer the kensa CLI
+            uses. Before C-012 those serializers lived as private
+            helpers in cmd/kensa/main.go (printJSON, printJSONL,
+            printScanTable, printRemediateTable, printHistoryTable,
+            printCapsTable). C-012 lifts them into internal/output
+            behind a common Writer interface so:
+
+              1. The fan-out (C-019) can dispatch a single result to
+                 multiple writers picked by Spec.Format string.
+              2. C-013..C-017 (csv, pdf, evidence, oscal serializers)
+                 add new formats by registering a writer rather than
+                 by editing main.go's switch statements.
+              3. The CLI binary stops growing presentation logic; main
+                 becomes flag-parse + transport + dispatch only.
+
+            Per-payload sub-interfaces (ScanResultWriter,
+            RemediationResultWriter, HistoryWriter, CapsWriter,
+            JSONValueWriter) keep payload types statically checked
+            at the call site — callers do not pass any-typed payloads
+            through the Writer interface.
+
+    objective:
+        summary: |
+            Define the Writer interface and the per-payload writer
+            sub-interfaces; refactor the existing print* helpers into
+            concrete value-type writers; expose registry lookup
+            functions (ScanWriterFor, RemediationWriterFor,
+            HistoryWriterFor, CapsWriterFor, JSONValueWriterFor) so
+            cmd/kensa dispatches by string-matched format identifier
+            rather than by hand-rolled switch statements.
+        scope:
+            includes:
+                - Writer interface (single Format() method)
+                - ScanResultWriter, RemediationResultWriter, HistoryWriter, CapsWriter, JSONValueWriter sub-interfaces
+                - Concrete value-type writers for text, json, jsonl
+                - Registry maps + WriterFor lookup functions
+                - ErrUnsupportedPayload sentinel
+                - Refactor cmd/kensa/main.go to call writers via the registry
+                - Behavior preservation (every existing --format option produces byte-identical output)
+            excludes:
+                - CSV writer (C-013)
+                - PDF writer (C-015)
+                - OSCAL writer (C-016)
+                - Evidence writer (C-017)
+                - Concurrent fan-out across multiple Specs (C-019)
+                - File-creation, fsync, atomic-rename behavior (C-018)
+
+    constraints:
+        - id: C-01
+          description: |
+              Concrete writers registered in the package-level maps
+              MUST be value types holding no per-stream state, so a
+              single registered instance can be shared across
+              goroutines (C-019 fan-out). Per-call locals (the
+              io.Writer being written to, computed counters,
+              accumulating buffers) live on the stack of the WriteX
+              method, not on the writer itself.
+
+              Future formats that genuinely need per-stream state
+              (e.g., a CSV writer that emits a header on the first
+              call but skips it on subsequent calls during inventory
+              mode) MUST expose that state via a separate constructor
+              that wraps an io.Writer (e.g., `NewStreamingCSVScan(io.Writer)`)
+              rather than by mutating the registered singleton. The
+              registered singleton remains stateless.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Every writer MUST satisfy Writer (i.e., expose Format()
+              string returning the lowercased format identifier
+              matching its registry key). The Format() return value
+              and the registry key MUST be identical so callers can
+              round-trip through Spec.Format → registry → Writer
+              without remembering both names.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Refactoring MUST preserve byte-for-byte the existing
+              --format output of every subcommand. Operators with
+              scripts that grep for "1 passed, 1 failed, 1 errors"
+              or jq-parse JSON output must see no observable change.
+              The smoke-test suite (cli-smoke.sh) and live-test
+              against inventory.ini both verify this empirically.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The writer registry maps (scanResultWriters,
+              remediationResultWriters, etc.) MUST be initialized at
+              package-load time, not lazily on first use. Lazy init
+              with a sync.Once introduces a race that's hard to
+              diagnose if a fan-out path lands before the first
+              direct call.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Lookup functions (ScanWriterFor etc.) MUST return
+              (Writer, ok bool). Callers handle the not-registered
+              case explicitly; the package never panics on an unknown
+              format. This decouples Parse-side validation (which
+              accepts the 8-format vocabulary) from Writer-side
+              dispatch (which may not yet have all 8 implementations).
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Writers MUST return errors from underlying writes
+              (json.Encoder.Encode, fmt.Fprintf) rather than
+              swallowing them. The original print* helpers used
+              fmt.Printf which silently dropped write errors; the
+              new writers cannot, because file-target writes
+              (C-018) need to surface ENOSPC and EACCES to the
+              operator.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Writer interface declares Format() string. Every
+              concrete writer (textCapsWriter, textScanWriter,
+              jsonScanWriter, jsonlScanWriter, …) returns the
+              format identifier matching its registry key.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              ScanResultWriter declares
+              WriteScanResult(w io.Writer, hostID string,
+              rules []*api.Rule, result *api.ScanResult) error.
+              Three concrete implementations: textScanWriter (Format
+              "text"), jsonScanWriter (Format "json"), jsonlScanWriter
+              (Format "jsonl").
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              RemediationResultWriter declares
+              WriteRemediationResult(...). Two implementations:
+              text and json.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              HistoryWriter declares
+              WriteHistory(w io.Writer, txns []api.TransactionRecord)
+              error. Two implementations: text and json.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-05
+          description: |
+              CapsWriter declares
+              WriteCaps(w io.Writer, hostID string,
+              caps api.CapabilitySet) error. Two implementations:
+              text and json.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              JSONValueWriter declares
+              WriteJSONValue(w io.Writer, v any) error. One
+              implementation: jsonValueWriter (Format "json").
+              Used by subcommands that emit single API value
+              types (rollback result, transaction record,
+              aggregate result).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-07
+          description: |
+              Lookup functions return (Writer, ok bool):
+              ScanWriterFor("json") → (jsonScanWriter{}, true);
+              ScanWriterFor("xml") → (nil, false). Caller branches
+              on ok.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-08
+          description: |
+              cmd/kensa/main.go uses the registry-and-fallback
+              pattern for every subcommand: `w, ok := WriterFor(format);
+              if !ok { w, _ = WriterFor("text") }`. This preserves
+              the existing default-to-text behavior while routing
+              through the registry.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-09
+          description: |
+              The pre-C-012 print* functions (printJSON, printJSONL,
+              printScanTable, printRemediateTable, printHistoryTable,
+              printCapsTable, truncate) and the local scanLine /
+              scanLineRule types are removed from cmd/kensa/main.go.
+              All grep -F 'printJSON' or 'printScanTable' against
+              cmd/kensa returns no matches.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-10
+          description: |
+              ErrUnsupportedPayload is exported as a sentinel for
+              future writers (C-013..C-017) that may not handle
+              every payload type. C-012 writers do not return it
+              (they cover every shape they declare), but the
+              sentinel exists.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-11
+          description: |
+              Live-test verification: kensa detect against a host in
+              inventory.ini emits the same Capabilities for <host>
+              header and the same ✓/✗ markers as before C-012.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-12
+          description: |
+              Smoke-test verification: scripts/cli-smoke.sh exits 0,
+              all 41 scenarios PASS. The smoke harness confirms exit-
+              code contracts and stdout/stderr stream policies are
+              unchanged.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-13
+          description: |
+              Registry maps (scanResultWriters, etc.) are package-
+              level vars initialized literally at declaration, not
+              lazily via sync.Once. A test asserting the registry is
+              non-empty before any test runs verifies eager init.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-14
+          description: |
+              Every writer returns the error from its underlying
+              Encode / Fprintf call rather than discarding it.
+              Specifically: jsonScanWriter.WriteScanResult returns
+              json.Encoder.Encode's error; textScanWriter.WriteScanResult
+              returns the first non-nil fmt.Fprintf error. Tested
+              indirectly by passing an io.Writer that always errors
+              and asserting the writer surfaces it.
+          references_constraints: [C-06]
+          priority: high
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-012]
