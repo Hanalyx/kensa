@@ -249,7 +249,7 @@ Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob)
 - **Deps:** L-001, L-002
 - **Acceptance:** `kensa --version` succeeds in Alpine
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** **done** — merge `969be68` (2026-05-08); new `build-portability-alpine` job using `alpine:3`; locally verified static binary runs cleanly on musl (orthogonal to L-004's glibc 2.28 target); 2-agent peer review clean; specter 22/22; tests pass; live-tested 192.168.1.211
 
 #### L-006 — Document portability commitment in `README.md` + `KENSA_API_DOC.md` §12
 - **Phase:** LL Phase 0
