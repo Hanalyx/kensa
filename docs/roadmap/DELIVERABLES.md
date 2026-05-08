@@ -107,7 +107,7 @@ but do not gate Track L.
 - **Deps:** C-001..C-007
 - **Acceptance:** exit codes 0 (success/help), 1 (runtime), 2 (usage); test coverage in `main_test.go`
 - **Size:** 1h
-- **Status:** pending
+- **Status:** **done** — merge `907dcbf` (2026-05-08); UsageError type with NewUsageError/WrapUsageError/IsUsageError; 8 subcommand sites converted; runHistory reordered to fail-fast on bad input before store-open; 16 new exit-code subtests cover detect/check/rollback/plan/remediate/history; 2-agent peer review clean (caught --since gap, fixed); live-tested 192.168.1.211.
 
 #### C-009 — Unit tests for all flag parsing paths
 - **Phase:** CLI Phase 1

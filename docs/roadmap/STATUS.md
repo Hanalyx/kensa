@@ -66,7 +66,7 @@ critical path to first release.
 
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
-| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | In progress (7 of 10 items done) | ~2 days | C-001..C-007 merged 2026-05-08 (latest: `e899938`). **All 3 CLI binaries now pflag-based.** C-008 (UsageError + main switch for ErrHelp/UsageError/runtime distinction) is next |
+| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | In progress (8 of 10 items done) | ~2 days | C-001..C-008 merged 2026-05-08 (latest: `907dcbf`). All 3 binaries pflag-based; UsageError distinguishes exit 1 (runtime) from exit 2 (usage). C-009 (unit tests for all flag parsing paths, ≥90% coverage on cmd/kensa/) is next |
 | Phase 2 — `--output FORMAT[:PATH]` mechanism (json, jsonl, csv, pdf, evidence, oscal, markdown) | Not started | ~1 week | PDF library decision needed (`unidoc/unipdf` vs `gofpdf` vs `maroto`) |
 | Phase 3 — Full `target_options` + `rule_options` parity | Not started | ~1.5 weeks | Inventory glob matching, password prompt, strict-host-keys, capability override, workers, full rule filtering |
 | Phase 4 — Session model in store + `kensa diff`, framework `kensa coverage`, `kensa list frameworks`, `kensa info`, `--stats`/`--prune` | Not started | ~2 weeks | SQLite schema migration needed; `kensa coverage` → `kensa mechanisms` rename with deprecation cycle |
