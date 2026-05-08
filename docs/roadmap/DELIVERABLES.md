@@ -216,7 +216,7 @@ phase (founder review on 2026-05-08).
 - **Deps:** C-021
 - **Acceptance:** `kensa check` default output groups FAILED / WARN / PASSED, surfaces severity badges, compacts PASSED list with glob patterns, synthesizes fix-line guidance from handler params (~5 common handler types), shows progress bar + summary line + host banner. WARN is a display-only category (passes/fails with `severity: low` and skipped rules; no engine changes).
 - **Size:** 1 day
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `44c8459`)
 
 #### C-023 — Polish: OS probe, `-i`, `-v`/`--verbose`
 - **Phase:** CLI Phase 2.5
