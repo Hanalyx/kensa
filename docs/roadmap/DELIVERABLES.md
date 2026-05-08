@@ -146,20 +146,19 @@ but do not gate Track L.
 - **Size:** 2h
 - **Status:** done (merged 2026-05-08, `84b4d0f`)
 
-#### C-014 — **GRAY ZONE** PDF library decision (`unidoc/unipdf` vs `gofpdf` vs `maroto`)
+#### C-014 — PDF library decision (`unidoc/unipdf` vs `gofpdf` vs `maroto`)
 - **Phase:** CLI Phase 2
 - **Deps:** —
 - **Acceptance:** founder ratifies one choice; library added to `go.mod` (or PDF deferred to post-1.0); decision recorded in STATUS.md
 - **Size:** 1h research
-- **Status:** **blocked — needs founder ratification**
-- **Notes:** Per pre-approval memory, gray-zone deliverables surface a question rather than auto-execute. Loop should pause here, surface the three options + recommendation, await founder.
+- **Status:** done (founder ratified maroto v2 on 2026-05-08, recorded in STATUS.md; bundled with C-015 merge `4322089`)
 
 #### C-015 — PDF serializer (gated on C-014)
 - **Phase:** CLI Phase 2
 - **Deps:** C-014
 - **Acceptance:** `kensa check ... -o pdf:report.pdf` emits readable report
 - **Size:** 4h
-- **Status:** blocked
+- **Status:** done (merged 2026-05-08, `4322089`)
 
 #### C-016 — OSCAL serializer wired through `-o` (existing `internal/evidence/oscal.go`)
 - **Phase:** CLI Phase 2
