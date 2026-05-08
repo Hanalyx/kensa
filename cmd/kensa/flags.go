@@ -133,4 +133,9 @@ const (
 	// Phase 2) when they want the formatted output to land in a
 	// file without a copy on stdout.
 	ShortQuiet = "q"
+
+	// ShortInventory is `--inventory` (Ansible-style inventory.ini
+	// for multi-host runs). Wired in C-023; the long form has been
+	// supported since CLI Phase 1.
+	ShortInventory = "i"
 )

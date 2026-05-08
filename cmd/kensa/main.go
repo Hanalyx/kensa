@@ -521,10 +521,8 @@ Examples:
 //	-s, --sudo          wrap in sudo
 //	-f, --format        output format
 //	-r, --rules-dir     rules directory
-//	    --inventory     Ansible-style inventory (no short — `-i` reserved
-//	                    elsewhere is debatable, but no other subcommand
-//	                    in kensa uses --inventory, so leaving it long-only
-//	                    keeps the system-wide table consistent)
+//	-i, --inventory     Ansible-style inventory.ini (C-023)
+//	-v, --verbose       expand the compacted PASSED list (C-023)
 //	-h, --help          show help
 //
 // Single-dash long forms (`-host`, `-rules-dir`, etc.) from the stdlib-
@@ -551,6 +549,7 @@ func runCheck(ctx context.Context, args []string) error {
 		rulesDir  string
 		inventory string
 		quiet     bool
+		verbose   bool
 		outputs   []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
@@ -561,8 +560,9 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
-	fs.StringVar(&inventory, "inventory", "", "Ansible-style inventory.ini for multi-host check (long-only)")
+	fs.StringVarP(&inventory, "inventory", ShortInventory, "", "Ansible-style inventory.ini for multi-host check")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	fs.BoolVarP(&verbose, "verbose", ShortVerbose, false, "expand the compacted PASSED list (text format only)")
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
 
 	if err := fs.Parse(args); err != nil {
@@ -623,6 +623,30 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	defer func() { _ = transport.Close() }()
 
+	// OS detection runs once per scan: a single `cat /etc/os-release`
+	// over the established transport.
+	//
+	// Missing-file failures (zero exit code, no /etc/os-release) fall
+	// through silently — the host banner just omits the OS segment.
+	// Transport-level errors (broken pipe, sudo denied, AppArmor)
+	// emit a stderr warning so the operator has diagnostic context;
+	// the banner still falls back to host-only and the scan
+	// continues. Persistent transport problems will resurface
+	// immediately on the scan call below.
+	osInfo, err := detect.DetectOS(ctx, transport)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "kensa: warning: OS detection: %v (banner will omit OS)\n", err)
+	}
+
+	// Defensive operator-UX: --verbose only flows through the
+	// default text path, not through the writer registry. If the
+	// operator combined --verbose with -o, the flag is silently
+	// dropped. Surface a one-line warning so the silent demotion
+	// doesn't waste a debug session.
+	if verbose && len(outputs) > 0 {
+		fmt.Fprintln(os.Stderr, "kensa: warning: --verbose only affects the default text output, not -o targets")
+	}
+
 	resolved := resolveAndPrintIssues(rules, quiet)
 
 	runner := scan.New(nil)
@@ -638,6 +662,17 @@ func runCheck(ctx context.Context, args []string) error {
 			return WrapUsageError("--output", err)
 		}
 		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, resolved.Order, result))
+	}
+	// When the operator picks the default text format, route through
+	// RenderScanResult directly so --verbose and the detected OS
+	// label can flow into the writer. The fan-out path above does
+	// not yet support these — operators wanting verbose+text via
+	// fan-out get the default rendering.
+	if format == "text" || format == "table" || format == "" {
+		return output.RenderScanResult(bodyOut(quiet), host, resolved.Order, result, output.ScanRenderOptions{
+			Verbose: verbose,
+			OSLabel: osInfo.Label(),
+		})
 	}
 	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, resolved.Order, result)
 }
