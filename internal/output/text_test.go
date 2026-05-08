@@ -453,7 +453,7 @@ func TestWriteHostBanner_RuneWidth(t *testing.T) {
 	// byte count. Catches the byte-vs-rune bug R1 flagged.
 	for _, host := range []string{"h", "192.168.1.211", "тест-хост", "测试-host", "fe80::1"} {
 		var buf bytes.Buffer
-		if err := writeHostBanner(&buf, host); err != nil {
+		if err := writeHostBanner(&buf, host, ""); err != nil {
 			t.Errorf("writeHostBanner(%q): %v", host, err)
 			continue
 		}
@@ -510,6 +510,80 @@ func TestHumanizeDetail_ExitCodePattern(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("humanizeDetail(%q) = %q, want %q", tc.raw, got, tc.want)
 		}
+	}
+}
+
+func TestRenderScanResult_VerboseExpandsPassed(t *testing.T) {
+	// In verbose mode, the PASSED section emits one rule ID per
+	// line with a ✓ marker, NOT the glob-compacted summary.
+	rules := []*api.Rule{
+		{ID: "accounts-a"}, {ID: "accounts-b"}, {ID: "accounts-c"},
+		{ID: "audit-a"}, {ID: "audit-b"}, {ID: "audit-c"},
+		{ID: "rule-g"}, {ID: "rule-h"}, {ID: "rule-i"},
+	}
+	txns := make([]api.TransactionResult, len(rules))
+	for i := range txns {
+		txns[i].Status = api.StatusCommitted
+	}
+	result := &api.ScanResult{HostID: "h", Transactions: txns}
+	var buf bytes.Buffer
+	if err := RenderScanResult(&buf, "h", rules, result, ScanRenderOptions{Verbose: true}); err != nil {
+		t.Fatalf("RenderScanResult: %v", err)
+	}
+	out := buf.String()
+	// Each rule appears on its own line with the ✓ marker.
+	for _, id := range []string{"accounts-a", "audit-c", "rule-i"} {
+		if !strings.Contains(out, "✓ "+id) {
+			t.Errorf("verbose mode should expand to ✓ <id> per rule; missing %q:\n%s", id, out)
+		}
+	}
+	// Compaction patterns and -v hint should NOT appear.
+	if strings.Contains(out, "accounts-*") || strings.Contains(out, "run with -v to expand") {
+		t.Errorf("verbose mode should not show compaction or hint:\n%s", out)
+	}
+}
+
+func TestRenderScanResult_OSLabelInBanner(t *testing.T) {
+	rules := []*api.Rule{{ID: "r"}}
+	result := &api.ScanResult{
+		HostID:       "h",
+		Transactions: []api.TransactionResult{{Status: api.StatusCommitted}},
+	}
+	var buf bytes.Buffer
+	if err := RenderScanResult(&buf, "192.168.1.211", rules, result, ScanRenderOptions{OSLabel: "RHEL 9.6"}); err != nil {
+		t.Fatalf("RenderScanResult: %v", err)
+	}
+	first := strings.SplitN(buf.String(), "\n", 2)[0]
+	if !strings.Contains(first, "192.168.1.211") {
+		t.Errorf("banner missing hostID: %q", first)
+	}
+	if !strings.Contains(first, "· RHEL 9.6") {
+		t.Errorf("banner missing OS label: %q", first)
+	}
+	// Banner is still 60 runes total.
+	runeCount := 0
+	for range first {
+		runeCount++
+	}
+	if runeCount != 60 {
+		t.Errorf("banner with OS label = %d runes, want 60", runeCount)
+	}
+}
+
+func TestRenderScanResult_OSLabelEmpty_NoOSegment(t *testing.T) {
+	// Empty OSLabel: banner falls back to host-only (no "·" separator).
+	rules := []*api.Rule{{ID: "r"}}
+	result := &api.ScanResult{
+		HostID:       "h",
+		Transactions: []api.TransactionResult{{Status: api.StatusCommitted}},
+	}
+	var buf bytes.Buffer
+	if err := RenderScanResult(&buf, "h", rules, result, ScanRenderOptions{OSLabel: ""}); err != nil {
+		t.Fatalf("RenderScanResult: %v", err)
+	}
+	first := strings.SplitN(buf.String(), "\n", 2)[0]
+	if strings.Contains(first, "·") {
+		t.Errorf("empty OSLabel should produce no '·' separator: %q", first)
 	}
 }
 

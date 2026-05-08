@@ -35,12 +35,15 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		"ShortKey":         ShortKey,
 		"ShortSudo":        ShortSudo,
 		"ShortFormat":      ShortFormat,
+		"ShortOutput":      ShortOutput,
 		"ShortRulesDir":    ShortRulesDir,
 		"ShortRule":        ShortRule,
 		"ShortSince":       ShortSince,
 		"ShortLimit":       ShortLimit,
 		"ShortTransaction": ShortTransaction,
 		"ShortAggregate":   ShortAggregate,
+		"ShortQuiet":       ShortQuiet,
+		"ShortInventory":   ShortInventory,
 	}
 
 	// Build inverse map: letter → list of constant names that bind it.
@@ -96,6 +99,9 @@ func TestShortLetterTable_CaseDiscipline(t *testing.T) {
 		{"ShortLimit", ShortLimit, false, "head/tail convention -n"},
 		{"ShortTransaction", ShortTransaction, false, "no conflict"},
 		{"ShortAggregate", ShortAggregate, false, "no conflict"},
+		{"ShortQuiet", ShortQuiet, false, "GNU --quiet convention"},
+		{"ShortOutput", ShortOutput, false, "GNU --output convention"},
+		{"ShortInventory", ShortInventory, false, "ansible --inventory convention"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

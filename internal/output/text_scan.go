@@ -34,15 +34,45 @@ import (
 // Rendered as 4-char fixed-width tokens (HIGH, MED, LOW) so columns
 // align without wrapping.
 
+// ScanRenderOptions carries the per-call rendering knobs that the
+// ScanResultWriter interface doesn't model. cmd/kensa populates this
+// from --verbose / detected OS info / etc., then calls
+// RenderScanResult directly to bypass the writer registry for the
+// configured render. The textScanWriter.WriteScanResult method
+// continues to delegate with default (zero-value) options for the
+// fan-out / writer-registry path.
+type ScanRenderOptions struct {
+	// Verbose expands the compacted PASSED list to one rule ID per
+	// line instead of glob-pattern compaction. Wired by --verbose
+	// (-v) on body-emitting subcommands.
+	Verbose bool
+
+	// OSLabel is the operator-facing OS label rendered in the host
+	// banner (e.g., "RHEL 9.6", "Ubuntu 22.04"). Empty when the
+	// caller couldn't detect the OS; the banner falls back to
+	// hostID-only.
+	OSLabel string
+}
+
+// RenderScanResult renders a scan result with caller-supplied
+// options. cmd/kensa uses this entry point when --verbose or OS
+// detection wants to influence the output. The
+// ScanResultWriter-interface path continues through
+// textScanWriter.WriteScanResult, which calls this function with
+// default options.
+func RenderScanResult(w io.Writer, hostID string, rules []*api.Rule, result *api.ScanResult, opts ScanRenderOptions) error {
+	return renderScanResult(w, hostID, rules, result, opts)
+}
+
 // renderScanResult is the body of textScanWriter.WriteScanResult,
 // extracted into a free function so internal helpers stay package-
 // private without polluting the writer's exported method body.
-func renderScanResult(w io.Writer, hostID string, rules []*api.Rule, result *api.ScanResult) error {
+func renderScanResult(w io.Writer, hostID string, rules []*api.Rule, result *api.ScanResult, opts ScanRenderOptions) error {
 	groups := classifyTransactions(rules, result)
 
 	// Pre-resolve the host banner and summary so any error short-
 	// circuits before partial output.
-	if err := writeHostBanner(w, hostID); err != nil {
+	if err := writeHostBanner(w, hostID, opts.OSLabel); err != nil {
 		return err
 	}
 	if err := writeFailedSection(w, rules, result, groups.failed); err != nil {
@@ -51,7 +81,7 @@ func renderScanResult(w io.Writer, hostID string, rules []*api.Rule, result *api
 	if err := writeWarnSection(w, rules, result, groups.warn); err != nil {
 		return err
 	}
-	if err := writePassedSection(w, rules, groups.passed); err != nil {
+	if err := writePassedSection(w, rules, groups.passed, opts.Verbose); err != nil {
 		return err
 	}
 	return writeSummary(w, groups)
@@ -81,25 +111,35 @@ func classifyTransactions(_ []*api.Rule, result *api.ScanResult) transactionGrou
 	return g
 }
 
-// writeHostBanner emits the host-identification line. C-023 will
-// extend this with OS detection ("RHEL 9.6") and auth method.
+// writeHostBanner emits the host-identification line. C-023 added
+// the optional OS-label segment ("· RHEL 9.6"); C-024+ may add
+// auth method or other metadata.
 //
 // All width math is rune-counted, not byte-counted: "─" is a
 // 3-byte UTF-8 codepoint, and hostnames may contain non-ASCII
 // characters (IDN labels per RFC 5890). Using len() on either
 // would produce a too-short banner.
-func writeHostBanner(w io.Writer, hostID string) error {
+//
+// osLabel is empty when the caller couldn't detect the OS; the
+// banner renders just the hostID in that case.
+func writeHostBanner(w io.Writer, hostID, osLabel string) error {
 	const totalRunes = 60
 	const prefixRunes = 4 // "─── "
-	const sepRunes = 1   // " "
+	const sepRunes = 1    // " "
 	hostRunes := utf8.RuneCountInString(hostID)
-	tailRunes := totalRunes - prefixRunes - hostRunes - sepRunes
+	osSegment := ""
+	osRunes := 0
+	if osLabel != "" {
+		osSegment = " · " + osLabel
+		osRunes = utf8.RuneCountInString(osSegment)
+	}
+	tailRunes := totalRunes - prefixRunes - hostRunes - osRunes - sepRunes
 	if tailRunes < 4 {
 		tailRunes = 4
 	}
 	prefix := strings.Repeat("─", prefixRunes-1) + " "
 	tail := strings.Repeat("─", tailRunes)
-	if _, err := fmt.Fprintf(w, "%s%s%s%s\n", prefix, hostID, " ", tail); err != nil {
+	if _, err := fmt.Fprintf(w, "%s%s%s%s%s\n", prefix, hostID, osSegment, " ", tail); err != nil {
 		return err
 	}
 	return nil
@@ -147,10 +187,19 @@ func writeWarnSection(w io.Writer, rules []*api.Rule, result *api.ScanResult, in
 	return blankLine(w)
 }
 
-// writePassedSection emits the compacted PASSED group. With more
-// than 8 passes the section glob-compacts rule IDs to common
-// prefixes followed by "*"; below the threshold it lists IDs.
-func writePassedSection(w io.Writer, rules []*api.Rule, indices []int) error {
+// passedInlineThreshold is the cutoff below which PASSED rule IDs
+// render inline (one space-separated line) instead of glob-
+// compacted. 8 fits an 80-column terminal at typical rule-ID
+// lengths; 9+ overflows.
+const passedInlineThreshold = 8
+
+// writePassedSection emits the PASSED group. Three modes:
+//
+//	verbose=true     → one rule ID per line (operator opted in via -v)
+//	≤ 8 passes        → inline space-separated list
+//	> 8 passes        → glob-compacted via deepest-common-prefix
+//	                     plus a "run with -v to expand" hint
+func writePassedSection(w io.Writer, rules []*api.Rule, indices []int, verbose bool) error {
 	if len(indices) == 0 {
 		return nil
 	}
@@ -166,12 +215,21 @@ func writePassedSection(w io.Writer, rules []*api.Rule, indices []int) error {
 		return err
 	}
 
-	// Below the threshold, render the IDs inline; above, compact.
-	if len(ids) <= 8 {
+	switch {
+	case verbose:
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if _, err := fmt.Fprintf(w, "  ✓ %s\n", id); err != nil {
+				return err
+			}
+		}
+	case len(ids) <= passedInlineThreshold:
 		if _, err := fmt.Fprintf(w, "  ·  %s\n", strings.Join(ids, " ")); err != nil {
 			return err
 		}
-	} else {
+	default:
 		compact := compactPasses(ids)
 		if _, err := fmt.Fprintf(w, "  ·  %s\n", compact); err != nil {
 			return err

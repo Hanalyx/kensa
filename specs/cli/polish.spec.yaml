@@ -1,0 +1,209 @@
+spec:
+    id: cli-polish-c023
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-phase-2-5-polish
+        description: |
+            Final deliverable of CLI Phase 2.5. Three small additions
+            that round out the operator UX from C-022:
+
+              1. /etc/os-release detection so the host banner shows
+                 "── 192.168.1.211 · RHEL 9.6 ──" instead of just
+                 the IP.
+              2. -i short form for --inventory so muscle-memory from
+                 ansible (which uses -i) works.
+              3. -v / --verbose flag wired so operators who want the
+                 full PASSED list (vs. the glob-compacted default)
+                 can see it.
+
+            The deliverable is "polish" because none of these add
+            new product surface — they make existing surfaces more
+            ergonomic. ShortVerbose was already reserved in
+            cmd/kensa/flags.go since CLI Phase 1; C-023 finally
+            wires it.
+
+    objective:
+        summary: |
+            Add detect.OSInfo + DetectOS for /etc/os-release parsing,
+            register ShortInventory and ShortVerbose, expose
+            output.RenderScanResult with options so cmd/kensa can
+            opt into verbose+OS-label rendering for the default
+            text path.
+        scope:
+            includes:
+                - internal/detect/osinfo.go (OSInfo, DetectOS, parseOSRelease, Label)
+                - ShortInventory = "i" / -i short form on `kensa check`
+                - ShortVerbose = "v" / --verbose / -v flag on `kensa check`
+                - output.RenderScanResult exported (with ScanRenderOptions{Verbose, OSLabel})
+                - output.ScanRenderOptions struct
+                - "cmd/kensa runCheck single-host wiring: DetectOS + RenderScanResult for the text path; legacy --format dispatch unchanged for json/jsonl/csv/etc."
+            excludes:
+                - --verbose on remediate, rollback, history, plan, detect (text rendering for those is unchanged from CLI Phase 1)
+                - --verbose plumbed through fan-out (-o text) — operators wanting verbose use the default text output, not -o
+                - OS detection in inventory mode (probes per-host would be ~N extra round-trips; defer)
+                - OS detection cached across runs (re-probed each scan today; cheap)
+                - Auth-method display in banner ("· root via sudo" per the mockup) — needs threading from the SSH transport layer; defer
+                - Wall-clock duration in summary — needs scan-result instrumentation; defer
+                - Report-path callout in summary — needs cmd/kensa to thread the chosen -o; defer
+
+    constraints:
+        - id: C-01
+          description: |
+              detect.DetectOS MUST NOT error when the remote host's
+              /etc/os-release is missing (e.g., RHEL 6 vintage,
+              minimal containers). It returns a zero OSInfo so the
+              caller can fall through to host-only banner display.
+              Network/transport failures DO surface as errors.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              parseOSRelease MUST handle quoted (single or double),
+              unquoted, and commented values per
+              os-release(5). Lines without '=' are silently ignored.
+              Empty content produces a zero OSInfo without erroring.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              OSInfo.Label() MUST return short-form names for
+              recognized distributions ("RHEL 9.6", "Ubuntu 22.04",
+              "Fedora 41"). For unknown families, it falls back to
+              the upper-cased ID. For empty info, returns "".
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              ShortInventory MUST be "i" (lowercase). Matches
+              ansible's -i convention; operators with ansible
+              muscle memory expect this letter.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              ShortVerbose MUST be "v" (lowercase). GNU/POSIX
+              convention; reserved at CLI Phase 1 in cmd/kensa/flags.go.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              writeHostBanner MUST add a "· OSLABEL" segment when
+              osLabel is non-empty. Banner total width remains 60
+              runes (rune-counted, not byte-counted, per the C-022
+              UTF-8 fix). Width math accounts for the OS segment
+              plus the leading " · ".
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              When --verbose is set, the PASSED section MUST emit
+              one rule ID per line with a "✓ " prefix, NOT the
+              glob-compacted summary. Compaction is the operator's
+              default; -v is the explicit opt-in for full detail.
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              cmd/kensa MUST route the default text output through
+              output.RenderScanResult (NOT the writer-registry
+              fallback) so verbose and osLabel options propagate.
+              Other formats (json, jsonl, csv) continue through the
+              writer registry — they don't consume these options.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              parseOSRelease handles RHEL, Ubuntu, single-quoted,
+              unquoted, commented, and malformed input. Locked by
+              TestParseOSRelease_RHEL, _Ubuntu, _SingleQuotes,
+              _NoQuotes, _EmptyAndComments, _MalformedLine.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              OSInfo.Label produces "RHEL 9.6", "Ubuntu 22.04",
+              "Fedora", "" (for empty), "NOVEL-DISTRO 1.0" (unknown
+              family), "1.0" (version-only). Locked by
+              TestOSInfo_Label.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              DetectOS returns a zero OSInfo without erroring when
+              the host has no /etc/os-release (Run exits non-zero).
+              Locked by TestDetectOS_MissingFile.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              DetectOS surfaces transport errors so callers can
+              decide retry/fallthrough. Locked by
+              TestDetectOS_TransportError.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              DetectOS happy path: RHEL 9.6 host produces an OSInfo
+              whose Label() returns "RHEL 9.6". Locked by
+              TestDetectOS_HappyPath.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              ShortInventory equals "i" and is registered on
+              `kensa check`'s --inventory flag. Verified
+              architecturally (the const is read from
+              cmd/kensa/flags.go) plus operator-facing via
+              `kensa check --help` listing "-i, --inventory".
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              ShortVerbose equals "v" and is registered on
+              `kensa check`'s --verbose flag. Verified the same
+              way as AC-06.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-08
+          description: |
+              writeHostBanner with non-empty osLabel produces a
+              banner containing "· OSLABEL" and remains 60 runes
+              wide. Locked by TestRenderScanResult_OSLabelInBanner.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-09
+          description: |
+              writeHostBanner with empty osLabel produces no "·"
+              separator (banner is host-only). Locked by
+              TestRenderScanResult_OSLabelEmpty_NoOSegment.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-10
+          description: |
+              Verbose mode expands the PASSED section: one rule
+              ID per line with "✓ " prefix; no compaction patterns
+              and no -v hint. Locked by
+              TestRenderScanResult_VerboseExpandsPassed.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-11
+          description: |
+              cmd/kensa runCheck routes the default text output
+              through output.RenderScanResult (with verbose+OSLabel
+              options) rather than the writer-registry fallback.
+              Verified by code inspection at the runCheck text-
+              path branch (cmd/kensa/main.go) and live-tested
+              against 192.168.1.211: the host banner shows the
+              detected OS label, --verbose expands the PASSED
+              list. JSON/CSV/etc. continue through the writer
+              registry unchanged.
+          references_constraints: [C-08]
+          priority: high
+
+    tags: [cli, polish, operator-ux, tier-1, c-023]

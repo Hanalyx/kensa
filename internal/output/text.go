@@ -45,7 +45,7 @@ type textScanWriter struct{}
 func (textScanWriter) Format() string { return "text" }
 
 func (textScanWriter) WriteScanResult(w io.Writer, hostID string, rules []*api.Rule, result *api.ScanResult) error {
-	return renderScanResult(w, hostID, rules, result)
+	return renderScanResult(w, hostID, rules, result, ScanRenderOptions{})
 }
 
 // textRemediationWriter renders a RemediationResult as a tabular listing
