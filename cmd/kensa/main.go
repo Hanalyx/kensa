@@ -199,6 +199,24 @@ func runCLI(argv []string) int {
 	return 0
 }
 
+// bodyOut returns the io.Writer to which a subcommand's default
+// human-readable result body should be written. When the operator
+// passes --quiet (-q), returns io.Discard so no body bytes hit
+// stdout. Errors and warnings continue to use os.Stderr; --quiet
+// does NOT silence them. Help and version output also bypass this
+// helper and go directly to os.Stdout.
+//
+// Operators use --quiet in CI scripts where only the exit code
+// matters (e.g., kensa check --quiet && deploy.sh). Once C-019's
+// `-o FORMAT:PATH` mechanism lands, --quiet pairs naturally with
+// it: file output proceeds, stdout stays clean.
+func bodyOut(quiet bool) io.Writer {
+	if quiet {
+		return io.Discard
+	}
+	return os.Stdout
+}
+
 // rewriteLegacyDb converts stdlib-flag-style single-dash `-db ...` and
 // `-db=...` to pflag's `--db ...` and `--db=...`. Emits a deprecation
 // warning to stderr so users see they need to migrate the syntax.
@@ -334,6 +352,7 @@ func runDetect(ctx context.Context, args []string) error {
 		keyPath  string
 		sudo     bool
 		format   string
+		quiet    bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -342,6 +361,7 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
+	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -377,7 +397,7 @@ func runDetect(ctx context.Context, args []string) error {
 		return fmt.Errorf("detect: %w", err)
 	}
 
-	return output.CapsWriterOrText(format).WriteCaps(os.Stdout, host, caps)
+	return output.CapsWriterOrText(format).WriteCaps(bodyOut(quiet), host, caps)
 }
 
 // printDetectUsage writes the `kensa detect` help text to w. Per GNU
@@ -438,6 +458,7 @@ func runCheck(ctx context.Context, args []string) error {
 		format    string
 		rulesDir  string
 		inventory string
+		quiet     bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -448,6 +469,7 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.StringVar(&inventory, "inventory", "", "Ansible-style inventory.ini for multi-host check (long-only)")
+	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -467,7 +489,7 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 
 	if inventory != "" {
-		return runCheckInventory(ctx, inventory, user, port, keyPath, sudo, format, rules)
+		return runCheckInventory(ctx, inventory, user, port, keyPath, sudo, format, rules, quiet)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -490,7 +512,7 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	result.HostID = host
 
-	return output.ScanWriterOrText(format).WriteScanResult(os.Stdout, host, rules, result)
+	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, rules, result)
 }
 
 // printCheckUsage writes the `kensa check` help text. --help to stdout,
@@ -510,7 +532,12 @@ Examples:
 }
 
 // runCheckInventory fans out a check across all hosts in an inventory file.
-func runCheckInventory(ctx context.Context, inventoryPath, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule) error {
+//
+// TODO(C-019): collapse the 9 positional parameters into a
+// checkOptions struct (target/transport/output/rules) before C-019
+// adds the -o sink. Adding parameter #10 to a positional list is
+// the kind of change that introduces argument-misorder bugs.
+func runCheckInventory(ctx context.Context, inventoryPath, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule, quiet bool) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -558,12 +585,13 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 	wg.Wait()
 
 	w := output.ScanWriterOrText(format)
+	out := bodyOut(quiet)
 	for _, r := range results {
 		if r.err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 			continue
 		}
-		if err := w.WriteScanResult(os.Stdout, r.host.addr, rules, r.result); err != nil {
+		if err := w.WriteScanResult(out, r.host.addr, rules, r.result); err != nil {
 			return err
 		}
 	}
@@ -594,6 +622,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		format   string
 		oscalOut string
 		rulesDir string
+		quiet    bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -604,6 +633,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (long-only)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
+	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -640,7 +670,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		return err
 	}
 
-	if err := output.RemediationWriterOrText(format).WriteRemediationResult(os.Stdout, host, rules, result); err != nil {
+	if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, rules, result); err != nil {
 		return err
 	}
 
@@ -732,6 +762,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		keyPath  string
 		sudo     bool
 		txnIDStr string
+		quiet    bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -740,6 +771,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "transaction UUID to roll back (required)")
+	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -779,7 +811,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		return err
 	}
 	jw, _ := output.JSONValueWriterFor("json")
-	return jw.WriteJSONValue(os.Stdout, result)
+	return jw.WriteJSONValue(bodyOut(quiet), result)
 }
 
 // printRollbackUsage writes the `kensa rollback` help text to w.
@@ -817,6 +849,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		format    string
 		txnIDStr  string
 		aggregate string
+		quiet     bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&hostID, "host", ShortHost, "", "filter by host ID")
@@ -826,6 +859,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
 	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "get a single transaction by UUID")
 	fs.StringVarP(&aggregate, "aggregate", ShortAggregate, "", "aggregate key: by_host, by_rule, by_framework_control")
+	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -877,13 +911,14 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	}
 
 	jsonValue, _ := output.JSONValueWriterFor("json")
+	out := bodyOut(quiet)
 
 	if txnIDStr != "" {
 		rec, err := log.Get(ctx, txnID)
 		if err != nil {
 			return fmt.Errorf("get transaction: %w", err)
 		}
-		return jsonValue.WriteJSONValue(os.Stdout, rec)
+		return jsonValue.WriteJSONValue(out, rec)
 	}
 
 	if aggregate != "" {
@@ -891,7 +926,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		if err != nil {
 			return fmt.Errorf("aggregate: %w", err)
 		}
-		return jsonValue.WriteJSONValue(os.Stdout, aggResult)
+		return jsonValue.WriteJSONValue(out, aggResult)
 	}
 
 	result, err := log.Query(ctx, filter, api.Page{Limit: limit})
@@ -900,10 +935,10 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	}
 
 	if format == "json" {
-		return jsonValue.WriteJSONValue(os.Stdout, result)
+		return jsonValue.WriteJSONValue(out, result)
 	}
 	w := output.HistoryWriterOrText(format)
-	if err := w.WriteHistory(os.Stdout, result.Transactions); err != nil {
+	if err := w.WriteHistory(out, result.Transactions); err != nil {
 		return err
 	}
 	// The "N of M transactions shown" trailer is human-friendly footer
@@ -913,8 +948,14 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	// stderr so the operator still sees pagination context without
 	// breaking the output file.
 	if w.Format() == "text" {
-		fmt.Printf("\n%d of %d transactions shown\n", len(result.Transactions), result.Total)
+		// Trailer is part of the human-readable body; --quiet suppresses
+		// it alongside the table itself.
+		fmt.Fprintf(out, "\n%d of %d transactions shown\n", len(result.Transactions), result.Total)
 	} else {
+		// CSV/etc.: trailer goes to stderr (it would corrupt a row-
+		// oriented format if mixed into stdout). stderr is not
+		// silenced by --quiet — the pagination context is helpful
+		// regardless.
 		fmt.Fprintf(os.Stderr, "%d of %d transactions shown\n", len(result.Transactions), result.Total)
 	}
 	return nil
@@ -958,6 +999,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 		keyPath  string
 		sudo     bool
 		format   string
+		quiet    bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -966,6 +1008,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, markdown, json, plain")
+	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -1006,11 +1049,11 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 		return err
 	}
 
-	out, err := engine.FormatPlan(plan, api.PreviewFormat(format))
+	planText, err := engine.FormatPlan(plan, api.PreviewFormat(format))
 	if err != nil {
 		return err
 	}
-	fmt.Print(out)
+	fmt.Fprint(bodyOut(quiet), planText)
 	return nil
 }
 
