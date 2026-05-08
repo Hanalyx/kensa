@@ -188,6 +188,13 @@ func runCLI(argv []string) int {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "kensa %s: %v\n", cmd, err)
+		// UsageError → exit 2 (GNU/POSIX: invocation was wrong).
+		// Anything else → exit 1 (something went wrong doing what
+		// you asked). pflag.ErrHelp is handled separately and would
+		// have returned 0 before reaching here.
+		if IsUsageError(err) {
+			return 2
+		}
 		return 1
 	}
 	return 0
@@ -342,7 +349,7 @@ func runDetect(ctx context.Context, args []string) error {
 			printDetectUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa detect --help'", err)
+		return WrapUsageError("try 'kensa detect --help'", err)
 	}
 	if showHelp {
 		printDetectUsage(os.Stdout, fs)
@@ -350,7 +357,7 @@ func runDetect(ctx context.Context, args []string) error {
 	}
 	if host == "" {
 		printDetectUsage(os.Stderr, fs)
-		return errors.New("--host is required")
+		return NewUsageError("--host is required")
 	}
 
 	hostCfg := api.HostConfig{
@@ -470,7 +477,7 @@ func runCheck(ctx context.Context, args []string) error {
 			printCheckUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa check --help'", err)
+		return WrapUsageError("try 'kensa check --help'", err)
 	}
 	if showHelp {
 		printCheckUsage(os.Stdout, fs)
@@ -487,7 +494,7 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
-		return errors.New("--host or --inventory is required")
+		return NewUsageError("--host or --inventory is required")
 	}
 
 	hostCfg := api.HostConfig{
@@ -674,7 +681,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 			printRemediateUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa remediate --help'", err)
+		return WrapUsageError("try 'kensa remediate --help'", err)
 	}
 	if showHelp {
 		printRemediateUsage(os.Stdout, fs)
@@ -682,7 +689,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	if host == "" {
 		printRemediateUsage(os.Stderr, fs)
-		return errors.New("--host is required")
+		return NewUsageError("--host is required")
 	}
 
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
@@ -820,7 +827,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 			printRollbackUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa rollback --help'", err)
+		return WrapUsageError("try 'kensa rollback --help'", err)
 	}
 	if showHelp {
 		printRollbackUsage(os.Stdout, fs)
@@ -828,15 +835,15 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	}
 	if host == "" {
 		printRollbackUsage(os.Stderr, fs)
-		return errors.New("--host is required")
+		return NewUsageError("--host is required")
 	}
 	if txnIDStr == "" {
 		printRollbackUsage(os.Stderr, fs)
-		return errors.New("--txn is required")
+		return NewUsageError("--txn is required")
 	}
 	txnID, err := uuid.Parse(txnIDStr)
 	if err != nil {
-		return fmt.Errorf("invalid --txn UUID: %w", err)
+		return WrapUsageError("invalid --txn UUID", err)
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
@@ -905,11 +912,37 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 			printHistoryUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa history --help'", err)
+		return WrapUsageError("try 'kensa history --help'", err)
 	}
 	if showHelp {
 		printHistoryUsage(os.Stdout, fs)
 		return nil
+	}
+
+	// Validate flag values up front (fail-fast on bad input before
+	// touching the store). All UsageError paths must run before any
+	// runtime resource is acquired.
+	var txnID uuid.UUID
+	if txnIDStr != "" {
+		var err error
+		txnID, err = uuid.Parse(txnIDStr)
+		if err != nil {
+			return WrapUsageError("invalid --txn UUID", err)
+		}
+	}
+	filter := api.LogFilter{}
+	if hostID != "" {
+		filter.HostIDs = []string{hostID}
+	}
+	if ruleID != "" {
+		filter.RuleIDs = []string{ruleID}
+	}
+	if since != "" {
+		t, err := parseSince(since)
+		if err != nil {
+			return WrapUsageError("--since", err)
+		}
+		filter.Since = t
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
@@ -924,30 +957,11 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	}
 
 	if txnIDStr != "" {
-		txnID, err := uuid.Parse(txnIDStr)
-		if err != nil {
-			return fmt.Errorf("invalid --txn UUID: %w", err)
-		}
 		rec, err := log.Get(ctx, txnID)
 		if err != nil {
 			return fmt.Errorf("get transaction: %w", err)
 		}
 		return printJSON(rec)
-	}
-
-	filter := api.LogFilter{}
-	if hostID != "" {
-		filter.HostIDs = []string{hostID}
-	}
-	if ruleID != "" {
-		filter.RuleIDs = []string{ruleID}
-	}
-	if since != "" {
-		t, err := parseSince(since)
-		if err != nil {
-			return fmt.Errorf("--since: %w", err)
-		}
-		filter.Since = t
 	}
 
 	if aggregate != "" {
@@ -1025,7 +1039,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 			printPlanUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa plan --help'", err)
+		return WrapUsageError("try 'kensa plan --help'", err)
 	}
 	if showHelp {
 		printPlanUsage(os.Stdout, fs)
@@ -1033,11 +1047,11 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	}
 	if host == "" {
 		printPlanUsage(os.Stderr, fs)
-		return errors.New("--host is required")
+		return NewUsageError("--host is required")
 	}
 	if fs.NArg() == 0 {
 		printPlanUsage(os.Stderr, fs)
-		return errors.New("a rule YAML file is required")
+		return NewUsageError("a rule YAML file is required")
 	}
 
 	r, err := rule.ParseFile(fs.Arg(0))
@@ -1104,7 +1118,7 @@ func runCoverage(args []string) error {
 			printCoverageUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa coverage --help'", err)
+		return WrapUsageError("try 'kensa coverage --help'", err)
 	}
 	if showHelp {
 		printCoverageUsage(os.Stdout, fs)
@@ -1145,7 +1159,7 @@ func runVersion(args []string) error {
 			printVersionUsage(os.Stdout, fs)
 			return nil
 		}
-		return fmt.Errorf("%w; try 'kensa version --help'", err)
+		return WrapUsageError("try 'kensa version --help'", err)
 	}
 	if showHelp {
 		printVersionUsage(os.Stdout, fs)
@@ -1220,7 +1234,7 @@ func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
 		return loadRulesSkipInvalid(found)
 	}
 	if len(paths) == 0 {
-		return nil, errors.New("at least one rule YAML file or -rules-dir is required")
+		return nil, NewUsageError("at least one rule YAML file or --rules-dir is required")
 	}
 	return loadRules(paths)
 }
