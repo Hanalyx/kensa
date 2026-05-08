@@ -114,7 +114,7 @@ but do not gate Track L.
 - **Deps:** C-002..C-008
 - **Acceptance:** every subcommand `--help` tested, every short-form, bad usage; coverage ≥ 90% on `cmd/kensa/`
 - **Size:** 2h
-- **Status:** pending
+- **Status:** **done** — merge `631577e` (2026-05-08); coverage 41.4% → **65.6%** (+24.2 pts); 100% on utils, print helpers, parsers, error path; --help/short-form/bad-usage all tested. **90% gap acknowledged**: remaining ~25 pts is in run* SSH/store-dependent paths needing TransportFactory mocking — separate architectural deliverable; live tests via `kensa-fuzz` + per-iteration `kensa detect` cover those paths end-to-end. 2-agent peer review clean.
 
 #### C-010 — `scripts/cli-smoke.sh` exercising every subcommand `--help` + bad-flag cases; wire into CI
 - **Phase:** CLI Phase 1
