@@ -207,9 +207,9 @@ phase (founder review on 2026-05-08).
 #### C-021 — Rule ordering + conflict/supersedes resolution
 - **Phase:** CLI Phase 2.5
 - **Deps:** —
-- **Acceptance:** `internal/rule/ordering.go` ports `ordering.py` from sister Python kensa repo. Returns `ResolvedRules{Order, Conflicts, Superseded}`. Wired into scan/check/remediate so superseded rules don't run; `api.ScanResult.Resolved` (new optional pointer field) carries the resolved metadata so writers can surface counts.
+- **Acceptance:** `internal/rule/ordering.go` ports `ordering.py` from sister Python kensa repo. Returns `ResolvedRules{Order, Cycles, CycleMembers, Conflicts, Superseded, Skipped}`. Wired into scan/check/remediate so superseded rules don't run; resolved.Order carries the active rule list to scan and writers (api/ frozen contract preserved — Resolved is not exposed publicly).
 - **Size:** 1 day
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `ee9a1e3`)
 
 #### C-022 — `textScanWriter` operator-UX rewrite
 - **Phase:** CLI Phase 2.5
