@@ -27,7 +27,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +46,7 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/evidence"
 	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa-go/internal/output"
 	"github.com/Hanalyx/kensa-go/internal/rule"
 	"github.com/Hanalyx/kensa-go/internal/scan"
 	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
@@ -378,13 +378,7 @@ func runDetect(ctx context.Context, args []string) error {
 		return fmt.Errorf("detect: %w", err)
 	}
 
-	switch format {
-	case "json":
-		return printJSON(caps)
-	default:
-		printCapsTable(host, caps)
-	}
-	return nil
+	return output.CapsWriterOrText(format).WriteCaps(os.Stdout, host, caps)
 }
 
 // printDetectUsage writes the `kensa detect` help text to w. Per GNU
@@ -400,22 +394,6 @@ Examples:
   kensa detect -H 192.168.1.211 -u owadmin -s
   kensa detect --host web-01 --user admin --format json
 `, fs.FlagUsages())
-}
-
-func printCapsTable(hostID string, caps api.CapabilitySet) {
-	names := make([]string, 0, len(caps))
-	for k := range caps {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-	fmt.Printf("Capabilities for %s:\n", hostID)
-	for _, name := range names {
-		mark := "✗"
-		if caps[name] {
-			mark = "✓"
-		}
-		fmt.Printf("  %s  %s\n", mark, name)
-	}
 }
 
 // ─── check ─────────────────────────────────────────────────────────────────
@@ -513,15 +491,7 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	result.HostID = host
 
-	switch format {
-	case "json":
-		return printJSON(result)
-	case "jsonl":
-		return printJSONL(rules, result)
-	default:
-		printScanTable(host, rules, result)
-	}
-	return nil
+	return output.ScanWriterOrText(format).WriteScanResult(os.Stdout, host, rules, result)
 }
 
 // printCheckUsage writes the `kensa check` help text. --help to stdout,
@@ -588,59 +558,19 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 	}
 	wg.Wait()
 
+	w := output.ScanWriterOrText(format)
 	for _, r := range results {
 		if r.err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 			continue
 		}
-		switch format {
-		case "json":
-			if err := printJSON(r.result); err != nil {
-				return err
-			}
-		case "jsonl":
-			if err := printJSONL(rules, r.result); err != nil {
-				return err
-			}
-		default:
-			printScanTable(r.host.addr, rules, r.result)
+		if err := w.WriteScanResult(os.Stdout, r.host.addr, rules, r.result); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func printScanTable(hostID string, rules []*api.Rule, result *api.ScanResult) {
-	pass, fail, errs := 0, 0, 0
-	fmt.Printf("Check results for %s:\n\n", hostID)
-	fmt.Printf("  %-40s  %-10s  %s\n", "RULE", "STATUS", "DETAIL")
-	fmt.Println("  " + strings.Repeat("-", 80))
-	for i, txr := range result.Transactions {
-		ruleID := ""
-		if i < len(rules) {
-			ruleID = rules[i].ID
-		}
-		status := "PASS"
-		switch txr.Status {
-		case api.StatusErrored:
-			status = "ERROR"
-			errs++
-		case api.StatusCommitted:
-			pass++
-		default:
-			status = "FAIL"
-			fail++
-		}
-		detail := ""
-		if len(txr.Steps) > 0 {
-			detail = truncate(txr.Steps[0].Detail, 50)
-		}
-		if txr.Error != nil {
-			detail = truncate(txr.Error.Error(), 50)
-		}
-		fmt.Printf("  %-40s  %-10s  %s\n", truncate(ruleID, 40), status, detail)
-	}
-	fmt.Printf("\n  %d passed, %d failed, %d errors\n", pass, fail, errs)
-}
 
 // ─── remediate ─────────────────────────────────────────────────────────────
 
@@ -711,13 +641,8 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		return err
 	}
 
-	switch format {
-	case "json":
-		if err := printJSON(result); err != nil {
-			return err
-		}
-	default:
-		printRemediateTable(host, rules, result)
+	if err := output.RemediationWriterOrText(format).WriteRemediationResult(os.Stdout, host, rules, result); err != nil {
+		return err
 	}
 
 	// Optionally export OSCAL for each committed transaction.
@@ -745,35 +670,6 @@ Examples:
 `, fs.FlagUsages())
 }
 
-func printRemediateTable(hostID string, rules []*api.Rule, result *api.RemediationResult) {
-	committed, rolledBack, skipped, errs := 0, 0, 0, 0
-	fmt.Printf("Remediation results for %s:\n\n", hostID)
-	fmt.Printf("  %-40s  %-15s\n", "RULE", "STATUS")
-	fmt.Println("  " + strings.Repeat("-", 60))
-	for i, txr := range result.Transactions {
-		ruleID := ""
-		if i < len(rules) {
-			ruleID = rules[i].ID
-		}
-		status := string(txr.Status)
-		switch txr.Status {
-		case api.StatusCommitted:
-			committed++
-		case api.StatusRolledBack:
-			rolledBack++
-		case api.StatusErrored:
-			errs++
-			if txr.Error != nil {
-				status = "errored: " + truncate(txr.Error.Error(), 30)
-			}
-		default:
-			skipped++
-		}
-		fmt.Printf("  %-40s  %-15s\n", truncate(ruleID, 40), status)
-	}
-	fmt.Printf("\n  %d committed, %d rolled_back, %d errors, %d skipped\n",
-		committed, rolledBack, errs, skipped)
-}
 
 func writeOSCALFile(path string, result *api.RemediationResult) error {
 	f, err := os.Create(path)
@@ -859,7 +755,8 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return err
 	}
-	return printJSON(result)
+	jw, _ := output.JSONValueWriterFor("json")
+	return jw.WriteJSONValue(os.Stdout, result)
 }
 
 // printRollbackUsage writes the `kensa rollback` help text to w.
@@ -956,12 +853,14 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		return errors.New("transaction log not available (store not wired)")
 	}
 
+	jsonValue, _ := output.JSONValueWriterFor("json")
+
 	if txnIDStr != "" {
 		rec, err := log.Get(ctx, txnID)
 		if err != nil {
 			return fmt.Errorf("get transaction: %w", err)
 		}
-		return printJSON(rec)
+		return jsonValue.WriteJSONValue(os.Stdout, rec)
 	}
 
 	if aggregate != "" {
@@ -969,7 +868,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		if err != nil {
 			return fmt.Errorf("aggregate: %w", err)
 		}
-		return printJSON(aggResult)
+		return jsonValue.WriteJSONValue(os.Stdout, aggResult)
 	}
 
 	result, err := log.Query(ctx, filter, api.Page{Limit: limit})
@@ -977,13 +876,13 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		return fmt.Errorf("query: %w", err)
 	}
 
-	switch format {
-	case "json":
-		return printJSON(result)
-	default:
-		printHistoryTable(result.Transactions)
-		fmt.Printf("\n%d of %d transactions shown\n", len(result.Transactions), result.Total)
+	if format == "json" {
+		return jsonValue.WriteJSONValue(os.Stdout, result)
 	}
+	if err := output.HistoryWriterOrText(format).WriteHistory(os.Stdout, result.Transactions); err != nil {
+		return err
+	}
+	fmt.Printf("\n%d of %d transactions shown\n", len(result.Transactions), result.Total)
 	return nil
 }
 
@@ -1305,89 +1204,3 @@ func parseSince(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
-// printJSON encodes v to stdout as indented JSON.
-func printJSON(v interface{}) error {
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
-}
-
-// scanLine is the JSON Lines wire shape consumed by OpenWatch's ingestion
-// pipeline. One line per host per scan run; compact (no internal newlines)
-// so OpenWatch can stream-parse with jq or its own NDJSON reader.
-type scanLine struct {
-	ScannedAt  time.Time          `json:"scanned_at"`
-	HostID     string             `json:"host_id"`
-	Passed     int                `json:"passed"`
-	Failed     int                `json:"failed"`
-	Errors     int                `json:"errors"`
-	Rules      []scanLineRule     `json:"rules"`
-}
-
-type scanLineRule struct {
-	RuleID string `json:"rule_id"`
-	Status string `json:"status"`
-	Detail string `json:"detail,omitempty"`
-}
-
-// printJSONL encodes result as a single compact JSON line (NDJSON) to stdout.
-// Each call emits exactly one newline-terminated JSON object — suitable for
-// appending to a file or piping to OpenWatch's ingest endpoint.
-// rules is indexed in parallel with result.Transactions to supply rule IDs
-// (the scan result does not embed them).
-func printJSONL(rules []*api.Rule, result *api.ScanResult) error {
-	line := scanLine{
-		ScannedAt: time.Now().UTC(),
-		HostID:    result.HostID,
-		Rules:     make([]scanLineRule, 0, len(result.Transactions)),
-	}
-	for i, txr := range result.Transactions {
-		ruleID := ""
-		if i < len(rules) {
-			ruleID = rules[i].ID
-		}
-		r := scanLineRule{RuleID: ruleID}
-		switch txr.Status {
-		case api.StatusCommitted:
-			r.Status = "pass"
-			line.Passed++
-		case api.StatusErrored:
-			r.Status = "error"
-			line.Errors++
-			if txr.Error != nil {
-				r.Detail = txr.Error.Error()
-			}
-		default:
-			r.Status = "fail"
-			line.Failed++
-		}
-		if r.Detail == "" && len(txr.Steps) > 0 {
-			r.Detail = txr.Steps[0].Detail
-		}
-		line.Rules = append(line.Rules, r)
-	}
-	return json.NewEncoder(os.Stdout).Encode(line)
-}
-
-// printHistoryTable prints a compact tabular summary of transactions.
-func printHistoryTable(txns []api.TransactionRecord) {
-	fmt.Printf("%-36s  %-15s  %-25s  %-15s  %s\n",
-		"TRANSACTION-ID", "STATUS", "RULE", "HOST", "FINISHED")
-	fmt.Println(strings.Repeat("-", 105))
-	for _, t := range txns {
-		fmt.Printf("%-36s  %-15s  %-25s  %-15s  %s\n",
-			t.ID,
-			t.Status,
-			truncate(t.RuleID, 25),
-			truncate(t.HostID, 15),
-			t.FinishedAt.Format(time.RFC3339),
-		)
-	}
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n-1] + "…"
-}
