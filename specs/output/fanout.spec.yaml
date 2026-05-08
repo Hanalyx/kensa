@@ -1,0 +1,246 @@
+spec:
+    id: output-fanout
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-fanout
+        description: |
+            C-019 wires the `-o FORMAT[:PATH]` mechanism end-to-end.
+            Operators pass repeated `-o` flags to dispatch one
+            in-memory result to multiple destinations concurrently:
+
+              # kensa check (read-only scan) — pdf is registered
+              # for ScanResult; oscal/evidence are remediation-only.
+              kensa check -H prod-01 -u admin --sudo \
+                  -o json -o csv:results.csv -o pdf:report.pdf
+
+              # kensa remediate (post-commit) — every format is in scope
+              kensa remediate -H prod-01 -u admin --sudo -r ./rules \
+                  -o json -o oscal:assessment.json -o evidence:env.json
+
+            With three `-o` flags, the fan-out runs three goroutines
+            (one per spec), each invoking the registered writer
+            against its own destination (stdout for "json" with no
+            path; "results.csv" and "report.pdf" for the others).
+            Errors are collected per-spec; the first error in argv
+            order is returned but every spec is attempted. A spec
+            whose format has no writer for the payload type (e.g.,
+            "oscal" for ScanResult) returns ErrUnsupportedFormat,
+            which cmd/kensa routes as a usage error (exit 2).
+
+            cmd/kensa exposes the flag on detect (FanOutCaps),
+            check (FanOutScanResult including inventory mode), and
+            remediate (FanOutRemediationResult). When `-o` is
+            absent, the legacy `--format` flag still works; the two
+            modes are mutually exclusive at runtime — `-o` wins
+            when both are present.
+
+            History fan-out is intentionally NOT in C-019 scope:
+            history's JSON path goes through JSONValueWriter to
+            preserve QueryResult pagination metadata, which is a
+            heterogeneous payload model (different from the per-
+            payload-typed ScanResult/RemediationResult/Caps fan-out).
+            Operators wanting history fan-out use --format for now;
+            a follow-up ticket extends fan-out to QueryResult.
+
+    objective:
+        summary: |
+            Add FanOutScanResult, FanOutRemediationResult, FanOutCaps
+            functions in internal/output/fanout.go that dispatch a
+            payload across N output Specs concurrently, with one
+            goroutine per spec, file targets for non-empty Paths,
+            stdoutOverride for empty Paths, and aggregated errors
+            in argv order.
+        scope:
+            includes:
+                - FanOutScanResult, FanOutRemediationResult, FanOutCaps
+                - Concurrent goroutine-per-spec dispatch
+                - File creation via os.Create for non-empty Paths
+                - stdoutOverride redirect for empty-Path Specs (cmd/kensa
+                  passes os.Stdout normally, io.Discard when --quiet)
+                - First-error-in-argv-order semantics with every spec attempted
+                - ErrUnsupportedFormat for specs whose format has no writer for the payload type
+                - Path-traversal defense (/dev, /proc, /sys rejected)
+                - cmd/kensa wiring on detect, check (single + inventory), remediate
+            excludes:
+                - History fan-out (heterogeneous QueryResult payload)
+                - Atomic write semantics (write-to-tempfile + rename) — separate ticket; partial files left on write failure
+                - Streaming wrappers (StreamingCSVScan etc.) routed through fan-out — operators using inventory + CSV today get one document per host concatenated
+                - Plan fan-out (engine.FormatPlan still owns its own format dispatch)
+
+    constraints:
+        - id: C-01
+          description: |
+              Each Spec MUST run in its own goroutine. The
+              registered writers are stateless value types (per
+              writer.spec.yaml C-01) so concurrent invocation is
+              safe. Sharing one goroutine across N specs would
+              serialize file I/O, which is the point of the fan-
+              out (parallel disk writes for fleet operators
+              emitting CSV+OSCAL+evidence simultaneously).
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              stdoutOverride MUST NOT be nil. cmd/kensa is the
+              only caller and always knows what stdout means
+              (os.Stdout normally; io.Discard under --quiet).
+              Passing nil panics so the programmer error surfaces
+              loudly during development rather than turning into
+              a nil-pointer deref at write time.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              When at least one Spec fails, the returned error MUST
+              be from the LOWEST-INDEX failing Spec in argv order.
+              Operators read their command line left-to-right; the
+              diagnostic should match. The error MUST embed both
+              the index ("output[i]") and the Spec's String form
+              ("json:foo.json") so the operator can locate the
+              failing flag instantly.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Every Spec MUST be attempted regardless of earlier
+              failures. Partial output is more useful than all-or-
+              nothing — an operator with three -o flags whose
+              second fails can still inspect the first and third
+              outputs to triage.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              Specs with empty Path MUST write to stdoutOverride;
+              Specs with non-empty Path MUST be opened with
+              os.Create (O_CREATE|O_TRUNC|O_WRONLY) and closed via
+              deferred Close. Atomic write semantics (write to
+              tempfile, rename) are intentionally NOT in C-019;
+              partial files on write failure are an acceptable
+              cost for a 2h deliverable.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Paths under /dev, /proc, or /sys MUST be rejected
+              with an explanatory error. These are kernel-mediated
+              pseudo-filesystems where os.Create either has no
+              meaningful semantics or could affect system state
+              (e.g., overwriting /proc/sys/kernel/* would mutate
+              kernel parameters). Operators almost always pass
+              these by typo; rejecting cheap.
+          type: security
+          enforcement: error
+        - id: C-07
+          description: |
+              ErrUnsupportedFormat is the sentinel for "spec's
+              format has no writer for this payload type" (e.g.,
+              "oscal" for ScanResult — registered for remediation
+              only). Distinguishable via errors.Is so cmd/kensa
+              can route it as a usage error (exit 2) rather than
+              a runtime error.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              FanOutScanResult with empty specs returns nil (no-op,
+              no goroutines, no file creation).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-02
+          description: |
+              FanOutScanResult with one Spec (empty Path) writes
+              to stdoutOverride. The output is the same bytes the
+              registered ScanResultWriter would produce.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-03
+          description: |
+              FanOutScanResult with one Spec (non-empty Path)
+              creates the file and writes the result there.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-04
+          description: |
+              FanOutScanResult with three Specs at three distinct
+              file paths creates all three files; each contains
+              the registered writer's output for its format.
+              Locks the headline acceptance.
+          references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-05
+          description: |
+              stdoutOverride receives bytes when an empty-Path Spec
+              is processed. Verified via a counting io.Writer that
+              accumulates byte counts across goroutines.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              Nil stdoutOverride panics. A test recovers from
+              the panic and asserts it occurred.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-07
+          description: |
+              A Spec with format that has no writer for the payload
+              type returns ErrUnsupportedFormat (errors.Is matches).
+              Tested with oscal-as-scan-format (registered for
+              remediation, not scan).
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-08
+          description: |
+              When two Specs both fail, the returned error reports
+              the lower-index spec's failure. Test uses two unknown
+              formats and asserts "output[0]" appears in the error
+              message.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-09
+          description: |
+              Partial-failure behavior: a fan-out run with three
+              specs where one fails still attempts the other two.
+              Test confirms the surviving specs' files exist on
+              disk after the call returns the lower-index error.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-10
+          description: |
+              Path under /dev (and /proc, /sys) is rejected. Test
+              passes "/dev/null-fake-test" and asserts the error
+              references /dev.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-11
+          description: |
+              FanOutRemediationResult and FanOutCaps work the same
+              way as FanOutScanResult — same goroutine-per-spec
+              model, same stdoutOverride contract, same error
+              aggregation. Tested with at least one file-target
+              spec each.
+          references_constraints: [C-01, C-05]
+          priority: high
+        - id: AC-12
+          description: |
+              A bad file path (parent directory does not exist)
+              produces an error that references the bad path. The
+              fan-out does not silently swallow os.Create errors.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-13
+          description: |
+              The error message embeds both the spec's index and
+              its String form ("output[1] (yaml-not-registered)"),
+              so the operator can locate the failing -o flag from
+              error text alone.
+          references_constraints: [C-03]
+          priority: medium
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-019, fanout, concurrency]

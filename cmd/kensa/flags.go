@@ -83,10 +83,19 @@ const (
 
 	// Output / format options.
 
-	// ShortFormat is `--format`. Output format selector. (CLI Phase 2
-	// will introduce `-o, --output FORMAT[:PATH]` as the canonical
-	// form; until then `-f, --format` is supported.)
+	// ShortFormat is `--format`. Output format selector. CLI Phase 2
+	// (C-019) introduced `-o, --output FORMAT[:PATH]` as the canonical
+	// repeatable form for multi-target dispatch; --format remains
+	// supported as the single-target shortcut and is deprecated for
+	// removal in C-020 with one minor version of overlap.
 	ShortFormat = "f"
+
+	// ShortOutput is `--output FORMAT[:PATH]`, repeatable. Each value
+	// is one Spec parsed by internal/output.Parse (e.g., "json",
+	// "csv:results.csv", "oscal:/tmp/asmt.json"). Multiple `-o`
+	// invocations fan out concurrently across all specs against the
+	// same in-memory result. Wired in C-019.
+	ShortOutput = "o"
 
 	// Rule selection / file paths.
 

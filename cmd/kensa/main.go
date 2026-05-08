@@ -199,6 +199,27 @@ func runCLI(argv []string) int {
 	return 0
 }
 
+// routeFanOutError routes a FanOut return value through the right
+// kensa-CLI exit-code lane. ErrUnsupportedFormat means the operator
+// asked for a format that has no writer for the payload type
+// (e.g., `kensa check -o oscal:foo` where oscal is registered for
+// remediation only). That's a usage error (exit 2) per spec
+// fanout C-07; non-format errors are runtime errors (exit 1).
+//
+// Without this routing, the FanOut error returns directly which
+// the dispatcher classifies as a runtime error — operators with
+// scripts that branch on exit code 1 vs 2 would see the wrong
+// classification.
+func routeFanOutError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, output.ErrUnsupportedFormat) {
+		return WrapUsageError("--output", err)
+	}
+	return err
+}
+
 // bodyOut returns the io.Writer to which a subcommand's default
 // human-readable result body should be written. When the operator
 // passes --quiet (-q), returns io.Discard so no body bytes hit
@@ -353,6 +374,7 @@ func runDetect(ctx context.Context, args []string) error {
 		sudo     bool
 		format   string
 		quiet    bool
+		outputs  []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -360,8 +382,9 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable (e.g., -o json -o csv:results.csv)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -397,6 +420,13 @@ func runDetect(ctx context.Context, args []string) error {
 		return fmt.Errorf("detect: %w", err)
 	}
 
+	if len(outputs) > 0 {
+		specs, err := output.ParseAll(outputs)
+		if err != nil {
+			return WrapUsageError("--output", err)
+		}
+		return routeFanOutError(output.FanOutCaps(specs, bodyOut(quiet), host, caps))
+	}
 	return output.CapsWriterOrText(format).WriteCaps(bodyOut(quiet), host, caps)
 }
 
@@ -459,6 +489,7 @@ func runCheck(ctx context.Context, args []string) error {
 		rulesDir  string
 		inventory string
 		quiet     bool
+		outputs   []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -466,10 +497,11 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.StringVar(&inventory, "inventory", "", "Ansible-style inventory.ini for multi-host check (long-only)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -483,13 +515,36 @@ func runCheck(ctx context.Context, args []string) error {
 		return nil
 	}
 
+	// Validate flag-only constraints up front so usage errors don't
+	// trail behind runtime work like rule loading or SSH dialing.
+	// BLOCKING fix per peer review: --inventory + -o FORMAT:PATH
+	// would call os.Create per host, truncating the file each
+	// time and silently losing prior hosts' data. Reject the
+	// combination loudly and point operators at the workaround.
+	// (Streaming wrappers wired through fan-out is post-C-019.)
+	if inventory != "" && len(outputs) > 0 {
+		specs, perr := output.ParseAll(outputs)
+		if perr != nil {
+			return WrapUsageError("--output", perr)
+		}
+		for _, s := range specs {
+			if s.Path != "" {
+				return NewUsageError(fmt.Sprintf(
+					"--inventory + --output %s: file outputs not yet supported in inventory mode "+
+						"(would overwrite the file per-host with silent data loss). Use one path "+
+						"per host (run kensa check per-host), omit Path to write to stdout, or "+
+						"wait for streaming-writer integration.", s.String()))
+			}
+		}
+	}
+
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
 		return err
 	}
 
 	if inventory != "" {
-		return runCheckInventory(ctx, inventory, user, port, keyPath, sudo, format, rules, quiet)
+		return runCheckInventory(ctx, inventory, user, port, keyPath, sudo, format, rules, quiet, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -512,6 +567,13 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	result.HostID = host
 
+	if len(outputs) > 0 {
+		specs, err := output.ParseAll(outputs)
+		if err != nil {
+			return WrapUsageError("--output", err)
+		}
+		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, rules, result))
+	}
 	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, rules, result)
 }
 
@@ -533,11 +595,11 @@ Examples:
 
 // runCheckInventory fans out a check across all hosts in an inventory file.
 //
-// TODO(C-019): collapse the 9 positional parameters into a
-// checkOptions struct (target/transport/output/rules) before C-019
-// adds the -o sink. Adding parameter #10 to a positional list is
-// the kind of change that introduces argument-misorder bugs.
-func runCheckInventory(ctx context.Context, inventoryPath, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule, quiet bool) error {
+// TODO(post-C-019): collapse the 10 positional parameters into a
+// checkOptions struct. The C-019 review flagged this; deferred to
+// a separate refactor ticket because changing the signature mid-
+// fan-out wiring would obscure the diff.
+func runCheckInventory(ctx context.Context, inventoryPath, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule, quiet bool, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -584,14 +646,38 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 	}
 	wg.Wait()
 
+	stdoutOverride := bodyOut(quiet)
+	if len(outputs) > 0 {
+		// Inventory mode + -o: parse specs once; fan out per-host.
+		// Each host's result emits N documents (one per spec). For
+		// CSV / oscal / evidence formats this concatenates many
+		// hosts' per-host documents into one file — operators
+		// wanting one canonical CSV file across an inventory should
+		// use the streaming wrappers (StreamingCSVScan etc.) — not
+		// wired in C-019 because cmd/kensa would need a per-host
+		// stream-state, which is post-C-019 polish.
+		specs, err := output.ParseAll(outputs)
+		if err != nil {
+			return WrapUsageError("--output", err)
+		}
+		for _, r := range results {
+			if r.err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
+				continue
+			}
+			if err := routeFanOutError(output.FanOutScanResult(specs, stdoutOverride, r.host.addr, rules, r.result)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	w := output.ScanWriterOrText(format)
-	out := bodyOut(quiet)
 	for _, r := range results {
 		if r.err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 			continue
 		}
-		if err := w.WriteScanResult(out, r.host.addr, rules, r.result); err != nil {
+		if err := w.WriteScanResult(stdoutOverride, r.host.addr, rules, r.result); err != nil {
 			return err
 		}
 	}
@@ -623,6 +709,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		oscalOut string
 		rulesDir string
 		quiet    bool
+		outputs  []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -630,10 +717,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
-	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
-	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (long-only)")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
+	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -670,7 +758,15 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		return err
 	}
 
-	if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, rules, result); err != nil {
+	if len(outputs) > 0 {
+		specs, err := output.ParseAll(outputs)
+		if err != nil {
+			return WrapUsageError("--output", err)
+		}
+		if err := routeFanOutError(output.FanOutRemediationResult(specs, bodyOut(quiet), host, rules, result)); err != nil {
+			return err
+		}
+	} else if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, rules, result); err != nil {
 		return err
 	}
 
