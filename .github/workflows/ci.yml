@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+# Build discipline (deliverable L-001 in docs/roadmap/DELIVERABLES.md):
+# CGO_ENABLED=0 ensures the binary talks directly to the kernel ABI
+# rather than going through glibc. This delivers the binary-portability
+# claim — same binary runs on RHEL 8 (glibc 2.28) through RHEL 12 and
+# on Alpine (musl), with no glibc compatibility floor. Inherited by all
+# jobs and steps below.
+env:
+  CGO_ENABLED: '0'
+
 jobs:
   spec-sync:
     # Specter runs before Go build — specs are the source of truth.

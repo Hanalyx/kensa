@@ -18,10 +18,13 @@ help:
 	@echo ""
 	@echo "  clean           Remove build artifacts"
 
+# Build with CGO_ENABLED=0 so the binary links statically against the
+# kernel ABI (no glibc floor); see docs/roadmap/LOW_LEVEL_MIGRATION_V1.md
+# Phase 0 (deliverable L-001).
 build:
-	go build -o bin/kensa ./cmd/kensa
-	go build -o bin/kensa-fuzz ./cmd/kensa-fuzz
-	go build -o bin/kensa-validate ./cmd/kensa-validate
+	CGO_ENABLED=0 go build -o bin/kensa ./cmd/kensa
+	CGO_ENABLED=0 go build -o bin/kensa-fuzz ./cmd/kensa-fuzz
+	CGO_ENABLED=0 go build -o bin/kensa-validate ./cmd/kensa-validate
 
 test:
 	go test ./...
