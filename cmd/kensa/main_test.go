@@ -134,6 +134,67 @@ func slicesEqual(a, b []string) bool {
 	return true
 }
 
+// TestRewriteLegacyLongForm verifies the generic single-dash-long-form
+// rewriter used by subcommand parsers during the C-002..C-004 transition
+// window.
+func TestRewriteLegacyLongForm(t *testing.T) {
+	known := map[string]bool{"host": true, "user": true, "port": true}
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{
+			name: "no flags untouched",
+			in:   []string{"foo", "bar"},
+			want: []string{"foo", "bar"},
+		},
+		{
+			name: "single-dash long form rewritten",
+			in:   []string{"-host", "192.168.1.211"},
+			want: []string{"--host", "192.168.1.211"},
+		},
+		{
+			name: "single-dash long form with =value",
+			in:   []string{"-host=foo"},
+			want: []string{"--host=foo"},
+		},
+		{
+			name: "real short form left alone",
+			in:   []string{"-h"},
+			want: []string{"-h"},
+		},
+		{
+			name: "double-dash form left alone",
+			in:   []string{"--host", "foo"},
+			want: []string{"--host", "foo"},
+		},
+		{
+			name: "unknown single-dash name left alone",
+			in:   []string{"-bogus"},
+			want: []string{"-bogus"},
+		},
+		{
+			name: "mix of known long, value, and short",
+			in:   []string{"-host", "foo", "-user", "bar", "-h"},
+			want: []string{"--host", "foo", "--user", "bar", "-h"},
+		},
+		{
+			name: "single-letter name not in known set is left alone",
+			in:   []string{"-u"}, // would only match if "u" was in known; it isn't (only multi-char)
+			want: []string{"-u"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := rewriteLegacyLongForm(tc.in, known)
+			if !slicesEqual(got, tc.want) {
+				t.Errorf("rewriteLegacyLongForm(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 // Sanity: ensure the version constant is non-empty and starts with 'v'.
 func TestVersionConstantShape(t *testing.T) {
 	if !strings.HasPrefix(version, "v") {
