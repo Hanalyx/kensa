@@ -242,7 +242,7 @@ Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob)
 - **Deps:** L-001, L-002
 - **Acceptance:** `kensa --version` succeeds in glibc 2.28 container
 - **Size:** 1h
-- **Status:** pending
+- **Status:** **done** — merge `26844b0` (2026-05-08); new `build-portability-glibc228` job using `rockylinux:8`; container glibc-version pre-check; locally verified static binary runs cleanly on glibc 2.28; uses `kensa version` (subcommand) pre-C-001 — flag form will land with C-001; 2-agent peer review clean; specter 22/22; tests pass; live-tested 192.168.1.211
 
 #### L-005 — CI step running binary inside Alpine (musl) container
 - **Phase:** LL Phase 0
