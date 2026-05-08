@@ -1,0 +1,214 @@
+spec:
+    id: output-csv
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-csv
+        description: |
+            CSV is the spreadsheet-ingestion format for kensa output.
+            Auditors and operators dump scan / remediation / history
+            data to CSV for offline analysis in Excel, LibreOffice
+            Calc, or pandas. RFC 4180 compliance is mandatory: any
+            cell containing a comma, quote, or newline MUST be
+            quoted; embedded quotes are doubled.
+
+            The `encoding/csv` stdlib handles the escaping. This spec
+            covers the writer wiring and column schema.
+
+            CSV applies to three of the five payload types (scan,
+            remediation, history). It does NOT apply to capability
+            sets (ad-hoc bool map; better as JSON or text) or to
+            the JSONValueWriter escape hatch (the rollback /
+            history-detail / history-aggregate value types are
+            structurally heterogeneous; CSV would force a one-table
+            schema that doesn't fit).
+
+            Why history-CSV is registered (whereas history-JSON is
+            not): JSON consumers expect a single value, so emitting
+            []TransactionRecord without QueryResult's Total/Offset/
+            Limit pagination metadata silently misrepresents the
+            result. CSV is row-oriented — a CSV consumer concatenates
+            pages and dedups; pagination metadata is footer text that
+            doesn't belong in the row stream. cmd/kensa emits the
+            "N of M transactions shown" trailer to stderr (not stdout)
+            when format != "text" so the operator still sees the
+            pagination context without corrupting the CSV file.
+
+    objective:
+        summary: |
+            Add csvScanWriter, csvRemediationWriter, csvHistoryWriter
+            implementations under internal/output/csv.go; register
+            them in the per-payload writer registries; expose
+            StreamingCSVScan / StreamingCSVRemediation streaming
+            wrappers (header-once semantics) for inventory-mode
+            fan-out (C-019).
+        scope:
+            includes:
+                - csvScanWriter, csvRemediationWriter, csvHistoryWriter (singletons in registries)
+                - StreamingCSVScan, StreamingCSVRemediation streaming wrappers (per-stream state)
+                - Column schema decisions (host_id, rule_id, status, detail; transaction_id, host_id, rule_id, status, finished_at)
+                - RFC 4180 escaping via encoding/csv
+                - Format identifier "csv" registered in scanResultWriters / remediationResultWriters / historyWriters
+            excludes:
+                - cmd/kensa wiring of `-o csv` to the registry (C-018 file-target dispatch)
+                - Concurrent fan-out across multiple Specs (C-019)
+                - CSV variants for caps or JSON-value payloads (intentionally not supported)
+
+    constraints:
+        - id: C-01
+          description: |
+              All CSV output MUST go through encoding/csv. Hand-rolled
+              CSV is forbidden — cell values containing commas, quotes,
+              or newlines would otherwise produce corrupt rows.
+              encoding/csv is the standard library's RFC 4180-aligned
+              implementation; we accept its defaults (LF line endings
+              rather than strict RFC 4180 CRLF) because every common
+              spreadsheet tool (Excel, LibreOffice, pandas, jq's @csv)
+              accepts both, and LF matches the rest of kensa's text
+              output on Linux. Operators wanting strict CRLF can pass
+              the file through `unix2dos`.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The singleton writers (csvScanWriter, csvRemediationWriter,
+              csvHistoryWriter) MUST emit a header row on every
+              WriteX call. Each call is a complete CSV document.
+              Header-once semantics for inventory mode go through
+              the streaming wrappers.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The streaming wrappers (StreamingCSVScan,
+              StreamingCSVRemediation) MUST emit the header on the
+              first WriteX call only; subsequent calls emit data
+              rows only. The wrappers are NOT registered in the
+              package-level maps; callers construct them via
+              NewStreamingCSVScan(io.Writer) etc.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              csvScanWriter and StreamingCSVScan MUST collapse the
+              transaction status vocabulary to {pass, fail, error}
+              for spreadsheet consumers. The raw API statuses
+              (committed, rolled_back, partially_applied, errored)
+              are remediation-only concepts; for read-only scan output
+              they collapse to:
+                - committed → pass
+                - errored → error
+                - everything else → fail
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              csvRemediationWriter MUST preserve the raw API status
+              string (committed, rolled_back, partially_applied,
+              errored) — operators auditing a remediation run need
+              to distinguish a rolled-back transaction from a
+              partially-applied one, and the raw API vocabulary is
+              what their compliance evidence records.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              csvHistoryWriter MUST format finished_at as RFC 3339 in
+              UTC ("2006-01-02T15:04:05Z"). Timezones in CSV are an
+              ambiguity vector; UTC is unambiguous.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              csvScanWriter satisfies ScanResultWriter and is
+              registered in scanResultWriters["csv"].
+              ScanWriterFor("csv") → (csvScanWriter{}, true).
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              csvScanWriter.WriteScanResult emits a header row
+              "host_id,rule_id,status,detail" followed by one data
+              row per result.Transactions entry.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              csvScanWriter status column collapses to {pass, fail,
+              error} per C-04.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-04
+          description: |
+              csvRemediationWriter satisfies RemediationResultWriter
+              and is registered in remediationResultWriters["csv"].
+              RemediationWriterFor("csv") → ok.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              csvRemediationWriter status column preserves raw API
+              status strings per C-05 (committed, rolled_back,
+              partially_applied, errored).
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              csvHistoryWriter satisfies HistoryWriter and is
+              registered in historyWriters["csv"].
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-07
+          description: |
+              csvHistoryWriter.WriteHistory emits "transaction_id,
+              host_id,rule_id,status,finished_at" header and one
+              row per TransactionRecord with finished_at in UTC
+              RFC 3339.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: |
+              CSV escaping via encoding/csv handles cells containing
+              commas, quotes, and newlines. A test writes a cell
+              with each of those three characters and verifies the
+              round-trip through csv.NewReader recovers the original.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-09
+          description: |
+              StreamingCSVScan emits header on the FIRST
+              WriteScanResult call only. A test verifies two
+              sequential WriteScanResult calls against the same
+              StreamingCSVScan produce one header row total, not
+              two.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-10
+          description: |
+              StreamingCSVRemediation emits header on the FIRST
+              WriteRemediationResult call only.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-11
+          description: |
+              Streaming wrappers (NewStreamingCSVScan,
+              NewStreamingCSVRemediation) are constructor-shaped:
+              each call returns a fresh per-stream instance with
+              headerEmitted=false. Two streams against the same
+              underlying io.Writer each emit their own header.
+          references_constraints: [C-03]
+          priority: medium
+        - id: AC-12
+          description: |
+              KnownFormats() (from C-011) already lists "csv";
+              IsKnownFormat("csv") returns true. C-013 is the
+              first phase that registers actual writers for it.
+          references_constraints: [C-01]
+          priority: low
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-013]

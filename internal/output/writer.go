@@ -79,24 +79,32 @@ var scanResultWriters = map[string]ScanResultWriter{
 	"text":  textScanWriter{},
 	"json":  jsonScanWriter{},
 	"jsonl": jsonlScanWriter{},
+	"csv":   csvScanWriter{},
 }
 
 // remediationResultWriters maps format identifier → RemediationResultWriter.
 var remediationResultWriters = map[string]RemediationResultWriter{
 	"text": textRemediationWriter{},
 	"json": jsonRemediationWriter{},
+	"csv":  csvRemediationWriter{},
 }
 
 // historyWriters maps format identifier → HistoryWriter.
 //
-// Only "text" is registered: the live JSON path for history goes
-// through JSONValueWriter with the full *api.QueryResult so
-// OpenWatch consumers get the Total / Offset / Limit pagination
-// metadata. Registering a HistoryWriter for "json" that took only
-// []TransactionRecord would emit a different shape and silently
-// break that contract.
+// Only "text" and "csv" are registered: the live JSON path for
+// history goes through JSONValueWriter with the full
+// *api.QueryResult so OpenWatch consumers get the Total / Offset /
+// Limit pagination metadata. Registering a HistoryWriter for "json"
+// that took only []TransactionRecord would emit a different shape
+// and silently break that contract.
+//
+// CSV is registered because spreadsheet ingestion of history rows
+// has the same pagination requirement as the text view (the operator
+// sees only the current page; pagination metadata is footer-style
+// and not part of the row stream).
 var historyWriters = map[string]HistoryWriter{
 	"text": textHistoryWriter{},
+	"csv":  csvHistoryWriter{},
 }
 
 // capsWriters maps format identifier → CapsWriter.
