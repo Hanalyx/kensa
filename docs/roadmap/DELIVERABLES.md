@@ -59,7 +59,7 @@ but do not gate Track L.
 - **Deps:** —
 - **Acceptance:** `kensa --help` exits 0 to stdout; `kensa -h` same; `kensa --version` exits 0; bad usage exits 2; `kensa <unknown>` exits 2; existing `-db` flag continues to parse for one minor version
 - **Size:** 3h
-- **Status:** pending
+- **Status:** **done** — merge `cde364d` (2026-05-08); pflag added; runCLI(argv) int testable harness; -h/-V/-D short forms; legacy -db rewriter with deprecation warning; 19 subtests in cmd/kensa/main_test.go covering every exit-code path; 2-agent peer review clean; specter 22/22; static-link regression check passed; live-tested 192.168.1.211. Subcommand parsers still on stdlib flag (migrate in C-002..C-004).
 
 #### C-002 — Migrate `runDetect` to pflag with short forms
 - **Phase:** CLI Phase 1

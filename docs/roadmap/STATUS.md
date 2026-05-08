@@ -66,7 +66,7 @@ critical path to first release.
 
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
-| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | Not started | ~1 day | Cheapest immediate win in the entire roadmap; ship today regardless of what else is in flight |
+| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | In progress (1 of 10 items done) | ~2 days | C-001 merged `cde364d` 2026-05-08 (top-level pflag, exit codes 0/1/2, 19 subtests). C-002 (runDetect pflag migration) is next |
 | Phase 2 — `--output FORMAT[:PATH]` mechanism (json, jsonl, csv, pdf, evidence, oscal, markdown) | Not started | ~1 week | PDF library decision needed (`unidoc/unipdf` vs `gofpdf` vs `maroto`) |
 | Phase 3 — Full `target_options` + `rule_options` parity | Not started | ~1.5 weeks | Inventory glob matching, password prompt, strict-host-keys, capability override, workers, full rule filtering |
 | Phase 4 — Session model in store + `kensa diff`, framework `kensa coverage`, `kensa list frameworks`, `kensa info`, `--stats`/`--prune` | Not started | ~2 weeks | SQLite schema migration needed; `kensa coverage` → `kensa mechanisms` rename with deprecation cycle |
