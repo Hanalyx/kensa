@@ -1,0 +1,296 @@
+spec:
+    id: output-text-scan
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-text-scan
+        description: |
+            C-022 rewrites textScanWriter from a flat tabular layout
+            (RULE | STATUS | DETAIL) to a grouped failure-first
+            operator-readable layout. Replaces:
+
+              Check results for 192.168.1.211:
+                accounts-locked-no-shell    FAIL  command: "# Find...
+                ...
+
+            With:
+
+              ─── 192.168.1.211 ────────────────────────────
+              FAILED   ( 8)
+                ✗ accounts-locked-no-shell        MED  /etc/at.allow not found
+                  └ fix: chmod 0600 /etc/at.allow
+                ...
+
+              WARN     ( 2)
+                ! aide-cron-check                 ssh closed unexpectedly
+                ...
+
+              PASSED   (332)  ·  accounts-* aide-* aslr-enabled audit-{...} …
+                              run with -v to expand
+
+              ────────────────────────────────────────────────────────────
+              ##############~~xxxx
+              332 passed  ·  8 failed  ·  2 warnings
+
+            The first lines an operator reads are the failures, with
+            severity priority and the suggested fix. PASSED is
+            collapsed with glob patterns so 332 rules don't drown
+            the table.
+
+            WARN is a display-only category (per the founder's
+            "model 2" choice in the C-021/022 scoping conversation):
+            errored transactions render as WARN with the !
+            marker. The engine's transaction-status enum is
+            unchanged.
+
+            Known limitation: today's WARN bucket conflates three
+            operator-meaningful states under one category — transport
+            errors ("ssh closed unexpectedly"), N/A rules (the rule
+            wasn't applicable to this host), and soft-pass advisory
+            rules (the rule passed with caveats). All currently
+            surface as WARN because they all use StatusErrored. The
+            mockup illustrated WARN with examples like "checked but
+            cadence not enforced" which describe soft-pass — those
+            distinctions need real engine support to surface
+            cleanly. Tracked as a follow-up; v0.1 ships the
+            display-only collapse.
+
+    objective:
+        summary: |
+            Replace textScanWriter.WriteScanResult's body with the
+            grouped layout. Add helpers (renderScanResult,
+            classifyTransactions, severityBadge, humanizeDetail,
+            synthesizeFix, compactPasses, progressBar) in
+            internal/output/text_scan.go. Existing tests update to
+            match new format; new tests cover each helper and the
+            end-to-end layout.
+        scope:
+            includes:
+                - Grouped FAILED / WARN / PASSED layout
+                - Severity badges (CRIT/HIGH/MED/LOW) from rule.Severity
+                - Glob-pattern compaction for PASSED >8 rules
+                - Mechanism-prefix stripping for human-readable detail (command:, config_value:, file_exists:, file_permissions:, package_installed:, service_enabled:, sysctl_value:, validate:)
+                - Fix-line synthesis for ~10 common handlers (file_permissions, file_absent, package_present/absent + apt/dnf variants, service_enabled/disabled/masked, config_set/dropin, sysctl_set)
+                - ASCII progress bar (#=pass, ~=warn, x=fail)
+                - Summary line with counts
+                - Host banner with hostID
+            excludes:
+                - OS detection ("RHEL 9.6") — C-023
+                - -i / -v short forms — C-023
+                - Wall-clock duration in summary — needs scan-result instrumentation; defer to C-023 or post-Phase-2.5
+                - Report-path callout in summary — needs cmd/kensa to thread the chosen -o path; defer
+                - ANSI color codes — operators piping to less/grep want plain text; if added, must detect TTY first; defer
+                - WARN as a first-class transaction status — model 2 (display-only) per founder choice
+                - Engine changes — pure presentation rewrite
+
+    constraints:
+        - id: C-01
+          description: |
+              Failures MUST appear before passes. Operator's eye
+              goes to the failures; surfacing them last (as the
+              C-012 layout did) buries the actionable content
+              under a wall of PASS rows.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Mechanism-prefix strings (command:, config_value:,
+              file_exists:, etc.) MUST NOT appear in the
+              operator-facing detail column. Those are internal
+              implementation strings; the operator sees only the
+              human-readable failure reason.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              When PASSED count exceeds 8, the section MUST glob-
+              compact rule IDs by common dash-prefix. A 332-pass
+              run shows "accounts-* aide-* …", not 332 lines.
+              Below 8, IDs render inline (compaction below the
+              threshold is over-engineering).
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Fix-line synthesis MUST be optional — handlers
+              without a synthesizer produce no fix line at all,
+              not a placeholder. Operators using -o json:report.json
+              get the full mechanism+params for diagnosis; the
+              text view surfaces only the most actionable fixes.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              Severity badges MUST be 4-character fixed-width
+              (CRIT, HIGH, "MED ", "LOW ", or four spaces for
+              empty severity) so column alignment doesn't shift
+              between rows.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              The progress bar MUST sum to its requested width
+              (default 60). passed cells render as '#', warn as
+              '~', failed as 'x'; an empty result (no
+              transactions) renders as all-dots so the empty
+              state is visually distinct from "all-passed".
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              The transaction-to-display mapping is:
+                StatusCommitted        → PASS
+                StatusErrored          → WARN
+                StatusRolledBack /
+                StatusPartiallyApplied → FAIL
+                (any other)            → FAIL
+              This is purely the rendering decision (model 2 per
+              founder choice). The engine's transaction status
+              enum and the structured-output writers (json,
+              jsonl, csv, oscal, evidence) preserve the raw API
+              status — only textScanWriter collapses to PASS/WARN/
+              FAIL.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Mixed scan result (1 committed, 1 rolled-back, 1
+              errored) renders FAILED/WARN/PASSED groups in
+              that order, with the appropriate counts and the
+              correct severity badge for the failed row. Locked
+              by TestTextScanWriter.
+          references_constraints: [C-01, C-05, C-07]
+          priority: critical
+        - id: AC-02
+          description: |
+              All-passed scan elides FAILED and WARN sections;
+              PASSED + summary still emit. Locked by
+              TestTextScanWriter_AllPassedNoFailedSection.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Mechanism prefix is stripped from operator-facing
+              detail (e.g., "config_value: key 'foo' not found"
+              renders as "key 'foo' not found"). Locked by
+              TestTextScanWriter_StripsMechanismPrefix.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              ≥9 passed rules trigger glob compaction. Common
+              dash-prefixes collapse to "<prefix>-*". The
+              "run with -v to expand" hint emits. Locked by
+              TestTextScanWriter_PassedCompactionAboveThreshold.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              ≤8 passed rules render IDs inline; no compaction,
+              no -v hint. Locked by
+              TestTextScanWriter_PassedInlineBelowThreshold.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-06
+          description: |
+              Failing rule with file_permissions remediation
+              surfaces "└ fix: chmod ... && chown ..." line.
+              Locked by TestTextScanWriter_FixLineSynthesis.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              severityBadge handles all four canonical severities
+              (critical/high/medium/low, case-insensitive) plus
+              empty/unknown. All return 4-char fixed-width.
+              Locked by TestSeverityBadge.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-08
+          description: |
+              compactPasses produces glob-compacted output for
+              shared-prefix runs and inline IDs for lone entries.
+              Edge cases (empty, single, mixed) tested. Locked by
+              TestCompactPasses.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-09
+          description: |
+              progressBar always returns a string of the
+              requested width; cells are '#' (pass), '~' (warn),
+              'x' (fail), or '.' (empty). Tested for all-pass,
+              all-fail, mixed (cells sum to width), and empty.
+              Locked by TestProgressBar.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-10
+          description: |
+              synthesizeFix supports the 10 common handler types
+              and returns empty for unknown handlers or handlers
+              missing required params. Tested via
+              TestSynthesizeFix_AllSupportedHandlers (table-
+              driven, 12 cases including 2 negative cases).
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-11
+          description: |
+              synthesizeFix on a nil rule or a rule with no
+              implementations returns empty without panicking.
+              Locked by TestSynthesizeFix_NilRule and
+              TestSynthesizeFix_NoImplementations.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-12
+          description: |
+              Multi-step remediations return empty fix line
+              (synthesizing only step 1 would silently hide
+              steps 2..N from the operator). Locked by
+              TestSynthesizeFix_MultiStepReturnsEmpty.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-13
+          description: |
+              StatusPartiallyApplied renders as FAILED, not WARN
+              (per spec C-07). Locked by
+              TestTextScanWriter_PartiallyAppliedRendersAsFail.
+              Defensive lock: this status can't actually occur
+              during a scan today, but the mapping must not drift.
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-14
+          description: |
+              writeHostBanner uses utf8.RuneCountInString for both
+              the dash characters AND the hostID, so banner width
+              is 60 runes regardless of the hostID's UTF-8 byte
+              count. Locked by TestWriteHostBanner_RuneWidth with
+              ASCII, Cyrillic, CJK, and IPv6 hostnames.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-15
+          description: |
+              humanizeDetail handles multi-line script bodies
+              (rule's `check.method: command` with a multi-line
+              `run:` block) by replacing with a "(check failed —
+              see -o json: for command output)" pointer or
+              extracting "exited with code N (expected M)" as
+              "unexpected exit (got N, want M)". Locked by
+              TestHumanizeDetail_MultiLineScriptBody and
+              TestHumanizeDetail_ExitCodePattern.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-16
+          description: |
+              compactPasses uses deepest-common-prefix grouping:
+              "pam-faillock-deny", "pam-faillock-silent",
+              "pam-faillock-unlock-time" collapse to
+              "pam-faillock-*", not "pam-*". Locked by
+              TestCompactPasses_DeepestPrefix.
+          references_constraints: [C-03]
+          priority: high
+
+    tags: [cli, text-scan, operator-ux, tier-1, c-022]
