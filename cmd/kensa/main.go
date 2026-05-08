@@ -227,6 +227,41 @@ func rewriteLegacyDb(argv []string) []string {
 	return out
 }
 
+// rewriteLegacyLongForm converts stdlib-flag-style single-dash long forms
+// (e.g., `-host foo`, `-host=foo`) to pflag's double-dash form
+// (`--host foo`, `--host=foo`). Each subcommand passes the set of long
+// flag names it accepts; only those names are rewritten so that real
+// short forms (`-h`, `-H`, `-u`, etc.) are left untouched.
+//
+// One stderr deprecation warning per call. Removed in v0.2.
+func rewriteLegacyLongForm(args []string, longNames map[string]bool) []string {
+	out := make([]string, 0, len(args))
+	warned := false
+	for _, a := range args {
+		if !strings.HasPrefix(a, "-") || strings.HasPrefix(a, "--") {
+			out = append(out, a)
+			continue
+		}
+		// `a` is single-dash. Extract the name (before any `=`).
+		name := a[1:]
+		if eq := strings.Index(name, "="); eq != -1 {
+			name = name[:eq]
+		}
+		// Only rewrite multi-character names that match a known long flag.
+		// Single-character names (e.g., `-h`) are real short forms.
+		if len(name) > 1 && longNames[name] {
+			if !warned {
+				fmt.Fprintln(os.Stderr, "kensa: warning: stdlib-style single-dash long flags are deprecated; use --"+name+" (will be removed in v0.2)")
+				warned = true
+			}
+			out = append(out, "-"+a) // prepend `-` to make double-dash
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
 // printUsage writes the top-level help to w. Per GNU convention, --help
 // goes to stdout and usage errors go to stderr — the caller chooses the
 // writer accordingly.
@@ -259,28 +294,74 @@ Exit codes:
 // ─── detect ────────────────────────────────────────────────────────────────
 
 // runDetect connects to a host and prints its capability set.
+//
+// Flag style follows the GNU/POSIX-strict short-letter table per
+// docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §4. Short forms:
+//
+//	-H, --host       target hostname (capital H — `-h` is reserved for --help)
+//	-u, --user       SSH username
+//	-p, --port       SSH port
+//	-k, --key        SSH private key path (note: `-i` is reserved system-
+//	                 wide for `--inventory` in `kensa check`, even though
+//	                 `kensa detect` has no inventory flag — so `-k` is
+//	                 used here for cross-subcommand consistency, deviating
+//	                 from OpenSSH's `-i identity_file` idiom)
+//	-s, --sudo       wrap commands in sudo
+//	-f, --format     output format
+//	-h, --help       show help
+//
+// Single-dash long forms (`-host`, `-user`, etc.) from the stdlib-flag
+// era continue to parse via rewriteLegacyLongForm with a deprecation
+// warning. Removed in v0.2.
 func runDetect(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("detect", flag.ContinueOnError)
-	host := fs.String("host", "", "target hostname (required)")
-	user := fs.String("user", "", "SSH user (default: current user)")
-	port := fs.Int("port", 22, "SSH port")
-	keyPath := fs.String("key", "", "SSH private key path")
-	sudo := fs.Bool("sudo", false, "wrap commands in sudo")
-	format := fs.String("format", "table", "output format: table or json")
+	args = rewriteLegacyLongForm(args, map[string]bool{
+		"host": true, "user": true, "port": true,
+		"key": true, "sudo": true, "format": true,
+	})
+
+	fs := pflag.NewFlagSet("detect", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp bool
+		host     string
+		user     string
+		port     int
+		keyPath  string
+		sudo     bool
+		format   string
+	)
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
+	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", "p", 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", "f", "table", "output format: table or json")
+
 	if err := fs.Parse(args); err != nil {
-		return err
+		if errors.Is(err, pflag.ErrHelp) {
+			printDetectUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa detect --help'", err)
 	}
-	if *host == "" {
-		fs.Usage()
+	if showHelp {
+		printDetectUsage(os.Stdout, fs)
+		return nil
+	}
+	if host == "" {
+		printDetectUsage(os.Stderr, fs)
 		return errors.New("--host is required")
 	}
 
 	hostCfg := api.HostConfig{
-		Hostname: *host,
-		User:     *user,
-		Port:     *port,
-		KeyPath:  *keyPath,
-		Sudo:     *sudo,
+		Hostname: host,
+		User:     user,
+		Port:     port,
+		KeyPath:  keyPath,
+		Sudo:     sudo,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -293,13 +374,28 @@ func runDetect(ctx context.Context, args []string) error {
 		return fmt.Errorf("detect: %w", err)
 	}
 
-	switch *format {
+	switch format {
 	case "json":
 		return printJSON(caps)
 	default:
-		printCapsTable(*host, caps)
+		printCapsTable(host, caps)
 	}
 	return nil
+}
+
+// printDetectUsage writes the `kensa detect` help text to w. Per GNU
+// convention, --help goes to stdout; usage errors go to stderr.
+func printDetectUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa detect [flags]
+
+Probe a host and print its capability set. Read-only; no mutations.
+
+Flags:
+%s
+Examples:
+  kensa detect -H 192.168.1.211 -u owadmin -s
+  kensa detect --host web-01 --user admin --format json
+`, fs.FlagUsages())
 }
 
 func printCapsTable(hostID string, caps api.CapabilitySet) {
