@@ -66,7 +66,7 @@ critical path to first release.
 
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
-| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | In progress (4 of 10 items done) | ~2 days | C-001..C-004 merged 2026-05-08 (latest: `84778e0`). All 7 subcommands now pflag-based. C-005 (centralize short-letter table in `cmd/kensa/flags.go`) is next |
+| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | In progress (5 of 10 items done) | ~2 days | C-001..C-005 merged 2026-05-08 (latest: `efd3c7c`). All short letters in centralized constants; collision-detection test guards against future dupes. C-006 (kensa-validate pflag migration) is next |
 | Phase 2 — `--output FORMAT[:PATH]` mechanism (json, jsonl, csv, pdf, evidence, oscal, markdown) | Not started | ~1 week | PDF library decision needed (`unidoc/unipdf` vs `gofpdf` vs `maroto`) |
 | Phase 3 — Full `target_options` + `rule_options` parity | Not started | ~1.5 weeks | Inventory glob matching, password prompt, strict-host-keys, capability override, workers, full rule filtering |
 | Phase 4 — Session model in store + `kensa diff`, framework `kensa coverage`, `kensa list frameworks`, `kensa info`, `--stats`/`--prune` | Not started | ~2 weeks | SQLite schema migration needed; `kensa coverage` → `kensa mechanisms` rename with deprecation cycle |

@@ -86,7 +86,7 @@ but do not gate Track L.
 - **Deps:** C-001..C-004
 - **Acceptance:** every short letter declared as a constant; collision-detection test in `cmd/kensa/flags_test.go`
 - **Size:** 1h
-- **Status:** pending
+- **Status:** **done** — merge `efd3c7c` (2026-05-08); 16 named constants covering every short letter; 50 main.go call sites refactored; new flags_test.go with collision-detection + 16 case-discipline subtests; 2-agent peer review clean (agent 2 caught weak ShortDb rationale — strengthened); pure refactor, no flag behavior changes; live-tested 192.168.1.211.
 
 #### C-006 — Migrate `cmd/kensa-validate/main.go` to pflag
 - **Phase:** CLI Phase 1
