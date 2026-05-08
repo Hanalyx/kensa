@@ -223,7 +223,7 @@ phase (founder review on 2026-05-08).
 - **Deps:** C-022
 - **Acceptance:** `os_release` capability probe (parses `/etc/os-release` for "RHEL 9.6" etc.) wired into the host banner. `-i` registered as short form for `--inventory`. `-v`/`--verbose` flag wired (`ShortVerbose = "v"` already reserved); under `-v`, the compacted PASSED list expands to full rule IDs.
 - **Size:** 0.5 day
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `cfe93aa`)
 
 ### CLI Phase 3 — `target_options` + `rule_options` parity
 
