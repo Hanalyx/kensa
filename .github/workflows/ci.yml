@@ -228,6 +228,39 @@ jobs:
             exit 1
           fi
 
+  build-portability-alpine:
+    # Deliverable L-005 (docs/roadmap/DELIVERABLES.md): proves the static
+    # binary runs on Alpine (musl libc), not just glibc-based distros.
+    # Together with L-004 (glibc 2.28), this verifies kensa-go's binary
+    # is libc-independent end-to-end — the "compile once, run anywhere
+    # Linux" claim cited in docs/context/AI_DEFENSIBILITY.md.
+    #
+    # Note: uses `kensa version` (subcommand) rather than `kensa --version`
+    # (flag) because the GNU/POSIX flag form is added in CLI Phase 1
+    # (deliverable C-001). Functionally equivalent for portability —
+    # both exercise the same Go runtime startup path.
+    name: Portability — Alpine (musl)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Build static binary
+        run: make build
+      - name: Verify binary runs in alpine:3 (musl libc)
+        run: |
+          set -e
+          out=$(docker run --rm -v "$PWD/bin:/kensa-bin:ro" alpine:3 \
+            /kensa-bin/kensa version 2>&1)
+          echo "Output: $out"
+          if echo "$out" | grep -q "kensa "; then
+            echo "  ✓ kensa version succeeded on Alpine (musl)"
+          else
+            echo "::error::Binary failed to run on Alpine musl — L-001/L-002 regression. The binary may have a glibc-specific symbol or the static-link discipline broke. Output: $out"
+            exit 1
+          fi
+
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
   #   fuzz: kensa-fuzz atomicity verification (after Week 7)
