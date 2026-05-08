@@ -93,7 +93,7 @@ but do not gate Track L.
 - **Deps:** C-001
 - **Acceptance:** GNU/POSIX flags; `--help` exits 0
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** **done** — merge `8d68118` (2026-05-08); pflag swap with `-h/-r/-f/-S` short forms; `--cap-check`/`--no-lint` long-only; `runCLI(argv) int` testable harness; legacy `-rules-dir` etc. still parse with deprecation warning; aligned the documented exit-code contract (0/1/2) with actual behavior; 2-agent peer review clean; specter 22/22; ldd OK; live-validated 23 rules from kensa/rules/network/ corpus.
 
 #### C-007 — Migrate `cmd/kensa-fuzz/main.go` to pflag (preserve `KENSA_FUZZ_HOST` env-var fallback)
 - **Phase:** CLI Phase 1
