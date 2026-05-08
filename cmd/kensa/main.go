@@ -44,7 +44,6 @@ import (
 	"github.com/Hanalyx/kensa-go/api"
 	"github.com/Hanalyx/kensa-go/internal/detect"
 	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
 	"github.com/Hanalyx/kensa-go/internal/handler"
 	"github.com/Hanalyx/kensa-go/internal/output"
 	"github.com/Hanalyx/kensa-go/internal/rule"
@@ -671,21 +670,45 @@ Examples:
 }
 
 
+// writeOSCALFile opens path and writes OSCAL Assessment Results
+// documents (one per transaction with a non-nil envelope) by
+// delegating to the registered "oscal" RemediationResultWriter.
+//
+// This preserves the legacy --oscal flag's user-visible behavior
+// (file open + close handled here) while routing the byte production
+// through the same writer the future -o oscal:path mechanism will
+// dispatch to (C-018). The two surfaces share one OSCAL serializer
+// implementation; deprecating --oscal in a future minor version is
+// purely a CLI change.
+//
+// Empty-envelope short-circuit: when no transaction has an envelope
+// (e.g., every rule errored before commit), the function returns
+// nil WITHOUT creating the file and logs to stderr. A 0-byte
+// "OSCAL" file is operator-hostile — auditors opening it cannot
+// distinguish "Kensa crashed" from "the run had no envelopes" from
+// "the file was truncated." Better to leave no artifact and tell
+// the operator why.
 func writeOSCALFile(path string, result *api.RemediationResult) error {
+	envelopes := 0
+	for _, txr := range result.Transactions {
+		if txr.Envelope != nil {
+			envelopes++
+		}
+	}
+	if envelopes == 0 {
+		fmt.Fprintln(os.Stderr, "kensa: --oscal: no remediation envelopes produced; no OSCAL output written")
+		return nil
+	}
+	w, ok := output.RemediationWriterFor("oscal")
+	if !ok {
+		return fmt.Errorf("kensa: oscal writer not registered (build invariant broken)")
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	for _, txr := range result.Transactions {
-		if txr.Envelope == nil {
-			continue
-		}
-		if err := evidence.WriteOSCAL(f, txr.Envelope); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.WriteRemediationResult(f, "", nil, result)
 }
 
 // ─── rollback ──────────────────────────────────────────────────────────────
