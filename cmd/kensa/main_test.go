@@ -195,6 +195,96 @@ func TestRewriteLegacyLongForm(t *testing.T) {
 	}
 }
 
+// TestUsageError_BasicShape verifies the UsageError type behaves
+// correctly with errors.As / Unwrap, NewUsageError, WrapUsageError.
+// Deliverable C-008.
+func TestUsageError_BasicShape(t *testing.T) {
+	t.Run("NewUsageError is a UsageError", func(t *testing.T) {
+		err := NewUsageError("foo")
+		if !IsUsageError(err) {
+			t.Errorf("IsUsageError(NewUsageError(...)) = false; want true")
+		}
+		if err.Error() != "foo" {
+			t.Errorf("err.Error() = %q; want %q", err.Error(), "foo")
+		}
+	})
+
+	t.Run("WrapUsageError wraps a non-UsageError", func(t *testing.T) {
+		inner := errorString("network fail")
+		err := WrapUsageError("connect", inner)
+		if !IsUsageError(err) {
+			t.Errorf("IsUsageError of wrapped = false; want true")
+		}
+		if err.Error() != "connect: network fail" {
+			t.Errorf("err.Error() = %q; want %q", err.Error(), "connect: network fail")
+		}
+	})
+
+	t.Run("WrapUsageError is idempotent on existing UsageError", func(t *testing.T) {
+		first := NewUsageError("bad input")
+		second := WrapUsageError("ignored", first)
+		// Should return the existing UsageError unchanged.
+		if second.Error() != "bad input" {
+			t.Errorf("idempotent wrap = %q; want %q", second.Error(), "bad input")
+		}
+	})
+
+	t.Run("non-UsageError is not flagged", func(t *testing.T) {
+		if IsUsageError(errorString("ordinary")) {
+			t.Errorf("IsUsageError of plain error = true; want false")
+		}
+	})
+}
+
+// TestRunCLI_UsageVsRuntimeExitCodes verifies the C-008 contract:
+// usage errors (bad flags, missing required args, malformed values)
+// exit 2; runtime errors exit 1; --help/--version exit 0.
+//
+// These tests don't make network calls — they only exercise the
+// flag-parse / required-flag-check paths which return UsageError
+// before any runtime work begins. The "unreachable host" runtime-1
+// case is covered by manual / live testing because invoking it from
+// here would block on TCP timeouts.
+func TestRunCLI_UsageVsRuntimeExitCodes(t *testing.T) {
+	cases := []runCLITestCase{
+		// Help paths: exit 0
+		{name: "kensa --help", argv: []string{"--help"}, wantExit: 0},
+		{name: "kensa version --help", argv: []string{"version", "--help"}, wantExit: 0},
+		{name: "kensa detect --help", argv: []string{"detect", "--help"}, wantExit: 0},
+		{name: "kensa coverage --help", argv: []string{"coverage", "--help"}, wantExit: 0},
+
+		// Usage errors at top level: exit 2
+		{name: "kensa unknown-cmd", argv: []string{"frobnicate"}, wantExit: 2},
+		{name: "kensa --bogus-flag", argv: []string{"--bogus-flag"}, wantExit: 2},
+
+		// Subcommand usage errors (missing required flag, bad flag): exit 2
+		{name: "kensa detect (no host)", argv: []string{"detect"}, wantExit: 2},
+		{name: "kensa detect --bogus", argv: []string{"detect", "--bogus"}, wantExit: 2},
+		{name: "kensa check (nothing)", argv: []string{"check"}, wantExit: 2},
+		{name: "kensa check --bogus", argv: []string{"check", "--bogus"}, wantExit: 2},
+		{name: "kensa rollback (no host)", argv: []string{"rollback"}, wantExit: 2},
+		{name: "kensa rollback -H foo (no txn)", argv: []string{"rollback", "-H", "foo"}, wantExit: 2},
+		{name: "kensa rollback bad UUID", argv: []string{"rollback", "-H", "foo", "-t", "notauuid"}, wantExit: 2},
+		{name: "kensa plan (no host, no rule)", argv: []string{"plan"}, wantExit: 2},
+		{name: "kensa plan -H foo (no rule)", argv: []string{"plan", "-H", "foo"}, wantExit: 2},
+		{name: "kensa remediate (no host)", argv: []string{"remediate"}, wantExit: 2},
+		{name: "kensa history --since invalid", argv: []string{"history", "--since", "not-a-duration-or-time"}, wantExit: 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := runCLI(tc.argv); got != tc.wantExit {
+				t.Errorf("runCLI(%q) = %d, want %d", tc.argv, got, tc.wantExit)
+			}
+		})
+	}
+}
+
+// errorString is a minimal error implementation for tests that need
+// to wrap a plain error in a UsageError.
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
+
 // Sanity: ensure the version constant is non-empty and starts with 'v'.
 func TestVersionConstantShape(t *testing.T) {
 	if !strings.HasPrefix(version, "v") {
