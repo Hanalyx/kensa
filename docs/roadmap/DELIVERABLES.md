@@ -186,7 +186,7 @@ but do not gate Track L.
 - **Deps:** C-011..C-018
 - **Acceptance:** `-o csv:a -o pdf:b -o json:c` runs all three serializers concurrently against same in-memory result
 - **Size:** 2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `7a84f11`)
 
 #### C-020 — Deprecation alias: `--format` keeps working with single-arg semantics
 - **Phase:** CLI Phase 2
