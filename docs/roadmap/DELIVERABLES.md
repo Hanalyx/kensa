@@ -172,7 +172,7 @@ but do not gate Track L.
 - **Deps:** C-011
 - **Acceptance:** `-o evidence:foo.json` emits envelope with current schema; documented that signature bytes are empty until M7 task #12
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `0e92792`)
 
 #### C-018 — `--quiet`/`-q` flag suppressing default human output
 - **Phase:** CLI Phase 2
