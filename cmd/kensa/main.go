@@ -260,6 +260,27 @@ func routeFanOutError(err error) error {
 	return err
 }
 
+// resolveAndPrintIssues is the canonical pre-scan helper. Resolves
+// the rule list (orders by depends_on, applies supersedes auto-
+// resolution, detects conflicts and cycles) and emits the
+// resolution summary to stderr.
+//
+// info: lines (supersedes notices) are suppressed when quiet is
+// true so CI scripts running --quiet don't drown in cosmetic
+// chatter. error: (cycles, dropped rules) and warning: (conflicts)
+// lines always emit — operators must see real configuration
+// problems regardless of --quiet.
+func resolveAndPrintIssues(rules []*api.Rule, quiet bool) *rule.ResolvedRules {
+	resolved := rule.Resolve(rules)
+	for _, msg := range rule.FormatIssues(resolved) {
+		if quiet && rule.IssueSeverity(msg) == "info" {
+			continue
+		}
+		fmt.Fprintln(os.Stderr, "kensa: "+msg)
+	}
+	return resolved
+}
+
 // bodyOut returns the io.Writer to which a subcommand's default
 // human-readable result body should be written. When the operator
 // passes --quiet (-q), returns io.Discard so no body bytes hit
@@ -602,8 +623,10 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	defer func() { _ = transport.Close() }()
 
+	resolved := resolveAndPrintIssues(rules, quiet)
+
 	runner := scan.New(nil)
-	result, err := runner.Scan(ctx, transport, rules)
+	result, err := runner.Scan(ctx, transport, resolved.Order)
 	if err != nil {
 		return err
 	}
@@ -614,9 +637,9 @@ func runCheck(ctx context.Context, args []string) error {
 		if err != nil {
 			return WrapUsageError("--output", err)
 		}
-		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, rules, result))
+		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, resolved.Order, result))
 	}
-	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, rules, result)
+	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, resolved.Order, result)
 }
 
 // printCheckUsage writes the `kensa check` help text. --help to stdout,
@@ -646,6 +669,12 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
 	}
+
+	// Resolve rules once before the per-host fan-out so every host
+	// runs the same active set in the same order. cmd/kensa's
+	// per-host text rendering today doesn't surface the resolution
+	// summary; C-022 weaves that into the host banner.
+	resolved := resolveAndPrintIssues(rules, quiet)
 
 	type hostResult struct {
 		host   inventoryHost
@@ -677,7 +706,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 			}
 			defer func() { _ = transport.Close() }()
 			runner := scan.New(nil)
-			res, err := runner.Scan(ctx, transport, rules)
+			res, err := runner.Scan(ctx, transport, resolved.Order)
 			if err != nil {
 				results[idx] = hostResult{host: ih, err: err}
 				return
@@ -707,7 +736,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 				fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 				continue
 			}
-			if err := routeFanOutError(output.FanOutScanResult(specs, stdoutOverride, r.host.addr, rules, r.result)); err != nil {
+			if err := routeFanOutError(output.FanOutScanResult(specs, stdoutOverride, r.host.addr, resolved.Order, r.result)); err != nil {
 				return err
 			}
 		}
@@ -719,7 +748,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, user string, port int
 			fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 			continue
 		}
-		if err := w.WriteScanResult(stdoutOverride, r.host.addr, rules, r.result); err != nil {
+		if err := w.WriteScanResult(stdoutOverride, r.host.addr, resolved.Order, r.result); err != nil {
 			return err
 		}
 	}
@@ -797,7 +826,8 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
 	}
-	result, err := svc.Remediate(ctx, hostCfg, rules)
+	resolved := resolveAndPrintIssues(rules, quiet)
+	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
 	if err != nil {
 		return err
 	}
@@ -807,10 +837,10 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		if err != nil {
 			return WrapUsageError("--output", err)
 		}
-		if err := routeFanOutError(output.FanOutRemediationResult(specs, bodyOut(quiet), host, rules, result)); err != nil {
+		if err := routeFanOutError(output.FanOutRemediationResult(specs, bodyOut(quiet), host, resolved.Order, result)); err != nil {
 			return err
 		}
-	} else if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, rules, result); err != nil {
+	} else if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, resolved.Order, result); err != nil {
 		return err
 	}
 

@@ -1,0 +1,305 @@
+spec:
+    id: rule-ordering
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: rule-ordering-resolution
+        description: |
+            Rules carry three optional inter-rule relationships:
+            depends_on (operational ordering), conflicts_with
+            (mutual exclusion), and supersedes (rule X replaces
+            rule Y). The ordering layer takes a flat list of rules
+            and produces an execution plan that honors these.
+
+            Algorithm ported from the sister Python kensa repo's
+            runner/ordering.py (referenced as the design template
+            per C-021). Behavior parity preserved so operators can
+            translate scripts between the two implementations
+            without surprise. The Go port adds determinism
+            guarantees the Python version implies but doesn't
+            explicitly lock (sorted iteration order at every step).
+
+            Operator semantics:
+              - depends_on: Y must be in place before X can run.
+                If Y fails or is absent, X is skipped (engine-side;
+                spec covers the resolution layer that produces the
+                ordered set).
+              - conflicts_with: X and Y are mutually exclusive.
+                Both run; engine surfaces a warning so the operator
+                can decide which to keep. Not auto-resolution.
+              - supersedes: X replaces Y. When both are present, Y
+                is silently skipped. This IS auto-resolution; the
+                operator UX surfaces "N rules superseded".
+
+    objective:
+        summary: |
+            internal/rule/ordering.go provides Resolve(rules) that
+            returns ResolvedRules{Order, Cycles, Conflicts,
+            Superseded, Skipped}. cmd/kensa calls Resolve before
+            Scan/Remediate so superseded rules don't run; surfaces
+            FormatIssues output to stderr above the result body.
+        scope:
+            includes:
+                - Resolve(rules []*api.Rule) *ResolvedRules
+                - Topological sort by depends_on with Kahn's algorithm
+                - Cycle detection via 3-color DFS
+                - Supersedes auto-resolution (older rule excluded from Order)
+                - Conflict detection deduped by canonical pair ordering
+                - External-reference filtering (depends_on to a rule not in the input set is silently dropped)
+                - Determinism (sorted iteration at every step so test output and operator-facing output don't drift)
+                - FailedDependencies / ShouldSkip helpers for engine-side dependency-failure handling
+                - FormatIssues for operator-facing diagnostic line generation
+                - cmd/kensa wiring on runCheck (single + inventory) and runRemediate
+            excludes:
+                - WARN status as a first-class transaction outcome (model 2 chosen; WARN is a textScanWriter display category in C-022)
+                - api.ScanResult.Resolved field (kept off the public api/ to preserve the frozen contract; cmd/kensa carries Resolved separately)
+                - Capability-gated skips (deferred — currently rules are gated by `when:` capability matching, which is a different filter)
+                - Engine-side dependency-failure auto-skip (ShouldSkip is exposed for the engine to call; wiring happens in a separate engine deliverable)
+
+    constraints:
+        - id: C-01
+          description: |
+              Resolve MUST be a pure function. Same input → same
+              output across runs. The ordering of rules with equal
+              in-degree and the iteration order over conflicts /
+              supersedes / cycles MUST be stable (alphabetical by
+              rule ID at every choice point). Without this, scan
+              results would shuffle between runs even when nothing
+              changed, defeating reproducibility.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              External references (depends_on / conflicts_with /
+              supersedes pointing at IDs not in the input set) MUST
+              be silently filtered. Operators commonly include
+              rules from one framework while another framework's
+              rule references it; treating that as an error would
+              force operators to either include all rules or write
+              tooling to strip dangling refs.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Conflict pairs MUST be deduped by canonical ordering:
+              a single conflict between X and Y appears once
+              regardless of whether one or both rules declare
+              conflicts_with. Avoids duplicate operator-facing
+              warnings.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Supersedes MUST be alphabetical-smallest-superseder-wins
+              on double-supersede (two rules both claiming to
+              supersede the same target). This is deterministic
+              regardless of input load order — operators get the
+              same outcome whether CIS rules load before STIG rules
+              or vice versa. The Go port intentionally improves on
+              Python kensa, which is last-in-input-order wins
+              (load-order-dependent).
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              Conflicts among rules where one side is superseded
+              MUST be elided. The conflict no longer applies because
+              the rule that would conflict isn't actually running.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              cmd/kensa MUST call Resolve before scan / remediate
+              dispatch and pass resolved.Order (NOT the raw input)
+              to the runner. Without this, superseded rules would
+              still run and the auto-resolution promise is empty.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              FormatIssues output MUST go to stderr, not stdout.
+              The resolution summary is diagnostic context, not
+              part of the result body. stdout reserves for the
+              writer's body output (text table, JSON, etc.).
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              Cycle members MUST be excluded from Order. Kahn's
+              algorithm cannot linearize cyclic dependencies. The
+              CycleMembers field carries the list of dropped IDs
+              so the operator-facing layer surfaces the consequence
+              ("N rules dropped due to circular dependency"), not
+              just the existence of a cycle.
+          type: technical
+          enforcement: error
+        - id: C-09
+          description: |
+              Under --quiet, info: lines (supersedes notices) MUST
+              be suppressed; error: (cycles, dropped rules) and
+              warning: (conflicts) lines MUST still emit.
+              Operators must see real configuration problems
+              regardless of CI noise control. IssueSeverity()
+              exposes the severity-prefix lookup so cmd/kensa can
+              gate on it.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Resolve returns an empty result when given empty
+              input. Locked by TestResolve_EmptyInput.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-02
+          description: |
+              With no dependencies, all rules appear in Order in
+              alphabetical ID order (deterministic). Locked by
+              TestResolve_NoDependencies_PreservesAllRules.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              depends_on relationships produce dependency-first
+              execution order (Y appears before X when X
+              depends_on Y). Locked by
+              TestResolve_DependsOn_OrdersDependenciesFirst.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              External depends_on references (to IDs not in the
+              input set) are silently filtered; the rule still
+              runs. Locked by TestResolve_DependsOn_IgnoresExternalRefs.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-05
+          description: |
+              Cycles are detected and reported in Cycles. Each
+              reported cycle closes with a repeat of its first
+              element so callers can render "A → B → C → A".
+              Locked by TestResolve_Cycles_Detected.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              Self-loops (rule depends on itself) are detected
+              as cycles. Locked by TestResolve_Cycles_SelfLoop.
+          references_constraints: [C-01]
+          priority: medium
+        - id: AC-07
+          description: |
+              Supersedes auto-resolution: when X supersedes Y,
+              Y is excluded from Order and recorded in
+              Superseded. Locked by
+              TestResolve_Supersedes_SkipsOlder.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-08
+          description: |
+              Double-supersede on the same target: alphabetical-
+              smallest-superseder wins, regardless of input load
+              order. Locked by
+              TestResolve_Supersedes_FirstWinsOnDoubleSupersede
+              (kept name for git-blame continuity; the test asserts
+              alphabetical-wins) AND
+              TestResolve_Supersedes_AlphabeticalWinsRegardlessOfInputOrder
+              (3 input permutations all produce the same outcome).
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-09
+          description: |
+              Supersedes pointing at an external ID is silently
+              ignored. Locked by
+              TestResolve_Supersedes_IgnoresExternalRefs.
+          references_constraints: [C-02]
+          priority: medium
+        - id: AC-10
+          description: |
+              Conflicts among active rules surface as
+              ConflictPair entries; deduped by canonical
+              ordering. Locked by
+              TestResolve_Conflicts_DetectedAmongActive and
+              TestResolve_Conflicts_DedupedAcrossDirections.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-11
+          description: |
+              When one side of a conflict is superseded, the
+              conflict is elided. Locked by
+              TestResolve_Conflicts_SkippedRulesIgnored.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-12
+          description: |
+              Combined depends_on + conflicts_with + supersedes
+              graphs resolve correctly. Locked by
+              TestResolve_Combined_DepsConflictsSupersedes.
+          references_constraints: [C-01, C-03, C-04, C-05]
+          priority: high
+        - id: AC-13
+          description: |
+              Same input produces same output across multiple
+              runs (determinism). Locked by
+              TestResolve_DeterministicAcrossRuns.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-14
+          description: |
+              FailedDependencies returns the subset of a rule's
+              direct depends_on that appears in the failed set.
+              Returns empty for unknown rules. Locked by
+              TestFailedDependencies.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-15
+          description: |
+              ShouldSkip(transitive=true) walks the full
+              depends_on graph; with transitive=false, only
+              direct dependencies are checked. Locked by
+              TestShouldSkip_DirectFailure,
+              TestShouldSkip_TransitiveFailure, and
+              TestShouldSkip_NoFailures.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-16
+          description: |
+              FormatIssues renders cycles, conflicts, and
+              superseded mappings as operator-facing strings
+              ("error: circular dependency: A → B → A",
+              "warning: conflict: X conflicts with Y (both
+              active)", "info: skipping old (superseded by
+              new)"). Locked by TestFormatIssues_AllCategories.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-17
+          description: |
+              FormatIssues handles a nil result gracefully
+              (returns nil). Defensive for cmd/kensa callers
+              that may receive nil from a future no-op path.
+              Locked by TestFormatIssues_NilResult.
+          references_constraints: [C-07]
+          priority: low
+        - id: AC-18
+          description: |
+              Cycle members are excluded from Order; CycleMembers
+              carries the list (deduped, sorted). Locked by
+              TestResolve_Cycles_MembersDroppedFromOrder and
+              TestResolve_CycleMembers_DedupedAcrossCycles.
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-19
+          description: |
+              IssueSeverity returns "error", "warning", "info", or
+              "" based on the line prefix. Locked by
+              TestIssueSeverity. Used by cmd/kensa's
+              resolveAndPrintIssues helper to gate info: lines
+              under --quiet.
+          references_constraints: [C-09]
+          priority: high
+
+    tags: [rule, ordering, conflict, supersedes, tier-1, c-021]

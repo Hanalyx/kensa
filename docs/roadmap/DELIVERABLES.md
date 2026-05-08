@@ -196,18 +196,47 @@ but do not gate Track L.
 - **Status:** done (merged 2026-05-08, `7c24dc3`)
 
 
+### CLI Phase 2.5 — Operator UX refresh
+
+Inserted post-Phase-2 in response to a UX critique of the default
+`kensa check` text output: detail column leaked mechanism strings;
+no failure/pass grouping; no severity surfacing; no fix guidance.
+Mockup target lives in the conversation thread that triggered this
+phase (founder review on 2026-05-08).
+
+#### C-021 — Rule ordering + conflict/supersedes resolution
+- **Phase:** CLI Phase 2.5
+- **Deps:** —
+- **Acceptance:** `internal/rule/ordering.go` ports `ordering.py` from sister Python kensa repo. Returns `ResolvedRules{Order, Conflicts, Superseded}`. Wired into scan/check/remediate so superseded rules don't run; `api.ScanResult.Resolved` (new optional pointer field) carries the resolved metadata so writers can surface counts.
+- **Size:** 1 day
+- **Status:** pending
+
+#### C-022 — `textScanWriter` operator-UX rewrite
+- **Phase:** CLI Phase 2.5
+- **Deps:** C-021
+- **Acceptance:** `kensa check` default output groups FAILED / WARN / PASSED, surfaces severity badges, compacts PASSED list with glob patterns, synthesizes fix-line guidance from handler params (~5 common handler types), shows progress bar + summary line + host banner. WARN is a display-only category (passes/fails with `severity: low` and skipped rules; no engine changes).
+- **Size:** 1 day
+- **Status:** pending
+
+#### C-023 — Polish: OS probe, `-i`, `-v`/`--verbose`
+- **Phase:** CLI Phase 2.5
+- **Deps:** C-022
+- **Acceptance:** `os_release` capability probe (parses `/etc/os-release` for "RHEL 9.6" etc.) wired into the host banner. `-i` registered as short form for `--inventory`. `-v`/`--verbose` flag wired (`ShortVerbose = "v"` already reserved); under `-v`, the compacted PASSED list expands to full rule IDs.
+- **Size:** 0.5 day
+- **Status:** pending
+
 ### CLI Phase 3 — `target_options` + `rule_options` parity
 
 *Sketch — full deliverable breakdown will be filled in when the loop reaches this phase.*
-Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob), `--password/-p` (with prompt), `--strict-host-keys/--no-strict-host-keys`, `--capability/-C`, `--workers/-w`, `--severity/-s`, `--tag/-t`, `--category/-c`, `--framework/-f`, `--var/-x`, `--control`, `--config-dir`. Each ~1–3h. ~1.5 weeks total.
+Estimated 12–15 deliverables (C-024..C-038) covering: `--limit/-l` (host glob), `--password/-p` (with prompt), `--strict-host-keys/--no-strict-host-keys`, `--capability/-C`, `--workers/-w`, `--severity/-s`, `--tag/-t`, `--category/-c`, `--framework/-f`, `--var/-x`, `--control`, `--config-dir`. Each ~1–3h. ~1.5 weeks total.
 
 ### CLI Phase 4 — Session model + missing subcommands
 
-*Sketch.* Estimated 12–15 deliverables (C-036..C-050) covering: SQLite session schema migration, `kensa diff`, framework `kensa coverage` (rename existing to `kensa mechanisms`), `kensa list frameworks`, `kensa info` (with --cis/--stig/--nist/--rhel filters), `--stats`, `--prune`. **Includes one `kensa migrate` deliverable** for SQLite schema migration of existing databases. ~2 weeks.
+*Sketch.* Estimated 12–15 deliverables (C-039..C-053) covering: SQLite session schema migration, `kensa diff`, framework `kensa coverage` (rename existing to `kensa mechanisms`), `kensa list frameworks`, `kensa info` (with --cis/--stig/--nist/--rhel filters), `--stats`, `--prune`. **Includes one `kensa migrate` deliverable** for SQLite schema migration of existing databases. ~2 weeks.
 
 ### CLI Phase 5 — kensa-go-specific surfaces
 
-*Sketch.* Estimated 8–10 deliverables (C-051..C-060) covering: `jsonl` everywhere applicable, `oscal` everywhere, signed-envelope output (gates on M7 task #12 for real signatures), `kensa(1)` manpage, `kensa agent --stdio` placeholder subcommand stub. ~1 week.
+*Sketch.* Estimated 8–10 deliverables (C-054..C-063) covering: `jsonl` everywhere applicable, `oscal` everywhere, signed-envelope output (gates on M7 task #12 for real signatures), `kensa(1)` manpage, `kensa agent --stdio` placeholder subcommand stub. ~1 week.
 
 ---
 
