@@ -50,7 +50,7 @@ func TestScanWriterFor(t *testing.T) {
 		{"json", true, "output.jsonScanWriter"},
 		{"jsonl", true, "output.jsonlScanWriter"},
 		{"csv", true, "output.csvScanWriter"},
-		{"pdf", false, ""},
+		{"pdf", true, "output.pdfScanWriter"},
 		{"unknown", false, ""},
 		{"", false, ""},
 	}

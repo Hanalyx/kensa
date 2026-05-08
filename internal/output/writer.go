@@ -80,6 +80,7 @@ var scanResultWriters = map[string]ScanResultWriter{
 	"json":  jsonScanWriter{},
 	"jsonl": jsonlScanWriter{},
 	"csv":   csvScanWriter{},
+	"pdf":   pdfScanWriter{},
 }
 
 // remediationResultWriters maps format identifier → RemediationResultWriter.
@@ -87,6 +88,7 @@ var remediationResultWriters = map[string]RemediationResultWriter{
 	"text": textRemediationWriter{},
 	"json": jsonRemediationWriter{},
 	"csv":  csvRemediationWriter{},
+	"pdf":  pdfRemediationWriter{},
 }
 
 // historyWriters maps format identifier → HistoryWriter.

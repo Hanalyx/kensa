@@ -1,0 +1,220 @@
+spec:
+    id: output-pdf
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-pdf
+        description: |
+            PDF is the operator triage / handoff format — humans
+            read it during incident review, ticket attachments,
+            change-control reviews, and executive briefings.
+
+            PDF is NOT audit-grade evidence. A maroto-rendered PDF
+            has no digital signature and is editable in any PDF
+            editor. Auditors who accept PDF evidence at all want a
+            tamper-evident artifact, which kensa-go provides through
+            two complementary paths:
+
+              - EvidenceEnvelope (C-017): the canonical Ed25519-
+                signed JSON record per transaction. This is the
+                primary evidence that an auditor's compliance
+                pipeline trusts.
+              - OSCAL Assessment Results (C-016): the structured
+                JSON format that compliance frameworks (FedRAMP,
+                NIST 800-53) ingest directly.
+
+            PDF coexists with both: the operator generates a PDF
+            for the "show and tell" workflow (incident response,
+            executive briefing, change ticket); the auditor's
+            tooling consumes the signed envelope or OSCAL document.
+
+            C-014 (PDF library decision) ratified maroto v2 on
+            2026-05-08 over unidoc/unipdf and gofpdf:
+
+              - Maroto: MIT license, pure Go (no cgo, preserves
+                CGO_ENABLED=0 + -tags netgo build discipline),
+                high-level row/column/table primitives that fit
+                compliance-report layouts. Selected.
+              - Unidoc/unipdf: rejected — commercial license, not
+                free for production use without subscription.
+              - Gofpdf (phpdave11 fork): rejected — only primitive
+                layout (no built-in tables); writing tables manually
+                would add ~30% more code per PDF variant.
+
+            PDF is registered for ScanResult and RemediationResult.
+            It is intentionally NOT registered for caps (too small
+            to justify a PDF), history (paginated; thousands of
+            rows would produce a runaway PDF), or the JSONValue
+            escape hatch.
+
+    objective:
+        summary: |
+            Add pdfScanWriter and pdfRemediationWriter under
+            internal/output/pdf.go using maroto v2; register them
+            in scanResultWriters / remediationResultWriters; verify
+            the static-binary build discipline holds with the new
+            dependency.
+        scope:
+            includes:
+                - pdfScanWriter, pdfRemediationWriter (singletons in registries)
+                - "Layout: title row → host summary row → table header → data rows"
+                - Status vocabulary collapse for scan ({PASS, FAIL, ERROR}); preserved for remediation
+                - Maroto v2 dependency in go.mod
+                - "Build verification: CGO_ENABLED=0 + -tags netgo still produces a static binary"
+            excludes:
+                - cmd/kensa wiring of `-o pdf:report.pdf` (C-018 file-target dispatch)
+                - Multi-page table layouts beyond what maroto handles automatically
+                - Custom fonts / branding / logos (compliance reports are deliberately plain)
+                - PDF for caps / history / JSONValue payloads (intentionally unsupported)
+                - PDF/A-3 (archival) compliance — v1.0 ships baseline PDF; PDF/A is post-1.0 if requested
+
+    constraints:
+        - id: C-01
+          description: |
+              The PDF writer MUST use maroto v2 (per C-014 decision).
+              Direct gofpdf usage or other libraries are forbidden;
+              the consistency lets us audit one rendering pipeline.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The static-binary build discipline (CGO_ENABLED=0 +
+              -tags netgo) MUST hold with maroto added. CI build-
+              static-verify and build-portability-* jobs will fail
+              if maroto introduces a cgo dependency. Verified on
+              2026-05-08: ldd reports "not a dynamic executable";
+              binary runs in alpine:3 (musl) and rockylinux:8
+              (glibc 2.28).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Each WriteX call produces a complete, standalone PDF
+              document (magic bytes, single trailer, valid xref).
+              No streaming wrapper — PDF is binary and the operator
+              never wants to concatenate two PDFs into a single
+              file (they want to merge with pdftk or similar).
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Output starts with "%PDF-" (the PDF magic) and ends
+              with "%%EOF" (the standard PDF trailer marker). A
+              test verifies both bytes-level invariants.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              pdfScanWriter MUST collapse status to {PASS, FAIL,
+              ERROR} mirroring csvScanWriter (per csv.spec.yaml
+              C-04). Read-only scan output never legitimately
+              contains rolled_back or partially_applied; collapsing
+              them to FAIL keeps the report consistent with the
+              CSV view operators see in spreadsheets.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              pdfRemediationWriter MUST preserve the raw API status
+              vocabulary (committed / rolled_back /
+              partially_applied / errored) so auditors of a
+              remediation run can distinguish a rolled-back
+              transaction from a partially-applied one.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              The summary line MUST include a generation timestamp
+              in UTC RFC 3339. Compliance reports without a
+              "generated at" timestamp are useless as evidence
+              (auditors ask "when was this scan?").
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              pdfScanWriter satisfies ScanResultWriter and is
+              registered in scanResultWriters["pdf"].
+              ScanWriterFor("pdf") returns ok.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              pdfScanWriter.WriteScanResult produces output
+              starting with "%PDF-" and containing "%%EOF" per
+              C-04.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-03
+          description: |
+              The PDF body contains the report title, host ID,
+              every rule ID, and the pass/fail/error tally as
+              ASCII string content.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-04
+          description: |
+              pdfScanWriter status column collapses to {PASS, FAIL,
+              ERROR} per C-05. Locked by a test that feeds a
+              partially_applied transaction and asserts the PDF
+              body contains "FAIL" and does NOT contain
+              "partially_applied" as raw text.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-05
+          description: |
+              pdfRemediationWriter satisfies RemediationResultWriter
+              and is registered in remediationResultWriters["pdf"].
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              pdfRemediationWriter preserves raw API status strings
+              per C-06. Test feeds {committed, rolled_back, errored,
+              partially_applied} and asserts every value appears in
+              the PDF body.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-07
+          description: |
+              Empty Transactions still produces a valid PDF (magic
+              bytes + EOF) with a "0 passed, 0 failed, 0 errors"
+              summary. Exercises the always-emit-header invariant.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-08
+          description: |
+              Static-link verification: ldd bin/kensa returns "not
+              a dynamic executable" with maroto added to go.mod.
+              CI's build-static-verify job is the gate; locally
+              `make build && ldd bin/kensa` is the manual check.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-09
+          description: |
+              PDF is NOT registered for caps, history, or
+              JSONValue payloads. Test asserts CapsWriterFor("pdf")
+              and HistoryWriterFor("pdf") and JSONValueWriterFor(
+              "pdf") all return (nil, false).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-10
+          description: |
+              Both PDF writers surface errors from a failing
+              io.Writer (e.g., disk full); they do not swallow
+              write errors. Test passes errWriter and asserts
+              non-nil return.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-11
+          description: |
+              The summary row contains a UTC RFC 3339 timestamp
+              of the form "2006-01-02T15:04:05Z".
+          references_constraints: [C-07]
+          priority: medium
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-015, pdf]
