@@ -121,7 +121,7 @@ but do not gate Track L.
 - **Deps:** C-009
 - **Acceptance:** `make cli-smoke` runs clean; CI workflow invokes it
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** **done** — merge `b1ff51a` (2026-05-08); 41-scenario bash smoke test asserting exit codes AND output streams (stdout vs stderr discipline); auto-builds binaries; `make cli-smoke` local target; new `cli-smoke` CI job parallel to build-portability-* jobs; 2-agent peer review clean. **Closes CLI Phase 1 (10/10 deliverables done).**
 
 ### CLI Phase 2 — `-o FORMAT[:PATH]` mechanism
 

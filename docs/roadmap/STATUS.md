@@ -66,7 +66,7 @@ critical path to first release.
 
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
-| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | In progress (9 of 10 items done) | ~2 days | C-001..C-009 merged 2026-05-08 (latest: `631577e`). cmd/kensa coverage 41.4%→65.6% (90% gap documented as architectural — needs TransportFactory mock). C-010 (cli-smoke.sh + CI integration) is next, closes Phase 1 |
+| Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | **DONE** (10 of 10 items, 2026-05-08) | ~2 days | All shipped: C-001..C-010. Latest merge: `b1ff51a`. All 3 CLI binaries pflag-based; GNU/POSIX exit codes 0/1/2 enforced; UsageError type; centralized short-letter table; legacy single-dash long forms preserved with deprecation warnings; cli-smoke.sh CI gate. cmd/kensa unit-test coverage 65.6% (90% gap is architectural — TransportFactory mock pending). |
 | Phase 2 — `--output FORMAT[:PATH]` mechanism (json, jsonl, csv, pdf, evidence, oscal, markdown) | Not started | ~1 week | PDF library decision needed (`unidoc/unipdf` vs `gofpdf` vs `maroto`) |
 | Phase 3 — Full `target_options` + `rule_options` parity | Not started | ~1.5 weeks | Inventory glob matching, password prompt, strict-host-keys, capability override, workers, full rule filtering |
 | Phase 4 — Session model in store + `kensa diff`, framework `kensa coverage`, `kensa list frameworks`, `kensa info`, `--stats`/`--prune` | Not started | ~2 weeks | SQLite schema migration needed; `kensa coverage` → `kensa mechanisms` rename with deprecation cycle |
