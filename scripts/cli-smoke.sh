@@ -143,6 +143,30 @@ assert_exit "kensa remediate (no host)"      2 stderr-nonempty bin/kensa remedia
 assert_exit "kensa history --since invalid"  2 stderr-nonempty bin/kensa history --since not-a-duration
 echo
 
+# ─── kensa: -o flag advertised in --help (C-019) ──────────────────────────
+echo "kensa subcommand --output flag in --help:"
+for cmd in detect check remediate; do
+    out=$(bin/kensa "${cmd}" --help 2>&1)
+    if echo "${out}" | grep -qE -- "--output"; then
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa ${cmd} --help advertises --output"
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa ${cmd} --help: --output missing")
+        echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help missing --output"
+    fi
+done
+# Bad-format under -o exits 2 (usage error per ErrUnsupportedFormat
+# routing through WrapUsageError).
+assert_exit "kensa check -o yaml-bogus" 2 stderr-nonempty bin/kensa check -H foo -o yaml-bogus
+# Inventory + file-target -o is rejected per the C-019 inventory
+# data-loss guard. Uses the repo's inventory.ini (real file) so we
+# pass the parse phase and reach the guard. The guard fires before
+# any rule-loading or SSH attempt, so this check is network-free.
+assert_exit "kensa check --inventory + -o csv:file" 2 stderr-nonempty \
+    bin/kensa check --inventory inventory.ini --rules-dir /tmp -o csv:/tmp/x.csv
+echo
+
 # ─── kensa: --quiet flag advertised in --help (C-018) ─────────────────────
 echo "kensa subcommand --quiet flag in --help:"
 for cmd in detect check remediate rollback history plan; do
