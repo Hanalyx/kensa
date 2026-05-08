@@ -130,7 +130,7 @@ but do not gate Track L.
 - **Deps:** C-001
 - **Acceptance:** parses `json`, `json:foo.json`; rejects malformed; supports repeatable invocation
 - **Size:** 3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `ad4d66a`)
 
 #### C-012 — Refactor existing serializers (json, jsonl, table) into `internal/output/` with common interface
 - **Phase:** CLI Phase 2

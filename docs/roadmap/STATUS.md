@@ -3,7 +3,7 @@
 Per-item current state and next action. Update at every merge that
 closes an item; treat staleness > 14 days as a documentation bug.
 
-**Last refreshed:** 2026-05-07
+**Last refreshed:** 2026-05-08
 
 ---
 
@@ -67,7 +67,7 @@ critical path to first release.
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
 | Phase 1 — pflag swap, `-h, --help`, `--version`, exit codes 0/1/2 | **DONE** (10 of 10 items, 2026-05-08) | ~2 days | All shipped: C-001..C-010. Latest merge: `b1ff51a`. All 3 CLI binaries pflag-based; GNU/POSIX exit codes 0/1/2 enforced; UsageError type; centralized short-letter table; legacy single-dash long forms preserved with deprecation warnings; cli-smoke.sh CI gate. cmd/kensa unit-test coverage 65.6% (90% gap is architectural — TransportFactory mock pending). |
-| Phase 2 — `--output FORMAT[:PATH]` mechanism (json, jsonl, csv, pdf, evidence, oscal, markdown) | Not started | ~1 week | PDF library decision needed (`unidoc/unipdf` vs `gofpdf` vs `maroto`) |
+| Phase 2 — `--output FORMAT[:PATH]` mechanism (json, jsonl, csv, pdf, evidence, oscal, markdown) | In progress (1 of 10) | ~1 week | C-011 shipped (`ad4d66a`): `internal/output/` package with `Parse`/`ParseAll`, 8-format registry, `ErrPathRequired` for binary formats, `:-` Unix-stdout alias, 100% coverage. Next: C-012 refactor existing serializers behind `OutputWriter`. PDF library decision (C-014) is gray-zone; loop will pause when reached. |
 | Phase 3 — Full `target_options` + `rule_options` parity | Not started | ~1.5 weeks | Inventory glob matching, password prompt, strict-host-keys, capability override, workers, full rule filtering |
 | Phase 4 — Session model in store + `kensa diff`, framework `kensa coverage`, `kensa list frameworks`, `kensa info`, `--stats`/`--prune` | Not started | ~2 weeks | SQLite schema migration needed; `kensa coverage` → `kensa mechanisms` rename with deprecation cycle |
 | Phase 5 — kensa-go-specific surfaces (`jsonl` everywhere, `oscal` everywhere, signed envelopes, manpage, `agent` placeholder) | Not started | ~1 week | Gates on signer (M7) for signed-envelope output to be cryptographically real |
