@@ -29,7 +29,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -178,11 +177,9 @@ func runCLI(argv []string) int {
 	case "plan":
 		err = runPlan(ctx, dbPath, args)
 	case "coverage":
-		runCoverage()
+		err = runCoverage(args)
 	case "version":
-		// Subcommand kept for backward compatibility; --version is the
-		// canonical GNU/POSIX form.
-		fmt.Printf("kensa %s (kensa-go)\n", version)
+		err = runVersion(args)
 	default:
 		fmt.Fprintf(os.Stderr, "kensa: unknown command %q\n\n", cmd)
 		printUsage(os.Stderr)
@@ -642,23 +639,53 @@ func printScanTable(hostID string, rules []*api.Rule, result *api.ScanResult) {
 
 // runRemediate loads rule files and remediates failing rules.
 func runRemediate(ctx context.Context, dbPath string, args []string) error {
-	fset := flag.NewFlagSet("remediate", flag.ContinueOnError)
-	host := fset.String("host", "", "target hostname (required if no --inventory)")
-	user := fset.String("user", "", "SSH user")
-	port := fset.Int("port", 22, "SSH port")
-	keyPath := fset.String("key", "", "SSH private key path")
-	sudo := fset.Bool("sudo", false, "wrap commands in sudo")
-	format := fset.String("format", "table", "output format: table or json")
-	oscalOut := fset.String("oscal", "", "write OSCAL Assessment Results to this file")
-	rulesDir := fset.String("rules-dir", "", "directory to scan for *.yml rule files")
-	if err := fset.Parse(args); err != nil {
-		return err
+	args = rewriteLegacyLongForm(args, map[string]bool{
+		"host": true, "user": true, "port": true, "key": true,
+		"sudo": true, "format": true, "oscal": true, "rules-dir": true,
+	})
+
+	fs := pflag.NewFlagSet("remediate", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp bool
+		host     string
+		user     string
+		port     int
+		keyPath  string
+		sudo     bool
+		format   string
+		oscalOut string
+		rulesDir string
+	)
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
+	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", "p", 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", "f", "table", "output format: table or json")
+	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (long-only)")
+	fs.StringVarP(&rulesDir, "rules-dir", "r", "", "directory to scan for *.yml rule files")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			printRemediateUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa remediate --help'", err)
 	}
-	if *host == "" {
-		return errors.New("-host is required")
+	if showHelp {
+		printRemediateUsage(os.Stdout, fs)
+		return nil
+	}
+	if host == "" {
+		printRemediateUsage(os.Stderr, fs)
+		return errors.New("--host is required")
 	}
 
-	rules, err := loadRulesFromDirOrFiles(*rulesDir, fset.Args())
+	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
 		return err
 	}
@@ -670,29 +697,45 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = svc.Close() }()
 
 	hostCfg := api.HostConfig{
-		Hostname: *host, User: *user, Port: *port, KeyPath: *keyPath, Sudo: *sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
 	}
 	result, err := svc.Remediate(ctx, hostCfg, rules)
 	if err != nil {
 		return err
 	}
 
-	switch *format {
+	switch format {
 	case "json":
 		if err := printJSON(result); err != nil {
 			return err
 		}
 	default:
-		printRemediateTable(*host, rules, result)
+		printRemediateTable(host, rules, result)
 	}
 
 	// Optionally export OSCAL for each committed transaction.
-	if *oscalOut != "" {
-		if err := writeOSCALFile(*oscalOut, result); err != nil {
+	if oscalOut != "" {
+		if err := writeOSCALFile(oscalOut, result); err != nil {
 			fmt.Fprintf(os.Stderr, "kensa remediate: OSCAL export: %v\n", err)
 		}
 	}
 	return nil
+}
+
+// printRemediateUsage writes the `kensa remediate` help text to w.
+func printRemediateUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa remediate [flags] [rule.yml ...]
+
+Apply failing rules to a host. Each rule runs as a four-phase
+atomic transaction; on validation failure, the engine rolls back
+to captured pre-state.
+
+Flags:
+%s
+Examples:
+  kensa remediate -H 192.168.1.211 -u owadmin -s -r /path/to/rules
+  kensa remediate -H web-01 -u admin -s --format json --oscal /tmp/results.oscal.json
+`, fs.FlagUsages())
 }
 
 func printRemediateTable(hostID string, rules []*api.Rule, result *api.RemediationResult) {
@@ -746,23 +789,52 @@ func writeOSCALFile(path string, result *api.RemediationResult) error {
 
 // runRollback rolls back a past transaction by ID.
 func runRollback(ctx context.Context, dbPath string, args []string) error {
-	fs := flag.NewFlagSet("rollback", flag.ContinueOnError)
-	host := fs.String("host", "", "target hostname (required)")
-	user := fs.String("user", "", "SSH user")
-	port := fs.Int("port", 22, "SSH port")
-	keyPath := fs.String("key", "", "SSH private key path")
-	sudo := fs.Bool("sudo", false, "wrap commands in sudo")
-	txnIDStr := fs.String("txn", "", "transaction UUID to roll back (required)")
+	args = rewriteLegacyLongForm(args, map[string]bool{
+		"host": true, "user": true, "port": true, "key": true,
+		"sudo": true, "txn": true,
+	})
+
+	fs := pflag.NewFlagSet("rollback", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp bool
+		host     string
+		user     string
+		port     int
+		keyPath  string
+		sudo     bool
+		txnIDStr string
+	)
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
+	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", "p", 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
+	fs.StringVarP(&txnIDStr, "txn", "t", "", "transaction UUID to roll back (required)")
+
 	if err := fs.Parse(args); err != nil {
-		return err
+		if errors.Is(err, pflag.ErrHelp) {
+			printRollbackUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa rollback --help'", err)
 	}
-	if *host == "" {
+	if showHelp {
+		printRollbackUsage(os.Stdout, fs)
+		return nil
+	}
+	if host == "" {
+		printRollbackUsage(os.Stderr, fs)
 		return errors.New("--host is required")
 	}
-	if *txnIDStr == "" {
+	if txnIDStr == "" {
+		printRollbackUsage(os.Stderr, fs)
 		return errors.New("--txn is required")
 	}
-	txnID, err := uuid.Parse(*txnIDStr)
+	txnID, err := uuid.Parse(txnIDStr)
 	if err != nil {
 		return fmt.Errorf("invalid --txn UUID: %w", err)
 	}
@@ -774,7 +846,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = svc.Close() }()
 
 	hostCfg := api.HostConfig{
-		Hostname: *host, User: *user, Port: *port, KeyPath: *keyPath, Sudo: *sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
 	}
 	result, err := svc.Rollback(ctx, hostCfg, txnID)
 	if err != nil {
@@ -783,20 +855,65 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	return printJSON(result)
 }
 
+// printRollbackUsage writes the `kensa rollback` help text to w.
+func printRollbackUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa rollback [flags]
+
+Roll back a past transaction by ID using captured pre-state.
+
+Flags:
+%s
+Example:
+  kensa rollback -H 192.168.1.211 -u owadmin -s -t 8c3a1e2b-...
+`, fs.FlagUsages())
+}
+
 // ─── history ───────────────────────────────────────────────────────────────
 
 // runHistory queries the transaction log and prints results.
 func runHistory(ctx context.Context, dbPath string, args []string) error {
-	fs := flag.NewFlagSet("history", flag.ContinueOnError)
-	hostID := fs.String("host", "", "filter by host ID")
-	ruleID := fs.String("rule", "", "filter by rule ID")
-	since := fs.String("since", "", "filter since duration (e.g. 24h) or RFC3339 time")
-	limit := fs.Int("limit", 50, "maximum rows to return")
-	format := fs.String("format", "table", "output format: table or json")
-	txnIDStr := fs.String("txn", "", "get a single transaction by UUID")
-	aggregate := fs.String("aggregate", "", "aggregate key: by_host, by_rule, by_framework_control")
+	args = rewriteLegacyLongForm(args, map[string]bool{
+		"host": true, "rule": true, "since": true, "limit": true,
+		"format": true, "txn": true, "aggregate": true,
+	})
+
+	fs := pflag.NewFlagSet("history", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp  bool
+		hostID    string
+		ruleID    string
+		since     string
+		limit     int
+		format    string
+		txnIDStr  string
+		aggregate string
+	)
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.StringVarP(&hostID, "host", "H", "", "filter by host ID")
+	// `--rule` uses capital -R per the migration plan §4.3 — `-r` is reserved
+	// for `--rules-dir` in target/rule scope (check / remediate / plan).
+	fs.StringVarP(&ruleID, "rule", "R", "", "filter by rule ID")
+	fs.StringVarP(&since, "since", "S", "", "filter since duration (e.g. 24h) or RFC3339 time")
+	// `--limit` uses -n (head/tail convention). `-l` is reserved for the
+	// host glob `--limit` in target_options on detect/check/remediate.
+	fs.IntVarP(&limit, "limit", "n", 50, "maximum rows to return")
+	fs.StringVarP(&format, "format", "f", "table", "output format: table or json")
+	fs.StringVarP(&txnIDStr, "txn", "t", "", "get a single transaction by UUID")
+	fs.StringVarP(&aggregate, "aggregate", "a", "", "aggregate key: by_host, by_rule, by_framework_control")
+
 	if err := fs.Parse(args); err != nil {
-		return err
+		if errors.Is(err, pflag.ErrHelp) {
+			printHistoryUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa history --help'", err)
+	}
+	if showHelp {
+		printHistoryUsage(os.Stdout, fs)
+		return nil
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
@@ -810,8 +927,8 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		return errors.New("transaction log not available (store not wired)")
 	}
 
-	if *txnIDStr != "" {
-		txnID, err := uuid.Parse(*txnIDStr)
+	if txnIDStr != "" {
+		txnID, err := uuid.Parse(txnIDStr)
 		if err != nil {
 			return fmt.Errorf("invalid --txn UUID: %w", err)
 		}
@@ -823,34 +940,34 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	}
 
 	filter := api.LogFilter{}
-	if *hostID != "" {
-		filter.HostIDs = []string{*hostID}
+	if hostID != "" {
+		filter.HostIDs = []string{hostID}
 	}
-	if *ruleID != "" {
-		filter.RuleIDs = []string{*ruleID}
+	if ruleID != "" {
+		filter.RuleIDs = []string{ruleID}
 	}
-	if *since != "" {
-		t, err := parseSince(*since)
+	if since != "" {
+		t, err := parseSince(since)
 		if err != nil {
 			return fmt.Errorf("--since: %w", err)
 		}
 		filter.Since = t
 	}
 
-	if *aggregate != "" {
-		aggResult, err := log.Aggregate(ctx, filter, api.AggregateKey(*aggregate))
+	if aggregate != "" {
+		aggResult, err := log.Aggregate(ctx, filter, api.AggregateKey(aggregate))
 		if err != nil {
 			return fmt.Errorf("aggregate: %w", err)
 		}
 		return printJSON(aggResult)
 	}
 
-	result, err := log.Query(ctx, filter, api.Page{Limit: *limit})
+	result, err := log.Query(ctx, filter, api.Page{Limit: limit})
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
 	}
 
-	switch *format {
+	switch format {
 	case "json":
 		return printJSON(result)
 	default:
@@ -860,24 +977,70 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	return nil
 }
 
+// printHistoryUsage writes the `kensa history` help text to w.
+func printHistoryUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa history [flags]
+
+Query the transaction log. Without filters, lists recent transactions.
+
+Flags:
+%s
+Examples:
+  kensa history                                  # 50 most recent
+  kensa history -n 200 --format json             # last 200 as JSON
+  kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
+  kensa history -t 8c3a1e2b-...                  # one transaction by UUID
+  kensa history -a by_host -S 7d                 # 7-day posture per host
+`, fs.FlagUsages())
+}
+
 // ─── plan ──────────────────────────────────────────────────────────────────
 
 // runPlan loads a rule and previews the transaction without executing.
 func runPlan(ctx context.Context, dbPath string, args []string) error {
-	fs := flag.NewFlagSet("plan", flag.ContinueOnError)
-	host := fs.String("host", "", "target hostname (required)")
-	user := fs.String("user", "", "SSH user")
-	port := fs.Int("port", 22, "SSH port")
-	keyPath := fs.String("key", "", "SSH private key path")
-	sudo := fs.Bool("sudo", false, "wrap commands in sudo")
-	format := fs.String("format", "text", "output format: text, markdown, json, plain")
+	args = rewriteLegacyLongForm(args, map[string]bool{
+		"host": true, "user": true, "port": true, "key": true,
+		"sudo": true, "format": true,
+	})
+
+	fs := pflag.NewFlagSet("plan", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp bool
+		host     string
+		user     string
+		port     int
+		keyPath  string
+		sudo     bool
+		format   string
+	)
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.StringVarP(&host, "host", "H", "", "target hostname (required)")
+	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", "p", 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", "f", "text", "output format: text, markdown, json, plain")
+
 	if err := fs.Parse(args); err != nil {
-		return err
+		if errors.Is(err, pflag.ErrHelp) {
+			printPlanUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa plan --help'", err)
 	}
-	if *host == "" {
+	if showHelp {
+		printPlanUsage(os.Stdout, fs)
+		return nil
+	}
+	if host == "" {
+		printPlanUsage(os.Stderr, fs)
 		return errors.New("--host is required")
 	}
 	if fs.NArg() == 0 {
+		printPlanUsage(os.Stderr, fs)
 		return errors.New("a rule YAML file is required")
 	}
 
@@ -893,14 +1056,14 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = svc.Close() }()
 
 	hostCfg := api.HostConfig{
-		Hostname: *host, User: *user, Port: *port, KeyPath: *keyPath, Sudo: *sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
 	}
 	plan, err := svc.Plan(ctx, hostCfg, r)
 	if err != nil {
 		return err
 	}
 
-	out, err := engine.FormatPlan(plan, api.PreviewFormat(*format))
+	out, err := engine.FormatPlan(plan, api.PreviewFormat(format))
 	if err != nil {
 		return err
 	}
@@ -908,10 +1071,50 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	return nil
 }
 
+// printPlanUsage writes the `kensa plan` help text to w.
+func printPlanUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa plan [flags] rule.yml
+
+Preview a rule transaction without executing it. Returns a structured
+Plan with captured pre-state, apply steps, validators, rollback plan,
+and warnings.
+
+Flags:
+%s
+Example:
+  kensa plan -H 192.168.1.211 -u owadmin -s -f markdown rule.yml
+`, fs.FlagUsages())
+}
+
 // ─── coverage ──────────────────────────────────────────────────────────────
 
 // runCoverage lists all registered handler mechanisms.
-func runCoverage() {
+//
+// Note: this subcommand will be renamed to `kensa mechanisms` in CLI
+// Phase 4 (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §5.11) so that
+// `kensa coverage` can be repurposed for framework coverage reporting
+// (Python kensa's `coverage` semantics). Until then, accepts only
+// `--help`/`-h` for parity with the rest of the CLI.
+func runCoverage(args []string) error {
+	fs := pflag.NewFlagSet("coverage", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var showHelp bool
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			printCoverageUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa coverage --help'", err)
+	}
+	if showHelp {
+		printCoverageUsage(os.Stdout, fs)
+		return nil
+	}
+
 	names := handler.Default().Names()
 	sort.Strings(names)
 	fmt.Printf("Registered mechanisms (%d):\n", len(names))
@@ -923,6 +1126,65 @@ func runCoverage() {
 		}
 		fmt.Printf("  %2d. %-30s  %s\n", i+1, n, capturable)
 	}
+	return nil
+}
+
+// runVersion prints the kensa version. Subcommand form kept for
+// backward compatibility; the canonical GNU/POSIX form is `kensa
+// --version`. Honors `--help`/`-h` for parity with other subcommands.
+//
+// Planned removal: v0.2 (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
+// §5.12). After removal, only the top-level `--version` flag will print
+// the version string.
+func runVersion(args []string) error {
+	fs := pflag.NewFlagSet("version", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var showHelp bool
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			printVersionUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa version --help'", err)
+	}
+	if showHelp {
+		printVersionUsage(os.Stdout, fs)
+		return nil
+	}
+
+	fmt.Printf("kensa %s (kensa-go)\n", version)
+	return nil
+}
+
+// printVersionUsage writes the `kensa version` help text to w.
+func printVersionUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa version
+
+Print the kensa-go binary version. The top-level '--version' flag is
+the canonical GNU/POSIX form; this subcommand is preserved for
+backward compatibility and is planned for removal in v0.2.
+
+Flags:
+%s`, fs.FlagUsages())
+}
+
+// printCoverageUsage writes the `kensa coverage` help text to w.
+func printCoverageUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa coverage [flags]
+
+List every handler mechanism registered with the kensa-go engine,
+marked capturable (participates in atomic transactions) or
+non-capturable (transactional: false escape hatch).
+
+Flags:
+%s
+Example:
+  kensa coverage
+`, fs.FlagUsages())
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────
