@@ -144,7 +144,7 @@ but do not gate Track L.
 - **Deps:** C-012
 - **Acceptance:** `kensa check ... -o csv:results.csv` emits one row per (host, rule) tuple
 - **Size:** 2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `84b4d0f`)
 
 #### C-014 — **GRAY ZONE** PDF library decision (`unidoc/unipdf` vs `gofpdf` vs `maroto`)
 - **Phase:** CLI Phase 2
