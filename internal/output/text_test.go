@@ -41,10 +41,12 @@ func TestTextCapsWriter(t *testing.T) {
 }
 
 func TestTextScanWriter(t *testing.T) {
+	// C-022 layout: FAILED/WARN/PASSED grouped, host banner first,
+	// summary line at the bottom.
 	rules := []*api.Rule{
-		{ID: "rule-pass"},
-		{ID: "rule-fail"},
-		{ID: "rule-error"},
+		{ID: "rule-pass", Severity: "high"},
+		{ID: "rule-fail", Severity: "medium"},
+		{ID: "rule-error", Severity: "low"},
 	}
 	result := &api.ScanResult{
 		HostID: "test-host",
@@ -59,17 +61,30 @@ func TestTextScanWriter(t *testing.T) {
 		t.Fatalf("WriteScanResult: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "Check results for test-host:") {
-		t.Errorf("missing host header:\n%s", out)
+	if !strings.Contains(out, "test-host") {
+		t.Errorf("missing host banner with hostID:\n%s", out)
 	}
-	if !strings.Contains(out, "1 passed, 1 failed, 1 errors") {
-		t.Errorf("expected 1/1/1 tally:\n%s", out)
+	if !strings.Contains(out, "FAILED   (  1)") {
+		t.Errorf("missing FAILED group header:\n%s", out)
+	}
+	if !strings.Contains(out, "WARN     (  1)") {
+		t.Errorf("missing WARN group header:\n%s", out)
+	}
+	if !strings.Contains(out, "PASSED   (  1)") {
+		t.Errorf("missing PASSED group header:\n%s", out)
+	}
+	if !strings.Contains(out, "1 passed  ·  1 failed  ·  1 warnings") {
+		t.Errorf("missing summary line:\n%s", out)
 	}
 	if !strings.Contains(out, "rule-pass") || !strings.Contains(out, "rule-fail") || !strings.Contains(out, "rule-error") {
 		t.Errorf("missing one or more rule IDs:\n%s", out)
 	}
 	if !strings.Contains(out, "ssh timeout") {
-		t.Errorf("error detail not surfaced:\n%s", out)
+		t.Errorf("warn detail (errored) should still be surfaced:\n%s", out)
+	}
+	// Severity badge for the FAIL row.
+	if !strings.Contains(out, "MED") {
+		t.Errorf("missing MED severity badge for rule-fail:\n%s", out)
 	}
 }
 
@@ -88,6 +103,449 @@ func TestTextScanWriter_TruncatesLongDetail(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "…") {
 		t.Errorf("expected ellipsis from truncation; got:\n%s", buf.String())
+	}
+}
+
+func TestTextScanWriter_AllPassedNoFailedSection(t *testing.T) {
+	// When everything passes, the FAILED and WARN sections are
+	// elided. The PASSED section + summary still emit.
+	rules := []*api.Rule{
+		{ID: "rule-a"}, {ID: "rule-b"}, {ID: "rule-c"},
+	}
+	result := &api.ScanResult{
+		HostID: "h",
+		Transactions: []api.TransactionResult{
+			{Status: api.StatusCommitted}, {Status: api.StatusCommitted}, {Status: api.StatusCommitted},
+		},
+	}
+	var buf bytes.Buffer
+	if err := (textScanWriter{}).WriteScanResult(&buf, "h", rules, result); err != nil {
+		t.Fatalf("WriteScanResult: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "FAILED") || strings.Contains(out, "WARN") {
+		t.Errorf("FAILED/WARN should not appear when all pass:\n%s", out)
+	}
+	if !strings.Contains(out, "PASSED   (  3)") {
+		t.Errorf("missing PASSED group with count 3:\n%s", out)
+	}
+	if !strings.Contains(out, "3 passed  ·  0 failed  ·  0 warnings") {
+		t.Errorf("missing 3/0/0 summary:\n%s", out)
+	}
+}
+
+func TestTextScanWriter_StripsMechanismPrefix(t *testing.T) {
+	// detail like "command: \"awk -F: '($2 == ...)'\"" should
+	// surface as "\"awk -F: '($2 == ...)\"" without the
+	// "command:" prefix.
+	rules := []*api.Rule{{ID: "r"}}
+	result := &api.ScanResult{
+		HostID: "h",
+		Transactions: []api.TransactionResult{
+			{Status: api.StatusRolledBack, Steps: []api.StepResult{{Detail: "config_value: key \"foo\" not found"}}},
+		},
+	}
+	var buf bytes.Buffer
+	if err := (textScanWriter{}).WriteScanResult(&buf, "h", rules, result); err != nil {
+		t.Fatalf("WriteScanResult: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "config_value:") {
+		t.Errorf("mechanism prefix should be stripped:\n%s", out)
+	}
+	if !strings.Contains(out, "key") {
+		t.Errorf("the detail body should still appear:\n%s", out)
+	}
+}
+
+func TestTextScanWriter_PassedCompactionAboveThreshold(t *testing.T) {
+	// 9+ passed rules → compacted via glob patterns.
+	rules := []*api.Rule{
+		{ID: "accounts-a"}, {ID: "accounts-b"}, {ID: "accounts-c"},
+		{ID: "audit-a"}, {ID: "audit-b"}, {ID: "audit-c"},
+		{ID: "lone-rule"},
+		{ID: "service-a"}, {ID: "service-b"},
+	}
+	txns := make([]api.TransactionResult, len(rules))
+	for i := range txns {
+		txns[i].Status = api.StatusCommitted
+	}
+	result := &api.ScanResult{HostID: "h", Transactions: txns}
+	var buf bytes.Buffer
+	if err := (textScanWriter{}).WriteScanResult(&buf, "h", rules, result); err != nil {
+		t.Fatalf("WriteScanResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "accounts-*") {
+		t.Errorf("expected accounts-* glob compaction:\n%s", out)
+	}
+	if !strings.Contains(out, "audit-*") {
+		t.Errorf("expected audit-* glob compaction:\n%s", out)
+	}
+	if !strings.Contains(out, "service-*") {
+		t.Errorf("expected service-* glob compaction:\n%s", out)
+	}
+	// The "-v to expand" hint shows when compaction is in effect.
+	if !strings.Contains(out, "run with -v to expand") {
+		t.Errorf("missing -v hint:\n%s", out)
+	}
+}
+
+func TestTextScanWriter_PassedInlineBelowThreshold(t *testing.T) {
+	// ≤8 passed rules → listed inline (no glob compaction).
+	rules := []*api.Rule{{ID: "rule-a"}, {ID: "rule-b"}}
+	result := &api.ScanResult{
+		HostID: "h",
+		Transactions: []api.TransactionResult{
+			{Status: api.StatusCommitted}, {Status: api.StatusCommitted},
+		},
+	}
+	var buf bytes.Buffer
+	if err := (textScanWriter{}).WriteScanResult(&buf, "h", rules, result); err != nil {
+		t.Fatalf("WriteScanResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "rule-a") || !strings.Contains(out, "rule-b") {
+		t.Errorf("expected inline rule IDs:\n%s", out)
+	}
+	if strings.Contains(out, "run with -v to expand") {
+		t.Errorf("-v hint should not appear for small sets:\n%s", out)
+	}
+}
+
+func TestTextScanWriter_FixLineSynthesis(t *testing.T) {
+	// A failing rule with file_permissions remediation should
+	// surface a "└ fix: chmod ... && chown ..." line.
+	rules := []*api.Rule{
+		{
+			ID:       "fp-rule",
+			Severity: "high",
+			Implementations: []api.Implementation{
+				{
+					Remediation: api.Remediation{
+						Mechanism: "file_permissions",
+						Params: api.Params{
+							"path":  "/etc/at.allow",
+							"mode":  "0600",
+							"owner": "root",
+							"group": "root",
+						},
+					},
+				},
+			},
+		},
+	}
+	result := &api.ScanResult{
+		HostID: "h",
+		Transactions: []api.TransactionResult{
+			{Status: api.StatusRolledBack, Steps: []api.StepResult{{Detail: "/etc/at.allow not found"}}},
+		},
+	}
+	var buf bytes.Buffer
+	if err := (textScanWriter{}).WriteScanResult(&buf, "h", rules, result); err != nil {
+		t.Fatalf("WriteScanResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "└ fix:") {
+		t.Errorf("expected fix line for failing rule:\n%s", out)
+	}
+	if !strings.Contains(out, "chmod 0600") || !strings.Contains(out, "/etc/at.allow") {
+		t.Errorf("fix line should describe chmod + path:\n%s", out)
+	}
+	if !strings.Contains(out, "chown root:root") {
+		t.Errorf("fix line should include chown when owner+group set:\n%s", out)
+	}
+}
+
+func TestSeverityBadge(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"critical", "CRIT"},
+		{"high", "HIGH"},
+		{"HIGH", "HIGH"}, // case-insensitive
+		{"medium", "MED "},
+		{"low", "LOW "},
+		{"", "    "},
+		{"unknown", "    "},
+	}
+	for _, tc := range tests {
+		if got := severityBadge(tc.in); got != tc.want {
+			t.Errorf("severityBadge(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCompactPasses(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want string // substring expectation
+	}{
+		{"empty", nil, ""},
+		{"single", []string{"rule-a"}, "rule-a"},
+		{"two-same-prefix", []string{"accounts-a", "accounts-b"}, "accounts-*"},
+		{"mixed", []string{"accounts-a", "accounts-b", "lone"}, "accounts-* lone"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := compactPasses(tc.in)
+			if tc.want != "" && !strings.Contains(got, tc.want) {
+				t.Errorf("compactPasses(%v) = %q, want substring %q", tc.in, got, tc.want)
+			}
+			if tc.want == "" && got != "" {
+				t.Errorf("compactPasses(empty) = %q, want empty", got)
+			}
+		})
+	}
+}
+
+func TestProgressBar(t *testing.T) {
+	// All passed: bar is all '#'.
+	if got := progressBar(10, 0, 0, 10); got != "##########" {
+		t.Errorf("all-pass progressBar = %q, want ##########", got)
+	}
+	// All failed: bar is all 'x'.
+	if got := progressBar(0, 0, 10, 10); got != "xxxxxxxxxx" {
+		t.Errorf("all-fail progressBar = %q, want xxxxxxxxxx", got)
+	}
+	// Mixed: counts roughly proportional, total length = width.
+	got := progressBar(50, 25, 25, 100)
+	if len(got) != 100 {
+		t.Errorf("progressBar width = %d, want 100", len(got))
+	}
+	hashes := strings.Count(got, "#")
+	tildes := strings.Count(got, "~")
+	xes := strings.Count(got, "x")
+	if hashes+tildes+xes != 100 {
+		t.Errorf("progressBar cells should sum to width: got %d+%d+%d = %d",
+			hashes, tildes, xes, hashes+tildes+xes)
+	}
+	// Empty: defaults to dots so callers can see the empty state.
+	if got := progressBar(0, 0, 0, 5); got != "....." {
+		t.Errorf("empty progressBar = %q, want .....", got)
+	}
+}
+
+func TestSynthesizeFix_AllSupportedHandlers(t *testing.T) {
+	tests := []struct {
+		name      string
+		mechanism string
+		params    api.Params
+		wantSub   string // expected substring in synthesized line
+		wantEmpty bool
+	}{
+		{"file_permissions+owner", "file_permissions",
+			api.Params{"path": "/etc/x", "mode": "0600", "owner": "root", "group": "wheel"},
+			"chmod 0600 /etc/x && chown root:wheel /etc/x", false},
+		{"file_permissions+mode-only", "file_permissions",
+			api.Params{"path": "/etc/x", "mode": "0644"},
+			"chmod 0644 /etc/x", false},
+		{"file_absent", "file_absent",
+			api.Params{"path": "/etc/junk"},
+			"rm -f /etc/junk", false},
+		{"package_present", "package_present",
+			api.Params{"name": "auditd"},
+			"install package auditd", false},
+		{"package_absent", "package_absent",
+			api.Params{"name": "telnet"},
+			"remove package telnet", false},
+		{"service_enabled", "service_enabled",
+			api.Params{"unit": "auditd.service"},
+			"systemctl enable auditd.service", false},
+		{"service_disabled", "service_disabled",
+			api.Params{"unit": "telnet.socket"},
+			"systemctl disable telnet.socket", false},
+		{"service_masked", "service_masked",
+			api.Params{"unit": "ctrl-alt-del.target"},
+			"systemctl mask ctrl-alt-del.target", false},
+		{"config_set", "config_set",
+			api.Params{"path": "/etc/login.defs", "key": "PASS_MAX_DAYS", "value": "365"},
+			"set PASS_MAX_DAYS = 365 in /etc/login.defs", false},
+		{"sysctl_set", "sysctl_set",
+			api.Params{"key": "net.ipv4.conf.all.rp_filter", "value": "1"},
+			"sysctl -w net.ipv4.conf.all.rp_filter=1", false},
+		{"unknown-handler", "some-future-mechanism",
+			api.Params{"foo": "bar"},
+			"", true},
+		{"missing-required-param", "file_permissions",
+			api.Params{}, // no path
+			"", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &api.Rule{
+				Implementations: []api.Implementation{
+					{Remediation: api.Remediation{Mechanism: tc.mechanism, Params: tc.params}},
+				},
+			}
+			got := synthesizeFix(r)
+			if tc.wantEmpty && got != "" {
+				t.Errorf("synthesizeFix(%s) = %q, want empty", tc.mechanism, got)
+			}
+			if !tc.wantEmpty && !strings.Contains(got, tc.wantSub) {
+				t.Errorf("synthesizeFix(%s) = %q, want substring %q", tc.mechanism, got, tc.wantSub)
+			}
+		})
+	}
+}
+
+func TestSynthesizeFix_NilRule(t *testing.T) {
+	if got := synthesizeFix(nil); got != "" {
+		t.Errorf("synthesizeFix(nil) = %q, want empty", got)
+	}
+}
+
+func TestSynthesizeFix_NoImplementations(t *testing.T) {
+	r := &api.Rule{}
+	if got := synthesizeFix(r); got != "" {
+		t.Errorf("synthesizeFix(no-impls) = %q, want empty", got)
+	}
+}
+
+func TestSynthesizeFix_MultiStepReturnsEmpty(t *testing.T) {
+	// Multi-step remediations emit no fix line: surfacing only
+	// step 1 would silently hide steps 2..N from the operator.
+	r := &api.Rule{
+		Implementations: []api.Implementation{
+			{
+				Remediation: api.Remediation{
+					Steps: []api.RemediationStep{
+						{Mechanism: "package_present", Params: api.Params{"name": "auditd"}},
+						{Mechanism: "service_enabled", Params: api.Params{"unit": "auditd.service"}},
+					},
+				},
+			},
+		},
+	}
+	if got := synthesizeFix(r); got != "" {
+		t.Errorf("multi-step rule should return empty fix line; got %q", got)
+	}
+}
+
+func TestTextScanWriter_PartiallyAppliedRendersAsFail(t *testing.T) {
+	// Per spec C-07, StatusPartiallyApplied (which can't actually
+	// occur during a scan today, but is defensive) → FAIL bucket.
+	// Locks the mapping so a future change can't silently demote
+	// it to WARN.
+	rules := []*api.Rule{{ID: "rule-partial", Severity: "high"}}
+	result := &api.ScanResult{
+		HostID: "h",
+		Transactions: []api.TransactionResult{
+			{Status: api.StatusPartiallyApplied},
+		},
+	}
+	var buf bytes.Buffer
+	if err := (textScanWriter{}).WriteScanResult(&buf, "h", rules, result); err != nil {
+		t.Fatalf("WriteScanResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "FAILED") {
+		t.Errorf("partially_applied should render as FAILED; got:\n%s", out)
+	}
+	if strings.Contains(out, "WARN") {
+		t.Errorf("partially_applied should NOT render as WARN; got:\n%s", out)
+	}
+}
+
+func TestWriteHostBanner_RuneWidth(t *testing.T) {
+	// Banner width must be 60 runes regardless of hostID's UTF-8
+	// byte count. Catches the byte-vs-rune bug R1 flagged.
+	for _, host := range []string{"h", "192.168.1.211", "тест-хост", "测试-host", "fe80::1"} {
+		var buf bytes.Buffer
+		if err := writeHostBanner(&buf, host); err != nil {
+			t.Errorf("writeHostBanner(%q): %v", host, err)
+			continue
+		}
+		line := strings.TrimRight(buf.String(), "\n")
+		runeCount := 0
+		for range line {
+			runeCount++
+		}
+		if runeCount != 60 {
+			t.Errorf("banner for %q = %d runes, want 60", host, runeCount)
+		}
+	}
+}
+
+func TestHumanizeDetail_MultiLineScriptBody(t *testing.T) {
+	// Multi-line bash script bodies leaked from rules using
+	// `check.method: command` with multi-line `run:` blocks.
+	// humanizeDetail replaces them with a pointer to -o json:
+	// rather than truncating the script body uselessly.
+	cases := []string{
+		"command: \"# Find accounts with nologin/false shell\nawk -F: ...\"",
+		"# multi-line\nbash\nscript",
+	}
+	for _, raw := range cases {
+		txr := api.TransactionResult{
+			Steps: []api.StepResult{{Detail: raw}},
+		}
+		got := humanizeDetail(txr)
+		if !strings.Contains(got, "-o json") && !strings.Contains(got, "unexpected exit") {
+			t.Errorf("humanizeDetail should pointer to -o json: for multi-line script; got %q for raw %q", got, raw)
+		}
+	}
+}
+
+func TestHumanizeDetail_ExitCodePattern(t *testing.T) {
+	// "exited with code N (expected M)" patterns should extract
+	// the actionable signal rather than truncating the script.
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{
+			"command: \"awk -F: ...\" exited with code 0 (expected 1)",
+			"unexpected exit (got 0, want 1)",
+		},
+		{
+			"\"foo\" exited with code 42 (expected 0)",
+			"unexpected exit (got 42, want 0)",
+		},
+	}
+	for _, tc := range cases {
+		txr := api.TransactionResult{Steps: []api.StepResult{{Detail: tc.raw}}}
+		got := humanizeDetail(txr)
+		if got != tc.want {
+			t.Errorf("humanizeDetail(%q) = %q, want %q", tc.raw, got, tc.want)
+		}
+	}
+}
+
+func TestCompactPasses_DeepestPrefix(t *testing.T) {
+	// pam-faillock-* family should NOT collapse to pam-* alongside
+	// pam-pwhistory-*; deepest-common-prefix preserves both.
+	tests := []struct {
+		name string
+		in   []string
+		want string
+	}{
+		{
+			"deep-pam-faillock",
+			[]string{"pam-faillock-audit", "pam-faillock-deny", "pam-faillock-silent"},
+			"pam-faillock-*",
+		},
+		{
+			"deep-audit-cmd",
+			[]string{"audit-cmd-chage", "audit-cmd-chcon", "audit-cmd-chsh"},
+			"audit-cmd-*",
+		},
+		{
+			"different-deep-prefixes-collapse-to-shallow",
+			// pam-faillock-deny, pam-pwhistory-remember share only
+			// "pam-".
+			[]string{"pam-faillock-deny", "pam-pwhistory-remember"},
+			"pam-*",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := compactPasses(tc.in)
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("compactPasses(%v) = %q, want substring %q", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 

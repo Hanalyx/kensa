@@ -36,52 +36,16 @@ func (textCapsWriter) WriteCaps(w io.Writer, hostID string, caps api.CapabilityS
 	return nil
 }
 
-// textScanWriter renders a ScanResult as a tabular per-rule listing
-// with a pass/fail/error tally footer.
+// textScanWriter renders a ScanResult as a grouped failure-first
+// operator-readable layout per the C-022 rewrite. Rendering body
+// lives in renderScanResult (text_scan.go) so the writer struct
+// stays a thin dispatch shim.
 type textScanWriter struct{}
 
 func (textScanWriter) Format() string { return "text" }
 
 func (textScanWriter) WriteScanResult(w io.Writer, hostID string, rules []*api.Rule, result *api.ScanResult) error {
-	pass, fail, errs := 0, 0, 0
-	if _, err := fmt.Fprintf(w, "Check results for %s:\n\n", hostID); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "  %-40s  %-10s  %s\n", "RULE", "STATUS", "DETAIL"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "  "+strings.Repeat("-", 80)); err != nil {
-		return err
-	}
-	for i, txr := range result.Transactions {
-		ruleID := ""
-		if i < len(rules) {
-			ruleID = rules[i].ID
-		}
-		status := "PASS"
-		switch txr.Status {
-		case api.StatusErrored:
-			status = "ERROR"
-			errs++
-		case api.StatusCommitted:
-			pass++
-		default:
-			status = "FAIL"
-			fail++
-		}
-		detail := ""
-		if len(txr.Steps) > 0 {
-			detail = truncate(txr.Steps[0].Detail, 50)
-		}
-		if txr.Error != nil {
-			detail = truncate(txr.Error.Error(), 50)
-		}
-		if _, err := fmt.Fprintf(w, "  %-40s  %-10s  %s\n", truncate(ruleID, 40), status, detail); err != nil {
-			return err
-		}
-	}
-	_, err := fmt.Fprintf(w, "\n  %d passed, %d failed, %d errors\n", pass, fail, errs)
-	return err
+	return renderScanResult(w, hostID, rules, result)
 }
 
 // textRemediationWriter renders a RemediationResult as a tabular listing
