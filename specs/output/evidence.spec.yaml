@@ -1,0 +1,224 @@
+spec:
+    id: output-evidence
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-output-evidence
+        description: |
+            EvidenceEnvelope is the canonical signed record of a
+            transaction. Auditors and external compliance pipelines
+            consume the envelope JSON to verify per-transaction
+            integrity (post-M7 task #12 it carries an Ed25519
+            signature over its canonical-form payload). Where OSCAL
+            (C-016) is the structured-framework view and json (C-012)
+            is the high-level result aggregate, evidence is the
+            primary tamper-evident artifact.
+
+            This spec wires the evidence-envelope serialization
+            through the writer interface so a future
+            -o evidence:foo.json invocation (C-018) emits the same
+            shape that internal tooling already consumes via direct
+            JSON encoding of api.EvidenceEnvelope.
+
+            Pre-M7 state: the noopSigner placeholder (engine/stubs.go)
+            produces zero-length signature bytes. The wire shape is
+            final; signature semantics arrive with task #12. Operators
+            and tooling can rely on len(envelope.Signature) > 0 as
+            the signal that real signature production has rolled out.
+
+    objective:
+        summary: |
+            Add evidenceRemediationWriter that emits one EvidenceEnvelope
+            JSON document per non-nil envelope in a RemediationResult.
+            Register in remediationResultWriters["evidence"]. Each
+            envelope is emitted at the JSON document root (no wrapper
+            object) so consumers verifying signatures can treat each
+            byte range delimited by document boundaries as one signed
+            evidence unit.
+        scope:
+            includes:
+                - evidenceRemediationWriter singleton in remediationResultWriters
+                - Per-transaction envelope emission (one document per non-nil Envelope; nil envelopes silently skipped)
+                - Indented JSON output for operator readability when debugging signature failures or audit questions
+                - Round-trip preservation of every EvidenceEnvelope field including Signature bytes, FrameworkRefs, PreStateBundle, ApplySteps, ValidatorResults, PostStateBundle
+            excludes:
+                - cmd/kensa wiring of -o evidence (C-018)
+                - Wrapper object combining N envelopes into one document (would create an unsigned outer layer; per-envelope concatenated form preserves the property that every document is itself a signed evidence unit)
+                - Evidence emission for ScanResult / caps / history / JSONValue payloads (no envelopes; intentionally not registered)
+                - Signature production (M7 task 12; this writer emits whatever Signature bytes the envelope carries)
+
+    constraints:
+        - id: C-01
+          description: |
+              Each envelope MUST be emitted as its own JSON document
+              at the root level. Wrapping inside an outer object
+              would require an additional outer signature scheme
+              that does not exist in the V1 transaction contract.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Transactions with Envelope == nil MUST be silently
+              skipped. Common causes: a non-capturable rule that
+              errored before the commit phase, a stub handler.
+              Erroring on nil envelopes would corrupt the output for
+              partial-failure remediation runs.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Output MUST be indented JSON (two-space indent).
+              Operators read evidence files when debugging signature
+              failures, auditing transactions, or verifying captured
+              pre-state bundles. Compact JSON saves bytes in a
+              context where bytes don't matter and readability does.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The writer MUST NOT modify or strip any field of the
+              envelope. The wire shape is the api.EvidenceEnvelope
+              struct's JSON encoding verbatim. Stripping or rewriting
+              would break the signature verification chain (the
+              signature is computed over the canonical form of the
+              same fields the writer emits).
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              hostID and rules parameters in WriteRemediationResult
+              MUST be ignored. The envelope is the signed audit-
+              truth-of-record; sourcing identity from outer parameters
+              would let a malicious caller make the emitted JSON
+              disagree with the signed payload (replay vector).
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              Evidence is RemediationResult-only. ScanResult,
+              capability probes, history queries, and JSONValue
+              payloads MUST NOT have an evidence writer registered.
+              Tests assert each absence so a future contributor who
+              tries to register one is forced to update the
+              assertion.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              evidenceRemediationWriter satisfies RemediationResultWriter
+              and is registered in remediationResultWriters["evidence"].
+              RemediationWriterFor("evidence") returns ok and the
+              writer's Format() returns "evidence".
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              WriteRemediationResult against a single-envelope result
+              produces one valid EvidenceEnvelope JSON document with
+              all fields (RuleID, HostID, Decision, etc.) round-
+              tripping through json.Unmarshal.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-03
+          description: |
+              Output is indented JSON (contains "\n  " for two-space
+              indent). Catches a regression to compact JSON.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              Transactions with Envelope == nil are silently skipped.
+              Mixed nil/non-nil envelopes produce a document count
+              equal to the non-nil count.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              All-nil envelopes produce empty output (buf.Len() == 0)
+              without erroring.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              N non-nil envelopes produce N concatenated documents
+              that json.Decoder iterates cleanly. Order matches
+              result.Transactions order.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-07
+          description: |
+              Empty Signature bytes ([]byte{} or nil) round-trip
+              without crashing the writer (covers the M7 placeholder
+              state).
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-08
+          description: |
+              Non-empty Signature bytes round-trip faithfully via
+              bytes.Equal. Locks the wire-shape contract for after
+              M7 task #12 lands.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-09
+          description: |
+              FrameworkRefs round-trip with all entries preserved
+              (ControlID, FrameworkID). Compliance audit trails
+              depend on this; locked by an explicit test.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-10
+          description: |
+              StartedAt and FinishedAt are emitted as RFC 3339 UTC
+              ("2006-01-02T12:30:45Z"). Auditors expect UTC; the
+              JSON encoding inherits this from time.Time's
+              MarshalJSON default.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-11
+          description: |
+              Evidence is NOT registered for ScanResult, capability,
+              history, or JSONValue payloads.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-12
+          description: |
+              The writer surfaces errors from a failing io.Writer
+              (when at least one envelope is present); does not
+              swallow them.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-13
+          description: |
+              PreStateBundle round-trips faithfully — including
+              non-trivial PreState entries with target paths and
+              captured bytes. Locks the spec's promise to round-trip
+              "every EvidenceEnvelope field including PreStateBundle"
+              against future MarshalJSON changes that might silently
+              drop or compress this data.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-14
+          description: |
+              TransactionID round-trips through the JSON encoding
+              (the primary key auditors use to correlate envelope to
+              log).
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-15
+          description: |
+              The writer's WriteRemediationResult signature accepts
+              hostID and rules parameters but ignores them in
+              implementation. A godoc comment explicitly explains
+              the replay-vector reasoning. This is locked at the
+              code-review level rather than runtime — a malicious
+              parameter substitution could not be detected after
+              the fact, only prevented by code discipline.
+          references_constraints: [C-05]
+          priority: high
+
+    tags: [cli, gnu-posix, tier-1, output-mechanism, c-017, evidence, signed]
