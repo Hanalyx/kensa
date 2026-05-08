@@ -100,7 +100,7 @@ but do not gate Track L.
 - **Deps:** C-001
 - **Acceptance:** GNU/POSIX flags; env-var fallback retained; `--help` exits 0
 - **Size:** 0.75h
-- **Status:** pending
+- **Status:** **done** — merge `e899938` (2026-05-08); pflag swap with `-h/-H/-u/-p/-k/-s/-m` short forms; --phase/--params/--timeout long-only; `KENSA_FUZZ_HOST` env-var preserved as --host default with explicit-flag-wins precedence; 4-tier exit codes (0/1/2/3) preserved including domain-specific 3=fingerprint-mismatch; 2-agent peer review clean; both flagged `rewriteLegacyLongForm` triplication for follow-up extraction. **All 3 CLI binaries now pflag-based.**
 
 #### C-008 — Add `cmd/kensa/errors.go` with `UsageError`; main switch for ErrHelp / UsageError / runtime
 - **Phase:** CLI Phase 1
