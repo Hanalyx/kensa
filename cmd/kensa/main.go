@@ -31,6 +31,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -40,6 +41,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spf13/pflag"
 
 	"github.com/Hanalyx/kensa-go/api"
 	"github.com/Hanalyx/kensa-go/internal/detect"
@@ -83,18 +85,82 @@ import (
 	_ "github.com/Hanalyx/kensa-go/internal/handlers/sysctlset"
 )
 
-func main() {
-	dbPath := flag.String("db", "", "SQLite transaction-log path (default: .kensa/results.db)")
-	flag.Usage = usage
-	flag.Parse()
+// version is the kensa-go binary version string surfaced by --version
+// and the `version` subcommand. Bumped manually per release.
+const version = "v0.1.0-dev"
 
-	if flag.NArg() == 0 {
-		usage()
-		os.Exit(1)
+func main() {
+	os.Exit(runCLI(os.Args[1:]))
+}
+
+// runCLI executes the kensa CLI against argv (typically os.Args[1:]) and
+// returns the process exit code. Extracting this from main lets tests
+// drive the parser end-to-end without spawning subprocesses.
+//
+// Exit code contract (deliverable C-001 in docs/roadmap/DELIVERABLES.md):
+//
+//	0  success, or --help / --version (informational request honored)
+//	1  runtime error (subcommand failed, transport error, etc.)
+//	2  usage error (bad flag, unknown subcommand, missing required arg)
+//
+// This contract follows GNU/POSIX convention. Documented in the manpage
+// (forthcoming) and in `docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md` §2.
+func runCLI(argv []string) int {
+	// Backward-compat shim: stdlib `flag` accepted single-dash long forms
+	// like `-db /path`, but pflag (GNU/POSIX strict) treats that as `-d -b`.
+	// Rewrite the legacy form to `--db` with a deprecation warning so
+	// existing scripts keep working through one minor release. Remove
+	// this shim with the v0.2 cycle.
+	argv = rewriteLegacyDb(argv)
+
+	topFlags := pflag.NewFlagSet("kensa", pflag.ContinueOnError)
+	// Stop parsing flags at the first positional (the subcommand name) so
+	// subcommand-specific flags like `kensa check --host foo` aren't
+	// interpreted as top-level flags.
+	topFlags.SetInterspersed(false)
+	topFlags.SortFlags = false
+	// Suppress pflag's default usage-on-error; we want errors on stderr
+	// and explicit-help text on stdout, which the auto-print can't
+	// distinguish.
+	topFlags.SetOutput(io.Discard)
+
+	var (
+		showHelp    bool
+		showVersion bool
+		dbPath      string
+	)
+	topFlags.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	topFlags.BoolVarP(&showVersion, "version", "V", false, "print version and exit")
+	topFlags.StringVarP(&dbPath, "db", "D", "", "SQLite transaction-log path (default: .kensa/results.db)")
+
+	if err := topFlags.Parse(argv); err != nil {
+		// pflag.ErrHelp shouldn't fire because we registered --help/-h
+		// ourselves, but handle it defensively.
+		if errors.Is(err, pflag.ErrHelp) {
+			printUsage(os.Stdout)
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "kensa: %v\n", err)
+		fmt.Fprintln(os.Stderr, "Try 'kensa --help' for usage.")
+		return 2
 	}
 
-	cmd := flag.Arg(0)
-	args := flag.Args()[1:]
+	if showHelp {
+		printUsage(os.Stdout)
+		return 0
+	}
+	if showVersion {
+		fmt.Printf("kensa %s (kensa-go)\n", version)
+		return 0
+	}
+
+	if topFlags.NArg() == 0 {
+		printUsage(os.Stderr)
+		return 2
+	}
+
+	cmd := topFlags.Arg(0)
+	args := topFlags.Args()[1:]
 	ctx := context.Background()
 
 	var err error
@@ -104,31 +170,68 @@ func main() {
 	case "check":
 		err = runCheck(ctx, args)
 	case "remediate":
-		err = runRemediate(ctx, *dbPath, args)
+		err = runRemediate(ctx, dbPath, args)
 	case "rollback":
-		err = runRollback(ctx, *dbPath, args)
+		err = runRollback(ctx, dbPath, args)
 	case "history":
-		err = runHistory(ctx, *dbPath, args)
+		err = runHistory(ctx, dbPath, args)
 	case "plan":
-		err = runPlan(ctx, *dbPath, args)
+		err = runPlan(ctx, dbPath, args)
 	case "coverage":
 		runCoverage()
 	case "version":
-		fmt.Println("kensa v0.1.0-dev (kensa-go)")
+		// Subcommand kept for backward compatibility; --version is the
+		// canonical GNU/POSIX form.
+		fmt.Printf("kensa %s (kensa-go)\n", version)
 	default:
 		fmt.Fprintf(os.Stderr, "kensa: unknown command %q\n\n", cmd)
-		usage()
-		os.Exit(1)
+		printUsage(os.Stderr)
+		return 2
 	}
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "kensa %s: %v\n", cmd, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
-func usage() {
-	fmt.Fprintf(os.Stderr, `Usage: kensa [--db path] <command> [flags]
+// rewriteLegacyDb converts stdlib-flag-style single-dash `-db ...` and
+// `-db=...` to pflag's `--db ...` and `--db=...`. Emits a deprecation
+// warning to stderr so users see they need to migrate the syntax.
+// Scope is intentionally narrow: only -db (the only top-level long flag
+// that previously worked with single dash). Subcommand-level legacy
+// flags will be handled by their own backward-compat shims as they
+// migrate to pflag (deliverables C-002..C-004).
+func rewriteLegacyDb(argv []string) []string {
+	out := make([]string, 0, len(argv))
+	warned := false
+	for _, a := range argv {
+		switch {
+		case a == "-db":
+			if !warned {
+				fmt.Fprintln(os.Stderr, "kensa: warning: '-db' is deprecated; use '--db' or '-D' (the legacy form will be removed in v0.2)")
+				warned = true
+			}
+			out = append(out, "--db")
+		case strings.HasPrefix(a, "-db="):
+			if !warned {
+				fmt.Fprintln(os.Stderr, "kensa: warning: '-db=' is deprecated; use '--db=' or '-D=' (the legacy form will be removed in v0.2)")
+				warned = true
+			}
+			out = append(out, "--db="+a[len("-db="):])
+		default:
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// printUsage writes the top-level help to w. Per GNU convention, --help
+// goes to stdout and usage errors go to stderr — the caller chooses the
+// writer accordingly.
+func printUsage(w io.Writer) {
+	fmt.Fprintf(w, `Usage: kensa [global flags] <command> [flags]
 
 Commands:
   detect      Probe a host and print its capability set
@@ -138,12 +241,18 @@ Commands:
   history     Query the transaction log
   plan        Preview a rule transaction without executing
   coverage    List registered handler mechanisms
-  version     Print version information
 
 Global flags:
-  --db path   SQLite transaction-log path (default: .kensa/results.db)
+  -h, --help        Show this help and exit
+  -V, --version     Print version and exit
+  -D, --db PATH     SQLite transaction-log path (default: .kensa/results.db)
 
 Run "kensa <command> --help" for subcommand flags.
+
+Exit codes:
+  0  success (or --help / --version)
+  1  runtime error
+  2  usage error (bad flag, unknown subcommand, missing required arg)
 `)
 }
 
