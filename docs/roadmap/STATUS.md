@@ -45,7 +45,7 @@ critical path to first release.
 
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
-| Phase 0 — Build discipline (`CGO_ENABLED=0`, `netgo`, `GODEBUG=netdns=go`) | In progress (1 of 6 items done) | ~½ day | L-001 merged `08a195f` 2026-05-08; L-002 (netgo + GODEBUG=netdns=go) is next |
+| Phase 0 — Build discipline (`CGO_ENABLED=0`, `netgo`, `GODEBUG=netdns=go`) | In progress (2 of 6 items done) | ~½ day | L-001 (`08a195f`) + L-002 (`f51cba7`) merged 2026-05-08; L-003 (ldd CI assertion) is next |
 | Phase 1 — Multi-call agent binary (`kensa agent --stdio`) | Not started | 4–6 weeks | Founder ratification on wire-protocol decision (L-007 in DELIVERABLES.md); gates Phases 2–7 |
 | Phase 2 — File atomicity primitives (`renameat2`, `O_TMPFILE`, `fsync`, `syncfs`) | Not started | ~2 weeks | Gates on Phase 1 |
 | Phase 3 — Deadman timer rebuild (`timerfd(CLOCK_BOOTTIME)`, `pidfd_open`, `epoll`, `signalfd`) | Not started | ~2 weeks | Gates on Phase 1 |

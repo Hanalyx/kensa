@@ -228,7 +228,7 @@ Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob)
 - **Deps:** L-001
 - **Acceptance:** pure-Go DNS resolver in effect; build still passes
 - **Size:** 1h
-- **Status:** pending
+- **Status:** **done** — merge `f51cba7` (2026-05-08); `go version -m` confirms `-tags=netgo` baked in; 2-agent peer review clean; specter 22/22; tests pass; live-tested 192.168.1.211
 
 #### L-003 — CI step running `ldd ./kensa` and asserting "not a dynamic executable"
 - **Phase:** LL Phase 0
