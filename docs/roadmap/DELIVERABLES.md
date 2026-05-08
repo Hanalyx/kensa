@@ -165,7 +165,7 @@ but do not gate Track L.
 - **Deps:** C-011, C-012
 - **Acceptance:** `-o oscal:foo.json` equivalent to existing `--oscal` flag; both work for one minor version
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `68c55f5`)
 
 #### C-017 — Evidence serializer (envelope output) wired through `-o`
 - **Phase:** CLI Phase 2
