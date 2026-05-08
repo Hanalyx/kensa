@@ -1,10 +1,11 @@
-.PHONY: help build test lint spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain clean
+.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain clean
 
 help:
 	@echo "Kensa Go — common targets"
 	@echo ""
 	@echo "  build           Build kensa, kensa-fuzz, kensa-validate binaries"
 	@echo "  test            Run unit tests"
+	@echo "  cli-smoke       Run CLI smoke tests (GNU/POSIX exit-code contract)"
 	@echo "  lint            Run golangci-lint"
 	@echo ""
 	@echo "  spec-doctor     Pre-flight health check (run first when onboarding)"
@@ -31,6 +32,13 @@ build:
 
 test:
 	go test ./...
+
+# cli-smoke runs scripts/cli-smoke.sh — a fast (~5s) end-to-end smoke
+# test of the CLI binaries' GNU/POSIX exit-code contract: every
+# subcommand --help exits 0, every bad-flag exits 2, etc. No network
+# required. Builds binaries first if missing.
+cli-smoke:
+	scripts/cli-smoke.sh
 
 lint:
 	golangci-lint run
