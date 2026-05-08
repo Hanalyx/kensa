@@ -49,7 +49,7 @@ func TestScanWriterFor(t *testing.T) {
 		{"text", true, "output.textScanWriter"},
 		{"json", true, "output.jsonScanWriter"},
 		{"jsonl", true, "output.jsonlScanWriter"},
-		{"csv", false, ""},
+		{"csv", true, "output.csvScanWriter"},
 		{"pdf", false, ""},
 		{"unknown", false, ""},
 		{"", false, ""},
@@ -75,7 +75,7 @@ func TestRemediationWriterFor(t *testing.T) {
 		{"text", true},
 		{"json", true},
 		{"jsonl", false},
-		{"csv", false},
+		{"csv", true},
 		{"unknown", false},
 	}
 	for _, tc := range tests {
@@ -156,8 +156,8 @@ func TestWriterOrText_Fallback(t *testing.T) {
 		{"empty falls back to text", "", "text"},
 		{"json registered for scan", "json", "json"},
 		{"jsonl registered for scan", "jsonl", "jsonl"},
+		{"csv registered for scan", "csv", "csv"},
 		{"unknown falls back to text", "yaml", "text"},
-		{"unregistered-but-known falls back to text", "csv", "text"},
 	}
 	for _, tc := range tests {
 		t.Run("scan/"+tc.name, func(t *testing.T) {
@@ -166,11 +166,14 @@ func TestWriterOrText_Fallback(t *testing.T) {
 			}
 		})
 	}
-	// History only registers "text" — every other format must fall back.
-	for _, f := range []string{"", "json", "jsonl", "csv", "xml"} {
+	// History registers "text" and "csv" — every other format must fall back.
+	for _, f := range []string{"", "json", "jsonl", "xml"} {
 		if got := HistoryWriterOrText(f).Format(); got != "text" {
 			t.Errorf("HistoryWriterOrText(%q).Format() = %q, want text", f, got)
 		}
+	}
+	if got := HistoryWriterOrText("csv").Format(); got != "csv" {
+		t.Errorf("HistoryWriterOrText(csv).Format() = %q, want csv", got)
 	}
 	// Caps registers text + json.
 	if got := CapsWriterOrText("json").Format(); got != "json" {

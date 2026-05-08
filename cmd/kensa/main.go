@@ -879,10 +879,21 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	if format == "json" {
 		return jsonValue.WriteJSONValue(os.Stdout, result)
 	}
-	if err := output.HistoryWriterOrText(format).WriteHistory(os.Stdout, result.Transactions); err != nil {
+	w := output.HistoryWriterOrText(format)
+	if err := w.WriteHistory(os.Stdout, result.Transactions); err != nil {
 		return err
 	}
-	fmt.Printf("\n%d of %d transactions shown\n", len(result.Transactions), result.Total)
+	// The "N of M transactions shown" trailer is human-friendly footer
+	// text. It is correct for the text writer (humans read tables top-
+	// to-bottom) but corrupts row-oriented formats (CSV) that downstream
+	// tools parse as a flat row stream. For CSV the trailer goes to
+	// stderr so the operator still sees pagination context without
+	// breaking the output file.
+	if w.Format() == "text" {
+		fmt.Printf("\n%d of %d transactions shown\n", len(result.Transactions), result.Total)
+	} else {
+		fmt.Fprintf(os.Stderr, "%d of %d transactions shown\n", len(result.Transactions), result.Total)
+	}
 	return nil
 }
 
