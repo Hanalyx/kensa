@@ -179,7 +179,7 @@ but do not gate Track L.
 - **Deps:** C-011..C-017
 - **Acceptance:** `--quiet` writes nothing to stdout when `-o` redirected; warnings still go to stderr
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `b6dc084`)
 
 #### C-019 — Concurrent fan-out for multi-output runs
 - **Phase:** CLI Phase 2
