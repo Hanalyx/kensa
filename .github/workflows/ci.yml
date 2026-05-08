@@ -140,6 +140,50 @@ jobs:
       - name: Run default-stage hooks
         run: pre-commit run --all-files --show-diff-on-failure
 
+  build-static-verify:
+    # Deliverable L-003 (docs/roadmap/DELIVERABLES.md): proves the
+    # CGO_ENABLED=0 + -tags netgo discipline (L-001 + L-002) is honored
+    # on every CI run by building all three binaries and asserting each
+    # one is statically linked. Fails the workflow immediately if a
+    # transitive dependency reintroduces dynamic linking.
+    name: Build & Static Linking Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Build all binaries
+        run: make build
+      - name: Verify static linking via ldd
+        run: |
+          set -e
+          ok=0
+          fail=0
+          for bin in bin/kensa bin/kensa-fuzz bin/kensa-validate; do
+            # ldd exits non-zero on static binaries; capture both streams
+            # and look for the canonical message. We also accept `file`
+            # output as a secondary signal.
+            ldd_out=$(ldd "$bin" 2>&1 || true)
+            file_out=$(file "$bin")
+            if echo "$ldd_out" | grep -q "not a dynamic executable" \
+               || echo "$file_out" | grep -q "statically linked"; then
+              echo "  ✓ $bin: statically linked"
+              ok=$((ok+1))
+            else
+              echo "  ✗ $bin: dynamically linked — regression!"
+              echo "    ldd:  $ldd_out"
+              echo "    file: $file_out"
+              fail=$((fail+1))
+            fi
+          done
+          echo ""
+          echo "Result: $ok passed, $fail failed"
+          if [ "$fail" -gt 0 ]; then
+            echo "::error::At least one binary is dynamically linked. Likely causes: (1) a new go.mod dependency pulls cgo; (2) the Makefile build target lost CGO_ENABLED=0 or -tags netgo; (3) something built with raw 'go build' instead of 'make build'. The canonical build entrypoint is 'make build' — direct go build invocations bypass the discipline."
+            exit 1
+          fi
+
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
   #   fuzz: kensa-fuzz atomicity verification (after Week 7)
