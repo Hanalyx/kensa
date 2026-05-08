@@ -199,6 +199,46 @@ func runCLI(argv []string) int {
 	return 0
 }
 
+// warnDeprecatedFlag emits a one-line deprecation warning to stderr
+// when fs.Changed(name) reports that the operator explicitly set the
+// flag (as opposed to the default firing). The warning text:
+// "kensa: warning: --<name> is deprecated; use <replacement>
+// (will be removed in v0.2)". Format and v0.2 marker match the
+// pre-existing legacy-flag warnings (rewriteLegacyDb,
+// rewriteLegacyLongForm) so operators see a consistent migration
+// signal across the deprecation cycle.
+//
+// Per C-020, deprecation warnings always go to stderr regardless of
+// --quiet. --quiet silences stdout body output; deprecation warnings
+// are diagnostic information operators must see during the
+// deprecation window, otherwise scripts using deprecated flags
+// silently survive the cycle and break at removal time.
+//
+// Env-var opt-out: KENSA_NO_DEPRECATION_WARNINGS=1 silences these
+// warnings for the current process. Intended for operators who have
+// planned the migration but can't migrate immediately (e.g., a CI
+// pipeline pinned to a specific release window). NOT a substitute
+// for migrating — the underlying flags will be removed in v0.2
+// regardless of whether the warning was visible.
+//
+// Note on explicit-default values: `--format table` (the default
+// value, but explicitly typed on argv) triggers the warning. This
+// is intentional — the FLAG itself is deprecated regardless of
+// value. Suppressing on default-value-equality would create a
+// foot-gun where one specific value of a deprecated flag silently
+// outlives the deprecation window.
+func warnDeprecatedFlag(fs *pflag.FlagSet, name, replacement string) {
+	if !fs.Changed(name) {
+		return
+	}
+	if os.Getenv("KENSA_NO_DEPRECATION_WARNINGS") == "1" {
+		return
+	}
+	fmt.Fprintf(os.Stderr,
+		"kensa: warning: --%s is deprecated; use %s (will be removed in v0.2)\n",
+		name, replacement)
+}
+
 // routeFanOutError routes a FanOut return value through the right
 // kensa-CLI exit-code lane. ErrUnsupportedFormat means the operator
 // asked for a format that has no writer for the payload type
@@ -401,6 +441,7 @@ func runDetect(ctx context.Context, args []string) error {
 		printDetectUsage(os.Stderr, fs)
 		return NewUsageError("--host is required")
 	}
+	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
 
 	hostCfg := api.HostConfig{
 		Hostname: host,
@@ -514,6 +555,7 @@ func runCheck(ctx context.Context, args []string) error {
 		printCheckUsage(os.Stdout, fs)
 		return nil
 	}
+	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
 
 	// Validate flag-only constraints up front so usage errors don't
 	// trail behind runtime work like rule loading or SSH dialing.
@@ -738,6 +780,8 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		printRemediateUsage(os.Stderr, fs)
 		return NewUsageError("--host is required")
 	}
+	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
+	warnDeprecatedFlag(fs, "oscal", "--output oscal:PATH")
 
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {

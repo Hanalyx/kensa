@@ -1,0 +1,252 @@
+spec:
+    id: cli-deprecation
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-flag-deprecation
+        description: |
+            CLI Phase 2 introduces -o/--output as the canonical
+            output-destination mechanism (C-019), replacing the
+            single-target --format and the OSCAL-only --oscal
+            flags on detect/check/remediate. The old flags keep
+            working for one minor version (per
+            CLI_GNU_POSIX_MIGRATION_V1.md §6 deprecation policy)
+            so existing operator scripts don't break at upgrade
+            time.
+
+            Operators using the deprecated flags MUST see a
+            stderr warning on every invocation. Without that
+            signal, scripts using deprecated flags silently
+            survive the deprecation window and break at removal
+            time. Warnings always emit on stderr regardless of
+            --quiet — quiet silences stdout body output;
+            deprecation warnings are diagnostic information
+            operators must see.
+
+            CHANGELOG.md (also added in C-020) is the
+            operator-facing migration document, with concrete
+            before/after examples for each deprecated flag.
+
+    objective:
+        summary: |
+            Add stderr deprecation warnings for --format on
+            detect/check/remediate and for --oscal on remediate.
+            The warnings fire only when the operator explicitly
+            sets the flag (pflag's fs.Changed), not when the
+            default fires. CHANGELOG.md documents the migration
+            with concrete examples.
+        scope:
+            includes:
+                - warnDeprecatedFlag(fs, name, replacement) helper in cmd/kensa/main.go
+                - --format deprecation on detect, check, remediate
+                - --oscal deprecation on remediate
+                - CHANGELOG.md with the migration guidance
+                - Tests confirming the warning fires when the flag is explicitly set, NOT when the default fires
+                - Tests confirming the warning emits even under --quiet
+                - Tests confirming history's --format and plan's --format do NOT warn (they have no -o equivalent in v0.1)
+            excludes:
+                - Removing the deprecated flags (v0.2 work; deferred)
+                - One-warning-per-session rate limit (warnings emit per invocation; CI scripts running kensa repeatedly will see the warning per call, which is the intended push toward migration)
+                - Environment-variable opt-out (e.g., KENSA_NO_DEPRECATION_WARNINGS) — not in scope; if an operator wants to silence the warnings they can `2>/dev/null` or migrate
+
+    constraints:
+        - id: C-01
+          description: |
+              The warning MUST emit only when the operator
+              explicitly set the flag. pflag's fs.Changed(name)
+              returns true if Set was called during argv
+              parsing; using the default value does not call Set.
+              Warning on default would spam every legacy script
+              regardless of whether it uses the deprecated flag.
+
+              Explicit-default case: `kensa check --format table`
+              (the default value, but explicitly typed on argv)
+              triggers the warning. This is intentional — the FLAG
+              itself is deprecated regardless of value. Suppressing
+              on default-value-equality would create a foot-gun
+              where one specific value of a deprecated flag silently
+              outlives the deprecation window.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The warning MUST go to stderr. Operators with
+              scripts that grep stdout (e.g., for JSON output)
+              must not see the warning in their parsing pipeline.
+              stderr is the standard sink for diagnostic chatter.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              --quiet MUST NOT silence the warning. --quiet
+              silences stdout body output; deprecation warnings
+              are stderr-bound diagnostic information. Silencing
+              them under --quiet would let CI scripts run
+              indefinitely with deprecated flags and never see
+              the migration signal.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The warning format MUST match the existing
+              convention from rewriteLegacyDb /
+              rewriteLegacyLongForm: "kensa: warning: --<name>
+              is deprecated; use <replacement> (will be removed
+              in v0.2)". The "v0.2" marker tells operators when
+              their script will break.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              CHANGELOG.md MUST exist at the repo root with a
+              "Deprecated" section listing every deprecated
+              flag, its replacement, and a concrete migration
+              example. Operators reading the upgrade notes find
+              everything they need without grepping the source.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              KENSA_NO_DEPRECATION_WARNINGS=1 (env var, exact
+              match on "1") silences the warnings for the current
+              process. Intended for operators who have planned
+              the migration but can't migrate immediately (e.g.,
+              a CI pipeline pinned to a release window). Exact-
+              match on "1" prevents an env var leaked from a
+              parent process (with values like "true" or "yes")
+              from silently disabling the migration signal.
+              Operators running `2>/dev/null` would silence real
+              errors too — the env var is the targeted opt-out.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              warnDeprecatedFlag(fs, name, replacement) checks
+              fs.Changed(name) and emits the warning to stderr
+              if true; emits nothing if false. Locked by
+              TestDeprecation_FormatFlag_DefaultDoesNotFire.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa detect --host h --format json` emits the
+              warning on stderr. Locked by
+              TestDeprecation_FormatFlag_DetectFires.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              `kensa check --format json` and `kensa remediate
+              --format json` both emit the warning. Locked by
+              TestDeprecation_FormatFlag_CheckFires and
+              TestDeprecation_FormatFlag_RemediateFires.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              `kensa remediate --oscal /tmp/x.json` emits a
+              separate --oscal deprecation warning. The
+              replacement guidance ("--output oscal:PATH") is
+              in the warning text. Locked by
+              TestDeprecation_OscalFlag_RemediateFires.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              `kensa detect --host h --format json --quiet`
+              still emits the deprecation warning. Locked by
+              TestDeprecation_FormatFlag_DetectQuiet.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              `kensa history --format json` does NOT emit a
+              warning (history has no -o equivalent in v0.1).
+              Locked by TestDeprecation_HistoryFormatDoesNotWarn.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-07
+          description: |
+              `kensa plan --format json` does NOT emit a warning
+              (plan format vocabulary is engine-internal). Locked
+              by TestDeprecation_PlanFormatDoesNotWarn.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-08
+          description: |
+              The warning text matches the convention "kensa:
+              warning: --<name> is deprecated; use <replacement>
+              (will be removed in v0.2)". The v0.2 marker tells
+              operators when their scripts will break.
+              Verified by substring match in tests.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-09
+          description: |
+              CHANGELOG.md exists at the repo root with a
+              "Deprecated" section listing both --format and
+              --oscal, their replacements, and concrete before/
+              after migration examples.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-10
+          description: |
+              The short form `-f json` triggers the same warning
+              as `--format json` (pflag's fs.Changed reports on
+              the long name regardless of which form was used
+              on argv). Locked by
+              TestDeprecation_FormatFlag_ShortFormFires.
+          references_constraints: [C-01]
+          priority: medium
+        - id: AC-11
+          description: |
+              The warning text contains the literal string
+              "will be removed in v0.2" so operators see the
+              concrete release where their script will break.
+              Locked by TestDeprecation_V02RemovalMarker. Catches
+              a regression that drops the version target.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-12
+          description: |
+              CHANGELOG.md exists at the repo root with the
+              "Deprecated" section, both flag names (--format
+              and --oscal), the --output replacement guidance,
+              and the v0.2 removal marker. Locked by
+              TestDeprecation_ChangelogContent (file-content
+              substring matches). Catches a future PR that
+              accidentally deletes the deprecation entry.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-13
+          description: |
+              KENSA_NO_DEPRECATION_WARNINGS=1 silences the warning.
+              Locked by TestDeprecation_EnvVarOptOut.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-14
+          description: |
+              KENSA_NO_DEPRECATION_WARNINGS with a non-"1" value
+              (e.g., "true", "yes", "on") does NOT silence the
+              warning. Exact-match-on-"1" only. Locked by
+              TestDeprecation_EnvVarOnlySilencesOnExactValue.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-15
+          description: |
+              The warning fires even when -o is also set on the
+              command line. Locked by
+              TestDeprecation_FormatPlusOutputFlag. Without this,
+              a future refactor moving warnDeprecatedFlag inside
+              the `len(outputs) == 0` branch would silently
+              suppress the migration signal for operators
+              already part-way migrated.
+          references_constraints: [C-01]
+          priority: medium
+
+    tags: [cli, gnu-posix, tier-1, c-020, deprecation]
