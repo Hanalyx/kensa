@@ -221,7 +221,7 @@ Estimated 12–15 deliverables (C-021..C-035) covering: `--limit/-l` (host glob)
 - **Deps:** —
 - **Acceptance:** `go build` produces a static binary; `ldd ./kensa` says "not a dynamic executable"
 - **Size:** 1h
-- **Status:** pending
+- **Status:** **done** — merge `08a195f` (2026-05-08); 2-agent peer review clean; specter check --strict 22/22; go test ./... pass; live-tested against `192.168.1.211` (31 capabilities, exit 0)
 
 #### L-002 — Add `-tags netgo` to build flags + `GODEBUG=netdns=go` discipline
 - **Phase:** LL Phase 0
