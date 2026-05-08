@@ -417,34 +417,84 @@ func printCapsTable(hostID string, caps api.CapabilitySet) {
 // ─── check ─────────────────────────────────────────────────────────────────
 
 // runCheck loads rule files and runs read-only compliance checks.
+//
+// Flag style: GNU/POSIX-strict per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
+// §4.2 short-letter table:
+//
+//	-H, --host          target hostname
+//	-u, --user          SSH username
+//	-p, --port          SSH port
+//	-k, --key           SSH private key path
+//	-s, --sudo          wrap in sudo
+//	-f, --format        output format
+//	-r, --rules-dir     rules directory
+//	    --inventory     Ansible-style inventory (no short — `-i` reserved
+//	                    elsewhere is debatable, but no other subcommand
+//	                    in kensa uses --inventory, so leaving it long-only
+//	                    keeps the system-wide table consistent)
+//	-h, --help          show help
+//
+// Single-dash long forms (`-host`, `-rules-dir`, etc.) from the stdlib-
+// flag era continue to parse via rewriteLegacyLongForm with a deprecation
+// warning. Removed in v0.2.
 func runCheck(ctx context.Context, args []string) error {
-	fset := flag.NewFlagSet("check", flag.ContinueOnError)
-	host := fset.String("host", "", "target hostname (required if no --inventory)")
-	user := fset.String("user", "", "SSH user")
-	port := fset.Int("port", 22, "SSH port")
-	keyPath := fset.String("key", "", "SSH private key path")
-	sudo := fset.Bool("sudo", false, "wrap commands in sudo")
-	format := fset.String("format", "table", "output format: table or json")
-	rulesDir := fset.String("rules-dir", "", "directory to scan for *.yml rule files")
-	inventory := fset.String("inventory", "", "Ansible-style inventory.ini for multi-host check")
-	if err := fset.Parse(args); err != nil {
-		return err
+	args = rewriteLegacyLongForm(args, map[string]bool{
+		"host": true, "user": true, "port": true, "key": true,
+		"sudo": true, "format": true, "rules-dir": true, "inventory": true,
+	})
+
+	fs := pflag.NewFlagSet("check", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.SetOutput(io.Discard)
+
+	var (
+		showHelp  bool
+		host      string
+		user      string
+		port      int
+		keyPath   string
+		sudo      bool
+		format    string
+		rulesDir  string
+		inventory string
+	)
+	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.StringVarP(&host, "host", "H", "", "target hostname (required if no --inventory)")
+	fs.StringVarP(&user, "user", "u", "", "SSH user (default: current user)")
+	fs.IntVarP(&port, "port", "p", 22, "SSH port")
+	fs.StringVarP(&keyPath, "key", "k", "", "SSH private key path")
+	fs.BoolVarP(&sudo, "sudo", "s", false, "wrap commands in sudo")
+	fs.StringVarP(&format, "format", "f", "table", "output format: table, json, or jsonl")
+	fs.StringVarP(&rulesDir, "rules-dir", "r", "", "directory to scan for *.yml rule files")
+	fs.StringVar(&inventory, "inventory", "", "Ansible-style inventory.ini for multi-host check (long-only)")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			printCheckUsage(os.Stdout, fs)
+			return nil
+		}
+		return fmt.Errorf("%w; try 'kensa check --help'", err)
+	}
+	if showHelp {
+		printCheckUsage(os.Stdout, fs)
+		return nil
 	}
 
-	rules, err := loadRulesFromDirOrFiles(*rulesDir, fset.Args())
+	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
 		return err
 	}
 
-	if *inventory != "" {
-		return runCheckInventory(ctx, *inventory, *user, *port, *keyPath, *sudo, *format, rules)
+	if inventory != "" {
+		return runCheckInventory(ctx, inventory, user, port, keyPath, sudo, format, rules)
 	}
-	if *host == "" {
-		return errors.New("-host or -inventory is required")
+	if host == "" {
+		printCheckUsage(os.Stderr, fs)
+		return errors.New("--host or --inventory is required")
 	}
 
 	hostCfg := api.HostConfig{
-		Hostname: *host, User: *user, Port: *port, KeyPath: *keyPath, Sudo: *sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -457,17 +507,33 @@ func runCheck(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	result.HostID = *host
+	result.HostID = host
 
-	switch *format {
+	switch format {
 	case "json":
 		return printJSON(result)
 	case "jsonl":
 		return printJSONL(rules, result)
 	default:
-		printScanTable(*host, rules, result)
+		printScanTable(host, rules, result)
 	}
 	return nil
+}
+
+// printCheckUsage writes the `kensa check` help text. --help to stdout,
+// usage errors to stderr per GNU.
+func printCheckUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprintf(w, `Usage: kensa check [flags] [rule.yml ...]
+
+Run read-only compliance checks against one host or an inventory.
+
+Flags:
+%s
+Examples:
+  kensa check -H 192.168.1.211 -u owadmin -s -r /path/to/rules
+  kensa check --inventory hosts.ini --sudo --rules-dir /path/to/rules
+  kensa check -H web-01 -u admin -s --format jsonl rule1.yml rule2.yml
+`, fs.FlagUsages())
 }
 
 // runCheckInventory fans out a check across all hosts in an inventory file.
