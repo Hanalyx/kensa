@@ -1,0 +1,239 @@
+spec:
+    id: cli-capability-override
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-capability-override
+        description: |
+            CLI Phase 3 deliverable C-028. Adds repeatable
+            `--capability KEY=VALUE` / `-C KEY=VALUE` to detect,
+            check (single + inventory), and remediate. Each entry
+            overrides the value the host's capability probe
+            produced for KEY before rule selection runs.
+
+            Use case: an operator wants to dry-run a rule set
+            against a host that legitimately lacks a capability
+            kensa probes for, OR wants to test the
+            "as-if-capability-X-were-present" path on a host
+            that doesn't have it. Common during rule authoring
+            and triage.
+
+            KEY is validated against detect.KnownCapabilities()
+            (the canonical vocabulary derived from the probe
+            list). VALUE is parsed permissively
+            (true|false|yes|no|on|off|1|0) but invalid spellings
+            are rejected with a clear error so a typo doesn't
+            silently flip the policy.
+
+            The override is applied AFTER capability detection,
+            via detect.ApplyOverrides. The implementation flows
+            through:
+              cli flag → resolveCapabilityOverrides →
+              api.HostConfig.Capabilities → Kensa.Scan/Remediate →
+              ScannerWithOverrides.ScanWithOverrides /
+              RemediateWithOverrides → detect.ApplyOverrides
+              (inside scan.Runner) → rule.Select(rl, merged)
+
+            For `kensa detect`, overrides are applied for
+            display purposes so the operator sees what
+            scan/remediate would consume.
+
+            Plan path is excluded — engine.PlanTransaction does
+            not currently capability-gate selection (uses
+            selectDefaultImpl); wiring overrides there would be
+            premature without a deeper refactor.
+
+            Risk model: this is a debugging / dry-run knob, NOT
+            a security boundary. An operator who forces
+            `selinux=true` on a host that lacks SELinux causes
+            rule-selection to pick the SELinux implementation,
+            whose check/apply will then fail at the transport
+            layer (`getsebool`/`setsebool` not found → non-zero
+            exit → check fails → engine surfaces the error or
+            rolls back). Atomicity is preserved by the engine's
+            Capture→Apply→Validate→Commit pipeline regardless
+            of capability lies — it's the engine, not the flag,
+            that protects host state.
+
+    objective:
+        summary: |
+            Add CapabilitySet field on api.HostConfig and a
+            ScannerWithOverrides interface; have Kensa.Scan and
+            Kensa.Remediate dispatch to the override-aware
+            method when the field is non-empty. Add the
+            `--capability/-C KEY=VALUE` repeatable flag and
+            wire it through detect, check (single + inventory),
+            and remediate.
+        scope:
+            includes:
+                - api.HostConfig.Capabilities (additive backward-compat field)
+                - api.ScannerWithOverrides interface (optional surface)
+                - scan.Runner.ScanWithOverrides / RemediateWithOverrides methods
+                - detect.KnownCapabilities (vocabulary lookup)
+                - detect.ApplyOverrides (merge helper)
+                - "--capability / -C flag with KEY=VALUE parsing on detect, check, remediate"
+                - resolveCapabilityOverrides helper with vocabulary validation
+                - Permissive value parser (true|false|yes|no|on|off|1|0)
+            excludes:
+                - "Plan path: engine.PlanTransaction does not capability-gate selection today; out of scope"
+                - "Rollback path: rollback uses persisted PreState, not capability-gated rule selection"
+                - "Per-host capability override in inventory entries: future"
+                - "Negation syntax (-C !apparmor): rejected as ambiguous; use -C apparmor=false"
+
+    constraints:
+        - id: C-01
+          description: |
+              Unknown capability KEY (not in
+              detect.KnownCapabilities) MUST produce a usage
+              error. Silent typo acceptance would let an
+              operator believe they're overriding `apparmor`
+              when they actually typed `aparmor`.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Malformed KEY=VALUE entries (missing '=', empty
+              KEY) MUST produce a usage error.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Invalid VALUE (not in the truthy/falsy
+              vocabulary) MUST produce a usage error. A typo
+              like "selinux=presence" cannot silently parse to
+              false.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The api.HostConfig.Capabilities field MUST be
+              additive backward-compatible: callers that don't
+              set it (zero-value nil/empty map) continue to
+              receive detect-only behavior with no override
+              merge. Empty overrides bypass the override-aware
+              code path entirely.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              detect.ApplyOverrides MUST NOT mutate its input
+              arguments. Both detected and overrides must be
+              treated as read-only so callers can reuse the
+              detected set for logging/display while passing it
+              into Apply.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              When HostConfig.Capabilities is non-empty AND the
+              configured Scanner does NOT implement
+              ScannerWithOverrides, Kensa.Scan/Remediate MUST
+              return an error rather than silently scanning
+              with detected-only caps. Operators must see the
+              configuration mismatch.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              parseCapabilityValue accepts true/false/yes/no/
+              on/off/1/0 (case-insensitive, whitespace
+              trimmed). Locked by TestParseCapabilityValue_*.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              parseCapabilityValue rejects unknown spellings
+              (empty, "maybe", "2", trailing punctuation).
+              Locked by TestParseCapabilityValue_Invalid.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              resolveCapabilityOverrides(nil) and
+              resolveCapabilityOverrides([]string{}) both
+              return (nil, nil). Locked by
+              TestResolveCapabilityOverrides_Empty.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-04
+          description: |
+              resolveCapabilityOverrides on a well-formed entry
+              produces a CapabilitySet with the corresponding
+              key=value. Locked by
+              TestResolveCapabilityOverrides_WellFormed and
+              TestResolveCapabilityOverrides_MultipleEntries.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Malformed entries (missing '=', empty KEY) error
+              with a usage-style message. Locked by
+              TestResolveCapabilityOverrides_MalformedEntry.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: |
+              Unknown KEY produces an error mentioning "unknown
+              capability key". Locked by
+              TestResolveCapabilityOverrides_UnknownKey.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-07
+          description: |
+              Invalid VALUE produces an error mentioning the
+              valid form. Locked by
+              TestResolveCapabilityOverrides_BadValue.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-08
+          description: |
+              detect.KnownCapabilities returns a non-empty,
+              alphabetically-sorted, duplicate-free list.
+              Locked by TestKnownCapabilities_NonEmpty,
+              TestKnownCapabilities_Sorted,
+              TestKnownCapabilities_NoDuplicates.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-09
+          description: |
+              detect.ApplyOverrides preserves detected values
+              for keys not in overrides; overrides take
+              precedence for keys that are; nil/empty overrides
+              return the detected set unchanged. Inputs are not
+              mutated. Locked by TestApplyOverrides_*.
+          references_constraints: [C-04, C-05]
+          priority: critical
+        - id: AC-10
+          description: |
+              When HostConfig.Capabilities is non-empty but the
+              configured Scanner does not implement
+              ScannerWithOverrides, Kensa.Scan and
+              Kensa.Remediate return a clear error mentioning
+              "capability overrides requested" so the operator
+              sees the configuration mismatch instead of a
+              silent fall-back. Locked by
+              TestScanWithOptionalOverrides_OverridesButLegacyScanner_Errors
+              and TestRemediateWithOptionalOverrides_OverridesButLegacyScanner_Errors
+              in api/scanner_overrides_test.go. Note: the CLI
+              `check` path uses scan.Runner.ScanWithOverrides
+              directly (bypassing Kensa.Scan), so this AC is
+              load-bearing for `kensa remediate` and external
+              api/ consumers (OpenWatch in the future).
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-11
+          description: |
+              Duplicate KEYs in repeated -C entries resolve as
+              last-write-wins (no error, no warning). Locked by
+              TestResolveCapabilityOverrides_DuplicateKey_LastWins.
+              Documented behavior; matches the principle of
+              least surprise for repeatable flags.
+          references_constraints: [C-04]
+          priority: medium
+
+    tags: [cli, target-options, capability, override, tier-1, c-028]

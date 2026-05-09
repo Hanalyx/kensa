@@ -53,10 +53,20 @@ func New(eng api.Engine) *Runner {
 // Scan checks every rule against the host reachable via transport and
 // returns per-rule check results. No mutation of the host occurs.
 func (r *Runner) Scan(ctx context.Context, transport api.Transport, rules []*api.Rule) (*api.ScanResult, error) {
-	caps, err := detect.Detect(ctx, transport)
+	return r.ScanWithOverrides(ctx, transport, rules, nil)
+}
+
+// ScanWithOverrides is the C-028 capability-override variant of
+// [Scan]. After capability probes run, every key in `overrides`
+// replaces the detected value before rule selection. Pass nil
+// (or an empty map) for the legacy "use detected verbatim"
+// behavior — Scan above does exactly that.
+func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport, rules []*api.Rule, overrides api.CapabilitySet) (*api.ScanResult, error) {
+	detected, err := detect.Detect(ctx, transport)
 	if err != nil {
 		return nil, fmt.Errorf("scan: detect capabilities: %w", err)
 	}
+	caps := detect.ApplyOverrides(detected, overrides)
 
 	hostID := "" // transport does not expose hostname; populated by caller
 	result := &api.ScanResult{HostID: hostID}
@@ -99,14 +109,21 @@ func (r *Runner) Scan(ctx context.Context, transport api.Transport, rules []*api
 // fails the check. Rules that already pass are skipped. Returns the
 // combined check+remediation results.
 func (r *Runner) Remediate(ctx context.Context, transport api.Transport, rules []*api.Rule) (*api.RemediationResult, error) {
+	return r.RemediateWithOverrides(ctx, transport, rules, nil)
+}
+
+// RemediateWithOverrides is the C-028 capability-override variant
+// of [Remediate]. See [ScanWithOverrides] for semantics.
+func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Transport, rules []*api.Rule, overrides api.CapabilitySet) (*api.RemediationResult, error) {
 	if r.engine == nil {
 		return nil, fmt.Errorf("scan: engine not wired, cannot remediate")
 	}
 
-	caps, err := detect.Detect(ctx, transport)
+	detected, err := detect.Detect(ctx, transport)
 	if err != nil {
 		return nil, fmt.Errorf("scan: detect capabilities: %w", err)
 	}
+	caps := detect.ApplyOverrides(detected, overrides)
 
 	hostID := ""
 	result := &api.RemediationResult{HostID: hostID}

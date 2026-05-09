@@ -5,6 +5,7 @@ package detect
 
 import (
 	"context"
+	"sort"
 
 	"github.com/Hanalyx/kensa-go/api"
 )
@@ -182,4 +183,37 @@ func runProbe(ctx context.Context, transport api.Transport, cmd string) bool {
 		return false
 	}
 	return res.ExitCode == 0
+}
+
+// KnownCapabilities returns the set of capability names that Detect
+// can probe for, sorted alphabetically. Used by the --capability /
+// -C flag to validate operator-provided KEY=VALUE pairs against
+// the canonical vocabulary.
+func KnownCapabilities() []string {
+	names := make([]string, 0, len(probes))
+	for _, p := range probes {
+		names = append(names, p.name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ApplyOverrides returns a copy of detected with every key in
+// overrides set to the override value. Keys present in overrides
+// but not in detected are still applied — operators may legitimately
+// force a capability that wasn't probed (e.g., behind a fake
+// transport in tests). Validation that the keys are in
+// KnownCapabilities() is the caller's responsibility.
+func ApplyOverrides(detected api.CapabilitySet, overrides api.CapabilitySet) api.CapabilitySet {
+	if len(overrides) == 0 {
+		return detected
+	}
+	out := make(api.CapabilitySet, len(detected)+len(overrides))
+	for k, v := range detected {
+		out[k] = v
+	}
+	for k, v := range overrides {
+		out[k] = v
+	}
+	return out
 }
