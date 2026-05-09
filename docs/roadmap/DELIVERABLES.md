@@ -244,7 +244,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-024
 - **Acceptance:** `kensa check -i inventory.ini -l 'web-*'` runs only against hosts matching the glob; supports inventory group names (e.g., `-l prod-servers`). Ansible `--limit` semantics: comma-separated patterns; `!` excludes; bare hostname is exact-match.
 - **Size:** 2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `e8bab57`)
 
 #### C-026 — `--password/-p` with secure prompt
 - **Phase:** CLI Phase 3
