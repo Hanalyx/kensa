@@ -1,0 +1,265 @@
+spec:
+    id: cli-variable-tiers
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-variable-tiers
+        description: |
+            CLI Phase 3.6 deliverable. Extends the Phase 3.5
+            variable-substitution layer with three additional
+            tiers, completing the Python kensa 5-tier priority
+            chain:
+
+              1. CLI --var KEY=VALUE                    (highest)
+              2. <config-dir>/hosts/<hostname>.yml      (per-host)
+              3. <config-dir>/groups/<group>.yml         (per-group; later wins on collision)
+              4. <config-dir>/conf.d/*.yml (alphabetical) (conf.d overlay; later wins)
+              5. <config-dir>/defaults.yml              (lowest)
+
+            Phase 3.5 shipped tiers 1 + 5; Phase 3.6 adds 2,
+            3, 4. The new tiers are loaded by:
+
+              - LoadHost(configDir, hostname) — reads
+                hosts/<hostname>.yml.
+              - LoadGroups(configDir, groups) — merges
+                groups/<G>.yml in slice order.
+              - LoadConfDir(configDir) — globs conf.d/*.yml
+                alphabetically.
+              - ResolveTiers(configDir, hostname, groups,
+                cliOverrides) — combines all 5 tiers in
+                priority order.
+
+            Wiring scope (this iteration):
+              - Single-host check / remediate: full 5-tier
+                resolution. The host name is known at flag-
+                parse time, so hosts/<host>.yml + groups (none
+                for single-host) are part of the load.
+              - Inventory-mode check: only the 3 host-
+                independent tiers (defaults + conf.d + CLI)
+                apply at the corpus-load layer. Per-host /
+                per-group inventory variables would require
+                re-loading the corpus per host, which is a
+                larger architectural change. Documented as
+                Phase 3.7 follow-up.
+
+            All existing Phase 3.5 invariants hold:
+              - Substitution at YAML-bytes layer, before
+                rule decode.
+              - Undefined variables produce ErrUndefined,
+                aggregated by the dir-walk loader.
+              - Variable name vocabulary [A-Za-z][A-Za-z0-9_]*
+                applies across every tier source file.
+
+    objective:
+        summary: |
+            Add LoadHost / LoadGroups / LoadConfDir to
+            internal/varsub. Add ResolveTiers wrapper that
+            merges all 5 tiers in priority order. Refactor
+            LoadDefaults to delegate to a shared
+            loadVariablesFile helper for consistent
+            per-source validation. Wire single-host check +
+            remediate to use ResolveTiers with the --host
+            value as hostname; inventory mode keeps the
+            3-tier resolution and is documented.
+        scope:
+            includes:
+                - "internal/varsub/tiers.go: LoadHost, LoadGroups, LoadConfDir, ResolveTiers, loadVariablesFile"
+                - "Refactor: LoadDefaults delegates to loadVariablesFile"
+                - "Single-host check + remediate use full 5-tier ResolveTiers"
+                - "Inventory mode documented as 3-tier (per-host / per-group out of scope this iteration)"
+                - "conf.d/*.yml filename ordering: alphabetical, later wins on key collision"
+                - "Group merge order: groups slice positional, later in slice wins"
+                - "Validation: every per-source file rejects nil, non-scalar, and invalid var names with key-named errors"
+            excludes:
+                - "Per-host / per-group vars in inventory mode: Phase 3.7"
+                - "Auto-detection of hosts subdirectory under XDG paths: out of scope"
+                - "Encrypted defaults / vault integration: out of scope"
+                - "Inheritance / template-of-template substitution: out of scope (variable values are spliced literally)"
+
+    constraints:
+        - id: C-01
+          description: |
+              ResolveTiers MUST apply the priority chain
+              defaults → conf.d → groups → hosts → CLI.
+              Each later tier overrides earlier on key
+              collision. This matches Python kensa.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Missing tier sources (no defaults.yml, no
+              hosts/<host>.yml, no groups/<G>.yml, no
+              conf.d/*.yml) MUST be silently skipped, not
+              errors. Operators may run with any subset of
+              the tiers.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Present-but-malformed tier sources MUST
+              error with the file path in the message so
+              operators can locate the bad file. Same
+              behavior as Phase 3.5 LoadDefaults.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              conf.d/*.yml files MUST be loaded
+              alphabetically; later filename wins on key
+              collision. Operators rely on numeric prefixes
+              (10-base.yml, 50-mid.yml, 99-org.yml) to
+              control precedence.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              groups MUST merge in slice order (later in
+              slice wins on collision). The inventory parser
+              produces the groups slice in inventory file
+              order; this is the operator-controllable
+              precedence.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              Variable name vocabulary [A-Za-z][A-Za-z0-9_]*
+              MUST be enforced for ALL tier sources, not just
+              defaults.yml. An unreachable key in any source
+              produces a usage error before it can be loaded.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              Inventory mode runs the corpus load with only
+              the host-independent tiers (defaults + conf.d
+              + CLI). Per-host / per-group vars in inventory
+              are documented as Phase 3.7 work; the limitation
+              is intentional, not a bug.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              LoadHost("", host) and LoadHost(dir, "") both
+              return (nil, nil). Locked by
+              TestLoadHost_EmptyConfigDir,
+              TestLoadHost_EmptyHostname.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              LoadHost on a missing file returns (nil, nil).
+              Locked by TestLoadHost_MissingFile.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              LoadHost reads variables: block scalars and
+              normalizes to strings. Locked by
+              TestLoadHost_BasicScalars.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              LoadGroups with empty slice returns (nil, nil).
+              Locked by TestLoadGroups_NoGroups.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              LoadGroups merges in slice order: later in
+              slice wins on collision; non-colliding keys
+              from earlier preserved. Locked by
+              TestLoadGroups_LaterWins.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              LoadGroups with missing per-group files
+              skips rather than errors. Locked by
+              TestLoadGroups_MissingFileSkipped.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-07
+          description: |
+              LoadConfDir empty configDir or missing
+              conf.d/ returns (nil, nil). Locked by
+              TestLoadConfDir_EmptyConfigDir,
+              TestLoadConfDir_MissingDir.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-08
+          description: |
+              LoadConfDir applies alphabetical ordering;
+              later filename wins on collision. Locked by
+              TestLoadConfDir_AlphabeticalOverride.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-09
+          description: |
+              LoadConfDir skips non-YAML files (e.g.,
+              README.md). Locked by
+              TestLoadConfDir_NonYAMLSkipped.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-10
+          description: |
+              ResolveTiers full chain priority verified:
+              CLI > host > group > conf.d (later) > conf.d
+              (earlier) > defaults. Locked by
+              TestResolveTiers_FullChain (single test
+              exercises every tier with controlled
+              collisions).
+          references_constraints: [C-01, C-04, C-05]
+          priority: critical
+        - id: AC-11
+          description: |
+              ResolveTiers with empty configDir falls back
+              to CLI-only behavior. Locked by
+              TestResolveTiers_EmptyConfigDirCLIOnly.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-12
+          description: |
+              Malformed tier source produces an error
+              naming the path. Locked by
+              TestResolveTiers_MalformedHostFileErrors.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-13
+          description: |
+              Invalid variable name (e.g., dashes) in any
+              tier source rejects with key-named error.
+              Locked by TestResolveTiers_InvalidVarKeyInHostFile
+              (tier asymmetry: tested for host file; mirror
+              applies to defaults, conf.d, groups by the
+              shared loadVariablesFile helper).
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-14
+          description: |
+              Single-host check + remediate use full
+              5-tier resolution: --host value is passed
+              as hostname to ResolveTiers; per-host file
+              overrides apply if present. Verified by
+              code inspection at runCheck and runRemediate
+              call sites.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-15
+          description: |
+              Inventory check uses 3-tier resolution
+              only (CLI + conf.d + defaults; hostname
+              passed as ""). Per-host / per-group inventory
+              vars documented as Phase 3.7 work. Verified
+              by code inspection at runCheck (the
+              inventory != "" branch sets loadHostname to
+              "").
+          references_constraints: [C-07]
+          priority: high
+
+    tags: [cli, rule-options, variables, tiers, tier-1, phase-3-6]

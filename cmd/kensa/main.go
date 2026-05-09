@@ -678,22 +678,56 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
-	// Phase 3.5: resolve variable substitution before rule load.
-	// Priority: CLI --var (override) > <config-dir>/defaults.yml.
+	// Phase 3.5/3.6: resolve variable substitution before rule load.
+	// Priority chain (highest first, per Python kensa):
+	//   1. CLI --var KEY=VALUE
+	//   2. <config-dir>/hosts/<host>.yml          (single-host only)
+	//   3. <config-dir>/groups/<group>.yml         (inventory only)
+	//   4. <config-dir>/conf.d/*.yml (alphabetical)
+	//   5. <config-dir>/defaults.yml
+	//
+	// In single-host mode, full 5-tier resolution; the host name is
+	// taken from --host. Inventory mode handles its own per-host
+	// merge inside runCheckInventory using the host name + groups
+	// from the parsed inventory, but as a pragmatic Phase 3.6 cut
+	// only the 3 "global" tiers (defaults + conf.d + CLI) are
+	// active there — true per-host / per-group inventory vars
+	// require re-loading the corpus per host, deferred to Phase
+	// 3.7 if demand surfaces.
 	cliVars, err := resolveVarOverrides(varOverrides)
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
-	defaultVars, err := varsub.LoadDefaults(configDir)
+
+	// In single-host mode, the host name is known at flag-parse
+	// time and the per-host file <config-dir>/hosts/<host>.yml is
+	// part of the 5-tier resolution. In inventory mode, the host
+	// name is not yet known (the inventory file holds per-host
+	// addresses), so only the host-independent tiers (defaults +
+	// conf.d + CLI) apply at this layer; per-host / per-group
+	// inventory vars are documented as Phase 3.7 work since they
+	// require re-loading the corpus per host.
+	loadHostname := host
+	if inventory != "" {
+		loadHostname = "" // groups + per-host file out of scope here
+		// Inventory + per-host config dir is a footgun for the
+		// 3.6→3.7 window: an operator with hosts/<host>.yml or
+		// groups/<g>.yml files won't see them applied. Warn
+		// cheaply (one stat per subdir) so they're not silently
+		// ignored.
+		if configDir != "" && !quiet {
+			warnIfInventoryHasPerHostFiles(os.Stderr, configDir)
+		}
+	}
+	loadVars, err := varsub.ResolveTiers(configDir, loadHostname, nil, cliVars)
 	if err != nil {
 		return WrapUsageError("--config-dir", err)
 	}
-	mergedVars := varsub.Merge(defaultVars, cliVars)
 
 	// C-037: --rule values + positional *.yml args combine into the
 	// strict-load file set. With --rules-dir set, the dir-walk and
 	// the strict file set load additively.
-	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), mergedVars)
+	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), loadVars)
 	if err != nil {
 		return err
 	}
@@ -1076,19 +1110,21 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
-	// Phase 3.5: resolve variable substitution before rule load.
+	// Phase 3.5/3.6: resolve variable substitution before rule load.
+	// Remediate is single-host today, so the full 5-tier chain
+	// (defaults + conf.d + groups (empty) + hosts/<host>.yml + CLI)
+	// applies via ResolveTiers.
 	cliVars, err := resolveVarOverrides(varOverrides)
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
-	defaultVars, err := varsub.LoadDefaults(configDir)
+	loadVars, err := varsub.ResolveTiers(configDir, host, nil, cliVars)
 	if err != nil {
 		return WrapUsageError("--config-dir", err)
 	}
-	mergedVars := varsub.Merge(defaultVars, cliVars)
 
 	// C-037: --rule + positional args combine into the strict-load file set.
-	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), mergedVars)
+	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), loadVars)
 	if err != nil {
 		return err
 	}

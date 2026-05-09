@@ -2,10 +2,7 @@ package varsub
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-
-	"gopkg.in/yaml.v3"
 )
 
 // defaultsDoc is the on-disk shape of <config-dir>/defaults.yml.
@@ -34,30 +31,7 @@ func LoadDefaults(configDir string) (Variables, error) {
 	if configDir == "" {
 		return nil, nil
 	}
-	path := filepath.Join(configDir, "defaults.yml")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var doc defaultsDoc
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	out := make(Variables, len(doc.Variables))
-	for k, v := range doc.Variables {
-		if !validVarName(k) {
-			return nil, fmt.Errorf("%s: variables.%s: KEY must match [A-Za-z][A-Za-z0-9_]* (rule templates use this vocabulary); the entry is unreachable as written", path, k)
-		}
-		s, err := stringify(v)
-		if err != nil {
-			return nil, fmt.Errorf("%s: variables.%s: %w", path, k, err)
-		}
-		out[k] = s
-	}
-	return out, nil
+	return loadVariablesFile(filepath.Join(configDir, "defaults.yml"))
 }
 
 // validVarName mirrors the Substitute templateRe vocabulary:
