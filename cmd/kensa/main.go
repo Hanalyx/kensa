@@ -548,6 +548,7 @@ func runCheck(ctx context.Context, args []string) error {
 		format    string
 		rulesDir  string
 		inventory string
+		limit     string
 		quiet     bool
 		verbose   bool
 		outputs   []string
@@ -561,6 +562,7 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.StringVarP(&inventory, "inventory", ShortInventory, "", "Ansible-style inventory.ini for multi-host check")
+	fs.StringVarP(&limit, "limit", ShortLimitGlob, "", "limit inventory hosts to glob/group pattern (ansible --limit semantics)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 	fs.BoolVarP(&verbose, "verbose", ShortVerbose, false, "expand the compacted PASSED list (text format only)")
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
@@ -607,7 +609,7 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 
 	if inventory != "" {
-		return runCheckInventory(ctx, inventory, user, port, keyPath, sudo, format, rules, quiet, outputs)
+		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, format, rules, quiet, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -699,10 +701,23 @@ Examples:
 // checkOptions struct. The C-019 review flagged this; deferred to
 // a separate refactor ticket because changing the signature mid-
 // fan-out wiring would obscure the diff.
-func runCheckInventory(ctx context.Context, inventoryPath, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule, quiet bool, outputs []string) error {
+func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule, quiet bool, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
+	}
+	// Apply --limit (C-025) — ansible-style host glob / group filter.
+	// Parse errors and "no host matched" surface as usage errors so
+	// the operator sees the typo rather than a silent no-op scan.
+	if limit != "" {
+		filtered, ferr := filterByLimit(hosts, limit)
+		if ferr != nil {
+			return WrapUsageError("--limit", ferr)
+		}
+		hosts = filtered
+	}
+	if len(hosts) == 0 {
+		return NewUsageError("--limit produced an empty host set; nothing to scan")
 	}
 
 	// Resolve rules once before the per-host fan-out so every host
@@ -1440,13 +1455,22 @@ type inventoryHost struct {
 	addr string
 	user string
 	port int
+	// groups lists the [group] sections this host belongs to.
+	// Empty when the host appears in a section-less prelude.
+	// Used by --limit (C-025) for ansible-style group-name
+	// matching.
+	groups []string
 }
 
 // parseInventory reads an Ansible-style INI inventory file and returns
-// all host entries. Lines starting with '#' or '[' (group headers) are
-// skipped. Host lines have the form:
+// all host entries. Lines starting with '#' are comments; lines like
+// `[group]` start a new section and accumulate as group memberships
+// for subsequent host lines. Host lines have the form:
 //
 //	<addr>  [ansible_user=<user>]  [ansible_port=<port>]
+//
+// A host that appears under multiple `[group]` headers gathers all
+// group names; --limit (C-025) matches against any of them.
 func parseInventory(path string) ([]inventoryHost, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -1454,11 +1478,28 @@ func parseInventory(path string) ([]inventoryHost, error) {
 	}
 	defer f.Close()
 
+	// Track host index by addr so duplicate entries (the same host
+	// listed under two groups) merge their group memberships
+	// rather than producing duplicate hosts in the output.
+	byAddr := map[string]int{}
 	var hosts []inventoryHost
+	currentGroup := ""
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			// New group header. Strip "[group:children]" /
+			// "[group:vars]" qualifiers — kensa only honors host
+			// memberships, not the children/vars hierarchy.
+			name := strings.TrimSuffix(strings.TrimPrefix(line, "["), "]")
+			if idx := strings.Index(name, ":"); idx > 0 {
+				name = name[:idx]
+			}
+			currentGroup = name
 			continue
 		}
 		fields := strings.Fields(line)
@@ -1471,9 +1512,31 @@ func parseInventory(path string) ([]inventoryHost, error) {
 				_, _ = fmt.Sscanf(strings.TrimPrefix(f, "ansible_port="), "%d", &h.port)
 			}
 		}
+		if i, exists := byAddr[h.addr]; exists {
+			// Merge group memberships into the existing entry.
+			if currentGroup != "" && !containsString(hosts[i].groups, currentGroup) {
+				hosts[i].groups = append(hosts[i].groups, currentGroup)
+			}
+			continue
+		}
+		if currentGroup != "" {
+			h.groups = []string{currentGroup}
+		}
+		byAddr[h.addr] = len(hosts)
 		hosts = append(hosts, h)
 	}
 	return hosts, scanner.Err()
+}
+
+// containsString is a tiny helper for the duplicate-group check
+// in parseInventory.
+func containsString(s []string, target string) bool {
+	for _, v := range s {
+		if v == target {
+			return true
+		}
+	}
+	return false
 }
 
 // parseSince parses --since as either a duration (e.g. "24h") or an
