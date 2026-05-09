@@ -1,0 +1,199 @@
+spec:
+    id: cli-workers-flag
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-workers
+        description: |
+            CLI Phase 3 deliverable C-029. Adds `--workers / -w`
+            to bound the inventory-mode goroutine pool size.
+
+            Range: 1-50 (inclusive). Default: 1 (sequential),
+            matches Python kensa.
+
+            Before C-029, runCheckInventory fanned out an
+            unbounded goroutine per inventory host. For small
+            fleets that's fine, but a 100-host fleet against a
+            single bastion produces 100 simultaneous SSH
+            connect attempts — sshd MaxStartups (default 10:30:100)
+            starts dropping connections, the operator gets
+            partial-failure noise instead of a clean run, and
+            throughput drops below sequential.
+
+            The bounded pool uses a buffered channel as a
+            semaphore. We acquire BEFORE spawning the goroutine
+            so we don't allocate goroutines just to park on the
+            semaphore — keeps the live-goroutine count near the
+            configured limit during fan-out.
+
+            Upper bound 50: above that, any non-trivial fleet
+            hits MaxStartups regardless. The cap is a guardrail
+            against operator typos like `-w 500`, not a tunable
+            knob.
+
+            Lower bound 1: zero workers would deadlock the
+            fan-out — the acquire-before-spawn semaphore sends
+            to a buffered channel of capacity workers BEFORE
+            any goroutine has been spawned, so workers=0 means
+            the very first send blocks forever (no goroutine
+            exists yet to receive). Negative values are
+            obviously nonsensical.
+
+    objective:
+        summary: |
+            Add --workers / -w int flag (1-50, default 1).
+            Validate the value up front via validateWorkers
+            before SSH setup. Replace the unbounded goroutine
+            fan-out in runCheckInventory with a semaphore-
+            bounded worker pool of the configured size.
+        scope:
+            includes:
+                - --workers / -w int flag on `kensa check` (only inventory mode uses it today)
+                - "MaxWorkers = 50 constant"
+                - validateWorkers helper with 1-50 range check
+                - "Acquire-before-spawn semaphore pattern in runCheckInventory: chan struct{} buffered to workers"
+                - Default 1 (sequential, matches Python kensa)
+            excludes:
+                - "Per-host worker override in inventory entries: future"
+                - "Adaptive concurrency (probe sshd MaxStartups and back off): future"
+                - "Workers on detect / remediate / plan: those are single-host today; --workers only affects inventory fan-out"
+                - "Streaming results (write each host's result as it completes): out of scope; current implementation collects results then renders"
+
+    constraints:
+        - id: C-01
+          description: |
+              --workers below 1 MUST produce a usage error.
+              Zero or negative values would deadlock the
+              semaphore pattern (or be nonsense).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              --workers above MaxWorkers (50) MUST produce a
+              usage error explaining the rationale (sshd
+              MaxStartups). Operators must not silently flood
+              targets and degrade their own throughput.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              The fan-out loop MUST cap concurrent in-flight
+              goroutines at the configured workers value.
+              Goroutine count is observable via runtime
+              metrics; the semaphore must throttle BEFORE
+              spawning, not after.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Default value MUST be 1 (sequential), matching
+              Python kensa. Operators upgrading from
+              kensa-python should not see a behavior change in
+              concurrency unless they opt in via --workers > 1.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              validateWorkers MUST be called before SSH
+              transports are opened. A typo of `-w 100` should
+              produce a usage error before kensa burns through
+              ~50 SSH connection attempts and emits a usage
+              error after the fact.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              validateWorkers accepts integers in [1, 50]
+              inclusive. Locked by TestValidateWorkers_Valid.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              validateWorkers rejects values < 1 with an error
+              message mentioning ">= 1". Locked by
+              TestValidateWorkers_TooLow.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              validateWorkers rejects values > 50 with an
+              error message mentioning "<= 50" and the
+              MaxStartups rationale. Locked by
+              TestValidateWorkers_TooHigh.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              The MaxWorkers constant is 50. Locked by
+              TestValidateWorkers_MaxConst — guards against
+              accidental drift.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-05
+          description: |
+              validateWorkers returns a plain error; the
+              caller (runCheck) wraps it via WrapUsageError to
+              get the exit-2 dispatch. Locked by
+              TestValidateWorkers_ErrorIsNotUsageError.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-06
+          description: |
+              The --workers flag default is 1. Verified by
+              code inspection at registerWorkersFlag and by
+              the help-text smoke check.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              fanOutBounded caps concurrent in-flight
+              invocations at the configured workers value with
+              acquire-before-spawn semantics. Locked by
+              TestFanOutBounded_RespectsConcurrencyLimit
+              (workers=3 against 30 items, atomic peak counter
+              ≤ 3) and TestFanOutBounded_SequentialAtWorkers1
+              (workers=1 yields strict serialization, peak=1).
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              fanOutBounded honors ctx cancellation between
+              items: a pre-canceled ctx produces zero
+              spawns. Locked by
+              TestFanOutBounded_CtxCancellationBreaksLoop.
+              Plus end-to-end live verification: `kensa check
+              --inventory inventory.ini --workers 2` produces
+              results for every host without dropping
+              connections or hanging (verified during the
+              C-029 merge workflow against
+              192.168.1.0/24 fleet entries).
+          references_constraints: [C-03, C-04]
+          priority: high
+        - id: AC-09
+          description: |
+              fanOutBounded runs every item exactly once and
+              waits for all spawns to complete before
+              returning (no goroutine leaks). Locked by
+              TestFanOutBounded_RunsEveryItem and
+              TestFanOutBounded_DoesNotLeakGoroutines.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-10
+          description: |
+              When --workers is left at the default of 1 and
+              the inventory has more than LargeFleetThreshold
+              hosts (5), kensa emits a one-line stderr hint
+              suggesting a higher -w value. Verified by code
+              inspection at runCheckInventory (the
+              `if workers == 1 && len(hosts) > ... && !quiet`
+              block); --quiet suppresses the hint so CI
+              consumers don't see noise.
+          references_constraints: [C-04]
+          priority: medium
+
+    tags: [cli, target-options, workers, concurrency, tier-1, c-029]
