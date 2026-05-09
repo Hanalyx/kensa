@@ -35,7 +35,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -582,6 +581,7 @@ func runCheck(ctx context.Context, args []string) error {
 		verbose      bool
 		outputs      []string
 		capabilities []string
+		workers      int
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -596,6 +596,7 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.StringVarP(&inventory, "inventory", ShortInventory, "", "Ansible-style inventory.ini for multi-host check")
 	fs.StringVarP(&limit, "limit", ShortLimitGlob, "", "limit inventory hosts to glob/group pattern (ansible --limit semantics)")
+	registerWorkersFlag(fs, &workers)
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 	fs.BoolVarP(&verbose, "verbose", ShortVerbose, false, "expand the compacted PASSED list (text format only)")
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
@@ -649,6 +650,12 @@ func runCheck(ctx context.Context, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	if err := validateWorkers(workers); err != nil {
+		// validateWorkers errors already begin with "--workers"; wrap
+		// without an extra prefix so we don't get "--workers: --workers
+		// must be >= 1...".
+		return &UsageError{Cause: err}
+	}
 
 	if inventory != "" {
 		// --password is single-host only: inventory hosts may have
@@ -661,7 +668,7 @@ func runCheck(ctx context.Context, args []string) error {
 			printCheckUsage(os.Stderr, fs)
 			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
 		}
-		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, format, rules, quiet, outputs)
+		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, workers, format, rules, quiet, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -750,6 +757,7 @@ Flags:
 Examples:
   kensa check -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
   kensa check --inventory hosts.ini --sudo --rules-dir /path/to/rules
+  kensa check --inventory hosts.ini -w 10 --sudo -r /path/to/rules
   kensa check -H web-01 -u admin --sudo -o jsonl rule1.yml rule2.yml
 `, fs.FlagUsages())
 }
@@ -760,7 +768,7 @@ Examples:
 // checkOptions struct. The C-019 review flagged this; deferred to
 // a separate refactor ticket because changing the signature mid-
 // fan-out wiring would obscure the diff.
-func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, format string, rules []*api.Rule, quiet bool, outputs []string) error {
+func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, workers int, format string, rules []*api.Rule, quiet bool, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -779,6 +787,16 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 		return NewUsageError("--limit produced an empty host set; nothing to scan")
 	}
 
+	// C-029: nudge operators toward the concurrency knob on
+	// non-trivial fleets. We only emit the hint when --workers was
+	// left at its default of 1 — operators who explicitly chose 1
+	// (or any other value) get silence.
+	if workers == 1 && len(hosts) > LargeFleetThreshold && !quiet {
+		fmt.Fprintf(os.Stderr,
+			"kensa check: %d hosts in inventory and --workers=1 (sequential); pass -w 5 or higher to scan in parallel\n",
+			len(hosts))
+	}
+
 	// Resolve rules once before the per-host fan-out so every host
 	// runs the same active set in the same order. cmd/kensa's
 	// per-host text rendering today doesn't surface the resolution
@@ -792,41 +810,38 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 	}
 
 	results := make([]hostResult, len(hosts))
-	var wg sync.WaitGroup
-	for i, h := range hosts {
-		wg.Add(1)
-		go func(idx int, ih inventoryHost) {
-			defer wg.Done()
-			u := ih.user
-			if user != "" {
-				u = user
-			}
-			p := port
-			if ih.port != 0 {
-				p = ih.port
-			}
-			hostCfg := api.HostConfig{
-				Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath,
-				StrictHostKeys: strictHostKeys, Sudo: sudo,
-				Capabilities: capOverrides,
-			}
-			transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
-			if err != nil {
-				results[idx] = hostResult{host: ih, err: fmt.Errorf("connect: %w", err)}
-				return
-			}
-			defer func() { _ = transport.Close() }()
-			runner := scan.New(nil)
-			res, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
-			if err != nil {
-				results[idx] = hostResult{host: ih, err: err}
-				return
-			}
-			res.HostID = ih.addr
-			results[idx] = hostResult{host: ih, result: res}
-		}(i, h)
-	}
-	wg.Wait()
+	// C-029: per-host work runs through fanOutBounded which caps
+	// concurrent goroutines at `workers` (1-50, validated upstream).
+	// fanOutBounded honors ctx cancellation between items.
+	fanOutBounded(ctx, hosts, workers, func(idx int, ih inventoryHost) {
+		u := ih.user
+		if user != "" {
+			u = user
+		}
+		p := port
+		if ih.port != 0 {
+			p = ih.port
+		}
+		hostCfg := api.HostConfig{
+			Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath,
+			StrictHostKeys: strictHostKeys, Sudo: sudo,
+			Capabilities: capOverrides,
+		}
+		transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
+		if err != nil {
+			results[idx] = hostResult{host: ih, err: fmt.Errorf("connect: %w", err)}
+			return
+		}
+		defer func() { _ = transport.Close() }()
+		runner := scan.New(nil)
+		res, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
+		if err != nil {
+			results[idx] = hostResult{host: ih, err: err}
+			return
+		}
+		res.HostID = ih.addr
+		results[idx] = hostResult{host: ih, result: res}
+	})
 
 	stdoutOverride := bodyOut(quiet)
 	if len(outputs) > 0 {
