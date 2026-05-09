@@ -293,7 +293,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Single value `-c access-control`. Filters by rule's `category:` field. Lone short is `-c`; lowercase free.
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `d05fdb8`). Single-value StringVarP (NOT repeatable like -s/-t — help text discloses); case-insensitive exact match. Composes AND with --severity and --tag. Empty-after-filter discloses pre-category count for filter-chain disambiguation. Spec: `specs/cli/category-filter.spec.yaml` (5 constraints, 8 ACs). 7 unit tests. Live-verified: `-c logging` reduced 539-rule corpus to 14 on 192.168.1.211.
 
 #### C-033 — `--framework/-f` rule filter
 - **Phase:** CLI Phase 3
