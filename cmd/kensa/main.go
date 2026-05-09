@@ -427,16 +427,17 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp bool
-		host     string
-		user     string
-		port     int
-		keyPath  string
-		password string
-		sudo     bool
-		format   string
-		quiet    bool
-		outputs  []string
+		showHelp     bool
+		host         string
+		user         string
+		port         int
+		keyPath      string
+		password     string
+		sudo         bool
+		format       string
+		quiet        bool
+		outputs      []string
+		capabilities []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -445,6 +446,7 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
 	registerStrictHostKeysFlag(fs)
+	registerCapabilityFlag(fs, &capabilities)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -467,6 +469,10 @@ func runDetect(ctx context.Context, args []string) error {
 	}
 	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
 
+	// Flag-only constraints up front, before SSH setup. Bad
+	// --password, --strict-host-keys conflicts, or malformed
+	// --capability entries should surface before we open a
+	// transport.
 	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
 	if err != nil {
 		return &UsageError{Cause: err}
@@ -474,6 +480,10 @@ func runDetect(ctx context.Context, args []string) error {
 	strictHostKeys, err := resolveStrictHostKeys(fs)
 	if err != nil {
 		return err
+	}
+	overrides, err := resolveCapabilityOverrides(capabilities)
+	if err != nil {
+		return &UsageError{Cause: err}
 	}
 
 	hostCfg := api.HostConfig{
@@ -495,6 +505,10 @@ func runDetect(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("detect: %w", err)
 	}
+	// C-028: apply --capability KEY=VALUE overrides on top of the
+	// detected set so the operator-facing display reflects what
+	// scan/remediate would actually see.
+	caps = detect.ApplyOverrides(caps, overrides)
 
 	if len(outputs) > 0 {
 		specs, err := output.ParseAll(outputs)
@@ -553,20 +567,21 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp  bool
-		host      string
-		user      string
-		port      int
-		keyPath   string
-		password  string
-		sudo      bool
-		format    string
-		rulesDir  string
-		inventory string
-		limit     string
-		quiet     bool
-		verbose   bool
-		outputs   []string
+		showHelp     bool
+		host         string
+		user         string
+		port         int
+		keyPath      string
+		password     string
+		sudo         bool
+		format       string
+		rulesDir     string
+		inventory    string
+		limit        string
+		quiet        bool
+		verbose      bool
+		outputs      []string
+		capabilities []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -575,6 +590,7 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
 	registerStrictHostKeysFlag(fs)
+	registerCapabilityFlag(fs, &capabilities)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -629,6 +645,10 @@ func runCheck(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	capOverrides, err := resolveCapabilityOverrides(capabilities)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
 
 	if inventory != "" {
 		// --password is single-host only: inventory hosts may have
@@ -641,7 +661,7 @@ func runCheck(ctx context.Context, args []string) error {
 			printCheckUsage(os.Stderr, fs)
 			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
 		}
-		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, format, rules, quiet, outputs)
+		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, format, rules, quiet, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -656,6 +676,7 @@ func runCheck(ctx context.Context, args []string) error {
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
 		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
+		Capabilities: capOverrides,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -690,7 +711,7 @@ func runCheck(ctx context.Context, args []string) error {
 	resolved := resolveAndPrintIssues(rules, quiet)
 
 	runner := scan.New(nil)
-	result, err := runner.Scan(ctx, transport, resolved.Order)
+	result, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
 	if err != nil {
 		return err
 	}
@@ -739,7 +760,7 @@ Examples:
 // checkOptions struct. The C-019 review flagged this; deferred to
 // a separate refactor ticket because changing the signature mid-
 // fan-out wiring would obscure the diff.
-func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, format string, rules []*api.Rule, quiet bool, outputs []string) error {
+func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, format string, rules []*api.Rule, quiet bool, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -787,6 +808,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 			hostCfg := api.HostConfig{
 				Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath,
 				StrictHostKeys: strictHostKeys, Sudo: sudo,
+				Capabilities: capOverrides,
 			}
 			transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 			if err != nil {
@@ -795,7 +817,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 			}
 			defer func() { _ = transport.Close() }()
 			runner := scan.New(nil)
-			res, err := runner.Scan(ctx, transport, resolved.Order)
+			res, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
 			if err != nil {
 				results[idx] = hostResult{host: ih, err: err}
 				return
@@ -859,18 +881,19 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp bool
-		host     string
-		user     string
-		port     int
-		keyPath  string
-		password string
-		sudo     bool
-		format   string
-		oscalOut string
-		rulesDir string
-		quiet    bool
-		outputs  []string
+		showHelp     bool
+		host         string
+		user         string
+		port         int
+		keyPath      string
+		password     string
+		sudo         bool
+		format       string
+		oscalOut     string
+		rulesDir     string
+		quiet        bool
+		outputs      []string
+		capabilities []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -879,6 +902,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
 	registerStrictHostKeysFlag(fs)
+	registerCapabilityFlag(fs, &capabilities)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -906,11 +930,16 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 
 	// Validate flag-only constraints up front, before any expensive
 	// setup (rule load, store open). Operators with both
-	// --strict-host-keys and --no-strict-host-keys should see the
-	// usage error, not a store-open or rule-parse error.
+	// --strict-host-keys and --no-strict-host-keys (or a malformed
+	// --capability) should see the usage error, not a store-open
+	// or rule-parse error.
 	strictHostKeys, err := resolveStrictHostKeys(fs)
 	if err != nil {
 		return err
+	}
+	capOverrides, err := resolveCapabilityOverrides(capabilities)
+	if err != nil {
+		return &UsageError{Cause: err}
 	}
 
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
@@ -931,6 +960,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
 		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
+		Capabilities: capOverrides,
 	}
 	resolved := resolveAndPrintIssues(rules, quiet)
 	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -79,6 +80,22 @@ type ScannerBackend interface {
 	Remediate(ctx context.Context, transport Transport, rules []*Rule) (*RemediationResult, error)
 }
 
+// ScannerWithOverrides is the optional capability-override surface
+// for a [ScannerBackend]. Implementations that support this
+// interface honor [HostConfig.Capabilities] passed via [Kensa.Scan]
+// / [Kensa.Remediate]: detected capabilities are merged with
+// `overrides` (operator-supplied keys override probed values)
+// before rule selection.
+//
+// Added in C-028 of the CLI Phase 3 migration. Provided as an
+// optional extension rather than amending [ScannerBackend] so
+// existing in-tree and out-of-tree backends continue to satisfy
+// the original contract; type-assert to this surface to opt in.
+type ScannerWithOverrides interface {
+	ScanWithOverrides(ctx context.Context, transport Transport, rules []*Rule, overrides CapabilitySet) (*ScanResult, error)
+	RemediateWithOverrides(ctx context.Context, transport Transport, rules []*Rule, overrides CapabilitySet) (*RemediationResult, error)
+}
+
 // Engine is the interface [Kensa] delegates execution methods to. The
 // production implementation lives in internal/engine; tests may
 // substitute a fake by implementing this interface directly.
@@ -142,6 +159,14 @@ type HostConfig struct {
 	// StrictHostKeyChecking=accept-new, matching Python kensa's
 	// default. Wired in C-027 of the CLI Phase 3 migration.
 	StrictHostKeys bool
+	// Capabilities is an optional capability override map. Keys
+	// present here override the values produced by the host's
+	// capability probes — they're applied AFTER detection and
+	// before rule selection. Wired in C-028 of the CLI Phase 3
+	// migration. Empty means "no overrides; use detected
+	// capabilities verbatim". Used by Scan and Remediate; Plan
+	// does not currently capability-gate selection.
+	Capabilities CapabilitySet
 }
 
 // ScanResult is the outcome of [Kensa.Scan]. Each entry in
@@ -210,12 +235,30 @@ func (k *Kensa) Scan(ctx context.Context, host HostConfig, rules []*Rule, opts .
 	}
 	defer func() { _ = transport.Close() }()
 
-	result, err := k.config.Scanner.Scan(ctx, transport, rules)
+	result, err := scanWithOptionalOverrides(ctx, k.config.Scanner, transport, rules, host.Capabilities)
 	if err != nil {
 		return nil, err
 	}
 	result.HostID = host.Hostname
 	return result, nil
+}
+
+// scanWithOptionalOverrides dispatches to the override-capable
+// scanner method when host.Capabilities is non-empty AND the
+// configured Scanner implements [ScannerWithOverrides]; otherwise
+// falls back to the legacy Scan method. When overrides are
+// requested but the Scanner does not support them, returns an
+// error so the operator sees the configuration mismatch instead
+// of silently scanning with detected-only caps.
+func scanWithOptionalOverrides(ctx context.Context, scanner ScannerBackend, transport Transport, rules []*Rule, overrides CapabilitySet) (*ScanResult, error) {
+	if len(overrides) == 0 {
+		return scanner.Scan(ctx, transport, rules)
+	}
+	sw, ok := scanner.(ScannerWithOverrides)
+	if !ok {
+		return nil, fmt.Errorf("scan: capability overrides requested but configured Scanner does not implement ScannerWithOverrides")
+	}
+	return sw.ScanWithOverrides(ctx, transport, rules, overrides)
 }
 
 // Remediate runs full transactions for every rule whose check fails
@@ -232,12 +275,25 @@ func (k *Kensa) Remediate(ctx context.Context, host HostConfig, rules []*Rule, o
 	}
 	defer func() { _ = transport.Close() }()
 
-	result, err := k.config.Scanner.Remediate(ctx, transport, rules)
+	result, err := remediateWithOptionalOverrides(ctx, k.config.Scanner, transport, rules, host.Capabilities)
 	if err != nil {
 		return nil, err
 	}
 	result.HostID = host.Hostname
 	return result, nil
+}
+
+// remediateWithOptionalOverrides mirrors [scanWithOptionalOverrides]
+// for the Remediate path.
+func remediateWithOptionalOverrides(ctx context.Context, scanner ScannerBackend, transport Transport, rules []*Rule, overrides CapabilitySet) (*RemediationResult, error) {
+	if len(overrides) == 0 {
+		return scanner.Remediate(ctx, transport, rules)
+	}
+	sw, ok := scanner.(ScannerWithOverrides)
+	if !ok {
+		return nil, fmt.Errorf("remediate: capability overrides requested but configured Scanner does not implement ScannerWithOverrides")
+	}
+	return sw.RemediateWithOverrides(ctx, transport, rules, overrides)
 }
 
 // Rollback executes rollback for the past transaction identified by
