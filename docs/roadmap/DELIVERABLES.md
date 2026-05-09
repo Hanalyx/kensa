@@ -258,7 +258,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Boolean pair flags wire into SSH transport's known_hosts policy. Default off (matches Python kensa). When on, unknown host keys cause connect failure rather than silent acceptance.
 - **Size:** 2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `8586db3`). Wired into detect/check (single + inventory)/remediate/rollback/plan via `registerStrictHostKeysFlag`. Mutual-exclusion enforced (both flags = usage error). Under strict mode, masterArgs also emits `UpdateHostKeys=no` to prevent OpenSSH 8.5+ silent key rotation. Connect-failure stderr augmented with operator hint for the unknown-host case (ssh-keyscan + fingerprint guidance). Spec: `specs/cli/strict-host-keys.spec.yaml` (5 constraints, 8 ACs). Live-verified read-only on 192.168.1.211.
 
 #### C-028 — `--capability/-C` capability override
 - **Phase:** CLI Phase 3
