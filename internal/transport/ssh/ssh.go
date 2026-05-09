@@ -60,6 +60,13 @@ type Config struct {
 	// kensa for this to work; if absent, Connect returns a clear
 	// error instructing the operator how to install it.
 	Password string
+	// StrictHostKeys controls the StrictHostKeyChecking option on
+	// the ControlMaster ssh invocation. When true, the option is
+	// set to "yes" (reject unknown host keys). When false, the
+	// option is set to "accept-new" (TOFU: trust on first use,
+	// reject on key change). Default false to match Python kensa.
+	// Wired in C-027.
+	StrictHostKeys bool
 	// ConnectTimeout is the maximum wall time to establish the
 	// ControlMaster connection. Zero means 30 seconds.
 	ConnectTimeout time.Duration
@@ -135,7 +142,16 @@ func Connect(ctx context.Context, cfg Config) (*Transport, error) {
 		if cfg.Password != "" {
 			stderrText = strings.ReplaceAll(stderrText, cfg.Password, "***")
 		}
-		return nil, fmt.Errorf("ssh: connect failed: %w (stderr: %s)", err, stderrText)
+		// Operator guidance for the most common --strict-host-keys
+		// failure: unknown host key. ssh prints "Host key
+		// verification failed" to stderr; surface a kensa-side
+		// hint about how to recover (ssh-keyscan after out-of-band
+		// fingerprint check, or fall back to TOFU).
+		hint := ""
+		if cfg.StrictHostKeys && strings.Contains(stderrText, "Host key verification failed") {
+			hint = " (host key not in ~/.ssh/known_hosts; verify the fingerprint out-of-band, then `ssh-keyscan -H " + cfg.Host + " >> ~/.ssh/known_hosts`, or re-run with --no-strict-host-keys for TOFU)"
+		}
+		return nil, fmt.Errorf("ssh: connect failed: %w (stderr: %s)%s", err, stderrText, hint)
 	}
 	return &Transport{cfg: cfg, socketPath: socketPath}, nil
 }
@@ -155,14 +171,24 @@ func computeSocketPath(cfg Config) string {
 // masterArgs assembles the `ssh -fN` argument list for establishing
 // the ControlMaster connection.
 func masterArgs(cfg Config, socketPath string) []string {
+	hostKeyPolicy := "accept-new"
+	if cfg.StrictHostKeys {
+		hostKeyPolicy = "yes"
+	}
 	args := []string{
 		"-fN",
 		"-o", "ControlMaster=yes",
 		"-o", "ControlPath=" + socketPath,
 		"-o", "ControlPersist=600",
-		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "StrictHostKeyChecking=" + hostKeyPolicy,
 		"-o", "ConnectTimeout=" + strconv.Itoa(int(cfg.ConnectTimeout.Seconds())),
 		"-p", strconv.Itoa(cfg.Port),
+	}
+	if cfg.StrictHostKeys {
+		// OpenSSH 8.5+ defaults UpdateHostKeys=yes which silently
+		// learns rotated keys from the server; under strict policy
+		// we want any key change to surface as a connect failure.
+		args = append(args, "-o", "UpdateHostKeys=no")
 	}
 	if cfg.KeyPath != "" {
 		args = append(args, "-i", cfg.KeyPath)

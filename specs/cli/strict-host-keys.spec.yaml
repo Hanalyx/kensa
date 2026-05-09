@@ -1,0 +1,173 @@
+spec:
+    id: cli-strict-host-keys-flag
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-strict-host-keys
+        description: |
+            CLI Phase 3 deliverable C-027. Adds the boolean pair
+            `--strict-host-keys` / `--no-strict-host-keys` to
+            detect, check, remediate, rollback, and plan.
+
+            When --strict-host-keys is set, the SSH transport
+            invokes ssh with `StrictHostKeyChecking=yes`: unknown
+            host keys cause connect failure rather than silent
+            trust-on-first-use. When --no-strict-host-keys is
+            set (or neither flag is set), the transport uses the
+            default `StrictHostKeyChecking=accept-new` (TOFU:
+            new keys are auto-trusted on first contact and
+            stored in ~/.ssh/known_hosts; subsequent key changes
+            are rejected).
+
+            Default off, matching Python kensa. The two flags
+            are deliberately a pair (not a single bool) so a
+            future config-file deliverable can let sites set
+            strict-on-by-default and operators still have an
+            explicit override path.
+
+            Wires through api.HostConfig.StrictHostKeys (additive
+            backward-compat field on the frozen api/ contract)
+            and ssh.Config.StrictHostKeys to ssh.masterArgs,
+            which assembles the actual `ssh -o StrictHostKeyChecking=...`
+            argument vector for the ControlMaster connection.
+
+    objective:
+        summary: |
+            Add StrictHostKeys field to api.HostConfig and
+            ssh.Config. Switch ssh.masterArgs to read this field
+            and emit `StrictHostKeyChecking=yes` (true) or
+            `StrictHostKeyChecking=accept-new` (false). Add
+            `--strict-host-keys` / `--no-strict-host-keys` flag
+            pair to detect, check, remediate, rollback, plan.
+            Reject "both flags set" with usage error.
+        scope:
+            includes:
+                - api.HostConfig.StrictHostKeys (additive backward-compat field)
+                - ssh.Config.StrictHostKeys and masterArgs branch
+                - --strict-host-keys / --no-strict-host-keys flag pair
+                - registerStrictHostKeysFlag and resolveStrictHostKeys helpers
+                - Mutual-exclusion check (both flags set → usage error)
+                - Wired through detect, check (single + inventory), remediate, rollback, plan
+            excludes:
+                - "Custom known_hosts file path (--known-hosts-file) — future deliverable"
+                - "Per-host strict-host-keys override in inventory file — future"
+                - "Programmatic key fingerprint pinning — future"
+                - "Auto-population of ~/.ssh/known_hosts via ssh-keyscan — out of scope (operators do this themselves)"
+
+    constraints:
+        - id: C-01
+          description: |
+              When StrictHostKeys is true, masterArgs MUST emit
+              `-o StrictHostKeyChecking=yes` (rejects unknown
+              host keys, rejects key changes). This is the
+              security-defaulting setting.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              When StrictHostKeys is false, masterArgs MUST emit
+              `-o StrictHostKeyChecking=accept-new` (TOFU: new
+              keys are auto-trusted on first contact, key
+              changes still rejected). This matches Python
+              kensa's default and is backward-compatible with
+              existing kensa-go deployments that didn't set the
+              field.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Both --strict-host-keys and --no-strict-host-keys
+              set on the same invocation MUST produce a usage
+              error. Operator must pick one to make their
+              intent explicit; silently picking either default
+              would mask a script bug.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The api.HostConfig.StrictHostKeys field MUST be
+              additive backward-compatible: callers (such as
+              OpenWatch) that don't set the field continue to
+              get the historical TOFU behavior.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              The flag pair MUST be available on every
+              subcommand that opens an SSH connection: detect,
+              check (single + inventory), remediate, rollback,
+              plan. Operators must not encounter an SSH
+              subcommand where strict mode is unavailable.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              masterArgs(Config{StrictHostKeys: true}, ...)
+              produces an args slice containing the consecutive
+              pair "-o", "StrictHostKeyChecking=yes". Locked by
+              TestMasterArgs_StrictHostKeysOn.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              masterArgs(Config{StrictHostKeys: false}, ...)
+              produces an args slice containing the consecutive
+              pair "-o", "StrictHostKeyChecking=accept-new".
+              Locked by TestMasterArgs_StrictHostKeysOff.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              resolveStrictHostKeys with neither flag changed
+              returns (false, nil). Locked by
+              TestResolveStrictHostKeys_NeitherFlag.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              resolveStrictHostKeys with --strict-host-keys
+              changed returns (true, nil). Locked by
+              TestResolveStrictHostKeys_StrictOnly.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-05
+          description: |
+              resolveStrictHostKeys with --no-strict-host-keys
+              changed returns (false, nil). The flag is
+              accepted and recognized as a no-op-confirming-
+              the-default. Locked by
+              TestResolveStrictHostKeys_NoStrictOnly.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              resolveStrictHostKeys with BOTH flags changed
+              returns a UsageError mentioning both flag names.
+              Locked by
+              TestResolveStrictHostKeys_BothFlagsConflict.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-07
+          description: |
+              api.HostConfig has a StrictHostKeys field;
+              callers that don't set it (zero-value false)
+              continue to get StrictHostKeyChecking=accept-new
+              behavior — verified by AC-02.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-08
+          description: |
+              All five SSH-opening subcommands (detect, check,
+              remediate, rollback, plan) advertise both
+              --strict-host-keys and --no-strict-host-keys in
+              their --help output. Verified by code inspection
+              and the cli-smoke harness.
+          references_constraints: [C-05]
+          priority: high
+
+    tags: [cli, target-options, security, ssh, host-keys, tier-1, c-027]

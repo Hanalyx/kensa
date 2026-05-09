@@ -444,6 +444,7 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
+	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -470,14 +471,19 @@ func runDetect(ctx context.Context, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	strictHostKeys, err := resolveStrictHostKeys(fs)
+	if err != nil {
+		return err
+	}
 
 	hostCfg := api.HostConfig{
-		Hostname: host,
-		User:     user,
-		Port:     port,
-		KeyPath:  keyPath,
-		Password: resolvedPwd,
-		Sudo:     sudo,
+		Hostname:       host,
+		User:           user,
+		Port:           port,
+		KeyPath:        keyPath,
+		Password:       resolvedPwd,
+		StrictHostKeys: strictHostKeys,
+		Sudo:           sudo,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -568,6 +574,7 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
+	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -618,6 +625,11 @@ func runCheck(ctx context.Context, args []string) error {
 		return err
 	}
 
+	strictHostKeys, err := resolveStrictHostKeys(fs)
+	if err != nil {
+		return err
+	}
+
 	if inventory != "" {
 		// --password is single-host only: inventory hosts may have
 		// different credentials and broadcasting one password
@@ -629,7 +641,7 @@ func runCheck(ctx context.Context, args []string) error {
 			printCheckUsage(os.Stderr, fs)
 			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
 		}
-		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, format, rules, quiet, outputs)
+		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, format, rules, quiet, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -643,7 +655,7 @@ func runCheck(ctx context.Context, args []string) error {
 
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
-		Password: resolvedPwd, Sudo: sudo,
+		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -727,7 +739,7 @@ Examples:
 // checkOptions struct. The C-019 review flagged this; deferred to
 // a separate refactor ticket because changing the signature mid-
 // fan-out wiring would obscure the diff.
-func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo bool, format string, rules []*api.Rule, quiet bool, outputs []string) error {
+func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, format string, rules []*api.Rule, quiet bool, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -773,7 +785,8 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 				p = ih.port
 			}
 			hostCfg := api.HostConfig{
-				Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath, Sudo: sudo,
+				Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath,
+				StrictHostKeys: strictHostKeys, Sudo: sudo,
 			}
 			transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 			if err != nil {
@@ -865,6 +878,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
+	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -890,6 +904,15 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
 	warnDeprecatedFlag(fs, "oscal", "--output oscal:PATH")
 
+	// Validate flag-only constraints up front, before any expensive
+	// setup (rule load, store open). Operators with both
+	// --strict-host-keys and --no-strict-host-keys should see the
+	// usage error, not a store-open or rule-parse error.
+	strictHostKeys, err := resolveStrictHostKeys(fs)
+	if err != nil {
+		return err
+	}
+
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
 		return err
@@ -907,7 +930,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
-		Password: resolvedPwd, Sudo: sudo,
+		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
 	}
 	resolved := resolveAndPrintIssues(rules, quiet)
 	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
@@ -1022,6 +1045,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "transaction UUID to roll back (required)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -1050,6 +1074,12 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		return WrapUsageError("invalid --txn UUID", err)
 	}
 
+	// Flag-only constraint up front, before opening the store.
+	strictHostKeys, err := resolveStrictHostKeys(fs)
+	if err != nil {
+		return err
+	}
+
 	svc, err := kensa.Default(ctx, dbPath)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
@@ -1057,7 +1087,8 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = svc.Close() }()
 
 	hostCfg := api.HostConfig{
-		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath,
+		StrictHostKeys: strictHostKeys, Sudo: sudo,
 	}
 	result, err := svc.Rollback(ctx, hostCfg, txnID)
 	if err != nil {
@@ -1261,6 +1292,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerPasswordFlag(fs, &password)
+	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, markdown, json, plain")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -1285,6 +1317,13 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 		return NewUsageError("a rule YAML file is required")
 	}
 
+	// Flag-only constraint up front, before parsing the rule and
+	// opening the store.
+	strictHostKeys, err := resolveStrictHostKeys(fs)
+	if err != nil {
+		return err
+	}
+
 	r, err := rule.ParseFile(fs.Arg(0))
 	if err != nil {
 		return fmt.Errorf("parse rule: %w", err)
@@ -1303,7 +1342,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
-		Password: resolvedPwd, Sudo: sudo,
+		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
 	}
 	plan, err := svc.Plan(ctx, hostCfg, r)
 	if err != nil {
