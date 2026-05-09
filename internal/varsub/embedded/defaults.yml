@@ -1,0 +1,73 @@
+# kensa-go built-in defaults.
+#
+# This file is vendored from kensa/config/defaults.yml (Python sister repo)
+# and embedded into the kensa binary at build time via go:embed. It provides
+# the lowest-priority tier in the variable resolution chain so a fresh
+# `kensa check` against the production rule corpus doesn't silently skip
+# the ~30 templated rules using {{ var }} substitution.
+#
+# Resolution priority (highest first; matches Python kensa where applicable):
+#   1. CLI --var KEY=VALUE
+#   2. <config-dir>/hosts/<hostname>.yml
+#   3. <config-dir>/groups/<group>.yml
+#   4. <config-dir>/conf.d/*.yml (alphabetical)
+#   5. <config-dir>/defaults.yml
+#   6. THIS FILE (built-in fallback)
+#
+# Operators wanting different defaults should NOT edit this file (it's
+# embedded; edits won't take effect without a rebuild). Instead create a
+# defaults.yml or conf.d/*.yml under --config-dir, which overrides these
+# values per the resolution chain.
+#
+# Values mirror the STIG-leaning defaults from Python kensa as of
+# 2026-05-09. Only the `variables:` block is vendored; framework-specific
+# overrides and rollback policy from Python's defaults.yml are out of
+# scope for this tier.
+
+variables:
+  # Password quality - pwquality.conf
+  # Default to STIG values (most restrictive)
+  pam_pwquality_minlen: 15
+  pam_pwquality_minclass: 4
+  pam_pwquality_difok: 8
+  pam_pwquality_maxrepeat: 3
+  pam_pwquality_maxclassrepeat: 4
+  pam_pwquality_dcredit: -1
+  pam_pwquality_ucredit: -1
+  pam_pwquality_lcredit: -1
+  pam_pwquality_ocredit: -1
+
+  # Password aging - login.defs
+  pam_faillock_deny: 3
+  pam_faillock_fail_interval: 900
+  pam_faillock_unlock_time: 0
+  login_defs_pass_max_days: 60
+  login_defs_pass_min_days: 1
+  login_defs_pass_warn_age: 7
+  login_defs_umask: "077"
+  shadow_crypt_min_rounds: 5000
+  password_remember: 5
+
+  # Login banner — displayed before authentication via /etc/issue and /etc/issue.net
+  banner_text: |
+    Authorized uses only. All activity may be monitored and reported.
+
+  # Rsyslog remote server — address:port for remote log forwarding.
+  # Override in conf.d/ with your organization's log aggregation server.
+  rsyslog_remote_server: "logserver.example.com:514"
+
+  # Chrony NTP pool — override with your organization's time server.
+  chrony_ntp_pool: "2.rhel.pool.ntp.org iburst"
+
+  # SSH settings
+  ssh_client_alive_interval: 900
+  ssh_client_alive_count_max: 1
+  ssh_max_auth_tries: 4
+  ssh_max_sessions: 10
+  ssh_login_grace_time: 60
+
+  # SSH approved algorithms — intersection of CIS, STIG, and NIST guidance.
+  # Override in conf.d/ to match your organization's crypto policy.
+  ssh_approved_ciphers: "aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+  ssh_approved_kex: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,sntrup761x25519-sha512@openssh.com"
+  ssh_approved_macs: "hmac-sha2-256,hmac-sha2-512,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com"

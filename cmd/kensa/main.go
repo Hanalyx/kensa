@@ -699,22 +699,20 @@ func runCheck(ctx context.Context, args []string) error {
 		return &UsageError{Cause: err}
 	}
 
-	// In single-host mode, the host name is known at flag-parse
+	// Auto-detect chain for --config-dir (C-036): operator-supplied
+	// value > $KENSA_CONFIG_DIR > $XDG_CONFIG_HOME/kensa >
+	// $HOME/.config/kensa > /etc/kensa. Returns "" when no
+	// candidate exists; operators still get the embedded built-in
+	// defaults via the lowest tier in ResolveTiers.
+	configDir = resolveConfigDir(configDir)
+
+	// In single-host mode the host name is known at flag-parse
 	// time and the per-host file <config-dir>/hosts/<host>.yml is
-	// part of the 5-tier resolution. In inventory mode, the host
-	// name is not yet known (the inventory file holds per-host
-	// addresses), so only the host-independent tiers (defaults +
-	// conf.d + CLI) apply at this layer; per-host / per-group
-	// inventory vars are documented as Phase 3.7 work since they
-	// require re-loading the corpus per host.
-	// In single-host mode, the host name is known at flag-parse
-	// time and the per-host file <config-dir>/hosts/<host>.yml is
-	// part of the 5-tier resolution. In inventory mode (Phase 3.7),
-	// each per-host goroutine in runCheckInventory resolves its
-	// own 5-tier chain (defaults + conf.d + per-group + per-host
-	// + CLI) using the inventory's host address and group memberships;
-	// the global pre-load below uses the host-independent tiers
-	// only and serves only filter-vocabulary validation.
+	// part of the resolution. In inventory mode (Phase 3.7), each
+	// per-host goroutine in runCheckInventory resolves its own
+	// chain using the inventory's host address and group
+	// memberships; the global pre-load below uses the host-
+	// independent tiers only and serves filter-vocab validation.
 	loadHostname := host
 	if inventory != "" {
 		loadHostname = "" // per-host vars resolved per-goroutine in 3.7
@@ -1197,6 +1195,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	configDir = resolveConfigDir(configDir)
 	loadVars, err := varsub.ResolveTiers(configDir, host, nil, cliVars)
 	if err != nil {
 		return WrapUsageError("--config-dir", err)

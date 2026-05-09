@@ -120,15 +120,23 @@ func LoadConfDir(configDir string) (Variables, error) {
 }
 
 // ResolveTiers computes the effective Variables for a single
-// (host, groups, cliOverrides) tuple by merging all five
-// tiers in priority order:
+// (host, groups, cliOverrides) tuple by merging all six tiers
+// in priority order:
 //
-//   defaults → conf.d → groups → host → CLI
+//   embedded → defaults → conf.d → groups → host → CLI
 //
-// Each later tier overrides earlier on key collision. Missing
-// tiers (empty configDir, no hosts file, no group files, etc.)
-// are silently skipped. Only present-but-malformed sources
-// error.
+// Each later tier overrides earlier on key collision. The
+// embedded tier ships with the kensa-go binary and is the
+// lowest-priority floor — operators get sensible defaults out
+// of the box for the ~30 templated rules in the production
+// corpus. Every other source overrides; operators wanting
+// different defaults edit a defaults.yml under --config-dir.
+//
+// Missing operator tiers (empty configDir, no hosts file, no
+// group files, etc.) are silently skipped. Only present-but-
+// malformed sources error. The embedded source is validated
+// at test time and at process startup; a parse failure here
+// would indicate build-time corruption.
 //
 // hostname may be empty — single-host mode with no per-host
 // config dir layer (operators using --host but not having a
@@ -137,6 +145,10 @@ func LoadConfDir(configDir string) (Variables, error) {
 // groups may be empty — single-host mode has no groups; only
 // inventory mode populates this.
 func ResolveTiers(configDir, hostname string, groups []string, cliOverrides Variables) (Variables, error) {
+	embedded, err := BuiltInDefaults()
+	if err != nil {
+		return nil, err
+	}
 	defaults, err := LoadDefaults(configDir)
 	if err != nil {
 		return nil, err
@@ -154,6 +166,7 @@ func ResolveTiers(configDir, hostname string, groups []string, cliOverrides Vari
 		return nil, err
 	}
 	merged := Variables{}
+	merged = Merge(merged, embedded)
 	merged = Merge(merged, defaults)
 	merged = Merge(merged, confd)
 	merged = Merge(merged, groupVars)
