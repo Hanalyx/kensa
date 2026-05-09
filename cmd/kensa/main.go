@@ -526,12 +526,12 @@ func printDetectUsage(w io.Writer, fs *pflag.FlagSet) {
 
 Probe a host and print its capability set. Read-only; no mutations.
 
-Flags:
 %s
+
 Examples:
   kensa detect -H 192.168.1.211 -u owadmin --sudo
   kensa detect --host web-01 --user admin --format json
-`, fs.FlagUsages())
+`, formatGroupedUsages(fs, detectFlagGroups))
 }
 
 // ─── check ─────────────────────────────────────────────────────────────────
@@ -831,14 +831,16 @@ func printCheckUsage(w io.Writer, fs *pflag.FlagSet) {
 
 Run read-only compliance checks against one host or an inventory.
 
-Flags:
 %s
+
 Examples:
   kensa check -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
   kensa check --inventory hosts.ini --sudo --rules-dir /path/to/rules
   kensa check --inventory hosts.ini -w 10 --sudo -r /path/to/rules
+  kensa check -H 192.168.1.211 -s critical -s high -r /path/to/rules
+  kensa check -H 192.168.1.211 -f cis-rhel9 --control cis_rhel9:5.1.12 -r /path/to/rules
   kensa check -H web-01 -u admin --sudo -o jsonl rule1.yml rule2.yml
-`, fs.FlagUsages())
+`, formatGroupedUsages(fs, checkFlagGroups))
 }
 
 // runCheckInventory fans out a check across all hosts in an inventory file.
@@ -1147,12 +1149,14 @@ Apply failing rules to a host. Each rule runs as a four-phase
 atomic transaction; on validation failure, the engine rolls back
 to captured pre-state.
 
-Flags:
 %s
+
 Examples:
   kensa remediate -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
+  kensa remediate -H 192.168.1.211 -s critical -t pci -r /path/to/rules
+  kensa remediate -H 192.168.1.211 -f cis-rhel9 --control cis_rhel9:5.1.12 -r /path/to/rules
   kensa remediate -H web-01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.json
-`, fs.FlagUsages())
+`, formatGroupedUsages(fs, remediateFlagGroups))
 }
 
 

@@ -194,6 +194,77 @@ for cmd in version coverage; do
 done
 echo
 
+# ─── kensa: Phase 3 flag advertisement (C-038 close) ──────────────────────
+# Each flag introduced in C-024..C-037 must show up in --help for the
+# subcommands that support it. A drift here means a flag was registered
+# without being wired (or was deleted but a stub remains).
+echo "Phase 3 flag advertisement:"
+phase3_flags_for() {
+    case "$1" in
+        detect)    echo "--password --strict-host-keys --no-strict-host-keys --capability" ;;
+        check)     echo "--password --strict-host-keys --no-strict-host-keys --capability --workers --severity --tag --category --framework --control --rule --inventory --limit" ;;
+        remediate) echo "--password --strict-host-keys --no-strict-host-keys --capability --severity --tag --category --framework --control --rule" ;;
+        rollback)  echo "--strict-host-keys --no-strict-host-keys" ;;
+        plan)      echo "--password --strict-host-keys --no-strict-host-keys" ;;
+    esac
+}
+for cmd in detect check remediate rollback plan; do
+    out=$(bin/kensa "${cmd}" --help 2>&1)
+    flags=$(phase3_flags_for "${cmd}")
+    for f in ${flags}; do
+        if echo "${out}" | grep -qE -- "${f}"; then
+            PASS_COUNT=$((PASS_COUNT + 1))
+            echo "  ${GREEN}PASS${RESET}  kensa ${cmd} --help advertises ${f}"
+        else
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            FAILURES+=("kensa ${cmd} --help: ${f} missing")
+            echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help missing ${f}"
+        fi
+    done
+done
+
+# Help-text grouping (C-038): detect/check/remediate must group by
+# Target / Rule / Output sections. The grouping helper drives this
+# from a per-subcommand flagGroup definition; a regression that
+# falls back to a single flat list would break this assertion.
+echo "Phase 3 help grouping:"
+for cmd in detect check remediate; do
+    out=$(bin/kensa "${cmd}" --help 2>&1)
+    if echo "${out}" | grep -qE "^Target options:"; then
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa ${cmd} --help has 'Target options:' section"
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa ${cmd} --help: missing 'Target options:' section")
+        echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help missing Target section"
+    fi
+done
+for cmd in check remediate; do
+    out=$(bin/kensa "${cmd}" --help 2>&1)
+    if echo "${out}" | grep -qE "^Rule options:"; then
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa ${cmd} --help has 'Rule options:' section"
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa ${cmd} --help: missing 'Rule options:' section")
+        echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help missing Rule section"
+    fi
+done
+
+# Phase 3 negative-path flag rejections — each new validation must
+# exit with code 2 (UsageError) for the chosen typo / out-of-range
+# input. These are network-free; validation runs before SSH setup.
+echo "Phase 3 flag-validation usage errors (exit 2):"
+assert_exit "kensa check --workers 0"               2 stderr-nonempty bin/kensa check -H foo --workers 0 --rules-dir /tmp
+assert_exit "kensa check --workers 51"              2 stderr-nonempty bin/kensa check -H foo --workers 51 --rules-dir /tmp
+assert_exit "kensa check --severity bogus"          2 stderr-nonempty bin/kensa check -H foo -s bogus --rules-dir /tmp
+assert_exit "kensa check --capability bogus=true"   2 stderr-nonempty bin/kensa check -H foo -C bogus=true --rules-dir /tmp
+assert_exit "kensa check --capability =true"        2 stderr-nonempty bin/kensa check -H foo -C =true --rules-dir /tmp
+assert_exit "kensa check --strict + --no-strict"    2 stderr-nonempty bin/kensa check -H foo --strict-host-keys --no-strict-host-keys --rules-dir /tmp
+assert_exit "kensa check --control no-colon"        2 stderr-nonempty bin/kensa check -H foo --control bogus --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa check --framework bogus"         2 stderr-nonempty bin/kensa check -H foo -f bogus --rules-dir /home/rracine/hanalyx/kensa/rules
+echo
+
 # ─── kensa-validate ───────────────────────────────────────────────────────
 echo "kensa-validate:"
 assert_exit "kensa-validate --help"      0 stdout-nonempty bin/kensa-validate --help
