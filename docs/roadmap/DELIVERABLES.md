@@ -307,7 +307,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** rule-variable infrastructure (does not exist in kensa-go today)
 - **Acceptance:** Repeatable `-x KEY=VALUE` (e.g., `-x pam_faillock_deny=5`). Overrides the corresponding rule variable at evaluation time. Wires into the existing rule-variable resolution path; unknown KEY values produce a usage error to prevent silent typos.
 - **Size:** 2h (stated) — actual scope is 1-2 days because the existing path doesn't exist in kensa-go.
-- **Status:** blocked. Discovered during the C-033→C-034 transition that kensa-go has no rule-variable substitution path: `grep -rn "{{" cmd/ internal/ api/` returns zero matches, but ~30+ rules in the corpus use `{{ pam_faillock_deny }}`-style templates and silently fail evaluation today. Python kensa specifies a 5-tier priority (CLI > config/hosts > config/groups > conf.d > defaults). Founder chose option C: defer C-034 + C-036 to a dedicated Phase 3.5 design pass that can decide deliberately on (1) defaults location and packaging, (2) which Python tiers to mirror, (3) security review of operator-supplied overrides flowing into shell commands. Phase 3 close (C-038) excludes C-034 and C-036 from its acceptance.
+- **Status:** done (merged 2026-05-09 in Phase 3.5 combined deliverable, `bb96a28`). Built `internal/varsub` package with Substitute/LoadDefaults/Merge + ErrUndefined sentinel. Wired `--var/-x` into check + remediate. Resolution priority: CLI --var > <config-dir>/defaults.yml. Phase 3.6 will add per-host / per-group / conf.d tiers (associative Merge keeps that additive). Spec: `specs/cli/variable-substitution.spec.yaml` (7 constraints, 23 ACs combining C-034 + C-036). 32 unit tests (16 varsub + 7 defaults + 9 var-flag).
 
 #### C-035 — `--control` framework-control filter
 - **Phase:** CLI Phase 3
@@ -321,7 +321,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** config-directory loader (paired with C-034 rule-variable infrastructure)
 - **Acceptance:** `--config-dir /etc/kensa` overrides the auto-detected config dir. Long-only (no short letter). Default auto-detect: `$KENSA_CONFIG_DIR`, then `$XDG_CONFIG_HOME/kensa`, then `$HOME/.config/kensa`, then `/etc/kensa`. The resolved path is logged once on first use under `--verbose`.
 - **Size:** 1h
-- **Status:** blocked. C-036's reason for existence is loading per-host / per-group / conf.d variable overrides from the config dir — which only matters when the variable-substitution layer exists (see C-034). Without a loader-side consumer for config-dir contents, shipping the flag would be cosmetic. Deferred alongside C-034 to Phase 3.5. Phase 3 close (C-038) excludes C-036 from its acceptance.
+- **Status:** done (merged 2026-05-09 in Phase 3.5 combined deliverable, `bb96a28`). Wired `--config-dir DIR` reading `<DIR>/defaults.yml` `variables:` block. Phase 3.5 ships only the defaults.yml tier; per-host / per-group / conf.d tiers (the rest of the Python 5-tier chain) are Phase 3.6 follow-ups. KEY validation against [A-Za-z][A-Za-z0-9_]* in defaults.yml mirrors --var to catch unreachable entries. Spec is shared with C-034 at `specs/cli/variable-substitution.spec.yaml`.
 
 #### C-037 — `--rule` single rule file
 - **Phase:** CLI Phase 3
