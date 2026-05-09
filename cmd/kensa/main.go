@@ -586,6 +586,7 @@ func runCheck(ctx context.Context, args []string) error {
 		tags         []string
 		category     string
 		framework    string
+		controls     []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -599,6 +600,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerTagFilterFlag(fs, &tags)
 	registerCategoryFlag(fs, &category)
 	registerFrameworkFlag(fs, &framework)
+	registerControlFilterFlag(fs, &controls)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -685,6 +687,15 @@ func runCheck(ctx context.Context, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	// C-035: parse + validate --control filters against the
+	// pre-filter corpus, same rationale as --framework above.
+	controlFilters, err := parseControlFilters(controls)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+	if err := validateControls(controlFilters, rules); err != nil {
+		return &UsageError{Cause: err}
+	}
 	// C-030: --severity filter at load time.
 	rules = filterRulesBySeverity(rules, resolvedSeverities)
 	if len(resolvedSeverities) > 0 && len(rules) == 0 {
@@ -712,6 +723,12 @@ func runCheck(ctx context.Context, args []string) error {
 	rules = filterRulesByFramework(rules, canonicalFramework)
 	if canonicalFramework != "" && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--framework %q: no rules matched (after upstream filters, %d rule(s) remained; none mapped this framework)", framework, preFrameworkCount))
+	}
+	// C-035: --control filter (validation also happened above).
+	preControlCount := len(rules)
+	rules = filterRulesByControl(rules, controlFilters)
+	if len(controlFilters) > 0 && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--control %v: no rules matched (after upstream filters, %d rule(s) remained; none mapped any of these controls)", controls, preControlCount))
 	}
 
 	if inventory != "" {
@@ -970,6 +987,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		tags         []string
 		category     string
 		framework    string
+		controls     []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -983,6 +1001,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerTagFilterFlag(fs, &tags)
 	registerCategoryFlag(fs, &category)
 	registerFrameworkFlag(fs, &framework)
+	registerControlFilterFlag(fs, &controls)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -1037,6 +1056,14 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	// C-035: parse + validate --control against pre-filter corpus.
+	controlFilters, err := parseControlFilters(controls)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+	if err := validateControls(controlFilters, rules); err != nil {
+		return &UsageError{Cause: err}
+	}
 	rules = filterRulesBySeverity(rules, resolvedSeverities)
 	if len(resolvedSeverities) > 0 && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--severity %v: no rules matched; nothing to remediate", resolvedSeverities))
@@ -1055,6 +1082,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	rules = filterRulesByFramework(rules, canonicalFramework)
 	if canonicalFramework != "" && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--framework %q: no rules matched (after upstream filters, %d rule(s) remained; none mapped this framework)", framework, preFrameworkCount))
+	}
+	preControlCount := len(rules)
+	rules = filterRulesByControl(rules, controlFilters)
+	if len(controlFilters) > 0 && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--control %v: no rules matched (after upstream filters, %d rule(s) remained; none mapped any of these controls)", controls, preControlCount))
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
