@@ -432,6 +432,7 @@ func runDetect(ctx context.Context, args []string) error {
 		user     string
 		port     int
 		keyPath  string
+		password string
 		sudo     bool
 		format   string
 		quiet    bool
@@ -442,6 +443,7 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	registerPasswordFlag(fs, &password)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -464,11 +466,17 @@ func runDetect(ctx context.Context, args []string) error {
 	}
 	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
 
+	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+
 	hostCfg := api.HostConfig{
 		Hostname: host,
 		User:     user,
 		Port:     port,
 		KeyPath:  keyPath,
+		Password: resolvedPwd,
 		Sudo:     sudo,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
@@ -544,6 +552,7 @@ func runCheck(ctx context.Context, args []string) error {
 		user      string
 		port      int
 		keyPath   string
+		password  string
 		sudo      bool
 		format    string
 		rulesDir  string
@@ -558,6 +567,7 @@ func runCheck(ctx context.Context, args []string) error {
 	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	registerPasswordFlag(fs, &password)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -609,6 +619,16 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 
 	if inventory != "" {
+		// --password is single-host only: inventory hosts may have
+		// different credentials and broadcasting one password
+		// across the fleet would be a footgun. Operators with a
+		// shared password should set SSHPASS in the environment;
+		// per-host password support in inventory files is a
+		// future deliverable.
+		if password != "" {
+			printCheckUsage(os.Stderr, fs)
+			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
+		}
 		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, format, rules, quiet, outputs)
 	}
 	if host == "" {
@@ -616,8 +636,14 @@ func runCheck(ctx context.Context, args []string) error {
 		return NewUsageError("--host or --inventory is required")
 	}
 
+	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+
 	hostCfg := api.HostConfig{
-		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath,
+		Password: resolvedPwd, Sudo: sudo,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -825,6 +851,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		user     string
 		port     int
 		keyPath  string
+		password string
 		sudo     bool
 		format   string
 		oscalOut string
@@ -837,6 +864,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	registerPasswordFlag(fs, &password)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -873,8 +901,13 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	defer func() { _ = svc.Close() }()
 
+	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
 	hostCfg := api.HostConfig{
-		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath,
+		Password: resolvedPwd, Sudo: sudo,
 	}
 	resolved := resolveAndPrintIssues(rules, quiet)
 	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
@@ -1217,6 +1250,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 		user     string
 		port     int
 		keyPath  string
+		password string
 		sudo     bool
 		format   string
 		quiet    bool
@@ -1226,6 +1260,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
+	registerPasswordFlag(fs, &password)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, markdown, json, plain")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -1261,8 +1296,14 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	}
 	defer func() { _ = svc.Close() }()
 
+	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+
 	hostCfg := api.HostConfig{
-		Hostname: host, User: user, Port: port, KeyPath: keyPath, Sudo: sudo,
+		Hostname: host, User: user, Port: port, KeyPath: keyPath,
+		Password: resolvedPwd, Sudo: sudo,
 	}
 	plan, err := svc.Plan(ctx, hostCfg, r)
 	if err != nil {

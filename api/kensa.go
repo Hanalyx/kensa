@@ -129,6 +129,12 @@ type HostConfig struct {
 	// KeyPath is the SSH key path. Empty means use ssh-agent and
 	// ~/.ssh/config.
 	KeyPath string
+	// Password is the SSH password for password-auth hosts. Wired
+	// in C-026 of the CLI Phase 3 migration. Empty defers to
+	// key-based auth (KeyPath, ssh-agent, ~/.ssh/config). When
+	// non-empty, the SSH transport requires `sshpass` on the host
+	// running kensa.
+	Password string
 }
 
 // ScanResult is the outcome of [Kensa.Scan]. Each entry in
