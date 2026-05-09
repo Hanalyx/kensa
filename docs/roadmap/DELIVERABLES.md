@@ -272,7 +272,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** `--workers N` (1–50, default 1) sets the inventory-mode goroutine pool size. Currently inventory mode is sequential per host; this knob bounds the concurrency. Workers > 50 reject with usage error.
 - **Size:** 3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `c6ea837`). Replaced unbounded inventory fan-out with generic `fanOutBounded[T]` helper using acquire-before-spawn semaphore. Out-of-range values rejected up front (validateWorkers). Inventory runs with >5 hosts at default workers=1 emit a one-line stderr hint suggesting -w 5+ (suppressed by --quiet). Spec: `specs/cli/workers-flag.spec.yaml` (5 constraints, 10 ACs). 11 unit tests (5 fanOutBounded + 6 validateWorkers). Live-verified `-w 2` against 192.168.1.211.
 
 #### C-030 — `--severity/-s` rule filter
 - **Phase:** CLI Phase 3
