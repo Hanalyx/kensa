@@ -279,7 +279,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-024
 - **Acceptance:** Repeatable `-s critical -s high` (choice: critical/high/medium/low). Filters rules at load time; rules with severity not in the set are skipped. Empty set = all severities (default).
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `4fba2bc`). Wired into check + remediate. Up-front flag-only validation (unknown severity → usage error listing valid choices). Empty filtered set → usage error (deliberate; documented trade-off in spec). Case-insensitive on input + rule severity match. Spec: `specs/cli/severity-filter.spec.yaml` (5 constraints, 11 ACs). 9 unit tests. Live-verified critical+high reduced 539-rule corpus to 70 on 192.168.1.211.
 
 #### C-031 — `--tag/-t` rule filter
 - **Phase:** CLI Phase 3
