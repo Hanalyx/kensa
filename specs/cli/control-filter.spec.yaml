@@ -1,0 +1,226 @@
+spec:
+    id: cli-control-filter
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-control-filter
+        description: |
+            CLI Phase 3 deliverable C-035. Adds repeatable
+            `--control FRAMEWORK:CONTROL` to `kensa check` and
+            `kensa remediate`. Operators pass
+            `--control cis-rhel9:5.1.12` to filter rules to
+            those mapping that specific control under the
+            named framework.
+
+            Long-only — no short letter, since `-c` is taken by
+            --category (C-032). The flag name is intuitive in
+            its long form.
+
+            Multiple --control values are OR-across-values: a
+            rule matches if ANY of its FrameworkRefs matches
+            ANY of the operator's controls. Composes AND with
+            --severity, --tag, --category, --framework. Filter
+            chain order: severity → tag → category → framework
+            → control.
+
+            Validation is two-stage:
+              1. Parse: FRAMEWORK:CONTROL must have a colon, both
+                 sides non-empty, framework portion normalized
+                 (hyphen → underscore via the C-033 helper).
+              2. Validate: the (framework, control) pair must
+                 exist in the loaded corpus' parsed
+                 FrameworkRefs. Unknown framework lists
+                 available frameworks; unknown control lists a
+                 sample of valid controls under the named
+                 framework.
+
+            Validation runs against the pre-filter corpus
+            (matches the C-033 pattern) so an "unknown" error
+            reflects the corpus rather than what survived
+            upstream filters.
+
+    objective:
+        summary: |
+            Add --control repeatable string flag (long-only) on
+            check + remediate. Parse FRAMEWORK:CONTROL pairs.
+            Validate against the loaded corpus. Filter via
+            mappings.RefsFromReferences exact-match. Empty set
+            = pass-through. Empty filtered set after non-empty
+            filters = usage error with pre-control count.
+        scope:
+            includes:
+                - --control repeatable flag (long-only) on check + remediate
+                - parseControlFilters (FRAMEWORK:CONTROL → controlFilter struct)
+                - validateControls (against pre-filter corpus, with sample-available diagnostics)
+                - filterRulesByControl (OR across filters, exact match on framework + control)
+                - "Hyphen/underscore aliasing on the framework portion (reuses C-033 normalizeFrameworkID)"
+                - "Composes AND with severity/tag/category/framework"
+            excludes:
+                - "Wildcards or globs in CONTROL (e.g., `cis_rhel9:5.*`): out of scope"
+                - "Loose framework match (just `5.1.12` without framework prefix): too ambiguous"
+                - "--control on detect / plan / rollback: out of scope"
+
+    constraints:
+        - id: C-01
+          description: |
+              Each --control value MUST have the form
+              FRAMEWORK:CONTROL. Missing colon, empty
+              FRAMEWORK, or empty CONTROL each produce a
+              distinct usage error.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The framework portion MUST be normalized
+              (lowercase, hyphen → underscore) so `cis-rhel9`
+              and `cis_rhel9` collide. The control portion MUST
+              preserve case because some frameworks (NIST,
+              FedRAMP) use case-significant control IDs.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              An unknown (framework, control) pair MUST produce
+              a usage error rather than silently scanning
+              nothing. The error MUST disambiguate "unknown
+              framework" from "unknown control under known
+              framework" so the operator can self-correct.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Validation MUST run against the pre-filter
+              corpus snapshot. An operator running
+              `-s critical --control cis_rhel9:1.1.1` against
+              a corpus where 1.1.1 exists in some non-critical
+              rule should see a "no rules matched (after
+              upstream filters)" diagnostic, not "unknown
+              control" — those are different failure modes.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              Multiple --control values MUST be combined with
+              OR semantics (a rule matches if ANY of its refs
+              matches ANY filter). Composing with --severity,
+              --tag, --category, --framework MUST be AND.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              filterRulesByControl MUST preserve input order.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              parseControlFilters(nil) returns (nil, nil).
+              Locked by TestParseControlFilters_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Well-formed FRAMEWORK:CONTROL parses to a
+              controlFilter with the framework normalized.
+              Locked by TestParseControlFilters_WellFormed.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Hyphen-form framework portion normalizes to
+              underscore. Locked by
+              TestParseControlFilters_HyphenAlias.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Control portion case is preserved. Locked by
+              TestParseControlFilters_PreservesControlCase.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              Multiple entries each parse independently.
+              Locked by TestParseControlFilters_Multiple.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              Missing colon → "missing ':'" error. Empty
+              FRAMEWORK → "empty FRAMEWORK" error. Empty
+              CONTROL → "empty CONTROL" error. Locked by
+              TestParseControlFilters_MissingColon,
+              _EmptyFramework, _EmptyControl.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-07
+          description: |
+              validateControls(nil, ...) returns nil. Locked
+              by TestValidateControls_Empty.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-08
+          description: |
+              Known (framework, control) pair passes
+              validation. Locked by
+              TestValidateControls_KnownFrameworkAndControl.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-09
+          description: |
+              Unknown framework produces an error mentioning
+              "unknown framework" and listing available
+              frameworks. Locked by
+              TestValidateControls_UnknownFramework.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-10
+          description: |
+              Unknown control under known framework produces
+              an error mentioning "not found under framework"
+              and listing a sample of valid controls. Locked
+              by TestValidateControls_UnknownControl.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-11
+          description: |
+              filterRulesByControl with empty filters returns
+              input unchanged. Locked by
+              TestFilterRulesByControl_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-12
+          description: |
+              Single-filter match returns rules matching that
+              filter. Locked by
+              TestFilterRulesByControl_SingleMatch.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-13
+          description: |
+              Multiple filters compose OR (rule matches if any
+              ref matches any filter). Locked by
+              TestFilterRulesByControl_OrSemanticsAcrossFilters.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-14
+          description: |
+              Filter preserves input order. Locked by
+              TestFilterRulesByControl_PreservesOrder.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-15
+          description: |
+              Validation runs against the pre-filter corpus
+              snapshot in runCheck and runRemediate
+              (parseControlFilters + validateControls invoked
+              before severity/tag/category/framework filters
+              apply). Verified by code inspection.
+          references_constraints: [C-04]
+          priority: high
+
+    tags: [cli, rule-options, control, framework, mappings, tier-1, c-035]
