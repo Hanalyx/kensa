@@ -1,0 +1,256 @@
+spec:
+    id: cli-inventory-perhost-vars
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-inventory-perhost-vars
+        description: |
+            CLI Phase 3.7 deliverable. Activates per-host /
+            per-group variable tiers in inventory mode,
+            completing the Python kensa 5-tier surface across
+            both single-host and inventory invocations.
+
+            Phase 3.6 shipped the LoadHost / LoadGroups /
+            LoadConfDir / ResolveTiers infrastructure but
+            wired it only into single-host mode. Inventory
+            mode used the 3 host-independent tiers (defaults
+            + conf.d + CLI) and emitted a stderr warning when
+            operators tried to use hosts/<host>.yml or
+            groups/<group>.yml files in inventory mode.
+
+            Phase 3.7 makes those tiers active by re-loading
+            the corpus per host inside the inventory fan-out
+            goroutine. Each host's goroutine:
+              1. Computes hostVars = ResolveTiers(configDir,
+                 host.addr, host.groups, cliVars).
+              2. Re-loads the corpus with hostVars via the new
+                 ruleLoadFilterSpec helper (which pre-captures
+                 the rule sources + filter chain inputs).
+              3. Re-resolves dependency order for that host's
+                 rule set.
+              4. Runs the scan against that host's transport
+                 with the host-specific rules.
+
+            Filter VALIDATION (severity / framework / control
+            vocabulary) runs once up front using the
+            host-independent tiers. The actual filter SET
+            depends on rule metadata (rule.Severity, .Tags,
+            .Category, .References) which doesn't vary with
+            substitution — only the rule VALUES change per
+            host. So validating against the global pass is
+            correct, and the per-host filter chain produces
+            the same rule-ID set regardless of vars.
+
+            Performance: 539 rules × N hosts × ~0.5ms parse
+            ≈ 0.27 × N seconds added overhead. For typical
+            10-host fleets this is sub-3-seconds, well below
+            the SSH ControlMaster handshake cost it adds to.
+
+            The Phase 3.6 stderr warning ("--inventory + hosts/
+            present; per-host vars not applied") is REMOVED
+            in Phase 3.7 since per-host vars are now active.
+
+    objective:
+        summary: |
+            Refactor the rule-load + filter pipeline into a
+            ruleLoadFilterSpec helper (cmd/kensa/
+            rule_pipeline.go). Pass spec + configDir + cliVars
+            into runCheckInventory. Each per-host goroutine
+            calls ResolveTiers(configDir, host.addr,
+            host.groups, cliVars) and spec.LoadAndFilter on
+            the result, producing a per-host rule set with
+            host-specific substituted values.
+        scope:
+            includes:
+                - "cmd/kensa/rule_pipeline.go: ruleLoadFilterSpec struct + LoadAndFilter method"
+                - "runCheck: build spec from filter inputs and pass into runCheckInventory instead of pre-loaded rules"
+                - "runCheckInventory: signature change — takes spec + configDir + cliVars instead of rules slice"
+                - "Per-host goroutine: ResolveTiers → LoadAndFilter → rule.Resolve → scan"
+                - "Validation pass uses host-independent tiers (defaults + conf.d + CLI) for filter-vocab checking"
+                - "Phase 3.6 stderr warning warnIfInventoryHasPerHostFiles removed"
+            excludes:
+                - "Caching: each host re-parses the corpus from disk; no shared YAML-bytes cache (acceptable at current scale)"
+                - "Per-host capability override in inventory entries: future"
+                - "Variable substitution at scan-time (e.g., {{ host.fqdn }}): out of scope; values are static at load time"
+                - "Remediate inventory mode: remediate is single-host today; Phase 3.7 only changes check"
+
+    constraints:
+        - id: C-01
+          description: |
+              In inventory mode, each host's scan MUST use
+              that host's own 5-tier resolved variables. A
+              templated rule whose `{{ var }}` resolves to
+              different values on different hosts (e.g.,
+              hosts/web-01.yml and hosts/web-02.yml differ)
+              MUST produce host-specific check.expected
+              values per host.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Filter chain VOCABULARY (severity / framework /
+              control IDs) MUST be validated once on the
+              global pass, not per-host. The vocabulary is a
+              corpus-property concern (rule.Severity, etc.)
+              and doesn't vary with substitution.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Rule-resolution issues (conflicts, cycles,
+              supersedes chains) MUST be printed once on the
+              global pass, not per-host. Resolution operates
+              on rule.ID + rule.DependsOn + rule.ConflictsWith
+              + rule.Supersedes — none of which vary with
+              substitution.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The Phase 3.6 stderr warning about per-host
+              files being ignored MUST be removed. With Phase
+              3.7 those files ARE applied; the warning would
+              be misleading.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              ResolveTiers per-host failures (e.g., malformed
+              hosts/<host>.yml) MUST be reported as per-host
+              errors, not global aborts. A single bad
+              hosts/<host>.yml file should produce a
+              connect-fail-equivalent row for that host, not
+              kill the entire inventory scan.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              Performance MUST remain bounded: per-host
+              re-load adds parse-time only (no extra disk I/O
+              optimization). Acceptable at 539-rule corpus
+              and 100-host fleet (~0.5ms × 539 × 100 ≈ 27s
+              added). Above 100 hosts, future caching may be
+              warranted.
+          type: technical
+          enforcement: warning
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              ruleLoadFilterSpec.LoadAndFilter with non-empty
+              vars produces rules whose template fields
+              substitute to the var values. Locked by
+              TestRuleLoadFilterSpec_LoadAndFilter_Basic.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              LoadAndFilter called twice with different vars
+              produces two rule sets with different
+              substituted values but identical rule IDs.
+              Locks the load-bearing semantic for inventory
+              re-load. Locked by
+              TestRuleLoadFilterSpec_LoadAndFilter_DifferentVarsPerCall.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              LoadAndFilter applies the severity / tag /
+              category / framework / control filter chain.
+              Locked by TestRuleLoadFilterSpec_FilterChain.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              LoadAndFilter on an empty corpus surfaces the
+              standard "no rules" usage error. Locked by
+              TestRuleLoadFilterSpec_EmptyRules.
+          references_constraints: [C-02]
+          priority: medium
+        - id: AC-05
+          description: |
+              Inventory mode in runCheckInventory: each
+              per-host goroutine calls ResolveTiers with the
+              host's address and group memberships, then
+              LoadAndFilter with that result. Verified by
+              code inspection at the fanOutBounded body.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              Validation pass (filter vocab + rule-resolution
+              printing) uses ResolveTiers(configDir, "",
+              nil, cliVars) — i.e., the host-independent
+              tiers. Verified by code inspection at the
+              runCheckInventory entry block.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-07
+          description: |
+              The Phase 3.6 warnIfInventoryHasPerHostFiles
+              function and its caller in runCheck are
+              removed. Verified by `grep -rn
+              warnIfInventoryHasPerHostFiles` returning no
+              matches under cmd/kensa.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-08
+          description: |
+              Per-host ResolveTiers failure (malformed
+              hosts/<host>.yml) writes a per-host error row
+              to results, not a global abort. Verified by
+              code inspection: the goroutine wraps the
+              ResolveTiers error in a hostResult{err: ...}
+              and continues to the next item via the fan-out
+              pool.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-09
+          description: |
+              End-to-end: a 1-host inventory with
+              hosts/<addr>.yml overriding defaults.yml
+              produces a scan whose comparator uses the
+              host-file value, not the defaults value.
+              Verified live on 192.168.1.211: defaults said
+              99, hosts/192.168.1.211.yml said 3, scan
+              passed (host's actual deny=3 matched).
+              Reversed: defaults=3, hosts file=99, scan
+              failed (host's actual deny=3, expected 99).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-10
+          description: |
+              Performance budget for per-host re-load:
+              ~0.5ms × N rules × M hosts. Documented in spec
+              context. Future caching is queued only when
+              real-world fleets exceed 100 hosts. No
+              automated benchmark gate today; documented as
+              a non-blocking warning-level constraint so
+              future profiling can compare against the
+              budget.
+          references_constraints: [C-06]
+          priority: low
+        - id: AC-11
+          description: |
+              Per-host renderer alignment: when a rule's
+              `{{ var }}` is defined ONLY in
+              hosts/<addr>.yml, the global pre-load skips
+              that rule (undefined-var) but the per-host
+              pass loads it. The output renderer MUST use
+              each host's own rule slice (hostResult.rules),
+              not the global resolved.Order, to keep
+              positional alignment with
+              result.Transactions intact. Verified live: a
+              mixed corpus (one templated rule with
+              host-only var + one untemplated rule) renders
+              both rules with correct IDs against
+              192.168.1.211, where pre-Phase-3.7 the
+              templated rule's row would have empty rule_id
+              or been absent.
+          references_constraints: [C-01]
+          priority: critical
+
+    tags: [cli, rule-options, variables, tiers, inventory, tier-1, phase-3-7]

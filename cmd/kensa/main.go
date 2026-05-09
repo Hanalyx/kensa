@@ -707,17 +707,17 @@ func runCheck(ctx context.Context, args []string) error {
 	// conf.d + CLI) apply at this layer; per-host / per-group
 	// inventory vars are documented as Phase 3.7 work since they
 	// require re-loading the corpus per host.
+	// In single-host mode, the host name is known at flag-parse
+	// time and the per-host file <config-dir>/hosts/<host>.yml is
+	// part of the 5-tier resolution. In inventory mode (Phase 3.7),
+	// each per-host goroutine in runCheckInventory resolves its
+	// own 5-tier chain (defaults + conf.d + per-group + per-host
+	// + CLI) using the inventory's host address and group memberships;
+	// the global pre-load below uses the host-independent tiers
+	// only and serves only filter-vocabulary validation.
 	loadHostname := host
 	if inventory != "" {
-		loadHostname = "" // groups + per-host file out of scope here
-		// Inventory + per-host config dir is a footgun for the
-		// 3.6→3.7 window: an operator with hosts/<host>.yml or
-		// groups/<g>.yml files won't see them applied. Warn
-		// cheaply (one stat per subdir) so they're not silently
-		// ignored.
-		if configDir != "" && !quiet {
-			warnIfInventoryHasPerHostFiles(os.Stderr, configDir)
-		}
+		loadHostname = "" // per-host vars resolved per-goroutine in 3.7
 	}
 	loadVars, err := varsub.ResolveTiers(configDir, loadHostname, nil, cliVars)
 	if err != nil {
@@ -798,7 +798,20 @@ func runCheck(ctx context.Context, args []string) error {
 			printCheckUsage(os.Stderr, fs)
 			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
 		}
-		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, workers, format, rules, quiet, outputs)
+		// Phase 3.7: pass the load+filter spec + per-host tier
+		// inputs into the inventory fan-out so each goroutine
+		// can re-load the corpus with that host's full 5-tier
+		// resolved variables.
+		spec := ruleLoadFilterSpec{
+			rulesDir:       rulesDir,
+			rulePaths:      concatPaths(ruleFiles, fs.Args()),
+			severities:     resolvedSeverities,
+			tags:           normalizedTags,
+			category:       category,
+			framework:      canonicalFramework,
+			controlFilters: controlFilters,
+		}
+		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, workers, format, spec, configDir, cliVars, quiet, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -900,7 +913,7 @@ Examples:
 // checkOptions struct. The C-019 review flagged this; deferred to
 // a separate refactor ticket because changing the signature mid-
 // fan-out wiring would obscure the diff.
-func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, workers int, format string, rules []*api.Rule, quiet bool, outputs []string) error {
+func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, workers int, format string, spec ruleLoadFilterSpec, configDir string, cliVars varsub.Variables, quiet bool, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -929,14 +942,48 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 			len(hosts))
 	}
 
-	// Resolve rules once before the per-host fan-out so every host
-	// runs the same active set in the same order. cmd/kensa's
-	// per-host text rendering today doesn't surface the resolution
-	// summary; C-022 weaves that into the host banner.
-	resolved := resolveAndPrintIssues(rules, quiet)
+	// Phase 3.7: each host's goroutine re-loads the corpus with
+	// that host's full 5-tier resolved variables. We DO print
+	// rule-resolution issues once up front using the global-tier
+	// rule set — those issues (conflicts, cycles, supersedes
+	// chains) operate on corpus-property fields that don't vary
+	// with substitution, so per-host printing would be redundant
+	// noise.
+	//
+	// The validation pass uses the host-independent tiers
+	// (defaults + conf.d + CLI) — passing hostname="" and
+	// groups=nil to ResolveTiers gets just those. This handles
+	// templated rules whose `{{ var }}` is defined in defaults.yml
+	// or conf.d/*.yml; the per-host file may override but is not
+	// required for the global pass to succeed.
+	globalVars, err := varsub.ResolveTiers(configDir, "", nil, cliVars)
+	if err != nil {
+		return err
+	}
+	globalRules, err := spec.LoadAndFilter(globalVars)
+	if err != nil {
+		return err
+	}
+	// Print rule-resolution issues once (conflicts / cycles /
+	// supersedes chains operate on corpus-property fields that
+	// don't vary with substitution; per-host re-printing would
+	// be redundant noise). Discard the returned ResolvedRules
+	// — rendering uses each host's own resolved slice (see
+	// hostResult.rules).
+	_ = resolveAndPrintIssues(globalRules, quiet)
 
 	type hostResult struct {
-		host   inventoryHost
+		host inventoryHost
+		// rules is this host's filtered+resolved rule slice in
+		// execution order. Phase 3.7: each host has its own
+		// rule slice because per-host vars produce different
+		// substituted values. The output renderer iterates
+		// against this per-host slice (positional alignment
+		// with result.Transactions) — using the global slice
+		// here would mis-align rows when a rule's `{{ var }}`
+		// is defined ONLY in hosts/<addr>.yml (skipped in the
+		// global pre-load, loaded in the per-host pass).
+		rules  []*api.Rule
 		result *api.ScanResult
 		err    error
 	}
@@ -954,6 +1001,28 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 		if ih.port != 0 {
 			p = ih.port
 		}
+		// Phase 3.7: resolve this host's full 5-tier variable
+		// set — defaults + conf.d + groups (from inventory) +
+		// hosts/<addr>.yml + CLI override. Then re-load the
+		// corpus with these vars and apply the same filter
+		// chain. Filter VOCABULARY (severity / framework /
+		// control) was validated up front against the
+		// global-tier corpus; per-host filtering operates on
+		// the same rule-property fields (severity / tags /
+		// category / framework refs) which don't vary with
+		// substitution, so the post-filter rule SET is
+		// identical per host — only the rule VALUES differ.
+		hostVars, err := varsub.ResolveTiers(configDir, ih.addr, ih.groups, cliVars)
+		if err != nil {
+			results[idx] = hostResult{host: ih, err: fmt.Errorf("resolve vars: %w", err)}
+			return
+		}
+		hostRules, err := spec.LoadAndFilter(hostVars)
+		if err != nil {
+			results[idx] = hostResult{host: ih, err: err}
+			return
+		}
+		hostResolved := rule.Resolve(hostRules)
 		hostCfg := api.HostConfig{
 			Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath,
 			StrictHostKeys: strictHostKeys, Sudo: sudo,
@@ -966,13 +1035,13 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 		}
 		defer func() { _ = transport.Close() }()
 		runner := scan.New(nil)
-		res, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
+		res, err := runner.ScanWithOverrides(ctx, transport, hostResolved.Order, capOverrides)
 		if err != nil {
 			results[idx] = hostResult{host: ih, err: err}
 			return
 		}
 		res.HostID = ih.addr
-		results[idx] = hostResult{host: ih, result: res}
+		results[idx] = hostResult{host: ih, rules: hostResolved.Order, result: res}
 	})
 
 	stdoutOverride := bodyOut(quiet)
@@ -994,7 +1063,14 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 				fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 				continue
 			}
-			if err := routeFanOutError(output.FanOutScanResult(specs, stdoutOverride, r.host.addr, resolved.Order, r.result)); err != nil {
+			// Phase 3.7: render against this host's own rule
+			// slice (r.rules), not the global resolved.Order.
+			// A rule whose `{{ var }}` is defined only in
+			// hosts/<addr>.yml is absent from the global pass
+			// but present in r.rules — the renderer's
+			// positional alignment with r.result.Transactions
+			// must use r.rules to avoid silent misalignment.
+			if err := routeFanOutError(output.FanOutScanResult(specs, stdoutOverride, r.host.addr, r.rules, r.result)); err != nil {
 				return err
 			}
 		}
@@ -1006,7 +1082,10 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 			fmt.Fprintf(os.Stderr, "ERROR %s: %v\n", r.host.addr, r.err)
 			continue
 		}
-		if err := w.WriteScanResult(stdoutOverride, r.host.addr, resolved.Order, r.result); err != nil {
+		// Phase 3.7: render against r.rules (per-host slice),
+		// not resolved.Order. See FanOutScanResult site above
+		// for the rationale.
+		if err := w.WriteScanResult(stdoutOverride, r.host.addr, r.rules, r.result); err != nil {
 			return err
 		}
 	}

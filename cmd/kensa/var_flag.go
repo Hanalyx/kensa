@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -74,32 +72,6 @@ func resolveVarOverrides(raw []string) (varsub.Variables, error) {
 		out[key] = value
 	}
 	return out, nil
-}
-
-// warnIfInventoryHasPerHostFiles emits a one-line stderr
-// warning when an operator runs `kensa check --inventory ...
-// --config-dir DIR` and DIR has hosts/ or groups/ subdirectories
-// with content. Phase 3.6 inventory mode applies only the
-// global tiers (defaults + conf.d + CLI); per-host / per-group
-// inventory variables are Phase 3.7. Without this warning,
-// operators upgrading from a single-host workflow to inventory
-// would see their per-host files silently ignored.
-//
-// Fail-open: any os.Stat / os.ReadDir error is swallowed since
-// the warning is advisory.
-func warnIfInventoryHasPerHostFiles(w io.Writer, configDir string) {
-	for _, sub := range []string{"hosts", "groups"} {
-		entries, err := os.ReadDir(configDir + "/" + sub)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if !e.IsDir() && (len(e.Name()) > 4 && e.Name()[len(e.Name())-4:] == ".yml") {
-				fmt.Fprintf(w, "kensa check: --inventory + %s/ present in --config-dir; per-host/per-group variable files are NOT applied in inventory mode (Phase 3.7 work)\n", sub)
-				return // one warning suffices
-			}
-		}
-	}
 }
 
 // validVarName mirrors the templateRe vocabulary in
