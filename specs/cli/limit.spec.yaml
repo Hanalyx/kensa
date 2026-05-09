@@ -1,0 +1,227 @@
+spec:
+    id: cli-limit-host-glob
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-limit-flag
+        description: |
+            CLI Phase 3 deliverable C-025. Adds --limit/-l to
+            `kensa check` for inventory-mode runs, with ansible-
+            style semantics: comma-separated host or group
+            patterns, glob expansion against host addr, ! prefix
+            for exclusion, "all"/"*" wildcards.
+
+            Operators with ansible muscle memory get exactly the
+            -l semantics they expect. Typo'd host names surface
+            as usage errors so an operator running `-l web-001`
+            against an inventory of "web-01" doesn't get a silent
+            zero-host scan.
+
+            Inventory parser was extended in this deliverable to
+            track [group] header memberships (previously skipped).
+            Hosts appearing under multiple [group] headers merge
+            their memberships rather than duplicating entries.
+
+    objective:
+        summary: |
+            Add --limit/-l flag to `kensa check`. Implement
+            filterByLimit in cmd/kensa/inventory_filter.go with
+            ansible-compatible semantics. Extend parseInventory to
+            track group memberships. Wire the filter into
+            runCheckInventory before the per-host fan-out.
+        scope:
+            includes:
+                - "--limit/-l flag on kensa check (long+short form)"
+                - filterByLimit function with ansible parity
+                - splitLimitTokens, matchesLimitToken helpers
+                - "parseInventory extended to track [group] memberships"
+                - inventoryHost.groups field
+                - Multi-group host deduplication in parseInventory
+                - all and * wildcards
+                - Comma-separated tokens
+                - "! exclusion prefix with order-sensitive semantics"
+                - Glob match against host addr via filepath.Match
+                - Group-name match for bare alphanumeric tokens
+                - "Typo detection: include token matching nothing surfaces as usage error"
+            excludes:
+                - "--limit on kensa remediate (remediate doesn't have inventory mode yet; defer)"
+                - "--limit on kensa detect (single-host only; no inventory)"
+                - Glob match against group names (kensa-go intentionally restricts globs to addrs)
+                - "@/path/file pattern syntax (ansible limit-from-file; defer)"
+                - "~regex syntax (ansible regex; defer)"
+                - YAML inventory format (only INI today; YAML is a separate parser deliverable)
+
+    constraints:
+        - id: C-01
+          description: |
+              Empty --limit returns all hosts unchanged. Operators
+              who don't pass --limit MUST get the same behavior as
+              before C-025.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              "all" and "*" both match every host. Either bare
+              token, no quoting required.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Comma-separated tokens are evaluated left-to-right;
+              order matters for include/exclude interleaving. Per
+              ansible: "all,!stage,stage-app-01" starts with all,
+              drops stage members, re-adds stage-app-01.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              "!" prefix excludes; the rest of the token is matched
+              against host addr OR group. An empty post-! token is
+              malformed (usage error).
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              Bare alphanumeric tokens (no glob meta-characters)
+              match group names first, then fall through to addr
+              exact match. Tokens with `*` or `?` are filepath-style
+              globs against addr ONLY (NOT against group names).
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              An include token that matches NO host is a usage
+              error (exit 2). Catches typos before they produce
+              a silent empty scan. Exclude tokens that match
+              nothing are NOT errors (operators may write
+              defensive "remove staging if any" templates).
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              parseInventory MUST track [group] header memberships
+              and assign each host the groups it appears under.
+              Hosts listed under multiple groups merge memberships
+              rather than producing duplicate entries.
+          type: technical
+          enforcement: error
+        - id: C-08
+          description: |
+              Output preserves input host order. Filtering does
+              not re-sort. Per-host scan order is deterministic
+              for downstream determinism (test stability,
+              reproducibility).
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              filterByLimit with empty pattern returns all hosts.
+              Locked by TestFilterByLimit_EmptyPatternReturnsAll.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              "all" and "*" both match every host. Locked by
+              TestFilterByLimit_AllWildcards.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Exact addr match: "web-01" matches the single host
+              with that addr. Locked by
+              TestFilterByLimit_ExactAddrMatch.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-04
+          description: |
+              Glob match against addr: "web-*" matches "web-01"
+              and "web-02" but not "db-01". Locked by
+              TestFilterByLimit_GlobPattern.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-05
+          description: |
+              Group match: bare alphanumeric token "prod" matches
+              every host in the prod group. Locked by
+              TestFilterByLimit_GroupMatch.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              Comma-separated tokens OR'd: "web-*,db-01" matches
+              all web hosts plus the single db-01. Locked by
+              TestFilterByLimit_CommaSeparated.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-07
+          description: |
+              "!" exclusion: "all,!stage-*" returns all non-stage
+              hosts. Locked by TestFilterByLimit_Exclusion.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-08
+          description: |
+              Group exclusion: "all,!stage" removes hosts in the
+              stage group. Locked by
+              TestFilterByLimit_GroupExclusion.
+          references_constraints: [C-04, C-05]
+          priority: high
+        - id: AC-09
+          description: |
+              Order matters: "all,!stage,stage-app-01" produces
+              {non-stage hosts, plus stage-app-01}. Locked by
+              TestFilterByLimit_OrderMatters.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-10
+          description: |
+              Include token matching no host produces a usage
+              error. Locked by TestFilterByLimit_TypoFailsLoud.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-11
+          description: |
+              Exclude token matching no host does NOT error.
+              Locked by TestFilterByLimit_NoMatchExclusion.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-12
+          description: |
+              Empty post-"!" token is a usage error. Locked by
+              TestFilterByLimit_EmptyExclusionToken.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-13
+          description: |
+              Output preserves input host order. Locked by
+              TestFilterByLimit_PreservesOrder.
+          references_constraints: [C-08]
+          priority: high
+        - id: AC-14
+          description: |
+              Globs match host addrs only, not group names. Locked
+              by TestFilterByLimit_GlobAgainstAddrNotGroup.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-15
+          description: |
+              parseInventory tracks group memberships per host;
+              [group_a] [group_b] sections produce hosts with
+              their respective groups slice populated. Locked by
+              TestParseInventory's C-025 assertions.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-16
+          description: |
+              Hosts listed under multiple [group] headers merge
+              memberships rather than duplicate. Locked by
+              TestParseInventory_HostInMultipleGroups.
+          references_constraints: [C-07]
+          priority: high
+
+    tags: [cli, target-options, inventory, limit, tier-1, c-025]

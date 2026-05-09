@@ -99,6 +99,51 @@ host3.example.com ansible_user=bob
 	if hosts[2].addr != "host3.example.com" || hosts[2].user != "bob" {
 		t.Errorf("hosts[2] = %+v; want {addr:host3.example.com user:bob}", hosts[2])
 	}
+	// C-025: parser tracks group memberships for --limit.
+	if len(hosts[0].groups) != 1 || hosts[0].groups[0] != "group_a" {
+		t.Errorf("hosts[0].groups = %v; want [group_a]", hosts[0].groups)
+	}
+	if len(hosts[1].groups) != 1 || hosts[1].groups[0] != "group_a" {
+		t.Errorf("hosts[1].groups = %v; want [group_a]", hosts[1].groups)
+	}
+	if len(hosts[2].groups) != 1 || hosts[2].groups[0] != "group_b" {
+		t.Errorf("hosts[2].groups = %v; want [group_b]", hosts[2].groups)
+	}
+}
+
+func TestParseInventory_HostInMultipleGroups(t *testing.T) {
+	// A host listed under two groups merges its memberships
+	// rather than producing duplicate entries (C-025 parser
+	// improvement).
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.ini")
+	content := `[web]
+host-1
+host-2
+[prod]
+host-1
+host-3
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	hosts, err := parseInventory(path)
+	if err != nil {
+		t.Fatalf("parseInventory: %v", err)
+	}
+	if len(hosts) != 3 {
+		t.Fatalf("got %d hosts, want 3 (deduped); hosts=%+v", len(hosts), hosts)
+	}
+	// host-1 should have both groups.
+	for _, h := range hosts {
+		if h.addr == "host-1" {
+			if len(h.groups) != 2 {
+				t.Errorf("host-1.groups = %v; want [web prod] in some order", h.groups)
+			}
+			return
+		}
+	}
+	t.Error("host-1 missing from hosts")
 }
 
 func TestParseInventory_FileNotFound(t *testing.T) {
