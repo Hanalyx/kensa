@@ -335,7 +335,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-024, C-025, C-026, C-027, C-028, C-029, C-030, C-031, C-032, C-033, C-035, C-037 (C-034 + C-036 deferred to Phase 3.5; not blocking the Phase 3 close)
 - **Acceptance:** Each subcommand's `--help` output groups flags by category (Target options / Rule options / Output options / Subcommand-specific) per §5 of the migration doc. cli-smoke.sh adds 1–2 scenarios per new flag. Spec-corpus addition for the Phase 3 surface.
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `771c57e`). detect/check/remediate `--help` now categorizes flags into Target options / Rule options (where applicable) / Output options / General sections. formatGroupedUsages helper with drift-resistant "Other options" catch-all. cli-smoke.sh grew 54→99 (45 new C-038 scenarios — flag advertisement matrix, help-grouping section presence, 8 Phase 3 validation usage errors). Spec: `specs/cli/phase3-close.spec.yaml` (5 constraints, 8 ACs).
 
 ### CLI Phase 4 — Session model + missing subcommands
 
