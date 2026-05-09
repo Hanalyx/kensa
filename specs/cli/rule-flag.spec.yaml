@@ -1,0 +1,172 @@
+spec:
+    id: cli-rule-flag
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-rule-flag
+        description: |
+            CLI Phase 3 deliverable C-037. Adds long-only
+            repeatable `--rule PATH` to `kensa check` and
+            `kensa remediate`. Operators pass `--rule
+            /path/to/foo.yml` to load just that rule file
+            (no directory walk). Repeatable; mixes with the
+            existing positional `*.yml` arg form and with
+            `--rules-dir`.
+
+            Long-only — no short letter. The `-R` short was
+            previously reserved in flags.go for a future
+            filter-by-ID feature whose semantic differs
+            (it would filter the loaded rule set by ID, not
+            load files); shipping `-R` for file loading now
+            would either preempt that feature or be confusing
+            once it lands. Operators reach for `--rule PATH`
+            in scripts; the long form is fine for that use.
+
+            Loader behavior change: pre-C-037 the loader
+            treated `--rules-dir` and explicit file paths as
+            mutually exclusive (dir wins). Post-C-037 the two
+            sources compose additively: an operator running
+            `--rules-dir /corpus --rule /tmp/draft.yml` gets
+            both the corpus walk AND the draft file. This
+            matches Ansible/click conventions and unblocks
+            the common rule-authoring workflow of testing a
+            new rule against the production corpus without
+            polluting the corpus directory.
+
+            Strict vs. skip-invalid: file paths from --rule
+            and from positional args use the strict loader
+            (parse error → usage error). Directory walks
+            still use loadRulesSkipInvalid (parse error →
+            warn + skip), preserving the existing
+            corpus-resilience behavior.
+
+    objective:
+        summary: |
+            Add --rule repeatable string flag (long-only) on
+            check + remediate. Combine with positional args
+            into the strict-load file set. Update
+            loadRulesFromDirOrFiles to compose --rules-dir +
+            file set additively rather than mutually
+            exclusively.
+        scope:
+            includes:
+                - --rule repeatable flag (long-only) on check + remediate
+                - registerRuleFileFlag helper
+                - "loadRulesFromDirOrFiles signature: same; behavior changes from XOR to additive"
+                - "Strict loader for explicit files, skip-invalid for dir walk"
+                - "Compose --rule values + positional args + --rules-dir into a single rule set"
+            excludes:
+                - "--rule on detect / plan / rollback: out of scope"
+                - "Filter-by-ID semantic for --rule: future deliverable, distinct from file-loading"
+                - "Glob expansion in --rule values: shell-expanded if quoted, otherwise literal"
+
+    constraints:
+        - id: C-01
+          description: |
+              --rule MUST be long-only. The short letter `-R`
+              is reserved for a future filter-by-ID feature
+              and shipping it for file loading now would
+              either preempt that feature or surprise
+              operators when it lands.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              --rule values MUST combine with positional args
+              and with --rules-dir contents. All three
+              sources are unioned into the loaded rule set.
+              Operators authoring a new rule against an
+              existing corpus should not have to choose.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Files named explicitly via --rule (or positional
+              args) MUST surface parse errors. Only the
+              dir-walk path uses skip-invalid behavior. An
+              operator who typed `--rule /tmp/draft.yml`
+              wants to know if their draft fails to parse.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              An invocation with no rule sources (no
+              --rules-dir, no --rule, no positional args)
+              MUST produce a usage error mentioning the
+              expected forms.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              --rule MUST be repeatable. pflag's
+              StringArrayVar (not StringSliceVar) keeps
+              comma-containing paths intact for the unusual
+              case of paths with commas in them.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Loader with file paths only loads each.
+              Locked by
+              TestLoadRulesFromDirOrFiles_FilesOnly.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              Loader with --rules-dir only walks the dir.
+              Locked by
+              TestLoadRulesFromDirOrFiles_DirOnly.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Loader with both --rules-dir and explicit
+              files combines them additively. Locked by
+              TestLoadRulesFromDirOrFiles_DirAndFiles_Additive.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Loader with neither dir nor files returns a
+              usage error. Locked by
+              TestLoadRulesFromDirOrFiles_BothEmpty.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Explicit file paths use strict loading: a
+              broken YAML produces an error rather than
+              being silently skipped. Locked by
+              TestLoadRulesFromDirOrFiles_StrictOnExplicitFile.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              --rules-dir walks use skip-invalid: a broken
+              YAML in the corpus is warned and skipped,
+              not aborted. Locked by
+              TestLoadRulesFromDirOrFiles_DirSkipsInvalid.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-07
+          description: |
+              --rule is long-only (no short letter). Verified
+              by code inspection at registerRuleFileFlag and
+              by `kensa check --help` not surfacing a `-R`
+              short for the file-loader form.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-08
+          description: |
+              --rule is repeatable via StringArrayVar (not
+              comma-split via StringSliceVar). Verified by
+              code inspection at registerRuleFileFlag.
+          references_constraints: [C-05]
+          priority: medium
+
+    tags: [cli, rule-options, rule-file, tier-1, c-037]
