@@ -30,6 +30,7 @@
 package rule
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -37,6 +38,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/varsub"
 )
 
 // rawRule is the YAML-decode target for a V1 rule file.
@@ -98,7 +100,10 @@ type rawRemStep struct {
 	Params    map[string]interface{} `yaml:",inline"`
 }
 
-// ParseFile opens path and delegates to [Parse].
+// ParseFile opens path and delegates to [Parse]. No variable
+// substitution: the file's `{{ name }}` templates pass through
+// to evaluation as literals. Use [ParseFileWithVars] when
+// templates are in play (Phase 3.5).
 func ParseFile(path string) (*api.Rule, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -106,6 +111,34 @@ func ParseFile(path string) (*api.Rule, error) {
 	}
 	defer f.Close()
 	return Parse(f)
+}
+
+// ParseFileWithVars opens path, substitutes `{{ name }}` templates
+// using vars, then decodes the resulting YAML into an
+// [api.Rule]. Wired in Phase 3.5 (C-034 + C-036) so the rule
+// corpus's pam_faillock_deny / pam_pwquality_minlen / etc.
+// templates resolve to the operator's chosen values before
+// evaluation.
+//
+// If vars is nil/empty, behaves identically to ParseFile —
+// templates pass through. If a template names a variable not in
+// vars, returns the substitution error verbatim (operator-
+// facing).
+func ParseFileWithVars(path string, vars varsub.Variables) (*api.Rule, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("rule: open %q: %w", path, err)
+	}
+	// Always run substitution so a rule containing `{{ var }}`
+	// without a matching definition is detected, not silently
+	// loaded with literal templates that would later fail
+	// evaluation. The substitution helper is fast and is a
+	// no-op for rules that contain no templates.
+	raw, err = varsub.SubstituteFile(path, raw, vars)
+	if err != nil {
+		return nil, fmt.Errorf("rule: %w", err)
+	}
+	return Parse(bytes.NewReader(raw))
 }
 
 // Parse decodes a V1 rule YAML document from r and returns an [api.Rule].

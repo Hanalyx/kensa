@@ -122,6 +122,7 @@ var checkFlagGroups = []flagGroup{
 			"rules-dir", "rule",
 			"severity", "tag", "category",
 			"framework", "control",
+			"var", "config-dir",
 		},
 	},
 	{
@@ -149,6 +150,7 @@ var remediateFlagGroups = []flagGroup{
 			"rules-dir", "rule",
 			"severity", "tag", "category",
 			"framework", "control",
+			"var", "config-dir",
 		},
 	},
 	{

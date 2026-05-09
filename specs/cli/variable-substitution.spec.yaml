@@ -1,0 +1,353 @@
+spec:
+    id: cli-variable-substitution
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-variable-substitution
+        description: |
+            CLI Phase 3.5 deliverable (C-034 + C-036 combined).
+            Adds rule-variable substitution to `kensa check` and
+            `kensa remediate`. Operators pass `-x KEY=VALUE`
+            (CLI override) and/or `--config-dir DIR` (loads
+            `<DIR>/defaults.yml`). Templates of the form
+            `{{ name }}` in rule YAML are substituted before
+            decoding; an undefined `{{ name }}` produces a
+            parse error.
+
+            Why this matters: the rule corpus uses Jinja-style
+            templates in fields like check.expected and
+            remediation.value (see e.g.
+            rules/access-control/pam-faillock-deny.yml). Pre-
+            Phase 3.5 kensa-go did NOT substitute these — the
+            comparator compared host output against the literal
+            string `{{ pam_faillock_deny }}`, so those rules
+            silently failed evaluation regardless of host
+            state. Phase 3.5 makes them actually work.
+
+            Resolution priority (highest first), simplified for
+            this deliverable's initial cut:
+              1. CLI --var KEY=VALUE  (operator override)
+              2. <config-dir>/defaults.yml `variables:` block
+
+            Future Phase 3.6 will add intermediate tiers (per-
+            host config, per-group config, conf.d overlay)
+            mirroring the Python kensa 5-tier scheme. The
+            current shape is forward-compatible: the loader
+            builds a single Variables map by merging sources
+            in priority order.
+
+            Substitution happens at the YAML-bytes layer,
+            BEFORE the rule decoder runs. This keeps the
+            implementation single-point: any rule field can
+            contain a template without code changes here. The
+            tradeoff: the substituted value is spliced as
+            literal text, so callers passing values with
+            embedded YAML metacharacters (newlines, colons,
+            quotes) are responsible for the document validity.
+            The corpus uses bare scalars exclusively, so this
+            is a non-issue in practice.
+
+            Security note: variable values flow into shell
+            commands via mechanisms like `config_set` (writes
+            to /etc/security/faillock.conf) and `command_exec`
+            (runs commands literally). An operator passing
+            `-x banner='$(rm -rf /)'` would have the resulting
+            shell command run on the host as configured. This
+            is not a kensa-go-specific risk: the same
+            substitution path exists in Python kensa, and
+            `--var` requires the operator to be already
+            authorized to remediate the host. Future Phase 4
+            may add sigil-based escape detection if real-world
+            usage shows a need.
+
+    objective:
+        summary: |
+            Add `--var / -x KEY=VALUE` repeatable flag and
+            `--config-dir DIR` single-value flag on check +
+            remediate. Build internal/varsub package with
+            Substitute (templated text + Variables map),
+            LoadDefaults (read DIR/defaults.yml), and Merge
+            (priority-ordered combine). Wire substitution into
+            rule.ParseFileWithVars; thread vars through
+            loadRules / loadRulesSkipInvalid /
+            loadRulesFromDirOrFiles.
+        scope:
+            includes:
+                - "internal/varsub package: Substitute, SubstituteFile, Merge, Variables, LoadDefaults"
+                - rule.ParseFileWithVars (substitutes before YAML decode)
+                - "--var / -x KEY=VALUE repeatable flag on check + remediate"
+                - --config-dir DIR single-value flag on check + remediate
+                - resolveVarOverrides + validVarName helpers in cmd/kensa
+                - "Substitution at YAML-bytes layer: any rule field is auto-substituted"
+                - "Whitespace-tolerant template syntax: {{name}}, {{ name }}, {{  name  }} all match"
+                - "Vocabulary [A-Za-z][A-Za-z0-9_]* — matches Python kensa's variable names"
+                - "Undefined variable produces a parse error with the variable name(s)"
+                - "Defaults loader supports scalars (string, number, bool); nil and non-scalar rejected"
+            excludes:
+                - "Per-host config (config/hosts/<host>.yml) — Phase 3.6"
+                - "Per-group config (config/groups/<group>.yml) — Phase 3.6"
+                - "conf.d/*.yml overlay — Phase 3.6"
+                - "frameworks.<name> overrides — Phase 3.6"
+                - "Sigil-based escape detection — Phase 4 if needed"
+                - "Substitution in description / rationale fields by design — only data fields contain templates"
+                - "Auto-detect of $XDG_CONFIG_HOME/kensa for --config-dir — operators must pass it explicitly today"
+
+    constraints:
+        - id: C-01
+          description: |
+              An undefined `{{ name }}` template MUST surface
+              the missing variable to the operator. Two
+              presentations, depending on the load path:
+
+              - Strict path (--rule, positional args): hard
+                error, exit 2. The operator named the file
+                deliberately; a missing variable is a usage
+                problem.
+              - Skip-invalid path (--rules-dir walk):
+                varsub.ErrUndefined is detected, the rule is
+                skipped, and an end-of-load summary on stderr
+                lists the count + first 5 affected rules with
+                their undefined vars + remediation pointer
+                (--var KEY=VALUE / defaults.yml). NOT silent.
+
+              The asymmetry matches the C-037 strict-vs-skip
+              loader discipline. The summary keeps the dir-walk
+              path practical (a 539-rule corpus shouldn't abort
+              on the first templated rule) without burying the
+              missing-infrastructure signal.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              CLI --var values MUST win over config-dir
+              defaults on key collision (operator override
+              precedence).
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              --var KEY MUST match [A-Za-z][A-Za-z0-9_]*. A
+              KEY that doesn't match the template vocabulary
+              cannot ever be referenced; rejecting at parse
+              time surfaces the typo before SSH setup.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              An empty config-dir argument MUST be a no-op
+              (treat as no defaults source). A missing
+              defaults.yml in the supplied dir MUST also be
+              a no-op (operators may run with CLI --var only).
+              Only an existing-but-malformed file errors.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              The Substitute helper MUST report ALL undefined
+              variables in a single error, not first-failure.
+              An operator with three undefined templates
+              shouldn't have to re-run three times to find
+              them all.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              defaults.yml values MUST be scalars (string,
+              number, bool). Nil values and non-scalar
+              (map/slice) values MUST produce a usage error
+              naming the offending key.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              Phase 3.5 ships the minimum (CLI + defaults).
+              The Variables / Merge surface MUST be forward-
+              compatible with Phase 3.6's per-host / per-
+              group / conf.d tiers — adding new sources in
+              priority order should not require a signature
+              break.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Substitute on plain text returns it unchanged.
+              Locked by TestSubstitute_Identity.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Substitute replaces a single template with the
+              variable value. Locked by TestSubstitute_Single.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Whitespace tolerance: all of {{name}}, {{ name }},
+              {{  name  }}, {{\tname\t}} match. Locked by
+              TestSubstitute_WhitespaceTolerant.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              Multiple occurrences of the same variable all
+              substitute. Locked by
+              TestSubstitute_MultipleOccurrences.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              Undefined variable produces an error naming the
+              variable AND suggesting --var. Locked by
+              TestSubstitute_UndefinedSingleError.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              Multiple undefined variables in one input report
+              ALL missing names, sorted, in a single error.
+              Locked by TestSubstitute_UndefinedMultipleNamed.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: |
+              Variable-name vocabulary [A-Za-z][A-Za-z0-9_]*:
+              underscores and digits allowed after first char;
+              digit-leading names don't match. Locked by
+              TestSubstitute_NameVocabulary,
+              TestSubstitute_InvalidNameNotMatched.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-08
+          description: |
+              {{}}, {{ }} and similar with no name pass
+              through unchanged. Locked by
+              TestSubstitute_LiteralBracesNotMatched.
+          references_constraints: [C-01]
+          priority: medium
+        - id: AC-09
+          description: |
+              Merge: override wins on collision; inputs are
+              not mutated; nil inputs handled. Locked by
+              TestMerge, TestMerge_NilInputs.
+          references_constraints: [C-02, C-07]
+          priority: critical
+        - id: AC-10
+          description: |
+              LoadDefaults("") returns nil. Locked by
+              TestLoadDefaults_EmptyConfigDir.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-11
+          description: |
+              LoadDefaults on a dir without defaults.yml
+              returns nil (not an error). Locked by
+              TestLoadDefaults_NoDefaultsFile.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-12
+          description: |
+              LoadDefaults reads the variables: block,
+              coercing scalars to strings. Locked by
+              TestLoadDefaults_BasicScalars.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-13
+          description: |
+              LoadDefaults rejects nil values and non-scalar
+              values with a usage error naming the offending
+              key. Locked by TestLoadDefaults_NilValueRejected,
+              TestLoadDefaults_NonScalarRejected.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-14
+          description: |
+              LoadDefaults on malformed YAML errors. Locked
+              by TestLoadDefaults_MalformedYAML.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-15
+          description: |
+              LoadDefaults on a defaults.yml without a
+              variables: block returns empty (forward-
+              compat for future top-level keys). Locked by
+              TestLoadDefaults_NoVariablesBlock.
+          references_constraints: [C-07]
+          priority: medium
+        - id: AC-16
+          description: |
+              resolveVarOverrides parses well-formed
+              KEY=VALUE entries. Locked by
+              TestResolveVarOverrides_WellFormed,
+              TestResolveVarOverrides_Multiple.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-17
+          description: |
+              resolveVarOverrides with duplicate KEY:
+              last-write-wins. Locked by
+              TestResolveVarOverrides_DuplicateKey_LastWins.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-18
+          description: |
+              Empty VALUE allowed (operator may want to
+              substitute ""). Locked by
+              TestResolveVarOverrides_EmptyValue.
+          references_constraints: [C-02]
+          priority: medium
+        - id: AC-19
+          description: |
+              Missing '=' / empty KEY / invalid KEY produce
+              distinct usage errors. Locked by
+              TestResolveVarOverrides_MissingEquals,
+              _EmptyKey, _InvalidKey.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-20
+          description: |
+              Substitute returns errors that satisfy
+              errors.Is(err, ErrUndefined) — used by the dir-
+              walk loader to detect undefined-variable skips
+              and aggregate them into an end-of-load summary
+              rather than burying them in generic per-file
+              warnings. Locked by
+              TestSubstitute_UndefinedSentinelDetected.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-21
+          description: |
+              Merge is associative — Merge(Merge(a,b),c) ==
+              Merge(a,Merge(b,c)) — so Phase 3.6 can layer
+              additional source tiers without changing
+              semantics. Locked by TestMerge_Associative.
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-22
+          description: |
+              LoadDefaults rejects defaults.yml keys that
+              don't match the substitution vocabulary
+              [A-Za-z][A-Za-z0-9_]* (e.g., dashes, digit-
+              leading) since those keys can't be referenced
+              from a template. Locked by
+              TestLoadDefaults_InvalidVarName.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-23
+          description: |
+              YAML-bytes substitution choice is operator-
+              load-bearing: a substituted value containing
+              `:` or `\n` is spliced literally and may
+              produce malformed YAML for the downstream
+              decoder. The corpus uses bare scalar values
+              exclusively, so this is non-blocking. Locked
+              by TestSubstitute_ValueWithColon and
+              TestSubstitute_ValueWithNewline.
+          references_constraints: [C-07]
+          priority: medium
+
+    tags: [cli, rule-options, variables, substitution, tier-1, c-034, c-036, phase-3-5]

@@ -186,7 +186,7 @@ func TestPrintUsage_Variants(t *testing.T) {
 // ─── loadRulesFromDirOrFiles ──────────────────────────────────────────────
 
 func TestLoadRulesFromDirOrFiles_NoArgsIsUsageError(t *testing.T) {
-	_, err := loadRulesFromDirOrFiles("", nil)
+	_, err := loadRulesFromDirOrFiles("", nil, nil)
 	if err == nil {
 		t.Fatalf("loadRulesFromDirOrFiles(\"\", nil): want error, got nil")
 	}
@@ -196,7 +196,7 @@ func TestLoadRulesFromDirOrFiles_NoArgsIsUsageError(t *testing.T) {
 }
 
 func TestLoadRulesFromDirOrFiles_NonexistentDir(t *testing.T) {
-	_, err := loadRulesFromDirOrFiles("/nonexistent-dir-xyz", nil)
+	_, err := loadRulesFromDirOrFiles("/nonexistent-dir-xyz", nil, nil)
 	if err == nil {
 		t.Fatalf("loadRulesFromDirOrFiles(nonexistent): want error, got nil")
 	}
@@ -208,7 +208,7 @@ func TestLoadRulesFromDirOrFiles_NonexistentDir(t *testing.T) {
 
 func TestLoadRulesFromDirOrFiles_EmptyDir(t *testing.T) {
 	dir := t.TempDir() // empty
-	_, err := loadRulesFromDirOrFiles(dir, nil)
+	_, err := loadRulesFromDirOrFiles(dir, nil, nil)
 	if err == nil {
 		t.Fatalf("loadRulesFromDirOrFiles(empty dir): want error, got nil")
 	}
@@ -312,7 +312,7 @@ implementations:
 		t.Fatalf("write temp rule: %v", err)
 	}
 
-	rules, err := loadRules([]string{path})
+	rules, err := loadRules([]string{path}, nil)
 	if err != nil {
 		t.Fatalf("loadRules(valid): %v", err)
 	}
@@ -328,7 +328,7 @@ implementations:
 
 // loadRules error path: nonexistent file.
 func TestLoadRules_FileNotFound(t *testing.T) {
-	_, err := loadRules([]string{"/nonexistent/rule.yml"})
+	_, err := loadRules([]string{"/nonexistent/rule.yml"}, nil)
 	if err == nil {
 		t.Errorf("loadRules(nonexistent): want error, got nil")
 	}
@@ -365,7 +365,7 @@ implementations:
 	rErr, wErr, _ := os.Pipe()
 	os.Stderr = wErr
 
-	rules, err := loadRulesSkipInvalid([]string{invalidPath, validPath})
+	rules, err := loadRulesSkipInvalid([]string{invalidPath, validPath}, nil)
 
 	wErr.Close()
 	os.Stderr = oldStderr
