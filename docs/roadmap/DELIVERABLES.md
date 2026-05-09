@@ -300,7 +300,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-024
 - **Acceptance:** `--framework cis-rhel9` loads only rules with a mapping entry for that framework. Requires framework-mapping infrastructure: `internal/mappings/` already loads framework files (M3); this deliverable wires the filter at rule-load time and adds usage-error for unknown framework IDs.
 - **Size:** 3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `e7c2467`). Single-value flag wired via `mappings.RefsFromReferences`. Validation against pre-filter corpus snapshot (so unknown-framework error reflects loaded corpus, not what survived upstream filters). Hyphen/underscore aliasing on operator input. Composes AND with severity/tag/category. Spec: `specs/cli/framework-filter.spec.yaml` (6 constraints, 16 ACs). 17 unit tests covering CIS/NIST/STIG shapes. Live-verified `-f cis-rhel9` reduced 539-rule corpus to 278 on 192.168.1.211.
 
 #### C-034 — `--var/-x` rule-variable override
 - **Phase:** CLI Phase 3
