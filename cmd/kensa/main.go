@@ -587,6 +587,7 @@ func runCheck(ctx context.Context, args []string) error {
 		category     string
 		framework    string
 		controls     []string
+		ruleFiles    []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -601,6 +602,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerCategoryFlag(fs, &category)
 	registerFrameworkFlag(fs, &framework)
 	registerControlFilterFlag(fs, &controls)
+	registerRuleFileFlag(fs, &ruleFiles)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -671,7 +673,10 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
-	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
+	// C-037: --rule values + positional *.yml args combine into the
+	// strict-load file set. With --rules-dir set, the dir-walk and
+	// the strict file set load additively.
+	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()))
 	if err != nil {
 		return err
 	}
@@ -988,6 +993,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		category     string
 		framework    string
 		controls     []string
+		ruleFiles    []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -1002,6 +1008,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerCategoryFlag(fs, &category)
 	registerFrameworkFlag(fs, &framework)
 	registerControlFilterFlag(fs, &controls)
+	registerRuleFileFlag(fs, &ruleFiles)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -1046,7 +1053,8 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
-	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
+	// C-037: --rule + positional args combine into the strict-load file set.
+	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()))
 	if err != nil {
 		return err
 	}
@@ -1660,9 +1668,20 @@ func loadRules(paths []string) ([]*api.Rule, error) {
 	return rules, nil
 }
 
-// loadRulesFromDirOrFiles loads rules from a directory (if dir != "") or
-// from the explicit file paths. Returns an error when both are empty.
+// loadRulesFromDirOrFiles loads rules from a directory (if dir != "")
+// AND/OR from the explicit file paths. Pre-C-037 the two were
+// mutually exclusive; post-C-037 they're additive — operators can
+// pass --rules-dir for the bulk corpus and --rule for one-off
+// additions, or pass --rule alone (matches the positional rule-file
+// arg form). Returns an error when both are empty.
+//
+// Directory walks use loadRulesSkipInvalid (warn-and-skip on parse
+// error) because corpora often contain in-progress drafts; explicit
+// file paths use the strict loader because the operator named the
+// file deliberately and a parse failure should surface, not be
+// silently dropped.
 func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
+	var rules []*api.Rule
 	if dir != "" {
 		var found []string
 		if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -1676,15 +1695,26 @@ func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
 		}); err != nil {
 			return nil, fmt.Errorf("walk %s: %w", dir, err)
 		}
-		if len(found) == 0 {
+		if len(found) == 0 && len(paths) == 0 {
 			return nil, fmt.Errorf("no *.yml files found in %s", dir)
 		}
-		return loadRulesSkipInvalid(found)
+		dirRules, err := loadRulesSkipInvalid(found)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, dirRules...)
 	}
-	if len(paths) == 0 {
+	if len(paths) > 0 {
+		fileRules, err := loadRules(paths)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, fileRules...)
+	}
+	if len(rules) == 0 {
 		return nil, NewUsageError("at least one rule YAML file or --rules-dir is required")
 	}
-	return loadRules(paths)
+	return rules, nil
 }
 
 // loadRulesSkipInvalid loads rules, printing a warning and skipping files
