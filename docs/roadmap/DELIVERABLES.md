@@ -303,11 +303,11 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Status:** done (merged 2026-05-09, `e7c2467`). Single-value flag wired via `mappings.RefsFromReferences`. Validation against pre-filter corpus snapshot (so unknown-framework error reflects loaded corpus, not what survived upstream filters). Hyphen/underscore aliasing on operator input. Composes AND with severity/tag/category. Spec: `specs/cli/framework-filter.spec.yaml` (6 constraints, 16 ACs). 17 unit tests covering CIS/NIST/STIG shapes. Live-verified `-f cis-rhel9` reduced 539-rule corpus to 278 on 192.168.1.211.
 
 #### C-034 — `--var/-x` rule-variable override
-- **Phase:** CLI Phase 3
-- **Deps:** —
+- **Phase:** CLI Phase 3 → **deferred to Phase 3.5** (founder decision 2026-05-09)
+- **Deps:** rule-variable infrastructure (does not exist in kensa-go today)
 - **Acceptance:** Repeatable `-x KEY=VALUE` (e.g., `-x pam_faillock_deny=5`). Overrides the corresponding rule variable at evaluation time. Wires into the existing rule-variable resolution path; unknown KEY values produce a usage error to prevent silent typos.
-- **Size:** 2h
-- **Status:** pending
+- **Size:** 2h (stated) — actual scope is 1-2 days because the existing path doesn't exist in kensa-go.
+- **Status:** blocked. Discovered during the C-033→C-034 transition that kensa-go has no rule-variable substitution path: `grep -rn "{{" cmd/ internal/ api/` returns zero matches, but ~30+ rules in the corpus use `{{ pam_faillock_deny }}`-style templates and silently fail evaluation today. Python kensa specifies a 5-tier priority (CLI > config/hosts > config/groups > conf.d > defaults). Founder chose option C: defer C-034 + C-036 to a dedicated Phase 3.5 design pass that can decide deliberately on (1) defaults location and packaging, (2) which Python tiers to mirror, (3) security review of operator-supplied overrides flowing into shell commands. Phase 3 close (C-038) excludes C-034 and C-036 from its acceptance.
 
 #### C-035 — `--control` framework-control filter
 - **Phase:** CLI Phase 3
@@ -317,11 +317,11 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Status:** pending
 
 #### C-036 — `--config-dir` config directory override
-- **Phase:** CLI Phase 3
-- **Deps:** —
+- **Phase:** CLI Phase 3 → **deferred to Phase 3.5** (founder decision 2026-05-09)
+- **Deps:** config-directory loader (paired with C-034 rule-variable infrastructure)
 - **Acceptance:** `--config-dir /etc/kensa` overrides the auto-detected config dir. Long-only (no short letter). Default auto-detect: `$KENSA_CONFIG_DIR`, then `$XDG_CONFIG_HOME/kensa`, then `$HOME/.config/kensa`, then `/etc/kensa`. The resolved path is logged once on first use under `--verbose`.
 - **Size:** 1h
-- **Status:** pending
+- **Status:** blocked. C-036's reason for existence is loading per-host / per-group / conf.d variable overrides from the config dir — which only matters when the variable-substitution layer exists (see C-034). Without a loader-side consumer for config-dir contents, shipping the flag would be cosmetic. Deferred alongside C-034 to Phase 3.5. Phase 3 close (C-038) excludes C-036 from its acceptance.
 
 #### C-037 — `--rule` single rule file
 - **Phase:** CLI Phase 3
@@ -332,7 +332,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 
 #### C-038 — Phase 3 close: help-text consolidation + smoke
 - **Phase:** CLI Phase 3
-- **Deps:** C-024..C-037
+- **Deps:** C-024, C-025, C-026, C-027, C-028, C-029, C-030, C-031, C-032, C-033, C-035, C-037 (C-034 + C-036 deferred to Phase 3.5; not blocking the Phase 3 close)
 - **Acceptance:** Each subcommand's `--help` output groups flags by category (Target options / Rule options / Output options / Subcommand-specific) per §5 of the migration doc. cli-smoke.sh adds 1–2 scenarios per new flag. Spec-corpus addition for the Phase 3 surface.
 - **Size:** 1h
 - **Status:** pending
