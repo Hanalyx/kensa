@@ -584,6 +584,7 @@ func runCheck(ctx context.Context, args []string) error {
 		workers      int
 		severities   []string
 		tags         []string
+		category     string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -595,6 +596,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerCapabilityFlag(fs, &capabilities)
 	registerSeverityFlag(fs, &severities)
 	registerTagFilterFlag(fs, &tags)
+	registerCategoryFlag(fs, &category)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -682,6 +684,13 @@ func runCheck(ctx context.Context, args []string) error {
 	rules = filterRulesByTag(rules, normalizedTags)
 	if len(normalizedTags) > 0 && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--tag %v: no rules matched (after --severity filter, %d rule(s) remained; none had matching tags)", normalizedTags, preTagCount))
+	}
+	// C-032: --category filter, narrows further (AND with --severity
+	// and --tag). Empty-after-filter discloses pre-category count.
+	preCategoryCount := len(rules)
+	rules = filterRulesByCategory(rules, category)
+	if category != "" && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--category %q: no rules matched (after upstream filters, %d rule(s) remained; none had matching category)", category, preCategoryCount))
 	}
 
 	if inventory != "" {
@@ -938,6 +947,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		capabilities []string
 		severities   []string
 		tags         []string
+		category     string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -949,6 +959,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerCapabilityFlag(fs, &capabilities)
 	registerSeverityFlag(fs, &severities)
 	registerTagFilterFlag(fs, &tags)
+	registerCategoryFlag(fs, &category)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -1005,6 +1016,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	rules = filterRulesByTag(rules, normalizedTags)
 	if len(normalizedTags) > 0 && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--tag %v: no rules matched (after --severity filter, %d rule(s) remained; none had matching tags)", normalizedTags, preTagCount))
+	}
+	preCategoryCount := len(rules)
+	rules = filterRulesByCategory(rules, category)
+	if category != "" && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--category %q: no rules matched (after upstream filters, %d rule(s) remained; none had matching category)", category, preCategoryCount))
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
