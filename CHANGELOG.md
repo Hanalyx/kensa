@@ -14,6 +14,29 @@ the canonical names; short forms are listed in
 
 ## Unreleased
 
+### Breaking changes
+
+- **CLI Phase 3 short-letter table reconciliation (C-024).** Four
+  short letters are reassigned to align with `Python kensa` parity
+  per `docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md` §4.2. Operators
+  scripting kensa-go with the old short forms must migrate before
+  upgrade. Long forms are unchanged; only the short letters move.
+
+  | Flag | Old short | New short | Migration |
+  |---|---|---|---|
+  | `--port` | `-p` | `-P` | use `--port` long form, or `-P` |
+  | `--sudo` | `-s` | (none) | use `--sudo` long form |
+  | `--txn` | `-t` | `-T` | use `--txn` long form, or `-T` |
+  | `--format` | `-f` | (none) | `--format` already deprecated; use `-o`/`--output` |
+
+  The freed short letters (`-p`, `-s`, `-t`, `-f`) are reserved for
+  Phase 3 deliverables: `--password` (C-026), `--severity` (C-030),
+  `--tag` (C-031), `--framework` (C-033). Operators using the old
+  short forms after upgrade get pflag's "unknown shorthand" error
+  (exit code 2). No deprecation period — kensa-go is pre-1.0 and
+  the migration doc explicitly notes Python kensa has no production
+  users to migrate.
+
 ### Added
 
 - `-o, --output FORMAT[:PATH]` (repeatable) on `kensa detect`,

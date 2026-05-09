@@ -502,7 +502,7 @@ Probe a host and print its capability set. Read-only; no mutations.
 Flags:
 %s
 Examples:
-  kensa detect -H 192.168.1.211 -u owadmin -s
+  kensa detect -H 192.168.1.211 -u owadmin --sudo
   kensa detect --host web-01 --user admin --format json
 `, fs.FlagUsages())
 }
@@ -687,9 +687,9 @@ Run read-only compliance checks against one host or an inventory.
 Flags:
 %s
 Examples:
-  kensa check -H 192.168.1.211 -u owadmin -s -r /path/to/rules
+  kensa check -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
   kensa check --inventory hosts.ini --sudo --rules-dir /path/to/rules
-  kensa check -H web-01 -u admin -s --format jsonl rule1.yml rule2.yml
+  kensa check -H web-01 -u admin --sudo -o jsonl rule1.yml rule2.yml
 `, fs.FlagUsages())
 }
 
@@ -899,8 +899,8 @@ to captured pre-state.
 Flags:
 %s
 Examples:
-  kensa remediate -H 192.168.1.211 -u owadmin -s -r /path/to/rules
-  kensa remediate -H web-01 -u admin -s --format json --oscal /tmp/results.oscal.json
+  kensa remediate -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
+  kensa remediate -H web-01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.json
 `, fs.FlagUsages())
 }
 
@@ -1028,7 +1028,7 @@ Roll back a past transaction by ID using captured pre-state.
 Flags:
 %s
 Example:
-  kensa rollback -H 192.168.1.211 -u owadmin -s -t 8c3a1e2b-...
+  kensa rollback -H 192.168.1.211 -u owadmin --sudo -T 8c3a1e2b-...
 `, fs.FlagUsages())
 }
 
@@ -1178,7 +1178,7 @@ Examples:
   kensa history                                  # 50 most recent
   kensa history -n 200 --format json             # last 200 as JSON
   kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
-  kensa history -t 8c3a1e2b-...                  # one transaction by UUID
+  kensa history -T 8c3a1e2b-...                  # one transaction by UUID
   kensa history -a by_host -S 7d                 # 7-day posture per host
 `, fs.FlagUsages())
 }
@@ -1273,7 +1273,7 @@ and warnings.
 Flags:
 %s
 Example:
-  kensa plan -H 192.168.1.211 -u owadmin -s -f markdown rule.yml
+  kensa plan -H 192.168.1.211 -u owadmin --sudo --format markdown rule.yml
 `, fs.FlagUsages())
 }
 

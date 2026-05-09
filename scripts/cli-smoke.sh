@@ -136,7 +136,7 @@ assert_exit "kensa detect --bogus"           2 stderr-nonempty bin/kensa detect 
 assert_exit "kensa check (nothing)"          2 stderr-nonempty bin/kensa check
 assert_exit "kensa rollback (no host)"       2 stderr-nonempty bin/kensa rollback
 assert_exit "kensa rollback -H foo (no -t)"  2 stderr-nonempty bin/kensa rollback -H foo
-assert_exit "kensa rollback bad UUID"        2 stderr-nonempty bin/kensa rollback -H foo -t notauuid
+assert_exit "kensa rollback bad UUID"        2 stderr-nonempty bin/kensa rollback -H foo -T notauuid
 assert_exit "kensa plan (no host)"           2 stderr-nonempty bin/kensa plan
 assert_exit "kensa plan -H foo (no rule)"    2 stderr-nonempty bin/kensa plan -H foo
 assert_exit "kensa remediate (no host)"      2 stderr-nonempty bin/kensa remediate

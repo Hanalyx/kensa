@@ -132,17 +132,18 @@ func TestDeprecation_PlanFormatDoesNotWarn(t *testing.T) {
 	}
 }
 
-// TestDeprecation_FormatFlag_ShortFormFires: -f (short form of
-// --format) also triggers the warning. fs.Changed reports true
-// for the long name regardless of whether the short or long form
-// was used on argv.
-func TestDeprecation_FormatFlag_ShortFormFires(t *testing.T) {
-	_, stderr := captureRunCLI(
-		[]string{"detect", "--host", "127.0.0.1", "--port", "1", "-f", "json"},
-		t,
-	)
-	if !strings.Contains(stderr, "--format is deprecated") {
-		t.Errorf("-f short form should trigger same warning as --format; got:\n%s", stderr)
+// TestDeprecation_FormatFlag_ShortFormGone: as of C-024, --format
+// has no short letter. Operators using `-f` get "unknown
+// shorthand" (exit 2). The flag-deprecation warning still fires
+// for the long form `--format`, but `-f` is no longer wired.
+//
+// This test locks the C-024 short-letter reconciliation: -f is
+// now reserved for --framework (C-033), not a deprecated alias
+// for --format.
+func TestDeprecation_FormatFlag_ShortFormGone(t *testing.T) {
+	exit := runCLI([]string{"detect", "--host", "127.0.0.1", "-P", "1", "-f", "json"})
+	if exit != 2 {
+		t.Errorf("expected exit 2 (unknown shorthand) for -f after C-024; got %d", exit)
 	}
 }
 
@@ -161,24 +162,32 @@ func TestDeprecation_V02RemovalMarker(t *testing.T) {
 	}
 }
 
-// TestDeprecation_ChangelogContent locks AC-09: CHANGELOG.md exists
-// at the repo root with operator-facing migration content. Reads
-// the file and asserts the deprecation section + both flag names +
-// the replacement guidance + the v0.2 marker are all present.
+// TestDeprecation_ChangelogContent locks AC-09 (C-020) and AC-07
+// (C-024): CHANGELOG.md exists at the repo root with operator-
+// facing migration content. Reads the file and asserts both the
+// Deprecated section (long-flag deprecation cycles) and the
+// Breaking changes section (C-024 short-letter reconciliation)
+// are present with their respective markers.
 //
-// Without this test, a future PR could delete the deprecation
-// section from CHANGELOG.md and ship without a CI signal.
+// Without this test, a future PR could delete either section from
+// CHANGELOG.md and ship without a CI signal.
 func TestDeprecation_ChangelogContent(t *testing.T) {
 	body, err := os.ReadFile("../../CHANGELOG.md")
 	if err != nil {
 		t.Fatalf("read CHANGELOG.md: %v (run from repo root or adjust path)", err)
 	}
 	for _, want := range []string{
+		// C-020 deprecation entries.
 		"### Deprecated",
 		"--format",
 		"--oscal",
 		"--output",
 		"v0.2",
+		// C-024 short-letter reconciliation entries.
+		"### Breaking changes",
+		"C-024",
+		"--port",
+		"--txn",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("CHANGELOG.md missing %q", want)

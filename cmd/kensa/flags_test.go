@@ -33,8 +33,8 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		"ShortUser":        ShortUser,
 		"ShortPort":        ShortPort,
 		"ShortKey":         ShortKey,
-		"ShortSudo":        ShortSudo,
-		"ShortFormat":      ShortFormat,
+		"ShortSudo":        ShortSudo, // intentionally empty (C-024)
+		"ShortFormat":      ShortFormat, // intentionally empty (C-024)
 		"ShortOutput":      ShortOutput,
 		"ShortRulesDir":    ShortRulesDir,
 		"ShortRule":        ShortRule,
@@ -44,13 +44,37 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		"ShortAggregate":   ShortAggregate,
 		"ShortQuiet":       ShortQuiet,
 		"ShortInventory":   ShortInventory,
+		// CLI Phase 3 placeholders (C-024 declares; C-026..C-034
+		// wire to actual flags). Inclusion here ensures collision
+		// detection covers them now.
+		"ShortPassword":    ShortPassword,
+		"ShortLimitGlob":   ShortLimitGlob,
+		"ShortSeverity":    ShortSeverity,
+		"ShortTag":         ShortTag,
+		"ShortCategory":    ShortCategory,
+		"ShortFramework":   ShortFramework,
+		"ShortCapability":  ShortCapability,
+		"ShortWorkers":     ShortWorkers,
+		"ShortVar":         ShortVar,
+	}
+
+	// Constants that are intentionally empty per the CLI Phase 3
+	// short-letter table (no canonical short, long-form only). The
+	// migration doc §3 documents which flags lack a Python-kensa
+	// short; kensa-go matches.
+	intentionallyEmpty := map[string]bool{
+		"ShortSudo":   true, // §3.2: --sudo has no short
+		"ShortFormat": true, // C-024: --format short freed for --framework
 	}
 
 	// Build inverse map: letter → list of constant names that bind it.
 	byLetter := make(map[string][]string)
 	for name, letter := range registry {
 		if letter == "" {
-			t.Errorf("%s is empty; every Short* constant should bind a single character", name)
+			if intentionallyEmpty[name] {
+				continue // expected
+			}
+			t.Errorf("%s is empty; every Short* constant should bind a single character (or be in intentionallyEmpty)", name)
 			continue
 		}
 		if len(letter) != 1 {
@@ -87,21 +111,30 @@ func TestShortLetterTable_CaseDiscipline(t *testing.T) {
 		// more-frequently-used flag).
 		{"ShortHost", ShortHost, true, "lowercase h is help"},
 		{"ShortRule", ShortRule, true, "lowercase r is rules-dir"},
-		{"ShortSince", ShortSince, true, "lowercase s is sudo"},
+		{"ShortSince", ShortSince, true, "lowercase s is severity (post-C-024)"},
 		{"ShortDb", ShortDb, true, "uppercase D preserves recognizability of the legacy `-db` form; lowercase d kept free for a future --dry-run short"},
+		{"ShortPort", ShortPort, true, "C-024: capital P; lowercase p is --password"},
+		{"ShortTransaction", ShortTransaction, true, "C-024: capital T; lowercase t is --tag"},
+		{"ShortCapability", ShortCapability, true, "capital C; lowercase c is --category"},
 		// Lowercase available cases.
 		{"ShortUser", ShortUser, false, "no conflict"},
-		{"ShortPort", ShortPort, false, "no conflict"},
 		{"ShortKey", ShortKey, false, "no conflict"},
-		{"ShortSudo", ShortSudo, false, "no conflict"},
-		{"ShortFormat", ShortFormat, false, "no conflict"},
 		{"ShortRulesDir", ShortRulesDir, false, "no conflict"},
 		{"ShortLimit", ShortLimit, false, "head/tail convention -n"},
-		{"ShortTransaction", ShortTransaction, false, "no conflict"},
 		{"ShortAggregate", ShortAggregate, false, "no conflict"},
 		{"ShortQuiet", ShortQuiet, false, "GNU --quiet convention"},
 		{"ShortOutput", ShortOutput, false, "GNU --output convention"},
 		{"ShortInventory", ShortInventory, false, "ansible --inventory convention"},
+		{"ShortPassword", ShortPassword, false, "Python kensa parity"},
+		{"ShortLimitGlob", ShortLimitGlob, false, "ansible --limit convention"},
+		{"ShortSeverity", ShortSeverity, false, "Python kensa parity"},
+		{"ShortTag", ShortTag, false, "Python kensa parity"},
+		{"ShortCategory", ShortCategory, false, "Python kensa parity"},
+		{"ShortFramework", ShortFramework, false, "Python kensa parity"},
+		{"ShortWorkers", ShortWorkers, false, "Python kensa parity"},
+		{"ShortVar", ShortVar, false, "kensa-go-only — eXtra var mnemonic"},
+		// Intentionally empty cases — skipped by the case check.
+		// ShortSudo, ShortFormat are excluded above.
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
