@@ -286,7 +286,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-024
 - **Acceptance:** Repeatable `-t pci -t cis`. Filters rules whose `tags:` array intersects the operator's set. AND semantics within a `--tag` value isn't supported (each value is a separate tag).
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `3e7e001`). Wired into check + remediate. Free-form vocabulary (no validation; empty-after-filter surfaces typos). OR semantics across operator values; AND across filter types (severity narrows first, tags narrow further). Empty-after-tag error discloses pre-tag count for filter-chain disambiguation. Spec: `specs/cli/tag-filter.spec.yaml` (5 constraints, 11 ACs). 10 unit tests. Live-verified: `-t network` reduced 539-rule corpus to 16 on 192.168.1.211.
 
 #### C-032 — `--category/-c` rule filter
 - **Phase:** CLI Phase 3
