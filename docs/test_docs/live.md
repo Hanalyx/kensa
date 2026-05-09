@@ -70,13 +70,26 @@ EOF
 # Operators can verify the chain by running with -x pam_faillock_deny=99 and
 # observing 1 failed (CLI beats host file).
 
-# 1.5c Inventory + per-host warning (Phase 3.6 → 3.7).
+# 1.5c Inventory + per-host vars active (Phase 3.7).
+# Per-host file applies to its specific host in inventory mode.
 ./bin/kensa check --inventory inventory.ini --no-strict-host-keys -w 4 \
     --config-dir /tmp/kensa-config-test --rules-dir /home/rracine/hanalyx/kensa/rules \
-    -s critical 2>&1 | head -3
-# Expected: stderr warning that hosts/ files are ignored in inventory mode
-# (Phase 3.7 work).
-rm -rf /tmp/kensa-config-test
+    -s critical
+# Expected: no warning about per-host files being ignored (Phase 3.7 removed it).
+# Each host's scan uses ResolveTiers(configDir, host.addr, host.groups, cliVars)
+# with host-specific substituted values.
+
+# 1.5d Per-host renderer alignment (Phase 3.7 bug fix).
+# A templated rule with a host-only var renders with proper rule_id alongside
+# untemplated rules in the same corpus.
+mkdir -p /tmp/test-corpus-mixed
+cp /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml /tmp/test-corpus-mixed/
+cp /home/rracine/hanalyx/kensa/rules/access-control/at-access-control.yml /tmp/test-corpus-mixed/
+./bin/kensa check --inventory inventory.ini --no-strict-host-keys -w 4 \
+    --rules-dir /tmp/test-corpus-mixed \
+    --config-dir /tmp/kensa-config-test 2>&1 | grep -E "pam-faillock-deny|at-access-control"
+# Expected: both rules render with their proper IDs.
+rm -rf /tmp/kensa-config-test /tmp/test-corpus-mixed
 
 # 1.6 Inventory mode.
 ./bin/kensa check --inventory inventory.ini --no-strict-host-keys -w 4 \

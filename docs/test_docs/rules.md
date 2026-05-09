@@ -81,12 +81,34 @@ EOF
     --config-dir /tmp/kensa-config -x pam_faillock_deny=99
 # Expected: 1 failed (CLI's 99 wins; host actually has 3, comparator mismatches).
 
-# 5c. Inventory + per-host warning (Phase 3.6 → 3.7).
-./bin/kensa check --inventory inventory.ini --no-strict-host-keys \
-    --config-dir /tmp/kensa-config --rules-dir /home/rracine/hanalyx/kensa/rules \
-    -s critical 2>&1 | head -3
-# Expected first line: "kensa check: --inventory + hosts/ present in --config-dir;
-# per-host/per-group variable files are NOT applied in inventory mode (Phase 3.7 work)"
+# 5c. Inventory + per-host vars active (Phase 3.7).
+# Set up a 1-host inventory and a config-dir with a host file.
+cat > /tmp/kensa-test-inv.ini <<EOF
+[test]
+192.168.1.211 ansible_user=owadmin
+EOF
+mkdir -p /tmp/kensa-config-inv/hosts
+cat > /tmp/kensa-config-inv/hosts/192.168.1.211.yml <<EOF
+variables:
+  pam_faillock_deny: 3
+EOF
+./bin/kensa check --inventory /tmp/kensa-test-inv.ini --no-strict-host-keys --sudo \
+    --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
+    --config-dir /tmp/kensa-config-inv
+# Expected: 1 passed (host file's value 3 is applied per host in inventory mode).
+# Pre-Phase-3.7 this would have failed because the host file was ignored.
+
+# 5d. Per-host renderer alignment (Phase 3.7 bug fix).
+# Put a templated rule alongside an untemplated one in a corpus dir; verify
+# both render with correct rule IDs even when the var is host-only.
+mkdir -p /tmp/test-corpus-mixed
+cp /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml /tmp/test-corpus-mixed/
+cp /home/rracine/hanalyx/kensa/rules/access-control/at-access-control.yml /tmp/test-corpus-mixed/
+./bin/kensa check --inventory /tmp/kensa-test-inv.ini --no-strict-host-keys --sudo \
+    --rules-dir /tmp/test-corpus-mixed \
+    --config-dir /tmp/kensa-config-inv 2>&1 | grep -E "pam-faillock-deny|at-access-control"
+# Expected: both rules render with their proper IDs.
+rm -rf /tmp/test-corpus-mixed /tmp/kensa-config-inv /tmp/kensa-test-inv.ini
 
 # 6. Resolve / order / conflicts.
 ./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
@@ -127,14 +149,16 @@ Templates: `{{ name }}` (whitespace-tolerant). Vocabulary `[A-Za-z][A-Za-z0-9_]*
 | Tier | Source | Phase | Wiring |
 |---|---|---|---|
 | 1 | CLI `--var KEY=VALUE` | 3.5 | All subcommands (check / remediate) |
-| 2 | `<config-dir>/hosts/<hostname>.yml` | 3.6 | Single-host only; inventory mode deferred to Phase 3.7 |
-| 3 | `<config-dir>/groups/<group>.yml` | 3.6 | Single-host only (no groups in single-host); inventory mode deferred |
+| 2 | `<config-dir>/hosts/<hostname>.yml` | 3.6 + 3.7 | Single-host (3.6) + inventory mode (3.7) |
+| 3 | `<config-dir>/groups/<group>.yml` | 3.6 + 3.7 | Inventory mode (groups come from the inventory file); single-host has no groups |
 | 4 | `<config-dir>/conf.d/*.yml` (alphabetical) | 3.6 | All modes |
 | 5 | `<config-dir>/defaults.yml` | 3.5 | All modes |
 
 Each later tier overrides earlier on key collision. conf.d files apply alphabetically (later filename wins). Group merges happen in inventory-file order (later in slice wins).
 
-**Inventory mode limitation (Phase 3.6 → 3.7):** the corpus is loaded once before the per-host fan-out, so per-host (`hosts/<host>.yml`) and per-group (`groups/<g>.yml`) variables are NOT applied per-host in inventory mode. They apply only in single-host mode where the host name is known at flag-parse time. When operators run `kensa check --inventory ... --config-dir DIR` with a `DIR/hosts/` or `DIR/groups/` subdirectory, kensa emits a one-line stderr warning so the omission isn't silent. Phase 3.7 will rewire inventory mode to re-load the corpus per host with that host's full 5-tier resolution.
+**Inventory-mode mechanics (Phase 3.7):** each per-host goroutine in the inventory fan-out resolves its own full 5-tier variable set using the host's address (from the inventory) and group memberships (from `[group]` sections in the inventory file). The corpus is RE-LOADED per host with that host's vars — the substituted values differ per host, but the rule-ID set after filters is identical (filter chain operates on rule metadata, not values). Output rendering uses each host's own resolved rule slice, not the global one — this avoids a misalignment bug when a rule's `{{ var }}` is defined ONLY in `hosts/<addr>.yml` (skipped in the global pre-load, loaded in the per-host pass).
+
+Performance: per-host re-load is bounded at ~0.5ms × N rules × M hosts. For a 539-rule corpus and a 10-host fleet, that's roughly 2.7 seconds — well below the SSH ControlMaster handshake cost it adds to.
 
 **Affected rules in current corpus (sample):** `pam-faillock-deny`, `pam-faillock-unlock-time`, `pam-pwquality-minlen`, `pam-pwquality-difok`, `pam-pwquality-minclass`, `ssh-client-alive-interval`, `ssh-max-auth-tries`, `login-defs-pass-max-days`, `pam-pwhistory-remember`. ~30 rules total use templates.
 

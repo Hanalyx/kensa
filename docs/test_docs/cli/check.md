@@ -38,7 +38,7 @@ DONE through Phase 3.5. The richest subcommand by flag count (~22 user-facing fl
 | `-f, --framework` | DONE (C-033) | e.g. `cis-rhel9` (hyphen ↔ underscore) |
 | `--control` | DONE (C-035) | Repeatable `FRAMEWORK:CONTROL` (long-only — `-c` is taken) |
 | `-x, --var` | DONE (Phase 3.5) | Repeatable KEY=VALUE; highest tier in 5-tier chain |
-| `--config-dir` | DONE (Phase 3.5/3.6) | Loads `defaults.yml` + `conf.d/*.yml` + (single-host) `hosts/<host>.yml` + `groups/<g>.yml`; long-only |
+| `--config-dir` | DONE (Phase 3.5/3.6/3.7) | Loads `defaults.yml` + `conf.d/*.yml` + `hosts/<host>.yml` + `groups/<g>.yml`. Full 5-tier active in BOTH single-host and inventory modes (Phase 3.7). Long-only. |
 
 ### Output options
 
@@ -106,6 +106,6 @@ Filter chain order (matters for empty-after-filter diagnostics):
 - **Inventory + `--password` is rejected.** Per-host passwords differ; broadcasting one is a footgun. Operators with shared credentials should set `SSHPASS` env.
 - **Inventory + per-host file outputs (`-o csv:PATH`) is rejected.** The C-019 data-loss guard: a file output would be overwritten per-host. Use stdout sinks or one-host-per-file scripts.
 - **Substitution is at YAML-bytes level.** A `--var` value containing `:` or `\n` may produce malformed YAML for the downstream decoder. The corpus uses bare scalar values exclusively; non-blocking. Spec AC-23 documents the trade-off.
-- **Inventory + per-host variable tiers not active.** Phase 3.6 ships full 5-tier resolution for single-host invocations only. Inventory mode applies the 3 host-independent tiers (defaults + conf.d + CLI); `hosts/<host>.yml` and `groups/<g>.yml` files are silently ignored. Kensa emits a one-line stderr warning when this combination is used so the omission isn't invisible. Phase 3.7 will rewire inventory mode to re-load the corpus per host. Workaround today: run single-host loops over the inventory hosts.
+- **Inventory mode re-parses the corpus per host.** Phase 3.7 makes per-host vars work in inventory by re-loading rules per host with that host's full 5-tier resolved variables. Performance budget: ~0.5ms × N rules × M hosts (~2.7s added for a 539-rule corpus and 10-host fleet). Above 100 hosts, future caching may be warranted; flag if real-world scans report slowdowns.
 - **Conflict-resolution warnings are stderr-only.** The C-021 conflict resolver detects rules that conflict (e.g., `ssh-ciphers-fips` vs `ssh-crypto-policy`); both currently emit warnings and run anyway. A future deliverable may add `--allow-conflicts` strict mode.
 - **No streaming output.** Inventory results are collected then rendered. A 100-host fleet pays the latency penalty before any output appears.

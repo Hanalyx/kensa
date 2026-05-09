@@ -13,7 +13,7 @@ Per-subcommand verification state for `kensa`, `kensa-fuzz`, and `kensa-validate
 | Subcommand | Document | Status |
 |---|---|---|
 | `kensa detect` | [`detect.md`](detect.md) | DONE — full Phase 3 flag surface |
-| `kensa check` | [`check.md`](check.md) | DONE — full Phase 3.6 flag surface incl. inventory mode (5-tier vars in single-host; 3-tier in inventory pending Phase 3.7) |
+| `kensa check` | [`check.md`](check.md) | DONE — full Phase 3.7 flag surface; 5-tier variable resolution active in BOTH single-host and inventory modes |
 | `kensa remediate` | [`remediate.md`](remediate.md) | DONE — full Phase 3.6 flag surface (single-host only) |
 | `kensa plan` | [`plan.md`](plan.md) | DONE — kensa-go addition; capability-gated selection deferred |
 | `kensa rollback` | [`rollback.md`](rollback.md) | PARTIAL — `--txn UUID` form done; session-list workflow Phase 4 |
@@ -39,4 +39,5 @@ Per-subcommand verification state for `kensa`, `kensa-fuzz`, and `kensa-validate
 | CLI Phase 2 close | 54 |
 | CLI Phase 2.5 close | 54 |
 | CLI Phase 3.5 close | 99 |
-| **CLI Phase 3.6 close (current)** | **99** (no smoke additions; new behavior covered by Go unit tests) |
+| CLI Phase 3.6 close | 99 (no smoke additions; new behavior covered by Go unit tests) |
+| **CLI Phase 3.7 close (current)** | **99** (no smoke additions; new behavior covered by Go unit tests + live verification) |
