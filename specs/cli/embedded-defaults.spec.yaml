@@ -1,0 +1,232 @@
+spec:
+    id: cli-embedded-defaults
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-embedded-defaults
+        description: |
+            Adds two operator-facing improvements that close
+            the silent-skip gap an operator hits running the
+            canonical command against the production rule
+            corpus without --var or --config-dir:
+
+              1. Built-in (embedded) defaults — kensa-go now
+                 ships with a vendored copy of Python kensa's
+                 defaults.yml `variables:` block, embedded via
+                 go:embed. Resolves the ~30 templated rules in
+                 the corpus out of the box.
+
+              2. --config-dir auto-detect chain — closes the
+                 C-036 spec promise that operators got at
+                 ship-time. Resolution order:
+                   a. operator-supplied --config-dir
+                   b. $KENSA_CONFIG_DIR env var
+                   c. $XDG_CONFIG_HOME/kensa
+                   d. $HOME/.config/kensa
+                   e. /etc/kensa
+
+            With both wired, the resolution chain becomes:
+
+              1. CLI --var KEY=VALUE                (highest)
+              2. <config-dir>/hosts/<hostname>.yml
+              3. <config-dir>/groups/<group>.yml
+              4. <config-dir>/conf.d/*.yml
+              5. <config-dir>/defaults.yml
+              6. EMBEDDED defaults                  (lowest)
+
+            Where <config-dir> is the first existing path in
+            the auto-detect chain when --config-dir is empty.
+
+            Embedded defaults are immutable per binary build;
+            operators wanting different defaults override via
+            any higher-priority tier. The values mirror Python
+            kensa's STIG-leaning defaults as of the embedded-
+            defaults deliverable; framework-specific overrides
+            (Python's tier 5) and rollback policy from
+            Python's defaults.yml are NOT vendored here —
+            those would need separate deliverables to wire
+            their downstream consumers.
+
+            Single-binary discipline preserved: no extra
+            files in the tarball, no runtime dependencies.
+
+    objective:
+        summary: |
+            Vendor kensa/config/defaults.yml's variables:
+            block into internal/varsub/embedded/defaults.yml.
+            Embed via go:embed and expose as
+            varsub.BuiltInDefaults() (memoized). Insert as the
+            lowest tier in ResolveTiers. Implement
+            cmd/kensa/configdir_resolve.go with the auto-
+            detect chain; wire into runCheck and runRemediate.
+        scope:
+            includes:
+                - "internal/varsub/embedded/defaults.yml: vendored variables: block from Python kensa"
+                - "internal/varsub/embedded.go: go:embed + BuiltInDefaults() + memoization cache"
+                - "ResolveTiers gains an embedded tier as the lowest priority"
+                - "cmd/kensa/configdir_resolve.go: resolveConfigDir + auto-detect chain"
+                - "runCheck and runRemediate call resolveConfigDir before ResolveTiers"
+                - "Test coverage: embedded parses + covers corpus vars, auto-detect chain priority"
+            excludes:
+                - "Vendoring Python kensa's frameworks: section: out of scope (no downstream consumer for framework-specific overrides yet)"
+                - "Vendoring Python kensa's rollback: policy: separate concern; rollback semantics differ in kensa-go"
+                - "Auto-update of embedded defaults from Python at build time: defer; manual sync via this spec's revision history"
+                - "--show-defaults / --print-resolution flags: future polish for debugging the resolution chain"
+
+    constraints:
+        - id: C-01
+          description: |
+              The embedded defaults MUST cover every variable
+              referenced by `{{ var }}` templates in the
+              production rule corpus (kensa/rules/). A
+              templated rule landing without a matching
+              embedded default would re-introduce the silent-
+              skip gap the deliverable closes.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The embedded defaults MUST be the LOWEST tier
+              in ResolveTiers. Every operator-supplied source
+              (defaults.yml / conf.d / groups / hosts / CLI)
+              overrides on key collision.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              resolveConfigDir MUST honor an explicit operator
+              value over all env-derived candidates. An
+              operator passing --config-dir /custom/path uses
+              that path even when $KENSA_CONFIG_DIR is set.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Auto-detect candidates that don't exist as
+              directories MUST be silently skipped. A
+              candidate that exists as a regular file (not a
+              directory) is also skipped. The chain falls
+              through to the next candidate in order.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              The embedded defaults MUST parse cleanly at
+              build time. A YAML syntax error or invalid
+              variable name in the embedded file is a build
+              regression — the test
+              TestBuiltInDefaults_Parses gates this.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              BuiltInDefaults() MUST cache its parsed result
+              across calls — inventory mode invokes
+              ResolveTiers per host, and re-parsing the
+              embedded YAML per host would be wasteful.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              BuiltInDefaults parses without error and
+              returns a non-empty map. Locked by
+              TestBuiltInDefaults_Parses.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-02
+          description: |
+              Embedded defaults cover every variable used by
+              the production rule corpus's templated rules.
+              Locked by TestBuiltInDefaults_CoversCorpusVars
+              (drift requires deliberate test update).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              BuiltInDefaults caches: a second call returns
+              the same content as the first. Locked by
+              TestBuiltInDefaults_Cached.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-04
+          description: |
+              ResolveTiers with no operator sources still
+              produces a non-empty map (just the embedded
+              tier). Locked by TestResolveTiers_EmbeddedAsFloor.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              CLI --var override beats embedded; untouched
+              embedded keys still pass through. Locked by
+              TestResolveTiers_OperatorOverridesEmbedded.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: |
+              resolveConfigDir with an explicit value
+              returns it unchanged. Locked by
+              TestResolveConfigDir_ExplicitWins.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-07
+          description: |
+              $KENSA_CONFIG_DIR is the first env-tier
+              checked. Locked by TestResolveConfigDir_KensaEnv
+              and TestResolveConfigDir_KensaEnvBeatsXDG.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              $XDG_CONFIG_HOME/kensa is the second env-tier.
+              Locked by TestResolveConfigDir_XDG.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-09
+          description: |
+              $HOME/.config/kensa is the third env-tier.
+              Locked by TestResolveConfigDir_Home.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-10
+          description: |
+              Explicit value beats every env candidate.
+              Locked by TestResolveConfigDir_ExplicitBeatsAllEnv.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-11
+          description: |
+              Non-existent candidates and regular files at
+              candidate paths are skipped. Locked by
+              TestResolveConfigDir_NonExistentSkipped and
+              TestResolveConfigDir_FileNotDir.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-12
+          description: |
+              Empty operator value AND no env candidates
+              produces either "" (last-resort /etc/kensa
+              missing) or "/etc/kensa". Deterministic across
+              two consecutive calls. Locked by
+              TestResolveConfigDir_EmptyWhenNothingSet.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-13
+          description: |
+              End-to-end: the canonical command
+              `kensa check -H HOST --rules-dir CORPUS
+              -s critical -s high` against the production
+              corpus runs WITHOUT the Phase 3.5
+              "23 rule(s) skipped — undefined variables"
+              warning. Verified live on 192.168.1.211 — the
+              warning was the gap motivating this
+              deliverable.
+          references_constraints: [C-01, C-02]
+          priority: critical
+
+    tags: [cli, rule-options, variables, embedded, autodetect, tier-1]
