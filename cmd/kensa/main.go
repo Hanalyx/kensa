@@ -583,6 +583,7 @@ func runCheck(ctx context.Context, args []string) error {
 		capabilities []string
 		workers      int
 		severities   []string
+		tags         []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -593,6 +594,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerStrictHostKeysFlag(fs)
 	registerCapabilityFlag(fs, &capabilities)
 	registerSeverityFlag(fs, &severities)
+	registerTagFilterFlag(fs, &tags)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -661,17 +663,25 @@ func runCheck(ctx context.Context, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	normalizedTags := normalizeTags(tags)
 
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
 		return err
 	}
-	// C-030: apply --severity filter at load time so all downstream
-	// stages (resolveAndPrintIssues, scan, output) only see rules in
-	// the operator's severity set.
+	// C-030: --severity filter at load time.
 	rules = filterRulesBySeverity(rules, resolvedSeverities)
 	if len(resolvedSeverities) > 0 && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--severity %v: no rules matched; nothing to scan", resolvedSeverities))
+	}
+	// C-031: --tag filter on top of --severity (AND across filter
+	// types: severity narrows first, tags narrow further). When the
+	// tag filter empties the set, surface the pre-tag count so the
+	// operator can tell whether severity or tag killed the run.
+	preTagCount := len(rules)
+	rules = filterRulesByTag(rules, normalizedTags)
+	if len(normalizedTags) > 0 && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--tag %v: no rules matched (after --severity filter, %d rule(s) remained; none had matching tags)", normalizedTags, preTagCount))
 	}
 
 	if inventory != "" {
@@ -927,6 +937,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		outputs      []string
 		capabilities []string
 		severities   []string
+		tags         []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -937,6 +948,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerStrictHostKeysFlag(fs)
 	registerCapabilityFlag(fs, &capabilities)
 	registerSeverityFlag(fs, &severities)
+	registerTagFilterFlag(fs, &tags)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -979,6 +991,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	normalizedTags := normalizeTags(tags)
 
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
@@ -987,6 +1000,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	rules = filterRulesBySeverity(rules, resolvedSeverities)
 	if len(resolvedSeverities) > 0 && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--severity %v: no rules matched; nothing to remediate", resolvedSeverities))
+	}
+	preTagCount := len(rules)
+	rules = filterRulesByTag(rules, normalizedTags)
+	if len(normalizedTags) > 0 && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--tag %v: no rules matched (after --severity filter, %d rule(s) remained; none had matching tags)", normalizedTags, preTagCount))
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)

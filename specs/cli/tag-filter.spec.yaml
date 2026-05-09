@@ -1,0 +1,182 @@
+spec:
+    id: cli-tag-filter
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-tag-filter
+        description: |
+            CLI Phase 3 deliverable C-031. Adds repeatable
+            `--tag / -t` to `kensa check` and `kensa remediate`.
+            Operators pass `-t pci -t cis` to filter rules
+            whose `tags:` array intersects their set.
+
+            Semantics: OR across operator-supplied values
+            (a rule with EITHER tag matches; rules with
+            BOTH tags are not required). AND semantics within
+            a single --tag value isn't supported — each `-t
+            value` is a separate tag.
+
+            Tags are free-form strings written by rule authors
+            (no canonical vocabulary). A typo like `-t hippa`
+            silently matches nothing rather than producing a
+            usage error — but the empty-after-filter guard
+            surfaces it as "no rules matched".
+
+            Combined with C-030 --severity (and forthcoming
+            C-032..C-033), filters compose as AND across
+            different filter types: severity narrows first,
+            tags narrow further. Within a single filter type
+            (multiple -t values), values are OR.
+
+    objective:
+        summary: |
+            Add --tag / -t repeatable string flag on `kensa
+            check` and `kensa remediate`. Normalize input
+            (lowercase, trim, dedupe). Filter rules by Tags
+            intersection. Empty filter set = pass-through.
+            Empty result after filter = usage error.
+        scope:
+            includes:
+                - --tag / -t repeatable flag on check + remediate
+                - normalizeTags helper (lowercase, trim, dedupe, drop empty)
+                - filterRulesByTag (OR-across-allowed, case-insensitive both sides, preserves order)
+                - Empty filtered set → usage error (consistent with --severity)
+                - "Compose with --severity (AND across filter types)"
+            excludes:
+                - "Vocabulary validation: tags are free-form by design"
+                - "AND semantics within a single -t value: not supported (use multiple -t)"
+                - "Tag globbing (-t 'pci-*'): future"
+                - "--tag on detect / plan / rollback: out of scope (no rule corpus to filter)"
+
+    constraints:
+        - id: C-01
+          description: |
+              An empty --tag set MUST be treated as
+              pass-through; operators who don't pass the flag
+              get the historical behavior of all rules.
+
+              Note: empty/whitespace-only -t values are
+              dropped during normalization (not errors). A
+              shell expansion of `-t "$VAR"` where $VAR is
+              empty becomes a no-op rather than a usage
+              error — matches how pflag handles unset
+              substitutions and avoids surprising scripted
+              callers.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              When --tag values produce zero matched rules,
+              kensa MUST return a usage error rather than
+              silently scanning nothing. Likely a typo or a
+              corpus that doesn't tag the way the operator
+              expected; either is worth surfacing.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Across multiple -t values, semantics are OR (a
+              rule matches if any of its tags is in the
+              allowed set). AND-across-tags isn't supported;
+              operators wanting strict-AND can chain through
+              other filters or grep the rule corpus.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Match MUST be case-insensitive on both sides
+              (operator input AND rule's Tags field). Rule
+              corpora may have any casing.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              filterRulesByTag MUST preserve input order so
+              the filter introduces no reordering surprise of
+              its own (downstream ordering.go re-sorts by
+              dependency graph anyway).
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              normalizeTags(nil/empty) returns nil. Locked by
+              TestNormalizeTags_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              normalizeTags lowercases and trims each value.
+              Locked by TestNormalizeTags_LowercasesTrims.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-03
+          description: |
+              normalizeTags deduplicates case-folded duplicates
+              and drops empty/whitespace-only values. Locked by
+              TestNormalizeTags_Deduplicates and
+              TestNormalizeTags_DropsEmpty.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-04
+          description: |
+              filterRulesByTag with empty allowed returns the
+              input unchanged. Locked by
+              TestFilterRulesByTag_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-05
+          description: |
+              Single-tag filter returns only rules whose Tags
+              contain that tag. Locked by
+              TestFilterRulesByTag_SingleTag.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              Multi-tag filter returns rules with ANY matching
+              tag (OR semantics). Locked by
+              TestFilterRulesByTag_OrSemanticsAcrossValues.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-07
+          description: |
+              Filter preserves input order. Locked by
+              TestFilterRulesByTag_PreservesOrder.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-08
+          description: |
+              Filter matches case-insensitively against both
+              operator input (already lowercased) and the
+              rule's Tags entries (lowercased at compare).
+              Locked by TestFilterRulesByTag_CaseInsensitive.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-09
+          description: |
+              Filter excludes rules with no matching tags.
+              Locked by TestFilterRulesByTag_NoMatch.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-10
+          description: |
+              Filter handles rules with nil or empty Tags
+              (no panic, just exclusion). Locked by
+              TestFilterRulesByTag_RuleWithEmptyTags.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-11
+          description: |
+              Empty filtered set produces a usage error in
+              runCheck and runRemediate (matches --severity
+              pattern). Verified by code inspection at the
+              post-filter check site in main.go.
+          references_constraints: [C-02]
+          priority: high
+
+    tags: [cli, rule-options, tag, tier-1, c-031]
