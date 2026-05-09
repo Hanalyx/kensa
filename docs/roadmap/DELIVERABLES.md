@@ -265,7 +265,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Repeatable `-C KEY=VALUE` (e.g., `-C apparmor=true -C selinux=false`). Overrides the detected capability set per-key. KEY must be in the known capability vocabulary; VALUE is `true|false`. Wired into the rule selector's `when:` evaluation.
 - **Size:** 2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `f4f9ddb`). Wired into detect/check (single + inventory)/remediate; plan path explicitly excluded (PlanTransaction uses selectDefaultImpl, not capability-gated). Permissive VALUE parser (true/false/yes/no/on/off/1/0). Unknown KEY usage error lists all valid capabilities inline. New `api.ScannerWithOverrides` interface; legacy `ScannerBackend` unchanged for backward compat. Spec: `specs/cli/capability-override.spec.yaml` (6 constraints, 11 ACs incl. risk-model stanza). Live-verified flipping selinux + apparmor on 192.168.1.211.
 
 #### C-029 — `--workers/-w` parallel SSH
 - **Phase:** CLI Phase 3
