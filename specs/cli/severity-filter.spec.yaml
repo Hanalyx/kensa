@@ -1,0 +1,197 @@
+spec:
+    id: cli-severity-filter
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-severity-filter
+        description: |
+            CLI Phase 3 deliverable C-030. Adds repeatable
+            `--severity / -s` to `kensa check` and `kensa
+            remediate`. Operators pass `-s critical -s high` to
+            scan/remediate only the rules whose severity is in
+            their set; empty set (default) passes all
+            severities through.
+
+            Use case: nightly runs that only check critical+high
+            findings to bound runtime; ad-hoc operator scans
+            scoped to "everything that's actually a finding."
+
+            The vocabulary is the same enum the rule validator
+            enforces (critical|high|medium|low). Case-insensitive
+            on input; rules with non-matching severity are
+            skipped at load time so all downstream stages
+            (resolveAndPrintIssues, scan, fan-out, output) only
+            see the filtered set.
+
+            If --severity values produce an empty rule set,
+            kensa returns a usage error rather than scanning
+            zero rules silently — likely operator typo or empty
+            corpus, both worth surfacing.
+
+    objective:
+        summary: |
+            Add --severity / -s repeatable string flag on `kensa
+            check` and `kensa remediate`. Validate against the
+            critical|high|medium|low vocabulary up front.
+            Filter rules at load time. Empty set = pass-through.
+            Empty result after filter = usage error.
+        scope:
+            includes:
+                - --severity / -s repeatable string flag on `kensa check` and `kensa remediate`
+                - validateSeverities helper (case-insensitive, dedupe, vocabulary check)
+                - filterRulesBySeverity helper (preserves input order, case-insensitive match)
+                - "Up-front flag-only validation: bad severity surfaces before rule load"
+                - "Empty filtered set produces a usage error: 'no rules matched; nothing to scan/remediate'"
+            excludes:
+                - "--severity on detect: detect doesn't load rules; out of scope"
+                - "--severity on plan / rollback: plan takes a single rule; rollback uses persisted txn record"
+                - "Severity vocabulary changes: future schema work"
+                - "Combining severity with tag/category/framework filters: AND-across-flag-types semantics in C-031..C-033"
+
+    constraints:
+        - id: C-01
+          description: |
+              Every value passed to --severity MUST be in the
+              canonical vocabulary (critical|high|medium|low,
+              case-insensitive). Unknown values produce a usage
+              error mentioning the valid choices. Silent
+              acceptance of "severe" (typo) would let an
+              operator believe they've filtered when they
+              haven't.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              An empty --severity set MUST be treated as
+              "all severities pass through" — operators who
+              don't pass the flag get the historical behavior
+              of scanning every rule, no opt-in regression.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              When the filter produces zero matched rules,
+              kensa MUST return a usage error rather than
+              silently scanning nothing. An operator passing
+              `-s critical` against a rules-dir that contains
+              only medium/low rules has likely chosen the wrong
+              corpus or the wrong filter; surface it.
+
+              Trade-off note: a nightly cron with `-s critical`
+              against a corpus where the last critical rule was
+              just removed will turn red. This is a deliberate
+              choice — the alternative (silent zero-scan exit 0)
+              hides corpus drift that the operator probably
+              wants to know about. A future deliverable may
+              add `--allow-empty` if cron-operator friction
+              reports come in.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              filterRulesBySeverity MUST preserve the input
+              order so the filter introduces no reordering
+              surprise of its own. The downstream pipeline
+              (rule.Resolve, ordering.go) re-sorts rules by
+              dependency graph after the filter runs, so this
+              is partly cosmetic — but a filter that scrambles
+              order would be confusing in pre-resolve output
+              (e.g., issue listings in resolveAndPrintIssues).
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Both the --severity argument and the rule's
+              Severity field comparison MUST be
+              case-insensitive. Rule corpora may have any
+              casing (Critical, CRITICAL, critical) — the
+              filter must match regardless.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              validateSeverities(nil) and
+              validateSeverities([]string{}) both return
+              (nil, nil). Locked by
+              TestValidateSeverities_Empty.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              All four canonical severities are accepted
+              individually. Locked by
+              TestValidateSeverities_AllValid.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Mixed-case input is normalized to lowercase
+              with whitespace trimmed. Locked by
+              TestValidateSeverities_CaseInsensitive.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-04
+          description: |
+              Duplicate values (case-folded) collapse to a
+              single entry in the output slice. Locked by
+              TestValidateSeverities_Deduplicates.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              Unknown severity values produce an error
+              mentioning "unknown severity" and listing the
+              valid choices. Locked by
+              TestValidateSeverities_Unknown.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              filterRulesBySeverity with empty allowed
+              returns the input unchanged. Locked by
+              TestFilterRulesBySeverity_Empty.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-07
+          description: |
+              Filter with a single severity returns only
+              rules whose Severity matches. Locked by
+              TestFilterRulesBySeverity_Single.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-08
+          description: |
+              Filter with multiple severities returns the
+              union (any-match). Locked by
+              TestFilterRulesBySeverity_Multiple.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-09
+          description: |
+              Filter preserves input order. Locked by
+              TestFilterRulesBySeverity_PreservesOrder.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-10
+          description: |
+              Filter matches rule severity case-insensitively
+              against the lowercase allowed-set. Locked by
+              TestFilterRulesBySeverity_RuleSeverityCaseInsensitive.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-11
+          description: |
+              When --severity values are valid but the
+              filter empties the rule set, runCheck and
+              runRemediate return a usage error
+              ("no rules matched"). Verified by code
+              inspection at the post-filter check site.
+          references_constraints: [C-03]
+          priority: high
+
+    tags: [cli, rule-options, severity, tier-1, c-030]
