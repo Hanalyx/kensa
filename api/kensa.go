@@ -135,6 +135,13 @@ type HostConfig struct {
 	// non-empty, the SSH transport requires `sshpass` on the host
 	// running kensa.
 	Password string
+	// StrictHostKeys controls SSH host-key verification policy.
+	// When true, the transport sets StrictHostKeyChecking=yes:
+	// unknown host keys cause connect failure rather than silent
+	// trust-on-first-use. When false (default), the transport sets
+	// StrictHostKeyChecking=accept-new, matching Python kensa's
+	// default. Wired in C-027 of the CLI Phase 3 migration.
+	StrictHostKeys bool
 }
 
 // ScanResult is the outcome of [Kensa.Scan]. Each entry in
