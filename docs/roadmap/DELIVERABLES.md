@@ -251,7 +251,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-024
 - **Acceptance:** `--password VALUE` uses VALUE; `--password` with no argument prompts on the controlling TTY via `golang.org/x/term.ReadPassword`. Falls back to long-only when stdin isn't a TTY. Wired into SSH transport's password auth path.
 - **Size:** 2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `f352547`). Wired into detect/check/remediate/plan via `registerPasswordFlag`. SSH transport routes through `sshpass -e` (env var, never argv). `--password` + `--inventory` rejected with usage error (per-host passwords differ). Stderr scrubbed for password substrings on connect failure. Reserved sentinel literal `<prompt>` for prompt mode. Spec: `specs/cli/password.spec.yaml` (6 constraints, 9 ACs).
 
 #### C-027 — `--strict-host-keys` / `--no-strict-host-keys`
 - **Phase:** CLI Phase 3
