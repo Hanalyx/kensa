@@ -68,8 +68,12 @@ const (
 	// ShortUser is `--user`. SSH username.
 	ShortUser = "u"
 
-	// ShortPort is `--port`. SSH port.
-	ShortPort = "p"
+	// ShortPort is `--port`. SSH port. CAPITAL P per
+	// CLI_GNU_POSIX_MIGRATION_V1.md §4.2; lowercase `-p` is reserved
+	// for `--password` (wired in C-026). The C-024 reconciliation
+	// flipped this from the CLI Phase 1 default; CHANGELOG.md notes
+	// the breaking change.
+	ShortPort = "P"
 
 	// ShortKey is `--key`. SSH private key path.
 	// Note: deviates from OpenSSH's `-i identity_file` because `-i`
@@ -78,17 +82,24 @@ const (
 	// the entire CLI for consistency.
 	ShortKey = "k"
 
-	// ShortSudo is `--sudo`. Wrap remote commands in sudo.
-	ShortSudo = "s"
+	// ShortSudo: --sudo has NO short letter. Per
+	// CLI_GNU_POSIX_MIGRATION_V1.md §3.2, Python kensa's --sudo
+	// also has no short. The C-024 reconciliation freed the
+	// previous `-s` for `--severity` (C-030). The constant is
+	// retained as the empty string so call sites that read
+	// ShortSudo continue to compile and resolve to "no short."
+	ShortSudo = ""
 
 	// Output / format options.
 
-	// ShortFormat is `--format`. Output format selector. CLI Phase 2
-	// (C-019) introduced `-o, --output FORMAT[:PATH]` as the canonical
-	// repeatable form for multi-target dispatch; --format remains
-	// supported as the single-target shortcut and is deprecated for
-	// removal in C-020 with one minor version of overlap.
-	ShortFormat = "f"
+	// ShortFormat: --format has NO short letter as of C-024.
+	// Per CLI_GNU_POSIX_MIGRATION_V1.md §4.2, lowercase `-f` is
+	// reserved for `--framework` (wired in C-033). The --format
+	// long form remains as a deprecated alias (per C-020); it
+	// will be removed in v0.2. Operators using `-f` for format
+	// migrate to `-o FORMAT` or `--output FORMAT`. The constant
+	// is retained as "" so call sites continue to compile.
+	ShortFormat = ""
 
 	// ShortOutput is `--output FORMAT[:PATH]`, repeatable. Each value
 	// is one Spec parsed by internal/output.Parse (e.g., "json",
@@ -120,8 +131,11 @@ const (
 	// take different argument types.)
 	ShortLimit = "n"
 
-	// ShortTransaction is `--txn` (transaction UUID).
-	ShortTransaction = "t"
+	// ShortTransaction is `--txn` (transaction UUID). CAPITAL T
+	// per the C-024 reconciliation; lowercase `-t` is reserved for
+	// `--tag` (wired in C-031). Used by `kensa rollback` and the
+	// `kensa history --txn` filter.
+	ShortTransaction = "T"
 
 	// ShortAggregate is `--aggregate` (history aggregation key).
 	ShortAggregate = "a"
@@ -138,4 +152,57 @@ const (
 	// for multi-host runs). Wired in C-023; the long form has been
 	// supported since CLI Phase 1.
 	ShortInventory = "i"
+
+	// CLI Phase 3 placeholder short letters. The constants are
+	// declared here (in the centralized table) so the collision
+	// checker and case-discipline tests cover them; the actual flag
+	// wiring lands in the named deliverable. Until then, attempting
+	// to use these short letters produces "unknown shorthand."
+
+	// ShortPassword is `--password` (SSH password auth, with
+	// secure prompt when no value given). Wired in C-026.
+	ShortPassword = "p"
+
+	// ShortLimitGlob is `--limit` (host glob filter for inventory
+	// mode, ansible --limit semantics). Wired in C-025. Note: the
+	// existing ShortLimit ("n") for --limit row-count in
+	// history/rollback is a SEPARATE flag in a different scope;
+	// the migration doc accepts the lowercase-l vs lowercase-n
+	// reuse because the two flags take different argument types.
+	// Constant is named ShortLimitGlob (not ShortLimit) to keep
+	// godoc unambiguous about which scope it belongs to.
+	ShortLimitGlob = "l"
+
+	// ShortSeverity is `--severity` (rule filter: critical/high/
+	// medium/low). Wired in C-030. Lowercase `-s` was freed by
+	// the --sudo reconciliation in C-024.
+	ShortSeverity = "s"
+
+	// ShortTag is `--tag` (rule filter, repeatable). Wired in C-031.
+	// Lowercase `-t` was freed by the --txn → -T reconciliation.
+	ShortTag = "t"
+
+	// ShortCategory is `--category` (rule filter). Wired in C-032.
+	ShortCategory = "c"
+
+	// ShortFramework is `--framework` (filter to rules in a
+	// framework mapping). Wired in C-033. Lowercase `-f` was freed
+	// by the --format reconciliation; the --format long form
+	// remains as a deprecated alias.
+	ShortFramework = "f"
+
+	// ShortCapability is `--capability` (capability override,
+	// repeatable). Wired in C-028. Capital C — operators rarely
+	// use it interactively, and lowercase c is --category.
+	ShortCapability = "C"
+
+	// ShortWorkers is `--workers` (parallel SSH connections, 1-50).
+	// Wired in C-029.
+	ShortWorkers = "w"
+
+	// ShortVar is `--var` (rule-variable override KEY=VALUE,
+	// repeatable). Wired in C-034. Lowercase x — Python kensa
+	// uses -V which is reserved for --version in kensa-go;
+	// `-x` mnemonic is "eXtra var" matching ansible's `-e`.
+	ShortVar = "x"
 )

@@ -290,7 +290,7 @@ func TestRunCLI_UsageVsRuntimeExitCodes(t *testing.T) {
 		{name: "kensa check --bogus", argv: []string{"check", "--bogus"}, wantExit: 2},
 		{name: "kensa rollback (no host)", argv: []string{"rollback"}, wantExit: 2},
 		{name: "kensa rollback -H foo (no txn)", argv: []string{"rollback", "-H", "foo"}, wantExit: 2},
-		{name: "kensa rollback bad UUID", argv: []string{"rollback", "-H", "foo", "-t", "notauuid"}, wantExit: 2},
+		{name: "kensa rollback bad UUID", argv: []string{"rollback", "-H", "foo", "-T", "notauuid"}, wantExit: 2},
 		{name: "kensa plan (no host, no rule)", argv: []string{"plan"}, wantExit: 2},
 		{name: "kensa plan -H foo (no rule)", argv: []string{"plan", "-H", "foo"}, wantExit: 2},
 		{name: "kensa remediate (no host)", argv: []string{"remediate"}, wantExit: 2},

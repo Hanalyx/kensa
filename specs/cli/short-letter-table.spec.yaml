@@ -1,0 +1,182 @@
+spec:
+    id: cli-short-letter-table
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-short-letter-reconciliation
+        description: |
+            CLI Phase 3's foundation: reconciles the kensa-go short-
+            letter table with `CLI_GNU_POSIX_MIGRATION_V1.md` §4.2
+            so the Phase 3 flag additions (--password, --severity,
+            --tag, --framework, --capability, --workers, --var,
+            --limit) can claim their canonical short letters per
+            Python kensa parity (modulo five GNU-mandated deviations).
+
+            Pre-C-024 short letters that change:
+              ShortPort:        p → P  (lowercase reserved for --password)
+              ShortSudo:        s → "" (no short; freed for --severity)
+              ShortTransaction: t → T  (lowercase reserved for --tag)
+              ShortFormat:      f → "" (no short; freed for --framework;
+                                        long form remains as deprecated alias)
+
+            New Phase 3 placeholder constants declared but not yet
+            wired (deliverable-by-deliverable rollout):
+              ShortPassword    = "p"  (C-026)
+              ShortLimitGlob   = "l"  (C-025)
+              ShortSeverity    = "s"  (C-030)
+              ShortTag         = "t"  (C-031)
+              ShortCategory    = "c"  (C-032)
+              ShortFramework   = "f"  (C-033)
+              ShortCapability  = "C"  (C-028)
+              ShortWorkers     = "w"  (C-029)
+              ShortVar         = "x"  (C-034)
+
+            Operators using the old short letters get pflag's
+            "unknown shorthand" error (exit 2). Per the migration
+            doc §4.3, "Python kensa is being phased out as an
+            internal prototype with no production users, so there
+            is no operator muscle memory to migrate." kensa-go
+            itself is pre-1.0 with no v0.1 tag yet — the breaking
+            short-letter changes are recorded in CHANGELOG.md.
+
+    objective:
+        summary: |
+            Update the centralized short-letter constants in
+            cmd/kensa/flags.go per §4.2 of the migration doc.
+            Update the centralized collision/case-discipline tests.
+            Update internal references (cli-smoke.sh, main_test.go)
+            to use the new short letters. CHANGELOG.md gets a
+            Breaking-changes entry.
+        scope:
+            includes:
+                - "cmd/kensa/flags.go: ShortPort/ShortSudo/ShortTransaction/ShortFormat updates"
+                - "cmd/kensa/flags.go: 9 new placeholder constants for Phase 3 wiring"
+                - "cmd/kensa/flags_test.go: collision + case-discipline coverage of all 25 constants"
+                - "cmd/kensa/main_test.go: rollback-bad-UUID test uses -T"
+                - "scripts/cli-smoke.sh: rollback bad-UUID smoke uses -T"
+                - "cmd/kensa/deprecation_test.go: -f-shortform-gone test (replaces the C-020 -f-still-fires test)"
+                - "CHANGELOG.md Breaking-changes entry"
+            excludes:
+                - "Pflag-based deprecation aliases for old short letters (rejected — no production users to migrate; hard cut + CHANGELOG is the right tradeoff for pre-1.0)"
+                - "Wiring the Phase 3 placeholder constants to actual flags (C-025..C-034 own their respective flags)"
+                - "Renaming --rules-dir to --rules per §3.3 (defer; --rules-dir is shipped and stable; reconciliation is a separate naming-cycle deliverable)"
+
+    constraints:
+        - id: C-01
+          description: |
+              The 25 Short* constants in cmd/kensa/flags.go MUST
+              all be either a single character or the empty string.
+              Empty is reserved for flags whose canonical design
+              has no short letter (ShortSudo per §3.2; ShortFormat
+              after the C-024 reconciliation). The collision-
+              detection test rejects any other length.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              No two non-empty Short* constants MAY bind the same
+              letter. The collision-detection test enforces this
+              with a per-letter inverse-map check; multiple
+              constants pointing at the same letter is the bug
+              this test exists to catch.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Sacred GNU letters (h/V/v) are never reused. The
+              case-discipline test asserts the mapping. Three
+              flags (ShortHelp, ShortVersion, ShortVerbose) bind
+              these letters; no other constant may.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Constants with intentionally-empty values MUST be
+              listed in the test's intentionallyEmpty allow-list.
+              This forces a future contributor who deletes a
+              short letter to acknowledge the choice in the test
+              file rather than silently breaking the
+              "every-Short-binds-something" invariant.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Internal references (cli-smoke.sh, _test.go files
+              with old short letters) MUST be updated as part of
+              C-024. Leaving them on old letters would produce
+              CI failures the moment C-024 lands.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              CHANGELOG.md MUST get a Breaking-changes entry
+              listing each old→new short-letter mapping with a
+              one-line operator-facing migration note (typically:
+              "use the long form" or "use -X instead of -x").
+              This is the contract operators read at upgrade time.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              ShortPort == "P", ShortSudo == "", ShortTransaction
+              == "T", ShortFormat == "" after C-024. Locked by
+              TestShortLetterTable_NoCollisions and
+              TestShortLetterTable_CaseDiscipline.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              The 9 new Phase 3 placeholder constants
+              (ShortPassword, ShortLimitGlob, ShortSeverity,
+              ShortTag, ShortCategory, ShortFramework,
+              ShortCapability, ShortWorkers, ShortVar) are
+              declared in cmd/kensa/flags.go with the values
+              specified in the migration doc §4.2 and pass the
+              collision-detection test.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              No two non-empty Short* constants share a letter.
+              Locked by TestShortLetterTable_NoCollisions.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              ShortSudo and ShortFormat are listed in the test's
+              intentionallyEmpty allow-list. Locked by
+              TestShortLetterTable_NoCollisions; constants empty
+              outside the allow-list cause test failure.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              `kensa rollback -H foo -T notauuid` exits 2 (UUID
+              parse error). Locked by main_test.go and cli-smoke.sh.
+              The previous form used `-t` which is now reserved
+              for --tag.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              `kensa detect --host foo -P 1 -f json` exits 2
+              ("unknown shorthand: -f") after C-024. Locked by
+              TestDeprecation_FormatFlag_ShortFormGone (renamed
+              from the C-020 _ShortFormFires test which expected
+              the deprecated-warning behavior).
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: |
+              CHANGELOG.md's Unreleased section gains a Breaking-
+              changes entry listing the four old→new short-letter
+              mappings with concrete migration examples.
+          references_constraints: [C-06]
+          priority: critical
+
+    tags: [cli, short-letters, gnu-posix, tier-1, c-024]
