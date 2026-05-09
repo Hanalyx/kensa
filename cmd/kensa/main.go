@@ -585,6 +585,7 @@ func runCheck(ctx context.Context, args []string) error {
 		severities   []string
 		tags         []string
 		category     string
+		framework    string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -597,6 +598,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerSeverityFlag(fs, &severities)
 	registerTagFilterFlag(fs, &tags)
 	registerCategoryFlag(fs, &category)
+	registerFrameworkFlag(fs, &framework)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -671,6 +673,18 @@ func runCheck(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	// C-033: snapshot the framework vocabulary BEFORE filtering so an
+	// "unknown framework" error reflects what the loaded corpus
+	// actually contains, not what survives the severity/tag/category
+	// chain. An operator running `-s critical -f nist_800_53` against
+	// a corpus where critical rules have no NIST mappings should see
+	// "no rules matched (after upstream filters)", not "unknown
+	// framework" — those are different failure modes.
+	loadedFrameworks := availableFrameworks(rules)
+	canonicalFramework, err := validateFramework(framework, loadedFrameworks)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
 	// C-030: --severity filter at load time.
 	rules = filterRulesBySeverity(rules, resolvedSeverities)
 	if len(resolvedSeverities) > 0 && len(rules) == 0 {
@@ -691,6 +705,13 @@ func runCheck(ctx context.Context, args []string) error {
 	rules = filterRulesByCategory(rules, category)
 	if category != "" && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--category %q: no rules matched (after upstream filters, %d rule(s) remained; none had matching category)", category, preCategoryCount))
+	}
+	// C-033: framework filter (validation already happened above
+	// against the pre-filter corpus snapshot).
+	preFrameworkCount := len(rules)
+	rules = filterRulesByFramework(rules, canonicalFramework)
+	if canonicalFramework != "" && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--framework %q: no rules matched (after upstream filters, %d rule(s) remained; none mapped this framework)", framework, preFrameworkCount))
 	}
 
 	if inventory != "" {
@@ -948,6 +969,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		severities   []string
 		tags         []string
 		category     string
+		framework    string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -960,6 +982,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerSeverityFlag(fs, &severities)
 	registerTagFilterFlag(fs, &tags)
 	registerCategoryFlag(fs, &category)
+	registerFrameworkFlag(fs, &framework)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -1008,6 +1031,12 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return err
 	}
+	// C-033: validate framework against pre-filter corpus snapshot.
+	loadedFrameworks := availableFrameworks(rules)
+	canonicalFramework, err := validateFramework(framework, loadedFrameworks)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
 	rules = filterRulesBySeverity(rules, resolvedSeverities)
 	if len(resolvedSeverities) > 0 && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--severity %v: no rules matched; nothing to remediate", resolvedSeverities))
@@ -1021,6 +1050,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	rules = filterRulesByCategory(rules, category)
 	if category != "" && len(rules) == 0 {
 		return NewUsageError(fmt.Sprintf("--category %q: no rules matched (after upstream filters, %d rule(s) remained; none had matching category)", category, preCategoryCount))
+	}
+	preFrameworkCount := len(rules)
+	rules = filterRulesByFramework(rules, canonicalFramework)
+	if canonicalFramework != "" && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--framework %q: no rules matched (after upstream filters, %d rule(s) remained; none mapped this framework)", framework, preFrameworkCount))
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)

@@ -1,0 +1,237 @@
+spec:
+    id: cli-framework-filter
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-framework-filter
+        description: |
+            CLI Phase 3 deliverable C-033. Adds single-value
+            `--framework / -f` to `kensa check` and `kensa
+            remediate`. Operators pass `-f cis_rhel9` to
+            filter rules to only those that map a control
+            under the named framework.
+
+            Framework IDs are produced by
+            mappings.RefsFromReferences from each rule's
+            references block. Versioned-object frameworks
+            (CIS, STIG) emit IDs like `cis_rhel9`,
+            `stig_rhel8`. Flat-list frameworks (NIST 800-53,
+            PCI DSS, HIPAA) emit the framework key as-is.
+
+            Validation: the operator's value must appear in
+            the union of FrameworkIDs across all loaded rules.
+            Unknown values produce a usage error that lists
+            the available frameworks. This catches typos AND
+            corpus-mismatch cases (operator points at a
+            rules-dir that doesn't have CIS mappings, then
+            asks for `-f cis_rhel9`).
+
+            Hyphen / underscore aliases: `-f cis-rhel9` and
+            `-f cis_rhel9` resolve to the same canonical ID.
+            The deliverable's example used hyphens; the
+            on-disk format uses underscores. We accept both
+            to spare the operator the lookup.
+
+            Composes with --severity (C-030), --tag (C-031),
+            and --category (C-032) via AND. Filter chain
+            order in main.go: severity → tag → category →
+            framework. Each empty-after-filter error
+            discloses the pre-stage rule count for chain
+            disambiguation.
+
+    objective:
+        summary: |
+            Add --framework / -f single-value StringVarP on
+            check + remediate. Validate against the union of
+            FrameworkIDs in the loaded corpus (the pre-filter
+            snapshot, taken before severity/tag/category
+            narrows). Validation is case-insensitive on
+            operator input. Filter via
+            mappings.RefsFromReferences exact-match. Empty
+            value = pass-through. Hyphen/underscore aliases
+            resolve to the same canonical ID.
+        scope:
+            includes:
+                - --framework / -f single-value flag on check + remediate
+                - registerFrameworkFlag, validateFramework, filterRulesByFramework, normalizeFrameworkID, availableFrameworks
+                - Hyphen-as-underscore alias normalization on operator input
+                - "Vocabulary validation against the loaded corpus (not a hardcoded list)"
+                - "Empty filtered set → usage error (consistent with --severity, --tag, --category)"
+                - "Composes AND with upstream filters; chain-disambiguation in error messages"
+            excludes:
+                - "Multi-framework filter: future (today operators run two scans or use --tag if rules carry framework tags)"
+                - "Framework version inference (`-f cis` without rhel suffix): future"
+                - "Coverage report (which rules map which framework controls): handled by `kensa coverage` — separate deliverable"
+                - "--framework on detect / plan / rollback: out of scope"
+
+    constraints:
+        - id: C-01
+          description: |
+              An empty --framework value MUST be treated as
+              pass-through; operators who don't pass the flag
+              get all rules.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              An unknown framework value MUST produce a usage
+              error listing the available frameworks (the
+              union of FrameworkIDs in the loaded corpus).
+              Silent acceptance would let a typo or
+              corpus-mismatch silently scan zero rules.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Hyphen and underscore in framework IDs MUST be
+              treated as aliases. Operator typing `-f
+              cis-rhel9` MUST resolve to the canonical
+              `cis_rhel9` (or whichever underscore form the
+              mappings module emits).
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Match MUST be case-insensitive on the operator
+              side. The on-disk framework IDs are
+              lowercase-only by mappings convention; the
+              normalize helper folds operator input to match.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              filterRulesByFramework MUST preserve input
+              order so the filter introduces no reordering
+              surprise of its own.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              The empty-after-framework usage error MUST
+              include the upstream rule count
+              (post-severity/tag/category, pre-framework) so
+              operators can disambiguate which filter killed
+              the run.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              normalizeFrameworkID is identity on
+              already-canonical input. Locked by
+              TestNormalizeFrameworkID_Identity.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              normalizeFrameworkID converts hyphens to
+              underscores. Locked by
+              TestNormalizeFrameworkID_HyphenToUnderscore.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              normalizeFrameworkID lowercases and trims.
+              Locked by TestNormalizeFrameworkID_LowercasesAndTrims.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-04
+          description: |
+              availableFrameworks returns the sorted union of
+              FrameworkIDs across all loaded rules, no
+              duplicates. Locked by
+              TestAvailableFrameworks_UnionAndSorted.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              availableFrameworks on a corpus with no
+              references returns empty. Locked by
+              TestAvailableFrameworks_Empty.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              validateFramework with empty input returns
+              ("", nil). Locked by
+              TestValidateFramework_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-07
+          description: |
+              validateFramework with a valid ID returns the
+              canonical form, nil error. Locked by
+              TestValidateFramework_Match.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              Hyphen-form input matches its underscore-form
+              canonical entry. Locked by
+              TestValidateFramework_HyphenAlias.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-09
+          description: |
+              Case-insensitive on operator side. Locked by
+              TestValidateFramework_CaseInsensitive.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-10
+          description: |
+              Unknown framework → error mentioning "unknown
+              framework" and listing available IDs. Locked
+              by TestValidateFramework_Unknown.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-11
+          description: |
+              Empty available + non-empty input → error
+              mentioning empty corpus. Locked by
+              TestValidateFramework_EmptyAvailable.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-12
+          description: |
+              filterRulesByFramework with empty allowed
+              returns input unchanged. Locked by
+              TestFilterRulesByFramework_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-13
+          description: |
+              filterRulesByFramework with a CIS-versioned
+              framework selects only rules with that
+              cis.<version> entry. Locked by
+              TestFilterRulesByFramework_Match.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-14
+          description: |
+              filterRulesByFramework with a flat-list
+              framework (NIST) selects rules whose
+              references include that framework. Locked by
+              TestFilterRulesByFramework_FlatListMatch.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-15
+          description: |
+              Filter preserves input order. Locked by
+              TestFilterRulesByFramework_PreservesOrder.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-16
+          description: |
+              Empty-after-framework usage error includes the
+              upstream count (post-severity/tag/category,
+              pre-framework). Verified by code inspection at
+              the post-filter check sites in runCheck and
+              runRemediate.
+          references_constraints: [C-06]
+          priority: high
+
+    tags: [cli, rule-options, framework, mappings, tier-1, c-033]
