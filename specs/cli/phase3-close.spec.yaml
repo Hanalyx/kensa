@@ -1,0 +1,177 @@
+spec:
+    id: cli-phase3-close
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-phase3-close
+        description: |
+            CLI Phase 3 deliverable C-038. Closing deliverable
+            for Phase 3: groups each SSH-using subcommand's
+            --help output into Target / Rule / Output / General
+            sections per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
+            §3.2-3.5, and adds cli-smoke.sh assertions covering
+            every flag introduced in C-024..C-037.
+
+            The grouping is a presentation-only concern: each
+            subcommand still parses against a single FlagSet;
+            formatGroupedUsages renders per-group sub-FlagSets
+            via pflag's FlagUsages() to keep pflag's column
+            alignment without a custom formatter. Flags not
+            listed in any group fall through to "Other options"
+            so a future flag added without updating the group
+            definition still surfaces (drift-resistant).
+
+            Phase 3 ships at 13/15 deliverables:
+              - C-024..C-033, C-035, C-037 — done
+              - C-034 (--var/-x), C-036 (--config-dir) —
+                deferred to Phase 3.5 (variable-infra design)
+              - C-038 (this) — done
+
+            See specs/cli/severity-filter, tag-filter,
+            category-filter, framework-filter, control-filter,
+            rule-flag, password, strict-host-keys,
+            capability-override, workers-flag for the full
+            Phase 3 flag surface.
+
+    objective:
+        summary: |
+            Add formatGroupedUsages helper + per-subcommand
+            flagGroup definitions (detectFlagGroups,
+            checkFlagGroups, remediateFlagGroups). Wire each
+            into printDetectUsage / printCheckUsage /
+            printRemediateUsage. Add cli-smoke.sh scenarios
+            asserting flag advertisement on each subcommand,
+            help-grouping section presence, and validation-
+            error exit codes.
+        scope:
+            includes:
+                - formatGroupedUsages helper using per-group sub-FlagSets
+                - detectFlagGroups, checkFlagGroups, remediateFlagGroups
+                - "Updated printDetectUsage / printCheckUsage / printRemediateUsage"
+                - cli-smoke.sh scenarios — flag advertisement per subcommand
+                - cli-smoke.sh scenarios — help-grouping section presence
+                - cli-smoke.sh scenarios — Phase 3 validation usage errors (exit 2)
+                - "Examples in --help expanded to demonstrate the new flags"
+            excludes:
+                - "Help grouping for plan / rollback / history: their flag set is small enough that grouping noise > value"
+                - "Custom column formatter: pflag's FlagUsages is fine"
+                - "Spec-corpus regeneration: handled by `specter sync`"
+
+    constraints:
+        - id: C-01
+          description: |
+              Each SSH-using subcommand's --help MUST present
+              flags grouped into the categories defined in
+              the migration doc §3.2-3.5: Target options,
+              Rule options (where applicable), Output options,
+              General. Operators looking for a specific flag
+              should be able to scan the right section
+              without reading every flag.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Flags not listed in any group MUST still appear
+              in --help under "Other options". A future flag
+              added without updating the group definition
+              should not silently disappear from --help.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              cli-smoke.sh MUST assert flag advertisement for
+              every flag introduced in C-024..C-037. A
+              subcommand that loses a flag (regression) must
+              fail smoke before it ships.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              cli-smoke.sh MUST assert that help-grouping
+              section headers ("Target options:", "Rule
+              options:", etc.) are present on detect / check /
+              remediate. A regression that flattens the help
+              must fail smoke.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              cli-smoke.sh MUST assert exit code 2
+              (UsageError) for every Phase 3 validation path
+              with a typo / out-of-range input (workers=0,
+              workers=51, severity=bogus, capability=bogus,
+              strict + no-strict, control without colon,
+              framework=bogus).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa detect --help` shows "Target options:"
+              and "Output options:" sections, each followed
+              by the flags expected by detectFlagGroups.
+              Verified by code inspection and by the
+              smoke check.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa check --help` shows "Target options:",
+              "Rule options:", and "Output options:"
+              sections. Verified by code inspection and
+              by the smoke check.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              `kensa remediate --help` shows the same three
+              sections as check, minus the inventory subset
+              (remediate is single-host today). Verified by
+              code inspection and by the smoke check.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              formatGroupedUsages catches uncategorized
+              flags into "Other options" when they exist.
+              Verified by code inspection at the helper.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-05
+          description: |
+              cli-smoke.sh advertises all C-024..C-037 flags
+              per subcommand support matrix. Verified by the
+              `phase3_flags_for` shell function.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              cli-smoke.sh asserts presence of "Target
+              options:" / "Rule options:" headers on the
+              three SSH-using subcommands.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              cli-smoke.sh asserts exit-2 usage error for
+              the eight validation paths listed in C-05:
+              workers=0, workers=51, severity=bogus,
+              capability=bogus=true, capability=`=true`,
+              strict + no-strict mutex, control without
+              colon, framework=bogus.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-08
+          description: |
+              Total cli-smoke.sh assertions count after
+              C-038 grows from 54 to ~99 (Phase 3
+              additions). A drop below 99 implies a smoke
+              test was lost.
+          references_constraints: [C-03, C-05]
+          priority: medium
+
+    tags: [cli, phase-3, close, help, smoke, tier-1, c-038]
