@@ -235,9 +235,9 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 #### C-024 — Short-letter table reconciliation
 - **Phase:** CLI Phase 3
 - **Deps:** —
-- **Acceptance:** Per §4.2 reconciliation: `--port` moves from `-p` to `-P` (lowercase `-p` reserved for `--password`); `--sudo` loses its `-s` short (re-targeted to `--severity`); `--txn` moves from `-t` to `-T` (lowercase `-t` re-targeted to `--tag`); `--format`'s `-f` short is freed (`--format` is already deprecated; users move to `-o`/`--output`). Each old short letter emits a one-line stderr deprecation warning when used (matches the C-020 `--format`/`--oscal` pattern). Removed in v0.2.
+- **Acceptance:** Per §4.2 reconciliation: `--port` moves from `-p` to `-P`; `--sudo` loses its `-s` short; `--txn` moves from `-t` to `-T`; `--format`'s `-f` short is freed. Hard-cut (no deprecation period — pre-1.0, no production users per migration doc §4.3); CHANGELOG.md gets a Breaking-changes entry. 9 new Phase 3 placeholder constants declared in flags.go for downstream wiring.
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-08, `4611058`)
 
 #### C-025 — `--limit/-l` host glob filter
 - **Phase:** CLI Phase 3
