@@ -227,8 +227,115 @@ phase (founder review on 2026-05-08).
 
 ### CLI Phase 3 — `target_options` + `rule_options` parity
 
-*Sketch — full deliverable breakdown will be filled in when the loop reaches this phase.*
-Estimated 12–15 deliverables (C-024..C-038) covering: `--limit/-l` (host glob), `--password/-p` (with prompt), `--strict-host-keys/--no-strict-host-keys`, `--capability/-C`, `--workers/-w`, `--severity/-s`, `--tag/-t`, `--category/-c`, `--framework/-f`, `--var/-x`, `--control`, `--config-dir`. Each ~1–3h. ~1.5 weeks total.
+Brings kensa-go's flag surface to parity with Python kensa's
+`target_options` and `rule_options` per `CLI_GNU_POSIX_MIGRATION_V1.md`
+§3.2–3.3. Honors the short-letter table from §4.2; deviations from
+Python (5 cases) are the canonical kensa-go design and not migrations.
+
+#### C-024 — Short-letter table reconciliation
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** Per §4.2 reconciliation: `--port` moves from `-p` to `-P` (lowercase `-p` reserved for `--password`); `--sudo` loses its `-s` short (re-targeted to `--severity`); `--txn` moves from `-t` to `-T` (lowercase `-t` re-targeted to `--tag`); `--format`'s `-f` short is freed (`--format` is already deprecated; users move to `-o`/`--output`). Each old short letter emits a one-line stderr deprecation warning when used (matches the C-020 `--format`/`--oscal` pattern). Removed in v0.2.
+- **Size:** 1h
+- **Status:** pending
+
+#### C-025 — `--limit/-l` host glob filter
+- **Phase:** CLI Phase 3
+- **Deps:** C-024
+- **Acceptance:** `kensa check -i inventory.ini -l 'web-*'` runs only against hosts matching the glob; supports inventory group names (e.g., `-l prod-servers`). Ansible `--limit` semantics: comma-separated patterns; `!` excludes; bare hostname is exact-match.
+- **Size:** 2h
+- **Status:** pending
+
+#### C-026 — `--password/-p` with secure prompt
+- **Phase:** CLI Phase 3
+- **Deps:** C-024
+- **Acceptance:** `--password VALUE` uses VALUE; `--password` with no argument prompts on the controlling TTY via `golang.org/x/term.ReadPassword`. Falls back to long-only when stdin isn't a TTY. Wired into SSH transport's password auth path.
+- **Size:** 2h
+- **Status:** pending
+
+#### C-027 — `--strict-host-keys` / `--no-strict-host-keys`
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** Boolean pair flags wire into SSH transport's known_hosts policy. Default off (matches Python kensa). When on, unknown host keys cause connect failure rather than silent acceptance.
+- **Size:** 2h
+- **Status:** pending
+
+#### C-028 — `--capability/-C` capability override
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** Repeatable `-C KEY=VALUE` (e.g., `-C apparmor=true -C selinux=false`). Overrides the detected capability set per-key. KEY must be in the known capability vocabulary; VALUE is `true|false`. Wired into the rule selector's `when:` evaluation.
+- **Size:** 2h
+- **Status:** pending
+
+#### C-029 — `--workers/-w` parallel SSH
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** `--workers N` (1–50, default 1) sets the inventory-mode goroutine pool size. Currently inventory mode is sequential per host; this knob bounds the concurrency. Workers > 50 reject with usage error.
+- **Size:** 3h
+- **Status:** pending
+
+#### C-030 — `--severity/-s` rule filter
+- **Phase:** CLI Phase 3
+- **Deps:** C-024
+- **Acceptance:** Repeatable `-s critical -s high` (choice: critical/high/medium/low). Filters rules at load time; rules with severity not in the set are skipped. Empty set = all severities (default).
+- **Size:** 1h
+- **Status:** pending
+
+#### C-031 — `--tag/-t` rule filter
+- **Phase:** CLI Phase 3
+- **Deps:** C-024
+- **Acceptance:** Repeatable `-t pci -t cis`. Filters rules whose `tags:` array intersects the operator's set. AND semantics within a `--tag` value isn't supported (each value is a separate tag).
+- **Size:** 1h
+- **Status:** pending
+
+#### C-032 — `--category/-c` rule filter
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** Single value `-c access-control`. Filters by rule's `category:` field. Lone short is `-c`; lowercase free.
+- **Size:** 1h
+- **Status:** pending
+
+#### C-033 — `--framework/-f` rule filter
+- **Phase:** CLI Phase 3
+- **Deps:** C-024
+- **Acceptance:** `--framework cis-rhel9` loads only rules with a mapping entry for that framework. Requires framework-mapping infrastructure: `internal/mappings/` already loads framework files (M3); this deliverable wires the filter at rule-load time and adds usage-error for unknown framework IDs.
+- **Size:** 3h
+- **Status:** pending
+
+#### C-034 — `--var/-x` rule-variable override
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** Repeatable `-x KEY=VALUE` (e.g., `-x pam_faillock_deny=5`). Overrides the corresponding rule variable at evaluation time. Wires into the existing rule-variable resolution path; unknown KEY values produce a usage error to prevent silent typos.
+- **Size:** 2h
+- **Status:** pending
+
+#### C-035 — `--control` framework-control filter
+- **Phase:** CLI Phase 3
+- **Deps:** C-033
+- **Acceptance:** `--control cis-rhel9:5.1.12` runs only rules mapped to that framework control. Long-only (no short letter). Multiple `--control` values supported (repeatable). Unknown control IDs produce usage error.
+- **Size:** 1h
+- **Status:** pending
+
+#### C-036 — `--config-dir` config directory override
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** `--config-dir /etc/kensa` overrides the auto-detected config dir. Long-only (no short letter). Default auto-detect: `$KENSA_CONFIG_DIR`, then `$XDG_CONFIG_HOME/kensa`, then `$HOME/.config/kensa`, then `/etc/kensa`. The resolved path is logged once on first use under `--verbose`.
+- **Size:** 1h
+- **Status:** pending
+
+#### C-037 — `--rule` single rule file
+- **Phase:** CLI Phase 3
+- **Deps:** —
+- **Acceptance:** Long-only (no short). `--rule /path/to/foo.yml` loads just that file (no directory walk). Repeatable. Complements the existing positional `*.yml` arg form. `--rule` and positional args can be mixed.
+- **Size:** 0.5h
+- **Status:** pending
+
+#### C-038 — Phase 3 close: help-text consolidation + smoke
+- **Phase:** CLI Phase 3
+- **Deps:** C-024..C-037
+- **Acceptance:** Each subcommand's `--help` output groups flags by category (Target options / Rule options / Output options / Subcommand-specific) per §5 of the migration doc. cli-smoke.sh adds 1–2 scenarios per new flag. Spec-corpus addition for the Phase 3 surface.
+- **Size:** 1h
+- **Status:** pending
 
 ### CLI Phase 4 — Session model + missing subcommands
 
