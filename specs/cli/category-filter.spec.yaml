@@ -1,0 +1,152 @@
+spec:
+    id: cli-category-filter
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-category-filter
+        description: |
+            CLI Phase 3 deliverable C-032. Adds single-value
+            `--category / -c` to `kensa check` and `kensa
+            remediate`. Operators pass `-c access-control` to
+            filter rules by their `category:` field.
+
+            Single value (not repeatable): each rule has one
+            category, so OR-across-categories has no clean
+            semantics for a single-valued field. Operators
+            wanting "rules in EITHER audit or kernel" should
+            run two scans, or use --tag where the field is a
+            list.
+
+            Categories are free-form strings authored by rule
+            writers (no canonical vocabulary). A typo silently
+            produces an empty filter, surfaced by the empty-
+            after-filter usage error.
+
+            Composes with --severity (C-030) and --tag (C-031)
+            via AND: severity narrows, tags narrow further,
+            category narrows further still. Each filter's
+            empty-after error discloses the pre-stage rule
+            count for chain disambiguation.
+
+    objective:
+        summary: |
+            Add --category / -c single-string flag on `kensa
+            check` and `kensa remediate`. Filter rules by
+            exact case-insensitive match against Category.
+            Empty value = pass-through. Empty filtered set
+            after a non-empty value = usage error.
+        scope:
+            includes:
+                - --category / -c single-value StringVarP on check + remediate
+                - filterRulesByCategory (case-insensitive exact match, preserves order)
+                - "Empty filtered set → usage error (consistent with --severity, --tag)"
+                - "Composes with upstream filters (severity, tag) via AND"
+            excludes:
+                - "Vocabulary validation: categories are free-form by design"
+                - "Multi-category OR: use multiple scans or --tag"
+                - "Substring / glob match: future"
+                - "--category on detect / plan / rollback: out of scope"
+
+    constraints:
+        - id: C-01
+          description: |
+              An empty --category value MUST be treated as
+              pass-through; operators who don't pass the flag
+              get the historical behavior of all rules.
+              Whitespace-only values are also treated as empty
+              after trim.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              When --category produces zero matched rules,
+              kensa MUST return a usage error rather than
+              silently scanning nothing. Likely a typo or
+              wrong corpus; surface it.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Match MUST be case-insensitive after whitespace
+              trim on both sides (operator input AND rule's
+              Category field).
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              filterRulesByCategory MUST preserve input order
+              so the filter introduces no reordering surprise.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              The empty-after-category usage error MUST
+              include the upstream rule count (post-severity,
+              post-tag, pre-category) so operators can tell
+              which filter killed the run.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Empty or whitespace-only allowed returns the
+              input unchanged. Locked by
+              TestFilterRulesByCategory_Empty.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Single category value selects only matching
+              rules. Locked by
+              TestFilterRulesByCategory_ExactMatch.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              Match is case-insensitive on both sides; rule
+              with mixed-case Category matches a UPPER allowed
+              and vice versa. Locked by
+              TestFilterRulesByCategory_CaseInsensitive.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Unknown category produces an empty result set.
+              Locked by TestFilterRulesByCategory_NoMatch.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-05
+          description: |
+              Filter preserves input order. Locked by
+              TestFilterRulesByCategory_PreservesOrder.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-06
+          description: |
+              Rules with empty Category are excluded when an
+              allowed value is set. Locked by
+              TestFilterRulesByCategory_RuleEmptyCategory.
+          references_constraints: [C-03]
+          priority: medium
+        - id: AC-07
+          description: |
+              Operator-side whitespace is trimmed; `-c "  audit  "`
+              behaves identically to `-c audit`. Locked by
+              TestFilterRulesByCategory_OperatorInputTrimmed.
+          references_constraints: [C-03]
+          priority: medium
+        - id: AC-08
+          description: |
+              Empty-after-category set produces a usage error
+              that includes the pre-category rule count for
+              filter-chain disambiguation. Verified by code
+              inspection at the post-filter check sites in
+              runCheck and runRemediate.
+          references_constraints: [C-02, C-05]
+          priority: high
+
+    tags: [cli, rule-options, category, tier-1, c-032]
