@@ -314,7 +314,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-033
 - **Acceptance:** `--control cis-rhel9:5.1.12` runs only rules mapped to that framework control. Long-only (no short letter). Multiple `--control` values supported (repeatable). Unknown control IDs produce usage error.
 - **Size:** 1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `afb56c0`). Long-only repeatable flag (`-c` is --category). Two-stage validation (parse FRAMEWORK:CONTROL + validate pair exists in pre-filter corpus). Framework portion reuses C-033's hyphen/underscore normalization; control portion preserves case (NIST AC-1, STIG V-257974). OR across filter values, AND with upstream filters. Spec: `specs/cli/control-filter.spec.yaml` (6 constraints, 15 ACs). 15 unit tests. Live-verified `--control cis_rhel9:5.1.12` reduced 539-rule corpus to exactly 1 rule on 192.168.1.211.
 
 #### C-036 — `--config-dir` config directory override
 - **Phase:** CLI Phase 3 → **deferred to Phase 3.5** (founder decision 2026-05-09)
