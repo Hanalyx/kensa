@@ -328,7 +328,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Long-only (no short). `--rule /path/to/foo.yml` loads just that file (no directory walk). Repeatable. Complements the existing positional `*.yml` arg form. `--rule` and positional args can be mixed.
 - **Size:** 0.5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `0234d67`). Long-only repeatable StringArrayVar. Behavior change: pre-C-037 --rules-dir + explicit files were XOR (dir wins); post-C-037 they compose additively. Strict loading for explicit files (parse error → fail), skip-invalid preserved for dir walks. concatPaths helper at both check + remediate call sites. flags.go comment on ShortRule updated to record that long form `--rule` is now file-loading; future filter-by-ID feature needs different long name. Spec: `specs/cli/rule-flag.spec.yaml` (5 constraints, 8 ACs). 8 unit tests covering loader matrix. Live-verified single + repeated `--rule` against 192.168.1.211.
 
 #### C-038 — Phase 3 close: help-text consolidation + smoke
 - **Phase:** CLI Phase 3
