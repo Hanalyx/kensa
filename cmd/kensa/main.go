@@ -48,6 +48,7 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/rule"
 	"github.com/Hanalyx/kensa-go/internal/scan"
 	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
+	"github.com/Hanalyx/kensa-go/internal/varsub"
 	"github.com/Hanalyx/kensa-go/pkg/kensa"
 
 	// Import all handler packages to trigger their init() registrations.
@@ -588,6 +589,8 @@ func runCheck(ctx context.Context, args []string) error {
 		framework    string
 		controls     []string
 		ruleFiles    []string
+		varOverrides []string
+		configDir    string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -603,6 +606,8 @@ func runCheck(ctx context.Context, args []string) error {
 	registerFrameworkFlag(fs, &framework)
 	registerControlFilterFlag(fs, &controls)
 	registerRuleFileFlag(fs, &ruleFiles)
+	registerVarFlag(fs, &varOverrides)
+	registerConfigDirFlag(fs, &configDir)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -673,10 +678,22 @@ func runCheck(ctx context.Context, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
+	// Phase 3.5: resolve variable substitution before rule load.
+	// Priority: CLI --var (override) > <config-dir>/defaults.yml.
+	cliVars, err := resolveVarOverrides(varOverrides)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+	defaultVars, err := varsub.LoadDefaults(configDir)
+	if err != nil {
+		return WrapUsageError("--config-dir", err)
+	}
+	mergedVars := varsub.Merge(defaultVars, cliVars)
+
 	// C-037: --rule values + positional *.yml args combine into the
 	// strict-load file set. With --rules-dir set, the dir-walk and
 	// the strict file set load additively.
-	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()))
+	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), mergedVars)
 	if err != nil {
 		return err
 	}
@@ -996,6 +1013,8 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		framework    string
 		controls     []string
 		ruleFiles    []string
+		varOverrides []string
+		configDir    string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -1011,6 +1030,8 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerFrameworkFlag(fs, &framework)
 	registerControlFilterFlag(fs, &controls)
 	registerRuleFileFlag(fs, &ruleFiles)
+	registerVarFlag(fs, &varOverrides)
+	registerConfigDirFlag(fs, &configDir)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -1055,8 +1076,19 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
+	// Phase 3.5: resolve variable substitution before rule load.
+	cliVars, err := resolveVarOverrides(varOverrides)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+	defaultVars, err := varsub.LoadDefaults(configDir)
+	if err != nil {
+		return WrapUsageError("--config-dir", err)
+	}
+	mergedVars := varsub.Merge(defaultVars, cliVars)
+
 	// C-037: --rule + positional args combine into the strict-load file set.
-	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()))
+	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), mergedVars)
 	if err != nil {
 		return err
 	}
@@ -1660,10 +1692,13 @@ Example:
 // ─── helpers ───────────────────────────────────────────────────────────────
 
 // loadRules parses a set of rule YAML files into []*api.Rule.
-func loadRules(paths []string) ([]*api.Rule, error) {
+// Phase 3.5: when vars is non-nil, `{{ name }}` templates in
+// each YAML are substituted before decoding; an undefined
+// variable produces a parse error.
+func loadRules(paths []string, vars varsub.Variables) ([]*api.Rule, error) {
 	rules := make([]*api.Rule, 0, len(paths))
 	for _, p := range paths {
-		r, err := rule.ParseFile(p)
+		r, err := rule.ParseFileWithVars(p, vars)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", p, err)
 		}
@@ -1684,7 +1719,7 @@ func loadRules(paths []string) ([]*api.Rule, error) {
 // file paths use the strict loader because the operator named the
 // file deliberately and a parse failure should surface, not be
 // silently dropped.
-func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
+func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) ([]*api.Rule, error) {
 	var rules []*api.Rule
 	if dir != "" {
 		var found []string
@@ -1702,14 +1737,14 @@ func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
 		if len(found) == 0 && len(paths) == 0 {
 			return nil, fmt.Errorf("no *.yml files found in %s", dir)
 		}
-		dirRules, err := loadRulesSkipInvalid(found)
+		dirRules, err := loadRulesSkipInvalid(found, vars)
 		if err != nil {
 			return nil, err
 		}
 		rules = append(rules, dirRules...)
 	}
 	if len(paths) > 0 {
-		fileRules, err := loadRules(paths)
+		fileRules, err := loadRules(paths, vars)
 		if err != nil {
 			return nil, err
 		}
@@ -1722,16 +1757,42 @@ func loadRulesFromDirOrFiles(dir string, paths []string) ([]*api.Rule, error) {
 }
 
 // loadRulesSkipInvalid loads rules, printing a warning and skipping files
-// that fail to parse rather than aborting the whole load.
-func loadRulesSkipInvalid(paths []string) ([]*api.Rule, error) {
+// that fail to parse rather than aborting the whole load. Phase 3.5:
+// undefined-variable errors are recognized via varsub.ErrUndefined and
+// aggregated into an end-of-load summary so an operator running against
+// the corpus without --var sees the missing-variable scope clearly,
+// not buried in 30 individual warnings. Other parse errors keep the
+// per-file warn-and-skip behavior (corpora often contain in-progress
+// drafts; one broken YAML shouldn't abort the whole scan).
+func loadRulesSkipInvalid(paths []string, vars varsub.Variables) ([]*api.Rule, error) {
 	rules := make([]*api.Rule, 0, len(paths))
+	var undefined []string
 	for _, p := range paths {
-		r, err := rule.ParseFile(p)
+		r, err := rule.ParseFileWithVars(p, vars)
 		if err != nil {
+			if errors.Is(err, varsub.ErrUndefined) {
+				undefined = append(undefined, fmt.Sprintf("%s: %v", p, err))
+				continue
+			}
 			fmt.Fprintf(os.Stderr, "warn: skip %s: %v\n", p, err)
 			continue
 		}
 		rules = append(rules, r)
+	}
+	if len(undefined) > 0 {
+		fmt.Fprintf(os.Stderr,
+			"warn: %d rule(s) skipped — undefined variables. Define them via --var KEY=VALUE or in <config-dir>/defaults.yml. First few:\n",
+			len(undefined))
+		limit := 5
+		if len(undefined) < limit {
+			limit = len(undefined)
+		}
+		for i := 0; i < limit; i++ {
+			fmt.Fprintf(os.Stderr, "  - %s\n", undefined[i])
+		}
+		if len(undefined) > limit {
+			fmt.Fprintf(os.Stderr, "  ... and %d more\n", len(undefined)-limit)
+		}
 	}
 	return rules, nil
 }
