@@ -37,8 +37,9 @@ DONE through Phase 3.5. The richest subcommand by flag count (~22 user-facing fl
 | `-c, --category` | DONE (C-032) | Single-value, exact match (NOT repeatable like -s/-t) |
 | `-f, --framework` | DONE (C-033) | e.g. `cis-rhel9` (hyphen ↔ underscore) |
 | `--control` | DONE (C-035) | Repeatable `FRAMEWORK:CONTROL` (long-only — `-c` is taken) |
-| `-x, --var` | DONE (Phase 3.5) | Repeatable KEY=VALUE; highest tier in 5-tier chain |
-| `--config-dir` | DONE (Phase 3.5/3.6/3.7) | Loads `defaults.yml` + `conf.d/*.yml` + `hosts/<host>.yml` + `groups/<g>.yml`. Full 5-tier active in BOTH single-host and inventory modes (Phase 3.7). Long-only. |
+| `-x, --var` | DONE (Phase 3.5) | Repeatable KEY=VALUE; highest tier in 6-tier chain |
+| `--config-dir` | DONE (Phase 3.5/3.6/3.7 + auto-detect) | Loads `defaults.yml` + `conf.d/*.yml` + `hosts/<host>.yml` + `groups/<g>.yml`. Full 5-tier active in BOTH single-host and inventory modes. Auto-detect chain when empty: `$KENSA_CONFIG_DIR` → `$XDG_CONFIG_HOME/kensa` → `$HOME/.config/kensa` → `/etc/kensa`. Long-only. |
+| (built-in) | DONE — embedded defaults | Lowest tier in the resolution chain; vendored at `internal/varsub/embedded/defaults.yml`; STIG-leaning values for all corpus templates. No flag — operators override via the higher tiers. |
 
 ### Output options
 

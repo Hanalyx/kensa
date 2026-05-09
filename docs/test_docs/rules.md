@@ -46,12 +46,14 @@ go test ./internal/rule/...
     -f cis_rhel9
 # Expected: ~278 rules (out of 539) mapped to CIS RHEL9 controls.
 
-# 5a. Variable substitution end-to-end (Phase 3.5).
-# A templated rule without --var:
+# 5a. Variable substitution end-to-end (Phase 3.5 + embedded-defaults).
+# A templated rule without --var or --config-dir:
 ./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
     --rules-dir /home/rracine/hanalyx/kensa/rules/access-control
-# Expected: stderr aggregated warning "16 rule(s) skipped — undefined variables...",
-# followed by the 28 rules that don't use templates.
+# Expected: ALL ~44 rules in access-control/ run (no skip warnings) because the
+# embedded built-in defaults supply the ~16 templated rules' variables. Pre-
+# embedded-defaults this command produced "16 rule(s) skipped — undefined
+# variables".
 
 # 5b. Multi-tier resolution (Phase 3.6). Set up a config-dir with all four
 # file-based tiers and verify the priority chain end-to-end.
@@ -144,7 +146,7 @@ Each implementation:
 
 Templates: `{{ name }}` (whitespace-tolerant). Vocabulary `[A-Za-z][A-Za-z0-9_]*`. Substituted at YAML-bytes layer BEFORE decode.
 
-**Resolution priority** (highest first; matches Python kensa's 5-tier chain):
+**Resolution priority** (highest first; 6-tier chain):
 
 | Tier | Source | Phase | Wiring |
 |---|---|---|---|
@@ -153,8 +155,13 @@ Templates: `{{ name }}` (whitespace-tolerant). Vocabulary `[A-Za-z][A-Za-z0-9_]*
 | 3 | `<config-dir>/groups/<group>.yml` | 3.6 + 3.7 | Inventory mode (groups come from the inventory file); single-host has no groups |
 | 4 | `<config-dir>/conf.d/*.yml` (alphabetical) | 3.6 | All modes |
 | 5 | `<config-dir>/defaults.yml` | 3.5 | All modes |
+| 6 | **Embedded built-in defaults** | embedded-defaults | All modes; ships with the binary |
 
 Each later tier overrides earlier on key collision. conf.d files apply alphabetically (later filename wins). Group merges happen in inventory-file order (later in slice wins).
+
+**Embedded defaults (tier 6).** kensa-go ships with a vendored copy of Python kensa's `defaults.yml` `variables:` block, embedded via `go:embed` into the binary. This is the lowest-priority floor — operators get sensible STIG-leaning values for the ~30 templated rules in the corpus without `--var` or `--config-dir`. The values are immutable per binary build; operators override via any higher-priority tier. Source vendored at `internal/varsub/embedded/defaults.yml`; locked against drift by `TestBuiltInDefaults_CoversCorpusVars`.
+
+**`<config-dir>` auto-detect.** When `--config-dir` is empty, kensa picks the first existing path in this chain: `$KENSA_CONFIG_DIR` → `$XDG_CONFIG_HOME/kensa` → `$HOME/.config/kensa` → `/etc/kensa`. An explicit `--config-dir` always wins. Non-existent paths and non-directory paths are skipped. Tested by `TestResolveConfigDir_*`.
 
 **Inventory-mode mechanics (Phase 3.7):** each per-host goroutine in the inventory fan-out resolves its own full 5-tier variable set using the host's address (from the inventory) and group memberships (from `[group]` sections in the inventory file). The corpus is RE-LOADED per host with that host's vars — the substituted values differ per host, but the rule-ID set after filters is identical (filter chain operates on rule metadata, not values). Output rendering uses each host's own resolved rule slice, not the global one — this avoids a misalignment bug when a rule's `{{ var }}` is defined ONLY in `hosts/<addr>.yml` (skipped in the global pre-load, loaded in the per-host pass).
 
