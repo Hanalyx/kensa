@@ -582,6 +582,7 @@ func runCheck(ctx context.Context, args []string) error {
 		outputs      []string
 		capabilities []string
 		workers      int
+		severities   []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -591,6 +592,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerPasswordFlag(fs, &password)
 	registerStrictHostKeysFlag(fs)
 	registerCapabilityFlag(fs, &capabilities)
+	registerSeverityFlag(fs, &severities)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -637,11 +639,10 @@ func runCheck(ctx context.Context, args []string) error {
 		}
 	}
 
-	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
-	if err != nil {
-		return err
-	}
-
+	// Flag-only validations up front, before rule load and SSH
+	// setup. Bad --strict-host-keys conflicts, malformed
+	// --capability, out-of-range --workers, or unknown --severity
+	// should surface before we touch the filesystem.
 	strictHostKeys, err := resolveStrictHostKeys(fs)
 	if err != nil {
 		return err
@@ -655,6 +656,22 @@ func runCheck(ctx context.Context, args []string) error {
 		// without an extra prefix so we don't get "--workers: --workers
 		// must be >= 1...".
 		return &UsageError{Cause: err}
+	}
+	resolvedSeverities, err := validateSeverities(severities)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
+
+	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
+	if err != nil {
+		return err
+	}
+	// C-030: apply --severity filter at load time so all downstream
+	// stages (resolveAndPrintIssues, scan, output) only see rules in
+	// the operator's severity set.
+	rules = filterRulesBySeverity(rules, resolvedSeverities)
+	if len(resolvedSeverities) > 0 && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--severity %v: no rules matched; nothing to scan", resolvedSeverities))
 	}
 
 	if inventory != "" {
@@ -909,6 +926,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		quiet        bool
 		outputs      []string
 		capabilities []string
+		severities   []string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -918,6 +936,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerPasswordFlag(fs, &password)
 	registerStrictHostKeysFlag(fs)
 	registerCapabilityFlag(fs, &capabilities)
+	registerSeverityFlag(fs, &severities)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
@@ -956,10 +975,18 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	resolvedSeverities, err := validateSeverities(severities)
+	if err != nil {
+		return &UsageError{Cause: err}
+	}
 
 	rules, err := loadRulesFromDirOrFiles(rulesDir, fs.Args())
 	if err != nil {
 		return err
+	}
+	rules = filterRulesBySeverity(rules, resolvedSeverities)
+	if len(resolvedSeverities) > 0 && len(rules) == 0 {
+		return NewUsageError(fmt.Sprintf("--severity %v: no rules matched; nothing to remediate", resolvedSeverities))
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
