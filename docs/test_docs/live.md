@@ -43,11 +43,40 @@ This document is the founder-facing protocol for that verification. Run it befor
 # Expected: filtered subset; exit 0 OR exit 2 with disambiguating empty-after-filter
 # message naming the upstream count.
 
-# 1.5 Variable substitution.
+# 1.5 Variable substitution (Phase 3.5).
 ./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
     --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
     -x pam_faillock_deny=3
 # Expected: 1 passed if host's faillock deny == 3, else 1 failed.
+
+# 1.5b Multi-tier resolution (Phase 3.6).
+mkdir -p /tmp/kensa-config-test/{hosts,conf.d}
+cat > /tmp/kensa-config-test/defaults.yml <<EOF
+variables:
+  pam_faillock_deny: 99
+EOF
+cat > /tmp/kensa-config-test/conf.d/10-base.yml <<EOF
+variables:
+  pam_faillock_deny: 50
+EOF
+cat > /tmp/kensa-config-test/hosts/192.168.1.211.yml <<EOF
+variables:
+  pam_faillock_deny: 3
+EOF
+./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
+    --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
+    --config-dir /tmp/kensa-config-test
+# Expected: 1 passed (hosts/192.168.1.211.yml wins over conf.d and defaults).
+# Operators can verify the chain by running with -x pam_faillock_deny=99 and
+# observing 1 failed (CLI beats host file).
+
+# 1.5c Inventory + per-host warning (Phase 3.6 → 3.7).
+./bin/kensa check --inventory inventory.ini --no-strict-host-keys -w 4 \
+    --config-dir /tmp/kensa-config-test --rules-dir /home/rracine/hanalyx/kensa/rules \
+    -s critical 2>&1 | head -3
+# Expected: stderr warning that hosts/ files are ignored in inventory mode
+# (Phase 3.7 work).
+rm -rf /tmp/kensa-config-test
 
 # 1.6 Inventory mode.
 ./bin/kensa check --inventory inventory.ini --no-strict-host-keys -w 4 \

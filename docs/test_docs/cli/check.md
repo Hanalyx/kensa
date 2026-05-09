@@ -37,8 +37,8 @@ DONE through Phase 3.5. The richest subcommand by flag count (~22 user-facing fl
 | `-c, --category` | DONE (C-032) | Single-value, exact match (NOT repeatable like -s/-t) |
 | `-f, --framework` | DONE (C-033) | e.g. `cis-rhel9` (hyphen ↔ underscore) |
 | `--control` | DONE (C-035) | Repeatable `FRAMEWORK:CONTROL` (long-only — `-c` is taken) |
-| `-x, --var` | DONE (Phase 3.5) | Repeatable KEY=VALUE; wins over defaults.yml |
-| `--config-dir` | DONE (Phase 3.5) | Loads `<DIR>/defaults.yml`; long-only |
+| `-x, --var` | DONE (Phase 3.5) | Repeatable KEY=VALUE; highest tier in 5-tier chain |
+| `--config-dir` | DONE (Phase 3.5/3.6) | Loads `defaults.yml` + `conf.d/*.yml` + (single-host) `hosts/<host>.yml` + `groups/<g>.yml`; long-only |
 
 ### Output options
 
@@ -77,11 +77,19 @@ Filter chain order (matters for empty-after-filter diagnostics):
     --rules-dir /home/rracine/hanalyx/kensa/rules \
     -s critical -s high -t pci -f cis-rhel9
 
-# 5. Variable substitution end-to-end.
+# 5a. Variable substitution end-to-end (Phase 3.5).
 ./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
     --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
     -x pam_faillock_deny=3
 # Expected: 1 passed, 0 failed (substitution succeeded; comparator matched).
+
+# 5b. 5-tier resolution (Phase 3.6) for single-host mode.
+# See docs/test_docs/rules.md for the full tier-priority verification.
+# Quick check: with hosts/<host>.yml setting pam_faillock_deny=3,
+./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
+    --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
+    --config-dir /tmp/kensa-config
+# Expected: 1 passed (host file wins for single-host).
 
 # 6. Inventory mode with bounded fan-out.
 ./bin/kensa check --inventory inventory.ini --no-strict-host-keys -w 4 \
@@ -98,6 +106,6 @@ Filter chain order (matters for empty-after-filter diagnostics):
 - **Inventory + `--password` is rejected.** Per-host passwords differ; broadcasting one is a footgun. Operators with shared credentials should set `SSHPASS` env.
 - **Inventory + per-host file outputs (`-o csv:PATH`) is rejected.** The C-019 data-loss guard: a file output would be overwritten per-host. Use stdout sinks or one-host-per-file scripts.
 - **Substitution is at YAML-bytes level.** A `--var` value containing `:` or `\n` may produce malformed YAML for the downstream decoder. The corpus uses bare scalar values exclusively; non-blocking. Spec AC-23 documents the trade-off.
-- **No per-host / per-group / conf.d variable tiers yet.** Phase 3.6.
+- **Inventory + per-host variable tiers not active.** Phase 3.6 ships full 5-tier resolution for single-host invocations only. Inventory mode applies the 3 host-independent tiers (defaults + conf.d + CLI); `hosts/<host>.yml` and `groups/<g>.yml` files are silently ignored. Kensa emits a one-line stderr warning when this combination is used so the omission isn't invisible. Phase 3.7 will rewire inventory mode to re-load the corpus per host. Workaround today: run single-host loops over the inventory hosts.
 - **Conflict-resolution warnings are stderr-only.** The C-021 conflict resolver detects rules that conflict (e.g., `ssh-ciphers-fips` vs `ssh-crypto-policy`); both currently emit warnings and run anyway. A future deliverable may add `--allow-conflicts` strict mode.
 - **No streaming output.** Inventory results are collected then rendered. A 100-host fleet pays the latency penalty before any output appears.

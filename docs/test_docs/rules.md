@@ -46,12 +46,47 @@ go test ./internal/rule/...
     -f cis_rhel9
 # Expected: ~278 rules (out of 539) mapped to CIS RHEL9 controls.
 
-# 5. Variable substitution end-to-end.
+# 5a. Variable substitution end-to-end (Phase 3.5).
 # A templated rule without --var:
 ./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
     --rules-dir /home/rracine/hanalyx/kensa/rules/access-control
 # Expected: stderr aggregated warning "16 rule(s) skipped — undefined variables...",
 # followed by the 28 rules that don't use templates.
+
+# 5b. Multi-tier resolution (Phase 3.6). Set up a config-dir with all four
+# file-based tiers and verify the priority chain end-to-end.
+mkdir -p /tmp/kensa-config/{hosts,groups,conf.d}
+cat > /tmp/kensa-config/defaults.yml <<EOF
+variables:
+  pam_faillock_deny: 99
+EOF
+cat > /tmp/kensa-config/conf.d/10-base.yml <<EOF
+variables:
+  pam_faillock_deny: 50
+EOF
+cat > /tmp/kensa-config/hosts/192.168.1.211.yml <<EOF
+variables:
+  pam_faillock_deny: 3
+EOF
+
+# host file should win for single-host scan against 192.168.1.211.
+./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
+    --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
+    --config-dir /tmp/kensa-config
+# Expected: 1 passed (host file's 3 wins; matches host's actual deny=3).
+
+# CLI --var should win even over host file.
+./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
+    --rule /home/rracine/hanalyx/kensa/rules/access-control/pam-faillock-deny.yml \
+    --config-dir /tmp/kensa-config -x pam_faillock_deny=99
+# Expected: 1 failed (CLI's 99 wins; host actually has 3, comparator mismatches).
+
+# 5c. Inventory + per-host warning (Phase 3.6 → 3.7).
+./bin/kensa check --inventory inventory.ini --no-strict-host-keys \
+    --config-dir /tmp/kensa-config --rules-dir /home/rracine/hanalyx/kensa/rules \
+    -s critical 2>&1 | head -3
+# Expected first line: "kensa check: --inventory + hosts/ present in --config-dir;
+# per-host/per-group variable files are NOT applied in inventory mode (Phase 3.7 work)"
 
 # 6. Resolve / order / conflicts.
 ./bin/kensa check -H 192.168.1.211 -u owadmin --no-strict-host-keys --sudo \
@@ -83,11 +118,27 @@ Each implementation:
 - `check` (single check or `checks: []`).
 - `remediation` (single mechanism or `steps: []`).
 
-## Variable substitution (Phase 3.5)
+## Variable substitution (Phase 3.5 + 3.6)
 
-Templates: `{{ name }}` (whitespace-tolerant). Vocabulary `[A-Za-z][A-Za-z0-9_]*`. Substituted at YAML-bytes layer BEFORE decode. Sources: CLI `--var KEY=VALUE` (highest priority) and `<config-dir>/defaults.yml` (fallback).
+Templates: `{{ name }}` (whitespace-tolerant). Vocabulary `[A-Za-z][A-Za-z0-9_]*`. Substituted at YAML-bytes layer BEFORE decode.
 
-Affected rules in current corpus (sample): `pam-faillock-deny`, `pam-faillock-unlock-time`, `pam-pwquality-minlen`, `pam-pwquality-difok`, `pam-pwquality-minclass`, `ssh-client-alive-interval`, `ssh-max-auth-tries`, `login-defs-pass-max-days`, `pam-pwhistory-remember`. ~30 rules total use templates.
+**Resolution priority** (highest first; matches Python kensa's 5-tier chain):
+
+| Tier | Source | Phase | Wiring |
+|---|---|---|---|
+| 1 | CLI `--var KEY=VALUE` | 3.5 | All subcommands (check / remediate) |
+| 2 | `<config-dir>/hosts/<hostname>.yml` | 3.6 | Single-host only; inventory mode deferred to Phase 3.7 |
+| 3 | `<config-dir>/groups/<group>.yml` | 3.6 | Single-host only (no groups in single-host); inventory mode deferred |
+| 4 | `<config-dir>/conf.d/*.yml` (alphabetical) | 3.6 | All modes |
+| 5 | `<config-dir>/defaults.yml` | 3.5 | All modes |
+
+Each later tier overrides earlier on key collision. conf.d files apply alphabetically (later filename wins). Group merges happen in inventory-file order (later in slice wins).
+
+**Inventory mode limitation (Phase 3.6 → 3.7):** the corpus is loaded once before the per-host fan-out, so per-host (`hosts/<host>.yml`) and per-group (`groups/<g>.yml`) variables are NOT applied per-host in inventory mode. They apply only in single-host mode where the host name is known at flag-parse time. When operators run `kensa check --inventory ... --config-dir DIR` with a `DIR/hosts/` or `DIR/groups/` subdirectory, kensa emits a one-line stderr warning so the omission isn't silent. Phase 3.7 will rewire inventory mode to re-load the corpus per host with that host's full 5-tier resolution.
+
+**Affected rules in current corpus (sample):** `pam-faillock-deny`, `pam-faillock-unlock-time`, `pam-pwquality-minlen`, `pam-pwquality-difok`, `pam-pwquality-minclass`, `ssh-client-alive-interval`, `ssh-max-auth-tries`, `login-defs-pass-max-days`, `pam-pwhistory-remember`. ~30 rules total use templates.
+
+**Validation:** every tier source applies the same vocabulary check. A `hosts/web-01.yml` with `has-dash: 5` rejects with "KEY must match [A-Za-z][A-Za-z0-9_]*" before any rule loads. Malformed YAML in any tier produces a usage error naming the file path.
 
 ## Known limits
 

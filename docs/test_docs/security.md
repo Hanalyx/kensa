@@ -20,12 +20,12 @@ This is the founder-facing list of deliberate security exclusions in the current
 
 ## High-confidence limits (acceptable for most deployments)
 
-### 3. `--var` values flow into shell commands
+### 3. `--var` values flow into shell commands (and so do `defaults.yml` / `hosts/<host>.yml` / `groups/<g>.yml` / `conf.d/*.yml` values)
 
-- **What.** Variable values substituted via `--var KEY=VALUE` or `defaults.yml` are spliced literally into rule YAML, which then drives handlers like `config_set` (writes to /etc/security/faillock.conf) and `command_exec` (runs commands literally).
-- **Risk.** An operator passing `-x banner='$(rm -rf /)'` would have that command run on the target host as root (since remediate runs under sudo). This is not kensa-go-specific — Python kensa has the same path. But the `--var` flag introduces a more direct injection surface than a config file.
-- **Mitigation.** The `--var` help text now includes: "VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input." Operators must already be authorized to remediate the host, so the threat model is internal-misuse, not external compromise.
-- **Sign-off question.** Is the target deployment's operator population trusted to handle un-escaped variable values? If not, defer to defaults.yml only and disable --var via shell-wrapper.
+- **What.** Variable values substituted via `--var KEY=VALUE` OR any of the four file-based tiers under `--config-dir` (Phase 3.5/3.6) are spliced literally into rule YAML, which then drives handlers like `config_set` (writes to /etc/security/faillock.conf) and `command_exec` (runs commands literally).
+- **Risk.** An operator passing `-x banner='$(rm -rf /)'`, OR a hosts/web-01.yml with `banner: "$(rm -rf /)"`, would have that command run on the target host as root (since remediate runs under sudo). This is not kensa-go-specific — Python kensa has the same path. The 5-tier surface (Phase 3.6) widens the surface: any operator with write access to the config dir can inject into kensa runs initiated by other operators.
+- **Mitigation.** The `--var` help text now includes: "VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input." All tier sources apply the same vocabulary check at load time (KEY must match `[A-Za-z][A-Za-z0-9_]*`), but **VALUE is unrestricted** by design.
+- **Sign-off question.** Is the target deployment's operator population trusted to handle un-escaped variable values, AND is write access to `--config-dir` properly restricted (file permissions)? If not, defer to a single deployment-managed `defaults.yml` and disable `--var` + custom `--config-dir` via shell-wrapper.
 
 ### 4. `--capability` override is a debugging knob, not a security boundary
 
@@ -101,6 +101,7 @@ Before each release, confirm:
 - [ ] **noopSigner placeholder** — acceptable for this deployment, OR M7 task #12 has landed.
 - [ ] **Default TOFU host-key policy** — acceptable for this deployment, OR documentation directs operators to use `--strict-host-keys`.
 - [ ] **--var trust model** — operators trusted, OR --var is disabled at the deployment layer.
+- [ ] **--config-dir write access** — restricted to deployment owner. Phase 3.6 widens the variable injection surface to four file-based tiers; any operator with write access to `<config-dir>/hosts/`, `groups/`, `conf.d/`, or `defaults.yml` can inject values that other operators' kensa runs will splice into shell commands.
 - [ ] **Conflict-resolution warnings** — operators trained to read stderr, OR conflicts in the corpus have been manually resolved.
 - [ ] **Untested handler list** — operators avoid those handlers, OR accept manual rollback.
 - [ ] **grub_parameter_set** — not in use, OR operators have manual-verification protocol.

@@ -38,8 +38,8 @@ DONE through Phase 3.5. Single-host only — multi-host remediation is **not** i
 | `-c, --category` | DONE (C-032) |
 | `-f, --framework` | DONE (C-033) |
 | `--control` | DONE (C-035) |
-| `-x, --var` | DONE (Phase 3.5) |
-| `--config-dir` | DONE (Phase 3.5) |
+| `-x, --var` | DONE (Phase 3.5) — highest tier |
+| `--config-dir` | DONE (Phase 3.5/3.6) — full 5-tier (remediate is single-host so all tiers apply) |
 
 ### Output options
 

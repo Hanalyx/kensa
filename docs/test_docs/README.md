@@ -46,7 +46,8 @@ For each release candidate:
 | CLI Phase 2.5 (operator UX refresh) | DONE |
 | CLI Phase 3 (target_options + rule_options parity) | DONE (13/13; 2 deferred to 3.5) |
 | CLI Phase 3.5 (variable substitution: --var, --config-dir) | DONE |
-| CLI Phase 3.6 (variable per-host/per-group/conf.d tiers) | NOT STARTED |
+| CLI Phase 3.6 (variable per-host/per-group/conf.d tiers) | DONE (single-host full 5-tier; inventory 3-tier with warning) |
+| CLI Phase 3.7 (per-host vars active in inventory mode) | NOT STARTED |
 | CLI Phase 4 (session model + missing subcommands) | NOT STARTED |
 | CLI Phase 5 (kensa-go-specific surfaces, manpage) | NOT STARTED |
 
