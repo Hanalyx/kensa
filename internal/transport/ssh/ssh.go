@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +49,17 @@ type Config struct {
 	// KeyPath is an explicit identity file. Empty defers to ssh-agent
 	// and ~/.ssh/config.
 	KeyPath string
+	// Password is the SSH password for password-auth hosts. Wired
+	// in C-026. When non-empty, the ControlMaster connection is
+	// established via `sshpass -e ssh ...` with the password
+	// passed in via the SSHPASS environment variable (NOT argv,
+	// to avoid /proc-visible exposure). Empty defers to key-based
+	// auth (KeyPath / ssh-agent / ~/.ssh/config).
+	//
+	// Operators must have `sshpass` installed on the host running
+	// kensa for this to work; if absent, Connect returns a clear
+	// error instructing the operator how to install it.
+	Password string
 	// ConnectTimeout is the maximum wall time to establish the
 	// ControlMaster connection. Zero means 30 seconds.
 	ConnectTimeout time.Duration
@@ -96,12 +108,34 @@ func Connect(ctx context.Context, cfg Config) (*Transport, error) {
 	// no remote command runs; the connection persists for ControlPersist
 	// after the foreground client exits.
 	args := masterArgs(cfg, socketPath)
-	cmd := exec.CommandContext(ctx, "ssh", args...)
+	bin := "ssh"
+	if cfg.Password != "" {
+		// Wrap in sshpass for password-auth hosts. -e reads the
+		// password from the SSHPASS environment variable; passing
+		// it via -p would expose it in /proc/.../cmdline.
+		if _, err := exec.LookPath("sshpass"); err != nil {
+			return nil, fmt.Errorf("ssh: --password requires sshpass on PATH (install via your package manager); not found: %w", err)
+		}
+		bin = "sshpass"
+		args = append([]string{"-e", "ssh"}, args...)
+	}
+	cmd := exec.CommandContext(ctx, bin, args...)
+	if cfg.Password != "" {
+		cmd.Env = append(os.Environ(), "SSHPASS="+cfg.Password)
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ssh: connect failed: %w (stderr: %s)", err, stderr.String())
+		stderrText := stderr.String()
+		// Defense-in-depth: scrub the password from any stderr we
+		// echo back to the operator. sshpass v1.06+ doesn't echo
+		// SSHPASS itself, but verbose ssh debug output or future
+		// sshpass behavior could surface fragments.
+		if cfg.Password != "" {
+			stderrText = strings.ReplaceAll(stderrText, cfg.Password, "***")
+		}
+		return nil, fmt.Errorf("ssh: connect failed: %w (stderr: %s)", err, stderrText)
 	}
 	return &Transport{cfg: cfg, socketPath: socketPath}, nil
 }

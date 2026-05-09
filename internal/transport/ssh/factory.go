@@ -17,11 +17,12 @@ type Factory struct{}
 // caller; close it with [Transport.Close].
 func (Factory) Connect(ctx context.Context, host api.HostConfig) (api.Transport, error) {
 	cfg := Config{
-		Host:    host.Hostname,
-		User:    host.User,
-		Port:    host.Port,
-		Sudo:    host.Sudo,
-		KeyPath: host.KeyPath,
+		Host:     host.Hostname,
+		User:     host.User,
+		Port:     host.Port,
+		Sudo:     host.Sudo,
+		KeyPath:  host.KeyPath,
+		Password: host.Password,
 	}
 	return Connect(ctx, cfg)
 }
