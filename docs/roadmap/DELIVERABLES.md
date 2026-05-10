@@ -387,8 +387,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Phase:** CLI Phase 4
 - **Deps:** C-044
 - **Acceptance:** `kensa coverage --framework cis_rhel9 --rules-dir DIR` walks the corpus, computes per-control coverage, prints summary (e.g., "212 / 318 CIS RHEL9 L1 controls covered (66.7%)"). `-o json` emits structured shape.
-- **Size:** ~5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `a194195`). **Numerator-only ship cut**: report shows "controls with rules: N (numerator only — framework total not bundled)" because a denominator-% reading would need an external control catalog kensa-go doesn't bundle at v1.0; future deliverable. JSON shape is forward-compatible (adding controls_total later is additive). New behavior gated on `--framework`; without it `kensa coverage` remains the C-044 deprecation alias. `kensa mechanisms --framework FOO` rejected with usage error pointing at `kensa coverage`. **Peer-review-driven UX polish**: labels reworded ("controls with rules" not "controls mapped"; "rules referencing FRAMEWORK" not "rules matching") to prevent reading numerator as a percentage; ASCII separators (not Unicode box-drawing) for LANG=C terminals; `--full` flag for unlimited rule listing; `--format` validated against {text,json}; alias `--help` advertises the new surface; `--framework FOO --help` emits the C-044 repurpose warning so operators reading docs see the v0.2 flip. `hasFrameworkFlag` uses a permissive pflag pre-parse so merged-short-bool forms (`-qfcis_rhel9`) route correctly. Spec: `specs/cli/framework-coverage.spec.yaml` (10 constraints, 14 ACs). 7 store-layer + 12 CLI tests. cli-smoke 117→126. Live-verified against 539-rule corpus: cis_rhel9 → 251 distinct controls across 259 rules; nist_800_53 → 76 controls across all 516 rules.
 
 #### C-046 — `kensa list frameworks`
 - **Phase:** CLI Phase 4
