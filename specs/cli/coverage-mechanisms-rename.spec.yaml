@@ -1,0 +1,192 @@
+spec:
+    id: cli-coverage-mechanisms-rename
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-coverage-mechanisms-rename
+        description: |
+            CLI Phase 4 deliverable C-044. Renames `kensa
+            coverage` to `kensa mechanisms` and starts a
+            deprecation cycle on the old name. Both
+            subcommands accept the same flags and produce
+            the same output during the deprecation window;
+            the old name emits a stderr warning pointing at
+            the new one. C-045 then repurposes `kensa
+            coverage` for framework control coverage
+            reporting (Python kensa's coverage semantics).
+
+            The rename matters because the current `kensa
+            coverage` outputs handler-mechanism listings
+            (capturable / non-capturable), which is closer
+            to "what tools does the engine support" than
+            "how much of a compliance framework do my rules
+            cover." Operators looking at the word `coverage`
+            expect the latter (every framework-mapping CLI
+            convention since the early audit-tool era uses
+            `coverage` for framework-control %). C-044
+            frees the name without forcing a hard break.
+
+            Deprecation contract matches C-020's --format
+            pattern: warning to stderr, suppressed by
+            KENSA_NO_DEPRECATION_WARNINGS=1. Removal target:
+            v0.2. The exit code is unchanged (0 for success,
+            2 for bad usage); a warning is informational, it
+            doesn't fail the run.
+
+    objective:
+        summary: |
+            Add `case "mechanisms":` dispatch in the main
+            switch routing to the same handler used by
+            `coverage`. Rename runCoverage →
+            runMechanisms; have the `coverage` arm call
+            runMechanisms after emitting a deprecation
+            warning via a new warnDeprecatedSubcommand
+            helper. printUsage advertises `mechanisms` as
+            the canonical command and lists `coverage` as
+            (deprecated). Help text on either subcommand
+            documents the rename.
+        scope:
+            includes:
+                - "case \"mechanisms\" dispatch in cmd/kensa/main.go"
+                - "runMechanisms (rename of runCoverage; same body)"
+                - "warnDeprecatedSubcommand helper, parallel to warnDeprecatedFlag"
+                - "case \"coverage\" emits warning then calls runMechanisms"
+                - "printUsage update: mechanisms canonical, coverage marked deprecated"
+                - "Help text on `kensa coverage --help` discloses the rename"
+                - "cli-smoke: both subcommands exit 0; coverage emits the warning to stderr; mechanisms does not"
+                - "KENSA_NO_DEPRECATION_WARNINGS=1 silences the warning"
+            excludes:
+                - "C-045's framework-coverage report (this deliverable only frees the name)"
+                - "Removing `kensa coverage` entirely: NOT in scope; that's v0.2 cleanup"
+                - "Aliasing other deprecated subcommand names: only `coverage` is in scope"
+                - "Localized warning text: English-only; matches existing warnDeprecatedFlag"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa coverage` MUST continue to work for
+              one minor version (v0.1.x). Removal is v0.2.
+              Operators using the name today MUST get the
+              same output during the deprecation window.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `kensa coverage` MUST emit a stderr warning
+              that conveys (a) the v0.2 semantic flip
+              (NOT removal), (b) the migration target
+              `kensa mechanisms`, and (c) the version
+              target `v0.2`. The warning text MUST use
+              "change meaning" or "repurpose" — NOT
+              "deprecated/removed" — to avoid the
+              feature-is-going-away misread that would
+              cause operators to fail to migrate before
+              v0.2 produces silently-different output.
+              Stderr (not stdout) so the warning doesn't
+              corrupt parseable output. Suppressed only
+              by KENSA_NO_REPURPOSE_WARNINGS=1 (NOT by
+              KENSA_NO_DEPRECATION_WARNINGS=1 — the two
+              knobs are decoupled so a stale flag-warning
+              silence cannot mask the semantic-flip
+              signal).
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `kensa mechanisms` MUST NOT emit any
+              deprecation warning. The new name is the
+              canonical surface; nothing about it is
+              deprecated.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Both subcommands MUST produce identical
+              stdout body output. The output format is
+              the same; only the warning differs.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `kensa --help` MUST advertise `mechanisms`
+              as the canonical command and tag `coverage`
+              as (deprecated). Operators reading the
+              top-level help must not be steered toward
+              the deprecated name.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa mechanisms` exits 0 and writes the
+              mechanism listing to stdout. Locked by
+              TestRunMechanisms_Basic.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa coverage` exits 0 and writes the
+              same mechanism listing to stdout. Locked by
+              TestRunCoverageDeprecated_StillWorks.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              `kensa coverage` writes a stderr warning
+              containing "v0.2", "mechanisms", and a
+              semantic-flip phrase ("change meaning" or
+              "repurpose"). The warning MUST NOT contain
+              "removed". Locked by
+              TestRunCoverageDeprecated_EmitsWarning.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              `kensa mechanisms` writes nothing
+              deprecation-related to stderr. Locked by
+              TestRunMechanisms_NoWarning.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              KENSA_NO_REPURPOSE_WARNINGS=1 silences the
+              repurpose warning;
+              KENSA_NO_DEPRECATION_WARNINGS=1 does NOT
+              silence it (the two knobs are decoupled).
+              Locked by
+              TestRunCoverageDeprecated_EnvSuppresses
+              and
+              TestRunCoverageDeprecated_DeprecationEnvDoesNotSilence.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              `kensa --help` lists `mechanisms` as
+              canonical and `coverage` as (deprecated).
+              Locked by
+              TestPrintUsage_AdvertisesMechanisms.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-07
+          description: |
+              Both subcommands accept `--help` and `-h`
+              and exit 0. Locked by existing exit-code
+              test corpus +
+              TestRunMechanisms_HelpExitsZero.
+          references_constraints: [C-01, C-04]
+          priority: high
+        - id: AC-08
+          description: |
+              Live verification: `bin/kensa mechanisms`
+              and `bin/kensa coverage` produce identical
+              stdout; coverage emits a warning to stderr;
+              mechanisms does not. Verified during the
+              C-044 merge workflow.
+          references_constraints: [C-01, C-02, C-03, C-04]
+          priority: critical
+
+    tags: [cli, coverage, mechanisms, deprecation, phase-4, c-044]

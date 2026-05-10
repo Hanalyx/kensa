@@ -277,6 +277,7 @@ func TestRunCLI_UsageVsRuntimeExitCodes(t *testing.T) {
 		{name: "kensa --help", argv: []string{"--help"}, wantExit: 0},
 		{name: "kensa version --help", argv: []string{"version", "--help"}, wantExit: 0},
 		{name: "kensa detect --help", argv: []string{"detect", "--help"}, wantExit: 0},
+		{name: "kensa mechanisms --help", argv: []string{"mechanisms", "--help"}, wantExit: 0},
 		{name: "kensa coverage --help", argv: []string{"coverage", "--help"}, wantExit: 0},
 
 		// Usage errors at top level: exit 2

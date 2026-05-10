@@ -265,6 +265,66 @@ assert_exit "kensa check --control no-colon"        2 stderr-nonempty bin/kensa 
 assert_exit "kensa check --framework bogus"         2 stderr-nonempty bin/kensa check -H foo -f bogus --rules-dir /home/rracine/hanalyx/kensa/rules
 echo
 
+# ─── kensa mechanisms / coverage deprecation (C-044) ──────────────────────
+echo "kensa mechanisms (C-044 rename) + coverage deprecation:"
+assert_exit "kensa mechanisms --help"        0 stdout-nonempty bin/kensa mechanisms --help
+assert_exit "kensa mechanisms -h"            0 stdout-nonempty bin/kensa mechanisms -h
+assert_exit "kensa mechanisms"               0 stdout-nonempty bin/kensa mechanisms
+assert_exit "kensa coverage (deprecated)"    0 stdout-nonempty bin/kensa coverage
+# coverage MUST emit a v0.2 repurpose warning to stderr; mechanisms MUST NOT.
+# Warning may span multiple lines, so check for both substrings independently.
+covStderr=$(bin/kensa coverage 2>&1 >/dev/null)
+if echo "${covStderr}" | grep -qE "v0\\.2" && echo "${covStderr}" | grep -qE "mechanisms"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage emits v0.2 repurpose warning to stderr"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage missing v0.2 repurpose warning")
+    echo "  ${RED}FAIL${RESET}  kensa coverage missing v0.2 repurpose warning"
+fi
+# Warning MUST NOT say "removed" — that's the misread we're preventing.
+if echo "${covStderr}" | grep -q "removed"; then
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage warning misuses 'removed' (name is being repurposed)")
+    echo "  ${RED}FAIL${RESET}  kensa coverage warning misuses 'removed'"
+else
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage warning correctly avoids 'removed'"
+fi
+mechStderr=$(bin/kensa mechanisms 2>&1 >/dev/null)
+if [ -z "${mechStderr}" ]; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa mechanisms emits no stderr"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa mechanisms emitted unexpected stderr: ${mechStderr}")
+    echo "  ${RED}FAIL${RESET}  kensa mechanisms emitted unexpected stderr"
+fi
+# KENSA_NO_REPURPOSE_WARNINGS=1 silences the warning. Note: this is a
+# SEPARATE knob from KENSA_NO_DEPRECATION_WARNINGS=1 — see
+# warnRepurposedSubcommand for the rationale.
+covStderrSilent=$(KENSA_NO_REPURPOSE_WARNINGS=1 bin/kensa coverage 2>&1 >/dev/null)
+if [ -z "${covStderrSilent}" ]; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  KENSA_NO_REPURPOSE_WARNINGS=1 silences coverage warning"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("KENSA_NO_REPURPOSE_WARNINGS=1 did not silence coverage warning")
+    echo "  ${RED}FAIL${RESET}  KENSA_NO_REPURPOSE_WARNINGS=1 did not silence"
+fi
+# KENSA_NO_DEPRECATION_WARNINGS=1 (the OLD knob) MUST NOT silence —
+# semantic-flip warnings are categorically louder than flag renames.
+covStderrDepEnv=$(KENSA_NO_DEPRECATION_WARNINGS=1 bin/kensa coverage 2>&1 >/dev/null)
+if echo "${covStderrDepEnv}" | grep -qE "v0\\.2" && echo "${covStderrDepEnv}" | grep -qE "mechanisms"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  KENSA_NO_DEPRECATION_WARNINGS=1 does NOT silence repurpose warning"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("KENSA_NO_DEPRECATION_WARNINGS=1 incorrectly silenced repurpose warning")
+    echo "  ${RED}FAIL${RESET}  KENSA_NO_DEPRECATION_WARNINGS=1 incorrectly silenced repurpose warning"
+fi
+echo
+
 # ─── kensa history --prune (C-043) ────────────────────────────────────────
 # All --prune scenarios must reach validation BEFORE the store opens, so
 # they don't need a real DB path. Network-free; flag-only validation.

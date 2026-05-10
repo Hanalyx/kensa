@@ -84,8 +84,21 @@ func TestQuietFlag_NotInVersion(t *testing.T) {
 	}
 }
 
-// TestQuietFlag_NotInCoverage: same reasoning as version.
-func TestQuietFlag_NotInCoverage(t *testing.T) {
+// TestQuietFlag_NotInMechanisms: same reasoning as version.
+// Tests the canonical name (post-C-044). The deprecated `coverage`
+// alias is covered by TestQuietFlag_NotInCoverageAlias below so
+// the pair will outlive the v0.2 alias removal naturally.
+func TestQuietFlag_NotInMechanisms(t *testing.T) {
+	stdout, _ := captureRunCLI([]string{"mechanisms", "--help"}, t)
+	if strings.Contains(stdout, "--quiet") || strings.Contains(stdout, "-q ") {
+		t.Errorf("kensa mechanisms --help should not advertise --quiet; got:\n%s", stdout)
+	}
+}
+
+// TestQuietFlag_NotInCoverageAlias keeps the deprecated alias
+// under test for the duration of the deprecation window. Removed
+// in v0.2 alongside the alias itself.
+func TestQuietFlag_NotInCoverageAlias(t *testing.T) {
 	stdout, _ := captureRunCLI([]string{"coverage", "--help"}, t)
 	if strings.Contains(stdout, "--quiet") || strings.Contains(stdout, "-q ") {
 		t.Errorf("kensa coverage --help should not advertise --quiet; got:\n%s", stdout)

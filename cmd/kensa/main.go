@@ -14,7 +14,9 @@
 //	rollback    Roll back a past transaction by ID.
 //	history     Query the transaction log.
 //	plan        Preview a rule transaction without executing.
-//	coverage    List registered handler mechanisms.
+//	mechanisms  List registered handler mechanisms.
+//	coverage    Alias for `mechanisms` today; v0.2 will repurpose this name
+//	            for framework control coverage. Migrate to `mechanisms` now.
 //	version     Print version information.
 //
 // Global flags:
@@ -176,8 +178,21 @@ func runCLI(argv []string) int {
 		err = runHistory(ctx, dbPath, args)
 	case "plan":
 		err = runPlan(ctx, dbPath, args)
+	case "mechanisms":
+		err = runMechanisms("mechanisms", args)
 	case "coverage":
-		err = runCoverage(args)
+		// C-044: `coverage` is being repurposed in v0.2 (for
+		// framework control coverage reports per C-045). Today
+		// it remains a working alias for `mechanisms`; the
+		// warning prevents the silent semantic flip at upgrade.
+		// Suppressed only by KENSA_NO_REPURPOSE_WARNINGS=1
+		// (NOT by KENSA_NO_DEPRECATION_WARNINGS=1 — see
+		// warnRepurposedSubcommand for the rationale).
+		warnRepurposedSubcommand(
+			"kensa coverage",
+			"kensa mechanisms",
+			"framework control coverage")
+		err = runMechanisms("coverage", args)
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -240,6 +255,41 @@ func warnDeprecatedFlag(fs *pflag.FlagSet, name, replacement string) {
 	fmt.Fprintf(os.Stderr,
 		"kensa: warning: --%s is deprecated; use %s (will be removed in v0.2)\n",
 		name, replacement)
+}
+
+// warnRepurposedSubcommand emits a stderr warning when an
+// operator invokes a subcommand whose NAME will be repurposed
+// in a future version. Distinct from warnDeprecatedFlag, where
+// the flag and its semantics both go away together: here the
+// name survives but its output changes. An operator's script
+// running `kensa <name>` continues to exit 0 in v0.2 — but
+// produces different rows. That silent semantic flip is what
+// this warning is paid to prevent.
+//
+// Two-knob suppression contract:
+//   - KENSA_NO_REPURPOSE_WARNINGS=1: silences ONLY repurpose
+//     warnings. Use this for CI scripts that have explicitly
+//     ack'd the upcoming semantic flip and migrated.
+//   - KENSA_NO_DEPRECATION_WARNINGS=1: silences flag-rename
+//     warnings (warnDeprecatedFlag) but does NOT silence this
+//     one. Operators who silenced flag warnings months ago
+//     deserve to still see the louder repurpose signal —
+//     coupling the two switches creates a documented
+//     foot-gun where a stale CI silence masks a real
+//     scripted-output break.
+//
+// Wording uses "repurposed," not "deprecated," to avoid the
+// "feature is going away" misread. The example in the spec is
+// `kensa coverage` (current: handler-mechanism listing; v0.2:
+// framework control coverage reporting).
+func warnRepurposedSubcommand(name, currentReplacement, futurePurpose string) {
+	if os.Getenv("KENSA_NO_REPURPOSE_WARNINGS") == "1" {
+		return
+	}
+	fmt.Fprintf(os.Stderr,
+		"kensa: warning: '%s' will change meaning in v0.2 (it will report %s).\n"+
+			"               For the current output, switch to '%s' before upgrading.\n",
+		name, futurePurpose, currentReplacement)
 }
 
 // routeFanOutError routes a FanOut return value through the right
@@ -381,7 +431,9 @@ Commands:
   rollback    Roll back a past transaction by ID
   history     Query the transaction log
   plan        Preview a rule transaction without executing
-  coverage    List registered handler mechanisms
+  mechanisms  List registered handler mechanisms
+  coverage    Alias for 'mechanisms' today; in v0.2 reports framework
+              control coverage instead — migrate scripts to 'mechanisms'
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
 
@@ -1803,17 +1855,23 @@ Example:
 `, fs.FlagUsages())
 }
 
-// ─── coverage ──────────────────────────────────────────────────────────────
+// ─── mechanisms (formerly: coverage) ───────────────────────────────────────
 
-// runCoverage lists all registered handler mechanisms.
+// runMechanisms lists all registered handler mechanisms.
 //
-// Note: this subcommand will be renamed to `kensa mechanisms` in CLI
-// Phase 4 (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §5.11) so that
-// `kensa coverage` can be repurposed for framework coverage reporting
-// (Python kensa's `coverage` semantics). Until then, accepts only
-// `--help`/`-h` for parity with the rest of the CLI.
-func runCoverage(args []string) error {
-	fs := pflag.NewFlagSet("coverage", pflag.ContinueOnError)
+// C-044 renamed this from `coverage` → `mechanisms`. The
+// `coverage` name is preserved as a deprecated alias for one
+// minor version; the wrapper at the dispatch site (case
+// "coverage") emits a stderr warning before delegating here.
+// `coverage` will be repurposed in C-045 for framework control
+// coverage reporting (Python kensa's coverage semantics).
+//
+// The `name` argument is "mechanisms" or "coverage" depending
+// on which alias the operator typed; help text and parse-error
+// hints use it so they read coherently regardless of entry
+// point.
+func runMechanisms(name string, args []string) error {
+	fs := pflag.NewFlagSet(name, pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.SetOutput(io.Discard)
 
@@ -1822,13 +1880,13 @@ func runCoverage(args []string) error {
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
-			printCoverageUsage(os.Stdout, fs)
+			printMechanismsUsage(os.Stdout, fs, name)
 			return nil
 		}
-		return WrapUsageError("try 'kensa coverage --help'", err)
+		return WrapUsageError(fmt.Sprintf("try 'kensa %s --help'", name), err)
 	}
 	if showHelp {
-		printCoverageUsage(os.Stdout, fs)
+		printMechanismsUsage(os.Stdout, fs, name)
 		return nil
 	}
 
@@ -1889,19 +1947,31 @@ Flags:
 %s`, fs.FlagUsages())
 }
 
-// printCoverageUsage writes the `kensa coverage` help text to w.
-func printCoverageUsage(w io.Writer, fs *pflag.FlagSet) {
-	fmt.Fprintf(w, `Usage: kensa coverage [flags]
-
-List every handler mechanism registered with the kensa-go engine,
+// printMechanismsUsage writes the help text. The `name` parameter
+// is "mechanisms" (canonical) or "coverage" (alias under
+// repurpose); it's used in the Usage line, the example, and the
+// repurpose disclosure so help reads coherently regardless of
+// entry point. When invoked as `coverage`, the WARNING block
+// prints BEFORE the flag list — operators reading help to
+// write a script need to see the v0.2 semantic flip first.
+func printMechanismsUsage(w io.Writer, fs *pflag.FlagSet, name string) {
+	fmt.Fprintf(w, "Usage: kensa %s [flags]\n\n", name)
+	if name == "coverage" {
+		fmt.Fprint(w,
+			"WARNING: 'kensa coverage' will change meaning in v0.2.\n"+
+				"  Today: lists handler mechanisms (alias for 'kensa mechanisms').\n"+
+				"  v0.2:  reports framework control coverage.\n"+
+				"Migrate scripts to 'kensa mechanisms' to preserve current output.\n\n")
+	}
+	fmt.Fprintf(w, `List every handler mechanism registered with the kensa-go engine,
 marked capturable (participates in atomic transactions) or
 non-capturable (transactional: false escape hatch).
 
 Flags:
 %s
 Example:
-  kensa coverage
-`, fs.FlagUsages())
+  kensa %s
+`, fs.FlagUsages(), name)
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────
