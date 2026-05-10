@@ -325,6 +325,50 @@ else
 fi
 echo
 
+# ─── Phase 4 close (C-050) help-grouping assertions ───────────────────────
+echo "kensa info / rollback help-grouping (C-050):"
+infoHelp=$(bin/kensa info --help 2>/dev/null)
+for section in "Mode (pick one):" "Filter options:" "Output options:"; do
+    if echo "${infoHelp}" | grep -qF "${section}"; then
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa info --help: ${section}"
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa info --help missing section: ${section}")
+        echo "  ${RED}FAIL${RESET}  kensa info --help missing: ${section}"
+    fi
+done
+# AC-03: no "Other options:" catch-all should appear (every flag is grouped).
+if echo "${infoHelp}" | grep -qF "Other options:"; then
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa info --help: 'Other options:' present (a flag is uncategorized)")
+    echo "  ${RED}FAIL${RESET}  kensa info --help has uncategorized flags"
+else
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa info --help: every flag categorized"
+fi
+
+rollbackHelp=$(bin/kensa rollback --help 2>/dev/null)
+for section in "Mode (pick one):" "Target options" "Output options:"; do
+    if echo "${rollbackHelp}" | grep -qF "${section}"; then
+        PASS_COUNT=$((PASS_COUNT + 1))
+        echo "  ${GREEN}PASS${RESET}  kensa rollback --help: ${section}"
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        FAILURES+=("kensa rollback --help missing section: ${section}")
+        echo "  ${RED}FAIL${RESET}  kensa rollback --help missing: ${section}"
+    fi
+done
+if echo "${rollbackHelp}" | grep -qF "Other options:"; then
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa rollback --help: 'Other options:' present (a flag is uncategorized)")
+    echo "  ${RED}FAIL${RESET}  kensa rollback --help has uncategorized flags"
+else
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa rollback --help: every flag categorized"
+fi
+echo
+
 # ─── kensa rollback session-aware (C-049) ─────────────────────────────────
 echo "kensa rollback session-aware (C-049):"
 assert_exit "kensa rollback (no mode)"               2 stderr-nonempty bin/kensa rollback

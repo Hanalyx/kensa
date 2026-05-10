@@ -372,8 +372,8 @@ Filters (compose with QUERY; --cis/--stig/--nist also narrow within --rule/--con
   --cis | --stig | --nist        framework-family shortcut (mutually exclusive)
   --rhel 8 | 9 | 10              RHEL version (composes with --cis/--stig; standalone filters Platforms)
 
-Flags:
 %s
+
 Examples:
   kensa info ssh --rules-dir /path/to/rules                   # search "ssh" in titles + descriptions
   kensa info ssh --cis --rhel 9 --rules-dir /path/to/rules    # SSH rules in CIS RHEL9
@@ -382,5 +382,5 @@ Examples:
   kensa info --list-controls cis_rhel9 --rules-dir /path/to/rules
   kensa info --cis --rhel 9 --rules-dir /path/to/rules        # every CIS RHEL9 rule (no QUERY)
   kensa info file --rules-dir /path/to/rules --limit 0        # show all hits (no truncation)
-`, fs.FlagUsages())
+`, formatGroupedUsages(fs, infoFlagGroups))
 }

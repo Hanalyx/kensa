@@ -1658,14 +1658,14 @@ To find session UUIDs first, run:
 
   kensa list sessions
 
-Flags:
 %s
+
 Examples:
   kensa rollback --list
   kensa rollback --info 8c3a1e2b-... --detail
   kensa rollback --start 8c3a1e2b-... -H 192.168.1.211 -u owadmin --sudo
   kensa rollback --txn 9d4b... -H 192.168.1.211 -u owadmin --sudo  # legacy
-`, fs.FlagUsages())
+`, formatGroupedUsages(fs, rollbackFlagGroups))
 }
 
 // ─── history ───────────────────────────────────────────────────────────────
