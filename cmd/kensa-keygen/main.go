@@ -237,6 +237,29 @@ After generation, the printed key_id is the filename stem used by
 the kensa binary's --signing-key flag (Phase 5b / C-060) to locate
 the corresponding files.
 
+EXIT CODES
+
+  0  keypair written successfully; key_id printed to stdout
+  1  runtime error (write failed, output dir creation failed, etc.)
+  2  usage error (bad flag, file collision without --force)
+
+SECURITY
+
+The .priv file is the cryptographic root of every evidence
+envelope it signs. Treat it like an SSH private key:
+
+  - NEVER commit .priv to version control (git, mercurial, etc.)
+  - NEVER include .priv in container images or build artifacts
+  - NEVER email, paste into chat, or share .priv over insecure
+    channels
+  - Store .priv only on hosts that need to sign envelopes; the
+    .pub file is what verifiers need, NOT .priv
+
+Compromise of .priv allows an attacker to forge evidence envelopes
+indistinguishable from authentic ones. If you suspect leak, rotate
+immediately AND treat past envelopes signed by the leaked key as
+suspect.
+
 KEY ROTATION
 
 To rotate, generate a new keypair with a fresh --key-id (e.g.

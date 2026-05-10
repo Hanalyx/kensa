@@ -483,7 +483,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** M-012, C-056
 - **Acceptance:** With M-012's signer + `kensa-keygen` binary in place, plumb the signing path through every engine call-site that writes an `EvidenceEnvelope.Signature` (today they all flow through `noopSigner.Sign` returning empty bytes). Update `pkg/kensa.Default()` factory to accept a signing-key path (CLI flag + env var, e.g. `KENSA_SIGNING_KEY`). Migrate engine + handler tests from `noopSigner` to a fixture-based real signer (test-key generated at test setup). Delete `noopSigner` from `internal/engine/stubs.go`. Add `kensa verify <evidence-file>` subcommand: reads a JSON envelope from disk, looks up the public key by `signing_key_id` against a configured trust directory (default `$XDG_CONFIG_HOME/kensa/keys/`), validates the Ed25519 signature, exits 0 on valid + 1 on invalid + 2 on usage error. Remove `docs/test_docs/security.md` Critical Limit #1 ("Evidence envelopes are unsigned") and the `noopSigner` placeholder notes from `docs/KENSA_API_DOC.md`. Existing v1.0 evidence files (with empty `noop` signatures) remain valid as audit logs but cannot be cryptographically verified post-hoc — release notes call this out. v1.1 ships with this completed.
 - **Size:** ~2 days on top of M-012
-- **Status:** **blocked on M-012**
+- **Status:** **pending** (M-012 shipped 2026-05-10 at `7036a62`; ready for the loop to pick up)
 
 ---
 

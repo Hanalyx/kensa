@@ -3,7 +3,7 @@
 help:
 	@echo "Kensa Go — common targets"
 	@echo ""
-	@echo "  build           Build kensa, kensa-fuzz, kensa-validate binaries"
+	@echo "  build           Build kensa, kensa-fuzz, kensa-validate, kensa-keygen binaries"
 	@echo "  test            Run unit tests"
 	@echo "  cli-smoke       Run CLI smoke tests (GNU/POSIX exit-code contract)"
 	@echo "  lint            Run golangci-lint"

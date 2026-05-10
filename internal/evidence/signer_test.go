@@ -1,6 +1,7 @@
 package evidence_test
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
@@ -528,6 +529,45 @@ func bytesIndex(haystack, needle []byte) int {
 		}
 	}
 	return -1
+}
+
+// TestCanonicalize_PreservesIntegerPrecision locks the post-merge
+// verification fix: canonicalize() must NOT silently truncate
+// integers > 2^53 in PreState.Data. Without json.Decoder.UseNumber()
+// on the intermediate unmarshal, JSON numbers decode as float64
+// and 64-bit inodes / epoch-nanosecond timestamps lose precision.
+// Self-verification still passes (Sign + Verify both truncate
+// identically) but a cross-language verifier preserving integer
+// precision would compute different canonical bytes and fail to
+// verify the same envelope — breaking spec C-01's cross-language
+// byte-identity guarantee.
+//
+// Stored value: 9007199254740993 = 2^53 + 1, the smallest integer
+// that cannot be exactly represented as float64.
+func TestCanonicalize_PreservesIntegerPrecision(t *testing.T) {
+	env := makeEnvelope()
+	bigInt := uint64(9007199254740993) // 2^53 + 1
+	env.PreStateBundle = []api.PreState{
+		{
+			StepIndex:  0,
+			Mechanism:  "file_permissions",
+			Capturable: true,
+			Data: map[string]interface{}{
+				"inode": bigInt,
+			},
+			CapturedAt: env.StartedAt,
+		},
+	}
+	canonical, err := evidence.CanonicalForTest(env)
+	if err != nil {
+		t.Fatalf("canonicalize: %v", err)
+	}
+	// The exact digit string must be present in the canonical
+	// bytes. If float64 truncation kicked in, we'd see
+	// "9007199254740992" (one less) — failure mode is silent.
+	if !bytes.Contains(canonical, []byte("9007199254740993")) {
+		t.Errorf("integer 2^53+1 lost precision in canonicalization (got truncated to float64)\ncanonical:\n%s", canonical)
+	}
 }
 
 // TestNilSliceNormalization verifies that nil and empty slice envelopes

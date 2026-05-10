@@ -54,6 +54,7 @@
 package evidence
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -340,8 +341,21 @@ func canonicalize(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("first marshal: %w", err)
 	}
+	// CRITICAL: use json.Decoder.UseNumber() on the intermediate
+	// unmarshal. Without it, encoding/json decodes every JSON
+	// number as float64, silently truncating any integer > 2^53
+	// (epoch-nanosecond timestamps, 64-bit inodes, etc.). A
+	// cross-language verifier (Python kensa, OpenWatch) that
+	// preserves integer precision would compute different
+	// canonical bytes and fail to verify an otherwise-authentic
+	// envelope. UseNumber() decodes numbers into json.Number
+	// (a string-backed wrapper) so the re-marshal emits them
+	// back as the same digits — no precision loss. Caught by
+	// post-merge security verification audit.
+	dec := json.NewDecoder(bytes.NewReader(first))
+	dec.UseNumber()
 	var asMap map[string]any
-	if err := json.Unmarshal(first, &asMap); err != nil {
+	if err := dec.Decode(&asMap); err != nil {
 		return nil, fmt.Errorf("intermediate unmarshal: %w", err)
 	}
 	canonical, err := json.Marshal(asMap)
