@@ -54,4 +54,13 @@ const (
 	// later than the verification time. May indicate a forward-dated
 	// envelope or a clock-sync issue.
 	ClockSkew VerifyWarning = "clock_skew_detected"
+
+	// KeyIDMismatch indicates the envelope's claimed
+	// [EvidenceEnvelope.SigningKeyID] disagrees with the actual key
+	// that produced a valid signature. The signature itself is
+	// authentic — the matched key signed the bytes — but the
+	// envelope's metadata is inconsistent. Downstream tools should
+	// surface this so an operator can investigate why the labels
+	// drifted (post-hoc edit, intentional re-tagging, etc.).
+	KeyIDMismatch VerifyWarning = "signing_key_id_mismatch"
 )

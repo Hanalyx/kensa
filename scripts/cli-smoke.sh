@@ -604,6 +604,37 @@ else
 fi
 echo
 
+# ─── kensa-keygen (M-012) ─────────────────────────────────────────────────
+echo "kensa-keygen (M-012):"
+assert_exit "kensa-keygen --help"     0 stdout-nonempty bin/kensa-keygen --help
+assert_exit "kensa-keygen -h"         0 stdout-nonempty bin/kensa-keygen -h
+assert_exit "kensa-keygen --bogus"    2 stderr-nonempty bin/kensa-keygen --bogus
+# Happy path: generate into a temp dir, verify both files exist with right modes.
+KEYGEN_TMP=$(mktemp -d -t kensa-keygen-smoke.XXXXXX)
+KEYID=$(bin/kensa-keygen --out "${KEYGEN_TMP}" --key-id smoketest 2>/dev/null)
+if [ "${KEYID}" = "smoketest" ] && [ -f "${KEYGEN_TMP}/smoketest.priv" ] && [ -f "${KEYGEN_TMP}/smoketest.pub" ]; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa-keygen happy path produces .priv + .pub"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa-keygen happy path failed: keyID=${KEYID}")
+    echo "  ${RED}FAIL${RESET}  kensa-keygen happy path failed"
+fi
+# .priv mode must be 0600 (octal).
+PRIV_MODE=$(stat -c '%a' "${KEYGEN_TMP}/smoketest.priv" 2>/dev/null || stat -f '%Lp' "${KEYGEN_TMP}/smoketest.priv")
+if [ "${PRIV_MODE}" = "600" ]; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa-keygen .priv mode 0600"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa-keygen .priv mode wrong: ${PRIV_MODE}")
+    echo "  ${RED}FAIL${RESET}  kensa-keygen .priv mode is ${PRIV_MODE}, want 600"
+fi
+# Re-run without --force MUST fail (collision).
+assert_exit "kensa-keygen collision rejected" 2 stderr-nonempty bin/kensa-keygen --out "${KEYGEN_TMP}" --key-id smoketest
+rm -rf "${KEYGEN_TMP}"
+echo
+
 # ─── kensa-validate ───────────────────────────────────────────────────────
 echo "kensa-validate:"
 assert_exit "kensa-validate --help"      0 stdout-nonempty bin/kensa-validate --help

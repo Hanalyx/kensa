@@ -481,7 +481,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 #### C-060 — Wire Ed25519 signing through the engine + ship verify CLI
 - **Phase:** CLI Phase 5b
 - **Deps:** M-012, C-056
-- **Acceptance:** With M-012's signer + `kensa-keygen` binary in place, plumb the signing path through every engine call-site that writes an `EvidenceEnvelope.Signature` (today they all flow through `noopSigner.Sign` returning empty bytes). Update `pkg/kensa.Default()` factory to accept a signing-key path (CLI flag + env var, e.g. `KENSA_SIGNING_KEY`). Add `kensa verify <evidence-file>` subcommand: reads a JSON envelope from disk, looks up the public key by `signing_key_id` against a configured trust directory (default `$XDG_CONFIG_HOME/kensa/keys/`), validates the Ed25519 signature, exits 0 on valid + 1 on invalid + 2 on usage error. Existing v1.0 evidence files (with empty `noop` signatures) remain valid as audit logs but cannot be cryptographically verified post-hoc — release notes call this out. v1.1 ships with this completed.
+- **Acceptance:** With M-012's signer + `kensa-keygen` binary in place, plumb the signing path through every engine call-site that writes an `EvidenceEnvelope.Signature` (today they all flow through `noopSigner.Sign` returning empty bytes). Update `pkg/kensa.Default()` factory to accept a signing-key path (CLI flag + env var, e.g. `KENSA_SIGNING_KEY`). Migrate engine + handler tests from `noopSigner` to a fixture-based real signer (test-key generated at test setup). Delete `noopSigner` from `internal/engine/stubs.go`. Add `kensa verify <evidence-file>` subcommand: reads a JSON envelope from disk, looks up the public key by `signing_key_id` against a configured trust directory (default `$XDG_CONFIG_HOME/kensa/keys/`), validates the Ed25519 signature, exits 0 on valid + 1 on invalid + 2 on usage error. Remove `docs/test_docs/security.md` Critical Limit #1 ("Evidence envelopes are unsigned") and the `noopSigner` placeholder notes from `docs/KENSA_API_DOC.md`. Existing v1.0 evidence files (with empty `noop` signatures) remain valid as audit logs but cannot be cryptographically verified post-hoc — release notes call this out. v1.1 ships with this completed.
 - **Size:** ~2 days on top of M-012
 - **Status:** **blocked on M-012**
 
@@ -496,21 +496,19 @@ existing cross-references in `docs/test_docs/security.md`,
 independent of Track C / Track L and can be picked up in any order
 once the founder ratifies them.
 
-#### M-012 — Ed25519 signer (replace noopSigner)
+#### M-012 — Ed25519 signer primitive (replaces noopSigner cryptographically)
 - **Phase:** M7
 - **Deps:** —
 - **Acceptance:**
-  - `internal/evidence/signer.go` (or equivalent) implements `Sign` and `Verify` against Ed25519 keys via `crypto/ed25519` stdlib.
-  - JSON canonicalization (deterministic field order) before signing — so the same envelope bytes produce the same signature regardless of map-iteration order or encoder version.
-  - `cmd/kensa-keygen/main.go` (new binary) generates an Ed25519 keypair, writes `<keyid>.priv` (mode 0600) and `<keyid>.pub` (mode 0644), prints the key_id to stdout. Keys go to `$XDG_CONFIG_HOME/kensa/keys/` by default.
-  - Tests: round-trip (sign then verify with the same key passes); tamper-detection (modifying a single byte of the canonical envelope makes verify fail); key-mismatch (signed by key A, public key B in trust dir, fails verify); key-rotation history (envelope's `signing_key_id` field locked into the signed bytes — rotating keys doesn't retroactively invalidate old envelopes).
-  - `specs/evidence/envelope.spec.yaml` status flips from `draft` to `active`; the 6 constraints + 10 ACs already drafted lock to the implementation.
-  - `noopSigner` deleted from `internal/engine/stubs.go`. Tests using it migrated to a fixture-based real-signer.
-  - `docs/test_docs/security.md` Critical Limit #1 ("Evidence envelopes are unsigned") removed.
-  - `docs/KENSA_API_DOC.md` `noopSigner` placeholder notes removed.
-- **Size:** ~5 days
+  - `internal/evidence/signer.go` (new file) implements `internal/engine.Signer` against Ed25519 keys via `crypto/ed25519` stdlib. `Ed25519Signer` struct with constructor, `Sign(*api.EvidenceEnvelope) ([]byte, string, error)`, `Verify(*api.EvidenceEnvelope) (*api.VerifyResult, error)`.
+  - JSON canonicalization helper that produces deterministic bytes per spec C-01: sorted keys, RFC 3339 UTC timestamps, signature + signing_key_id excluded from the signed payload (per C-02).
+  - Key rotation history: signer constructor accepts a slice of historical public keys. Verify tries the active key first, then walks history in reverse-chronological order. Match against a rotated key returns `VerifyResult{Valid: true, Warnings: [KeyRotation]}` per AC-04.
+  - `cmd/kensa-keygen/main.go` (new binary) generates an Ed25519 keypair, writes `<keyid>.priv` (mode 0600) and `<keyid>.pub` (mode 0644), prints the key_id to stdout. Default key directory: `$XDG_CONFIG_HOME/kensa/keys/` (override via `--out DIR`). `--key-id NAME` for explicit naming; otherwise UUIDv4.
+  - Tests: canonicalization determinism (same envelope, two different time.Time UTC offsets but equal instants → same bytes); round-trip (sign with key A, verify with public key A → valid); tamper-detection (modify one byte of any signed field → verify fails with non-rotation error); key-mismatch (signed by key A, only key B in trust list → fails); key-rotation (signed by old key in history → valid with KeyRotation warning); schema-version unknown → reject (AC-06).
+  - `specs/evidence/envelope.spec.yaml` version bumped (0.1.0 → 0.2.0); 6 constraints + 9 of 10 ACs locked to M-012's implementation. AC-10 (kensa-spec repo mirror) stays unlocked — it's external to kensa-go.
+- **Size:** ~3 days (primitive + keygen + tests)
 - **Status:** pending
-- **Notes:** This is the v1.0 ship-blocker for the cryptographic-evidence-chain story. C-060 (Phase 5b) gates on this; the operator-facing `kensa verify` command and `kensa-keygen` binary land in C-060, not here. M-012's job is the cryptographic primitive only.
+- **Notes:** This is the cryptographic primitive. M-012 deliberately does NOT touch `internal/engine/stubs.go`'s `noopSigner` or any engine wiring — that's C-060's job (Phase 5b) and includes deleting noopSigner, migrating tests, wiring the signing-key path through `pkg/kensa.Default()`, adding `kensa verify` subcommand, and removing `docs/test_docs/security.md` Critical Limit #1. The clean split lets M-012 ship + be tested in isolation (the keygen + primitive are usable standalone for internal verification work) before C-060 touches the engine call-sites.
 
 ---
 
