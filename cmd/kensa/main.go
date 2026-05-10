@@ -32,6 +32,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1700,7 +1701,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&ruleID, "rule", ShortRule, "", "filter by rule ID")
 	fs.StringVarP(&since, "since", ShortSince, "", "filter since duration (e.g. 24h) or RFC3339 time")
 	fs.IntVarP(&limit, "limit", ShortLimit, 50, "maximum rows to return")
-	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
+	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (jsonl is transaction-list only)")
 	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "get a single transaction by UUID")
 	fs.StringVarP(&aggregate, "aggregate", ShortAggregate, "", "aggregate key: by_host, by_rule, by_framework_control")
 	fs.BoolVar(&stats, "stats", false, "print summary stats (sessions, transactions, by status / severity / host) and exit")
@@ -1766,6 +1767,16 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		// ignoring the flag. (The earlier branch returned, so
 		// reaching here means --prune was NOT set.)
 		return NewUsageError("--force only applies to --prune")
+	}
+
+	// C-051: --format jsonl is for the transaction-list path
+	// only. --aggregate / --stats / --txn UUID emit single
+	// documents (host-keyed map, stats struct, single record);
+	// jsonl-encoding a document is shape-violation. Reject
+	// up front with a pointer at --format json.
+	if format == "jsonl" && (aggregate != "" || stats || txnIDStr != "") {
+		return NewUsageError(
+			"--format jsonl is for the transaction listing only; --aggregate, --stats, and --txn emit single documents — use --format json for those")
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
@@ -1835,6 +1846,25 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	if format == "json" {
 		return jsonValue.WriteJSONValue(out, result)
 	}
+	if format == "jsonl" {
+		// C-051: one COMPACT JSON object per line — no
+		// SetIndent. JSONValueWriter pretty-prints with two-
+		// space indent; that's wrong for jsonl where each
+		// object must occupy exactly one line. Use
+		// json.NewEncoder directly: Encode writes one value
+		// followed by a newline, no indentation.
+		enc := json.NewEncoder(out)
+		for _, tx := range result.Transactions {
+			if err := enc.Encode(tx); err != nil {
+				return err
+			}
+		}
+		// Pagination trailer goes to stderr under jsonl
+		// (matches csv convention: stdout is a row stream
+		// consumed line-by-line).
+		fmt.Fprintf(os.Stderr, "%d of %d transactions shown\n", len(result.Transactions), result.Total)
+		return nil
+	}
 	w := output.HistoryWriterOrText(format)
 	if err := w.WriteHistory(out, result.Transactions); err != nil {
 		return err
@@ -1869,7 +1899,8 @@ Flags:
 %s
 Examples:
   kensa history                                  # 50 most recent
-  kensa history -n 200 --format json             # last 200 as JSON
+  kensa history -n 200 --format json             # last 200 as JSON array
+  kensa history -n 200 --format jsonl | jq -c .  # last 200 as JSON Lines (streamable to log aggregators)
   kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
   kensa history -T 8c3a1e2b-...                  # one transaction by UUID
   kensa history -a by_host -S 7d                 # 7-day posture per host

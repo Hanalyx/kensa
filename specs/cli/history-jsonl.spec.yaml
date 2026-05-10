@@ -1,0 +1,149 @@
+spec:
+    id: cli-history-jsonl
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-history-jsonl
+        description: |
+            CLI Phase 5a deliverable C-051. Adds
+            `--format jsonl` to `kensa history`: one
+            transaction record per line as a parseable
+            JSON object. Existing `--format text` and
+            `--format json` paths unchanged.
+
+            **Why jsonl on history specifically.** The
+            transaction log is the canonical streamable
+            sequence in kensa-go. Operators pipe history
+            output into Splunk, ELK, Loki, and similar
+            log aggregators that parse one JSON object
+            per line — the natural shape for time-series
+            ingestion. `--format json` emits a single
+            top-level array which forces consumers to
+            buffer the entire response before parsing;
+            jsonl streams.
+
+            **Shape.** Each line is one
+            api.TransactionRecord with the same JSON
+            tags the existing `--format json` path
+            uses (snake_case, established by Phase 4).
+            The pagination trailer ("N of M
+            transactions shown") writes to stderr —
+            same convention as csv since stdout is a
+            row stream.
+
+            **Aggregate paths excluded.** `--aggregate
+            by_host`, `--aggregate by_rule`, `--stats`,
+            and `--txn UUID` are document-shaped, not
+            sequences. `--format jsonl` on those modes
+            REJECTS with a usage error pointing the
+            operator at `--format json`.
+
+    objective:
+        summary: |
+            Add `case format == "jsonl"` branch in
+            runHistory's transaction-list path. Reject
+            jsonl on aggregate / stats / single-txn
+            modes. Update help text. cli-smoke
+            scenarios. Spec close.
+        scope:
+            includes:
+                - "cmd/kensa/main.go runHistory: jsonl branch in transaction-list path"
+                - "Reject jsonl on --aggregate, --stats, --txn modes (document-shaped)"
+                - "Pagination trailer to stderr under jsonl (matches csv convention)"
+                - "Help text updates: jsonl listed as a valid format"
+                - "cli-smoke: jsonl happy path + jsonl-on-aggregate rejection"
+            excludes:
+                - "jsonl streaming with --limit 0 (unbounded): out of scope for v1; current --limit 50 default applies"
+                - "jsonl on --aggregate by_*: would mix shapes; reject explicitly"
+                - "Custom field selection (--fields a,b,c): operator pipes to jq for projection"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa history --format jsonl` MUST emit
+              one JSON object per line, with no
+              top-level array wrapper. Each line MUST
+              be independently parseable (no
+              continuation lines).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `--format jsonl` combined with
+              `--aggregate`, `--stats`, or `--txn`
+              MUST exit 2 with a usage error pointing
+              at `--format json`. Those modes emit
+              single documents, not sequences;
+              jsonl-encoding a single document is
+              shape-violation.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              JSON shape per line MUST be byte-
+              identical to the per-element shape of
+              `--format json`'s `transactions` array.
+              No drift between the two formats.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The pagination trailer ("N of M
+              transactions shown") MUST go to stderr
+              under jsonl (matches csv convention,
+              stdout is a row stream that consumer
+              tools parse line-by-line).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa history --format jsonl` emits one
+              transaction per line. Locked by
+              TestRunHistory_JSONLFormat.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Each line parses as a standalone
+              api.TransactionRecord. Locked by
+              TestRunHistory_JSONLEachLineParseable.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              `--format jsonl --aggregate by_host`
+              and `--format jsonl --stats` and
+              `--format jsonl --txn UUID` all exit
+              2. Locked by
+              TestRunHistory_JSONLRejectsDocumentModes.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              jsonl line shape matches JSON array
+              element shape exactly. Locked by
+              TestRunHistory_JSONLShapeMatchesJSON.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              Pagination trailer goes to stderr under
+              jsonl. Locked by
+              TestRunHistory_JSONLTrailerToStderr.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-06
+          description: |
+              Live verification: persist transactions
+              via `kensa check --store`, then `kensa
+              history --format jsonl | jq -c .` round-
+              trips cleanly. Verified during merge.
+          references_constraints: [C-01]
+          priority: high
+
+    tags: [cli, history, jsonl, output, phase-5a, c-051]
