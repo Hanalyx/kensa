@@ -1,0 +1,142 @@
+spec:
+    id: cli-phase4-close
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-phase4-close
+        description: |
+            CLI Phase 4 deliverable C-050. The closeout
+            deliverable: applies the C-038 help-grouping
+            pattern to the new flag-heavy Phase 4
+            subcommands, validates cli-smoke covers each
+            new flag with at least one scenario, and
+            confirms the spec corpus is in good shape
+            before sealing the phase.
+
+            The grouping pattern (formatGroupedUsages
+            from C-038) renders flags under labeled
+            sections — "Mode", "Target options", "Output
+            options" etc. Operators reading `kensa info
+            --help` or `kensa rollback --help` see the
+            modes up front instead of an alphabetic
+            flag dump that buries the load-bearing
+            choice.
+
+            **Scope cut.** Only the flag-heavy new
+            surfaces (info, rollback) get grouping
+            treatment. The smaller surfaces (diff, list
+            sessions, list frameworks, history --stats,
+            history --prune) have ≤6 flags each and read
+            cleanly without grouping; adding the boilerplate
+            for them would be churn. If a future deliverable
+            doubles their flag count, that's the trigger
+            for the grouping pass.
+
+            **What "Phase 4 close" does NOT cover.**
+            The two known follow-ups are explicitly
+            excluded: (1) the dual-store-handle smell
+            in runRollbackStart caught by C-049 review
+            — kensa.Default service interface needs a
+            session-aware extension; (2) the
+            cleanSessionLookupError DRY duplication
+            between diff.go and rollback_session.go.
+            Both are P2 cleanup, not phase-close blockers.
+
+    objective:
+        summary: |
+            Add infoFlagGroups + rollbackFlagGroups to
+            cmd/kensa/help_groups.go. Wire
+            formatGroupedUsages into printInfoUsage and
+            printRollbackUsage. Add cli-smoke
+            help-grouping assertions ensuring the new
+            section headers appear in --help output.
+            Spec-corpus check.
+        scope:
+            includes:
+                - "cmd/kensa/help_groups.go: infoFlagGroups + rollbackFlagGroups"
+                - "cmd/kensa/info.go: printInfoUsage uses formatGroupedUsages"
+                - "cmd/kensa/main.go: printRollbackUsage uses formatGroupedUsages"
+                - "scripts/cli-smoke.sh: help-grouping section assertions"
+                - "Spec corpus validation (specter check --strict 62/62 → 63/63)"
+            excludes:
+                - "Help-grouping for diff / list sessions / list frameworks / history: small surfaces, deferred to a future phase if they grow"
+                - "Cleanup of dual-store-handle in runRollbackStart: P2 follow-up, not a phase-close blocker"
+                - "DRY refactor of cleanSessionLookupError twins: P2 follow-up"
+                - "Phase 4 retrospective doc: out of scope"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa info --help` MUST render flags
+              grouped under "Mode (pick one)",
+              "Filter options", and "Output options"
+              section headers. The drift-resistant
+              "Other options" catch-all from
+              formatGroupedUsages MUST be empty (every
+              flag is categorized).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `kensa rollback --help` MUST render flags
+              grouped under "Mode (pick one)", "Target
+              options (required for --start and --txn)",
+              and "Output options" section headers.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              cli-smoke MUST assert each new section
+              header appears in --help output for both
+              subcommands. Drift in the help-grouping
+              definition (e.g. a future contributor
+              renaming "Mode" → "Modes") fails the
+              smoke gate before merge.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              specter check --strict MUST pass after
+              this spec is added to the corpus,
+              raising the running count.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa info --help` contains the three
+              section headers. Locked by cli-smoke
+              scenarios.
+          references_constraints: [C-01, C-03]
+          priority: high
+        - id: AC-02
+          description: |
+              `kensa rollback --help` contains the
+              three section headers. Locked by
+              cli-smoke scenarios.
+          references_constraints: [C-02, C-03]
+          priority: high
+        - id: AC-03
+          description: |
+              No flag in `kensa info` or `kensa
+              rollback` falls into the "Other options"
+              catch-all (every flag is explicitly
+              grouped). Locked by cli-smoke scenario
+              asserting "Other options:" does NOT
+              appear in either --help.
+          references_constraints: [C-01, C-02]
+          priority: medium
+        - id: AC-04
+          description: |
+              specter check --strict passes with the
+              full corpus including this spec.
+              Verified during the C-050 merge
+              workflow (also runs in CI).
+          references_constraints: [C-04]
+          priority: critical
+
+    tags: [cli, help-grouping, phase-4-close, c-050]

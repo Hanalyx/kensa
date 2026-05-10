@@ -131,6 +131,50 @@ var checkFlagGroups = []flagGroup{
 	},
 }
 
+// infoFlagGroups defines the --help layout for `kensa info`
+// (C-047). Mode flags first (the operator must pick one),
+// then Filters (compose with the chosen mode), then Output.
+// `--rules-dir` is in Mode because it's required regardless
+// of which mode the operator picks — surfacing it under
+// Output would imply it's an output knob.
+var infoFlagGroups = []flagGroup{
+	{
+		title: "Mode (pick one)",
+		flags: []string{"rule", "control", "list-controls", "rules-dir"},
+	},
+	{
+		title: "Filter options",
+		flags: []string{"cis", "stig", "nist", "rhel"},
+	},
+	{
+		title: "Output options",
+		flags: []string{"format", "limit", "quiet"},
+	},
+}
+
+// rollbackFlagGroups defines the --help layout for `kensa
+// rollback` (C-049). Mode flags first; Target options gate
+// only the executing modes (--start / --txn); Output applies
+// to all modes.
+var rollbackFlagGroups = []flagGroup{
+	{
+		title: "Mode (pick one)",
+		flags: []string{"list", "info", "start", "txn", "detail"},
+	},
+	{
+		title: "Target options (required for --start and --txn)",
+		flags: []string{
+			"host", "user", "key",
+			"port", "sudo",
+			"strict-host-keys", "no-strict-host-keys",
+		},
+	},
+	{
+		title: "Output options",
+		flags: []string{"format", "quiet"},
+	},
+}
+
 // remediateFlagGroups defines the --help layout for `kensa
 // remediate`. Same shape as check minus inventory/limit/workers
 // (remediate is single-host today) plus the deprecated --oscal.
