@@ -1,0 +1,167 @@
+spec:
+    id: cli-kensa-migrate
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-kensa-migrate
+        description: |
+            CLI Phase 4 deliverable C-040. Adds the
+            `kensa migrate` subcommand: applies pending
+            schema migrations and backfills synthetic
+            sessions for pre-Phase-4 transactions whose
+            session_id is NULL.
+
+            The schema migrations themselves run
+            automatically on every OpenSQLite call (Phase 1
+            design, transaction-log spec). The migrate
+            subcommand exists to:
+
+              1. Surface the schema version for operators
+                 auditing a DB.
+              2. Run the session backfill explicitly so
+                 operators upgrading from pre-Phase-4 see a
+                 deterministic one-time conversion they can
+                 script around.
+
+            Backfill strategy: one synthetic session per
+            distinct host_id with NULL-session transactions.
+            The synthetic session's subcommand is
+            "legacy-backfill" so it's distinguishable from
+            real CLI-invocation sessions in subsequent
+            kensa history / kensa diff runs. started_at and
+            finished_at span the host's earliest and latest
+            transaction timestamps.
+
+            Idempotent — a second run finds no NULL-session
+            rows and reports zero work.
+
+    objective:
+        summary: |
+            Add internal/store/migrate.go (BackfillSessions
+            + CurrentSchemaVersion) and cmd/kensa/migrate.go
+            (runMigrate + dispatch). Operator-facing output:
+            schema version, sessions created, transactions
+            attached.
+        scope:
+            includes:
+                - "internal/store/migrate.go: BackfillSessions, BackfillReport, CurrentSchemaVersion"
+                - "cmd/kensa/migrate.go: runMigrate + printMigrateUsage"
+                - "Subcommand dispatch entry in main.go"
+                - "Synthetic session per distinct host_id; subcommand=legacy-backfill"
+                - "Idempotent: second run is a no-op"
+                - "--db path override + --quiet"
+            excludes:
+                - "Time-clustered backfill (multiple sessions per host based on temporal gaps): out of scope; one-session-per-host keeps the migration deterministic"
+                - "Backfill rollback / undo: out of scope; operators can manually delete synthetic sessions if needed"
+                - "Concurrent-process safety during backfill: not gated; SQLite WAL serializes the transaction"
+
+    constraints:
+        - id: C-01
+          description: |
+              kensa migrate MUST be idempotent. A second run
+              on an already-migrated DB applies no schema
+              change and finds no NULL-session rows; reports
+              zero sessions created and exits 0.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The backfill MUST run inside a single SQLite
+              transaction. An interrupt mid-run leaves no
+              half-attached state — either the entire backfill
+              applied or none of it.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Synthetic sessions MUST be marked with
+              subcommand="legacy-backfill" so operators can
+              tell them apart from real CLI-invocation
+              sessions. Args_summary stays empty (no real
+              command was issued).
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Real Phase-4 sessions and their transactions
+              MUST NOT be touched by the backfill. Only
+              transactions with session_id IS NULL are
+              candidates.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              The subcommand MUST honor --db PATH for store
+              location and --quiet to suppress the summary.
+              Errors continue to write to stderr regardless.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              BackfillSessions on an empty store returns a
+              zeroed report. Locked by
+              TestBackfillSessions_EmptyStore.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              BackfillSessions on a single-orphan-txn store
+              creates exactly 1 synthetic session and
+              attaches that transaction to it. Locked by
+              TestBackfillSessions_OneHostOneTxn.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              BackfillSessions on multiple hosts produces
+              one synthetic session per distinct host_id.
+              Locked by TestBackfillSessions_MultipleHosts.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Second BackfillSessions call is a no-op
+              (zero sessions created, zero transactions
+              attached). Locked by
+              TestBackfillSessions_Idempotent.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-05
+          description: |
+              Existing Phase-4 sessions and their
+              transactions are preserved unchanged across
+              backfill. Locked by
+              TestBackfillSessions_PreservesPostPhase4Sessions.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              CurrentSchemaVersion reports the latest
+              schema number after OpenSQLite. Locked by
+              TestCurrentSchemaVersion.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-07
+          description: |
+              Operator-facing output: kensa migrate prints
+              schema version, sessions created, transactions
+              attached. Verified live: `kensa migrate
+              --db /tmp/kensa-c040.db` on a fresh DB shows
+              "schema version: 2 / sessions created: 0 /
+              transactions attached: 0 / (already migrated;
+              no work to do)".
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-08
+          description: |
+              --quiet suppresses the summary; exit 0 on
+              success. Verified live.
+          references_constraints: [C-05]
+          priority: medium
+
+    tags: [cli, migrate, store, sessions, phase-4, c-040]
