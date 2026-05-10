@@ -21,14 +21,18 @@ import (
 //   - `kensa list <unknown>`     → exit 2 (usage error)
 //   - `kensa list <-flag>`       → exit 2 with "did you forget the subject?"
 //     hint (operator typed flags before the subject)
-func runList(ctx context.Context, args []string) error {
+//
+// runList needs the global dbPath for sub-subjects that hit
+// the SQLite store (C-048: `list sessions`). Sub-subjects that
+// only need a rule corpus (C-046: `list frameworks`) ignore it.
+func runList(ctx context.Context, dbPath string, args []string) error {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		printListUsage(os.Stdout)
 		return nil
 	}
 	if len(args) == 0 {
 		printListUsage(os.Stderr)
-		return NewUsageError("specify a subject; available: frameworks")
+		return NewUsageError("specify a subject; available: frameworks, sessions")
 	}
 	subject := args[0]
 	if len(subject) > 0 && subject[0] == '-' {
@@ -40,8 +44,10 @@ func runList(ctx context.Context, args []string) error {
 	switch subject {
 	case "frameworks":
 		return runListFrameworks(ctx, rest)
+	case "sessions":
+		return runListSessions(ctx, dbPath, rest)
 	default:
-		return NewUsageError(fmt.Sprintf("unknown 'list' subject %q; available: frameworks", subject))
+		return NewUsageError(fmt.Sprintf("unknown 'list' subject %q; available: frameworks, sessions", subject))
 	}
 }
 
@@ -62,10 +68,11 @@ func joinArgs(args []string) string {
 func printListUsage(w io.Writer) {
 	fmt.Fprint(w, `Usage: kensa list <subject> [flags]
 
-Introspection commands for a loaded rule corpus.
+Introspection commands for the rule corpus and the transaction store.
 
 Subjects:
   frameworks   Per-framework control + rule counts (requires --rules-dir DIR)
+  sessions     List recent sessions in the transaction store (with IDs for `+"`kensa diff`"+`)
 
 Run "kensa list <subject> --help" for subject-specific flags.
 `)

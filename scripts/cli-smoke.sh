@@ -325,6 +325,16 @@ else
 fi
 echo
 
+# ─── kensa diff (C-048) ───────────────────────────────────────────────────
+echo "kensa diff (C-048 session drift report):"
+assert_exit "kensa diff --help"                      0 stdout-nonempty bin/kensa diff --help
+assert_exit "kensa diff -h"                          0 stdout-nonempty bin/kensa diff -h
+assert_exit "kensa diff (no args)"                   2 stderr-nonempty bin/kensa diff
+assert_exit "kensa diff (one arg)"                   2 stderr-nonempty bin/kensa diff 11111111-2222-3333-4444-555555555555
+assert_exit "kensa diff (bad UUID)"                  2 stderr-nonempty bin/kensa diff not-a-uuid 11111111-2222-3333-4444-555555555555
+assert_exit "kensa diff (bad format)"                2 stderr-nonempty bin/kensa diff 11111111-2222-3333-4444-555555555555 22222222-3333-4444-5555-666666666666 --format yaml
+echo
+
 # ─── kensa info (C-047) ───────────────────────────────────────────────────
 echo "kensa info (C-047 multi-criteria search):"
 assert_exit "kensa info --help"                      0 stdout-nonempty bin/kensa info --help
@@ -354,6 +364,9 @@ assert_exit "kensa list -h"                          0 stdout-nonempty bin/kensa
 assert_exit "kensa list (no subject)"                2 stderr-nonempty bin/kensa list
 assert_exit "kensa list --rules-dir DIR (forgot subj)" 2 stderr-nonempty bin/kensa list --rules-dir /tmp
 assert_exit "kensa list widgets (unknown subject)"   2 stderr-nonempty bin/kensa list widgets
+assert_exit "kensa list sessions --help"             0 stdout-nonempty bin/kensa list sessions --help
+assert_exit "kensa list sessions (empty store)"      0 stdout-nonempty bin/kensa list sessions
+assert_exit "kensa list sessions bad --format"       2 stderr-nonempty bin/kensa list sessions --format yaml
 assert_exit "kensa list frameworks --help"           0 stdout-nonempty bin/kensa list frameworks --help
 assert_exit "kensa list frameworks (no --rules-dir)" 2 stderr-nonempty bin/kensa list frameworks
 assert_exit "kensa list frameworks bad --format"     2 stderr-nonempty bin/kensa list frameworks --rules-dir /home/rracine/hanalyx/kensa/rules --format yaml
