@@ -446,7 +446,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** —
 - **Acceptance:** Both subcommands accept `--format jsonl`. `kensa info --rule R --format jsonl` and `kensa info --control X:Y --format jsonl` REJECT with usage error (those modes emit single documents, not sequences). `kensa list frameworks` does NOT get jsonl (small fixed-shape list; JSON-array suffices).
 - **Size:** ~3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-10, `9bc3d9c`). Same compact-encoder pattern as C-051. The three info document-modes (--rule / --control / --list-controls) REJECT --format jsonl with usage error pointing at --format json — rejection fires BEFORE corpus load (initial draft placed it after, polluting the error path with rule-loader warnings; caught during live verification). Spec: `specs/cli/list-sessions-info-jsonl.spec.yaml` (4 constraints, 5 ACs). 7 unit tests. cli-smoke 177→183. Live-verified: `list sessions --format jsonl` round-trips through `jq -c .`; `info ssh --format jsonl` produces 35 single-line hits; document-mode rejection emits clean message without rule-loader noise.
 
 #### C-053 — OSCAL regression sweep
 - **Phase:** CLI Phase 5a
