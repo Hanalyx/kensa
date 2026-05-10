@@ -179,20 +179,45 @@ func runCLI(argv []string) int {
 	case "plan":
 		err = runPlan(ctx, dbPath, args)
 	case "mechanisms":
-		err = runMechanisms("mechanisms", args)
+		// C-045: --framework on `mechanisms` is a usage error
+		// pointing the operator at `kensa coverage`. Detected
+		// via the same hasFrameworkFlag scanner used at the
+		// `coverage` dispatch — keeps the rejection consistent
+		// with the routing decision.
+		if hasFrameworkFlag(args) {
+			err = NewUsageError("--framework is for 'kensa coverage' (the framework-coverage report); 'kensa mechanisms' lists registered handler mechanisms")
+		} else {
+			err = runMechanisms("mechanisms", args)
+		}
 	case "coverage":
-		// C-044: `coverage` is being repurposed in v0.2 (for
-		// framework control coverage reports per C-045). Today
-		// it remains a working alias for `mechanisms`; the
-		// warning prevents the silent semantic flip at upgrade.
-		// Suppressed only by KENSA_NO_REPURPOSE_WARNINGS=1
-		// (NOT by KENSA_NO_DEPRECATION_WARNINGS=1 — see
-		// warnRepurposedSubcommand for the rationale).
-		warnRepurposedSubcommand(
-			"kensa coverage",
-			"kensa mechanisms",
-			"framework control coverage")
-		err = runMechanisms("coverage", args)
+		if hasFrameworkFlag(args) {
+			// C-045 NEW behavior. The operator is using the
+			// framework-coverage report — they've embraced the
+			// v0.2 semantics today, so suppress the repurpose
+			// warning when actually running the report (it
+			// would be noise about a flip the operator already
+			// crossed). EXCEPTION: emit it on --help, because
+			// --help is the discoverability surface where
+			// operators read docs and the v0.2 flip is exactly
+			// what they're trying to learn.
+			if hasHelpFlag(args) {
+				warnRepurposedSubcommand(
+					"kensa coverage",
+					"kensa mechanisms",
+					"framework control coverage")
+			}
+			err = runCoverageReport(args)
+		} else {
+			// C-044 deprecation alias path. Without --framework,
+			// `kensa coverage` is still the mechanism listing.
+			// Warn so the operator migrates before v0.2 flips
+			// the no-flag case too.
+			warnRepurposedSubcommand(
+				"kensa coverage",
+				"kensa mechanisms",
+				"framework control coverage")
+			err = runMechanisms("coverage", args)
+		}
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -1961,7 +1986,11 @@ func printMechanismsUsage(w io.Writer, fs *pflag.FlagSet, name string) {
 			"WARNING: 'kensa coverage' will change meaning in v0.2.\n"+
 				"  Today: lists handler mechanisms (alias for 'kensa mechanisms').\n"+
 				"  v0.2:  reports framework control coverage.\n"+
-				"Migrate scripts to 'kensa mechanisms' to preserve current output.\n\n")
+				"Migrate scripts to 'kensa mechanisms' to preserve current output.\n\n"+
+				"AVAILABLE TODAY: the v0.2 framework-coverage report is already\n"+
+				"reachable via:\n"+
+				"  kensa coverage --framework FRAMEWORK --rules-dir DIR\n"+
+				"  kensa coverage --framework cis_rhel9 --help    # full report help\n\n")
 	}
 	fmt.Fprintf(w, `List every handler mechanism registered with the kensa-go engine,
 marked capturable (participates in atomic transactions) or
