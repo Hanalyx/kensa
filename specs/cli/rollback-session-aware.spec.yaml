@@ -1,0 +1,285 @@
+spec:
+    id: cli-rollback-session-aware
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-rollback-session-aware
+        description: |
+            CLI Phase 4 deliverable C-049. Closes the
+            partial-implementation gap from earlier
+            phases by extending `kensa rollback` from
+            "single-transaction-by-UUID" to four
+            session-aware modes:
+
+              --list                show rollback-able sessions
+              --info SESSION_ID     session detail (txns + status)
+              --start SESSION_ID    execute rollback for the session
+              --detail              modifier (per-step breakdown)
+
+            The legacy `--txn UUID` form is preserved
+            for surgical single-transaction rollbacks
+            (operator-knowledge cases like CI debugging).
+            No deprecation; both forms remain documented.
+
+            **Discoverability.** Without --list, an
+            operator running rollback had to dig
+            through `kensa history -T <uuid>` to find
+            transaction IDs (which itself only surfaces
+            if you know `kensa history` exists). The
+            new flow:
+
+              1. kensa list sessions    # discover IDs
+              2. kensa rollback --info S # see what would revert
+              3. kensa rollback --start S -H HOST -u USER --sudo
+
+            **--start semantics.** Iterates committed
+            transactions in the session (earliest first)
+            and calls svc.Rollback on each. Continues on
+            error — partial-success is the realistic
+            shape of multi-txn rollback (some pre-state
+            captures may be unrecoverable, e.g. a file
+            that was deleted on the host since the
+            check). Final exit code: 0 if every txn
+            succeeded; 1 if any failed.
+
+            **Hostname guard.** The session's
+            denormalized hostname is compared against
+            --host. Mismatch is rejected as a usage
+            error — rolling back host-A's session
+            against host-B would issue commands that
+            don't apply (different filesystem state,
+            different installed packages).
+
+    objective:
+        summary: |
+            Add (*SQLite) RollbackableSessions(ctx) to
+            the store: returns sessions with
+            txn_committed > 0. Refactor cmd/kensa/
+            main.go runRollback into a mode dispatcher;
+            extract the four mode handlers into
+            cmd/kensa/rollback_session.go. Preserve the
+            legacy --txn flow.
+        scope:
+            includes:
+                - "internal/store/sessions.go: RollbackableSessions"
+                - "cmd/kensa/rollback_session.go: runRollbackList / runRollbackInfo / runRollbackStart + writers"
+                - "cmd/kensa/main.go runRollback: mode mux on --list/--info/--start/--txn"
+                - "--detail modifier composes with --list and --info"
+                - "Hostname guard for --start: session.hostname vs --host mismatch rejected"
+                - "Continue-on-error iteration in --start with per-txn report"
+                - "JSON shape for --list and --info (snake_case)"
+                - "Help text update with the four-mode contract + legacy --txn note"
+                - "cli-smoke scenarios"
+            excludes:
+                - "Atomic multi-txn rollback (all-or-nothing): out of scope; partial-success is the realistic shape"
+                - "Rollback dry-run / preview without execution: --info already provides this; --start is the executing path"
+                - "Cross-host rollback: explicit usage error per hostname guard"
+                - "Rollback of non-committed transactions (rolled_back, errored): out of scope; only committed transactions have viable pre-state to revert to"
+                - "Per-rule rollback within a session: out of scope; session is the unit of rollback. Operator can use --txn for surgical single-rule cases"
+
+    constraints:
+        - id: C-01
+          description: |
+              Mode flags --list, --info, --start, --txn
+              MUST be pairwise mutually exclusive.
+              Combining two raises a usage error. The
+              positional case (no mode flag) is also
+              rejected: operator must pick one.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              --info and --start MUST require a
+              positional SESSION_ID argument
+              (UUID-formatted; bad UUID rejected as
+              usage error). --list takes no positional
+              args.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              --start MUST require --host. The session's
+              denormalized hostname is compared; if it
+              differs from --host, the command rejects
+              with usage error. EMPTY session.Hostname
+              (legacy backfill) is also rejected: a
+              backfilled session has no recorded host so
+              targeting any --host is unsafe (peer
+              review caught the silent passthrough).
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              `kensa rollback --list` MUST filter to
+              sessions whose subcommand actually
+              produces capturable pre-state (today:
+              `remediate` only). `kensa check --store`
+              sessions write committed for "rule
+              passed" with no pre-state — calling
+              svc.Rollback on those returns
+              Success=true silently while reverting
+              nothing. Peer review caught this:
+              `succeeded: N/N` while nothing happened
+              is the worst kind of failure. The runner-
+              level --start handler MUST also reject
+              non-remediate sessions defense-in-depth.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              --start MUST iterate committed
+              transactions in earliest-first order
+              (started_at ASC) and call svc.Rollback
+              on each. On failure, emit a stderr error
+              and continue. Final exit: 0 if all
+              succeeded; 1 if any failed.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              Missing session (--info / --start
+              against unknown UUID) MUST exit 1
+              (runtime), NOT 2 (usage). Mirrors
+              C-047 / C-048 ErrNotFound contract.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              JSON output snake_case for parity with
+              PruneReport / Stats / FrameworkSummary /
+              CoverageReport / RuleDetails / SessionDiff.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              --detail composes with --list and --info
+              (per-step breakdown). MUST NOT compose
+              with --start (which is an execution
+              path, not a render path) or --txn
+              (legacy single-txn surface).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa rollback --list` prints sessions
+              with committed transactions. Locked by
+              TestRunRollback_ListMode.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa rollback --info SESSION_ID`
+              prints session detail (txns +
+              statuses). Locked by
+              TestRunRollback_InfoMode.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Mode pairs (--list + --info,
+              --info + --start, --start + --txn,
+              etc.) rejected with usage error.
+              Locked by
+              TestRunRollback_ModeMutualExclusion.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-04
+          description: |
+              No mode + no --txn rejected with
+              usage error pointing at the
+              available modes. Locked by
+              TestRunRollback_NoMode.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              --info / --start against unknown
+              session_id exits 1 (runtime),
+              not 2 (usage). Locked by
+              TestRunRollback_MissingSessionExitCode.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              --info SESSION_ID requires UUID;
+              bad UUID rejected. Locked by
+              TestRunRollback_InfoBadUUID.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-07
+          description: |
+              --start without --host rejected.
+              Hostname mismatch (session vs --host)
+              rejected. Locked by
+              TestRunRollback_StartHostnameGuard.
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-08
+          description: |
+              --detail composes with --list (adds
+              per-step counts). Does NOT compose
+              with --start (rejected as usage).
+              Locked by
+              TestRunRollback_DetailFlagComposition.
+          references_constraints: [C-07]
+          priority: medium
+        - id: AC-09
+          description: |
+              JSON output snake_case shape via
+              --format json. Locked by
+              TestRunRollback_ListJSONShape and
+              TestRunRollback_InfoJSONShape.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-10
+          description: |
+              Legacy --txn UUID form preserved;
+              still works as before with the
+              same flags. Locked by
+              TestRunRollback_LegacyTxnFlow (skipped
+              if no live host; flag-validation
+              parts run unconditionally).
+          references_constraints: []
+          priority: high
+        - id: AC-11
+          description: |
+              Live verification: persist a real
+              remediate session, then `kensa rollback
+              --list` and `kensa rollback --info <id>`
+              show the session read-only. --start is
+              NOT live-tested (would actually mutate
+              the host).
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-12
+          description: |
+              `kensa check --store` sessions are NOT
+              listed as rollback-able. `kensa rollback
+              --start <check-session-id>` rejected at
+              the runner. Locked by
+              TestRunRollback_ListExcludesCheckSessions
+              and TestRunRollback_StartRejectsCheckSession.
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-13
+          description: |
+              `--start` against a session with empty
+              recorded hostname rejected. Locked by
+              TestRunRollback_StartRejectsEmptyHostname.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-14
+          description: |
+              `--start` JSON shape uses snake_case
+              (session_id, attempted, succeeded,
+              failed, per_txn). Locked by
+              TestRunRollback_StartJSONShape.
+          references_constraints: [C-06]
+          priority: high
+
+    tags: [cli, rollback, session, store, phase-4, c-049]

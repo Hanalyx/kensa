@@ -325,6 +325,17 @@ else
 fi
 echo
 
+# ─── kensa rollback session-aware (C-049) ─────────────────────────────────
+echo "kensa rollback session-aware (C-049):"
+assert_exit "kensa rollback (no mode)"               2 stderr-nonempty bin/kensa rollback
+assert_exit "kensa rollback --list (empty store)"    0 stdout-nonempty bin/kensa rollback --list
+assert_exit "kensa rollback --list + --info"         2 stderr-nonempty bin/kensa rollback --list --info 11111111-2222-3333-4444-555555555555
+assert_exit "kensa rollback --info (bad UUID)"       2 stderr-nonempty bin/kensa rollback --info not-a-uuid
+assert_exit "kensa rollback --start (no --host)"     2 stderr-nonempty bin/kensa rollback --start 11111111-2222-3333-4444-555555555555
+assert_exit "kensa rollback --txn (legacy: no host)" 2 stderr-nonempty bin/kensa rollback --txn 11111111-2222-3333-4444-555555555555
+assert_exit "kensa rollback --detail + --start"      2 stderr-nonempty bin/kensa rollback --start 11111111-2222-3333-4444-555555555555 --detail -H foo
+echo
+
 # ─── kensa diff (C-048) ───────────────────────────────────────────────────
 echo "kensa diff (C-048 session drift report):"
 assert_exit "kensa diff --help"                      0 stdout-nonempty bin/kensa diff --help
