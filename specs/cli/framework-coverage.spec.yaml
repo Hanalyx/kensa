@@ -1,0 +1,298 @@
+spec:
+    id: cli-framework-coverage
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-framework-coverage
+        description: |
+            CLI Phase 4 deliverable C-045. Repurposes the
+            `kensa coverage` name (whose previous mechanism-
+            listing semantics moved to `kensa mechanisms`
+            in C-044) for framework control coverage
+            reporting. Today the new behavior is opt-in via
+            `--framework`; without it `kensa coverage`
+            remains the C-044 deprecation alias and emits
+            the repurpose warning. In v0.2 the no-flag case
+            will flip too, completing the rename promised
+            in C-044's CHANGELOG.
+
+            Coverage means: for a given framework (e.g.
+            `cis_rhel9`), enumerate the distinct controls
+            referenced by rules in the corpus and the rules
+            that map to each. The output is operator-
+            auditable proof of "which controls do my rules
+            cover" — the input to compliance dashboards
+            without requiring a database round-trip.
+
+            **Denominator policy.** A "212 / 318 covered
+            (66.7%)" reading would require an external
+            control catalog (CIS publishes RHEL9
+            benchmarks; NIST 800-53 has a defined set;
+            STIG has STIG-IDs). kensa-go has no such
+            catalog at v1.0. C-045 ships numerator-only
+            (controls mapped + per-control rules); the
+            denominator-percentage form is a future
+            deliverable that needs a catalog data source.
+            The text and JSON outputs are designed to be
+            forward-compatible: adding `controls_total`
+            later is additive.
+
+            **Why `--framework` is required (no default).**
+            Aggregating across frameworks would mix CIS
+            decimal IDs (5.1.12), NIST AC-codes (AC-1),
+            and STIG V-IDs (V-257974) in one column. The
+            output would be unreadable. Forcing the
+            operator to pick a framework keeps each report
+            single-axis and machine-parseable.
+
+    objective:
+        summary: |
+            Add internal/coverage/ package with
+            ComputeReport (rules → CoverageReport)
+            and CoverageReport / ControlCoverage types.
+            Wire `kensa coverage --framework FRAMEWORK
+            --rules-dir DIR` dispatch in cmd/kensa/main.go:
+            when --framework is set, runCoverageReport
+            handles it; otherwise falls through to the
+            C-044 deprecation alias path. Text output
+            sorted by control_id natural-order; JSON
+            output via the existing -o json mechanism.
+        scope:
+            includes:
+                - "internal/coverage/coverage.go: CoverageReport / ControlCoverage / ComputeReport"
+                - "cmd/kensa/coverage_report.go: runCoverageReport + writeCoverageText"
+                - "cmd/kensa/main.go dispatch: hasFrameworkFlag pre-check; routes to runCoverageReport when --framework is on argv"
+                - "Validation: --framework required for the new path; empty/unknown framework rejected with usage error listing available IDs"
+                - "Text output: header + 'controls mapped: N' + per-control table (control_id | rule_count | rules)"
+                - "JSON output: -o json or -f json emits structured CoverageReport"
+                - "--rules-dir REQUIRED for the new path (no default rule-dir bundled in binary; M7 follow-up)"
+                - "Suppress C-044 repurpose warning when --framework is on argv (operator already using new behavior)"
+            excludes:
+                - "Denominator-based coverage % (212/318): out of scope; needs external control catalog"
+                - "Multi-framework aggregate output: out of scope; would mix incompatible ID shapes"
+                - "Control-name lookup (CIS title for 5.1.12): out of scope; corpus references carry IDs only"
+                - "Per-control compliance status (passed/failed counts): out of scope; this is corpus coverage, not run results — that's `kensa history --aggregate by_framework_control`"
+                - "Adding --framework to `kensa mechanisms`: rejected as usage error; mechanisms is the listing surface, not the coverage surface"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa coverage --framework FRAMEWORK` MUST
+              require both --framework AND --rules-dir.
+              Empty values rejected with usage error
+              listing available frameworks (when corpus
+              is loadable).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              When --framework is on argv, the C-044
+              repurpose warning MUST be suppressed —
+              the operator is already using the new
+              behavior, so warning them about a future
+              flip is noise.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              ComputeReport MUST be deterministic across
+              runs: ordered controls (by control_id
+              natural sort), ordered rule lists (by rule
+              ID), stable counts. Operators using the
+              JSON output for diff-based dashboards must
+              not see spurious changes.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Distinct (framework_id, control_id) pairs
+              counted exactly once even if multiple rules
+              map to the same control. The Rules slice
+              under each ControlCoverage lists every rule
+              that maps; ControlsMapped is the count of
+              distinct control_ids.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `kensa mechanisms --framework FOO` MUST be
+              rejected with a usage error pointing the
+              operator at `kensa coverage`. The
+              mechanisms surface is the listing
+              command, not the coverage command.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              JSON output shape MUST be forward-
+              compatible: adding `controls_total` (the
+              denominator catalog field, future
+              deliverable) MUST NOT break existing
+              consumers. Achieved by snake_case field
+              names and additive additions.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              Text output labels MUST disambiguate
+              numerator-only semantics. "controls with
+              rules" not "controls mapped" (avoids
+              reading the numerator as a coverage %);
+              "rules referencing FRAMEWORK" not "rules
+              matching" (avoids reading "matching" as
+              "passed compliance"). Help text MUST
+              disclose the numerator-only nature
+              prominently.
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              `kensa coverage --framework FOO --help`
+              MUST emit the C-044 repurpose warning to
+              stderr (operators reading docs are the
+              audience that most needs to see the
+              upcoming v0.2 flip). The warning suppresses
+              ONLY when --framework is set AND --help is
+              not — i.e., when actually running the
+              report.
+          type: business
+          enforcement: error
+        - id: C-09
+          description: |
+              `kensa coverage --help` (no --framework)
+              MUST advertise the v0.2 surface so
+              operators using the alias path can
+              discover the new --framework report
+              without already knowing about it.
+          type: business
+          enforcement: error
+        - id: C-10
+          description: |
+              --format value MUST be validated against
+              {text, json}. Silently rendering text on
+              "yaml" / "JSON" / "" hides typos and
+              breaks operators who pipe to JSON-
+              expecting tools.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa coverage --framework cis_rhel9
+              --rules-dir DIR` exits 0 and prints a
+              non-empty coverage report when DIR
+              contains rules with cis_rhel9 references.
+              Locked by TestComputeReport_Basic.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-02
+          description: |
+              Empty/unknown framework rejected with usage
+              error listing available frameworks. Locked
+              by TestRunCoverageReport_UnknownFramework.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Missing --rules-dir rejected as usage
+              error. Locked by
+              TestRunCoverageReport_MissingRulesDir.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-04
+          description: |
+              Output is deterministic — control IDs
+              sorted, rules per control sorted. Locked
+              by TestComputeReport_Deterministic.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              Distinct controls counted; multiple rules
+              mapping the same control deduplicate at
+              control level but list every rule. Locked
+              by TestComputeReport_DedupesControls.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              C-044 repurpose warning suppressed when
+              --framework is set; emitted otherwise.
+              Locked by
+              TestRunCoverage_FrameworkFlagSuppressesWarning
+              and existing C-044 tests.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-07
+          description: |
+              `kensa mechanisms --framework foo` exits 2
+              with usage error pointing at
+              `kensa coverage`. Locked by
+              TestRunMechanisms_FrameworkRejected.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-08
+          description: |
+              JSON output via -o json emits a parseable
+              CoverageReport with snake_case fields.
+              Locked by
+              TestRunCoverageReport_JSONShape.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-09
+          description: |
+              Live verification: `bin/kensa coverage
+              --framework cis_rhel9 --rules-dir
+              /home/rracine/hanalyx/kensa/rules` produces
+              a coverage report against the 539-rule
+              corpus. Verified during the C-045 merge
+              workflow.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-10
+          description: |
+              Text output uses "controls with rules"
+              and "rules referencing FRAMEWORK"; help
+              and text both disclose "numerator only".
+              Locked by TestRunCoverageReport_Basic.
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-11
+          description: |
+              `kensa coverage --framework FOO --help`
+              emits the C-044 repurpose warning to
+              stderr; running the report (no --help)
+              suppresses it. Locked by
+              TestRunCoverage_FrameworkHelpEmitsWarning
+              and
+              TestRunCoverage_FrameworkFlagSuppressesWarning.
+          references_constraints: [C-08]
+          priority: high
+        - id: AC-12
+          description: |
+              `kensa coverage --help` (no --framework)
+              advertises the new --framework surface.
+              Locked by
+              TestPrintMechanismsCoverageHelp_AdvertisesNewSurface.
+          references_constraints: [C-09]
+          priority: medium
+        - id: AC-13
+          description: |
+              `kensa coverage --framework cis_rhel9
+              --rules-dir DIR --format yaml` exits 2.
+              Locked by TestRunCoverageReport_BadFormat.
+          references_constraints: [C-10]
+          priority: medium
+        - id: AC-14
+          description: |
+              `--full` lists all rule IDs per control
+              (no truncation footer). Locked by
+              TestRunCoverageReport_FullFlag.
+          references_constraints: [C-04]
+          priority: low
+
+    tags: [cli, coverage, framework, mappings, phase-4, c-045]

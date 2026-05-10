@@ -325,6 +325,50 @@ else
 fi
 echo
 
+# ─── kensa coverage --framework (C-045) ───────────────────────────────────
+echo "kensa coverage --framework (C-045 framework coverage report):"
+# --framework on coverage routes to the new path.
+assert_exit "kensa coverage -f -r missing"           2 stderr-nonempty bin/kensa coverage --framework cis_rhel9
+assert_exit "kensa coverage --framework (no value)"  2 stderr-nonempty bin/kensa coverage --framework
+assert_exit "kensa coverage -f bogus -r real"        2 stderr-nonempty bin/kensa coverage --framework bogus_v999 --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa coverage -f -r --format yaml"     2 stderr-nonempty bin/kensa coverage --framework cis_rhel9 --rules-dir /home/rracine/hanalyx/kensa/rules --format yaml
+# --framework on mechanisms is rejected.
+assert_exit "kensa mechanisms --framework"           2 stderr-nonempty bin/kensa mechanisms --framework cis_rhel9
+# --help on the new path exits 0.
+assert_exit "kensa coverage -f cis_rhel9 --help"     0 stdout-nonempty bin/kensa coverage --framework cis_rhel9 --help
+# --framework presence in coverage --help disclosure.
+covHelp=$(bin/kensa coverage --framework cis_rhel9 --help 2>/dev/null)
+if echo "${covHelp}" | grep -qE -- "--framework"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage --help advertises --framework"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage --help: --framework missing")
+    echo "  ${RED}FAIL${RESET}  kensa coverage --help missing --framework"
+fi
+# --framework --help MUST emit the C-044 repurpose warning to stderr
+# (operators reading docs need the v0.2 flip signal).
+covHelpStderr=$(bin/kensa coverage --framework cis_rhel9 --help 2>&1 >/dev/null)
+if echo "${covHelpStderr}" | grep -qE "v0\\.2" && echo "${covHelpStderr}" | grep -qE "mechanisms"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage --framework FOO --help emits repurpose warning"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage --framework FOO --help missing repurpose warning")
+    echo "  ${RED}FAIL${RESET}  kensa coverage --framework FOO --help missing repurpose warning"
+fi
+# kensa coverage --help (alias) MUST advertise the new --framework surface.
+aliasHelp=$(bin/kensa coverage --help 2>/dev/null)
+if echo "${aliasHelp}" | grep -qE "AVAILABLE TODAY"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage --help (alias) advertises new --framework surface"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage --help (alias) missing AVAILABLE TODAY pointer")
+    echo "  ${RED}FAIL${RESET}  kensa coverage --help (alias) missing AVAILABLE TODAY pointer"
+fi
+echo
+
 # ─── kensa history --prune (C-043) ────────────────────────────────────────
 # All --prune scenarios must reach validation BEFORE the store opens, so
 # they don't need a real DB path. Network-free; flag-only validation.
