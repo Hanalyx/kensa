@@ -408,7 +408,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039
 - **Acceptance:** Compares two sessions by ID; emits drift report (per-rule status changes, new/removed rules). `--show-unchanged` includes rules whose status is identical. `-o json` for programmatic.
 - **Size:** ~5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `be4820c`). New `internal/diff` package with `RuleChange` / `SessionDiff` / `ComputeSessionDiff`. Store gained `TransactionsForSession` + `SessionTxn`. SESSION1 = "before", SESSION2 = "after" (git diff convention). Cross-hostname comparison allowed with informational stderr note. Multiple txns per rule within one session dedup to LATEST started_at. **Three peer-review-driven P1 fixes**: shipped `kensa list sessions` alongside the diff (peer review caught session UUIDs were undiscoverable — `kensa history --stats` shows counts only, no IDs); cleaned up "session not found" error to remove SQL leak ("store: GetSession: sql: no rows in result set" → "session X not found in store (try 'kensa list sessions')"); strengthened dedup test to exercise the store-side ORDER BY ASC invariant. **P2 polish**: JSON shape always populates every section as array (never null); --show-unchanged now governs only text rendering; column header has "BEFORE -> AFTER" label. Spec: `specs/cli/session-diff.spec.yaml` (9 constraints, 15 ACs). 7 store-layer + 12 diff CLI + 7 list-sessions CLI tests. cli-smoke 149→158. Live-verified: two `kensa check --store` runs against same host produce 0/0/0 diff (correct, no drift); cleaned-up missing-session error emits discovery hint.
 
 #### C-049 — `kensa rollback --list/--info/--start/--detail`
 - **Phase:** CLI Phase 4
