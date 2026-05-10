@@ -394,7 +394,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Lists framework IDs available in the loaded corpus (via `mappings.RefsFromReferences`) with control counts. `-o json` for programmatic use.
 - **Size:** ~2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `5c1f97f`). New `list` parent subcommand with `frameworks` as its first child (future-extensible namespace). `internal/coverage.ListFrameworks(rules)` + CLI `runList` sub-dispatcher. Output: per-framework_id row with distinct controls + distinct rules counts. JSON envelope `{frameworks:[...]}` for forward-compat with future fields. **Peer-review-driven UX polish**: bare `kensa list` returns exit 2 (CI-script footgun prevention — both reviewers flagged silent no-op risk); column header reworded to `rules ref'g` + footer legend (operators were reading "516 rules" as "516 NIST rules" rather than "516 corpus rules referencing NIST"); flag-before-subject hint suggests the rewrite; `--format` validated against `{text,json}`. Spec: `specs/cli/list-frameworks.spec.yaml` (7 constraints, 9 ACs). 5 store-layer + 10 CLI tests. cli-smoke 126→135. Live-verified against 539-rule corpus: 9 frameworks (cis_rhel10/8/9, nist_800_53, pci_dss_4, srg, stig_rhel10/8/9) with controls + rules counts.
 
 #### C-047 — `kensa info` (rule/control lookup)
 - **Phase:** CLI Phase 4
