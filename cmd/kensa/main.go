@@ -1485,11 +1485,15 @@ func writeOSCALFile(path string, result *api.RemediationResult) error {
 
 // ─── rollback ──────────────────────────────────────────────────────────────
 
-// runRollback rolls back a past transaction by ID.
+// runRollback dispatches across the four C-049 modes
+// (--list, --info, --start, legacy --txn) plus --help.
+// Each mode lives in cmd/kensa/rollback_session.go; this
+// function only does flag parsing and mode mux.
 func runRollback(ctx context.Context, dbPath string, args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"host": true, "user": true, "port": true, "key": true,
-		"sudo": true, "txn": true,
+		"sudo": true, "txn": true, "list": true, "info": true,
+		"start": true, "detail": true, "format": true,
 	})
 
 	fs := pflag.NewFlagSet("rollback", pflag.ContinueOnError)
@@ -1498,22 +1502,36 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 
 	var (
 		showHelp bool
-		host     string
-		user     string
-		port     int
-		keyPath  string
-		sudo     bool
+		// Mode flags (C-049):
+		listMode  bool
+		infoSpec  string
+		startSpec string
+		detail    bool
+		// Legacy --txn UUID (preserved):
 		txnIDStr string
-		quiet    bool
+		// Target/transport flags (used by --start and --txn):
+		host    string
+		user    string
+		port    int
+		keyPath string
+		sudo    bool
+		// Output:
+		format string
+		quiet  bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
-	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
+	fs.BoolVar(&listMode, "list", false, "list rollback-able sessions")
+	fs.StringVar(&infoSpec, "info", "", "show detail for SESSION_ID (txns + statuses)")
+	fs.StringVar(&startSpec, "start", "", "execute rollback for every committed txn in SESSION_ID")
+	fs.BoolVar(&detail, "detail", false, "include per-step breakdown (composes with --list / --info)")
+	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "legacy: roll back a single transaction by UUID")
+	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required for --start and --txn)")
 	fs.StringVarP(&user, "user", ShortUser, "", "SSH user (default: current user)")
 	fs.IntVarP(&port, "port", ShortPort, 22, "SSH port")
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
-	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "transaction UUID to roll back (required)")
+	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
@@ -1527,35 +1545,75 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		printRollbackUsage(os.Stdout, fs)
 		return nil
 	}
-	if host == "" {
-		printRollbackUsage(os.Stderr, fs)
-		return NewUsageError("--host is required")
+
+	switch format {
+	case "text", "json":
+	default:
+		return NewUsageError(fmt.Sprintf("--format %q: must be 'text' or 'json'", format))
 	}
-	if txnIDStr == "" {
-		printRollbackUsage(os.Stderr, fs)
-		return NewUsageError("--txn is required")
+
+	// Mode mux. Pick exactly one of the four mode selectors.
+	var modes []string
+	if listMode {
+		modes = append(modes, "--list")
 	}
+	if infoSpec != "" {
+		modes = append(modes, "--info")
+	}
+	if startSpec != "" {
+		modes = append(modes, "--start")
+	}
+	if txnIDStr != "" {
+		modes = append(modes, "--txn")
+	}
+	if len(modes) > 1 {
+		return NewUsageError(fmt.Sprintf(
+			"%s: pick exactly one rollback mode", strings.Join(modes, ", ")))
+	}
+	if len(modes) == 0 {
+		return NewUsageError("specify a mode: --list, --info SESSION_ID, --start SESSION_ID, or legacy --txn TXN_UUID")
+	}
+	// --detail is a render modifier — composes with --list and
+	// --info but not the executing modes.
+	if detail && (startSpec != "" || txnIDStr != "") {
+		return NewUsageError("--detail is a render modifier; it doesn't compose with --start or --txn (the executing modes)")
+	}
+
+	switch {
+	case listMode:
+		return runRollbackList(ctx, dbPath, detail, format, quiet)
+	case infoSpec != "":
+		sessID, err := uuid.Parse(infoSpec)
+		if err != nil {
+			return WrapUsageError(fmt.Sprintf("--info %q", infoSpec), err)
+		}
+		return runRollbackInfo(ctx, dbPath, sessID, detail, format, quiet)
+	case startSpec != "":
+		sessID, err := uuid.Parse(startSpec)
+		if err != nil {
+			return WrapUsageError(fmt.Sprintf("--start %q", startSpec), err)
+		}
+		hostCfg, err := buildRollbackHostCfg(fs, host, user, port, keyPath, sudo)
+		if err != nil {
+			return err
+		}
+		return runRollbackStart(ctx, dbPath, sessID, hostCfg, format, quiet)
+	}
+
+	// Legacy --txn path.
 	txnID, err := uuid.Parse(txnIDStr)
 	if err != nil {
 		return WrapUsageError("invalid --txn UUID", err)
 	}
-
-	// Flag-only constraint up front, before opening the store.
-	strictHostKeys, err := resolveStrictHostKeys(fs)
+	hostCfg, err := buildRollbackHostCfg(fs, host, user, port, keyPath, sudo)
 	if err != nil {
 		return err
 	}
-
 	svc, err := kensa.Default(ctx, dbPath)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
 	defer func() { _ = svc.Close() }()
-
-	hostCfg := api.HostConfig{
-		Hostname: host, User: user, Port: port, KeyPath: keyPath,
-		StrictHostKeys: strictHostKeys, Sudo: sudo,
-	}
 	result, err := svc.Rollback(ctx, hostCfg, txnID)
 	if err != nil {
 		return err
@@ -1564,16 +1622,49 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	return jw.WriteJSONValue(bodyOut(quiet), result)
 }
 
+// buildRollbackHostCfg validates --host / strict-host-keys
+// and returns the api.HostConfig for the executing modes
+// (--start and legacy --txn). --host is REQUIRED for both.
+func buildRollbackHostCfg(fs *pflag.FlagSet, host, user string, port int, keyPath string, sudo bool) (api.HostConfig, error) {
+	if host == "" {
+		return api.HostConfig{}, NewUsageError("--host is required for rollback execution")
+	}
+	strictHostKeys, err := resolveStrictHostKeys(fs)
+	if err != nil {
+		return api.HostConfig{}, err
+	}
+	return api.HostConfig{
+		Hostname: host, User: user, Port: port, KeyPath: keyPath,
+		StrictHostKeys: strictHostKeys, Sudo: sudo,
+	}, nil
+}
+
 // printRollbackUsage writes the `kensa rollback` help text to w.
 func printRollbackUsage(w io.Writer, fs *pflag.FlagSet) {
-	fmt.Fprintf(w, `Usage: kensa rollback [flags]
+	fmt.Fprintf(w, `Usage: kensa rollback [MODE] [flags]
 
-Roll back a past transaction by ID using captured pre-state.
+Roll back transactions using captured pre-state. Pick ONE mode:
+
+  --list                  list rollback-able sessions (read-only)
+  --info SESSION_ID       show session detail (txns + statuses)
+  --start SESSION_ID      execute rollback for every committed
+                          transaction in the session (needs --host)
+  --txn TXN_UUID          legacy: single-transaction rollback (needs --host)
+
+  --detail                modifier: per-step breakdown (composes with
+                          --list and --info; not --start or --txn)
+
+To find session UUIDs first, run:
+
+  kensa list sessions
 
 Flags:
 %s
-Example:
-  kensa rollback -H 192.168.1.211 -u owadmin --sudo -T 8c3a1e2b-...
+Examples:
+  kensa rollback --list
+  kensa rollback --info 8c3a1e2b-... --detail
+  kensa rollback --start 8c3a1e2b-... -H 192.168.1.211 -u owadmin --sudo
+  kensa rollback --txn 9d4b... -H 192.168.1.211 -u owadmin --sudo  # legacy
 `, fs.FlagUsages())
 }
 

@@ -197,6 +197,99 @@ func (s *SQLite) ListSessions(ctx context.Context, hostname string, limit int) (
 	return out, nil
 }
 
+// RollbackableSessions returns sessions whose denormalized
+// txn_committed counter is > 0 AND whose subcommand actually
+// produces capturable pre-state (i.e. `remediate`). Used by
+// `kensa rollback --list` (C-049) so operators discover
+// candidate sessions without running a manual SQL query.
+//
+// **Subcommand filter is load-bearing.** A `kensa check --store`
+// session writes `committed` to mean "rule passed the check" —
+// no remediation occurred, no pre-state captured. Calling
+// svc.Rollback on those txns iterates steps with
+// !Capturable and returns Success=true with detail
+// "all rollback steps succeeded" — a silent-confirming-lie
+// where the operator sees `succeeded: 10/10` while nothing
+// actually reverted. Peer review caught this before merge.
+// We filter at the listing layer so check sessions never
+// surface as candidates.
+//
+// Ordered by started_at descending (newest first) so the
+// most-recent runs surface at the top of the listing.
+func (s *SQLite) RollbackableSessions(ctx context.Context, limit int) ([]*Session, error) {
+	q := `
+        SELECT id, started_at, finished_at, hostname, subcommand, args_summary,
+               txn_total, txn_committed, txn_rolled, txn_failed
+        FROM sessions
+        WHERE txn_committed > 0
+          AND subcommand IN ('remediate')
+        ORDER BY started_at DESC`
+	args := []any{}
+	if limit > 0 {
+		q += ` LIMIT ?`
+		args = append(args, limit)
+	}
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("store: query rollbackable sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []*Session
+	for rows.Next() {
+		sess, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, sess)
+	}
+	return out, rows.Err()
+}
+
+// CommittedTxnIDs returns the UUIDs of transactions in
+// sessID whose status is "committed", ordered by started_at
+// ASC (earliest first). Used by `kensa rollback --start`
+// (C-049) to drive the per-txn rollback iteration.
+//
+// "committed" means the apply-then-commit path completed;
+// these are the only transactions with viable pre-state to
+// revert. Sessions with rolled_back / errored / partial
+// transactions return them in TransactionsForSession but
+// not here — they have no pre-state worth re-applying.
+func (s *SQLite) CommittedTxnIDs(ctx context.Context, sessID uuid.UUID) ([]TxnRef, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT id, rule_id FROM transactions
+        WHERE session_id = ? AND status = 'committed'
+        ORDER BY started_at ASC`,
+		sessID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: query committed txns: %w", err)
+	}
+	defer rows.Close()
+	var out []TxnRef
+	for rows.Next() {
+		var idStr, ruleID string
+		if err := rows.Scan(&idStr, &ruleID); err != nil {
+			return nil, err
+		}
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, fmt.Errorf("store: parse txn id %q: %w", idStr, err)
+		}
+		out = append(out, TxnRef{TxnID: id, RuleID: ruleID})
+	}
+	return out, rows.Err()
+}
+
+// TxnRef is the slim (transaction_id, rule_id) projection
+// returned by CommittedTxnIDs. The CLI's --start handler
+// uses RuleID for operator-facing per-rule reporting and
+// TxnID to invoke svc.Rollback.
+type TxnRef struct {
+	TxnID  uuid.UUID
+	RuleID string
+}
+
 // SessionTxn is a slim per-rule projection of a session's
 // transactions. Used by `kensa diff` (C-048) which only needs
 // the rule_id + status per row to compute the drift report,
