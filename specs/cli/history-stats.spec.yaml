@@ -1,0 +1,196 @@
+spec:
+    id: cli-history-stats
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-history-stats
+        description: |
+            CLI Phase 4 deliverable C-042. Adds the `--stats`
+            flag to `kensa history`. Aggregates session and
+            transaction counts grouped by status / severity /
+            host. Filters compose with the existing --host /
+            --since flags, so `kensa history --stats --host X
+            --since 24h` produces the per-host last-24h
+            summary.
+
+            Output is text by default and structured under
+            `--format json`. The text format groups counts by
+            axis with canonical ordering (status: committed
+            → rolled_back → partially_applied → errored;
+            severity: critical → high → medium → low →
+            (unset)). Hosts beyond a top-N (default 10) roll
+            into an "(other)" key so the output stays
+            bounded on large fleets.
+
+            Implementation: a new `*SQLite.ComputeStats`
+            method runs four GROUP BY queries (total +
+            time-bounds, by status, by severity, by host)
+            plus one sessions count. The LogQuery interface
+            doesn't expose stats — `runHistory` opens a
+            parallel SQLite handle for the stats path. This
+            is acceptable because the underlying file is the
+            same and SQLite handles read concurrency cleanly.
+
+            Status semantics in check vs remediate context:
+            scan.go writes StatusRolledBack to mean "not
+            compliant" for failed check rules (no actual
+            rollback occurred — the rule just didn't pass).
+            For remediate, StatusRolledBack means an engine
+            rollback happened. The stats output doesn't
+            editorialize; operators familiar with kensa read
+            "committed" as "passed" / "remediated cleanly"
+            and "rolled_back" as "failed" / "actually
+            rolled-back" depending on which subcommand
+            wrote the row.
+
+    objective:
+        summary: |
+            Add internal/store/stats.go (Stats struct +
+            ComputeStats + StatsFilter). Add cmd/kensa/
+            history_stats.go (writeHistoryStatsText with
+            canonical ordering). Wire `--stats` flag on
+            kensa history; honors --format json and
+            composes with --host / --since.
+        scope:
+            includes:
+                - "internal/store/stats.go: Stats / StatsFilter / ComputeStats / scanGroupCounts / rollupTopN"
+                - "cmd/kensa/history_stats.go: writeHistoryStatsText"
+                - "--stats flag on kensa history; mutually exclusive with row-listing semantics"
+                - "JSON output: full Stats struct"
+                - "Text output: grouped by axis with canonical orderings"
+                - "Top-10 host rollup with (other) bucket"
+            excludes:
+                - "Per-rule stats: existing --aggregate by_rule covers this; --stats is the cross-axis summary"
+                - "Time-bucketed stats (per-day counts): out of scope; future deliverable could add --bucket"
+                - "Stats include rules with NULL session_id from pre-Phase-4 backfill: those count as transactions but contribute zero to SessionsTotal until C-040 runs"
+                - "Configurable top-N via flag: hardcoded to 10 for now; future polish if operators report large fleets"
+                - "Disambiguating rolled_back across check vs remediate sessions: operators reading a mixed store see one blended count. Mitigated by an operator-facing legend in the text output; a future deliverable could split by subcommand if real-world telemetry shows confusion."
+
+    constraints:
+        - id: C-01
+          description: |
+              `--stats` MUST aggregate transactions by
+              status, severity, and host in one shot.
+              Operators running --stats expect the cross-axis
+              breakdown without having to compose multiple
+              --aggregate calls.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              ComputeStats on an empty store MUST return a
+              fully-populated Stats with zero counts and zero
+              timestamps — not nil. The renderer can then
+              emit a clean "0 transactions" footer instead of
+              a panic.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Empty severity (legacy / unset) MUST normalize
+              to "(unset)" in BySeverity. An empty-string
+              key in operator-facing output is a confusing
+              blank row.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Top-N host rollup MUST preserve the highest-
+              count hosts verbatim and sum the rest into an
+              "(other)" key. For tied counts, alphabetical
+              key wins (deterministic output across runs).
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              The `--host` and `--since` filters MUST scope
+              both transactions and sessions consistently.
+              `--stats --host X` produces transaction counts
+              for host X AND sessions for hostname=X.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              Status / severity render order MUST be stable
+              across runs. Canonical orderings live in
+              cmd/kensa/history_stats.go (statusOrder,
+              severityOrder); keys outside the canonical
+              list appear sorted by descending count then
+              alphabetically.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              ComputeStats on an empty store returns zero
+              counts and zero EarliestStartedAt /
+              LatestFinishedAt timestamps. Locked by
+              TestComputeStats_EmptyStore.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              Basic counts: TransactionsTotal sums all
+              matching rows; ByStatus / BySeverity / ByHost
+              partition the same set. Locked by
+              TestComputeStats_BasicCounts.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Empty-string severity rows normalize to
+              "(unset)". Locked by
+              TestComputeStats_UnsetSeverityNormalized.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              `--host` filter narrows the result. Locked by
+              TestComputeStats_FilterByHost.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-05
+          description: |
+              `--since` filter narrows the result. Locked by
+              TestComputeStats_FilterBySince.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              Top-N host rollup keeps the highest-count
+              hosts verbatim and sums the rest into
+              "(other)". Locked by
+              TestComputeStats_TopHostsRollup.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-07
+          description: |
+              EarliestStartedAt and LatestFinishedAt span
+              the matching window. Locked by
+              TestComputeStats_TimeWindow.
+          references_constraints: [C-01]
+          priority: medium
+        - id: AC-08
+          description: |
+              SessionsTotal counts session rows scoped by
+              the same hostname/since filter. Locked by
+              TestComputeStats_SessionsCounted.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-09
+          description: |
+              Live verification: a real scan produces
+              `kensa history --stats` output with the
+              expected sections (window, sessions,
+              transactions, by status, by severity, by
+              host). JSON form via `--format json`
+              produces a parseable Stats struct.
+              Verified during the C-042 merge workflow.
+          references_constraints: [C-01, C-06]
+          priority: critical
+
+    tags: [cli, history, stats, store, phase-4, c-042]

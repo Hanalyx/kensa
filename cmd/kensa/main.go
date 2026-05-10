@@ -1505,6 +1505,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		format    string
 		txnIDStr  string
 		aggregate string
+		stats     bool
 		quiet     bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
@@ -1515,6 +1516,7 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json")
 	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "get a single transaction by UUID")
 	fs.StringVarP(&aggregate, "aggregate", ShortAggregate, "", "aggregate key: by_host, by_rule, by_framework_control")
+	fs.BoolVar(&stats, "stats", false, "print summary stats (sessions, transactions, by status / severity / host) and exit")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
@@ -1583,6 +1585,35 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 			return fmt.Errorf("aggregate: %w", err)
 		}
 		return jsonValue.WriteJSONValue(out, aggResult)
+	}
+
+	// C-042 --stats: aggregate session/transaction counts
+	// scoped by the same host / since filters as a regular
+	// history query. Uses the *SQLite ComputeStats path (the
+	// LogQuery interface doesn't expose stats yet — and
+	// kensa.Default returns the SQLite store as the log
+	// concretely). For consistency with the rest of the
+	// subcommand, we open a parallel sqlite handle just for
+	// the stats query.
+	if stats {
+		s, err := store.OpenSQLite(ctx, dbPath)
+		if err != nil {
+			return fmt.Errorf("open store for stats: %w", err)
+		}
+		defer func() { _ = s.Close() }()
+		st, err := s.ComputeStats(ctx, store.StatsFilter{
+			Host:          hostID,
+			Since:         filter.Since,
+			TopHostsLimit: 10, // operator-friendly default; future flag could expose
+		})
+		if err != nil {
+			return fmt.Errorf("stats: %w", err)
+		}
+		if format == "json" {
+			return jsonValue.WriteJSONValue(out, st)
+		}
+		writeHistoryStatsText(out, st, hostID, since)
+		return nil
 	}
 
 	result, err := log.Query(ctx, filter, api.Page{Limit: limit})
