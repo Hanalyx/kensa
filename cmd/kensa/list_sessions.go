@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -38,7 +39,7 @@ func runListSessions(ctx context.Context, dbPath string, args []string) error {
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&hostname, "host", ShortHost, "", "filter by hostname (denormalized session.hostname column)")
 	fs.IntVarP(&limit, "limit", ShortLimit, 20, "maximum sessions to show (0 = unlimited)")
-	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
+	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, json, or jsonl")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
@@ -53,9 +54,9 @@ func runListSessions(ctx context.Context, dbPath string, args []string) error {
 		return nil
 	}
 	switch format {
-	case "text", "json":
+	case "text", "json", "jsonl":
 	default:
-		return NewUsageError(fmt.Sprintf("--format %q: must be 'text' or 'json'", format))
+		return NewUsageError(fmt.Sprintf("--format %q: must be 'text', 'json', or 'jsonl'", format))
 	}
 	if limit < 0 {
 		return NewUsageError(fmt.Sprintf("--limit %d: must be ≥ 0", limit))
@@ -79,6 +80,19 @@ func runListSessions(ctx context.Context, dbPath string, args []string) error {
 			Sessions []sessionRow `json:"sessions"`
 		}{Sessions: toSessionRows(sessions)}
 		return jw.WriteJSONValue(out, envelope)
+	}
+	if format == "jsonl" {
+		// C-052: one compact session row per line. Matches
+		// the per-element shape of the JSON envelope's
+		// `sessions` array (parsed-shape equivalence locked
+		// by TestRunListSessions_JSONLShapeMatchesJSON).
+		enc := json.NewEncoder(out)
+		for _, row := range toSessionRows(sessions) {
+			if err := enc.Encode(row); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	writeListSessionsText(out, sessions)
 	return nil

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -53,7 +54,7 @@ func runInfo(ctx context.Context, args []string) error {
 	fs.StringVar(&controlSpec, "control", "", "show rules mapping FRAMEWORK:ID (e.g. cis_rhel9:5.1.12)")
 	fs.StringVarP(&listCtrls, "list-controls", "L", "", "list every control referenced under FRAMEWORK with rule counts")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory of rule YAMLs to scan (required)")
-	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
+	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, json, or jsonl (jsonl is QUERY mode only)")
 	fs.BoolVar(&cisFamily, "cis", false, "filter to CIS family (cis_rhel8, cis_rhel9, cis_rhel10)")
 	fs.BoolVar(&stigFamily, "stig", false, "filter to STIG family (stig_rhel8, stig_rhel9, stig_rhel10)")
 	fs.BoolVar(&nistFamily, "nist", false, "filter to NIST family (nist_800_53; not RHEL-versioned, so does NOT compose with --rhel)")
@@ -74,9 +75,9 @@ func runInfo(ctx context.Context, args []string) error {
 	}
 
 	switch format {
-	case "text", "json":
+	case "text", "json", "jsonl":
 	default:
-		return NewUsageError(fmt.Sprintf("--format %q: must be 'text' or 'json'", format))
+		return NewUsageError(fmt.Sprintf("--format %q: must be 'text', 'json', or 'jsonl'", format))
 	}
 	if limit < 0 {
 		return NewUsageError(fmt.Sprintf("--limit %d: must be ≥ 0 (0 = unlimited)", limit))
@@ -123,6 +124,16 @@ func runInfo(ctx context.Context, args []string) error {
 	}
 	if rulesDir == "" {
 		return NewUsageError("--rules-dir DIR is required")
+	}
+
+	// C-052: jsonl is for QUERY mode only. Document-shaped
+	// modes (--rule, --control, --list-controls) emit single
+	// objects; jsonl-encoding a document is shape-violation.
+	// Check BEFORE the corpus load so the operator sees a
+	// clean usage error without unrelated rule-warning noise.
+	if format == "jsonl" && (ruleID != "" || controlSpec != "" || listCtrls != "") {
+		return NewUsageError(
+			"--format jsonl is for the QUERY (search) mode only; --rule, --control, and --list-controls emit single documents — use --format json for those")
 	}
 
 	// Family-shortcut mux + rhel validation. --cis + --stig is
@@ -208,6 +219,19 @@ func runInfo(ctx context.Context, args []string) error {
 			Hits  []info.SearchHit `json:"hits"`
 		}{Query: query, Hits: hits}
 		return jw.WriteJSONValue(out, envelope)
+	}
+	if format == "jsonl" {
+		// C-052: one compact SearchHit per line. Matches the
+		// per-element shape of the JSON envelope's `hits`
+		// array (parsed-shape equivalence locked by
+		// TestRunInfo_QueryJSONLShapeMatchesJSON).
+		enc := json.NewEncoder(out)
+		for _, h := range hits {
+			if err := enc.Encode(h); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	writeSearchHitsText(out, query, hits, limit)
 	return nil
