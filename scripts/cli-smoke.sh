@@ -408,6 +408,21 @@ assert_exit "kensa info ssh (happy path)"            0 stdout-nonempty bin/kensa
 assert_exit "kensa info --cis ssh (compose)"         0 stdout-nonempty bin/kensa info ssh --cis --rules-dir /home/rracine/hanalyx/kensa/rules
 echo
 
+# ─── kensa list sessions / info jsonl (C-052) ─────────────────────────────
+echo "kensa list sessions / info --format jsonl (C-052):"
+# happy paths
+assert_exit "kensa list sessions --format jsonl"     0 any bin/kensa list sessions --format jsonl
+assert_exit "kensa list sessions --format json"      0 stdout-nonempty bin/kensa list sessions --format json
+# info jsonl: rejected on document modes (no --rules-dir needed because
+# format validation runs before rules-dir requirement check, but we need
+# the modes to be in conflict for the rejection to fire).
+assert_exit "info --rule + jsonl"                    2 stderr-nonempty bin/kensa info --rule rx --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
+assert_exit "info --control + jsonl"                 2 stderr-nonempty bin/kensa info --control cis_rhel9:5.1.12 --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
+assert_exit "info --list-controls + jsonl"           2 stderr-nonempty bin/kensa info --list-controls cis_rhel9 --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
+# info QUERY + jsonl: happy path
+assert_exit "info QUERY + jsonl"                     0 stdout-nonempty bin/kensa info ssh --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
+echo
+
 # ─── kensa list frameworks (C-046) ────────────────────────────────────────
 echo "kensa list frameworks (C-046):"
 assert_exit "kensa list --help"                      0 stdout-nonempty bin/kensa list --help

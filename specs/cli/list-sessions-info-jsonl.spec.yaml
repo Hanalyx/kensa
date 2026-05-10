@@ -1,0 +1,133 @@
+spec:
+    id: cli-list-sessions-info-jsonl
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-list-sessions-info-jsonl
+        description: |
+            CLI Phase 5a deliverable C-052. Adds
+            `--format jsonl` to two more sequence-shaped
+            output paths: `kensa list sessions` and
+            `kensa info QUERY` (search mode only).
+
+            **Symmetry with C-051.** Same shape contract
+            as `kensa history --format jsonl`: one
+            compact JSON object per line, no top-level
+            envelope, parseable independently.
+
+            **Mode-mux rejection in `kensa info`.**
+            QUERY mode emits a sequence of search hits —
+            jsonl-natural. The other three modes (--rule,
+            --control, --list-controls) emit single
+            documents (RuleDetails, ControlMatch,
+            ControlListing); jsonl-encoding a document
+            is shape-violation. Reject with usage error
+            pointing at --format json.
+
+            **`kensa list frameworks` deliberately
+            excluded.** Per the founder ratification:
+            small fixed-shape list (typically <10 rows);
+            the JSON-array shape is fine. If a future
+            deliverable expands `list frameworks` to
+            stream per-framework detail, jsonl can be
+            added then.
+
+    objective:
+        summary: |
+            Add jsonl branches in runListSessions and
+            runInfo's QUERY-mode path. Reject jsonl on
+            info's --rule / --control / --list-controls
+            modes. Help text + cli-smoke updated.
+        scope:
+            includes:
+                - "cmd/kensa/list_sessions.go: jsonl branch in runListSessions"
+                - "cmd/kensa/info.go: jsonl branch in QUERY-mode path; rejection on --rule / --control / --list-controls"
+                - "Help text updates for both subcommands"
+                - "cli-smoke: jsonl happy paths + jsonl-on-document-modes rejection"
+            excludes:
+                - "jsonl on `kensa list frameworks`: small fixed-shape list, JSON array is fine"
+                - "jsonl on `kensa info --rule/--control/--list-controls`: those are documents, not sequences (rejected)"
+                - "jsonl on `kensa diff`: Phase 4 already shipped JSON envelope; not a sequence"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa list sessions --format jsonl`
+              MUST emit one session row per line, no
+              top-level envelope. Each line MUST be
+              independently parseable as a session
+              object with the same fields as the
+              JSON path's `sessions[]` elements.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `kensa info QUERY --format jsonl` MUST
+              emit one SearchHit per line, no
+              top-level envelope.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `kensa info --rule R --format jsonl`,
+              `--control X:Y --format jsonl`, and
+              `--list-controls F --format jsonl` MUST
+              all exit 2 with usage error pointing at
+              --format json. Single-document modes
+              are not jsonl-compatible.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              JSON shape per line MUST be byte-
+              equivalent (after parsing) to the per-
+              element shape of the existing JSON
+              array path. No drift between the two
+              formats — the parsed RuleID / ControlID /
+              hostname / etc. must match.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa list sessions --format jsonl`
+              emits one session per line. Locked by
+              TestRunListSessions_JSONLFormat.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa info QUERY --format jsonl` emits
+              one hit per line. Locked by
+              TestRunInfo_QueryJSONLFormat.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              All three info document-modes reject
+              --format jsonl. Locked by
+              TestRunInfo_DocumentModesRejectJSONL.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              jsonl line shape matches JSON array
+              element shape. Locked by
+              TestRunListSessions_JSONLShapeMatchesJSON
+              and TestRunInfo_QueryJSONLShapeMatchesJSON.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              Live verification: `bin/kensa list
+              sessions --format jsonl | jq -c .`
+              round-trips cleanly across a populated
+              store. Verified during merge.
+          references_constraints: [C-01]
+          priority: high
+
+    tags: [cli, list-sessions, info, jsonl, output, phase-5a, c-052]
