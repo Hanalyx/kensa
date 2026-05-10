@@ -439,7 +439,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** —
 - **Acceptance:** `kensa history --format jsonl` emits one transaction record per line as a parseable JSON object. Existing text/json/csv unchanged. Help text + cli-smoke updated.
 - **Size:** ~2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-10, `3470703`). One compact JSON object per line via `json.NewEncoder` (not the indented JSONValueWriter). Document-shaped modes (--aggregate / --stats / --txn) reject --format jsonl with usage error pointing at --format json. Pagination trailer to stderr (csv convention; stdout is a row stream). Spec: `specs/cli/history-jsonl.spec.yaml` (4 constraints, 6 ACs). 6 unit tests. cli-smoke 173→177. Live-verified: 10 transactions round-trip cleanly through `jq -c '.'`.
 
 #### C-052 — `kensa list sessions` and `kensa info` (QUERY mode) jsonl
 - **Phase:** CLI Phase 5a
