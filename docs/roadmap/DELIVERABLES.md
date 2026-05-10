@@ -422,7 +422,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039..C-049
 - **Acceptance:** Apply the C-038 grouping pattern to new subcommands. cli-smoke.sh adds 1-2 scenarios per new flag. Spec-corpus close.
 - **Size:** ~2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `66d080c`). Applied help-grouping to `kensa info` (Mode / Filter / Output sections) and `kensa rollback` (Mode / Target / Output) — the two flag-heavy new surfaces. Smaller surfaces (diff, list sessions/frameworks, history) kept flat help (≤6 flags each, readable as-is). cli-smoke gained 8 assertions confirming section headers appear and no flag falls into "Other options" catch-all. Spec: `specs/cli/phase4-close.spec.yaml` (4 constraints, 4 ACs). cli-smoke 165→173. Specter 62→63. Two P2 follow-ups intentionally deferred from this close: dual-store-handle smell in runRollbackStart; DRY duplication of cleanSessionLookupError between diff.go and rollback_session.go. **Phase 4 complete (12/12).**
 
 ### CLI Phase 5 — kensa-go-specific surfaces
 
