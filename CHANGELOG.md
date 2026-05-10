@@ -86,6 +86,19 @@ the canonical names; short forms are listed in
   corrupt row-oriented formats. The `text` format still emits
   the trailer on stdout for human readability.
 
+- `kensa coverage` → renamed to `kensa mechanisms` (C-044). The
+  canonical name for the handler-mechanism listing is now
+  `kensa mechanisms`. The `coverage` name remains a working
+  alias today and emits a stderr warning explaining the
+  upcoming v0.2 repurpose. **The `coverage` name is NOT being
+  removed — it is being repurposed in v0.2 to report framework
+  control coverage** (a different feature). Migrate scripts to
+  `mechanisms` to preserve current output across the upgrade.
+  Suppress the warning in pre-migrated CI with
+  `KENSA_NO_REPURPOSE_WARNINGS=1` (a SEPARATE knob from the
+  `KENSA_NO_DEPRECATION_WARNINGS` flag-rename switch — the
+  semantic-flip warning is categorically louder).
+
 ### Deprecated
 
 - `--format` / `-f` on `detect`, `check`, and `remediate`
