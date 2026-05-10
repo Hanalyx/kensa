@@ -453,7 +453,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** —
 - **Acceptance:** Add golden-file OSCAL output tests for `kensa check` and `kensa remediate` against a small fixture corpus. Catch any drift introduced by the Phase 4 session-model + scan-persist changes. New `internal/output/oscal/` test fixtures. cli-smoke validates the output shape against an OSCAL JSON schema if available, otherwise asserts top-level field presence.
 - **Size:** ~3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-10, `1cde0b1`). 3 golden files (`internal/evidence/testdata/oscal_golden_{committed,rolled_back,multi_framework}.json`) capturing normalized OSCAL output. UUIDs and timestamps replaced with `GENERATED_UUID` / `FIXTURE_TIMESTAMP` placeholders so byte-diff is stable across runs. `UPDATE_GOLDEN=1 go test ./internal/evidence/` regenerates all three. TestOSCALGolden_StructuralPaths is the defense-in-depth complement (assessment-results / metadata / results / findings / observations / target.status.state). TestOSCALGolden_RegenerateRoundTrip locks normalize idempotency. Spec: `specs/cli/oscal-regression.spec.yaml` (4 constraints, 6 ACs). Specter 65→66. Full schema validation deliberately deferred — would require pulling in NIST's OSCAL schema + a validator library; structural assertions cover the high-traffic drift modes.
 
 #### C-054 — `kensa agent --stdio` placeholder subcommand
 - **Phase:** CLI Phase 5a
