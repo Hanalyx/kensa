@@ -474,7 +474,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** C-051..C-055
 - **Acceptance:** Final `--format`/`--oscal` deprecation review (warn-on-use entries already shipped in C-020; verify CHANGELOG accurate and removal target still v0.2). Help-grouping pass on the new `agent` subcommand if it has flags. Spec corpus close.
 - **Size:** ~1h
-- **Status:** pending
+- **Status:** done (merged 2026-05-10, `a09f6f0`). CHANGELOG.md ## Unreleased ### Added gained two structured entries: Phase 4 (12 deliverables: sessions model + migrate / check --store / history --stats/--prune / mechanisms / coverage --framework / list frameworks/sessions / info / diff / rollback session-aware) and Phase 5a (jsonl wiring / agent stub / manpage). v0.2 removal target verified consistent between CHANGELOG and warnDeprecatedFlag's runtime message. Help-grouping skipped for `agent` (only 2 flags). Spec: `specs/cli/phase5a-close.spec.yaml` (3 constraints, 4 ACs). Specter 68→69. **Phase 5a complete (6/6).**
 
 ### CLI Phase 5b — signed-envelope output (gated on M7 task #12)
 
