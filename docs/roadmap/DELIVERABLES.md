@@ -426,7 +426,64 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 
 ### CLI Phase 5 — kensa-go-specific surfaces
 
-*Sketch.* Estimated 8–10 deliverables (C-054..C-063) covering: `jsonl` everywhere applicable, `oscal` everywhere, signed-envelope output (gates on M7 task #12 for real signatures), `kensa(1)` manpage, `kensa agent --stdio` placeholder subcommand stub. ~1 week.
+Founder-ratified 2026-05-10 with five scope decisions:
+
+1. **jsonl** wires only where output is a sequence: `kensa history`, `kensa list sessions`, `kensa info` (QUERY mode only — rule/control/list-controls modes reject jsonl). Other subcommands skipped (single-document shape).
+2. **OSCAL** stays on check/remediate only. Phase 5's OSCAL work is regression-sweep, not new wiring.
+3. **Phase 5 splits**: 5a is signer-independent (ships on its own); 5b is signer-dependent (gated on M7 task #12, ships in v1.1).
+4. **v1.0 makes no cryptographic-signing claims**. No empty-signature middle state in any released version.
+5. **Manpage** is hand-written wrapper (header + footer roff) + generated flag body, single `kensa.1` file.
+
+#### C-051 — `kensa history --format jsonl`
+- **Phase:** CLI Phase 5a
+- **Deps:** —
+- **Acceptance:** `kensa history --format jsonl` emits one transaction record per line as a parseable JSON object. Existing text/json/csv unchanged. Help text + cli-smoke updated.
+- **Size:** ~2h
+- **Status:** pending
+
+#### C-052 — `kensa list sessions` and `kensa info` (QUERY mode) jsonl
+- **Phase:** CLI Phase 5a
+- **Deps:** —
+- **Acceptance:** Both subcommands accept `--format jsonl`. `kensa info --rule R --format jsonl` and `kensa info --control X:Y --format jsonl` REJECT with usage error (those modes emit single documents, not sequences). `kensa list frameworks` does NOT get jsonl (small fixed-shape list; JSON-array suffices).
+- **Size:** ~3h
+- **Status:** pending
+
+#### C-053 — OSCAL regression sweep
+- **Phase:** CLI Phase 5a
+- **Deps:** —
+- **Acceptance:** Add golden-file OSCAL output tests for `kensa check` and `kensa remediate` against a small fixture corpus. Catch any drift introduced by the Phase 4 session-model + scan-persist changes. New `internal/output/oscal/` test fixtures. cli-smoke validates the output shape against an OSCAL JSON schema if available, otherwise asserts top-level field presence.
+- **Size:** ~3h
+- **Status:** pending
+
+#### C-054 — `kensa agent --stdio` placeholder subcommand
+- **Phase:** CLI Phase 5a
+- **Deps:** —
+- **Acceptance:** `kensa agent --stdio` reserves the subcommand name in v1.0. Exits 1 with a clear message: "agent mode is planned for v1.1 with the kernel-primitive migration (Track L Phase 1); use direct SSH transport in v1.0." `kensa agent --help` describes the planned interface so OpenWatch and consumers can write integration code. Help text and cli-smoke updated.
+- **Size:** ~2h
+- **Status:** pending
+
+#### C-055 — `kensa(1)` manpage
+- **Phase:** CLI Phase 5a
+- **Deps:** —
+- **Acceptance:** `docs/man/kensa.1.header.roff` and `docs/man/kensa.1.footer.roff` hand-written (NAME / SYNOPSIS / DESCRIPTION / ENVIRONMENT / FILES / EXIT CODES / SEE ALSO / AUTHORS sections). `docs/man/gen-manpage.go` walks every subcommand, captures `--help`, transforms to `.SS` subsections. `make manpage` produces `dist/kensa.1`. CI step regenerates and asserts no drift. Single file ships at `/usr/share/man/man1/kensa.1` (per package).
+- **Size:** ~5h
+- **Status:** pending
+
+#### C-056 — Phase 5a close
+- **Phase:** CLI Phase 5a
+- **Deps:** C-051..C-055
+- **Acceptance:** Final `--format`/`--oscal` deprecation review (warn-on-use entries already shipped in C-020; verify CHANGELOG accurate and removal target still v0.2). Help-grouping pass on the new `agent` subcommand if it has flags. Spec corpus close.
+- **Size:** ~1h
+- **Status:** pending
+
+### CLI Phase 5b — signed-envelope output (gated on M7 task #12)
+
+#### C-060 — Replace noopSigner with Ed25519 signing
+- **Phase:** CLI Phase 5b
+- **Deps:** M7 task #12 (Ed25519 signer implementation), C-056
+- **Acceptance:** Replace `internal/engine/stubs.go` `noopSigner` with the real Ed25519 signer. Wire signing through every `EvidenceEnvelope.Signature` write. Add `kensa-keygen` helper for keypair generation. Add `kensa verify <evidence-file>` (or external tool) for signature verification. Existing v1.0 evidence files remain valid as audit logs but cannot be cryptographically verified post-hoc — release notes call this out. v1.1 ships with this completed.
+- **Size:** ~1 week (signer impl is M7 task #12; this is the wiring + verifier on top)
+- **Status:** **blocked on M7 task #12**
 
 ---
 
