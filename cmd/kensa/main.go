@@ -20,6 +20,7 @@
 //	list        Introspection commands (`kensa list frameworks`).
 //	info        Rule/control lookup (multi-criteria search over the corpus).
 //	diff        Compare two stored sessions and emit per-rule drift.
+//	agent       v1.1 placeholder; see `kensa agent --help` for planned wire-protocol.
 //	version     Print version information.
 //
 // Global flags:
@@ -233,6 +234,11 @@ func runCLI(argv []string) int {
 	case "diff":
 		// C-048: per-rule drift between two stored sessions.
 		err = runDiff(ctx, dbPath, args)
+	case "agent":
+		// C-054: v1.0 placeholder. --stdio exits 1 (runtime,
+		// "feature lands in v1.1"); --help discloses the
+		// planned Track L Phase 1 wire-protocol shape.
+		err = runAgent(args)
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -477,6 +483,7 @@ Commands:
   list        Introspection commands ('kensa list frameworks', etc.)
   info        Rule/control lookup (multi-criteria search over the corpus)
   diff        Compare two stored sessions and emit per-rule drift
+  agent       v1.1 placeholder; see 'kensa agent --help' for planned wire-protocol
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
 

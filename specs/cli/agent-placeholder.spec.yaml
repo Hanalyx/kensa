@@ -1,0 +1,173 @@
+spec:
+    id: cli-agent-placeholder
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-agent-placeholder
+        description: |
+            CLI Phase 5a deliverable C-054. Reserves the
+            `kensa agent` subcommand name in v1.0 with a
+            placeholder stub that exits 1 and a clear
+            "planned for v1.1" message. The actual agent
+            implementation is Track L Phase 1 (gated on
+            L-007 wire-protocol decision); shipping the
+            name reservation in v1.0 lets OpenWatch and
+            other consumers write code against the
+            interface without a breaking-change cycle
+            when the real agent ships.
+
+            **Why a stub matters.** Without the
+            reservation, an operator scripting against
+            v1.0 would get "kensa: unknown command"
+            from `kensa agent`, then file a "kensa
+            doesn't have an agent" bug, then pin to
+            v1.0 to avoid breaking changes when v1.1
+            adds the real one. The stub turns "unknown
+            command" into "planned feature with a known
+            shape" — operators discover the surface in
+            v1.0 docs and can plan around it.
+
+            **What --help discloses.** The planned
+            wire-protocol direction (operator → agent
+            via stdin, agent → operator via stdout,
+            length-prefixed framing per Track L
+            Phase 1's wire-protocol deliverables L-008
+            through L-012). Consumers reading
+            `kensa agent --help` in v1.0 see exactly
+            what the v1.1 binary will accept, even
+            though the binary refuses to actually run
+            the protocol yet.
+
+            **Exit code 1 (runtime), not 2 (usage).**
+            The invocation was syntactically correct;
+            the feature just isn't implemented. C-047
+            / C-048 / C-049 established the same
+            distinction (ErrNotFound exits 1, bad-flags
+            exit 2). CI scripts can pin v1.0 with
+            `if kensa agent --stdio; then ...; fi`
+            knowing the false-branch fires reliably
+            without flag-parsing surprises.
+
+    objective:
+        summary: |
+            Add cmd/kensa/agent.go with runAgent dispatcher.
+            Add `case "agent":` in cmd/kensa/main.go
+            dispatch + printUsage entry. `kensa agent
+            --stdio` exits 1 with planned-for-v1.1
+            message. `kensa agent --help` exits 0 with
+            wire-protocol disclosure. cli-smoke covers
+            both paths plus bad-flag rejection.
+        scope:
+            includes:
+                - "cmd/kensa/agent.go: runAgent + printAgentUsage"
+                - "cmd/kensa/main.go: case 'agent' dispatch + printUsage entry"
+                - "Help text describes the planned wire-protocol direction"
+                - "cli-smoke: --help (exit 0), --stdio (exit 1), --bogus (exit 2)"
+                - "Spec close"
+            excludes:
+                - "Actual agent implementation: Track L Phase 1, gated on L-007"
+                - "Length-prefixed framing implementation: L-010 deliverable"
+                - "Wire-protocol schema: L-009 deliverable, gates on L-007 ratification"
+                - "Binary push / SHA caching: L-013 deliverable"
+                - "Reading from stdin in the stub: feature is gated, no point partially implementing"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa agent` (no mode flag) MUST exit 2
+              with a usage error pointing at --stdio
+              or --help. Bare invocation isn't a
+              "future feature placeholder" — it's
+              missing required input.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `kensa agent --stdio` MUST exit 1 with
+              a runtime-error message naming v1.1 as
+              the target version and pointing at
+              direct-SSH transport as the v1.0
+              workaround. Exit 1 (not 2) so CI
+              scripts can distinguish "feature not
+              ready" from "you typed bad flags."
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `kensa agent --help` MUST exit 0 and
+              disclose the planned wire-protocol
+              direction so v1.0 consumers can write
+              integration code today. The disclosure
+              MUST mention: stdin input, stdout
+              output, length-prefixed framing, and
+              the Track L Phase 1 reference.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `kensa agent --bogus` and unknown flags
+              MUST exit 2 (usage error). The fact
+              that the subcommand is a stub doesn't
+              mean it accepts arbitrary flags —
+              that would create false confidence.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `kensa --help` (top-level) MUST list
+              `agent` as a registered subcommand
+              with a one-line description marking
+              it as "v1.1 placeholder; see
+              `kensa agent --help`."
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa agent` (no flags) exits 2 with
+              usage error. Locked by
+              TestRunAgent_NoFlagsIsUsageError.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-02
+          description: |
+              `kensa agent --stdio` exits 1 with
+              "v1.1" and "Track L" mentioned in the
+              error. Locked by
+              TestRunAgent_StdioExitsRuntime.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              `kensa agent --help` exits 0 and
+              discloses stdin/stdout/length-prefixed-
+              framing/Track L. Locked by
+              TestRunAgent_HelpDisclosesWireProtocol.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              `kensa agent --bogus` exits 2. Locked
+              by TestRunAgent_UnknownFlagRejected.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-05
+          description: |
+              `kensa --help` lists agent with the
+              v1.1-placeholder annotation. Locked by
+              TestPrintUsage_ListsAgent.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-06
+          description: |
+              cli-smoke covers all three exit paths
+              and the help-disclosure check.
+              Verified by smoke gate.
+          references_constraints: [C-01, C-02, C-03]
+          priority: high
+
+    tags: [cli, agent, placeholder, v1.0-reservation, phase-5a, c-054]
