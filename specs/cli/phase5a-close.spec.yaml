@@ -1,0 +1,122 @@
+spec:
+    id: cli-phase5a-close
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-phase5a-close
+        description: |
+            CLI Phase 5a deliverable C-056. The closeout
+            deliverable: brings the CHANGELOG current
+            with the Phase 4 + Phase 5a surface, runs a
+            final review pass on the existing
+            deprecation entries (--format / --oscal
+            slated for v0.2 removal), and confirms the
+            spec corpus is in good shape before sealing
+            the phase.
+
+            **Scope cut.** Help-grouping for the new
+            `agent` subcommand is intentionally NOT in
+            scope: agent has only two flags
+            (--help, --stdio) and reads cleanly without
+            grouping boilerplate. Mirrors the C-050
+            scope cut for diff / list sessions /
+            list frameworks (≤6 flags each).
+
+            **What "Phase 5a close" does NOT cover.**
+            Phase 5b (Ed25519 signer wiring) is
+            explicitly excluded — gated on M7 task #12.
+            Two known P2 follow-ups also remain out of
+            scope: the dual-store-handle smell in
+            runRollbackStart, and the
+            cleanSessionLookupError DRY duplication
+            between diff.go and rollback_session.go.
+            Both are quality cleanup, not phase-close
+            blockers.
+
+    objective:
+        summary: |
+            Add CHANGELOG.md ## Unreleased entries for
+            the Phase 4 + Phase 5a surface. Spec corpus
+            close. No code changes — this is the
+            documentation-and-housekeeping closeout.
+        scope:
+            includes:
+                - "CHANGELOG.md ## Unreleased: Added section gets Phase 4 (sessions / migrate / list / info / diff / rollback session-aware) + Phase 5a (jsonl wiring / agent stub / manpage)"
+                - "CHANGELOG.md ## Unreleased: Changed section already has C-044 mechanisms rename + history trailer routing — verify accuracy"
+                - "CHANGELOG.md ## Unreleased: Deprecated section already has --format / --oscal — verify removal target still v0.2"
+                - "Spec corpus close: specter check --strict passes with this spec added"
+            excludes:
+                - "Help-grouping for agent: only 2 flags, reads cleanly without grouping"
+                - "Phase 5b signer work: gated on M7 task #12"
+                - "Code changes: this is doc-only closeout"
+                - "Dual-store-handle refactor in runRollbackStart: P2 follow-up"
+                - "DRY refactor of cleanSessionLookupError twins: P2 follow-up"
+
+    constraints:
+        - id: C-01
+          description: |
+              CHANGELOG.md ## Unreleased ### Added MUST
+              list every Phase 4 + Phase 5a operator-
+              facing surface addition. Operators
+              reading the changelog before upgrading
+              MUST see what's new without git-log
+              archaeology.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The --format / --oscal deprecation
+              entries MUST still target v0.2 for
+              removal (no slip; if the team decided to
+              push removal to v1.1, the changelog and
+              the warnDeprecatedFlag message must
+              agree). Verified during the close.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              specter check --strict MUST pass after
+              this spec is added.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              CHANGELOG.md mentions every Phase 4
+              subcommand surface (kensa migrate,
+              check --store, history --stats / --prune,
+              mechanisms / coverage, list, info, diff,
+              rollback session-aware modes). Locked
+              by manual review during the C-056
+              merge workflow.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-02
+          description: |
+              CHANGELOG.md mentions every Phase 5a
+              addition (jsonl on history/list
+              sessions/info, agent --stdio
+              placeholder, manpage). Locked by
+              manual review.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              --format / --oscal deprecation entries
+              still target v0.2. Locked by manual
+              review against warnDeprecatedFlag's
+              message at cmd/kensa/main.go.
+          references_constraints: [C-02]
+          priority: medium
+        - id: AC-04
+          description: |
+              specter check --strict passes with the
+              full corpus including this spec.
+          references_constraints: [C-03]
+          priority: critical
+
+    tags: [cli, phase-5a-close, changelog, c-056]
