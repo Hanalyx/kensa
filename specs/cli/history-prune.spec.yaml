@@ -1,0 +1,223 @@
+spec:
+    id: cli-history-prune
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-history-prune
+        description: |
+            CLI Phase 4 deliverable C-043. Adds the `--prune
+            DAYS` flag to `kensa history`. Deletes sessions
+            older than N days plus the cascade of dependent
+            rows (transactions, steps, pre_states,
+            framework_refs, rollback_events). Implements the
+            retention semantics from transaction-log spec
+            C-05; until C-043 the operator had no way to
+            shed old transaction-log data.
+
+            Long-only (no short letter): destructive, so the
+            operator MUST type out the long form. Requires
+            `--force` for non-interactive runs; otherwise
+            prompts on the controlling TTY for "y"
+            confirmation. If stdin is not a TTY and --force
+            is not set, the command exits with a usage
+            error directing the operator at --force (no
+            silent default-yes; no silent default-no — the
+            operator's intent must be unambiguous).
+
+            Pruning pivots on session.started_at. Sessions
+            with started_at < cutoff are deleted; their
+            attached transactions and the cascade go with
+            them. Pre-Phase-4 NULL-session transactions
+            (orphans not yet backfilled by `kensa migrate`)
+            are also pruned by their own started_at < cutoff
+            so an operator with a long-running pre-
+            Phase-4 store doesn't have to migrate just to
+            shed old data. The store has no FK constraints
+            (per transaction-log spec C-02 / C-05 — child
+            tables loaded before transactions), so the
+            cascade is explicit DELETE-by-IDs in a single
+            SQLite transaction.
+
+            Mutual exclusion: --prune does NOT compose with
+            --stats / --aggregate / --txn / --host / --rule
+            / --since. It's a destructive maintenance
+            command, not a query. Combining it with query
+            flags is a usage error (the operator likely
+            confused two distinct workflows).
+
+    objective:
+        summary: |
+            Add internal/store/prune.go (PruneSessions +
+            PruneReport). Wire `--prune DAYS` and `--force`
+            on `kensa history`. TTY prompt path uses
+            golang.org/x/term.IsTerminal (already imported
+            by the password-prompt code). Operator-facing
+            text summarizes deleted sessions /
+            transactions / steps / pre_states /
+            framework_refs / rollback_events.
+        scope:
+            includes:
+                - "internal/store/prune.go: PruneReport / PruneSessions / cutoff time argument"
+                - "--prune DAYS flag on kensa history (long-only)"
+                - "--force flag (non-interactive bypass of confirmation prompt)"
+                - "TTY confirmation prompt when --force absent and stdin is a TTY"
+                - "Cascade delete: sessions, attached transactions, steps, pre_states, framework_refs, rollback_events"
+                - "Orphan-transaction (NULL session_id) pruning by transaction.started_at < cutoff"
+                - "Mutual exclusion against --stats / --aggregate / --txn / --host / --rule / --since (usage error)"
+                - "Single SQLite transaction for the entire prune (atomic — interrupt mid-run leaves no half-deleted state)"
+                - "Operator-facing text summary printed to stdout (suppressed by --quiet)"
+                - "DAYS validation: must be a positive integer; 0 or negative rejected as usage error"
+            excludes:
+                - "Time-bounded prune by absolute date: out of scope; future deliverable could add --before TIMESTAMP"
+                - "Vacuum after prune: SQLite reclaims space lazily; explicit VACUUM is operator-driven"
+                - "Per-host or per-rule prune: out of scope; --prune is a coarse retention command"
+                - "Warning when DAYS would delete everything: silent — operator typed the value; respecting their intent over over-protective heuristics. The pruneDaysMax=36500 (100 yr) upper bound exists only to catch typos; operators with truly long-running stores can set it higher in code."
+                - "Chunked IN-clause cascade for multi-thousand-txn prunes: today's per-txn loop is O(N) round-trips with 5 DELETEs each. Acceptable for typical operator stores; chunking is a follow-up if real-world telemetry shows the whole-WAL hold becomes a problem."
+
+    constraints:
+        - id: C-01
+          description: |
+              `--prune DAYS` MUST require either `--force`
+              or a TTY-interactive "y" confirmation. A
+              non-interactive run without --force MUST exit
+              with a usage error pointing the operator at
+              --force. Silent default-yes would be
+              destructive in CI; silent default-no would
+              make the flag useless in cron jobs.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The prune MUST run inside a single SQLite
+              transaction. An interrupt (Ctrl-C, OOM,
+              power loss) mid-run MUST leave the store
+              either fully pruned or unchanged — never
+              with sessions deleted but transactions still
+              attached to them, etc.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Cascade MUST cover every child table: steps,
+              pre_states, framework_refs, rollback_events.
+              The store has no FK constraints (per spec
+              C-02), so missing a table would orphan rows.
+              `PruneReport` MUST report deleted-row counts
+              for each table so operators can audit.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Pre-Phase-4 NULL-session transactions MUST be
+              pruned by their own `transactions.started_at
+              < cutoff`. Operators with a long-running pre-
+              Phase-4 store MUST be able to shed old data
+              via --prune without first running `kensa
+              migrate`.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `--prune` MUST be mutually exclusive with the
+              query flags (--stats, --aggregate, --txn,
+              --host, --rule, --since). An operator
+              combining --prune with a query flag almost
+              certainly meant one or the other; failing
+              fast prevents accidental destructive runs.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              `DAYS` MUST be a positive integer. Zero,
+              negative values, and non-integer input MUST
+              be rejected as usage errors. `--prune 0`
+              would delete the entire store; if that's
+              intended, the operator can use a different
+              tool (rm).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa history --prune 7 --force` deletes
+              sessions older than 7 days and the full
+              cascade. Locked by TestPruneSessions_Basic.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              Empty store: --prune is a no-op and returns
+              zero counts. Locked by
+              TestPruneSessions_EmptyStore.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              Cascade covers all child tables (steps,
+              pre_states, framework_refs, rollback_events)
+              with non-zero counts in PruneReport. Locked
+              by TestPruneSessions_CascadeAllTables.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              NULL-session orphan transactions older than
+              cutoff are pruned (independent of any session
+              row). Locked by
+              TestPruneSessions_OrphansPruned.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Sessions newer than cutoff are preserved
+              along with their transactions and cascade.
+              Locked by
+              TestPruneSessions_RecentPreserved.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: |
+              Mid-run failure leaves the store unchanged
+              (single-transaction atomicity). Locked by
+              TestPruneSessions_TransactionRollback.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-07
+          description: |
+              `--prune 0`, `--prune -1`, and `--prune abc`
+              all exit 2 with a usage error. Locked by
+              TestRunHistory_PruneInvalidDays.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-08
+          description: |
+              `--prune 7` without --force on a non-TTY
+              stdin exits 2 with a usage error pointing at
+              --force. Locked by
+              TestRunHistory_PruneNoForceNonTTY.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-09
+          description: |
+              `--prune 7 --stats` (and other query-flag
+              combinations) exits 2 with a usage error.
+              Locked by
+              TestRunHistory_PruneMutualExclusion.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-10
+          description: |
+              Live verification: `kensa history --prune 0`
+              is rejected; `kensa history --prune 1
+              --force` against a populated store deletes
+              expected sessions, leaves recent ones, and
+              prints a non-zero summary. Verified during
+              the C-043 merge workflow.
+          references_constraints: [C-01, C-03]
+          priority: critical
+
+    tags: [cli, history, prune, store, retention, phase-4, c-043]

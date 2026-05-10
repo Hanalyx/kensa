@@ -265,6 +265,37 @@ assert_exit "kensa check --control no-colon"        2 stderr-nonempty bin/kensa 
 assert_exit "kensa check --framework bogus"         2 stderr-nonempty bin/kensa check -H foo -f bogus --rules-dir /home/rracine/hanalyx/kensa/rules
 echo
 
+# ─── kensa history --prune (C-043) ────────────────────────────────────────
+# All --prune scenarios must reach validation BEFORE the store opens, so
+# they don't need a real DB path. Network-free; flag-only validation.
+echo "kensa history --prune validation (C-043):"
+assert_exit "kensa history --prune 0 --force"      2 stderr-nonempty bin/kensa history --prune 0 --force
+assert_exit "kensa history --prune -1 --force"     2 stderr-nonempty bin/kensa history --prune -1 --force
+assert_exit "kensa history --prune abc --force"    2 stderr-nonempty bin/kensa history --prune abc --force
+assert_exit "kensa history --force (no --prune)"   2 stderr-nonempty bin/kensa history --force
+assert_exit "kensa history --prune+stats"          2 stderr-nonempty bin/kensa history --prune 7 --force --stats
+assert_exit "kensa history --prune+host"           2 stderr-nonempty bin/kensa history --prune 7 --force -H foo
+assert_exit "kensa history --prune+since"          2 stderr-nonempty bin/kensa history --prune 7 --force -S 24h
+# --prune is advertised in `kensa history --help`.
+out=$(bin/kensa history --help 2>&1)
+if echo "${out}" | grep -qE -- "--prune"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa history --help advertises --prune"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa history --help: --prune missing")
+    echo "  ${RED}FAIL${RESET}  kensa history --help missing --prune"
+fi
+if echo "${out}" | grep -qE -- "--force"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa history --help advertises --force"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa history --help: --force missing")
+    echo "  ${RED}FAIL${RESET}  kensa history --help missing --force"
+fi
+echo
+
 # ─── kensa-validate ───────────────────────────────────────────────────────
 echo "kensa-validate:"
 assert_exit "kensa-validate --help"      0 stdout-nonempty bin/kensa-validate --help
