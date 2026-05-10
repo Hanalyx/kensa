@@ -1,4 +1,4 @@
-.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain clean
+.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain manpage manpage-check clean
 
 help:
 	@echo "Kensa Go — common targets"
@@ -16,6 +16,9 @@ help:
 	@echo "  spec-graph      Output dependency graph (FORMAT=dot or FORMAT=mermaid)"
 	@echo "  spec-watch      Re-run sync on file changes (development loop)"
 	@echo "  spec-explain    Show annotation examples (usage: make spec-explain SPEC=id:AC-NN)"
+	@echo ""
+	@echo "  manpage         Generate dist/kensa.1 from sources"
+	@echo "  manpage-check   Verify dist/kensa.1 is in sync with sources (CI gate)"
 	@echo ""
 	@echo "  clean           Remove build artifacts"
 
@@ -85,5 +88,23 @@ ifndef SPEC
 endif
 	specter explain $(SPEC)
 
+manpage: build
+	@go run docs/man/gen-manpage.go > docs/man/kensa.1
+	@echo "wrote docs/man/kensa.1 ($$(wc -c < docs/man/kensa.1) bytes)"
+	@mkdir -p dist
+	@cp docs/man/kensa.1 dist/kensa.1
+
+manpage-check: build
+	@go run docs/man/gen-manpage.go > docs/man/kensa.1.regenerated
+	@if ! diff -u docs/man/kensa.1 docs/man/kensa.1.regenerated > /dev/null; then \
+		echo "manpage drift detected — committed docs/man/kensa.1 differs from regenerated output"; \
+		echo "run 'make manpage' to refresh, then commit docs/man/kensa.1"; \
+		diff -u docs/man/kensa.1 docs/man/kensa.1.regenerated; \
+		rm -f docs/man/kensa.1.regenerated; \
+		exit 1; \
+	fi
+	@rm -f docs/man/kensa.1.regenerated
+	@echo "manpage in sync with sources"
+
 clean:
-	rm -rf bin/ coverage.txt coverage.html
+	rm -rf bin/ coverage.txt coverage.html dist/ docs/man/kensa.1.regenerated

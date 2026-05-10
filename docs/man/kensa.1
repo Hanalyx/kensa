@@ -1,0 +1,635 @@
+.\" Manpage for kensa(1) — kensa-go CLI
+.\" This file is the HAND-WRITTEN header. The body is generated
+.\" from `bin/kensa <subcmd> --help` output by docs/man/gen-manpage.go.
+.\" Run `make manpage` to regenerate dist/kensa.1; run
+.\" `make manpage-check` to verify the committed copy is in sync.
+.TH KENSA 1 "May 2026" "kensa v1.0" "User Commands"
+.
+.SH NAME
+kensa \- atomic Linux configuration remediation with
+capture/apply/validate/commit-or-rollback transactions
+.
+.SH SYNOPSIS
+.B kensa
+[\fI--db PATH\fR]
+.I command
+[\fIflags\fR] [\fIarguments\fR]
+.PP
+.B kensa
+[\fI--help\fR | \fI--version\fR]
+.
+.SH DESCRIPTION
+.B kensa
+is a compliance and atomicity engine for Linux configuration changes.
+Every change runs as a four-phase transaction: capture the pre-state,
+apply the change, validate the result, then commit or roll back. The
+atomicity contract is the product; the compliance rules are the first
+application of it.
+.PP
+The CLI surface is operator-facing: subcommands probe a host's
+capabilities, run read-only compliance checks, apply remediations,
+roll back past transactions, query the transaction log, and surface
+session-aware drift reports. All transport defaults to system OpenSSH
+(with ControlMaster connection sharing) so SSH agent, jump-host, and
+known_hosts integration just works.
+.PP
+Rules are runtime input, not compiled in. The CLI requires
+.I --rules-dir DIR
+on most subcommands; the canonical 539-rule corpus ships separately
+as the
+.B kensa-rules
+package.
+.
+.SH GLOBAL OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help and exit. Use
+.B kensa <command> --help
+for subcommand-specific flags.
+.TP
+.BR \-V ", " \-\-version
+Print the kensa-go binary version and exit.
+.TP
+.BR \-D " " \fIPATH\fR ", " \-\-db " " \fIPATH\fR
+SQLite transaction-log path. Default: \fB.kensa/results.db\fR in the
+current working directory. Required for
+.B history
+,
+.B rollback
+,
+.B diff
+, and
+.B migrate
+subcommands; optional elsewhere.
+.
+.SH COMMANDS
+The following subcommands are documented in detail below. Each
+section is generated from the live
+.B kensa <command> --help
+output so the manpage and the binary stay in sync.
+.
+.SS DETECT
+.nf
+Usage: kensa detect [flags]
+
+Probe a host and print its capability set. Read\-only; no mutations.
+
+Target options:
+  \-H, \-\-host string                    target hostname (required)
+  \-u, \-\-user string                    SSH user (default: current user)
+  \-k, \-\-key string                     SSH private key path
+  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+  \-P, \-\-port int                       SSH port (default 22)
+      \-\-sudo                           wrap commands in sudo
+      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
+  \-C, \-\-capability stringArray         override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
+
+Output options:
+      \-\-format string    output format: table or json (deprecated; use \-\-output) (default "table")
+  \-o, \-\-output strings   output destination FORMAT[:PATH], repeatable (e.g., \-o json \-o csv:results.csv)
+  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+
+General:
+  \-h, \-\-help   show this help and exit
+
+Examples:
+  kensa detect \-H 192.168.1.211 \-u owadmin \-\-sudo
+  kensa detect \-\-host web\-01 \-\-user admin \-\-format json
+.fi
+.PP
+.SS CHECK
+.nf
+Usage: kensa check [flags] [rule.yml ...]
+
+Run read\-only compliance checks against one host or an inventory.
+
+Target options:
+  \-H, \-\-host string                    target hostname (required if no \-\-inventory)
+  \-u, \-\-user string                    SSH user (default: current user)
+  \-k, \-\-key string                     SSH private key path
+  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+  \-P, \-\-port int                       SSH port (default 22)
+      \-\-sudo                           wrap commands in sudo
+      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
+  \-C, \-\-capability stringArray         override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
+  \-i, \-\-inventory string               Ansible\-style inventory.ini for multi\-host check
+  \-l, \-\-limit string                   limit inventory hosts to glob/group pattern (ansible \-\-limit semantics)
+  \-w, \-\-workers int                    concurrent SSH connections for \-\-inventory mode (1\-50; 1 = sequential) (default 1)
+
+Rule options:
+  \-r, \-\-rules\-dir string         directory to scan for *.yml rule files
+      \-\-rule stringArray         load this single rule YAML file (strict — parse errors fail the command); long\-only, repeatable, additive with \-\-rules\-dir and positional *.yml args
+  \-s, \-\-severity stringArray     filter rules by severity, repeatable (\-s critical \-s high); choices: critical|high|medium|low
+  \-t, \-\-tag stringArray          filter rules by tag, repeatable (\-t pci \-t cis); rules whose tags: array contains any of these match
+  \-c, \-\-category string          filter rules by category (\-c access\-control); single value (NOT repeatable like \-s/\-t — later \-c overrides earlier)
+  \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
+      \-\-control stringArray      filter rules by FRAMEWORK:CONTROL (\-\-control cis\-rhel9:5.1.12); repeatable, OR across values; framework portion accepts hyphen or underscore
+  \-x, \-\-var stringArray          override a rule variable, KEY=VALUE; repeatable (e.g. \-x pam_faillock_deny=5). Wins over \-\-config\-dir/defaults.yml. VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input.
+      \-\-config\-dir string        directory holding defaults.yml (variable defaults source). Phase 3.5 minimum: only defaults.yml is read; per\-host / per\-group / conf.d overrides land in Phase 3.6.
+
+Output options:
+      \-\-format string    output format: table, json, or jsonl (deprecated; use \-\-output) (default "table")
+  \-o, \-\-output strings   output destination FORMAT[:PATH], repeatable
+  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+  \-v, \-\-verbose          expand the compacted PASSED list (text format only)
+
+Other options:
+      \-\-store   persist the scan as a session+transactions record in the SQLite store (default off; check is read\-only by default)
+
+General:
+  \-h, \-\-help   show this help and exit
+
+Examples:
+  kensa check \-H 192.168.1.211 \-u owadmin \-\-sudo \-r /path/to/rules
+  kensa check \-\-inventory hosts.ini \-\-sudo \-\-rules\-dir /path/to/rules
+  kensa check \-\-inventory hosts.ini \-w 10 \-\-sudo \-r /path/to/rules
+  kensa check \-H 192.168.1.211 \-s critical \-s high \-r /path/to/rules
+  kensa check \-H 192.168.1.211 \-f cis\-rhel9 \-\-control cis_rhel9:5.1.12 \-r /path/to/rules
+  kensa check \-H web\-01 \-u admin \-\-sudo \-o jsonl rule1.yml rule2.yml
+.fi
+.PP
+.SS REMEDIATE
+.nf
+Usage: kensa remediate [flags] [rule.yml ...]
+
+Apply failing rules to a host. Each rule runs as a four\-phase
+atomic transaction; on validation failure, the engine rolls back
+to captured pre\-state.
+
+Target options:
+  \-H, \-\-host string                    target hostname (required)
+  \-u, \-\-user string                    SSH user (default: current user)
+  \-k, \-\-key string                     SSH private key path
+  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+  \-P, \-\-port int                       SSH port (default 22)
+      \-\-sudo                           wrap commands in sudo
+      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
+  \-C, \-\-capability stringArray         override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
+
+Rule options:
+  \-r, \-\-rules\-dir string         directory to scan for *.yml rule files
+      \-\-rule stringArray         load this single rule YAML file (strict — parse errors fail the command); long\-only, repeatable, additive with \-\-rules\-dir and positional *.yml args
+  \-s, \-\-severity stringArray     filter rules by severity, repeatable (\-s critical \-s high); choices: critical|high|medium|low
+  \-t, \-\-tag stringArray          filter rules by tag, repeatable (\-t pci \-t cis); rules whose tags: array contains any of these match
+  \-c, \-\-category string          filter rules by category (\-c access\-control); single value (NOT repeatable like \-s/\-t — later \-c overrides earlier)
+  \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
+      \-\-control stringArray      filter rules by FRAMEWORK:CONTROL (\-\-control cis\-rhel9:5.1.12); repeatable, OR across values; framework portion accepts hyphen or underscore
+  \-x, \-\-var stringArray          override a rule variable, KEY=VALUE; repeatable (e.g. \-x pam_faillock_deny=5). Wins over \-\-config\-dir/defaults.yml. VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input.
+      \-\-config\-dir string        directory holding defaults.yml (variable defaults source). Phase 3.5 minimum: only defaults.yml is read; per\-host / per\-group / conf.d overrides land in Phase 3.6.
+
+Output options:
+      \-\-format string    output format: table or json (deprecated; use \-\-output) (default "table")
+  \-o, \-\-output strings   output destination FORMAT[:PATH], repeatable
+      \-\-oscal string     write OSCAL Assessment Results to this file (deprecated; use \-\-output oscal:PATH)
+  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+
+General:
+  \-h, \-\-help   show this help and exit
+
+Examples:
+  kensa remediate \-H 192.168.1.211 \-u owadmin \-\-sudo \-r /path/to/rules
+  kensa remediate \-H 192.168.1.211 \-s critical \-t pci \-r /path/to/rules
+  kensa remediate \-H 192.168.1.211 \-f cis\-rhel9 \-\-control cis_rhel9:5.1.12 \-r /path/to/rules
+  kensa remediate \-H web\-01 \-u admin \-\-sudo \-o json \-o oscal:/tmp/results.oscal.json
+.fi
+.PP
+.SS ROLLBACK
+.nf
+Usage: kensa rollback [MODE] [flags]
+
+Roll back transactions using captured pre\-state. Pick ONE mode:
+
+  \-\-list                  list rollback\-able sessions (read\-only)
+  \-\-info SESSION_ID       show session detail (txns + statuses)
+  \-\-start SESSION_ID      execute rollback for every committed
+                          transaction in the session (needs \-\-host)
+  \-\-txn TXN_UUID          legacy: single\-transaction rollback (needs \-\-host)
+
+  \-\-detail                modifier: per\-step breakdown (composes with
+                          \-\-list and \-\-info; not \-\-start or \-\-txn)
+
+To find session UUIDs first, run:
+
+  kensa list sessions
+
+Mode (pick one):
+      \-\-list           list rollback\-able sessions
+      \-\-info string    show detail for SESSION_ID (txns + statuses)
+      \-\-start string   execute rollback for every committed txn in SESSION_ID
+  \-T, \-\-txn string     legacy: roll back a single transaction by UUID
+      \-\-detail         include per\-step breakdown (composes with \-\-list / \-\-info)
+
+Target options (required for \-\-start and \-\-txn):
+  \-H, \-\-host string           target hostname (required for \-\-start and \-\-txn)
+  \-u, \-\-user string           SSH user (default: current user)
+  \-k, \-\-key string            SSH private key path
+  \-P, \-\-port int              SSH port (default 22)
+      \-\-sudo                  wrap commands in sudo
+      \-\-strict\-host\-keys      verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys   trust on first use (default today; explicit form for future config\-file override)
+
+Output options:
+      \-\-format string   output format: text or json (default "text")
+  \-q, \-\-quiet           suppress default output (errors still go to stderr)
+
+General:
+  \-h, \-\-help   show this help and exit
+
+Examples:
+  kensa rollback \-\-list
+  kensa rollback \-\-info 8c3a1e2b\-... \-\-detail
+  kensa rollback \-\-start 8c3a1e2b\-... \-H 192.168.1.211 \-u owadmin \-\-sudo
+  kensa rollback \-\-txn 9d4b... \-H 192.168.1.211 \-u owadmin \-\-sudo  # legacy
+.fi
+.PP
+.SS HISTORY
+.nf
+Usage: kensa history [flags]
+
+Query the transaction log. Without filters, lists recent transactions.
+
+Flags:
+  \-h, \-\-help               show this help and exit
+  \-H, \-\-host string        filter by host ID
+  \-R, \-\-rule string        filter by rule ID
+  \-S, \-\-since string       filter since duration (e.g. 24h) or RFC3339 time
+  \-n, \-\-limit int          maximum rows to return (default 50)
+      \-\-format string      output format: table, json, or jsonl (jsonl is transaction\-list only) (default "table")
+  \-T, \-\-txn string         get a single transaction by UUID
+  \-a, \-\-aggregate string   aggregate key: by_host, by_rule, by_framework_control
+      \-\-stats              print summary stats (sessions, transactions, by status / severity / host) and exit
+      \-\-prune int          delete sessions and cascade older than N days (destructive; long\-only)
+      \-\-force              skip the confirmation prompt for \-\-prune (required in non\-interactive runs)
+  \-q, \-\-quiet              suppress default output (errors still go to stderr)
+
+Examples:
+  kensa history                                  # 50 most recent
+  kensa history \-n 200 \-\-format json             # last 200 as JSON array
+  kensa history \-n 200 \-\-format jsonl | jq \-c .  # last 200 as JSON Lines (streamable to log aggregators)
+  kensa history \-H 192.168.1.211 \-S 24h          # one host, last 24h
+  kensa history \-T 8c3a1e2b\-...                  # one transaction by UUID
+  kensa history \-a by_host \-S 7d                 # 7\-day posture per host
+  kensa history \-\-prune 30                       # interactive prompt; deletes sessions older than 30 days
+  kensa history \-\-prune 30 \-\-force               # non\-interactive (CI / cron); skips the prompt
+.fi
+.PP
+.SS PLAN
+.nf
+Usage: kensa plan [flags] rule.yml
+
+Preview a rule transaction without executing it. Returns a structured
+Plan with captured pre\-state, apply steps, validators, rollback plan,
+and warnings.
+
+Flags:
+  \-h, \-\-help                           show this help and exit
+  \-H, \-\-host string                    target hostname (required)
+  \-u, \-\-user string                    SSH user (default: current user)
+  \-P, \-\-port int                       SSH port (default 22)
+  \-k, \-\-key string                     SSH private key path
+  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
+      \-\-sudo                           wrap commands in sudo
+      \-\-format string                  output format: text, markdown, json, plain (default "text")
+  \-q, \-\-quiet                          suppress default output (errors still go to stderr)
+
+Example:
+  kensa plan \-H 192.168.1.211 \-u owadmin \-\-sudo \-\-format markdown rule.yml
+.fi
+.PP
+.SS MECHANISMS
+.nf
+Usage: kensa mechanisms [flags]
+
+List every handler mechanism registered with the kensa\-go engine,
+marked capturable (participates in atomic transactions) or
+non\-capturable (transactional: false escape hatch).
+
+Flags:
+  \-h, \-\-help   show this help and exit
+
+Example:
+  kensa mechanisms
+.fi
+.PP
+.SS LIST
+.nf
+Usage: kensa list <subject> [flags]
+
+Introspection commands for the rule corpus and the transaction store.
+
+Subjects:
+  frameworks   Per\-framework control + rule counts (requires \-\-rules\-dir DIR)
+  sessions     List recent sessions in the transaction store (with IDs for `kensa diff`)
+
+Run "kensa list <subject> \-\-help" for subject\-specific flags.
+.fi
+.PP
+.SS INFO
+.nf
+Usage: kensa info [MODE] \-\-rules\-dir DIR [filters] [QUERY]
+
+Multi\-criteria lookup over a loaded rule corpus. Pick ONE mode:
+
+  \-\-rule RULE_ID                 single\-rule details
+  \-\-control FRAMEWORK:ID         rules mapping a specific control
+  \-\-list\-controls FRAMEWORK      list controls under a framework with rule counts
+  QUERY (positional)             case\-insensitive substring search over title + description
+
+Filters (compose with QUERY; \-\-cis/\-\-stig/\-\-nist also narrow within \-\-rule/\-\-control):
+  \-\-cis | \-\-stig | \-\-nist        framework\-family shortcut (mutually exclusive)
+  \-\-rhel 8 | 9 | 10              RHEL version (composes with \-\-cis/\-\-stig; standalone filters Platforms)
+
+Mode (pick one):
+      \-\-rule string            show details for a single rule by ID (long\-only; \-r is \-\-rules\-dir)
+      \-\-control string         show rules mapping FRAMEWORK:ID (e.g. cis_rhel9:5.1.12)
+  \-L, \-\-list\-controls string   list every control referenced under FRAMEWORK with rule counts
+  \-r, \-\-rules\-dir string       directory of rule YAMLs to scan (required)
+
+Filter options:
+      \-\-cis        filter to CIS family (cis_rhel8, cis_rhel9, cis_rhel10)
+      \-\-stig       filter to STIG family (stig_rhel8, stig_rhel9, stig_rhel10)
+      \-\-nist       filter to NIST family (nist_800_53; not RHEL\-versioned, so does NOT compose with \-\-rhel)
+      \-\-rhel int   filter by RHEL version (8, 9, or 10); composes with \-\-cis/\-\-stig (not \-\-nist)
+
+Output options:
+      \-\-format string   output format: text, json, or jsonl (jsonl is QUERY mode only) (default "text")
+      \-\-limit int       cap text output rows (search + list\-controls modes); 0 = unlimited (default 100)
+  \-q, \-\-quiet           suppress default output (errors still go to stderr)
+
+General:
+  \-h, \-\-help   show this help and exit
+
+Examples:
+  kensa info ssh \-\-rules\-dir /path/to/rules                   # search "ssh" in titles + descriptions
+  kensa info ssh \-\-cis \-\-rhel 9 \-\-rules\-dir /path/to/rules    # SSH rules in CIS RHEL9
+  kensa info \-\-rule sysctl\-ip\-forward\-disabled \-\-rules\-dir /path/to/rules
+  kensa info \-\-control cis_rhel9:5.1.12 \-\-rules\-dir /path/to/rules
+  kensa info \-\-list\-controls cis_rhel9 \-\-rules\-dir /path/to/rules
+  kensa info \-\-cis \-\-rhel 9 \-\-rules\-dir /path/to/rules        # every CIS RHEL9 rule (no QUERY)
+  kensa info file \-\-rules\-dir /path/to/rules \-\-limit 0        # show all hits (no truncation)
+.fi
+.PP
+.SS DIFF
+.nf
+Usage: kensa diff SESSION_ID_1 SESSION_ID_2 [flags]
+
+Compare two stored sessions and emit the per\-rule drift report:
+status changes, rules added (in SESSION_ID_2 only), and rules
+removed (in SESSION_ID_1 only). Pass \-\-show\-unchanged to also
+list rules whose status is identical between the two sessions.
+
+The "from" → "to" direction follows git diff convention:
+SESSION_ID_1 is the earlier ("before") snapshot; SESSION_ID_2
+is the later ("after"). Reversing the args inverts the report.
+
+Comparing across hostnames is allowed (a stderr note discloses
+the cross\-host scope). To find candidate session IDs run:
+
+  kensa list sessions
+
+Flags:
+  \-h, \-\-help             show this help and exit
+      \-\-format string    output format: text or json (default "text")
+      \-\-show\-unchanged   include rules whose status is identical between the two sessions
+  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+
+Examples:
+  kensa list sessions                          # find session IDs first
+  kensa diff <id1> <id2>                       # compact drift report
+  kensa diff <id1> <id2> \-\-show\-unchanged      # include rules with no status change
+  kensa diff <id1> <id2> \-\-format json         # programmatic output
+.fi
+.PP
+.SS AGENT
+.nf
+Usage: kensa agent \-\-stdio
+
+[v1.0 PLACEHOLDER — feature lands in v1.1]
+
+The agent subcommand will run kensa as a multi\-call binary on
+the target host, receiving wire\-protocol messages over stdin
+and writing responses to stdout. The controller (kensa on the
+operator's machine) connects via SSH and drives the agent
+through the protocol. This replaces the v1.0 "shell out to
+ssh per command" transport with a long\-lived agent process,
+unlocking the kernel\-primitive migration (atomic file ops via
+renameat2, deadman timer via timerfd, systemd D\-Bus, etc.).
+
+Planned wire\-protocol direction:
+  stdin   length\-prefixed framed messages (controller → agent)
+  stdout  length\-prefixed framed responses (agent → controller)
+  stderr  human\-readable diagnostics
+
+The exact wire format ratifies through Track L Phase 1
+(deliverables L\-007 through L\-014; see docs/roadmap/
+DELIVERABLES.md). Operators scripting against v1.0 can
+expect:
+
+  \- The 'agent \-\-stdio' invocation pattern is stable.
+  \- Length\-prefixed framing means consumers buffer one
+    message at a time (no streaming\-JSON ambiguity).
+  \- Version handshake on session start; mismatched
+    majors abort cleanly.
+
+Today (v1.0):
+  \-\-stdio  exits 1 with the "planned for v1.1" message
+  \-\-help   shows this disclosure (exit 0)
+
+In v1.1 the agent path replaces direct SSH for handler
+invocation. v1.0 consumers should use direct\-SSH transport
+(kensa check / remediate / rollback against the host
+directly) — the operator\-facing CLI surface is unchanged
+between v1.0 and v1.1; only the underlying transport flips.
+
+Flags:
+  \-h, \-\-help    show this help and exit
+      \-\-stdio   read framed messages from stdin, write responses to stdout (planned for v1.1)
+.fi
+.PP
+.SS MIGRATE
+.nf
+Usage: kensa migrate [flags]
+
+Apply pending schema migrations to the SQLite store and backfill
+synthetic sessions for pre\-Phase\-4 transactions. Idempotent — a
+second run finds no work and exits 0.
+
+Pre\-Phase\-4 transactions (rows whose session_id is NULL because
+they predate the C\-039 session schema) are grouped one synthetic
+session per host_id. The synthetic session's subcommand is
+\&'legacy\-backfill' so operators can distinguish it from real
+CLI\-invocation sessions in subsequent kensa history / kensa diff
+runs.
+
+Flags:
+  \-h, \-\-help        show this help and exit
+      \-\-db string   override the default store path
+  \-q, \-\-quiet       suppress the migration summary (errors still go to stderr)
+
+Examples:
+  kensa migrate
+  kensa migrate \-\-db /var/lib/kensa/results.db
+  kensa migrate \-\-quiet     # suppress summary; non\-zero exit on error only
+.fi
+.PP
+.SS VERSION
+.nf
+Usage: kensa version
+
+Print the kensa\-go binary version. The top\-level '\-\-version' flag is
+the canonical GNU/POSIX form; this subcommand is preserved for
+backward compatibility and is planned for removal in v0.2.
+
+Flags:
+  \-h, \-\-help   show this help and exit
+.fi
+.PP
+.SH FILES
+.TP
+.B .kensa/results.db
+Default SQLite transaction log in the current directory. Created on
+first
+.B kensa check --store
+or
+.B kensa remediate
+invocation. Override with
+.B --db PATH .
+.TP
+.B $XDG_CONFIG_HOME/kensa/
+.TQ
+.B ~/.config/kensa/
+.TQ
+.B /etc/kensa/
+Config-directory search path for rule-variable defaults
+(\fIdefaults.yml\fR), per-host overrides (\fIhosts/<addr>.yml\fR),
+per-group overrides (\fIgroups/<name>.yml\fR), and conf.d drop-ins.
+The first match in this order wins; override with
+.B $KENSA_CONFIG_DIR
+or
+.B --config-dir DIR .
+.TP
+.B /usr/share/kensa/rules/
+Default rule corpus location for distro packages (post-M7). Today
+.B --rules-dir DIR
+is required at runtime.
+.
+.SH ENVIRONMENT
+.TP
+.B KENSA_CONFIG_DIR
+Override the config-directory auto-detect chain. When set, the chain
+collapses to this single path.
+.TP
+.B KENSA_NO_DEPRECATION_WARNINGS
+Set to
+.B 1
+to silence flag-deprecation warnings (e.g.,
+.B --format ,
+.B --oscal
+slated for removal in v0.2). Exact-match on
+.B 1
+\(em other values do not silence.
+.TP
+.B KENSA_NO_REPURPOSE_WARNINGS
+Set to
+.B 1
+to silence the
+.B kensa coverage
+v1.1 repurpose warning. Distinct from KENSA_NO_DEPRECATION_WARNINGS:
+operators who silenced flag warnings months ago should still see the
+louder semantic-flip signal.
+.TP
+.B KENSA_TEST_SSH_HOST
+.TQ
+.B KENSA_TEST_SSH_USER
+Used by integration tests in
+.B internal/transport/ssh
+and
+.B cmd/kensa-fuzz .
+Not consumed by the operator-facing CLI.
+.TP
+.B GODEBUG=netdns=go
+Recommended at runtime to enforce the pure-Go DNS resolver baked in at
+build time
+.RB ( -tags=netgo ).
+Belt-and-suspenders against the cgo resolver if it sneaks back.
+.
+.SH EXIT CODES
+.TP
+.B 0
+Success, including
+.B --help
+and
+.B --version .
+.TP
+.B 1
+Runtime error: subcommand started but failed to complete (rule not
+found, host unreachable, signature verification failed, partial-
+success multi-txn rollback, etc.).
+.TP
+.B 2
+Usage error: invalid invocation (bad flag, unknown subcommand,
+missing required arg, mode mux violation). Per GNU/POSIX convention.
+.PP
+The 1-vs-2 distinction is load-bearing: CI scripts can distinguish
+"the command was wrong" from "the command was right but the data
+isn't ready" with a single-byte check. See
+.B kensa info ,
+.B kensa rollback ,
+.B kensa diff
+help text for the per-command exit-code contract.
+.
+.SH SEE ALSO
+.BR ssh (1),
+.BR sshpass (1),
+.BR sqlite3 (1)
+.PP
+Project documentation:
+.UR https://github.com/Hanalyx/kensa-go
+.UE
+.PP
+The
+.B openwatch
+fleet control plane consumes kensa-go's
+.B api/
+contract for orchestration. See
+.UR https://github.com/Hanalyx/openwatch
+.UE .
+.PP
+The rule corpus ships separately as the
+.B kensa-rules
+package. Source:
+.UR https://github.com/Hanalyx/kensa
+.UE .
+.
+.SH AUTHORS
+Hanalyx \(em
+.UR https://hanalyx.com
+.UE
+.
+.SH BUGS
+Report bugs at
+.UR https://github.com/Hanalyx/kensa-go/issues
+.UE .
+.PP
+Known issues:
+.IP \(bu 2
+.B noopSigner
+placeholder: evidence envelopes in v1.0 carry empty signature bytes.
+The Ed25519 signer ships in v1.1 (Track L Phase 1 / M7 task #12).
+.IP \(bu 2
+The
+.B agent
+subcommand is a v1.0 placeholder; the actual multi-call agent binary
+lands in v1.1 with the kernel-primitive migration (Track L Phase 1).
+.IP \(bu 2
+The
+.B coverage
+subcommand is a deprecated alias for
+.B mechanisms
+in v1.0; in v1.1 it will be repurposed for framework control coverage
+reporting. Migrate scripts before upgrading.

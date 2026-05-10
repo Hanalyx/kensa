@@ -1,0 +1,144 @@
+.SH FILES
+.TP
+.B .kensa/results.db
+Default SQLite transaction log in the current directory. Created on
+first
+.B kensa check --store
+or
+.B kensa remediate
+invocation. Override with
+.B --db PATH .
+.TP
+.B $XDG_CONFIG_HOME/kensa/
+.TQ
+.B ~/.config/kensa/
+.TQ
+.B /etc/kensa/
+Config-directory search path for rule-variable defaults
+(\fIdefaults.yml\fR), per-host overrides (\fIhosts/<addr>.yml\fR),
+per-group overrides (\fIgroups/<name>.yml\fR), and conf.d drop-ins.
+The first match in this order wins; override with
+.B $KENSA_CONFIG_DIR
+or
+.B --config-dir DIR .
+.TP
+.B /usr/share/kensa/rules/
+Default rule corpus location for distro packages (post-M7). Today
+.B --rules-dir DIR
+is required at runtime.
+.
+.SH ENVIRONMENT
+.TP
+.B KENSA_CONFIG_DIR
+Override the config-directory auto-detect chain. When set, the chain
+collapses to this single path.
+.TP
+.B KENSA_NO_DEPRECATION_WARNINGS
+Set to
+.B 1
+to silence flag-deprecation warnings (e.g.,
+.B --format ,
+.B --oscal
+slated for removal in v0.2). Exact-match on
+.B 1
+\(em other values do not silence.
+.TP
+.B KENSA_NO_REPURPOSE_WARNINGS
+Set to
+.B 1
+to silence the
+.B kensa coverage
+v1.1 repurpose warning. Distinct from KENSA_NO_DEPRECATION_WARNINGS:
+operators who silenced flag warnings months ago should still see the
+louder semantic-flip signal.
+.TP
+.B KENSA_TEST_SSH_HOST
+.TQ
+.B KENSA_TEST_SSH_USER
+Used by integration tests in
+.B internal/transport/ssh
+and
+.B cmd/kensa-fuzz .
+Not consumed by the operator-facing CLI.
+.TP
+.B GODEBUG=netdns=go
+Recommended at runtime to enforce the pure-Go DNS resolver baked in at
+build time
+.RB ( -tags=netgo ).
+Belt-and-suspenders against the cgo resolver if it sneaks back.
+.
+.SH EXIT CODES
+.TP
+.B 0
+Success, including
+.B --help
+and
+.B --version .
+.TP
+.B 1
+Runtime error: subcommand started but failed to complete (rule not
+found, host unreachable, signature verification failed, partial-
+success multi-txn rollback, etc.).
+.TP
+.B 2
+Usage error: invalid invocation (bad flag, unknown subcommand,
+missing required arg, mode mux violation). Per GNU/POSIX convention.
+.PP
+The 1-vs-2 distinction is load-bearing: CI scripts can distinguish
+"the command was wrong" from "the command was right but the data
+isn't ready" with a single-byte check. See
+.B kensa info ,
+.B kensa rollback ,
+.B kensa diff
+help text for the per-command exit-code contract.
+.
+.SH SEE ALSO
+.BR ssh (1),
+.BR sshpass (1),
+.BR sqlite3 (1)
+.PP
+Project documentation:
+.UR https://github.com/Hanalyx/kensa-go
+.UE
+.PP
+The
+.B openwatch
+fleet control plane consumes kensa-go's
+.B api/
+contract for orchestration. See
+.UR https://github.com/Hanalyx/openwatch
+.UE .
+.PP
+The rule corpus ships separately as the
+.B kensa-rules
+package. Source:
+.UR https://github.com/Hanalyx/kensa
+.UE .
+.
+.SH AUTHORS
+Hanalyx \(em
+.UR https://hanalyx.com
+.UE
+.
+.SH BUGS
+Report bugs at
+.UR https://github.com/Hanalyx/kensa-go/issues
+.UE .
+.PP
+Known issues:
+.IP \(bu 2
+.B noopSigner
+placeholder: evidence envelopes in v1.0 carry empty signature bytes.
+The Ed25519 signer ships in v1.1 (Track L Phase 1 / M7 task #12).
+.IP \(bu 2
+The
+.B agent
+subcommand is a v1.0 placeholder; the actual multi-call agent binary
+lands in v1.1 with the kernel-primitive migration (Track L Phase 1).
+.IP \(bu 2
+The
+.B coverage
+subcommand is a deprecated alias for
+.B mechanisms
+in v1.0; in v1.1 it will be repurposed for framework control coverage
+reporting. Migrate scripts before upgrading.
