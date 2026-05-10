@@ -381,7 +381,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Both subcommands work; `kensa coverage` (old behavior — list mechanisms) emits a stderr deprecation warning pointing at `kensa mechanisms`. Frees `kensa coverage` for the new framework-coverage report (C-045).
 - **Size:** ~2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `33db2e4`). `case "mechanisms"` canonical; `case "coverage"` calls warnRepurposedSubcommand then delegates to runMechanisms. **Rewording:** warning says "will change meaning in v0.2" not "deprecated/removed" — peer review caught the silent-flip risk where operators misread "removed" as "feature gone" and fail to migrate before v0.2 produces silently-different output. WARNING block leads the `--help` body. **Two-knob env contract:** KENSA_NO_REPURPOSE_WARNINGS=1 silences this only; KENSA_NO_DEPRECATION_WARNINGS=1 does NOT — semantic-flip warnings are categorically louder than flag renames, and a stale CI silence cannot mask the new signal. Spec: `specs/cli/coverage-mechanisms-rename.spec.yaml` (5 constraints, 8 ACs). 9 unit tests + retargeted TestQuietFlag_NotInCoverage to TestQuietFlag_NotInMechanisms (kept alias variant for the deprecation window). cli-smoke 108→117 (added 9 scenarios including two-knob env, "removed" guard). CHANGELOG entry under ### Changed (NOT ### Deprecated — the latter implies removal). Live-verified.
 
 #### C-045 — `kensa coverage` (NEW: framework control coverage)
 - **Phase:** CLI Phase 4
