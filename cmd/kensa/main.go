@@ -18,6 +18,7 @@
 //	coverage    Alias for `mechanisms` today; v0.2 will repurpose this name
 //	            for framework control coverage. Migrate to `mechanisms` now.
 //	list        Introspection commands (`kensa list frameworks`).
+//	info        Rule/control lookup (multi-criteria search over the corpus).
 //	version     Print version information.
 //
 // Global flags:
@@ -224,6 +225,9 @@ func runCLI(argv []string) int {
 		// frameworks` is wired; future C-047/C-049 may add
 		// more subjects.
 		err = runList(ctx, args)
+	case "info":
+		// C-047: multi-criteria rule/control lookup.
+		err = runInfo(ctx, args)
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -466,6 +470,7 @@ Commands:
   coverage    Alias for 'mechanisms' today; in v0.2 reports framework
               control coverage instead — migrate scripts to 'mechanisms'
   list        Introspection commands ('kensa list frameworks', etc.)
+  info        Rule/control lookup (multi-criteria search over the corpus)
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
 

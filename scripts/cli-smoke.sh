@@ -325,6 +325,24 @@ else
 fi
 echo
 
+# ─── kensa info (C-047) ───────────────────────────────────────────────────
+echo "kensa info (C-047 multi-criteria search):"
+assert_exit "kensa info --help"                      0 stdout-nonempty bin/kensa info --help
+assert_exit "kensa info -h"                          0 stdout-nonempty bin/kensa info -h
+assert_exit "kensa info (no mode/query)"             2 stderr-nonempty bin/kensa info --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info (no --rules-dir)"            2 stderr-nonempty bin/kensa info ssh
+assert_exit "kensa info --rule + --control"          2 stderr-nonempty bin/kensa info --rule x --control y:z --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --rule + QUERY"              2 stderr-nonempty bin/kensa info --rule x ssh --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --cis + --stig"              2 stderr-nonempty bin/kensa info --cis --stig --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --nist + --rhel"             2 stderr-nonempty bin/kensa info --nist --rhel 9 ssh --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --rhel 7"                    2 stderr-nonempty bin/kensa info ssh --rhel 7 --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --control no-colon"          2 stderr-nonempty bin/kensa info --control bogus --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --limit -1"                  2 stderr-nonempty bin/kensa info ssh --limit -1 --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --rule unknown (exit 1)"     1 stderr-nonempty bin/kensa info --rule no-such-rule --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info ssh (happy path)"            0 stdout-nonempty bin/kensa info ssh --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --cis ssh (compose)"         0 stdout-nonempty bin/kensa info ssh --cis --rules-dir /home/rracine/hanalyx/kensa/rules
+echo
+
 # ─── kensa list frameworks (C-046) ────────────────────────────────────────
 echo "kensa list frameworks (C-046):"
 assert_exit "kensa list --help"                      0 stdout-nonempty bin/kensa list --help
