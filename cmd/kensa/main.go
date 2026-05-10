@@ -19,6 +19,7 @@
 //	            for framework control coverage. Migrate to `mechanisms` now.
 //	list        Introspection commands (`kensa list frameworks`).
 //	info        Rule/control lookup (multi-criteria search over the corpus).
+//	diff        Compare two stored sessions and emit per-rule drift.
 //	version     Print version information.
 //
 // Global flags:
@@ -221,13 +222,16 @@ func runCLI(argv []string) int {
 			err = runMechanisms("coverage", args)
 		}
 	case "list":
-		// C-046: introspection namespace. Today only `list
-		// frameworks` is wired; future C-047/C-049 may add
-		// more subjects.
-		err = runList(ctx, args)
+		// C-046: introspection namespace. C-046 wired
+		// `frameworks`; C-048 added `sessions` to surface
+		// session IDs for `kensa diff`.
+		err = runList(ctx, dbPath, args)
 	case "info":
 		// C-047: multi-criteria rule/control lookup.
 		err = runInfo(ctx, args)
+	case "diff":
+		// C-048: per-rule drift between two stored sessions.
+		err = runDiff(ctx, dbPath, args)
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -471,6 +475,7 @@ Commands:
               control coverage instead — migrate scripts to 'mechanisms'
   list        Introspection commands ('kensa list frameworks', etc.)
   info        Rule/control lookup (multi-criteria search over the corpus)
+  diff        Compare two stored sessions and emit per-rule drift
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
 

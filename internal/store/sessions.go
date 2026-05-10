@@ -197,6 +197,52 @@ func (s *SQLite) ListSessions(ctx context.Context, hostname string, limit int) (
 	return out, nil
 }
 
+// SessionTxn is a slim per-rule projection of a session's
+// transactions. Used by `kensa diff` (C-048) which only needs
+// the rule_id + status per row to compute the drift report,
+// not the full TransactionRecord shape.
+type SessionTxn struct {
+	RuleID   string
+	HostID   string
+	Status   string
+	Severity string
+}
+
+// TransactionsForSession returns the slim per-rule projection
+// of transactions attached to sessID, ordered by started_at
+// ascending. Returns an empty slice (not error) when the
+// session exists but has no transactions; callers checking
+// for "session not found" should use GetSession first.
+//
+// Today persistScanResult writes one transaction per rule per
+// session, so the natural unique key is rule_id. The diff
+// caller dedups on rule_id (last-write-wins per started_at)
+// to be defensive against future engines that emit retry
+// transactions for the same rule within one session.
+func (s *SQLite) TransactionsForSession(ctx context.Context, sessID uuid.UUID) ([]SessionTxn, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT rule_id, host_id, status, severity
+        FROM transactions
+        WHERE session_id = ?
+        ORDER BY started_at ASC`,
+		sessID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: query session transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []SessionTxn
+	for rows.Next() {
+		var t SessionTxn
+		if err := rows.Scan(&t.RuleID, &t.HostID, &t.Status, &t.Severity); err != nil {
+			return nil, fmt.Errorf("store: scan session txn: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // rowScanner abstracts over *sql.Row and *sql.Rows for the
 // shared scanSession helper.
 type rowScanner interface {
