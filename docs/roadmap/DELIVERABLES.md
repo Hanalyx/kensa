@@ -346,7 +346,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** —
 - **Acceptance:** Migration 2 adds `sessions` table (id, started_at, finished_at, hostname, subcommand, args_summary) + `session_id` column on `transactions` (NULL for migration-2-and-earlier rows). Existing rows get a backfilled synthetic session per-host. Loader API gains session-scope query helpers.
 - **Size:** ~1 day. High-blast-radius — operator data shape change.
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `21885a7`). Migration 2 appended; sessions table + session_id column on transactions. Session API: CreateSession / FinishSession / AttachTransaction / GetSession / ListSessions. Backward-compat: pre-Phase-4 rows have NULL session_id and remain queryable. Spec: `specs/store/session-schema.spec.yaml` (6 constraints, 10 ACs). 9 unit tests. Backfill of pre-existing rows is C-040 (kensa migrate).
 
 #### C-040 — `kensa migrate` subcommand
 - **Phase:** CLI Phase 4
