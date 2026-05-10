@@ -28,11 +28,13 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/evidence"
 	"github.com/Hanalyx/kensa-go/internal/handler"
 )
 
@@ -81,14 +83,31 @@ func WithForceValidateFail() Option {
 	return func(e *Engine) { e.forceValidateFail = true }
 }
 
-// New constructs an Engine with the given options. Defaults applied for
-// unset dependencies (in-memory store, no-op signer, no-op deadman, no-op
-// event bus).
+// New constructs an Engine with the given options. Defaults applied
+// for unset dependencies:
+//   - in-memory store
+//   - REAL Ed25519 signer (ephemeral per-call keypair via
+//     evidence.Generate(); no-op signer was deleted in C-060)
+//   - no-op deadman
+//   - no-op event bus
+//
+// The real-signer default means every engine.New() call produces
+// envelopes with valid signatures, even in tests. Tests that need
+// to verify against a specific keypair pass engine.WithSigner.
+//
+// evidence.Generate() failure (extremely unlikely — only fires on
+// crypto/rand exhaustion) panics: a kensa engine with no working
+// signer cannot produce trustworthy envelopes, and the failure is
+// loud rather than silent.
 func New(opts ...Option) *Engine {
+	signer, err := evidence.Generate()
+	if err != nil {
+		panic(fmt.Sprintf("engine: ed25519 keygen failed (crypto/rand exhausted?): %v", err))
+	}
 	e := &Engine{
 		registry: handler.Default(),
 		store:    newInMemoryStore(),
-		signer:   noopSigner{},
+		signer:   signer,
 		deadman:  noopDeadman{},
 		events:   noopEventBus{},
 		locks:    newHostLocks(),

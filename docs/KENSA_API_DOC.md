@@ -114,7 +114,7 @@ not yet exist.
 | Field | Type | Purpose | Behavior when unset |
 |---|---|---|---|
 | `StorePath` | `string` | SQLite file path for the transaction log. | Defaults to `.kensa/results.db`. |
-| `SigningKeyPath` | `string` | Path to the Ed25519 private key for signing envelopes. | Per-deployment default managed by `kensa-keygen`. **Note:** the signer is currently a `noopSigner` placeholder until task #12 lands. |
+| `SigningKeyPath` | `string` | Path to the Ed25519 private key for signing envelopes. | Per-deployment default managed by `kensa-keygen`. **Real signing shipped 2026-05-10 (M-012 + C-060)**: `KENSA_SIGNING_KEY` env var on `pkg/kensa.Default()` selects a persistent `.priv` file; ephemeral keypair generated otherwise. |
 | `Engine` | `Engine` interface | Backs `Transact`, `Rollback`, `Plan`, `Execute`. | Methods return `ErrNotYetImplemented`. |
 | `TransportFactory` | `TransportFactory` interface | Constructs SSH transport from a `HostConfig`. | Methods return `ErrNotYetImplemented`. |
 | `Log` | `LogQuery` interface | Backs `TransactionLog()` and `Rollback`'s pre-state load. | `TransactionLog()` returns nil; `Rollback` returns `ErrNotYetImplemented`. |
@@ -638,8 +638,13 @@ fully wired through the production implementations.
 
 ### Partially wired
 
-- `VerifyEnvelope` works against a `noopSigner`. Real Ed25519
-  signatures land with task #12. Signature bytes today are empty.
+- `VerifyEnvelope` runs real Ed25519 verification (M-012 +
+  C-060 shipped 2026-05-10). The `noopSigner` placeholder
+  was deleted; `engine.New()` defaults to `evidence.Generate()`
+  for an ephemeral keypair, and `pkg/kensa.Default()` honors
+  `KENSA_SIGNING_KEY` for persistent keys. The
+  `kensa verify <evidence-file>` subcommand exposes the
+  verification path to operators + auditors.
 - `CommandExecAllowed` plumbing is present and tested
   (`security-input-validation` AC-07); the CLI flag exists; the
   envelope field is populated.

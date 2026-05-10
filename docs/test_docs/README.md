@@ -40,7 +40,7 @@ For each release candidate:
 | Phase | Status |
 |---|---|
 | M1..M6 (engine + handlers) | DONE |
-| M7 (production hardening, v1.0.0) | IN PROGRESS — see `security.md` for the `noopSigner` known-limit |
+| M7 (production hardening, v1.0.0) | IN PROGRESS — Ed25519 signer landed (M-012 + C-060, 2026-05-10); see `security.md` for remaining limits |
 | CLI Phase 1 (pflag + GNU/POSIX exit codes) | DONE |
 | CLI Phase 2 (--output FORMAT[:PATH]) | DONE |
 | CLI Phase 2.5 (operator UX refresh) | DONE |

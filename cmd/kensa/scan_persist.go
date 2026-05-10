@@ -57,8 +57,10 @@ func summarizeCheckArgs(severities, tags []string, category, framework string, c
 // For check-only persistence we construct minimal envelopes
 // here from the rule + host context: rule_id, host_id,
 // severity, framework_refs from the rule's references block.
-// Signature is empty (the noopSigner placeholder covers
-// remediate too — see security.md for the M7 task #12 gap).
+// Signature is empty by design: check sessions are read-only
+// rule-pass/fail records, not signed audit evidence. Remediate
+// envelopes get real Ed25519 signatures via the engine's signer
+// (M-012 + C-060 wired this 2026-05-10).
 //
 // Returns the session ID for diagnostics and any error from
 // the store. Best-effort on per-transaction writes: one
@@ -99,7 +101,14 @@ func persistScanResult(ctx context.Context, s *store.SQLite, host string, rules 
 			Severity:      rl.Severity,
 			FrameworkRefs: mappings.RefsFromReferences(rl.References),
 			ApplySteps:    txn.Steps,
-			Signature:     []byte{}, // noopSigner — empty until M7 task #12
+			// Check sessions intentionally carry empty signatures: scan
+			// is read-only ("rule passed/failed"), no remediation pre-
+			// state captured, no rollback path. C-049's RollbackableSessions
+			// SQL filter excludes check sessions from rollback; verification
+			// of scan envelopes via `kensa verify` would always fail
+			// (no signature). For signed evidence, use `kensa remediate`
+			// (which routes through the engine's signer per C-060).
+			Signature:     []byte{},
 		}
 		if err := s.PersistResult(ctx, txn); err != nil {
 			fmt.Fprintf(os.Stderr, "warn: persist scan result for %s: %v\n", rl.ID, err)

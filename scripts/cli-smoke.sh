@@ -359,7 +359,7 @@ for section in "FILES" "ENVIRONMENT" "EXIT CODES" "SEE ALSO" "AUTHORS" "BUGS"; d
     fi
 done
 # Every registered subcommand has a .SS subsection.
-for sub in DETECT CHECK REMEDIATE ROLLBACK HISTORY PLAN MECHANISMS LIST INFO DIFF AGENT MIGRATE VERSION; do
+for sub in DETECT CHECK REMEDIATE ROLLBACK HISTORY PLAN MECHANISMS LIST INFO DIFF AGENT VERIFY MIGRATE VERSION; do
     if grep -qE "^\.SS ${sub}\$" docs/man/kensa.1; then
         PASS_COUNT=$((PASS_COUNT + 1))
         echo "  ${GREEN}PASS${RESET}  docs/man/kensa.1 has .SS ${sub}"
@@ -602,6 +602,14 @@ else
     FAILURES+=("kensa history --help: --force missing")
     echo "  ${RED}FAIL${RESET}  kensa history --help missing --force"
 fi
+echo
+
+# ─── kensa verify (C-060) ─────────────────────────────────────────────────
+echo "kensa verify (C-060):"
+assert_exit "kensa verify --help"          0 stdout-nonempty bin/kensa verify --help
+assert_exit "kensa verify (no args)"       2 stderr-nonempty bin/kensa verify
+assert_exit "kensa verify missing-file"    2 stderr-nonempty bin/kensa verify /no/such/file.json
+assert_exit "kensa verify --bogus"         2 stderr-nonempty bin/kensa verify --bogus
 echo
 
 # ─── kensa-keygen (M-012) ─────────────────────────────────────────────────

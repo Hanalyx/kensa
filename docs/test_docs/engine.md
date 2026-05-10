@@ -104,5 +104,5 @@ This is human-authored failure-mode analysis in the commit body. CONTRIBUTING.md
 - **`audit_rule_set` is shipped as a stub.** The handler implements `Apply` but does not capture audit-rule pre-state correctly; rollback is incomplete. Documented in CLAUDE.md "Open items before M7 ships."
 - **`grub_parameter_set` lacks a deadman guard.** A misconfigured GRUB parameter can brick the host's next boot. Even the rollback path can't help if the host doesn't boot to run kensa. Documented as M7-blocker.
 - **Deadman timer end-to-end test is queued.** The deadman subsystem has unit tests; the integrated "operator-disconnect-mid-apply" scenario is not exercised in CI yet.
-- **The `noopSigner` placeholder in `internal/engine/stubs.go`** means evidence envelopes ship empty signatures until M7 task #12 lands. See [`security.md`](security.md).
+- ~~The `noopSigner` placeholder...~~ **RESOLVED 2026-05-10 (M-012 + C-060).** Engine default is now a real Ed25519 signer; envelopes carry valid signatures. See [`security.md`](security.md) for verification protocol.
 - **Plan path doesn't capability-gate.** `engine.PlanTransaction` calls `selectDefaultImpl`, ignoring the host's capability set. See [`cli/plan.md`](cli/plan.md). Faithful preview requires the rule selector; not in this build.

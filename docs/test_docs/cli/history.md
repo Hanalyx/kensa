@@ -50,4 +50,4 @@ DONE for the basic query forms. Output is text/json. The store's schema is defin
 - **Severity filter is client-side.** The store doesn't yet index by severity; querying for "critical only" loads all records then filters in memory. Acceptable at current scale; flag for indexing work if logs grow.
 - **No multi-host aggregation.** History is single-host or all-hosts. No grouping by host with per-host summaries; downstream ops would do that with jq.
 - **No retention / pruning.** A long-running operator's store grows without bound. The migration doc Phase 4 reserves `--prune` for this.
-- **Records are unsigned in storage.** Signing is per-envelope at write time (`noopSigner` placeholder); the store's records carry the envelope but the signature is empty until M7. See [`../security.md`](../security.md).
+- **Records are signed at write time (M-012 + C-060, 2026-05-10).** Each persisted envelope carries a real Ed25519 signature; auditors extract the JSON via store query and run `kensa verify` against a trust dir. See [`../security.md`](../security.md).

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
@@ -57,8 +58,21 @@ func (e *Engine) finalize(
 		PostStateBundle:  nil, // populated by post-state recapture in a later milestone
 		FrameworkRefs:    txn.FrameworkRefs,
 	}
+	// C-060 contract: every committed transaction MUST carry a real
+	// Ed25519 signature. Silently swallowing Sign errors here would
+	// produce a fully-committed audit record with empty signature
+	// bytes — exactly the v1.0 disclaimer C-060 was supposed to
+	// retire. If Sign fails, demote the transaction to StatusErrored
+	// and surface the error so the caller sees the failure rather
+	// than persisting an unsigned envelope as if all is well.
 	sig, keyID, err := e.signer.Sign(envelope)
-	if err == nil {
+	if err != nil {
+		result.Status = api.StatusErrored
+		result.Error = fmt.Errorf("signer: %w", err)
+		envelope.Decision = api.StatusErrored
+		envelope.Signature = nil
+		envelope.SigningKeyID = ""
+	} else {
 		envelope.Signature = sig
 		envelope.SigningKeyID = keyID
 	}

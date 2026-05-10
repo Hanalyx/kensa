@@ -84,13 +84,22 @@ import (
 // of the verifier MUST use the same exact bytes.
 var sigDomainTag = []byte("kensa-evidence-envelope-v1\x00")
 
-// Signer implements engine.Signer with a live Ed25519 private key.
-// Construct with [New] (from a raw key) or [Generate] (random key pair).
+// Signer implements engine.Signer with a live Ed25519 private key
+// (sign + verify) OR a public-only verifier (verify only, returned
+// by [LoadVerifier]). Construct with [New] / [Generate] / [LoadSigner]
+// for the full sign+verify form, or [LoadVerifier] for verify-only.
+//
+// privateKey is nil iff the Signer is verify-only. publicKey is
+// always populated — derived from privateKey at construction time
+// (full form) or supplied directly (verify-only form) — so
+// Verify() never needs to ask the private key for its public half.
 type Signer struct {
-	privateKey ed25519.PrivateKey
+	privateKey ed25519.PrivateKey // nil when verify-only
+	publicKey  ed25519.PublicKey  // ALWAYS populated
 	keyID      string
 	// rotationHistory holds public keys from previous key pairs, tried
-	// in order during verification after the current key fails.
+	// in reverse-chronological order during verification after the
+	// current key fails (per spec C-04).
 	rotationHistory []ed25519.PublicKey
 }
 
@@ -100,6 +109,20 @@ func New(privateKey ed25519.PrivateKey) *Signer {
 	pub := privateKey.Public().(ed25519.PublicKey)
 	return &Signer{
 		privateKey: privateKey,
+		publicKey:  pub,
+		keyID:      computeKeyID(pub),
+	}
+}
+
+// NewVerifier returns a verify-only Signer wrapping pub. Sign()
+// on the returned signer fails with a clear error; Verify()
+// works against this public key as the active key. Used by
+// [LoadVerifier] for the auditor workflow where only the .pub
+// file is available.
+func NewVerifier(pub ed25519.PublicKey) *Signer {
+	return &Signer{
+		privateKey: nil,
+		publicKey:  pub,
 		keyID:      computeKeyID(pub),
 	}
 }
@@ -146,10 +169,14 @@ func signedBytes(envelope *api.EvidenceEnvelope) ([]byte, error) {
 // and the key ID.
 //
 // Failure modes:
-//   - canonicalize error (JSON marshaling failure) → wrapped error.
+//   - verify-only signer (no private key) → typed error
+//   - canonicalize error (JSON marshaling failure) → wrapped error
 func (s *Signer) Sign(envelope *api.EvidenceEnvelope) ([]byte, string, error) {
 	// @spec evidence-envelope
 	// @ac AC-03
+	if s.privateKey == nil {
+		return nil, "", errors.New("evidence: Sign: verify-only signer has no private key (load via LoadSigner, not LoadVerifier)")
+	}
 	bytes, err := signedBytes(envelope)
 	if err != nil {
 		return nil, "", fmt.Errorf("evidence: canonicalize: %w", err)
@@ -210,7 +237,7 @@ func (s *Signer) Verify(envelope *api.EvidenceEnvelope) (*api.VerifyResult, erro
 
 	canonical, _ := canonicalize(envelope)
 	hash := sha256.Sum256(canonical)
-	pub := s.privateKey.Public().(ed25519.PublicKey)
+	pub := s.publicKey
 
 	// Helper builds the success result + an optional KeyIDMismatch
 	// warning when envelope.SigningKeyID disagrees with the actual
@@ -263,10 +290,11 @@ func (s *Signer) VerifyEnvelope(envelope *api.EvidenceEnvelope) (*api.VerifyResu
 	return s.Verify(envelope)
 }
 
-// Public returns the Ed25519 public key that corresponds to this signer's
-// private key. Use this to configure a verifier-only peer.
+// Public returns the Ed25519 public key for this signer. Works on
+// both full sign+verify signers (cached from privateKey at New)
+// and verify-only signers (set explicitly by NewVerifier).
 func (s *Signer) Public() ed25519.PublicKey {
-	return s.privateKey.Public().(ed25519.PublicKey)
+	return s.publicKey
 }
 
 // KeyID returns the signer's key identifier (lower-hex SHA-256 of the

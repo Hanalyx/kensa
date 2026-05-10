@@ -21,6 +21,7 @@
 //	info        Rule/control lookup (multi-criteria search over the corpus).
 //	diff        Compare two stored sessions and emit per-rule drift.
 //	agent       v1.1 placeholder; see `kensa agent --help` for planned wire-protocol.
+//	verify      Validate the Ed25519 signature on an evidence-envelope JSON file.
 //	version     Print version information.
 //
 // Global flags:
@@ -239,6 +240,10 @@ func runCLI(argv []string) int {
 		// "feature lands in v1.1"); --help discloses the
 		// planned Track L Phase 1 wire-protocol shape.
 		err = runAgent(args)
+	case "verify":
+		// C-060: validate signed evidence envelope from disk
+		// against a trust directory of .pub files.
+		err = runVerify(args)
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -484,6 +489,7 @@ Commands:
   info        Rule/control lookup (multi-criteria search over the corpus)
   diff        Compare two stored sessions and emit per-rule drift
   agent       v1.1 placeholder; see 'kensa agent --help' for planned wire-protocol
+  verify      Validate the Ed25519 signature on an evidence-envelope JSON file
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
 

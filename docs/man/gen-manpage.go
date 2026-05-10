@@ -46,6 +46,7 @@ var subcommands = []string{
 	"info",
 	"diff",
 	"agent",
+	"verify",
 	"migrate",
 	"version",
 }

@@ -68,4 +68,4 @@ DONE for the basic flow. Capability-gated implementation selection is **NOT** wi
 - **No `--rule` plural form.** Plan takes a single rule file as a positional arg. Bulk preview requires shell scripting.
 - **No `--var` / `--config-dir` flags on plan.** A templated rule (e.g., `pam-faillock-deny.yml`) will plan with literal `{{ var }}` text in the apply-step previews. Fix: add the same Phase 3.5 wiring (small followup).
 - **No filter flags on plan** (--severity, --tag, etc.). Single-rule subcommand by design.
-- **Plan output is not signed.** Same `noopSigner` limit as remediate's evidence envelopes.
+- **Plan output is not signed.** `kensa plan` produces a preview, not an evidence envelope; only `kensa remediate` outputs are signed (Ed25519, M-012 + C-060, 2026-05-10).
