@@ -1506,6 +1506,8 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 		txnIDStr  string
 		aggregate string
 		stats     bool
+		pruneDays int
+		force     bool
 		quiet     bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
@@ -1517,6 +1519,8 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&txnIDStr, "txn", ShortTransaction, "", "get a single transaction by UUID")
 	fs.StringVarP(&aggregate, "aggregate", ShortAggregate, "", "aggregate key: by_host, by_rule, by_framework_control")
 	fs.BoolVar(&stats, "stats", false, "print summary stats (sessions, transactions, by status / severity / host) and exit")
+	fs.IntVar(&pruneDays, "prune", 0, "delete sessions and cascade older than N days (destructive; long-only)")
+	fs.BoolVar(&force, "force", false, "skip the confirmation prompt for --prune (required in non-interactive runs)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
 	if err := fs.Parse(args); err != nil {
@@ -1555,6 +1559,28 @@ func runHistory(ctx context.Context, dbPath string, args []string) error {
 			return WrapUsageError("--since", err)
 		}
 		filter.Since = t
+	}
+
+	// C-043 --prune: destructive cleanup. Mutually exclusive
+	// with every query-flag in this subcommand — combining
+	// --prune with a query flag (--stats, --aggregate, --txn,
+	// --host, --rule, --since, --limit, --format) almost
+	// certainly means the operator confused two distinct
+	// workflows. Fail-fast prevents accidental runs.
+	if fs.Changed("prune") {
+		if stats || aggregate != "" || txnIDStr != "" ||
+			hostID != "" || ruleID != "" || since != "" ||
+			fs.Changed("limit") || fs.Changed("format") {
+			return NewUsageError("--prune is not compatible with --stats / --aggregate / --txn / --host / --rule / --since / --limit / --format")
+		}
+		return runHistoryPrune(ctx, dbPath, pruneDays, force, quiet, os.Stdin, bodyOut(quiet), os.Stderr)
+	}
+	if force {
+		// --force without --prune has no effect; surface the
+		// likely operator-confused intent rather than silently
+		// ignoring the flag. (The earlier branch returned, so
+		// reaching here means --prune was NOT set.)
+		return NewUsageError("--force only applies to --prune")
 	}
 
 	svc, err := kensa.Default(ctx, dbPath)
@@ -1662,6 +1688,8 @@ Examples:
   kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
   kensa history -T 8c3a1e2b-...                  # one transaction by UUID
   kensa history -a by_host -S 7d                 # 7-day posture per host
+  kensa history --prune 30                       # interactive prompt; deletes sessions older than 30 days
+  kensa history --prune 30 --force               # non-interactive (CI / cron); skips the prompt
 `, fs.FlagUsages())
 }
 
