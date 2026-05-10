@@ -476,14 +476,41 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Size:** ~1h
 - **Status:** done (merged 2026-05-10, `a09f6f0`). CHANGELOG.md ## Unreleased ### Added gained two structured entries: Phase 4 (12 deliverables: sessions model + migrate / check --store / history --stats/--prune / mechanisms / coverage --framework / list frameworks/sessions / info / diff / rollback session-aware) and Phase 5a (jsonl wiring / agent stub / manpage). v0.2 removal target verified consistent between CHANGELOG and warnDeprecatedFlag's runtime message. Help-grouping skipped for `agent` (only 2 flags). Spec: `specs/cli/phase5a-close.spec.yaml` (3 constraints, 4 ACs). Specter 68→69. **Phase 5a complete (6/6).**
 
-### CLI Phase 5b — signed-envelope output (gated on M7 task #12)
+### CLI Phase 5b — signed-envelope output (gated on M-012)
 
-#### C-060 — Replace noopSigner with Ed25519 signing
+#### C-060 — Wire Ed25519 signing through the engine + ship verify CLI
 - **Phase:** CLI Phase 5b
-- **Deps:** M7 task #12 (Ed25519 signer implementation), C-056
-- **Acceptance:** Replace `internal/engine/stubs.go` `noopSigner` with the real Ed25519 signer. Wire signing through every `EvidenceEnvelope.Signature` write. Add `kensa-keygen` helper for keypair generation. Add `kensa verify <evidence-file>` (or external tool) for signature verification. Existing v1.0 evidence files remain valid as audit logs but cannot be cryptographically verified post-hoc — release notes call this out. v1.1 ships with this completed.
-- **Size:** ~1 week (signer impl is M7 task #12; this is the wiring + verifier on top)
-- **Status:** **blocked on M7 task #12**
+- **Deps:** M-012, C-056
+- **Acceptance:** With M-012's signer + `kensa-keygen` binary in place, plumb the signing path through every engine call-site that writes an `EvidenceEnvelope.Signature` (today they all flow through `noopSigner.Sign` returning empty bytes). Update `pkg/kensa.Default()` factory to accept a signing-key path (CLI flag + env var, e.g. `KENSA_SIGNING_KEY`). Add `kensa verify <evidence-file>` subcommand: reads a JSON envelope from disk, looks up the public key by `signing_key_id` against a configured trust directory (default `$XDG_CONFIG_HOME/kensa/keys/`), validates the Ed25519 signature, exits 0 on valid + 1 on invalid + 2 on usage error. Existing v1.0 evidence files (with empty `noop` signatures) remain valid as audit logs but cannot be cryptographically verified post-hoc — release notes call this out. v1.1 ships with this completed.
+- **Size:** ~2 days on top of M-012
+- **Status:** **blocked on M-012**
+
+---
+
+## Track M — M7 ship-gate items
+
+The remaining v1.0.0 release-blockers from `CLAUDE.md`'s "Open items before M7 ships" punch list. Numbering preserves the
+historical "task #N" lineage from `docs/KENSA_GO_DAY1_PLAN.md` so the
+existing cross-references in `docs/test_docs/security.md`,
+`docs/KENSA_API_DOC.md`, etc. stay accurate. Track M deliverables are
+independent of Track C / Track L and can be picked up in any order
+once the founder ratifies them.
+
+#### M-012 — Ed25519 signer (replace noopSigner)
+- **Phase:** M7
+- **Deps:** —
+- **Acceptance:**
+  - `internal/evidence/signer.go` (or equivalent) implements `Sign` and `Verify` against Ed25519 keys via `crypto/ed25519` stdlib.
+  - JSON canonicalization (deterministic field order) before signing — so the same envelope bytes produce the same signature regardless of map-iteration order or encoder version.
+  - `cmd/kensa-keygen/main.go` (new binary) generates an Ed25519 keypair, writes `<keyid>.priv` (mode 0600) and `<keyid>.pub` (mode 0644), prints the key_id to stdout. Keys go to `$XDG_CONFIG_HOME/kensa/keys/` by default.
+  - Tests: round-trip (sign then verify with the same key passes); tamper-detection (modifying a single byte of the canonical envelope makes verify fail); key-mismatch (signed by key A, public key B in trust dir, fails verify); key-rotation history (envelope's `signing_key_id` field locked into the signed bytes — rotating keys doesn't retroactively invalidate old envelopes).
+  - `specs/evidence/envelope.spec.yaml` status flips from `draft` to `active`; the 6 constraints + 10 ACs already drafted lock to the implementation.
+  - `noopSigner` deleted from `internal/engine/stubs.go`. Tests using it migrated to a fixture-based real-signer.
+  - `docs/test_docs/security.md` Critical Limit #1 ("Evidence envelopes are unsigned") removed.
+  - `docs/KENSA_API_DOC.md` `noopSigner` placeholder notes removed.
+- **Size:** ~5 days
+- **Status:** pending
+- **Notes:** This is the v1.0 ship-blocker for the cryptographic-evidence-chain story. C-060 (Phase 5b) gates on this; the operator-facing `kensa verify` command and `kensa-keygen` binary land in C-060, not here. M-012's job is the cryptographic primitive only.
 
 ---
 
