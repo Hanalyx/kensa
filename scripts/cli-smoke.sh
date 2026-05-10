@@ -472,6 +472,24 @@ else
 fi
 echo
 
+# ─── kensa history --format jsonl (C-051) ─────────────────────────────────
+echo "kensa history --format jsonl (C-051):"
+# jsonl on document-shaped modes rejected.
+assert_exit "history --format jsonl + --aggregate"   2 stderr-nonempty bin/kensa history --format jsonl --aggregate by_host
+assert_exit "history --format jsonl + --stats"       2 stderr-nonempty bin/kensa history --format jsonl --stats
+assert_exit "history --format jsonl + --txn"         2 stderr-nonempty bin/kensa history --format jsonl --txn 11111111-2222-3333-4444-555555555555
+# jsonl listed in help.
+historyHelp=$(bin/kensa history --help 2>/dev/null)
+if echo "${historyHelp}" | grep -qF "jsonl"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa history --help advertises jsonl"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa history --help missing jsonl")
+    echo "  ${RED}FAIL${RESET}  kensa history --help missing jsonl"
+fi
+echo
+
 # ─── kensa history --prune (C-043) ────────────────────────────────────────
 # All --prune scenarios must reach validation BEFORE the store opens, so
 # they don't need a real DB path. Network-free; flag-only validation.
