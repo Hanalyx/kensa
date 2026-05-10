@@ -374,7 +374,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039
 - **Acceptance:** Deletes sessions older than N days (cascade to transactions + steps + pre_states). Requires `--force` for non-interactive runs; otherwise prompts. Long-only (no short — destructive). Honors transaction-log spec C-05 retention semantics.
 - **Size:** ~3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `3a69700`). `(*SQLite) PruneSessions` runs single-tx cascade across sessions + transactions + steps + pre_states + framework_refs + rollback_events. `runHistoryPrune` gates on `--force` or TTY-confirmed "y\n"; non-TTY without --force exits 2. `cutoff = time.Now().AddDate(0, 0, -days)` avoids int64-nanosecond overflow; pruneDaysMax=36500 catches typos. Mutex extends to 8 query flags (added --limit + --format + 6 originally-spec'd). PruneReport surfaces OrphanTransactionsDeleted as sub-count for pre-Phase-4 backfill auditing. Audit summary writes to stderr regardless of --quiet (destructive-op telemetry must remain visible). Spec: `specs/cli/history-prune.spec.yaml` (6 constraints, 10 ACs). 9 store tests (incl. schema-drift guard + mid-loop atomic-rollback) + 11 CLI tests. cli-smoke 99→108. Live-verified.
 
 #### C-044 — Rename `kensa coverage` → `kensa mechanisms`
 - **Phase:** CLI Phase 4
