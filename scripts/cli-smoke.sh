@@ -325,6 +325,28 @@ else
 fi
 echo
 
+# ─── kensa agent placeholder (C-054) ──────────────────────────────────────
+echo "kensa agent placeholder (C-054):"
+assert_exit "kensa agent --help"                     0 stdout-nonempty bin/kensa agent --help
+assert_exit "kensa agent -h"                         0 stdout-nonempty bin/kensa agent -h
+# bare invocation: usage error.
+assert_exit "kensa agent (no flag)"                  2 stderr-nonempty bin/kensa agent
+# --stdio: runtime error (exit 1), the "feature lands in v1.1" path.
+assert_exit "kensa agent --stdio (v1.1 placeholder)" 1 stderr-nonempty bin/kensa agent --stdio
+# unknown flag: usage error.
+assert_exit "kensa agent --bogus"                    2 stderr-nonempty bin/kensa agent --bogus
+# Agent listed in top-level help with v1.1 marker.
+helpAgent=$(bin/kensa --help 2>&1)
+if echo "${helpAgent}" | grep -qE "agent.*v1\\.1"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa --help lists agent with v1.1 marker"
+else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa --help missing agent v1.1 marker")
+    echo "  ${RED}FAIL${RESET}  kensa --help missing agent v1.1 marker"
+fi
+echo
+
 # ─── Phase 4 close (C-050) help-grouping assertions ───────────────────────
 echo "kensa info / rollback help-grouping (C-050):"
 infoHelp=$(bin/kensa info --help 2>/dev/null)
