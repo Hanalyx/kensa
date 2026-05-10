@@ -177,6 +177,8 @@ func runCLI(argv []string) int {
 		err = runPlan(ctx, dbPath, args)
 	case "coverage":
 		err = runCoverage(args)
+	case "migrate":
+		err = runMigrate(ctx, dbPath, args)
 	case "version":
 		err = runVersion(args)
 	default:
@@ -379,6 +381,8 @@ Commands:
   history     Query the transaction log
   plan        Preview a rule transaction without executing
   coverage    List registered handler mechanisms
+  migrate     Apply pending schema migrations and backfill legacy sessions
+  version     Print version and exit
 
 Global flags:
   -h, --help        Show this help and exit
