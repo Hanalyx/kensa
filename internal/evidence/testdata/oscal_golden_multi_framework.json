@@ -1,0 +1,87 @@
+{
+  "assessment-results": {
+    "import-ap": {
+      "href": "#"
+    },
+    "metadata": {
+      "last-modified": "FIXTURE_TIMESTAMP",
+      "oscal-version": "1.0.6",
+      "title": "Kensa Assessment Results",
+      "version": "1.0.0"
+    },
+    "results": [
+      {
+        "description": "Automated remediation result from Kensa",
+        "end": "FIXTURE_TIMESTAMP",
+        "findings": [
+          {
+            "description": "Transaction decision: committed",
+            "related-observations": [
+              {
+                "observation-uuid": "GENERATED_UUID"
+              }
+            ],
+            "target": {
+              "status": {
+                "state": "satisfied"
+              },
+              "target-id": "sysctl-ip-forward-disabled",
+              "type": "objective-id"
+            },
+            "title": "sysctl-ip-forward-disabled",
+            "uuid": "GENERATED_UUID"
+          }
+        ],
+        "observations": [
+          {
+            "collected": "FIXTURE_TIMESTAMP",
+            "description": "Pre-state captured: 0 steps",
+            "methods": [
+              "EXAMINE"
+            ],
+            "relevant-evidence": [
+              {
+                "description": "Evidence envelope signed by key test-key-1",
+                "props": [
+                  {
+                    "name": "signing-key-id",
+                    "value": "test-key-1"
+                  },
+                  {
+                    "name": "transaction-id",
+                    "value": "FIXTURE_TXN_UUID"
+                  }
+                ]
+              }
+            ],
+            "uuid": "GENERATED_UUID"
+          }
+        ],
+        "reviewed-controls": {
+          "control-selections": [
+            {
+              "include-controls": [
+                {
+                  "control-id": "3.3.2.1"
+                },
+                {
+                  "control-id": "3.3.1"
+                },
+                {
+                  "control-id": "CM-7"
+                },
+                {
+                  "control-id": "V-257936"
+                }
+              ]
+            }
+          ]
+        },
+        "start": "FIXTURE_TIMESTAMP",
+        "title": "sysctl-ip-forward-disabled on host-fixture-a",
+        "uuid": "FIXTURE_TXN_UUID"
+      }
+    ],
+    "uuid": "GENERATED_UUID"
+  }
+}

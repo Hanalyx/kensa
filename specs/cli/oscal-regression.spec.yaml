@@ -1,0 +1,174 @@
+spec:
+    id: cli-oscal-regression
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-oscal-regression
+        description: |
+            CLI Phase 5a deliverable C-053. Adds golden-
+            file OSCAL output tests for the
+            `internal/evidence/ExportOSCAL` path so any
+            future drift in the OSCAL Assessment Results
+            shape gets caught at PR time, not by
+            consumers six months downstream.
+
+            **Why a regression sweep, not new wiring.**
+            Per the founder ratification of Phase 5
+            scope: OSCAL stays on check/remediate only;
+            no new subcommand wiring. C-053's job is to
+            audit that Phase 4's session-model + scan-
+            persist changes didn't introduce shape drift
+            in what `kensa remediate -o oscal:PATH`
+            produces. The existing unit tests
+            (TestExportOSCAL_*) cover correctness; the
+            golden-file approach covers stability.
+
+            **Normalization strategy.** OSCAL output
+            contains UUIDs (document, finding,
+            observation) and timestamps (start, end,
+            last-modified) that are non-deterministic.
+            Byte-equality against a golden file would
+            fail on every test run. The fix is
+            deterministic input fixtures + a normalize
+            step that replaces the variable fields with
+            placeholders before diffing. Golden files
+            commit with the placeholders in place.
+
+            **What this catches.** Field renames,
+            nesting changes, removed fields, type
+            changes (string → array), addition of new
+            mandatory fields. These are the drift modes
+            that break consumers parsing kensa-go's
+            OSCAL output downstream.
+
+            **What this does NOT catch.** Semantics
+            changes that preserve the shape but change
+            the meaning (e.g., status mapping flipping
+            from satisfied → not-satisfied). Existing
+            TestExportOSCAL_CommittedIsSatisfied and
+            related tests cover those. The golden-file
+            sweep complements; it doesn't replace.
+
+    objective:
+        summary: |
+            Add internal/evidence/testdata/ with golden
+            JSON files. Add internal/evidence/
+            oscal_golden_test.go with a normalize-and-
+            compare harness. Add a regenerate path
+            (env var or test flag) so intentional shape
+            changes can refresh the goldens easily.
+        scope:
+            includes:
+                - "internal/evidence/testdata/oscal_golden_committed.json"
+                - "internal/evidence/testdata/oscal_golden_rolled_back.json"
+                - "internal/evidence/testdata/oscal_golden_multi_framework.json"
+                - "internal/evidence/oscal_golden_test.go: normalize + compare harness"
+                - "Regenerate path via UPDATE_GOLDEN=1 env var"
+                - "Structural-presence assertions on key OSCAL paths (defense in depth)"
+                - "Spec close"
+            excludes:
+                - "Full OSCAL JSON-schema validation: out of scope; would require pulling in NIST's schema + a validator library. The structural assertions cover the high-traffic shape concerns; full validation is a separate (expensive) deliverable if a customer hits a schema-conformance issue."
+                - "Live `kensa remediate` OSCAL run against inventory.ini: out of scope; remediate would mutate the host. Existing unit tests hit the writer with synthetic envelopes."
+                - "OSCAL on subcommands beyond check/remediate: explicit non-goal per founder ratification (Phase 5 scope decision #1)."
+
+    constraints:
+        - id: C-01
+          description: |
+              Golden-file tests MUST normalize UUIDs
+              and timestamps to placeholders before
+              comparison. Without normalization, every
+              test run produces different bytes (UUIDs
+              are randomly generated; timestamps come
+              from time.Now). Golden file commits with
+              placeholders.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Test corpus MUST cover at least three
+              shapes: (a) committed → satisfied, (b)
+              rolled_back → not-satisfied, (c) multi-
+              framework references. These are the
+              operator-visible OSCAL shape variants;
+              one golden per shape catches the
+              field-rename / type-change drift modes.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              When intentional shape changes ship, the
+              regenerate path MUST be a single
+              command — `UPDATE_GOLDEN=1 go test
+              ./internal/evidence/...` writes new
+              goldens. Operators contributing OSCAL
+              changes don't fight tooling; they
+              regenerate, eyeball-diff, commit.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Diff failures MUST surface a unified
+              diff (line-oriented) between actual and
+              golden, not a "bytes differ" message.
+              Failure output should let the
+              contributor see exactly what shape
+              changed.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `oscal_golden_committed.json` matches
+              the normalized output of a deterministic
+              committed-status fixture. Locked by
+              TestOSCALGolden_Committed.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              `oscal_golden_rolled_back.json` matches
+              for the not-satisfied state. Locked by
+              TestOSCALGolden_RolledBack.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              `oscal_golden_multi_framework.json`
+              covers an envelope with 3+ framework
+              refs, locking the
+              control-selection shape. Locked by
+              TestOSCALGolden_MultiFramework.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              `UPDATE_GOLDEN=1 go test
+              ./internal/evidence/` rewrites all
+              three goldens; running again without
+              the env var produces zero diffs. Locked
+              by TestOSCALGolden_RegenerateRoundTrip.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              On diff, the test failure includes a
+              unified diff snippet. Locked by manual
+              verification (the t.Fatalf message
+              format).
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-06
+          description: |
+              Structural-presence assertions cover
+              the top-level OSCAL paths
+              (assessment-results, metadata, results,
+              findings, observations). Locked by
+              TestOSCALGolden_StructuralPaths.
+          references_constraints: [C-02]
+          priority: medium
+
+    tags: [oscal, evidence, regression, golden-file, phase-5a, c-053]
