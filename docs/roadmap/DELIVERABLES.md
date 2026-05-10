@@ -353,7 +353,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039
 - **Acceptance:** `kensa migrate --db PATH` detects pre-Phase-4 schema (schemaVersion < 2), applies migration 2, backfills sessions for existing transactions. Idempotent on already-migrated DBs (no-op + exit 0).
 - **Size:** ~3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `391d878`). BackfillSessions groups orphan transactions one-synthetic-session-per-host with subcommand="legacy-backfill". Idempotent. printUsage now advertises both `migrate` and `version` (the latter was also missing). Spec: `specs/cli/kensa-migrate.spec.yaml` (5 constraints, 8 ACs). 6 unit tests covering empty/single/multi/idempotent/preserves-post-Phase-4/CurrentSchemaVersion.
 
 #### C-041 — `--store` flag on `kensa check`
 - **Phase:** CLI Phase 4
