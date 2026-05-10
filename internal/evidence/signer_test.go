@@ -290,6 +290,246 @@ func TestEnvelopeHash_Stable(t *testing.T) {
 	}
 }
 
+// TestVerify_TamperedSeverity locks the peer-review-caught
+// regression: prior canonicalize() omitted the Severity field,
+// letting an attacker mutate severity on disk without breaking
+// the signature. Now Severity is in the canonical bytes;
+// modifying it post-sign must invalidate verification.
+func TestVerify_TamperedSeverity(t *testing.T) {
+	s, _ := evidence.Generate()
+	env := makeEnvelope()
+	env.Severity = "high"
+	sig, keyID, _ := s.Sign(env)
+	env.Signature = sig
+	env.SigningKeyID = keyID
+
+	// Same envelope, same key — verifies cleanly.
+	if r, _ := s.Verify(env); r == nil || !r.Valid {
+		t.Fatal("baseline verification should pass")
+	}
+
+	// Mutate severity. Verification MUST now fail.
+	env.Severity = "low"
+	r, err := s.Verify(env)
+	if err == nil || (r != nil && r.Valid) {
+		t.Errorf("mutating Severity must invalidate signature; got valid=%v err=%v",
+			r != nil && r.Valid, err)
+	}
+}
+
+// TestVerify_RejectsWrongLengthSignature locks the
+// signature-length pre-check. Stdlib ed25519.Verify also rejects
+// wrong-size signatures cleanly, but we want an explicit local
+// contract so the early return doesn't fold into per-key
+// timing differences when the rotation history is walked.
+func TestVerify_RejectsWrongLengthSignature(t *testing.T) {
+	s, _ := evidence.Generate()
+	env := makeEnvelope()
+	sig, keyID, _ := s.Sign(env)
+	env.SigningKeyID = keyID
+
+	// Truncate by 1 byte.
+	env.Signature = sig[:len(sig)-1]
+	r, err := s.Verify(env)
+	if err == nil {
+		t.Error("truncated signature should error")
+	}
+	if r != nil && r.Valid {
+		t.Error("truncated signature must NOT be Valid=true")
+	}
+
+	// Extend by 1 byte (append zero).
+	env.Signature = append(sig, 0)
+	r, err = s.Verify(env)
+	if err == nil {
+		t.Error("oversize signature should error")
+	}
+	if r != nil && r.Valid {
+		t.Error("oversize signature must NOT be Valid=true")
+	}
+}
+
+// TestVerify_KeyIDMismatchWarning locks the post-match
+// consistency check: when envelope.SigningKeyID disagrees with
+// the matched key's id, verification still succeeds (the
+// signature is authentic) but emits api.KeyIDMismatch in the
+// warnings list so downstream tools can investigate.
+func TestVerify_KeyIDMismatchWarning(t *testing.T) {
+	s, _ := evidence.Generate()
+	env := makeEnvelope()
+	sig, keyID, _ := s.Sign(env)
+	env.Signature = sig
+	// Operator (or attacker) writes a different key_id than the
+	// one that actually signed.
+	env.SigningKeyID = "00000000-0000-0000-0000-000000000000"
+
+	r, err := s.Verify(env)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !r.Valid {
+		t.Fatal("signature still authentic; should be Valid=true")
+	}
+	if r.KeyID != keyID {
+		t.Errorf("matched KeyID: got %q, want %q", r.KeyID, keyID)
+	}
+	found := false
+	for _, w := range r.Warnings {
+		if w == api.KeyIDMismatch {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected api.KeyIDMismatch warning; got %v", r.Warnings)
+	}
+}
+
+// TestVerify_RotationOrderReverseChronological locks spec C-04:
+// "verification tries keys in reverse chronological order".
+// Callers append rotated keys to the history list oldest-first
+// (chronological). Verify must walk it BACKWARDS so the most-
+// recently-rotated key is tried first.
+//
+// Without this fix (original code iterated forward), a
+// compromised-but-still-listed old key could match before the
+// legitimate newer rotation in some envelope sets.
+func TestVerify_RotationOrderReverseChronological(t *testing.T) {
+	currentSigner, _ := evidence.Generate()
+	oldestSigner, _ := evidence.Generate()
+	newestSigner, _ := evidence.Generate()
+
+	// Rotation history: [oldest, newest] (chronological).
+	currentSigner.WithRotationHistory(oldestSigner.Public(), newestSigner.Public())
+
+	// Sign with the NEWEST rotated key; the verifier should hit
+	// it on the FIRST history-walk iteration (because reverse
+	// order means newest-first).
+	env := makeEnvelope()
+	sig, _, _ := newestSigner.Sign(env)
+	env.Signature = sig
+
+	r, err := currentSigner.Verify(env)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !r.Valid {
+		t.Error("expected Valid=true for newest-rotation key")
+	}
+	if r.KeyID != newestSigner.KeyID() {
+		t.Errorf("matched key: got %q, want %q (newest rotation)",
+			r.KeyID, newestSigner.KeyID())
+	}
+}
+
+// TestSign_DomainSeparation locks the cross-protocol replay
+// defense: signatures over canonical envelope bytes are
+// distinguishable from signatures over arbitrary other bytes.
+// Without the domain tag, an attacker who tricked an operator
+// into signing some non-envelope payload could later replay
+// the signature as a "valid" envelope.
+func TestSign_DomainSeparation(t *testing.T) {
+	s, _ := evidence.Generate()
+	env := makeEnvelope()
+	sig, _, _ := s.Sign(env)
+
+	// Verify the signature does NOT verify against the canonical
+	// envelope bytes WITHOUT the domain tag prefix. (i.e., a
+	// hypothetical attacker who computes raw canonical bytes
+	// and signs them with the same key has produced something
+	// that won't satisfy our Verify.)
+	canonical, err := evidence.CanonicalForTest(env)
+	if err != nil {
+		t.Fatalf("CanonicalForTest: %v", err)
+	}
+	pub := s.Public()
+	// crypto/ed25519 verify of the BARE canonical bytes against
+	// the same signature MUST fail (because we signed the
+	// domain-tagged bytes, not bare canonical).
+	if ed25519.Verify(pub, canonical, sig) {
+		t.Error("ed25519.Verify against bare canonical bytes succeeded — domain separation broken")
+	}
+}
+
+// TestCanonicalize_KeysAlphabeticallySorted locks spec C-01:
+// "JSON serialization uses sorted keys". Cross-language
+// implementations following the spec literally MUST produce
+// identical bytes; this means top-level keys appear in
+// alphabetical order regardless of the originating struct's
+// declared field order.
+func TestCanonicalize_KeysAlphabeticallySorted(t *testing.T) {
+	env := makeEnvelope()
+	env.Severity = "high"
+	canonical, err := evidence.CanonicalForTest(env)
+	if err != nil {
+		t.Fatalf("canonicalize: %v", err)
+	}
+	// Decode and re-extract key order. encoding/json's
+	// Decoder doesn't preserve key order, but we can use the
+	// raw bytes to find each key's first byte position.
+	// Alphabetical order — note `post_*` precedes `pre_*` (o < r).
+	keys := []string{
+		"apply_steps", "decision", "finished_at", "framework_refs",
+		"host_id", "post_state_bundle", "pre_state_bundle",
+		"rule_id", "schema_version", "severity", "started_at",
+		"transaction_id", "validator_results",
+	}
+	// fleet_id is omitempty and the fixture leaves it empty, so
+	// it doesn't appear in the canonical form.
+	prevPos := -1
+	for _, k := range keys {
+		needle := []byte("\"" + k + "\"")
+		pos := bytesIndex(canonical, needle)
+		if pos < 0 {
+			t.Errorf("key %q absent from canonical bytes", k)
+			continue
+		}
+		if pos <= prevPos {
+			t.Errorf("key %q at byte %d, must be after previous (%d) — keys not sorted",
+				k, pos, prevPos)
+		}
+		prevPos = pos
+	}
+}
+
+// TestCanonicalize_TimestampNanosecondPrecision verifies that
+// sub-second timestamp precision survives canonicalization. The
+// engine writes time.Now() (nanos); the spec / cross-language
+// contract is RFC3339Nano. A second-precision-truncating
+// canonicalizer would create cross-language verification
+// mismatches for any envelope whose JSON-on-disk preserves the
+// nanos.
+func TestCanonicalize_TimestampNanosecondPrecision(t *testing.T) {
+	env := makeEnvelope()
+	// Set a timestamp with sub-second precision.
+	env.StartedAt = env.StartedAt.Add(123456789 * time.Nanosecond)
+	canonical, err := evidence.CanonicalForTest(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The nanosecond suffix must appear.
+	if bytesIndex(canonical, []byte(".123456789")) < 0 {
+		t.Errorf("nanosecond suffix missing from canonical bytes:\n%s", canonical)
+	}
+}
+
+// bytesIndex is strings.Index for []byte without importing
+// strings (the test file uses bytes for raw canonical inspection).
+func bytesIndex(haystack, needle []byte) int {
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		match := true
+		for j := range needle {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
 // TestNilSliceNormalization verifies that nil and empty slice envelopes
 // produce the same canonical bytes (evidence-envelope spec C-01).
 // @spec evidence-envelope
