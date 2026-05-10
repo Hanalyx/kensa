@@ -367,7 +367,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039
 - **Acceptance:** Aggregate counts (sessions, transactions, by status, by severity, by host). Output respects `-o json` / text.
 - **Size:** ~3h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `2b0a61e`). `*SQLite.ComputeStats` runs 5 queries (total + bounds, sessions, 3 GROUP BYs); top-10 host rollup with `(other)` bucket; deterministic alphabetical tiebreak. Text output canonical-ordered + legend footer disambiguating rolled_back semantics. JSON output snake_case tags. 11 unit tests (8 store + 3 formatter). Spec: `specs/cli/history-stats.spec.yaml` (6 constraints, 9 ACs). Live-verified.
 
 #### C-043 — `kensa history --prune DAYS`
 - **Phase:** CLI Phase 4
