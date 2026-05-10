@@ -1,0 +1,360 @@
+spec:
+    id: cli-info
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-info
+        description: |
+            CLI Phase 4 deliverable C-047. Adds the
+            `kensa info` subcommand: multi-criteria
+            lookup over a loaded rule corpus. The four
+            modes — single rule, single control, list-
+            controls, free-text search — share the
+            corpus-walk infrastructure already in
+            `internal/coverage` (C-045/C-046) and
+            `internal/mappings`.
+
+            Why one subcommand with four modes vs four
+            subcommands: the modes are distinct query
+            shapes against the same corpus, but the
+            output is always "rule(s) + their context."
+            Operators learning "I want to find a thing
+            in the corpus" reach for `kensa info`
+            regardless of the search axis. Splitting
+            into `kensa info-rule` / `kensa info-control`
+            / `kensa search` would force them to learn
+            three names for one task.
+
+            **Mode mutual exclusion.** --rule, --control,
+            --list-controls, and positional QUERY are ALL
+            pairwise exclusive — pick exactly one. The
+            earlier draft claimed QUERY composes with
+            --rule and --control, but the implementation
+            never honored it; peer review caught the
+            spec/code drift and the cleaner contract is
+            "one mode per invocation, no half-measures."
+            Operators wanting "search SSH within CIS"
+            use `kensa info ssh --cis` (QUERY + family
+            filter; the family filter is NOT a mode).
+
+            **Framework family shortcuts.** --cis,
+            --stig, --nist are convenience flags that
+            constrain the corpus to rules referencing
+            ANY framework_id starting with that family
+            prefix. Compose with --rhel 8|9|10 which
+            adds a version filter on the framework
+            tail (cis_rhel9 / stig_rhel8 / etc.).
+            --rhel without --cis/--stig is also valid
+            and behaves as "platform filter" against
+            rule.Platforms.
+
+            **Search semantics.** QUERY is a
+            case-insensitive substring match against
+            rule.Title + rule.Description. No regex,
+            no fuzzy match — operators piping to
+            grep/jq for refinement is the expected
+            workflow. The text output sorts by rule
+            ID; JSON preserves the same order so
+            diff-based dashboards see no churn.
+
+    objective:
+        summary: |
+            Add internal/info/ package with four query
+            functions (DescribeRule, RulesForControl,
+            ListFrameworkControls, SearchRules) that
+            walk a loaded corpus and return the
+            structured shape for each mode. Wire `kensa
+            info` in cmd/kensa/main.go via a new
+            runInfo dispatcher. Text + JSON outputs
+            with the C-045/C-046 conventions
+            (snake_case JSON, ASCII-only text,
+            --format validated).
+        scope:
+            includes:
+                - "internal/info/info.go: RuleDetails / ControlMatch / ControlListing / SearchHit + four query funcs"
+                - "cmd/kensa/info.go: runInfo + writeInfoText + printInfoUsage + mode-mux validation"
+                - "case 'info' in cmd/kensa/main.go dispatch"
+                - "--rules-dir REQUIRED"
+                - "Mode flags: --rule R, --control FRAMEWORK:ID, --list-controls/-L FRAMEWORK; pairwise exclusive"
+                - "Framework family shortcuts: --cis, --stig, --nist"
+                - "Platform filter: --rhel 8|9|10 (composes with family shortcuts and standalone)"
+                - "Positional QUERY: case-insensitive substring search over title + description"
+                - "--format {text,json} validated like C-045/C-046"
+                - "Help text on `kensa info --help`"
+            excludes:
+                - "Regex / fuzzy search: out of scope; operators pipe to grep for refinement"
+                - "Per-control compliance status (passed/failed): out of scope; that's `kensa history --aggregate by_framework_control`"
+                - "--severity / --tag filters: already on check/remediate; future deliverable could add"
+                - "Showing rule rationale / handler-mechanism details in the rule mode: out of scope; emits ID + title + severity + references + platforms only — full rule body via --format json"
+                - "Cross-framework control aliasing (--control 5.1.12 without framework prefix): out of scope; FRAMEWORK:ID is required, ambiguous shorter forms rejected"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa info` MUST require --rules-dir.
+              Empty/missing dir rejected with usage
+              error.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The four primary mode selectors
+              (--rule, --control, --list-controls,
+              positional QUERY) MUST be pairwise
+              mutually exclusive — pick exactly one.
+              Combining any two (including
+              --rule + QUERY or --control + QUERY)
+              MUST be rejected with a usage error.
+              Filters (--cis/--stig/--nist/--rhel)
+              are NOT modes and DO compose with the
+              chosen mode.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              QUERY search MUST be case-insensitive
+              substring match against rule.Title +
+              rule.Description. Operators expecting
+              `kensa info ssh` to surface every
+              SSH-related rule shouldn't need to
+              guess the exact title casing.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Output MUST be deterministic across
+              runs: rule listings sorted by rule ID;
+              control listings sorted by control_id.
+              JSON consumers building diff-based
+              dashboards must see no spurious churn.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              --cis / --stig / --nist MUST act as
+              framework-family prefix filters
+              (cis_*, stig_*, nist_*). Combining
+              two family flags (e.g. --cis --stig)
+              MUST be rejected as a usage error
+              (the operator almost certainly
+              meant one or the other; mixing
+              CIS and STIG output in one row is
+              the wrong shape).
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              --rhel value MUST be 8, 9, or 10.
+              Other values rejected with usage
+              error listing valid choices.
+              Composes with --cis/--stig (filters
+              to cis_rhel<V>, stig_rhel<V>);
+              standalone --rhel filters by rule
+              Platform entries. --nist + --rhel
+              MUST be rejected: nist_800_53 is
+              unversioned (flat-list framework);
+              allowing the combo would produce
+              a silent zero-match.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              Unknown rule (--rule no-such-rule)
+              and unknown control (--control
+              FRAMEWORK:no-such-id) MUST exit 1
+              (runtime error: "not found"), NOT
+              exit 2 (usage error: "bad invocation").
+              The invocation was syntactically
+              correct; the lookup just turned up
+              empty. CI pipelines distinguish 1
+              (data issue) from 2 (script issue).
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              JSON output MUST use snake_case fields
+              for parity with PruneReport / store.Stats
+              / CoverageReport / FrameworkSummary.
+          type: technical
+          enforcement: error
+        - id: C-09
+          description: |
+              Platform max_version=0 MUST render as
+              "any version" / ">= MIN" / "<= MAX" in
+              text output, never as the literal
+              "max=0" (operators read "max=0" as
+              "RHEL 0" — a zero-version that doesn't
+              exist). JSON output preserves the raw
+              integer (machine consumers handle the
+              zero-as-unbounded convention).
+          type: business
+          enforcement: error
+        - id: C-10
+          description: |
+              Search and list-controls modes MUST
+              support --limit N (default 100; 0 =
+              unlimited). Without a limit, a generic
+              query like "file" against a 539-rule
+              corpus produces hundreds of lines of
+              output that scroll the relevant header
+              off the operator's terminal. Truncation
+              MUST be visible — the footer reads
+              "showing first N of M; pass --limit 0
+              for the full list" so operators don't
+              mistake the truncated view for the
+              full result.
+          type: business
+          enforcement: error
+        - id: C-11
+          description: |
+              When BOTH --rules-dir and a mode are
+              missing, the error message MUST name
+              both ("missing --rules-dir DIR and a
+              mode (--rule, --control, ...)").
+              Forcing the operator to retry once per
+              missing piece is unnecessary friction
+              caught by peer review.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa info --rule RULE_ID --rules-dir
+              DIR` prints the rule's title, severity,
+              category, tags, platforms, and
+              references. Locked by
+              TestRunInfo_RuleMode.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa info --control FRAMEWORK:ID
+              --rules-dir DIR` prints rule IDs that
+              map to the control. Locked by
+              TestRunInfo_ControlMode.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              `kensa info --list-controls FRAMEWORK
+              --rules-dir DIR` prints every control in
+              the framework with rule counts. Locked
+              by TestRunInfo_ListControlsMode.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              `kensa info QUERY --rules-dir DIR`
+              substring-matches title + description
+              case-insensitively. Locked by
+              TestRunInfo_QueryMode and
+              TestSearchRules_CaseInsensitive.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              Every mode pair (--rule + --control,
+              --rule + --list-controls,
+              --control + --list-controls,
+              --rule + QUERY, --control + QUERY,
+              --list-controls + QUERY) rejected
+              with usage error. Locked by
+              TestRunInfo_ModeMutualExclusion.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              --cis + --stig rejected with usage
+              error. Locked by
+              TestRunInfo_FamilyMutualExclusion.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: |
+              --rhel with non-{8,9,10} value
+              rejected. Locked by
+              TestRunInfo_RhelValidation.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-08
+          description: |
+              Unknown rule + unknown control exit 1
+              (runtime), not 2 (usage). Locked by
+              TestRunInfo_NotFoundExitCode.
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-09
+          description: |
+              JSON output snake_case shape via
+              --format json. Locked by
+              TestRunInfo_JSONShape.
+          references_constraints: [C-08]
+          priority: high
+        - id: AC-10
+          description: |
+              Output deterministic. Locked by
+              TestSearchRules_Deterministic and
+              TestListFrameworkControls_Deterministic.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-11
+          description: |
+              Live verification: `bin/kensa info ssh
+              --rules-dir /home/rracine/hanalyx/
+              kensa/rules` returns SSH-related rules;
+              `bin/kensa info --rule sysctl-ip-
+              forward-disabled --rules-dir ...` shows
+              that rule's details; `bin/kensa info
+              --list-controls cis_rhel9 --rules-dir
+              ...` lists CIS RHEL9 controls. Verified
+              during the C-047 merge workflow.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-12
+          description: |
+              `--nist --rhel N` rejected with usage
+              error mentioning "unversioned". Locked
+              by TestRunInfo_NistRhelRejected.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-13
+          description: |
+              Platform max_version=0 renders as
+              ">= MIN" or "any version" in text
+              output (never "max=0"). Locked by
+              TestRunInfo_PlatformAnyVersion.
+          references_constraints: [C-09]
+          priority: medium
+        - id: AC-14
+          description: |
+              `--limit N` truncates search and
+              list-controls output with a visible
+              footer; `--limit 0` is unlimited;
+              negative rejected. Locked by
+              TestRunInfo_LimitClampsSearch,
+              TestRunInfo_LimitZeroUnlimited,
+              TestRunInfo_LimitNegativeRejected.
+          references_constraints: [C-10]
+          priority: medium
+        - id: AC-15
+          description: |
+              Coalesced missing-rules-dir-and-mode
+              error message names both pieces.
+              Locked by
+              TestRunInfo_NoRulesDirNoMode.
+          references_constraints: [C-11]
+          priority: low
+        - id: AC-16
+          description: |
+              QUERY composes with --cis filter
+              (filtering search hits to the family).
+              Locked by
+              TestRunInfo_QueryWithFamilyFilter.
+          references_constraints: []
+          priority: high
+
+    tags: [cli, info, search, mappings, phase-4, c-047]
