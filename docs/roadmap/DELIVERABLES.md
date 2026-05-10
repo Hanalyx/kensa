@@ -339,7 +339,91 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 
 ### CLI Phase 4 — Session model + missing subcommands
 
-*Sketch.* Estimated 12–15 deliverables (C-039..C-053) covering: SQLite session schema migration, `kensa diff`, framework `kensa coverage` (rename existing to `kensa mechanisms`), `kensa list frameworks`, `kensa info` (with --cis/--stig/--nist/--rhel filters), `--stats`, `--prune`. **Includes one `kensa migrate` deliverable** for SQLite schema migration of existing databases. ~2 weeks.
+12 deliverables (C-039..C-050). Founder-approved 2026-05-09 to proceed via the loop pre-approval (option C in the breakdown discussion). Foundation first (session schema + migrate), then the surface layer.
+
+#### C-039 — Session schema in store
+- **Phase:** CLI Phase 4
+- **Deps:** —
+- **Acceptance:** Migration 2 adds `sessions` table (id, started_at, finished_at, hostname, subcommand, args_summary) + `session_id` column on `transactions` (NULL for migration-2-and-earlier rows). Existing rows get a backfilled synthetic session per-host. Loader API gains session-scope query helpers.
+- **Size:** ~1 day. High-blast-radius — operator data shape change.
+- **Status:** pending
+
+#### C-040 — `kensa migrate` subcommand
+- **Phase:** CLI Phase 4
+- **Deps:** C-039
+- **Acceptance:** `kensa migrate --db PATH` detects pre-Phase-4 schema (schemaVersion < 2), applies migration 2, backfills sessions for existing transactions. Idempotent on already-migrated DBs (no-op + exit 0).
+- **Size:** ~3h
+- **Status:** pending
+
+#### C-041 — `--store` flag on `kensa check`
+- **Phase:** CLI Phase 4
+- **Deps:** C-039
+- **Acceptance:** `kensa check --store` writes the scan as a session+transactions record. Default off (matches current behavior — check is read-only, store is opt-in).
+- **Size:** ~2h
+- **Status:** pending
+
+#### C-042 — `kensa history --stats`
+- **Phase:** CLI Phase 4
+- **Deps:** C-039
+- **Acceptance:** Aggregate counts (sessions, transactions, by status, by severity, by host). Output respects `-o json` / text.
+- **Size:** ~3h
+- **Status:** pending
+
+#### C-043 — `kensa history --prune DAYS`
+- **Phase:** CLI Phase 4
+- **Deps:** C-039
+- **Acceptance:** Deletes sessions older than N days (cascade to transactions + steps + pre_states). Requires `--force` for non-interactive runs; otherwise prompts. Long-only (no short — destructive). Honors transaction-log spec C-05 retention semantics.
+- **Size:** ~3h
+- **Status:** pending
+
+#### C-044 — Rename `kensa coverage` → `kensa mechanisms`
+- **Phase:** CLI Phase 4
+- **Deps:** —
+- **Acceptance:** Both subcommands work; `kensa coverage` (old behavior — list mechanisms) emits a stderr deprecation warning pointing at `kensa mechanisms`. Frees `kensa coverage` for the new framework-coverage report (C-045).
+- **Size:** ~2h
+- **Status:** pending
+
+#### C-045 — `kensa coverage` (NEW: framework control coverage)
+- **Phase:** CLI Phase 4
+- **Deps:** C-044
+- **Acceptance:** `kensa coverage --framework cis_rhel9 --rules-dir DIR` walks the corpus, computes per-control coverage, prints summary (e.g., "212 / 318 CIS RHEL9 L1 controls covered (66.7%)"). `-o json` emits structured shape.
+- **Size:** ~5h
+- **Status:** pending
+
+#### C-046 — `kensa list frameworks`
+- **Phase:** CLI Phase 4
+- **Deps:** —
+- **Acceptance:** Lists framework IDs available in the loaded corpus (via `mappings.RefsFromReferences`) with control counts. `-o json` for programmatic use.
+- **Size:** ~2h
+- **Status:** pending
+
+#### C-047 — `kensa info` (rule/control lookup)
+- **Phase:** CLI Phase 4
+- **Deps:** C-046
+- **Acceptance:** Multi-criteria search: `--rule R`, `--control FRAMEWORK:ID`, `--list-controls/-L FRAMEWORK`, `--cis`/`--stig`/`--nist` filters, `--rhel 8|9|10` (filters platforms). Positional QUERY does free-text search over title/description. `-o json` for programmatic.
+- **Size:** ~6h. Largest single subcommand.
+- **Status:** pending
+
+#### C-048 — `kensa diff SESSION1 SESSION2`
+- **Phase:** CLI Phase 4
+- **Deps:** C-039
+- **Acceptance:** Compares two sessions by ID; emits drift report (per-rule status changes, new/removed rules). `--show-unchanged` includes rules whose status is identical. `-o json` for programmatic.
+- **Size:** ~5h
+- **Status:** pending
+
+#### C-049 — `kensa rollback --list/--info/--start/--detail`
+- **Phase:** CLI Phase 4
+- **Deps:** C-039
+- **Acceptance:** Closes the partial-implementation gap from Phase 1..3. `--list` shows rollback-able sessions; `--info ID` shows session detail; `--start ID` triggers rollback (replaces today's `--txn UUID`); `--detail` adds per-step breakdown to list output.
+- **Size:** ~5h
+- **Status:** pending
+
+#### C-050 — Phase 4 close: help grouping + smoke + spec corpus
+- **Phase:** CLI Phase 4
+- **Deps:** C-039..C-049
+- **Acceptance:** Apply the C-038 grouping pattern to new subcommands. cli-smoke.sh adds 1-2 scenarios per new flag. Spec-corpus close.
+- **Size:** ~2h
+- **Status:** pending
 
 ### CLI Phase 5 — kensa-go-specific surfaces
 

@@ -3,7 +3,7 @@ package store
 // schemaVersion is the current schema number. Migrations (in
 // migrations) are appended; never edited or removed
 // (transaction-log spec C-06).
-const schemaVersion = 1
+const schemaVersion = 2
 
 // migrations is the ordered list of DDL statements. Each migration's
 // index corresponds to the schema version it produces. Migration 0 is
@@ -88,5 +88,45 @@ CREATE TABLE IF NOT EXISTS rollback_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rollback_events_txn ON rollback_events(transaction_id);
+`,
+	// Migration 2 (Phase 4 / C-039): introduce the session model.
+	//
+	// A session groups the transactions produced by one CLI
+	// invocation. Pre-Phase-4 the store had transactions but no
+	// session header; queries by "everything that ran on host X
+	// at time T" required a string-prefix search on started_at.
+	// Sessions make `kensa diff`, `kensa history --stats`, and
+	// the session-aware rollback workflow possible.
+	//
+	// Existing transactions are kept addressable. The session_id
+	// column is NULL on legacy rows (everything that lived in
+	// the store before this migration). The kensa-migrate tool
+	// (C-040) backfills synthetic sessions for those rows; until
+	// that runs, queries that filter by session simply see the
+	// NULL set as "no sessions yet."
+	`
+CREATE TABLE IF NOT EXISTS sessions (
+    id            TEXT PRIMARY KEY,
+    started_at    TEXT NOT NULL,
+    finished_at   TEXT NOT NULL,
+    hostname      TEXT NOT NULL DEFAULT '',
+    subcommand    TEXT NOT NULL DEFAULT '',
+    args_summary  TEXT NOT NULL DEFAULT '',
+    -- Counts denormalized at write time for fast --stats and
+    -- list rendering. The transactions table is the source of
+    -- truth; these are caches the writer maintains.
+    txn_total     INTEGER NOT NULL DEFAULT 0,
+    txn_committed INTEGER NOT NULL DEFAULT 0,
+    txn_rolled    INTEGER NOT NULL DEFAULT 0,
+    txn_failed    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_hostname   ON sessions(hostname);
+CREATE INDEX IF NOT EXISTS idx_sessions_subcommand ON sessions(subcommand);
+
+ALTER TABLE transactions ADD COLUMN session_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_transactions_session ON transactions(session_id);
 `,
 }

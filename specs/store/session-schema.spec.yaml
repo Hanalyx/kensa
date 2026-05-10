@@ -1,0 +1,182 @@
+spec:
+    id: store-session-schema
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: store-session-schema
+        description: |
+            CLI Phase 4 deliverable C-039. Adds the session
+            layer to internal/store: a session is a CLI-
+            invocation grouping over transactions. Pre-Phase-4
+            the SQLite store had transactions but no session
+            header — every Phase 4 subcommand (kensa diff,
+            kensa history --stats, session-aware rollback)
+            depends on this layer.
+
+            Schema migration 2 introduces the sessions table
+            and adds session_id to transactions (nullable, so
+            pre-Phase-4 rows remain addressable until C-040
+            backfills synthetic sessions for them).
+
+            Sessions are OPTIONAL on the write path. The
+            existing PersistResult writer doesn't take a
+            session — sessions are wired by callers that want
+            them (C-041 --store on check, future remediate
+            session bookkeeping). Transactions written
+            without an attached session have NULL session_id;
+            queries that filter by session simply skip them.
+
+            The denormalized counts on the sessions table
+            (txn_total / txn_committed / txn_rolled /
+            txn_failed) are caches the writer maintains via
+            FinishSession. The transactions table is the
+            source of truth; the counts exist so `kensa
+            history --stats` and rollback list rendering can
+            read aggregate state in one row-fetch.
+
+    objective:
+        summary: |
+            Add migration 2 to internal/store/schema.go.
+            Implement Session struct + CreateSession /
+            FinishSession / AttachTransaction / GetSession /
+            ListSessions methods on *SQLite. Backward-
+            compatible: pre-Phase-4 callers and pre-Phase-4
+            transaction rows continue to work.
+        scope:
+            includes:
+                - "internal/store/schema.go: schemaVersion bump 1→2; migration 2 DDL"
+                - "internal/store/sessions.go: Session struct + 5 methods"
+                - "session_id column on transactions (nullable)"
+                - "Denormalized counts on sessions (txn_total / committed / rolled / failed)"
+                - "Indices: sessions(started_at), sessions(hostname), sessions(subcommand), transactions(session_id)"
+            excludes:
+                - "kensa migrate subcommand: separate deliverable C-040"
+                - "Cascading delete from session → transactions: not modeled at the schema level; C-043 (kensa history --prune) implements via explicit transaction"
+                - "Foreign key constraint on transactions.session_id: omitted because pre-Phase-4 rows have NULL session_id and a FK would block writes mid-migration"
+                - "Session-aware rollback: separate deliverable C-049"
+
+    constraints:
+        - id: C-01
+          description: |
+              Migration 2 MUST be appended, not editing migration
+              1. Per transaction-log spec C-06, migrations are
+              never edited or removed.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Pre-Phase-4 transaction rows MUST remain
+              queryable after migration 2. The session_id
+              column is added as nullable; existing rows get
+              NULL until C-040's backfill runs.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              FinishSession MUST tolerate empty sessions
+              (no transactions attached yet). SQLite SUM on
+              the empty set returns NULL; the query MUST
+              COALESCE to 0 to scan into Go ints cleanly.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              CreateSession MUST reject zero-value IDs and
+              zero StartedAt timestamps. The store can't
+              meaningfully look up or order by either.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              FinishSession MUST be idempotent — callers may
+              invoke it multiple times (e.g., once per
+              inventory-host fan-out completion if the host
+              loop wraps incrementally). Re-finishing
+              recomputes counts against current transactions
+              state.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              AttachTransaction MUST error when the named
+              transaction doesn't exist (RowsAffected == 0).
+              Silent no-op would let a bug in the caller
+              orphan transactions from sessions undetected.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              schemaVersion is 2 and migration 2 creates the
+              sessions table + session_id column. Locked by
+              TestSessionsTable_Exists (which would surface
+              "no such table: sessions" if migration 2 didn't
+              run on a fresh DB).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              CreateSession + GetSession round-trip preserves
+              every Session field (ID, StartedAt, Hostname,
+              Subcommand, ArgsSummary). Locked by
+              TestCreateSession_Roundtrip.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              CreateSession with zero-value ID rejects.
+              Locked by TestCreateSession_RejectsZeroID.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-04
+          description: |
+              CreateSession with zero StartedAt rejects.
+              Locked by TestCreateSession_RejectsZeroStartedAt.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              FinishSession overwrites the FinishedAt and
+              denormalized counts. Locked by
+              TestFinishSession_UpdatesTimestamp.
+          references_constraints: [C-02, C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              FinishSession is idempotent — second call with
+              a later timestamp succeeds and updates state.
+              Locked by TestFinishSession_Idempotent.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-07
+          description: |
+              FinishSession on a session with no attached
+              transactions does NOT error on the COALESCE'd
+              SUM. Implicit in TestFinishSession_*.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              ListSessions orders by started_at DESC.
+              Locked by TestListSessions_OrderByStartedAtDesc.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-09
+          description: |
+              ListSessions filters by hostname when supplied.
+              Locked by TestListSessions_FilterByHostname.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-10
+          description: |
+              AttachTransaction on a non-existent transaction
+              errors. Locked by
+              TestAttachTransaction_NotFound.
+          references_constraints: [C-06]
+          priority: critical
+
+    tags: [store, sqlite, sessions, schema-migration, phase-4, c-039]
