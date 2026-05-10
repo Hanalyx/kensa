@@ -460,7 +460,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** —
 - **Acceptance:** `kensa agent --stdio` reserves the subcommand name in v1.0. Exits 1 with a clear message: "agent mode is planned for v1.1 with the kernel-primitive migration (Track L Phase 1); use direct SSH transport in v1.0." `kensa agent --help` describes the planned interface so OpenWatch and consumers can write integration code. Help text and cli-smoke updated.
 - **Size:** ~2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-10, `23b19c5`). Three operating paths: bare invocation exits 2 (usage), `--stdio` exits 1 (runtime, v1.1 placeholder), `--help` exits 0 with wire-protocol disclosure. Exit-code distinction follows the C-047 / C-048 / C-049 convention (1 = runtime/feature-not-ready, 2 = bad invocation). Help text discloses planned stdin/stdout/length-prefixed-framing direction so v1.0 consumers can write integration code today; the exact wire format ratifies through Track L Phase 1 (L-007 through L-014). Spec: `specs/cli/agent-placeholder.spec.yaml` (5 constraints, 6 ACs). 5 unit tests. cli-smoke 183→189. Top-level `kensa --help` now lists agent with v1.1 marker.
 
 #### C-055 — `kensa(1)` manpage
 - **Phase:** CLI Phase 5a
