@@ -1,0 +1,220 @@
+spec:
+    id: cli-list-frameworks
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-list-frameworks
+        description: |
+            CLI Phase 4 deliverable C-046. Adds the
+            `kensa list frameworks` subcommand: list every
+            framework_id present in the loaded rule corpus
+            with the count of distinct controls and rules
+            referencing each.
+
+            The `list` parent subcommand is a new namespace
+            for "show me what's in the corpus" introspection
+            commands. C-046 ships `list frameworks` as the
+            first child; future additions (e.g. `list
+            controls FRAMEWORK`, `list rules`) compose
+            naturally without name collisions.
+
+            Why a new top-level `list` rather than extending
+            `kensa coverage`: `coverage` is a per-framework
+            *report* (numerator-only, requires --framework).
+            `list frameworks` is a corpus *index* (one row
+            per framework). Mixing the two surfaces would
+            force --framework into a sometimes-required-
+            sometimes-optional flag, which the C-045 review
+            cycle showed is the wrong UX shape.
+
+            **Output shape.** Each row reports framework_id,
+            distinct controls count, and distinct rules
+            count. Sorted by framework_id alphabetically
+            (deterministic). Text output uses ASCII column
+            separators (LANG=C compatible per the C-045
+            box-drawing fix). JSON shape is a `frameworks`
+            array of `{framework_id, controls, rules}`
+            objects, snake_case for parity with the rest
+            of kensa-go's API surface.
+
+    objective:
+        summary: |
+            Add ListFrameworks(rules) to internal/coverage:
+            walks framework_refs across the corpus and
+            returns a sorted slice of FrameworkSummary.
+            Wire `kensa list frameworks --rules-dir DIR`
+            in cmd/kensa/main.go via a new runList
+            sub-dispatcher. Text + JSON outputs.
+        scope:
+            includes:
+                - "internal/coverage/list_frameworks.go: FrameworkSummary + ListFrameworks"
+                - "cmd/kensa/list.go: runList sub-dispatcher (case 'frameworks' → runListFrameworks; unknown subject → usage error)"
+                - "cmd/kensa/list_frameworks.go: runListFrameworks + writeListFrameworksText"
+                - "case 'list' in cmd/kensa/main.go dispatch"
+                - "--rules-dir REQUIRED (no default; M7 follow-up)"
+                - "--format {text,json} validated like C-045"
+                - "Help text on `kensa list --help` and `kensa list frameworks --help`"
+            excludes:
+                - "Future `list controls FRAMEWORK`: out of scope; C-047 may wire it via `kensa info --list-controls`"
+                - "Future `list rules`: out of scope; would overlap with `kensa coverage --full` JSON"
+                - "Aggregation by control (one row per control across frameworks): out of scope; that's `kensa coverage`'s shape"
+                - "Filtering: no --severity / --tag / --category. The list is corpus-level introspection, not query-level filter"
+                - "Showing zero-rule frameworks: the listing is what's IN the corpus; not-present frameworks aren't surfaced"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa list frameworks --rules-dir DIR` MUST
+              require --rules-dir. Empty/missing dir
+              rejected with usage error.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Output MUST be deterministic across runs:
+              framework_ids sorted alphabetically. JSON
+              consumers building diff-based dashboards
+              must not see spurious changes.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Each framework's `controls` count MUST
+              be the number of DISTINCT control_ids
+              under that framework, not the count of
+              framework_ref entries (which would double-
+              count when multiple rules map to the same
+              control). `rules` is the count of distinct
+              rule IDs that reference at least one
+              control in the framework.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `kensa list` with NO subject MUST exit 2
+              with a usage error listing available
+              subjects (peer-review-driven: silent
+              exit-0 on no-subject is a CI footgun
+              where a templating bug drops the subject
+              and the script no-ops successfully).
+              Unknown subject (e.g. `kensa list
+              widgets`) MUST also exit 2. A leading
+              flag (e.g. `kensa list --rules-dir DIR`)
+              MUST exit 2 with a "did you mean 'kensa
+              list frameworks ...'?" hint. `--help` /
+              `-h` MUST exit 0.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `--format` MUST be validated against
+              {text, json} (mirrors C-045 / C-10).
+              Anything else exits 2 — silently
+              rendering text on typos hides the error.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              JSON output MUST use snake_case
+              ({framework_id, controls, rules}) for
+              parity with PruneReport / store.Stats /
+              CoverageReport.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              Text output column header MUST be
+              "rules ref'g" not "rules", and MUST be
+              followed by a footer legend
+              disambiguating the count semantics.
+              Operators reading "nist_800_53 ... 516
+              rules" misread it as "we have 516 NIST
+              rules" rather than "516 corpus rules
+              reference nist_800_53". JSON field stays
+              `rules` (snake_case ABI is locked by
+              C-06; renaming would break consumers).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa list frameworks --rules-dir DIR`
+              prints one row per framework in the
+              corpus with controls + rules counts.
+              Locked by TestRunListFrameworks_Basic.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              Output is deterministic. Locked by
+              TestListFrameworks_Deterministic.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              `controls` count is distinct control_ids
+              per framework; `rules` is distinct rule
+              IDs. Locked by
+              TestListFrameworks_DistinctCounts.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              `kensa list widgets` exits 2 with usage
+              error mentioning available subjects.
+              `kensa list` (no subject) exits 2 with
+              the same available-subjects message.
+              `kensa list --rules-dir DIR` exits 2
+              with a "did you mean 'kensa list
+              frameworks ...'?" hint. Locked by
+              TestRunList_UnknownSubject,
+              TestRunList_NoArgsIsUsageError, and
+              TestRunList_FlagBeforeSubjectHints.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              `kensa list frameworks --format yaml`
+              exits 2. Locked by
+              TestRunListFrameworks_BadFormat.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-06
+          description: |
+              JSON shape uses snake_case fields.
+              Locked by
+              TestRunListFrameworks_JSONShape.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-07
+          description: |
+              `--help` exits 0 on both `kensa list` and
+              `kensa list frameworks`. Locked by
+              TestRunList_HelpExitsZero.
+          references_constraints: []
+          priority: medium
+        - id: AC-08
+          description: |
+              Live verification: `bin/kensa list
+              frameworks --rules-dir
+              /home/rracine/hanalyx/kensa/rules`
+              produces a multi-row listing covering
+              the framework IDs in the 539-rule
+              corpus. Verified during the C-046 merge
+              workflow.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-09
+          description: |
+              Text output uses "rules ref'g" column
+              header and includes a footer legend
+              explaining the count semantics. Locked
+              by TestRunListFrameworks_TextHasLegend.
+          references_constraints: [C-07]
+          priority: high
+
+    tags: [cli, list, frameworks, mappings, phase-4, c-046]

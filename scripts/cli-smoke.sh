@@ -325,6 +325,23 @@ else
 fi
 echo
 
+# ─── kensa list frameworks (C-046) ────────────────────────────────────────
+echo "kensa list frameworks (C-046):"
+assert_exit "kensa list --help"                      0 stdout-nonempty bin/kensa list --help
+assert_exit "kensa list -h"                          0 stdout-nonempty bin/kensa list -h
+# Bare 'kensa list' is a usage error (script footgun prevention) —
+# operators get the available-subjects list on stderr; CI scripts
+# that drop the subject get a non-zero exit instead of a silent
+# success.
+assert_exit "kensa list (no subject)"                2 stderr-nonempty bin/kensa list
+assert_exit "kensa list --rules-dir DIR (forgot subj)" 2 stderr-nonempty bin/kensa list --rules-dir /tmp
+assert_exit "kensa list widgets (unknown subject)"   2 stderr-nonempty bin/kensa list widgets
+assert_exit "kensa list frameworks --help"           0 stdout-nonempty bin/kensa list frameworks --help
+assert_exit "kensa list frameworks (no --rules-dir)" 2 stderr-nonempty bin/kensa list frameworks
+assert_exit "kensa list frameworks bad --format"     2 stderr-nonempty bin/kensa list frameworks --rules-dir /home/rracine/hanalyx/kensa/rules --format yaml
+assert_exit "kensa list frameworks happy path"       0 stdout-nonempty bin/kensa list frameworks --rules-dir /home/rracine/hanalyx/kensa/rules
+echo
+
 # ─── kensa coverage --framework (C-045) ───────────────────────────────────
 echo "kensa coverage --framework (C-045 framework coverage report):"
 # --framework on coverage routes to the new path.

@@ -17,6 +17,7 @@
 //	mechanisms  List registered handler mechanisms.
 //	coverage    Alias for `mechanisms` today; v0.2 will repurpose this name
 //	            for framework control coverage. Migrate to `mechanisms` now.
+//	list        Introspection commands (`kensa list frameworks`).
 //	version     Print version information.
 //
 // Global flags:
@@ -218,6 +219,11 @@ func runCLI(argv []string) int {
 				"framework control coverage")
 			err = runMechanisms("coverage", args)
 		}
+	case "list":
+		// C-046: introspection namespace. Today only `list
+		// frameworks` is wired; future C-047/C-049 may add
+		// more subjects.
+		err = runList(ctx, args)
 	case "migrate":
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
@@ -459,6 +465,7 @@ Commands:
   mechanisms  List registered handler mechanisms
   coverage    Alias for 'mechanisms' today; in v0.2 reports framework
               control coverage instead — migrate scripts to 'mechanisms'
+  list        Introspection commands ('kensa list frameworks', etc.)
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
 
