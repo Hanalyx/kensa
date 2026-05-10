@@ -1,0 +1,158 @@
+spec:
+    id: cli-store-flag
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-store-flag
+        description: |
+            CLI Phase 4 deliverable C-041. Adds the
+            `--store` boolean flag to `kensa check`. When set,
+            the scan persists as one session+transactions
+            record in the SQLite store; default off matches
+            the historical behavior of check being read-only.
+
+            Pre-Phase-4 only `kensa remediate` wrote to the
+            store (via the engine's commit path). With C-039's
+            session schema in place, `kensa check --store`
+            gives operators an audit trail for read-only
+            scans — useful for compliance evidence collection
+            without applying changes, and for `kensa diff` to
+            compare drift between two check runs.
+
+            Implementation note: the scan layer
+            (internal/scan) doesn't construct evidence
+            envelopes for check-mode transactions (envelopes
+            are the engine's job during remediate's commit
+            phase). For check-only persistence we synthesize
+            minimal envelopes in cmd/kensa/scan_persist.go
+            from the rule + host context: rule_id, host_id,
+            severity, framework_refs from the rule's
+            references block. Signature is empty per the
+            existing noopSigner placeholder (M7 task #12 is
+            the gap that covers remediate too).
+
+            Best-effort writes: a per-transaction
+            PersistResult failure logs to stderr and continues
+            so a single bad row doesn't drop the rest of the
+            session record. Session create + finish failures
+            propagate (these are bookkeeping; if the session
+            row itself can't write, the operator should see
+            the error).
+
+    objective:
+        summary: |
+            Add `--store` to `kensa check`. Wire dbPath
+            through runCheck. On set, open the store, create
+            a session, persist each scan TransactionResult
+            with a synthesized envelope, attach to the
+            session, finish.
+        scope:
+            includes:
+                - "--store boolean flag on `kensa check` (default false)"
+                - "cmd/kensa/scan_persist.go: persistScanResult helper + summarizeCheckArgs"
+                - "Synthesized envelopes per check transaction (no engine path)"
+                - "Best-effort per-transaction writes; required session create/finish"
+                - "dbPath threaded into runCheck via dispatcher"
+            excludes:
+                - "Inventory mode wiring: out of scope this iteration; the per-host fan-out goroutine doesn't yet write to the store. Future C-04N will extend persistence to inventory."
+                - "Pre-state persistence for check: check has no pre-state by definition (no Apply phase); only the result + steps are persisted."
+                - "Signed envelopes: noopSigner remains; C-041 inherits the same M7 task #12 gap as remediate."
+
+    constraints:
+        - id: C-01
+          description: |
+              `--store` MUST default to false. Pre-C-041
+              callers running `kensa check` continue to get
+              read-only behavior with no store writes.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              When `--store` is set, the scan MUST produce
+              one session row whose denormalized counts
+              (txn_total / committed / rolled / failed)
+              match the per-rule outcome.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Per-transaction PersistResult failures MUST
+              log to stderr and continue. A single bad row
+              must not drop the rest of the session record.
+              Session create/finish failures MUST propagate
+              (they're load-bearing for the audit-trail
+              guarantee).
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Synthesized envelopes MUST carry rule_id,
+              host_id, severity, framework_refs, and the
+              transaction's status as Decision. Empty
+              signature is OK per the noopSigner placeholder.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              ArgsSummary MUST capture the filter inputs
+              (severity / tag / category / framework /
+              control count) so `kensa history` rendering
+              and `kensa diff` baseline comparison can show
+              the operator what filters were active for a
+              past run. Empty when no filters are set.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              persistScanResult creates a session whose
+              counts match the persisted transactions.
+              Locked by TestPersistScanResult_Basic.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              persistScanResult on an empty ScanResult
+              creates a session with zero counts (no error).
+              Locked by TestPersistScanResult_EmptyResult.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              persistScanResult with a nil session errors.
+              Locked by TestPersistScanResult_NilSession.
+          references_constraints: [C-03]
+          priority: medium
+        - id: AC-04
+          description: |
+              summarizeCheckArgs produces a non-empty summary
+              when filters are set; empty when none. Locked
+              by TestSummarizeCheckArgs.
+          references_constraints: [C-05]
+          priority: medium
+        - id: AC-05
+          description: |
+              `--store` is advertised on `kensa check --help`
+              and defaults to false. Verified by code
+              inspection at the flag registration site;
+              cli-smoke (C-050 close) will lock the help
+              advertisement.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-06
+          description: |
+              Live verification: `kensa --db /tmp/test.db
+              check -H 192.168.1.211 -s critical -s high
+              --store --rules-dir CORPUS` writes a session
+              row with the operator-visible filter summary
+              and N attached transactions. `kensa history -n
+              N` reads them back. Verified during the C-041
+              merge workflow.
+          references_constraints: [C-02, C-04, C-05]
+          priority: high
+
+    tags: [cli, store, sessions, phase-4, c-041]

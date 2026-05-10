@@ -47,6 +47,7 @@ import (
 	"github.com/Hanalyx/kensa-go/internal/output"
 	"github.com/Hanalyx/kensa-go/internal/rule"
 	"github.com/Hanalyx/kensa-go/internal/scan"
+	"github.com/Hanalyx/kensa-go/internal/store"
 	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
 	"github.com/Hanalyx/kensa-go/internal/varsub"
 	"github.com/Hanalyx/kensa-go/pkg/kensa"
@@ -166,7 +167,7 @@ func runCLI(argv []string) int {
 	case "detect":
 		err = runDetect(ctx, args)
 	case "check":
-		err = runCheck(ctx, args)
+		err = runCheck(ctx, dbPath, args)
 	case "remediate":
 		err = runRemediate(ctx, dbPath, args)
 	case "rollback":
@@ -560,7 +561,7 @@ Examples:
 // Single-dash long forms (`-host`, `-rules-dir`, etc.) from the stdlib-
 // flag era continue to parse via rewriteLegacyLongForm with a deprecation
 // warning. Removed in v0.2.
-func runCheck(ctx context.Context, args []string) error {
+func runCheck(ctx context.Context, dbPath string, args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"host": true, "user": true, "port": true, "key": true,
 		"sudo": true, "format": true, "rules-dir": true, "inventory": true,
@@ -595,6 +596,7 @@ func runCheck(ctx context.Context, args []string) error {
 		ruleFiles    []string
 		varOverrides []string
 		configDir    string
+		storeFlag    bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required if no --inventory)")
@@ -612,6 +614,7 @@ func runCheck(ctx context.Context, args []string) error {
 	registerRuleFileFlag(fs, &ruleFiles)
 	registerVarFlag(fs, &varOverrides)
 	registerConfigDirFlag(fs, &configDir)
+	fs.BoolVar(&storeFlag, "store", false, "persist the scan as a session+transactions record in the SQLite store (default off; check is read-only by default)")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -800,6 +803,17 @@ func runCheck(ctx context.Context, args []string) error {
 			printCheckUsage(os.Stderr, fs)
 			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
 		}
+		// C-041: --store wires session+transactions persistence
+		// in the single-host path only. The inventory fan-out
+		// goroutine doesn't yet write to the store; silent
+		// acceptance would create a session with zero attached
+		// transactions on inventory runs. Surface the limit as
+		// a usage error until a future deliverable wires the
+		// per-host write path.
+		if storeFlag {
+			printCheckUsage(os.Stderr, fs)
+			return NewUsageError("--store with --inventory not yet supported; pending follow-up to wire per-host store writes in inventory fan-out")
+		}
 		// Phase 3.7: pass the load+filter spec + per-host tier
 		// inputs into the inventory fan-out so each goroutine
 		// can re-load the corpus with that host's full 5-tier
@@ -863,11 +877,35 @@ func runCheck(ctx context.Context, args []string) error {
 	resolved := resolveAndPrintIssues(rules, quiet)
 
 	runner := scan.New(nil)
+	startedAt := time.Now().UTC()
 	result, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
 	if err != nil {
 		return err
 	}
 	result.HostID = host
+
+	// C-041: persist the scan as a session+transactions record
+	// when --store is set. Best-effort — a store failure logs
+	// to stderr but does not fail the scan (operator already has
+	// the result on stdout / output sinks).
+	if storeFlag {
+		s, err := store.OpenSQLite(ctx, dbPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warn: --store: open store: %v\n", err)
+		} else {
+			sess := &store.Session{
+				ID:          uuid.New(),
+				StartedAt:   startedAt,
+				Hostname:    host,
+				Subcommand:  "check",
+				ArgsSummary: summarizeCheckArgs(severities, tags, category, framework, controlFilters),
+			}
+			if _, err := persistScanResult(ctx, s, host, resolved.Order, result, sess); err != nil {
+				fmt.Fprintf(os.Stderr, "warn: --store: persist scan: %v\n", err)
+			}
+			_ = s.Close()
+		}
+	}
 
 	if len(outputs) > 0 {
 		specs, err := output.ParseAll(outputs)
