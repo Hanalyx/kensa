@@ -415,7 +415,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039
 - **Acceptance:** Closes the partial-implementation gap from Phase 1..3. `--list` shows rollback-able sessions; `--info ID` shows session detail; `--start ID` triggers rollback (replaces today's `--txn UUID`); `--detail` adds per-step breakdown to list output.
 - **Size:** ~5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `c99ca33`). Refactored `runRollback` from imperative single-txn flow into a 4-mode dispatcher (--list/--info/--start/--txn legacy + --detail modifier). Store gained `RollbackableSessions` (filtered) + `CommittedTxnIDs` + `TxnRef`. **CRITICAL P1 caught by peer review**: original draft surfaced `kensa check --store` sessions as rollback-able, but those have no captured pre-state — `svc.Rollback` would silently report `succeeded: 10/10` while doing nothing (engine's `!Capturable → continue` skips every step and returns Success=true). Fixed with two-layer defense: SQL filter `subcommand IN ('remediate')` excludes check sessions from --list; runner-level guard rejects direct `--start <check-id>` with clean error. Also fixed empty-hostname bypass (legacy backfill sessions can't safely target a --host). Spec: `specs/cli/rollback-session-aware.spec.yaml` (8 constraints, 14 ACs). 17 CLI tests including the safety-filter regression coverage. cli-smoke 158→165. Live-verified end-to-end: check-only DB correctly shows "(no rollback-able sessions)"; direct --start against check session rejected; --info on remediate session shows expected per-txn detail.
 
 #### C-050 — Phase 4 close: help grouping + smoke + spec corpus
 - **Phase:** CLI Phase 4
