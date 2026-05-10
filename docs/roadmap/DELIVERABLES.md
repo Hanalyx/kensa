@@ -467,7 +467,7 @@ Founder-ratified 2026-05-10 with five scope decisions:
 - **Deps:** —
 - **Acceptance:** `docs/man/kensa.1.header.roff` and `docs/man/kensa.1.footer.roff` hand-written (NAME / SYNOPSIS / DESCRIPTION / ENVIRONMENT / FILES / EXIT CODES / SEE ALSO / AUTHORS sections). `docs/man/gen-manpage.go` walks every subcommand, captures `--help`, transforms to `.SS` subsections. `make manpage` produces `dist/kensa.1`. CI step regenerates and asserts no drift. Single file ships at `/usr/share/man/man1/kensa.1` (per package).
 - **Size:** ~5h
-- **Status:** pending
+- **Status:** done (merged 2026-05-10, `4d9969f`). Hybrid hand-written wrapper (header + footer) + generator. Generator subprocesses `bin/kensa <cmd> --help` so the manpage's flag text stays byte-identical to operator-facing help. Source-of-truth committed at `docs/man/kensa.1` (not `dist/kensa.1` — `/dist/` is gitignored; dist/ becomes a transient build artifact that distro packagers copy from). `make manpage-check` is the drift gate (regenerates to tmp + diffs; fails on drift). `coverage` deprecated alias deliberately excluded from the generator (would duplicate `mechanisms` content). Spec: `specs/cli/manpage.spec.yaml` (6 constraints, 8 ACs). 3 generator unit tests + 25 cli-smoke structural assertions. cli-smoke 189→214. Live-verified: `man -l docs/man/kensa.1` renders cleanly with no roff syntax errors.
 
 #### C-056 — Phase 5a close
 - **Phase:** CLI Phase 5a
