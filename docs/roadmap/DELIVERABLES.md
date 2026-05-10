@@ -360,7 +360,7 @@ Python (5 cases) are the canonical kensa-go design and not migrations.
 - **Deps:** C-039
 - **Acceptance:** `kensa check --store` writes the scan as a session+transactions record. Default off (matches current behavior — check is read-only, store is opt-in).
 - **Size:** ~2h
-- **Status:** pending
+- **Status:** done (merged 2026-05-09, `aea016f`). persistScanResult helper synthesizes envelopes for check transactions (the scan layer doesn't construct envelopes; engine path does that for remediate). Single-host wiring done; inventory mode rejected with a usage error pending future per-host fan-out write path. Spec: `specs/cli/store-flag.spec.yaml` (5 constraints, 6 ACs). 4 unit tests. Live-verified 70 transactions persisted readable via `kensa history -n 3`. Inherited M1 issue (transactional column hardcoded true in PersistResult) flagged as separate cleanup.
 
 #### C-042 — `kensa history --stats`
 - **Phase:** CLI Phase 4
