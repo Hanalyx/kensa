@@ -21,6 +21,7 @@ package kensa
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/google/uuid"
 
@@ -62,9 +63,21 @@ func (s *Service) Close() error {
 // factory from internal/transport/ssh.
 //
 // All four [api.Config] backing fields — Engine, TransportFactory,
-// Log, Verifier — are populated. The evidence signer is generated
-// fresh on each call; production deployments should load a persisted
-// key via [evidence.New] and wire it in via a custom [api.Config].
+// Log, Verifier — are populated.
+//
+// Signing-key resolution (C-060):
+//   - If KENSA_SIGNING_KEY env var is set, load the key at that
+//     path via [evidence.LoadSigner]. The path points at a
+//     PEM-encoded PKCS#8 Ed25519 .priv file, typically produced
+//     by kensa-keygen.
+//   - Otherwise, generate a fresh ephemeral keypair via
+//     [evidence.Generate]. Useful for one-shot CLI runs and
+//     tests; signatures from one run cannot be verified by
+//     another because the private key isn't persisted.
+//
+// Production deployments wanting cross-invocation verifiability
+// MUST set KENSA_SIGNING_KEY to a persistent kensa-keygen-
+// produced .priv file.
 //
 // An empty storePath defaults to ".kensa/results.db" in the current
 // working directory.
@@ -76,10 +89,19 @@ func Default(ctx context.Context, storePath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("kensa: open store: %w", err)
 	}
-	signer, err := evidence.Generate()
-	if err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("kensa: generate signing key: %w", err)
+	var signer *evidence.Signer
+	if keyPath := os.Getenv("KENSA_SIGNING_KEY"); keyPath != "" {
+		signer, err = evidence.LoadSigner(keyPath)
+		if err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("kensa: KENSA_SIGNING_KEY=%s: %w", keyPath, err)
+		}
+	} else {
+		signer, err = evidence.Generate()
+		if err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("kensa: generate signing key: %w", err)
+		}
 	}
 	bus := engine.NewInMemoryEventBus()
 	eng := engine.New(

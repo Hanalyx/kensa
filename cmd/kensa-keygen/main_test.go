@@ -91,7 +91,11 @@ func TestRun_HappyPath_DefaultKeyID(t *testing.T) {
 }
 
 // TestRun_ExplicitKeyID locks --key-id NAME so an operator can
-// pick a human-readable name like "production".
+// pick a human-readable name like "production". When --key-id
+// differs from the content-addressed SHA-256 hash, kensa-keygen
+// also writes a `<sha256>.pub` alias so `kensa verify` (which
+// looks up keys by signing_key_id per spec C-02) can find the
+// public key without a --trust-dir gymnastic.
 func TestRun_ExplicitKeyID(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer
@@ -105,8 +109,64 @@ func TestRun_ExplicitKeyID(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "production.priv")); err != nil {
 		t.Errorf("production.priv missing: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "production.pub")); err != nil {
+	humanPubPath := filepath.Join(dir, "production.pub")
+	if _, err := os.Stat(humanPubPath); err != nil {
 		t.Errorf("production.pub missing: %v", err)
+	}
+
+	// Hash-named alias must exist with identical PEM bytes so
+	// `kensa verify` (signing_key_id-based lookup) works.
+	humanPEM, err := os.ReadFile(humanPubPath)
+	if err != nil {
+		t.Fatalf("read production.pub: %v", err)
+	}
+	block, _ := pem.Decode(humanPEM)
+	if block == nil {
+		t.Fatal("production.pub is not PEM-encoded")
+	}
+	pkix, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("ParsePKIXPublicKey: %v", err)
+	}
+	pub, ok := pkix.(ed25519.PublicKey)
+	if !ok {
+		t.Fatalf("not an Ed25519 public key: %T", pkix)
+	}
+	hash := sha256.Sum256(pub)
+	hashID := hex.EncodeToString(hash[:])
+	aliasPath := filepath.Join(dir, hashID+".pub")
+	aliasPEM, err := os.ReadFile(aliasPath)
+	if err != nil {
+		t.Errorf("hash-named alias %s missing: %v", aliasPath, err)
+	}
+	if !bytes.Equal(humanPEM, aliasPEM) {
+		t.Errorf("alias .pub PEM differs from human .pub PEM (alias must be byte-identical for verify lookups)")
+	}
+}
+
+// TestRun_DefaultKeyID_NoAlias locks the negative case: when no
+// --key-id is passed, the file is already named by SHA-256 hash,
+// so a separate alias would be a duplicate. Verify only ONE .pub
+// gets written.
+func TestRun_DefaultKeyID_NoAlias(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	exit := run([]string{"--out", dir}, &stdout, &stderr)
+	if exit != 0 {
+		t.Fatalf("run = %d, want 0; stderr=%s", exit, stderr.String())
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubCount := 0
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".pub") {
+			pubCount++
+		}
+	}
+	if pubCount != 1 {
+		t.Errorf("default --key-id: want exactly 1 .pub file (no alias needed); got %d", pubCount)
 	}
 }
 

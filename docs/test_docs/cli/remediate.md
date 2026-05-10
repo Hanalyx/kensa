@@ -87,7 +87,7 @@ KENSA_TEST_SSH_HOST=<throwaway> KENSA_TEST_SSH_USER=root \
 ## Known limits
 
 - **Single-host only.** No `--inventory` / `--limit` / `--workers`. A 100-host fleet remediation requires shell loop. Phase 4's session model is the planned path.
-- **Evidence envelopes are unsigned.** The `noopSigner` placeholder in `internal/engine/stubs.go` ships empty signatures until M7 task #12 (Ed25519 signer) lands. See [`../security.md`](../security.md).
+- **Evidence envelopes are signed (M-012 + C-060, 2026-05-10).** Engine default is a real Ed25519 signer. Persist operator keys via `KENSA_SIGNING_KEY=/path/to/key.priv` (produced by `kensa-keygen`); verify via `kensa verify <evidence-file>` against a trust dir of `.pub` files. See [`../security.md`](../security.md).
 - **`command_exec` mechanism requires runtime opt-in.** AC-07 of `engine-transaction.spec.yaml` enforces this — non-capturable command execution requires the rule's transactional field to be explicitly false. Bypass attempts surface as engine-level errors.
 - **`grub_parameter_set` lacks deadman guard.** A misconfigured GRUB parameter could brick the host's next boot. Documented in CLAUDE.md "Open items before M7 ships." Operators must verify GRUB output before reboot — kensa-fuzz can't catch this since it's only testable on a throwaway physical host.
 - **10 handlers have no integration tests** (per CLAUDE.md): authselectfeatureenable, commandexec, configappend, cryptopolicyset, cryptopolicysubpolicy, dconfset, grubparameterremove, grubparameterset, manual, pammodulearg. They're shipped as `transactional: false` non-capturable stubs; rolling back from one of these is out of contract.

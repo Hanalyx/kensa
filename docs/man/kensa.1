@@ -451,6 +451,53 @@ Flags:
       \-\-stdio   read framed messages from stdin, write responses to stdout (planned for v1.1)
 .fi
 .PP
+.SS VERIFY
+.nf
+Usage: kensa verify <evidence\-file> [flags]
+
+Verify the Ed25519 signature on a kensa evidence\-envelope JSON
+file. Looks up the public key by the envelope's signing_key_id
+field in a trust directory (a directory of .pub files produced
+by kensa\-keygen).
+
+Trust directory default (in priority order):
+  $KENSA_CONFIG_DIR/keys/
+  $XDG_CONFIG_HOME/kensa/keys/
+  $HOME/.config/kensa/keys/
+
+Override with \-\-trust\-dir DIR.
+
+Exit codes:
+  0  signature is valid (envelope is authentic)
+  1  signature is INVALID (tampered, wrong key, missing key)
+  2  usage error (missing file, bad flag, malformed JSON)
+
+Flags:
+  \-h, \-\-help               show this help and exit
+      \-\-trust\-dir string   directory of .pub files to look up signing_key_id (default matches kensa\-keygen's output dir)
+      \-\-format string      output format: text or json (default "text")
+  \-q, \-\-quiet              suppress default output (errors still go to stderr)
+
+Examples:
+  kensa verify evidence.json
+  kensa verify evidence.json \-\-trust\-dir /etc/kensa/keys
+  kensa verify evidence.json \-\-format json | jq \-r .valid
+
+CRITICAL FAILURE MODES (exit 1, not 2):
+  \- Signature mismatch: envelope was tampered after signing
+  \- Unknown key: signing_key_id has no .pub in the trust dir
+  \- Wrong key: signature doesn't match the .pub file we found
+  \- Schema\-version unknown: envelope is from a future kensa version
+
+VALIDATION SUCCESS WARNINGS (still exit 0):
+  \- signed_by_rotated_key: matched against a non\-active key in
+    the rotation history (envelope is authentic but signed by
+    a key that's been rotated out)
+  \- signing_key_id_mismatch: the matched key's id disagrees
+    with the envelope's signing_key_id field (the signature is
+    real but the metadata is inconsistent — investigate)
+.fi
+.PP
 .SS MIGRATE
 .nf
 Usage: kensa migrate [flags]
@@ -617,10 +664,6 @@ Report bugs at
 .UE .
 .PP
 Known issues:
-.IP \(bu 2
-.B noopSigner
-placeholder: evidence envelopes in v1.0 carry empty signature bytes.
-The Ed25519 signer ships in v1.1 (Track L Phase 1 / M7 task #12).
 .IP \(bu 2
 The
 .B agent

@@ -1,0 +1,245 @@
+spec:
+    id: cli-verify-subcommand
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: cli-verify-subcommand
+        description: |
+            CLI Phase 5b deliverable C-060. Wires M-012's
+            Ed25519 signer through the engine + adds the
+            operator-facing `kensa verify <evidence-file>`
+            subcommand so auditors can validate signed
+            evidence envelopes from disk.
+
+            **Scope split with M-012.** M-012 shipped the
+            cryptographic primitive (Ed25519Signer +
+            kensa-keygen). Today pkg/kensa.Default() already
+            calls evidence.Generate() to wire a fresh signer
+            per invocation; production CLI runs already
+            produce real signatures. C-060 adds:
+
+            1. KENSA_SIGNING_KEY env var support on
+               pkg/kensa.Default() — operators load a
+               persistent key (kensa-keygen-produced .priv
+               file) so signatures survive across kensa
+               invocations.
+
+            2. `internal/evidence/LoadSigner(path)` +
+               `LoadVerifier(path)` helpers — read PEM-
+               encoded PKCS#8 / PKIX files, return *Signer
+               configured for sign or verify.
+
+            3. `kensa verify <evidence-file>` subcommand
+               — reads the envelope JSON from disk, looks
+               up the public key by the envelope's
+               signing_key_id against a trust directory
+               (default $XDG_CONFIG_HOME/kensa/keys/),
+               runs Ed25519 verification, exits 0 valid /
+               1 invalid / 2 usage.
+
+            4. Delete `noopSigner` from
+               internal/engine/stubs.go. Change
+               engine.New() default from `noopSigner{}` to
+               `evidence.Generate()` so test paths get a
+               real (ephemeral) signer rather than an
+               empty-signature placeholder.
+
+            5. Documentation updates:
+               docs/test_docs/security.md Critical Limit
+               #1 ("Evidence envelopes are unsigned")
+               removed. docs/KENSA_API_DOC.md
+               noopSigner placeholder notes scrubbed.
+               cmd/kensa/scan_persist.go comment about
+               noopSigner updated.
+
+            **Trust-directory model.** The verifier
+            looks up public keys by key_id (the
+            envelope's signing_key_id field — but cross-
+            checked at verify time against the actual
+            matched key, per M-012's KeyIDMismatch
+            warning logic). Default trust dir matches
+            kensa-keygen's default output dir, so
+            "generate a key, sign envelopes, hand the
+            evidence file to an auditor with the .pub"
+            workflow just works without configuration.
+
+            Override: `--trust-dir DIR` for explicit
+            paths.
+
+    objective:
+        summary: |
+            Add internal/evidence/load.go (LoadSigner +
+            LoadVerifier). Add cmd/kensa/verify.go
+            (runVerify subcommand). Wire KENSA_SIGNING_KEY
+            on pkg/kensa.Default(). Delete noopSigner.
+            Update docs. cli-smoke + Go tests.
+        scope:
+            includes:
+                - "internal/evidence/load.go: LoadSigner(path) + LoadVerifier(path)"
+                - "cmd/kensa/verify.go: runVerify + printVerifyUsage"
+                - "case 'verify' in cmd/kensa/main.go dispatch + printUsage entry"
+                - "pkg/kensa.Default() reads KENSA_SIGNING_KEY env var"
+                - "Delete noopSigner from internal/engine/stubs.go"
+                - "Change engine.New() default signer to evidence.Generate()"
+                - "Documentation updates: security.md Critical Limit #1, KENSA_API_DOC.md, scan_persist.go comments"
+                - "CHANGELOG entry under v1.1 Unreleased / Added"
+            excludes:
+                - "Multi-key trust dir (rotation history): default loader handles a SINGLE active key per .pub file. Multi-key support (key_history) is a v1.2 deliverable."
+                - "Hardware-token signing (HSM, YubiKey): out of scope; private key lives on disk."
+                - "Evidence envelope signing for `kensa check --store`: scan_persist persists envelopes already; with engine default flipped, those envelopes carry real signatures automatically — no new wiring."
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa verify <evidence-file>` MUST exit 0
+              when the envelope's signature validates
+              against a key in the trust directory; exit
+              1 when it doesn't validate (signature
+              mismatch, unknown key, tampered envelope);
+              exit 2 on usage error (missing file, bad
+              flag, wrong arg count).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The verifier MUST resolve the public key
+              by the envelope's signing_key_id field
+              (looking for `<signing_key_id>.pub` in the
+              trust directory). Falling back to "try
+              every .pub in the trust dir" is rejected:
+              it's slow on large trust dirs and masks
+              key-id-mismatch tampering signals.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Trust-directory default MUST match
+              kensa-keygen's default output dir
+              (KENSA_CONFIG_DIR/keys → XDG_CONFIG_HOME/
+              kensa/keys → HOME/.config/kensa/keys).
+              Operators following the keygen happy path
+              shouldn't need --trust-dir.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `noopSigner` MUST be deleted from
+              `internal/engine/stubs.go`. The engine.New()
+              default MUST be a real Ed25519 signer (via
+              evidence.Generate()) so test paths produce
+              real signatures, not empty-bytes
+              placeholders. Tests that need to verify
+              specific signatures already construct their
+              own keypairs.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `KENSA_SIGNING_KEY` env var, when set on
+              pkg/kensa.Default(), MUST load the
+              specified .priv file and use that signer.
+              Unset → fall back to evidence.Generate()
+              (ephemeral, current behavior). This lets
+              operators produce signatures verifiable
+              across kensa invocations without breaking
+              backward compat.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              docs/test_docs/security.md Critical Limit
+              #1 ("Evidence envelopes are unsigned")
+              MUST be removed. docs/KENSA_API_DOC.md
+              noopSigner placeholder notes scrubbed.
+              These docs were a v1.0 disclaimer that no
+              longer holds with the signer wired through.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              Verify output (text format) MUST surface
+              KeyRotation and KeyIDMismatch warnings
+              when the matched key isn't the active key
+              or when envelope.signing_key_id disagrees
+              with the matched key's id. Auditors need
+              to see these signals — silently passing
+              would mask rotation history complications.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa verify <file>` with a valid
+              envelope + matching .pub in trust dir
+              exits 0; text output surfaces the
+              VALID status and any KeyRotation /
+              KeyIDMismatch warnings the verifier
+              produced. Trust dir defaults match
+              kensa-keygen's output dir per spec
+              C-03 (--trust-dir override available).
+              Locked by TestRunVerify_Valid.
+          references_constraints: [C-01, C-02, C-03, C-07]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa verify <file>` with a tampered
+              envelope exits 1. Locked by
+              TestRunVerify_Tampered.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              `kensa verify <file>` where the trust dir
+              has no matching .pub for the envelope's
+              signing_key_id exits 1. Locked by
+              TestRunVerify_MissingKey.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              Bad invocation (no file, missing file,
+              malformed JSON, bad flag) exits 2.
+              Locked by TestRunVerify_UsageErrors.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              `noopSigner` is deleted from the codebase.
+              `engine.New()` default produces real
+              Ed25519 signatures. Locked by
+              TestEngine_DefaultSignerIsReal.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              `KENSA_SIGNING_KEY=/path/to/key.priv kensa
+              check --store ...` produces envelopes
+              signed with the key at /path/to/key.priv.
+              Locked by TestKensaDefault_LoadsSigningKey.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: |
+              Live verification: kensa-keygen produces
+              key.priv + key.pub; kensa check --store
+              with KENSA_SIGNING_KEY=key.priv writes a
+              signed envelope to the store; kensa
+              verify <envelope-file> against trust dir
+              with key.pub exits 0. End-to-end pipeline
+              works.
+          references_constraints: [C-01, C-02, C-05]
+          priority: critical
+        - id: AC-08
+          description: |
+              docs/test_docs/security.md Critical Limit
+              #1 absent post-merge; KENSA_API_DOC.md
+              noopSigner placeholder notes absent.
+              Verified during the C-060 merge workflow.
+          references_constraints: [C-06]
+          priority: medium
+
+    tags: [cli, verify, signing, evidence, phase-5b, c-060]

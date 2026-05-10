@@ -463,3 +463,40 @@ func (b *blockingHandler) Capture(_ context.Context, _ api.Transport, _ api.Para
 func (b *blockingHandler) Rollback(_ context.Context, _ api.Transport, _ *api.PreState) (*api.RollbackResult, error) {
 	return &api.RollbackResult{Success: true}, nil
 }
+
+// TestEngine_DefaultSignerIsReal locks C-060 AC-05: with noopSigner
+// deleted, engine.New() default MUST produce real Ed25519 signatures
+// (64 bytes), not the empty-bytes placeholder that shipped during
+// M1..M6. A regression here would silently re-introduce unsigned
+// audit records.
+//
+// @spec cli-verify-subcommand
+// @ac AC-05
+func TestEngine_DefaultSignerIsReal(t *testing.T) {
+	h := &engine.FakeHandler{HandlerName: "fake_realsig", IsCapturable: true}
+	e := newTestEngine(t, h)
+	res, err := e.Run(context.Background(), engine.NewFakeTransport(), basicTxn("fake_realsig"), false)
+	if err != nil {
+		t.Fatalf("Run err: %v", err)
+	}
+	if res.Envelope == nil {
+		t.Fatal("expected non-nil Envelope on committed transaction")
+	}
+	// Ed25519 signatures are exactly 64 bytes (RFC 8032 §5.1.6).
+	// noopSigner produced []byte{} (length 0) — this assertion is
+	// the cheapest possible regression guard.
+	if got := len(res.Envelope.Signature); got != 64 {
+		t.Errorf("Signature length = %d, want 64 (Ed25519); engine default has regressed to a placeholder signer", got)
+	}
+	// SigningKeyID is lower-hex SHA-256 of the public key — 64
+	// characters, [a-f0-9]+. noopSigner produced "".
+	if id := res.Envelope.SigningKeyID; len(id) != 64 {
+		t.Errorf("SigningKeyID length = %d, want 64 (lower-hex SHA-256)", len(id))
+	}
+	for _, c := range res.Envelope.SigningKeyID {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			t.Errorf("SigningKeyID has non-lowercase-hex char %q: %q", c, res.Envelope.SigningKeyID)
+			break
+		}
+	}
+}

@@ -124,8 +124,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	hashKeyID := computeKeyID(pub)
 	if keyID == "" {
-		keyID = computeKeyID(pub)
+		keyID = hashKeyID
 	}
 
 	if err := os.MkdirAll(outDir, defaultDirMode); err != nil {
@@ -135,9 +136,27 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	privPath := filepath.Join(outDir, keyID+".priv")
 	pubPath := filepath.Join(outDir, keyID+".pub")
+	// Hash-named alias .pub written WHENEVER --key-id picks a
+	// non-default human name. `kensa verify` looks up keys by
+	// `<signing_key_id>.pub` per spec cli-verify-subcommand C-02 —
+	// without this alias, an operator who runs
+	// `kensa-keygen --key-id audit-prod` produces signed envelopes
+	// that the verify subcommand can't locate by content-addressed
+	// id. The alias is a SECOND .pub file (not a symlink — symlinks
+	// don't survive tarballs cleanly across hosts) with the same
+	// PEM bytes; both filenames coexist so operators get both human
+	// readability AND machine lookup.
+	aliasPubPath := ""
+	if keyID != hashKeyID {
+		aliasPubPath = filepath.Join(outDir, hashKeyID+".pub")
+	}
 
 	if !force {
-		for _, p := range []string{privPath, pubPath} {
+		collisionPaths := []string{privPath, pubPath}
+		if aliasPubPath != "" {
+			collisionPaths = append(collisionPaths, aliasPubPath)
+		}
+		for _, p := range collisionPaths {
 			if _, err := os.Stat(p); err == nil {
 				fmt.Fprintf(stderr,
 					"kensa-keygen: refusing to overwrite existing file %s (pass --force to overwrite, or pick a different --key-id)\n",
@@ -157,17 +176,26 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// NOT archived (the operator's choice to overwrite is
 		// deliberate; preserving the old private key on disk just
 		// expands the secret-leak surface).
-		if _, err := os.Stat(pubPath); err == nil {
-			tsName := fmt.Sprintf("%s.archived.%d", pubPath, nowUnix())
-			if err := os.Rename(pubPath, tsName); err != nil {
+		archiveExisting := func(path string) bool {
+			if _, err := os.Stat(path); err == nil {
+				tsName := fmt.Sprintf("%s.archived.%d", path, nowUnix())
+				if err := os.Rename(path, tsName); err != nil {
+					fmt.Fprintf(stderr,
+						"kensa-keygen: --force: failed to archive prior %s to %s: %v\n",
+						path, tsName, err)
+					return false
+				}
 				fmt.Fprintf(stderr,
-					"kensa-keygen: --force: failed to archive prior %s to %s: %v\n",
-					pubPath, tsName, err)
-				return 1
+					"kensa-keygen: --force: archived prior public key to %s (auditors verifying past envelopes need this file)\n",
+					tsName)
 			}
-			fmt.Fprintf(stderr,
-				"kensa-keygen: --force: archived prior public key to %s (auditors verifying past envelopes need this file)\n",
-				tsName)
+			return true
+		}
+		if !archiveExisting(pubPath) {
+			return 1
+		}
+		if aliasPubPath != "" && !archiveExisting(aliasPubPath) {
+			return 1
 		}
 	}
 
@@ -193,10 +221,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "kensa-keygen: write %s: %v\n", pubPath, err)
 		return 1
 	}
+	if aliasPubPath != "" {
+		if err := writeFile(aliasPubPath, pubPEM, pubKeyMode); err != nil {
+			_ = os.Remove(privPath)
+			_ = os.Remove(pubPath)
+			fmt.Fprintf(stderr, "kensa-keygen: write %s: %v\n", aliasPubPath, err)
+			return 1
+		}
+	}
 
 	fmt.Fprintf(stdout, "%s\n", keyID)
 	fmt.Fprintf(stderr, "kensa-keygen: wrote %s (mode %o)\n", privPath, privKeyMode)
 	fmt.Fprintf(stderr, "kensa-keygen: wrote %s (mode %o)\n", pubPath, pubKeyMode)
+	if aliasPubPath != "" {
+		fmt.Fprintf(stderr, "kensa-keygen: wrote %s (mode %o, content-addressed alias for `kensa verify`)\n", aliasPubPath, pubKeyMode)
+	}
 	// SHA-256 fingerprint in the ssh-keygen-style format for
 	// operators who recognize that shape from years of OpenSSH
 	// muscle memory. base64 (not hex) so it's the SAME bytes

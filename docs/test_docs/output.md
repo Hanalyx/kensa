@@ -17,7 +17,7 @@ DONE for: `table`, `json`, `jsonl`, `csv`, `pdf`, `evidence`, `oscal`, `markdown
 | `jsonl` | `internal/output/jsonl` | both | One JSON object per line, suitable for streaming consumers |
 | `csv` | `internal/output/csv` | both | Per-rule columns: ID, severity, status, host, fix-line |
 | `pdf` | `internal/output/pdf` (maroto v2) | file-only | Operator-facing report; PDF-specific layout |
-| `evidence` | `internal/output/evidence` | both | Hanalyx evidence-envelope schema; signed (empty under `noopSigner`) |
+| `evidence` | `internal/output/evidence` | both | Hanalyx evidence-envelope schema; Ed25519-signed (M-012 + C-060, 2026-05-10) |
 | `oscal` | `internal/output/oscal` | both | OSCAL Assessment Results JSON v1.0.0 |
 | `markdown` | `internal/output/markdown` | both | Operator-facing report (similar shape to PDF) |
 
@@ -71,7 +71,7 @@ Operators upgrading existing scripts see one warning per run; CI consumers can s
 
 ## Known limits
 
-- **Evidence envelopes are unsigned.** The `noopSigner` placeholder in `internal/engine/stubs.go` ships empty signatures until M7 task #12 lands. Operators relying on signed envelopes for compliance audit must wait for the Ed25519 signer or use Python kensa (which has its own signing path).
+- **Evidence envelopes carry real Ed25519 signatures (M-012 + C-060, 2026-05-10).** `kensa verify <evidence-file>` validates against a trust dir of kensa-keygen-produced `.pub` files; persistent operator keys via `KENSA_SIGNING_KEY=/path/to/key.priv`.
 - **No streaming output for inventory.** Per-host results are collected then rendered. A 100-host fleet pays the latency penalty; the `-o csv:PATH` data-loss guard exists because of this.
 - **PDF format embeds maroto v2.** The PDF builder is a heavy dependency. Operators not needing PDF can build with `-tags=nopdf` (future build-tag, not yet wired) to drop the dependency. Today the binary always includes maroto.
 - **No `markdown:PATH` smoke check.** The markdown writer is exercised by unit tests but not the cli-smoke matrix; format-specific smoke gates are queued.

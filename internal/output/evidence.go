@@ -27,10 +27,12 @@ import (
 // that every byte range delimited by document boundaries is itself
 // a signed evidence unit.
 //
-// IMPORTANT: until M7 task #12 lands, the Signature field is empty
-// bytes (the noopSigner placeholder produces a zero-length
-// signature). The wire shape is final; the signature semantics
-// arrive with the Ed25519 signer rollout. Documented in the spec.
+// IMPORTANT: M7 task #12 (M-012) shipped 2026-05-10 with real
+// Ed25519 signatures. C-060 wired the signer through every
+// engine call site that writes EvidenceEnvelope.Signature.
+// Signatures are now 64-byte ed25519 over canonical bytes
+// per spec C-02. Operators verify via `kensa verify
+// <evidence-file>`.
 //
 // Wire-form vs signing-canonical-form: the indented JSON output is
 // optimized for human readability. It is NOT the canonical form

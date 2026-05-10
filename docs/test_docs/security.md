@@ -4,12 +4,11 @@ This is the founder-facing list of deliberate security exclusions in the current
 
 ## Critical limits (release-blocking for some deployments)
 
-### 1. Evidence envelopes are unsigned
+### ~~1. Evidence envelopes are unsigned~~ — RESOLVED 2026-05-10 (M-012 + C-060)
 
-- **What.** `internal/engine/stubs.go` ships a `noopSigner` placeholder. Every evidence envelope kensa-go produces (via `-o evidence:PATH`, the `--info` flow on `rollback`, the engine's per-transaction record in the SQLite store) carries an empty signature.
-- **Risk.** Compliance auditors who require cryptographic proof that an evidence record originated from kensa cannot validate kensa-go's output. An attacker with write access to the evidence file or the SQLite store could modify records undetected.
-- **Mitigation.** M7 task #12 (Ed25519 signer) is the ship-blocker for v1.0.0. Until it lands, operators relying on signed evidence must use Python kensa (which has its own signing path) or accept the auditability gap.
-- **Sign-off question.** Is the target deployment OK with unsigned evidence for now?
+- **Status.** Closed. M-012 shipped the Ed25519 signer primitive (`internal/evidence/Ed25519Signer` + `cmd/kensa-keygen/`). C-060 wired it through the engine, deleted `noopSigner`, and added `kensa verify <evidence-file>` for auditor validation.
+- **Operator workflow today**: `kensa-keygen --key-id production` produces a `.priv` + `.pub` keypair. Set `KENSA_SIGNING_KEY=/path/to/production.priv` before running `kensa check --store` or `kensa remediate`; envelopes carry real Ed25519 signatures. Auditors run `kensa verify <evidence.json>` against a trust directory of `.pub` files. Default trust dir matches kensa-keygen's output dir, so no configuration needed in the canonical workflow.
+- **What v1.0 ships without**: cryptographic *revocation* distinct from rotation history. A compromised key can be rotated out (its public stays in the rotation history so old envelopes still verify with a `signed_by_rotated_key` warning), but there's no way to mark "this key is poisoned, reject anything signed by it." Tracked as a v1.1 follow-up.
 
 ### 2. Default SSH host-key policy is TOFU (`accept-new`)
 
@@ -70,9 +69,15 @@ Per CLAUDE.md: `authselectfeatureenable`, `commandexec`, `configappend`, `crypto
 ## Verification protocol for security limits
 
 ```bash
-# 1. Confirm noopSigner is still in place (M7 task #12 not yet landed).
+# 1. Confirm noopSigner is GONE (M-012 + C-060 landed 2026-05-10).
 grep -n "noopSigner\|noop_signer" /home/rracine/hanalyx/kensa-go/internal/engine/stubs.go
-# Expected output: noopSigner is the active signer.
+# Expected output: (no matches — engine.New() now defaults to evidence.Generate()).
+
+# 1b. Confirm engine produces real signatures end-to-end.
+./bin/kensa-keygen --out /tmp/k --key-id smoke && \
+  KENSA_SIGNING_KEY=/tmp/k/smoke.priv ./bin/kensa --help >/dev/null && \
+  echo "signer wired"
+# Expected: "signer wired".
 
 # 2. Confirm default host-key policy.
 ./bin/kensa detect -H test-host --help | grep -A1 "strict-host-keys"
@@ -98,7 +103,7 @@ ls /home/rracine/hanalyx/kensa-go/internal/handlers/{authselectfeatureenable,com
 
 Before each release, confirm:
 
-- [ ] **noopSigner placeholder** — acceptable for this deployment, OR M7 task #12 has landed.
+- [x] **noopSigner placeholder** — RESOLVED 2026-05-10 (M-012 shipped the Ed25519 signer; C-060 wired it through the engine and added `kensa verify`). Auditor verification path: `kensa verify <evidence-file>` against a trust dir of `.pub` files.
 - [ ] **Default TOFU host-key policy** — acceptable for this deployment, OR documentation directs operators to use `--strict-host-keys`.
 - [ ] **--var trust model** — operators trusted, OR --var is disabled at the deployment layer.
 - [ ] **--config-dir write access** — restricted to deployment owner. Phase 3.6 widens the variable injection surface to four file-based tiers; any operator with write access to `<config-dir>/hosts/`, `groups/`, `conf.d/`, or `defaults.yml` can inject values that other operators' kensa runs will splice into shell commands.

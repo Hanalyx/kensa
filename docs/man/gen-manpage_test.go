@@ -50,7 +50,7 @@ func TestSubcommandList(t *testing.T) {
 	expected := []string{
 		"detect", "check", "remediate", "rollback", "history",
 		"plan", "mechanisms", "list", "info", "diff",
-		"agent", "migrate", "version",
+		"agent", "verify", "migrate", "version",
 	}
 	if len(subcommands) != len(expected) {
 		t.Fatalf("subcommand count: got %d want %d", len(subcommands), len(expected))

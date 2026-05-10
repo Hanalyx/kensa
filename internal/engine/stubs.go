@@ -50,24 +50,6 @@ func (s *inMemoryStore) LoadPreStates(_ context.Context, txnID uuid.UUID) ([]api
 	return s.pre[txnID], nil
 }
 
-// noopSigner is a [Signer] that records key ID but emits an empty
-// signature. Replaced by a real Ed25519 signer in Week 25 per
-// KENSA_GO_DAY1_PLAN.md §11.5. Until then envelope signatures verify
-// only structurally; the engine still produces fully-shaped envelopes.
-type noopSigner struct{}
-
-func (noopSigner) Sign(_ *api.EvidenceEnvelope) ([]byte, string, error) {
-	return []byte{}, "noop", nil
-}
-
-func (noopSigner) Verify(envelope *api.EvidenceEnvelope) (*api.VerifyResult, error) {
-	return &api.VerifyResult{
-		Valid:    envelope.SigningKeyID == "noop",
-		KeyID:    envelope.SigningKeyID,
-		SignedAt: envelope.FinishedAt,
-	}, nil
-}
-
 // noopDeadman is a [DeadmanArmer] that records arm/cancel calls without
 // scheduling anything on the host. Replaced by the at(1)/systemd-run
 // implementation in Week 15-16 per KENSA_GO_DAY1_PLAN.md §11.4. Until
