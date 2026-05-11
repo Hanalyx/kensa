@@ -1,0 +1,167 @@
+spec:
+    id: agent-live-host-parity
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-live-host-parity
+        description: |
+            LL Phase 1 deliverable L-014c — the live-host
+            parity test deferred from L-014b. Verifies that
+            `kensa remediate` against a real SSH-able host
+            produces an EQUIVALENT api.RemediationResult
+            under `KENSA_USE_AGENT=1` and the direct-SSH
+            path (modulo per-step timing and transaction
+            IDs).
+
+            **Gating.** Skipped unless BOTH env vars are
+            set:
+              - KENSA_TEST_SSH_HOST: target host:port (or
+                just host with port defaulting to 22)
+              - KENSA_TEST_AGENT_MODE=1: explicit opt-in
+                so the test doesn't run accidentally on
+                hosts that aren't suitable for agent-mode
+                E2E (e.g., a CI runner that has SSH access
+                but no privilege to write
+                ~/.cache/kensa/...).
+
+            **What this validates that prior tests don't.**
+            All L-007..L-032 tests use in-process pipes or
+            local-subprocess agents — no SSH, no real
+            network, no real bootstrap-push. L-014c is the
+            ONLY check that the whole pipeline works
+            against a real production-shaped target:
+
+                Controller binary → SSH ControlMaster →
+                bootstrap.EnsureAgent (real scp) → spawn
+                `ssh <host> <cachePath> agent --stdio` →
+                client.Handshake over SSH → real
+                file_permissions Apply on a real target
+                file → result returned over wire → engine
+                produces RemediationResult identical to
+                direct-SSH path
+
+            **What "identical" means.** RemediationResult
+            equality is checked field-by-field via a
+            normalize-then-compare helper that:
+              - Zeros out time.Time fields (CapturedAt,
+                ExecutedAt, etc.) — they will differ.
+              - Zeros out TransactionID and StepResult
+                durations.
+              - Compares everything else (mechanism,
+                params echo, Success, Detail, file mode
+                changed on disk).
+            Documented in the test file's comment header.
+
+            **What L-014c is NOT.** Not a CI gate for the
+            v1.1 release — gating on KENSA_TEST_SSH_HOST
+            means the test only runs when the founder
+            (or CI with a wired test host) sets it. The
+            test ships as code; whether it RUNS is the
+            operator's choice.
+
+    objective:
+        summary: |
+            Add cmd/kensa/live_agent_parity_test.go +
+            spec. Test skips cleanly when env vars unset.
+            When set, runs the full agent-mode pipeline
+            against a real host and asserts result parity
+            with direct-SSH.
+        scope:
+            includes:
+                - "cmd/kensa/live_agent_parity_test.go: TestLiveAgentMode_FilePermissionsParity"
+                - "Documentation of the gating env vars in CONTRIBUTING.md"
+            excludes:
+                - "Auto-discovery of test hosts: operator sets env vars explicitly"
+                - "Parity tests for the 18 system-state handlers: separate sweep deliverable, requires a target with sudo + apt + systemd + SELinux configured for safe destructive testing"
+                - "CI integration of the test: future deliverable when a CI-wired test host exists"
+
+    constraints:
+        - id: C-01
+          description: |
+              The test MUST skip cleanly (t.Skip with a
+              clear message naming the missing env vars)
+              when KENSA_TEST_SSH_HOST or
+              KENSA_TEST_AGENT_MODE is unset. Failing the
+              gate is wrong — operators running
+              `go test ./...` without the env vars should
+              see a normal pass with a skip notice, not
+              a failure.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              When run with the env vars set, the test
+              MUST execute TWO remediate invocations
+              against the same host:
+                1. KENSA_USE_AGENT=1 (agent-mode path)
+                2. KENSA_USE_AGENT=0 (direct-SSH path,
+                   the existing v1.0 path)
+              Both run the SAME file_permissions rule
+              against the SAME target file. Compare the
+              RemediationResults via the documented
+              normalize-then-compare helper.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              The target file modified by the test MUST be
+              under the operator's home directory (e.g.,
+              `$HOME/kensa-test-target`), not a system
+              path. The test is destructive — modifying
+              file modes — but bounded to operator-owned
+              state. A failed test must not leave the
+              target in an unrecoverable state.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The test MUST clean up after itself: delete
+              the target file (defer-style) regardless of
+              test outcome. A flaky agent crash mid-test
+              shouldn't leave detritus on the host.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `go test ./cmd/kensa/...` without
+              KENSA_TEST_SSH_HOST passes with the test
+              skipped (skip message visible in -v output).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              When env vars set against a valid host, both
+              remediate invocations succeed and the
+              normalized RemediationResults compare equal.
+              Locked by `TestLiveAgentMode_FilePermissionsParity`.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Target file lives under $HOME on the target.
+              The test asserts this before running, fails
+              loudly if not.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              Test cleanup runs via t.Cleanup, removes
+              the target file on the host. Verified by
+              the test asserting no leftover after a
+              normal run.
+          references_constraints: [C-04]
+          priority: medium
+        - id: AC-05
+          description: |
+              `go test ./...` (with env vars unset) and
+              cli-smoke + specter strict all green
+              post-merge. Verified during merge.
+          references_constraints: [C-01]
+          priority: critical
+
+    tags: [agent, live-host, parity, e2e, ll-phase-1, l-014c]
