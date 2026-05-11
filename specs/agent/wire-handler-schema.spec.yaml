@@ -1,0 +1,292 @@
+spec:
+    id: agent-wire-handler-schema
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-wire-handler-schema
+        description: |
+            LL Phase 1 deliverable L-009. Defines the typed
+            wire-protocol message schema for handler
+            invocations — Apply, Capture, Rollback — plus
+            heartbeat. Replaces L-007's `bytes payload`
+            placeholder on `wirev1.Request` and
+            `wirev1.Response` with a `oneof` of typed
+            payloads. Adds bridge functions converting
+            between the `api/` Go types
+            (`api.StepResult`, `api.PreState`,
+            `api.RollbackResult`) and their wire
+            counterparts.
+
+            **Scope.** L-009 ships:
+
+            1. Extended `internal/agent/wirev1/wire.proto`
+               with typed messages:
+                 - ApplyRequest (mechanism + params + optional
+                   pre_state for capturable handlers)
+                 - ApplyResponse (step_result)
+                 - CaptureRequest (mechanism + params)
+                 - CaptureResponse (pre_state)
+                 - RollbackRequest (pre_state)
+                 - RollbackResponse (rollback_result)
+                 - HeartbeatRequest / HeartbeatAck (token +
+                   sent_unix_micros pair for liveness)
+                 - WireStepResult / WirePreState /
+                   WireRollbackResult (the wire-level
+                   structs that mirror api/ types)
+               `Request.payload` and `Response.payload`
+               become `oneof` of these typed messages.
+
+            2. `internal/agent/wirev1/handlers.go` — bridge
+               functions converting api/ types ↔ wire
+               types:
+                 - `APIStepResultToWire` / `WireStepResultToAPI`
+                 - `APIPreStateToWire` / `WirePreStateToAPI`
+                 - `APIRollbackResultToWire` /
+                   `WireRollbackResultToAPI`
+               The bridges go through MapToStruct/
+               StructToMap (L-007) for the
+               `map[string]interface{}` Data field, so the
+               same numeric/time round-trip contract
+               applies.
+
+            3. Updated `agent.HandleEcho` (L-008) to be
+               type-aware: dispatches on the Request's
+               oneof variant and returns a matching
+               Response variant with empty default-valued
+               typed fields. Validates the typed-roundtrip
+               for each operation type without invoking a
+               real handler (that's L-011/L-014).
+
+            4. Updated E2E subprocess tests in
+               `cmd/kensa/agent_e2e_test.go` to send typed
+               Requests and verify typed Responses.
+
+            **What this enables.** L-010's framing layer
+            now has a final byte-level contract to test
+            against. L-011's AgentTransport can construct
+            typed Requests from
+            `Handler.Apply/Capture/Rollback` arguments.
+            L-014's first handler port has a typed
+            response shape to populate.
+
+            **Bytes payload removed.** L-007's `bytes
+            payload` was scaffolding — a sentinel so the
+            framing tests could roundtrip something
+            without committing to a payload schema. L-009
+            removes it. The `oneof` field numbers are
+            chosen to leave room for future message
+            additions (e.g., ListMechanisms at L-013).
+
+    objective:
+        summary: |
+            Define the typed wire-protocol schema for
+            Apply / Capture / Rollback / Heartbeat.
+            Extend wire.proto with the new messages and
+            replace `bytes payload` with a `oneof`. Add
+            bridge helpers in handlers.go. Update
+            HandleEcho to dispatch on oneof variant.
+            Update E2E tests to use typed payloads. Spec
+            covers schema only — the real handler
+            dispatcher lands at L-011/L-014.
+        scope:
+            includes:
+                - "internal/agent/wirev1/wire.proto: typed handler messages + oneof payload"
+                - "internal/agent/wirev1/wire.pb.go: regenerated, checked-in"
+                - "internal/agent/wirev1/handlers.go: api↔wire bridge functions"
+                - "internal/agent/wirev1/handlers_test.go: bridge roundtrip tests"
+                - "internal/agent/echo.go: type-aware HandleEcho dispatching on Request oneof"
+                - "internal/agent/echo_test.go: typed Request/Response roundtrip tests"
+                - "cmd/kensa/agent_e2e_test.go: typed-Request E2E"
+                - "scripts/cli-smoke.sh: scenarios updated if needed"
+            excludes:
+                - "Real handler dispatcher (Engine-backed Apply/Capture/Rollback routing): L-011 + L-014"
+                - "Length-prefixed framing improvements (frame-type discriminator, max-size policy): L-010"
+                - "Controller-side AgentTransport adapter: L-011"
+                - "Version handshake call site: L-012 (the ValidateSchemaVersion function from L-007 is the building block)"
+                - "Per-handler PreState.Data schema documentation: each handler port at L-014..L-032 documents its own data shape"
+
+    constraints:
+        - id: C-01
+          description: |
+              `wirev1.Request` MUST have a `oneof payload`
+              field with at least these variants:
+              `apply` (ApplyRequest), `capture`
+              (CaptureRequest), `rollback`
+              (RollbackRequest), `heartbeat`
+              (HeartbeatRequest). The previous `bytes
+              payload` field is REMOVED — this is a
+              breaking change to the L-007 scaffolding,
+              acceptable because no production caller
+              exists yet (wirev1 is internal).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `wirev1.Response` MUST have a parallel
+              `oneof payload` field: `apply_resp`
+              (ApplyResponse), `capture_resp`
+              (CaptureResponse), `rollback_resp`
+              (RollbackResponse), `heartbeat_ack`
+              (HeartbeatAck). A Response's payload variant
+              MUST correspond to the Request's variant
+              (Apply → ApplyResponse, etc.); the
+              dispatcher enforces this at L-011, the
+              schema makes it possible.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Wire-level messages mirroring api/ types
+              (WireStepResult, WirePreState,
+              WireRollbackResult) MUST be defined.
+              Bridge functions (APIStepResultToWire,
+              WireStepResultToAPI, etc.) MUST roundtrip
+              losslessly for the field domains the api/
+              types define. Time fields use
+              google.protobuf.Timestamp (not RFC3339
+              strings — that's the structpb.Struct
+              contract; wire types use the protobuf
+              primitive). Numeric fields use int32/int64
+              as appropriate for each field's range.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `WirePreState.data` MUST be a
+              `google.protobuf.Struct` populated via the
+              L-007 `MapToStruct` bridge. The numeric/
+              time/depth contracts documented on
+              MapToStruct (int64 widening, time.Time as
+              RFC3339Nano string, 32-level max nesting,
+              ±2^53 integer bound) apply automatically.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `agent.HandleEcho` MUST switch on the
+              Request's oneof variant and return a
+              Response whose oneof variant matches. The
+              echoed payload is type-shape-only — fields
+              are default-valued, not mirrored from the
+              request. This is the L-009 stub behavior;
+              L-011 replaces it with the real dispatcher.
+              The schema-version + correlation_id
+              echo-mirror contract from L-008 is
+              preserved.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              `HeartbeatRequest` MUST carry a `token`
+              (uint64) and `sent_unix_micros` (int64).
+              `HeartbeatAck` MUST echo the token verbatim
+              so the controller can pair acks with
+              outstanding heartbeats (multiple in flight
+              is allowed). `sent_unix_micros` is
+              advisory clock-skew information; deadman
+              timing uses the controller's local clock
+              (the agent's clock cannot be trusted under
+              a compromise scenario).
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              The oneof field numbers MUST follow a
+              reserved-spacing convention: payload
+              variants start at 10 with gaps of 1
+              (10/11/12/13). This leaves field numbers
+              1..9 for envelope-level fields
+              (schema_version, correlation_id) and 20+
+              for future variants (ListMechanisms,
+              DetectCapabilities, etc.) so L-013 can
+              extend without renumbering.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              wire.proto defines ApplyRequest,
+              ApplyResponse, CaptureRequest,
+              CaptureResponse, RollbackRequest,
+              RollbackResponse, HeartbeatRequest,
+              HeartbeatAck, WireStepResult, WirePreState,
+              WireRollbackResult. Locked by
+              `TestProtoMessagesPresent` which checks
+              each generated Go type exists.
+          references_constraints: [C-01, C-02, C-03, C-06]
+          priority: critical
+        - id: AC-02
+          description: |
+              Request.payload is a oneof. The old `bytes`
+              field is absent (verified by reading the
+              generated wire.pb.go and confirming no
+              `Payload []byte` field on Request). Locked
+              by `TestRequestOneofVariants`.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              `APIStepResultToWire(WireStepResultToAPI(s))
+              == s` for every value of api.StepResult
+              under reflect.DeepEqual. Same for PreState
+              and RollbackResult, with the numeric/time-
+              widening caveats from L-007. Locked by
+              `TestBridge_StepResultRoundtrip`,
+              `TestBridge_PreStateRoundtrip`,
+              `TestBridge_RollbackResultRoundtrip`.
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-04
+          description: |
+              HandleEcho dispatches on Request variant:
+              ApplyRequest → ApplyResponse,
+              CaptureRequest → CaptureResponse,
+              RollbackRequest → RollbackResponse,
+              HeartbeatRequest → HeartbeatAck. Locked by
+              `TestHandleEcho_TypedDispatch`.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-05
+          description: |
+              HandleEcho preserves Request.correlation_id
+              + schema_version on the Response. Locked
+              by `TestHandleEcho_PreservesCorrelation`.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              End-to-end subprocess test: spawn `kensa
+              agent --stdio`, send framed
+              ApplyRequest/CaptureRequest/RollbackRequest/
+              HeartbeatRequest, verify the corresponding
+              Response variant is returned for each.
+              Locked by
+              `TestKensaAgent_TypedRequestsEcho`
+              (superseding the L-008
+              TestKensaAgent_StdioEndToEnd that used
+              bytes payload).
+          references_constraints: [C-01, C-02, C-05]
+          priority: critical
+        - id: AC-07
+          description: |
+              HeartbeatRequest.token round-trips exactly
+              on HeartbeatAck (the controller pairs by
+              token). Locked by
+              `TestHandleEcho_HeartbeatToken`.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-08
+          description: |
+              `go test ./internal/agent/...` and `go test
+              ./cmd/kensa/...` pass. cli-smoke gate
+              passes. `make proto-check` confirms wire.pb.go
+              regen is byte-identical. Verified during
+              merge.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06, C-07]
+          priority: critical
+
+    tags: [agent, wire-protocol, handler-schema, protobuf, ll-phase-1, l-009]

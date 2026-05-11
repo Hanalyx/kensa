@@ -589,9 +589,10 @@ once the founder ratifies them.
 #### L-010 — Implement length-prefixed framing on both ends
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-009
-- **Acceptance:** round-trip tests pass for messages up to 16 MiB
+- **Acceptance:** round-trip tests pass for messages up to 16 MiB. Supersedes L-008's stub framing (4-byte big-endian length prefix, in `internal/agent/framing.go`) with the production contract: frame-type discriminator byte for heartbeat-vs-payload channel demux, configurable max-size policy, partial-read recovery, backpressure for slow consumers.
 - **Size:** 2h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; L-008/L-009 done; ready to pick up)
+- **L-009 security review TODO carried forward:** L-009 found that a peer can send a Request with multiple oneof variants set in the wire bytes (illegal per spec but transmittable; protobuf-go allocates each intermediate). L-010 SHOULD add a post-unmarshal guard: walk `req.ProtoReflect()` after Unmarshal and reject Requests where any oneof selector field has been set more than once. The frame-size cap bounds total damage to ~16 MiB but a deeply-nested Struct inside multiple ApplyRequest variants can multiply allocation through.
 
 #### L-011 — Controller-side `AgentTransport` adapter (talks to `kensa agent --stdio` over SSH)
 - **Phase:** LL Phase 1
@@ -599,6 +600,10 @@ once the founder ratifies them.
 - **Acceptance:** existing handler invocation path works against agent transport in addition to direct SSH
 - **Size:** 4h
 - **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **L-009 review TODOs carried forward:**
+   1. Enforce monotonic-or-uniqueness on HeartbeatRequest.token in the controller's outstanding-token table. The agent just echoes; ambiguous pairing is a controller-side responsibility.
+   2. Validate `Apply.GetMechanism() != ""`, `Rollback.GetPreState() != nil`, etc. before dispatch — proto3 has no required fields. Validation failures → envelope Error with code "invalid_request".
+   3. Translate `(result, error)` handler returns: (nil, err) → Response with envelope-level Error (no typed payload); (failed-result, nil) → typed Response with Success=false + Detail. See `internal/agent/echo.go` package doc for the full dispatch convention.
 
 #### L-012 — Version handshake on session start
 - **Phase:** LL Phase 1

@@ -13,6 +13,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,11 +66,14 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 
-	// Build + write a framed Request.
+	// Build + write a framed ApplyRequest (post-L-009 typed
+	// payload; the L-008 bytes payload is gone).
 	req := &wirev1.Request{
 		SchemaVersion: 1,
 		CorrelationId: 0xdeadbeef,
-		Payload:       []byte("end-to-end echo test"),
+		Payload: &wirev1.Request_Apply{
+			Apply: &wirev1.ApplyRequest{Mechanism: "file_content"},
+		},
 	}
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
@@ -79,8 +83,8 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 		t.Fatalf("Write frame to subprocess stdin: %v", err)
 	}
 
-	// Read back the echoed Response. The agent process writes
-	// one frame in response, then waits for more input.
+	// Read back the typed Response. ApplyRequest produces
+	// ApplyResponse (L-009 C-02 dispatch contract).
 	respBytes, err := agent.Read(stdout)
 	if err != nil {
 		t.Fatalf("Read frame from subprocess stdout: %v; stderr=%q", err, stderr.String())
@@ -92,8 +96,8 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 	if resp.GetCorrelationId() != req.GetCorrelationId() {
 		t.Errorf("correlation_id mismatch: got %d, want %d", resp.GetCorrelationId(), req.GetCorrelationId())
 	}
-	if !bytes.Equal(resp.GetPayload(), req.GetPayload()) {
-		t.Errorf("payload mismatch: got %q, want %q", resp.GetPayload(), req.GetPayload())
+	if _, ok := resp.GetPayload().(*wirev1.Response_ApplyResp); !ok {
+		t.Errorf("expected ApplyResp variant; got %T", resp.GetPayload())
 	}
 	if resp.GetSchemaVersion() != 1 {
 		t.Errorf("schema_version: got %d, want 1", resp.GetSchemaVersion())
@@ -160,17 +164,117 @@ func TestKensaAgent_StdioRejectsTruncatedFrame(t *testing.T) {
 	}
 }
 
-// findRepoRootE2E anchors to this test file's location via
-// runtime.Caller so the path resolves the same regardless of
-// the cwd `go test` happens to inherit. Walks up to the
-// directory that contains go.mod.
+// TestKensaAgent_TypedRequestsEcho locks L-009 AC-06: spawn the
+// real binary, pipe ALL four typed Request variants
+// (Apply/Capture/Rollback/Heartbeat) in order, verify each
+// produces the matching Response variant. End-to-end coverage
+// of the typed-payload dispatch contract.
+//
+// @spec agent-wire-handler-schema
+// @ac AC-06
+func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
+	repoRoot := findRepoRootE2E(t)
+	binPath := filepath.Join(repoRoot, "bin", "kensa")
+	if !fileExists(binPath) {
+		t.Skipf("bin/kensa not built (run `make build`); skipping typed-E2E test")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binPath, "agent", "--stdio")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("StdinPipe: %v", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe: %v", err)
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	requests := []*wirev1.Request{
+		{SchemaVersion: 1, CorrelationId: 100, Payload: &wirev1.Request_Apply{Apply: &wirev1.ApplyRequest{Mechanism: "file_permissions"}}},
+		{SchemaVersion: 1, CorrelationId: 101, Payload: &wirev1.Request_Capture{Capture: &wirev1.CaptureRequest{Mechanism: "file_permissions"}}},
+		{SchemaVersion: 1, CorrelationId: 102, Payload: &wirev1.Request_Rollback{Rollback: &wirev1.RollbackRequest{PreState: &wirev1.WirePreState{Mechanism: "file_permissions"}}}},
+		{SchemaVersion: 1, CorrelationId: 103, Payload: &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 0xcafe}}},
+	}
+	for _, req := range requests {
+		reqBytes, err := proto.Marshal(req)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if err := agent.Write(stdin, reqBytes); err != nil {
+			t.Fatalf("write frame: %v", err)
+		}
+	}
+
+	wantVariants := []string{"*wirev1.Response_ApplyResp", "*wirev1.Response_CaptureResp", "*wirev1.Response_RollbackResp", "*wirev1.Response_HeartbeatAck"}
+	for i, req := range requests {
+		respBytes, err := agent.Read(stdout)
+		if err != nil {
+			t.Fatalf("read response %d: %v; stderr=%q", i, err, stderr.String())
+		}
+		var resp wirev1.Response
+		if err := proto.Unmarshal(respBytes, &resp); err != nil {
+			t.Fatalf("unmarshal response %d: %v", i, err)
+		}
+		if resp.GetCorrelationId() != req.GetCorrelationId() {
+			t.Errorf("response %d correlation_id: got %d, want %d", i, resp.GetCorrelationId(), req.GetCorrelationId())
+		}
+		gotVariant := fmt.Sprintf("%T", resp.GetPayload())
+		if gotVariant != wantVariants[i] {
+			t.Errorf("response %d variant: got %s, want %s", i, gotVariant, wantVariants[i])
+		}
+	}
+
+	// Heartbeat token must round-trip exactly (AC-07).
+	// Re-read the last Response from above is a bit awkward;
+	// just send another Heartbeat with a distinct token and
+	// verify the ack.
+	hbReq := &wirev1.Request{
+		SchemaVersion: 1, CorrelationId: 999,
+		Payload: &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 0xbaadf00d}},
+	}
+	hbBytes, _ := proto.Marshal(hbReq)
+	_ = agent.Write(stdin, hbBytes)
+	respBytes, err := agent.Read(stdout)
+	if err != nil {
+		t.Fatalf("read hb response: %v", err)
+	}
+	var hbResp wirev1.Response
+	_ = proto.Unmarshal(respBytes, &hbResp)
+	ack, ok := hbResp.GetPayload().(*wirev1.Response_HeartbeatAck)
+	if !ok {
+		t.Fatalf("expected HeartbeatAck; got %T", hbResp.GetPayload())
+	}
+	if ack.HeartbeatAck.GetToken() != 0xbaadf00d {
+		t.Errorf("heartbeat token round-trip: got %#x, want 0xbaadf00d", ack.HeartbeatAck.GetToken())
+	}
+
+	if err := stdin.Close(); err != nil {
+		t.Fatalf("close stdin: %v", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Errorf("agent exited non-zero: %v; stderr=%q", err, stderr.String())
+	}
+}
+
 // TestKensaAgent_SIGTERMWhileBlockedOnRead locks the assumption
-// baked into spec C-07 — the "in practice SIGTERM also closes
-// stdin" claim. We send SIGTERM to the agent process while it's
-// blocked on a read (no frames have arrived). The Go runtime
-// closes the inherited stdin pipe on signal, the read returns
-// EOF, the agent exits 0. If a future kernel/runtime change
-// buffers stdin past signal delivery this test catches it.
+// baked into spec C-07: when SIGTERM arrives while the agent is
+// blocked in io.ReadFull, the 500ms grace-period os.Exit
+// fallback in cmd/kensa/agent.go ensures the process exits
+// within bounded time. Without that fallback, the loop would
+// hang until the controller closed the SSH channel — Go's
+// runtime poller does not reliably wake a blocked pipe Read
+// when another goroutine calls Close. If a future kernel/
+// runtime/Go-version change regresses the grace-period exit,
+// this test catches it.
 func TestKensaAgent_SIGTERMWhileBlockedOnRead(t *testing.T) {
 	repoRoot := findRepoRootE2E(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
@@ -230,6 +334,10 @@ func TestKensaAgent_SIGTERMWhileBlockedOnRead(t *testing.T) {
 	}
 }
 
+// findRepoRootE2E anchors to this test file's location via
+// runtime.Caller so the path resolves the same regardless of
+// the cwd `go test` happens to inherit. Walks up to the
+// directory that contains go.mod.
 func findRepoRootE2E(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
