@@ -1,0 +1,170 @@
+spec:
+    id: agent-handler-ports-umbrella
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-handler-ports-umbrella
+        description: |
+            LL Phase 1 deliverables L-015 through L-032 —
+            the 18 remaining capturable-handler ports to
+            agent mode after L-014 (file_permissions).
+            Umbrella spec covering the whole group, since
+            the audit established that **every capturable
+            handler is L-014 Option-L1 drop-in compatible**
+            — zero handlers use transport.Put / transport.Get
+            / ControlChannelSensitive branching.
+
+            **Audit result (2026-05-11):**
+            `grep -rln "transport.Put\|transport.Get\|
+            ControlChannelSensitive"
+            internal/handlers/` returned ZERO matches across
+            all capturable handlers
+            (aptabsent/aptpresent/auditruleset/configset/
+            configsetdropin/cronjob/fileabsent/filecontent/
+            filepermissions/kernelmoduledisable/mountoptionset/
+            packageabsent/packagepresent/pammoduleconfigure/
+            selinuxbooleanset/servicedisabled/serviceenabled/
+            servicemasked/sysctlset).
+
+            All use only `transport.Run(ctx, cmd)`. The
+            LocalTransport (L-014) implements Run via local
+            sh -c, so every handler works under agent mode
+            with NO handler-side code edits. L-014's
+            file_permissions port already proved the
+            pattern.
+
+            **Per-handler deliverables**
+            (L-015..L-032 numbering preserved for audit-trail
+            traceability from DELIVERABLES.md):
+
+              L-015 file_content              (file)
+              L-016 fileabsent                (file)
+              L-017 configset                 (file)
+              L-018 configsetdropin           (file)
+              L-019 cronjob                   (file)
+              L-020 pammoduleconfigure        (file)
+              L-021 sysctlset                 (file + /proc)
+              L-022 mountoptionset            (file + mount)
+              L-023 servicedisabled           (systemctl)
+              L-024 serviceenabled            (systemctl)
+              L-025 servicemasked             (systemctl)
+              L-026 selinuxbooleanset         (setsebool)
+              L-027 kernelmoduledisable       (modprobe.d)
+              L-028 auditruleset              (auditctl)
+              L-029 packagepresent            (apt/dpkg)
+              L-030 packageabsent             (apt/dpkg)
+              L-031 aptpresent                (apt)
+              L-032 aptabsent                 (apt)
+
+            **Per-handler test approach.** Two classes:
+
+            (A) **File-based handlers** (L-015..L-021) can
+                be unit-tested in `internal/agent/server/
+                handler_ports_test.go` against a temp file
+                fixture — same pattern as
+                TestServer_Handle_ApplyFilePermissions.
+
+            (B) **System-state handlers** (L-022..L-032)
+                require systemd/SELinux/apt/etc. and cannot
+                be cleanly unit-tested in the agent server
+                test suite. Validation happens via
+                **L-014c's live-host parity test** (gated
+                on KENSA_TEST_SSH_HOST +
+                KENSA_TEST_AGENT_MODE=1). For these, the
+                umbrella deliverable ships a SMOKE TEST:
+                `TestAgentRoutesToHandler_<mechanism>`
+                verifies server.Handle routes to the
+                registered handler (i.e., does NOT return
+                "unknown_mechanism" envelope Error). The
+                actual handler invocation may fail per
+                system state, but the routing is locked.
+
+    objective:
+        summary: |
+            Add per-handler agent-routing tests in
+            internal/agent/server/handler_ports_test.go.
+            File-based handlers get full Apply unit tests;
+            system-state handlers get smoke-routing tests.
+            Real validation for system-state handlers ships
+            with L-014c (live-host parity).
+        scope:
+            includes:
+                - "internal/agent/server/handler_ports_test.go: 18 per-handler tests"
+                - "Update DELIVERABLES.md: L-015..L-032 status from `blocked` to `done` (mechanical batch closure)"
+            excludes:
+                - "Handler code edits: ZERO handler-side changes per audit (Option L1 drop-in works)"
+                - "Live-host validation for L-022..L-032 system-state handlers: L-014c"
+                - "Non-capturable handler ports (command_exec, manual, grub_*, authselect_feature_enable, dconf_set, crypto_policy_*, pam_module_arg, config_append): these are separate post-L-032 deliverables"
+
+    constraints:
+        - id: C-01
+          description: |
+              For each of the 18 capturable handlers, a test
+              MUST verify that server.Handle returns a
+              Response with a TYPED payload variant (not an
+              "unknown_mechanism" envelope Error) when given
+              an ApplyRequest naming that mechanism. This
+              locks routing — the handler is registered AND
+              server.Handle knows how to dispatch to it.
+              The test does NOT need to verify a successful
+              side-effect for system-state handlers (those
+              are L-014c's job).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              For file-based handlers (L-015..L-021), the
+              test MUST go further: build params for a temp
+              file fixture, run Apply, verify the observable
+              side-effect (file written, mode changed, etc.).
+              Same pattern as
+              TestServer_Handle_ApplyFilePermissions.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              ZERO handler code is modified. The audit
+              established Option-L1 drop-in compatibility.
+              Any test that requires a handler edit means
+              the audit missed something — fail-loud,
+              update the audit, document.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              All 18 capturable handlers have a routing
+              test that fires server.Handle with an
+              ApplyRequest for the mechanism and verifies
+              the response is NOT an unknown_mechanism
+              envelope Error. Locked by 18 named tests in
+              handler_ports_test.go.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              File-based handlers (L-015..L-021) have
+              full Apply tests with observable side-effect
+              assertion. Locked by:
+              `TestAgentApply_FileContent`,
+              `TestAgentApply_FileAbsent`,
+              `TestAgentApply_ConfigSet`,
+              `TestAgentApply_ConfigSetDropin`,
+              `TestAgentApply_CronJob`,
+              `TestAgentApply_PAMModuleConfigure`,
+              `TestAgentApply_SysctlSet`.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              `go test ./...`, cli-smoke, specter strict,
+              `make proto-check` all green. Verified during
+              merge.
+          references_constraints: [C-01, C-02, C-03]
+          priority: critical
+
+    tags: [agent, handler-ports, ll-phase-1, l-015, l-016, l-017, l-018, l-019, l-020, l-021, l-022, l-023, l-024, l-025, l-026, l-027, l-028, l-029, l-030, l-031, l-032]
