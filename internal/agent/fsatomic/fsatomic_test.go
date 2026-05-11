@@ -49,7 +49,6 @@ func TestAtomicWrite_RejectsExisting(t *testing.T) {
 	if !errors.Is(err, ErrAlreadyExists) {
 		t.Errorf("expected ErrAlreadyExists; got: %v", err)
 	}
-	// Pre-existing bytes must be intact.
 	got, _ := os.ReadFile(preexisting)
 	if string(got) != "old" {
 		t.Errorf("pre-existing content corrupted: %q", got)
@@ -66,8 +65,18 @@ func TestAtomicWrite_RejectsPathInName(t *testing.T) {
 	}
 }
 
-// TestAtomicReplace_HappyPath: existing file gets new
-// content with the requested mode.
+// TestAtomicWrite_RejectsParentDirMissing locks the
+// ErrParentDirMissing contract.
+func TestAtomicWrite_RejectsParentDirMissing(t *testing.T) {
+	root := t.TempDir()
+	err := AtomicWrite(context.Background(), filepath.Join(root, "no-such-dir"), "f", 0o644, []byte("x"))
+	if !errors.Is(err, ErrParentDirMissing) {
+		t.Errorf("expected ErrParentDirMissing; got: %v", err)
+	}
+}
+
+// TestAtomicReplace_HappyPath: existing file gets new content
+// with the requested mode.
 func TestAtomicReplace_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "target")
@@ -90,8 +99,7 @@ func TestAtomicReplace_HappyPath(t *testing.T) {
 	}
 }
 
-// TestAtomicReplace_NotExist locks the ErrNotExist
-// contract.
+// TestAtomicReplace_NotExist locks the ErrNotExist contract.
 func TestAtomicReplace_NotExist(t *testing.T) {
 	dir := t.TempDir()
 	err := AtomicReplace(context.Background(), filepath.Join(dir, "nope"), 0o644, []byte("x"))
@@ -100,11 +108,13 @@ func TestAtomicReplace_NotExist(t *testing.T) {
 	}
 }
 
-// TestAtomicReplace_FollowsSymlinks locks the
-// symlink-following contract (founder Q2 ratified rec).
-// The symlink is preserved; the target file gets new
-// content.
-func TestAtomicReplace_FollowsSymlinks(t *testing.T) {
+// TestAtomicReplace_RefusesSymlinkBase locks the
+// symlink-refusal contract for a symlink AT THE TARGET
+// position. Founder D2 ratification (2026-05-11): O_NOFOLLOW
+// traversal, hard refusal — reverses the prior Q2 follow-
+// symlinks decision after the post-merge security review
+// identified a local-root primitive.
+func TestAtomicReplace_RefusesSymlinkBase(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "real")
 	link := filepath.Join(dir, "symlink")
@@ -115,21 +125,68 @@ func TestAtomicReplace_FollowsSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := AtomicReplace(context.Background(), link, 0o644, []byte("new")); err != nil {
-		t.Fatalf("AtomicReplace via symlink: %v", err)
+	err := AtomicReplace(context.Background(), link, 0o644, []byte("new"))
+	if !errors.Is(err, ErrSymlinkInPath) {
+		t.Errorf("expected ErrSymlinkInPath; got: %v", err)
 	}
-	// Symlink still a symlink.
-	info, err := os.Lstat(link)
-	if err != nil {
+	// Target must remain unchanged.
+	got, _ := os.ReadFile(target)
+	if string(got) != "old" {
+		t.Errorf("target was modified despite symlink refusal: %q", got)
+	}
+}
+
+// TestAtomicReplace_RefusesSymlinkInPath plants a symlink
+// at an INTERMEDIATE component of the path. fsatomic must
+// refuse to traverse it. This is the load-bearing security
+// test: an attacker planting /etc/sudoers.d → /etc cannot
+// use fsatomic to rewrite /etc/passwd.
+func TestAtomicReplace_RefusesSymlinkInPath(t *testing.T) {
+	root := t.TempDir()
+	realDir := filepath.Join(root, "real-dir")
+	if err := os.Mkdir(realDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		t.Error("symlink converted to regular file — should remain a symlink")
+	if err := os.WriteFile(filepath.Join(realDir, "sensitive"), []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	// Target has new content.
-	got, _ := os.ReadFile(target)
-	if string(got) != "new" {
-		t.Errorf("target content: got %q, want %q", got, "new")
+
+	linkDir := filepath.Join(root, "link-dir")
+	if err := os.Symlink(realDir, linkDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// fullPath traverses the symlink at link-dir.
+	err := AtomicReplace(context.Background(), filepath.Join(linkDir, "sensitive"), 0o644, []byte("attacker"))
+	if !errors.Is(err, ErrSymlinkInPath) {
+		t.Errorf("expected ErrSymlinkInPath; got: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(realDir, "sensitive"))
+	if string(got) != "secret" {
+		t.Errorf("file was modified through symlink path: %q", got)
+	}
+}
+
+// TestAtomicReplace_RefusesRelativePath locks the
+// absolute-path requirement.
+func TestAtomicReplace_RefusesRelativePath(t *testing.T) {
+	err := AtomicReplace(context.Background(), "relative/path", 0o644, []byte("x"))
+	if err == nil || !contains(err.Error(), "must be absolute") {
+		t.Errorf("expected absolute-path error; got: %v", err)
+	}
+}
+
+// TestAtomicReplace_RefusesDirectory locks the regular-file
+// requirement.
+func TestAtomicReplace_RefusesDirectory(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "subdir")
+	if err := os.Mkdir(subdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := AtomicReplace(context.Background(), subdir, 0o644, []byte("x"))
+	if err == nil || !contains(err.Error(), "not a regular file") {
+		t.Errorf("expected regular-file rejection; got: %v", err)
 	}
 }
 
@@ -147,30 +204,42 @@ func TestAtomicRemove(t *testing.T) {
 		t.Errorf("file should be gone; stat err: %v", err)
 	}
 
-	// Removing a non-existent path returns ErrNotExist.
 	err := AtomicRemove(context.Background(), filepath.Join(dir, "nope"))
 	if !errors.Is(err, ErrNotExist) {
 		t.Errorf("expected ErrNotExist; got: %v", err)
 	}
 }
 
+// TestAtomicRemove_RefusesSymlink locks the symlink-refusal
+// contract for AtomicRemove.
+func TestAtomicRemove_RefusesSymlink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real")
+	link := filepath.Join(dir, "link")
+	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	err := AtomicRemove(context.Background(), link)
+	if !errors.Is(err, ErrSymlinkInPath) {
+		t.Errorf("expected ErrSymlinkInPath; got: %v", err)
+	}
+	// Target must still exist.
+	if _, statErr := os.Stat(target); statErr != nil {
+		t.Errorf("target should still exist: %v", statErr)
+	}
+}
+
 // TestAtomicReplace_AtomicityProperty is the load-bearing
-// test: a reader concurrently observing the target during
-// AtomicReplace MUST see either old-complete or
-// new-complete, never partial. This locks the entire
-// point of fsatomic.
-//
-// Implementation: writer goroutine performs N
-// AtomicReplaces. Reader goroutine spins on os.ReadFile
-// in parallel. After joining, assert every read returned
-// either ALL-OLD-BYTES or ALL-NEW-BYTES bytes (no torn
-// reads, no partial content).
+// concurrency test: a reader concurrently observing the
+// target during AtomicReplace MUST see either old-complete
+// or new-complete, never partial.
 func TestAtomicReplace_AtomicityProperty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "atomic-target")
 
-	// Distinct old/new content with NO shared prefix so
-	// any torn read would be obviously detectable.
 	oldContent := bytes.Repeat([]byte("AAAA"), 256) // 1024 A's
 	newContent := bytes.Repeat([]byte("BBBB"), 256) // 1024 B's
 
@@ -189,23 +258,16 @@ func TestAtomicReplace_AtomicityProperty(t *testing.T) {
 		for !stop.Load() {
 			b, err := os.ReadFile(path)
 			if err != nil {
-				// EOF/ENOENT during the rename window is
-				// not a torn read — it's the filesystem
-				// briefly returning before the new entry
-				// is established. We're testing for
-				// PARTIAL CONTENT, not transient
-				// errors. Skip and continue.
 				continue
 			}
 			readOps.Add(1)
 			if !bytes.Equal(b, oldContent) && !bytes.Equal(b, newContent) {
 				tornReads.Add(1)
-				t.Errorf("torn read detected: len=%d, prefix=%q ...", len(b), b[:min(len(b), 20)])
+				t.Errorf("torn read detected: len=%d, prefix=%q ...", len(b), b[:minInt(len(b), 20)])
 			}
 		}
 	}()
 
-	// Writer: AtomicReplace alternating old/new for ~100ms.
 	deadline := time.Now().Add(100 * time.Millisecond)
 	writeCount := 0
 	for time.Now().Before(deadline) {
@@ -230,6 +292,42 @@ func TestAtomicReplace_AtomicityProperty(t *testing.T) {
 		writeCount, readOps.Load(), tornReads.Load())
 }
 
+// TestAtomicReplace_ConcurrentSameTarget locks the per-
+// goroutine random-suffix contract: two goroutines replacing
+// the same target in the same process must both succeed
+// without temp-file collision.
+func TestAtomicReplace_ConcurrentSameTarget(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "target")
+	if err := os.WriteFile(path, []byte("seed"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	const goroutines = 8
+	const iterations = 20
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	var failures atomic.Int64
+	for g := 0; g < goroutines; g++ {
+		g := g
+		go func() {
+			defer wg.Done()
+			content := []byte{byte('A' + g)}
+			for i := 0; i < iterations; i++ {
+				if err := AtomicReplace(context.Background(), path, 0o644, content); err != nil {
+					failures.Add(1)
+					t.Errorf("goroutine %d iteration %d: %v", g, i, err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if failures.Load() > 0 {
+		t.Errorf("%d concurrent-replace failures (expected 0)", failures.Load())
+	}
+}
+
 // TestAtomicWrite_FsyncDoesNotPanic — sanity check that
 // fsync on a tmpfs directory works (tmpfs DOES support
 // fsync as a no-op).
@@ -243,9 +341,18 @@ func TestAtomicWrite_FsyncDoesNotPanic(t *testing.T) {
 	}
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
+}
+
+func contains(haystack, needle string) bool {
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		if haystack[i:i+len(needle)] == needle {
+			return true
+		}
+	}
+	return false
 }
