@@ -561,12 +561,13 @@ once the founder ratifies them.
 
 ### LL Phase 1 — Multi-call agent binary (the gate for LL Phases 2–7)
 
-#### L-007 — **GRAY ZONE** Wire-protocol decision: protobuf vs msgpack vs custom
+#### L-007 — Wire-protocol decision: **protobuf** (ratified 2026-05-11)
 - **Phase:** LL Phase 1
 - **Deps:** —
-- **Acceptance:** founder ratifies; `.proto` schema or msgpack types scaffolded
-- **Size:** 2h research
-- **Status:** **blocked — needs founder ratification**
+- **Acceptance:** Founder ratified protobuf 2026-05-11 (see memory `l007_wire_protocol.md`). Implementation deliverable: scaffold `proto/` directory with v1 message types (request, response, error, heartbeat); pin `protoc-gen-go` in `tools.go`; CI step verifies checked-in `.pb.go` matches regenerated output; `mapToStruct` / `structToMap` helper pair (~50 lines) bridges `api.PreState.Data` and `api.Params` to `google.protobuf.Struct`.
+- **Size:** ~4h scaffolding (down from 2h research + unknown impl)
+- **Status:** **pending** (ratification done; scaffolding awaits loop pickup)
+- **Rejected alternatives:** msgpack (`vmihailenco/msgpack/v5` stalled 19 months as of decision; alternatives `tinylib/msgp` codegen-based and lose native-map ergonomics, `shamaton/msgpack/v2` 173-star bus factor); custom (security-load-bearing parser; reinventing protobuf/msgpack solved problems). Forking msgpack rejected: maintenance burden lands on founder, reflection-decoders have worse security profile than protobuf-go's OSS-Fuzz coverage, auditor conversation is harder.
 - **Notes:** Security-load-bearing decision. Pre-approval memory says gray-zone deliverables surface a question. Loop pauses here.
 
 #### L-008 — Add `internal/agent/` package skeleton with `kensa agent --stdio` subcommand
@@ -574,56 +575,56 @@ once the founder ratifies them.
 - **Deps:** L-007
 - **Acceptance:** `kensa agent --stdio` reads framed messages from stdin, echoes them, exits when stdin closes
 - **Size:** 4h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-009 — Define wire-protocol schema (request, response, error, heartbeat types)
 - **Phase:** LL Phase 1
 - **Deps:** L-007, L-008
 - **Acceptance:** schema covers all current handler invocations + capture + rollback + heartbeat
 - **Size:** 3h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-010 — Implement length-prefixed framing on both ends
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-009
 - **Acceptance:** round-trip tests pass for messages up to 16 MiB
 - **Size:** 2h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-011 — Controller-side `AgentTransport` adapter (talks to `kensa agent --stdio` over SSH)
 - **Phase:** LL Phase 1
 - **Deps:** L-009, L-010
 - **Acceptance:** existing handler invocation path works against agent transport in addition to direct SSH
 - **Size:** 4h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-012 — Version handshake on session start
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-011
 - **Acceptance:** mismatched majors abort with clear error; same major + different minor logs warning and proceeds
 - **Size:** 2h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-013 — Binary push + SHA-cached agent caching at `~/.cache/kensa/agent-<sha>`
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-011
 - **Acceptance:** first invocation pushes; subsequent invocations skip; cache invalidates on binary change
 - **Size:** 3h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-014 — Port `file_permissions` handler to agent mode (proof-of-concept)
 - **Phase:** LL Phase 1
 - **Deps:** L-011, L-013
 - **Acceptance:** `kensa remediate` via agent runs `file_permissions` Apply + Capture + Rollback against test host; behavior identical to direct-SSH path
 - **Size:** 4h
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
 
 #### L-015 through L-032 — Port remaining 18 capturable handlers to agent mode
 - **Phase:** LL Phase 1
 - **Deps:** L-014 (then sequential per handler; or parallel within phase)
 - **Acceptance:** each handler's behavior under agent mode matches direct-SSH path; integration test against real host (live `inventory.ini`) passes
 - **Size:** 2–3h each
-- **Status:** blocked
+- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting L-014)
 - **Notes:** This is the bulk of LL Phase 1 effort. Each handler port is one deliverable. Order: file_*, config_*, service_*, package_*, sysctl_set, kernel_module_disable, mount_option_set, pam_module_configure, audit_rule_set, selinux_boolean_set, cron_job, then non-capturable port for command_exec/manual/grub_*
 
 ### LL Phases 2–7 — Sketch only

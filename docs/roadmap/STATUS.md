@@ -46,7 +46,7 @@ critical path to first release.
 | Phase | Status | Estimated size | Next action |
 |---|---|---|---|
 | Phase 0 — Build discipline (`CGO_ENABLED=0`, `netgo`, `GODEBUG=netdns=go`) | **DONE** (6 of 6 items, 2026-05-08) | ~½ day | All shipped: L-001 `08a195f`, L-002 `f51cba7`, L-003 `798945d`, L-004 `26844b0`, L-005 `969be68`, L-006 `22c1c95`. Static binary, pure-Go DNS, ldd assertion, glibc 2.28 + musl tests, README portability docs — all live. |
-| Phase 1 — Multi-call agent binary (`kensa agent --stdio`) | Not started | 4–6 weeks | Founder ratification on wire-protocol decision (L-007 in DELIVERABLES.md); gates Phases 2–7 |
+| Phase 1 — Multi-call agent binary (`kensa agent --stdio`) | **UNBLOCKED** (L-007 ratified protobuf 2026-05-11) | 4–6 weeks | L-007 implementation (scaffold `proto/`, pin `protoc-gen-go`, codegen CI step) is the first deliverable; L-008..L-032 then pickable in dep order. Gates Phases 2–7. |
 | Phase 2 — File atomicity primitives (`renameat2`, `O_TMPFILE`, `fsync`, `syncfs`) | Not started | ~2 weeks | Gates on Phase 1 |
 | Phase 3 — Deadman timer rebuild (`timerfd(CLOCK_BOOTTIME)`, `pidfd_open`, `epoll`, `signalfd`) | Not started | ~2 weeks | Gates on Phase 1 |
 | Phase 4 — systemd D-Bus for service handlers | Not started | ~1 week | Gates on Phase 1 |
