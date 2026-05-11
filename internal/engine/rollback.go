@@ -28,7 +28,7 @@ func (e *Engine) rollback(ctx context.Context, transport api.Transport, applyRes
 			continue
 		}
 
-		h := e.registry.MustGet(ar.Mechanism)
+		h := e.mustLookupHandler(ar.Mechanism)
 		rh, ok := h.(api.RollbackHandler)
 		if !ok {
 			results = append(results, api.RollbackResult{

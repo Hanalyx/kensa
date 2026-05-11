@@ -21,7 +21,7 @@ func (e *Engine) preflight(txn *api.Transaction) error {
 	}
 
 	for _, step := range txn.Steps {
-		h, ok := e.registry.Get(step.Mechanism)
+		h, ok := e.lookupHandler(step.Mechanism)
 		if !ok {
 			return fmt.Errorf("preflight: step %d mechanism %q is not registered", step.Index, step.Mechanism)
 		}

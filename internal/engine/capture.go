@@ -19,7 +19,7 @@ import (
 func (e *Engine) capture(ctx context.Context, transport api.Transport, txn *api.Transaction) ([]api.PreState, error) {
 	preStates := make([]api.PreState, 0, len(txn.Steps))
 	for _, step := range txn.Steps {
-		h := e.registry.MustGet(step.Mechanism)
+		h := e.mustLookupHandler(step.Mechanism)
 		now := time.Now().UTC()
 
 		if !h.Capturable() {

@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/Hanalyx/kensa-go/internal/agent"
+	"github.com/Hanalyx/kensa-go/internal/agent/server"
 )
 
 // shutdownGracePeriod is how long the agent waits between ctx
@@ -97,7 +98,13 @@ func runAgent(args []string) error {
 		os.Exit(0)
 	}()
 
-	if err := agent.Run(ctx, os.Stdin, os.Stdout, os.Stderr, agent.HandleEcho); err != nil {
+	// L-014 flip: dispatch via server.Handle (real handler
+	// router) instead of HandleEcho (test-fixture echo).
+	// kensa agent --stdio in production routes Apply /
+	// Capture / Rollback to handler.Default() via a fresh
+	// LocalTransport per call. HandleEcho stays in the
+	// internal/agent package as the test fixture.
+	if err := agent.Run(ctx, os.Stdin, os.Stdout, os.Stderr, server.Handle); err != nil {
 		// ctx.Err() (cancellation via signal) is a clean
 		// shutdown, not a failure — operator-facing exit 0.
 		if errors.Is(err, context.Canceled) {

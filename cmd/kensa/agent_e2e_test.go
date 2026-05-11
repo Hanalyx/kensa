@@ -13,7 +13,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,13 +65,19 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 
-	// Build + write a framed ApplyRequest (post-L-009 typed
-	// payload; the L-008 bytes payload is gone).
+	// Send a Heartbeat — the simplest typed roundtrip that
+	// the L-014 dispatcher accepts without needing valid
+	// handler params. (L-009 originally sent an
+	// ApplyRequest against HandleEcho which produced an
+	// empty ApplyResponse; post-L-014 the real dispatcher
+	// would error out for empty params. Heartbeat is the
+	// honest replacement here — schema-roundtrip
+	// validation of a typed variant.)
 	req := &wirev1.Request{
 		SchemaVersion: 1,
 		CorrelationId: 0xdeadbeef,
-		Payload: &wirev1.Request_Apply{
-			Apply: &wirev1.ApplyRequest{Mechanism: "file_content"},
+		Payload: &wirev1.Request_Heartbeat{
+			Heartbeat: &wirev1.HeartbeatRequest{Token: 0xdeadbeef},
 		},
 	}
 	reqBytes, err := proto.Marshal(req)
@@ -83,8 +88,6 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 		t.Fatalf("Write frame to subprocess stdin: %v", err)
 	}
 
-	// Read back the typed Response. ApplyRequest produces
-	// ApplyResponse (L-009 C-02 dispatch contract).
 	_, respBytes, err := agent.Read(stdout, nil)
 	if err != nil {
 		t.Fatalf("Read frame from subprocess stdout: %v; stderr=%q", err, stderr.String())
@@ -96,8 +99,8 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 	if resp.GetCorrelationId() != req.GetCorrelationId() {
 		t.Errorf("correlation_id mismatch: got %d, want %d", resp.GetCorrelationId(), req.GetCorrelationId())
 	}
-	if _, ok := resp.GetPayload().(*wirev1.Response_ApplyResp); !ok {
-		t.Errorf("expected ApplyResp variant; got %T", resp.GetPayload())
+	if _, ok := resp.GetPayload().(*wirev1.Response_HeartbeatAck); !ok {
+		t.Errorf("expected HeartbeatAck variant; got %T", resp.GetPayload())
 	}
 	if resp.GetSchemaVersion() != 1 {
 		t.Errorf("schema_version: got %d, want 1", resp.GetSchemaVersion())
@@ -198,10 +201,17 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 
+	// Post-L-014 the agent dispatches via server.Handle (real
+	// handlers). Apply/Capture/Rollback against an UNKNOWN
+	// mechanism produce envelope-Error responses with no
+	// typed payload — verifies the typed-Request roundtrip
+	// + the dispatcher's unknown-mechanism path. The full
+	// happy-path Apply with real file_permissions is locked
+	// by TestKensaAgent_L014_FilePermissionsApply below.
 	requests := []*wirev1.Request{
-		{SchemaVersion: 1, CorrelationId: 100, Payload: &wirev1.Request_Apply{Apply: &wirev1.ApplyRequest{Mechanism: "file_permissions"}}},
-		{SchemaVersion: 1, CorrelationId: 101, Payload: &wirev1.Request_Capture{Capture: &wirev1.CaptureRequest{Mechanism: "file_permissions"}}},
-		{SchemaVersion: 1, CorrelationId: 102, Payload: &wirev1.Request_Rollback{Rollback: &wirev1.RollbackRequest{PreState: &wirev1.WirePreState{Mechanism: "file_permissions"}}}},
+		{SchemaVersion: 1, CorrelationId: 100, Payload: &wirev1.Request_Apply{Apply: &wirev1.ApplyRequest{Mechanism: "no_such_mechanism"}}},
+		{SchemaVersion: 1, CorrelationId: 101, Payload: &wirev1.Request_Capture{Capture: &wirev1.CaptureRequest{Mechanism: "no_such_mechanism"}}},
+		{SchemaVersion: 1, CorrelationId: 102, Payload: &wirev1.Request_Rollback{Rollback: &wirev1.RollbackRequest{PreState: &wirev1.WirePreState{Mechanism: "no_such_mechanism"}}}},
 		{SchemaVersion: 1, CorrelationId: 103, Payload: &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 0xcafe}}},
 	}
 	for _, req := range requests {
@@ -214,7 +224,9 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 		}
 	}
 
-	wantVariants := []string{"*wirev1.Response_ApplyResp", "*wirev1.Response_CaptureResp", "*wirev1.Response_RollbackResp", "*wirev1.Response_HeartbeatAck"}
+	// Apply / Capture / Rollback against unknown_mechanism
+	// produce envelope Errors (no typed payload). Heartbeat
+	// still passes through to HandleEcho → HeartbeatAck.
 	for i, req := range requests {
 		_, respBytes, err := agent.Read(stdout, nil)
 		if err != nil {
@@ -227,9 +239,18 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 		if resp.GetCorrelationId() != req.GetCorrelationId() {
 			t.Errorf("response %d correlation_id: got %d, want %d", i, resp.GetCorrelationId(), req.GetCorrelationId())
 		}
-		gotVariant := fmt.Sprintf("%T", resp.GetPayload())
-		if gotVariant != wantVariants[i] {
-			t.Errorf("response %d variant: got %s, want %s", i, gotVariant, wantVariants[i])
+		// Indexes 0..2 = unknown mechanism → envelope Error.
+		// Index 3 = Heartbeat → HeartbeatAck.
+		if i < 3 {
+			if resp.GetError() == nil {
+				t.Errorf("response %d: expected envelope Error for unknown mechanism; got payload=%T", i, resp.GetPayload())
+			} else if resp.GetError().GetCode() != "unknown_mechanism" {
+				t.Errorf("response %d Error.Code: got %q, want %q", i, resp.GetError().GetCode(), "unknown_mechanism")
+			}
+		} else {
+			if _, ok := resp.GetPayload().(*wirev1.Response_HeartbeatAck); !ok {
+				t.Errorf("response %d: expected HeartbeatAck; got %T", i, resp.GetPayload())
+			}
 		}
 	}
 
@@ -255,6 +276,120 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 	}
 	if ack.HeartbeatAck.GetToken() != 0xbaadf00d {
 		t.Errorf("heartbeat token round-trip: got %#x, want 0xbaadf00d", ack.HeartbeatAck.GetToken())
+	}
+
+	if err := stdin.Close(); err != nil {
+		t.Fatalf("close stdin: %v", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Errorf("agent exited non-zero: %v; stderr=%q", err, stderr.String())
+	}
+}
+
+// TestKensaAgent_L014_FilePermissionsApply locks AC-06 of
+// agent-handler-port-filepermissions: the complete L-007..L-014
+// stack — spawn bin/kensa agent --stdio, open an AgentClient
+// on its pipes, send a real file_permissions ApplyRequest
+// with valid params, observe the file's mode actually
+// change on disk.
+//
+// This is the bridge proof: wire protocol → framing → typed
+// dispatch → real handler → local syscall → observable side
+// effect.
+//
+// @spec agent-handler-port-filepermissions
+// @ac AC-06
+func TestKensaAgent_L014_FilePermissionsApply(t *testing.T) {
+	repoRoot := findRepoRootE2E(t)
+	binPath := filepath.Join(repoRoot, "bin", "kensa")
+	if !fileExists(binPath) {
+		t.Skipf("bin/kensa not built (run `make build`); skipping L-014 E2E")
+	}
+
+	// File we'll chmod via the agent.
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test-file")
+	if err := os.WriteFile(target, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binPath, "agent", "--stdio")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("StdinPipe: %v", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe: %v", err)
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	// Build the typed request directly (AgentClient is in
+	// internal/agent/client; this test is in cmd/kensa, so
+	// to avoid an import-cycle thicket we send the request
+	// directly via the agent.Read/Write helpers).
+	params, err := wirev1.APIParamsToWire(map[string]any{
+		"path": target,
+		"mode": "0644",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := &wirev1.Request{
+		SchemaVersion: 1,
+		CorrelationId: 0xc014,
+		Payload: &wirev1.Request_Apply{
+			Apply: &wirev1.ApplyRequest{
+				Mechanism: "file_permissions",
+				Params:    params,
+			},
+		},
+	}
+	reqBytes, _ := proto.Marshal(req)
+	if err := agent.Write(stdin, agent.FramePayload, reqBytes, nil); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	_, respBytes, err := agent.Read(stdout, nil)
+	if err != nil {
+		t.Fatalf("Read: %v; stderr=%q", err, stderr.String())
+	}
+	var resp wirev1.Response
+	if err := proto.Unmarshal(respBytes, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.GetError() != nil {
+		t.Fatalf("unexpected envelope Error: %v; stderr=%q", resp.GetError(), stderr.String())
+	}
+	applyResp, ok := resp.GetPayload().(*wirev1.Response_ApplyResp)
+	if !ok {
+		t.Fatalf("expected ApplyResp; got %T", resp.GetPayload())
+	}
+	sr := applyResp.ApplyResp.GetStepResult()
+	if sr == nil {
+		t.Fatal("nil StepResult in ApplyResponse")
+	}
+	if !sr.GetSuccess() {
+		t.Errorf("Apply failed: detail=%q", sr.GetDetail())
+	}
+
+	// Verify the file's mode actually changed — this is
+	// the WHOLE POINT of L-014. Wire-protocol roundtrip is
+	// nice; observable target-side effect is the proof.
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Errorf("file mode after agent Apply: got %o, want 0644 — handler did not actually change the file", info.Mode().Perm())
 	}
 
 	if err := stdin.Close(); err != nil {
