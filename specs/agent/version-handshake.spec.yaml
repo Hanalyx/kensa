@@ -1,0 +1,220 @@
+spec:
+    id: agent-version-handshake
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-version-handshake
+        description: |
+            LL Phase 1 deliverable L-012. Adds an explicit
+            protocol version-handshake exchange between the
+            controller and agent on session start.
+            Controller-version-incompatible-with-agent
+            scenarios are detected loudly rather than via
+            cryptic downstream failures.
+
+            **Why this exists.** L-007 added a `schema_version`
+            field (uint32=1) on every root message; L-007's
+            `ValidateSchemaVersion` rejects values other than 1.
+            That handles single-version schema drift at the
+            wire-format level. L-012 adds a HIGHER-level
+            protocol version (major.minor) for compatibility
+            negotiation:
+              - Major version controls breaking changes
+                (semantics changed, message types removed,
+                contract reinterpreted). Mismatched majors
+                MUST abort the session.
+              - Minor version controls additive changes (new
+                message types, new payload fields). A newer-
+                minor agent accepts older-minor controllers
+                (and vice versa); mismatch logs a warning
+                and proceeds.
+
+            **Scope.** L-012 ships:
+
+            1. New wire messages: `HandshakeRequest{major,
+               minor, build}` and `HandshakeAck{major,
+               minor, accepted, reason, build}`. Field 14
+               in the Request/Response payload oneof
+               (within the L-009 reserved-14-to-19 range —
+               adding a payload variant within that range
+               requires removing the reservation for the
+               specific field number).
+
+            2. Constants in `internal/agent/wirev1`:
+               `ProtocolMajor = 1`, `ProtocolMinor = 0`,
+               `ProtocolBuild = "v1.0.0"`. Bumping the
+               major/minor is the explicit contract for
+               adding a breaking change to the wire
+               protocol.
+
+            3. `client.Handshake(ctx) error` method.
+               Sends a HandshakeRequest with this build's
+               major/minor, waits for HandshakeAck, returns
+               nil on accepted, `ErrIncompatibleProtocol`
+               on rejected. Logs a warning via stderr on
+               accepted-but-minor-mismatch.
+
+            4. Updated `agent.HandleEcho` to handle the
+               Handshake variant — returns HandshakeAck
+               with accepted=true if majors match,
+               accepted=false otherwise.
+
+            **Out of scope.** Requiring Handshake-as-first-
+            message: the agent does NOT reject other variants
+            arriving before a Handshake. That gating is
+            L-014's responsibility (the real dispatcher
+            enforces "first message must be Handshake"). At
+            L-012 the controller chooses whether to call
+            Handshake; today's L-011 client doesn't, so
+            L-012 is purely additive — no existing callers
+            break.
+
+    objective:
+        summary: |
+            Add HandshakeRequest/HandshakeAck wire types
+            at field 14 (Request and Response oneof). Add
+            ProtocolMajor/Minor/Build constants. Add
+            client.Handshake() method with major-mismatch
+            abort + minor-mismatch warning. Update
+            HandleEcho to respond to Handshake. Tests cover
+            happy path, major mismatch, minor mismatch.
+        scope:
+            includes:
+                - "internal/agent/wirev1/wire.proto: HandshakeRequest, HandshakeAck at field 14 (remove from reserved-range)"
+                - "internal/agent/wirev1/wire.pb.go: regenerated"
+                - "internal/agent/wirev1/version.go: ProtocolMajor/Minor/Build constants + Compatible(major, minor) helper"
+                - "internal/agent/echo.go: HandleEcho routes Handshake → HandshakeAck"
+                - "internal/agent/client/client.go: Handshake(ctx) method"
+                - "internal/agent/client/client_test.go: TestClient_Handshake_HappyPath, _MajorMismatch, _MinorMismatch"
+            excludes:
+                - "Requiring Handshake-as-first-message on the agent: L-014 dispatcher"
+                - "Multi-major support (controller speaks v1, agent speaks v2): not until v2 ships, currently nothing to be compatible with"
+                - "Out-of-band heartbeat channel (frame type 0x02): separate concern, may ship as a follow-on or stay deferred"
+
+    constraints:
+        - id: C-01
+          description: |
+              wire.proto MUST define HandshakeRequest{major
+              uint32, minor uint32, build string} and
+              HandshakeAck{major uint32, minor uint32,
+              accepted bool, reason string, build string}.
+              Both go into the Request/Response payload
+              oneof at field 14 (was reserved at L-010;
+              L-012 removes it from the reserved range and
+              uses the slot).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `internal/agent/wirev1/version.go` MUST define
+              ProtocolMajor (uint32) and ProtocolMinor
+              (uint32) as the controller-and-agent build's
+              protocol identity. Today both are 1, 0 —
+              representing v1.0 of the wire protocol.
+              Bumping ProtocolMajor is the explicit
+              ratification gate for breaking-change ships.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `wirev1.Compatible(remoteMajor, remoteMinor)
+              (compat bool, warnIfMinorDiff bool)` MUST
+              return:
+                (true, false)  iff remoteMajor == Major &&
+                               remoteMinor == Minor
+                (true, true)   iff remoteMajor == Major &&
+                               remoteMinor != Minor
+                (false, false) iff remoteMajor != Major
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `client.Handshake(ctx)` MUST send a
+              HandshakeRequest with this build's
+              ProtocolMajor/Minor/Build. On HandshakeAck:
+              - accepted=true, no minor mismatch → return nil
+              - accepted=true, minor mismatch → log a warning
+                line to stderr (TBD: caller-supplied logger
+                at L-013+; for L-012 we use stderr directly
+                via a package-level `log` indirection so
+                tests can capture)
+              - accepted=false OR major mismatch → return
+                ErrIncompatibleProtocol wrapping the agent's
+                reason
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `agent.HandleEcho` MUST handle the Handshake
+              variant: build a HandshakeAck with the
+              agent's own ProtocolMajor/Minor/Build, set
+              accepted=Compatible's first return value,
+              and (when accepted=false) set reason to
+              "protocol major mismatch: client=<X>, agent=<Y>".
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              `wirev1.ValidateRequest` MUST continue to
+              accept Handshake as a valid oneof variant.
+              The existing reflective count check handles
+              this automatically — no changes needed since
+              the field is added to the same oneof.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              wire.proto compiles cleanly with
+              HandshakeRequest, HandshakeAck, and the
+              new field-14 Request_Handshake /
+              Response_HandshakeAck oneof variants.
+              Locked by build.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `wirev1.Compatible(1, 0)` returns
+              `(true, false)`. `wirev1.Compatible(1, 5)`
+              returns `(true, true)`. `wirev1.Compatible(2,
+              0)` returns `(false, false)`. Locked by
+              `TestCompatible`.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              `client.Handshake(ctx)` against an echo
+              server with matching version returns nil.
+              Locked by `TestClient_Handshake_HappyPath`.
+          references_constraints: [C-04, C-05]
+          priority: critical
+        - id: AC-04
+          description: |
+              `client.Handshake(ctx)` against an agent
+              with major=2 returns ErrIncompatibleProtocol.
+              Locked by `TestClient_Handshake_MajorMismatch`
+              (uses a custom handler that responds with
+              major=2).
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              `client.Handshake(ctx)` against an agent
+              with same major but different minor returns
+              nil (accepted with warning). Locked by
+              `TestClient_Handshake_MinorMismatch`.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-06
+          description: |
+              `go test ./...` passes. cli-smoke, specter
+              strict, make proto-check all green.
+              Verified during merge.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06]
+          priority: critical
+
+    tags: [agent, handshake, version, ll-phase-1, l-012]
