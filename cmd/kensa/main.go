@@ -49,6 +49,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/agent/dispatcher"
 	"github.com/Hanalyx/kensa-go/internal/detect"
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/handler"
@@ -1398,12 +1399,6 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		return NewUsageError(fmt.Sprintf("--control %v: no rules matched (after upstream filters, %d rule(s) remained; none mapped any of these controls)", controls, preControlCount))
 	}
 
-	svc, err := kensa.Default(ctx, dbPath)
-	if err != nil {
-		return fmt.Errorf("open store: %w", err)
-	}
-	defer func() { _ = svc.Close() }()
-
 	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
 	if err != nil {
 		return &UsageError{Cause: err}
@@ -1413,6 +1408,38 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
 		Capabilities: capOverrides,
 	}
+
+	// L-014b: KENSA_USE_AGENT=1 flips remediate to dispatch
+	// through `kensa agent --stdio` running on the target.
+	// Strict "1" match avoids false positives on misset
+	// values (per spec C-04).
+	var engineOpts []engine.Option
+	if os.Getenv("KENSA_USE_AGENT") == "1" {
+		// Build the bootstrap SSH transport — same hostCfg
+		// as the remediate path would use.
+		bootstrapTransport, err := ssh.Factory{}.Connect(ctx, hostCfg)
+		if err != nil {
+			return fmt.Errorf("agent mode: connect to host for bootstrap: %w", err)
+		}
+		defer func() { _ = bootstrapTransport.Close() }()
+
+		agentClient, cleanup, err := dispatcher.OpenAgent(ctx, bootstrapTransport, host, dispatcher.Options{
+			User:   user,
+			Stderr: os.Stderr,
+		})
+		if err != nil {
+			return fmt.Errorf("agent mode: %w", err)
+		}
+		defer cleanup()
+		engineOpts = append(engineOpts, engine.WithAgentClient(agentClient))
+	}
+
+	svc, err := kensa.DefaultWithEngineOptions(ctx, dbPath, engineOpts...)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer func() { _ = svc.Close() }()
+
 	resolved := resolveAndPrintIssues(rules, quiet)
 	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
 	if err != nil {

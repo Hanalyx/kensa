@@ -1,0 +1,219 @@
+spec:
+    id: agent-cli-env-var
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-cli-env-var
+        description: |
+            LL Phase 1 deliverable L-014b. The
+            CLI-lifecycle plumbing partitioned out of L-014:
+            `kensa remediate` invoked with
+            `KENSA_USE_AGENT=1` bootstraps the target-side
+            kensa binary, spawns `ssh <host> <cachePath>
+            agent --stdio`, opens an AgentClient, runs the
+            version handshake, and passes
+            `engine.WithAgentClient` so the remediate flow
+            dispatches through the agent.
+
+            **Why partitioned from L-014.** L-014 was the
+            architectural bridge (LocalTransport,
+            RemoteHandler shim, engine.WithAgentClient,
+            agent-side server.Handle). The SSH-lifecycle
+            plumbing in cmd/kensa is invasive enough that
+            splitting it kept L-014's review focused on the
+            architectural pieces.
+
+            **Three additions:**
+
+            1. `pkg/kensa/kensa.go` — `DefaultWithEngineOptions(ctx,
+               storePath, engineOpts ...engine.Option)` that
+               accepts extra engine options on top of Default's
+               standard set. `Default` continues to work
+               unchanged (backward compat).
+
+            2. `internal/agent/dispatcher/setup.go` —
+               `OpenAgent(ctx, host, opts) (*client.Client,
+               func(), error)` encapsulates the
+               bootstrap+spawn+open+handshake lifecycle.
+               The cleanup function tears down the
+               subprocess on engine completion (or error).
+
+            3. `cmd/kensa/main.go` runRemediate — when
+               `KENSA_USE_AGENT=1` is set, calls
+               dispatcher.OpenAgent first, then
+               DefaultWithEngineOptions(... ,
+               engine.WithAgentClient(c)).
+
+            **Live test deferred.** The
+            `TestLiveAgentMode_FilePermissionsParity`
+            against `KENSA_TEST_SSH_HOST +
+            KENSA_TEST_AGENT_MODE=1` requires a real SSH-
+            able host. Unit tests via fake ssh-binary path
+            cover the lifecycle. Live test ships as a
+            follow-on in a future deliverable when a CI
+            test host is wired.
+
+    objective:
+        summary: |
+            Add DefaultWithEngineOptions to pkg/kensa.
+            Add dispatcher.OpenAgent lifecycle wrapper.
+            Wire KENSA_USE_AGENT=1 in runRemediate. Unit
+            tests + spec.
+        scope:
+            includes:
+                - "pkg/kensa/kensa.go: DefaultWithEngineOptions"
+                - "pkg/kensa/kensa_test.go: option-aware factory test"
+                - "internal/agent/dispatcher/setup.go: OpenAgent lifecycle"
+                - "internal/agent/dispatcher/setup_test.go: lifecycle test using a fake ssh-binary that just exec's kensa locally"
+                - "cmd/kensa/main.go: KENSA_USE_AGENT=1 detection in runRemediate; stderr log of the agent-mode path firing"
+            excludes:
+                - "Live-host parity test: gated on KENSA_TEST_SSH_HOST"
+                - "kensa check --use-agent: only remediate gets the env-var path today (check is read-only; agent-mode value is less clear; defer)"
+                - "Per-host or per-rule agent selection: env var is process-global"
+                - "Falling back to direct-SSH on agent failure: errors surface as engine errors; operator inspects"
+
+    constraints:
+        - id: C-01
+          description: |
+              `pkg/kensa.DefaultWithEngineOptions(ctx,
+              storePath, engineOpts ...engine.Option)` MUST
+              return a *Service equivalent to Default
+              EXCEPT every engine option in engineOpts is
+              applied after the default Store/Signer/
+              Deadman/Events options. Specifically:
+              callers passing `engine.WithAgentClient(c)`
+              get an engine that routes handler invocations
+              through c.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `Default(ctx, storePath)` MUST continue to
+              work unchanged — backward compatibility with
+              every existing caller (OpenWatch and any
+              future v1 consumers). Implemented by having
+              Default delegate to
+              DefaultWithEngineOptions with an empty
+              variadic.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `internal/agent/dispatcher/OpenAgent(ctx,
+              host, opts) (*client.Client, func(), error)`
+              MUST encapsulate: (1) bootstrap.EnsureAgent
+              via an SSH-bound api.Transport; (2) spawn
+              `ssh <user>@<host> <cachePath> agent --stdio`
+              as an exec.Cmd; (3) client.Open on the
+              subprocess pipes; (4) client.Handshake;
+              (5) cleanup func that closes the client,
+              waits for the subprocess, and surfaces non-
+              zero exit codes.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `cmd/kensa/main.go runRemediate` MUST check
+              `os.Getenv("KENSA_USE_AGENT") == "1"` and,
+              when set, take the agent-mode path:
+                  1. Construct a host-specific SSH transport
+                     for bootstrap (using existing
+                     internal/transport/ssh code).
+                  2. dispatcher.OpenAgent → client + cleanup.
+                  3. defer cleanup().
+                  4. kensa.DefaultWithEngineOptions(...,
+                     engine.WithAgentClient(client)).
+                  5. Run normally; produces an identical
+                     api.RemediationResult to direct-SSH
+                     (modulo per-step timing).
+              `KENSA_USE_AGENT` values other than "1"
+              (unset, "0", "true", etc.) take the
+              existing direct-SSH path. Strict "1" matching
+              avoids false positives on misset values.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              The cleanup function returned by OpenAgent
+              MUST run to completion even on engine
+              errors. Implementation pattern in
+              runRemediate: `defer cleanup()` placed
+              immediately after OpenAgent returns; runs in
+              LIFO order with the existing `svc.Close`
+              defer.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              OpenAgent MUST log to stderr ONE line
+              announcing the agent-mode path fired:
+              `"kensa: agent mode (KENSA_USE_AGENT=1):
+              bootstrap+spawn+handshake completed for
+              host <host>"`. Operators tailing stderr see
+              the agent-mode firing without ambiguity vs
+              direct-SSH (which produces no equivalent
+              line).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa.DefaultWithEngineOptions(ctx, "",
+              engine.WithAgentClient(fakeClient))` returns
+              a Service whose engine routes through
+              fakeClient. Locked by
+              `TestDefaultWithEngineOptions_AgentRouting`.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              `kensa.Default(ctx, "")` produces the same
+              Service shape as before L-014b (no engine
+              options modified). Backward-compat lock.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              `dispatcher.OpenAgent` with a stub Transport
+              + a stub "ssh-binary" that exec's
+              `kensa agent --stdio` locally returns a
+              working *Client + cleanup. Locked by
+              `TestOpenAgent_LocalStub`.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              `KENSA_USE_AGENT=1` flips runRemediate into
+              the agent path; unset/0 takes direct-SSH.
+              Tested via runCLI harness with a stubbed
+              host. Locked by
+              `TestRunRemediate_KensaUseAgent_Detection`.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              OpenAgent's cleanup runs on engine error.
+              Locked by
+              `TestOpenAgent_CleanupOnError`.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              OpenAgent writes the announce-line to
+              stderr. Locked by
+              `TestOpenAgent_AnnounceLine`.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-07
+          description: |
+              `go test ./...`, cli-smoke, specter strict,
+              `make proto-check`, `make manpage-check` all
+              green. Verified during merge.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06]
+          priority: critical
+
+    tags: [agent, cli, env-var, ll-phase-1, l-014b]

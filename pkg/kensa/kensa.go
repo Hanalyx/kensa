@@ -82,6 +82,21 @@ func (s *Service) Close() error {
 // An empty storePath defaults to ".kensa/results.db" in the current
 // working directory.
 func Default(ctx context.Context, storePath string) (*Service, error) {
+	return DefaultWithEngineOptions(ctx, storePath)
+}
+
+// DefaultWithEngineOptions is the option-aware variant of
+// Default. Callers passing additional engine.Option values
+// (e.g., engine.WithAgentClient for L-014b agent-mode
+// dispatch) get an engine that composes those on top of the
+// standard Store / Signer / Deadman / Events options.
+//
+// Default is preserved as a thin call into this function
+// with no extra options so existing callers (OpenWatch,
+// v1 consumers) work unchanged.
+//
+// L-014b deliverable per spec agent-cli-env-var C-01.
+func DefaultWithEngineOptions(ctx context.Context, storePath string, engineOpts ...engine.Option) (*Service, error) {
 	if storePath == "" {
 		storePath = ".kensa/results.db"
 	}
@@ -104,12 +119,19 @@ func Default(ctx context.Context, storePath string) (*Service, error) {
 		}
 	}
 	bus := engine.NewInMemoryEventBus()
-	eng := engine.New(
+
+	// Standard option set; caller-supplied options appended
+	// last so they can override (or compose with, e.g.,
+	// WithAgentClient) the standard set.
+	stdOpts := []engine.Option{
 		engine.WithStore(storeAdapter{s}),
 		engine.WithDeadman(deadman.New(0, nil)),
 		engine.WithSigner(signer),
 		engine.WithEvents(bus),
-	)
+	}
+	allOpts := append(stdOpts, engineOpts...)
+	eng := engine.New(allOpts...)
+
 	cfg := api.Config{
 		StorePath:        storePath,
 		Engine:           eng,
