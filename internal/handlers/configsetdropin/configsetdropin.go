@@ -82,7 +82,7 @@ func (h *Handler) Capturable() bool { return true }
 // Idempotent per spec C-01.
 //
 // **Phase 2 P-005 migration (2026-05-11)**: when transport satisfies
-// api.AtomicTransport (agent-mode), uses AtomicWrite for the publish
+// fsatomic.Transport (agent-mode), uses AtomicWrite for the publish
 // (with AtomicReplace fallback for re-Apply on existing files —
 // the FMA explicitly flagged this; AtomicWrite errors with
 // ErrAlreadyExists where the shell `echo >` silently overwrites).
@@ -96,7 +96,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 
 	content := fmt.Sprintf("# Managed by Kensa.\n%s%s%s\n", p.Key, p.Separator, p.Value)
 
-	if afs, ok := transport.(api.AtomicTransport); ok {
+	if afs, ok := transport.(fsatomic.Transport); ok {
 		// Agent-mode path.
 		dir := filepath.Dir(p.Path)
 		if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
@@ -209,7 +209,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	// Phase 2 P-005 migration: agent-mode uses fsatomic for
 	// the write/remove; direct-SSH falls back to the shell
 	// pipeline. Symmetric with Apply's branching.
-	if afs, ok := transport.(api.AtomicTransport); ok {
+	if afs, ok := transport.(fsatomic.Transport); ok {
 		var aerr error
 		if fileExisted {
 			aerr = afs.AtomicReplace(ctx, path, 0o644, []byte(priorContent))

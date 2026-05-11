@@ -118,7 +118,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	// equivalent atomic primitive AND a chown failure after
 	// successful write needs to be reported as partial
 	// success (FMA Q1.b).
-	if afs, ok := transport.(api.AtomicTransport); ok {
+	if afs, ok := transport.(fsatomic.Transport); ok {
 		fileMode, modeErr := parseFileMode(p.Mode)
 		if modeErr != nil {
 			return &api.StepResult{
@@ -367,7 +367,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 
 	// Phase 2 P-002 migration: agent-mode uses fsatomic;
 	// direct-SSH falls back to shell. Symmetric with Apply.
-	if afs, ok := transport.(api.AtomicTransport); ok {
+	if afs, ok := transport.(fsatomic.Transport); ok {
 		if !fileExisted {
 			// Was absent — Apply created the file, Rollback removes it.
 			rmErr := afs.AtomicRemove(ctx, path)

@@ -203,7 +203,7 @@ func (t *Transport) ControlChannelSensitive() bool { return false }
 func (t *Transport) Close() error { return nil }
 
 // AtomicWrite delegates to fsatomic.AtomicWrite. Satisfies the
-// api.AtomicTransport capability interface so handlers running
+// fsatomic.Transport capability interface so handlers running
 // under agent-mode can detect-and-use atomic primitives via
 // type assertion.
 func (t *Transport) AtomicWrite(ctx context.Context, dir, name string, mode fs.FileMode, content []byte) error {
@@ -222,6 +222,6 @@ func (t *Transport) AtomicRemove(ctx context.Context, fullPath string) error {
 
 // Compile-time interface check.
 var (
-	_ api.Transport         = (*Transport)(nil)
-	_ api.AtomicTransport   = (*Transport)(nil)
+	_ api.Transport      = (*Transport)(nil)
+	_ fsatomic.Transport = (*Transport)(nil)
 )

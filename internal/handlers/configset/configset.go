@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/agent/fsatomic"
 )
 
 // mechanism is the canonical handler name.
@@ -123,7 +124,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 
 	targetLine := p.Key + p.Separator + p.Value
 
-	if afs, ok := transport.(api.AtomicTransport); ok {
+	if afs, ok := transport.(fsatomic.Transport); ok {
 		// Agent-mode: Go regex + fsatomic.AtomicReplace.
 		original, readErr := os.ReadFile(p.File)
 		if readErr != nil {
@@ -334,7 +335,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	// `prior_line` (the matching line as it was pre-Apply),
 	// not full file content. Rollback uses Go regex to find
 	// the current key line and restore (or remove) it.
-	if afs, ok := transport.(api.AtomicTransport); ok {
+	if afs, ok := transport.(fsatomic.Transport); ok {
 		original, readErr := os.ReadFile(file)
 		if readErr != nil {
 			return &api.RollbackResult{

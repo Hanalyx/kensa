@@ -179,10 +179,10 @@ func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = fileabsent.New()
 }
 
-// ─── P-003 migration tests (agent-mode AtomicTransport path) ────────────
+// ─── P-003 migration tests (agent-mode fsatomic.Transport path) ────────
 
 // TestApply_AgentMode_AtomicRemove locks the P-003 migration:
-// when transport satisfies api.AtomicTransport, Apply uses
+// when transport satisfies fsatomic.Transport, Apply uses
 // AtomicRemove instead of the rm -f shell pipeline. Verified
 // via the LocalTransport (real-fs) wrapping fsatomic primitives.
 func TestApply_AgentMode_AtomicRemove(t *testing.T) {
@@ -233,7 +233,7 @@ func TestApply_AgentMode_AlreadyAbsentIsIdempotent(t *testing.T) {
 
 // TestRollback_AgentMode_AtomicWrite locks the rollback
 // re-creation via AtomicWrite when transport is
-// api.AtomicTransport.
+// fsatomic.Transport.
 func TestRollback_AgentMode_AtomicWrite(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "to-be-restored")
