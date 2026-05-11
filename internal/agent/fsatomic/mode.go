@@ -4,9 +4,31 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
+
+// ValidatePath is a first-line check for rule-supplied paths
+// before they reach either fsatomic (agent-mode) or the shell
+// pipeline (direct-SSH). Requires:
+//   - Absolute path
+//   - Canonical form (no ".." segments after filepath.Clean)
+//
+// fsatomic's safeOpenParentDir enforces the same constraints
+// internally, but the shell-fallback path has no such defense
+// — a rule with `path: "../../etc/shadow"` would shell-resolve
+// the path relative to the agent's cwd. This helper makes the
+// rejection consistent across both transport paths.
+func ValidatePath(p string) error {
+	if !filepath.IsAbs(p) {
+		return fmt.Errorf("path must be absolute: %q", p)
+	}
+	if p != filepath.Clean(p) {
+		return fmt.Errorf("path must be canonical (no '..' or redundant separators): %q", p)
+	}
+	return nil
+}
 
 // ParseMode parses a file-mode string accepted in rule YAML
 // — "644", "0644", or "0o644" — into an os.FileMode. The

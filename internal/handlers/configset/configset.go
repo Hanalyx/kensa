@@ -121,6 +121,12 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if vErr := fsatomic.ValidatePath(p.File); vErr != nil {
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("config_set: %v", vErr),
+		}, nil
+	}
 
 	targetLine := p.Key + p.Separator + p.Value
 

@@ -107,6 +107,12 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if vErr := fsatomic.ValidatePath(p.Path); vErr != nil {
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("file_content: %v", vErr),
+		}, nil
+	}
 
 	// Phase 2 P-002: agent-mode uses fsatomic for the write
 	// path (AtomicReplace for existing, AtomicWrite for new).

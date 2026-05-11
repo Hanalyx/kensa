@@ -93,6 +93,12 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if vErr := fsatomic.ValidatePath(p.Path); vErr != nil {
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("config_set_dropin: %v", vErr),
+		}, nil
+	}
 
 	content := fmt.Sprintf("# Managed by Kensa.\n%s%s%s\n", p.Key, p.Separator, p.Value)
 

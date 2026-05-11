@@ -303,6 +303,36 @@ func TestApply_AgentMode_EmptyModePreservesExisting(t *testing.T) {
 	}
 }
 
+// TestApply_RejectsPathTraversal locks the F-005 path
+// validation: a rule with `..` or a relative path is rejected
+// at the handler boundary, before fsatomic OR the shell
+// pipeline sees the path. Defense in depth — fsatomic
+// already refuses relative paths internally, but the
+// direct-SSH shell path doesn't, so handler-level validation
+// closes the gap.
+func TestApply_RejectsPathTraversal(t *testing.T) {
+	tr := local.New()
+	h := filecontent.New()
+	cases := []string{
+		"../etc/passwd",
+		"/etc/../etc/passwd",
+		"./relative",
+		"foo/bar",
+	}
+	for _, bad := range cases {
+		res, err := h.Apply(context.Background(), tr, api.Params{
+			"path": bad, "content": "x", "mode": "0644",
+		}, nil)
+		if err != nil {
+			t.Errorf("path %q: unexpected error: %v", bad, err)
+			continue
+		}
+		if res.Success {
+			t.Errorf("path %q: should be rejected; got success: %s", bad, res.Detail)
+		}
+	}
+}
+
 // TestApply_AgentMode_RejectsBadMode locks the FMA Q1.a
 // concern: mode strings the Go parser can't handle surface
 // as a clear error rather than corrupting bytes.

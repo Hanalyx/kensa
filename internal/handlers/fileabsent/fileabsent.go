@@ -72,6 +72,12 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if vErr := fsatomic.ValidatePath(p.Path); vErr != nil {
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("file_absent: %v", vErr),
+		}, nil
+	}
 
 	if afs, ok := transport.(fsatomic.Transport); ok {
 		// Agent-mode path: kernel-atomic Unlinkat + Fsync.
