@@ -628,9 +628,11 @@ once the founder ratifies them.
 #### L-014 — Port `file_permissions` handler to agent mode (proof-of-concept)
 - **Phase:** LL Phase 1
 - **Deps:** L-011, L-013
-- **Acceptance:** `kensa remediate` via agent runs `file_permissions` Apply + Capture + Rollback against test host; behavior identical to direct-SSH path
-- **Size:** 4h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Acceptance:** wire stack → real handler → observable target-side effect. Shipped 2026-05-11 (merge `dcacdfa`): LocalTransport (full api.Transport via sh -c + os file ops; NewAuto for sudo-iff-non-root), agent-side server.Handle dispatcher, engine.WithAgentClient option + lookupHandler indirection (5 sites refactored), cmd/kensa/agent.go flipped from HandleEcho to server.Handle. TestKensaAgent_L014_FilePermissionsApply locks the bridge proof.
+- **Size:** ~4h actual (+ design doc + L-014b partition)
+- **Status:** **done** (merge `dcacdfa`, 2026-05-11)
+- **Notes:** Peer review caught 3 P1s (sudo not wired → fixed via local.NewAuto auto-detect; lookupHandler defaults capturable=true for unknown mechanisms → documented + flagged; synchronous dispatch blocks heartbeat → carry-forward for L-015 prereq) + 3 P2s (duplicate remotehandler package deleted; non-atomic Put flagged for L-018; request context not propagated flagged for L-014b). All architectural pieces shipped; CLI env-var wiring partitioned to L-014b.
+- **L-014b sub-deliverable (deferred):** cmd/kensa/remediate.go `KENSA_USE_AGENT=1` env-var path: bootstrap.EnsureAgent → spawn `ssh <host> <cachePath> agent --stdio` → client.Open → client.Handshake → engine.WithAgentClient lifecycle. Plus TestLiveAgentMode_FilePermissionsParity against KENSA_TEST_SSH_HOST + KENSA_TEST_AGENT_MODE=1.
 
 #### L-015 through L-032 — Port remaining 18 capturable handlers to agent mode
 - **Phase:** LL Phase 1
