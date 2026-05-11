@@ -1,0 +1,258 @@
+spec:
+    id: agent-wire-protocol
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-wire-protocol
+        description: |
+            LL Phase 1 deliverable L-007. Scaffolds the
+            protobuf-based wire-protocol toolchain that the
+            kensa agent (L-008..L-032) will speak over framed
+            SSH stdin/stdout. Founder ratified protobuf
+            2026-05-11 (rejecting msgpack — its only Go
+            library with native map[string]interface{}
+            ergonomics, vmihailenco/msgpack/v5, has been
+            stalled 19 months; alternatives don't rescue the
+            choice — and rejecting custom — security-critical
+            parser reinvents protobuf's solved problems).
+
+            **Scope.** L-007 is scaffolding only. The
+            placeholder Request/Response/Error/Heartbeat
+            message types defined here carry just enough
+            shape to round-trip the framing tests; L-009
+            replaces them with the full handler-invocation
+            schema (Apply/Capture/Rollback/HeartbeatAck
+            payloads).
+
+            **Three artifacts ship in L-007:**
+
+            1. `internal/agent/wirev1/wire.proto` —
+               protobuf source. Four root message types
+               (Request, Response, Error, Heartbeat) with
+               minimal scaffolding-level fields (correlation
+               id, schema version, opaque payload bytes).
+
+            2. `internal/agent/wirev1/wire.pb.go` — generated
+               output, checked into the repo. CI step
+               (Makefile target `make proto-check`) verifies
+               regen matches the checked-in copy so wire-
+               schema drift fails CI rather than landing
+               silently.
+
+            3. `internal/agent/wirev1/bridge.go` —
+               `MapToStruct(map[string]any) (*structpb.Struct, error)`
+               and `StructToMap(*structpb.Struct) (map[string]any, error)`
+               helper pair bridging `api.PreState.Data` and
+               `api.Params` to `google.protobuf.Struct`.
+               One-time ~50-line bridge; handlers stay
+               native-map-typed on both sides.
+
+            **Out of scope for L-007.** The actual
+            controller↔agent framing loop, the version
+            handshake, the binary push + SHA cache, and the
+            handler-invocation message payloads are L-008
+            through L-013. This deliverable only ships the
+            toolchain + bridge so those phases have a
+            stable foundation.
+
+            **Toolchain pinning.** `tools.go` imports
+            `google.golang.org/protobuf/cmd/protoc-gen-go`
+            under the `//go:build tools` constraint so
+            `go.mod` pins the codegen plugin version. The
+            `protoc` compiler itself is documented in
+            `CONTRIBUTING.md` as a developer-machine
+            requirement (install from
+            github.com/protocolbuffers/protobuf releases).
+
+    objective:
+        summary: |
+            Scaffold the protobuf wire-format toolchain:
+            wire.proto + generated wire.pb.go + bridge
+            helpers + tools.go pin + Makefile target +
+            codegen-sync CI step. No engine wiring, no agent
+            subcommand changes; this is the foundation
+            L-008..L-032 build on.
+        scope:
+            includes:
+                - "internal/agent/wirev1/wire.proto: Request, Response, Error, Heartbeat scaffolding messages"
+                - "internal/agent/wirev1/wire.pb.go: generated, checked-in"
+                - "internal/agent/wirev1/bridge.go: MapToStruct / StructToMap"
+                - "internal/agent/wirev1/bridge_test.go: roundtrip tests for the bridge helpers"
+                - "internal/agent/wirev1/codegen_test.go: regenerates wire.pb.go in tempdir; fails if it differs from checked-in copy"
+                - "tools.go: pin protoc-gen-go to go.mod via //go:build tools"
+                - "Makefile: `make proto` target regenerates; `make proto-check` runs codegen drift check"
+                - "go.mod: add google.golang.org/protobuf dependency"
+            excludes:
+                - "Detailed handler-invocation message schema (Apply/Capture/Rollback/HeartbeatAck payloads): L-009"
+                - "`kensa agent --stdio` subcommand implementation: L-008 (the v1.0 placeholder already shipped 2026-05-10 at 23b19c5)"
+                - "Length-prefixed framing on the wire: L-010"
+                - "Controller-side AgentTransport adapter: L-011"
+                - "Version handshake on session start: L-012"
+                - "Binary push + SHA cache: L-013"
+                - "First handler port (file_permissions): L-014"
+
+    constraints:
+        - id: C-01
+          description: |
+              `internal/agent/wirev1/wire.proto` MUST declare
+              `syntax = "proto3"` and `go_package =
+              "github.com/Hanalyx/kensa-go/internal/agent/wirev1"`.
+              proto2 syntax is rejected (the optional/required
+              distinction is a known footgun; proto3's
+              singular-default model + explicit `optional`
+              keyword is sufficient for kensa's needs).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `wire.pb.go` MUST be checked into the repo (not
+              .gitignored). A codegen drift check (`make
+              proto-check` running `protoc` in a tempdir and
+              diffing against the checked-in file) MUST pass
+              in CI on every PR. Without this, an engineer
+              who edits wire.proto without regenerating could
+              merge a schema that has no corresponding Go
+              types, breaking the build on the next clean
+              checkout.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `MapToStruct` MUST handle the full domain of
+              `api.PreState.Data` and `api.Params` values:
+              nested maps, slices, strings, int/float
+              numerics, booleans, nil. `time.Time` values
+              MUST be serialized as RFC3339 strings (the
+              JSON contract operators already see); other
+              Go types (channels, functions, custom structs)
+              SHOULD return a descriptive error rather than
+              silently dropping the value.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `StructToMap` MUST round-trip output produced
+              by `MapToStruct`: for any input map M,
+              `StructToMap(MapToStruct(M))` MUST equal M
+              under `reflect.DeepEqual` for the value
+              domains in C-03. Numeric precision is
+              preserved by using `json.Number`-like
+              behavior (decode as float64 for non-integers,
+              int64 for integers within int64 range).
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `tools.go` MUST live at repo root with the
+              `//go:build tools` build constraint so the
+              `protoc-gen-go` import is excluded from
+              regular builds but pins the codegen plugin
+              version in `go.mod`. This is the standard Go
+              tool-pinning pattern; without it, different
+              developers regenerating wire.pb.go could
+              produce byte-different output due to plugin
+              version drift.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              The `Request`, `Response`, `Error`, and
+              `Heartbeat` messages MUST each carry a
+              `schema_version` field (uint32) so L-012's
+              version handshake has something to inspect.
+              At L-007 the value is hardcoded to 1; L-009
+              defines the bump policy. Without this field,
+              L-012 would have to be a breaking change to
+              every message type.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              The wire-protocol package MUST live under
+              `internal/agent/wirev1/`. Putting the
+              versioned suffix in the import path (not just
+              a field) makes a future v2 wire format a
+              parallel package (`wirev2/`) — both can
+              coexist during a migration window without
+              import path collisions.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `protoc --version` is documented in
+              `CONTRIBUTING.md` as a developer prerequisite;
+              the `make proto` Makefile target invokes
+              `protoc` with the correct flags and produces
+              `internal/agent/wirev1/wire.pb.go`. Locked by
+              `make proto` exiting 0 and producing a non-
+              empty .pb.go.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              `make proto-check` regenerates wire.pb.go in
+              a tempdir and fails with a diff if the result
+              differs from the checked-in file. Locked by
+              `TestCodegenSync` in
+              internal/agent/wirev1/codegen_test.go.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              `MapToStruct` accepts the full
+              `map[string]interface{}` domain from C-03 and
+              produces a valid `*structpb.Struct`. Locked
+              by `TestMapToStruct_Domain`.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              `StructToMap(MapToStruct(M))` equals M under
+              `reflect.DeepEqual` for the value domains in
+              C-03. Locked by `TestBridge_Roundtrip`.
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              `tools.go` builds under the `tools` build tag
+              and is excluded from regular `go build`.
+              `go.mod` lists `google.golang.org/protobuf`
+              and `google.golang.org/protobuf/cmd/protoc-gen-go`
+              transitively. Verified manually during merge
+              workflow.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              Each scaffolding message type (Request,
+              Response, Error, Heartbeat) carries a
+              `schema_version` uint32 field with current
+              value 1. Locked by
+              `TestSchemaVersion_PresentOnAllRootMessages`.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-07
+          description: |
+              The generated package import path is
+              `github.com/Hanalyx/kensa-go/internal/agent/wirev1`.
+              Importing it from a hypothetical `wirev2/`
+              package (when v2 lands) produces no import
+              collision. Verified by manual inspection of
+              the `go_package` option in wire.proto.
+          references_constraints: [C-07]
+          priority: medium
+        - id: AC-08
+          description: |
+              `go test ./internal/agent/wirev1/...` passes.
+              No regressions in `go test ./...` or
+              `cli-smoke.sh`. Verified during the L-007
+              merge workflow.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06, C-07]
+          priority: critical
+
+    tags: [agent, wire-protocol, protobuf, ll-phase-1, l-007]

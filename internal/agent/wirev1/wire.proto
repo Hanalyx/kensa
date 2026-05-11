@@ -1,0 +1,79 @@
+// kensa agent wire protocol — v1 scaffolding.
+//
+// LL Phase 1 deliverable L-007. Founder ratified protobuf as the
+// wire format 2026-05-11 (see ~/.claude/.../memory/l007_wire_protocol.md).
+//
+// L-007 ships the toolchain + four placeholder root message types.
+// L-009 fills in the handler-invocation payload schema. Until then,
+// payloads are opaque bytes so framing tests can round-trip without
+// committing to a payload shape that's still being designed.
+//
+// Versioning policy: this package is import-path-versioned
+// (internal/agent/wirev1). A v2 wire format lands as a parallel
+// package (wirev2/), and a transition window has both packages
+// importable so the controller can speak either while agents catch
+// up. The `schema_version` field on each root message is the
+// per-message version handshake L-012 will inspect.
+
+syntax = "proto3";
+
+package kensa.agent.wirev1;
+
+option go_package = "github.com/Hanalyx/kensa-go/internal/agent/wirev1";
+
+// Request is one of the four scaffolding root messages. At L-007 the
+// payload is opaque bytes; L-009 will turn the bytes into a `oneof`
+// of typed handler-invocation payloads (Apply, Capture, Rollback).
+//
+// Fields:
+//   schema_version: pinned to 1 for L-007; L-012 reads this to detect
+//     controller↔agent skew.
+//   correlation_id: caller-chosen u64. Responses carry the same id so
+//     the controller can match async responses back to their request.
+//   payload: opaque bytes today; oneof at L-009.
+message Request {
+  uint32 schema_version = 1;
+  uint64 correlation_id = 2;
+  bytes payload = 3;
+}
+
+// Response is the agent→controller acknowledgment.
+//
+// Two payload variants will land in L-009 (success result, error).
+// At L-007 the success/error split is represented by the `error`
+// field being non-nil for failures.
+message Response {
+  uint32 schema_version = 1;
+  uint64 correlation_id = 2;
+  bytes payload = 3;
+  Error error = 4;
+}
+
+// Error is the typed failure-envelope.
+//
+// `code` is a stable enum reserved for L-009 — at L-007 we leave
+// it as a string and let L-009 narrow to an enum once the failure
+// taxonomy is settled.
+//
+// `detail` is human-readable, suitable for logging.
+//
+// `retryable` lets the controller decide whether to re-issue the
+// request or surface the failure to the operator. The L-009 schema
+// will tighten the contract; at L-007 it's advisory.
+message Error {
+  uint32 schema_version = 1;
+  string code = 2;
+  string detail = 3;
+  bool retryable = 4;
+}
+
+// Heartbeat is the deadman-channel keepalive.
+//
+// The deadman travels on the same wire as Request/Response — L-010's
+// framing carries a frame-type discriminator so the receiver can
+// route heartbeats separately. At L-007 the message is minimal.
+message Heartbeat {
+  uint32 schema_version = 1;
+  uint64 sequence = 2;
+  int64 sent_unix_micros = 3;
+}

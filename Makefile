@@ -1,4 +1,4 @@
-.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain manpage manpage-check clean
+.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check clean
 
 help:
 	@echo "Kensa Go — common targets"
@@ -106,6 +106,53 @@ manpage-check: build
 	fi
 	@rm -f docs/man/kensa.1.regenerated
 	@echo "manpage in sync with sources"
+
+# Regenerate the agent wire-protocol Go bindings from wire.proto.
+# Requires `protoc` (install from
+# github.com/protocolbuffers/protobuf/releases) and `protoc-gen-go`
+# (`go install google.golang.org/protobuf/cmd/protoc-gen-go`, pinned
+# via tools.go).
+proto:
+	@if ! command -v protoc >/dev/null; then \
+		echo "protoc not found in PATH; install from github.com/protocolbuffers/protobuf/releases"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-go >/dev/null; then \
+		echo "protoc-gen-go not found; run: go install google.golang.org/protobuf/cmd/protoc-gen-go"; \
+		exit 1; \
+	fi
+	@protoc --go_out=. --go_opt=paths=source_relative internal/agent/wirev1/wire.proto
+	@echo "regenerated internal/agent/wirev1/wire.pb.go"
+
+# Verify the checked-in wire.pb.go matches what `protoc` would
+# produce today. CI runs this to fail any PR that edits wire.proto
+# without regenerating the Go bindings.
+#
+# Generates into a tempdir and diffs against the committed file —
+# the working tree is never mutated by this target. (An earlier
+# version had `proto-check: proto` which regenerated in-place; that
+# coupled CI reproducibility to clean-checkout state and lost any
+# uncommitted edits a developer had on wire.pb.go.)
+proto-check:
+	@if ! command -v protoc >/dev/null; then \
+		echo "protoc not found in PATH; install from github.com/protocolbuffers/protobuf/releases (see CONTRIBUTING.md)"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-go >/dev/null; then \
+		echo "protoc-gen-go not found; run: go install google.golang.org/protobuf/cmd/protoc-gen-go (see CONTRIBUTING.md)"; \
+		exit 1; \
+	fi
+	@tmpdir=$$(mktemp -d) && \
+		protoc --go_out="$$tmpdir" --go_opt=paths=source_relative internal/agent/wirev1/wire.proto && \
+		if ! diff -q internal/agent/wirev1/wire.pb.go "$$tmpdir/internal/agent/wirev1/wire.pb.go" >/dev/null; then \
+			echo "wire.pb.go drift detected — committed file differs from regenerated output"; \
+			echo "run 'make proto' to refresh, then commit internal/agent/wirev1/wire.pb.go"; \
+			diff -u internal/agent/wirev1/wire.pb.go "$$tmpdir/internal/agent/wirev1/wire.pb.go" | head -40; \
+			rm -rf "$$tmpdir"; \
+			exit 1; \
+		fi; \
+		rm -rf "$$tmpdir"
+	@echo "wire.pb.go in sync with wire.proto"
 
 clean:
 	rm -rf bin/ coverage.txt coverage.html dist/ docs/man/kensa.1.regenerated
