@@ -1,0 +1,196 @@
+spec:
+    id: agent-bootstrap
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-bootstrap
+        description: |
+            LL Phase 1 deliverable L-013. The
+            target-side-lifecycle layer: pushes the local
+            kensa binary to the remote target (via the
+            existing api.Transport), SHA-caches it, and
+            returns the remote path the controller will
+            invoke as `<remotePath> agent --stdio`.
+
+            **Why SHA-caching.** Each `kensa remediate`
+            session needs the agent binary present on the
+            target. Pushing ~30 MiB every session is
+            slow and wasteful. Caching by SHA means:
+              - First invocation pushes (~5s on a fast link).
+              - Subsequent invocations against the same
+                kensa version skip the push (sub-second).
+              - A kensa binary upgrade on the controller
+                changes the SHA → automatic cache miss →
+                fresh push. No manual invalidation.
+              - Multiple kensa versions can coexist on the
+                target without conflict (each in its own
+                hash-named file).
+
+            **Cache layout.**
+            `$HOME/.cache/kensa/agent-<sha>` where `<sha>`
+            is the lower-hex SHA-256 of the local binary.
+            User-home location avoids requiring write
+            access to system paths; root SSH users get
+            `/root/.cache/kensa/agent-<sha>`.
+
+            **Path resolution.** EnsureAgent uses
+            `transport.Run("printf '%s' \"$HOME\"")` to
+            resolve the target's $HOME at runtime. This is
+            ONE extra command per session and avoids
+            assumptions about target shell behavior (some
+            non-bash shells don't expand `~` in argv
+            consistently).
+
+            **Out of scope.**
+              - Bandwidth-aware push (rsync-style delta):
+                future optimization, the SHA cache makes
+                this mostly moot.
+              - Signature verification of the pushed
+                binary: the binary is over an authenticated
+                SSH channel; tampering would require
+                compromising the controller's SSH client.
+                If/when out-of-band binary integrity becomes
+                a requirement (e.g., for an air-gapped
+                pre-staged agent), a separate verify step
+                wraps EnsureAgent.
+              - Concurrent-session safety: two parallel
+                kensa invocations targeting the same host
+                may race on the mkdir + Put. The mkdir is
+                idempotent; the Put will overwrite (same
+                bytes either way since SHA is identical).
+                Acceptable trade-off; documented in code.
+
+    objective:
+        summary: |
+            Add internal/agent/bootstrap/bootstrap.go with
+            `EnsureAgent(ctx, transport, localBinaryPath)
+            (remotePath, error)`. Hashes locally, checks
+            target cache, pushes if absent, returns
+            invocable path. Tests via a fake api.Transport
+            recording calls + returning canned results.
+        scope:
+            includes:
+                - "internal/agent/bootstrap/bootstrap.go: EnsureAgent function + sha256 helpers"
+                - "internal/agent/bootstrap/bootstrap_test.go: fake-transport tests for cache hit + cache miss + push-failure + sha-collision-not-possible"
+            excludes:
+                - "Real SSH integration tests: covered by L-014's E2E once the dispatcher lands"
+                - "Binary signature verification: separate concern (the SSH channel is authenticated)"
+                - "Concurrent-session locking on the target side: acceptable race (mkdir idempotent + Put overwrites same bytes)"
+                - "Cleanup of old cached agents: target-side housekeeping (cron, finder script) deferred"
+
+    constraints:
+        - id: C-01
+          description: |
+              `EnsureAgent(ctx, transport, localBinaryPath)`
+              MUST compute SHA-256 of localBinaryPath via
+              streaming hash (do NOT load the binary fully
+              into memory — kensa binaries are ~30 MiB but
+              future kensa-with-rules-bundle could be much
+              larger).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The cache key MUST be the full 64-char
+              lower-hex SHA-256 (matches kensa-keygen and
+              evidence.computeKeyID conventions across the
+              codebase). Truncated hashes are rejected
+              even if statistically safe — consistency
+              with other code paths matters more than
+              brevity.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Cache path MUST be
+              `$HOME/.cache/kensa/agent-<sha>` where
+              $HOME is the TARGET's home (resolved via
+              `transport.Run("printf '%s' \"$HOME\"")`).
+              Hardcoding `/root/.cache` or `~/.cache`
+              produces wrong paths for non-root SSH users
+              or non-bash target shells.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Cache-hit MUST be detected via
+              `transport.Run("test -x <cachePath>")`
+              returning exit 0. Cache-hit returns the
+              cachePath with no push. Cache-miss
+              (exit non-zero) triggers mkdir + Put +
+              chmod.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              On cache miss, EnsureAgent MUST: (1) ensure
+              the cache directory exists via `mkdir -p
+              $HOME/.cache/kensa`; (2) Put localBinaryPath
+              to cachePath with mode 0755; (3) verify the
+              target file is executable via a final
+              `test -x` check before returning. Any step
+              that fails returns a wrapped error with the
+              failing command's stderr included.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              The returned remotePath MUST be ABSOLUTE
+              (starts with `/`) so the controller can
+              invoke it via `ssh <host> <remotePath> agent
+              --stdio` without depending on PATH or shell
+              expansion. (`$HOME/.cache/kensa/agent-<sha>`
+              becomes `/home/operator/.cache/kensa/agent-...`
+              etc. after the $HOME expansion step.)
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              EnsureAgent with a cache-hit fake transport
+              returns the cachePath without invoking Put.
+              Locked by `TestEnsureAgent_CacheHit`.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-02
+          description: |
+              EnsureAgent with a cache-miss fake transport
+              invokes mkdir, Put, and final-test-x; returns
+              the cachePath. Locked by
+              `TestEnsureAgent_CacheMiss_PushesBinary`.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-03
+          description: |
+              SHA-256 of a known fixture binary equals the
+              expected lower-hex string. Locked by
+              `TestSHA256Hex`.
+          references_constraints: [C-01, C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              EnsureAgent surfaces a transport.Put error
+              with the local path + remote path + the
+              wrapped underlying error. Locked by
+              `TestEnsureAgent_PushFailure`.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-05
+          description: |
+              The returned remotePath is absolute. Locked
+              by `TestEnsureAgent_AbsolutePath`.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-06
+          description: |
+              `go test ./...` passes; cli-smoke, specter
+              strict, make proto-check all green.
+              Verified during merge.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06]
+          priority: critical
+
+    tags: [agent, bootstrap, binary-push, ssh, ll-phase-1, l-013]
