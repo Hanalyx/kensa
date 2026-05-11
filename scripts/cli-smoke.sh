@@ -371,25 +371,28 @@ for sub in DETECT CHECK REMEDIATE ROLLBACK HISTORY PLAN MECHANISMS LIST INFO DIF
 done
 echo
 
-# ─── kensa agent placeholder (C-054) ──────────────────────────────────────
-echo "kensa agent placeholder (C-054):"
+# ─── kensa agent (L-008 echo loop; supersedes C-054 placeholder) ──────────
+echo "kensa agent (L-008 stdio echo):"
 assert_exit "kensa agent --help"                     0 stdout-nonempty bin/kensa agent --help
 assert_exit "kensa agent -h"                         0 stdout-nonempty bin/kensa agent -h
-# bare invocation: usage error.
+# bare invocation: usage error (preserved from C-054).
 assert_exit "kensa agent (no flag)"                  2 stderr-nonempty bin/kensa agent
-# --stdio: runtime error (exit 1), the "feature lands in v1.1" path.
-assert_exit "kensa agent --stdio (v1.1 placeholder)" 1 stderr-nonempty bin/kensa agent --stdio
-# unknown flag: usage error.
+# unknown flag: usage error (preserved from C-054).
 assert_exit "kensa agent --bogus"                    2 stderr-nonempty bin/kensa agent --bogus
-# Agent listed in top-level help with v1.1 marker.
+# --stdio with EOF on empty stdin: clean exit 0 (echo loop sees EOF
+# before any frame, returns nil). bash -c wrapper so the redirect
+# applies to the inner kensa invocation, not assert_exit's plumbing.
+assert_exit "kensa agent --stdio empty-stdin"        0 ""            bash -c "bin/kensa agent --stdio </dev/null"
+# Agent listed in top-level help (no longer marked v1.1 placeholder
+# post-L-008; the subcommand now does real work).
 helpAgent=$(bin/kensa --help 2>&1)
-if echo "${helpAgent}" | grep -qE "agent.*v1\\.1"; then
+if echo "${helpAgent}" | grep -qE "^[[:space:]]*agent[[:space:]]"; then
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  kensa --help lists agent with v1.1 marker"
+    echo "  ${GREEN}PASS${RESET}  kensa --help lists agent"
 else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("kensa --help missing agent v1.1 marker")
-    echo "  ${RED}FAIL${RESET}  kensa --help missing agent v1.1 marker"
+    FAILURES+=("kensa --help missing agent line")
+    echo "  ${RED}FAIL${RESET}  kensa --help missing agent line"
 fi
 echo
 

@@ -1,0 +1,287 @@
+spec:
+    id: agent-stdio-subcommand
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-stdio-subcommand
+        description: |
+            LL Phase 1 deliverable L-008. Flips
+            `kensa agent --stdio` from the v1.0
+            exit-1-placeholder (cli-agent-placeholder
+            spec, shipped 2026-05-10 at 23b19c5) into a
+            live echo loop. This is the agent process's
+            first real I/O code path; L-009..L-013 add
+            the full protocol on top.
+
+            **Scope.** L-008 ships:
+
+            1. `internal/agent/framing.go` — 4-byte
+               big-endian length-prefix framing
+               (`Read(r io.Reader) ([]byte, error)` /
+               `Write(w io.Writer, payload []byte)
+               error`). Stub framing per L-007's
+               implementation note; L-010 supersedes
+               with the production contract (heartbeat
+               channel discrimination, max-size policy
+               negotiation, partial-read recovery).
+
+            2. `internal/agent/echo.go` — `RunEcho(ctx,
+               r, w, stderr)` reads frames, unmarshals
+               as `wirev1.Request`, builds a
+               `wirev1.Response` echoing the payload
+               and correlation_id back, writes a frame.
+               Exits cleanly on stdin EOF.
+
+            3. `cmd/kensa/agent.go` — runStdio() flips
+               from exit-1 placeholder to call
+               `agent.RunEcho(ctx, os.Stdin, os.Stdout,
+               os.Stderr)`. Exits 0 on EOF, 1 on
+               protocol/framing error.
+
+            **Why echo and not the full protocol?**
+            The handler-invocation message schema
+            (Apply/Capture/Rollback payloads) lands at
+            L-009. L-008's echo behavior validates the
+            framing + Request/Response round-trip
+            independently — when L-009's schema
+            changes break tests, the failure points at
+            the schema, not the framing.
+
+            **Stub framing replaced at L-010.** The
+            4-byte big-endian length prefix is good
+            enough for L-008's single-frame echo. L-010
+            adds:
+              - A frame-type discriminator byte so
+                heartbeats can travel on the same
+                channel as Request/Response.
+              - Configurable max-size policy (the
+                stub hard-codes 16 MiB).
+              - Backpressure / partial-read recovery
+                for slow consumers.
+            L-010 supersedes this spec's C-02; until
+            then, the stub framing is the production
+            contract.
+
+            **Supersedes cli-agent-placeholder C-02 /
+            AC-02.** The placeholder spec's "kensa
+            agent --stdio MUST exit 1 with planned-for-
+            v1.1 message" no longer holds post-L-008.
+            The placeholder spec stays in the corpus
+            as a historical record of what v1.0
+            shipped (C-01, C-03, C-04, C-05 — bare
+            invocation, --help text, --bogus rejection,
+            top-level help listing — are still
+            authoritative).
+
+    objective:
+        summary: |
+            Add internal/agent/framing.go (Read +
+            Write, big-endian length prefix, 16 MiB
+            cap). Add internal/agent/echo.go (RunEcho
+            unmarshal-as-Request → mirror payload →
+            send Response). Flip cmd/kensa/agent.go
+            runStdio() from exit-1 placeholder to
+            call agent.RunEcho. Tests cover framing
+            edge cases + an end-to-end cli-process
+            test that spawns kensa agent --stdio, writes
+            a Request frame, reads the echoed Response.
+        scope:
+            includes:
+                - "internal/agent/framing.go: Read, Write, MaxMessageBytes"
+                - "internal/agent/framing_test.go: roundtrip, partial reads, EOF, oversize reject, empty payload"
+                - "internal/agent/echo.go: RunEcho — read frame → unmarshal Request → build Response → write frame"
+                - "internal/agent/echo_test.go: echo loop unit tests with bytes.Buffer for stdin/stdout"
+                - "cmd/kensa/agent.go: runStdio dispatches to internal/agent.RunEcho"
+                - "cmd/kensa/agent_test.go: end-to-end subprocess test (spawn kensa agent --stdio, pipe frame, read echo)"
+                - "scripts/cli-smoke.sh: add scenarios for the live echo behavior"
+            excludes:
+                - "Handler-invocation payload schema (Apply/Capture/Rollback): L-009"
+                - "Frame-type discriminator + heartbeat channel: L-010"
+                - "AgentTransport adapter on the controller side: L-011"
+                - "Version handshake call site: L-012 (this spec's RunEcho doesn't call ValidateSchemaVersion yet — the echo's job is framing, not protocol negotiation)"
+                - "Binary push + SHA cache: L-013"
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa agent --stdio` MUST read framed
+              messages from stdin, echo each one back
+              on stdout, and exit 0 cleanly when stdin
+              closes (EOF). Exit 1 on framing / protocol
+              error. Exit 2 was the placeholder-spec's
+              bare-invocation contract; the live --stdio
+              path no longer uses exit 1 for "not ready."
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The stub framing format MUST be a 4-byte
+              big-endian unsigned length prefix followed
+              by N bytes of payload. The decoder reads
+              the 4-byte length first, then reads exactly
+              N bytes. L-010 will add a frame-type
+              discriminator before the length, breaking
+              wire compatibility — L-008's stub framing
+              is INTERNAL and not promised across kensa
+              versions. Document this in
+              `internal/agent/framing.go`.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              The decoder MUST refuse to allocate a
+              buffer larger than 16 MiB. A peer sending
+              a length prefix of (e.g.) 4 GiB would
+              otherwise force `make([]byte, 4 GB)` and
+              exhaust agent memory. 16 MiB is L-010's
+              planned max; the stub uses the same cap so
+              L-008 → L-010 doesn't change the policy
+              under-the-hood.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              The echo response MUST preserve the
+              Request's correlation_id and copy the
+              payload bytes verbatim into Response.payload.
+              Response.schema_version MUST equal 1 (the
+              wirev1 current value). Response.error MUST
+              be nil for the echo path; framing errors
+              are surfaced via the return value of
+              RunEcho, not via in-band Response.error,
+              because L-008's contract is "echo or
+              terminate," not "respond with error
+              envelope."
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              The echo loop MUST handle partial reads
+              from stdin: a single Read syscall may
+              return fewer bytes than requested. Use
+              `io.ReadFull` (or equivalent) for both the
+              length prefix and the payload. A peer that
+              writes a frame in two write() calls MUST
+              still be echoed correctly. Critical
+              because SSH connections fragment stdin
+              writes nondeterministically.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              `RunEcho` MUST exit 0 (no error) when
+              stdin returns io.EOF cleanly between
+              frames. Returning EOF mid-frame (after
+              reading the length prefix but before
+              completing the payload read) MUST be an
+              error — that's a corrupted/truncated
+              message, not a clean shutdown.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              `agent.Run` MUST honor a cancelled context
+              by returning ctx.Err() at the next
+              between-frames check (top of each loop
+              iteration, before the next Read call).
+              SIGTERM / SIGINT handling at the CLI
+              layer cancels ctx via signal.NotifyContext.
+              For cancellations that arrive while the
+              loop is blocked in io.ReadFull, the CLI
+              wrapper also enforces a grace-period
+              forced exit (cmd/kensa/agent.go's
+              shutdownGracePeriod, 500ms) — Go's runtime
+              poller does not reliably wake a blocked
+              pipe Read when another goroutine calls
+              Close, and a select-based preemption
+              would leak the read goroutine until stdin
+              closes. The grace-period exit is the
+              standard production pattern for
+              "graceful-shutdown-with-timeout-fallback."
+              L-012 introduces an explicit
+              shutdown-message type that lets the
+              controller signal "drain and exit"
+              cleanly without depending on signal
+              delivery or the grace-period fallback.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Framing roundtrip: Write(buf, p) followed
+              by Read(buf) returns p byte-for-byte for
+              p in {empty, 1 byte, 1 KiB, 1 MiB,
+              MaxMessageBytes-1}. Locked by
+              TestFraming_Roundtrip.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              Decoder rejects a length prefix > 16 MiB
+              with an error, BEFORE allocating the
+              buffer. Locked by
+              TestFraming_RejectsOversizedFrame.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              Decoder handles partial reads via
+              io.ReadFull semantics: a Reader that
+              returns the frame in 1-byte chunks reads
+              correctly. Locked by
+              TestFraming_PartialReads.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-04
+          description: |
+              Clean EOF between frames returns io.EOF
+              from Read. EOF mid-frame (after length
+              prefix read, before payload complete)
+              returns io.ErrUnexpectedEOF. Locked by
+              TestFraming_EOFSemantics.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-05
+          description: |
+              RunEcho reads a frame, echoes the Request
+              payload back as a Response with the same
+              correlation_id, exits 0 on clean stdin
+              close. Locked by TestRunEcho_HappyPath.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              RunEcho returns ctx.Err() when ctx is
+              already cancelled at the next
+              between-frames check. Locked by
+              TestRunEcho_PreCancelledContext. (The
+              mid-read preemption case is L-012's
+              responsibility via the explicit
+              shutdown-message type.)
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-07
+          description: |
+              End-to-end: spawn `kensa agent --stdio`
+              as a subprocess, write a Request frame to
+              its stdin, read back the Response frame
+              from its stdout, verify correlation_id +
+              payload echo, close stdin, observe exit 0.
+              Locked by TestKensaAgent_StdioEndToEnd.
+          references_constraints: [C-01, C-02, C-04, C-05, C-06]
+          priority: critical
+        - id: AC-08
+          description: |
+              cli-smoke includes the live `kensa agent
+              --stdio` echo path. Run-time too short to
+              measurably slow the gate (single frame
+              roundtrip is sub-millisecond). Verified
+              during the merge workflow.
+          references_constraints: [C-01]
+          priority: medium
+
+    tags: [agent, stdio, framing, echo, ll-phase-1, l-008]

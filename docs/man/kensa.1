@@ -409,46 +409,43 @@ Examples:
 .nf
 Usage: kensa agent \-\-stdio
 
-[v1.0 PLACEHOLDER — feature lands in v1.1]
+Run kensa as a multi\-call binary on the target host. The
+controller (kensa on the operator's machine) connects via SSH
+and drives the agent through a framed wire protocol on stdin/
+stdout. This is the target\-local execution surface that unlocks
+the kernel\-primitive migration (atomic file ops via renameat2,
+deadman timer via timerfd, systemd D\-Bus, etc.).
 
-The agent subcommand will run kensa as a multi\-call binary on
-the target host, receiving wire\-protocol messages over stdin
-and writing responses to stdout. The controller (kensa on the
-operator's machine) connects via SSH and drives the agent
-through the protocol. This replaces the v1.0 "shell out to
-ssh per command" transport with a long\-lived agent process,
-unlocking the kernel\-primitive migration (atomic file ops via
-renameat2, deadman timer via timerfd, systemd D\-Bus, etc.).
-
-Planned wire\-protocol direction:
+Wire direction:
   stdin   length\-prefixed framed messages (controller → agent)
   stdout  length\-prefixed framed responses (agent → controller)
   stderr  human\-readable diagnostics
 
-The exact wire format ratifies through Track L Phase 1
-(deliverables L\-007 through L\-014; see docs/roadmap/
-DELIVERABLES.md). Operators scripting against v1.0 can
-expect:
+Framing (STUB per L\-008 — see Track L Phase 1):
+  4\-byte big\-endian unsigned length prefix
+  N bytes of protobuf\-encoded payload (wirev1.Request /
+    wirev1.Response from internal/agent/wirev1)
+  Max frame size: 16 MiB
 
-  \- The 'agent \-\-stdio' invocation pattern is stable.
-  \- Length\-prefixed framing means consumers buffer one
-    message at a time (no streaming\-JSON ambiguity).
-  \- Version handshake on session start; mismatched
-    majors abort cleanly.
+L\-010 supersedes this stub framing with the production contract
+(frame\-type discriminator for heartbeat channel demux,
+configurable max\-size policy, partial\-read recovery). The stub
+format is INTERNAL — operator scripts should not depend on the
+bit\-pattern across kensa releases.
 
-Today (v1.0):
-  \-\-stdio  exits 1 with the "planned for v1.1" message
-  \-\-help   shows this disclosure (exit 0)
+Today's behavior (L\-008 echo):
+  \-\-stdio  reads a frame, mirrors its payload back as a
+           Response with the same correlation_id, exits 0 on
+           clean stdin close. Validates framing + protobuf
+           roundtrip end\-to\-end.
+  \-\-help   exits 0 with this disclosure.
 
-In v1.1 the agent path replaces direct SSH for handler
-invocation. v1.0 consumers should use direct\-SSH transport
-(kensa check / remediate / rollback against the host
-directly) — the operator\-facing CLI surface is unchanged
-between v1.0 and v1.1; only the underlying transport flips.
+L\-009 replaces the echo loop with the real handler dispatcher
+(Apply / Capture / Rollback message payloads).
 
 Flags:
   \-h, \-\-help    show this help and exit
-      \-\-stdio   read framed messages from stdin, write responses to stdout (planned for v1.1)
+      \-\-stdio   read framed messages from stdin, mirror them as responses on stdout (L\-008 echo loop)
 .fi
 .PP
 .SS VERIFY
@@ -664,11 +661,6 @@ Report bugs at
 .UE .
 .PP
 Known issues:
-.IP \(bu 2
-The
-.B agent
-subcommand is a v1.0 placeholder; the actual multi-call agent binary
-lands in v1.1 with the kernel-primitive migration (Track L Phase 1).
 .IP \(bu 2
 The
 .B coverage

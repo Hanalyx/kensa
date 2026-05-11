@@ -1,6 +1,6 @@
 spec:
     id: cli-agent-placeholder
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -8,6 +8,20 @@ spec:
         system: kensa-go
         feature: cli-agent-placeholder
         description: |
+            **PARTIALLY SUPERSEDED 2026-05-11 (L-008).** This
+            spec's C-02 / AC-02 (`kensa agent --stdio` MUST
+            exit 1 with "v1.1" + "Track L" message) are
+            retired — see specs/agent/stdio-subcommand.spec.yaml
+            for the post-L-008 live-echo behavior contract.
+            C-01 (bare invocation usage error), C-03
+            (--help wire-protocol disclosure), C-04
+            (--bogus rejection), and C-05 (top-level help
+            listing) remain authoritative — those
+            behaviors are preserved across the L-008
+            transition. A reader of this spec should treat
+            C-02 / AC-02 as historical: kensa-go v1.0
+            shipped them; v1.1 supersedes them.
+
             CLI Phase 5a deliverable C-054. Reserves the
             `kensa agent` subcommand name in v1.0 with a
             placeholder stub that exits 1 and a clear

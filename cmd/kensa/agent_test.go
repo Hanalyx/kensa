@@ -1,4 +1,9 @@
-// Tests for the C-054 `kensa agent` placeholder subcommand.
+// Tests for the `kensa agent` subcommand. The placeholder
+// behavior (cli-agent-placeholder spec, C-054) was superseded by
+// L-008's live echo loop (agent-stdio-subcommand spec); the
+// preserved behaviors (bare-invocation usage error, --help
+// wire-protocol disclosure, --bogus rejection) are still locked
+// here.
 package main
 
 import (
@@ -6,7 +11,10 @@ import (
 	"testing"
 )
 
-// TestRunAgent_NoFlagsIsUsageError locks AC-01.
+// TestRunAgent_NoFlagsIsUsageError locks
+// cli-agent-placeholder AC-01: bare `kensa agent` (no mode flag)
+// MUST exit 2 with a usage error. Preserved across the L-008
+// transition.
 func TestRunAgent_NoFlagsIsUsageError(t *testing.T) {
 	exit := runCLI([]string{"agent"})
 	if exit != 2 {
@@ -18,27 +26,14 @@ func TestRunAgent_NoFlagsIsUsageError(t *testing.T) {
 	}
 }
 
-// TestRunAgent_StdioExitsRuntime locks AC-02. Exit 1 (runtime,
-// "feature not ready"), NOT exit 2 (usage error).
-func TestRunAgent_StdioExitsRuntime(t *testing.T) {
-	exit := runCLI([]string{"agent", "--stdio"})
-	if exit != 1 {
-		t.Errorf("kensa agent --stdio should exit 1 (runtime); got %d", exit)
-	}
-	_, stderr := captureRunCLI([]string{"agent", "--stdio"}, t)
-	for _, want := range []string{"v1.1", "Track L"} {
-		if !strings.Contains(stderr, want) {
-			t.Errorf("stderr should mention %q; got:\n%s", want, stderr)
-		}
-	}
-	// Workaround pointer for v1.0 operators.
-	if !strings.Contains(stderr, "direct-SSH") &&
-		!strings.Contains(stderr, "direct SSH") {
-		t.Errorf("stderr should point operators at direct-SSH transport for v1.0; got:\n%s", stderr)
-	}
-}
-
-// TestRunAgent_HelpDisclosesWireProtocol locks AC-03.
+// TestRunAgent_HelpDisclosesWireProtocol locks
+// agent-stdio-subcommand C-01 + cli-agent-placeholder C-03:
+// `kensa agent --help` exits 0 and discloses the wire-protocol
+// surface so v1.x consumers can write integration code. The
+// L-008 transition dropped "v1.0 PLACEHOLDER" language and
+// replaced it with the live framing/echo description; the
+// stdin / stdout / length-prefixed / Track L disclosures are
+// preserved.
 func TestRunAgent_HelpDisclosesWireProtocol(t *testing.T) {
 	for _, argv := range [][]string{
 		{"agent", "--help"},
@@ -51,11 +46,10 @@ func TestRunAgent_HelpDisclosesWireProtocol(t *testing.T) {
 	}
 	stdout, _ := captureRunCLI([]string{"agent", "--help"}, t)
 	for _, want := range []string{
-		"v1.0 PLACEHOLDER",
 		"stdin",
 		"stdout",
 		"length-prefixed",
-		"Track L Phase 1",
+		"Track L",
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("agent --help should disclose %q; got:\n%s", want, stdout)
@@ -63,7 +57,8 @@ func TestRunAgent_HelpDisclosesWireProtocol(t *testing.T) {
 	}
 }
 
-// TestRunAgent_UnknownFlagRejected locks AC-04.
+// TestRunAgent_UnknownFlagRejected locks
+// cli-agent-placeholder AC-04: unknown flags exit 2. Preserved.
 func TestRunAgent_UnknownFlagRejected(t *testing.T) {
 	exit := runCLI([]string{"agent", "--bogus"})
 	if exit != 2 {
@@ -71,14 +66,24 @@ func TestRunAgent_UnknownFlagRejected(t *testing.T) {
 	}
 }
 
-// TestPrintUsage_ListsAgent locks AC-05.
+// TestPrintUsage_ListsAgent locks cli-agent-placeholder AC-05
+// (preserved): top-level `kensa --help` lists the agent
+// subcommand. The post-L-008 description no longer says "v1.1
+// placeholder" since the subcommand now does real work.
 func TestPrintUsage_ListsAgent(t *testing.T) {
 	stdout, _ := captureRunCLI([]string{"--help"}, t)
 	if !strings.Contains(stdout, "agent") {
 		t.Errorf("kensa --help should list 'agent'; got:\n%s", stdout)
 	}
-	if !strings.Contains(stdout, "v1.1 placeholder") &&
-		!strings.Contains(stdout, "v1.1-placeholder") {
-		t.Errorf("kensa --help agent line should disclose v1.1 placeholder status; got:\n%s", stdout)
+	if !strings.Contains(stdout, "stdio agent") {
+		t.Errorf("agent line should describe the stdio role; got:\n%s", stdout)
 	}
 }
+
+// Note: the end-to-end echo behavior (write framed Request →
+// read framed Response → verify correlation_id + payload echo →
+// exit 0 on stdin close) is locked by
+// TestKensaAgent_StdioEndToEnd in agent_e2e_test.go, which
+// spawns a real subprocess so it can control stdin/stdout
+// pipes. In-process runCLI() reads from the test runner's
+// os.Stdin and can't easily inject framed bytes.

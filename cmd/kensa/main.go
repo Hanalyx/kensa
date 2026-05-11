@@ -20,7 +20,7 @@
 //	list        Introspection commands (`kensa list frameworks`).
 //	info        Rule/control lookup (multi-criteria search over the corpus).
 //	diff        Compare two stored sessions and emit per-rule drift.
-//	agent       v1.1 placeholder; see `kensa agent --help` for planned wire-protocol.
+//	agent       Run kensa as a stdio agent on the target host; see `kensa agent --help`.
 //	verify      Validate the Ed25519 signature on an evidence-envelope JSON file.
 //	version     Print version information.
 //
@@ -236,9 +236,12 @@ func runCLI(argv []string) int {
 		// C-048: per-rule drift between two stored sessions.
 		err = runDiff(ctx, dbPath, args)
 	case "agent":
-		// C-054: v1.0 placeholder. --stdio exits 1 (runtime,
-		// "feature lands in v1.1"); --help discloses the
-		// planned Track L Phase 1 wire-protocol shape.
+		// L-008 (agent-stdio-subcommand): --stdio runs the
+		// echo loop (read framed Request → mirror as Response).
+		// L-009 replaces the echo handler with the real Engine
+		// dispatcher. C-054's v1.0 placeholder behavior is
+		// superseded; the bare-invocation, --help, and --bogus
+		// contracts from cli-agent-placeholder are preserved.
 		err = runAgent(args)
 	case "verify":
 		// C-060: validate signed evidence envelope from disk
@@ -488,7 +491,7 @@ Commands:
   list        Introspection commands ('kensa list frameworks', etc.)
   info        Rule/control lookup (multi-criteria search over the corpus)
   diff        Compare two stored sessions and emit per-rule drift
-  agent       v1.1 placeholder; see 'kensa agent --help' for planned wire-protocol
+  agent       Run kensa as a stdio agent on the target host; see 'kensa agent --help'
   verify      Validate the Ed25519 signature on an evidence-envelope JSON file
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
