@@ -595,12 +595,13 @@ once the founder ratifies them.
 - **Status:** **done** (merge `ceb6c72`, 2026-05-11)
 - **Notes:** Peer review caught 1 P0 (hardcoded type-byte check would force Read/Write edits at L-012; fixed by knownFrameTypes set) + 4 P1s (two placeholder tests replaced with TestRunWithValidator_RejectsFailingValidator via injected Validator; ValidateResponse now invoked on outgoing path; stale manpage rewritten; error-string "L-010" baked-in replaced with dynamic knownTypeNames()). The reflective multi-variant guard is honest: protobuf-go's runtime collapses multi-variant on Unmarshal so the count>1 path is structurally unreachable from real wire bytes — guard fires today only on server-side dispatcher bugs. The deeper post-Unmarshal raw-bytes guard is carried forward to L-011 (TODO #4).
 
-#### L-011 — Controller-side `AgentTransport` adapter (talks to `kensa agent --stdio` over SSH)
+#### L-011 — Controller-side `AgentClient` (typed-RPC over framed pipes)
 - **Phase:** LL Phase 1
 - **Deps:** L-009, L-010
-- **Acceptance:** existing handler invocation path works against agent transport in addition to direct SSH
-- **Size:** 4h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Acceptance:** controller-side library that speaks the wire protocol; tested against `kensa agent --stdio`. Shipped 2026-05-11 (merge `f523ed9`): `internal/agent/client/client.go` (Open/Close + Apply/Capture/Rollback/Heartbeat + correlation map + reader goroutine + envelope-Error translation via *AgentError + variant-mismatch guard + bounded-Close timeout + readerDone fail-fast on agent crash); 10 unit tests via io.Pipe echo server + subprocess integration test against bin/kensa agent --stdio. **Scope clarification:** AgentClient is NOT the api.Transport interface. It's a parallel typed-RPC client for the agent-mode path. L-014's RemoteHandler shim wraps it to satisfy api.Handler — engine integration is L-014's deliverable, not L-011's.
+- **Size:** ~4h actual
+- **Status:** **done** (merge `f523ed9`, 2026-05-11)
+- **Notes:** Peer review caught 1 P0 (reader-EOF didn't signal in-flight callers; agent crash mid-Apply would hang on ctx-timeout; fixed via readerDone channel + ErrAgentStreamClosed) + 1 P1 (AC-05 envelope-Error translation had no test; added TestClient_EnvelopeErrorTranslation with custom error-returning handler). All tests pass under -race.
 - **L-009/L-010 review TODOs carried forward:**
    1. Enforce monotonic-or-uniqueness on HeartbeatRequest.token in the controller's outstanding-token table. The agent just echoes; ambiguous pairing is a controller-side responsibility.
    2. Validate `Apply.GetMechanism() != ""`, `Rollback.GetPreState() != nil`, etc. before dispatch — proto3 has no required fields. Validation failures → envelope Error with code "invalid_request". Use `agent.RunWithValidator(ctx, r, w, stderr, dispatcher, validator)` and compose with `wirev1.ValidateRequest` (multi-variant guard).
