@@ -4,6 +4,19 @@ This is the founder-facing list of deliberate security exclusions in the current
 
 ## Critical limits (release-blocking for some deployments)
 
+### 1.5 Atomicity basis splits by transport (Phase 2, agent-mode only)
+
+- **What.** As of the fix/phase-2-rework drop, the four file-touching capturable handlers (`file_content`, `file_absent`, `config_set`, `config_set_dropin`) deliver literal kernel-primitive atomicity (`O_TMPFILE` + `linkat`, `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-dir `fsync` barriers) **only when running under agent mode** (`KENSA_USE_AGENT=1`). Under direct-SSH, these handlers retain shell-pipeline best-effort atomicity (`printf > file && mv`, `sed -i`, `rm -f`).
+- **Risk.** An operator running `kensa remediate` against a customer host WITHOUT setting `KENSA_USE_AGENT=1` gets the shell-pipeline path even though release notes and `TRANSACTION_CONTRACT_V1.md` discuss "kernel-atomic" capability. The mental model mismatch is the risk: an audit may claim atomicity that wasn't delivered for the run that produced the evidence.
+- **Mitigation.** `kensa remediate` now prints a one-line stderr disclosure on every run stating which atomicity basis is active. The basis is also listed per-mechanism-family in `TRANSACTION_CONTRACT_V1.md §2.6`. Operators wanting the kernel-atomic guarantee must opt in via the env var.
+- **Sign-off question.** Should the v1.0 release default to agent-mode (i.e., flip the env-var sense so direct-SSH requires explicit opt-out), or stay direct-SSH-default with agent-mode as opt-in?
+
+### 1.6 Symlink-traversal refusal (Phase 2 hardening)
+
+- **What.** The fsatomic primitives walk target paths component-by-component with `O_NOFOLLOW` and refuse to operate if any component (including the base) is a symlink. Rules that legitimately target a symlinked path must pass the resolved path explicitly.
+- **Risk.** A future rule that targets a symlink would fail with `fsatomic: refuses to follow symlink in path`. Today's corpus has none.
+- **Mitigation.** Typed `ErrSymlinkInPath` error gives operators a clear diagnostic; rule authors can use a stat-based check at rule design time.
+
 ### ~~1. Evidence envelopes are unsigned~~ — RESOLVED 2026-05-10 (M-012 + C-060)
 
 - **Status.** Closed. M-012 shipped the Ed25519 signer primitive (`internal/evidence/Ed25519Signer` + `cmd/kensa-keygen/`). C-060 wired it through the engine, deleted `noopSigner`, and added `kensa verify <evidence-file>` for auditor validation.

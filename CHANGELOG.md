@@ -14,6 +14,102 @@ the canonical names; short forms are listed in
 
 ## Unreleased
 
+### Security
+
+- **Kernel-atomic file operations under agent mode (Phase 2,
+  fix/phase-2-rework drop).** For the file-touching capturable
+  handlers — `file_content`, `file_absent`, `config_set`,
+  `config_set_dropin` — kensa now delivers literal
+  kernel-primitive atomicity when remediation runs in agent
+  mode (`KENSA_USE_AGENT=1`). The primitives:
+  - `AtomicWrite` (new files): `O_TMPFILE` + `linkat` via
+    `/proc/self/fd/<N>` — partially-written bytes are never
+    visible as a half-named file in the directory.
+  - `AtomicReplace` (existing files): `renameat2(RENAME_EXCHANGE)`
+    for symmetric old↔new swap, with `renameat` rename-into-
+    place fallback for filesystems that don't support the
+    flag (kernel <3.15, NFS, vfat, some overlayfs).
+  - `AtomicRemove`: `unlinkat` + parent-dir `fsync`.
+  - Every primitive issues a parent-directory `fsync` barrier so
+    the directory entry persists across crashes.
+
+  **Direct-SSH mode is unchanged.** Operators using the v1.0
+  direct-SSH path retain the shell-pipeline best-effort
+  semantics for these mechanisms. The `kensa remediate` CLI
+  now prints a one-line stderr disclosure on every run
+  ("agent mode — kernel-atomic primitives" or "direct-SSH
+  mode — shell-pipeline best-effort; set `KENSA_USE_AGENT=1`
+  for kernel-atomic") so audit reviewers see the basis without
+  reading the source.
+
+- **Symlink-traversal refusal.** The fsatomic primitives walk
+  the target path component-by-component with `O_NOFOLLOW` and
+  refuse to operate if any component (including the base) is a
+  symlink. An attacker who plants
+  `/etc/sudoers.d/99-foo → /etc/passwd` cannot use kensa to
+  rewrite the symlink target; the operation fails with a
+  typed `ErrSymlinkInPath` error and the original target is
+  unmodified. Rules that legitimately want to target a symlink
+  must pass the resolved path; today's corpus has none.
+
+- **Path-traversal defense.** Every file-touching handler
+  rejects rule-supplied paths that are relative or contain
+  `..` segments after `filepath.Clean`. Closes the previously-
+  undefended direct-SSH shell path where
+  `path: "../../etc/shadow"` would have been honored.
+
+- **`renameat2` probe is per-filesystem, not global.** The
+  RENAME_EXCHANGE support probe caches by `st_dev` so a
+  heterogeneous mount layout (ext4 + NFS + xfs, typical on
+  federal hosts) cannot poison the cache. First observation
+  of an unsupported filesystem emits a one-time stderr
+  warning to the operator.
+
+### Fixed
+
+- **Mode preservation across re-Apply (P0-A from the
+  post-merge correctness review).** When a rule omits the
+  `mode` parameter and the target file exists, `file_content`
+  and `config_set_dropin` now preserve the file's current
+  mode bits instead of silently widening to `0o644`. Matches
+  `printf > file` shell semantics. A file previously
+  tightened to `0o600` (e.g., one containing secrets) is no
+  longer widened on re-Apply.
+
+- **setuid/setgid/sticky bit preservation in `config_set`.**
+  The Apply and Rollback paths previously used
+  `info.Mode().Perm()` which silently dropped the special
+  bits. `config_set` now uses `fsatomic.FileModeBits` which
+  preserves all 12 Unix mode bits. `sed -i` preserves all 12;
+  kensa now matches.
+
+- **`config_set` regex char-class divergence on CRLF files.**
+  The Go `[[:space:]]` class matches `\t\n\v\f\r ` but `sed
+  -E` with `LC_ALL=C` matches only `\t ` — divergence on
+  CRLF-line-ending files. The regex now spells the class as
+  `[\t ]`, byte-equivalent to sed.
+
+- **Rollback no longer silently defaults missing captured
+  mode to `0o644`.** A `file_content` or `file_absent`
+  rollback with an empty captured `mode` (indicating a
+  Capture bug) now fails loudly rather than widening
+  permissions on the restored file. Operator is instructed
+  to re-run capture.
+
+### Changed
+
+- **`api.AtomicTransport` moved to
+  `internal/agent/fsatomic.Transport`.** The capability
+  interface previously lived in `api/` but atomicity is an
+  agent-side concern that external `api.Transport`
+  implementers (OpenWatch) are not expected to provide.
+  Moving it to `internal/agent/fsatomic` prevents the
+  `api/` surface from growing to 6+ sibling capability
+  interfaces by Phase 7. Public consumers should not be
+  affected; OpenWatch does not type-assert this interface.
+  See `internal/agent/fsatomic/transport.go` for the new
+  location.
+
 ### Breaking changes
 
 - **CLI Phase 3 short-letter table reconciliation (C-024).** Four
