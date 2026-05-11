@@ -632,7 +632,7 @@ once the founder ratifies them.
 - **Size:** ~4h actual (+ design doc + L-014b partition)
 - **Status:** **done** (merge `dcacdfa`, 2026-05-11)
 - **Notes:** Peer review caught 3 P1s (sudo not wired → fixed via local.NewAuto auto-detect; lookupHandler defaults capturable=true for unknown mechanisms → documented + flagged; synchronous dispatch blocks heartbeat → carry-forward for L-015 prereq) + 3 P2s (duplicate remotehandler package deleted; non-atomic Put flagged for L-018; request context not propagated flagged for L-014b). All architectural pieces shipped; CLI env-var wiring partitioned to L-014b.
-- **L-014b sub-deliverable (deferred):** cmd/kensa/remediate.go `KENSA_USE_AGENT=1` env-var path: bootstrap.EnsureAgent → spawn `ssh <host> <cachePath> agent --stdio` → client.Open → client.Handshake → engine.WithAgentClient lifecycle. Plus TestLiveAgentMode_FilePermissionsParity against KENSA_TEST_SSH_HOST + KENSA_TEST_AGENT_MODE=1.
+- **L-014b sub-deliverable: SHIPPED 2026-05-11 (merge `e291965`).** `pkg/kensa.DefaultWithEngineOptions` composable factory + `internal/agent/dispatcher.OpenAgent` lifecycle wrapper + `cmd/kensa/main.go` `KENSA_USE_AGENT=1` env-var detection. Tests use injected stub SSHCommandFunc that exec's the local kensa binary; full lifecycle (bootstrap → spawn → open → handshake → cleanup) validated. Live-host parity test (`TestLiveAgentMode_FilePermissionsParity` against `KENSA_TEST_SSH_HOST + KENSA_TEST_AGENT_MODE=1`) deferred to L-014c — gated on CI test-host wiring.
 
 #### L-015 through L-032 — Port remaining 18 capturable handlers to agent mode
 - **Phase:** LL Phase 1
