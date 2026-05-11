@@ -574,10 +574,10 @@ once the founder ratifies them.
 #### L-008 — Add `internal/agent/` package skeleton with `kensa agent --stdio` subcommand
 - **Phase:** LL Phase 1
 - **Deps:** L-007
-- **Acceptance:** `kensa agent --stdio` reads framed messages from stdin, echoes them, exits when stdin closes
-- **Size:** 4h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
-- **Implementation note:** L-008's "framed messages" requires a framing scheme — but L-010 is what defines the production length-prefix framing. L-008 ships a minimal stub framing (4-byte big-endian length prefix, recommended) good enough for the echo test; L-010 supersedes it with the full contract (max message size, partial-read handling, error recovery). Document the stub in `internal/agent/framing.go` with a comment pointing to L-010 for the production replacement.
+- **Acceptance:** `kensa agent --stdio` reads framed messages from stdin, echoes them, exits when stdin closes. Shipped 2026-05-11 (merge `728d853`): `internal/agent/framing.go` (4-byte big-endian length prefix, 16 MiB cap, io.ReadFull partial-read recovery, clean-EOF vs ErrUnexpectedEOF discrimination); `internal/agent/echo.go` (`agent.Run(ctx, r, w, stderr, Handler)` + `agent.HandleEcho` — separable design so L-009 swaps the handler arg without refactoring the loop); `cmd/kensa/agent.go` flipped from exit-1 placeholder to live echo; subprocess E2E tests (echo + truncated-frame reject + SIGTERM-mid-read exit). Partially supersedes specs/cli/agent-placeholder.spec.yaml (C-02/AC-02 retired; C-01/C-03/C-04/C-05 preserved).
+- **Size:** ~4h actual
+- **Status:** **done** (merge `728d853`, 2026-05-11)
+- **Notes:** Peer review caught 2 P0s (stale flag help text saying "planned for v1.1"; manpage BUGS bullet still calling agent a v1.0 placeholder) + 4 P1s (placeholder spec needed supersession marker, stale dispatch comment, RunEcho separability for L-009, no SIGTERM-during-read test). All addressed pre-merge. The SIGTERM test forced discovery that Go's runtime poller doesn't reliably wake a blocked pipe Read when another goroutine closes the fd — fix is a 500ms grace-period forced os.Exit, the standard production "graceful-shutdown-with-timeout" pattern. L-012's explicit shutdown-message will obsolete this side-channel dependency.
 
 #### L-009 — Define wire-protocol schema (request, response, error, heartbeat types)
 - **Phase:** LL Phase 1
