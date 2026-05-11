@@ -601,10 +601,11 @@ once the founder ratifies them.
 - **Acceptance:** existing handler invocation path works against agent transport in addition to direct SSH
 - **Size:** 4h
 - **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
-- **L-009 review TODOs carried forward:**
+- **L-009/L-010 review TODOs carried forward:**
    1. Enforce monotonic-or-uniqueness on HeartbeatRequest.token in the controller's outstanding-token table. The agent just echoes; ambiguous pairing is a controller-side responsibility.
-   2. Validate `Apply.GetMechanism() != ""`, `Rollback.GetPreState() != nil`, etc. before dispatch — proto3 has no required fields. Validation failures → envelope Error with code "invalid_request".
+   2. Validate `Apply.GetMechanism() != ""`, `Rollback.GetPreState() != nil`, etc. before dispatch — proto3 has no required fields. Validation failures → envelope Error with code "invalid_request". Use `agent.RunWithValidator(ctx, r, w, stderr, dispatcher, validator)` and compose with `wirev1.ValidateRequest` (multi-variant guard).
    3. Translate `(result, error)` handler returns: (nil, err) → Response with envelope-level Error (no typed payload); (failed-result, nil) → typed Response with Success=false + Detail. See `internal/agent/echo.go` package doc for the full dispatch convention.
+   4. **L-010 carry-forward:** implement the post-Unmarshal raw-bytes multi-variant guard. L-010 ships `wirev1.ValidateRequest` (reflective count) that catches Go-API mis-use but cannot catch wire-bytes multi-variant (protobuf-go's runtime collapses on Unmarshal). The deep guard walks the raw frame bytes BEFORE Unmarshal and rejects duplicate-field-number wire bytes covering the payload-oneof field numbers (10..13 today, plus future variants). ~80 lines.
 
 #### L-012 — Version handshake on session start
 - **Phase:** LL Phase 1
@@ -612,6 +613,7 @@ once the founder ratifies them.
 - **Acceptance:** mismatched majors abort with clear error; same major + different minor logs warning and proceeds
 - **Size:** 2h
 - **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **L-010 carry-forward:** to introduce the out-of-band heartbeat channel, define `FrameHeartbeat FrameType = 0x02`, add it to `knownFrameTypes` in `internal/agent/framing.go`, and update `agent.RunWithValidator` (or a parallel `RunMux`) to route heartbeat frames to a separate goroutine that ack-echoes without contending with the payload dispatcher for ordering. No edits to `Read`/`Write` bodies are required — the L-010 type-byte check is extensibility-friendly by design.
 
 #### L-013 — Binary push + SHA-cached agent caching at `~/.cache/kensa/agent-<sha>`
 - **Phase:** LL Phase 1
@@ -619,6 +621,7 @@ once the founder ratifies them.
 - **Acceptance:** first invocation pushes; subsequent invocations skip; cache invalidates on binary change
 - **Size:** 3h
 - **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Framing scope clarification (L-010 review):** binary push happens BEFORE `kensa agent --stdio` starts — raw bytes over SSH (scp-equivalent or inline base64), not the L-010 framed wire. L-010's 16 MiB frame cap does not apply. Cache key is the SHA256 of the pushed binary; cache lookup is target-side filesystem state, not a wire-protocol exchange.
 
 #### L-014 — Port `file_permissions` handler to agent mode (proof-of-concept)
 - **Phase:** LL Phase 1

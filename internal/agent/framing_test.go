@@ -9,10 +9,11 @@ import (
 	"testing"
 )
 
-// TestFraming_Roundtrip locks AC-01: Write(buf, p) then Read(buf)
-// returns p byte-for-byte for representative payload sizes.
+// TestFraming_Roundtrip locks AC-01: Write/Read round-trip
+// the payload byte-for-byte AND preserves the FrameType for
+// representative sizes.
 //
-// @spec agent-stdio-subcommand
+// @spec agent-framing-production
 // @ac AC-01
 func TestFraming_Roundtrip(t *testing.T) {
 	cases := []struct {
@@ -23,11 +24,9 @@ func TestFraming_Roundtrip(t *testing.T) {
 		{"one_byte", 1},
 		{"kibibyte", 1024},
 		{"mebibyte", 1024 * 1024},
-		// MaxMessageBytes-1 to exercise the upper bound without
-		// blowing memory on a CI test machine. The full
-		// MaxMessageBytes case is exercised by
-		// TestFraming_RejectsOversizedFrame on the other side.
-		{"near_cap", 1024 * 1024 * 8},
+		// 16 MiB - 1 verifies the upper bound without an
+		// allocation that could OOM a constrained CI runner.
+		{"near_cap", int(DefaultMaxMessageBytes) - 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -36,12 +35,15 @@ func TestFraming_Roundtrip(t *testing.T) {
 				payload[i] = byte(i % 251)
 			}
 			var buf bytes.Buffer
-			if err := Write(&buf, payload); err != nil {
+			if err := Write(&buf, FramePayload, payload, nil); err != nil {
 				t.Fatalf("Write: %v", err)
 			}
-			got, err := Read(&buf)
+			gotType, got, err := Read(&buf, nil)
 			if err != nil {
 				t.Fatalf("Read: %v", err)
+			}
+			if gotType != FramePayload {
+				t.Errorf("frame type: got 0x%02x, want 0x%02x", byte(gotType), byte(FramePayload))
 			}
 			if !bytes.Equal(got, payload) {
 				t.Errorf("roundtrip mismatch: payloads differ (size=%d)", tc.size)
@@ -50,27 +52,106 @@ func TestFraming_Roundtrip(t *testing.T) {
 	}
 }
 
-// TestFraming_RejectsOversizedFrame locks AC-02: a peer sending
-// a length prefix > MaxMessageBytes is rejected BEFORE the
-// decoder allocates the buffer. Without this, a 4 GiB length
-// prefix would force make([]byte, 4 GB) and OOM the agent.
+// TestFraming_RejectsUnknownType locks AC-02: type byte values
+// other than FramePayload (0x01) are rejected with
+// ErrUnknownFrameType. The encoder applies the same check.
 //
-// The test forges a length prefix directly rather than going
-// through Write(), since Write() also refuses oversized payloads
-// (and we want to verify the decoder's defensive check, not the
-// encoder's).
-//
-// @spec agent-stdio-subcommand
+// @spec agent-framing-production
 // @ac AC-02
+func TestFraming_RejectsUnknownType(t *testing.T) {
+	t.Run("decode_unknown_type", func(t *testing.T) {
+		// Manually construct a frame with type 0x02 (reserved
+		// for L-012+ but not recognized at L-010).
+		var buf bytes.Buffer
+		buf.WriteByte(0x02)
+		var lenBuf [4]byte
+		binary.BigEndian.PutUint32(lenBuf[:], 0)
+		buf.Write(lenBuf[:])
+		_, _, err := Read(&buf, nil)
+		if err == nil {
+			t.Fatal("expected ErrUnknownFrameType, got nil")
+		}
+		if !errors.Is(err, ErrUnknownFrameType) {
+			t.Errorf("err should be ErrUnknownFrameType; got: %v", err)
+		}
+	})
+	t.Run("encode_unknown_type", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := Write(&buf, FrameType(0xFE), []byte("x"), nil)
+		if err == nil {
+			t.Fatal("expected ErrUnknownFrameType on encode, got nil")
+		}
+		if !errors.Is(err, ErrUnknownFrameType) {
+			t.Errorf("err should be ErrUnknownFrameType; got: %v", err)
+		}
+	})
+}
+
+// TestFraming_ConfigurableMaxSize locks AC-03: FramingOptions
+// .MaxMessageBytes override applies on both encode and decode.
+// 0 falls back to the 16 MiB default.
+//
+// @spec agent-framing-production
+// @ac AC-03
+func TestFraming_ConfigurableMaxSize(t *testing.T) {
+	t.Run("decode_respects_override", func(t *testing.T) {
+		opts := &FramingOptions{MaxMessageBytes: 100}
+		// Forge a frame claiming length=101.
+		var buf bytes.Buffer
+		buf.WriteByte(byte(FramePayload))
+		var lenBuf [4]byte
+		binary.BigEndian.PutUint32(lenBuf[:], 101)
+		buf.Write(lenBuf[:])
+
+		_, _, err := Read(&buf, opts)
+		if err == nil {
+			t.Fatal("expected ErrFrameTooLarge, got nil")
+		}
+		if !errors.Is(err, ErrFrameTooLarge) {
+			t.Errorf("err should be ErrFrameTooLarge; got: %v", err)
+		}
+	})
+	t.Run("encode_respects_override", func(t *testing.T) {
+		opts := &FramingOptions{MaxMessageBytes: 10}
+		var buf bytes.Buffer
+		err := Write(&buf, FramePayload, make([]byte, 11), opts)
+		if err == nil {
+			t.Fatal("expected ErrFrameTooLarge on encode, got nil")
+		}
+		if !errors.Is(err, ErrFrameTooLarge) {
+			t.Errorf("err should be ErrFrameTooLarge; got: %v", err)
+		}
+	})
+	t.Run("zero_falls_back_to_default", func(t *testing.T) {
+		opts := &FramingOptions{MaxMessageBytes: 0}
+		var buf bytes.Buffer
+		// 1 byte payload under the default cap should encode/
+		// decode cleanly.
+		if err := Write(&buf, FramePayload, []byte("x"), opts); err != nil {
+			t.Fatalf("Write with zero opts: %v", err)
+		}
+		_, got, err := Read(&buf, opts)
+		if err != nil {
+			t.Fatalf("Read with zero opts: %v", err)
+		}
+		if string(got) != "x" {
+			t.Errorf("roundtrip: got %q, want %q", got, "x")
+		}
+	})
+}
+
+// TestFraming_RejectsOversizedFrame locks the security guard:
+// the default 16 MiB cap rejects a peer's oversize length
+// prefix BEFORE allocation. Without this, a 4 GiB length would
+// force make([]byte, 4 GB) and OOM the agent.
 func TestFraming_RejectsOversizedFrame(t *testing.T) {
 	var buf bytes.Buffer
+	buf.WriteByte(byte(FramePayload))
 	var lenBuf [4]byte
-	binary.BigEndian.PutUint32(lenBuf[:], MaxMessageBytes+1)
+	binary.BigEndian.PutUint32(lenBuf[:], DefaultMaxMessageBytes+1)
 	buf.Write(lenBuf[:])
-	// Don't bother writing the payload — Read should error
-	// before reading past the length prefix.
 
-	_, err := Read(&buf)
+	_, _, err := Read(&buf, nil)
 	if err == nil {
 		t.Fatal("expected ErrFrameTooLarge, got nil")
 	}
@@ -79,52 +160,29 @@ func TestFraming_RejectsOversizedFrame(t *testing.T) {
 	}
 }
 
-// TestFraming_WriteRejectsOversizedPayload locks the encoder-side
-// guard. We can't accidentally emit messages our decoder would
-// refuse.
-func TestFraming_WriteRejectsOversizedPayload(t *testing.T) {
-	// Allocate just past the cap. This is 16 MiB + 1 — small
-	// enough not to OOM CI.
-	payload := make([]byte, MaxMessageBytes+1)
-	var buf bytes.Buffer
-	err := Write(&buf, payload)
-	if err == nil {
-		t.Fatal("expected ErrFrameTooLarge on encode, got nil")
-	}
-	if !errors.Is(err, ErrFrameTooLarge) {
-		t.Errorf("err should be ErrFrameTooLarge; got: %v", err)
-	}
-}
-
-// TestFraming_PartialReads locks AC-03: a Reader that returns
-// data in 1-byte chunks (worst-case SSH-fragmentation behavior)
-// MUST still decode correctly. Uses io.ReadFull internally;
-// this test verifies that contract holds.
-//
-// @spec agent-stdio-subcommand
-// @ac AC-03
+// TestFraming_PartialReads: io.ReadFull semantics for both the
+// 5-byte header and the payload. Worst-case 1-byte-per-Read
+// fragmentation (SSH transport with small TCP segments).
 func TestFraming_PartialReads(t *testing.T) {
 	payload := []byte("hello, framed world")
 
 	var buf bytes.Buffer
-	if err := Write(&buf, payload); err != nil {
+	if err := Write(&buf, FramePayload, payload, nil); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	// Wrap the buffer in a Reader that returns 1 byte per
-	// Read() call — the most-fragmented case.
 	r := &oneByteReader{src: buf.Bytes()}
-	got, err := Read(r)
+	gotType, got, err := Read(r, nil)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
+	}
+	if gotType != FramePayload {
+		t.Errorf("frame type: got 0x%02x, want 0x%02x", byte(gotType), byte(FramePayload))
 	}
 	if !bytes.Equal(got, payload) {
 		t.Errorf("partial-read roundtrip: got %q, want %q", got, payload)
 	}
 }
 
-// oneByteReader returns 1 byte at a time from src, simulating
-// worst-case stream fragmentation (e.g., SSH transport with
-// small TCP segments).
 type oneByteReader struct {
 	src []byte
 	off int
@@ -142,72 +200,51 @@ func (r *oneByteReader) Read(p []byte) (int, error) {
 	return 1, nil
 }
 
-// TestFraming_EOFSemantics locks AC-04: a clean EOF (no bytes
-// before next length prefix) returns io.EOF. EOF mid-frame
-// (after length prefix, during payload) returns
-// io.ErrUnexpectedEOF — signal of corruption/truncation, not
-// clean shutdown.
-//
-// @spec agent-stdio-subcommand
-// @ac AC-04
+// TestFraming_EOFSemantics: clean EOF before any header byte
+// returns io.EOF (legitimate stream close); EOF mid-frame
+// returns io.ErrUnexpectedEOF.
 func TestFraming_EOFSemantics(t *testing.T) {
 	t.Run("clean_eof_between_frames", func(t *testing.T) {
 		var buf bytes.Buffer
-		// Empty buffer → EOF immediately.
-		_, err := Read(&buf)
+		_, _, err := Read(&buf, nil)
 		if !errors.Is(err, io.EOF) {
 			t.Errorf("expected io.EOF on empty stream, got: %v", err)
 		}
 	})
 
-	t.Run("truncated_after_length_prefix", func(t *testing.T) {
+	t.Run("truncated_after_header", func(t *testing.T) {
 		var buf bytes.Buffer
+		buf.WriteByte(byte(FramePayload))
 		var lenBuf [4]byte
 		binary.BigEndian.PutUint32(lenBuf[:], 100)
 		buf.Write(lenBuf[:])
-		// Length says 100 bytes; stream has 0 payload bytes.
-		// Decoder should return ErrUnexpectedEOF.
-		_, err := Read(&buf)
+		// Length says 100; stream has 0 payload bytes.
+		_, _, err := Read(&buf, nil)
 		if !errors.Is(err, io.ErrUnexpectedEOF) {
 			t.Errorf("expected io.ErrUnexpectedEOF, got: %v", err)
 		}
 	})
 
-	t.Run("truncated_mid_payload", func(t *testing.T) {
-		var buf bytes.Buffer
-		var lenBuf [4]byte
-		binary.BigEndian.PutUint32(lenBuf[:], 100)
-		buf.Write(lenBuf[:])
-		buf.Write(make([]byte, 50)) // half the promised payload
-		_, err := Read(&buf)
+	t.Run("truncated_in_header", func(t *testing.T) {
+		// Two bytes — partial of the 5-byte header.
+		buf := bytes.NewBuffer([]byte{0x01, 0x00})
+		_, _, err := Read(buf, nil)
 		if !errors.Is(err, io.ErrUnexpectedEOF) {
-			t.Errorf("expected io.ErrUnexpectedEOF, got: %v", err)
-		}
-	})
-
-	t.Run("truncated_in_length_prefix", func(t *testing.T) {
-		var buf bytes.Buffer
-		buf.Write([]byte{0x00, 0x01}) // only 2 of 4 prefix bytes
-		_, err := Read(&buf)
-		// Per io.ReadFull contract: partial read of prefix
-		// returns ErrUnexpectedEOF.
-		if !errors.Is(err, io.ErrUnexpectedEOF) {
-			t.Errorf("expected io.ErrUnexpectedEOF on truncated prefix, got: %v", err)
+			t.Errorf("expected io.ErrUnexpectedEOF on truncated header, got: %v", err)
 		}
 	})
 }
 
-// TestFraming_OversizedErrorMessage locks that the size-rejection
-// error string includes the offending size and the cap, so an
-// operator debugging a misconfigured peer can see what was wrong
-// at a glance.
+// TestFraming_OversizedErrorMessage locks the error string
+// content for the size-rejection case.
 func TestFraming_OversizedErrorMessage(t *testing.T) {
 	var buf bytes.Buffer
+	buf.WriteByte(byte(FramePayload))
 	var lenBuf [4]byte
-	binary.BigEndian.PutUint32(lenBuf[:], MaxMessageBytes+1)
+	binary.BigEndian.PutUint32(lenBuf[:], DefaultMaxMessageBytes+1)
 	buf.Write(lenBuf[:])
 
-	_, err := Read(&buf)
+	_, _, err := Read(&buf, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

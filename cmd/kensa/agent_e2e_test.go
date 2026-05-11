@@ -79,13 +79,13 @@ func TestKensaAgent_StdioEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal Request: %v", err)
 	}
-	if err := agent.Write(stdin, reqBytes); err != nil {
+	if err := agent.Write(stdin, agent.FramePayload, reqBytes, nil); err != nil {
 		t.Fatalf("Write frame to subprocess stdin: %v", err)
 	}
 
 	// Read back the typed Response. ApplyRequest produces
 	// ApplyResponse (L-009 C-02 dispatch contract).
-	respBytes, err := agent.Read(stdout)
+	_, respBytes, err := agent.Read(stdout, nil)
 	if err != nil {
 		t.Fatalf("Read frame from subprocess stdout: %v; stderr=%q", err, stderr.String())
 	}
@@ -209,14 +209,14 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 		if err != nil {
 			t.Fatalf("marshal: %v", err)
 		}
-		if err := agent.Write(stdin, reqBytes); err != nil {
+		if err := agent.Write(stdin, agent.FramePayload, reqBytes, nil); err != nil {
 			t.Fatalf("write frame: %v", err)
 		}
 	}
 
 	wantVariants := []string{"*wirev1.Response_ApplyResp", "*wirev1.Response_CaptureResp", "*wirev1.Response_RollbackResp", "*wirev1.Response_HeartbeatAck"}
 	for i, req := range requests {
-		respBytes, err := agent.Read(stdout)
+		_, respBytes, err := agent.Read(stdout, nil)
 		if err != nil {
 			t.Fatalf("read response %d: %v; stderr=%q", i, err, stderr.String())
 		}
@@ -242,8 +242,8 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 		Payload: &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 0xbaadf00d}},
 	}
 	hbBytes, _ := proto.Marshal(hbReq)
-	_ = agent.Write(stdin, hbBytes)
-	respBytes, err := agent.Read(stdout)
+	_ = agent.Write(stdin, agent.FramePayload, hbBytes, nil)
+	_, respBytes, err := agent.Read(stdout, nil)
 	if err != nil {
 		t.Fatalf("read hb response: %v", err)
 	}
