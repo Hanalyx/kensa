@@ -30,6 +30,28 @@ Without `protoc` installed locally, `go test ./...` will skip
 fails hard if it can't run the gate — so a missing-locally /
 passing-in-CI workflow is fine for everyday development.
 
+### Live-host test env vars
+
+Some tests run against a real SSH-able host. They skip by
+default; set the env vars below to opt in.
+
+- **`KENSA_TEST_SSH_HOST`** — host (or `host:port`) for SSH
+  integration tests. When unset, SSH-dependent tests under
+  `internal/transport/ssh/` skip.
+
+- **`KENSA_TEST_AGENT_MODE=1`** — opt-in for the L-014c
+  agent-mode live-host parity test
+  (`cmd/kensa.TestLiveAgentMode_FilePermissionsParity`).
+  Requires `KENSA_TEST_SSH_HOST` AND the SSH user must be
+  able to write `~/.cache/kensa/agent-<sha>` on the target.
+  The test creates a temp file under the SSH user's `$HOME`,
+  runs file_permissions remediate via both direct-SSH and
+  agent-mode paths, and asserts the RemediationResult
+  matches (modulo timestamps and transaction IDs).
+
+Without these, `go test ./...` passes cleanly with the
+live tests showing as `SKIP` in `-v` output.
+
 ## Authorship Model
 
 The Kensa AI team and collaborator write all of the application code. The
