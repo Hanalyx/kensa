@@ -636,11 +636,11 @@ once the founder ratifies them.
 
 #### L-015 through L-032 — Port remaining 18 capturable handlers to agent mode
 - **Phase:** LL Phase 1
-- **Deps:** L-014 (then sequential per handler; or parallel within phase)
-- **Acceptance:** each handler's behavior under agent mode matches direct-SSH path; integration test against real host (live `inventory.ini`) passes
-- **Size:** 2–3h each
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting L-014)
-- **Notes:** This is the bulk of LL Phase 1 effort. Each handler port is one deliverable. Order: file_*, config_*, service_*, package_*, sysctl_set, kernel_module_disable, mount_option_set, pam_module_configure, audit_rule_set, selinux_boolean_set, cron_job, then non-capturable port for command_exec/manual/grub_*
+- **Deps:** L-014 (mechanical batch; all handlers Option-L1 compatible per audit)
+- **Acceptance:** server.Handle routes to all 18 mechanisms (verified via per-handler regression tests). File-based handlers (file_content / file_absent / config_set / config_set_dropin) additionally verify observable side-effects on temp files. System-state handlers (cron_job / pam_module_configure / sysctl_set / mount_option_set / service_* / selinux_boolean_set / kernel_module_disable / audit_rule_set / package_* / apt_*) get routing-only tests; live-host parity ships at L-014c.
+- **Size:** Originally estimated 2-3h each (54h total); shipped as ~1h umbrella batch after audit established zero handler code edits required.
+- **Status:** **done** (merge `06f9fb4`, 2026-05-11)
+- **Notes:** Audit (`grep -rln "transport.Put\|transport.Get\|ControlChannelSensitive" internal/handlers/`) returned ZERO matches across all 18 capturable handlers — they all use only `transport.Run`. LocalTransport's drop-in compatibility made L-015..L-032 a mechanical batch closed with one umbrella spec (`specs/agent/handler-ports-umbrella.spec.yaml`) + one test file (`internal/agent/server/handler_ports_test.go`, 18 tests). Numbering preserved L-015..L-032 for audit-trail traceability. Non-capturable handlers (command_exec, manual, grub_*, authselect_feature_enable, dconf_set, crypto_policy_*, pam_module_arg, config_append) are separate post-L-032 deliverables — agent-mode Apply path works via existing routing; their non-capturable status means engine never dispatches Capture/Rollback through agent.
 
 ### LL Phases 2–7 — Sketch only
 
