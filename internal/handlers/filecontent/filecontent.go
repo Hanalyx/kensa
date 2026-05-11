@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,15 +64,13 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, fmt.Errorf("file_content: 'content' must be a string, got %T", contentRaw)
 	}
 
-	out := &Params{Path: path, Content: content, Mode: "0644"}
+	out := &Params{Path: path, Content: content}
 	if v, ok := p["mode"]; ok {
 		s, ok := v.(string)
 		if !ok {
 			return nil, fmt.Errorf("file_content: 'mode' must be a string, got %T", v)
 		}
-		if s != "" {
-			out.Mode = s
-		}
+		out.Mode = s
 	}
 	if v, ok := p["owner"]; ok {
 		s, _ := v.(string)
@@ -119,7 +116,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	// successful write needs to be reported as partial
 	// success (FMA Q1.b).
 	if afs, ok := transport.(fsatomic.Transport); ok {
-		fileMode, modeErr := parseFileMode(p.Mode)
+		fileMode, modeSpecified, modeErr := fsatomic.ParseMode(p.Mode)
 		if modeErr != nil {
 			return &api.StepResult{
 				Success: false,
@@ -127,12 +124,32 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 			}, nil
 		}
 		// Existence check for write vs replace branch.
-		exists, statErr := fileExists(p.Path)
+		exists, statErr := fsatomic.FileExists(p.Path)
 		if statErr != nil {
 			return &api.StepResult{
 				Success: false,
 				Detail:  fmt.Sprintf("file_content: stat %s: %v", p.Path, statErr),
 			}, nil
+		}
+		// When the rule omits `mode`: preserve the target's
+		// existing mode (re-Apply against a tightened file
+		// must not silently widen); for a new file, fall back
+		// to the umask-default 0o644. Matches the shell
+		// `printf > file` semantics — existing file's mode is
+		// untouched, new file's mode is umask-shaped.
+		if !modeSpecified {
+			if exists {
+				info, infoErr := os.Stat(p.Path)
+				if infoErr != nil {
+					return &api.StepResult{
+						Success: false,
+						Detail:  fmt.Sprintf("file_content: stat for mode preservation %s: %v", p.Path, infoErr),
+					}, nil
+				}
+				fileMode = fsatomic.FileModeBits(info.Mode())
+			} else {
+				fileMode = 0o644
+			}
 		}
 		var writeErr error
 		if exists {
@@ -210,37 +227,8 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}, nil
 }
 
-// parseFileMode parses "644", "0644", or "0o644" → os.FileMode.
-// Empty input defaults to 0o644 (matches the umask-applied
-// default of the shell `printf > file` pipeline).
-func parseFileMode(s string) (os.FileMode, error) {
-	if s == "" {
-		return 0o644, nil
-	}
-	cleaned := strings.TrimPrefix(s, "0o")
-	n, err := strconv.ParseUint(cleaned, 8, 32)
-	if err != nil {
-		return 0, fmt.Errorf("invalid octal mode %q: %w", s, err)
-	}
-	return os.FileMode(n), nil
-}
-
-// fileExists checks whether path is a regular file or symlink.
-// Used by the agent-mode Apply path to choose AtomicReplace vs
-// AtomicWrite. The check happens just before the atomic op,
-// so a TOCTOU race is theoretically possible — but the SAME
-// race exists in the existing shell `if [ -e ... ]` pattern.
-// No regression.
-func fileExists(path string) (bool, error) {
-	_, err := os.Lstat(path)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	}
-	return false, err
-}
+// parseFileMode and fileExists moved to
+// internal/agent/fsatomic/mode.go for reuse across handlers.
 
 // Capture records file_existed, content, mode, owner, group, and
 // selinux_context. An absent file is valid (file_existed=false, all
@@ -391,11 +379,22 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		group, _ := pre.Data["group"].(string)
 		selinux, _ := pre.Data["selinux"].(string)
 
-		fileMode, modeErr := parseFileMode(mode)
+		fileMode, modeSpecified, modeErr := fsatomic.ParseMode(mode)
 		if modeErr != nil {
 			return &api.RollbackResult{
 				Success:    false,
 				Detail:     fmt.Sprintf("file_content: rollback parse mode %q: %v", mode, modeErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		if !modeSpecified {
+			// Captured mode empty for a present-at-capture
+			// file — Capture failed to record it. Refuse to
+			// default; that would silently widen perms on a
+			// tightened-mode file at rollback time.
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("file_content: rollback %s: captured mode missing; refusing to default (re-run capture)", path),
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}

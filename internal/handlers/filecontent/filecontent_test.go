@@ -268,6 +268,41 @@ func TestApply_AgentMode_ExistingFile_AtomicReplace(t *testing.T) {
 	}
 }
 
+// TestApply_AgentMode_EmptyModePreservesExisting locks the
+// fix/phase-2-rework F-003 fix: when a rule omits `mode` and
+// the target file already exists, Apply preserves the file's
+// current mode bits rather than silently widening to 0o644.
+// This was P0-A in the post-merge correctness review.
+func TestApply_AgentMode_EmptyModePreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "tightened.conf")
+	if err := os.WriteFile(target, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := local.New()
+	h := filecontent.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"path":    target,
+		"content": "new secret",
+		// mode intentionally omitted
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	info, _ := os.Stat(target)
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("mode silently widened: got %o, want 0600 (preserved)", info.Mode().Perm())
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "new secret" {
+		t.Errorf("content: got %q, want %q", got, "new secret")
+	}
+}
+
 // TestApply_AgentMode_RejectsBadMode locks the FMA Q1.a
 // concern: mode strings the Go parser can't handle surface
 // as a clear error rather than corrupting bytes.

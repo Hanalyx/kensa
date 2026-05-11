@@ -155,7 +155,12 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 				Detail:  fmt.Sprintf("config_set: stat %s: %v", p.File, statErr),
 			}, nil
 		}
-		if err := afs.AtomicReplace(ctx, p.File, info.Mode().Perm(), []byte(newContent)); err != nil {
+		// `fsatomic.FileModeBits` preserves setuid/setgid/sticky
+		// in addition to the 9 perm bits. A plain `& 0o7777`
+		// would silently drop them because Go encodes those
+		// special bits in HIGH positions (1<<22, 1<<23, 1<<20),
+		// outside the 0o7777 mask. Sed -i preserves all 12.
+		if err := afs.AtomicReplace(ctx, p.File, fsatomic.FileModeBits(info.Mode()), []byte(newContent)); err != nil {
 			return &api.StepResult{
 				Success: false,
 				Detail:  fmt.Sprintf("config_set: AtomicReplace %s: %v", p.File, err),
@@ -200,15 +205,21 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 
 // activeLineRegex builds the Go regexp that matches the sed
 // pattern `^[[:space:]]*KEY[[:space:]=]` per-line. Returns
-// the compiled regex (multi-line mode set via (?m)) and the
-// literal-key portion separately for safe replacement.
+// the compiled regex (multi-line mode set via (?m)).
 //
-// FMA Q1.a parity: sed `[[:space:]]` = `\t` and ` `. Go's
-// `[[:space:]]` matches the same POSIX class. sed `^` =
-// line-start under -E with default delimiter; Go needs (?m).
-// Key is regexp.QuoteMeta'd to handle dotted keys safely.
+// Sed `-E` with default `LC_ALL=C` interprets `[[:space:]]`
+// as exactly `\t` and ` `. Go's `[[:space:]]` matches the
+// broader set `\t\n\v\f\r ` per regexp/syntax — divergence
+// on CRLF files (where `\r` would match in Go but not sed).
+// Spelling the class as `[\t ]` makes the Go regex
+// byte-equivalent to sed's intent and fixes the post-merge
+// security review's P1-5 divergence.
+//
+// sed `^` = line-start under -E with default delimiter;
+// Go needs (?m). Key is regexp.QuoteMeta'd to handle dotted
+// keys safely.
 func activeLineRegex(key string) (*regexp.Regexp, error) {
-	pat := `(?m)^[[:space:]]*` + regexp.QuoteMeta(key) + `[[:space:]=].*$`
+	pat := `(?m)^[\t ]*` + regexp.QuoteMeta(key) + `[\t =].*$`
 	return regexp.Compile(pat)
 }
 
@@ -358,22 +369,15 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			// Remove the line that Apply appended. The
 			// appended line is an active key line by
 			// construction (Apply wrote targetLine without
-			// leading whitespace or `#`), so re matches.
-			re, reErr := activeLineRegex(key)
-			if reErr != nil {
-				rewriteErr = reErr
+			// leading whitespace or `#`). Replace the entire
+			// matching line including its trailing newline so
+			// the file doesn't grow blank-lines on each
+			// Apply/Rollback cycle.
+			removeRe, removeErr := regexp.Compile(`(?m)^[\t ]*` + regexp.QuoteMeta(key) + `[\t =].*\n?`)
+			if removeErr != nil {
+				rewriteErr = removeErr
 			} else {
-				// Replace each matching line with empty,
-				// then collapse the resulting double-newlines.
-				// More precise: remove the entire line
-				// including its trailing newline.
-				removeRe, removeErr := regexp.Compile(`(?m)^[[:space:]]*` + regexp.QuoteMeta(key) + `[[:space:]=].*\n?`)
-				if removeErr != nil {
-					rewriteErr = removeErr
-				} else {
-					newContent = removeRe.ReplaceAllString(string(original), "")
-					_ = re // satisfy unused-var
-				}
+				newContent = removeRe.ReplaceAllString(string(original), "")
 			}
 		}
 		if rewriteErr != nil {
@@ -391,7 +395,9 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}
-		if err := afs.AtomicReplace(ctx, file, info.Mode().Perm(), []byte(newContent)); err != nil {
+		// `fsatomic.FileModeBits` preserves setuid/setgid/sticky
+		// (see Apply for the same fix).
+		if err := afs.AtomicReplace(ctx, file, fsatomic.FileModeBits(info.Mode()), []byte(newContent)); err != nil {
 			return &api.RollbackResult{
 				Success:    false,
 				Detail:     fmt.Sprintf("config_set: rollback AtomicReplace %s: %v", file, err),

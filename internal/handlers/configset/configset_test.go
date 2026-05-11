@@ -490,6 +490,91 @@ func TestAgentRollback_RestoresPriorLine(t *testing.T) {
 	}
 }
 
+// TestAgentApply_PreservesSetgid locks the fix/phase-2-rework
+// F-004 fix: when the target file has setgid (or setuid /
+// sticky) bits set, AtomicReplace preserves them. The
+// pre-rework code used info.Mode().Perm() which silently
+// stripped to the 9 perm bits.
+func TestAgentApply_PreservesSetgid(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "setgid.conf")
+	if err := os.WriteFile(target, []byte("k=1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Add setgid bit. Note: `os.Chmod(target, 0o2644)` does
+	// NOT work — Go's FileMode encodes setgid at bit 22, not
+	// 0o2000, so an octal literal alone has no effect. Must
+	// use os.ModeSetgid explicitly.
+	if err := os.Chmod(target, 0o644|os.ModeSetgid); err != nil {
+		t.Fatal(err)
+	}
+	// Verify the chmod actually stuck (would fail if the
+	// filesystem strips setgid — kensa doesn't claim to work
+	// on filesystems that strip special bits).
+	if pre, _ := os.Stat(target); pre.Mode()&os.ModeSetgid == 0 {
+		t.Skip("filesystem strips setgid bit; skipping")
+	}
+
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"file":      target,
+		"key":       "k",
+		"value":     "2",
+		"separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	info, _ := os.Stat(target)
+	if info.Mode()&os.ModeSetgid == 0 {
+		t.Errorf("setgid bit dropped: got Go FileMode=%v (perm=%o, setgid=%v), want setgid retained",
+			info.Mode(), info.Mode().Perm(), info.Mode()&os.ModeSetgid != 0)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Errorf("perm bits drifted: got %o, want 0644", info.Mode().Perm())
+	}
+}
+
+// TestAgentApply_CRLF_BehavioralParity locks the F-005
+// regex char-class fix: the activeLineRegex used to use
+// `[[:space:]]` which in Go matches `\t\n\v\f\r ` (6 chars)
+// while sed -E with LC_ALL=C matches only `\t ` (2 chars).
+// Files with CRLF endings diverged silently. Spelling the
+// class `[\t ]` makes the Go regex byte-equivalent to sed.
+func TestAgentApply_CRLF_BehavioralParity(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "crlf.conf")
+	// CRLF-line-ending file: `\r` must NOT be treated as
+	// whitespace by activeLineRegex.
+	if err := os.WriteFile(target, []byte("KEY=old\r\nOther=x\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "KEY", "value": "new", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	// `KEY=old\r` line gets replaced with `KEY=new`; CR is
+	// consumed by `.*` so it's not preserved (matches sed
+	// behavior on CRLF files under -E). The Other line is
+	// preserved byte-for-byte including its CR.
+	want := "KEY=new\nOther=x\r\n"
+	if string(got) != want {
+		t.Errorf("CRLF parity:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
 // TestAgentRollback_RemovesAppendedLine: line_existed=false →
 // the line Apply appended is removed.
 func TestAgentRollback_RemovesAppendedLine(t *testing.T) {

@@ -8,9 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -248,11 +246,23 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	// the syscall level for these (chmod IS already a single
 	// atomic syscall; chcon and chown are also atomic per-path).
 	if afs, ok := transport.(fsatomic.Transport); ok {
-		fileMode, modeErr := parseFileMode(mode)
+		fileMode, modeSpecified, modeErr := fsatomic.ParseMode(mode)
 		if modeErr != nil {
 			return &api.RollbackResult{
 				Success:    false,
 				Detail:     fmt.Sprintf("file_absent: rollback parse mode %q: %v", mode, modeErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		if !modeSpecified {
+			// Captured mode empty — Capture failed to record
+			// it. The previous local parseFileMode silently
+			// defaulted to 0o644 here, which would widen perms
+			// on rollback of a tightened file. Fail loudly so
+			// the operator re-runs capture.
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("file_absent: rollback %s: captured mode missing; refusing to default (re-run capture)", path),
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}
@@ -333,23 +343,8 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}, nil
 }
 
-// parseFileMode parses a mode string (e.g., "644", "0644",
-// "0o644") into os.FileMode. Returns the parsed mode plus an
-// error if the input doesn't parse.
-func parseFileMode(s string) (os.FileMode, error) {
-	if s == "" {
-		// Default mode for re-created files when capture had
-		// no mode info. Matches the shell `printf >` default
-		// behavior (umask-applied 0644).
-		return 0o644, nil
-	}
-	cleaned := strings.TrimPrefix(s, "0o")
-	n, err := strconv.ParseUint(cleaned, 8, 32)
-	if err != nil {
-		return 0, fmt.Errorf("invalid octal mode %q: %w", s, err)
-	}
-	return os.FileMode(n), nil
-}
+// parseFileMode moved to internal/agent/fsatomic/mode.go
+// (shared with file_content, config_set, config_set_dropin).
 
 // shellEscape wraps s in single quotes for safe shell inclusion.
 func shellEscape(s string) string {

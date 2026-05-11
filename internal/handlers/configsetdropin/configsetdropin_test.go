@@ -231,6 +231,37 @@ func TestApply_AgentMode_ReApplyOverwrites(t *testing.T) {
 	}
 }
 
+// TestApply_AgentMode_ReApplyPreservesTightenedMode locks
+// the fix/phase-2-rework F-003 fix: on re-Apply against an
+// existing drop-in that an operator tightened to 0o600
+// (e.g. a drop-in containing secrets), AtomicReplace
+// preserves the current mode bits rather than silently
+// widening to 0o644.
+func TestApply_AgentMode_ReApplyPreservesTightenedMode(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "99-tightened.conf")
+	// Seed an existing tightened drop-in.
+	if err := os.WriteFile(target, []byte("# old\nk=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := local.New()
+	h := configsetdropin.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"path": target, "key": "k", "value": "2",
+	}, nil)
+	if err != nil {
+		t.Fatalf("re-Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("re-Apply should succeed; got: %s", res.Detail)
+	}
+	info, _ := os.Stat(target)
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("re-Apply silently widened mode: got %o, want 0600", info.Mode().Perm())
+	}
+}
+
 // TestRollback_AgentMode_RemovesWhenFileWasAbsent locks
 // the file_existed=false rollback path: AtomicRemove.
 func TestRollback_AgentMode_RemovesWhenFileWasAbsent(t *testing.T) {

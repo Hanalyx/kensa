@@ -108,8 +108,18 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 		base := filepath.Base(p.Path)
 		writeErr := afs.AtomicWrite(ctx, dir, base, 0o644, []byte(content))
 		if writeErr != nil && errors.Is(writeErr, fsatomic.ErrAlreadyExists) {
-			// Re-Apply against an existing drop-in: replace.
-			writeErr = afs.AtomicReplace(ctx, p.Path, 0o644, []byte(content))
+			// Re-Apply against an existing drop-in: replace
+			// while preserving the file's current mode bits.
+			// Hardcoding 0o644 here would silently widen a
+			// drop-in that an operator tightened to 0o600
+			// (e.g. one containing secrets). Matches the
+			// shell `printf > file` semantics: existing-file
+			// mode is untouched.
+			existingMode := os.FileMode(0o644)
+			if info, statErr := os.Stat(p.Path); statErr == nil {
+				existingMode = fsatomic.FileModeBits(info.Mode())
+			}
+			writeErr = afs.AtomicReplace(ctx, p.Path, existingMode, []byte(content))
 		}
 		if writeErr != nil {
 			return &api.StepResult{
@@ -212,7 +222,16 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	if afs, ok := transport.(fsatomic.Transport); ok {
 		var aerr error
 		if fileExisted {
-			aerr = afs.AtomicReplace(ctx, path, 0o644, []byte(priorContent))
+			// Preserve current mode bits — Apply wrote with
+			// either the captured existing mode (re-Apply) or
+			// 0o644 (fresh). Reading the current mode keeps
+			// rollback aligned with the on-disk state instead
+			// of silently widening a tightened file.
+			existingMode := os.FileMode(0o644)
+			if info, statErr := os.Stat(path); statErr == nil {
+				existingMode = fsatomic.FileModeBits(info.Mode())
+			}
+			aerr = afs.AtomicReplace(ctx, path, existingMode, []byte(priorContent))
 		} else {
 			aerr = afs.AtomicRemove(ctx, path)
 			if aerr != nil && errors.Is(aerr, fsatomic.ErrNotExist) {
