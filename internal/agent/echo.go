@@ -78,7 +78,30 @@ type Handler func(*wirev1.Request) *wirev1.Response
 // os.Exit fallback for the SIGTERM-during-read case (Go's
 // runtime poller is not reliable for waking blocked pipe Reads
 // on Close from another goroutine).
+// Validator inspects a decoded Request and returns an error
+// for protocol violations. The L-009/L-010 default is
+// wirev1.ValidateRequest (multi-variant oneof guard). L-011's
+// dispatcher composes this with mechanism-name + nil-PreState
+// checks. Tests inject custom validators to exercise the
+// envelope-Error-on-validation-failure code path that
+// real wire bytes cannot reach (protobuf-go's Unmarshal
+// collapses multi-variant before validation sees it).
+type Validator func(*wirev1.Request) error
+
+// Run drives the agent loop with the default validator
+// (wirev1.ValidateRequest). Equivalent to
+// RunWithValidator(ctx, r, w, stderr, handler,
+// wirev1.ValidateRequest).
 func Run(ctx context.Context, r io.Reader, w io.Writer, stderr io.Writer, handler Handler) error {
+	return RunWithValidator(ctx, r, w, stderr, handler, wirev1.ValidateRequest)
+}
+
+// RunWithValidator is Run with an explicit Validator. L-011's
+// dispatcher uses this to inject mechanism-name + nil-PreState
+// + dispatcher-specific checks alongside the default wirev1
+// guard. Tests inject failure-forcing validators to exercise
+// the envelope-Error path.
+func RunWithValidator(ctx context.Context, r io.Reader, w io.Writer, stderr io.Writer, handler Handler, validate Validator) error {
 	for {
 		// Check ctx before each read so a cancellation that
 		// arrives between frames preempts cleanly.
@@ -86,7 +109,7 @@ func Run(ctx context.Context, r io.Reader, w io.Writer, stderr io.Writer, handle
 			return err
 		}
 
-		payload, err := Read(r)
+		frameType, payload, err := Read(r, nil)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Clean EOF between frames — controller closed
@@ -94,28 +117,84 @@ func Run(ctx context.Context, r io.Reader, w io.Writer, stderr io.Writer, handle
 				// termination, not an error.
 				return nil
 			}
-			fmt.Fprintf(stderr, "kensa agent: read frame from stdin: %v\n", err)
+			fmt.Fprintf(stderr, "kensa agent: decode: read frame: %v\n", err)
 			return err
+		}
+		// Future frame types (L-012 FrameHeartbeat, etc.)
+		// land here. For L-010 only FramePayload is handled;
+		// any other recognized type means a future kensa
+		// build sent a frame this build doesn't route. Read
+		// already rejects unknown types via ErrUnknownFrameType,
+		// so reaching this branch with a non-Payload type
+		// means knownFrameTypes was extended without updating
+		// Run's dispatch — that's a build-time bug.
+		if frameType != FramePayload {
+			fmt.Fprintf(stderr, "kensa agent: frame type 0x%02x recognized but not routed (extend Run's dispatch)\n", byte(frameType))
+			return fmt.Errorf("unrouted frame type 0x%02x", byte(frameType))
 		}
 
 		var req wirev1.Request
 		if err := proto.Unmarshal(payload, &req); err != nil {
-			fmt.Fprintf(stderr, "kensa agent: unmarshal Request: %v\n", err)
+			fmt.Fprintf(stderr, "kensa agent: decode: peer sent invalid protobuf payload in frame type 0x01: %v\n", err)
 			return fmt.Errorf("unmarshal Request: %w", err)
 		}
 
-		resp := handler(&req)
-
-		respBytes, err := proto.Marshal(resp)
-		if err != nil {
-			fmt.Fprintf(stderr, "kensa agent: marshal Response: %v\n", err)
-			return fmt.Errorf("marshal Response: %w", err)
+		// L-010 validation guard. On rejection, surface an
+		// envelope-level Error to the controller and continue
+		// the loop — per-frame protocol violation, not a
+		// fatal stream error.
+		if err := validate(&req); err != nil {
+			fmt.Fprintf(stderr, "kensa agent: invalid Request: %v\n", err)
+			errResp := &wirev1.Response{
+				SchemaVersion: req.GetSchemaVersion(),
+				CorrelationId: req.GetCorrelationId(),
+				Error: &wirev1.Error{
+					SchemaVersion: 1,
+					Code:          "invalid_request",
+					Detail:        err.Error(),
+					Retryable:     false,
+				},
+			}
+			if err := writeResponse(w, errResp, stderr); err != nil {
+				return err
+			}
+			continue
 		}
-		if err := Write(w, respBytes); err != nil {
-			fmt.Fprintf(stderr, "kensa agent: write frame to stdout: %v\n", err)
+
+		resp := handler(&req)
+		if err := writeResponse(w, resp, stderr); err != nil {
 			return err
 		}
 	}
+}
+
+// writeResponse marshals + frame-writes a Response. Extracted
+// from Run so the validation-failure path and the
+// happy-path can share the same encoding logic.
+//
+// Server-side ValidateResponse guard: catches a dispatcher
+// bug where two payload oneof variants were set on the same
+// Response (the only realistic firing condition for the
+// multi-variant guard, since protobuf-go's Unmarshal collapses
+// multi-variant on the incoming side). On guard failure, the
+// agent returns the error to Run — the loop terminates with
+// the marshal-error path because shipping a malformed
+// Response is worse than dying.
+func writeResponse(w io.Writer, resp *wirev1.Response, stderr io.Writer) error {
+	if err := wirev1.ValidateResponse(resp); err != nil {
+		fmt.Fprintf(stderr, "kensa agent: encode: dispatcher built invalid Response: %v\n", err)
+		return fmt.Errorf("validate Response: %w", err)
+	}
+	respBytes, err := proto.Marshal(resp)
+	if err != nil {
+		fmt.Fprintf(stderr, "kensa agent: encode: marshal Response: %v\n", err)
+		return fmt.Errorf("marshal Response: %w", err)
+	}
+	if err := Write(w, FramePayload, respBytes, nil); err != nil {
+		fmt.Fprintf(stderr, "kensa agent: encode: write frame to stdout: %v\n", err)
+		return err
+	}
+	return nil
 }
 
 // HandleEcho is L-009's type-aware stub Handler. Dispatches on

@@ -421,31 +421,32 @@ Wire direction:
   stdout  length\-prefixed framed responses (agent → controller)
   stderr  human\-readable diagnostics
 
-Framing (STUB per L\-008 — see Track L Phase 1):
-  4\-byte big\-endian unsigned length prefix
-  N bytes of protobuf\-encoded payload (wirev1.Request /
-    wirev1.Response from internal/agent/wirev1)
-  Max frame size: 16 MiB
+Framing v2 (Track L Phase 1, L\-010 production contract):
+  Each message is length\-prefixed and typed. Wire layout:
+    1\-byte type discriminator (0x01 PAYLOAD; 0x02\-0xFF
+      reserved for L\-012+ heartbeat / control / binary\-push
+      channels)
+    4\-byte big\-endian unsigned length prefix
+    N bytes of protobuf\-encoded payload (wirev1.Request /
+      wirev1.Response from internal/agent/wirev1)
+  Default max frame size: 16 MiB (controller\-negotiable).
 
-L\-010 supersedes this stub framing with the production contract
-(frame\-type discriminator for heartbeat channel demux,
-configurable max\-size policy, partial\-read recovery). The stub
-format is INTERNAL — operator scripts should not depend on the
-bit\-pattern across kensa releases.
-
-Today's behavior (L\-008 echo):
-  \-\-stdio  reads a frame, mirrors its payload back as a
-           Response with the same correlation_id, exits 0 on
-           clean stdin close. Validates framing + protobuf
-           roundtrip end\-to\-end.
+Today's behavior (L\-009 typed echo):
+  \-\-stdio  reads a frame, dispatches on the Request's typed
+           payload variant (Apply/Capture/Rollback/Heartbeat),
+           returns a matching Response variant with the same
+           correlation_id, exits 0 on clean stdin close.
+           Validates framing + protobuf + oneof variant
+           end\-to\-end.
   \-\-help   exits 0 with this disclosure.
 
-L\-009 replaces the echo loop with the real handler dispatcher
-(Apply / Capture / Rollback message payloads).
+L\-011 replaces HandleEcho with the real handler dispatcher
+(routes ApplyRequest → file_permissions.Apply etc., backed by
+a local\-syscall Transport on the target host).
 
 Flags:
   \-h, \-\-help    show this help and exit
-      \-\-stdio   read framed messages from stdin, mirror them as responses on stdout (L\-008 echo loop)
+      \-\-stdio   read framed Requests from stdin, return typed Responses on stdout (L\-009 typed echo; L\-011 swaps in real Engine dispatcher)
 .fi
 .PP
 .SS VERIFY

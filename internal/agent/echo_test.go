@@ -188,7 +188,7 @@ func TestRun_HappyPath(t *testing.T) {
 	}
 
 	var stdin bytes.Buffer
-	if err := Write(&stdin, reqBytes); err != nil {
+	if err := Write(&stdin, FramePayload, reqBytes, nil); err != nil {
 		t.Fatalf("write frame: %v", err)
 	}
 
@@ -198,7 +198,7 @@ func TestRun_HappyPath(t *testing.T) {
 		t.Fatalf("Run: %v; stderr=%s", err, stderr.String())
 	}
 
-	respBytes, err := Read(&stdout)
+	_, respBytes, err := Read(&stdout, nil)
 	if err != nil {
 		t.Fatalf("read response frame: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestRun_MultipleMixedFrames(t *testing.T) {
 	var stdin bytes.Buffer
 	for _, req := range requests {
 		b, _ := proto.Marshal(req)
-		if err := Write(&stdin, b); err != nil {
+		if err := Write(&stdin, FramePayload, b, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -240,7 +240,7 @@ func TestRun_MultipleMixedFrames(t *testing.T) {
 
 	wantVariants := []string{"*wirev1.Response_ApplyResp", "*wirev1.Response_CaptureResp", "*wirev1.Response_HeartbeatAck", "*wirev1.Response_RollbackResp"}
 	for i, want := range wantVariants {
-		respBytes, err := Read(&stdout)
+		_, respBytes, err := Read(&stdout, nil)
 		if err != nil {
 			t.Fatalf("read frame %d: %v", i, err)
 		}
@@ -276,16 +276,24 @@ func TestRun_EOFOnEmptyStdin(t *testing.T) {
 	}
 }
 
-// TestRun_TruncatedFrameIsError: a peer sending half a frame
-// (length prefix promised N bytes, only N/2 arrived before EOF)
-// terminates the loop with an error.
-func TestRun_TruncatedFrameIsError(t *testing.T) {
-	stdin := bytes.NewBuffer([]byte{0x00, 0x00, 0x00, 0x64}) // length=100, no body
+// TestRun_TruncatedPayloadIsError: a peer sending a complete
+// 5-byte header promising N payload bytes but only delivering
+// N/2 (or zero) payload bytes before EOF terminates the loop
+// with io.ErrUnexpectedEOF.
+//
+// Note: this used to send 4 bytes (the pre-L-010 stub framing
+// header). Under L-010's 5-byte header (1 type + 4 length),
+// that input now exercises the truncated-header path, not the
+// truncated-payload path. To test mid-payload truncation, we
+// send a full FramePayload header claiming 100 bytes with no
+// body bytes following.
+func TestRun_TruncatedPayloadIsError(t *testing.T) {
+	stdin := bytes.NewBuffer([]byte{byte(FramePayload), 0x00, 0x00, 0x00, 0x64}) // type=0x01, length=100, no body
 
 	var stdout, stderr bytes.Buffer
 	err := Run(context.Background(), stdin, &stdout, &stderr, HandleEcho)
 	if err == nil {
-		t.Error("truncated frame should be an error; got nil")
+		t.Error("truncated payload should be an error; got nil")
 	}
 	if !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Errorf("error should be io.ErrUnexpectedEOF; got: %v", err)
@@ -300,7 +308,7 @@ func TestRun_TruncatedFrameIsError(t *testing.T) {
 // decode error, the loop terminates.
 func TestRun_MalformedProtoIsError(t *testing.T) {
 	var stdin bytes.Buffer
-	if err := Write(&stdin, []byte("not a Request")); err != nil {
+	if err := Write(&stdin, FramePayload, []byte("not a Request"), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -311,6 +319,80 @@ func TestRun_MalformedProtoIsError(t *testing.T) {
 	}
 	if stderr.Len() == 0 {
 		t.Error("stderr should carry a diagnostic; got empty")
+	}
+}
+
+// TestRunWithValidator_RejectsFailingValidator locks AC-06: a
+// validator that returns an error produces an envelope-level
+// Error Response, and the loop CONTINUES to process subsequent
+// frames (not terminate).
+//
+// Real wire bytes can't reach the wirev1.ValidateRequest
+// multi-variant failure path (protobuf-go's Unmarshal
+// collapses multi-variant before validation sees it). The
+// injected-validator path here is the only way to exercise
+// the envelope-Error-on-validation-failure code path. L-011's
+// dispatcher uses this same injection point to add
+// mechanism-name / nil-PreState / etc. validation.
+//
+// @spec agent-framing-production
+// @ac AC-06
+func TestRunWithValidator_RejectsFailingValidator(t *testing.T) {
+	// Send two valid Requests; the injected validator fails
+	// both. Expect two envelope-Error Responses on stdout,
+	// then clean EOF exit (Run returns nil).
+	req1 := &wirev1.Request{
+		SchemaVersion: 1,
+		CorrelationId: 1,
+		Payload:       &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 1}},
+	}
+	req2 := &wirev1.Request{
+		SchemaVersion: 1,
+		CorrelationId: 2,
+		Payload:       &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 2}},
+	}
+
+	var stdin bytes.Buffer
+	for _, r := range []*wirev1.Request{req1, req2} {
+		b, _ := proto.Marshal(r)
+		_ = Write(&stdin, FramePayload, b, nil)
+	}
+
+	failingValidator := func(*wirev1.Request) error {
+		return errors.New("forced validation failure for test")
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := RunWithValidator(context.Background(), &stdin, &stdout, &stderr, HandleEcho, failingValidator)
+	if err != nil {
+		t.Fatalf("RunWithValidator: %v", err)
+	}
+
+	// Drain two envelope-Error Responses.
+	for i, wantCID := range []uint64{1, 2} {
+		_, respBytes, err := Read(&stdout, nil)
+		if err != nil {
+			t.Fatalf("read response %d: %v", i, err)
+		}
+		var resp wirev1.Response
+		if err := proto.Unmarshal(respBytes, &resp); err != nil {
+			t.Fatalf("unmarshal response %d: %v", i, err)
+		}
+		if resp.GetCorrelationId() != wantCID {
+			t.Errorf("response %d correlation_id: got %d, want %d (validation-failure responses MUST preserve the request's correlation_id)", i, resp.GetCorrelationId(), wantCID)
+		}
+		if resp.GetError() == nil {
+			t.Errorf("response %d: expected envelope Error; got nil", i)
+		}
+		if got := resp.GetError().GetCode(); got != "invalid_request" {
+			t.Errorf("response %d error code: got %q, want %q", i, got, "invalid_request")
+		}
+		if resp.GetPayload() != nil {
+			t.Errorf("response %d: validation failure should NOT include a typed payload; got %T", i, resp.GetPayload())
+		}
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout should be drained; %d bytes remain", stdout.Len())
 	}
 }
 
@@ -328,7 +410,7 @@ func TestRun_PreCancelledContext(t *testing.T) {
 		Payload:       &wirev1.Request_Heartbeat{Heartbeat: &wirev1.HeartbeatRequest{Token: 1}},
 	}
 	reqBytes, _ := proto.Marshal(req)
-	_ = Write(&stdin, reqBytes)
+	_ = Write(&stdin, FramePayload, reqBytes, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

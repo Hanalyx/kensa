@@ -1,0 +1,283 @@
+spec:
+    id: agent-framing-production
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-framing-production
+        description: |
+            LL Phase 1 deliverable L-010. Supersedes L-008's
+            stub length-prefix framing
+            (internal/agent/framing.go) with the production
+            framing contract: a 1-byte type discriminator
+            precedes the 4-byte length prefix, enabling
+            future demultiplexing of payload vs heartbeat vs
+            control channels on the same SSH stdin/stdout
+            stream. Also adds two carry-forward L-009 review
+            items: a configurable max-message-size policy
+            and a multi-variant oneof guard against
+            attacker-crafted Requests.
+
+            **Frame format v2 (replaces L-008 stub):**
+
+                +--------+--------+-------------------+
+                | type   | length | payload           |
+                | u8     | u32-BE | N bytes (proto)   |
+                +--------+--------+-------------------+
+
+            Type byte values:
+                0x01 PAYLOAD   — wirev1.Request or
+                                 wirev1.Response (in-band)
+                0x02-0xFF      — RESERVED. The decoder
+                                 REJECTS unknown type bytes
+                                 with a clear error rather
+                                 than silently treating them
+                                 as PAYLOAD. Future use:
+                                 out-of-band heartbeat
+                                 (separate channel for low-
+                                 latency liveness, L-012+),
+                                 control frames (compressed
+                                 payloads, shutdown
+                                 negotiation), etc.
+
+            **Configurable max-size policy.** L-008 hard-
+            coded MaxMessageBytes=16 MiB. L-010 introduces
+            a FramingOptions struct with an
+            optional MaxMessageBytes override so the
+            controller can negotiate a smaller cap with
+            embedded targets. Default remains 16 MiB.
+
+            **Multi-variant oneof guard.** L-009 review
+            found that a peer can construct a wire Request
+            with multiple oneof variants set (illegal per
+            spec but transmittable; protobuf-go's decoder
+            allocates each intermediate before resolving
+            last-wins). The damage is bounded by the
+            16-MiB frame cap today, but a deeply-nested
+            Struct in multiple ApplyRequest payloads can
+            amplify allocation. L-010 ships
+            `wirev1.ValidateRequest` and
+            `wirev1.ValidateResponse` that walk the proto-
+            reflect API and reject Requests where the
+            oneof selector has been set more than once.
+
+            **Out of scope.** L-008 stub backwards
+            compatibility — the L-008 framing is INTERNAL
+            and was always advertised as a stub. L-010
+            breaks the wire format; L-008-era code does
+            not exist outside the kensa-go repo. The new
+            framing is the production contract from L-010
+            forward.
+
+    objective:
+        summary: |
+            Replace L-008's framing.go Read/Write with a
+            v2 API that includes a type-byte discriminator
+            and a FramingOptions struct. Add
+            wirev1.ValidateRequest /
+            wirev1.ValidateResponse for the multi-variant
+            guard. Update callers (echo.go,
+            agent_e2e_test.go) to the new API. 16 MiB
+            roundtrip test.
+        scope:
+            includes:
+                - "internal/agent/framing.go: FrameType, FramingOptions, Read(r, opts) (FrameType, []byte, error), Write(w, t, payload, opts) error"
+                - "internal/agent/framing_test.go: type-byte rejection, configurable-max-size, 16MiB roundtrip, partial-read still works"
+                - "internal/agent/wirev1/validate.go: ValidateRequest, ValidateResponse (multi-variant guard)"
+                - "internal/agent/wirev1/validate_test.go: malicious-multi-variant rejection + happy-path acceptance"
+                - "internal/agent/echo.go: Run() loop calls ValidateRequest before HandleEcho; uses new framing API"
+                - "cmd/kensa/agent_e2e_test.go: typed-request E2E uses new framing API"
+            excludes:
+                - "Out-of-band heartbeat channel: deferred — frame type 0x02 reserved for L-012+"
+                - "Compressed payload (deflate/zstd): deferred — frame type 0x03 reserved"
+                - "Backpressure with explicit buffer-size hints: deferred — io.Writer's natural blocking is sufficient for L-010"
+                - "Shutdown-negotiation message type: L-012's responsibility, not framing-layer"
+
+    constraints:
+        - id: C-01
+          description: |
+              The frame format MUST be: 1 byte type
+              discriminator, 4 bytes big-endian unsigned
+              length, N bytes payload. The decoder reads
+              the type, then the length, then the payload.
+              Unknown type bytes MUST be rejected with a
+              clear error (not silently treated as
+              PAYLOAD).
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              `FrameType` MUST be a typed `byte` alias
+              with constants for known frame types
+              (FramePayload=0x01 today; 0x02..0xFF
+              reserved for future use). Adding a new frame
+              type at L-012+ is an additive change — no
+              wire-format break, just a new constant.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `FramingOptions` MUST be optional (nil →
+              defaults). The default MaxMessageBytes is
+              16 MiB (preserving L-008's policy). When
+              opts is non-nil and opts.MaxMessageBytes>0,
+              the decoder applies the override (both for
+              accepting incoming frames and refusing
+              encoder overruns). When opts is nil or
+              MaxMessageBytes==0, the default applies.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `wirev1.ValidateRequest` MUST reject a
+              Request whose payload oneof has more than
+              one variant set in the wire bytes. Uses
+              proto.Reflect to walk the message; the
+              oneof descriptor tells protobuf-go which
+              field was last decoded, but Walk over
+              SetFields lets us count distinct payload-
+              variant fields. Returns nil for the
+              happy path (exactly one variant) and a
+              descriptive error otherwise.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              `wirev1.ValidateResponse` MUST apply the
+              same one-variant guard to Response.payload.
+              Both functions surface at the boundary
+              between proto.Unmarshal and handler
+              dispatch — echo.Run calls
+              ValidateRequest after Unmarshal, before
+              HandleEcho. L-011's real dispatcher
+              follows the same pattern.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              The L-008 framing.go API (`Read(r)
+              ([]byte, error)`, `Write(w, payload) error`)
+              is REMOVED, not deprecated. All callers
+              update in this commit. wirev1 is internal;
+              no external caller exists. A future
+              re-introduction of the L-008 signature
+              would require explicit founder ratification
+              (it would mean stepping back from the
+              type-byte discriminator).
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              The 16 MiB roundtrip MUST work via the new
+              API: write a 16 MiB-1 PAYLOAD frame, read
+              it back, verify byte-equality. L-008's
+              partial-read recovery (io.ReadFull
+              semantics) MUST be preserved — the new
+              Read implementation uses the same
+              underlying io.ReadFull pattern, just for
+              5 bytes of header (1 type + 4 length) plus
+              the N-byte payload.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `Write(w, FramePayload, payload, nil)`
+              followed by `Read(r, nil)` round-trips
+              payload for sizes
+              {0, 1, 1KiB, 1MiB, 16MiB-1} byte-for-byte
+              including the FramePayload type tag.
+              Locked by `TestFraming_Roundtrip`.
+          references_constraints: [C-01, C-07]
+          priority: critical
+        - id: AC-02
+          description: |
+              Decoder rejects type-byte values other than
+              FramePayload (0x01) with an error mentioning
+              the offending byte value. Locked by
+              `TestFraming_RejectsUnknownType`.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Decoder honors FramingOptions.MaxMessageBytes
+              override: a peer sending a frame at
+              opts.MaxMessageBytes+1 is rejected;
+              opts.MaxMessageBytes==0 falls back to the
+              16 MiB default. Locked by
+              `TestFraming_ConfigurableMaxSize`.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              `ValidateRequest` / `ValidateResponse`
+              count payload-oneof variants via
+              protoreflect and would return
+              `ErrMultiVariantOneof` if more than one
+              were set. **Documented limitation**:
+              protobuf-go's runtime collapses
+              multi-variant during Unmarshal, so the
+              count>1 path is unreachable from real
+              wire bytes via the Go API. The guard's
+              firing condition today is a server-side
+              dispatcher bug (Response built with two
+              variants in Go code) — caught by
+              `writeResponse` calling
+              `ValidateResponse` before Marshal. The
+              deeper post-Unmarshal raw-bytes guard
+              (which catches what protobuf-go
+              collapses) is carried forward as L-011's
+              TODO. Sentinel locked by
+              `TestValidate_ErrMultiVariantOneofExists`;
+              happy path locked by
+              `TestValidate_HappyPath`.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              `ValidateRequest` accepts a Request with
+              exactly one payload variant set. Same for
+              `ValidateResponse`. Locked by
+              `TestValidate_HappyPath`.
+          references_constraints: [C-04, C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              `agent.RunWithValidator` calls the
+              injected Validator after proto.Unmarshal
+              and before the Handler. A validator
+              failure produces an envelope-level Error
+              Response with correlation_id preserved
+              and code="invalid_request"; the loop
+              continues processing subsequent frames
+              (does not terminate). Tested via an
+              injected failing Validator (the only way
+              to exercise the envelope-Error path
+              since real wire bytes can't trigger
+              wirev1.ValidateRequest failure — see
+              AC-04 caveat). Locked by
+              `TestRunWithValidator_RejectsFailingValidator`.
+          references_constraints: [C-04, C-05]
+          priority: high
+        - id: AC-07
+          description: |
+              The L-008 framing.go Read/Write signatures
+              are absent from the codebase post-merge.
+              Verified during merge by grep: no caller
+              of `agent.Read(r)` (1 arg) or `agent.Write(w,
+              payload)` (2 args) remains.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-08
+          description: |
+              `go test ./internal/agent/...` and
+              `go test ./cmd/kensa/...` pass. cli-smoke,
+              specter strict, make proto-check, manpage
+              all green. Verified during merge.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06, C-07]
+          priority: critical
+
+    tags: [agent, framing, validation, protobuf, ll-phase-1, l-010]
