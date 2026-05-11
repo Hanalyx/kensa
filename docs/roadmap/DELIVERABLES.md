@@ -663,10 +663,10 @@ once the founder ratifies them.
 #### P-002 — Migrate `file_content` to fsatomic
 - **Phase:** LL Phase 2
 - **Deps:** P-001
-- **Acceptance:** file_content Apply uses fsatomic.AtomicReplace (replace) or AtomicWrite (new); Rollback writes captured bytes via AtomicReplace; concurrent-reader atomicity test passes; all existing file_content tests pass. Failure-mode analysis in commit body.
-- **Size:** ~3 days
-- **Status:** **pending** (blocked on P-001)
-- **Risk:** Medium — file_content is the most-used file handler; regression breaks rules touching /etc/ssh/sshd_config etc.
+- **Acceptance:** file_content Apply uses AtomicReplace (existing) / AtomicWrite (new); Rollback uses AtomicRemove (was absent) / AtomicReplace (was present). chown stays shell. Mode parser handles "644"/"0644"/"0o644". Shipped 2026-05-11 (merge `888f719`).
+- **Size:** ~3 days estimated; ~0.5 days actual
+- **Status:** **done** (merge `888f719`, 2026-05-11)
+- **Notes:** FMA in commit body covers: mode-parse divergence (symbolic notation rejected with clear error pre-write), chown-after-write semi-failure (StepResult.Success=false with explicit "content correct, ownership unchanged" detail), ENOTSUP on O_TMPFILE (surfaces underlying error), large-content limit shift (no ARG_MAX cap now), SELinux context preserved across migration. Edge cases: hardlinks broken (documented in handler godoc), /proc and /sys not supported (file_content was never the right handler for those).
 
 #### P-003 — Migrate `file_absent` to fsatomic
 - **Phase:** LL Phase 2
@@ -679,17 +679,18 @@ once the founder ratifies them.
 #### P-004 — Migrate `config_set` to fsatomic
 - **Phase:** LL Phase 2
 - **Deps:** P-001
-- **Acceptance:** config_set Apply replaces `sed -i` pipeline with Go in-process rewrite + fsatomic.AtomicReplace; behavioral-parity fixture verifies the Go path matches sed output exactly for every existing test case; concurrent-reader atomicity. Failure-mode analysis.
-- **Size:** ~4 days
-- **Status:** **pending** (blocked on P-001)
-- **Risk:** Medium-high — config_set is used by ~half the corpus rules; Go-vs-sed behavioral parity is the load-bearing assertion.
+- **Acceptance:** config_set Apply replaces `grep + sed -i` shell pipeline with Go regex (`(?m)^[[:space:]]*KEY[[:space:]=]`) + fsatomic.AtomicReplace. Behavioral-parity locked by 10 fixture cases covering FMA Q1.a-Q1.f (key-absent-appends, active-replaces, commented-untouched, leading-whitespace-tolerated, multiple-matches-all-replaced, dotted-key-literal-match, no-trailing-newline, empty-file, rollback-restore, rollback-remove). Shipped 2026-05-11 (merge `ae378a1`).
+- **Size:** ~4 days estimated; ~1.5 days actual
+- **Status:** **done** (merge `ae378a1`, 2026-05-11)
+- **Notes:** Highest-risk migration in Phase 2. FMA pre-flighted 6 sed↔Go regex divergence concerns; each addressed with a fixture test. Capture path unchanged (line-oriented prior_line; full-file capture would be a separate refactor). Migration accidentally fixes a latent sed bug (unescaped `.` in regex pattern); the Go path's QuoteMeta makes dotted-key matching strictly literal.
 
 #### P-005 — Migrate `config_set_dropin` to fsatomic
 - **Phase:** LL Phase 2
 - **Deps:** P-001
-- **Acceptance:** config_set_dropin Apply builds dropin content in-process + fsatomic.AtomicWrite; Rollback fsatomic.AtomicRemove. Failure-mode analysis.
-- **Size:** ~2 days
-- **Status:** **pending** (blocked on P-001)
+- **Acceptance:** Apply builds dropin content + AtomicWrite (with AtomicReplace fallback on ErrAlreadyExists for re-Apply idempotency); os.MkdirAll for missing parent dir. Rollback uses AtomicReplace (file_existed=true) or AtomicRemove (file_existed=false). Shipped 2026-05-11 (merge `fd1fdea`).
+- **Size:** ~2 days estimated; ~0.5 days actual
+- **Status:** **done** (merge `fd1fdea`, 2026-05-11)
+- **Notes:** Cleanest migration in Phase 2. FMA addressed: missing-parent-dir (os.MkdirAll added first), re-Apply overwrites (ErrAlreadyExists → AtomicReplace fallback), drop-in content drift across re-Applies (handled by replace). Symlink/directory edge cases preserve existing shell semantics.
 
 #### P-006 — `TRANSACTION_CONTRACT_V1.md` amendment + Phase-2 close
 - **Phase:** LL Phase 2 close
