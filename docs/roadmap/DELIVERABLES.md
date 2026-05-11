@@ -643,11 +643,64 @@ once the founder ratifies them.
 - **Status:** **done** (merge `06f9fb4`, 2026-05-11)
 - **Notes:** Audit (`grep -rln "transport.Put\|transport.Get\|ControlChannelSensitive" internal/handlers/`) returned ZERO matches across all 18 capturable handlers — they all use only `transport.Run`. LocalTransport's drop-in compatibility made L-015..L-032 a mechanical batch closed with one umbrella spec (`specs/agent/handler-ports-umbrella.spec.yaml`) + one test file (`internal/agent/server/handler_ports_test.go`, 18 tests). Numbering preserved L-015..L-032 for audit-trail traceability. Non-capturable handlers (command_exec, manual, grub_*, authselect_feature_enable, dconf_set, crypto_policy_*, pam_module_arg, config_append) are separate post-L-032 deliverables — agent-mode Apply path works via existing routing; their non-capturable status means engine never dispatches Capture/Rollback through agent.
 
-### LL Phases 2–7 — Sketch only
+### LL Phase 2 — File Atomicity Primitives
+
+**Founder ratified the breakdown 2026-05-11** (see `docs/roadmap/PHASE-2-BREAKDOWN.md`). The five open questions resolved with my recommendations:
+1. No build-tag fallback during migration window — `git revert` is the escape hatch.
+2. AtomicReplace follows symlinks via Realpath (preserves existing handler semantics).
+3. Filesystem-capability detection cached at agent startup.
+4. Phase 2 atomicity requires agent-mode; direct-SSH retains best-effort semantics (documented in release notes).
+5. Phase 6 (sysctl/mount/kernel-module) reuses Phase 2's fsatomic — no separate primitives.
+
+#### P-001 — `internal/agent/fsatomic/` primitive package
+- **Phase:** LL Phase 2
+- **Deps:** L-032 (LL Phase 1 complete)
+- **Acceptance:** AtomicWrite/AtomicReplace/AtomicRemove primitives with O_TMPFILE + Linkat / Renameat2(RENAME_EXCHANGE) / Unlinkat + parent-dir-fd Fsync. Concurrent-reader-during-write test verifies atomicity property (reader sees old-complete or new-complete, never partial). Filesystem-capability cache for RENAME_EXCHANGE fallback.
+- **Size:** ~2 days
+- **Status:** **pending** (ready for loop pickup)
+- **Notes:** Ships the package alone — zero handler edits. P-002..P-005 migrate handlers after this lands. Tests on tmpfs.
+
+#### P-002 — Migrate `file_content` to fsatomic
+- **Phase:** LL Phase 2
+- **Deps:** P-001
+- **Acceptance:** file_content Apply uses fsatomic.AtomicReplace (replace) or AtomicWrite (new); Rollback writes captured bytes via AtomicReplace; concurrent-reader atomicity test passes; all existing file_content tests pass. Failure-mode analysis in commit body.
+- **Size:** ~3 days
+- **Status:** **pending** (blocked on P-001)
+- **Risk:** Medium — file_content is the most-used file handler; regression breaks rules touching /etc/ssh/sshd_config etc.
+
+#### P-003 — Migrate `file_absent` to fsatomic
+- **Phase:** LL Phase 2
+- **Deps:** P-001
+- **Acceptance:** file_absent Apply uses fsatomic.AtomicRemove; Rollback re-creates via AtomicWrite. Simpler than P-002. Failure-mode analysis.
+- **Size:** ~1 day
+- **Status:** **pending** (blocked on P-001)
+
+#### P-004 — Migrate `config_set` to fsatomic
+- **Phase:** LL Phase 2
+- **Deps:** P-001
+- **Acceptance:** config_set Apply replaces `sed -i` pipeline with Go in-process rewrite + fsatomic.AtomicReplace; behavioral-parity fixture verifies the Go path matches sed output exactly for every existing test case; concurrent-reader atomicity. Failure-mode analysis.
+- **Size:** ~4 days
+- **Status:** **pending** (blocked on P-001)
+- **Risk:** Medium-high — config_set is used by ~half the corpus rules; Go-vs-sed behavioral parity is the load-bearing assertion.
+
+#### P-005 — Migrate `config_set_dropin` to fsatomic
+- **Phase:** LL Phase 2
+- **Deps:** P-001
+- **Acceptance:** config_set_dropin Apply builds dropin content in-process + fsatomic.AtomicWrite; Rollback fsatomic.AtomicRemove. Failure-mode analysis.
+- **Size:** ~2 days
+- **Status:** **pending** (blocked on P-001)
+
+#### P-006 — `TRANSACTION_CONTRACT_V1.md` amendment + Phase-2 close
+- **Phase:** LL Phase 2 close
+- **Deps:** P-001..P-005
+- **Acceptance:** TRANSACTION_CONTRACT_V1.md scopes the literal atomicity commitment to the four Phase 2 file handlers (file_permissions chmod stays atomic at syscall level, not via fsatomic). docs/test_docs/security.md updated. CLAUDE.md handler list gets atomicity-basis tags (kernel-atomic / kernel-runtime+file-persistence / daemon-atomic / cli-best-effort). CHANGELOG release note.
+- **Size:** ~1 day
+- **Status:** **pending** (blocked on P-001..P-005)
+
+### LL Phases 3–7 — Sketch only
 
 *Filled in when the loop reaches each phase.*
 
-- **LL Phase 2 (file atomicity):** ~8 deliverables. `internal/agent/fsatomic/` package + Apply rewrites for 5 file-handler types using `renameat2(RENAME_EXCHANGE)`, `O_TMPFILE`+`linkat`, `fsync`/`syncfs`. ~2 weeks.
 - **LL Phase 3 (deadman rebuild):** ~6 deliverables. `timerfd(CLOCK_BOOTTIME)`, `pidfd_open`, `prctl(PR_SET_PDEATHSIG)`, `epoll`+`signalfd` event loop. ~2 weeks.
 - **LL Phase 4 (systemd D-Bus):** ~5 deliverables. `coreos/go-systemd` for service handlers + `JobRemoved` synchronization + post-`EnableUnitFiles` `Reload`. ~1 week.
 - **LL Phase 5 (`AUDIT_NETLINK`):** ~7 deliverables. `elastic/go-libaudit` for `audit_rule_set` handler + transaction-phase event emission to auditd. ~2 weeks.
