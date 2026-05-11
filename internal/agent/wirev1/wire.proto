@@ -35,14 +35,11 @@ import "google/protobuf/timestamp.proto";
 // for future variants (L-013 binary push, future ListMechanisms,
 // etc.).
 message Request {
-  // 14..19 reserved for future L-009-group payload variants so
-  // the field-number convention from spec C-07 is enforced by
-  // protoc at codegen time, not just by comment. A future
-  // contributor who tries to add a 5th payload variant at field
-  // 14 (inside the oneof below) gets a protoc error pointing at
-  // this `reserved` clause. New non-payload envelope fields use
-  // 3..9; new payload variants use 20+.
-  reserved 14 to 19;
+  // 15..19 reserved for future L-009-group payload variants
+  // (field 14 was reserved at L-010, repurposed by L-012 for
+  // HandshakeRequest below). New non-payload envelope fields
+  // use 3..9; new payload variants use 20+.
+  reserved 15 to 19;
 
   uint32 schema_version = 1;
   uint64 correlation_id = 2;
@@ -51,6 +48,7 @@ message Request {
     CaptureRequest capture = 11;
     RollbackRequest rollback = 12;
     HeartbeatRequest heartbeat = 13;
+    HandshakeRequest handshake = 14;  // L-012
   }
 }
 
@@ -61,8 +59,9 @@ message Request {
 // agent could not encode as a typed response (framing error
 // surfaced inline, schema-version mismatch caught by L-012).
 message Response {
-  // 14..19 reserved — see Request note above.
-  reserved 14 to 19;
+  // 15..19 reserved — see Request note above (14 used by
+  // L-012 for HandshakeAck).
+  reserved 15 to 19;
 
   uint32 schema_version = 1;
   uint64 correlation_id = 2;
@@ -71,6 +70,7 @@ message Response {
     CaptureResponse capture_resp = 11;
     RollbackResponse rollback_resp = 12;
     HeartbeatAck heartbeat_ack = 13;
+    HandshakeAck handshake_ack = 14;  // L-012
   }
   // error at field 99 (well outside the envelope-fields range
   // 1..9) because errors are envelope-level and orthogonal to
@@ -199,4 +199,27 @@ message WireRollbackResult {
   bool partial_restore = 5;
   string source = 6;
   google.protobuf.Timestamp executed_at = 7;
+}
+
+// ─── Version handshake (L-012) ───────────────────────────────
+
+// HandshakeRequest is the controller's protocol-version
+// declaration. Sent on session start; the agent's
+// HandshakeAck either accepts (compatible) or rejects
+// (major mismatch). Major bumps mark breaking-change wire
+// protocol revisions; minor bumps are additive.
+message HandshakeRequest {
+  uint32 major = 1;
+  uint32 minor = 2;
+  string build = 3;  // human-readable build identifier (e.g., "v1.0.0", "dev-abc123")
+}
+
+// HandshakeAck reports the agent's protocol identity and
+// whether the controller is compatible.
+message HandshakeAck {
+  uint32 major = 1;
+  uint32 minor = 2;
+  bool accepted = 3;
+  string reason = 4;  // populated only when accepted=false
+  string build = 5;
 }

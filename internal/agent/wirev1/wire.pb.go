@@ -60,6 +60,7 @@ type Request struct {
 	//	*Request_Capture
 	//	*Request_Rollback
 	//	*Request_Heartbeat
+	//	*Request_Handshake
 	Payload       isRequest_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -152,6 +153,15 @@ func (x *Request) GetHeartbeat() *HeartbeatRequest {
 	return nil
 }
 
+func (x *Request) GetHandshake() *HandshakeRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Request_Handshake); ok {
+			return x.Handshake
+		}
+	}
+	return nil
+}
+
 type isRequest_Payload interface {
 	isRequest_Payload()
 }
@@ -172,6 +182,10 @@ type Request_Heartbeat struct {
 	Heartbeat *HeartbeatRequest `protobuf:"bytes,13,opt,name=heartbeat,proto3,oneof"`
 }
 
+type Request_Handshake struct {
+	Handshake *HandshakeRequest `protobuf:"bytes,14,opt,name=handshake,proto3,oneof"` // L-012
+}
+
 func (*Request_Apply) isRequest_Payload() {}
 
 func (*Request_Capture) isRequest_Payload() {}
@@ -179,6 +193,8 @@ func (*Request_Capture) isRequest_Payload() {}
 func (*Request_Rollback) isRequest_Payload() {}
 
 func (*Request_Heartbeat) isRequest_Payload() {}
+
+func (*Request_Handshake) isRequest_Payload() {}
 
 // Response is the agent → controller acknowledgment. The
 // payload variant MUST correspond to the Request's variant
@@ -196,6 +212,7 @@ type Response struct {
 	//	*Response_CaptureResp
 	//	*Response_RollbackResp
 	//	*Response_HeartbeatAck
+	//	*Response_HandshakeAck
 	Payload isResponse_Payload `protobuf_oneof:"payload"`
 	// error at field 99 (well outside the envelope-fields range
 	// 1..9) because errors are envelope-level and orthogonal to
@@ -294,6 +311,15 @@ func (x *Response) GetHeartbeatAck() *HeartbeatAck {
 	return nil
 }
 
+func (x *Response) GetHandshakeAck() *HandshakeAck {
+	if x != nil {
+		if x, ok := x.Payload.(*Response_HandshakeAck); ok {
+			return x.HandshakeAck
+		}
+	}
+	return nil
+}
+
 func (x *Response) GetError() *Error {
 	if x != nil {
 		return x.Error
@@ -321,6 +347,10 @@ type Response_HeartbeatAck struct {
 	HeartbeatAck *HeartbeatAck `protobuf:"bytes,13,opt,name=heartbeat_ack,json=heartbeatAck,proto3,oneof"`
 }
 
+type Response_HandshakeAck struct {
+	HandshakeAck *HandshakeAck `protobuf:"bytes,14,opt,name=handshake_ack,json=handshakeAck,proto3,oneof"` // L-012
+}
+
 func (*Response_ApplyResp) isResponse_Payload() {}
 
 func (*Response_CaptureResp) isResponse_Payload() {}
@@ -328,6 +358,8 @@ func (*Response_CaptureResp) isResponse_Payload() {}
 func (*Response_RollbackResp) isResponse_Payload() {}
 
 func (*Response_HeartbeatAck) isResponse_Payload() {}
+
+func (*Response_HandshakeAck) isResponse_Payload() {}
 
 // Error is the envelope-level failure envelope. Used when the
 // agent cannot construct a typed Response (schema mismatch,
@@ -1143,11 +1175,154 @@ func (x *WireRollbackResult) GetExecutedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// HandshakeRequest is the controller's protocol-version
+// declaration. Sent on session start; the agent's
+// HandshakeAck either accepts (compatible) or rejects
+// (major mismatch). Major bumps mark breaking-change wire
+// protocol revisions; minor bumps are additive.
+type HandshakeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Major         uint32                 `protobuf:"varint,1,opt,name=major,proto3" json:"major,omitempty"`
+	Minor         uint32                 `protobuf:"varint,2,opt,name=minor,proto3" json:"minor,omitempty"`
+	Build         string                 `protobuf:"bytes,3,opt,name=build,proto3" json:"build,omitempty"` // human-readable build identifier (e.g., "v1.0.0", "dev-abc123")
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandshakeRequest) Reset() {
+	*x = HandshakeRequest{}
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandshakeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandshakeRequest) ProtoMessage() {}
+
+func (x *HandshakeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandshakeRequest.ProtoReflect.Descriptor instead.
+func (*HandshakeRequest) Descriptor() ([]byte, []int) {
+	return file_internal_agent_wirev1_wire_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *HandshakeRequest) GetMajor() uint32 {
+	if x != nil {
+		return x.Major
+	}
+	return 0
+}
+
+func (x *HandshakeRequest) GetMinor() uint32 {
+	if x != nil {
+		return x.Minor
+	}
+	return 0
+}
+
+func (x *HandshakeRequest) GetBuild() string {
+	if x != nil {
+		return x.Build
+	}
+	return ""
+}
+
+// HandshakeAck reports the agent's protocol identity and
+// whether the controller is compatible.
+type HandshakeAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Major         uint32                 `protobuf:"varint,1,opt,name=major,proto3" json:"major,omitempty"`
+	Minor         uint32                 `protobuf:"varint,2,opt,name=minor,proto3" json:"minor,omitempty"`
+	Accepted      bool                   `protobuf:"varint,3,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"` // populated only when accepted=false
+	Build         string                 `protobuf:"bytes,5,opt,name=build,proto3" json:"build,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandshakeAck) Reset() {
+	*x = HandshakeAck{}
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandshakeAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandshakeAck) ProtoMessage() {}
+
+func (x *HandshakeAck) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandshakeAck.ProtoReflect.Descriptor instead.
+func (*HandshakeAck) Descriptor() ([]byte, []int) {
+	return file_internal_agent_wirev1_wire_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *HandshakeAck) GetMajor() uint32 {
+	if x != nil {
+		return x.Major
+	}
+	return 0
+}
+
+func (x *HandshakeAck) GetMinor() uint32 {
+	if x != nil {
+		return x.Minor
+	}
+	return 0
+}
+
+func (x *HandshakeAck) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
+func (x *HandshakeAck) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *HandshakeAck) GetBuild() string {
+	if x != nil {
+		return x.Build
+	}
+	return ""
+}
+
 var File_internal_agent_wirev1_wire_proto protoreflect.FileDescriptor
 
 const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\n" +
-	" internal/agent/wirev1/wire.proto\x12\x12kensa.agent.wirev1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xeb\x02\n" +
+	" internal/agent/wirev1/wire.proto\x12\x12kensa.agent.wirev1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\x03\n" +
 	"\aRequest\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12%\n" +
 	"\x0ecorrelation_id\x18\x02 \x01(\x04R\rcorrelationId\x128\n" +
@@ -1155,8 +1330,9 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	" \x01(\v2 .kensa.agent.wirev1.ApplyRequestH\x00R\x05apply\x12>\n" +
 	"\acapture\x18\v \x01(\v2\".kensa.agent.wirev1.CaptureRequestH\x00R\acapture\x12A\n" +
 	"\brollback\x18\f \x01(\v2#.kensa.agent.wirev1.RollbackRequestH\x00R\brollback\x12D\n" +
-	"\theartbeat\x18\r \x01(\v2$.kensa.agent.wirev1.HeartbeatRequestH\x00R\theartbeatB\t\n" +
-	"\apayloadJ\x04\b\x0e\x10\x14\"\xbe\x03\n" +
+	"\theartbeat\x18\r \x01(\v2$.kensa.agent.wirev1.HeartbeatRequestH\x00R\theartbeat\x12D\n" +
+	"\thandshake\x18\x0e \x01(\v2$.kensa.agent.wirev1.HandshakeRequestH\x00R\thandshakeB\t\n" +
+	"\apayloadJ\x04\b\x0f\x10\x14\"\x87\x04\n" +
 	"\bResponse\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12%\n" +
 	"\x0ecorrelation_id\x18\x02 \x01(\x04R\rcorrelationId\x12B\n" +
@@ -1165,9 +1341,10 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	" \x01(\v2!.kensa.agent.wirev1.ApplyResponseH\x00R\tapplyResp\x12H\n" +
 	"\fcapture_resp\x18\v \x01(\v2#.kensa.agent.wirev1.CaptureResponseH\x00R\vcaptureResp\x12K\n" +
 	"\rrollback_resp\x18\f \x01(\v2$.kensa.agent.wirev1.RollbackResponseH\x00R\frollbackResp\x12G\n" +
-	"\rheartbeat_ack\x18\r \x01(\v2 .kensa.agent.wirev1.HeartbeatAckH\x00R\fheartbeatAck\x12/\n" +
+	"\rheartbeat_ack\x18\r \x01(\v2 .kensa.agent.wirev1.HeartbeatAckH\x00R\fheartbeatAck\x12G\n" +
+	"\rhandshake_ack\x18\x0e \x01(\v2 .kensa.agent.wirev1.HandshakeAckH\x00R\fhandshakeAck\x12/\n" +
 	"\x05error\x18c \x01(\v2\x19.kensa.agent.wirev1.ErrorR\x05errorB\t\n" +
-	"\apayloadJ\x04\b\x0e\x10\x14\"x\n" +
+	"\apayloadJ\x04\b\x0f\x10\x14\"x\n" +
 	"\x05Error\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x16\n" +
@@ -1228,7 +1405,17 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\x0fpartial_restore\x18\x05 \x01(\bR\x0epartialRestore\x12\x16\n" +
 	"\x06source\x18\x06 \x01(\tR\x06source\x12;\n" +
 	"\vexecuted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"executedAtB3Z1github.com/Hanalyx/kensa-go/internal/agent/wirev1b\x06proto3"
+	"executedAt\"T\n" +
+	"\x10HandshakeRequest\x12\x14\n" +
+	"\x05major\x18\x01 \x01(\rR\x05major\x12\x14\n" +
+	"\x05minor\x18\x02 \x01(\rR\x05minor\x12\x14\n" +
+	"\x05build\x18\x03 \x01(\tR\x05build\"\x84\x01\n" +
+	"\fHandshakeAck\x12\x14\n" +
+	"\x05major\x18\x01 \x01(\rR\x05major\x12\x14\n" +
+	"\x05minor\x18\x02 \x01(\rR\x05minor\x12\x1a\n" +
+	"\baccepted\x18\x03 \x01(\bR\baccepted\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x14\n" +
+	"\x05build\x18\x05 \x01(\tR\x05buildB3Z1github.com/Hanalyx/kensa-go/internal/agent/wirev1b\x06proto3"
 
 var (
 	file_internal_agent_wirev1_wire_proto_rawDescOnce sync.Once
@@ -1242,7 +1429,7 @@ func file_internal_agent_wirev1_wire_proto_rawDescGZIP() []byte {
 	return file_internal_agent_wirev1_wire_proto_rawDescData
 }
 
-var file_internal_agent_wirev1_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_internal_agent_wirev1_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_internal_agent_wirev1_wire_proto_goTypes = []any{
 	(*Request)(nil),               // 0: kensa.agent.wirev1.Request
 	(*Response)(nil),              // 1: kensa.agent.wirev1.Response
@@ -1259,34 +1446,38 @@ var file_internal_agent_wirev1_wire_proto_goTypes = []any{
 	(*WireStepResult)(nil),        // 12: kensa.agent.wirev1.WireStepResult
 	(*WirePreState)(nil),          // 13: kensa.agent.wirev1.WirePreState
 	(*WireRollbackResult)(nil),    // 14: kensa.agent.wirev1.WireRollbackResult
-	(*structpb.Struct)(nil),       // 15: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil), // 16: google.protobuf.Timestamp
+	(*HandshakeRequest)(nil),      // 15: kensa.agent.wirev1.HandshakeRequest
+	(*HandshakeAck)(nil),          // 16: kensa.agent.wirev1.HandshakeAck
+	(*structpb.Struct)(nil),       // 17: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
 }
 var file_internal_agent_wirev1_wire_proto_depIdxs = []int32{
 	4,  // 0: kensa.agent.wirev1.Request.apply:type_name -> kensa.agent.wirev1.ApplyRequest
 	6,  // 1: kensa.agent.wirev1.Request.capture:type_name -> kensa.agent.wirev1.CaptureRequest
 	8,  // 2: kensa.agent.wirev1.Request.rollback:type_name -> kensa.agent.wirev1.RollbackRequest
 	10, // 3: kensa.agent.wirev1.Request.heartbeat:type_name -> kensa.agent.wirev1.HeartbeatRequest
-	5,  // 4: kensa.agent.wirev1.Response.apply_resp:type_name -> kensa.agent.wirev1.ApplyResponse
-	7,  // 5: kensa.agent.wirev1.Response.capture_resp:type_name -> kensa.agent.wirev1.CaptureResponse
-	9,  // 6: kensa.agent.wirev1.Response.rollback_resp:type_name -> kensa.agent.wirev1.RollbackResponse
-	11, // 7: kensa.agent.wirev1.Response.heartbeat_ack:type_name -> kensa.agent.wirev1.HeartbeatAck
-	2,  // 8: kensa.agent.wirev1.Response.error:type_name -> kensa.agent.wirev1.Error
-	15, // 9: kensa.agent.wirev1.ApplyRequest.params:type_name -> google.protobuf.Struct
-	13, // 10: kensa.agent.wirev1.ApplyRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
-	12, // 11: kensa.agent.wirev1.ApplyResponse.step_result:type_name -> kensa.agent.wirev1.WireStepResult
-	15, // 12: kensa.agent.wirev1.CaptureRequest.params:type_name -> google.protobuf.Struct
-	13, // 13: kensa.agent.wirev1.CaptureResponse.pre_state:type_name -> kensa.agent.wirev1.WirePreState
-	13, // 14: kensa.agent.wirev1.RollbackRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
-	14, // 15: kensa.agent.wirev1.RollbackResponse.rollback_result:type_name -> kensa.agent.wirev1.WireRollbackResult
-	15, // 16: kensa.agent.wirev1.WirePreState.data:type_name -> google.protobuf.Struct
-	16, // 17: kensa.agent.wirev1.WirePreState.captured_at:type_name -> google.protobuf.Timestamp
-	16, // 18: kensa.agent.wirev1.WireRollbackResult.executed_at:type_name -> google.protobuf.Timestamp
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	15, // 4: kensa.agent.wirev1.Request.handshake:type_name -> kensa.agent.wirev1.HandshakeRequest
+	5,  // 5: kensa.agent.wirev1.Response.apply_resp:type_name -> kensa.agent.wirev1.ApplyResponse
+	7,  // 6: kensa.agent.wirev1.Response.capture_resp:type_name -> kensa.agent.wirev1.CaptureResponse
+	9,  // 7: kensa.agent.wirev1.Response.rollback_resp:type_name -> kensa.agent.wirev1.RollbackResponse
+	11, // 8: kensa.agent.wirev1.Response.heartbeat_ack:type_name -> kensa.agent.wirev1.HeartbeatAck
+	16, // 9: kensa.agent.wirev1.Response.handshake_ack:type_name -> kensa.agent.wirev1.HandshakeAck
+	2,  // 10: kensa.agent.wirev1.Response.error:type_name -> kensa.agent.wirev1.Error
+	17, // 11: kensa.agent.wirev1.ApplyRequest.params:type_name -> google.protobuf.Struct
+	13, // 12: kensa.agent.wirev1.ApplyRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
+	12, // 13: kensa.agent.wirev1.ApplyResponse.step_result:type_name -> kensa.agent.wirev1.WireStepResult
+	17, // 14: kensa.agent.wirev1.CaptureRequest.params:type_name -> google.protobuf.Struct
+	13, // 15: kensa.agent.wirev1.CaptureResponse.pre_state:type_name -> kensa.agent.wirev1.WirePreState
+	13, // 16: kensa.agent.wirev1.RollbackRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
+	14, // 17: kensa.agent.wirev1.RollbackResponse.rollback_result:type_name -> kensa.agent.wirev1.WireRollbackResult
+	17, // 18: kensa.agent.wirev1.WirePreState.data:type_name -> google.protobuf.Struct
+	18, // 19: kensa.agent.wirev1.WirePreState.captured_at:type_name -> google.protobuf.Timestamp
+	18, // 20: kensa.agent.wirev1.WireRollbackResult.executed_at:type_name -> google.protobuf.Timestamp
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_internal_agent_wirev1_wire_proto_init() }
@@ -1299,12 +1490,14 @@ func file_internal_agent_wirev1_wire_proto_init() {
 		(*Request_Capture)(nil),
 		(*Request_Rollback)(nil),
 		(*Request_Heartbeat)(nil),
+		(*Request_Handshake)(nil),
 	}
 	file_internal_agent_wirev1_wire_proto_msgTypes[1].OneofWrappers = []any{
 		(*Response_ApplyResp)(nil),
 		(*Response_CaptureResp)(nil),
 		(*Response_RollbackResp)(nil),
 		(*Response_HeartbeatAck)(nil),
+		(*Response_HandshakeAck)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1312,7 +1505,7 @@ func file_internal_agent_wirev1_wire_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_agent_wirev1_wire_proto_rawDesc), len(file_internal_agent_wirev1_wire_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

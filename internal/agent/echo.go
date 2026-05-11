@@ -251,6 +251,25 @@ func HandleEcho(req *wirev1.Request) *wirev1.Response {
 				ReceivedUnixMicros: p.Heartbeat.GetSentUnixMicros(),
 			},
 		}
+	case *wirev1.Request_Handshake:
+		// L-012 version-handshake response. Build a
+		// HandshakeAck with this build's protocol identity;
+		// accepted=true iff the controller's major matches
+		// ours. Minor mismatch is accepted (controller logs
+		// a warning).
+		compat, _ := wirev1.Compatible(p.Handshake.GetMajor(), p.Handshake.GetMinor())
+		ack := &wirev1.HandshakeAck{
+			Major:    wirev1.ProtocolMajor,
+			Minor:    wirev1.ProtocolMinor,
+			Build:    wirev1.ProtocolBuild,
+			Accepted: compat,
+		}
+		if !compat {
+			ack.Reason = fmt.Sprintf("protocol major mismatch: client=%d.%d, agent=%d.%d",
+				p.Handshake.GetMajor(), p.Handshake.GetMinor(),
+				wirev1.ProtocolMajor, wirev1.ProtocolMinor)
+		}
+		resp.Payload = &wirev1.Response_HandshakeAck{HandshakeAck: ack}
 	default:
 		// Request with no payload variant set (nil from
 		// GetPayload, which protobuf-go returns when no oneof

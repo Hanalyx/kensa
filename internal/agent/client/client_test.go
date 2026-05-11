@@ -347,6 +347,162 @@ func TestClient_EnvelopeErrorTranslation(t *testing.T) {
 	}
 }
 
+// majorMismatchHandler returns a HandshakeAck declaring
+// major=2 (mismatched against the client's major=1).
+func majorMismatchHandler(req *wirev1.Request) *wirev1.Response {
+	if _, ok := req.GetPayload().(*wirev1.Request_Handshake); ok {
+		return &wirev1.Response{
+			SchemaVersion: 1,
+			CorrelationId: req.GetCorrelationId(),
+			Payload: &wirev1.Response_HandshakeAck{
+				HandshakeAck: &wirev1.HandshakeAck{
+					Major:    2,
+					Minor:    0,
+					Build:    "v2.0.0-test",
+					Accepted: false,
+					Reason:   "test: major mismatch",
+				},
+			},
+		}
+	}
+	return agent.HandleEcho(req)
+}
+
+// minorMismatchHandler returns HandshakeAck with same major
+// but a different minor — should be accepted with a warning.
+func minorMismatchHandler(req *wirev1.Request) *wirev1.Response {
+	if _, ok := req.GetPayload().(*wirev1.Request_Handshake); ok {
+		return &wirev1.Response{
+			SchemaVersion: 1,
+			CorrelationId: req.GetCorrelationId(),
+			Payload: &wirev1.Response_HandshakeAck{
+				HandshakeAck: &wirev1.HandshakeAck{
+					Major:    wirev1.ProtocolMajor,
+					Minor:    wirev1.ProtocolMinor + 5,
+					Build:    "v1.5.0-test",
+					Accepted: true,
+				},
+			},
+		}
+	}
+	return agent.HandleEcho(req)
+}
+
+// runCustomServer is runEchoServer with a configurable handler.
+func runCustomServer(t *testing.T, handler agent.Handler) (clientIn io.WriteCloser, clientOut io.Reader, cleanup func()) {
+	t.Helper()
+	clientIn, clientOut, serverIn, serverOut := pipePair()
+
+	var serverErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var stderr discardWriter
+		serverErr = agent.RunWithValidator(context.Background(), serverIn, serverOut, stderr, handler, wirev1.ValidateRequest)
+		_ = serverOut.Close()
+	}()
+
+	cleanup = func() {
+		_ = clientIn.Close()
+		wg.Wait()
+		if serverErr != nil && !errors.Is(serverErr, io.EOF) && !errors.Is(serverErr, io.ErrClosedPipe) {
+			t.Logf("server exited with: %v", serverErr)
+		}
+	}
+	return clientIn, clientOut, cleanup
+}
+
+// TestClient_Handshake_HappyPath locks AC-03: Handshake
+// against an echo server with matching version returns nil.
+//
+// @spec agent-version-handshake
+// @ac AC-03
+func TestClient_Handshake_HappyPath(t *testing.T) {
+	clientIn, clientOut, cleanup := runEchoServer(t)
+	defer cleanup()
+
+	c, _ := Open(clientIn, clientOut)
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := c.Handshake(ctx); err != nil {
+		t.Errorf("Handshake happy-path: unexpected error: %v", err)
+	}
+}
+
+// TestClient_Handshake_MajorMismatch locks AC-04: agent with
+// major=2 produces ErrIncompatibleProtocol.
+//
+// @spec agent-version-handshake
+// @ac AC-04
+func TestClient_Handshake_MajorMismatch(t *testing.T) {
+	clientIn, clientOut, cleanup := runCustomServer(t, majorMismatchHandler)
+	defer cleanup()
+
+	c, _ := Open(clientIn, clientOut)
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := c.Handshake(ctx)
+	if !errors.Is(err, ErrIncompatibleProtocol) {
+		t.Errorf("expected ErrIncompatibleProtocol, got: %v", err)
+	}
+}
+
+// TestClient_Handshake_MinorMismatch locks AC-05: same major
+// but different minor → nil + minor-mismatch warning logged.
+//
+// @spec agent-version-handshake
+// @ac AC-05
+func TestClient_Handshake_MinorMismatch(t *testing.T) {
+	// Swap in a capturing logger; restore after.
+	var (
+		mu       sync.Mutex
+		captured struct {
+			called      bool
+			agentMajor  uint32
+			agentMinor  uint32
+			agentBuild  string
+		}
+	)
+	originalLogger := MinorMismatchLogger
+	MinorMismatchLogger = func(cm, cn, am, an uint32, build string) {
+		mu.Lock()
+		defer mu.Unlock()
+		captured.called = true
+		captured.agentMajor = am
+		captured.agentMinor = an
+		captured.agentBuild = build
+	}
+	defer func() { MinorMismatchLogger = originalLogger }()
+
+	clientIn, clientOut, cleanup := runCustomServer(t, minorMismatchHandler)
+	defer cleanup()
+
+	c, _ := Open(clientIn, clientOut)
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := c.Handshake(ctx); err != nil {
+		t.Errorf("minor mismatch should be accepted, got: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if !captured.called {
+		t.Error("MinorMismatchLogger should have been called")
+	}
+	if captured.agentMinor != wirev1.ProtocolMinor+5 {
+		t.Errorf("logger agentMinor: got %d, want %d", captured.agentMinor, wirev1.ProtocolMinor+5)
+	}
+	if captured.agentBuild != "v1.5.0-test" {
+		t.Errorf("logger agentBuild: got %q, want %q", captured.agentBuild, "v1.5.0-test")
+	}
+}
+
 // TestClient_ReaderEOFFailsInFlightCalls locks the P0-2 fix:
 // when the reader goroutine exits (agent crash, stream EOF,
 // any read error), in-flight calls fail with

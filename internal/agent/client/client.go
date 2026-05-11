@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -352,6 +353,30 @@ type heartbeatPayload struct{ p *wirev1.Request_Heartbeat }
 
 func (h heartbeatPayload) setOn(req *wirev1.Request) { req.Payload = h.p }
 
+type handshakePayload struct{ p *wirev1.Request_Handshake }
+
+func (h handshakePayload) setOn(req *wirev1.Request) { req.Payload = h.p }
+
+// ErrIncompatibleProtocol is returned from Handshake when the
+// agent's major version differs from this build's, or when
+// the agent explicitly rejects the handshake (HandshakeAck.
+// Accepted=false). The wrapped detail message includes the
+// agent's major/minor + reason for diagnosis.
+var ErrIncompatibleProtocol = errors.New("client: incompatible protocol version")
+
+// MinorMismatchLogger is called when Handshake succeeds with
+// a minor-version mismatch (same major, different minor).
+// Default writes a one-line warning to stderr; tests inject
+// a custom function to capture the call. Setting to nil
+// silences the warning entirely.
+var MinorMismatchLogger = func(clientMajor, clientMinor, agentMajor, agentMinor uint32, agentBuild string) {
+	// L-013+ may replace this with a structured logger.
+	// For L-012 a one-line stderr message matches the
+	// agent loop's diagnostic style.
+	fmt.Fprintf(os.Stderr, "kensa client: handshake accepted with minor version skew: client=%d.%d, agent=%d.%d (build=%q)\n",
+		clientMajor, clientMinor, agentMajor, agentMinor, agentBuild)
+}
+
 // Apply sends an ApplyRequest and returns the StepResult.
 // preState may be nil for non-capturable mechanisms.
 //
@@ -449,6 +474,59 @@ func (c *Client) Rollback(ctx context.Context, preState api.PreState) (*api.Roll
 		return nil, fmt.Errorf("client: decode RollbackResult: %w", err)
 	}
 	return &rr, nil
+}
+
+// Handshake performs the L-012 version-handshake exchange.
+// Sends a HandshakeRequest with this build's ProtocolMajor/
+// Minor/Build; awaits HandshakeAck.
+//
+// Returns:
+//   - nil                           — versions are exactly compatible
+//   - nil + warning to stderr       — same major, different minor
+//                                     (acceptable; MinorMismatchLogger
+//                                     is called)
+//   - ErrIncompatibleProtocol       — major mismatch OR
+//                                     HandshakeAck.Accepted == false
+//
+// Callers SHOULD call Handshake immediately after Open and
+// before any other typed method. L-014 will enforce
+// handshake-as-first-message on the agent dispatcher side.
+func (c *Client) Handshake(ctx context.Context) error {
+	resp, err := c.sendRequest(ctx, handshakePayload{p: &wirev1.Request_Handshake{
+		Handshake: &wirev1.HandshakeRequest{
+			Major: wirev1.ProtocolMajor,
+			Minor: wirev1.ProtocolMinor,
+			Build: wirev1.ProtocolBuild,
+		},
+	}})
+	if err != nil {
+		return err
+	}
+	if e := resp.GetError(); e != nil {
+		return &AgentError{Code: e.GetCode(), Detail: e.GetDetail(), Retryable: e.GetRetryable()}
+	}
+	ackResp, ok := resp.GetPayload().(*wirev1.Response_HandshakeAck)
+	if !ok {
+		return fmt.Errorf("%w: want HandshakeAck, got %T", ErrVariantMismatch, resp.GetPayload())
+	}
+	ack := ackResp.HandshakeAck
+	if !ack.GetAccepted() {
+		return fmt.Errorf("%w: agent %d.%d (build=%q) rejected: %s",
+			ErrIncompatibleProtocol, ack.GetMajor(), ack.GetMinor(), ack.GetBuild(), ack.GetReason())
+	}
+	// Defense-in-depth: even if the agent says "accepted",
+	// check the major ourselves. Mismatch here means the
+	// agent's Compatible() disagrees with ours (different
+	// build constants) — log loudly.
+	if ack.GetMajor() != wirev1.ProtocolMajor {
+		return fmt.Errorf("%w: agent accepted but major differs: client=%d, agent=%d",
+			ErrIncompatibleProtocol, wirev1.ProtocolMajor, ack.GetMajor())
+	}
+	if ack.GetMinor() != wirev1.ProtocolMinor && MinorMismatchLogger != nil {
+		MinorMismatchLogger(wirev1.ProtocolMajor, wirev1.ProtocolMinor,
+			ack.GetMajor(), ack.GetMinor(), ack.GetBuild())
+	}
+	return nil
 }
 
 // Heartbeat sends a HeartbeatRequest and verifies the
