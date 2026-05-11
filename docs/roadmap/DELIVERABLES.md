@@ -590,10 +590,10 @@ once the founder ratifies them.
 #### L-010 — Implement length-prefixed framing on both ends
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-009
-- **Acceptance:** round-trip tests pass for messages up to 16 MiB. Supersedes L-008's stub framing (4-byte big-endian length prefix, in `internal/agent/framing.go`) with the production contract: frame-type discriminator byte for heartbeat-vs-payload channel demux, configurable max-size policy, partial-read recovery, backpressure for slow consumers.
-- **Size:** 2h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; L-008/L-009 done; ready to pick up)
-- **L-009 security review TODO carried forward:** L-009 found that a peer can send a Request with multiple oneof variants set in the wire bytes (illegal per spec but transmittable; protobuf-go allocates each intermediate). L-010 SHOULD add a post-unmarshal guard: walk `req.ProtoReflect()` after Unmarshal and reject Requests where any oneof selector field has been set more than once. The frame-size cap bounds total damage to ~16 MiB but a deeply-nested Struct inside multiple ApplyRequest variants can multiply allocation through.
+- **Acceptance:** round-trip tests pass for messages up to 16 MiB. Supersedes L-008's stub framing with the production contract: type-byte discriminator (0x01 PAYLOAD; 0x02-0xFF reserved via `knownFrameTypes` set for additive extension), configurable max-size via FramingOptions, partial-read recovery (io.ReadFull semantics), Validator injection. Shipped 2026-05-11 (merge `ceb6c72`): internal/agent/framing.go (FrameType/FrameInvalid/FramePayload + knownFrameTypes), internal/agent/wirev1/validate.go (ValidateRequest/Response reflective guard), internal/agent/echo.go (RunWithValidator + writeResponse calls ValidateResponse).
+- **Size:** ~2h actual
+- **Status:** **done** (merge `ceb6c72`, 2026-05-11)
+- **Notes:** Peer review caught 1 P0 (hardcoded type-byte check would force Read/Write edits at L-012; fixed by knownFrameTypes set) + 4 P1s (two placeholder tests replaced with TestRunWithValidator_RejectsFailingValidator via injected Validator; ValidateResponse now invoked on outgoing path; stale manpage rewritten; error-string "L-010" baked-in replaced with dynamic knownTypeNames()). The reflective multi-variant guard is honest: protobuf-go's runtime collapses multi-variant on Unmarshal so the count>1 path is structurally unreachable from real wire bytes — guard fires today only on server-side dispatcher bugs. The deeper post-Unmarshal raw-bytes guard is carried forward to L-011 (TODO #4).
 
 #### L-011 — Controller-side `AgentTransport` adapter (talks to `kensa agent --stdio` over SSH)
 - **Phase:** LL Phase 1
