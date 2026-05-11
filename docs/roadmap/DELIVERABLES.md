@@ -561,12 +561,13 @@ once the founder ratifies them.
 
 ### LL Phase 1 — Multi-call agent binary (the gate for LL Phases 2–7)
 
-#### L-007 — Wire-protocol decision: **protobuf** (ratified 2026-05-11)
+#### L-007 — Wire-protocol decision: **protobuf** (ratified 2026-05-11; shipped 2026-05-11)
 - **Phase:** LL Phase 1
 - **Deps:** —
-- **Acceptance:** Founder ratified protobuf 2026-05-11 (see memory `l007_wire_protocol.md`). Implementation deliverable: scaffold `proto/` directory with v1 message types (request, response, error, heartbeat); pin `protoc-gen-go` in `tools.go`; CI step verifies checked-in `.pb.go` matches regenerated output; `mapToStruct` / `structToMap` helper pair (~50 lines) bridges `api.PreState.Data` and `api.Params` to `google.protobuf.Struct`.
-- **Size:** ~4h scaffolding (down from 2h research + unknown impl)
-- **Status:** **pending** (ratification done; scaffolding awaits loop pickup)
+- **Acceptance:** Founder ratified protobuf 2026-05-11. Implementation shipped 2026-05-11 (merge `a787781`): `internal/agent/wirev1/wire.proto` (Request/Response/Error/Heartbeat scaffolding messages with schema_version=1); `internal/agent/wirev1/wire.pb.go` generated + checked-in; `internal/agent/wirev1/bridge.go` (MapToStruct / StructToMap / DecodeTime / MustMapToStruct / ValidateSchemaVersion); `tools.go` pinning protoc-gen-go under `//go:build tools`; Makefile `proto` + `proto-check` targets; CI installs protoc + runs `make proto-check`.
+- **Size:** ~4h scaffolding
+- **Status:** **done** (merge `a787781`, 2026-05-11)
+- **Notes:** Peer review surfaced 3 P0s + 3 P1s + 2 P2s, all addressed pre-merge. Security-critical hardening baked in: max-nesting depth 32 (DoS guard); int64/uint64 magnitude > 2^53 rejected at encode (precision-loss avoidance — UnixNano timestamps would have silently corrupted under naive bounds); TestCodegenSync fails (not skips) under CI; symlink/precision/time.Time asymmetries documented in api/transaction.go's PreState.Data godoc.
 - **Rejected alternatives:** msgpack (`vmihailenco/msgpack/v5` stalled 19 months as of decision; alternatives `tinylib/msgp` codegen-based and lose native-map ergonomics, `shamaton/msgpack/v2` 173-star bus factor); custom (security-load-bearing parser; reinventing protobuf/msgpack solved problems). Forking msgpack rejected: maintenance burden lands on founder, reflection-decoders have worse security profile than protobuf-go's OSS-Fuzz coverage, auditor conversation is harder.
 - **Notes:** Security-load-bearing decision. Pre-approval memory says gray-zone deliverables surface a question. Loop pauses here.
 
