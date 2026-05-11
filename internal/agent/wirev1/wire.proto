@@ -1,19 +1,23 @@
-// kensa agent wire protocol — v1 scaffolding.
+// kensa agent wire protocol — v1.
 //
-// LL Phase 1 deliverable L-007. Founder ratified protobuf as the
-// wire format 2026-05-11 (see ~/.claude/.../memory/l007_wire_protocol.md).
+// L-007 deliverable scaffolded Request/Response/Error/Heartbeat
+// with opaque bytes payloads. L-009 replaces the bytes payloads
+// with a typed `oneof` covering Apply / Capture / Rollback /
+// Heartbeat. Founder ratified protobuf as the wire format
+// 2026-05-11 (see ~/.claude/.../memory/l007_wire_protocol.md).
 //
-// L-007 ships the toolchain + four placeholder root message types.
-// L-009 fills in the handler-invocation payload schema. Until then,
-// payloads are opaque bytes so framing tests can round-trip without
-// committing to a payload shape that's still being designed.
-//
-// Versioning policy: this package is import-path-versioned
+// **Versioning policy.** This package is import-path-versioned
 // (internal/agent/wirev1). A v2 wire format lands as a parallel
 // package (wirev2/), and a transition window has both packages
-// importable so the controller can speak either while agents catch
-// up. The `schema_version` field on each root message is the
-// per-message version handshake L-012 will inspect.
+// importable so the controller can speak either while agents
+// catch up. The `schema_version` field on each root message is
+// the per-message version handshake L-012 will inspect.
+//
+// **Field-number convention (L-009 C-07).** Envelope fields
+// occupy 1..9. Payload variants start at 10 with gaps of 1
+// (10/11/12/13). Future variants (ListMechanisms,
+// DetectCapabilities, etc.) use 20+ so the schema can extend
+// without renumbering.
 
 syntax = "proto3";
 
@@ -21,45 +25,70 @@ package kensa.agent.wirev1;
 
 option go_package = "github.com/Hanalyx/kensa-go/internal/agent/wirev1";
 
-// Request is one of the four scaffolding root messages. At L-007 the
-// payload is opaque bytes; L-009 will turn the bytes into a `oneof`
-// of typed handler-invocation payloads (Apply, Capture, Rollback).
-//
-// Fields:
-//   schema_version: pinned to 1 for L-007; L-012 reads this to detect
-//     controller↔agent skew.
-//   correlation_id: caller-chosen u64. Responses carry the same id so
-//     the controller can match async responses back to their request.
-//   payload: opaque bytes today; oneof at L-009.
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Request is one of the four wire-level root messages
+// (controller → agent). The typed `oneof payload` replaces
+// L-007's opaque `bytes payload`. Field numbers 1..9 are
+// envelope; 10..19 are L-009 payload variants; 20+ are reserved
+// for future variants (L-013 binary push, future ListMechanisms,
+// etc.).
 message Request {
+  // 14..19 reserved for future L-009-group payload variants so
+  // the field-number convention from spec C-07 is enforced by
+  // protoc at codegen time, not just by comment. A future
+  // contributor who tries to add a 5th payload variant at field
+  // 14 (inside the oneof below) gets a protoc error pointing at
+  // this `reserved` clause. New non-payload envelope fields use
+  // 3..9; new payload variants use 20+.
+  reserved 14 to 19;
+
   uint32 schema_version = 1;
   uint64 correlation_id = 2;
-  bytes payload = 3;
+  oneof payload {
+    ApplyRequest apply = 10;
+    CaptureRequest capture = 11;
+    RollbackRequest rollback = 12;
+    HeartbeatRequest heartbeat = 13;
+  }
 }
 
-// Response is the agent→controller acknowledgment.
-//
-// Two payload variants will land in L-009 (success result, error).
-// At L-007 the success/error split is represented by the `error`
-// field being non-nil for failures.
+// Response is the agent → controller acknowledgment. The
+// payload variant MUST correspond to the Request's variant
+// (Apply → ApplyResponse, etc.); the L-011 dispatcher enforces
+// this. The Error field (envelope-level) carries failures the
+// agent could not encode as a typed response (framing error
+// surfaced inline, schema-version mismatch caught by L-012).
 message Response {
+  // 14..19 reserved — see Request note above.
+  reserved 14 to 19;
+
   uint32 schema_version = 1;
   uint64 correlation_id = 2;
-  bytes payload = 3;
-  Error error = 4;
+  oneof payload {
+    ApplyResponse apply_resp = 10;
+    CaptureResponse capture_resp = 11;
+    RollbackResponse rollback_resp = 12;
+    HeartbeatAck heartbeat_ack = 13;
+  }
+  // error at field 99 (well outside the envelope-fields range
+  // 1..9) because errors are envelope-level and orthogonal to
+  // the payload variant — a Response may carry both a typed
+  // payload AND an error (handler ran partially), or just an
+  // error (handler couldn't run at all).
+  Error error = 99;
 }
 
-// Error is the typed failure-envelope.
+// Error is the envelope-level failure envelope. Used when the
+// agent cannot construct a typed Response (schema mismatch,
+// internal panic, decode failure on Request). Per-handler
+// failures are surfaced in the typed Response's success/detail
+// fields, not here.
 //
-// `code` is a stable enum reserved for L-009 — at L-007 we leave
-// it as a string and let L-009 narrow to an enum once the failure
-// taxonomy is settled.
-//
-// `detail` is human-readable, suitable for logging.
-//
-// `retryable` lets the controller decide whether to re-issue the
-// request or surface the failure to the operator. The L-009 schema
-// will tighten the contract; at L-007 it's advisory.
+// `code` is a stable enum-as-string reserved for L-009 schema
+// growth (e.g., "schema_mismatch", "panic_recovered",
+// "decode_failed").
 message Error {
   uint32 schema_version = 1;
   string code = 2;
@@ -67,13 +96,107 @@ message Error {
   bool retryable = 4;
 }
 
-// Heartbeat is the deadman-channel keepalive.
-//
-// The deadman travels on the same wire as Request/Response — L-010's
-// framing carries a frame-type discriminator so the receiver can
-// route heartbeats separately. At L-007 the message is minimal.
+// Heartbeat (legacy, L-007 scaffolding). Retained for backward
+// compatibility with code written against the L-007 placeholder;
+// new code uses HeartbeatRequest / HeartbeatAck inside a
+// Request/Response envelope.
 message Heartbeat {
   uint32 schema_version = 1;
   uint64 sequence = 2;
   int64 sent_unix_micros = 3;
+}
+
+// ─── Handler invocation messages (L-009) ─────────────────────
+
+// ApplyRequest invokes a mechanism's Apply phase on the target.
+//   mechanism: handler name from rule YAML (e.g., "file_content")
+//   params:    handler-specific parameters as a protobuf Struct
+//              (built via wirev1.MapToStruct from api.Params)
+//   pre_state: optional captured state for capturable handlers;
+//              nil for non-capturable mechanisms
+message ApplyRequest {
+  string mechanism = 1;
+  google.protobuf.Struct params = 2;
+  WirePreState pre_state = 3;
+}
+
+// ApplyResponse carries the Apply outcome.
+message ApplyResponse {
+  WireStepResult step_result = 1;
+}
+
+// CaptureRequest invokes a mechanism's Capture phase.
+message CaptureRequest {
+  string mechanism = 1;
+  google.protobuf.Struct params = 2;
+}
+
+// CaptureResponse carries the captured pre-state.
+message CaptureResponse {
+  WirePreState pre_state = 1;
+}
+
+// RollbackRequest invokes Rollback against a previously-captured
+// PreState.
+message RollbackRequest {
+  WirePreState pre_state = 1;
+}
+
+// RollbackResponse carries the rollback outcome.
+message RollbackResponse {
+  WireRollbackResult rollback_result = 1;
+}
+
+// HeartbeatRequest is the controller → agent liveness ping.
+//   token: caller-chosen u64 the ack must echo verbatim so the
+//          controller can pair acks with outstanding pings
+//          (multiple in flight is allowed).
+//   sent_unix_micros: advisory clock-skew info; deadman timing
+//          uses the controller's local clock, not the agent's
+//          (per spec C-06: a compromised agent's clock is not
+//          trustworthy).
+message HeartbeatRequest {
+  uint64 token = 1;
+  int64 sent_unix_micros = 2;
+}
+
+// HeartbeatAck echoes the token verbatim plus the agent's local
+// clock at receipt-time (also advisory).
+message HeartbeatAck {
+  uint64 token = 1;
+  int64 received_unix_micros = 2;
+}
+
+// ─── Wire-level mirrors of api/ types ─────────────────────────
+
+// WireStepResult mirrors api.StepResult.
+message WireStepResult {
+  int32 step_index = 1;
+  string mechanism = 2;
+  bool capturable = 3;
+  bool success = 4;
+  string detail = 5;
+  bool stranded = 6;
+}
+
+// WirePreState mirrors api.PreState. The `data` field carries
+// the mechanism-specific map[string]any via
+// google.protobuf.Struct (built via wirev1.MapToStruct).
+message WirePreState {
+  int32 step_index = 1;
+  string mechanism = 2;
+  bool capturable = 3;
+  google.protobuf.Struct data = 4;
+  google.protobuf.Timestamp captured_at = 5;
+}
+
+// WireRollbackResult mirrors api.RollbackResult.
+message WireRollbackResult {
+  int32 step_index = 1;
+  string mechanism = 2;
+  bool success = 3;
+  string detail = 4;
+  bool partial_restore = 5;
+  string source = 6;
+  google.protobuf.Timestamp executed_at = 7;
 }
