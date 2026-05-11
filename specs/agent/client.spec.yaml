@@ -1,0 +1,241 @@
+spec:
+    id: agent-client
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-client
+        description: |
+            LL Phase 1 deliverable L-011. The controller-side
+            library that speaks the L-009 typed wire protocol
+            over the L-010 framing to a `kensa agent --stdio`
+            process. L-014 wires this into the engine's
+            handler-dispatch path; L-011 ships the client
+            primitive + correlation + envelope handling.
+
+            **What L-011 is NOT.** Not the
+            `api.Transport` interface. The api.Transport
+            interface is the shell-exec/file-transfer
+            abstraction used by direct-SSH handlers; agent
+            handlers don't use it (they run locally on the
+            target via syscalls per L-014). AgentClient is
+            a parallel transport for the agent-mode path —
+            a typed-RPC client over framed SSH pipes.
+
+            **What L-011 IS.** A library with:
+              - `Open(stdin io.WriteCloser, stdout io.Reader)
+                 (*Client, error)` — constructs a Client over
+                 caller-supplied pipes. SSH plumbing is the
+                 caller's responsibility (matches how the
+                 L-008 e2e test wires `exec.Command("ssh",
+                 host, "kensa", "agent", "--stdio")`).
+              - `Apply(ctx, mechanism, params, preState)
+                 (*api.StepResult, error)`
+              - `Capture(ctx, mechanism, params)
+                 (*api.PreState, error)`
+              - `Rollback(ctx, preState) (*api.RollbackResult,
+                 error)`
+              - `Heartbeat(ctx, token uint64) error`
+              - `Close() error`
+
+            **Correlation.** Each outgoing Request gets a
+            monotonically-increasing correlation_id (atomic
+            counter). The client maintains a pending-response
+            map keyed by correlation_id. A background reader
+            goroutine drains stdout, dispatches each Response
+            to the waiting caller via a channel. Method calls
+            block until their correlation_id's Response
+            arrives or ctx is cancelled.
+
+            **Envelope Error translation.** A Response with
+            `Error` set (no typed payload) becomes a Go error
+            wrapping `client.ErrAgent` so callers can match
+            via errors.Is. Error.Code is preserved in the
+            wrapped error message.
+
+            **ValidateResponse.** Every incoming Response is
+            passed through `wirev1.ValidateResponse` before
+            being routed. Catches dispatcher bugs in the
+            agent (the symmetric side of L-010's
+            ValidateRequest check).
+
+    objective:
+        summary: |
+            Add internal/agent/client/client.go with the
+            AgentClient lifecycle + four typed methods.
+            Correlation map, reader goroutine, envelope
+            translation. Unit tests using local pipes
+            (io.Pipe) connecting AgentClient to
+            agent.RunWithValidator(HandleEcho). Integration
+            test via subprocess against bin/kensa agent
+            --stdio.
+        scope:
+            includes:
+                - "internal/agent/client/client.go: Client struct + Open + Close + Apply + Capture + Rollback + Heartbeat"
+                - "internal/agent/client/client_test.go: roundtrip tests via local io.Pipe against an in-process server"
+                - "internal/agent/client/integration_test.go: subprocess test against bin/kensa agent --stdio"
+            excludes:
+                - "SSH-subprocess lifecycle (Open/Close of ssh as a child process): caller's responsibility today; L-013 will introduce binary-push-with-cache that handles this"
+                - "Engine integration / RemoteHandler shim: L-014 wires AgentClient into the dispatch path"
+                - "Version handshake on Open: L-012 deliverable. Today Open does NOT exchange a handshake — the first Heartbeat call IS the handshake in practice"
+                - "Token-uniqueness enforcement: caller's responsibility (the agent just echoes tokens; the controller's outstanding-pending map prevents reuse-collision today)"
+
+    constraints:
+        - id: C-01
+          description: |
+              `Open(stdin io.WriteCloser, stdout io.Reader)`
+              MUST start a background reader goroutine that
+              reads frames from stdout via `agent.Read(r,
+              nil)`, parses each as wirev1.Response, calls
+              `wirev1.ValidateResponse`, and routes by
+              correlation_id. Open returns the Client; the
+              reader runs until stdout returns EOF or Close
+              is called.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Each request method (Apply/Capture/Rollback/
+              Heartbeat) MUST: (1) assign a fresh
+              correlation_id via atomic counter; (2) register
+              a response channel in the pending map; (3)
+              marshal + frame-write the Request; (4) select
+              on ctx.Done() or response-channel-receive; (5)
+              on response receive, translate envelope Error
+              → Go error, or unmarshal typed payload → api
+              return type via the L-009 bridge functions; (6)
+              clean up the pending-map entry.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              `ctx.Done()` MUST preempt a pending request.
+              On ctx-cancel, the method returns ctx.Err() and
+              removes its pending-map entry. The reader
+              goroutine continues running; a late-arriving
+              Response for the cancelled correlation_id is
+              dropped (logged at debug, not surfaced).
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              `Close()` MUST: (1) close the stdin pipe so the
+              agent sees EOF and exits cleanly; (2) wait for
+              the reader goroutine to drain stdout and
+              terminate (with a bounded timeout — 1 second);
+              (3) reject any in-flight methods with
+              `ErrClientClosed`. Close is idempotent (second
+              call returns nil).
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              A Response with envelope-level `Error` MUST
+              produce a Go error wrapping `ErrAgent`. The
+              Error.Code is preserved verbatim in the wrapped
+              error message so callers can extract via
+              errors.As to a typed `AgentError`. Typed
+              payloads are NOT returned alongside an envelope
+              Error (the agent should not set both — but the
+              client trusts the agent: if both are set, the
+              envelope Error takes precedence per spec C-02
+              of agent-wire-handler-schema).
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              `Apply/Capture/Rollback` MUST verify the
+              Response's payload variant matches the
+              Request's. If a Capture request returns an
+              ApplyResponse variant, the client returns
+              `ErrVariantMismatch` — this is a server-side
+              dispatcher bug and the only safe action is to
+              surface it loudly. Heartbeat verifies the
+              HeartbeatAck.Token matches the request's
+              token.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              The client MUST be safe for concurrent use by
+              multiple goroutines. Multiple goroutines can
+              call Apply/Capture/Rollback/Heartbeat
+              simultaneously; the correlation map and frame
+              writer serialize correctly. The frame writer
+              MUST be guarded by a mutex (io.Writer's Write
+              is not concurrency-safe across goroutines
+              writing partial frames).
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `Open(stdin, stdout)` returns a non-nil Client
+              with a running reader goroutine. The Close
+              shuts it down cleanly. Locked by
+              `TestClient_OpenClose`.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-02
+          description: |
+              `Apply(ctx, "file_permissions", params, nil)`
+              against an in-process echo server returns a
+              non-nil StepResult (echo response has empty
+              fields per L-009 HandleEcho contract). No
+              error. Locked by `TestClient_Apply_EchoServer`.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              All four typed methods (Apply/Capture/Rollback/
+              Heartbeat) work end-to-end via local io.Pipe
+              against agent.Run + HandleEcho. Locked by
+              `TestClient_AllMethods_EchoServer`.
+          references_constraints: [C-02, C-06]
+          priority: critical
+        - id: AC-04
+          description: |
+              `ctx.WithCancel; cancel(); Apply(ctx, ...)`
+              returns context.Canceled within 100ms.
+              Pending-map entry is removed. Locked by
+              `TestClient_CtxCancelPreemptsApply`.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              A Response with envelope Error.Code=
+              "test_error" produces a Go error matchable
+              via errors.Is(err, ErrAgent) and errors.As
+              to *AgentError with Code field. Locked by
+              `TestClient_EnvelopeErrorTranslation`.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              Concurrent Apply calls from 10 goroutines
+              against the same Client produce 10 distinct
+              correlation_ids and 10 correct responses.
+              Locked by `TestClient_ConcurrentApply`.
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-07
+          description: |
+              Subprocess integration: spawn `bin/kensa agent
+              --stdio`, Open a Client on its pipes, send
+              ApplyRequest, receive ApplyResponse; close
+              stdin, observe clean shutdown. Locked by
+              `TestClient_SubprocessIntegration`.
+          references_constraints: [C-01, C-02, C-04]
+          priority: critical
+        - id: AC-08
+          description: |
+              `go test ./internal/agent/client/...` passes.
+              cli-smoke, specter strict, make proto-check,
+              manpage all green. Verified during merge.
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06, C-07]
+          priority: critical
+
+    tags: [agent, client, controller, protobuf, ll-phase-1, l-011]
