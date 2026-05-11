@@ -8,10 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/agent/fsatomic"
 )
 
 // mechanism is the canonical handler name.
@@ -54,13 +58,48 @@ func (h *Handler) Name() string { return mechanism }
 // Capturable reports true.
 func (h *Handler) Capturable() bool { return true }
 
-// Apply removes the target file via `rm -f`. Idempotent: an already-
-// absent file is not an error (rm -f exit 0 for absent paths).
+// Apply removes the target file. Idempotent: an already-absent file
+// is not an error.
+//
+// **Phase 2 migration (P-003, 2026-05-11)**: when transport satisfies
+// api.AtomicTransport (agent-mode), uses `AtomicRemove` for
+// kernel-atomic unlink + parent-dir Fsync. Direct-SSH transport
+// falls back to `rm -f` (best-effort shell pipeline). The
+// post-migration ErrNotExist case is explicitly translated to
+// idempotent success — `rm -f` is silently idempotent on absent
+// paths; `AtomicRemove` returns `ErrNotExist` which the handler
+// must convert to success here.
 func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
+
+	if afs, ok := transport.(api.AtomicTransport); ok {
+		// Agent-mode path: kernel-atomic Unlinkat + Fsync.
+		if rmErr := afs.AtomicRemove(ctx, p.Path); rmErr != nil {
+			// ErrNotExist is the idempotent-success case
+			// (file_absent on an already-absent path is OK).
+			// Any other error (permission, EROFS, etc.) is a
+			// real failure.
+			if errors.Is(rmErr, fsatomic.ErrNotExist) {
+				return &api.StepResult{
+					Success: true,
+					Detail:  fmt.Sprintf("file_absent: %s already absent (idempotent)", p.Path),
+				}, nil
+			}
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("file_absent: AtomicRemove %s failed: %v", p.Path, rmErr),
+			}, nil
+		}
+		return &api.StepResult{
+			Success: true,
+			Detail:  fmt.Sprintf("file_absent: atomically removed %s", p.Path),
+		}, nil
+	}
+
+	// Direct-SSH fallback: shell pipeline (best-effort, pre-Phase-2).
 	res, err := transport.Run(ctx, fmt.Sprintf("rm -f %s", shellEscape(p.Path)))
 	if err != nil {
 		return nil, fmt.Errorf("file_absent: apply transport error: %w", err)
@@ -202,6 +241,65 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	group, _ := pre.Data["group"].(string)
 	selinux, _ := pre.Data["selinux"].(string)
 
+	// Phase 2 P-003 migration: when transport is
+	// api.AtomicTransport, use AtomicWrite for crash-safe file
+	// re-creation. The attr commands (chmod/chown/chcon) remain
+	// transport.Run because no atomic-attrs primitive exists at
+	// the syscall level for these (chmod IS already a single
+	// atomic syscall; chcon and chown are also atomic per-path).
+	if afs, ok := transport.(api.AtomicTransport); ok {
+		fileMode, modeErr := parseFileMode(mode)
+		if modeErr != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("file_absent: rollback parse mode %q: %v", mode, modeErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		dir := filepath.Dir(path)
+		base := filepath.Base(path)
+		if writeErr := afs.AtomicWrite(ctx, dir, base, fileMode, []byte(content)); writeErr != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("file_absent: rollback AtomicWrite %s: %v", path, writeErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		// chown/chcon via shell — single-syscall ops, no
+		// atomicity advantage from rewriting in Go today.
+		var attrCmds []string
+		if owner != "" || group != "" {
+			spec := owner
+			if group != "" {
+				spec += ":" + group
+			}
+			attrCmds = append(attrCmds, fmt.Sprintf("chown %s %s", spec, shellEscape(path)))
+		}
+		if selinux != "" {
+			attrCmds = append(attrCmds, fmt.Sprintf("chcon --no-dereference %s %s", shellEscape(selinux), shellEscape(path)))
+		}
+		if len(attrCmds) > 0 {
+			res, err := transport.Run(ctx, strings.Join(attrCmds, " && "))
+			if err != nil {
+				return nil, fmt.Errorf("file_absent: rollback attr-restore transport error: %w", err)
+			}
+			if !res.OK() {
+				return &api.RollbackResult{
+					Success:        false,
+					Detail:         fmt.Sprintf("file_absent: rollback wrote bytes but attr-restore failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
+					PartialRestore: true,
+					ExecutedAt:     time.Now().UTC(),
+				}, nil
+			}
+		}
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("file_absent: atomically recreated %s from captured pre-state", path),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
+
+	// Direct-SSH fallback: shell pipeline.
 	cmds := []string{fmt.Sprintf("printf '%%s' %s > %s", shellEscape(content), shellEscape(path))}
 	if mode != "" {
 		cmds = append(cmds, fmt.Sprintf("chmod %s %s", mode, shellEscape(path)))
@@ -233,6 +331,24 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		Detail:     fmt.Sprintf("file_absent: recreated %s from captured pre-state", path),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// parseFileMode parses a mode string (e.g., "644", "0644",
+// "0o644") into os.FileMode. Returns the parsed mode plus an
+// error if the input doesn't parse.
+func parseFileMode(s string) (os.FileMode, error) {
+	if s == "" {
+		// Default mode for re-created files when capture had
+		// no mode info. Matches the shell `printf >` default
+		// behavior (umask-applied 0644).
+		return 0o644, nil
+	}
+	cleaned := strings.TrimPrefix(s, "0o")
+	n, err := strconv.ParseUint(cleaned, 8, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid octal mode %q: %w", s, err)
+	}
+	return os.FileMode(n), nil
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.
