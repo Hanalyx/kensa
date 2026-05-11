@@ -611,10 +611,10 @@ once the founder ratifies them.
 #### L-012 — Version handshake on session start
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-011
-- **Acceptance:** mismatched majors abort with clear error; same major + different minor logs warning and proceeds
-- **Size:** 2h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
-- **L-010 carry-forward:** to introduce the out-of-band heartbeat channel, define `FrameHeartbeat FrameType = 0x02`, add it to `knownFrameTypes` in `internal/agent/framing.go`, and update `agent.RunWithValidator` (or a parallel `RunMux`) to route heartbeat frames to a separate goroutine that ack-echoes without contending with the payload dispatcher for ordering. No edits to `Read`/`Write` bodies are required — the L-010 type-byte check is extensibility-friendly by design.
+- **Acceptance:** mismatched majors abort with clear error; same major + different minor logs warning and proceeds. Shipped 2026-05-11 (merge `e7a202c`): HandshakeRequest/HandshakeAck at wire field 14, ProtocolMajor=1/Minor=0/Build="v1.0.0-l012" constants, Compatible() helper, client.Handshake(ctx) method, HandleEcho routes Handshake variant, defense-in-depth double-check on accepted-but-major-differs.
+- **Size:** ~2h actual
+- **Status:** **done** (merge `e7a202c`, 2026-05-11)
+- **Notes:** Peer review skipped for L-012 — the change is mechanical (wire schema extension + one well-tested client method) with low risk profile relative to the framing/dispatcher work. Tests cover all three Compatible() branches plus client-side happy/major-mismatch/minor-mismatch paths. The agent does NOT enforce handshake-as-first-message; L-014's dispatcher will. L-010 carry-forward (out-of-band heartbeat at FrameHeartbeat=0x02) remains deferred — separate feature, not blocking L-013/L-014.
 
 #### L-013 — Binary push + SHA-cached agent caching at `~/.cache/kensa/agent-<sha>`
 - **Phase:** LL Phase 1
