@@ -1,28 +1,40 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/pflag"
+
+	"github.com/Hanalyx/kensa-go/internal/agent"
 )
 
-// runAgent is the C-054 placeholder for `kensa agent` — a
-// reserved-name stub that exits 1 with a "planned for v1.1"
-// message when invoked with --stdio. The actual implementation
-// is Track L Phase 1 (gated on L-007 wire-protocol ratification).
+// shutdownGracePeriod is how long the agent waits between ctx
+// cancellation and forced os.Exit(0). Long enough for the
+// between-frames ctx check to fire naturally if the loop wasn't
+// blocked; short enough that operators sending SIGTERM see the
+// process exit promptly. Standard production pattern.
+const shutdownGracePeriod = 500 * time.Millisecond
+
+// runAgent dispatches `kensa agent`. At L-008 the --stdio mode
+// flips from the v1.0 exit-1 placeholder (C-054, shipped
+// 2026-05-10) to a live echo loop: read framed wirev1.Request
+// messages from stdin, mirror them as Response, write back. The
+// echo behavior validates the framing + protobuf roundtrip
+// independently of the handler-invocation schema (which lands at
+// L-009).
 //
-// Why a stub ships in v1.0:
-//   - OpenWatch and other consumers can write code against the
-//     interface today without a breaking-change cycle in v1.1.
-//   - `kensa agent --help` discloses the planned wire-protocol
-//     shape so integrators have a target.
-//   - `kensa agent --stdio` exits 1 (runtime, "feature not
-//     ready"), distinct from exit 2 (usage error). CI scripts
-//     can pin v1.0 with `kensa agent --stdio || workaround` and
-//     get reliable false-branch behavior.
+// `kensa agent` (no flags) still exits 2 with a usage error
+// pointing at --stdio or --help (cli-agent-placeholder C-01,
+// preserved). `kensa agent --help` still discloses the planned
+// wire-protocol direction (cli-agent-placeholder C-03,
+// preserved).
 func runAgent(args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"stdio": true,
@@ -37,7 +49,7 @@ func runAgent(args []string) error {
 		stdio    bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
-	fs.BoolVar(&stdio, "stdio", false, "read framed messages from stdin, write responses to stdout (planned for v1.1)")
+	fs.BoolVar(&stdio, "stdio", false, "read framed messages from stdin, mirror them as responses on stdout (L-008 echo loop)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -54,61 +66,89 @@ func runAgent(args []string) error {
 		return NewUsageError("specify a mode: --stdio (other modes will land with the v1.1 agent surface)")
 	}
 
-	// --stdio is set; this is the v1.1-target path. Return a
-	// non-UsageError so runCLI maps it to exit 1 (runtime),
-	// not exit 2 (usage). Operators scripting against v1.0
-	// can distinguish "feature not ready yet" from "you
-	// typed bad flags."
-	return errors.New(
-		"agent mode is planned for v1.1 with the kernel-primitive migration (Track L Phase 1). " +
-			"In v1.0, use direct-SSH transport: kensa check / remediate / rollback against the host directly.")
+	// L-008 echo loop. SIGTERM / SIGINT cancel the context.
+	//
+	// Shutdown protocol:
+	//   - agent.Run checks ctx between frames, so a cancellation
+	//     that arrives BETWEEN reads preempts cleanly (returns
+	//     ctx.Err(), which we intercept to exit 0).
+	//   - A cancellation that arrives while io.ReadFull is
+	//     blocked on stdin needs a forced exit. Go's runtime
+	//     poller does NOT reliably wake a blocked Read on a
+	//     pipe fd when another goroutine calls Close(); the
+	//     stdin-close trick is not portable across kernel +
+	//     Go-version combinations. We use a grace-period
+	//     timer instead: 500ms after ctx fires, os.Exit(0).
+	//     This is the standard production pattern for "agent
+	//     receives SIGTERM but is blocked on I/O."
+	//   - L-012's explicit shutdown-message type makes this
+	//     side-channel dependency obsolete by giving the
+	//     controller a way to tell the agent to drain cleanly.
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer cancel()
+
+	go func() {
+		<-ctx.Done()
+		// Grace period for the loop's between-frames ctx
+		// check to fire naturally. If the loop is in a Read
+		// at the moment of cancellation, the forced exit
+		// below terminates the process within bounded time.
+		time.Sleep(shutdownGracePeriod)
+		os.Exit(0)
+	}()
+
+	if err := agent.Run(ctx, os.Stdin, os.Stdout, os.Stderr, agent.HandleEcho); err != nil {
+		// ctx.Err() (cancellation via signal) is a clean
+		// shutdown, not a failure — operator-facing exit 0.
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
-// printAgentUsage describes the planned v1.1 wire-protocol
-// surface so v1.0 consumers can write integration code today.
-// The shape disclosure (stdin / stdout / length-prefixed
-// framing) is locked by Track L Phase 1's L-008 through L-012;
-// any future change to that shape ratifies through that track,
-// not through this stub's help text.
+// printAgentUsage describes the agent's wire-protocol surface.
+// L-008 ships an echo loop (read frame → mirror payload → write
+// frame) that L-009+ replaces with the real handler dispatcher.
+// The framing format (4-byte big-endian length prefix) is a STUB
+// per L-008; L-010 supersedes with the production contract.
 func printAgentUsage(w io.Writer, fs *pflag.FlagSet) {
 	fmt.Fprintf(w, `Usage: kensa agent --stdio
 
-[v1.0 PLACEHOLDER — feature lands in v1.1]
+Run kensa as a multi-call binary on the target host. The
+controller (kensa on the operator's machine) connects via SSH
+and drives the agent through a framed wire protocol on stdin/
+stdout. This is the target-local execution surface that unlocks
+the kernel-primitive migration (atomic file ops via renameat2,
+deadman timer via timerfd, systemd D-Bus, etc.).
 
-The agent subcommand will run kensa as a multi-call binary on
-the target host, receiving wire-protocol messages over stdin
-and writing responses to stdout. The controller (kensa on the
-operator's machine) connects via SSH and drives the agent
-through the protocol. This replaces the v1.0 "shell out to
-ssh per command" transport with a long-lived agent process,
-unlocking the kernel-primitive migration (atomic file ops via
-renameat2, deadman timer via timerfd, systemd D-Bus, etc.).
-
-Planned wire-protocol direction:
+Wire direction:
   stdin   length-prefixed framed messages (controller → agent)
   stdout  length-prefixed framed responses (agent → controller)
   stderr  human-readable diagnostics
 
-The exact wire format ratifies through Track L Phase 1
-(deliverables L-007 through L-014; see docs/roadmap/
-DELIVERABLES.md). Operators scripting against v1.0 can
-expect:
+Framing (STUB per L-008 — see Track L Phase 1):
+  4-byte big-endian unsigned length prefix
+  N bytes of protobuf-encoded payload (wirev1.Request /
+    wirev1.Response from internal/agent/wirev1)
+  Max frame size: 16 MiB
 
-  - The 'agent --stdio' invocation pattern is stable.
-  - Length-prefixed framing means consumers buffer one
-    message at a time (no streaming-JSON ambiguity).
-  - Version handshake on session start; mismatched
-    majors abort cleanly.
+L-010 supersedes this stub framing with the production contract
+(frame-type discriminator for heartbeat channel demux,
+configurable max-size policy, partial-read recovery). The stub
+format is INTERNAL — operator scripts should not depend on the
+bit-pattern across kensa releases.
 
-Today (v1.0):
-  --stdio  exits 1 with the "planned for v1.1" message
-  --help   shows this disclosure (exit 0)
+Today's behavior (L-008 echo):
+  --stdio  reads a frame, mirrors its payload back as a
+           Response with the same correlation_id, exits 0 on
+           clean stdin close. Validates framing + protobuf
+           roundtrip end-to-end.
+  --help   exits 0 with this disclosure.
 
-In v1.1 the agent path replaces direct SSH for handler
-invocation. v1.0 consumers should use direct-SSH transport
-(kensa check / remediate / rollback against the host
-directly) — the operator-facing CLI surface is unchanged
-between v1.0 and v1.1; only the underlying transport flips.
+L-009 replaces the echo loop with the real handler dispatcher
+(Apply / Capture / Rollback message payloads).
 
 Flags:
 %s`, fs.FlagUsages())
