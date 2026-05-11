@@ -49,6 +49,25 @@ type Engine struct {
 	locks             *hostLocks
 	validators        []Validator
 	forceValidateFail bool
+
+	// agentClient is set via WithAgentClient. When non-nil,
+	// every handler lookup returns a RemoteHandler wrapping
+	// this client (the original handler's Capturable() value
+	// is preserved). The local handler code does not run on
+	// the controller — the agent process does. L-014
+	// deliverable.
+	agentClient AgentClient
+}
+
+// AgentClient is the controller-side wire-protocol client.
+// Engine takes the interface (rather than importing
+// internal/agent/client directly) to keep engine free of
+// cycles with the agent stack. The implementation in
+// internal/agent/client.*Client satisfies this interface.
+type AgentClient interface {
+	Apply(ctx context.Context, mechanism string, params api.Params, preState *api.PreState) (*api.StepResult, error)
+	Capture(ctx context.Context, mechanism string, params api.Params) (*api.PreState, error)
+	Rollback(ctx context.Context, preState api.PreState) (*api.RollbackResult, error)
 }
 
 // Option configures [Engine] at construction. The default zero-config
@@ -81,6 +100,19 @@ func WithEvents(b EventBus) Option { return func(e *Engine) { e.events = b } }
 // implementation to be wired.
 func WithForceValidateFail() Option {
 	return func(e *Engine) { e.forceValidateFail = true }
+}
+
+// WithAgentClient enables agent-mode dispatch. When set,
+// every handler invocation routes through a RemoteHandler
+// wrapping this client; the local handler code does NOT run
+// on the controller. L-014 deliverable.
+//
+// The client's lifecycle is the caller's responsibility:
+// cmd/kensa/remediate.go typically constructs the client
+// from a bootstrap+ssh+stdio pipeline, calls
+// client.Handshake, then passes via this option.
+func WithAgentClient(c AgentClient) Option {
+	return func(e *Engine) { e.agentClient = c }
 }
 
 // New constructs an Engine with the given options. Defaults applied
@@ -225,4 +257,82 @@ func hasStrandedNonCapturable(steps []api.StepResult) bool {
 		}
 	}
 	return false
+}
+
+// lookupHandler is the engine-internal indirection that
+// intercepts handler lookups when agent-mode is active
+// (WithAgentClient was passed). When agentClient is nil,
+// delegates to registry.Get. When non-nil, returns an
+// agentBackedHandler wrapping the client + the local
+// handler's Capturable() value.
+//
+// The local handler is consulted ONLY for its Capturable()
+// metadata — its Apply/Capture/Rollback code never runs on
+// the controller in agent mode. If the mechanism is not
+// registered locally, agent-mode dispatch falls back to a
+// "true" Capturable assumption, since the agent might have
+// the handler even if the controller's registry doesn't.
+func (e *Engine) lookupHandler(mechanism string) (api.Handler, bool) {
+	if e.agentClient == nil {
+		return e.registry.Get(mechanism)
+	}
+	// Try the controller's registry for the Capturable bit;
+	// missing-locally means the agent registers something
+	// we don't, so assume capturable=true as the safer
+	// default (engine treats it as a transactional step,
+	// agent's dispatcher will surface a "not_capturable"
+	// envelope Error if that's wrong).
+	capturable := true
+	if local, ok := e.registry.Get(mechanism); ok {
+		capturable = local.Capturable()
+	}
+	return &agentBackedHandler{
+		client:     e.agentClient,
+		mechanism:  mechanism,
+		capturable: capturable,
+	}, true
+}
+
+// mustLookupHandler is the panicking variant for code paths
+// where the engine has already verified the handler exists
+// (e.g., post-preflight Apply / Capture / Rollback). Mirrors
+// the registry.MustGet idiom.
+func (e *Engine) mustLookupHandler(mechanism string) api.Handler {
+	h, ok := e.lookupHandler(mechanism)
+	if !ok {
+		panic(fmt.Sprintf("engine: handler %q not found (pre-flight should have caught this)", mechanism))
+	}
+	return h
+}
+
+// agentBackedHandler is the engine-internal RemoteHandler
+// shim. Implements api.Handler / CaptureHandler /
+// RollbackHandler by forwarding to the engine's
+// AgentClient. The L-014 peer review identified an earlier
+// duplicate in internal/agent/remotehandler/ (with no
+// callers outside its own test) and recommended dedup;
+// that package was deleted and this engine-internal
+// implementation is the only one.
+type agentBackedHandler struct {
+	client     AgentClient
+	mechanism  string
+	capturable bool
+}
+
+func (h *agentBackedHandler) Name() string     { return h.mechanism }
+func (h *agentBackedHandler) Capturable() bool { return h.capturable }
+
+func (h *agentBackedHandler) Apply(ctx context.Context, _ api.Transport, params api.Params, pre *api.PreState) (*api.StepResult, error) {
+	return h.client.Apply(ctx, h.mechanism, params, pre)
+}
+
+func (h *agentBackedHandler) Capture(ctx context.Context, _ api.Transport, params api.Params) (*api.PreState, error) {
+	return h.client.Capture(ctx, h.mechanism, params)
+}
+
+func (h *agentBackedHandler) Rollback(ctx context.Context, _ api.Transport, pre *api.PreState) (*api.RollbackResult, error) {
+	if pre == nil {
+		return nil, errors.New("engine: agent-mode rollback called with nil PreState")
+	}
+	return h.client.Rollback(ctx, *pre)
 }

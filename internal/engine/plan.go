@@ -33,7 +33,7 @@ func (e *Engine) PlanTransaction(ctx context.Context, transport api.Transport, r
 	// Build apply-step previews from the transaction steps.
 	applySteps := make([]api.StepPreview, len(txn.Steps))
 	for i, step := range txn.Steps {
-		h, ok := e.registry.Get(step.Mechanism)
+		h, ok := e.lookupHandler(step.Mechanism)
 		capturable := ok && h.Capturable()
 		applySteps[i] = api.StepPreview{
 			Index:      step.Index,

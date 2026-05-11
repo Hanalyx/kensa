@@ -16,7 +16,7 @@ import (
 func (e *Engine) apply(ctx context.Context, transport api.Transport, txn *api.Transaction, preStates []api.PreState) (results []api.StepResult, allOK bool) {
 	results = make([]api.StepResult, 0, len(txn.Steps))
 	for i, step := range txn.Steps {
-		h := e.registry.MustGet(step.Mechanism)
+		h := e.mustLookupHandler(step.Mechanism)
 
 		var pre *api.PreState
 		if h.Capturable() && i < len(preStates) {
