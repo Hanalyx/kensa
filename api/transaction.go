@@ -169,6 +169,18 @@ type PreState struct {
 	Capturable bool
 	// Data is the mechanism-specific serialized pre-state. Empty for
 	// non-capturable steps.
+	//
+	// Type-widening contract (relevant when this PreState has been
+	// round-tripped through the agent wire format, L-007+): all Go
+	// integer types in Data widen to int64 across the wire, and
+	// time.Time values widen to RFC3339Nano strings. Handler code
+	// that previously type-asserted .(int) or .(time.Time) after a
+	// Capture must use .(int64) and the wirev1.DecodeTime helper
+	// (or time.Parse(time.RFC3339Nano, ...)) respectively.
+	//
+	// Integers whose magnitude exceeds 2^53 are REJECTED at encode
+	// time by the wire layer (float64 cannot represent them exactly).
+	// Handlers that need larger integers must encode as strings.
 	Data map[string]interface{}
 	// CapturedAt is when the capture handler ran.
 	CapturedAt time.Time

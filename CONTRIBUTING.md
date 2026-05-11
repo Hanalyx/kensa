@@ -3,6 +3,33 @@
 Kensa modifies production Linux systems. A bug here can break customer
 infrastructure at 3 AM. The discipline below is not optional.
 
+## Developer prerequisites
+
+Beyond Go itself (toolchain version pinned in `go.mod`), kensa-go's
+build expects:
+
+- **`protoc`** (Protocol Buffers compiler). Required by `make proto`
+  for regenerating `internal/agent/wirev1/wire.pb.go` from
+  `wire.proto`. Install the matching version from the
+  [protocolbuffers/protobuf releases](https://github.com/protocolbuffers/protobuf/releases)
+  page (CI uses v25.3; aim for the same or newer). Place the binary
+  on `PATH`.
+- **`protoc-gen-go`** (Go bindings plugin). Install with
+  `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`.
+  The version is pinned via `tools.go` so all developers regenerate
+  byte-identical output. `go install` puts the binary in
+  `$(go env GOPATH)/bin`; make sure that's on `PATH`.
+
+The codegen-drift gate (`make proto-check` + `TestCodegenSync`)
+fails the build if checked-in `wire.pb.go` differs from what
+`protoc` would produce today. Run `make proto` after editing
+`wire.proto`, commit both files together.
+
+Without `protoc` installed locally, `go test ./...` will skip
+`TestCodegenSync` (with a clear message). CI installs protoc and
+fails hard if it can't run the gate — so a missing-locally /
+passing-in-CI workflow is fine for everyday development.
+
 ## Authorship Model
 
 The Kensa AI team and collaborator write all of the application code. The

@@ -576,6 +576,7 @@ once the founder ratifies them.
 - **Acceptance:** `kensa agent --stdio` reads framed messages from stdin, echoes them, exits when stdin closes
 - **Size:** 4h
 - **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Implementation note:** L-008's "framed messages" requires a framing scheme — but L-010 is what defines the production length-prefix framing. L-008 ships a minimal stub framing (4-byte big-endian length prefix, recommended) good enough for the echo test; L-010 supersedes it with the full contract (max message size, partial-read handling, error recovery). Document the stub in `internal/agent/framing.go` with a comment pointing to L-010 for the production replacement.
 
 #### L-009 — Define wire-protocol schema (request, response, error, heartbeat types)
 - **Phase:** LL Phase 1

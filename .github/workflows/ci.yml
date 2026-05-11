@@ -99,6 +99,27 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+      # protoc + protoc-gen-go installed BEFORE `go test ./...` so
+      # TestCodegenSync (the L-007 wire-protocol codegen-drift gate)
+      # actually runs instead of self-skipping. The test fails hard
+      # under CI when protoc is missing — that's the belt; running
+      # the install here is the suspenders.
+      - name: Install protoc
+        run: |
+          PROTOC_VERSION="25.3"
+          curl -sSLo /tmp/protoc.zip \
+            "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+          sudo unzip -q -o /tmp/protoc.zip -d /usr/local
+          protoc --version
+      - name: Install protoc-gen-go
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Verify wire.pb.go in sync with wire.proto
+        # Belt-and-suspenders for TestCodegenSync: even if a future
+        # test refactor accidentally weakens the Go-side gate, the
+        # Make target keeps wire-schema drift from landing silently.
+        run: make proto-check
       - run: go test ./...
 
   lint:
