@@ -582,9 +582,10 @@ once the founder ratifies them.
 #### L-009 — Define wire-protocol schema (request, response, error, heartbeat types)
 - **Phase:** LL Phase 1
 - **Deps:** L-007, L-008
-- **Acceptance:** schema covers all current handler invocations + capture + rollback + heartbeat
-- **Size:** 3h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Acceptance:** schema covers all current handler invocations + capture + rollback + heartbeat. Shipped 2026-05-11 (merge `52a2f87`): wire.proto extended with ApplyRequest/Response, CaptureRequest/Response, RollbackRequest/Response, HeartbeatRequest/Ack + WireStepResult/WirePreState/WireRollbackResult wire-level mirrors; Request/Response.payload becomes oneof; `reserved 14 to 19` enforces field-number convention at codegen. internal/agent/wirev1/handlers.go provides APIxxxToWire/WirexxxToAPI bridges with Timestamp.CheckValid validation. internal/agent/echo.go HandleEcho now dispatches on Request's oneof variant.
+- **Size:** ~3h actual
+- **Status:** **done** (merge `52a2f87`, 2026-05-11)
+- **Notes:** Peer review caught 1 P0 (Timestamp overflow exploit — peer-sent MaxInt64 Seconds would have produced silently-corrupt year-292277 time.Time in the signed audit trail; fixed via safeTimestampToTime calling CheckValid before AsTime) + 4 P1s (missing APIParamsToWire helper, reserved field-numbers as comment-only, package-doc clarity on time encoding paths, handler-error dispatch convention undocumented). All addressed pre-merge. L-010 and L-011 entries carry forward review TODOs (multi-variant oneof DoS guard at L-010, token-uniqueness + input validation + handler-error dispatch at L-011).
 
 #### L-010 — Implement length-prefixed framing on both ends
 - **Phase:** LL Phase 1
