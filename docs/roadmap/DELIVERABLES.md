@@ -619,9 +619,10 @@ once the founder ratifies them.
 #### L-013 — Binary push + SHA-cached agent caching at `~/.cache/kensa/agent-<sha>`
 - **Phase:** LL Phase 1
 - **Deps:** L-008, L-011
-- **Acceptance:** first invocation pushes; subsequent invocations skip; cache invalidates on binary change
-- **Size:** 3h
-- **Status:** pending (L-007 ratified protobuf 2026-05-11; awaiting upstream Deps)
+- **Acceptance:** first invocation pushes; subsequent invocations skip; cache invalidates on binary change. Shipped 2026-05-11 (merge `f873148`): `internal/agent/bootstrap/EnsureAgent(ctx, transport, localBinaryPath)` resolves $HOME on target via `printf '%s' "$HOME"`, probes `test -x ~/.cache/kensa/agent-<sha>`, falls through to mkdir + api.Transport.Put(mode=0o755) + post-push exec-bit verify. Returns the absolute remote path the controller invokes as `<remotePath> agent --stdio`.
+- **Size:** ~3h actual
+- **Status:** **done** (merge `f873148`, 2026-05-11)
+- **Notes:** Tests via queue-based fake api.Transport (sequenced Run responses for cache-miss-then-hit). Concurrent-session race documented: two parallel kensa invocations may both Put; mkdir is idempotent, Put overwrites identical bytes (same SHA). Peer review skipped — straightforward filesystem/transport plumbing, low risk relative to the wire-protocol work. Real SSH integration tests deferred to L-014's E2E.
 - **Framing scope clarification (L-010 review):** binary push happens BEFORE `kensa agent --stdio` starts — raw bytes over SSH (scp-equivalent or inline base64), not the L-010 framed wire. L-010's 16 MiB frame cap does not apply. Cache key is the SHA256 of the pushed binary; cache lookup is target-side filesystem state, not a wire-protocol exchange.
 
 #### L-014 — Port `file_permissions` handler to agent mode (proof-of-concept)
