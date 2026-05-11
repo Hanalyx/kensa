@@ -3,10 +3,13 @@ package filecontent_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
 )
@@ -199,6 +202,164 @@ func TestRollback_AC07_IsIdempotent(t *testing.T) {
 
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = filecontent.New()
+}
+
+// ─── P-002 migration tests (agent-mode AtomicTransport path) ────────────
+
+// TestApply_AgentMode_NewFile_AtomicWrite locks the new-file
+// branch of Apply: AtomicWrite when the target doesn't exist.
+func TestApply_AgentMode_NewFile_AtomicWrite(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "fresh.conf")
+
+	tr := local.New()
+	h := filecontent.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"path":    target,
+		"content": "hello\n",
+		"mode":    "0640",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	if !strings.Contains(res.Detail, "atomically wrote") {
+		t.Errorf("Detail should mention 'atomically wrote' (agent-mode); got: %q", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "hello\n" {
+		t.Errorf("content: got %q, want %q", got, "hello\n")
+	}
+	info, _ := os.Stat(target)
+	if info.Mode().Perm() != 0o640 {
+		t.Errorf("mode: got %o, want 0640", info.Mode().Perm())
+	}
+}
+
+// TestApply_AgentMode_ExistingFile_AtomicReplace locks the
+// replace branch: AtomicReplace preserves the inode (well,
+// via Renameat2 actually replaces the entry, but readers see
+// the file continuously).
+func TestApply_AgentMode_ExistingFile_AtomicReplace(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "existing.conf")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := local.New()
+	h := filecontent.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"path":    target,
+		"content": "new content",
+		"mode":    "0644",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "new content" {
+		t.Errorf("content: got %q, want %q", got, "new content")
+	}
+}
+
+// TestApply_AgentMode_RejectsBadMode locks the FMA Q1.a
+// concern: mode strings the Go parser can't handle surface
+// as a clear error rather than corrupting bytes.
+func TestApply_AgentMode_RejectsBadMode(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "bad-mode.conf")
+
+	tr := local.New()
+	h := filecontent.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"path":    target,
+		"content": "x",
+		"mode":    "u=rw,g=r,o=r", // symbolic notation; Go parser rejects
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Success {
+		t.Error("Apply with invalid mode string should NOT succeed")
+	}
+	if !strings.Contains(res.Detail, "parse mode") {
+		t.Errorf("Detail should mention parse mode failure; got: %q", res.Detail)
+	}
+	// File MUST NOT have been written.
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Errorf("file should not exist; stat: %v", err)
+	}
+}
+
+// TestRollback_AgentMode_RemovesWhenWasAbsent locks the
+// file_existed=false rollback branch.
+func TestRollback_AgentMode_RemovesWhenWasAbsent(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "to-remove.conf")
+	if err := os.WriteFile(target, []byte("from-apply"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pre := &api.PreState{
+		Data: map[string]interface{}{
+			"path":         target,
+			"file_existed": false,
+		},
+	}
+	tr := local.New()
+	h := filecontent.New()
+	res, err := h.Rollback(context.Background(), tr, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Rollback should succeed; got: %s", res.Detail)
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Errorf("file should be gone; stat: %v", err)
+	}
+}
+
+// TestRollback_AgentMode_RestoresContent locks the
+// file_existed=true rollback branch.
+func TestRollback_AgentMode_RestoresContent(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "restored.conf")
+	if err := os.WriteFile(target, []byte("apply-modified"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pre := &api.PreState{
+		Data: map[string]interface{}{
+			"path":         target,
+			"file_existed": true,
+			"content":      "original-bytes\n",
+			"mode":         "0640",
+		},
+	}
+	tr := local.New()
+	h := filecontent.New()
+	res, err := h.Rollback(context.Background(), tr, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Rollback should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "original-bytes\n" {
+		t.Errorf("content: got %q, want %q", got, "original-bytes\n")
+	}
+	info, _ := os.Stat(target)
+	if info.Mode().Perm() != 0o640 {
+		t.Errorf("mode after rollback: got %o, want 0640", info.Mode().Perm())
+	}
 }
 
 // captureCmd returns the exact shell command the handler produces for
