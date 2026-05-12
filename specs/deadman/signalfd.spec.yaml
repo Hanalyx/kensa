@@ -1,0 +1,119 @@
+spec:
+    id: deadman-signalfd
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: deadman-signalfd
+        description: |
+            LL Phase 3 deliverable D-003. Signal-delivery
+            wrapper for the rebuilt agent-side deadman
+            subsystem, plus the prctl(PR_SET_PDEATHSIG)
+            helper that complements pidfd (D-002) as the
+            fallback for kernels <5.3.
+
+            **Why signalfd not signal.Notify.** Go's
+            os/signal package handles signals via a goroutine
+            that converts them to channel sends. For the
+            deadman event loop (D-004), we want signal
+            delivery as an epoll-readable fd alongside
+            timerfd (D-001) and pidfd (D-002). signalfd(2)
+            gives us a fd that becomes readable on signal
+            delivery; the event loop integrates it
+            uniformly.
+
+            **Signals handled:** SIGTERM only for v1.
+            Operators stopping the agent cleanly send
+            SIGTERM; the event loop catches it via signalfd
+            and triggers an in-process rollback before
+            exiting. SIGKILL cannot be caught (kernel
+            invariant) — the "agent SIGKILL → no rollback"
+            risk is per Q3.a ratification (2026-05-12).
+
+            **PR_SET_PDEATHSIG.** A kernel feature that
+            requests SIGKILL when the calling process's
+            parent dies. This is D-002's fallback path:
+            when pidfd_open is unavailable (kernel <5.3 OR
+            seccomp-blocked), the agent calls
+            SetParentDeathSignal(SIGKILL) at startup. If the
+            parent dies, the kernel SIGKILLs the agent. The
+            rollback won't run (SIGKILL is uncatchable), but
+            the agent doesn't linger on a target that's lost
+            its operator.
+
+            **Integration test deferred.** PR_SET_PDEATHSIG
+            requires fork+kill-parent semantics that are
+            non-trivial in a Go unit test. D-006's fuzz
+            harness provides full-process control and exercises
+            the end-to-end behavior. This deliverable ships a
+            smoke test that verifies SetParentDeathSignal
+            returns nil on a supported kernel (Linux ≥2.4.x,
+            so always).
+
+    objective:
+        summary: |
+            Wrap unix.Signalfd for SIGTERM delivery as a poll-
+            readable fd. Wrap unix.Prctl(PR_SET_PDEATHSIG, sig)
+            as a helper.
+        scope:
+            includes:
+                - "internal/agent/deadman/signalfd/signalfd.go: SignalFD type for SIGTERM + SetParentDeathSignal helper"
+                - "internal/agent/deadman/signalfd/signalfd_test.go: unit tests"
+            excludes:
+                - "End-to-end PR_SET_PDEATHSIG fork-and-kill test (D-006)"
+                - "Multiple-signal support (only SIGTERM in v1)"
+                - "epoll integration (D-004)"
+
+    constraints:
+        - id: C-01
+          description: |
+              SignalFD MUST use signalfd_create with
+              SFD_CLOEXEC so the fd doesn't leak across exec.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              SignalFD MUST block the watched signals at the
+              process level via sigprocmask, otherwise the
+              default disposition (terminate) takes effect
+              before signalfd can deliver. This is the
+              standard signalfd usage pattern.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              SetParentDeathSignal(sig) MUST accept any
+              valid Linux signal number. Default callers use
+              unix.SIGKILL (uncatchable, lossless).
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              SignalFD.Close MUST restore the prior signal
+              mask so the agent doesn't permanently mask
+              SIGTERM after teardown.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              TestSignalfd_DeliversSIGTERM: New(SIGTERM),
+              raise SIGTERM via syscall.Kill(syscall.Getpid()),
+              Wait() returns within 200ms with the signal info.
+        - id: AC-02
+          description: |
+              TestSignalfd_ContextCancel: Wait(ctx) returns
+              ctx.Err() if ctx is canceled before signal.
+        - id: AC-03
+          description: |
+              TestSignalfd_CloseRestoresMask: after Close,
+              the watched signal is unblocked (default
+              disposition restored).
+        - id: AC-04
+          description: |
+              TestPrctl_SetReturnsNoError: SetParentDeathSignal
+              (SIGKILL) returns nil. The end-to-end
+              parent-death-kills-child test is scoped to D-006.
