@@ -1,0 +1,142 @@
+spec:
+    id: deadman-timerfd
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: deadman-timerfd
+        description: |
+            LL Phase 3 deliverable D-001. The kernel-primitive
+            timer wrapper for the rebuilt deadman subsystem.
+
+            **Why timerfd not time.Timer.** Go's `time.Timer`
+            uses `CLOCK_MONOTONIC` which **does not count
+            during system sleep/suspend**. A laptop or VM
+            suspended mid-transaction would resume with a
+            deadman that thinks no time passed; the rollback
+            would NOT fire even though wall-clock minutes
+            elapsed. `timerfd_create(CLOCK_BOOTTIME, ...)`
+            counts elapsed time INCLUDING suspend periods —
+            the fundamental property the rebuilt deadman
+            needs.
+
+            **Why CLOCK_BOOTTIME not CLOCK_REALTIME.** REALTIME
+            is wall-clock; subject to NTP jumps, manual `date
+            -s`, leap-second adjustments. The deadman is a
+            "fire after N seconds of elapsed time regardless
+            of operator interference" promise. BOOTTIME is
+            the only clock satisfying both
+            "counts-during-sleep" AND "ignores-wall-clock-
+            jumps".
+
+            **Standalone primitive.** This package ships ONLY
+            the timer wrapper. The deadman event loop
+            (D-004) integrates this with pidfd (D-002) and
+            signalfd (D-003) via epoll. The current shell-
+            based `internal/deadman/` is untouched by this
+            deliverable.
+
+            **API shape.** Mirrors Go's `time.Timer` for
+            familiarity:
+              - `New() (*Timer, error)` — creates the fd.
+              - `(t *Timer) Arm(d time.Duration) error` —
+                schedules the fire.
+              - `(t *Timer) Cancel() error` — disarms.
+              - `(t *Timer) Wait(ctx context.Context) error`
+                — blocks until fire or ctx done.
+              - `(t *Timer) FD() int` — exposes the fd for
+                epoll registration (D-004).
+              - `(t *Timer) Close() error` — releases the fd.
+
+    objective:
+        summary: |
+            Wrap unix.TimerfdCreate(CLOCK_BOOTTIME, TFD_CLOEXEC)
+            in a small, testable Go type. No engine integration
+            in this deliverable.
+        scope:
+            includes:
+                - "internal/agent/deadman/timerfd/timerfd.go: Timer type + 5 methods"
+                - "internal/agent/deadman/timerfd/timerfd_test.go: unit tests on the kernel primitive"
+                - "Wait()'s 8-byte le-uint64 read shape verified"
+            excludes:
+                - "epoll integration (D-004)"
+                - "deadman Armer rewrite (D-005)"
+                - "pidfd or signalfd (D-002, D-003)"
+                - "Suspend integration test — requires systemd-suspend, covered in D-006 fuzz harness"
+
+    constraints:
+        - id: C-01
+          description: |
+              Timer MUST use CLOCK_BOOTTIME so it counts time
+              during system sleep. CLOCK_MONOTONIC is
+              explicitly forbidden — would silently lose
+              suspend-resistance.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Timer MUST set TFD_CLOEXEC so the fd doesn't
+              leak across exec boundaries (the agent process
+              may exec a child for rollback execution).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Arm(d) with d <= 0 MUST return a typed error
+              rather than silently arming a 0-second timer
+              (which would fire immediately and surprise
+              callers).
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Wait(ctx) MUST return ctx.Err() if the context
+              is canceled before the timer fires.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Cancel() MUST be safe to call multiple times
+              and on a never-armed timer.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Close() MUST be idempotent. Calling Close on a
+              closed timer MUST NOT return an error.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              TestTimerfd_FiresAfterWindow: Arm(100ms),
+              call Wait() in a goroutine; assert Wait returns
+              nil within 100-200ms (wall-clock budget).
+        - id: AC-02
+          description: |
+              TestTimerfd_CanCancel: Arm(5s), Cancel(),
+              Wait() in a goroutine with 200ms timeout;
+              assert Wait does NOT return success within 200ms.
+        - id: AC-03
+          description: |
+              TestTimerfd_ContextCancel: Arm(5s), Wait(ctx)
+              with ctx canceled after 100ms; assert Wait
+              returns ctx.Err() in 100-200ms.
+        - id: AC-04
+          description: |
+              TestTimerfd_RejectsZeroDuration: Arm(0) and
+              Arm(-1) both return a typed error.
+        - id: AC-05
+          description: |
+              TestTimerfd_FDReadShape: after Arm + fire, a
+              direct unix.Read on FD() returns exactly 8
+              bytes (le-uint64 expiration count) — verifies
+              the wire shape that D-004's epoll loop will
+              consume.
+        - id: AC-06
+          description: |
+              TestTimerfd_CloseIdempotent: Close() can be
+              called twice without error.
