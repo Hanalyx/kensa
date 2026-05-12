@@ -276,3 +276,43 @@ func TestRollback_AgentMode_AtomicWrite(t *testing.T) {
 		t.Errorf("mode: got %o, want 0644", info.Mode().Perm())
 	}
 }
+
+// TestRollback_AgentMode_RefusesMissingCapturedMode locks the
+// fix/phase-2-rework F-003 fail-loud behavior: if Capture
+// somehow recorded an empty `mode` for a present-at-capture
+// file, Rollback refuses to silently default to 0o644
+// (which would widen perms on a tightened file). The
+// operator gets an actionable error.
+func TestRollback_AgentMode_RefusesMissingCapturedMode(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "to-be-restored")
+	pre := &api.PreState{
+		Mechanism:  "file_absent",
+		Capturable: true,
+		Data: map[string]interface{}{
+			"path":         target,
+			"file_existed": true,
+			"content":      "captured\n",
+			"mode":         "", // simulated capture bug
+			"owner":        "",
+			"group":        "",
+			"selinux":      "",
+		},
+	}
+	tr := local.New()
+	h := fileabsent.New()
+	res, err := h.Rollback(context.Background(), tr, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if res.Success {
+		t.Errorf("Rollback with empty captured mode MUST fail; got success: %s", res.Detail)
+	}
+	if !strings.Contains(res.Detail, "captured mode missing") {
+		t.Errorf("Detail should name 'captured mode missing'; got: %q", res.Detail)
+	}
+	// File must not have been created with a defaulted mode.
+	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+		t.Errorf("file should not be created when rollback refuses; stat: %v", statErr)
+	}
+}

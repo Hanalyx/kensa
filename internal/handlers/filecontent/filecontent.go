@@ -29,7 +29,11 @@ type Params struct {
 	// Required.
 	Content string
 	// Mode is the desired permission mode as a 4-digit octal string
-	// (e.g. "0644"). Optional; defaults to "0644" when empty.
+	// (e.g. "0644"). Optional. When omitted: existing files retain
+	// their current mode bits (matches `printf > file` shell
+	// semantics); new files default to 0o644 (umask-default under
+	// root). To force-normalize an existing file's mode, set the
+	// rule's `mode:` field explicitly.
 	Mode string
 	// Owner is the desired owner username. Optional.
 	Owner string
@@ -400,7 +404,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			// tightened-mode file at rollback time.
 			return &api.RollbackResult{
 				Success:    false,
-				Detail:     fmt.Sprintf("file_content: rollback %s: captured mode missing; refusing to default (re-run capture)", path),
+				Detail:     fmt.Sprintf("file_content: rollback %s: captured mode missing; refusing to default (state is bad — re-issue the rule via `kensa remediate` to regenerate capture, or `kensa rollback --info <txn>` to inspect)", path),
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}

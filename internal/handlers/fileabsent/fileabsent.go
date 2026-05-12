@@ -268,7 +268,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			// the operator re-runs capture.
 			return &api.RollbackResult{
 				Success:    false,
-				Detail:     fmt.Sprintf("file_absent: rollback %s: captured mode missing; refusing to default (re-run capture)", path),
+				Detail:     fmt.Sprintf("file_absent: rollback %s: captured mode missing; refusing to default (state is bad — re-issue the rule via `kensa remediate` to regenerate capture, or `kensa rollback --info <txn>` to inspect)", path),
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}

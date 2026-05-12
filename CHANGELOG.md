@@ -42,6 +42,13 @@ the canonical names; short forms are listed in
   for kernel-atomic") so audit reviewers see the basis without
   reading the source.
 
+- **Typed `ErrParentDirMissing`.** Returned by all three
+  primitives when the parent directory of the target doesn't
+  exist (or an intermediate component is missing). Replaces
+  the previous generic "open intermediate" wrap. Operators
+  hitting this error get a clear pointer to the missing
+  component name.
+
 - **Symlink-traversal refusal.** The fsatomic primitives walk
   the target path component-by-component with `O_NOFOLLOW` and
   refuse to operate if any component (including the base) is a
