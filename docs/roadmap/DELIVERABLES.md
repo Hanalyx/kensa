@@ -671,10 +671,9 @@ once the founder ratifies them.
 #### P-003 — Migrate `file_absent` to fsatomic
 - **Phase:** LL Phase 2
 - **Deps:** P-001
-- **Acceptance:** file_absent Apply uses fsatomic.AtomicRemove (with ErrNotExist→idempotent-success translation); Rollback re-creates via AtomicWrite. Direct-SSH transport falls back to existing shell pipeline. Shipped 2026-05-11 (merge `51c2bb8`).
-- **Size:** ~0.5 days actual
-- **Status:** **done** (merge `51c2bb8`, 2026-05-11)
-- **Notes:** Also shipped `api.AtomicTransport` capability interface (the pattern P-002/P-004/P-005 will use for fsatomic-vs-shell branching). LocalTransport satisfies it via fsatomic delegation. FMA in commit body covers ErrNotExist translation (the explicit failure mode FMA Q1 flagged), parent-dir-removed Rollback edge, ACL-loss limitation (pre-existing, not a regression), symlink semantics (unchanged), directory removal (still EISDIR), read-only fs (still EROFS).
+- **Acceptance:** file_absent Apply uses fsatomic.AtomicRemove; Rollback re-creates via AtomicWrite. Simpler than P-002. Failure-mode analysis.
+- **Size:** ~1 day
+- **Status:** **pending** (blocked on P-001)
 
 #### P-004 — Migrate `config_set` to fsatomic
 - **Phase:** LL Phase 2
