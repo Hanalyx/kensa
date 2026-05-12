@@ -26,7 +26,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/deadman"
+	"github.com/Hanalyx/kensa-go/internal/engine/deadman"
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/evidence"
 	"github.com/Hanalyx/kensa-go/internal/scan"

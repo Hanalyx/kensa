@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/deadman"
+	"github.com/Hanalyx/kensa-go/internal/engine/deadman"
 	"github.com/Hanalyx/kensa-go/internal/handler"
 
 	// Register sysctlset so dry-run rollback tests can use it.

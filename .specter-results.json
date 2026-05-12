@@ -1,0 +1,964 @@
+{
+  "results": [
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-audit-rule-set",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-09",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-06",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-07",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "handler-audit-rule-set",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-audit-rule-set",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "deadman-timer",
+      "ac_id": "AC-10",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-07",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-10",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "evidence-envelope",
+      "ac_id": "AC-09",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transport-ssh",
+      "ac_id": "AC-12",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set",
+      "ac_id": "AC-09",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-11",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-12",
+      "status": "failed",
+      "passed": false
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-09",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-10",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-10",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-11",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-09",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-03",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-04",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-06",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "engine-transaction",
+      "ac_id": "AC-12",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set-dropin",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set-dropin",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set-dropin",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set-dropin",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set-dropin",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-config-set-dropin",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-cron-job",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-cron-job",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-cron-job",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-absent",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-content",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-07",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-file-permissions",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-kernel-module-disable",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-kernel-module-disable",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-kernel-module-disable",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-mount-option-set",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-mount-option-set",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-mount-option-set",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-absent",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-absent",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-absent",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-absent",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-absent",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-absent",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-present",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-present",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-present",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-present",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-present",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-package-present",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-pam-module-configure",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-pam-module-configure",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-pam-module-configure",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-interface",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-selinux-boolean-set",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-selinux-boolean-set",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-selinux-boolean-set",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-selinux-boolean-set",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-selinux-boolean-set",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-selinux-boolean-set",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-disabled",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-disabled",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-disabled",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-disabled",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-disabled",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-disabled",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-enabled",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-enabled",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-enabled",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-enabled",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-enabled",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-enabled",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-masked",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-masked",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-masked",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-sysctl-set",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-masked",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-masked",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-sysctl-set",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-service-masked",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-sysctl-set",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-sysctl-set",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-sysctl-set",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "handler-sysctl-set",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transport-ssh",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transport-ssh",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transport-ssh",
+      "ac_id": "AC-09",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transport-ssh",
+      "ac_id": "AC-10",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transport-ssh",
+      "ac_id": "AC-11",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "security-input-validation",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-01",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-03",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-04",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-05",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-08",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-02",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-06",
+      "status": "passed",
+      "passed": true
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-07",
+      "status": "skipped",
+      "passed": false
+    },
+    {
+      "spec_id": "transaction-log",
+      "ac_id": "AC-09",
+      "status": "skipped",
+      "passed": false
+    }
+  ]
+}
