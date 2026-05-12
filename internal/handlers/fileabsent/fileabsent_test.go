@@ -3,13 +3,10 @@ package fileabsent_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/handlers/fileabsent"
 )
@@ -177,102 +174,4 @@ func TestCapture_AC07_PermissionsErrorReturnsErrCaptureIncomplete(t *testing.T) 
 
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = fileabsent.New()
-}
-
-// ─── P-003 migration tests (agent-mode AtomicTransport path) ────────────
-
-// TestApply_AgentMode_AtomicRemove locks the P-003 migration:
-// when transport satisfies api.AtomicTransport, Apply uses
-// AtomicRemove instead of the rm -f shell pipeline. Verified
-// via the LocalTransport (real-fs) wrapping fsatomic primitives.
-func TestApply_AgentMode_AtomicRemove(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "to-be-removed")
-	if err := os.WriteFile(target, []byte("data"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	tr := local.New()
-	h := fileabsent.New()
-	res, err := h.Apply(context.Background(), tr, api.Params{"path": target}, nil)
-	if err != nil {
-		t.Fatalf("Apply: %v", err)
-	}
-	if !res.Success {
-		t.Errorf("Apply should succeed; got: %s", res.Detail)
-	}
-	if !strings.Contains(res.Detail, "atomically removed") {
-		t.Errorf("Detail should mention 'atomically removed' (proves agent-mode path fired); got: %q", res.Detail)
-	}
-	if _, err := os.Stat(target); !os.IsNotExist(err) {
-		t.Errorf("file should be gone; stat err: %v", err)
-	}
-}
-
-// TestApply_AgentMode_AlreadyAbsentIsIdempotent locks the
-// ErrNotExist → success translation. FMA flagged this:
-// AtomicRemove returns ErrNotExist where rm -f silently
-// succeeds. The migration MUST translate.
-func TestApply_AgentMode_AlreadyAbsentIsIdempotent(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "never-existed")
-
-	tr := local.New()
-	h := fileabsent.New()
-	res, err := h.Apply(context.Background(), tr, api.Params{"path": target}, nil)
-	if err != nil {
-		t.Fatalf("Apply on absent path: %v", err)
-	}
-	if !res.Success {
-		t.Errorf("Apply on already-absent path should succeed (idempotent); got: %s", res.Detail)
-	}
-	if !strings.Contains(res.Detail, "idempotent") {
-		t.Errorf("Detail should mention idempotent path; got: %q", res.Detail)
-	}
-}
-
-// TestRollback_AgentMode_AtomicWrite locks the rollback
-// re-creation via AtomicWrite when transport is
-// api.AtomicTransport.
-func TestRollback_AgentMode_AtomicWrite(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "to-be-restored")
-
-	pre := &api.PreState{
-		Mechanism:  "file_absent",
-		Capturable: true,
-		Data: map[string]interface{}{
-			"path":         target,
-			"file_existed": true,
-			"content":      "captured content\n",
-			"mode":         "0644",
-			"owner":        "",
-			"group":        "",
-			"selinux":      "",
-		},
-	}
-
-	tr := local.New()
-	h := fileabsent.New()
-	res, err := h.Rollback(context.Background(), tr, pre)
-	if err != nil {
-		t.Fatalf("Rollback: %v", err)
-	}
-	if !res.Success {
-		t.Errorf("Rollback should succeed; got: %s", res.Detail)
-	}
-	if !strings.Contains(res.Detail, "atomically recreated") {
-		t.Errorf("Detail should mention 'atomically recreated'; got: %q", res.Detail)
-	}
-	got, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "captured content\n" {
-		t.Errorf("content: got %q, want %q", got, "captured content\n")
-	}
-	info, _ := os.Stat(target)
-	if info.Mode().Perm() != 0o644 {
-		t.Errorf("mode: got %o, want 0644", info.Mode().Perm())
-	}
 }

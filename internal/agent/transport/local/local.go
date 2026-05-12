@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/fsatomic"
 )
 
 // Transport is the local-syscall implementation of
@@ -202,26 +201,5 @@ func (t *Transport) ControlChannelSensitive() bool { return false }
 // connection to tear down or temp directory to clean up.
 func (t *Transport) Close() error { return nil }
 
-// AtomicWrite delegates to fsatomic.AtomicWrite. Satisfies the
-// api.AtomicTransport capability interface so handlers running
-// under agent-mode can detect-and-use atomic primitives via
-// type assertion.
-func (t *Transport) AtomicWrite(ctx context.Context, dir, name string, mode fs.FileMode, content []byte) error {
-	return fsatomic.AtomicWrite(ctx, dir, name, mode, content)
-}
-
-// AtomicReplace delegates to fsatomic.AtomicReplace.
-func (t *Transport) AtomicReplace(ctx context.Context, fullPath string, mode fs.FileMode, content []byte) error {
-	return fsatomic.AtomicReplace(ctx, fullPath, mode, content)
-}
-
-// AtomicRemove delegates to fsatomic.AtomicRemove.
-func (t *Transport) AtomicRemove(ctx context.Context, fullPath string) error {
-	return fsatomic.AtomicRemove(ctx, fullPath)
-}
-
 // Compile-time interface check.
-var (
-	_ api.Transport         = (*Transport)(nil)
-	_ api.AtomicTransport   = (*Transport)(nil)
-)
+var _ api.Transport = (*Transport)(nil)

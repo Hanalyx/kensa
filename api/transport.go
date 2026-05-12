@@ -45,48 +45,6 @@ type Transport interface {
 	Close() error
 }
 
-// AtomicTransport is the capability interface for transports that
-// can perform kernel-atomic file operations on the target. The
-// agent's LocalTransport satisfies it (operations dispatch to
-// `internal/agent/fsatomic`). The direct-SSH transport does NOT
-// satisfy it — direct-SSH retains best-effort shell-pipeline
-// atomicity for v1.x.
-//
-// Phase 2 deliverable per `docs/roadmap/PHASE-2-BREAKDOWN.md`.
-// Handlers requiring atomic file operations type-assert:
-//
-//	if afs, ok := transport.(api.AtomicTransport); ok {
-//	    err := afs.AtomicReplace(ctx, path, mode, content)
-//	    // ...
-//	} else {
-//	    // direct-SSH path; shell pipeline best-effort
-//	}
-//
-// The contract guarantees crash-safety: a mid-write crash leaves
-// either the OLD bytes intact or the NEW bytes complete; concurrent
-// readers never observe a torn/partial file.
-type AtomicTransport interface {
-	Transport
-
-	// AtomicWrite publishes new file content at dir/name with the
-	// given mode. Errors with a wrapped "already exists" error if
-	// name already exists in dir. Uses O_TMPFILE + Linkat under
-	// the hood.
-	AtomicWrite(ctx context.Context, dir, name string, mode fs.FileMode, content []byte) error
-
-	// AtomicReplace replaces an existing file at fullPath with the
-	// given content + mode. Errors with a wrapped "does not exist"
-	// error if fullPath is absent. Uses Renameat2(RENAME_EXCHANGE)
-	// with fallback to Renameat. Follows symlinks via EvalSymlinks
-	// (target file is replaced; symlink itself is preserved).
-	AtomicReplace(ctx context.Context, fullPath string, mode fs.FileMode, content []byte) error
-
-	// AtomicRemove unlinks fullPath. Errors with a wrapped "does
-	// not exist" error if absent — callers MUST translate this to
-	// idempotent-success for `file_absent`-style handlers.
-	AtomicRemove(ctx context.Context, fullPath string) error
-}
-
 // CommandResult is the structured outcome of [Transport.Run].
 type CommandResult struct {
 	// ExitCode is the command's exit status. Zero means success.
