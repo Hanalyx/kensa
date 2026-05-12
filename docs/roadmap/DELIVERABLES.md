@@ -655,10 +655,10 @@ once the founder ratifies them.
 #### P-001 — `internal/agent/fsatomic/` primitive package
 - **Phase:** LL Phase 2
 - **Deps:** L-032 (LL Phase 1 complete)
-- **Acceptance:** AtomicWrite/AtomicReplace/AtomicRemove primitives with O_TMPFILE + Linkat / Renameat2(RENAME_EXCHANGE) / Unlinkat + parent-dir-fd Fsync. Concurrent-reader-during-write test verifies atomicity property. Filesystem-capability cache for RENAME_EXCHANGE fallback. Shipped 2026-05-11 (merge `8f73a53`).
-- **Size:** ~2 days estimated; shipped same-day after Phase 2 ratification.
-- **Status:** **done** (merge `8f73a53`, 2026-05-11)
-- **Notes:** Atomicity property test: 14,373 concurrent reads × 15 atomic replaces = 0 torn reads. Symlinks followed via EvalSymlinks per ratified Q2. RENAME_EXCHANGE probed lazily + cached. Parent-dir Fsync on every operation. ZERO handler edits in this commit; P-002..P-005 migrate handlers as separate per-PR failure-mode-analyses.
+- **Acceptance:** AtomicWrite/AtomicReplace/AtomicRemove primitives with O_TMPFILE + Linkat / Renameat2(RENAME_EXCHANGE) / Unlinkat + parent-dir-fd Fsync. Concurrent-reader-during-write test verifies atomicity property (reader sees old-complete or new-complete, never partial). Filesystem-capability cache for RENAME_EXCHANGE fallback.
+- **Size:** ~2 days
+- **Status:** **pending** (ready for loop pickup)
+- **Notes:** Ships the package alone — zero handler edits. P-002..P-005 migrate handlers after this lands. Tests on tmpfs.
 
 #### P-002 — Migrate `file_content` to fsatomic
 - **Phase:** LL Phase 2
