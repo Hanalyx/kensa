@@ -1,0 +1,148 @@
+spec:
+    id: deadman-pidfd
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: deadman-pidfd
+        description: |
+            LL Phase 3 deliverable D-002. The kernel-primitive
+            parent-death detection wrapper for the rebuilt
+            deadman subsystem.
+
+            **Why pidfd not waitpid/SIGCHLD.** The agent is
+            spawned by SSH. If the SSH connection drops, the
+            agent's parent (the SSH session) terminates. The
+            agent's event loop (D-004) needs a race-free
+            way to detect this so it can fire the in-process
+            rollback BEFORE the agent itself dies.
+
+            Traditional approaches all have races or limits:
+              - `waitpid(WNOHANG)` on getppid(): the kernel
+                won't let a child waitpid its parent.
+              - `SIGCHLD` is for a parent watching children,
+                not vice-versa.
+              - `prctl(PR_SET_PDEATHSIG)`: kernel kills the
+                child when parent dies — but the signal
+                arrives mid-event-loop and may be missed if
+                the child is already in the kernel.
+              - Polling getppid() == 1 (reparented to init):
+                the classic approach, but a race window
+                exists where the parent has died but the
+                kernel hasn't reparented yet.
+
+            `pidfd_open(getppid(), 0)` opens a file descriptor
+            tied to the parent process's identity (not its
+            PID, which can be reused). The fd becomes
+            POLLIN-readable when the process exits. Race-free
+            with PID reuse and reparenting.
+
+            **Kernel floor.** pidfd_open requires kernel ≥ 5.3.
+            RHEL 8 ships 4.18, so the probe pattern is
+            necessary: ProbeSupport() returns ErrKernelTooOld
+            on older kernels; callers fall back to D-003's
+            prctl(PR_SET_PDEATHSIG, SIGKILL) for parent-death
+            detection.
+
+            **API shape.** Mirrors the timerfd package:
+              - `ProbeSupport() error` — package-level probe;
+                returns nil if pidfd_open works, ErrKernelTooOld
+                if ENOSYS.
+              - `Open(pid int) (*Pidfd, error)` — general
+                constructor; takes any PID.
+              - `OpenParent() (*Pidfd, error)` — convenience
+                for the D-005 use case (`unix.Getppid()`).
+              - `(p *Pidfd) FD() int`
+              - `(p *Pidfd) Wait(ctx) error` — POLLIN-based.
+              - `(p *Pidfd) Close() error`
+
+    objective:
+        summary: |
+            Wrap unix.PidfdOpen and probe kernel support.
+            Tests verify the probe + fires-on-process-exit
+            via a forked test helper.
+        scope:
+            includes:
+                - "internal/agent/deadman/pidfd/pidfd.go: Pidfd type + Open/OpenParent/ProbeSupport"
+                - "internal/agent/deadman/pidfd/pidfd_test.go: tests via forked subprocess"
+            excludes:
+                - "Fallback to prctl(PR_SET_PDEATHSIG) on older kernels (D-003)"
+                - "epoll integration (D-004)"
+                - "Live-host fuzz test for parent SIGSTOP / SIGKILL (D-006)"
+
+    constraints:
+        - id: C-01
+          description: |
+              ProbeSupport() MUST be safe to call from multiple
+              goroutines and from package init.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              ProbeSupport() MUST distinguish three outcomes:
+              ENOSYS → ErrKernelTooOld; EPERM/EACCES →
+              ErrPidfdBlocked (seccomp / hardened container);
+              success → nil. Callers fall back to
+              prctl(PR_SET_PDEATHSIG) for both fallback
+              sentinels.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Open(pid) MUST set FD_CLOEXEC via explicit fcntl
+              after pidfd_open. Linux kernels 5.10+ set it
+              implicitly but 5.3-5.9 do not — uniform behavior
+              across the supported kernel range requires the
+              explicit call.
+          type: technical
+          enforcement: error
+        - id: C-03b
+          description: |
+              OpenParent() MUST return ErrParentGone when
+              Getppid() returns 0 or 1 (process is init OR
+              already reparented). Opening a pidfd on init
+              would wait forever; D-005 must treat this as
+              "parent already dead, fire rollback immediately".
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Wait(ctx) MUST return ctx.Err() on context
+              cancel.
+        - id: C-05
+          description: |
+              Close MUST be idempotent.
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              TestPidfd_ProbeSupport: on kernel ≥ 5.3,
+              ProbeSupport returns nil. On older kernels,
+              returns ErrKernelTooOld (this branch is
+              effectively unreachable on the CI hosts we
+              run on; verify by mocking? Or just accept the
+              kernel-version-conditional test).
+        - id: AC-02
+          description: |
+              TestPidfd_FiresOnProcessExit: fork a child
+              process (sleep N seconds), open pidfd on its
+              pid, kill it via SIGTERM, assert Wait returns
+              within 200ms.
+        - id: AC-03
+          description: |
+              TestPidfd_DoesNotFireOnUnrelatedExit: fork two
+              child processes, open pidfd on child A, kill
+              child B (NOT child A). Assert Wait does NOT
+              return within 200ms.
+        - id: AC-04
+          description: |
+              TestPidfd_ContextCancel: open pidfd on a
+              long-lived child, call Wait(ctx) with ctx
+              canceled after 100ms; assert Wait returns
+              ctx.Err() in <500ms.
+        - id: AC-05
+          description: |
+              TestPidfd_CloseIdempotent + Wait/Open after
+              Close return ErrClosed.
