@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/handlers/configset"
 )
@@ -244,4 +247,364 @@ func buildCaptureCmd(file, pattern string) string {
 		`if [ ! -e %[1]s ]; then printf '__KENSA_NOFILE__\n'; elif grep -qE %[2]s %[1]s 2>/dev/null; then grep -Em1 %[2]s %[1]s; else printf '__KENSA_ABSENT__\n'; fi`,
 		qFile, qPat,
 	)
+}
+
+// ─── P-004 migration behavioral-parity tests ─────────────────────────────
+//
+// Per FMA Q1: the Go regex MUST match sed's
+// ^[[:space:]]*KEY[[:space:]=] semantics exactly. The fixture
+// cases below cover the FMA-identified concerns: trailing-
+// newline, CRLF, dotted keys (regex metachars), multiple
+// matches, active-vs-commented detection, no-match-then-append.
+
+// TestAgentApply_KeyAbsent_AppendsAtEnd locks the no-match
+// branch: when the key doesn't exist, append the line.
+func TestAgentApply_KeyAbsent_AppendsAtEnd(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "# comment\nOtherKey=foo\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	want := "# comment\nOtherKey=foo\nMaxAuthTries=3\n"
+	if string(got) != want {
+		t.Errorf("content mismatch:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_ActiveKey_Replaces locks the active-line
+// replace branch.
+func TestAgentApply_ActiveKey_Replaces(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "MaxAuthTries=6\nOtherKey=foo\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	want := "MaxAuthTries=3\nOtherKey=foo\n"
+	if string(got) != want {
+		t.Errorf("content mismatch:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_CommentedKey_NoChange_AppendsActive locks
+// FMA Q1.e: commented `#MaxAuthTries` lines are NOT replaced.
+// Apply appends an active line instead (no-match path).
+func TestAgentApply_CommentedKey_NoChange_AppendsActive(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "#MaxAuthTries=6\nOtherKey=foo\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	want := "#MaxAuthTries=6\nOtherKey=foo\nMaxAuthTries=3\n"
+	if string(got) != want {
+		t.Errorf("commented line should be preserved + active line appended:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_LeadingWhitespace_StillMatches locks the
+// `^[[:space:]]*KEY[[:space:]=]` leading-whitespace tolerance:
+// indented active lines are still treated as active.
+func TestAgentApply_LeadingWhitespace_StillMatches(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "    MaxAuthTries=6\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	want := "MaxAuthTries=3\n"
+	if string(got) != want {
+		t.Errorf("indented line should be replaced (loses indentation):\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_MultipleMatches_AllReplaced locks FMA Q1.d:
+// sed replaces every matching line; Go path must match.
+func TestAgentApply_MultipleMatches_AllReplaced(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "MaxAuthTries=6\n# comment\nMaxAuthTries=3\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "MaxAuthTries", "value": "1", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	want := "MaxAuthTries=1\n# comment\nMaxAuthTries=1\n"
+	if string(got) != want {
+		t.Errorf("all matching lines should be replaced:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_KeyWithDot_LiteralMatch locks FMA Q1.f: a
+// key with `.` (regex metachar) is matched literally via
+// regexp.QuoteMeta — should NOT match a similar-but-different
+// key.
+func TestAgentApply_KeyWithDot_LiteralMatch(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "net.ipv4.ip_forward=0\nnetXipv4Xip_forward=1\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "net.ipv4.ip_forward", "value": "1", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	// First line replaced; second line NOT (literal . match).
+	want := "net.ipv4.ip_forward=1\nnetXipv4Xip_forward=1\n"
+	if string(got) != want {
+		t.Errorf("dotted key should match literally:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_NoTrailingNewline locks FMA Q1.b: a file
+// without a trailing newline gets a newline before the
+// appended line so the new line is on its own line.
+func TestAgentApply_NoTrailingNewline(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	original := "OtherKey=foo" // no \n
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "NewKey", "value": "bar", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	want := "OtherKey=foo\nNewKey=bar\n"
+	if string(got) != want {
+		t.Errorf("no-trailing-newline:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_EmptyFile_AppendsLine locks the empty-file
+// edge case.
+func TestAgentApply_EmptyFile_AppendsLine(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "empty.conf")
+	if err := os.WriteFile(target, []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	_, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "X", "value": "1", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "X=1\n" {
+		t.Errorf("empty-file append: got %q, want %q", got, "X=1\n")
+	}
+}
+
+// TestAgentRollback_RestoresPriorLine: line_existed=true →
+// the current key line is replaced with the captured prior line.
+func TestAgentRollback_RestoresPriorLine(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	current := "MaxAuthTries=1\nOther=x\n"
+	if err := os.WriteFile(target, []byte(current), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pre := &api.PreState{
+		Data: map[string]interface{}{
+			"file":         target,
+			"key":          "MaxAuthTries",
+			"separator":    "=",
+			"line_existed": true,
+			"prior_line":   "MaxAuthTries=6",
+		},
+	}
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Rollback(context.Background(), tr, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Rollback should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	want := "MaxAuthTries=6\nOther=x\n"
+	if string(got) != want {
+		t.Errorf("rollback restore:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentApply_PreservesSetgid locks the fix/phase-2-rework
+// F-004 fix: when the target file has setgid (or setuid /
+// sticky) bits set, AtomicReplace preserves them. The
+// pre-rework code used info.Mode().Perm() which silently
+// stripped to the 9 perm bits.
+func TestAgentApply_PreservesSetgid(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "setgid.conf")
+	if err := os.WriteFile(target, []byte("k=1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Add setgid bit. Note: `os.Chmod(target, 0o2644)` does
+	// NOT work — Go's FileMode encodes setgid at bit 22, not
+	// 0o2000, so an octal literal alone has no effect. Must
+	// use os.ModeSetgid explicitly.
+	if err := os.Chmod(target, 0o644|os.ModeSetgid); err != nil {
+		t.Fatal(err)
+	}
+	// Verify the chmod actually stuck (would fail if the
+	// filesystem strips setgid — kensa doesn't claim to work
+	// on filesystems that strip special bits).
+	if pre, _ := os.Stat(target); pre.Mode()&os.ModeSetgid == 0 {
+		t.Skip("filesystem strips setgid bit; skipping")
+	}
+
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"file":      target,
+		"key":       "k",
+		"value":     "2",
+		"separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	info, _ := os.Stat(target)
+	if info.Mode()&os.ModeSetgid == 0 {
+		t.Errorf("setgid bit dropped: got Go FileMode=%v (perm=%o, setgid=%v), want setgid retained",
+			info.Mode(), info.Mode().Perm(), info.Mode()&os.ModeSetgid != 0)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Errorf("perm bits drifted: got %o, want 0644", info.Mode().Perm())
+	}
+}
+
+// TestAgentApply_CRLF_BehavioralParity locks the F-005
+// regex char-class fix: the activeLineRegex used to use
+// `[[:space:]]` which in Go matches `\t\n\v\f\r ` (6 chars)
+// while sed -E with LC_ALL=C matches only `\t ` (2 chars).
+// Files with CRLF endings diverged silently. Spelling the
+// class `[\t ]` makes the Go regex byte-equivalent to sed.
+func TestAgentApply_CRLF_BehavioralParity(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "crlf.conf")
+	// CRLF-line-ending file: `\r` must NOT be treated as
+	// whitespace by activeLineRegex.
+	if err := os.WriteFile(target, []byte("KEY=old\r\nOther=x\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Apply(context.Background(), tr, api.Params{
+		"file": target, "key": "KEY", "value": "new", "separator": "=",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Apply should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	// `KEY=old\r` line gets replaced with `KEY=new`; CR is
+	// consumed by `.*` so it's not preserved (matches sed
+	// behavior on CRLF files under -E). The Other line is
+	// preserved byte-for-byte including its CR.
+	want := "KEY=new\nOther=x\r\n"
+	if string(got) != want {
+		t.Errorf("CRLF parity:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// TestAgentRollback_RemovesAppendedLine: line_existed=false →
+// the line Apply appended is removed.
+func TestAgentRollback_RemovesAppendedLine(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.conf")
+	current := "Other=x\nMaxAuthTries=3\n"
+	if err := os.WriteFile(target, []byte(current), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pre := &api.PreState{
+		Data: map[string]interface{}{
+			"file":         target,
+			"key":          "MaxAuthTries",
+			"separator":    "=",
+			"line_existed": false,
+			"prior_line":   "",
+		},
+	}
+	tr := local.New()
+	h := configset.New()
+	res, err := h.Rollback(context.Background(), tr, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Rollback should succeed; got: %s", res.Detail)
+	}
+	got, _ := os.ReadFile(target)
+	want := "Other=x\n"
+	if string(got) != want {
+		t.Errorf("rollback remove:\n  got:  %q\n  want: %q", got, want)
+	}
 }

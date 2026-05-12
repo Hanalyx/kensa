@@ -652,50 +652,72 @@ once the founder ratifies them.
 4. Phase 2 atomicity requires agent-mode; direct-SSH retains best-effort semantics (documented in release notes).
 5. Phase 6 (sysctl/mount/kernel-module) reuses Phase 2's fsatomic — no separate primitives.
 
-#### P-001 — `internal/agent/fsatomic/` primitive package
-- **Phase:** LL Phase 2
-- **Deps:** L-032 (LL Phase 1 complete)
-- **Acceptance:** AtomicWrite/AtomicReplace/AtomicRemove primitives with O_TMPFILE + Linkat / Renameat2(RENAME_EXCHANGE) / Unlinkat + parent-dir-fd Fsync. Concurrent-reader-during-write test verifies atomicity property (reader sees old-complete or new-complete, never partial). Filesystem-capability cache for RENAME_EXCHANGE fallback.
-- **Size:** ~2 days
-- **Status:** **pending** (ready for loop pickup)
-- **Notes:** Ships the package alone — zero handler edits. P-002..P-005 migrate handlers after this lands. Tests on tmpfs.
+#### P-001..P-006 — Phase 2 file-atomicity migration
 
-#### P-002 — Migrate `file_content` to fsatomic
-- **Phase:** LL Phase 2
-- **Deps:** P-001
-- **Acceptance:** file_content Apply uses fsatomic.AtomicReplace (replace) or AtomicWrite (new); Rollback writes captured bytes via AtomicReplace; concurrent-reader atomicity test passes; all existing file_content tests pass. Failure-mode analysis in commit body.
-- **Size:** ~3 days
-- **Status:** **pending** (blocked on P-001)
-- **Risk:** Medium — file_content is the most-used file handler; regression breaks rules touching /etc/ssh/sshd_config etc.
+**Status: done** (corrected re-merge 2026-05-11, see history below).
 
-#### P-003 — Migrate `file_absent` to fsatomic
-- **Phase:** LL Phase 2
-- **Deps:** P-001
-- **Acceptance:** file_absent Apply uses fsatomic.AtomicRemove; Rollback re-creates via AtomicWrite. Simpler than P-002. Failure-mode analysis.
-- **Size:** ~1 day
-- **Status:** **pending** (blocked on P-001)
+This block originally shipped as P-001..P-005 in five separate merges
+(`8f73a53`, `51c2bb8`, `fd1fdea`, `888f719`, `ae378a1`) plus a docs
+close P-006. The post-merge 4-agent review identified 9 P0s — 3
+security (symlink-follow → local-root primitive, global probe cache
+→ wrong on heterogeneous mounts, EOPNOTSUPP misclassification), 1
+correctness (empty-mode silent widening), 2 architecture
+(AtomicTransport in api/, capability-interface count growth), and 3
+operability (CHANGELOG silent, CLI undiscoverable, security.md gap).
 
-#### P-004 — Migrate `config_set` to fsatomic
-- **Phase:** LL Phase 2
-- **Deps:** P-001
-- **Acceptance:** config_set Apply replaces `sed -i` pipeline with Go in-process rewrite + fsatomic.AtomicReplace; behavioral-parity fixture verifies the Go path matches sed output exactly for every existing test case; concurrent-reader atomicity. Failure-mode analysis.
-- **Size:** ~4 days
-- **Status:** **pending** (blocked on P-001)
-- **Risk:** Medium-high — config_set is used by ~half the corpus rules; Go-vs-sed behavioral parity is the load-bearing assertion.
+**Founder D1 ratified 2026-05-11:** revert all 5 original merges from
+main, fix on `fix/phase-2-rework` branch, re-review with the same
+4-agent panel, re-merge as a single corrected drop. 8 reverts
+(commits `74f4821`, `ae378a1`, `888f719`, `fd1fdea`, `90fcc35`,
+`51c2bb8`, `3ecc6ab`, `8f73a53`) followed by the corrected merge
+on the same day.
 
-#### P-005 — Migrate `config_set_dropin` to fsatomic
-- **Phase:** LL Phase 2
-- **Deps:** P-001
-- **Acceptance:** config_set_dropin Apply builds dropin content in-process + fsatomic.AtomicWrite; Rollback fsatomic.AtomicRemove. Failure-mode analysis.
-- **Size:** ~2 days
-- **Status:** **pending** (blocked on P-001)
+**Acceptance (corrected drop):**
+- `internal/agent/fsatomic/` primitives: AtomicWrite (O_TMPFILE +
+  Linkat), AtomicReplace (Renameat2(RENAME_EXCHANGE) with Renameat
+  fallback, per-st_dev probe cache, EOPNOTSUPP+ENOTSUP fallback
+  classification), AtomicRemove (Unlinkat). All three walk the path
+  component-by-component with O_NOFOLLOW and refuse symlinks
+  (ErrSymlinkInPath sentinel). Per-call crypto/rand temp-file
+  suffix. Error messages carry destination-state classifiers.
+- `fsatomic.Transport` capability interface (relocated from `api/`
+  to `internal/agent/fsatomic/transport.go` — atomicity is an
+  agent-side concern, OpenWatch is not expected to implement it).
+- `fsatomic.ParseMode` / `FileModeBits` / `FileExists` /
+  `ValidatePath` helpers (dedup of duplicated handler logic;
+  ParseMode returns `(mode, specified, error)` so handlers can
+  distinguish "rule omitted mode" from "rule said 0o644").
+- file_content / file_absent / config_set / config_set_dropin
+  Apply paths branch on `fsatomic.Transport` capability assertion.
+  Direct-SSH retains shell-pipeline best-effort semantics. Mode
+  preservation on re-Apply when rule omits `mode`. Setuid/setgid/
+  sticky bit preservation in config_set. CRLF-safe regex
+  (`[\t ]` not `[[:space:]]`).
+- `kensa remediate` prints atomicity-basis disclosure on stderr
+  on every invocation.
+- `docs/TRANSACTION_CONTRACT_V1.md` §1.1 amendment + new §2.6
+  atomicity-basis-per-mechanism table. `docs/test_docs/security.md`
+  §1.5 (transport split) + §1.6 (symlink refusal).
+- CHANGELOG.md Phase 2 Security/Fixed/Changed entries under
+  `## Unreleased`.
 
-#### P-006 — `TRANSACTION_CONTRACT_V1.md` amendment + Phase-2 close
-- **Phase:** LL Phase 2 close
-- **Deps:** P-001..P-005
-- **Acceptance:** TRANSACTION_CONTRACT_V1.md scopes the literal atomicity commitment to the four Phase 2 file handlers (file_permissions chmod stays atomic at syscall level, not via fsatomic). docs/test_docs/security.md updated. CLAUDE.md handler list gets atomicity-basis tags (kernel-atomic / kernel-runtime+file-persistence / daemon-atomic / cli-best-effort). CHANGELOG release note.
-- **Size:** ~1 day
-- **Status:** **pending** (blocked on P-001..P-005)
+**Test coverage:** Atomicity property test (16k+ concurrent reads
+× N writes = 0 torn). Symlink-refusal tests (base + intermediate
+component). Concurrent-replace test (8 goroutines × 20 iterations,
+no temp-file collision). Mode-preservation tests for filecontent
+and configsetdropin. Setgid retention test for configset. CRLF
+behavioral-parity test. Path-traversal rejection test. Refuse-
+missing-captured-mode tests for filecontent and fileabsent Rollback.
+
+**Open follow-ups surfaced by the re-review (NOT v1.0 blockers):**
+- P-007 shellEscape consolidation (29 copies repo-wide).
+- P-008 TRANSACTION_CONTRACT §2.6 ↔ code CI gate.
+- P-009 KENSA_NO_ATOMICITY_BANNER env-var for noise suppression.
+- P-010 atomicity_basis in JSON event stream + MkdirAll
+  parent-mode inheritance + DiscloseTransportCapabilities helper.
+- **Founder decision pending:** should v1.0 default to agent-mode
+  (flip the env-var sense to direct-SSH-as-opt-out)? Currently
+  documented at `docs/test_docs/security.md §1.5`.
 
 ### LL Phases 3–7 — Sketch only
 

@@ -8,10 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/agent/fsatomic"
 )
 
 // mechanism is the canonical handler name.
@@ -103,11 +106,14 @@ func (h *Handler) Capturable() bool { return true }
 // Apply sets key=value in the target file. If the key already
 // exists, the matching line is replaced. If absent, the line is appended.
 //
-// Uses a sed expression that handles commented-out and active keys.
-// The pattern matches lines where the key appears at the start of a
-// non-whitespace token (ignoring leading whitespace), handling both
-// commented (#KEY=VALUE) and active (KEY=VALUE) forms. Only active lines
-// are replaced; commented lines are left in place.
+// **Phase 2 P-004 migration (2026-05-11)**: agent-mode uses Go's
+// regexp package + fsatomic.AtomicReplace for crash-safe line
+// rewrites. The Go pattern mirrors sed's
+// `^[[:space:]]*KEY[[:space:]=]` semantics: line-start, optional
+// leading whitespace, literal key, then space-or-equals. Active
+// lines (no leading `#`) are replaced; commented lines are left
+// alone. Behavioral-parity tests cover the sed semantics this
+// path replicates.
 //
 // Per spec C-01, apply is idempotent.
 func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
@@ -115,27 +121,66 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if vErr := fsatomic.ValidatePath(p.File); vErr != nil {
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("config_set: %v", vErr),
+		}, nil
+	}
 
 	targetLine := p.Key + p.Separator + p.Value
 
-	// Build the sed replace+append command:
-	// 1. Try to replace an existing active (non-commented) key line.
-	// 2. If no replacement happened (grep check), append to end.
-	//
-	// We use a portable POSIX sed expression: match lines where the
-	// key appears at the start (with optional leading whitespace) but
-	// not preceded by '#'.
-	//
-	// Pattern notes:
-	//   ^[[:space:]]*KEY followed by any separator char or space.
-	//   We check grep first (simpler), then sed replace or append.
+	if afs, ok := transport.(fsatomic.Transport); ok {
+		// Agent-mode: Go regex + fsatomic.AtomicReplace.
+		original, readErr := os.ReadFile(p.File)
+		if readErr != nil {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("config_set: read %s: %v", p.File, readErr),
+			}, nil
+		}
+		newContent, changed, replaceErr := setKeyInContent(string(original), p.Key, targetLine)
+		if replaceErr != nil {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("config_set: rewrite %s: %v", p.File, replaceErr),
+			}, nil
+		}
+		if !changed && string(original) == newContent {
+			// Idempotent: file already has the desired line.
+			return &api.StepResult{
+				Success: true,
+				Detail:  fmt.Sprintf("config_set: %s already had %s%s%s (no change)", p.File, p.Key, p.Separator, p.Value),
+			}, nil
+		}
+		// Preserve the file's existing mode.
+		info, statErr := os.Stat(p.File)
+		if statErr != nil {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("config_set: stat %s: %v", p.File, statErr),
+			}, nil
+		}
+		// `fsatomic.FileModeBits` preserves setuid/setgid/sticky
+		// in addition to the 9 perm bits. A plain `& 0o7777`
+		// would silently drop them because Go encodes those
+		// special bits in HIGH positions (1<<22, 1<<23, 1<<20),
+		// outside the 0o7777 mask. Sed -i preserves all 12.
+		if err := afs.AtomicReplace(ctx, p.File, fsatomic.FileModeBits(info.Mode()), []byte(newContent)); err != nil {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("config_set: AtomicReplace %s: %v", p.File, err),
+			}, nil
+		}
+		return &api.StepResult{
+			Success: true,
+			Detail:  fmt.Sprintf("config_set: atomically set %s%s%s in %s", p.Key, p.Separator, p.Value, p.File),
+		}, nil
+	}
+
+	// Direct-SSH fallback: shell pipeline.
 	sedPattern := fmt.Sprintf("^[[:space:]]*%s[[:space:]=]", sedEscape(p.Key))
 	sedReplace := fmt.Sprintf("s|%s.*|%s|", sedPattern, sedEscape(targetLine))
-
-	// Pipeline:
-	//   1. grep to check if an active line exists.
-	//   2. If yes: sed -i replace.
-	//   3. If no: echo >> append.
 	cmd := fmt.Sprintf(
 		`if grep -qE %s %s 2>/dev/null; then `+
 			`sed -i -E %s %s; `+
@@ -162,6 +207,65 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 		Success: true,
 		Detail:  fmt.Sprintf("config_set: set %s%s%s in %s", p.Key, p.Separator, p.Value, p.File),
 	}, nil
+}
+
+// activeLineRegex builds the Go regexp that matches the sed
+// pattern `^[[:space:]]*KEY[[:space:]=]` per-line. Returns
+// the compiled regex (multi-line mode set via (?m)).
+//
+// Sed `-E` with default `LC_ALL=C` interprets `[[:space:]]`
+// as exactly `\t` and ` `. Go's `[[:space:]]` matches the
+// broader set `\t\n\v\f\r ` per regexp/syntax — divergence
+// on CRLF files (where `\r` would match in Go but not sed).
+// Spelling the class as `[\t ]` makes the Go regex
+// byte-equivalent to sed's intent and fixes the post-merge
+// security review's P1-5 divergence.
+//
+// sed `^` = line-start under -E with default delimiter;
+// Go needs (?m). Key is regexp.QuoteMeta'd to handle dotted
+// keys safely.
+func activeLineRegex(key string) (*regexp.Regexp, error) {
+	pat := `(?m)^[\t ]*` + regexp.QuoteMeta(key) + `[\t =].*$`
+	return regexp.Compile(pat)
+}
+
+// setKeyInContent applies the config_set transformation to
+// `content`: if an active (non-commented) line matching `key`
+// exists, replace it (all matches; matches sed behavior) with
+// `targetLine`. If no match, append `targetLine` (plus a
+// trailing newline if needed). Returns (newContent, changed,
+// err) — `changed` is true iff bytes differ from input.
+//
+// Preserves byte-exact content for non-matching lines
+// including their line endings (CRLF preserved per FMA Q1.c).
+func setKeyInContent(content, key, targetLine string) (string, bool, error) {
+	re, err := activeLineRegex(key)
+	if err != nil {
+		return "", false, err
+	}
+	// First check if any match exists. ReplaceAllString
+	// returns the unchanged string if no match; we want to
+	// distinguish that from the all-matches-replaced case
+	// so we can append in the no-match branch.
+	matches := re.FindAllStringIndex(content, -1)
+	if len(matches) > 0 {
+		// Replace every matching line with targetLine.
+		// Note: targetLine MAY contain regex metacharacters
+		// (e.g., $ in `EnableX $value`). ReplaceAllString
+		// expands `$N` references; use ReplaceAllLiteralString
+		// to disable expansion.
+		newContent := re.ReplaceAllLiteralString(content, targetLine)
+		return newContent, newContent != content, nil
+	}
+	// No match — append. Preserve existing trailing-newline
+	// state per FMA Q1.b: if content ends with \n, append
+	// targetLine + \n; if content has no trailing newline,
+	// add a newline before appending so the new line is on
+	// its own line.
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return content + targetLine + "\n", true, nil
 }
 
 // Capture records the prior state of the key in the file. Returns
@@ -242,16 +346,85 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		return nil, errors.New("config_set: pre-state missing 'file' or 'key'")
 	}
 
+	// Phase 2 P-004 migration: agent-mode uses Go regex +
+	// AtomicReplace for symmetric line-oriented rollback.
+	// The capture contract is preserved: capture records
+	// `prior_line` (the matching line as it was pre-Apply),
+	// not full file content. Rollback uses Go regex to find
+	// the current key line and restore (or remove) it.
+	if afs, ok := transport.(fsatomic.Transport); ok {
+		original, readErr := os.ReadFile(file)
+		if readErr != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("config_set: rollback read %s: %v", file, readErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		var newContent string
+		var rewriteErr error
+		if lineExisted {
+			// Replace current key line(s) with priorLine.
+			re, reErr := activeLineRegex(key)
+			if reErr != nil {
+				rewriteErr = reErr
+			} else {
+				newContent = re.ReplaceAllLiteralString(string(original), priorLine)
+			}
+		} else {
+			// Remove the line that Apply appended. The
+			// appended line is an active key line by
+			// construction (Apply wrote targetLine without
+			// leading whitespace or `#`). Replace the entire
+			// matching line including its trailing newline so
+			// the file doesn't grow blank-lines on each
+			// Apply/Rollback cycle.
+			removeRe, removeErr := regexp.Compile(`(?m)^[\t ]*` + regexp.QuoteMeta(key) + `[\t =].*\n?`)
+			if removeErr != nil {
+				rewriteErr = removeErr
+			} else {
+				newContent = removeRe.ReplaceAllString(string(original), "")
+			}
+		}
+		if rewriteErr != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("config_set: rollback regex %s: %v", file, rewriteErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		info, statErr := os.Stat(file)
+		if statErr != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("config_set: rollback stat %s: %v", file, statErr),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		// `fsatomic.FileModeBits` preserves setuid/setgid/sticky
+		// (see Apply for the same fix).
+		if err := afs.AtomicReplace(ctx, file, fsatomic.FileModeBits(info.Mode()), []byte(newContent)); err != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("config_set: rollback AtomicReplace %s: %v", file, err),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("config_set: atomically rolled back %s (line_existed=%v)", file, lineExisted),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
+
+	// Direct-SSH fallback: shell pipeline.
 	sedPattern := fmt.Sprintf("^[[:space:]]*%s[[:space:]=]", sedEscape(key))
 
 	var cmd string
 	if lineExisted {
-		// Replace current line with prior line verbatim.
 		sedReplace := fmt.Sprintf("s|%s.*|%s|", sedPattern, sedEscape(priorLine))
 		cmd = fmt.Sprintf("sed -i -E %s %s", shellEscape(sedReplace), shellEscape(file))
 	} else {
-		// Remove the line that was appended. Use grep -v to filter out
-		// the key line and write back.
 		cmd = fmt.Sprintf(
 			"sed -i -E %s %s",
 			shellEscape(fmt.Sprintf("/%s/d", sedPattern)),

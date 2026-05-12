@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+// NOTE: The AtomicTransport capability interface previously
+// lived here. It has been moved to
+// `internal/agent/fsatomic` as `fsatomic.Transport` —
+// atomicity is an agent-side capability and OpenWatch (the
+// primary external `api.Transport` implementer) is not
+// expected to provide it. See the package doc at
+// `internal/agent/fsatomic/transport.go` for the rationale.
+
 // Transport is the abstraction over how the engine reaches a target host.
 //
 // The primary implementation (internal/transport/ssh) wraps the system

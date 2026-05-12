@@ -1413,8 +1413,20 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	// through `kensa agent --stdio` running on the target.
 	// Strict "1" match avoids false positives on misset
 	// values (per spec C-04).
+	//
+	// Phase 2 operability (F-007): atomic file operations
+	// for file_content/file_absent/config_set/config_set_dropin
+	// require agent-mode. Disclose the basis to operators on
+	// stderr so audits don't claim atomicity that isn't being
+	// delivered.
 	var engineOpts []engine.Option
-	if os.Getenv("KENSA_USE_AGENT") == "1" {
+	useAgent := os.Getenv("KENSA_USE_AGENT") == "1"
+	if useAgent {
+		fmt.Fprintln(os.Stderr, "kensa: agent mode — file_content/file_absent/config_set/config_set_dropin run with kernel-atomic primitives (O_TMPFILE + renameat2)")
+	} else {
+		fmt.Fprintln(os.Stderr, "kensa: direct-SSH mode — file mechanisms use shell-pipeline best-effort atomicity. Set KENSA_USE_AGENT=1 for kernel-atomic file operations.")
+	}
+	if useAgent {
 		// Build the bootstrap SSH transport — same hostCfg
 		// as the remediate path would use.
 		bootstrapTransport, err := ssh.Factory{}.Connect(ctx, hostCfg)
