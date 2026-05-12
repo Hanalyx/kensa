@@ -26,3 +26,8 @@ coverage.html
 # Local
 CLAUDE.md
 inventory.ini
+
+# Local-only artifacts
+.claude/
+.specter-results.json
+go-test.json
