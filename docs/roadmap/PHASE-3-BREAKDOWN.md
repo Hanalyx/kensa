@@ -269,7 +269,56 @@ Mitigations:
 
 ---
 
-## Founder questions before D-001 starts
+## Founder ratifications (2026-05-12)
+
+After clarifying that kensa-go is pre-production (no backcompat
+burden), the founder ratified:
+
+| Q | Decision | Implication |
+|---|---|---|
+| Q1 | **(c) Keep both deadman impls, flip default to agent mode** | Agent-mode is the default; direct-SSH retains the shell-based deadman as an explicit opt-in fallback. Spawns **P-007** (Phase 2 follow-up — env-var flip) BEFORE Phase 3 D-001 starts. |
+| Q2 | **(b) Probe + PR_SET_PDEATHSIG fallback** | D-002 (pidfd) probes for kernel ≥5.3; falls back to D-003's `prctl(PR_SET_PDEATHSIG, SIGKILL)` on older kernels. RHEL 8 (4.18) stays supported. |
+| Q3 | **(a) Accept the agent-SIGKILL risk** | No parallel at(1) deadman for SIGKILL resilience in agent-mode. Documented in `docs/test_docs/security.md` as a known limit. |
+| Q4 | **Recommendation: rename + new package** | `internal/deadman/` → `internal/engine/deadman/` (engine-side Armer, calls into agent via RPC). New `internal/agent/deadman/` for agent-side primitives + event loop. |
+
+Loop UNBLOCKED. P-011 lands first (Phase 2 follow-up); then
+D-001..D-006 in dependency order.
+
+---
+
+## P-011 — Phase 2 follow-up: agent-mode default
+
+**Phase**: LL Phase 2 follow-up (lands before Phase 3 D-001)
+**Deps**: Phase 2 corrected drop (merge `ef2e122`, done 2026-05-11)
+**Size**: ~½ day
+**Scope**:
+- Replace `KENSA_USE_AGENT=1` (opt-in) with `KENSA_NO_AGENT=1`
+  (opt-out) in `cmd/kensa/main.go` remediate path.
+- Update the stderr atomicity-basis disclosure to reflect the
+  new sense ("agent mode (default)" vs "direct-SSH mode (opt-out)").
+- Update CHANGELOG.md under `## Unreleased` (Changed section) —
+  this is a breaking change for any operator who built scripts
+  around the env-var.
+- Update `docs/test_docs/security.md §1.5` to remove the
+  "Sign-off question pending" line; document the ratified default.
+- Update `docs/TRANSACTION_CONTRACT_V1.md §2.6` matrix —
+  kernel-atomic file ops are now "default" not "agent mode only".
+- Update `CONTRIBUTING.md` live-host env-var section if it
+  references `KENSA_USE_AGENT`.
+
+**Acceptance**:
+- Existing tests that gate on `KENSA_USE_AGENT=1` are updated.
+- `cli-smoke.sh` still passes (the smoke harness doesn't currently
+  set the env var; verify the new default doesn't break it OR
+  the smoke harness gets `KENSA_NO_AGENT=1` set explicitly).
+- Failure-mode analysis in commit body.
+
+**Risk**: Low. Single-flag-sense flip; documented breaking change
+in CHANGELOG.
+
+---
+
+## Original Q&A captured below for history
 
 ### Q1. What does direct-SSH mode do for deadman protection?
 

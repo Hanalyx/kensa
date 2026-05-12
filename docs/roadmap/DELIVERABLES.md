@@ -715,15 +715,75 @@ missing-captured-mode tests for filecontent and fileabsent Rollback.
 - P-009 KENSA_NO_ATOMICITY_BANNER env-var for noise suppression.
 - P-010 atomicity_basis in JSON event stream + MkdirAll
   parent-mode inheritance + DiscloseTransportCapabilities helper.
-- **Founder decision pending:** should v1.0 default to agent-mode
-  (flip the env-var sense to direct-SSH-as-opt-out)? Currently
-  documented at `docs/test_docs/security.md §1.5`.
+- ~~**Founder decision pending:** should v1.0 default to agent-mode~~ — **RATIFIED 2026-05-12 (Q1.c) — agent-mode default; lands as P-011.**
 
-### LL Phases 3–7 — Sketch only
+### LL Phase 2 follow-up (post-rework)
+
+#### P-011 — Agent-mode default (env-var flip)
+- **Phase:** LL Phase 2 follow-up (lands BEFORE Phase 3 D-001)
+- **Deps:** Phase 2 corrected drop (merge `ef2e122`, 2026-05-11)
+- **Size:** ~½ day
+- **Status:** **pending** (ready for loop pickup)
+- **Scope:** Replace `KENSA_USE_AGENT=1` (opt-in) with `KENSA_NO_AGENT=1` (opt-out). Update remediate stderr disclosure, CHANGELOG, security.md §1.5, TRANSACTION_CONTRACT_V1 §2.6. Closes the Phase 2 founder-decision pending question (Q1.c ratified 2026-05-12 — agent-mode is default; direct-SSH retained as explicit fallback for environments without bootstrap).
+- **Risk:** Low. Single env-var sense flip; documented breaking change for any operator scripting against `KENSA_USE_AGENT`.
+
+### LL Phase 3 — Deadman Timer Rebuild on Kernel Primitives
+
+Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impls, agent default), Q2.b (probe + PR_SET_PDEATHSIG fallback), Q3.a (accept agent-SIGKILL risk), Q4 rename (`internal/deadman/` → `internal/engine/deadman/`; new `internal/agent/deadman/`).
+
+#### D-001 — `internal/agent/deadman/timerfd/` primitive
+- **Phase:** LL Phase 3
+- **Deps:** P-011 (env-var flip lands first)
+- **Acceptance:** `Timer` type wrapping `unix.TimerfdCreate(unix.CLOCK_BOOTTIME, unix.TFD_CLOEXEC)`. Methods: `Arm(time.Duration)`, `Cancel()`, `FD()`, `Wait(ctx)`, `Close()`. Tests: fires-after-window, can-cancel, ctx-cancel, fd-readability-shape (8-byte le-uint64 expiration count).
+- **Size:** ~1-2 days
+- **Status:** **pending** (blocked on P-011)
+- **Risk:** Low. timerfd is kernel ≥2.6.25 stable.
+
+#### D-002 — `internal/agent/deadman/pidfd/` primitive
+- **Phase:** LL Phase 3
+- **Deps:** D-001 (sequencing only — independent code)
+- **Acceptance:** `ParentPidfd` type wrapping `unix.PidfdOpen(unix.Getppid(), 0)`. Probe at startup: returns sentinel error if kernel < 5.3; caller falls back to PR_SET_PDEATHSIG (D-003). Tests: fires-on-parent-exit, doesn't-fire-on-unrelated-exit, probe-detects-unsupported-kernel.
+- **Size:** ~1 day
+- **Status:** **pending** (blocked on D-001)
+- **Risk:** Low-medium. Kernel ≥5.3 floor; probe + fallback pattern.
+
+#### D-003 — `internal/agent/deadman/signalfd/` + `prctl` wrapper
+- **Phase:** LL Phase 3
+- **Deps:** D-001
+- **Acceptance:** `SignalFD` wrapping `unix.Signalfd` for SIGTERM. `SetParentDeathSignal(sig)` wrapping `unix.Prctl(unix.PR_SET_PDEATHSIG, ...)`. Tests: delivers-SIGTERM, prctl-pdeathsig-kills-orphan.
+- **Size:** ~½ day
+- **Status:** **pending** (blocked on D-001)
+- **Risk:** Low.
+
+#### D-004 — `internal/agent/deadman/eventloop/` epoll integrator
+- **Phase:** LL Phase 3
+- **Deps:** D-001, D-002, D-003
+- **Acceptance:** `Loop` type. `Register(fd, handler)`, `Run(ctx) (Event, error)`. Event types: TimerFired, ParentDied, SignalReceived, ControlChannelActivity. Single-thread design (no per-fd goroutines). Tests: timer-fires-first, parent-death-wins, signal-wins, ctx-cancel.
+- **Size:** ~2-3 days
+- **Status:** **pending** (blocked on D-001/D-002/D-003)
+- **Risk:** Medium. Integration point flagged by the reviewer's note.
+
+#### D-005 — Agent-mode Armer rewrite (in-process deadman)
+- **Phase:** LL Phase 3
+- **Deps:** D-004
+- **Acceptance:** New `internal/agent/deadman/armer.go` + `internal/engine/deadman/` (renamed from `internal/deadman/`) Armer dispatches: agent-mode → RPC `Agent.ArmDeadman` to spawn in-process event loop; direct-SSH → existing at(1)/systemd-run shell-based path (retained per Q1.c). Cancel via `Agent.CancelDeadman` RPC. Failure-mode analysis in commit body. Two-human review.
+- **Size:** ~3-4 days
+- **Status:** **pending** (blocked on D-004)
+- **Risk:** **High.** Engine-level rollback infrastructure rewrite. Mitigations: keep shell path available; live-host integration test before merge.
+
+#### D-006 — Fuzz harness extensions + Phase 3 close
+- **Phase:** LL Phase 3
+- **Deps:** D-005
+- **Acceptance:** `cmd/kensa-fuzz/` cases: DeadmanFiresAfterSuspend (CLOCK_BOOTTIME), DeadmanFiresAfterClockJump (does NOT fire), DeadmanFiresOnSSHKill (pidfd <200ms), DeadmanCancelStopsRollback. Docs: TRANSACTION_CONTRACT_V1 §1.1 reversibility update + security.md failure-mode list. CHANGELOG entry. Tests green on RHEL 8 (PR_SET_PDEATHSIG fallback), RHEL 9, Ubuntu 22.04, Ubuntu 24.04.
+- **Size:** ~2-3 days
+- **Status:** **pending** (blocked on D-005)
+- **Risk:** Low-medium. Test infrastructure work.
+
+### LL Phases 4–7 — Sketch only
 
 *Filled in when the loop reaches each phase.*
 
-- **LL Phase 3 (deadman rebuild):** ~6 deliverables. `timerfd(CLOCK_BOOTTIME)`, `pidfd_open`, `prctl(PR_SET_PDEATHSIG)`, `epoll`+`signalfd` event loop. ~2 weeks.
+
 - **LL Phase 4 (systemd D-Bus):** ~5 deliverables. `coreos/go-systemd` for service handlers + `JobRemoved` synchronization + post-`EnableUnitFiles` `Reload`. ~1 week.
 - **LL Phase 5 (`AUDIT_NETLINK`):** ~7 deliverables. `elastic/go-libaudit` for `audit_rule_set` handler + transaction-phase event emission to auditd. ~2 weeks.
 - **LL Phase 6 (sysctl/mount/kernel-module):** ~5 deliverables. Direct kernel IO via `golang.org/x/sys/unix`. ~1 week.
