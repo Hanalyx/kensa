@@ -166,7 +166,7 @@ func TestOpenAgent_AnnounceLine(t *testing.T) {
 	if !strings.Contains(got, "myhost.example.com") {
 		t.Errorf("announce-line should include host; got: %q", got)
 	}
-	if !strings.Contains(got, "KENSA_USE_AGENT=1") {
+	if !strings.Contains(got, "KENSA_NO_AGENT=1") {
 		t.Errorf("announce-line should reference env var; got: %q", got)
 	}
 }

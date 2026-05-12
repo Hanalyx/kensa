@@ -17,11 +17,12 @@ the canonical names; short forms are listed in
 ### Security
 
 - **Kernel-atomic file operations under agent mode (Phase 2,
-  fix/phase-2-rework drop).** For the file-touching capturable
-  handlers — `file_content`, `file_absent`, `config_set`,
-  `config_set_dropin` — kensa now delivers literal
-  kernel-primitive atomicity when remediation runs in agent
-  mode (`KENSA_USE_AGENT=1`). The primitives:
+  fix/phase-2-rework drop + P-011 default flip).** For the
+  file-touching capturable handlers — `file_content`,
+  `file_absent`, `config_set`, `config_set_dropin` — kensa now
+  delivers literal kernel-primitive atomicity when remediation
+  runs in agent mode (the default; opt-out via
+  `KENSA_NO_AGENT=1`). The primitives:
   - `AtomicWrite` (new files): `O_TMPFILE` + `linkat` via
     `/proc/self/fd/<N>` — partially-written bytes are never
     visible as a half-named file in the directory.
@@ -33,14 +34,16 @@ the canonical names; short forms are listed in
   - Every primitive issues a parent-directory `fsync` barrier so
     the directory entry persists across crashes.
 
-  **Direct-SSH mode is unchanged.** Operators using the v1.0
-  direct-SSH path retain the shell-pipeline best-effort
-  semantics for these mechanisms. The `kensa remediate` CLI
-  now prints a one-line stderr disclosure on every run
-  ("agent mode — kernel-atomic primitives" or "direct-SSH
-  mode — shell-pipeline best-effort; set `KENSA_USE_AGENT=1`
-  for kernel-atomic") so audit reviewers see the basis without
-  reading the source.
+  **Direct-SSH mode is preserved as an explicit opt-out.**
+  Operators who set `KENSA_NO_AGENT=1` get the shell-pipeline
+  best-effort semantics for these mechanisms — intended for
+  environments where agent bootstrap is not viable (noexec
+  /tmp, locked-down SSH user, etc.). The `kensa remediate` CLI
+  prints a one-line stderr disclosure on every run
+  ("agent mode (default) — kernel-atomic primitives" or
+  "direct-SSH mode (KENSA_NO_AGENT=1) — shell-pipeline
+  best-effort; unset KENSA_NO_AGENT for kernel-atomic") so
+  audit reviewers see the basis without reading the source.
 
 - **Typed `ErrParentDirMissing`.** Returned by all three
   primitives when the parent directory of the target doesn't
@@ -118,6 +121,16 @@ the canonical names; short forms are listed in
   location.
 
 ### Breaking changes
+
+- **Agent-mode is now the default for `kensa remediate` (P-011).**
+  The `KENSA_USE_AGENT=1` env-var (opt-in) is replaced by
+  `KENSA_NO_AGENT=1` (opt-out). Operators scripting against the
+  old sense must invert the check OR drop the env-var entirely
+  to get the new default behavior. Rationale (Q1.c ratified
+  2026-05-12): kensa-go is pre-production; the kernel-atomic
+  path is the safer default. Direct-SSH stays available for
+  hosts where agent bootstrap is not viable. No deprecation
+  period — kensa-go is pre-1.0.
 
 - **CLI Phase 3 short-letter table reconciliation (C-024).** Four
   short letters are reassigned to align with `Python kensa` parity

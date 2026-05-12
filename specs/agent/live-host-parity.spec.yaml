@@ -12,7 +12,7 @@ spec:
             parity test deferred from L-014b. Verifies that
             `kensa remediate` against a real SSH-able host
             produces an EQUIVALENT api.RemediationResult
-            under `KENSA_USE_AGENT=1` and the direct-SSH
+            under `agent-mode default (unset KENSA_NO_AGENT)` and the direct-SSH
             path (modulo per-step timing and transaction
             IDs).
 
@@ -96,8 +96,8 @@ spec:
               When run with the env vars set, the test
               MUST execute TWO remediate invocations
               against the same host:
-                1. KENSA_USE_AGENT=1 (agent-mode path)
-                2. KENSA_USE_AGENT=0 (direct-SSH path,
+                1. agent-mode default (unset KENSA_NO_AGENT) (agent-mode path)
+                2. direct-SSH opt-out (KENSA_NO_AGENT=1) (direct-SSH path,
                    the existing v1.0 path)
               Both run the SAME file_permissions rule
               against the SAME target file. Compare the

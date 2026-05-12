@@ -51,7 +51,7 @@ this section names it explicitly.
   `file_absent`, `config_set`, and `config_set_dropin`, kensa delivers
   literal kernel-primitive atomicity (`O_TMPFILE`+`linkat`,
   `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-directory
-  `fsync` barriers) **when remediating in agent mode** (`KENSA_USE_AGENT=1`).
+  `fsync` barriers) **when remediating in agent mode** — the default since P-011 (2026-05-12); opt out via `KENSA_NO_AGENT=1`.
   A crash during Apply leaves either the old bytes intact or the new bytes
   complete; readers never observe a torn file. Symlinks anywhere in the
   target path are refused (no symlink-traversal attack surface). The
@@ -262,7 +262,7 @@ process-level or host-level crash mid-Apply.
 
 | Mechanism family | Atomicity basis | Available under |
 |---|---|---|
-| `file_content`, `file_absent`, `config_set`, `config_set_dropin` | `kernel-atomic`: `O_TMPFILE`+`linkat`, `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-dir `fsync`; bytes are either fully old or fully new on disk | **agent mode only** (`KENSA_USE_AGENT=1`); direct-SSH path retains shell-pipeline best-effort |
+| `file_content`, `file_absent`, `config_set`, `config_set_dropin` | `kernel-atomic`: `O_TMPFILE`+`linkat`, `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-dir `fsync`; bytes are either fully old or fully new on disk | **agent mode (default)**; opt out via `KENSA_NO_AGENT=1` for direct-SSH path with shell-pipeline best-effort |
 | `file_permissions` | `kernel-atomic` (always): `chmod` is a single syscall | both transports |
 | `service_*` | `daemon-atomic`: systemd start/stop/enable/disable is transactional in the systemd state machine; reversed by re-issuing the inverse command | both transports |
 | `sysctl_set`, `mount_option_set`, `selinux_boolean_set`, `kernel_module_disable` | `kernel-runtime + file-persistence`: the runtime sysctl/mount/setsebool/modprobe call is atomic at the syscall level; the persistence file write is best-effort today (kernel-atomic targeted in Phase 6) | both transports |

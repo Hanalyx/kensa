@@ -4,12 +4,12 @@ This is the founder-facing list of deliberate security exclusions in the current
 
 ## Critical limits (release-blocking for some deployments)
 
-### 1.5 Atomicity basis splits by transport (Phase 2, agent-mode only)
+### 1.5 Atomicity basis splits by transport (Phase 2, agent-mode default)
 
-- **What.** As of the fix/phase-2-rework drop, the four file-touching capturable handlers (`file_content`, `file_absent`, `config_set`, `config_set_dropin`) deliver literal kernel-primitive atomicity (`O_TMPFILE` + `linkat`, `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-dir `fsync` barriers) **only when running under agent mode** (`KENSA_USE_AGENT=1`). Under direct-SSH, these handlers retain shell-pipeline best-effort atomicity (`printf > file && mv`, `sed -i`, `rm -f`).
-- **Risk.** An operator running `kensa remediate` against a customer host WITHOUT setting `KENSA_USE_AGENT=1` gets the shell-pipeline path even though release notes and `TRANSACTION_CONTRACT_V1.md` discuss "kernel-atomic" capability. The mental model mismatch is the risk: an audit may claim atomicity that wasn't delivered for the run that produced the evidence.
-- **Mitigation.** `kensa remediate` now prints a one-line stderr disclosure on every run stating which atomicity basis is active. The basis is also listed per-mechanism-family in `TRANSACTION_CONTRACT_V1.md §2.6`. Operators wanting the kernel-atomic guarantee must opt in via the env var.
-- **Sign-off question.** Should the v1.0 release default to agent-mode (i.e., flip the env-var sense so direct-SSH requires explicit opt-out), or stay direct-SSH-default with agent-mode as opt-in?
+- **What.** As of the fix/phase-2-rework drop plus P-011 (agent-mode default ratified 2026-05-12), the four file-touching capturable handlers (`file_content`, `file_absent`, `config_set`, `config_set_dropin`) deliver literal kernel-primitive atomicity (`O_TMPFILE` + `linkat`, `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-dir `fsync` barriers) when running under agent mode — **the default**. Direct-SSH mode (opt-out via `KENSA_NO_AGENT=1`) retains shell-pipeline best-effort atomicity (`printf > file && mv`, `sed -i`, `rm -f`).
+- **Risk.** An operator who sets `KENSA_NO_AGENT=1` (e.g., for a host with noexec /tmp where agent bootstrap is not viable) gets the shell-pipeline path. The mental model mismatch is the risk: an audit may claim atomicity that wasn't delivered for the run that produced the evidence.
+- **Mitigation.** `kensa remediate` prints a one-line stderr disclosure on every run stating which atomicity basis is active. The basis is also listed per-mechanism-family in `TRANSACTION_CONTRACT_V1.md §2.6`. Operators who opt out of agent-mode see "direct-SSH mode (KENSA_NO_AGENT=1)" in the disclosure.
+- **Sign-off question.** ~~Should the v1.0 release default to agent-mode?~~ **RATIFIED 2026-05-12 (Q1.c) — agent-mode default; direct-SSH retained as explicit opt-out.**
 
 ### 1.6 Symlink-traversal refusal (Phase 2 hardening)
 

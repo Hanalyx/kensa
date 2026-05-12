@@ -1409,10 +1409,18 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		Capabilities: capOverrides,
 	}
 
-	// L-014b: KENSA_USE_AGENT=1 flips remediate to dispatch
-	// through `kensa agent --stdio` running on the target.
-	// Strict "1" match avoids false positives on misset
-	// values (per spec C-04).
+	// L-014b + P-011: `kensa remediate` dispatches through
+	// `kensa agent --stdio` on the target by default. Operators
+	// can opt OUT of agent-mode by setting `KENSA_NO_AGENT=1`,
+	// which falls back to the direct-SSH transport (shell-
+	// pipeline best-effort atomicity for the file mechanisms).
+	// Strict "1" match avoids false positives on misset values.
+	//
+	// Sense reversed 2026-05-12 per Q1.c ratification: kensa-go
+	// is pre-production; the cleaner default is agent-mode.
+	// Direct-SSH stays available for environments where agent
+	// bootstrap isn't viable (noexec /tmp, restricted SSH user,
+	// etc.) but no longer the default.
 	//
 	// Phase 2 operability (F-007): atomic file operations
 	// for file_content/file_absent/config_set/config_set_dropin
@@ -1420,11 +1428,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	// stderr so audits don't claim atomicity that isn't being
 	// delivered.
 	var engineOpts []engine.Option
-	useAgent := os.Getenv("KENSA_USE_AGENT") == "1"
+	useAgent := os.Getenv("KENSA_NO_AGENT") != "1"
 	if useAgent {
-		fmt.Fprintln(os.Stderr, "kensa: agent mode — file_content/file_absent/config_set/config_set_dropin run with kernel-atomic primitives (O_TMPFILE + renameat2)")
+		fmt.Fprintln(os.Stderr, "kensa: agent mode (default) — file_content/file_absent/config_set/config_set_dropin run with kernel-atomic primitives (O_TMPFILE + renameat2)")
 	} else {
-		fmt.Fprintln(os.Stderr, "kensa: direct-SSH mode — file mechanisms use shell-pipeline best-effort atomicity. Set KENSA_USE_AGENT=1 for kernel-atomic file operations.")
+		fmt.Fprintln(os.Stderr, "kensa: direct-SSH mode (KENSA_NO_AGENT=1) — file mechanisms use shell-pipeline best-effort atomicity. Unset KENSA_NO_AGENT for kernel-atomic file operations.")
 	}
 	if useAgent {
 		// Build the bootstrap SSH transport — same hostCfg

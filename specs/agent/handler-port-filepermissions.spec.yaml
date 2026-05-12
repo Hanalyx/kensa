@@ -61,7 +61,7 @@ spec:
                other engine options.
 
             5. **CLI wiring deferred to L-014b sub-deliverable.**
-               The `KENSA_USE_AGENT=1` env var path in
+               The `agent-mode default (unset KENSA_NO_AGENT)` env var path in
                `cmd/kensa/remediate.go` plus the
                bootstrap→ssh→client.Open→Handshake plumbing
                is invasive enough that splitting it from
@@ -199,7 +199,7 @@ spec:
         - id: C-05
           description: |
               **DEFERRED to L-014b sub-deliverable.** The
-              `KENSA_USE_AGENT=1` CLI env-var path
+              `agent-mode default (unset KENSA_NO_AGENT)` CLI env-var path
               (bootstrap → ssh subprocess → client.Open →
               Handshake → engine.WithAgentClient) ships as
               a follow-up. L-014 validates the

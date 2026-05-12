@@ -122,9 +122,10 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 	}
 
 	// Spec C-06 announce-line. One stderr line per
-	// agent-mode session so operators see the flip
-	// firing.
-	fmt.Fprintf(opts.Stderr, "kensa: agent mode (KENSA_USE_AGENT=1): bootstrap+spawn+handshake completed for host %s\n", host)
+	// agent-mode session so operators see the path firing.
+	// P-011: agent-mode is now the default (Q1.c ratified
+	// 2026-05-12); KENSA_NO_AGENT=1 opts out.
+	fmt.Fprintf(opts.Stderr, "kensa: agent mode (default; unset with KENSA_NO_AGENT=1): bootstrap+spawn+handshake completed for host %s\n", host)
 
 	cleanup := func() {
 		_ = c.Close()
