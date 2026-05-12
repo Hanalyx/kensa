@@ -1,0 +1,124 @@
+spec:
+    id: deadman-eventloop
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: deadman-eventloop
+        description: |
+            LL Phase 3 deliverable D-004. The single-thread
+            epoll integrator for the rebuilt agent-side
+            deadman subsystem. Composes timerfd (D-001),
+            pidfd (D-002), and signalfd (D-003) into one
+            wakeup primitive.
+
+            **Why epoll over poll.** D-001/D-002/D-003 each
+            ship a poll-based Wait for unit-test
+            ergonomics. But the production deadman needs to
+            wait on MULTIPLE fds simultaneously — timer
+            expires OR parent dies OR SIGTERM arrives. Calling
+            three separate Wait()s from three goroutines and
+            select-ing the channels would work but adds
+            cross-goroutine coordination + the Go-on-Linux
+            fd-reuse footgun that the poll-loops were
+            designed to avoid.
+
+            epoll lets one goroutine wait on the union of
+            registered fds. epoll_wait returns when any of
+            them becomes readable; the loop reports which
+            fd fired and the caller acts.
+
+            **Single-event-per-Run.** Each Run call returns
+            ONE event. D-005's use case is "wait for any
+            wakeup; on wakeup, execute rollback and exit."
+            No need for a persistent event-dispatch loop;
+            no need for multiple concurrent events. This
+            keeps the API simple and the failure modes
+            obvious.
+
+            **Drain responsibility belongs to the source
+            type, not the loop.** When epoll_wait returns
+            with timerfd readable, the loop tells D-005 "the
+            timer fired"; D-005 has reference to the
+            timerfd.Timer and reads it (or just closes the
+            Loop and lets the Timer close along with it).
+            The loop is purely a wakeup-dispatcher.
+
+            **API.**
+              - `New() (*Loop, error)` — creates an epoll fd.
+              - `Register(fd int, kind EventKind) error` —
+                adds fd to the epoll set with the given kind
+                tag. Safe to call before or during Run.
+              - `Run(ctx context.Context) (Event, error)` —
+                blocks until any registered fd fires OR ctx
+                cancels OR Close runs.
+              - `Close() error` — releases the epoll fd.
+
+    objective:
+        summary: |
+            Wrap epoll_create1 + EPOLL_CTL_ADD + epoll_wait
+            in a small Loop type. Single-event-per-Run
+            semantics for D-005 simplicity.
+        scope:
+            includes:
+                - "internal/agent/deadman/eventloop/eventloop.go: Loop + EventKind enum + Event struct"
+                - "internal/agent/deadman/eventloop/eventloop_test.go: integration tests via timerfd/pidfd/signalfd"
+            excludes:
+                - "Persistent event-dispatch loop (D-005 will use single-shot)"
+                - "Per-fd handler callbacks (caller derefs the source themselves)"
+                - "EPOLL edge-trigger mode (we use level-trigger for simplicity)"
+
+    constraints:
+        - id: C-01
+          description: |
+              Loop MUST use epoll_create1 with EPOLL_CLOEXEC.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              EpollEvent registrations MUST use level-trigger
+              (default; no EPOLLET). Single-shot semantics
+              are achieved by closing the Loop after the
+              event, not by EPOLLONESHOT.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Run MUST return ctx.Err() on context cancel
+              (within pollInterval response time).
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Run MUST return ErrClosed if Close is called
+              concurrently.
+        - id: C-05
+          description: |
+              Close MUST be idempotent.
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              TestEventLoop_TimerFiresFirst: register a 100ms
+              timer + a long-running pidfd; Run() returns
+              Event{Kind: EventTimer} within 100-500ms.
+        - id: AC-02
+          description: |
+              TestEventLoop_ParentDeathWins: register a 5s
+              timer + pidfd on a forked child that exits in
+              100ms; Run() returns Event{Kind: EventParentDeath}.
+        - id: AC-03
+          description: |
+              TestEventLoop_SignalWins: register a 5s timer
+              + signalfd watching SIGUSR1; raise SIGUSR1;
+              Run() returns Event{Kind: EventSignal}.
+        - id: AC-04
+          description: |
+              TestEventLoop_CtxCancel: Run with ctx canceled;
+              returns ctx.Err() within 500ms.
+        - id: AC-05
+          description: |
+              TestEventLoop_Close: Run with concurrent Close;
+              returns ErrClosed within 500ms.
