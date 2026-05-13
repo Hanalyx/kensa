@@ -838,8 +838,11 @@ C is the chosen design. Phase 4 ships ~5 deliverables in this order:
 - **Deps:** L-014 (agent transport works), Option-C privilege ratification (2026-05-13)
 - **Acceptance:** `cmd/kensa-systemd-helper/` binary exists; argv interface (`enable|disable|mask|is-enabled|unit-state <unit>`) defined; output is NDJSON-on-stdout, errors on stderr, exit codes 0/1/2 (success/runtime/usage). Helper-interface contract locked at `specs/agent/systemd-helper.spec.yaml`. Helper imports `coreos/go-systemd/v22/dbus` but the D-Bus implementation is stubbed (returns `not yet implemented` envelope error). The agent-side wrapper at `internal/agent/systemd/helper.go` builds the `sudo kensa-systemd-helper ...` invocation, reads the NDJSON, returns a typed Go struct. CI: portability gates verify `coreos/go-systemd/v22` + transitive `godbus/dbus/v5` build under `CGO_ENABLED=0 -tags netgo` + ldd-static + Alpine musl + glibc 2.28 (all pre-validated locally 2026-05-13; CI re-checks).
 - **Size:** ~1 day. Scaffolding + spec + dep wiring + agent wrapper that calls a stub.
-- **Status:** **pending** (blocked on this commit landing)
-- **Risk:** Low. No production code path uses the helper yet; it's pure scaffolding. Dep portability already locally verified.
+- **Status:** **done** 2026-05-13 — landed via PR #2 (merge commit `4e3185e`) with three commits:
+  - `455a177` Phase 4 planning breakout + helper-interface spec (tier 1, 4 in-scope constraints, 6 in-scope ACs; 5 ACs deferred to D-008+).
+  - `da2c735` D-007 implementation: `cmd/kensa-systemd-helper/` binary (351 lines), `internal/agent/systemd/` wrapper package (353 lines), 696 lines of tests covering AC-01/02/03/04/06/10. coreos/go-systemd v22.7.0 + godbus/dbus v5.1.0 deps wired; portability gates pre-validated locally, CI re-validated (RHEL 8 glibc 2.28 + Alpine musl both green).
+  - `b50a07b` lint follow-up: 2 gofmt fixes + 1 godot rephrase (literal `=...` in doc comment was tripping godot's sentence-end detection).
+- **Risk:** Realized risk was lower than estimated. The helper is pure scaffolding; no production path invokes it until D-008.
 
 #### D-008 — D-Bus `EnableUnitFiles` + `service_enabled` handler port
 - **Phase:** 4
