@@ -285,7 +285,7 @@ func emitDBusUnreachable(op, unit string, err error, stdout io.Writer) {
 // in-call D-Bus failures (the connection opened fine but the
 // method call itself failed: unit not found, permission denied,
 // etc.). Distinguishes from emitDBusUnreachable so operators
-// can tell "bus down" from "operation rejected."
+// can tell "bus down" from "operation rejected".
 func emitDBusOpError(op, unit string, err error, stdout io.Writer) {
 	code := classifyDBusError(err)
 	resp := response{
@@ -326,9 +326,9 @@ func classifyDBusError(err error) string {
 }
 
 // extractDBusName pulls the `org.freedesktop.systemd1.<Name>`
-// portion out of a D-Bus error string. coreos/go-systemd
-// formats errors as "Error org.freedesktop.X.Y: detail" so we
-// extract the X.Y portion when present.
+// portion out of a D-Bus error string. The coreos/go-systemd
+// library formats errors as `Error org.freedesktop.X.Y: detail`
+// so we extract the X.Y portion when present.
 func extractDBusName(err error) string {
 	s := err.Error()
 	// Heuristic: look for the first dot-separated token starting

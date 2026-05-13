@@ -38,8 +38,8 @@ type fakeConn struct {
 	propCalls     []propCall
 
 	// GetUnitPropertiesContext
-	allProps    map[string]any
-	allPropsErr error
+	allProps      map[string]any
+	allPropsErr   error
 	allPropsCalls int
 
 	closed bool
@@ -49,6 +49,19 @@ type propCall struct {
 	Unit string
 	Name string
 }
+
+// dbusErrFixture wraps a D-Bus wire-format error string as a
+// Go error. Used by tests that need the fixture string to match
+// the format coreos/go-systemd produces byte-for-byte. A simple
+// errors.New(...) would trip revive's error-strings lint
+// (capital letter, trailing period), but those properties are
+// exactly what makes the fixture realistic — D-Bus error
+// strings DO start with "Error " and DO end with a period.
+type dbusFixtureErr struct{ msg string }
+
+func (e *dbusFixtureErr) Error() string { return e.msg }
+
+func dbusErrFixture(msg string) error { return &dbusFixtureErr{msg: msg} }
 
 func (f *fakeConn) EnableUnitFilesContext(_ context.Context, files []string, runtime, force bool) (bool, []dbus.EnableUnitFileChange, error) {
 	f.mu.Lock()
@@ -192,7 +205,13 @@ func TestEnable_HappyPath(t *testing.T) {
 func TestEnable_DBusError(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
 	fc := &fakeConn{
-		enableErr: errors.New(`Error org.freedesktop.systemd1.NoSuchUnit: Unit foo.service not found.`),
+		// The literal string mirrors the format coreos/go-systemd
+		// produces when systemd D-Bus returns an error. We're
+		// testing the parser that handles this format, so the
+		// fixture must match the wire format byte-for-byte —
+		// revive's error-strings rule (no capital letters, no
+		// trailing period) doesn't apply to wire-format fixtures.
+		enableErr: dbusErrFixture(`Error org.freedesktop.systemd1.NoSuchUnit: Unit foo.service not found.`),
 	}
 	withFakeConn(t, fc, nil)
 	exit, resp, _ := dispatchHelper(t, "enable", "foo.service")
@@ -358,7 +377,7 @@ func TestUnitState_HappyPath(t *testing.T) {
 func TestUnitState_DBusError(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-08", func(t *testing.T) {})
 	fc := &fakeConn{
-		allPropsErr: errors.New(`Error org.freedesktop.systemd1.NoSuchUnit: Unit foo.service not found.`),
+		allPropsErr: dbusErrFixture(`Error org.freedesktop.systemd1.NoSuchUnit: Unit foo.service not found.`),
 	}
 	withFakeConn(t, fc, nil)
 	exit, resp, _ := dispatchHelper(t, "unit-state", "foo.service")

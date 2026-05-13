@@ -180,8 +180,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 // returning the desired exit code (0 success, 1 runtime).
 //
 // D-008 wires enable / is-enabled / unit-state to real D-Bus
-// calls in dbusops.go. disable / mask still emit not_yet_implemented
-// until D-009 / D-010 fill them in.
+// calls in dbusops.go. The disable / mask subcommands still emit
+// not_yet_implemented until D-009 / D-010 fill them in.
 func dispatch(op, unit string, timeout time.Duration, stdout, stderr io.Writer) int {
 	return realDispatch(context.Background(), op, unit, timeout, stdout, stderr)
 }
