@@ -197,9 +197,9 @@ func (c *Client) Mask(ctx context.Context, unit string) (*Response, error) {
 
 // Start runs `sudo helper start <unit>`. D-011 — first
 // job-producing op; the helper waits on JobRemoved before
-// returning. resp.JobResult carries the systemd completion
-// string ("done" on success; "canceled", "timeout", "failed",
-// "dependency", "skipped" on failure).
+// returning. The returned Response carries JobResult — the
+// systemd completion string ("done" on success; "canceled",
+// "timeout", "failed", "dependency", "skipped" on failure).
 func (c *Client) Start(ctx context.Context, unit string) (*Response, error) {
 	return c.invoke(ctx, "start", unit)
 }

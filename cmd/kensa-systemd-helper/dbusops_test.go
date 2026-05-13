@@ -596,11 +596,11 @@ func TestStart_AllFailureCompletions(t *testing.T) {
 
 // TestStart_ChannelNonNil_BeforeInvoke locks spec C-03 / AC-05:
 // the JobRemoved channel MUST be passed non-nil to
-// StartUnitContext. coreos/go-systemd registers the channel
-// against the job path atomically with the method call; passing
-// nil would leave the job's completion signal nowhere to land
-// and runStart would block until ctx-timeout even on
-// instantaneous jobs.
+// StartUnitContext. The coreos/go-systemd library registers
+// the channel against the job path atomically with the method
+// call; passing nil would leave the job's completion signal
+// nowhere to land and runStart would block until ctx-timeout
+// even on instantaneous jobs.
 //
 // @spec agent-systemd-helper
 // @ac AC-05
