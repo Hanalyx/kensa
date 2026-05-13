@@ -170,6 +170,72 @@ func TestStore_AC04_GetReturnsEnvelopeByDefault(t *testing.T) {
 	}
 }
 
+// TestStore_GetPopulatesSteps locks the B2 fix from 2026-05-13:
+// rec.Steps must be populated after Get() so the manual-rollback
+// CLI path (engine.RollbackTransaction reads record.Steps to
+// know what to reverse) can find the apply results.
+//
+// Pre-fix bug: rec.Steps was always nil because Get loaded the
+// envelope but never copied envelope.ApplySteps to rec.Steps.
+// Rollback's loop over record.Steps iterated zero times → empty
+// results slice → synthetic "all rollback steps succeeded"
+// response while host state stayed unchanged. Silent atomicity-
+// contract violation surfaced by the live test on
+// 192.168.1.211.
+//
+// @spec transaction-log
+// @ac AC-04
+func TestStore_GetPopulatesSteps_B2Regression(t *testing.T) {
+	t.Run("transaction-log/AC-04", func(t *testing.T) {})
+	t.Log("// @spec transaction-log")
+	t.Log("// @ac AC-04")
+	s := newTestStore(t)
+	ctx := context.Background()
+	txn := sampleTransaction(t, api.StatusCommitted, "rule-x", "host-x")
+	// sampleTransaction populates Steps and engine.finalize would
+	// then mirror them into the envelope; we replicate that here.
+	txn.Envelope.ApplySteps = txn.Steps
+	if err := s.PersistResult(ctx, txn); err != nil {
+		t.Fatalf("PersistResult: %v", err)
+	}
+
+	rec, err := s.Get(ctx, txn.TransactionID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if len(rec.Steps) == 0 {
+		t.Fatal("rec.Steps should be populated after Get; was empty (B2 regression)")
+	}
+	if len(rec.Steps) != len(txn.Steps) {
+		t.Errorf("rec.Steps len=%d, want %d", len(rec.Steps), len(txn.Steps))
+	}
+	for i := range rec.Steps {
+		if rec.Steps[i].Mechanism != txn.Steps[i].Mechanism {
+			t.Errorf("rec.Steps[%d].Mechanism=%q, want %q",
+				i, rec.Steps[i].Mechanism, txn.Steps[i].Mechanism)
+		}
+		if rec.Steps[i].Capturable != txn.Steps[i].Capturable {
+			t.Errorf("rec.Steps[%d].Capturable=%v, want %v",
+				i, rec.Steps[i].Capturable, txn.Steps[i].Capturable)
+		}
+		if rec.Steps[i].Success != txn.Steps[i].Success {
+			t.Errorf("rec.Steps[%d].Success=%v, want %v",
+				i, rec.Steps[i].Success, txn.Steps[i].Success)
+		}
+	}
+
+	// WithoutEnvelope opts out of the envelope load; rec.Steps
+	// also stays nil in that case (the option contract is
+	// "skip envelope-derived data for performance"). Lock that.
+	recNoEnv, err := s.Get(ctx, txn.TransactionID, api.WithoutEnvelope())
+	if err != nil {
+		t.Fatalf("Get WithoutEnvelope: %v", err)
+	}
+	if recNoEnv.Steps != nil {
+		t.Error("rec.Steps should be nil when WithoutEnvelope skips the envelope load")
+	}
+}
+
 // @spec transaction-log
 // @ac AC-05
 func TestStore_AC05_AggregateByHost(t *testing.T) {
