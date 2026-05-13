@@ -23,6 +23,12 @@ repos:
       - id: check-added-large-files
         args: ["--maxkb=512"]
       - id: detect-private-key
+        # Test fixtures contain synthetic ed25519 keys generated at
+        # test-time for round-trip verification. They are NOT real
+        # secrets and are checked into the repo deliberately. The
+        # exclude list calls them out explicitly so a new key in a
+        # new file IS detected.
+        exclude: ^(pkg/kensa/kensa_test\.go|cmd/kensa-keygen/main_test\.go)$
       - id: mixed-line-ending
         args: ["--fix=lf"]
 
