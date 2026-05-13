@@ -61,6 +61,8 @@ type Request struct {
 	//	*Request_Rollback
 	//	*Request_Heartbeat
 	//	*Request_Handshake
+	//	*Request_ArmDeadman
+	//	*Request_CancelDeadman
 	Payload       isRequest_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -162,6 +164,24 @@ func (x *Request) GetHandshake() *HandshakeRequest {
 	return nil
 }
 
+func (x *Request) GetArmDeadman() *ArmDeadmanRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Request_ArmDeadman); ok {
+			return x.ArmDeadman
+		}
+	}
+	return nil
+}
+
+func (x *Request) GetCancelDeadman() *CancelDeadmanRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Request_CancelDeadman); ok {
+			return x.CancelDeadman
+		}
+	}
+	return nil
+}
+
 type isRequest_Payload interface {
 	isRequest_Payload()
 }
@@ -186,6 +206,14 @@ type Request_Handshake struct {
 	Handshake *HandshakeRequest `protobuf:"bytes,14,opt,name=handshake,proto3,oneof"` // L-012
 }
 
+type Request_ArmDeadman struct {
+	ArmDeadman *ArmDeadmanRequest `protobuf:"bytes,20,opt,name=arm_deadman,json=armDeadman,proto3,oneof"` // D-005
+}
+
+type Request_CancelDeadman struct {
+	CancelDeadman *CancelDeadmanRequest `protobuf:"bytes,21,opt,name=cancel_deadman,json=cancelDeadman,proto3,oneof"` // D-005
+}
+
 func (*Request_Apply) isRequest_Payload() {}
 
 func (*Request_Capture) isRequest_Payload() {}
@@ -195,6 +223,10 @@ func (*Request_Rollback) isRequest_Payload() {}
 func (*Request_Heartbeat) isRequest_Payload() {}
 
 func (*Request_Handshake) isRequest_Payload() {}
+
+func (*Request_ArmDeadman) isRequest_Payload() {}
+
+func (*Request_CancelDeadman) isRequest_Payload() {}
 
 // Response is the agent → controller acknowledgment. The
 // payload variant MUST correspond to the Request's variant
@@ -213,6 +245,8 @@ type Response struct {
 	//	*Response_RollbackResp
 	//	*Response_HeartbeatAck
 	//	*Response_HandshakeAck
+	//	*Response_ArmDeadmanResp
+	//	*Response_CancelDeadmanResp
 	Payload isResponse_Payload `protobuf_oneof:"payload"`
 	// error at field 99 (well outside the envelope-fields range
 	// 1..9) because errors are envelope-level and orthogonal to
@@ -320,6 +354,24 @@ func (x *Response) GetHandshakeAck() *HandshakeAck {
 	return nil
 }
 
+func (x *Response) GetArmDeadmanResp() *ArmDeadmanResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Response_ArmDeadmanResp); ok {
+			return x.ArmDeadmanResp
+		}
+	}
+	return nil
+}
+
+func (x *Response) GetCancelDeadmanResp() *CancelDeadmanResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Response_CancelDeadmanResp); ok {
+			return x.CancelDeadmanResp
+		}
+	}
+	return nil
+}
+
 func (x *Response) GetError() *Error {
 	if x != nil {
 		return x.Error
@@ -351,6 +403,14 @@ type Response_HandshakeAck struct {
 	HandshakeAck *HandshakeAck `protobuf:"bytes,14,opt,name=handshake_ack,json=handshakeAck,proto3,oneof"` // L-012
 }
 
+type Response_ArmDeadmanResp struct {
+	ArmDeadmanResp *ArmDeadmanResponse `protobuf:"bytes,20,opt,name=arm_deadman_resp,json=armDeadmanResp,proto3,oneof"` // D-005
+}
+
+type Response_CancelDeadmanResp struct {
+	CancelDeadmanResp *CancelDeadmanResponse `protobuf:"bytes,21,opt,name=cancel_deadman_resp,json=cancelDeadmanResp,proto3,oneof"` // D-005
+}
+
 func (*Response_ApplyResp) isResponse_Payload() {}
 
 func (*Response_CaptureResp) isResponse_Payload() {}
@@ -360,6 +420,10 @@ func (*Response_RollbackResp) isResponse_Payload() {}
 func (*Response_HeartbeatAck) isResponse_Payload() {}
 
 func (*Response_HandshakeAck) isResponse_Payload() {}
+
+func (*Response_ArmDeadmanResp) isResponse_Payload() {}
+
+func (*Response_CancelDeadmanResp) isResponse_Payload() {}
 
 // Error is the envelope-level failure envelope. Used when the
 // agent cannot construct a typed Response (schema mismatch,
@@ -1318,11 +1382,235 @@ func (x *HandshakeAck) GetBuild() string {
 	return ""
 }
 
+// ArmDeadmanRequest asks the agent to spin up an in-process
+// deadman: a goroutine running an eventloop over a timerfd
+// (window_seconds), parent pidfd, and signalfd(SIGTERM). On
+// any wakeup the goroutine executes rollback_commands via the
+// agent's LocalTransport.
+//
+// Replaces the at(1) / systemd-run scheduler path used in
+// direct-SSH mode. Agent-mode default per Q1.c ratification
+// (2026-05-12).
+type ArmDeadmanRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// txn_id is the transaction UUID (canonical lower-case
+	// hyphenated form) used to identify the armed deadman in a
+	// subsequent CancelDeadmanRequest.
+	TxnId string `protobuf:"bytes,1,opt,name=txn_id,json=txnId,proto3" json:"txn_id,omitempty"`
+	// window_seconds is the deadline. Per deadman-timer spec
+	// C-03 the engine sends >= 120 seconds in production.
+	WindowSeconds int64 `protobuf:"varint,2,opt,name=window_seconds,json=windowSeconds,proto3" json:"window_seconds,omitempty"`
+	// rollback_commands are shell commands executed in reverse-
+	// apply order on the agent's LocalTransport when the
+	// deadman fires. Generated by the engine-side dry-run of
+	// each capturable step's Rollback handler against a
+	// recordingTransport.
+	RollbackCommands []string `protobuf:"bytes,3,rep,name=rollback_commands,json=rollbackCommands,proto3" json:"rollback_commands,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ArmDeadmanRequest) Reset() {
+	*x = ArmDeadmanRequest{}
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArmDeadmanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArmDeadmanRequest) ProtoMessage() {}
+
+func (x *ArmDeadmanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArmDeadmanRequest.ProtoReflect.Descriptor instead.
+func (*ArmDeadmanRequest) Descriptor() ([]byte, []int) {
+	return file_internal_agent_wirev1_wire_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ArmDeadmanRequest) GetTxnId() string {
+	if x != nil {
+		return x.TxnId
+	}
+	return ""
+}
+
+func (x *ArmDeadmanRequest) GetWindowSeconds() int64 {
+	if x != nil {
+		return x.WindowSeconds
+	}
+	return 0
+}
+
+func (x *ArmDeadmanRequest) GetRollbackCommands() []string {
+	if x != nil {
+		return x.RollbackCommands
+	}
+	return nil
+}
+
+// ArmDeadmanResponse confirms the arm. fires_at is the
+// agent's local-clock unix-seconds when the timer will fire
+// in the absence of a Cancel. Informational only — the
+// engine's local-clock is authoritative for transaction
+// timing.
+type ArmDeadmanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FiresAt       int64                  `protobuf:"varint,1,opt,name=fires_at,json=firesAt,proto3" json:"fires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArmDeadmanResponse) Reset() {
+	*x = ArmDeadmanResponse{}
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArmDeadmanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArmDeadmanResponse) ProtoMessage() {}
+
+func (x *ArmDeadmanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArmDeadmanResponse.ProtoReflect.Descriptor instead.
+func (*ArmDeadmanResponse) Descriptor() ([]byte, []int) {
+	return file_internal_agent_wirev1_wire_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ArmDeadmanResponse) GetFiresAt() int64 {
+	if x != nil {
+		return x.FiresAt
+	}
+	return 0
+}
+
+// CancelDeadmanRequest tears down a previously-armed deadman.
+// The agent cancels the goroutine's context, releases the
+// fds, and removes the txn_id from its activeArms map. After
+// Cancel returns, the rollback will NOT fire for this
+// transaction.
+type CancelDeadmanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TxnId         string                 `protobuf:"bytes,1,opt,name=txn_id,json=txnId,proto3" json:"txn_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelDeadmanRequest) Reset() {
+	*x = CancelDeadmanRequest{}
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelDeadmanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelDeadmanRequest) ProtoMessage() {}
+
+func (x *CancelDeadmanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelDeadmanRequest.ProtoReflect.Descriptor instead.
+func (*CancelDeadmanRequest) Descriptor() ([]byte, []int) {
+	return file_internal_agent_wirev1_wire_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *CancelDeadmanRequest) GetTxnId() string {
+	if x != nil {
+		return x.TxnId
+	}
+	return ""
+}
+
+// CancelDeadmanResponse confirms the cancel.
+// was_active is true if the agent had an arm in flight for
+// txn_id; false if the cancel was a no-op (no matching arm).
+type CancelDeadmanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WasActive     bool                   `protobuf:"varint,1,opt,name=was_active,json=wasActive,proto3" json:"was_active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelDeadmanResponse) Reset() {
+	*x = CancelDeadmanResponse{}
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelDeadmanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelDeadmanResponse) ProtoMessage() {}
+
+func (x *CancelDeadmanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_wirev1_wire_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelDeadmanResponse.ProtoReflect.Descriptor instead.
+func (*CancelDeadmanResponse) Descriptor() ([]byte, []int) {
+	return file_internal_agent_wirev1_wire_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CancelDeadmanResponse) GetWasActive() bool {
+	if x != nil {
+		return x.WasActive
+	}
+	return false
+}
+
 var File_internal_agent_wirev1_wire_proto protoreflect.FileDescriptor
 
 const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\n" +
-	" internal/agent/wirev1/wire.proto\x12\x12kensa.agent.wirev1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\x03\n" +
+	" internal/agent/wirev1/wire.proto\x12\x12kensa.agent.wirev1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xce\x04\n" +
 	"\aRequest\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12%\n" +
 	"\x0ecorrelation_id\x18\x02 \x01(\x04R\rcorrelationId\x128\n" +
@@ -1331,8 +1619,11 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\acapture\x18\v \x01(\v2\".kensa.agent.wirev1.CaptureRequestH\x00R\acapture\x12A\n" +
 	"\brollback\x18\f \x01(\v2#.kensa.agent.wirev1.RollbackRequestH\x00R\brollback\x12D\n" +
 	"\theartbeat\x18\r \x01(\v2$.kensa.agent.wirev1.HeartbeatRequestH\x00R\theartbeat\x12D\n" +
-	"\thandshake\x18\x0e \x01(\v2$.kensa.agent.wirev1.HandshakeRequestH\x00R\thandshakeB\t\n" +
-	"\apayloadJ\x04\b\x0f\x10\x14\"\x87\x04\n" +
+	"\thandshake\x18\x0e \x01(\v2$.kensa.agent.wirev1.HandshakeRequestH\x00R\thandshake\x12H\n" +
+	"\varm_deadman\x18\x14 \x01(\v2%.kensa.agent.wirev1.ArmDeadmanRequestH\x00R\n" +
+	"armDeadman\x12Q\n" +
+	"\x0ecancel_deadman\x18\x15 \x01(\v2(.kensa.agent.wirev1.CancelDeadmanRequestH\x00R\rcancelDeadmanB\t\n" +
+	"\apayloadJ\x04\b\x0f\x10\x14\"\xb8\x05\n" +
 	"\bResponse\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\rR\rschemaVersion\x12%\n" +
 	"\x0ecorrelation_id\x18\x02 \x01(\x04R\rcorrelationId\x12B\n" +
@@ -1342,7 +1633,9 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\fcapture_resp\x18\v \x01(\v2#.kensa.agent.wirev1.CaptureResponseH\x00R\vcaptureResp\x12K\n" +
 	"\rrollback_resp\x18\f \x01(\v2$.kensa.agent.wirev1.RollbackResponseH\x00R\frollbackResp\x12G\n" +
 	"\rheartbeat_ack\x18\r \x01(\v2 .kensa.agent.wirev1.HeartbeatAckH\x00R\fheartbeatAck\x12G\n" +
-	"\rhandshake_ack\x18\x0e \x01(\v2 .kensa.agent.wirev1.HandshakeAckH\x00R\fhandshakeAck\x12/\n" +
+	"\rhandshake_ack\x18\x0e \x01(\v2 .kensa.agent.wirev1.HandshakeAckH\x00R\fhandshakeAck\x12R\n" +
+	"\x10arm_deadman_resp\x18\x14 \x01(\v2&.kensa.agent.wirev1.ArmDeadmanResponseH\x00R\x0earmDeadmanResp\x12[\n" +
+	"\x13cancel_deadman_resp\x18\x15 \x01(\v2).kensa.agent.wirev1.CancelDeadmanResponseH\x00R\x11cancelDeadmanResp\x12/\n" +
 	"\x05error\x18c \x01(\v2\x19.kensa.agent.wirev1.ErrorR\x05errorB\t\n" +
 	"\apayloadJ\x04\b\x0f\x10\x14\"x\n" +
 	"\x05Error\x12%\n" +
@@ -1415,7 +1708,18 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\x05minor\x18\x02 \x01(\rR\x05minor\x12\x1a\n" +
 	"\baccepted\x18\x03 \x01(\bR\baccepted\x12\x16\n" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x14\n" +
-	"\x05build\x18\x05 \x01(\tR\x05buildB3Z1github.com/Hanalyx/kensa-go/internal/agent/wirev1b\x06proto3"
+	"\x05build\x18\x05 \x01(\tR\x05build\"~\n" +
+	"\x11ArmDeadmanRequest\x12\x15\n" +
+	"\x06txn_id\x18\x01 \x01(\tR\x05txnId\x12%\n" +
+	"\x0ewindow_seconds\x18\x02 \x01(\x03R\rwindowSeconds\x12+\n" +
+	"\x11rollback_commands\x18\x03 \x03(\tR\x10rollbackCommands\"/\n" +
+	"\x12ArmDeadmanResponse\x12\x19\n" +
+	"\bfires_at\x18\x01 \x01(\x03R\afiresAt\"-\n" +
+	"\x14CancelDeadmanRequest\x12\x15\n" +
+	"\x06txn_id\x18\x01 \x01(\tR\x05txnId\"6\n" +
+	"\x15CancelDeadmanResponse\x12\x1d\n" +
+	"\n" +
+	"was_active\x18\x01 \x01(\bR\twasActiveB3Z1github.com/Hanalyx/kensa-go/internal/agent/wirev1b\x06proto3"
 
 var (
 	file_internal_agent_wirev1_wire_proto_rawDescOnce sync.Once
@@ -1429,7 +1733,7 @@ func file_internal_agent_wirev1_wire_proto_rawDescGZIP() []byte {
 	return file_internal_agent_wirev1_wire_proto_rawDescData
 }
 
-var file_internal_agent_wirev1_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_internal_agent_wirev1_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_internal_agent_wirev1_wire_proto_goTypes = []any{
 	(*Request)(nil),               // 0: kensa.agent.wirev1.Request
 	(*Response)(nil),              // 1: kensa.agent.wirev1.Response
@@ -1448,8 +1752,12 @@ var file_internal_agent_wirev1_wire_proto_goTypes = []any{
 	(*WireRollbackResult)(nil),    // 14: kensa.agent.wirev1.WireRollbackResult
 	(*HandshakeRequest)(nil),      // 15: kensa.agent.wirev1.HandshakeRequest
 	(*HandshakeAck)(nil),          // 16: kensa.agent.wirev1.HandshakeAck
-	(*structpb.Struct)(nil),       // 17: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
+	(*ArmDeadmanRequest)(nil),     // 17: kensa.agent.wirev1.ArmDeadmanRequest
+	(*ArmDeadmanResponse)(nil),    // 18: kensa.agent.wirev1.ArmDeadmanResponse
+	(*CancelDeadmanRequest)(nil),  // 19: kensa.agent.wirev1.CancelDeadmanRequest
+	(*CancelDeadmanResponse)(nil), // 20: kensa.agent.wirev1.CancelDeadmanResponse
+	(*structpb.Struct)(nil),       // 21: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil), // 22: google.protobuf.Timestamp
 }
 var file_internal_agent_wirev1_wire_proto_depIdxs = []int32{
 	4,  // 0: kensa.agent.wirev1.Request.apply:type_name -> kensa.agent.wirev1.ApplyRequest
@@ -1457,27 +1765,31 @@ var file_internal_agent_wirev1_wire_proto_depIdxs = []int32{
 	8,  // 2: kensa.agent.wirev1.Request.rollback:type_name -> kensa.agent.wirev1.RollbackRequest
 	10, // 3: kensa.agent.wirev1.Request.heartbeat:type_name -> kensa.agent.wirev1.HeartbeatRequest
 	15, // 4: kensa.agent.wirev1.Request.handshake:type_name -> kensa.agent.wirev1.HandshakeRequest
-	5,  // 5: kensa.agent.wirev1.Response.apply_resp:type_name -> kensa.agent.wirev1.ApplyResponse
-	7,  // 6: kensa.agent.wirev1.Response.capture_resp:type_name -> kensa.agent.wirev1.CaptureResponse
-	9,  // 7: kensa.agent.wirev1.Response.rollback_resp:type_name -> kensa.agent.wirev1.RollbackResponse
-	11, // 8: kensa.agent.wirev1.Response.heartbeat_ack:type_name -> kensa.agent.wirev1.HeartbeatAck
-	16, // 9: kensa.agent.wirev1.Response.handshake_ack:type_name -> kensa.agent.wirev1.HandshakeAck
-	2,  // 10: kensa.agent.wirev1.Response.error:type_name -> kensa.agent.wirev1.Error
-	17, // 11: kensa.agent.wirev1.ApplyRequest.params:type_name -> google.protobuf.Struct
-	13, // 12: kensa.agent.wirev1.ApplyRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
-	12, // 13: kensa.agent.wirev1.ApplyResponse.step_result:type_name -> kensa.agent.wirev1.WireStepResult
-	17, // 14: kensa.agent.wirev1.CaptureRequest.params:type_name -> google.protobuf.Struct
-	13, // 15: kensa.agent.wirev1.CaptureResponse.pre_state:type_name -> kensa.agent.wirev1.WirePreState
-	13, // 16: kensa.agent.wirev1.RollbackRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
-	14, // 17: kensa.agent.wirev1.RollbackResponse.rollback_result:type_name -> kensa.agent.wirev1.WireRollbackResult
-	17, // 18: kensa.agent.wirev1.WirePreState.data:type_name -> google.protobuf.Struct
-	18, // 19: kensa.agent.wirev1.WirePreState.captured_at:type_name -> google.protobuf.Timestamp
-	18, // 20: kensa.agent.wirev1.WireRollbackResult.executed_at:type_name -> google.protobuf.Timestamp
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	17, // 5: kensa.agent.wirev1.Request.arm_deadman:type_name -> kensa.agent.wirev1.ArmDeadmanRequest
+	19, // 6: kensa.agent.wirev1.Request.cancel_deadman:type_name -> kensa.agent.wirev1.CancelDeadmanRequest
+	5,  // 7: kensa.agent.wirev1.Response.apply_resp:type_name -> kensa.agent.wirev1.ApplyResponse
+	7,  // 8: kensa.agent.wirev1.Response.capture_resp:type_name -> kensa.agent.wirev1.CaptureResponse
+	9,  // 9: kensa.agent.wirev1.Response.rollback_resp:type_name -> kensa.agent.wirev1.RollbackResponse
+	11, // 10: kensa.agent.wirev1.Response.heartbeat_ack:type_name -> kensa.agent.wirev1.HeartbeatAck
+	16, // 11: kensa.agent.wirev1.Response.handshake_ack:type_name -> kensa.agent.wirev1.HandshakeAck
+	18, // 12: kensa.agent.wirev1.Response.arm_deadman_resp:type_name -> kensa.agent.wirev1.ArmDeadmanResponse
+	20, // 13: kensa.agent.wirev1.Response.cancel_deadman_resp:type_name -> kensa.agent.wirev1.CancelDeadmanResponse
+	2,  // 14: kensa.agent.wirev1.Response.error:type_name -> kensa.agent.wirev1.Error
+	21, // 15: kensa.agent.wirev1.ApplyRequest.params:type_name -> google.protobuf.Struct
+	13, // 16: kensa.agent.wirev1.ApplyRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
+	12, // 17: kensa.agent.wirev1.ApplyResponse.step_result:type_name -> kensa.agent.wirev1.WireStepResult
+	21, // 18: kensa.agent.wirev1.CaptureRequest.params:type_name -> google.protobuf.Struct
+	13, // 19: kensa.agent.wirev1.CaptureResponse.pre_state:type_name -> kensa.agent.wirev1.WirePreState
+	13, // 20: kensa.agent.wirev1.RollbackRequest.pre_state:type_name -> kensa.agent.wirev1.WirePreState
+	14, // 21: kensa.agent.wirev1.RollbackResponse.rollback_result:type_name -> kensa.agent.wirev1.WireRollbackResult
+	21, // 22: kensa.agent.wirev1.WirePreState.data:type_name -> google.protobuf.Struct
+	22, // 23: kensa.agent.wirev1.WirePreState.captured_at:type_name -> google.protobuf.Timestamp
+	22, // 24: kensa.agent.wirev1.WireRollbackResult.executed_at:type_name -> google.protobuf.Timestamp
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_internal_agent_wirev1_wire_proto_init() }
@@ -1491,6 +1803,8 @@ func file_internal_agent_wirev1_wire_proto_init() {
 		(*Request_Rollback)(nil),
 		(*Request_Heartbeat)(nil),
 		(*Request_Handshake)(nil),
+		(*Request_ArmDeadman)(nil),
+		(*Request_CancelDeadman)(nil),
 	}
 	file_internal_agent_wirev1_wire_proto_msgTypes[1].OneofWrappers = []any{
 		(*Response_ApplyResp)(nil),
@@ -1498,6 +1812,8 @@ func file_internal_agent_wirev1_wire_proto_init() {
 		(*Response_RollbackResp)(nil),
 		(*Response_HeartbeatAck)(nil),
 		(*Response_HandshakeAck)(nil),
+		(*Response_ArmDeadmanResp)(nil),
+		(*Response_CancelDeadmanResp)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1505,7 +1821,7 @@ func file_internal_agent_wirev1_wire_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_agent_wirev1_wire_proto_rawDesc), len(file_internal_agent_wirev1_wire_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

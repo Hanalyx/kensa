@@ -2,6 +2,7 @@ package deadman_test
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"strings"
 	"testing"
@@ -275,3 +276,136 @@ func TestArm_DefaultWindowIsAtLeast120s(t *testing.T) {
 			firesAt, minExpected)
 	}
 }
+
+// ─── D-005 dispatch tests ─────────────────────────────────────
+
+// fakeAgentDeadmanClient implements the local
+// agentDeadmanClient interface for D-005 dispatch tests.
+type fakeAgentDeadmanClient struct {
+	armCalled    int
+	armTxnID     string
+	armWindow    int64
+	armCommands  []string
+	armFiresAt   int64
+	armErr       error
+	cancelCalled int
+	cancelTxnID  string
+	cancelActive bool
+	cancelErr    error
+}
+
+func (f *fakeAgentDeadmanClient) ArmDeadman(_ context.Context, txnID string, windowSec int64, cmds []string) (int64, error) {
+	f.armCalled++
+	f.armTxnID = txnID
+	f.armWindow = windowSec
+	f.armCommands = cmds
+	if f.armErr != nil {
+		return 0, f.armErr
+	}
+	return f.armFiresAt, nil
+}
+
+func (f *fakeAgentDeadmanClient) CancelDeadman(_ context.Context, txnID string) (bool, error) {
+	f.cancelCalled++
+	f.cancelTxnID = txnID
+	return f.cancelActive, f.cancelErr
+}
+
+// TestDeadman_D005_AgentDispatch_ArmRoutesThroughRPC locks
+// the agent-mode dispatch: when UseAgentClient has been
+// called, Arm calls ArmDeadman on the AgentClient and does
+// NOT touch the shell-based scheduler.
+func TestDeadman_D005_AgentDispatch_ArmRoutesThroughRPC(t *testing.T) {
+	fake := &fakeAgentDeadmanClient{
+		armFiresAt: time.Now().Add(120 * time.Second).Unix(),
+	}
+	a := deadman.New(0, handler.NewRegistry())
+	a.UseAgentClient(fake)
+
+	// Use a transport that would FAIL if the shell path were
+	// taken (no `at` or `systemd-run` configured). The agent
+	// dispatch should never touch it.
+	tp := nilTransport{}
+	txnID := uuid.New()
+
+	scriptPath, firesAt, err := a.Arm(context.Background(), tp, txnID, []api.PreState{})
+	if err != nil {
+		t.Fatalf("Arm via agent: %v", err)
+	}
+	if fake.armCalled != 1 {
+		t.Errorf("ArmDeadman call count: got %d, want 1", fake.armCalled)
+	}
+	if fake.armTxnID != txnID.String() {
+		t.Errorf("ArmDeadman txn_id: got %q, want %q", fake.armTxnID, txnID.String())
+	}
+	if fake.armWindow != 120 {
+		t.Errorf("ArmDeadman window_seconds: got %d, want 120", fake.armWindow)
+	}
+	if scriptPath != "" {
+		t.Errorf("agent-mode scriptPath: got %q, want empty", scriptPath)
+	}
+	if firesAt != fake.armFiresAt {
+		t.Errorf("firesAt: got %d, want %d", firesAt, fake.armFiresAt)
+	}
+}
+
+// TestDeadman_D005_AgentDispatch_CancelRoutesThroughRPC.
+func TestDeadman_D005_AgentDispatch_CancelRoutesThroughRPC(t *testing.T) {
+	fake := &fakeAgentDeadmanClient{
+		armFiresAt:   time.Now().Add(120 * time.Second).Unix(),
+		cancelActive: true,
+	}
+	a := deadman.New(0, handler.NewRegistry())
+	a.UseAgentClient(fake)
+	tp := nilTransport{}
+	txnID := uuid.New()
+
+	if _, _, err := a.Arm(context.Background(), tp, txnID, []api.PreState{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Cancel(context.Background(), tp, txnID); err != nil {
+		t.Fatalf("Cancel via agent: %v", err)
+	}
+	if fake.cancelCalled != 1 {
+		t.Errorf("CancelDeadman call count: got %d, want 1", fake.cancelCalled)
+	}
+	if fake.cancelTxnID != txnID.String() {
+		t.Errorf("CancelDeadman txn_id: got %q, want %q", fake.cancelTxnID, txnID.String())
+	}
+}
+
+// TestDeadman_D005_AgentDispatch_RPCFailureSurfacesError
+// locks the Q1.a ratification: if the agent RPC fails,
+// Arm fails too (no silent fall-back to shell).
+func TestDeadman_D005_AgentDispatch_RPCFailureSurfacesError(t *testing.T) {
+	fake := &fakeAgentDeadmanClient{
+		armErr: errors.New("simulated agent RPC failure"),
+	}
+	a := deadman.New(0, handler.NewRegistry())
+	a.UseAgentClient(fake)
+	tp := nilTransport{}
+
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	if err == nil {
+		t.Fatal("expected error when agent RPC fails; got nil")
+	}
+	if !strings.Contains(err.Error(), "simulated agent RPC failure") {
+		t.Errorf("error should wrap the agent failure; got: %v", err)
+	}
+}
+
+// nilTransport is an api.Transport that panics if any method
+// is called. Used by D-005 agent-dispatch tests to prove the
+// agent path doesn't touch transport at all.
+type nilTransport struct{}
+
+func (nilTransport) Run(_ context.Context, _ string) (*api.CommandResult, error) {
+	panic("nilTransport.Run called — agent-mode dispatch should not touch the transport")
+}
+func (nilTransport) Put(_ context.Context, _, _ string, _ fs.FileMode) error {
+	panic("nilTransport.Put called")
+}
+func (nilTransport) Get(_ context.Context, _, _ string) error { panic("nilTransport.Get called") }
+func (nilTransport) ControlChannelSensitive() bool            { return false }
+func (nilTransport) Close() error                              { return nil }

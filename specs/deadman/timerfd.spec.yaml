@@ -115,28 +115,35 @@ spec:
               TestTimerfd_FiresAfterWindow: Arm(100ms),
               call Wait() in a goroutine; assert Wait returns
               nil within 100-200ms (wall-clock budget).
+          references_constraints: [C-01]
         - id: AC-02
           description: |
               TestTimerfd_CanCancel: Arm(5s), Cancel(),
               Wait() in a goroutine with 200ms timeout;
               assert Wait does NOT return success within 200ms.
+          references_constraints: [C-05]
         - id: AC-03
           description: |
               TestTimerfd_ContextCancel: Arm(5s), Wait(ctx)
               with ctx canceled after 100ms; assert Wait
               returns ctx.Err() in 100-200ms.
+          references_constraints: [C-04]
         - id: AC-04
           description: |
               TestTimerfd_RejectsZeroDuration: Arm(0) and
               Arm(-1) both return a typed error.
+          references_constraints: [C-03]
         - id: AC-05
           description: |
               TestTimerfd_FDReadShape: after Arm + fire, a
               direct unix.Read on FD() returns exactly 8
               bytes (le-uint64 expiration count) — verifies
               the wire shape that D-004's epoll loop will
-              consume.
+              consume. Also verifies TFD_CLOEXEC indirectly
+              (the FD must be a valid file descriptor).
+          references_constraints: [C-01, C-02]
         - id: AC-06
           description: |
               TestTimerfd_CloseIdempotent: Close() can be
               called twice without error.
+          references_constraints: [C-06]

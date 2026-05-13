@@ -35,6 +35,7 @@ import (
 
 	"github.com/Hanalyx/kensa-go/api"
 	"github.com/Hanalyx/kensa-go/internal/agent"
+	"github.com/Hanalyx/kensa-go/internal/agent/deadman"
 	"github.com/Hanalyx/kensa-go/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
 	"github.com/Hanalyx/kensa-go/internal/handler"
@@ -66,6 +67,10 @@ func Handle(req *wirev1.Request) *wirev1.Response {
 		dispatchCapture(p.Capture, resp)
 	case *wirev1.Request_Rollback:
 		dispatchRollback(p.Rollback, resp)
+	case *wirev1.Request_ArmDeadman:
+		dispatchArmDeadman(p.ArmDeadman, resp)
+	case *wirev1.Request_CancelDeadman:
+		dispatchCancelDeadman(p.CancelDeadman, resp)
 	case *wirev1.Request_Handshake, *wirev1.Request_Heartbeat:
 		// Pass through to the existing echo handler — it
 		// already implements the L-012 handshake response
@@ -275,4 +280,46 @@ func setError(resp *wirev1.Response, code, detail string) {
 		Retryable:     false,
 	}
 	resp.Payload = nil
+}
+
+// dispatchArmDeadman handles an ArmDeadmanRequest by
+// delegating to the package-level deadman.Armer singleton.
+// D-005 deliverable.
+func dispatchArmDeadman(req *wirev1.ArmDeadmanRequest, resp *wirev1.Response) {
+	if req.GetTxnId() == "" {
+		setError(resp, "invalid_request", "ArmDeadmanRequest.txn_id is empty")
+		return
+	}
+	if req.GetWindowSeconds() <= 0 {
+		setError(resp, "invalid_request", fmt.Sprintf("ArmDeadmanRequest.window_seconds must be positive: %d", req.GetWindowSeconds()))
+		return
+	}
+	firesAt, err := deadman.HandleArmDeadman(
+		req.GetTxnId(),
+		req.GetWindowSeconds(),
+		req.GetRollbackCommands(),
+	)
+	if err != nil {
+		setError(resp, "arm_deadman_failed", err.Error())
+		return
+	}
+	resp.Payload = &wirev1.Response_ArmDeadmanResp{
+		ArmDeadmanResp: &wirev1.ArmDeadmanResponse{
+			FiresAt: firesAt,
+		},
+	}
+}
+
+// dispatchCancelDeadman handles a CancelDeadmanRequest.
+func dispatchCancelDeadman(req *wirev1.CancelDeadmanRequest, resp *wirev1.Response) {
+	if req.GetTxnId() == "" {
+		setError(resp, "invalid_request", "CancelDeadmanRequest.txn_id is empty")
+		return
+	}
+	wasActive := deadman.HandleCancelDeadman(req.GetTxnId())
+	resp.Payload = &wirev1.Response_CancelDeadmanResp{
+		CancelDeadmanResp: &wirev1.CancelDeadmanResponse{
+			WasActive: wasActive,
+		},
+	}
 }

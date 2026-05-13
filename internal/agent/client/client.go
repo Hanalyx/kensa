@@ -357,6 +357,14 @@ type handshakePayload struct{ p *wirev1.Request_Handshake }
 
 func (h handshakePayload) setOn(req *wirev1.Request) { req.Payload = h.p }
 
+type armDeadmanPayload struct{ p *wirev1.Request_ArmDeadman }
+
+func (a armDeadmanPayload) setOn(req *wirev1.Request) { req.Payload = a.p }
+
+type cancelDeadmanPayload struct{ p *wirev1.Request_CancelDeadman }
+
+func (c cancelDeadmanPayload) setOn(req *wirev1.Request) { req.Payload = c.p }
+
 // ErrIncompatibleProtocol is returned from Handshake when the
 // agent's major version differs from this build's, or when
 // the agent explicitly rejects the handshake (HandshakeAck.
@@ -549,4 +557,49 @@ func (c *Client) Heartbeat(ctx context.Context, token uint64) error {
 		return fmt.Errorf("client: heartbeat token mismatch: sent %d, ack %d", token, ack.HeartbeatAck.GetToken())
 	}
 	return nil
+}
+
+// ArmDeadman sends an ArmDeadmanRequest and returns the
+// agent-reported fires-at unix-seconds. D-005 deliverable.
+func (c *Client) ArmDeadman(ctx context.Context, txnID string, windowSeconds int64, rollbackCommands []string) (int64, error) {
+	resp, err := c.sendRequest(ctx, armDeadmanPayload{p: &wirev1.Request_ArmDeadman{
+		ArmDeadman: &wirev1.ArmDeadmanRequest{
+			TxnId:            txnID,
+			WindowSeconds:    windowSeconds,
+			RollbackCommands: rollbackCommands,
+		},
+	}})
+	if err != nil {
+		return 0, err
+	}
+	if e := resp.GetError(); e != nil {
+		return 0, &AgentError{Code: e.GetCode(), Detail: e.GetDetail(), Retryable: e.GetRetryable()}
+	}
+	ack, ok := resp.GetPayload().(*wirev1.Response_ArmDeadmanResp)
+	if !ok {
+		return 0, fmt.Errorf("%w: want ArmDeadmanResp, got %T", ErrVariantMismatch, resp.GetPayload())
+	}
+	return ack.ArmDeadmanResp.GetFiresAt(), nil
+}
+
+// CancelDeadman sends a CancelDeadmanRequest and returns the
+// agent-reported was-active flag (true if an arm was in
+// flight; false if no matching arm).
+func (c *Client) CancelDeadman(ctx context.Context, txnID string) (wasActive bool, err error) {
+	resp, err := c.sendRequest(ctx, cancelDeadmanPayload{p: &wirev1.Request_CancelDeadman{
+		CancelDeadman: &wirev1.CancelDeadmanRequest{
+			TxnId: txnID,
+		},
+	}})
+	if err != nil {
+		return false, err
+	}
+	if e := resp.GetError(); e != nil {
+		return false, &AgentError{Code: e.GetCode(), Detail: e.GetDetail(), Retryable: e.GetRetryable()}
+	}
+	ack, ok := resp.GetPayload().(*wirev1.Response_CancelDeadmanResp)
+	if !ok {
+		return false, fmt.Errorf("%w: want CancelDeadmanResp, got %T", ErrVariantMismatch, resp.GetPayload())
+	}
+	return ack.CancelDeadmanResp.GetWasActive(), nil
 }

@@ -50,6 +50,18 @@ func (f *fakeAgentClient) Rollback(_ context.Context, pre api.PreState) (*api.Ro
 	return &api.RollbackResult{Mechanism: pre.Mechanism, Success: true, Source: "agent", ExecutedAt: time.Now().UTC()}, nil
 }
 
+// ArmDeadman / CancelDeadman: D-005 added these to the
+// engine.AgentClient interface. The L-014 test scope
+// doesn't exercise deadman dispatch — implement as no-ops
+// returning sentinel values so the interface check passes.
+func (f *fakeAgentClient) ArmDeadman(_ context.Context, _ string, _ int64, _ []string) (int64, error) {
+	return time.Now().Add(120 * time.Second).Unix(), nil
+}
+
+func (f *fakeAgentClient) CancelDeadman(_ context.Context, _ string) (bool, error) {
+	return true, nil
+}
+
 // TestEngine_WithAgentClient_RoutesApplyThroughClient locks
 // the core L-014 contract: when WithAgentClient is set, an
 // Apply call goes through the AgentClient instead of the

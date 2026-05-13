@@ -68,6 +68,22 @@ type AgentClient interface {
 	Apply(ctx context.Context, mechanism string, params api.Params, preState *api.PreState) (*api.StepResult, error)
 	Capture(ctx context.Context, mechanism string, params api.Params) (*api.PreState, error)
 	Rollback(ctx context.Context, preState api.PreState) (*api.RollbackResult, error)
+	ArmDeadman(ctx context.Context, txnID string, windowSeconds int64, rollbackCommands []string) (int64, error)
+	CancelDeadman(ctx context.Context, txnID string) (wasActive bool, err error)
+}
+
+// AgentAwareDeadmanArmer is the optional capability
+// interface a DeadmanArmer can satisfy to receive the
+// engine's AgentClient. D-005 deliverable: when WithAgentClient
+// is set and the configured DeadmanArmer implements this
+// interface, engine.New calls UseAgentClient to wire the
+// armer for the agent-mode dispatch path.
+//
+// The pattern mirrors fsatomic.Transport: optional capability
+// surfaced via type assertion, no hard interface dependency.
+type AgentAwareDeadmanArmer interface {
+	DeadmanArmer
+	UseAgentClient(c AgentClient)
 }
 
 // Option configures [Engine] at construction. The default zero-config
@@ -146,6 +162,15 @@ func New(opts ...Option) *Engine {
 	}
 	for _, opt := range opts {
 		opt(e)
+	}
+	// D-005 capability wiring: if the configured deadman
+	// armer accepts an AgentClient AND we have one, hand it
+	// over so the armer can dispatch via RPC instead of the
+	// shell-based path.
+	if e.agentClient != nil {
+		if ada, ok := e.deadman.(AgentAwareDeadmanArmer); ok {
+			ada.UseAgentClient(e.agentClient)
+		}
 	}
 	return e
 }

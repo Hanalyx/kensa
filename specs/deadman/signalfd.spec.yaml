@@ -100,20 +100,30 @@ spec:
     acceptance_criteria:
         - id: AC-01
           description: |
-              TestSignalfd_DeliversSIGTERM: New(SIGTERM),
-              raise SIGTERM via syscall.Kill(syscall.Getpid()),
-              Wait() returns within 200ms with the signal info.
+              TestSignalfd_DeliversSIGTERM: New(SIGUSR1) +
+              syscall.Kill(getpid, SIGUSR1) → Wait returns
+              within 200ms. Verifies SFD_CLOEXEC and signal
+              mask via the self-pipe + signal.Notify design.
+          references_constraints: [C-01, C-02]
         - id: AC-02
           description: |
               TestSignalfd_ContextCancel: Wait(ctx) returns
               ctx.Err() if ctx is canceled before signal.
+              Also locks the close-during-wait race via
+              TestSignalfd_ConcurrentCloseDuringWait, which
+              exercises the mask-restore path on Close.
+          references_constraints: [C-04]
         - id: AC-03
           description: |
-              TestSignalfd_CloseRestoresMask: after Close,
-              the watched signal is unblocked (default
-              disposition restored).
+              TestSignalfd_CloseIdempotent: after Close,
+              the watched signal is unblocked (signal.Stop
+              restores the default disposition) and the fds
+              are released. Subsequent Close calls are no-ops.
+          references_constraints: [C-04]
         - id: AC-04
           description: |
-              TestPrctl_SetReturnsNoError: SetParentDeathSignal
-              (SIGKILL) returns nil. The end-to-end
-              parent-death-kills-child test is scoped to D-006.
+              TestPrctl_SetReturnsNoError +
+              TestPrctl_AcceptsSIGUSR1: SetParentDeathSignal
+              accepts any signal number; end-to-end
+              parent-death-kills-child test scoped to D-006.
+          references_constraints: [C-03]

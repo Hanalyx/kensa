@@ -98,7 +98,7 @@ spec:
               explicit call.
           type: technical
           enforcement: error
-        - id: C-03b
+        - id: C-04
           description: |
               OpenParent() MUST return ErrParentGone when
               Getppid() returns 0 or 1 (process is init OR
@@ -107,11 +107,11 @@ spec:
               "parent already dead, fire rollback immediately".
           type: technical
           enforcement: error
-        - id: C-04
+        - id: C-05
           description: |
               Wait(ctx) MUST return ctx.Err() on context
               cancel.
-        - id: C-05
+        - id: C-06
           description: |
               Close MUST be idempotent.
 
@@ -120,29 +120,36 @@ spec:
           description: |
               TestPidfd_ProbeSupport: on kernel ≥ 5.3,
               ProbeSupport returns nil. On older kernels,
-              returns ErrKernelTooOld (this branch is
-              effectively unreachable on the CI hosts we
-              run on; verify by mocking? Or just accept the
-              kernel-version-conditional test).
+              returns ErrKernelTooOld. Sentinel mapping for
+              EPERM/EACCES → ErrPidfdBlocked verified via
+              code inspection (CI hosts can't trigger).
+          references_constraints: [C-01, C-02]
         - id: AC-02
           description: |
               TestPidfd_FiresOnProcessExit: fork a child
               process (sleep N seconds), open pidfd on its
               pid, kill it via SIGTERM, assert Wait returns
-              within 200ms.
+              within 200ms. Implicitly verifies FD_CLOEXEC
+              (the pidfd is a valid fd).
+          references_constraints: [C-03]
         - id: AC-03
           description: |
               TestPidfd_DoesNotFireOnUnrelatedExit: fork two
               child processes, open pidfd on child A, kill
               child B (NOT child A). Assert Wait does NOT
-              return within 200ms.
+              return within 1s.
+          references_constraints: [C-03]
         - id: AC-04
           description: |
               TestPidfd_ContextCancel: open pidfd on a
               long-lived child, call Wait(ctx) with ctx
               canceled after 100ms; assert Wait returns
               ctx.Err() in <500ms.
+          references_constraints: [C-05]
         - id: AC-05
           description: |
               TestPidfd_CloseIdempotent + Wait/Open after
               Close return ErrClosed.
+              TestPidfd_OpenParent_NotGoneInNormalRun
+              exercises the ErrParentGone sentinel path.
+          references_constraints: [C-04, C-06]

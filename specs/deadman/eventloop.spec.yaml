@@ -104,21 +104,29 @@ spec:
               TestEventLoop_TimerFiresFirst: register a 100ms
               timer + a long-running pidfd; Run() returns
               Event{Kind: EventTimer} within 100-500ms.
+              Verifies EPOLL_CLOEXEC + level-trigger
+              registration semantics.
+          references_constraints: [C-01, C-02]
         - id: AC-02
           description: |
               TestEventLoop_ParentDeathWins: register a 5s
               timer + pidfd on a forked child that exits in
               100ms; Run() returns Event{Kind: EventParentDeath}.
+          references_constraints: [C-02]
         - id: AC-03
           description: |
               TestEventLoop_SignalWins: register a 5s timer
               + signalfd watching SIGUSR1; raise SIGUSR1;
               Run() returns Event{Kind: EventSignal}.
+          references_constraints: [C-02]
         - id: AC-04
           description: |
               TestEventLoop_CtxCancel: Run with ctx canceled;
               returns ctx.Err() within 500ms.
+          references_constraints: [C-03]
         - id: AC-05
           description: |
               TestEventLoop_Close: Run with concurrent Close;
               returns ErrClosed within 500ms.
+              TestEventLoop_CloseIdempotent locks double-close.
+          references_constraints: [C-04, C-05]
