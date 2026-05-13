@@ -40,6 +40,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/handler"
 )
 
@@ -56,6 +57,11 @@ const (
 
 // armedJob holds the state for one armed deadman timer.
 type armedJob struct {
+	// agentMode distinguishes agent-RPC arms (true) from
+	// shell-based at(1)/systemd-run arms (false). Set by
+	// armViaAgent / armViaShell respectively. Replaces the
+	// empty-scriptPath sentinel pattern (P2-1 fix).
+	agentMode  bool
 	scheduler  schedulerKind
 	jobID      string // at: numeric job ID; systemd-run: unit name
 	scriptPath string
@@ -87,22 +93,17 @@ type Armer struct {
 	// agentClient is the optional agent-mode dispatch
 	// channel; set via UseAgentClient. When nil, Arm/Cancel
 	// use the shell-based at(1)/systemd-run path.
-	agentClient agentDeadmanClient
-}
-
-// agentDeadmanClient is the subset of engine.AgentClient the
-// Armer needs. Defined locally so this package doesn't import
-// internal/engine (would be cyclic).
-type agentDeadmanClient interface {
-	ArmDeadman(ctx context.Context, txnID string, windowSeconds int64, rollbackCommands []string) (int64, error)
-	CancelDeadman(ctx context.Context, txnID string) (wasActive bool, err error)
+	agentClient engine.DeadmanAgentClient
 }
 
 // UseAgentClient wires the agent-mode dispatch channel.
 // Satisfies the engine's AgentAwareDeadmanArmer capability
-// interface; called by engine.New when WithAgentClient is
-// set.
-func (a *Armer) UseAgentClient(c agentDeadmanClient) {
+// interface (parameter type must match
+// engine.DeadmanAgentClient exactly so Go's named-type
+// interface satisfaction holds at the engine.New type
+// assertion site). Called by engine.New when
+// WithAgentClient is set.
+func (a *Armer) UseAgentClient(c engine.DeadmanAgentClient) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.agentClient = c
@@ -161,7 +162,7 @@ func (a *Armer) Arm(ctx context.Context, transport api.Transport, txnID uuid.UUI
 // Per Q1 ratification: if the agent RPC fails, the arm
 // fails. We do NOT fall back to the shell path silently —
 // the operator can opt into shell via KENSA_NO_AGENT=1.
-func (a *Armer) armViaAgent(ctx context.Context, agentClient agentDeadmanClient, txnID uuid.UUID, preStates []api.PreState) (string, int64, error) {
+func (a *Armer) armViaAgent(ctx context.Context, agentClient engine.DeadmanAgentClient, txnID uuid.UUID, preStates []api.PreState) (string, int64, error) {
 	// Generate rollback commands via dry-run, same as shell
 	// path (the agent executes the commands verbatim).
 	cmds, err := a.collectRollbackCommands(preStates)
@@ -175,9 +176,8 @@ func (a *Armer) armViaAgent(ctx context.Context, agentClient agentDeadmanClient,
 	}
 	a.mu.Lock()
 	a.jobs[txnID] = &armedJob{
-		// scheduler stays empty for agent-mode; cancelJob
-		// dispatches on a.agentClient!=nil to distinguish.
-		firesAt: firesAt,
+		agentMode: true,
+		firesAt:   firesAt,
 	}
 	a.mu.Unlock()
 	// scriptPath is empty for agent-mode (no script on disk).
@@ -220,6 +220,7 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 
 	a.mu.Lock()
 	a.jobs[txnID] = &armedJob{
+		agentMode:  false,
 		scheduler:  sched,
 		jobID:      jobID,
 		scriptPath: scriptPath,
@@ -250,15 +251,26 @@ func (a *Armer) Cancel(ctx context.Context, transport api.Transport, txnID uuid.
 		a.mu.Unlock()
 		return api.ErrNoActiveDeadman
 	}
-	delete(a.jobs, txnID)
+	// P1-4 fix: do NOT delete from a.jobs until the cancel
+	// operation succeeds. On RPC/shell failure, the entry
+	// stays in the map so the engine can retry (or the
+	// operator can inspect via a future status RPC).
 	agentClient := a.agentClient
 	a.mu.Unlock()
 
-	// D-005 dispatch: agent-mode jobs have empty
-	// scriptPath/scheduler (set by armViaAgent); shell-mode
-	// jobs carry the full at-job/systemctl-unit context.
-	if agentClient != nil && job.scriptPath == "" {
-		return a.cancelViaAgent(ctx, agentClient, txnID)
+	// D-005 dispatch: agent-mode jobs are tagged
+	// `agentMode=true` (set by armViaAgent); shell-mode jobs
+	// carry the full at-job/systemctl-unit context AND
+	// agentMode=false. The explicit flag replaces the
+	// empty-scriptPath sentinel (P2-1).
+	if agentClient != nil && job.agentMode {
+		if err := a.cancelViaAgent(ctx, agentClient, txnID); err != nil {
+			return err
+		}
+		a.mu.Lock()
+		delete(a.jobs, txnID)
+		a.mu.Unlock()
+		return nil
 	}
 
 	// @ac AC-05 — cancel scheduled job and verify.
@@ -269,6 +281,9 @@ func (a *Armer) Cancel(ctx context.Context, transport api.Transport, txnID uuid.
 	// @ac AC-08 — remove script file.
 	_, _ = transport.Run(ctx, "rm -f "+shellQuote(job.scriptPath))
 
+	a.mu.Lock()
+	delete(a.jobs, txnID)
+	a.mu.Unlock()
 	return nil
 }
 
@@ -277,7 +292,7 @@ func (a *Armer) Cancel(ctx context.Context, transport api.Transport, txnID uuid.
 // success — the engine called Cancel after the timer fired
 // or after a tear-down race; the desired end-state (no
 // rollback pending for txnID) is already achieved.
-func (a *Armer) cancelViaAgent(ctx context.Context, agentClient agentDeadmanClient, txnID uuid.UUID) error {
+func (a *Armer) cancelViaAgent(ctx context.Context, agentClient engine.DeadmanAgentClient, txnID uuid.UUID) error {
 	_, err := agentClient.CancelDeadman(ctx, txnID.String())
 	if err != nil {
 		return fmt.Errorf("deadman: CancelDeadman RPC: %w", err)

@@ -173,6 +173,46 @@ func TestArmer_HandleArmDeadmanRouting(t *testing.T) {
 	}
 }
 
+// TestArmer_ConcurrentArms_SameTxnID locks the P0-2 fix:
+// two goroutines racing with the SAME txn_id must result in
+// exactly one successful Arm and one ErrAlreadyArmed —
+// never two armed jobs (which would leak the loser's fds +
+// goroutine, both firing rollback on timer expiration).
+// The pre-fix code released the lock between duplicate-check
+// and insert, letting both callers pass the check.
+func TestArmer_ConcurrentArms_SameTxnID(t *testing.T) {
+	a := New()
+	const goroutines = 16
+	var successCount, alreadyArmedCount atomic.Int64
+	done := make(chan struct{})
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			_, err := a.ArmDeadman("txn-race", 5*time.Second, nil)
+			if err == nil {
+				successCount.Add(1)
+			} else if errors.Is(err, ErrAlreadyArmed) {
+				alreadyArmedCount.Add(1)
+			} else {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+	}
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+	if successCount.Load() != 1 {
+		t.Errorf("expected exactly 1 successful Arm; got %d", successCount.Load())
+	}
+	if alreadyArmedCount.Load() != int64(goroutines-1) {
+		t.Errorf("expected %d ErrAlreadyArmed; got %d", goroutines-1, alreadyArmedCount.Load())
+	}
+	if got := a.ActiveCount(); got != 1 {
+		t.Errorf("ActiveCount after race: got %d, want 1 (orphaned arms = leak)", got)
+	}
+	_ = a.CancelDeadman("txn-race")
+}
+
 // TestArmer_ConcurrentArms_DifferentTxns: 8 goroutines arm
 // 8 distinct txn_ids concurrently; all succeed, all
 // cancellable.

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa-go/internal/engine"
 	"github.com/Hanalyx/kensa-go/internal/engine/deadman"
 	"github.com/Hanalyx/kensa-go/internal/handler"
 
@@ -409,3 +410,17 @@ func (nilTransport) Put(_ context.Context, _, _ string, _ fs.FileMode) error {
 func (nilTransport) Get(_ context.Context, _, _ string) error { panic("nilTransport.Get called") }
 func (nilTransport) ControlChannelSensitive() bool            { return false }
 func (nilTransport) Close() error                              { return nil }
+
+// TestDeadman_D005_InterfaceSatisfaction is the compile-time
+// assertion the post-D-005 peer review demanded: if
+// deadman.Armer ever stops satisfying engine.AgentAwareDeadmanArmer,
+// engine.New's type assertion silently falls through and
+// agent-mode dispatch becomes dead code. This test fails the
+// build if the contract breaks.
+//
+// Importing engine + deadman from a _test package avoids the
+// cycle that prevents the production code from using this
+// assertion directly.
+func TestDeadman_D005_InterfaceSatisfaction(t *testing.T) {
+	var _ engine.AgentAwareDeadmanArmer = (*deadman.Armer)(nil)
+}

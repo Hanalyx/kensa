@@ -72,6 +72,21 @@ type AgentClient interface {
 	CancelDeadman(ctx context.Context, txnID string) (wasActive bool, err error)
 }
 
+// DeadmanAgentClient is the narrow subset of AgentClient the
+// deadman armer needs for agent-mode dispatch. Defined here
+// (rather than as a deadman-local interface) so the named
+// type is identical on both sides of the
+// AgentAwareDeadmanArmer.UseAgentClient signature — Go's
+// interface satisfaction is by named-type identity, not
+// structural compatibility. Without this shared type, an
+// armer defining its own local interface would NOT satisfy
+// AgentAwareDeadmanArmer and engine.New's type assertion
+// would silently fail.
+type DeadmanAgentClient interface {
+	ArmDeadman(ctx context.Context, txnID string, windowSeconds int64, rollbackCommands []string) (int64, error)
+	CancelDeadman(ctx context.Context, txnID string) (wasActive bool, err error)
+}
+
 // AgentAwareDeadmanArmer is the optional capability
 // interface a DeadmanArmer can satisfy to receive the
 // engine's AgentClient. D-005 deliverable: when WithAgentClient
@@ -81,9 +96,15 @@ type AgentClient interface {
 //
 // The pattern mirrors fsatomic.Transport: optional capability
 // surfaced via type assertion, no hard interface dependency.
+//
+// **CRITICAL.** The parameter type MUST be DeadmanAgentClient
+// (defined above), not the wider AgentClient. The deadman
+// package's Armer.UseAgentClient implementation references
+// this same DeadmanAgentClient type so Go's interface
+// satisfaction holds at the type assertion in engine.New.
 type AgentAwareDeadmanArmer interface {
 	DeadmanArmer
-	UseAgentClient(c AgentClient)
+	UseAgentClient(c DeadmanAgentClient)
 }
 
 // Option configures [Engine] at construction. The default zero-config
