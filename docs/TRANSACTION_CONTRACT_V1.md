@@ -317,16 +317,17 @@ process-level or host-level crash mid-Apply.
 |---|---|---|
 | `file_content`, `file_absent`, `config_set`, `config_set_dropin` | `kernel-atomic`: `O_TMPFILE`+`linkat`, `renameat2(RENAME_EXCHANGE)` with `renameat` fallback, parent-dir `fsync`; bytes are either fully old or fully new on disk | **agent mode (default)**; opt out via `KENSA_NO_AGENT=1` for direct-SSH path with shell-pipeline best-effort |
 | `file_permissions` | `kernel-atomic` (always): `chmod` is a single syscall | both transports |
-| `service_*` | `daemon-atomic`: systemd start/stop/enable/disable is transactional in the systemd state machine; reversed by re-issuing the inverse command | both transports |
+| `service_*` | `daemon-atomic`: systemd start/stop/enable/disable is transactional in the systemd state machine; reversed by re-issuing the inverse command. **Phase 4 (closed 2026-05-13)** ships a D-Bus primitive layer via `kensa-systemd-helper` covering all seven systemd ops (enable/disable/mask/start/stop/is-enabled/unit-state) with channel-based JobRemoved synchronization for job-producing methods (start/stop). The helper is invoked by the unprivileged kensa agent through sudo per the Option C privilege model. Handler dual-path consumption of this primitive layer (replacing the shell-out today) is tracked as a v1.x backlog item; the atomicity contract is unchanged since the shell-out implementation continues to satisfy it. | both transports (helper available; handler consumption deferred) |
 | `sysctl_set`, `mount_option_set`, `selinux_boolean_set`, `kernel_module_disable` | `kernel-runtime + file-persistence`: the runtime sysctl/mount/setsebool/modprobe call is atomic at the syscall level; the persistence file write is best-effort today (kernel-atomic targeted in Phase 6) | both transports |
 | `package_present`, `package_absent`, `apt_present`, `apt_absent` | `cli-best-effort`: apt/dnf/zypper exit code is the atomicity boundary; package managers themselves provide internal transactionality | both transports |
 | `cron_job`, `audit_rule_set`, `pam_module_configure` | `cli-best-effort`: the underlying tool's exit code (`crontab`, `augenrules`, `authselect`/`pam-auth-update`) is the atomicity boundary | both transports |
 | Non-capturable mechanisms (`command_exec`, `manual`, `grub_parameter_*`, `crypto_policy_*`, `dconf_set`, `auth_select_feature_enable`, `pam_module_arg`, `config_append`) | `transactional: false` per the rule contract; engine marks them `StatusSkipped` on rollback per §2.1 | both transports |
 
 The kernel-atomic file-mechanism guarantee was introduced as the Phase 2 deliverable
-of `docs/roadmap/LOW_LEVEL_MIGRATION_V1.md`. The systemd-D-Bus, audit-netlink,
-sysctl/mount/module direct-kernel, and SELinux-runtime/dconf-D-Bus upgrades are
-scheduled for Phases 4-7 of the same roadmap.
+of `docs/roadmap/LOW_LEVEL_MIGRATION_V1.md`. The systemd-D-Bus primitive layer landed
+as Phase 4 of the same roadmap (D-007..D-012, closed 2026-05-13); see
+`docs/roadmap/PHASE-4-CLOSE.md`. The audit-netlink, sysctl/mount/module direct-kernel,
+and SELinux-runtime/dconf-D-Bus upgrades are scheduled for Phases 5-7.
 
 ---
 
