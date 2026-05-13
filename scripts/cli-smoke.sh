@@ -56,6 +56,21 @@ if [ "${need_build}" = "true" ]; then
     fi
 fi
 
+# Rules-dir resolution. Defaults to the in-repo fixture corpus at
+# scripts/cli-smoke-rules/, which contains a single rule sufficient
+# for the ssh keyword search, --cis compose, list frameworks, and
+# coverage --framework bogus_v999 vocabulary-error paths. Local
+# devs running against the full corpus can override with
+#   KENSA_SMOKE_RULES=/path/to/real/corpus scripts/cli-smoke.sh
+# CI relies on the in-repo fixture (the production corpus is in a
+# sister repo, not vendored here).
+SMOKE_RULES_DIR="${KENSA_SMOKE_RULES:-${REPO_ROOT}/scripts/cli-smoke-rules}"
+if [ ! -d "${SMOKE_RULES_DIR}" ]; then
+    echo "${RED}Rules dir not found: ${SMOKE_RULES_DIR}${RESET}" >&2
+    echo "  Set KENSA_SMOKE_RULES to a valid rule corpus, or restore the in-repo fixture." >&2
+    exit 2
+fi
+
 # assert_exit runs a command and verifies it exits with the expected code.
 # Captures stdout and stderr separately to assert which stream got output.
 #
@@ -261,8 +276,8 @@ assert_exit "kensa check --severity bogus"          2 stderr-nonempty bin/kensa 
 assert_exit "kensa check --capability bogus=true"   2 stderr-nonempty bin/kensa check -H foo -C bogus=true --rules-dir /tmp
 assert_exit "kensa check --capability =true"        2 stderr-nonempty bin/kensa check -H foo -C =true --rules-dir /tmp
 assert_exit "kensa check --strict + --no-strict"    2 stderr-nonempty bin/kensa check -H foo --strict-host-keys --no-strict-host-keys --rules-dir /tmp
-assert_exit "kensa check --control no-colon"        2 stderr-nonempty bin/kensa check -H foo --control bogus --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa check --framework bogus"         2 stderr-nonempty bin/kensa check -H foo -f bogus --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa check --control no-colon"        2 stderr-nonempty bin/kensa check -H foo --control bogus --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa check --framework bogus"         2 stderr-nonempty bin/kensa check -H foo -f bogus --rules-dir ${SMOKE_RULES_DIR}
 echo
 
 # ─── kensa mechanisms / coverage deprecation (C-044) ──────────────────────
@@ -465,18 +480,18 @@ echo
 echo "kensa info (C-047 multi-criteria search):"
 assert_exit "kensa info --help"                      0 stdout-nonempty bin/kensa info --help
 assert_exit "kensa info -h"                          0 stdout-nonempty bin/kensa info -h
-assert_exit "kensa info (no mode/query)"             2 stderr-nonempty bin/kensa info --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info (no mode/query)"             2 stderr-nonempty bin/kensa info --rules-dir ${SMOKE_RULES_DIR}
 assert_exit "kensa info (no --rules-dir)"            2 stderr-nonempty bin/kensa info ssh
-assert_exit "kensa info --rule + --control"          2 stderr-nonempty bin/kensa info --rule x --control y:z --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --rule + QUERY"              2 stderr-nonempty bin/kensa info --rule x ssh --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --cis + --stig"              2 stderr-nonempty bin/kensa info --cis --stig --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --nist + --rhel"             2 stderr-nonempty bin/kensa info --nist --rhel 9 ssh --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --rhel 7"                    2 stderr-nonempty bin/kensa info ssh --rhel 7 --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --control no-colon"          2 stderr-nonempty bin/kensa info --control bogus --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --limit -1"                  2 stderr-nonempty bin/kensa info ssh --limit -1 --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --rule unknown (exit 1)"     1 stderr-nonempty bin/kensa info --rule no-such-rule --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info ssh (happy path)"            0 stdout-nonempty bin/kensa info ssh --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa info --cis ssh (compose)"         0 stdout-nonempty bin/kensa info ssh --cis --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa info --rule + --control"          2 stderr-nonempty bin/kensa info --rule x --control y:z --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --rule + QUERY"              2 stderr-nonempty bin/kensa info --rule x ssh --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --cis + --stig"              2 stderr-nonempty bin/kensa info --cis --stig --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --nist + --rhel"             2 stderr-nonempty bin/kensa info --nist --rhel 9 ssh --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --rhel 7"                    2 stderr-nonempty bin/kensa info ssh --rhel 7 --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --control no-colon"          2 stderr-nonempty bin/kensa info --control bogus --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --limit -1"                  2 stderr-nonempty bin/kensa info ssh --limit -1 --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --rule unknown (exit 1)"     1 stderr-nonempty bin/kensa info --rule no-such-rule --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info ssh (happy path)"            0 stdout-nonempty bin/kensa info ssh --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa info --cis ssh (compose)"         0 stdout-nonempty bin/kensa info ssh --cis --rules-dir ${SMOKE_RULES_DIR}
 echo
 
 # ─── kensa list sessions / info jsonl (C-052) ─────────────────────────────
@@ -487,11 +502,11 @@ assert_exit "kensa list sessions --format json"      0 stdout-nonempty bin/kensa
 # info jsonl: rejected on document modes (no --rules-dir needed because
 # format validation runs before rules-dir requirement check, but we need
 # the modes to be in conflict for the rejection to fire).
-assert_exit "info --rule + jsonl"                    2 stderr-nonempty bin/kensa info --rule rx --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
-assert_exit "info --control + jsonl"                 2 stderr-nonempty bin/kensa info --control cis_rhel9:5.1.12 --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
-assert_exit "info --list-controls + jsonl"           2 stderr-nonempty bin/kensa info --list-controls cis_rhel9 --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
+assert_exit "info --rule + jsonl"                    2 stderr-nonempty bin/kensa info --rule rx --rules-dir ${SMOKE_RULES_DIR} --format jsonl
+assert_exit "info --control + jsonl"                 2 stderr-nonempty bin/kensa info --control cis_rhel9:5.1.12 --rules-dir ${SMOKE_RULES_DIR} --format jsonl
+assert_exit "info --list-controls + jsonl"           2 stderr-nonempty bin/kensa info --list-controls cis_rhel9 --rules-dir ${SMOKE_RULES_DIR} --format jsonl
 # info QUERY + jsonl: happy path
-assert_exit "info QUERY + jsonl"                     0 stdout-nonempty bin/kensa info ssh --rules-dir /home/rracine/hanalyx/kensa/rules --format jsonl
+assert_exit "info QUERY + jsonl"                     0 stdout-nonempty bin/kensa info ssh --rules-dir ${SMOKE_RULES_DIR} --format jsonl
 echo
 
 # ─── kensa list frameworks (C-046) ────────────────────────────────────────
@@ -510,8 +525,8 @@ assert_exit "kensa list sessions (empty store)"      0 stdout-nonempty bin/kensa
 assert_exit "kensa list sessions bad --format"       2 stderr-nonempty bin/kensa list sessions --format yaml
 assert_exit "kensa list frameworks --help"           0 stdout-nonempty bin/kensa list frameworks --help
 assert_exit "kensa list frameworks (no --rules-dir)" 2 stderr-nonempty bin/kensa list frameworks
-assert_exit "kensa list frameworks bad --format"     2 stderr-nonempty bin/kensa list frameworks --rules-dir /home/rracine/hanalyx/kensa/rules --format yaml
-assert_exit "kensa list frameworks happy path"       0 stdout-nonempty bin/kensa list frameworks --rules-dir /home/rracine/hanalyx/kensa/rules
+assert_exit "kensa list frameworks bad --format"     2 stderr-nonempty bin/kensa list frameworks --rules-dir ${SMOKE_RULES_DIR} --format yaml
+assert_exit "kensa list frameworks happy path"       0 stdout-nonempty bin/kensa list frameworks --rules-dir ${SMOKE_RULES_DIR}
 echo
 
 # ─── kensa coverage --framework (C-045) ───────────────────────────────────
@@ -519,8 +534,8 @@ echo "kensa coverage --framework (C-045 framework coverage report):"
 # --framework on coverage routes to the new path.
 assert_exit "kensa coverage -f -r missing"           2 stderr-nonempty bin/kensa coverage --framework cis_rhel9
 assert_exit "kensa coverage --framework (no value)"  2 stderr-nonempty bin/kensa coverage --framework
-assert_exit "kensa coverage -f bogus -r real"        2 stderr-nonempty bin/kensa coverage --framework bogus_v999 --rules-dir /home/rracine/hanalyx/kensa/rules
-assert_exit "kensa coverage -f -r --format yaml"     2 stderr-nonempty bin/kensa coverage --framework cis_rhel9 --rules-dir /home/rracine/hanalyx/kensa/rules --format yaml
+assert_exit "kensa coverage -f bogus -r real"        2 stderr-nonempty bin/kensa coverage --framework bogus_v999 --rules-dir ${SMOKE_RULES_DIR}
+assert_exit "kensa coverage -f -r --format yaml"     2 stderr-nonempty bin/kensa coverage --framework cis_rhel9 --rules-dir ${SMOKE_RULES_DIR} --format yaml
 # --framework on mechanisms is rejected.
 assert_exit "kensa mechanisms --framework"           2 stderr-nonempty bin/kensa mechanisms --framework cis_rhel9
 # --help on the new path exits 0.
