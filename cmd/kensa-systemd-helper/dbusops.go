@@ -327,10 +327,10 @@ func convertChanges(raw []dbus.EnableUnitFileChange) []change {
 }
 
 // convertDisableChanges maps DisableUnitFileChange list to the
-// helper's `change` shape. coreos/go-systemd unfortunately
-// declares three separate types (Enable/Disable/Mask) with
-// identical fields; we convert each explicitly rather than
-// risk a generic any-typed converter.
+// helper's `change` shape. The coreos/go-systemd library
+// unfortunately declares three separate types (Enable / Disable
+// / Mask) with identical fields; we convert each explicitly
+// rather than risk a generic any-typed converter.
 func convertDisableChanges(raw []dbus.DisableUnitFileChange) []change {
 	if len(raw) == 0 {
 		return nil

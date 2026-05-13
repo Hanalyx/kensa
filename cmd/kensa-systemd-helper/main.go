@@ -186,26 +186,6 @@ func dispatch(op, unit string, timeout time.Duration, stdout, stderr io.Writer) 
 	return realDispatch(context.Background(), op, unit, timeout, stdout, stderr)
 }
 
-// emitNotYetImplemented produces the D-007 stub response: NDJSON
-// line with a structured error indicating the operation will be
-// implemented in a later deliverable. Exit 1 (runtime error).
-// D-008..D-010 replace this with real D-Bus operations.
-func emitNotYetImplemented(op, unit string, stdout io.Writer) int {
-	resp := response{
-		SchemaVersion: schemaVersion,
-		HelperVersion: version,
-		Op:            op,
-		Unit:          unit,
-		Success:       false,
-		Error: &errorBlock{
-			Code:   "not_yet_implemented",
-			Detail: fmt.Sprintf("subcommand %q is scaffolded in D-007 but the D-Bus implementation lands in D-008..D-010", op),
-		},
-	}
-	writeNDJSON(stdout, &resp)
-	return 1
-}
-
 // euidCheck enforces spec C-01: the helper must be invoked via
 // sudo, i.e., running as EUID 0. Returns nil when the check
 // passes; writes a usage-style message to stderr and returns an

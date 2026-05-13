@@ -220,12 +220,13 @@ func TestNonRoot_ExitsUsageError(t *testing.T) {
 // ─── AC-03 / AC-04: NDJSON output shape ──────────────────────────
 
 // TestFailureEnvelope_HasRequiredFields locks the NDJSON envelope
-// shape per spec AC-04 (failure block). runHelper installs a
-// default-failing fake conn, so every D-Bus subcommand surfaces
-// a dbus_unreachable failure envelope. The shape — schema_version,
-// helper_version, op, unit, success:false, error{code, detail} —
-// is what we lock here; the specific error.code is verified by
-// the more-targeted tests in dbusops_test.go.
+// shape per spec AC-04 (failure block). The runHelper driver
+// installs a default-failing fake conn, so every D-Bus subcommand
+// surfaces a dbus_unreachable failure envelope. The shape —
+// schema_version, helper_version, op, unit, success:false,
+// error{code, detail} — is what we lock here; the specific
+// error.code is verified by the more-targeted tests in
+// dbusops_test.go.
 //
 // @spec agent-systemd-helper
 // @ac AC-04
