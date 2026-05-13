@@ -16,8 +16,10 @@ require (
 require (
 	github.com/boombuler/barcode v1.1.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/f-amaral/go-async v0.3.0 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hhrutter/lzw v1.0.0 // indirect
 	github.com/hhrutter/pkcs7 v0.2.0 // indirect

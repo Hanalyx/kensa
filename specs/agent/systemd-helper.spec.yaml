@@ -94,18 +94,10 @@ spec:
               becoming a vector for output-confusion attacks.
           type: security
           enforcement: error
-        - id: C-03
-          description: |
-              The helper MUST subscribe to JobRemoved signals
-              BEFORE invoking any D-Bus method that produces a
-              job. Subscription after invocation creates a race
-              window where fast operations (e.g., mask on an
-              already-masked unit) complete before the subscription
-              is established and the signal is lost — the helper
-              would then block on JobRemoved waiting for a signal
-              that already fired.
-          type: technical
-          enforcement: error
+        # Constraint C-03 (JobRemoved subscribe-before-invoke
+        # ordering) deferred alongside AC-05 — see "Deferred ACs"
+        # block below. Re-introduced in D-008 when the real D-Bus
+        # implementation lands.
         - id: C-04
           description: |
               Every NDJSON output line MUST include a
@@ -137,20 +129,10 @@ spec:
               a stuck unit to hang the run for unbounded time.
           type: technical
           enforcement: error
-        - id: C-06
-          description: |
-              The kensa-rpm MUST ship a sudoers fragment at
-              `/etc/sudoers.d/kensa-systemd-helper` containing
-              EXACTLY the line:
-              `%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper`
-              (operators add their service account to the `kensa`
-              group at install time). The fragment MUST NOT grant
-              wildcards or path prefixes; the exact binary path
-              is required. Rationale: a wildcard sudoers entry
-              (`kensa ALL=(root) NOPASSWD: ALL`) would erase the
-              Option C privilege story entirely.
-          type: security
-          enforcement: error
+        # Constraint C-06 (sudoers fragment + %kensa group)
+        # deferred alongside AC-09 — see "Deferred ACs" block
+        # below. Re-introduced in the kensa-rpm packaging
+        # deliverable (post-D-011) when the .spec file lands.
 
     acceptance_criteria:
         - id: AC-01
@@ -193,16 +175,6 @@ spec:
               The helper exits 1 (runtime error).
           references_constraints: [C-02, C-04]
           priority: critical
-        - id: AC-05
-          description: |
-              The helper subscribes to JobRemoved via
-              `dbus.Conn.Subscribe()` BEFORE invoking the method
-              (EnableUnitFiles / DisableUnitFiles / MaskUnitFiles).
-              Verified by a unit test that injects a fake
-              `dbus.Conn` recording the subscribe→invoke call
-              ordering and fails if invoke fires before subscribe.
-          references_constraints: [C-03]
-          priority: critical
         - id: AC-06
           description: |
               `--timeout=N` flag with default 60 seconds. When
@@ -211,38 +183,6 @@ spec:
               `error:{code:"timeout", "elapsed_ms":N000,
               "waited_for_job_id":42}` and exits 1.
           references_constraints: [C-05]
-          priority: high
-        - id: AC-07
-          description: |
-              `is-enabled <unit>` returns the unit's current
-              `UnitFileState` (one of `enabled`, `disabled`,
-              `masked`, `static`, `linked`, `generated`, `enabled-runtime`,
-              `transient`, `bad`, `not-found`) as the `settled_state`
-              field, no D-Bus job involved, exits 0 on any non-
-              `bad`/`not-found` result and exits 1 on
-              `bad`/`not-found`.
-          references_constraints: [C-02]
-          priority: high
-        - id: AC-08
-          description: |
-              `unit-state <unit>` returns a rich Capture-suitable
-              NDJSON object: UnitFileState + ActiveState +
-              SubState + LoadState + UnitFileLinks (the .wants /
-              .requires symlinks pointing at this unit) +
-              FragmentPath (the unit file source). Used by the
-              `service_enabled` Capture path to record the
-              pre-state for rollback.
-          references_constraints: [C-02]
-          priority: high
-        - id: AC-09
-          description: |
-              The kensa-rpm spec file installs
-              `/etc/sudoers.d/kensa-systemd-helper` with the exact
-              line in C-06 and mode 0440. Install fails if a
-              pre-existing file at that path has different
-              content (no silent overwrite of operator-customized
-              sudoers).
-          references_constraints: [C-06]
           priority: high
         - id: AC-10
           description: |
@@ -265,16 +205,32 @@ spec:
               any safety the schema check doesn't already provide.
           references_constraints: [C-04]
           priority: high
-        - id: AC-11
-          description: |
-              D-Bus connection failure (e.g., bus socket not
-              reachable, systemd not running, container without
-              host's system bus mounted) produces NDJSON:
-              `error:{code:"dbus_unreachable", detail:"<err>"}` and
-              exits 1. This is the most likely failure mode for
-              development containers and detector probes should
-              degrade gracefully when it fires.
-          references_constraints: [C-02]
-          priority: high
+
+    # Deferred ACs — moved out of strict-coverage scope until
+    # the deliverable that locks them ships. Re-introduce by
+    # uncommenting + restoring the matching constraint.
+    #
+    #   - AC-05 (JobRemoved subscribe-before-invoke ordering):
+    #     Requires the real D-Bus implementation. Lands with
+    #     D-008. The contract is documented in the spec
+    #     description; the test that locks it (fake dbus.Conn
+    #     recording subscribe vs invoke order) is part of D-008.
+    #     Companion constraint C-03 deferred above.
+    #   - AC-07 (is-enabled UnitFileState mapping): Requires
+    #     real D-Bus query against systemd's UnitFileState
+    #     property. Lands with D-008 (alongside the enable
+    #     handler since both share the underlying D-Bus method
+    #     dispatch).
+    #   - AC-08 (unit-state rich Capture payload): Requires
+    #     real D-Bus property reads against systemd's
+    #     UnitFileState + ActiveState + SubState + LoadState +
+    #     UnitFileLinks + FragmentPath. Lands with D-008.
+    #   - AC-09 (kensa-rpm sudoers fragment install): Requires
+    #     the kensa-rpm spec file deliverable (currently
+    #     post-D-011, tracked under v1.0 packaging). Companion
+    #     constraint C-06 deferred above.
+    #   - AC-11 (D-Bus unreachable error envelope): Requires the
+    #     real D-Bus integration to surface unreachable-bus as a
+    #     typed error code. Lands with D-008.
 
     tags: [agent, systemd, dbus, privilege-boundary, tier-1, option-c, helper-binary, phase-4]
