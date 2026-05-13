@@ -50,7 +50,7 @@ func TestCorpusParity(t *testing.T) {
 	t.Run("rule-ordering/AC-01", func(t *testing.T) {})
 	dir := "/home/rracine/hanalyx/kensa/rules"
 	var total, fail int
-	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".yml" {
 			return nil
 		}
@@ -60,6 +60,8 @@ func TestCorpusParity(t *testing.T) {
 			fail++
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("walk %s: %v", dir, err)
+	}
 	t.Logf("%d/%d rules valid (%d failed)", total-fail, total, fail)
 }

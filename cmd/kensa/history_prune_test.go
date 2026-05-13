@@ -33,7 +33,7 @@ func TestRunHistoryPrune_RejectsNonPositiveDays(t *testing.T) {
 	path := makeStoreFile(t)
 
 	for _, days := range []int{0, -1, -7} {
-		err := runHistoryPrune(context.Background(), path, days, true /*force*/, true /*quiet*/, nil, &bytes.Buffer{}, &bytes.Buffer{})
+		err := runHistoryPrune(context.Background(), path, days, true /* force */, true /* quiet */, nil, &bytes.Buffer{}, &bytes.Buffer{})
 		if err == nil {
 			t.Errorf("--prune %d should error", days)
 			continue

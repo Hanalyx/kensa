@@ -88,9 +88,9 @@ var ErrAlreadyExists = errors.New("fsatomic: target already exists")
 var ErrNotExist = errors.New("fsatomic: target does not exist")
 
 // ErrSymlinkInPath is returned when any component of the
-// supplied path (including the base) is a symlink. fsatomic
-// refuses to follow symlinks; callers must pass the resolved
-// target path directly.
+// supplied path (including the base) is a symlink. The
+// package refuses to follow symlinks; callers must pass the
+// resolved target path directly.
 var ErrSymlinkInPath = errors.New("fsatomic: refuses to follow symlink in path")
 
 // ErrParentDirMissing is returned when the parent directory
@@ -338,7 +338,7 @@ func AtomicRemove(ctx context.Context, fullPath string) error {
 // Any symlink encountered along the way → ErrSymlinkInPath.
 // Any missing intermediate component → ErrParentDirMissing.
 // Any non-directory intermediate → typed "not a directory"
-// error. fullPath MUST be absolute and not "/".
+// error. The fullPath argument MUST be absolute and not "/".
 //
 // The base filename is NOT opened — callers Fstatat/Openat
 // against the returned parentFd as needed. Symlink-ness of

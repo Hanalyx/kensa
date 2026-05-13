@@ -399,25 +399,11 @@ func TestEngine_AC06_DeadmanArmedForControlChannelSensitiveTransaction(t *testin
 	t.Log("// @ac AC-06")
 	// AC-06: for control-channel-sensitive transports the engine arms a deadman
 	// timer before apply and cancels it after commit.
-	// Requires a recording DeadmanArmer and a transport with ControlChannelSensitive()=true.
-	type recordingArmer struct {
-		armed    int
-		canceled int
-	}
-	armer := &recordingArmer{}
-
-	type armerInterface interface {
-		Arm(context.Context, api.Transport, uuid.UUID, []api.PreState) (string, int64, error)
-		Cancel(context.Context, api.Transport, uuid.UUID) error
-	}
-
-	// Verify the armer interface matches what the engine expects.
-	_ = armer
-
-	// To fully test AC-06, engine.New() needs engine.WithDeadman(armer).
-	// The FakeTransport needs ControlChannelSensitive() to return true.
-	// Deferring to the engine integration test once WithDeadman is wired
-	// into the test surface.
+	//
+	// Wiring this test requires engine.WithDeadman(recordingArmer) +
+	// a FakeTransport whose ControlChannelSensitive() returns true.
+	// The recording-armer harness and the armer-interface assertion
+	// will land alongside that wiring.
 	t.Skip("TODO: wire engine.WithDeadman(recordingArmer) + ControlChannelSensitive FakeTransport to verify arm/cancel calls")
 }
 

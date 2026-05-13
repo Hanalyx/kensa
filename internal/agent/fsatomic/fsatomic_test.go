@@ -137,10 +137,10 @@ func TestAtomicReplace_RefusesSymlinkBase(t *testing.T) {
 }
 
 // TestAtomicReplace_RefusesSymlinkInPath plants a symlink
-// at an INTERMEDIATE component of the path. fsatomic must
-// refuse to traverse it. This is the load-bearing security
-// test: an attacker planting /etc/sudoers.d → /etc cannot
-// use fsatomic to rewrite /etc/passwd.
+// at an INTERMEDIATE component of the path. The package
+// must refuse to traverse it. This is the load-bearing
+// security test: an attacker planting /etc/sudoers.d → /etc
+// cannot use fsatomic to rewrite /etc/passwd.
 func TestAtomicReplace_RefusesSymlinkInPath(t *testing.T) {
 	root := t.TempDir()
 	realDir := filepath.Join(root, "real-dir")
