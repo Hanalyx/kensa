@@ -54,14 +54,15 @@ func (evidenceRemediationWriter) Format() string { return "evidence" }
 // WriteRemediationResult emits one indented JSON document per non-
 // nil envelope.
 //
-// hostID and rules are interface-mandated but INTENTIONALLY UNUSED.
-// The threat is stronger than the OSCAL writer's: there, sourcing
-// identity from outer params produces a derived view that disagrees
-// with the signed source-of-truth (recoverable by re-deriving). For
-// evidence the document IS the signed payload — overwriting
-// envelope fields from outer params would produce bytes no longer
-// verifiable as the signed audit-truth-of-record (signature-
-// invalidation, not just substitution). envelope.HostID /
+// The hostID and rules arguments are interface-mandated but
+// INTENTIONALLY UNUSED. The threat is stronger than the OSCAL
+// writer's: there, sourcing identity from outer params produces
+// a derived view that disagrees with the signed source-of-truth
+// (recoverable by re-deriving). For evidence the document IS the
+// signed payload — overwriting envelope fields from outer params
+// would produce bytes no longer verifiable as the signed
+// audit-truth-of-record (signature-invalidation, not just
+// substitution). The envelope.HostID /
 // envelope.RuleID / envelope.FrameworkRefs are the only correct
 // identity sources.
 func (evidenceRemediationWriter) WriteRemediationResult(w io.Writer, _ string, _ []*api.Rule, result *api.RemediationResult) error {

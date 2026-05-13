@@ -47,9 +47,10 @@ import (
 )
 
 // maxNestingDepth bounds recursive encode/decode so a malicious
-// peer cannot DoS the agent with a deeply-nested Struct. kensa's
-// legitimate PreState shapes are single-digit deep; 32 is generous
-// while still well below the goroutine-stack-exhaustion threshold.
+// peer cannot DoS the agent with a deeply-nested Struct. The
+// legitimate PreState shapes kensa produces are single-digit
+// deep; 32 is generous while still well below the
+// goroutine-stack-exhaustion threshold.
 //
 // Without this bound, a hostile controller (or man-in-the-middle on
 // a compromised SSH session) could send a Request whose payload

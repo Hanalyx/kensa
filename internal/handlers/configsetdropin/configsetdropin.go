@@ -81,13 +81,13 @@ func (h *Handler) Capturable() bool { return true }
 // the key-value pair. Creates the parent directory if needed.
 // Idempotent per spec C-01.
 //
-// **Phase 2 P-005 migration (2026-05-11)**: when transport satisfies
-// fsatomic.Transport (agent-mode), uses AtomicWrite for the publish
-// (with AtomicReplace fallback for re-Apply on existing files —
-// the FMA explicitly flagged this; AtomicWrite errors with
+// Phase 2 P-005 migration (2026-05-11): when transport satisfies
+// fsatomic.Transport (agent-mode), Apply uses AtomicWrite for the
+// publish (with AtomicReplace fallback for re-Apply on existing
+// files — the FMA explicitly flagged this; AtomicWrite errors with
 // ErrAlreadyExists where the shell `echo >` silently overwrites).
-// os.MkdirAll handles the parent-dir creation that `mkdir -p`
-// did in the shell pipeline.
+// The os.MkdirAll call handles the parent-dir creation that
+// `mkdir -p` did in the shell pipeline.
 func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
 	p, err := decodeParams(params)
 	if err != nil {

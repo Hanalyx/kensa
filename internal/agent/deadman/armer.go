@@ -81,8 +81,8 @@ type Armer struct {
 }
 
 // defaultArmer is the package-level singleton used by
-// HandleArmDeadman / HandleCancelDeadman. server.go's
-// wire-dispatch routes through these free functions; the
+// HandleArmDeadman / HandleCancelDeadman. The wire-dispatch
+// in server.go routes through these free functions; the
 // singleton holds the activeArms state per agent process.
 var defaultArmer = New()
 

@@ -135,7 +135,9 @@ func TestLoadSigner_BadInputs(t *testing.T) {
 
 	// Non-PEM file.
 	bogusPath := filepath.Join(dir, "bogus.priv")
-	os.WriteFile(bogusPath, []byte("not a pem file"), 0o600)
+	if err := os.WriteFile(bogusPath, []byte("not a pem file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	_, err = evidence.LoadSigner(bogusPath)
 	if err == nil || !strings.Contains(err.Error(), "PEM") {
 		t.Errorf("non-PEM file should error with PEM mention; got: %v", err)
@@ -144,7 +146,9 @@ func TestLoadSigner_BadInputs(t *testing.T) {
 	// PEM with wrong block type.
 	wrongTypePath := filepath.Join(dir, "wrongtype.priv")
 	wrongPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: []byte("garbage")})
-	os.WriteFile(wrongTypePath, wrongPEM, 0o600)
+	if err := os.WriteFile(wrongTypePath, wrongPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	_, err = evidence.LoadSigner(wrongTypePath)
 	if err == nil || !strings.Contains(err.Error(), "PRIVATE KEY") {
 		t.Errorf("wrong PEM type should be rejected; got: %v", err)

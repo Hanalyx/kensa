@@ -43,7 +43,8 @@ import (
 //
 // Concurrent-session race: two parallel calls targeting the
 // same host may both hit the cache-miss path and both Put.
-// mkdir is idempotent; Put overwrites with the same bytes
+// The mkdir step is idempotent; Put overwrites with the same
+// bytes
 // (since the SHA is identical). Acceptable.
 func EnsureAgent(ctx context.Context, transport api.Transport, localBinaryPath string) (string, error) {
 	sha, err := sha256Hex(localBinaryPath)

@@ -373,11 +373,11 @@ func routeFanOutError(err error) error {
 // resolution, detects conflicts and cycles) and emits the
 // resolution summary to stderr.
 //
-// info: lines (supersedes notices) are suppressed when quiet is
-// true so CI scripts running --quiet don't drown in cosmetic
-// chatter. error: (cycles, dropped rules) and warning: (conflicts)
-// lines always emit — operators must see real configuration
-// problems regardless of --quiet.
+// Info-prefixed lines (supersedes notices) are suppressed when
+// quiet is true so CI scripts running --quiet don't drown in
+// cosmetic chatter. Error and warning lines (cycles, dropped
+// rules, conflicts) always emit — operators must see real
+// configuration problems regardless of --quiet.
 func resolveAndPrintIssues(rules []*api.Rule, quiet bool) *rule.ResolvedRules {
 	resolved := rule.Resolve(rules)
 	for _, msg := range rule.FormatIssues(resolved) {

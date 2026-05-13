@@ -119,9 +119,10 @@ var timestampRE = regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d
 
 // normalizeOSCAL replaces non-deterministic UUIDs and timestamps
 // with placeholders so the byte-diff against the golden file is
-// stable across runs. fixtureUUID is preserved (replaced with a
-// distinct placeholder) so the golden distinguishes "the input
-// transaction ID" from "a generated UUID."
+// stable across runs. The fixtureUUID value is preserved
+// (replaced with a distinct placeholder) so the golden
+// distinguishes "the input transaction ID" from
+// "a generated UUID."
 func normalizeOSCAL(b []byte) []byte {
 	s := string(b)
 	// Replace fixtureUUID first with a distinct token, otherwise

@@ -125,9 +125,9 @@ func (textHistoryWriter) WriteHistory(w io.Writer, txns []api.TransactionRecord)
 // keeps table columns visually stable when rule IDs or detail strings
 // are long enough to overflow.
 //
-// truncate is package-private because it is a presentation helper for
-// the text writers; callers outside the package should not depend on
-// its specific clipping rule.
+// The function is package-private because it is a presentation
+// helper for the text writers; callers outside the package should
+// not depend on its specific clipping rule.
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s

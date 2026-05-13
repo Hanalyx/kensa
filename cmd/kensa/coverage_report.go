@@ -186,7 +186,7 @@ Examples:
 // these. Letting pflag itself decide ensures the dispatch
 // agrees with what the runCoverageReport flagset will see.
 //
-// ParseErrorsWhitelist.UnknownFlags=true so unknown flags don't
+// ParseErrorsAllowlist.UnknownFlags=true so unknown flags don't
 // abort the detection — we don't care about other flags here,
 // only whether --framework was set. POSIX end-of-options "--"
 // is honored by pflag automatically.
@@ -194,7 +194,7 @@ func hasFrameworkFlag(args []string) bool {
 	fs := pflag.NewFlagSet("framework-detector", pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.SetOutput(io.Discard)
-	fs.ParseErrorsWhitelist.UnknownFlags = true
+	fs.ParseErrorsAllowlist.UnknownFlags = true
 	var fw string
 	fs.StringVarP(&fw, "framework", ShortFramework, "", "")
 	_ = fs.Parse(args)
@@ -210,7 +210,7 @@ func hasHelpFlag(args []string) bool {
 	fs := pflag.NewFlagSet("help-detector", pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.SetOutput(io.Discard)
-	fs.ParseErrorsWhitelist.UnknownFlags = true
+	fs.ParseErrorsAllowlist.UnknownFlags = true
 	var help bool
 	fs.BoolVarP(&help, "help", ShortHelp, false, "")
 	_ = fs.Parse(args)

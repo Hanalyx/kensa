@@ -56,7 +56,7 @@ func ValidateResponse(resp *Response) error {
 // countOneofVariants walks msg's fields and counts how many
 // fields belonging to the named oneof are populated.
 //
-// protobuf-go's API for oneofs: a oneof is a group of fields
+// The protobuf-go API for oneofs: a oneof is a group of fields
 // where AT MOST ONE is "populated" (Has returns true) at any
 // given time after a decoded merge. The runtime resolves
 // multi-variant wire bytes via last-wins on the oneof

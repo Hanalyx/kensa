@@ -27,7 +27,8 @@ import "errors"
 // convention.
 //
 // Carries an optional Cause for error wrapping (so errors.Is/As
-// chains across pflag.ErrHelp et al. continue to work).
+// chains across pflag.ErrHelp and similar sentinels continue to
+// work).
 type UsageError struct {
 	// Msg is the operator-facing message printed to stderr.
 	Msg string

@@ -63,7 +63,7 @@ func TestLocalTransport_Run(t *testing.T) {
 
 	t.Run("ctx_cancel", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // pre-cancelled
+		cancel() // pre-canceled
 		_, err := tr.Run(ctx, "sleep 10")
 		// exec.CommandContext kills the command and returns
 		// an error; we surface as Go error.

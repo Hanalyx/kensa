@@ -24,8 +24,8 @@ const LargeFleetThreshold = 5
 // (sequential, matches Python kensa). Validation happens via
 // validateWorkers up front, before any goroutine fan-out.
 //
-// pflag appends "(default 1)" automatically; we don't repeat it
-// in the description.
+// The pflag library appends "(default 1)" automatically; we
+// don't repeat it in the description.
 func registerWorkersFlag(fs *pflag.FlagSet, dst *int) {
 	fs.IntVarP(dst, "workers", ShortWorkers, 1,
 		fmt.Sprintf("concurrent SSH connections for --inventory mode (1-%d; 1 = sequential)", MaxWorkers))

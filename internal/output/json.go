@@ -13,8 +13,9 @@ import (
 // (no internal newlines) so OpenWatch can stream-parse with jq or
 // its own NDJSON reader.
 //
-// scanLine is internal to the output package because OpenWatch
-// owns the consumer side; the producer is free to evolve internal
+// The scanLine type is internal to the output package because
+// OpenWatch owns the consumer side; the producer is free to
+// evolve internal
 // representation as long as the wire shape stays stable.
 type scanLine struct {
 	ScannedAt time.Time      `json:"scanned_at"`
@@ -45,8 +46,9 @@ func (jsonScanWriter) WriteScanResult(w io.Writer, _ string, _ []*api.Rule, resu
 // jsonlScanWriter renders a ScanResult as a single compact NDJSON
 // line. Each call emits exactly one newline-terminated JSON object —
 // suitable for appending to a file or piping to OpenWatch's ingest
-// endpoint. rules is indexed in parallel with result.Transactions to
-// supply rule IDs (the scan result does not embed them).
+// endpoint. The rules slice is indexed in parallel with
+// result.Transactions to supply rule IDs (the scan result does not
+// embed them).
 type jsonlScanWriter struct{}
 
 func (jsonlScanWriter) Format() string { return "jsonl" }

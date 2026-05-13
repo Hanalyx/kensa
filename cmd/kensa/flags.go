@@ -87,7 +87,7 @@ const (
 	// also has no short. The C-024 reconciliation freed the
 	// previous `-s` for `--severity` (C-030). The constant is
 	// retained as the empty string so call sites that read
-	// ShortSudo continue to compile and resolve to "no short."
+	// ShortSudo continue to compile and resolve to "no short".
 	ShortSudo = ""
 
 	// Output / format options.
@@ -162,7 +162,7 @@ const (
 	// declared here (in the centralized table) so the collision
 	// checker and case-discipline tests cover them; the actual flag
 	// wiring lands in the named deliverable. Until then, attempting
-	// to use these short letters produces "unknown shorthand."
+	// to use these short letters produces "unknown shorthand".
 
 	// ShortPassword is `--password` (SSH password auth, with
 	// secure prompt when no value given). Wired in C-026.

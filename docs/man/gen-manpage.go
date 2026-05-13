@@ -138,7 +138,7 @@ func genSubcommandSection(binPath, cmd string) (string, error) {
 func escapeRoffLine(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `-`, `\-`)
-	if len(s) > 0 && (s[0] == '.' || s[0] == '\'') {
+	if s != "" && (s[0] == '.' || s[0] == '\'') {
 		s = `\&` + s
 	}
 	return s

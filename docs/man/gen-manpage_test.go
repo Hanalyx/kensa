@@ -2,7 +2,6 @@
 package main
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -80,10 +79,4 @@ func TestSubcommandList_NoDuplicates(t *testing.T) {
 		}
 		seen[s] = true
 	}
-}
-
-// guardMainImported is a no-op anchor that exists solely to confirm
-// the test file compiles in the same package as gen-manpage.go.
-func guardMainImported(_ string) {
-	_ = strings.HasPrefix
 }

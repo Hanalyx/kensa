@@ -78,8 +78,8 @@ func main() {
 }
 
 // run is the testable harness. Returns the desired exit code.
-// stdout receives the success message (the key_id); stderr
-// receives error messages.
+// The stdout writer receives the success message (the key_id);
+// stderr receives error messages.
 func run(args []string, stdout, stderr io.Writer) int {
 	fs := pflag.NewFlagSet("kensa-keygen", pflag.ContinueOnError)
 	fs.SortFlags = false

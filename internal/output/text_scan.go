@@ -35,12 +35,13 @@ import (
 // align without wrapping.
 
 // ScanRenderOptions carries the per-call rendering knobs that the
-// ScanResultWriter interface doesn't model. cmd/kensa populates this
-// from --verbose / detected OS info / etc., then calls
-// RenderScanResult directly to bypass the writer registry for the
-// configured render. The textScanWriter.WriteScanResult method
-// continues to delegate with default (zero-value) options for the
-// fan-out / writer-registry path.
+// ScanResultWriter interface doesn't model. The cmd/kensa
+// dispatcher populates this from --verbose / detected OS info /
+// etc., then calls RenderScanResult directly to bypass the writer
+// registry for the configured render. The
+// textScanWriter.WriteScanResult method continues to delegate
+// with default (zero-value) options for the fan-out /
+// writer-registry path.
 type ScanRenderOptions struct {
 	// Verbose expands the compacted PASSED list to one rule ID per
 	// line instead of glob-pattern compaction. Wired by --verbose
@@ -55,8 +56,8 @@ type ScanRenderOptions struct {
 }
 
 // RenderScanResult renders a scan result with caller-supplied
-// options. cmd/kensa uses this entry point when --verbose or OS
-// detection wants to influence the output. The
+// options. The cmd/kensa dispatcher uses this entry point when
+// --verbose or OS detection wants to influence the output. The
 // ScanResultWriter-interface path continues through
 // textScanWriter.WriteScanResult, which calls this function with
 // default options.
@@ -111,17 +112,17 @@ func classifyTransactions(_ []*api.Rule, result *api.ScanResult) transactionGrou
 	return g
 }
 
-// writeHostBanner emits the host-identification line. C-023 added
-// the optional OS-label segment ("· RHEL 9.6"); C-024+ may add
-// auth method or other metadata.
+// writeHostBanner emits the host-identification line. The C-023
+// deliverable added the optional OS-label segment ("· RHEL 9.6");
+// C-024+ may add auth method or other metadata.
 //
 // All width math is rune-counted, not byte-counted: "─" is a
 // 3-byte UTF-8 codepoint, and hostnames may contain non-ASCII
 // characters (IDN labels per RFC 5890). Using len() on either
 // would produce a too-short banner.
 //
-// osLabel is empty when the caller couldn't detect the OS; the
-// banner renders just the hostID in that case.
+// The osLabel argument is empty when the caller couldn't detect
+// the OS; the banner renders just the hostID in that case.
 func writeHostBanner(w io.Writer, hostID, osLabel string) error {
 	const totalRunes = 60
 	const prefixRunes = 4 // "─── "

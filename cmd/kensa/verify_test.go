@@ -99,10 +99,14 @@ func TestRunVerify_Tampered(t *testing.T) {
 	// Read, mutate severity, write back.
 	data, _ := os.ReadFile(evidencePath)
 	var env api.EvidenceEnvelope
-	json.Unmarshal(data, &env)
+	if err := json.Unmarshal(data, &env); err != nil {
+		t.Fatal(err)
+	}
 	env.Severity = "low" // attacker mutation
 	tamperedJSON, _ := json.Marshal(&env)
-	os.WriteFile(evidencePath, tamperedJSON, 0o644)
+	if err := os.WriteFile(evidencePath, tamperedJSON, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	exit := runCLI([]string{"verify", "--trust-dir", trustDir, evidencePath})
 	if exit != 1 {
@@ -156,7 +160,9 @@ func TestRunVerify_UsageErrors(t *testing.T) {
 func TestRunVerify_MalformedJSON(t *testing.T) {
 	t.Run("cli-verify-subcommand/AC-05", func(t *testing.T) {})
 	bogusPath := filepath.Join(t.TempDir(), "not-json.json")
-	os.WriteFile(bogusPath, []byte("this is not JSON"), 0o644)
+	if err := os.WriteFile(bogusPath, []byte("this is not JSON"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	exit := runCLI([]string{"verify", bogusPath})
 	if exit != 2 {
 		t.Errorf("malformed JSON should exit 2; got %d", exit)
@@ -232,7 +238,9 @@ func TestRunVerify_RejectsPathTraversal(t *testing.T) {
 	// Mutate the envelope's signing_key_id to a traversal string.
 	data, _ := os.ReadFile(evidencePath)
 	var env api.EvidenceEnvelope
-	json.Unmarshal(data, &env)
+	if err := json.Unmarshal(data, &env); err != nil {
+		t.Fatal(err)
+	}
 	for _, payload := range []string{
 		"../../etc/passwd",
 		"..\\windows\\system32",
@@ -243,7 +251,9 @@ func TestRunVerify_RejectsPathTraversal(t *testing.T) {
 	} {
 		env.SigningKeyID = payload
 		mutated, _ := json.Marshal(&env)
-		os.WriteFile(evidencePath, mutated, 0o644)
+		if err := os.WriteFile(evidencePath, mutated, 0o644); err != nil {
+			t.Fatal(err)
+		}
 
 		exit := runCLI([]string{"verify", "--trust-dir", trustDir, evidencePath})
 		if exit == 0 {
@@ -260,10 +270,14 @@ func TestRunVerify_RejectsEmptySigningKeyID(t *testing.T) {
 
 	data, _ := os.ReadFile(evidencePath)
 	var env api.EvidenceEnvelope
-	json.Unmarshal(data, &env)
+	if err := json.Unmarshal(data, &env); err != nil {
+		t.Fatal(err)
+	}
 	env.SigningKeyID = ""
 	mutated, _ := json.Marshal(&env)
-	os.WriteFile(evidencePath, mutated, 0o644)
+	if err := os.WriteFile(evidencePath, mutated, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	exit := runCLI([]string{"verify", "--trust-dir", trustDir, evidencePath})
 	if exit != 1 {

@@ -96,8 +96,8 @@ var severityOrder = []string{
 	"(unset)",
 }
 
-// writeCountMap renders a "by X" section. preferred lists
-// keys in a fixed order; remaining keys appear sorted by
+// writeCountMap renders a "by X" section. The preferred slice
+// lists keys in a fixed order; remaining keys appear sorted by
 // descending count then alphabetically.
 func writeCountMap(w io.Writer, title string, m map[string]int, preferred []string) {
 	if len(m) == 0 {

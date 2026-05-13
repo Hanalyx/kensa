@@ -35,8 +35,8 @@ const pruneDaysMax = 36500
 // The prune summary is written to stderr regardless of --quiet:
 // destructive operations need an audit trail visible to the
 // operator even when they redirected stdout. (--quiet's contract
-// is "no default human output," not "swallow audit-relevant
-// telemetry.")
+// is "no default human output", not "swallow audit-relevant
+// telemetry").
 func runHistoryPrune(
 	ctx context.Context,
 	dbPath string,

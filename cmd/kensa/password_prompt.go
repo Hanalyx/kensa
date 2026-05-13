@@ -18,10 +18,11 @@ import (
 //
 // The literal "<prompt>" is a documented reserved value: passing
 // `--password='<prompt>'` will trigger the prompt rather than use
-// those eight characters as the password. pflag also renders this
-// string in the auto-generated help text, where it reads as a
-// natural placeholder. Operators whose actual password is the
-// string "<prompt>" must set SSHPASS env or change their password.
+// those eight characters as the password. The pflag library also
+// renders this string in the auto-generated help text, where it
+// reads as a natural placeholder. Operators whose actual password
+// is the string "<prompt>" must set SSHPASS env or change their
+// password.
 const passwordPromptSentinel = "<prompt>"
 
 // resolvePassword returns the actual password to use for SSH auth.

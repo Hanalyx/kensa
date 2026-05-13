@@ -182,24 +182,21 @@ func KnownFormats() []string {
 }
 
 // FormatRequiresPath reports whether the given format must be written
-// to a file (path required) vs. accepting stdout when path is "".
+// to a file (path required) versus accepting stdout when path is "".
 // Currently only "pdf" requires a path because PDF output is a binary
 // blob that doesn't render usefully on a terminal.
 //
-// Parse calls this internally to reject path-less invocations of
-// path-required formats, so most callers don't need to invoke it
-// themselves. It remains exported for help-text generation that
-// wants to indicate "this format needs a destination."
+// The Parse function calls this internally to reject path-less
+// invocations of path-required formats, so most callers don't
+// need to invoke it themselves. It remains exported for help-text
+// generation that wants to indicate "this format needs a
+// destination."
 //
 // TODO(C-012): once the Writer interface lands, the path-required
 // property should move onto the writer registration so adding a new
 // format doesn't require editing this switch.
 func FormatRequiresPath(format string) bool {
-	switch strings.ToLower(format) {
-	case "pdf":
-		return true
-	}
-	return false
+	return strings.ToLower(format) == "pdf"
 }
 
 // knownFormats is the registry of accepted format names. The empty

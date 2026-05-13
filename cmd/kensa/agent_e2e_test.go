@@ -33,9 +33,9 @@ import (
 // verify correlation_id is preserved and payload is echoed
 // verbatim. Close stdin → expect exit 0.
 //
-// Skipped when bin/kensa doesn't exist (e.g., go test ./...
-// before `make build`). CI runs `make build` before tests so
-// the gate fires reliably there.
+// Skipped when bin/kensa doesn't exist (e.g., during
+// `go test ./...` before `make build`). CI runs `make build`
+// before tests so the gate fires reliably there.
 //
 // @spec agent-stdio-subcommand
 // @ac AC-07

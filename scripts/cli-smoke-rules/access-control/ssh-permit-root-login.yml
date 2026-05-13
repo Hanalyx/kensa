@@ -1,0 +1,46 @@
+id: ssh-permit-root-login
+title: Disable SSH root login (cli-smoke fixture)
+description: >
+  Fixture rule for cli-smoke.sh exercising "ssh" keyword search,
+  --cis framework filter, and the --control cis_rhel9:5.1.20 path.
+  Mirrors the real corpus rule of the same id but is intentionally
+  minimal (no real remediation logic; just enough fields to parse
+  cleanly and carry the framework mappings the smoke tests query).
+rationale: >
+  CI runners do not vendor the production rule corpus. Without a
+  small in-repo fixture, the CLI smoke tests that need a loadable
+  corpus (info ssh, info --cis ssh, list frameworks, coverage
+  --framework bogus_v999) fail at corpus load with exit 1 before
+  the actual flag/vocab validation they are meant to verify.
+severity: high
+category: access-control
+tags: [ssh, fixture, cli-smoke]
+
+references:
+  cis:
+    rhel9:  { section: "5.1.20", level: "L1", type: "Automated" }
+    rhel10: { section: "5.1.20", level: "L1", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-257985"
+      stig_id: "RHEL-09-255045"
+      severity: "CAT II"
+      cci: ["CCI-000770"]
+  nist_800_53: ["AC-6(2)", "AC-17(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: sshd_effective_config
+      key: "permitrootlogin"
+      expected: "no"
+    remediation:
+      mechanism: config_set
+      path: "/etc/ssh/sshd_config"
+      key: "PermitRootLogin"
+      value: "no"
+      separator: " "

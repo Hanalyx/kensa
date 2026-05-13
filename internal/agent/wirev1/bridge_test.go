@@ -240,7 +240,8 @@ func TestMapToStruct_RejectsUnsupportedTypes(t *testing.T) {
 //
 // Concrete kensa example: time.Now().UnixNano() is ~1.76e18, well
 // above 2^53. A handler emitting Data["captured_unix_nano"] = ...
-// would silently lose precision under the old bounds.
+// (with a raw int64 nanosecond timestamp) would silently lose
+// precision under the old bounds.
 func TestMapToStruct_RejectsOversizedIntegers(t *testing.T) {
 	cases := []struct {
 		name string

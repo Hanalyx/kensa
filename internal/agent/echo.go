@@ -63,7 +63,7 @@ type Handler func(*wirev1.Request) *wirev1.Response
 
 // Run reads frames from r, hands each Request to handler, writes
 // the framed Response on w, until r returns io.EOF (clean
-// shutdown: returns nil) or ctx is cancelled (returns ctx.Err()).
+// shutdown: returns nil) or ctx is canceled (returns ctx.Err()).
 //
 // Errors that terminate the loop with a non-nil return:
 //   - framing error (oversized frame, truncated payload, unreadable stream)
@@ -74,8 +74,9 @@ type Handler func(*wirev1.Request) *wirev1.Response
 // **Context cancellation.** ctx.Done() is checked between
 // frames. A read blocked on a half-closed SSH pipe won't be
 // preempted by ctx until the read either returns or completes.
-// cmd/kensa/agent.go provides a 500ms grace-period forced
-// os.Exit fallback for the SIGTERM-during-read case (Go's
+// The cmd/kensa/agent.go entrypoint provides a 500ms
+// grace-period forced os.Exit fallback for the
+// SIGTERM-during-read case (Go's
 // runtime poller is not reliable for waking blocked pipe Reads
 // on Close from another goroutine).
 // Validator inspects a decoded Request and returns an error

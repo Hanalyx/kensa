@@ -89,10 +89,11 @@ var sigDomainTag = []byte("kensa-evidence-envelope-v1\x00")
 // by [LoadVerifier]). Construct with [New] / [Generate] / [LoadSigner]
 // for the full sign+verify form, or [LoadVerifier] for verify-only.
 //
-// privateKey is nil iff the Signer is verify-only. publicKey is
-// always populated — derived from privateKey at construction time
-// (full form) or supplied directly (verify-only form) — so
-// Verify() never needs to ask the private key for its public half.
+// The privateKey field is nil iff the Signer is verify-only.
+// The publicKey field is always populated — derived from
+// privateKey at construction time (full form) or supplied
+// directly (verify-only form) — so Verify() never needs to ask
+// the private key for its public half.
 type Signer struct {
 	privateKey ed25519.PrivateKey // nil when verify-only
 	publicKey  ed25519.PublicKey  // ALWAYS populated

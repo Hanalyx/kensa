@@ -268,8 +268,9 @@ func TestRun_ForceArchivesPriorPub(t *testing.T) {
 }
 
 // TestRun_OutputIncludesFingerprint locks the SHA-256 fingerprint
-// in the success-stderr output. ssh-keygen-style "SHA256:<base64>"
-// gives operators a recognizable verification marker.
+// in the success-stderr output. The ssh-keygen-style
+// "SHA256:<base64>" form gives operators a recognizable
+// verification marker.
 func TestRun_OutputIncludesFingerprint(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer

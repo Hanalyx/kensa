@@ -18,9 +18,9 @@ import (
 // (the agent's stdout). Mirrors the SSH stdin/stdout topology
 // without spawning a subprocess.
 func pipePair() (clientStdin io.WriteCloser, clientStdout io.Reader, serverStdin io.Reader, serverStdout io.WriteCloser) {
-	c2s_r, c2s_w := io.Pipe()
-	s2c_r, s2c_w := io.Pipe()
-	return c2s_w, s2c_r, c2s_r, s2c_w
+	c2sR, c2sW := io.Pipe()
+	s2cR, s2cW := io.Pipe()
+	return c2sW, s2cR, c2sR, s2cW
 }
 
 // runEchoServer launches an agent.Run loop on a pipe pair,
@@ -170,7 +170,7 @@ func TestClient_AllMethods_EchoServer(t *testing.T) {
 	})
 }
 
-// TestClient_CtxCancelPreemptsApply locks AC-04: a cancelled
+// TestClient_CtxCancelPreemptsApply locks AC-04: a canceled
 // context aborts an Apply call within 100ms. Pending-map
 // entry is cleaned up.
 //
@@ -186,7 +186,7 @@ func TestClient_CtxCancelPreemptsApply(t *testing.T) {
 	clientIn, clientOut, serverIn, serverOut := pipePair()
 	// Drain serverIn in a goroutine so the client's write
 	// doesn't block — we discard everything.
-	go io.Copy(io.Discard, serverIn)
+	go func() { _, _ = io.Copy(io.Discard, serverIn) }()
 	_ = serverOut // never written to
 
 	c, _ := Open(clientIn, clientOut)
@@ -543,7 +543,7 @@ func TestClient_ReaderEOFFailsInFlightCalls(t *testing.T) {
 	// Construct a server whose stdout we can close from the
 	// test, simulating "agent crashed mid-Apply."
 	clientIn, clientOut, serverIn, serverOut := pipePair()
-	go io.Copy(io.Discard, serverIn) // drain client writes
+	go func() { _, _ = io.Copy(io.Discard, serverIn) }() // drain client writes
 
 	c, _ := Open(clientIn, clientOut)
 	defer c.Close()
@@ -580,7 +580,7 @@ func TestClient_ReaderEOFFailsInFlightCalls(t *testing.T) {
 func TestClient_CloseRejectsInFlight(t *testing.T) {
 	// Hung server (never responds).
 	clientIn, clientOut, serverIn, serverOut := pipePair()
-	go io.Copy(io.Discard, serverIn)
+	go func() { _, _ = io.Copy(io.Discard, serverIn) }()
 	_ = serverOut
 
 	c, _ := Open(clientIn, clientOut)

@@ -151,8 +151,8 @@ func TestRunInfo_NoRulesDirNoMode(t *testing.T) {
 }
 
 // TestRunInfo_LimitClampsSearch locks the --limit truncation
-// in search mode. makeCoverageCorpus has 3 rules; --limit 1
-// should produce 1 hit row + truncation footer.
+// in search mode. The makeCoverageCorpus helper has 3 rules;
+// --limit 1 should produce 1 hit row + truncation footer.
 // @spec cli-info
 // @ac AC-08
 func TestRunInfo_LimitClampsSearch(t *testing.T) {
@@ -218,10 +218,10 @@ func TestRunInfo_PlatformAnyVersion(t *testing.T) {
 }
 
 // TestRunInfo_QueryWithFamilyFilter locks the QUERY + family
-// compose path (R1 P2 #4 — was unexercised). makeCoverageCorpus
-// rule-a maps cis_rhel9; rule-b maps cis_rhel9; rule-c maps
-// nist_800_53 only. Search "test" + --cis should yield rule-a
-// and rule-b; rule-c filtered out.
+// compose path (R1 P2 #4 — was unexercised). The makeCoverageCorpus
+// helper produces rule-a (cis_rhel9), rule-b (cis_rhel9), and
+// rule-c (nist_800_53 only). Search "test" + --cis should yield
+// rule-a and rule-b; rule-c filtered out.
 // @spec cli-info
 // @ac AC-12
 func TestRunInfo_QueryWithFamilyFilter(t *testing.T) {

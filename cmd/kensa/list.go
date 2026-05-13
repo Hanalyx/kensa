@@ -35,7 +35,7 @@ func runList(ctx context.Context, dbPath string, args []string) error {
 		return NewUsageError("specify a subject; available: frameworks, sessions")
 	}
 	subject := args[0]
-	if len(subject) > 0 && subject[0] == '-' {
+	if subject != "" && subject[0] == '-' {
 		return NewUsageError(fmt.Sprintf(
 			"missing 'list' subject (got flag %q first); did you mean 'kensa list frameworks %s'?",
 			subject, joinArgs(args)))

@@ -211,9 +211,10 @@ func requireFlagInHelp(t *testing.T, cmd string, wantTokens []string) {
 }
 
 // captureRunCLI runs the CLI dispatcher with the given argv and
-// returns the captured stdout. stderr is consumed but not returned
-// (callers can extend if needed). The actual exit code is dropped —
-// this helper exists to inspect output, not to assert on exit.
+// returns the captured stdout. The stderr stream is consumed but
+// not returned (callers can extend if needed). The actual exit
+// code is dropped — this helper exists to inspect output, not to
+// assert on exit.
 func captureRunCLI(argv []string, t *testing.T) (stdout, stderr string) {
 	t.Helper()
 	oldOut := os.Stdout

@@ -221,7 +221,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 // byte-equivalent to sed's intent and fixes the post-merge
 // security review's P1-5 divergence.
 //
-// sed `^` = line-start under -E with default delimiter;
+// Sed `^` = line-start under -E with default delimiter;
 // Go needs (?m). Key is regexp.QuoteMeta'd to handle dotted
 // keys safely.
 func activeLineRegex(key string) (*regexp.Regexp, error) {

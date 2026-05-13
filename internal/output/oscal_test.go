@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
 	"github.com/google/uuid"
+
+	"github.com/Hanalyx/kensa-go/api"
 )
 
 // makeEnvelope is a test helper for constructing a minimally-valid

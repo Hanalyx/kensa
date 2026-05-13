@@ -39,8 +39,9 @@ import (
 // Intentionally NOT exposed via api/. The shape will evolve as the
 // CLI Phase 2.5 operator UX matures (adding fields like skip-by-
 // capability, deterministic-supersede-tie-break, etc.); api/ is
-// frozen v1 and can't absorb that churn. cmd/kensa carries
-// ResolvedRules across the resolve→scan→render boundary directly.
+// frozen v1 and can't absorb that churn. The cmd/kensa dispatcher
+// carries ResolvedRules across the resolve→scan→render boundary
+// directly.
 type ResolvedRules struct {
 	// Order is the active rules in dependency-first execution
 	// order. EXCLUDES both superseded rules AND cycle members
@@ -433,7 +434,7 @@ func ShouldSkip(ruleID string, rules []*api.Rule, failed map[string]struct{}, tr
 // Lines are prefixed by severity: "error:" for cycles (a real
 // configuration problem), "warning:" for conflicts (advisory; both
 // rules still run), "info:" for supersedes (auto-resolution; the
-// older rule is skipped). cmd/kensa's --quiet flag suppresses
+// older rule is skipped). The cmd/kensa --quiet flag suppresses
 // info: lines but keeps error: and warning: visible.
 func FormatIssues(result *ResolvedRules) []string {
 	if result == nil {

@@ -5,7 +5,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
 	"github.com/johnfercher/maroto/v2"
 	"github.com/johnfercher/maroto/v2/pkg/components/row"
 	"github.com/johnfercher/maroto/v2/pkg/components/text"
@@ -14,6 +13,8 @@ import (
 	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
 	"github.com/johnfercher/maroto/v2/pkg/core"
 	"github.com/johnfercher/maroto/v2/pkg/props"
+
+	"github.com/Hanalyx/kensa-go/api"
 )
 
 // PDF rendering uses the maroto v2 high-level layout DSL on top of
