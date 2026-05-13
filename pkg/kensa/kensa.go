@@ -129,7 +129,9 @@ func DefaultWithEngineOptions(ctx context.Context, storePath string, engineOpts 
 		engine.WithSigner(signer),
 		engine.WithEvents(bus),
 	}
-	allOpts := append(stdOpts, engineOpts...)
+	allOpts := make([]engine.Option, 0, len(stdOpts)+len(engineOpts))
+	allOpts = append(allOpts, stdOpts...)
+	allOpts = append(allOpts, engineOpts...)
 	eng := engine.New(allOpts...)
 
 	cfg := api.Config{

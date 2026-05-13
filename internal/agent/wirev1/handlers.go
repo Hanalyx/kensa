@@ -89,8 +89,8 @@ func APIStepResultToWire(r api.StepResult) *WireStepResult {
 }
 
 // WireStepResultToAPI converts WireStepResult → api.StepResult.
-// nil input → zero-value api.StepResult so handlers don't have
-// to nil-check every field.
+// A nil input returns a zero-value api.StepResult so handlers
+// don't have to nil-check every field.
 func WireStepResultToAPI(w *WireStepResult) api.StepResult {
 	if w == nil {
 		return api.StepResult{}
@@ -229,8 +229,8 @@ func WireParamsToAPI(s *structpb.Struct) (api.Params, error) {
 // audit trail and confuse deadman-window arithmetic. CheckValid
 // enforces the documented [0001-01-01, 9999-12-31] range.
 //
-// fieldName is the field's path for diagnostic-friendly errors
-// (e.g., "PreState.CapturedAt").
+// The fieldName argument is the field's path for diagnostic-
+// friendly errors (e.g., "PreState.CapturedAt").
 func safeTimestampToTime(ts *timestamppb.Timestamp, fieldName string) (time.Time, error) {
 	// timestamppb.Timestamp.CheckValid returns nil for the
 	// nil-pointer case (zero value semantics); AsTime() on a

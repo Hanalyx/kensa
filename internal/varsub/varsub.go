@@ -104,8 +104,8 @@ func SubstituteFile(path string, raw []byte, vars Variables) ([]byte, error) {
 }
 
 // Merge returns a new Variables map combining base and override.
-// override's values win on key collision. Useful for stacking
-// CLI overrides on top of file defaults.
+// The override map's values win on key collision. Useful for
+// stacking CLI overrides on top of file defaults.
 func Merge(base, override Variables) Variables {
 	out := make(Variables, len(base)+len(override))
 	for k, v := range base {

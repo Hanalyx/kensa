@@ -138,7 +138,7 @@ func LoadConfDir(configDir string) (Variables, error) {
 // at test time and at process startup; a parse failure here
 // would indicate build-time corruption.
 //
-// hostname may be empty — single-host mode with no per-host
+// The hostname argument may be empty — single-host mode with no per-host
 // config dir layer (operators using --host but not having a
 // hosts/<host>.yml fall through cleanly).
 //

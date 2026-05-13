@@ -189,11 +189,12 @@ func TestArmer_ConcurrentArms_SameTxnID(t *testing.T) {
 		go func() {
 			defer func() { done <- struct{}{} }()
 			_, err := a.ArmDeadman("txn-race", 5*time.Second, nil)
-			if err == nil {
+			switch {
+			case err == nil:
 				successCount.Add(1)
-			} else if errors.Is(err, ErrAlreadyArmed) {
+			case errors.Is(err, ErrAlreadyArmed):
 				alreadyArmedCount.Add(1)
-			} else {
+			default:
 				t.Errorf("unexpected error: %v", err)
 			}
 		}()

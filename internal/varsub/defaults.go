@@ -60,8 +60,8 @@ func validVarName(s string) bool {
 
 // stringify converts a YAML scalar (bool / int / string /
 // float / nil) to a string. Non-scalar values (maps, slices)
-// are rejected — variable values must be flat. nil rejected
-// to surface accidental empty entries.
+// are rejected — variable values must be flat. The nil case
+// is rejected to surface accidental empty entries.
 func stringify(v any) (string, error) {
 	switch t := v.(type) {
 	case nil:

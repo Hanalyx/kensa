@@ -164,10 +164,10 @@ func WithAgentClient(c AgentClient) Option {
 // envelopes with valid signatures, even in tests. Tests that need
 // to verify against a specific keypair pass engine.WithSigner.
 //
-// evidence.Generate() failure (extremely unlikely — only fires on
-// crypto/rand exhaustion) panics: a kensa engine with no working
-// signer cannot produce trustworthy envelopes, and the failure is
-// loud rather than silent.
+// An evidence.Generate() failure (extremely unlikely — only fires
+// on crypto/rand exhaustion) panics: a kensa engine with no
+// working signer cannot produce trustworthy envelopes, and the
+// failure is loud rather than silent.
 func New(opts ...Option) *Engine {
 	signer, err := evidence.Generate()
 	if err != nil {

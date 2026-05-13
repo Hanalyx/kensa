@@ -48,15 +48,16 @@ import (
 //     from the cmd/kensa layer; io.Discard when --quiet is set).
 
 // stdoutOverride allows callers to redirect Specs with empty Path
-// without modifying os.Stdout globally. cmd/kensa passes os.Stdout
-// (or io.Discard when --quiet is set) per-call.
+// without modifying os.Stdout globally. The cmd/kensa dispatcher
+// passes os.Stdout (or io.Discard when --quiet is set) per-call.
 
 // FanOutScanResult fans out a ScanResult across every spec.
 //
 // The stdoutOverride parameter is the io.Writer that specs with an
-// empty Path will write to. cmd/kensa passes os.Stdout normally and
-// io.Discard when --quiet is set. Passing nil panics (programmer
-// error: every caller must decide what stdout means for them).
+// empty Path will write to. The cmd/kensa dispatcher passes
+// os.Stdout normally and io.Discard when --quiet is set. Passing
+// nil panics (programmer error: every caller must decide what
+// stdout means for them).
 //
 // Returns the first error encountered in argv order; every spec is
 // attempted. A spec with an unregistered format produces
@@ -113,9 +114,9 @@ var ErrUnsupportedFormat = errors.New("output: unsupported format for this paylo
 // for each Spec, invokes writeFunc against that destination, and
 // returns the first error in argv order.
 //
-// writeFunc is a closure carrying the payload-typed lookup + write
-// (see FanOutScanResult etc.); fanOut is the concurrency + I/O
-// scaffolding around it.
+// The writeFunc parameter is a closure carrying the payload-typed
+// lookup + write (see FanOutScanResult etc.); fanOut is the
+// concurrency + I/O scaffolding around it.
 func fanOut(specs []Spec, stdoutOverride io.Writer, writeFunc func(Spec, io.Writer) error) error {
 	if len(specs) == 0 {
 		return nil

@@ -20,7 +20,7 @@ import (
 // per-rule transactions matching the canonical fixture used by
 // most tests below. Returns the db path and the two session IDs.
 //
-// session1 (host-a, "before"):
+// Session1 (host-a, "before"):
 //   - rule-removed: committed
 //   - rule-changed: committed
 //   - rule-unchanged: committed
@@ -283,7 +283,7 @@ func TestRunDiff_HelpExitsZero(t *testing.T) {
 //
 // Setup: session1 has rule-x with three ATTEMPTS at distinct
 // timestamps (errored t0, rolled_back t1, committed t2).
-// session2 has rule-x once: committed. The diff must collapse
+// Session2 has rule-x once: committed. The diff must collapse
 // session1 to the LATEST attempt (committed) and report
 // "unchanged" — NOT "changed from errored to committed."
 // @spec cli-session-diff

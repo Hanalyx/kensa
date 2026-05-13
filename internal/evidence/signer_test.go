@@ -359,8 +359,10 @@ func TestVerify_RejectsWrongLengthSignature(t *testing.T) {
 		t.Error("truncated signature must NOT be Valid=true")
 	}
 
-	// Extend by 1 byte (append zero).
-	env.Signature = append(sig, 0)
+	// Extend by 1 byte (append zero). Copy first so the parent
+	// `sig` slice is not mutated in-place if it had spare cap.
+	oversized := append([]byte{}, sig...)
+	env.Signature = append(oversized, 0)
 	r, err = s.Verify(env)
 	if err == nil {
 		t.Error("oversize signature should error")

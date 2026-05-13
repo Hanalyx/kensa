@@ -80,4 +80,3 @@ func TestSubcommandList_NoDuplicates(t *testing.T) {
 		seen[s] = true
 	}
 }
-

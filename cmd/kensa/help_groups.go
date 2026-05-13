@@ -73,7 +73,8 @@ func formatGroupedUsages(fs *pflag.FlagSet, groups []flagGroup) string {
 }
 
 // hasAnyFlag returns true when fs has at least one flag visible
-// to FlagUsages. pflag exports no Len(); we VisitAll once.
+// to FlagUsages. The pflag package exports no Len(), so we
+// VisitAll once.
 func hasAnyFlag(fs *pflag.FlagSet) bool {
 	any := false
 	fs.VisitAll(func(*pflag.Flag) { any = true })
@@ -102,7 +103,7 @@ var detectFlagGroups = []flagGroup{
 	},
 }
 
-// checkFlagGroups defines the --help layout for `kensa check`.
+// checkFlagGroups defines the --help layout for `kensa check`:
 // target_options + rule_options + output_options + the
 // subcommand-specific --verbose flag.
 var checkFlagGroups = []flagGroup{

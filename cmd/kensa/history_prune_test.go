@@ -145,8 +145,8 @@ func TestRunHistoryPrune_QuietStillEmitsAuditSummary(t *testing.T) {
 }
 
 // TestConfirmedYes locks the parser for the TTY confirmation gate.
-// confirmedYes requires a trailing newline so Ctrl-D mid-input
-// (EOF after typing "y" without Enter) does NOT confirm.
+// The confirmedYes helper requires a trailing newline so Ctrl-D
+// mid-input (EOF after typing "y" without Enter) does NOT confirm.
 // @spec cli-history-prune
 // @ac AC-06
 func TestConfirmedYes(t *testing.T) {

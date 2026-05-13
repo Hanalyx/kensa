@@ -86,8 +86,8 @@ func (h *Handler) Capturable() bool { return true }
 // publish (with AtomicReplace fallback for re-Apply on existing
 // files — the FMA explicitly flagged this; AtomicWrite errors with
 // ErrAlreadyExists where the shell `echo >` silently overwrites).
-// os.MkdirAll handles the parent-dir creation that `mkdir -p`
-// did in the shell pipeline.
+// The os.MkdirAll call handles the parent-dir creation that
+// `mkdir -p` did in the shell pipeline.
 func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
 	p, err := decodeParams(params)
 	if err != nil {

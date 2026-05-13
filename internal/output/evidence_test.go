@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
 	"github.com/google/uuid"
+
+	"github.com/Hanalyx/kensa-go/api"
 )
 
 // @spec output-evidence

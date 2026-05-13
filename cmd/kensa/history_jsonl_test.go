@@ -133,7 +133,7 @@ func TestRunHistory_JSONLRejectsDocumentModes(t *testing.T) {
 	}
 }
 
-// TestRunHistory_JSONLShapeMatchesJSON locks AC-04: each jsonl
+// TestRunHistory_JSONLShapeMatchesJSON locks AC-04: each jsonl.
 // line is byte-identical to a single element of the --format
 // json `transactions` array.
 // @spec cli-history-jsonl

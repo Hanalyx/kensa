@@ -245,7 +245,7 @@ func (c *Client) readLoop() {
 
 // routeResponse looks up the pending entry by correlation_id
 // and delivers the response. If no entry exists, the
-// response is for a cancelled or timed-out call — drop it.
+// response is for a canceled or timed-out call — drop it.
 func (c *Client) routeResponse(resp *wirev1.Response) {
 	c.pendingMu.Lock()
 	p, ok := c.pending[resp.GetCorrelationId()]
@@ -386,7 +386,7 @@ var MinorMismatchLogger = func(clientMajor, clientMinor, agentMajor, agentMinor 
 }
 
 // Apply sends an ApplyRequest and returns the StepResult.
-// preState may be nil for non-capturable mechanisms.
+// The preState argument may be nil for non-capturable mechanisms.
 //
 // Translation rules per spec C-05:
 //   - envelope Error set → returns *AgentError wrapping

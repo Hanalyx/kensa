@@ -41,14 +41,16 @@ func (oscalRemediationWriter) Format() string { return "oscal" }
 // WriteRemediationResult emits one OSCAL document per non-nil
 // envelope in result.Transactions.
 //
-// hostID and rules are interface-mandated but INTENTIONALLY UNUSED:
-// the EvidenceEnvelope is the signed audit-truth-of-record (post-M7
-// task #12 it carries an Ed25519 signature over its payload).
-// Sourcing host or rule identity from outer parameters at write time
-// would create a replay vector — a malicious caller could pass a
-// different hostID than what was captured at apply time, and the
-// resulting OSCAL document would lie. Reading from envelope.HostID /
-// envelope.RuleID / envelope.FrameworkRefs (inside evidence.WriteOSCAL)
+// The hostID and rules parameters are interface-mandated but
+// INTENTIONALLY UNUSED: the EvidenceEnvelope is the signed
+// audit-truth-of-record (post-M7 task #12 it carries an Ed25519
+// signature over its payload). Sourcing host or rule identity
+// from outer parameters at write time would create a replay
+// vector — a malicious caller could pass a different hostID
+// than what was captured at apply time, and the resulting OSCAL
+// document would lie. Reading from envelope.HostID /
+// envelope.RuleID / envelope.FrameworkRefs (inside
+// evidence.WriteOSCAL)
 // is the only correct identity source.
 func (oscalRemediationWriter) WriteRemediationResult(w io.Writer, _ string, _ []*api.Rule, result *api.RemediationResult) error {
 	for _, txr := range result.Transactions {

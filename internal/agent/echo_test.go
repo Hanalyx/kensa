@@ -407,7 +407,7 @@ func TestRunWithValidator_RejectsFailingValidator(t *testing.T) {
 }
 
 // TestRun_PreCancelledContext locks the between-frames ctx
-// check (L-008 spec C-07). Pre-cancelled context short-circuits
+// check (L-008 spec C-07). Pre-canceled context short-circuits
 // the loop without attempting a Read.
 //
 // @spec agent-stdio-subcommand
@@ -433,12 +433,12 @@ func TestRun_PreCancelledContext(t *testing.T) {
 	elapsed := time.Since(start)
 
 	if !errors.Is(err, context.Canceled) {
-		t.Errorf("pre-cancelled ctx should return context.Canceled, got: %v", err)
+		t.Errorf("pre-canceled ctx should return context.Canceled, got: %v", err)
 	}
 	if elapsed > 100*time.Millisecond {
-		t.Errorf("pre-cancelled ctx should return immediately (within 100ms); took %v", elapsed)
+		t.Errorf("pre-canceled ctx should return immediately (within 100ms); took %v", elapsed)
 	}
 	if stdout.Len() != 0 {
-		t.Errorf("no frame should be echoed when ctx is pre-cancelled; got %d bytes", stdout.Len())
+		t.Errorf("no frame should be echoed when ctx is pre-canceled; got %d bytes", stdout.Len())
 	}
 }

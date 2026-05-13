@@ -148,7 +148,8 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 }
 
 // defaultSSHCommand builds the production ssh-subprocess
-// invocation. user can be empty (ssh uses current user).
+// invocation. The user argument can be empty (ssh uses the
+// current user).
 func defaultSSHCommand(ctx context.Context, user, host, remotePath string) *exec.Cmd {
 	target := host
 	if user != "" {

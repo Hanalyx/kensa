@@ -94,6 +94,17 @@ linters-settings:
     capital: true
     # Period at end of last sentence.
     period: true
+    # Exclude specter annotation lines from the analysis. The
+    # Convention B format places `// @spec spec-id` and
+    # `// @ac AC-NN` markers at the end of doc-comment blocks
+    # (per CLAUDE.md and specter's coverage parser). They are
+    # not prose, and appending a period to "AC-01" would break
+    # specter's identifier match. Pattern is matched against
+    # the comment line WITHOUT the `//` prefix.
+    exclude:
+      - "^\\s*@spec\\b"
+      - "^\\s*@ac\\b"
+      - "^\\s*@c\\b"
 
   gocritic:
     enabled-checks:

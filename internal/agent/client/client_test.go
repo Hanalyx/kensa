@@ -170,7 +170,7 @@ func TestClient_AllMethods_EchoServer(t *testing.T) {
 	})
 }
 
-// TestClient_CtxCancelPreemptsApply locks AC-04: a cancelled
+// TestClient_CtxCancelPreemptsApply locks AC-04: a canceled
 // context aborts an Apply call within 100ms. Pending-map
 // entry is cleaned up.
 //

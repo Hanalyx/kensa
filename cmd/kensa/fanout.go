@@ -21,9 +21,9 @@ import (
 // the cancellation through their own ctx-aware operations
 // (e.g., ssh.Connect's ctx parameter).
 //
-// fn must call wg.Done()-equivalent semantics implicitly via
-// the helper — the helper handles WaitGroup lifecycle so each
-// caller doesn't have to.
+// The fn callback must call wg.Done()-equivalent semantics
+// implicitly via the helper — the helper handles WaitGroup
+// lifecycle so each caller doesn't have to.
 func fanOutBounded[T any](ctx context.Context, items []T, workers int, fn func(idx int, item T)) {
 	if workers < 1 {
 		workers = 1 // defensive; validated upstream by validateWorkers

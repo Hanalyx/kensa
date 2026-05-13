@@ -78,9 +78,10 @@ func TestBuiltInDefaults_Cached(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Pointer equality is the cache hit check; with the cache
-	// active, both calls return the same map.
-	if &a == nil || &b == nil {
+	// Sanity check: BuiltInDefaults must never return a nil map
+	// (an empty map is acceptable; nil would break range loops
+	// in callers).
+	if a == nil || b == nil {
 		t.Fatal("nil map")
 	}
 	// Sanity: both have the same content.

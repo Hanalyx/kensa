@@ -23,7 +23,6 @@ import (
 type fakeTransport struct {
 	mu       sync.Mutex
 	home     string
-	cachedAt string
 	runErr   error
 	runCalls []string
 	putCalls int
