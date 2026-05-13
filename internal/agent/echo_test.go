@@ -22,6 +22,8 @@ import (
 // @spec agent-wire-handler-schema
 // @ac AC-04
 func TestHandleEcho_TypedDispatch(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-04")
 	cases := []struct {
 		name           string
 		req            *wirev1.Request
@@ -109,6 +111,8 @@ func TestHandleEcho_TypedDispatch(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-05
 func TestHandleEcho_PreservesCorrelation(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-05")
 	req := &wirev1.Request{
 		SchemaVersion: 1,
 		CorrelationId: 0xdeadbeef,
@@ -132,6 +136,8 @@ func TestHandleEcho_PreservesCorrelation(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-07
 func TestHandleEcho_HeartbeatToken(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-07")
 	for _, token := range []uint64{0, 1, 0xffffffff, 0xffffffffffffffff} {
 		req := &wirev1.Request{
 			SchemaVersion: 1,
@@ -175,6 +181,8 @@ func TestHandleEcho_UnsetPayloadProducesError(t *testing.T) {
 // @spec agent-stdio-subcommand
 // @ac AC-05
 func TestRun_HappyPath(t *testing.T) {
+	t.Log("// @spec agent-stdio-subcommand")
+	t.Log("// @ac AC-05")
 	req := &wirev1.Request{
 		SchemaVersion: 1,
 		CorrelationId: 12345,
@@ -338,6 +346,8 @@ func TestRun_MalformedProtoIsError(t *testing.T) {
 // @spec agent-framing-production
 // @ac AC-06
 func TestRunWithValidator_RejectsFailingValidator(t *testing.T) {
+	t.Log("// @spec agent-framing-production")
+	t.Log("// @ac AC-06")
 	// Send two valid Requests; the injected validator fails
 	// both. Expect two envelope-Error Responses on stdout,
 	// then clean EOF exit (Run returns nil).
@@ -403,6 +413,8 @@ func TestRunWithValidator_RejectsFailingValidator(t *testing.T) {
 // @spec agent-stdio-subcommand
 // @ac AC-06
 func TestRun_PreCancelledContext(t *testing.T) {
+	t.Log("// @spec agent-stdio-subcommand")
+	t.Log("// @ac AC-06")
 	var stdin bytes.Buffer
 	req := &wirev1.Request{
 		SchemaVersion: 1,

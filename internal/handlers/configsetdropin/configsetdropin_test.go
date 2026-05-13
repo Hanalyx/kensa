@@ -16,6 +16,8 @@ import (
 // @spec handler-config-set-dropin
 // @ac AC-01
 func TestApply_AC01_WritesDropinFile(t *testing.T) {
+	t.Log("// @spec handler-config-set-dropin")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := configsetdropin.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -47,6 +49,8 @@ func TestApply_AC01_WritesDropinFile(t *testing.T) {
 // @spec handler-config-set-dropin
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-config-set-dropin")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := configsetdropin.New()
 	params := api.Params{
@@ -64,6 +68,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-config-set-dropin
 // @ac AC-03
 func TestCapture_AC03_RecordsExistingDropin(t *testing.T) {
+	t.Log("// @spec handler-config-set-dropin")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	path := "/etc/systemd/system/sshd.service.d/kensa.conf"
 	qPath := "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
@@ -88,6 +94,8 @@ func TestCapture_AC03_RecordsExistingDropin(t *testing.T) {
 // @spec handler-config-set-dropin
 // @ac AC-04
 func TestCapture_AC04_AbsentDropinRecordsFileExistedFalse(t *testing.T) {
+	t.Log("// @spec handler-config-set-dropin")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	path := "/etc/systemd/system/sshd.service.d/kensa.conf"
 	qPath := "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
@@ -109,6 +117,8 @@ func TestCapture_AC04_AbsentDropinRecordsFileExistedFalse(t *testing.T) {
 // @spec handler-config-set-dropin
 // @ac AC-05
 func TestRollback_AC05_RestoresPriorContent(t *testing.T) {
+	t.Log("// @spec handler-config-set-dropin")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := configsetdropin.New()
 	pre := &api.PreState{
@@ -136,6 +146,8 @@ func TestRollback_AC05_RestoresPriorContent(t *testing.T) {
 // @spec handler-config-set-dropin
 // @ac AC-06
 func TestRollback_AC06_RemovesDropinWhenPriorWasAbsent(t *testing.T) {
+	t.Log("// @spec handler-config-set-dropin")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	h := configsetdropin.New()
 	pre := &api.PreState{

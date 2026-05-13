@@ -48,6 +48,8 @@ import (
 // @spec agent-live-host-parity
 // @ac AC-02
 func TestLiveAgentMode_FilePermissionsParity(t *testing.T) {
+	t.Log("// @spec agent-live-host-parity")
+	t.Log("// @ac AC-02")
 	sshHost := os.Getenv("KENSA_TEST_SSH_HOST")
 	agentMode := os.Getenv("KENSA_TEST_AGENT_MODE")
 

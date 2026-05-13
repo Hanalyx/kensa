@@ -20,6 +20,8 @@ import (
 // @spec agent-client
 // @ac AC-07
 func TestClient_SubprocessIntegration(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-07")
 	repoRoot := findRepoRootForTest(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
 	if !fileExists(binPath) {

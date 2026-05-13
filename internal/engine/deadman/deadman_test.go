@@ -75,6 +75,8 @@ func sdrHostTP() *substringFakeTransport {
 // @spec deadman-timer
 // @ac AC-01
 func TestDetectScheduler_At(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-01")
 	tp := atHostTP()
 	a := deadman.New(0, handler.NewRegistry())
 	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
@@ -86,6 +88,8 @@ func TestDetectScheduler_At(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-01
 func TestDetectScheduler_SystemdRun(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-01")
 	tp := sdrHostTP()
 	a := deadman.New(0, handler.NewRegistry())
 	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
@@ -97,6 +101,8 @@ func TestDetectScheduler_SystemdRun(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-01
 func TestDetectScheduler_NoScheduler(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-01")
 	// Transport returns nothing recognizable for scheduler probes.
 	tp := newSubTP()
 	a := deadman.New(0, handler.NewRegistry())
@@ -111,6 +117,10 @@ func TestDetectScheduler_NoScheduler(t *testing.T) {
 // @ac AC-03
 // @ac AC-04
 func TestArm_UploadAndSchedule(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Run("deadman-timer/AC-02", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-03", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-04", func(t *testing.T) {})
 	tp := atHostTP()
 	a := deadman.New(0, handler.NewRegistry())
 
@@ -154,6 +164,8 @@ func TestArm_UploadAndSchedule(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-02
 func TestArm_ScriptContainsRollbackCommands(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-02")
 	tp := atHostTP()
 	// Use the global registry so sysctlset is registered.
 	a := deadman.New(0, handler.Default())
@@ -192,6 +204,9 @@ func TestArm_ScriptContainsRollbackCommands(t *testing.T) {
 // @ac AC-05
 // @ac AC-09
 func TestCancel_ErrNoActiveDeadman(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Run("deadman-timer/AC-05", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-09", func(t *testing.T) {})
 	tp := newSubTP()
 	a := deadman.New(0, handler.NewRegistry())
 	err := a.Cancel(context.Background(), tp, uuid.New())
@@ -204,6 +219,9 @@ func TestCancel_ErrNoActiveDeadman(t *testing.T) {
 // @ac AC-05
 // @ac AC-08
 func TestCancel_RemovesJobAndScript(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Run("deadman-timer/AC-05", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-08", func(t *testing.T) {})
 	tp := atHostTP()
 	// After cancel: atq returns empty (job gone).
 	// Override the "atq" key to return empty string so post-cancel verification passes.
@@ -236,6 +254,8 @@ func TestCancel_RemovesJobAndScript(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-06
 func TestDeadman_AC06_ScriptFiresOnConnectionLoss(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-06")
 	// AC-06 requires simulating mid-apply SSH disconnection followed by
 	// reconnect to verify the engine records rollback_source=deadman.
 	// This is an integration property that cannot be unit-tested without
@@ -247,6 +267,8 @@ func TestDeadman_AC06_ScriptFiresOnConnectionLoss(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-07
 func TestDeadman_AC07_KeepAliveExtendsWindow(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-07")
 	// AC-07 requires a keep-alive mechanism (Extend call every 30s that
 	// re-schedules the job with +60s). Not yet implemented in Armer.
 	// Track in SPECTER_FEATURE_REQUEST.md.
@@ -256,6 +278,8 @@ func TestDeadman_AC07_KeepAliveExtendsWindow(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-10
 func TestDeadman_AC10_ClockSkewExtendsWindow(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-10")
 	// AC-10 requires pre/post date comparison on the host to detect clock
 	// skew and extend the window proportionally. Not yet implemented.
 	// Track in SPECTER_FEATURE_REQUEST.md.
@@ -265,6 +289,8 @@ func TestDeadman_AC10_ClockSkewExtendsWindow(t *testing.T) {
 // @spec deadman-timer
 // @ac AC-03
 func TestArm_DefaultWindowIsAtLeast120s(t *testing.T) {
+	t.Log("// @spec deadman-timer")
+	t.Log("// @ac AC-03")
 	tp := atHostTP()
 	a := deadman.New(0, handler.NewRegistry()) // 0 → use default 120s
 	_, firesAt, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})

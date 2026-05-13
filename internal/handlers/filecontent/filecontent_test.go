@@ -22,6 +22,8 @@ func existingFileCapture(mode, owner, group, selinux, content string) string {
 // @spec handler-file-content
 // @ac AC-01
 func TestApply_AC01_WritesContent(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := filecontent.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -51,6 +53,8 @@ func TestApply_AC01_WritesContent(t *testing.T) {
 // @spec handler-file-content
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := filecontent.New()
 	params := api.Params{"path": "/etc/motd", "content": "hello\n"}
@@ -65,6 +69,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-file-content
 // @ac AC-03
 func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	// The capture command uses a shell one-liner; we match it via a
 	// programmed result keyed to the exact quoting the handler produces.
@@ -92,6 +98,8 @@ func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
 // @spec handler-file-content
 // @ac AC-04
 func TestCapture_AC04_AbsentFileIsNotAnError(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	path := "/etc/nonexistent"
 	tp.Results[captureCmd(path)] = &api.CommandResult{
@@ -111,6 +119,8 @@ func TestCapture_AC04_AbsentFileIsNotAnError(t *testing.T) {
 // @spec handler-file-content
 // @ac AC-05
 func TestRollback_AC05_RestoresPriorContent(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := filecontent.New()
 	pre := &api.PreState{
@@ -152,6 +162,8 @@ func TestRollback_AC05_RestoresPriorContent(t *testing.T) {
 // @spec handler-file-content
 // @ac AC-06
 func TestRollback_AC06_RemovesFileWhenPriorWasAbsent(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	h := filecontent.New()
 	pre := &api.PreState{
@@ -179,6 +191,8 @@ func TestRollback_AC06_RemovesFileWhenPriorWasAbsent(t *testing.T) {
 // @spec handler-file-content
 // @ac AC-07
 func TestRollback_AC07_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-file-content")
+	t.Log("// @ac AC-07")
 	tp := engine.NewFakeTransport()
 	h := filecontent.New()
 	pre := &api.PreState{

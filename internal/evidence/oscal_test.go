@@ -30,6 +30,8 @@ func makeTestEnvelope(status api.TransactionStatus, refs []api.FrameworkRef) *ap
 // @spec evidence-envelope
 // @ac AC-08
 func TestExportOSCAL_CommittedIsSatisfied(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-08")
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
 	if err != nil {
@@ -58,6 +60,8 @@ func TestExportOSCAL_CommittedIsSatisfied(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-08
 func TestExportOSCAL_RolledBackIsNotSatisfied(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-08")
 	env := makeTestEnvelope(api.StatusRolledBack, nil)
 	b, err := ExportOSCAL(env)
 	if err != nil {
@@ -78,6 +82,8 @@ func TestExportOSCAL_RolledBackIsNotSatisfied(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-01
 func TestExportOSCAL_ValidJSON(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-01")
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
 	if err != nil {
@@ -92,6 +98,8 @@ func TestExportOSCAL_ValidJSON(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-08
 func TestExportOSCAL_FrameworkRefsAsControlSelections(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-08")
 	refs := []api.FrameworkRef{
 		{FrameworkID: "cis_rhel9_v2", ControlID: "5.2.3"},
 		{FrameworkID: "nist_800_53_r5", ControlID: "AC-6(2)"},
@@ -126,6 +134,8 @@ func TestExportOSCAL_FrameworkRefsAsControlSelections(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-08
 func TestWriteOSCAL(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-08")
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	var buf bytes.Buffer
 	if err := WriteOSCAL(&buf, env); err != nil {
@@ -140,6 +150,8 @@ func TestWriteOSCAL(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-01
 func TestExportOSCAL_MetadataFields(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-01")
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
 	if err != nil {
@@ -169,6 +181,8 @@ func TestExportOSCAL_MetadataFields(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-08
 func TestExportOSCAL_ObservationLinkedToFinding(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-08")
 	env := makeTestEnvelope(api.StatusCommitted, nil)
 	b, err := ExportOSCAL(env)
 	if err != nil {

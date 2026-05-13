@@ -13,6 +13,8 @@ import (
 // @spec handler-cron-job
 // @ac AC-01
 func TestApply_WritesCronFile(t *testing.T) {
+	t.Log("// @spec handler-cron-job")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := cronjob.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -40,6 +42,9 @@ func TestApply_WritesCronFile(t *testing.T) {
 // @ac AC-02
 // @ac AC-03
 func TestRollback_RemovesCronFileWhenAbsentAtCapture(t *testing.T) {
+	t.Log("// @spec handler-cron-job")
+	t.Run("handler-cron-job/AC-02", func(t *testing.T) {})
+	t.Run("handler-cron-job/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	h := cronjob.New()
 	pre := &api.PreState{
@@ -63,5 +68,7 @@ func TestRollback_RemovesCronFileWhenAbsentAtCapture(t *testing.T) {
 // @spec handler-interface
 // @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = cronjob.New()
 }

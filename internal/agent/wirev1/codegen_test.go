@@ -28,6 +28,8 @@ import (
 // @spec agent-wire-protocol
 // @ac AC-02
 func TestCodegenSync(t *testing.T) {
+	t.Log("// @spec agent-wire-protocol")
+	t.Log("// @ac AC-02")
 	// Closing the fail-open hole flagged by security review:
 	// under CI, missing protoc is a HARD failure. A contributor
 	// who hand-edits wire.pb.go and relies on local `go test`
@@ -93,6 +95,8 @@ func TestCodegenSync(t *testing.T) {
 // @spec agent-wire-protocol
 // @ac AC-06
 func TestSchemaVersion_PresentOnAllRootMessages(t *testing.T) {
+	t.Log("// @spec agent-wire-protocol")
+	t.Log("// @ac AC-06")
 	rootMessages := []struct {
 		name string
 		// Each constructor returns a pointer to a freshly-allocated
@@ -126,6 +130,8 @@ func TestSchemaVersion_PresentOnAllRootMessages(t *testing.T) {
 // @spec agent-wire-protocol
 // @ac AC-05
 func TestToolsFileBuildConstraint(t *testing.T) {
+	t.Log("// @spec agent-wire-protocol")
+	t.Log("// @ac AC-05")
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		t.Fatalf("find repo root: %v", err)

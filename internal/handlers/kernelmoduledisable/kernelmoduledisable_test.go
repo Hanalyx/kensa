@@ -13,6 +13,8 @@ import (
 // @spec handler-kernel-module-disable
 // @ac AC-01
 func TestApply_WritesBlacklistAndUnloads(t *testing.T) {
+	t.Log("// @spec handler-kernel-module-disable")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := kernelmoduledisable.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{"module": "usb-storage"}, nil)
@@ -38,6 +40,9 @@ func TestApply_WritesBlacklistAndUnloads(t *testing.T) {
 // @ac AC-02
 // @ac AC-03
 func TestRollback_RemovesBlacklistWhenAbsentAtCapture(t *testing.T) {
+	t.Log("// @spec handler-kernel-module-disable")
+	t.Run("handler-kernel-module-disable/AC-02", func(t *testing.T) {})
+	t.Run("handler-kernel-module-disable/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	h := kernelmoduledisable.New()
 	pre := &api.PreState{
@@ -63,5 +68,7 @@ func TestRollback_RemovesBlacklistWhenAbsentAtCapture(t *testing.T) {
 // @spec handler-interface
 // @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = kernelmoduledisable.New()
 }

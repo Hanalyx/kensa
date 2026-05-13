@@ -13,6 +13,8 @@ import (
 // @spec handler-package-absent
 // @ac AC-01
 func TestApply_AC01_RunsDnfRemove(t *testing.T) {
+	t.Log("// @spec handler-package-absent")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := packageabsent.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{"name": "telnet"}, nil)
@@ -30,6 +32,8 @@ func TestApply_AC01_RunsDnfRemove(t *testing.T) {
 // @spec handler-package-absent
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-package-absent")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := packageabsent.New()
 	for i := 0; i < 3; i++ {
@@ -43,6 +47,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-package-absent
 // @ac AC-03
 func TestCapture_AC03_RecordsInstalledPackage(t *testing.T) {
+	t.Log("// @spec handler-package-absent")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	tp.Results["rpm -q 'telnet' 2>&1 || true"] = &api.CommandResult{
 		Stdout: "telnet-0.17-85.el9.x86_64\n",
@@ -63,6 +69,8 @@ func TestCapture_AC03_RecordsInstalledPackage(t *testing.T) {
 // @spec handler-package-absent
 // @ac AC-04
 func TestCapture_AC04_RecordsNotInstalledPackage(t *testing.T) {
+	t.Log("// @spec handler-package-absent")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	tp.Results["rpm -q 'rsh' 2>&1 || true"] = &api.CommandResult{
 		Stdout: "package rsh is not installed\n",
@@ -80,6 +88,8 @@ func TestCapture_AC04_RecordsNotInstalledPackage(t *testing.T) {
 // @spec handler-package-absent
 // @ac AC-05
 func TestRollback_AC05_ReinstallsPackageWhenPresentAtCapture(t *testing.T) {
+	t.Log("// @spec handler-package-absent")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := packageabsent.New()
 	pre := &api.PreState{
@@ -104,6 +114,8 @@ func TestRollback_AC05_ReinstallsPackageWhenPresentAtCapture(t *testing.T) {
 // @spec handler-package-absent
 // @ac AC-06
 func TestRollback_AC06_NoOpWhenAbsentAtCapture(t *testing.T) {
+	t.Log("// @spec handler-package-absent")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	h := packageabsent.New()
 	pre := &api.PreState{

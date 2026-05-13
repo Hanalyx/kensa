@@ -23,6 +23,8 @@ import (
 // @spec agent-handler-port-filepermissions
 // @ac AC-05
 func TestServer_Handle_UnknownMechanism(t *testing.T) {
+	t.Log("// @spec agent-handler-port-filepermissions")
+	t.Log("// @ac AC-05")
 	params, _ := wirev1.APIParamsToWire(api.Params{})
 	req := &wirev1.Request{
 		SchemaVersion: 1,
@@ -76,6 +78,8 @@ func TestServer_Handle_EmptyMechanism(t *testing.T) {
 // @spec agent-handler-port-filepermissions
 // @ac AC-04
 func TestServer_Handle_ApplyFilePermissions(t *testing.T) {
+	t.Log("// @spec agent-handler-port-filepermissions")
+	t.Log("// @ac AC-04")
 	// Set up a local file we can chmod.
 	dir := t.TempDir()
 	target := filepath.Join(dir, "test-file")

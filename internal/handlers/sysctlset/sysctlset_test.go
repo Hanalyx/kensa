@@ -14,6 +14,8 @@ import (
 // @spec handler-sysctl-set
 // @ac AC-01
 func TestApply_AC01_RuntimeAndPersistBothWritten(t *testing.T) {
+	t.Log("// @spec handler-sysctl-set")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := sysctlset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -43,6 +45,8 @@ func TestApply_AC01_RuntimeAndPersistBothWritten(t *testing.T) {
 // @spec handler-sysctl-set
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-sysctl-set")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := sysctlset.New()
 	params := api.Params{"key": "kernel.dmesg_restrict", "value": "1"}
@@ -60,6 +64,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-sysctl-set
 // @ac AC-03
 func TestCapture_AC03_RecordsRuntimeAndPersistContent(t *testing.T) {
+	t.Log("// @spec handler-sysctl-set")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	// Program runtime probe.
 	tp.Results["sysctl -n 'net.ipv4.ip_forward'"] = &api.CommandResult{Stdout: "0\n"}
@@ -89,6 +95,8 @@ func TestCapture_AC03_RecordsRuntimeAndPersistContent(t *testing.T) {
 // @spec handler-sysctl-set
 // @ac AC-04
 func TestRollback_AC04_RestoresFileContent(t *testing.T) {
+	t.Log("// @spec handler-sysctl-set")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	h := sysctlset.New()
 	pre := &api.PreState{
@@ -116,6 +124,8 @@ func TestRollback_AC04_RestoresFileContent(t *testing.T) {
 // @spec handler-sysctl-set
 // @ac AC-05
 func TestRollback_AC05_RemovesFileWhenAbsent(t *testing.T) {
+	t.Log("// @spec handler-sysctl-set")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := sysctlset.New()
 	pre := &api.PreState{
@@ -142,6 +152,8 @@ func TestRollback_AC05_RemovesFileWhenAbsent(t *testing.T) {
 // @spec handler-sysctl-set
 // @ac AC-06
 func TestApply_AC06_FailsCleanlyOnRuntimeRejection(t *testing.T) {
+	t.Log("// @spec handler-sysctl-set")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	tp.Results["sysctl -w 'net.invalid.key'='42'"] = &api.CommandResult{
 		ExitCode: 1,

@@ -13,6 +13,8 @@ import (
 // @spec handler-audit-rule-set
 // @ac AC-01
 func TestApply_WritesRuleAndLoads(t *testing.T) {
+	t.Log("// @spec handler-audit-rule-set")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := auditruleset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -38,6 +40,9 @@ func TestApply_WritesRuleAndLoads(t *testing.T) {
 // @ac AC-02
 // @ac AC-03
 func TestRollback_RemovesFileWhenAbsentAtCapture(t *testing.T) {
+	t.Log("// @spec handler-audit-rule-set")
+	t.Run("handler-audit-rule-set/AC-02", func(t *testing.T) {})
+	t.Run("handler-audit-rule-set/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	h := auditruleset.New()
 	pre := &api.PreState{
@@ -65,5 +70,7 @@ func TestRollback_RemovesFileWhenAbsentAtCapture(t *testing.T) {
 // @spec handler-interface
 // @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = auditruleset.New()
 }

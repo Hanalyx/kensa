@@ -13,6 +13,8 @@ import (
 // @spec handler-service-disabled
 // @ac AC-01
 func TestApply_AC01_RunsDisableNow(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := servicedisabled.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{"name": "bluetooth"}, nil)
@@ -33,6 +35,8 @@ func TestApply_AC01_RunsDisableNow(t *testing.T) {
 // @spec handler-service-disabled
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := servicedisabled.New()
 	for i := 0; i < 3; i++ {
@@ -49,6 +53,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-service-disabled
 // @ac AC-03
 func TestCapture_AC03_RecordsBothFields(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	tp.Results["systemctl show -p UnitFileState -p ActiveState --value 'bluetooth'"] =
 		&api.CommandResult{Stdout: "enabled\nactive\n"}
@@ -69,6 +75,8 @@ func TestCapture_AC03_RecordsBothFields(t *testing.T) {
 // @spec handler-service-disabled
 // @ac AC-04
 func TestRollback_AC04_ReenablesAndStartsWhenPriorWasEnabled(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	h := servicedisabled.New()
 	pre := &api.PreState{
@@ -97,6 +105,8 @@ func TestRollback_AC04_ReenablesAndStartsWhenPriorWasEnabled(t *testing.T) {
 // @spec handler-service-disabled
 // @ac AC-05
 func TestRollback_AC05_NoOpWhenPriorWasDisabled(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := servicedisabled.New()
 	pre := &api.PreState{
@@ -121,6 +131,8 @@ func TestRollback_AC05_NoOpWhenPriorWasDisabled(t *testing.T) {
 // @spec handler-service-disabled
 // @ac AC-06
 func TestApply_AC06_FailsCleanlyOnNonexistentUnit(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	tp.Results["systemctl disable --now 'nonexistent-unit'"] = &api.CommandResult{
 		ExitCode: 5,

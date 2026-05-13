@@ -27,6 +27,8 @@ func captureCmd(path string) string {
 // @spec handler-file-absent
 // @ac AC-01
 func TestApply_AC01_RemovesFile(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := fileabsent.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{"path": "/etc/resolv.conf.bak"}, nil)
@@ -47,6 +49,8 @@ func TestApply_AC01_RemovesFile(t *testing.T) {
 // @spec handler-file-absent
 // @ac AC-02
 func TestApply_AC02_IsIdempotentForAbsentFile(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := fileabsent.New()
 	// FakeTransport returns exit 0 by default; rm -f of absent file = 0.
@@ -61,6 +65,8 @@ func TestApply_AC02_IsIdempotentForAbsentFile(t *testing.T) {
 // @spec handler-file-absent
 // @ac AC-03
 func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	path := "/etc/resolv.conf.bak"
 	tp.Results[captureCmd(path)] = &api.CommandResult{
@@ -85,6 +91,8 @@ func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
 // @spec handler-file-absent
 // @ac AC-04
 func TestCapture_AC04_AbsentFileReturnsFileExistedFalse(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	path := "/etc/gone"
 	tp.Results[captureCmd(path)] = &api.CommandResult{Stdout: "ABSENT\n"}
@@ -101,6 +109,8 @@ func TestCapture_AC04_AbsentFileReturnsFileExistedFalse(t *testing.T) {
 // @spec handler-file-absent
 // @ac AC-05
 func TestRollback_AC05_RecreatesFileWithAttrs(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := fileabsent.New()
 	pre := &api.PreState{
@@ -136,6 +146,8 @@ func TestRollback_AC05_RecreatesFileWithAttrs(t *testing.T) {
 // @spec handler-file-absent
 // @ac AC-06
 func TestRollback_AC06_NoOpWhenFileWasAbsent(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	h := fileabsent.New()
 	pre := &api.PreState{
@@ -159,6 +171,8 @@ func TestRollback_AC06_NoOpWhenFileWasAbsent(t *testing.T) {
 // @spec handler-file-absent
 // @ac AC-07
 func TestCapture_AC07_PermissionsErrorReturnsErrCaptureIncomplete(t *testing.T) {
+	t.Log("// @spec handler-file-absent")
+	t.Log("// @ac AC-07")
 	// The capture command exits non-zero on a permissions error (stat EACCES).
 	// The handler must return ErrCaptureIncomplete rather than silently treating
 	// the failure as "file absent".

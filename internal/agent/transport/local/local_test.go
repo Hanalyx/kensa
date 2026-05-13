@@ -14,6 +14,8 @@ import (
 // @spec agent-handler-port-filepermissions
 // @ac AC-01
 func TestLocalTransport_Run(t *testing.T) {
+	t.Log("// @spec agent-handler-port-filepermissions")
+	t.Log("// @ac AC-01")
 	tr := New()
 	defer tr.Close()
 
@@ -77,6 +79,8 @@ func TestLocalTransport_Run(t *testing.T) {
 // @spec agent-handler-port-filepermissions
 // @ac AC-02
 func TestLocalTransport_Put(t *testing.T) {
+	t.Log("// @spec agent-handler-port-filepermissions")
+	t.Log("// @ac AC-02")
 	tr := New()
 	defer tr.Close()
 

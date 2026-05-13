@@ -60,6 +60,9 @@ func TestGenerate_ReturnsFreshSigner(t *testing.T) {
 // @ac AC-03
 // @ac AC-04
 func TestSignAndVerify(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Run("evidence-envelope/AC-03", func(t *testing.T) {})
+	t.Run("evidence-envelope/AC-04", func(t *testing.T) {})
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 
@@ -96,6 +99,8 @@ func TestSignAndVerify(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-05
 func TestVerify_WrongSignature(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-05")
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 
@@ -133,6 +138,8 @@ func TestVerify_MissingSchemaVersion(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-06
 func TestVerify_UnknownSchemaVersion(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-06")
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 	env.SchemaVersion = "v2"
@@ -150,6 +157,9 @@ func TestVerify_UnknownSchemaVersion(t *testing.T) {
 // @ac AC-02
 // @ac AC-03
 func TestCanonical_ExcludesSignatureFields(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Run("evidence-envelope/AC-02", func(t *testing.T) {})
+	t.Run("evidence-envelope/AC-03", func(t *testing.T) {})
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 
@@ -177,6 +187,8 @@ func TestCanonical_ExcludesSignatureFields(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-04
 func TestWithRotationHistory_MatchesOldKey(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-04")
 	// oldSigner is the signer we previously used.
 	oldSigner, _ := evidence.Generate()
 	env := makeEnvelope()
@@ -214,6 +226,8 @@ func TestWithRotationHistory_MatchesOldKey(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-05
 func TestWithRotationHistory_NoMatch(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-05")
 	unknownSigner, _ := evidence.Generate()
 	env := makeEnvelope()
 	sig, keyID, _ := unknownSigner.Sign(env)
@@ -237,6 +251,8 @@ func TestWithRotationHistory_NoMatch(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-07
 func TestEvidence_AC07_JSONSchemaValidatesEnvelopes(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-07")
 	// AC-07: JSON Schema at evidence/envelope-v1.json must validate every
 	// legal envelope and reject illegal ones (missing required field, wrong
 	// type, unknown field). The schema file has not yet been generated;
@@ -248,6 +264,8 @@ func TestEvidence_AC07_JSONSchemaValidatesEnvelopes(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-10
 func TestEvidence_AC10_PublishedSchemMatchesGoStruct(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-10")
 	// AC-10: the schema at kensa-spec/specs/evidence/envelope-v1.yaml must
 	// match the Go struct in api/envelope.go exactly, enforced at build time.
 	// Requires a cross-repo schema comparison step (go generate or CI check).
@@ -278,6 +296,8 @@ func TestVerifyEnvelope_ImplementsInterface(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-09
 func TestEnvelopeHash_Stable(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-09")
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 	sig, keyID, _ := s.Sign(env)
@@ -575,6 +595,8 @@ func TestCanonicalize_PreservesIntegerPrecision(t *testing.T) {
 // @spec evidence-envelope
 // @ac AC-02
 func TestNilSliceNormalization(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-02")
 	s, _ := evidence.Generate()
 
 	envNil := makeEnvelope()

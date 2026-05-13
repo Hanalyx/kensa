@@ -14,6 +14,8 @@ import (
 // @spec handler-selinux-boolean-set
 // @ac AC-01
 func TestApply_AC01_RunsSetseboolPersistent(t *testing.T) {
+	t.Log("// @spec handler-selinux-boolean-set")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := selinuxbooleanset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -43,6 +45,8 @@ func TestApply_AC01_RunsSetseboolPersistent(t *testing.T) {
 // @spec handler-selinux-boolean-set
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-selinux-boolean-set")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := selinuxbooleanset.New()
 	for i := 0; i < 3; i++ {
@@ -59,6 +63,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-selinux-boolean-set
 // @ac AC-03
 func TestCapture_AC03_RecordsPriorValue(t *testing.T) {
+	t.Log("// @spec handler-selinux-boolean-set")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	tp.Results["getsebool 'httpd_can_network_connect'"] = &api.CommandResult{
 		Stdout: "httpd_can_network_connect --> off\n",
@@ -79,6 +85,8 @@ func TestCapture_AC03_RecordsPriorValue(t *testing.T) {
 // @spec handler-selinux-boolean-set
 // @ac AC-04
 func TestCapture_AC04_ReturnsErrCaptureIncompleteOnFailure(t *testing.T) {
+	t.Log("// @spec handler-selinux-boolean-set")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	tp.Results["getsebool 'unknown_boolean'"] = &api.CommandResult{
 		ExitCode: 1,
@@ -100,6 +108,8 @@ func TestCapture_AC04_ReturnsErrCaptureIncompleteOnFailure(t *testing.T) {
 // @spec handler-selinux-boolean-set
 // @ac AC-05
 func TestRollback_AC05_RestoresPriorValue(t *testing.T) {
+	t.Log("// @spec handler-selinux-boolean-set")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := selinuxbooleanset.New()
 	pre := &api.PreState{
@@ -130,6 +140,8 @@ func TestRollback_AC05_RestoresPriorValue(t *testing.T) {
 // @spec handler-selinux-boolean-set
 // @ac AC-06
 func TestApply_AC06_InvalidValueReturnsParamsError(t *testing.T) {
+	t.Log("// @spec handler-selinux-boolean-set")
+	t.Log("// @ac AC-06")
 	h := selinuxbooleanset.New()
 	_, err := h.Apply(context.Background(), nil, api.Params{
 		"boolean": "httpd_can_network_connect",

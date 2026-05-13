@@ -12,6 +12,8 @@ import "testing"
 // @spec agent-version-handshake
 // @ac AC-02
 func TestCompatible(t *testing.T) {
+	t.Log("// @spec agent-version-handshake")
+	t.Log("// @ac AC-02")
 	cases := []struct {
 		name         string
 		major, minor uint32

@@ -18,6 +18,8 @@ import (
 // @spec handler-config-set
 // @ac AC-01
 func TestApply_AC01_SetsKeyEqualsValue(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -44,6 +46,8 @@ func TestApply_AC01_SetsKeyEqualsValue(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-02
 func TestApply_AC02_SpacedEqualsSign(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -66,6 +70,8 @@ func TestApply_AC02_SpacedEqualsSign(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-03
 func TestApply_AC03_SpaceSeparator(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -88,6 +94,8 @@ func TestApply_AC03_SpaceSeparator(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-04
 func TestApply_AC04_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	params := api.Params{"file": "/etc/selinux/config", "key": "SELINUX", "value": "enforcing"}
@@ -102,6 +110,8 @@ func TestApply_AC04_IsIdempotent(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-05
 func TestCapture_AC05_RecordsExistingLine(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	// The capture command is a multi-part pipeline; we program the result
 	// by matching the key pattern the handler will send.
@@ -132,6 +142,8 @@ func TestCapture_AC05_RecordsExistingLine(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-06
 func TestCapture_AC06_RecordsAbsentKey(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	pattern := "^[[:space:]]*NEWKEY[[:space:]=]"
 	path := "/etc/config"
@@ -153,6 +165,8 @@ func TestCapture_AC06_RecordsAbsentKey(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-07
 func TestCapture_AC07_NonExistentFileReturnsErrCaptureIncomplete(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-07")
 	tp := engine.NewFakeTransport()
 	pattern := "^[[:space:]]*KEY[[:space:]=]"
 	path := "/no/such/file"
@@ -174,6 +188,8 @@ func TestCapture_AC07_NonExistentFileReturnsErrCaptureIncomplete(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-08
 func TestRollback_AC08_RestoresPriorLine(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-08")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	pre := &api.PreState{
@@ -207,6 +223,8 @@ func TestRollback_AC08_RestoresPriorLine(t *testing.T) {
 // @spec handler-config-set
 // @ac AC-09
 func TestRollback_AC09_RemovesAppendedLine(t *testing.T) {
+	t.Log("// @spec handler-config-set")
+	t.Log("// @ac AC-09")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	pre := &api.PreState{

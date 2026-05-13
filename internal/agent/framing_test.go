@@ -16,6 +16,8 @@ import (
 // @spec agent-framing-production
 // @ac AC-01
 func TestFraming_Roundtrip(t *testing.T) {
+	t.Log("// @spec agent-framing-production")
+	t.Log("// @ac AC-01")
 	cases := []struct {
 		name string
 		size int
@@ -59,6 +61,8 @@ func TestFraming_Roundtrip(t *testing.T) {
 // @spec agent-framing-production
 // @ac AC-02
 func TestFraming_RejectsUnknownType(t *testing.T) {
+	t.Log("// @spec agent-framing-production")
+	t.Log("// @ac AC-02")
 	t.Run("decode_unknown_type", func(t *testing.T) {
 		// Manually construct a frame with type 0x02 (reserved
 		// for L-012+ but not recognized at L-010).
@@ -94,6 +98,8 @@ func TestFraming_RejectsUnknownType(t *testing.T) {
 // @spec agent-framing-production
 // @ac AC-03
 func TestFraming_ConfigurableMaxSize(t *testing.T) {
+	t.Log("// @spec agent-framing-production")
+	t.Log("// @ac AC-03")
 	t.Run("decode_respects_override", func(t *testing.T) {
 		opts := &FramingOptions{MaxMessageBytes: 100}
 		// Forge a frame claiming length=101.

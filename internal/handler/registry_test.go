@@ -23,6 +23,8 @@ func (s *stubHandler) Apply(_ context.Context, _ api.Transport, _ api.Params, _ 
 // @spec handler-interface
 // @ac AC-07
 func TestRegistry_AC07_DuplicateRegistrationPanics(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-07")
 	r := handler.NewRegistry()
 	r.Register(&stubHandler{name: "test_mechanism", capturable: true})
 
@@ -37,6 +39,8 @@ func TestRegistry_AC07_DuplicateRegistrationPanics(t *testing.T) {
 // @spec handler-interface
 // @ac AC-01
 func TestRegistry_GetReturnsRegisteredHandler(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-01")
 	r := handler.NewRegistry()
 	want := &stubHandler{name: "config_set", capturable: true}
 	r.Register(want)
@@ -60,6 +64,8 @@ func TestRegistry_GetUnregisteredReturnsFalse(t *testing.T) {
 // @spec handler-interface
 // @ac AC-05
 func TestNonCapturableHandler_DoesNotImplementCombinedHandler(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-05")
 	var h api.Handler = &stubHandler{name: "noncap", capturable: false}
 	if _, ok := h.(api.CombinedHandler); ok {
 		t.Error("non-capturable handler should not satisfy CombinedHandler")

@@ -97,6 +97,8 @@ func writeFixture(t *testing.T, content []byte) (path, sha string) {
 // @spec agent-bootstrap
 // @ac AC-03
 func TestSHA256Hex(t *testing.T) {
+	t.Log("// @spec agent-bootstrap")
+	t.Log("// @ac AC-03")
 	path, want := writeFixture(t, []byte("the quick brown fox"))
 	got, err := sha256Hex(path)
 	if err != nil {
@@ -117,6 +119,8 @@ func TestSHA256Hex(t *testing.T) {
 // @spec agent-bootstrap
 // @ac AC-01
 func TestEnsureAgent_CacheHit(t *testing.T) {
+	t.Log("// @spec agent-bootstrap")
+	t.Log("// @ac AC-01")
 	localPath, sha := writeFixture(t, []byte("kensa-binary-fixture"))
 
 	tr := newFakeTransport()
@@ -143,6 +147,8 @@ func TestEnsureAgent_CacheHit(t *testing.T) {
 // @spec agent-bootstrap
 // @ac AC-02
 func TestEnsureAgent_CacheMiss_PushesBinary(t *testing.T) {
+	t.Log("// @spec agent-bootstrap")
+	t.Log("// @ac AC-02")
 	localPath, sha := writeFixture(t, []byte("kensa-binary-fixture-v2"))
 
 	tr := newFakeTransport()
@@ -209,6 +215,8 @@ func TestEnsureAgent_CacheMiss_PushesBinary(t *testing.T) {
 // @spec agent-bootstrap
 // @ac AC-04
 func TestEnsureAgent_PushFailure(t *testing.T) {
+	t.Log("// @spec agent-bootstrap")
+	t.Log("// @ac AC-04")
 	localPath, sha := writeFixture(t, []byte("v3"))
 
 	cachePath := "/home/op/.cache/kensa/agent-" + sha
@@ -242,6 +250,8 @@ func TestEnsureAgent_PushFailure(t *testing.T) {
 // @spec agent-bootstrap
 // @ac AC-05
 func TestEnsureAgent_AbsolutePath(t *testing.T) {
+	t.Log("// @spec agent-bootstrap")
+	t.Log("// @ac AC-05")
 	localPath, sha := writeFixture(t, []byte("v4"))
 	cachePath := "/home/abs/.cache/kensa/agent-" + sha
 	tr := &queueFakeTransport{

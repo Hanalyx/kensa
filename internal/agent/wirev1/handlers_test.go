@@ -19,6 +19,8 @@ import (
 // @spec agent-wire-handler-schema
 // @ac AC-03
 func TestBridge_StepResultRoundtrip(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-03")
 	cases := []struct {
 		name string
 		in   api.StepResult
@@ -79,6 +81,8 @@ func TestBridge_StepResultNilDecode(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-03
 func TestBridge_PreStateRoundtrip(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-03")
 	when := time.Date(2026, 5, 11, 9, 30, 0, 0, time.UTC)
 	cases := []struct {
 		name string
@@ -188,6 +192,8 @@ func TestBridge_PreStateOversizedIntError(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-03
 func TestBridge_RollbackResultRoundtrip(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-03")
 	when := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
 	cases := []struct {
 		name string
@@ -342,6 +348,8 @@ func TestBridge_NilParamsRoundtrip(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-01
 func TestProtoMessagesPresent(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-01")
 	// One-shot allocation per message type — if the type is
 	// gone or renamed, this won't compile.
 	_ = &ApplyRequest{}
@@ -365,6 +373,8 @@ func TestProtoMessagesPresent(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-02
 func TestRequestOneofVariants(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-02")
 	_ = &Request{Payload: &Request_Apply{Apply: &ApplyRequest{}}}
 	_ = &Request{Payload: &Request_Capture{Capture: &CaptureRequest{}}}
 	_ = &Request{Payload: &Request_Rollback{Rollback: &RollbackRequest{}}}

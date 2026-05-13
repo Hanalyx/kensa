@@ -60,6 +60,8 @@ func (discardWriter) Write(p []byte) (int, error) { return len(p), nil }
 // @spec agent-client
 // @ac AC-01
 func TestClient_OpenClose(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-01")
 	clientIn, clientOut, cleanup := runEchoServer(t)
 	defer cleanup()
 
@@ -86,6 +88,8 @@ func TestClient_OpenClose(t *testing.T) {
 // @spec agent-client
 // @ac AC-02
 func TestClient_Apply_EchoServer(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-02")
 	clientIn, clientOut, cleanup := runEchoServer(t)
 	defer cleanup()
 
@@ -115,6 +119,8 @@ func TestClient_Apply_EchoServer(t *testing.T) {
 // @spec agent-client
 // @ac AC-03
 func TestClient_AllMethods_EchoServer(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-03")
 	clientIn, clientOut, cleanup := runEchoServer(t)
 	defer cleanup()
 
@@ -168,6 +174,8 @@ func TestClient_AllMethods_EchoServer(t *testing.T) {
 // @spec agent-client
 // @ac AC-04
 func TestClient_CtxCancelPreemptsApply(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-04")
 	// Use a "hung" server that reads frames but never writes
 	// responses, so Apply waits indefinitely on its response
 	// channel.
@@ -232,6 +240,8 @@ func TestClient_HeartbeatToken(t *testing.T) {
 // @spec agent-client
 // @ac AC-06
 func TestClient_ConcurrentApply(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-06")
 	clientIn, clientOut, cleanup := runEchoServer(t)
 	defer cleanup()
 
@@ -316,6 +326,8 @@ func runErrorServer(t *testing.T) (clientIn io.WriteCloser, clientOut io.Reader,
 // @spec agent-client
 // @ac AC-05
 func TestClient_EnvelopeErrorTranslation(t *testing.T) {
+	t.Log("// @spec agent-client")
+	t.Log("// @ac AC-05")
 	clientIn, clientOut, cleanup := runErrorServer(t)
 	defer cleanup()
 
@@ -419,6 +431,8 @@ func runCustomServer(t *testing.T, handler agent.Handler) (clientIn io.WriteClos
 // @spec agent-version-handshake
 // @ac AC-03
 func TestClient_Handshake_HappyPath(t *testing.T) {
+	t.Log("// @spec agent-version-handshake")
+	t.Log("// @ac AC-03")
 	clientIn, clientOut, cleanup := runEchoServer(t)
 	defer cleanup()
 
@@ -438,6 +452,8 @@ func TestClient_Handshake_HappyPath(t *testing.T) {
 // @spec agent-version-handshake
 // @ac AC-04
 func TestClient_Handshake_MajorMismatch(t *testing.T) {
+	t.Log("// @spec agent-version-handshake")
+	t.Log("// @ac AC-04")
 	clientIn, clientOut, cleanup := runCustomServer(t, majorMismatchHandler)
 	defer cleanup()
 
@@ -458,6 +474,8 @@ func TestClient_Handshake_MajorMismatch(t *testing.T) {
 // @spec agent-version-handshake
 // @ac AC-05
 func TestClient_Handshake_MinorMismatch(t *testing.T) {
+	t.Log("// @spec agent-version-handshake")
+	t.Log("// @ac AC-05")
 	// Swap in a capturing logger; restore after.
 	var (
 		mu       sync.Mutex

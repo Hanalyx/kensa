@@ -12,6 +12,8 @@ import (
 // @spec engine-transaction
 // @ac validate
 func TestControlChannelValidator_Passed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	tp := engine.NewFakeTransport()
 	// FakeTransport returns exit 0 for any unmatched command.
 	v := engine.ControlChannelValidator{}
@@ -27,6 +29,8 @@ func TestControlChannelValidator_Passed(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestControlChannelValidator_Failed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	tp := engine.NewFakeTransport()
 	tp.Results["true"] = &api.CommandResult{ExitCode: 1, Stderr: "connection reset"}
 	v := engine.ControlChannelValidator{}
@@ -39,6 +43,8 @@ func TestControlChannelValidator_Failed(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestServiceHealthValidator_Passed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	tp := engine.NewFakeTransport()
 	// systemctl is-active sshd → exit 0 means active.
 	tp.Results["systemctl is-active 'sshd'"] = &api.CommandResult{ExitCode: 0, Stdout: "active"}
@@ -52,6 +58,8 @@ func TestServiceHealthValidator_Passed(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestServiceHealthValidator_Failed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	tp := engine.NewFakeTransport()
 	tp.Results["systemctl is-active 'sshd'"] = &api.CommandResult{ExitCode: 3, Stdout: "failed"}
 	v := engine.ServiceHealthValidator{Service: "sshd"}
@@ -64,6 +72,8 @@ func TestServiceHealthValidator_Failed(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestServiceHealthValidator_EmptyService(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	v := engine.ServiceHealthValidator{}
 	r := v.Validate(context.Background(), engine.NewFakeTransport(), &api.Transaction{})
 	if r.Passed {
@@ -74,6 +84,8 @@ func TestServiceHealthValidator_EmptyService(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestConfigSyntaxValidator_Passed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	tp := engine.NewFakeTransport()
 	// sshd -t → exit 0 means valid config.
 	tp.Results["sshd -t"] = &api.CommandResult{ExitCode: 0}
@@ -90,6 +102,8 @@ func TestConfigSyntaxValidator_Passed(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestConfigSyntaxValidator_Failed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	tp := engine.NewFakeTransport()
 	tp.Results["sshd -t"] = &api.CommandResult{ExitCode: 1, Stderr: "bad config"}
 	v := engine.ConfigSyntaxValidator{Command: "sshd -t"}
@@ -102,6 +116,8 @@ func TestConfigSyntaxValidator_Failed(t *testing.T) {
 // @spec engine-transaction
 // @ac validate
 func TestConfigSyntaxValidator_DefaultName(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac validate")
 	v := engine.ConfigSyntaxValidator{Command: "nginx -t"}
 	if v.Name() != "config_syntax" {
 		t.Errorf("expected default name 'config_syntax', got %q", v.Name())

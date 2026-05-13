@@ -91,6 +91,8 @@ func fileExists(p string) bool {
 // @spec agent-cli-env-var
 // @ac AC-03
 func TestOpenAgent_LocalStub(t *testing.T) {
+	t.Log("// @spec agent-cli-env-var")
+	t.Log("// @ac AC-03")
 	repoRoot := findRepoRootForTest(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
 	if !fileExists(binPath) {
@@ -133,6 +135,8 @@ func TestOpenAgent_LocalStub(t *testing.T) {
 // @spec agent-cli-env-var
 // @ac AC-06
 func TestOpenAgent_AnnounceLine(t *testing.T) {
+	t.Log("// @spec agent-cli-env-var")
+	t.Log("// @ac AC-06")
 	repoRoot := findRepoRootForTest(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
 	if !fileExists(binPath) {
@@ -178,6 +182,8 @@ func TestOpenAgent_AnnounceLine(t *testing.T) {
 // @spec agent-cli-env-var
 // @ac AC-05
 func TestOpenAgent_CleanupOnError(t *testing.T) {
+	t.Log("// @spec agent-cli-env-var")
+	t.Log("// @ac AC-05")
 	tr := &fakeTransport{runErr: errors.New("simulated bootstrap failure")}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)

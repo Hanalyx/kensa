@@ -33,6 +33,8 @@ func programCapture(t *testing.T, path string) *engine.FakeTransport {
 // @spec handler-file-permissions
 // @ac AC-01
 func TestApply_AC01_SetsAllAttributes(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := filepermissions.New()
 
@@ -64,6 +66,8 @@ func TestApply_AC01_SetsAllAttributes(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := filepermissions.New()
 	params := api.Params{"path": "/etc/foo", "mode": "0644"}
@@ -90,6 +94,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-03
 func TestCapture_AC03_RecordsAllFourAttributes(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-03")
 	path := "/etc/shadow"
 	tp := programCapture(t, path)
 	h := filepermissions.New()
@@ -121,6 +127,8 @@ func TestCapture_AC03_RecordsAllFourAttributes(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-04
 func TestCapture_AC04_NonExistentPathReturnsErrCaptureIncomplete(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	// Program a stat failure (non-zero exit).
 	cmd := "stat -c '%a|%U|%u|%G|%g' '/no/such/file' && ls -Zd '/no/such/file' 2>/dev/null | awk '{print $1}'"
@@ -139,6 +147,8 @@ func TestCapture_AC04_NonExistentPathReturnsErrCaptureIncomplete(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-05
 func TestRollback_AC05_RestoresAllAttributes(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := filepermissions.New()
 
@@ -174,6 +184,8 @@ func TestRollback_AC05_RestoresAllAttributes(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-06
 func TestRollback_AC06_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	h := filepermissions.New()
 	pre := &api.PreState{
@@ -197,6 +209,8 @@ func TestRollback_AC06_IsIdempotent(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-07
 func TestApply_AC07_FailsCleanlyOnPermissionError(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-07")
 	tp := engine.NewFakeTransport()
 	// Override default to return permission-denied for any chmod cmd.
 	// Our FakeTransport doesn't pattern-match; instead we set the
@@ -225,6 +239,8 @@ func TestApply_AC07_FailsCleanlyOnPermissionError(t *testing.T) {
 // @spec handler-file-permissions
 // @ac AC-08
 func TestRollback_AC08_UsesChconNotRestorecon(t *testing.T) {
+	t.Log("// @spec handler-file-permissions")
+	t.Log("// @ac AC-08")
 	tp := engine.NewFakeTransport()
 	h := filepermissions.New()
 	pre := &api.PreState{

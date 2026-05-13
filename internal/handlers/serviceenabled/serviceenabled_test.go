@@ -13,6 +13,8 @@ import (
 // @spec handler-service-enabled
 // @ac AC-01
 func TestApply_AC01_RunsEnableNow(t *testing.T) {
+	t.Log("// @spec handler-service-enabled")
+	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := serviceenabled.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{"name": "auditd"}, nil)
@@ -33,6 +35,8 @@ func TestApply_AC01_RunsEnableNow(t *testing.T) {
 // @spec handler-service-enabled
 // @ac AC-02
 func TestApply_AC02_IsIdempotent(t *testing.T) {
+	t.Log("// @spec handler-service-enabled")
+	t.Log("// @ac AC-02")
 	tp := engine.NewFakeTransport()
 	h := serviceenabled.New()
 	for i := 0; i < 3; i++ {
@@ -49,6 +53,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 // @spec handler-service-enabled
 // @ac AC-03
 func TestCapture_AC03_RecordsEnabledAndActive(t *testing.T) {
+	t.Log("// @spec handler-service-enabled")
+	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
 	tp.Results["systemctl show -p UnitFileState -p ActiveState --value 'auditd'"] =
 		&api.CommandResult{Stdout: "enabled\nactive\n"}
@@ -69,6 +75,8 @@ func TestCapture_AC03_RecordsEnabledAndActive(t *testing.T) {
 // @spec handler-service-enabled
 // @ac AC-04
 func TestRollback_AC04_DisablesAndStopsWhenPriorWasInactive(t *testing.T) {
+	t.Log("// @spec handler-service-enabled")
+	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	h := serviceenabled.New()
 	pre := &api.PreState{
@@ -100,6 +108,8 @@ func TestRollback_AC04_DisablesAndStopsWhenPriorWasInactive(t *testing.T) {
 // @spec handler-service-enabled
 // @ac AC-05
 func TestRollback_AC05_NoOpWhenAlreadyEnabledAndActive(t *testing.T) {
+	t.Log("// @spec handler-service-enabled")
+	t.Log("// @ac AC-05")
 	tp := engine.NewFakeTransport()
 	h := serviceenabled.New()
 	pre := &api.PreState{
@@ -124,6 +134,8 @@ func TestRollback_AC05_NoOpWhenAlreadyEnabledAndActive(t *testing.T) {
 // @spec handler-service-enabled
 // @ac AC-06
 func TestApply_AC06_FailsCleanlyOnNonexistentUnit(t *testing.T) {
+	t.Log("// @spec handler-service-enabled")
+	t.Log("// @ac AC-06")
 	tp := engine.NewFakeTransport()
 	tp.Results["systemctl enable --now 'nonexistent-unit'"] = &api.CommandResult{
 		ExitCode: 5,

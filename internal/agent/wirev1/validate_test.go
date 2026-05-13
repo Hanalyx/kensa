@@ -12,6 +12,8 @@ import (
 // @spec agent-framing-production
 // @ac AC-05
 func TestValidate_HappyPath(t *testing.T) {
+	t.Log("// @spec agent-framing-production")
+	t.Log("// @ac AC-05")
 	t.Run("request_apply", func(t *testing.T) {
 		req := &Request{Payload: &Request_Apply{Apply: &ApplyRequest{Mechanism: "x"}}}
 		if err := ValidateRequest(req); err != nil {

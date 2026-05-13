@@ -17,6 +17,8 @@ import (
 // @spec agent-wire-protocol
 // @ac AC-03
 func TestMapToStruct_Domain(t *testing.T) {
+	t.Log("// @spec agent-wire-protocol")
+	t.Log("// @ac AC-03")
 	cases := []struct {
 		name string
 		in   map[string]any
@@ -56,6 +58,8 @@ func TestMapToStruct_Domain(t *testing.T) {
 // @spec agent-wire-protocol
 // @ac AC-04
 func TestBridge_Roundtrip(t *testing.T) {
+	t.Log("// @spec agent-wire-protocol")
+	t.Log("// @ac AC-04")
 	cases := []struct {
 		name string
 		in   map[string]any
@@ -356,6 +360,8 @@ func TestMustMapToStruct_PanicsOnError(t *testing.T) {
 // @spec agent-wire-protocol
 // @ac AC-06
 func TestValidateSchemaVersion(t *testing.T) {
+	t.Log("// @spec agent-wire-protocol")
+	t.Log("// @ac AC-06")
 	if err := ValidateSchemaVersion(1); err != nil {
 		t.Errorf("ValidateSchemaVersion(1): expected nil error, got %v", err)
 	}

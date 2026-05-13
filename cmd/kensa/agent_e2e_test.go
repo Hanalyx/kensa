@@ -40,6 +40,8 @@ import (
 // @spec agent-stdio-subcommand
 // @ac AC-07
 func TestKensaAgent_StdioEndToEnd(t *testing.T) {
+	t.Log("// @spec agent-stdio-subcommand")
+	t.Log("// @ac AC-07")
 	repoRoot := findRepoRootE2E(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
 	if !fileExists(binPath) {
@@ -176,6 +178,8 @@ func TestKensaAgent_StdioRejectsTruncatedFrame(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-06
 func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
+	t.Log("// @spec agent-wire-handler-schema")
+	t.Log("// @ac AC-06")
 	repoRoot := findRepoRootE2E(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
 	if !fileExists(binPath) {
@@ -300,6 +304,8 @@ func TestKensaAgent_TypedRequestsEcho(t *testing.T) {
 // @spec agent-handler-port-filepermissions
 // @ac AC-06
 func TestKensaAgent_L014_FilePermissionsApply(t *testing.T) {
+	t.Log("// @spec agent-handler-port-filepermissions")
+	t.Log("// @ac AC-06")
 	repoRoot := findRepoRootE2E(t)
 	binPath := filepath.Join(repoRoot, "bin", "kensa")
 	if !fileExists(binPath) {

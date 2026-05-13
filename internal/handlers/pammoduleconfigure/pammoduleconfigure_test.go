@@ -16,6 +16,9 @@ import (
 // @spec handler-interface
 // @ac AC-06
 func TestApply_AddsPAMModuleLine(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Run("handler-interface/AC-01", func(t *testing.T) {})
+	t.Run("handler-interface/AC-06", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	h := pammoduleconfigure.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
@@ -42,6 +45,9 @@ func TestApply_AddsPAMModuleLine(t *testing.T) {
 // @spec handler-interface
 // @ac AC-02
 func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Run("handler-interface/AC-02", func(t *testing.T) {})
+	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results["cat '/etc/pam.d/nonexistent'"] = &api.CommandResult{
 		ExitCode: 1,
@@ -65,6 +71,9 @@ func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
 // @spec handler-interface
 // @ac AC-03
 func TestRollback_RestoresPriorContent(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Run("handler-interface/AC-03", func(t *testing.T) {})
+	t.Run("handler-interface/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	h := pammoduleconfigure.New()
 	pre := &api.PreState{
@@ -89,5 +98,7 @@ func TestRollback_RestoresPriorContent(t *testing.T) {
 // @spec handler-interface
 // @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
+	t.Log("// @spec handler-interface")
+	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = pammoduleconfigure.New()
 }

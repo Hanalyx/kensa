@@ -41,6 +41,8 @@ func basicTxn(mechanism string) *api.Transaction {
 // @spec engine-transaction
 // @ac AC-01
 func TestEngine_AC01_CommittedOnFullSuccess(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-01")
 	h := &engine.FakeHandler{HandlerName: "fake_ok", IsCapturable: true}
 	e := newTestEngine(t, h)
 
@@ -62,6 +64,8 @@ func TestEngine_AC01_CommittedOnFullSuccess(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-02
 func TestEngine_AC02_RolledBackOnApplyFailure(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-02")
 	h := &engine.FakeHandler{
 		HandlerName:  "fake_apply_fails",
 		IsCapturable: true,
@@ -84,6 +88,8 @@ func TestEngine_AC02_RolledBackOnApplyFailure(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-02
 func TestEngine_AC02_RollbackInReverseOrder(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-02")
 	// Three steps. Step 0 and 1 succeed; step 2 fails. Rollback must
 	// run for steps 1 then 0; step 2 never applied so it is not
 	// rolled back.
@@ -154,6 +160,8 @@ func TestEngine_AC02_RollbackInReverseOrder(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-05
 func TestEngine_AC05_PartiallyAppliedForNonCapturableSuccess(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-05")
 	// Two steps. Step 0 is non-capturable and succeeds; step 1 is
 	// capturable and fails. Rule is transactional:false (it must be,
 	// because it has a non-capturable step).
@@ -198,6 +206,8 @@ func TestEngine_AC05_PartiallyAppliedForNonCapturableSuccess(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-07
 func TestEngine_AC07_PerHostSerialization(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-07")
 	// Two transactions against the same host should serialize. The
 	// slow handler appends "start" / "end" markers to a shared
 	// timeline; per-host serialization means we should see
@@ -246,6 +256,8 @@ func TestEngine_AC07_PerHostSerialization(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-08
 func TestEngine_AC08_NonBlockingReturnsErrHostBusy(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-08")
 	hold := make(chan struct{})
 	release := make(chan struct{})
 	holder := &blockingHandler{name: "blocker", entered: hold, exit: release}
@@ -278,6 +290,8 @@ func TestEngine_AC08_NonBlockingReturnsErrHostBusy(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-10
 func TestEngine_AC10_CaptureFailureReturnsErrored(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-10")
 	h := &engine.FakeHandler{
 		HandlerName:  "capture_fails",
 		IsCapturable: true,
@@ -302,6 +316,8 @@ func TestEngine_AC10_CaptureFailureReturnsErrored(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-11
 func TestEngine_AC11_PreflightRejectsTransactionalTrueWithNonCapturable(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-11")
 	h := &engine.FakeHandler{HandlerName: "noncap", IsCapturable: false}
 	e := newTestEngine(t, h)
 
@@ -328,6 +344,8 @@ func TestEngine_AC11_PreflightRejectsTransactionalTrueWithNonCapturable(t *testi
 // @spec engine-transaction
 // @ac AC-09
 func TestEngine_AC09_EvidenceEnvelopeAttached(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-09")
 	h := &engine.FakeHandler{HandlerName: "fake_ok2", IsCapturable: true}
 	e := newTestEngine(t, h)
 	res, err := e.Run(context.Background(), engine.NewFakeTransport(), basicTxn("fake_ok2"), false)
@@ -351,6 +369,8 @@ func TestEngine_AC09_EvidenceEnvelopeAttached(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-03
 func TestEngine_AC03_RolledBackWhenValidatorFails(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-03")
 	// AC-03: all apply steps succeed but a validator fails → Status=RolledBack.
 	// Requires injecting a failing validator via engine.WithValidators or
 	// attaching a validator to the api.Transaction. Neither hook is exposed
@@ -362,6 +382,8 @@ func TestEngine_AC03_RolledBackWhenValidatorFails(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-04
 func TestEngine_AC04_CrashRecoveryFromPersistedPreState(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-04")
 	// AC-04: a process crash after CAPTURE but before APPLY leaves pre-states
 	// recoverable. Verifying this requires simulating a crash (panic + recover
 	// or process kill), then re-opening the store and running `kensa rollback`.
@@ -373,6 +395,8 @@ func TestEngine_AC04_CrashRecoveryFromPersistedPreState(t *testing.T) {
 // @spec engine-transaction
 // @ac AC-06
 func TestEngine_AC06_DeadmanArmedForControlChannelSensitiveTransaction(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-06")
 	// AC-06: for control-channel-sensitive transports the engine arms a deadman
 	// timer before apply and cancels it after commit.
 	// Requires a recording DeadmanArmer and a transport with ControlChannelSensitive()=true.
@@ -473,6 +497,8 @@ func (b *blockingHandler) Rollback(_ context.Context, _ api.Transport, _ *api.Pr
 // @spec cli-verify-subcommand
 // @ac AC-05
 func TestEngine_DefaultSignerIsReal(t *testing.T) {
+	t.Log("// @spec cli-verify-subcommand")
+	t.Log("// @ac AC-05")
 	h := &engine.FakeHandler{HandlerName: "fake_realsig", IsCapturable: true}
 	e := newTestEngine(t, h)
 	res, err := e.Run(context.Background(), engine.NewFakeTransport(), basicTxn("fake_realsig"), false)

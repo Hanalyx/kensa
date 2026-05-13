@@ -70,6 +70,8 @@ func (f *fakeAgentClient) CancelDeadman(_ context.Context, _ string) (bool, erro
 // @spec agent-handler-port-filepermissions
 // @ac AC-06
 func TestEngine_WithAgentClient_RoutesApplyThroughClient(t *testing.T) {
+	t.Log("// @spec agent-handler-port-filepermissions")
+	t.Log("// @ac AC-06")
 	fc := &fakeAgentClient{}
 	// The local handler exists in the registry; we set up
 	// a fake handler that should NEVER be invoked in agent
