@@ -35,6 +35,7 @@ build:
 	CGO_ENABLED=0 go build -tags netgo -o bin/kensa-fuzz ./cmd/kensa-fuzz
 	CGO_ENABLED=0 go build -tags netgo -o bin/kensa-validate ./cmd/kensa-validate
 	CGO_ENABLED=0 go build -tags netgo -o bin/kensa-keygen ./cmd/kensa-keygen
+	CGO_ENABLED=0 go build -tags netgo -o bin/kensa-systemd-helper ./cmd/kensa-systemd-helper
 
 test:
 	go test ./...
