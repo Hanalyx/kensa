@@ -158,7 +158,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	positional := fs.Args()
 
 	switch subcmd {
-	case "enable", "disable", "mask", "is-enabled", "unit-state":
+	case "enable", "disable", "mask", "start", "stop", "is-enabled", "unit-state":
 		if len(positional) != 1 {
 			fmt.Fprintf(stderr,
 				"kensa-systemd-helper: %s: expected exactly one unit argument, got %d\n",
@@ -231,6 +231,7 @@ type response struct {
 	Unit          string      `json:"unit"`
 	Success       bool        `json:"success"`
 	JobID         uint32      `json:"job_id,omitempty"`
+	JobResult     string      `json:"job_result,omitempty"` // D-011: "done" on Start/Stop success
 	SettledState  string      `json:"settled_state,omitempty"`
 	Changes       []change    `json:"changes,omitempty"`
 	UnitState     *unitState  `json:"unit_state,omitempty"`
@@ -297,6 +298,8 @@ Subcommands:
   enable <unit>       Enable the unit (D-Bus EnableUnitFiles).
   disable <unit>      Disable the unit (D-Bus DisableUnitFiles).
   mask <unit>         Mask the unit (D-Bus MaskUnitFiles).
+  start <unit>        Start the unit (D-Bus StartUnit + JobRemoved wait).
+  stop <unit>         Stop the unit (D-Bus StopUnit + JobRemoved wait).
   is-enabled <unit>   Print the unit's UnitFileState.
   unit-state <unit>   Print rich state (UnitFileState + ActiveState
                       + SubState + LoadState + UnitFileLinks +

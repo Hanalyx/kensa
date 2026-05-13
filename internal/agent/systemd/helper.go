@@ -112,6 +112,7 @@ type Response struct {
 	Unit          string     `json:"unit"`
 	Success       bool       `json:"success"`
 	JobID         uint32     `json:"job_id,omitempty"`
+	JobResult     string     `json:"job_result,omitempty"` // D-011: "done" on Start/Stop success
 	SettledState  string     `json:"settled_state,omitempty"`
 	Changes       []Change   `json:"changes,omitempty"`
 	UnitState     *UnitState `json:"unit_state,omitempty"`
@@ -192,6 +193,20 @@ func (c *Client) Disable(ctx context.Context, unit string) (*Response, error) {
 // Mask runs `sudo helper mask <unit>`. D-010.
 func (c *Client) Mask(ctx context.Context, unit string) (*Response, error) {
 	return c.invoke(ctx, "mask", unit)
+}
+
+// Start runs `sudo helper start <unit>`. D-011 — first
+// job-producing op; the helper waits on JobRemoved before
+// returning. resp.JobResult carries the systemd completion
+// string ("done" on success; "canceled", "timeout", "failed",
+// "dependency", "skipped" on failure).
+func (c *Client) Start(ctx context.Context, unit string) (*Response, error) {
+	return c.invoke(ctx, "start", unit)
+}
+
+// Stop runs `sudo helper stop <unit>`. D-011, symmetric with Start.
+func (c *Client) Stop(ctx context.Context, unit string) (*Response, error) {
+	return c.invoke(ctx, "stop", unit)
 }
 
 // IsEnabled runs `sudo helper is-enabled <unit>` and returns the
