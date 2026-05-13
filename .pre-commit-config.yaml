@@ -53,10 +53,15 @@ repos:
         args: ["--config=.golangci.yml"]
         stages: [manual]
 
-  # ─── Default stage: Specter spec validation ──────────────────────────
-  # Runs on every commit. Requires `specter` in PATH; install via the
-  # Hanalyx release tarball (see CI job for install instructions).
-  # CI enforces the same checks via the dedicated Spec Sync job.
+  # ─── Manual stage: Specter spec validation ──────────────────────────
+  # Local developers run via `pre-commit run --hook-stage manual` or
+  # via `make spec-sync` directly. NOT default-stage because:
+  #   1. Requires specter in PATH (Hanalyx release tarball).
+  #   2. The CI Pre-commit Hygiene job is a minimal Python container
+  #      without specter; running the hook there fails for environment
+  #      reasons, not contract reasons.
+  #   3. CI enforces the same checks via the dedicated Spec Sync +
+  #      Spec Coverage (strict) jobs — those have specter installed.
   - repo: local
     hooks:
       - id: specter-sync
@@ -65,3 +70,4 @@ repos:
         language: system
         pass_filenames: false
         files: \.spec\.yaml$|specter\.yaml$
+        stages: [manual]
