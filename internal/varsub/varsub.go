@@ -15,8 +15,8 @@
 //
 // Resolution priority (highest first), simplified for the
 // initial Phase 3.5 cut:
-//   1. CLI --var KEY=VALUE  (operator override)
-//   2. <config-dir>/defaults.yml `variables:` block
+//  1. CLI --var KEY=VALUE  (operator override)
+//  2. <config-dir>/defaults.yml `variables:` block
 //
 // Future Phase 3.6+ will add intermediate tiers (per-host
 // config, per-group config, conf.d overlay) per the Python

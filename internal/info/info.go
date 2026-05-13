@@ -23,14 +23,14 @@ import (
 // (severity), where does it apply (platforms), what
 // frameworks claim it (refs)?"
 type RuleDetails struct {
-	ID            string                  `json:"id"`
-	Title         string                  `json:"title"`
-	Description   string                  `json:"description"`
-	Severity      string                  `json:"severity"`
-	Category      string                  `json:"category"`
-	Tags          []string                `json:"tags"`
-	Platforms     []PlatformSummary       `json:"platforms"`
-	FrameworkRefs []api.FrameworkRef      `json:"framework_refs"`
+	ID            string             `json:"id"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	Severity      string             `json:"severity"`
+	Category      string             `json:"category"`
+	Tags          []string           `json:"tags"`
+	Platforms     []PlatformSummary  `json:"platforms"`
+	FrameworkRefs []api.FrameworkRef `json:"framework_refs"`
 }
 
 // PlatformSummary mirrors api.Platform with snake_case JSON

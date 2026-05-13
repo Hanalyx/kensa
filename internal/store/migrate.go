@@ -61,10 +61,10 @@ func (s *SQLite) BackfillSessions(ctx context.Context) (BackfillReport, error) {
 	// each host's time bounds so we can synthesize plausible
 	// session timestamps.
 	type hostRow struct {
-		hostID      string
-		minStartedAt string
+		hostID        string
+		minStartedAt  string
 		maxFinishedAt string
-		count        int
+		count         int
 	}
 	rows, err := tx.QueryContext(ctx, `
         SELECT host_id, MIN(started_at), MAX(finished_at), COUNT(*)

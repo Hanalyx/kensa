@@ -84,4 +84,3 @@ func capabilityVocabulary() map[string]struct{} {
 	}
 	return out
 }
-

@@ -44,7 +44,7 @@ const ProtocolBuild = "v1.0.0-l012"
 // Returns:
 //   - (true, false)  exact match
 //   - (true, true)   same major, different minor — accepted
-//                    with a warning the caller should log
+//     with a warning the caller should log
 //   - (false, false) major mismatch — incompatible
 func Compatible(remoteMajor, remoteMinor uint32) (compat bool, warnIfMinorDiff bool) {
 	if remoteMajor != ProtocolMajor {

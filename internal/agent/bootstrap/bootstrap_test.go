@@ -26,8 +26,8 @@ type fakeTransport struct {
 	runErrors  map[string]error // returned alongside the run result
 	runHistory []string
 
-	putErrors   map[string]error // keyed by remotePath
-	putHistory  []putCall
+	putErrors  map[string]error // keyed by remotePath
+	putHistory []putCall
 
 	closeCalled bool
 }
@@ -187,10 +187,10 @@ func TestEnsureAgent_CacheMiss_PushesBinary(t *testing.T) {
 
 	// Reinitialize with a queue-based fake.
 	tr2 := &queueFakeTransport{
-		homeResult:    &api.CommandResult{ExitCode: 0, Stdout: "/home/op"},
-		probeResults:  []*api.CommandResult{{ExitCode: 1}, {ExitCode: 0}}, // miss then hit
-		cachePath:     cachePath,
-		cacheDir:      "/home/op/.cache/kensa",
+		homeResult:   &api.CommandResult{ExitCode: 0, Stdout: "/home/op"},
+		probeResults: []*api.CommandResult{{ExitCode: 1}, {ExitCode: 0}}, // miss then hit
+		cachePath:    cachePath,
+		cacheDir:     "/home/op/.cache/kensa",
 	}
 	_ = probeCount
 
@@ -322,7 +322,7 @@ func TestEnsureAgent_NonAbsoluteHome(t *testing.T) {
 type queueFakeTransport struct {
 	mu sync.Mutex
 
-	homeResult   *api.CommandResult // returned for `printf '%s' "$HOME"`
+	homeResult   *api.CommandResult   // returned for `printf '%s' "$HOME"`
 	probeResults []*api.CommandResult // returned for each `test -x ...` call in order
 	putErr       error
 	cachePath    string

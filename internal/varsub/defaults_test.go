@@ -46,7 +46,7 @@ func TestLoadDefaults_BasicScalars(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	want := map[string]string{
-		"pam_faillock_deny":   "3",
+		"pam_faillock_deny":    "3",
 		"pam_pwquality_minlen": "15",
 		"banner_file":          "/etc/issue",
 		"enable_thing":         "true",

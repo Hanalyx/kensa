@@ -14,17 +14,17 @@ import (
 // The struct intentionally does NOT carry varsub.Variables — that
 // is a per-host runtime parameter, supplied to LoadAndFilter.
 type ruleLoadFilterSpec struct {
-	rulesDir   string
-	rulePaths  []string // --rule values + positional *.yml args, pre-concatenated
+	rulesDir  string
+	rulePaths []string // --rule values + positional *.yml args, pre-concatenated
 
 	// Filter inputs, all already validated against the global
 	// corpus pass (so we don't re-validate per host; the
 	// vocabulary doesn't change with substitution).
-	severities         []string // post-validateSeverities
-	tags               []string // post-normalizeTags
-	category           string
-	framework          string // canonical, post-validateFramework
-	controlFilters     []controlFilter
+	severities     []string // post-validateSeverities
+	tags           []string // post-normalizeTags
+	category       string
+	framework      string // canonical, post-validateFramework
+	controlFilters []controlFilter
 }
 
 // LoadAndFilter loads the corpus with vars and applies the

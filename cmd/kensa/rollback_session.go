@@ -53,13 +53,13 @@ func runRollbackList(ctx context.Context, dbPath string, detail bool, format str
 // listSessionRow is the JSON shape for `--list`. When detail
 // is set, Transactions is populated; otherwise it's omitted.
 type listSessionRow struct {
-	ID            string                 `json:"id"`
-	StartedAt     string                 `json:"started_at"`
-	Hostname      string                 `json:"hostname"`
-	Subcommand    string                 `json:"subcommand"`
-	TxnCommitted  int                    `json:"txn_committed"`
-	TxnTotal      int                    `json:"txn_total"`
-	Transactions  []listSessionRowTxn    `json:"transactions,omitempty"`
+	ID           string              `json:"id"`
+	StartedAt    string              `json:"started_at"`
+	Hostname     string              `json:"hostname"`
+	Subcommand   string              `json:"subcommand"`
+	TxnCommitted int                 `json:"txn_committed"`
+	TxnTotal     int                 `json:"txn_total"`
+	Transactions []listSessionRowTxn `json:"transactions,omitempty"`
 }
 
 type listSessionRowTxn struct {
@@ -202,11 +202,11 @@ func writeRollbackInfoText(w io.Writer, sess *store.Session, txns []store.Sessio
 
 // rollbackStartResult is the JSON shape returned by --start.
 type rollbackStartResult struct {
-	SessionID    string                  `json:"session_id"`
-	Attempted    int                     `json:"attempted"`
-	Succeeded    int                     `json:"succeeded"`
-	Failed       int                     `json:"failed"`
-	PerTxn       []rollbackStartTxnEntry `json:"per_txn"`
+	SessionID string                  `json:"session_id"`
+	Attempted int                     `json:"attempted"`
+	Succeeded int                     `json:"succeeded"`
+	Failed    int                     `json:"failed"`
+	PerTxn    []rollbackStartTxnEntry `json:"per_txn"`
 }
 
 type rollbackStartTxnEntry struct {

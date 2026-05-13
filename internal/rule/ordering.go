@@ -90,8 +90,8 @@ type ResolvedRules struct {
 // two rules that are both in the active set. Surfaced in the
 // operator UX as a warning.
 type ConflictPair struct {
-	RuleID         string
-	ConflictsWith  string
+	RuleID        string
+	ConflictsWith string
 }
 
 // Resolve takes a list of rules and produces the resolved execution
@@ -494,4 +494,3 @@ func toSet(m map[string]string) map[string]struct{} {
 	}
 	return out
 }
-

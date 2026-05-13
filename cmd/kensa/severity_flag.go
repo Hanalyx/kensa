@@ -76,4 +76,3 @@ func filterRulesBySeverity(rules []*api.Rule, allowed []string) []*api.Rule {
 	}
 	return out
 }
-

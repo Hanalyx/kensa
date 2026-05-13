@@ -21,10 +21,10 @@ import (
 // Phase 4 / C-040. The schema migrations themselves run
 // automatically on every OpenSQLite call (Phase 1 design); the
 // `kensa migrate` subcommand exists primarily to:
-//   1. Surface the schema version for operators auditing a DB.
-//   2. Run the session backfill explicitly so operators
-//      upgrading from pre-Phase-4 see a deterministic
-//      one-time conversion they can script around.
+//  1. Surface the schema version for operators auditing a DB.
+//  2. Run the session backfill explicitly so operators
+//     upgrading from pre-Phase-4 see a deterministic
+//     one-time conversion they can script around.
 func runMigrate(ctx context.Context, dbPath string, args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"db": true, "quiet": true,

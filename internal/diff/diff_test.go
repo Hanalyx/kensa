@@ -83,9 +83,9 @@ func TestComputeSessionDiff_OnlyRemoved(t *testing.T) {
 // store query orders ASC by started_at).
 func TestComputeSessionDiff_DedupesRetries(t *testing.T) {
 	from := []store.SessionTxn{
-		mkTxn("rule-x", "errored"),       // earlier attempt
-		mkTxn("rule-x", "rolled_back"),   // retry
-		mkTxn("rule-x", "committed"),     // final success
+		mkTxn("rule-x", "errored"),     // earlier attempt
+		mkTxn("rule-x", "rolled_back"), // retry
+		mkTxn("rule-x", "committed"),   // final success
 	}
 	to := []store.SessionTxn{
 		mkTxn("rule-x", "committed"),

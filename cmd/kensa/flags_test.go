@@ -55,7 +55,7 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		"ShortUser":        ShortUser,
 		"ShortPort":        ShortPort,
 		"ShortKey":         ShortKey,
-		"ShortSudo":        ShortSudo, // intentionally empty (C-024)
+		"ShortSudo":        ShortSudo,   // intentionally empty (C-024)
 		"ShortFormat":      ShortFormat, // intentionally empty (C-024)
 		"ShortOutput":      ShortOutput,
 		"ShortRulesDir":    ShortRulesDir,
@@ -69,15 +69,15 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		// CLI Phase 3 placeholders (C-024 declares; C-026..C-034
 		// wire to actual flags). Inclusion here ensures collision
 		// detection covers them now.
-		"ShortPassword":    ShortPassword,
-		"ShortLimitGlob":   ShortLimitGlob,
-		"ShortSeverity":    ShortSeverity,
-		"ShortTag":         ShortTag,
-		"ShortCategory":    ShortCategory,
-		"ShortFramework":   ShortFramework,
-		"ShortCapability":  ShortCapability,
-		"ShortWorkers":     ShortWorkers,
-		"ShortVar":         ShortVar,
+		"ShortPassword":   ShortPassword,
+		"ShortLimitGlob":  ShortLimitGlob,
+		"ShortSeverity":   ShortSeverity,
+		"ShortTag":        ShortTag,
+		"ShortCategory":   ShortCategory,
+		"ShortFramework":  ShortFramework,
+		"ShortCapability": ShortCapability,
+		"ShortWorkers":    ShortWorkers,
+		"ShortVar":        ShortVar,
 	}
 
 	// Constants that are intentionally empty per the CLI Phase 3
@@ -137,10 +137,10 @@ func TestShortLetterTable_CaseDiscipline(t *testing.T) {
 	t.Run("cli-polish-c023/AC-08", func(t *testing.T) {})
 	t.Run("cli-polish-c023/AC-10", func(t *testing.T) {})
 	cases := []struct {
-		name   string
-		letter string
+		name    string
+		letter  string
 		isUpper bool
-		reason string
+		reason  string
 	}{
 		// Sacred GNU lowercase reservations.
 		{"ShortHelp", ShortHelp, false, "GNU --help"},

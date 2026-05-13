@@ -408,4 +408,3 @@ func parsePubKey(t *testing.T, p []byte) ed25519.PublicKey {
 	}
 	return pub
 }
-

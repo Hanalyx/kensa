@@ -302,8 +302,8 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		Capturable: true,
 		CapturedAt: time.Now().UTC(),
 		Data: map[string]interface{}{
-			"module":          p.Module,
-			"files_snapshot":  snapshot,
+			"module":         p.Module,
+			"files_snapshot": snapshot,
 		},
 	}, nil
 }

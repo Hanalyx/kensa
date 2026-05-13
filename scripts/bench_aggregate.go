@@ -131,8 +131,8 @@ func main() {
 		"hosts":        *hosts,
 		"runs_per_key": *runs,
 		"insert_ms":    insertDur.Milliseconds(),
-		"by_host": latencyReport(byHostLatencies),
-		"by_rule": latencyReport(byRuleLatencies),
+		"by_host":      latencyReport(byHostLatencies),
+		"by_rule":      latencyReport(byRuleLatencies),
 		"p95_committed": byHostLatencies[int(float64(len(byHostLatencies))*0.95)] < 500*time.Millisecond &&
 			byRuleLatencies[int(float64(len(byRuleLatencies))*0.95)] < 500*time.Millisecond,
 	}

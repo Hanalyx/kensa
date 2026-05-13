@@ -58,11 +58,11 @@ type FrameType byte
 // with a new type (e.g., L-012's FrameHeartbeat, L-013's
 // FrameBinaryChunk) requires THREE additive steps:
 //
-//   1. Add the new constant below.
-//   2. Add it to `knownFrameTypes` (the set below).
-//   3. Update any handler-loop dispatch that needs to route
-//      the new type (e.g., echo.go's Run() may need to ignore
-//      heartbeats and let a separate goroutine handle them).
+//  1. Add the new constant below.
+//  2. Add it to `knownFrameTypes` (the set below).
+//  3. Update any handler-loop dispatch that needs to route
+//     the new type (e.g., echo.go's Run() may need to ignore
+//     heartbeats and let a separate goroutine handle them).
 //
 // No edits to Read or Write function bodies are required —
 // the type-byte check goes through `knownFrameTypes`, not a

@@ -108,7 +108,7 @@ func persistScanResult(ctx context.Context, s *store.SQLite, host string, rules 
 			// of scan envelopes via `kensa verify` would always fail
 			// (no signature). For signed evidence, use `kensa remediate`
 			// (which routes through the engine's signer per C-060).
-			Signature:     []byte{},
+			Signature: []byte{},
 		}
 		if err := s.PersistResult(ctx, txn); err != nil {
 			fmt.Fprintf(os.Stderr, "warn: persist scan result for %s: %v\n", rl.ID, err)

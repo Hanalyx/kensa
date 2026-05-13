@@ -160,10 +160,10 @@ func TestResolveCapabilityOverrides_MalformedEntry(t *testing.T) {
 		in           string
 		errSubstring string
 	}{
-		{cap, "missing '='"},        // bare KEY without separator
-		{"=true", "empty KEY"},      // separator but empty key
-		{"", "missing '='"},         // empty entry
-		{cap + "=", "expected"},     // empty value (parser rejects)
+		{cap, "missing '='"},    // bare KEY without separator
+		{"=true", "empty KEY"},  // separator but empty key
+		{"", "missing '='"},     // empty entry
+		{cap + "=", "expected"}, // empty value (parser rejects)
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {

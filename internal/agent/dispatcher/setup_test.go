@@ -21,12 +21,12 @@ import (
 // the cache hit/miss path. Returns a canned $HOME + always-
 // cache-hit so EnsureAgent returns the pre-built kensa binary.
 type fakeTransport struct {
-	mu        sync.Mutex
-	home      string
-	cachedAt  string
-	runErr    error
-	runCalls  []string
-	putCalls  int
+	mu       sync.Mutex
+	home     string
+	cachedAt string
+	runErr   error
+	runCalls []string
+	putCalls int
 }
 
 func (f *fakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {

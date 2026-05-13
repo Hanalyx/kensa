@@ -435,7 +435,7 @@ func (nilTransport) Put(_ context.Context, _, _ string, _ fs.FileMode) error {
 }
 func (nilTransport) Get(_ context.Context, _, _ string) error { panic("nilTransport.Get called") }
 func (nilTransport) ControlChannelSensitive() bool            { return false }
-func (nilTransport) Close() error                              { return nil }
+func (nilTransport) Close() error                             { return nil }
 
 // TestDeadman_D005_InterfaceSatisfaction is the compile-time
 // assertion the post-D-005 peer review demanded: if

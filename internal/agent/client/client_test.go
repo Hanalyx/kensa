@@ -494,10 +494,10 @@ func TestClient_Handshake_MinorMismatch(t *testing.T) {
 	var (
 		mu       sync.Mutex
 		captured struct {
-			called      bool
-			agentMajor  uint32
-			agentMinor  uint32
-			agentBuild  string
+			called     bool
+			agentMajor uint32
+			agentMinor uint32
+			agentBuild string
 		}
 	)
 	originalLogger := MinorMismatchLogger

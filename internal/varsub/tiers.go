@@ -123,7 +123,7 @@ func LoadConfDir(configDir string) (Variables, error) {
 // (host, groups, cliOverrides) tuple by merging all six tiers
 // in priority order:
 //
-//   embedded → defaults → conf.d → groups → host → CLI
+//	embedded → defaults → conf.d → groups → host → CLI
 //
 // Each later tier overrides earlier on key collision. The
 // embedded tier ships with the kensa-go binary and is the

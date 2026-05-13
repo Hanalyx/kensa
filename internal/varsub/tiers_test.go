@@ -205,12 +205,12 @@ func TestResolveTiers_FullChain(t *testing.T) {
 		key  string
 		want string
 	}{
-		{"a", "from-cli"},        // CLI wins over defaults
-		{"b", "from-confd"},      // conf.d 10-base wins over defaults
-		{"c", "from-group"},      // groups beat conf.d 99-late
-		{"d", "from-group"},      // groups beat defaults
-		{"e", "from-host"},       // host file beats everything below CLI
-		{"f", "from-defaults"},   // unmodified
+		{"a", "from-cli"},      // CLI wins over defaults
+		{"b", "from-confd"},    // conf.d 10-base wins over defaults
+		{"c", "from-group"},    // groups beat conf.d 99-late
+		{"d", "from-group"},    // groups beat defaults
+		{"e", "from-host"},     // host file beats everything below CLI
+		{"f", "from-defaults"}, // unmodified
 	}
 	for _, tc := range tests {
 		if got[tc.key] != tc.want {

@@ -1244,7 +1244,6 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 	return nil
 }
 
-
 // ─── remediate ─────────────────────────────────────────────────────────────
 
 // runRemediate loads rule files and remediates failing rules.
@@ -1504,7 +1503,6 @@ Examples:
   kensa remediate -H web-01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.json
 `, formatGroupedUsages(fs, remediateFlagGroups))
 }
-
 
 // writeOSCALFile opens path and writes OSCAL Assessment Results
 // documents (one per transaction with a non-nil envelope) by
@@ -2411,4 +2409,3 @@ func parseSince(s string) (time.Time, error) {
 	}
 	return time.Parse(time.RFC3339, s)
 }
-

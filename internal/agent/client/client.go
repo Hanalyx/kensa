@@ -491,10 +491,10 @@ func (c *Client) Rollback(ctx context.Context, preState api.PreState) (*api.Roll
 // Returns:
 //   - nil                           — versions are exactly compatible
 //   - nil + warning to stderr       — same major, different minor
-//                                     (acceptable; MinorMismatchLogger
-//                                     is called)
+//     (acceptable; MinorMismatchLogger
+//     is called)
 //   - ErrIncompatibleProtocol       — major mismatch OR
-//                                     HandshakeAck.Accepted == false
+//     HandshakeAck.Accepted == false
 //
 // Callers SHOULD call Handshake immediately after Open and
 // before any other typed method. L-014 will enforce

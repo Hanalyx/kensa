@@ -139,6 +139,14 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # Build bin/kensa before running tests — some tests in
+      # internal/agent/dispatcher/setup_test.go skip when
+      # bin/kensa isn't present (they exercise a local-stub
+      # OpenAgent path that exec's the real binary). Skipped tests
+      # don't count toward coverage, so the agent-cli-env-var spec
+      # drops below its Tier 2 80% threshold without this step.
+      - name: Build kensa binary
+        run: make build
       - name: Run spec-coverage-strict
         run: make spec-coverage-strict
       - name: Upload .specter-results.json on failure

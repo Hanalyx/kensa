@@ -210,7 +210,7 @@ If founder accepts the design above, the L-014 spec proposes these ACs:
 1. **Agent-mode atomicity boundary**: Today the engine treats a transaction as atomic if all steps' handlers report Success. With agent-mode, an agent crash mid-Apply leaves the target in an indeterminate state — the controller sees ErrAgentStreamClosed but the actual filesystem state is unknown. Two options:
    - (a) Treat agent-stream-close mid-Apply as "rolled-back": engine runs Rollback for all prior committed steps via the controller's direct-SSH path. This requires direct-SSH to remain wired alongside agent-mode (fallback).
    - (b) Treat it as "stranded": mark the transaction as PartiallyApplied with no rollback attempt; operator manually inspects.
-   
+
    **Recommendation**: (b) for L-014. (a) requires keeping the deadman timer aware of which steps went through which path — heavy.
 
 2. **Live test gating**: L-014's E2E test needs a real host. Existing pattern: `KENSA_TEST_SSH_HOST` env var; tests skip when absent. L-014 adds a NEW dependency: the controller-side kensa binary must be locally buildable AND the target must permit `~/.cache/kensa/agent-<sha>` writes. Reasonable to gate on `KENSA_TEST_SSH_HOST + KENSA_TEST_AGENT_MODE=1` env vars (the latter explicitly opts into the bootstrap+exec path). Confirm.

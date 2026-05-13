@@ -15,26 +15,26 @@ import (
 //
 // Layout (single column, key: value pairs grouped by axis):
 //
-//   kensa history --stats
-//     scope: host=<H> since=<S>           (omitted when neither is set)
-//     window: <earliest> → <latest>
-//     sessions:     N
-//     transactions: M
+//	kensa history --stats
+//	  scope: host=<H> since=<S>           (omitted when neither is set)
+//	  window: <earliest> → <latest>
+//	  sessions:     N
+//	  transactions: M
 //
-//     by status:
-//       committed         N
-//       rolled_back       N
-//       ...
+//	  by status:
+//	    committed         N
+//	    rolled_back       N
+//	    ...
 //
-//     by severity:
-//       critical          N
-//       high              N
-//       ...
+//	  by severity:
+//	    critical          N
+//	    high              N
+//	    ...
 //
-//     by host (top 10; remaining rolled into (other)):
-//       <hostA>           N
-//       <hostB>           N
-//       ...
+//	  by host (top 10; remaining rolled into (other)):
+//	    <hostA>           N
+//	    <hostB>           N
+//	    ...
 func writeHistoryStatsText(w io.Writer, st *store.Stats, host, since string) {
 	fmt.Fprintln(w, "kensa history --stats")
 	if host != "" || since != "" {

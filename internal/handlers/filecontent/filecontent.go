@@ -191,7 +191,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 				// Mark partial — operator can re-Apply.
 				return &api.StepResult{
 					Success: false,
-					Detail:  fmt.Sprintf("file_content: atomically wrote %d bytes but chown failed (exit %d): %s; file content is correct but ownership is unchanged",
+					Detail: fmt.Sprintf("file_content: atomically wrote %d bytes but chown failed (exit %d): %s; file content is correct but ownership is unchanged",
 						len(p.Content), res.ExitCode, strings.TrimSpace(res.Stderr)),
 				}, nil
 			}

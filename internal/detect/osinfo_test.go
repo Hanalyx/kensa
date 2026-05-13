@@ -31,9 +31,9 @@ func (f *osTestTransport) Run(_ context.Context, _ string) (*api.CommandResult, 
 func (f *osTestTransport) Put(_ context.Context, _, _ string, _ fs.FileMode) error {
 	return nil
 }
-func (f *osTestTransport) Get(_ context.Context, _, _ string) error                 { return nil }
-func (f *osTestTransport) ControlChannelSensitive() bool                              { return false }
-func (f *osTestTransport) Close() error                                               { return nil }
+func (f *osTestTransport) Get(_ context.Context, _, _ string) error { return nil }
+func (f *osTestTransport) ControlChannelSensitive() bool            { return false }
+func (f *osTestTransport) Close() error                             { return nil }
 
 func TestParseOSRelease_RHEL(t *testing.T) {
 	content := `NAME="Red Hat Enterprise Linux"

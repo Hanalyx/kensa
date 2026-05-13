@@ -140,12 +140,12 @@ func runVerify(args []string) error {
 		// jq parsing. verifyErr (if any) goes into the message
 		// field as a string.
 		payload := struct {
-			Valid    bool                  `json:"valid"`
-			KeyID    string                `json:"key_id"`
-			Warnings []api.VerifyWarning   `json:"warnings,omitempty"`
-			Error    string                `json:"error,omitempty"`
+			Valid    bool                `json:"valid"`
+			KeyID    string              `json:"key_id"`
+			Warnings []api.VerifyWarning `json:"warnings,omitempty"`
+			Error    string              `json:"error,omitempty"`
 		}{
-			Valid:    result != nil && result.Valid,
+			Valid: result != nil && result.Valid,
 		}
 		if result != nil {
 			payload.KeyID = result.KeyID

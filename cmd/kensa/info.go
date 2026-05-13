@@ -36,18 +36,18 @@ func runInfo(ctx context.Context, args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp     bool
-		ruleID       string
-		controlSpec  string
-		listCtrls    string
-		rulesDir     string
-		format       string
-		quiet        bool
-		cisFamily    bool
-		stigFamily   bool
-		nistFamily   bool
-		rhel         int
-		limit        int
+		showHelp    bool
+		ruleID      string
+		controlSpec string
+		listCtrls   string
+		rulesDir    string
+		format      string
+		quiet       bool
+		cisFamily   bool
+		stigFamily  bool
+		nistFamily  bool
+		rhel        int
+		limit       int
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVar(&ruleID, "rule", "", "show details for a single rule by ID (long-only; -r is --rules-dir)")

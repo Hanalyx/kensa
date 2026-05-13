@@ -10,11 +10,11 @@ import (
 // resolveConfigDir picks the effective config directory using
 // the auto-detect chain promised by the C-036 spec:
 //
-//   1. explicit value (operator passed --config-dir).
-//   2. $KENSA_CONFIG_DIR env var.
-//   3. $XDG_CONFIG_HOME/kensa.
-//   4. $HOME/.config/kensa.
-//   5. /etc/kensa.
+//  1. explicit value (operator passed --config-dir).
+//  2. $KENSA_CONFIG_DIR env var.
+//  3. $XDG_CONFIG_HOME/kensa.
+//  4. $HOME/.config/kensa.
+//  5. /etc/kensa.
 //
 // Returns "" when no candidate exists — operators get only the
 // embedded built-in defaults. Returns the FIRST candidate that

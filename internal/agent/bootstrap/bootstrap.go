@@ -135,7 +135,7 @@ func resolveTargetHome(ctx context.Context, transport api.Transport) (string, er
 // construct safe shell commands from path strings that might
 // contain spaces or other special characters. We use
 // single-quote-end-quote-backslash-quote-start-quote: `O'Brien`
-// becomes `'O'\''Brien'`.
+// becomes `'O'\”Brien'`.
 //
 // Note: in practice all paths used by L-013 are
 // SHA-256-hex-suffixed under $HOME/.cache/kensa, so neither

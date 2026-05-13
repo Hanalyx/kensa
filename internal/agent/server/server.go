@@ -88,28 +88,28 @@ func Handle(req *wirev1.Request) *wirev1.Response {
 
 // **Carry-forward TODOs from L-014 review.**
 //
-// 1. **Synchronous dispatch blocks heartbeat path.** The
-//    agent.Run loop processes one frame at a time; a
-//    long-running Apply (apt-get, systemctl on slow
-//    services) blocks the heartbeat channel. Future kensa
-//    deliverable: spawn the handler invocation in a
-//    goroutine, write Responses with a mutex on stdout so
-//    heartbeat replies can interleave. Flag for L-015 prereq.
+//  1. **Synchronous dispatch blocks heartbeat path.** The
+//     agent.Run loop processes one frame at a time; a
+//     long-running Apply (apt-get, systemctl on slow
+//     services) blocks the heartbeat channel. Future kensa
+//     deliverable: spawn the handler invocation in a
+//     goroutine, write Responses with a mutex on stdout so
+//     heartbeat replies can interleave. Flag for L-015 prereq.
 //
-// 2. **Request context not propagated.** dispatchApply
-//    builds `context.Background()` for the handler call,
-//    discarding any deadline the controller set on its
-//    client.Apply call. ApplyRequest needs a deadline_unix_micros
-//    field, decoder needs to construct context.WithDeadline.
-//    Flag for L-014b / L-015.
+//  2. **Request context not propagated.** dispatchApply
+//     builds `context.Background()` for the handler call,
+//     discarding any deadline the controller set on its
+//     client.Apply call. ApplyRequest needs a deadline_unix_micros
+//     field, decoder needs to construct context.WithDeadline.
+//     Flag for L-014b / L-015.
 //
-// 3. **Mismatched-agent rollback.** A RollbackRequest for a
-//    mechanism the agent doesn't know typically means the
-//    agent was restarted with a different binary mid-
-//    session. The current error is "unknown_mechanism"
-//    which is correct but opaque. Operators see a generic
-//    Rollback failure with no specific guidance to inspect
-//    the target. Flag for L-014b operator-docs.
+//  3. **Mismatched-agent rollback.** A RollbackRequest for a
+//     mechanism the agent doesn't know typically means the
+//     agent was restarted with a different binary mid-
+//     session. The current error is "unknown_mechanism"
+//     which is correct but opaque. Operators see a generic
+//     Rollback failure with no specific guidance to inspect
+//     the target. Flag for L-014b operator-docs.
 //
 // dispatchApply looks up the mechanism's handler, builds a
 // LocalTransport, runs Apply, populates resp with either

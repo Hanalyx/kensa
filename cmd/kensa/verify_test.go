@@ -135,10 +135,10 @@ func TestRunVerify_MissingKey(t *testing.T) {
 func TestRunVerify_UsageErrors(t *testing.T) {
 	t.Run("cli-verify-subcommand/AC-04", func(t *testing.T) {})
 	cases := [][]string{
-		{"verify"},                                // no positional arg
-		{"verify", "/nonexistent/file.json"},      // file doesn't exist
-		{"verify", "--bogus", "f.json"},           // bad flag
-		{"verify", "f.json", "extra-arg"},         // too many positional
+		{"verify"},                           // no positional arg
+		{"verify", "/nonexistent/file.json"}, // file doesn't exist
+		{"verify", "--bogus", "f.json"},      // bad flag
+		{"verify", "f.json", "extra-arg"},    // too many positional
 	}
 	for _, args := range cases {
 		exit := runCLI(args)
