@@ -779,6 +779,25 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Status:** **pending** (blocked on D-005)
 - **Risk:** Low-medium. Test infrastructure work.
 
+### LL Phase 3 follow-ups (post-D-006)
+
+#### P-012 — Close the `specter coverage --strict` gap
+- **Phase:** Phase 3 follow-up (lands AFTER D-006 closes Phase 3)
+- **Deps:** D-006 (Phase 3 closed cleanly)
+- **Acceptance:** All 67 currently-uncovered Tier 1 specs go from 0% (or partial) to ≥95% coverage by migrating their tests to **Convention B** (`t.Log("// @spec spec-id")` + `t.Log("// @ac AC-NN")` at the top of each annotated test). `specter coverage --strict` reports 85/85 passing (skip-with-TODO ACs documented as exceptions). CI gate enabled via `make spec-coverage-strict` invoked by the existing `spec-sync` step. Update `CLAUDE.md` to remove the "not yet enabled in CI" caveat.
+- **Size:** ~2-3 days mechanical sweep + verification + CI wiring.
+- **Status:** **pending** (blocked on D-006)
+- **Risk:** Low. Pure mechanical migration — `t.Log` additions don't change test behavior. Verification: full `go test ./...` must remain green, then `specter coverage --strict` must go green.
+- **Rationale.** The kensa-go corpus has hundreds of tests with `@spec`/`@ac` SOURCE comments above test functions, but the test RUNNER doesn't surface them. `specter ingest` reads `go test -json` output (subtest names + `t.Log` lines), so source-only comments are invisible. Convention A (rename tests to embed `spec-id/AC-NN`) is cleaner but invasive; Convention B (two `t.Log` lines per test) is mechanical and equivalent. Per CLAUDE.md the staged rollout recommendation is to start with the `core` domain; we'll do the full sweep as one deliverable since the per-test work is identical and tracking 6 sub-deliverables for the same mechanical sweep is more overhead than value.
+- **Scope (per CLAUDE.md domain split).**
+  - **core:** engine-transaction, evidence-envelope, transaction-log, deadman-timer (existing tests with partial coverage — easy wins).
+  - **deadman primitives (Phase 3 work):** deadman-timerfd, deadman-pidfd, deadman-signalfd, deadman-eventloop (new tests I shipped; ACs already mapped 1:1 to test functions).
+  - **agent stack:** 11 agent-* specs (handler ports, wire protocol, framing, bootstrap, client, dispatcher).
+  - **cli stack:** ~25 cli-* specs (the largest domain).
+  - **output stack:** 8 output-* specs.
+  - **rule/store:** rule-ordering, store-session-schema.
+- **Out-of-scope.** Convention A rename to put `spec-id/AC-NN` in test names — preserved as a future style refactor; Convention B is sufficient to lock the gate. ACs currently skip-with-TODO (deadman-timer AC-06/07/10, evidence-envelope AC-07/10, transaction-log AC-07/09, engine-transaction AC-03/04/06) stay as skipped — documented as "future deliverable" exceptions in the spec files themselves.
+
 ### LL Phases 4–7 — Sketch only
 
 *Filled in when the loop reaches each phase.*
