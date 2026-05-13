@@ -873,7 +873,7 @@ Phase 4 ships 6 deliverables in this order:
 - **Deps:** D-008
 - **Acceptance:** Helper's `disable` subcommand calls `dbus.Conn.DisableUnitFilesContext` (synchronous; no JobRemoved). Captures the `[]DisableUnitFileChange` symlink-unlink list + post-call UnitFileState. NDJSON envelope follows the D-008 success/failure shape exactly. Tests use the same fakeConn pattern, asserting on argv passing + classifying D-Bus errors (no_such_unit, access_denied, etc.). The dispatch routing in `realDispatch` switches `case "disable":` from emitNotYetImplemented to runDisable.
 - **Size:** ~½ day. Mechanical clone of D-008's enable path.
-- **Status:** **pending** (blocked on D-008)
+- **Status:** **done** 2026-05-13 — landed alongside D-010 in PR #4 (merge commit `f731a20`). Two commits: `2883851` D-009+D-010 implementation + Option 3 rescoping in DELIVERABLES.md + .gitignore fix; `84c412d` lint follow-up (deleted dead `emitNotYetImplemented` + 2 godot capital rephrases).
 - **Risk:** Low. The D-Bus call shape is identical to EnableUnitFiles. The only meaningful difference is the response type (`DisableUnitFileChange` vs `EnableUnitFileChange`).
 
 #### D-010 — Helper `mask` subcommand (`MaskUnitFiles`)
@@ -881,7 +881,7 @@ Phase 4 ships 6 deliverables in this order:
 - **Deps:** D-008
 - **Acceptance:** Helper's `mask` subcommand calls `dbus.Conn.MaskUnitFilesContext`. Synchronous; no JobRemoved. Captures the `[]MaskUnitFileChange` list. NDJSON envelope per D-008 shape. Tests mirror D-009. The dispatch routing switches `case "mask":` from emitNotYetImplemented to runMask.
 - **Size:** ~½ day. Mechanical clone of D-009.
-- **Status:** **pending** (blocked on D-008; can land concurrently with D-009)
+- **Status:** **done** 2026-05-13 — co-landed with D-009 in PR #4 (merge `f731a20`).
 - **Risk:** Low. Same as D-009.
 
 #### D-011 — Helper `start` + `stop` subcommands + JobRemoved primitive
