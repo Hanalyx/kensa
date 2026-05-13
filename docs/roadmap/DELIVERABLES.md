@@ -831,7 +831,21 @@ Three competing options were considered:
   command). Wire-protocol parser stays unprivileged. Helper is small
   enough to peer-review thoroughly. One extra binary in the package.
 
-C is the chosen design. Phase 4 ships ~5 deliverables in this order:
+C is the chosen design.
+
+**Scope correction 2026-05-13 (Option 3, founder-ratified).** Phase 4
+ships the **D-Bus primitive layer** — the helper subcommands covering
+every systemd operation kensa needs (enable, disable, mask, start,
+stop, is-enabled, unit-state) — and the capability probe. Phase 4 does
+NOT include handler ports (service_enabled / service_disabled /
+service_masked dual-path Apply/Capture/Rollback). The existing shell-out
+handlers already carry the documented `daemon-atomic (systemd)`
+contract; dual-path handler consumption of the D-Bus primitive layer
+is a code-quality upgrade tracked as a v1.x backlog item. This keeps
+Phase 4 closeable in the original "~1 week" budget without ship-pressure
+churn on the handler-rewrite work.
+
+Phase 4 ships 6 deliverables in this order:
 
 #### D-007 — kensa-systemd-helper scaffolding + helper-interface spec
 - **Phase:** 4 (systemd D-Bus)
@@ -854,39 +868,42 @@ C is the chosen design. Phase 4 ships ~5 deliverables in this order:
 - **Status:** **done** 2026-05-13 — PR #3 merged at `7d2ca4b`. Three commits: `de9cd63` D-Bus implementation (enable/is-enabled/unit-state real coreos/go-systemd calls + `systemd_dbus` capability probe + scope correction splitting handler port to D-008b); `7e3c78c` lint follow-up (5 findings); `2f793bd` second lint follow-up (1 residual godot trip on `errors.New(...)` literal-dot pattern in a doc comment). All 9 CI jobs green on final run including the L-004 / L-005 portability gates on the new D-Bus deps.
 - **Risk:** Medium. First production D-Bus call from a kensa binary. Most likely failure modes: (a) `UnitFileState` enum values vary across systemd versions (RHEL 8's systemd 239 vs RHEL 10's 252+) and our switch statement misses one — current implementation tolerates this since unknown values pass through; (b) GetUnitPropertiesContext returns subtly different types across systemd versions (e.g., []string vs []godbus.ObjectPath for Wants) — our stringSliceProp defensively returns empty on type mismatch.
 
-#### D-008b — `service_enabled` handler port + StartUnit + JobRemoved sync
-- **Phase:** 4 (split from D-008 on 2026-05-13)
-- **Deps:** D-008
-- **Acceptance:** Helper gains `start` subcommand using `dbus.Conn.StartUnitContext` with the channel-based JobRemoved synchronization that coreos/go-systemd provides natively. AC-05 + C-03 re-introduced — the test for `start` injects a fake `*dbus.Conn` and asserts the subscribe-before-invoke ordering. `service_enabled` handler in `internal/handlers/serviceenabled/` gains a dual-path Apply: agent-mode path calls helper.Enable + helper.Start (or surfaces partial-state error if Start fails after Enable succeeds — capture records the post-enable state so rollback can disable cleanly even when Start failed); direct-SSH path keeps existing `systemctl enable --now` shell-out. Capture path also gains dual-path: agent-mode reads UnitState via helper; direct-SSH keeps existing `systemctl show` parsing. Live test against `inventory.ini` using a safe unit.
-- **Size:** ~1.5 days (start subcommand + JobRemoved fake-test infra + handler dual-path + Capture dual-path + live test gating).
-- **Status:** **pending** (blocked on D-008)
-- **Risk:** Higher than D-008. StartUnit is the FIRST job-producing operation, so it's the first time the JobRemoved subscription pattern is exercised. The Enable-then-Start composite has a partial-success failure mode (enable wrote symlinks but start failed) that needs explicit handling — direct-SSH `systemctl enable --now` exhibits the same failure mode today but doesn't expose it as cleanly to the caller; D-008b should improve on this rather than mirror the limitation.
-
-#### D-009 — D-Bus `DisableUnitFiles` + `service_disabled` handler port
+#### D-009 — Helper `disable` subcommand (`DisableUnitFiles`)
 - **Phase:** 4
 - **Deps:** D-008
-- **Acceptance:** Helper's `disable` subcommand + handler dual-path mirror D-008 with `dbus.Conn.DisableUnitFiles`. Same JobRemoved sync. Live test.
-- **Size:** ~½ day. Mechanical clone of D-008 once the helper pattern is locked.
+- **Acceptance:** Helper's `disable` subcommand calls `dbus.Conn.DisableUnitFilesContext` (synchronous; no JobRemoved). Captures the `[]DisableUnitFileChange` symlink-unlink list + post-call UnitFileState. NDJSON envelope follows the D-008 success/failure shape exactly. Tests use the same fakeConn pattern, asserting on argv passing + classifying D-Bus errors (no_such_unit, access_denied, etc.). The dispatch routing in `realDispatch` switches `case "disable":` from emitNotYetImplemented to runDisable.
+- **Size:** ~½ day. Mechanical clone of D-008's enable path.
 - **Status:** **pending** (blocked on D-008)
-- **Risk:** Low (mechanical).
+- **Risk:** Low. The D-Bus call shape is identical to EnableUnitFiles. The only meaningful difference is the response type (`DisableUnitFileChange` vs `EnableUnitFileChange`).
 
-#### D-010 — D-Bus `MaskUnitFiles` + `service_masked` handler port
+#### D-010 — Helper `mask` subcommand (`MaskUnitFiles`)
 - **Phase:** 4
 - **Deps:** D-008
-- **Acceptance:** Helper's `mask` subcommand + handler dual-path mirror D-008 with `dbus.Conn.MaskUnitFiles`. Same JobRemoved sync (mask completes synchronously per systemd source, but we subscribe anyway for protocol consistency). Live test.
-- **Size:** ~½ day.
-- **Status:** **pending** (blocked on D-008)
-- **Risk:** Low.
+- **Acceptance:** Helper's `mask` subcommand calls `dbus.Conn.MaskUnitFilesContext`. Synchronous; no JobRemoved. Captures the `[]MaskUnitFileChange` list. NDJSON envelope per D-008 shape. Tests mirror D-009. The dispatch routing switches `case "mask":` from emitNotYetImplemented to runMask.
+- **Size:** ~½ day. Mechanical clone of D-009.
+- **Status:** **pending** (blocked on D-008; can land concurrently with D-009)
+- **Risk:** Low. Same as D-009.
 
-#### D-011 — Phase 4 close: docs + atomicity contract update + CLAUDE.md refresh
+#### D-011 — Helper `start` + `stop` subcommands + JobRemoved primitive
 - **Phase:** 4
-- **Deps:** D-009, D-010
-- **Acceptance:** `docs/TRANSACTION_CONTRACT_V1.md §2.6` atomicity-basis matrix updated to note `daemon-atomic (systemd)` now has D-Bus implementation in agent mode (with shell fallback in direct-SSH mode). `CLAUDE.md` "shipped handlers" table updated. New `docs/roadmap/PHASE-4-CLOSE.md` captures the JobRemoved synchronization rationale + sudoers fragment for kensa-rpm packaging. Phase-end checkpoint summary surfaced to founder.
+- **Deps:** D-009, D-010 (parallel; D-011 is independent of disable/mask)
+- **Acceptance:** Helper gains `start` and `stop` subcommands using `dbus.Conn.StartUnitContext` / `StopUnitContext` with the channel-based JobRemoved synchronization that coreos/go-systemd provides natively. The job-completion channel is created and the subscription is established BEFORE the method invocation per spec C-03 (un-deferred along with AC-05 in this deliverable). Fake-conn test injects a recording wrapper that asserts the subscribe-before-invoke ordering — fails if the method call fires before the channel exists. NDJSON envelope adds a `job_result` field carrying the systemd job completion string (`done`, `failed`, `canceled`, `timeout`, `dependency`, `skipped`). Tests cover all six completion states.
+- **AC-05 + C-03 un-deferred here.** This is the first deliverable with a job-producing operation. The spec edit re-introduces both alongside their dependent test.
+- **Size:** ~1.5 days (two job-producing subcommands + JobRemoved fake-test infra + AC-05/C-03 restoration).
+- **Status:** **pending** (blocked on D-008)
+- **Risk:** Medium. StartUnit/StopUnit are the FIRST job-producing operations in the helper, so it's the first time the JobRemoved subscription pattern is exercised. Most likely failure mode: the fake-conn test that locks AC-05's "subscribe-before-invoke" ordering has to model coreos/go-systemd's channel-based API correctly — the real Conn.StartUnitContext takes a `chan<- string` that systemd populates with the completion result, and our fake has to mirror that contract faithfully for the test to lock the right invariant.
+
+#### D-012 — Phase 4 close: docs + atomicity contract refresh + CLAUDE.md cleanup
+- **Phase:** 4 (closer)
+- **Deps:** D-009, D-010, D-011
+- **Acceptance:** `docs/TRANSACTION_CONTRACT_V1.md §2.6` atomicity-basis matrix updated to note the D-Bus primitive layer is now available via the kensa-systemd-helper for every systemd operation in the rule corpus; handler consumption of those primitives tracked as a v1.x backlog item. `CLAUDE.md` "shipped handlers" table updated; the stale Ed25519/noopSigner item removed (M-012 + C-060 shipped 2026-05-10); the "10 untested handler stubs" claim re-verified or removed if outdated. New `docs/roadmap/PHASE-4-CLOSE.md` captures the Option C privilege model rationale + the sudoers fragment requirement for the kensa-rpm packaging deliverable (post-v1.0). Phase-end checkpoint summary surfaced to founder.
 - **Size:** ~½ day. Doc-only.
-- **Status:** **pending** (blocked on D-009, D-010)
+- **Status:** **pending** (blocked on D-009, D-010, D-011)
 - **Risk:** None.
 
-**Phase 4 total: ~5 deliverables, ~4 days of execution.**
+**Phase 4 total (Option 3 scope): 6 deliverables.** D-007 + D-008 done (~1.5 days actual). D-009 + D-010 (mechanical clones, ~½ day each, can land together). D-011 (~1.5 days, AC-05/C-03 restoration). D-012 (~½ day docs). Remaining estimate ~3 days.
+
+**Handler ports defer to v1.x backlog.** The service_enabled / service_disabled / service_masked dual-path Apply / Capture / Rollback rewrites — originally scoped as D-008b in a mid-flight rescoping — are now tracked as a single v1.x deliverable. The existing shell-out implementations satisfy the documented atomicity contract; dual-path handler consumption of the D-Bus primitive layer is a code-quality + observability upgrade with no contract change.
 
 ### LL Phases 5–7 — Sketch only
 

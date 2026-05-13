@@ -32,6 +32,21 @@ type fakeConn struct {
 	enableErr     error
 	enableCalls   int
 
+	// DisableUnitFiles
+	disableUnits   []string
+	disableRuntime bool
+	disableChanges []dbus.DisableUnitFileChange
+	disableErr     error
+	disableCalls   int
+
+	// MaskUnitFiles
+	maskUnits   []string
+	maskRuntime bool
+	maskForce   bool
+	maskChanges []dbus.MaskUnitFileChange
+	maskErr     error
+	maskCalls   int
+
 	// GetUnitPropertyContext
 	propResponses map[string]*dbus.Property
 	propErr       error
@@ -72,6 +87,25 @@ func (f *fakeConn) EnableUnitFilesContext(_ context.Context, files []string, run
 	f.enableRuntime = runtime
 	f.enableForce = force
 	return f.enableInstall, f.enableChanges, f.enableErr
+}
+
+func (f *fakeConn) DisableUnitFilesContext(_ context.Context, files []string, runtime bool) ([]dbus.DisableUnitFileChange, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.disableCalls++
+	f.disableUnits = append([]string(nil), files...)
+	f.disableRuntime = runtime
+	return f.disableChanges, f.disableErr
+}
+
+func (f *fakeConn) MaskUnitFilesContext(_ context.Context, files []string, runtime, force bool) ([]dbus.MaskUnitFileChange, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.maskCalls++
+	f.maskUnits = append([]string(nil), files...)
+	f.maskRuntime = runtime
+	f.maskForce = force
+	return f.maskChanges, f.maskErr
 }
 
 func (f *fakeConn) GetUnitPropertyContext(_ context.Context, unit, name string) (*dbus.Property, error) {
@@ -403,7 +437,7 @@ func TestUnitState_DBusError(t *testing.T) {
 func TestDBusUnreachable(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-11", func(t *testing.T) {})
 	openErr := errors.New("dial unix /run/dbus/system_bus_socket: no such file or directory")
-	for _, op := range []string{"enable", "is-enabled", "unit-state"} {
+	for _, op := range []string{"enable", "disable", "mask", "is-enabled", "unit-state"} {
 		t.Run(op, func(t *testing.T) {
 			withFakeConn(t, nil, openErr)
 			exit, resp, _ := dispatchHelper(t, op, "x.service")
@@ -420,19 +454,148 @@ func TestDBusUnreachable(t *testing.T) {
 	}
 }
 
-// TestStubsRemain: disable / mask still emit not_yet_implemented
-// per the D-008 scope cut. D-009 / D-010 fill them in.
-func TestStubsRemain(t *testing.T) {
-	withFakeConn(t, &fakeConn{}, nil)
-	for _, op := range []string{"disable", "mask"} {
-		t.Run(op, func(t *testing.T) {
-			exit, resp, _ := dispatchHelper(t, op, "x.service")
-			if exit != 1 {
-				t.Errorf("%s: exit got %d, want 1", op, exit)
-			}
-			if resp.Error == nil || resp.Error.Code != "not_yet_implemented" {
-				t.Errorf("%s: expected not_yet_implemented; got %+v", op, resp.Error)
-			}
-		})
+// ─── disable (D-009) ──────────────────────────────────────────────
+
+// TestDisable_HappyPath: DisableUnitFiles succeeds + UnitFileState
+// reads back "disabled" → exit 0, success:true, populated changes.
+//
+// @spec agent-systemd-helper
+// @ac AC-03
+func TestDisable_HappyPath(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-03", func(t *testing.T) {})
+	fc := &fakeConn{
+		disableChanges: []dbus.DisableUnitFileChange{
+			{Type: "unlink", Filename: "/etc/systemd/system/multi-user.target.wants/sshd.service", Destination: "/usr/lib/systemd/system/sshd.service"},
+		},
+		propResponses: map[string]*dbus.Property{
+			"UnitFileState": makeStringProp("disabled"),
+		},
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "disable", "sshd.service")
+	if exit != 0 {
+		t.Errorf("exit got %d, want 0", exit)
+	}
+	if !resp.Success {
+		t.Error("Success should be true")
+	}
+	if resp.Op != "disable" {
+		t.Errorf("Op got %q, want disable", resp.Op)
+	}
+	if resp.SettledState != "disabled" {
+		t.Errorf("SettledState got %q, want disabled", resp.SettledState)
+	}
+	if len(resp.Changes) != 1 {
+		t.Fatalf("Changes len got %d, want 1", len(resp.Changes))
+	}
+	if resp.Changes[0].Type != "unlink" {
+		t.Errorf("Changes[0].Type got %q, want unlink", resp.Changes[0].Type)
+	}
+	if fc.disableUnits[0] != "sshd.service" {
+		t.Errorf("disable called with %q", fc.disableUnits[0])
+	}
+	if fc.disableRuntime {
+		t.Error("runtime should be false (persistent disable)")
+	}
+	if fc.disableCalls != 1 {
+		t.Errorf("disable should be called once; got %d", fc.disableCalls)
+	}
+	if !fc.closed {
+		t.Error("conn.Close should have been called")
+	}
+}
+
+// TestDisable_DBusError: DisableUnitFiles fails → exit 1 with
+// typed error code.
+//
+// @spec agent-systemd-helper
+// @ac AC-04
+func TestDisable_DBusError(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
+	fc := &fakeConn{
+		disableErr: dbusErrFixture(`Error org.freedesktop.systemd1.NoSuchUnit: Unit foo.service not found.`),
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "disable", "foo.service")
+	if exit != 1 {
+		t.Errorf("exit got %d, want 1", exit)
+	}
+	if resp.Success {
+		t.Error("Success should be false")
+	}
+	if resp.Error == nil || resp.Error.Code != "no_such_unit" {
+		t.Errorf("expected no_such_unit; got %+v", resp.Error)
+	}
+	if resp.Error.DBusName != "org.freedesktop.systemd1.NoSuchUnit" {
+		t.Errorf("dbus_name got %q", resp.Error.DBusName)
+	}
+}
+
+// ─── mask (D-010) ─────────────────────────────────────────────────
+
+// TestMask_HappyPath: MaskUnitFiles succeeds + UnitFileState
+// reads back "masked" → exit 0, success:true, change to
+// /dev/null target captured.
+//
+// @spec agent-systemd-helper
+// @ac AC-03
+func TestMask_HappyPath(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-03", func(t *testing.T) {})
+	fc := &fakeConn{
+		maskChanges: []dbus.MaskUnitFileChange{
+			{Type: "symlink", Filename: "/etc/systemd/system/sshd.service", Destination: "/dev/null"},
+		},
+		propResponses: map[string]*dbus.Property{
+			"UnitFileState": makeStringProp("masked"),
+		},
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "mask", "sshd.service")
+	if exit != 0 {
+		t.Errorf("exit got %d, want 0", exit)
+	}
+	if !resp.Success {
+		t.Error("Success should be true")
+	}
+	if resp.Op != "mask" {
+		t.Errorf("Op got %q, want mask", resp.Op)
+	}
+	if resp.SettledState != "masked" {
+		t.Errorf("SettledState got %q, want masked", resp.SettledState)
+	}
+	if len(resp.Changes) != 1 {
+		t.Fatalf("Changes len got %d, want 1", len(resp.Changes))
+	}
+	if resp.Changes[0].Destination != "/dev/null" {
+		t.Errorf("mask should point at /dev/null; got %q", resp.Changes[0].Destination)
+	}
+	if fc.maskUnits[0] != "sshd.service" {
+		t.Errorf("mask called with %q", fc.maskUnits[0])
+	}
+	if !fc.maskForce {
+		t.Error("force should be true")
+	}
+	if fc.maskCalls != 1 {
+		t.Errorf("mask should be called once; got %d", fc.maskCalls)
+	}
+}
+
+// TestMask_DBusError: MaskUnitFiles fails → exit 1 with typed
+// error code.
+//
+// @spec agent-systemd-helper
+// @ac AC-04
+func TestMask_DBusError(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
+	fc := &fakeConn{
+		maskErr: dbusErrFixture(`Error org.freedesktop.systemd1.AccessDenied: permission denied`),
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "mask", "sshd.service")
+	if exit != 1 {
+		t.Errorf("exit got %d, want 1", exit)
+	}
+	if resp.Error == nil || resp.Error.Code != "access_denied" {
+		t.Errorf("expected access_denied; got %+v", resp.Error)
 	}
 }
