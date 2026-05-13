@@ -786,7 +786,17 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Deps:** D-006 (Phase 3 closed cleanly)
 - **Acceptance:** All 67 currently-uncovered Tier 1 specs go from 0% (or partial) to ≥95% coverage by migrating their tests to **Convention B** (`t.Log("// @spec spec-id")` + `t.Log("// @ac AC-NN")` at the top of each annotated test). `specter coverage --strict` reports 85/85 passing (skip-with-TODO ACs documented as exceptions). CI gate enabled via `make spec-coverage-strict` invoked by the existing `spec-sync` step. Update `CLAUDE.md` to remove the "not yet enabled in CI" caveat.
 - **Size:** ~2-3 days mechanical sweep + verification + CI wiring.
-- **Status:** **pending** (blocked on D-006)
+- **Status:** **done** 2026-05-13 — corpus migration landed `f02f243`; CI gate enable via `d64cf9c` + `d19567b` (build kensa first so agent-cli-env-var tests don't skip) + `624796e` + `77a8bd6` (pre-commit hygiene fixes). 85/85 specs passing in CI.
+
+#### P-013 — Close pre-existing CI failures (Lint + CLI Smoke)
+- **Phase:** Phase 3 follow-up (lands AFTER P-012)
+- **Deps:** P-012 (strict gate enabled, surfaces the pre-existing reds)
+- **Acceptance:** CI Lint job and CLI Smoke Tests job both go green, with no relaxation of the existing rule sets beyond a principled godot exclude for specter annotation lines (`^@spec`, `^@ac`, `^@c`) that parallels the existing nolint/build-directive exclusions.
+- **Status:** **done** 2026-05-13 — landed via PR #1 (merge commit `de81dc7`) with three commits:
+  - `613aa4d` first lint sweep (20 findings closed) + CLI smoke fixture corpus + `KENSA_SMOKE_RULES` env-var.
+  - `58ca979` full lint sweep (357 findings: 332 godot, 8 misspell, 6 goimports, 6 gocritic, 3 staticcheck, 1 unused, 1 gofmt). godot annotation exclude added to `.golangci.yml` resolves 284 of the period findings; 47 capital-letter findings rewritten by hand across 38 files.
+  - `ad9e6a5` residual 10 findings (godot's period check rejects `."` — needed `".`; one `vs.` triggered sentence-end detection).
+- **Note on scope drift.** Original estimate was "20 findings, all mechanical" — the local lint binary (golangci-lint v1.64.8 built with go1.25) couldn't typecheck the maroto/pdfcpu PDF deps (require go1.26), so it silently exited 0 locally while CI saw the real 357. Local-vs-CI lint parity for this repo now requires either (a) trusting CI as truth, or (b) rebuilding golangci-lint against go1.26.1. Tracked as a known limitation, not a blocker.
 - **Risk:** Low. Pure mechanical migration — `t.Log` additions don't change test behavior. Verification: full `go test ./...` must remain green, then `specter coverage --strict` must go green.
 - **Rationale.** The kensa-go corpus has hundreds of tests with `@spec`/`@ac` SOURCE comments above test functions, but the test RUNNER doesn't surface them. `specter ingest` reads `go test -json` output (subtest names + `t.Log` lines), so source-only comments are invisible. Convention A (rename tests to embed `spec-id/AC-NN`) is cleaner but invasive; Convention B (two `t.Log` lines per test) is mechanical and equivalent. Per CLAUDE.md the staged rollout recommendation is to start with the `core` domain; we'll do the full sweep as one deliverable since the per-test work is identical and tracking 6 sub-deliverables for the same mechanical sweep is more overhead than value.
 - **Scope (per CLAUDE.md domain split).**
