@@ -219,20 +219,21 @@ func TestNonRoot_ExitsUsageError(t *testing.T) {
 
 // ─── AC-03 / AC-04: NDJSON output shape ──────────────────────────
 
-// TestStubResponse_HasRequiredEnvelopeFields locks the NDJSON
-// envelope shape per spec AC-04 (failure block). Uses the
-// `disable` subcommand which still emits the not_yet_implemented
-// stub in D-008 (D-009 / D-010 land disable / mask), so the
-// envelope-shape assertion is independent of the D-Bus
-// implementation.
+// TestFailureEnvelope_HasRequiredFields locks the NDJSON envelope
+// shape per spec AC-04 (failure block). runHelper installs a
+// default-failing fake conn, so every D-Bus subcommand surfaces
+// a dbus_unreachable failure envelope. The shape — schema_version,
+// helper_version, op, unit, success:false, error{code, detail} —
+// is what we lock here; the specific error.code is verified by
+// the more-targeted tests in dbusops_test.go.
 //
 // @spec agent-systemd-helper
 // @ac AC-04
-func TestStubResponse_HasRequiredEnvelopeFields(t *testing.T) {
+func TestFailureEnvelope_HasRequiredFields(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
-	exit, stdout, _ := runHelper(t, "disable", "sshd.service")
+	exit, stdout, _ := runHelper(t, "enable", "sshd.service")
 	if exit != 1 {
-		t.Errorf("disable stub: exit got %d, want 1 (runtime error path)", exit)
+		t.Errorf("default-fake-conn: exit got %d, want 1", exit)
 	}
 	resp := parseNDJSON(t, stdout)
 	if resp.SchemaVersion != 1 {
@@ -241,20 +242,20 @@ func TestStubResponse_HasRequiredEnvelopeFields(t *testing.T) {
 	if resp.HelperVersion == "" {
 		t.Error("helper_version should be set on every line (AC-10)")
 	}
-	if resp.Op != "disable" {
-		t.Errorf("op got %q, want disable", resp.Op)
+	if resp.Op != "enable" {
+		t.Errorf("op got %q, want enable", resp.Op)
 	}
 	if resp.Unit != "sshd.service" {
 		t.Errorf("unit got %q, want sshd.service", resp.Unit)
 	}
 	if resp.Success {
-		t.Error("stub should report success:false")
+		t.Error("failure path should report success:false")
 	}
 	if resp.Error == nil {
-		t.Fatal("stub should include an error block")
+		t.Fatal("failure path should include an error block")
 	}
-	if resp.Error.Code != "not_yet_implemented" {
-		t.Errorf("error.code got %q, want not_yet_implemented", resp.Error.Code)
+	if resp.Error.Code == "" {
+		t.Error("error.code should be non-empty")
 	}
 	if resp.Error.Detail == "" {
 		t.Error("error.detail should be non-empty")

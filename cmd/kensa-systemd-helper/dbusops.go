@@ -27,6 +27,8 @@ import (
 // a running systemd.
 type systemdConn interface {
 	EnableUnitFilesContext(ctx context.Context, files []string, runtime, force bool) (bool, []dbus.EnableUnitFileChange, error)
+	DisableUnitFilesContext(ctx context.Context, files []string, runtime bool) ([]dbus.DisableUnitFileChange, error)
+	MaskUnitFilesContext(ctx context.Context, files []string, runtime, force bool) ([]dbus.MaskUnitFileChange, error)
 	GetUnitPropertyContext(ctx context.Context, unit, propertyName string) (*dbus.Property, error)
 	GetUnitPropertiesContext(ctx context.Context, unit string) (map[string]any, error)
 	Close()
@@ -69,15 +71,12 @@ func realDispatch(ctx context.Context, op, unit string, timeout time.Duration, s
 	// of bus availability — opening the bus just to fail later
 	// would surface a misleading dbus_unreachable for callers
 	// exercising those subcommands).
-	switch op {
-	case "disable", "mask":
-		return emitNotYetImplemented(op, unit, stdout)
-	}
-
 	// Bound every D-Bus call by the operator's --timeout.
-	// systemd's D-Bus methods are synchronous (no JobRemoved
-	// dance for enable/disable/mask), so the timeout is the
-	// upper bound on a single round trip + property read.
+	// systemd's D-Bus methods used here (Enable/Disable/Mask
+	// UnitFiles + property reads) are all SYNCHRONOUS, so the
+	// timeout is the upper bound on a single round trip. The
+	// JobRemoved dance applies only to job-producing methods
+	// (Start/Stop/Restart) introduced in D-011.
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -91,6 +90,10 @@ func realDispatch(ctx context.Context, op, unit string, timeout time.Duration, s
 	switch op {
 	case "enable":
 		return runEnable(callCtx, conn, unit, stdout)
+	case "disable":
+		return runDisable(callCtx, conn, unit, stdout)
+	case "mask":
+		return runMask(callCtx, conn, unit, stdout)
 	case "is-enabled":
 		return runIsEnabled(callCtx, conn, unit, stdout)
 	case "unit-state":
@@ -129,6 +132,66 @@ func runEnable(ctx context.Context, conn systemdConn, unit string, stdout io.Wri
 		Success:       true,
 		SettledState:  settled,
 		Changes:       convertChanges(changes),
+		DurationMs:    time.Since(start).Milliseconds(),
+	}
+	writeNDJSON(stdout, &resp)
+	return 0
+}
+
+// runDisable invokes DisableUnitFilesContext + reads back the
+// post-call UnitFileState. D-009 deliverable. Same synchronous
+// semantics as EnableUnitFiles — no JobRemoved subscription
+// required. Note the absence of a `force` parameter (the
+// underlying systemd method doesn't accept one) and the bool
+// return that EnableUnitFiles carries (DisableUnitFiles doesn't
+// produce install info).
+func runDisable(ctx context.Context, conn systemdConn, unit string, stdout io.Writer) int {
+	start := time.Now()
+	changes, err := conn.DisableUnitFilesContext(ctx, []string{unit}, false)
+	if err != nil {
+		emitDBusOpError("disable", unit, err, stdout)
+		return 1
+	}
+
+	settled := readUnitFileState(ctx, conn, unit)
+
+	resp := response{
+		SchemaVersion: schemaVersion,
+		HelperVersion: version,
+		Op:            "disable",
+		Unit:          unit,
+		Success:       true,
+		SettledState:  settled,
+		Changes:       convertDisableChanges(changes),
+		DurationMs:    time.Since(start).Milliseconds(),
+	}
+	writeNDJSON(stdout, &resp)
+	return 0
+}
+
+// runMask invokes MaskUnitFilesContext + reads back the
+// post-call UnitFileState. D-010 deliverable. Same shape as
+// EnableUnitFiles (takes force, returns Change list). Mask
+// creates a symlink to /dev/null rather than to /usr/lib;
+// the helper's Change list captures both directions.
+func runMask(ctx context.Context, conn systemdConn, unit string, stdout io.Writer) int {
+	start := time.Now()
+	changes, err := conn.MaskUnitFilesContext(ctx, []string{unit}, false, true)
+	if err != nil {
+		emitDBusOpError("mask", unit, err, stdout)
+		return 1
+	}
+
+	settled := readUnitFileState(ctx, conn, unit)
+
+	resp := response{
+		SchemaVersion: schemaVersion,
+		HelperVersion: version,
+		Op:            "mask",
+		Unit:          unit,
+		Success:       true,
+		SettledState:  settled,
+		Changes:       convertMaskChanges(changes),
 		DurationMs:    time.Since(start).Milliseconds(),
 	}
 	writeNDJSON(stdout, &resp)
@@ -249,6 +312,43 @@ func stringSliceProp(props map[string]any, names ...string) []string {
 // convertChanges maps coreos/go-systemd's EnableUnitFileChange
 // to the helper's NDJSON `change` shape.
 func convertChanges(raw []dbus.EnableUnitFileChange) []change {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make([]change, 0, len(raw))
+	for _, r := range raw {
+		out = append(out, change{
+			Type:        r.Type,
+			Source:      r.Filename,
+			Destination: r.Destination,
+		})
+	}
+	return out
+}
+
+// convertDisableChanges maps DisableUnitFileChange list to the
+// helper's `change` shape. coreos/go-systemd unfortunately
+// declares three separate types (Enable/Disable/Mask) with
+// identical fields; we convert each explicitly rather than
+// risk a generic any-typed converter.
+func convertDisableChanges(raw []dbus.DisableUnitFileChange) []change {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make([]change, 0, len(raw))
+	for _, r := range raw {
+		out = append(out, change{
+			Type:        r.Type,
+			Source:      r.Filename,
+			Destination: r.Destination,
+		})
+	}
+	return out
+}
+
+// convertMaskChanges maps MaskUnitFileChange list to the
+// helper's `change` shape.
+func convertMaskChanges(raw []dbus.MaskUnitFileChange) []change {
 	if len(raw) == 0 {
 		return nil
 	}

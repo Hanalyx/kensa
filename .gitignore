@@ -11,6 +11,8 @@ coverage.html
 /kensa
 /kensa-fuzz
 /kensa-validate
+/kensa-keygen
+/kensa-systemd-helper
 /bench_aggregate
 
 # Editor
