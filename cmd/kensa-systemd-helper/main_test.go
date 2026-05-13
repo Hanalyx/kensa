@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -35,11 +36,17 @@ func withEUIDOverride(t *testing.T, euid string) {
 
 // runHelper is the canonical test driver: forces EUID=0 via the
 // override (so all "expected-success" tests don't trip C-01),
-// invokes run() with the given argv, returns exit code + stdout
-// + stderr.
+// installs a default-failing fake conn so tests are deterministic
+// regardless of whether the local environment happens to have a
+// reachable system bus, then invokes run() with the given argv.
+//
+// Individual tests that need a SUCCESSFUL D-Bus call install
+// their own fake via withFakeConn() — t.Cleanup ordering means
+// the later install wins for the duration of the test.
 func runHelper(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	withEUIDOverride(t, "0")
+	withFakeConn(t, nil, errors.New("test: no fake conn installed; default unreachable"))
 	var stdout, stderr bytes.Buffer
 	exit := run(args, &stdout, &stderr)
 	return exit, stdout.String(), stderr.String()
@@ -65,8 +72,10 @@ func parseNDJSON(t *testing.T, stdout string) *response {
 
 // TestSubcommand_AcceptsKnownWithOneUnit locks the happy-path
 // argv contract: each known subcommand accepts exactly one
-// positional unit and returns an NDJSON response (exit 1 in D-007
-// because the D-Bus path is stubbed).
+// positional unit and produces an NDJSON response carrying the
+// right op + unit fields. The default-fake-conn forces every
+// subcommand into its error path (exit 1) so the test runs the
+// same way in any environment.
 //
 // @spec agent-systemd-helper
 // @ac AC-01
@@ -76,7 +85,7 @@ func TestSubcommand_AcceptsKnownWithOneUnit(t *testing.T) {
 		t.Run(sub, func(t *testing.T) {
 			exit, stdout, _ := runHelper(t, sub, "sshd.service")
 			if exit != 1 {
-				t.Errorf("%s: exit got %d, want 1 (stub returns not_yet_implemented)", sub, exit)
+				t.Errorf("%s: exit got %d, want 1", sub, exit)
 			}
 			resp := parseNDJSON(t, stdout)
 			if resp.Op != sub {
@@ -211,19 +220,19 @@ func TestNonRoot_ExitsUsageError(t *testing.T) {
 // ─── AC-03 / AC-04: NDJSON output shape ──────────────────────────
 
 // TestStubResponse_HasRequiredEnvelopeFields locks the NDJSON
-// envelope shape per spec AC-03 / AC-04. D-007 only emits the
-// stub `not_yet_implemented` response, but every field that
-// AC-03 (success) and AC-04 (failure) require MUST be present in
-// the encoded JSON. The D-008..D-010 deliverables fill in
-// success-path values without changing the envelope structure.
+// envelope shape per spec AC-04 (failure block). Uses the
+// `disable` subcommand which still emits the not_yet_implemented
+// stub in D-008 (D-009 / D-010 land disable / mask), so the
+// envelope-shape assertion is independent of the D-Bus
+// implementation.
 //
 // @spec agent-systemd-helper
 // @ac AC-04
 func TestStubResponse_HasRequiredEnvelopeFields(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
-	exit, stdout, _ := runHelper(t, "enable", "sshd.service")
+	exit, stdout, _ := runHelper(t, "disable", "sshd.service")
 	if exit != 1 {
-		t.Errorf("D-007 stub: exit got %d, want 1 (runtime error path)", exit)
+		t.Errorf("disable stub: exit got %d, want 1 (runtime error path)", exit)
 	}
 	resp := parseNDJSON(t, stdout)
 	if resp.SchemaVersion != 1 {
@@ -232,8 +241,8 @@ func TestStubResponse_HasRequiredEnvelopeFields(t *testing.T) {
 	if resp.HelperVersion == "" {
 		t.Error("helper_version should be set on every line (AC-10)")
 	}
-	if resp.Op != "enable" {
-		t.Errorf("op got %q, want enable", resp.Op)
+	if resp.Op != "disable" {
+		t.Errorf("op got %q, want disable", resp.Op)
 	}
 	if resp.Unit != "sshd.service" {
 		t.Errorf("unit got %q, want sshd.service", resp.Unit)
