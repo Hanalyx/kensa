@@ -350,4 +350,3 @@ func execHelper(ctx context.Context, argv []string) ([]byte, []byte, int, error)
 	}
 	return stdout.Bytes(), stderr.Bytes(), exitCode, err
 }
-

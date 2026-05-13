@@ -86,11 +86,12 @@ import (
 // rejects schemas it doesn't understand (spec C-04).
 const schemaVersion = 1
 
-// version is the helper's binary version. Set via -ldflags
-// -X main.version=... at build time; defaults to "dev" for
-// developer builds. Agent emits a stderr warning on mismatch
-// against its own kensa version (spec AC-10, informational
-// only — schema_version is the load-bearing contract).
+// version is the helper's binary version, baked in at build
+// time via the linker flag `-ldflags '-X main.version=<release>'`.
+// Defaults to "dev" for developer builds. Agent emits a stderr
+// warning on mismatch against its own kensa version (spec AC-10,
+// informational only — schema_version is the load-bearing
+// contract).
 var version = "dev"
 
 // defaultTimeout is the default --timeout value in seconds.
@@ -272,9 +273,9 @@ type response struct {
 // EnableUnitFiles / DisableUnitFiles changes list. Mirrors
 // systemd's typed return value.
 type change struct {
-	Type        string `json:"type"`        // "symlink", "unlink"
-	Source      string `json:"src"`         // symlink source
-	Destination string `json:"dst"`         // symlink target
+	Type        string `json:"type"` // "symlink", "unlink"
+	Source      string `json:"src"`  // symlink source
+	Destination string `json:"dst"`  // symlink target
 }
 
 // unitState carries the rich Capture-suitable state returned by
