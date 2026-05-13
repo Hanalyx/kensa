@@ -808,15 +808,80 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
   - **rule/store:** rule-ordering, store-session-schema.
 - **Out-of-scope.** Convention A rename to put `spec-id/AC-NN` in test names — preserved as a future style refactor; Convention B is sufficient to lock the gate. ACs currently skip-with-TODO (deadman-timer AC-06/07/10, evidence-envelope AC-07/10, transaction-log AC-07/09, engine-transaction AC-03/04/06) stay as skipped — documented as "future deliverable" exceptions in the spec files themselves.
 
-### LL Phases 4–7 — Sketch only
+### LL Phase 4 — systemd D-Bus migration
+
+**Privilege model: Option C (founder-ratified 2026-05-13).** Agent
+process stays unprivileged (runs as the SSH user). For each systemd
+operation, the agent invokes a small `sudo /usr/libexec/kensa-systemd-helper
+<op> <unit>` subprocess. The helper opens the system D-Bus as root,
+performs the operation, subscribes to `JobRemoved` for settled-state
+synchronization, prints structured NDJSON on stdout, and exits. The
+agent parses the helper's output.
+
+Three competing options were considered:
+- **A.** Agent runs as root. Simplest but the wire-protocol parser and
+  every handler run with full privilege; a parser bug → root code execution.
+- **B.** Agent unprivileged + polkit rules. Textbook least-privilege, but
+  polkit rule format diverges across distros, packaging adds an
+  install-time intrusion into `/etc/polkit-1/`, and the dominant
+  privilege path (file ops via sudo) is unaffected.
+- **C.** Agent unprivileged + sudo-invoked D-Bus helper per operation.
+  Preserves the current security model exactly (kensa already does
+  `sudo systemctl enable foo`; the helper substitutes for that shell
+  command). Wire-protocol parser stays unprivileged. Helper is small
+  enough to peer-review thoroughly. One extra binary in the package.
+
+C is the chosen design. Phase 4 ships ~5 deliverables in this order:
+
+#### D-007 — kensa-systemd-helper scaffolding + helper-interface spec
+- **Phase:** 4 (systemd D-Bus)
+- **Deps:** L-014 (agent transport works), Option-C privilege ratification (2026-05-13)
+- **Acceptance:** `cmd/kensa-systemd-helper/` binary exists; argv interface (`enable|disable|mask|is-enabled|unit-state <unit>`) defined; output is NDJSON-on-stdout, errors on stderr, exit codes 0/1/2 (success/runtime/usage). Helper-interface contract locked at `specs/agent/systemd-helper.spec.yaml`. Helper imports `coreos/go-systemd/v22/dbus` but the D-Bus implementation is stubbed (returns `not yet implemented` envelope error). The agent-side wrapper at `internal/agent/systemd/helper.go` builds the `sudo kensa-systemd-helper ...` invocation, reads the NDJSON, returns a typed Go struct. CI: portability gates verify `coreos/go-systemd/v22` + transitive `godbus/dbus/v5` build under `CGO_ENABLED=0 -tags netgo` + ldd-static + Alpine musl + glibc 2.28 (all pre-validated locally 2026-05-13; CI re-checks).
+- **Size:** ~1 day. Scaffolding + spec + dep wiring + agent wrapper that calls a stub.
+- **Status:** **pending** (blocked on this commit landing)
+- **Risk:** Low. No production code path uses the helper yet; it's pure scaffolding. Dep portability already locally verified.
+
+#### D-008 — D-Bus `EnableUnitFiles` + `service_enabled` handler port
+- **Phase:** 4
+- **Deps:** D-007
+- **Acceptance:** Helper's `enable` subcommand calls `dbus.Conn.EnableUnitFiles`, subscribes to `JobRemoved` BEFORE the method invocation (avoids race), blocks for completion up to a configurable timeout (default 30s), captures the resulting `UnitFileState` + symlink changes, prints the NDJSON result. New capability probe `detect.systemd_dbus` lands in `internal/detect/` (returns true when systemd ≥ 239 and the system bus socket is reachable from the agent — note: probe runs in the agent process, not the helper, so we're testing *can we reach the socket as kensa-svc to even *attempt* the helper* — the helper's privileged D-Bus call is what actually exercises root D-Bus access). `service_enabled` handler in `internal/handlers/serviceenabled/` gains a dual-path Apply: agent-mode path uses the helper; direct-SSH path keeps existing shell-out (`systemctl enable` via Transport.Run). Live test against `inventory.ini` using a safe unit (e.g., a no-op `kensa-test.service` deployed by the test harness).
+- **Size:** ~1.5 days. Real D-Bus integration + handler port + live test infra.
+- **Status:** **pending** (blocked on D-007)
+- **Risk:** Medium. First production use of the helper; first time `JobRemoved` synchronization runs against real systemd. Most likely failure mode: signal-subscription timing — if we subscribe AFTER the method call instead of before, we miss the signal on fast operations.
+
+#### D-009 — D-Bus `DisableUnitFiles` + `service_disabled` handler port
+- **Phase:** 4
+- **Deps:** D-008
+- **Acceptance:** Helper's `disable` subcommand + handler dual-path mirror D-008 with `dbus.Conn.DisableUnitFiles`. Same JobRemoved sync. Live test.
+- **Size:** ~½ day. Mechanical clone of D-008 once the helper pattern is locked.
+- **Status:** **pending** (blocked on D-008)
+- **Risk:** Low (mechanical).
+
+#### D-010 — D-Bus `MaskUnitFiles` + `service_masked` handler port
+- **Phase:** 4
+- **Deps:** D-008
+- **Acceptance:** Helper's `mask` subcommand + handler dual-path mirror D-008 with `dbus.Conn.MaskUnitFiles`. Same JobRemoved sync (mask completes synchronously per systemd source, but we subscribe anyway for protocol consistency). Live test.
+- **Size:** ~½ day.
+- **Status:** **pending** (blocked on D-008)
+- **Risk:** Low.
+
+#### D-011 — Phase 4 close: docs + atomicity contract update + CLAUDE.md refresh
+- **Phase:** 4
+- **Deps:** D-009, D-010
+- **Acceptance:** `docs/TRANSACTION_CONTRACT_V1.md §2.6` atomicity-basis matrix updated to note `daemon-atomic (systemd)` now has D-Bus implementation in agent mode (with shell fallback in direct-SSH mode). `CLAUDE.md` "shipped handlers" table updated. New `docs/roadmap/PHASE-4-CLOSE.md` captures the JobRemoved synchronization rationale + sudoers fragment for kensa-rpm packaging. Phase-end checkpoint summary surfaced to founder.
+- **Size:** ~½ day. Doc-only.
+- **Status:** **pending** (blocked on D-009, D-010)
+- **Risk:** None.
+
+**Phase 4 total: ~5 deliverables, ~4 days of execution.**
+
+### LL Phases 5–7 — Sketch only
 
 *Filled in when the loop reaches each phase.*
 
-
-- **LL Phase 4 (systemd D-Bus):** ~5 deliverables. `coreos/go-systemd` for service handlers + `JobRemoved` synchronization + post-`EnableUnitFiles` `Reload`. ~1 week.
 - **LL Phase 5 (`AUDIT_NETLINK`):** ~7 deliverables. `elastic/go-libaudit` for `audit_rule_set` handler + transaction-phase event emission to auditd. ~2 weeks.
 - **LL Phase 6 (sysctl/mount/kernel-module):** ~5 deliverables. Direct kernel IO via `golang.org/x/sys/unix`. ~1 week.
-- **LL Phase 7 (SELinux runtime + dconf):** ~4 deliverables. `/sys/fs/selinux/booleans/` writes + `godbus/dbus/v5` for dconf. ~1 week.
+- **LL Phase 7 (SELinux runtime + dconf):** ~4 deliverables. `/sys/fs/selinux/booleans/` writes + `godbus/dbus/v5` for dconf. ~1 week. **Note:** Phase 4's `godbus/dbus/v5` dependency add covers Phase 7's dconf prerequisite; Phase 7 will reuse the same helper pattern (`kensa-dconf-helper`) introduced here.
 - **Stretch A–D:** post-1.0; not in active loop.
 
 ---

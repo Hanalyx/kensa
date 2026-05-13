@@ -1,0 +1,280 @@
+spec:
+    id: agent-systemd-helper
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa-go
+        feature: agent-systemd-helper
+        description: |
+            LL Phase 4 ratifies **privilege model Option C** (founder
+            decision, 2026-05-13) for the systemd D-Bus migration: the
+            kensa agent process stays UNPRIVILEGED (runs as the SSH
+            user). For each systemd operation that needs D-Bus access,
+            the agent invokes `sudo /usr/libexec/kensa-systemd-helper
+            <op> <unit>` as a subprocess. The helper opens the system
+            D-Bus as root, performs the operation, subscribes to
+            JobRemoved for settled-state synchronization, prints
+            structured NDJSON on stdout, and exits.
+
+            This spec is the helper-interface contract: argv shape,
+            output schema, exit codes, timeout behavior, and the
+            sudoers convention. The helper IS the privilege boundary
+            for Phase 4 systemd operations; the agent trusts the
+            helper's NDJSON output to decide whether an Apply or
+            Rollback succeeded.
+
+            **Why this is tier 1.** A bug or output-parse error in
+            this contract → wrong rollback action → atomicity
+            contract violated. The helper's output is what the
+            engine's commit/rollback decision rides on.
+
+            **Why a sudo subprocess and not a long-lived setuid
+            agent.** A long-lived root agent would re-introduce the
+            blast radius Option C is specifically designed to avoid.
+            A short-lived sudo helper bounds privileged execution to
+            the duration of a single D-Bus call.
+
+        related_specs:
+            - agent-handler-port-filepermissions
+            - agent-stdio-subcommand
+            - agent-wire-handler-schema
+            - engine-transaction
+
+    objective:
+        summary: |
+            Define the helper's command-line interface, NDJSON
+            output schema, JobRemoved synchronization requirement,
+            exit-code contract, timeout behavior, and the sudoers
+            fragment the kensa-rpm ships. Agent-side wrapper code
+            reads this spec and the helper implementation MUST
+            match it byte-for-byte. Cross-version drift (helper
+            ships separately, e.g., updated independently from
+            kensa-rpm) is forbidden — version is encoded in the
+            NDJSON envelope and the agent rejects mismatched
+            versions.
+        scope:
+            includes:
+                - kensa-systemd-helper argv contract
+                - NDJSON output schema (top-level envelope + result types)
+                - Exit code contract (0/1/2)
+                - JobRemoved subscription ordering requirement
+                - Timeout behavior
+                - sudoers fragment requirement
+                - Version-skew detection
+                - Error taxonomy (D-Bus codes → helper exit semantics)
+            excludes:
+                - Polkit configuration (Option C explicitly does not use polkit)
+                - Long-lived daemon mode (helper is per-call only)
+                - Setuid execution (sudo is the only allowed invocation path)
+                - Direct-SSH mode handler paths (these use shell-out per existing TRANSACTION_CONTRACT §2.6)
+
+    constraints:
+        - id: C-01
+          description: |
+              The helper MUST be invoked via `sudo
+              /usr/libexec/kensa-systemd-helper <subcommand>
+              [args]`. Direct invocation (not through sudo) is a
+              usage error and the helper MUST exit 2. The agent
+              MUST NOT attempt to invoke the helper any other way.
+              Rationale: sudoers is the auditable record of what
+              the unprivileged agent is authorized to escalate; a
+              non-sudo path would bypass that audit trail.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              The helper's `stdout` is reserved for structured
+              NDJSON output ONLY. Every line MUST be a complete
+              JSON object with no embedded newlines. All
+              diagnostic / log / debug output MUST go to stderr.
+              Rationale: the agent's NDJSON parser cannot tolerate
+              non-JSON bytes interleaved with results without
+              becoming a vector for output-confusion attacks.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The helper MUST subscribe to JobRemoved signals
+              BEFORE invoking any D-Bus method that produces a
+              job. Subscription after invocation creates a race
+              window where fast operations (e.g., mask on an
+              already-masked unit) complete before the subscription
+              is established and the signal is lost — the helper
+              would then block on JobRemoved waiting for a signal
+              that already fired.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Every NDJSON output line MUST include a
+              `schema_version` field with the integer value 1.
+              Future schema changes increment this. The agent
+              rejects helpers reporting schema versions it does
+              not understand and treats the operation as failed.
+              Rationale: package-level skew between kensa-rpm
+              (agent) and kensa-systemd-helper (helper) is
+              possible if operators update them independently; the
+              schema version makes the skew detectable rather
+              than silently corrupting transaction state.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              The helper MUST honor a `--timeout=<seconds>` flag
+              (default 60s) bounding the JobRemoved wait. If the
+              wait exceeds the bound, the helper emits a final
+              NDJSON line with `error: { code: "timeout", ... }`
+              and exits 1 (runtime). The helper MUST NOT block
+              indefinitely; a stuck systemd unit must surface to
+              the agent as a typed failure within bounded time.
+              **Rationale for 60s default** (founder 2026-05-13):
+              `systemctl enable` on RHEL 8 with `tuned` rebuilding
+              profiles has been observed up to 45s in the field.
+              30s would have a non-trivial false-positive rate.
+              60s catches the slow-disk case without permitting
+              a stuck unit to hang the run for unbounded time.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              The kensa-rpm MUST ship a sudoers fragment at
+              `/etc/sudoers.d/kensa-systemd-helper` containing
+              EXACTLY the line:
+              `%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper`
+              (operators add their service account to the `kensa`
+              group at install time). The fragment MUST NOT grant
+              wildcards or path prefixes; the exact binary path
+              is required. Rationale: a wildcard sudoers entry
+              (`kensa ALL=(root) NOPASSWD: ALL`) would erase the
+              Option C privilege story entirely.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              `kensa-systemd-helper` accepts subcommands `enable`,
+              `disable`, `mask`, `is-enabled`, `unit-state` followed
+              by exactly one positional unit-name argument (e.g.,
+              `sshd.service`). Unknown subcommand → exit 2, usage
+              message on stderr.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              When invoked NOT via sudo (`EUID != 0`), the helper
+              exits 2 with a message directing the operator to the
+              sudoers fragment. Tested via fakeroot-like harness or
+              by setting `KENSA_HELPER_EUID_OVERRIDE` for the test
+              path.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Every successful operation produces an NDJSON line on
+              stdout matching the schema:
+              `{"schema_version":1, "op":"enable", "unit":"sshd.service",
+              "success":true, "job_id":42, "settled_state":"enabled",
+              "changes":[{"type":"symlink","src":"...","dst":"..."}],
+              "duration_ms":15}`
+              The helper exits 0.
+          references_constraints: [C-02, C-04]
+          priority: critical
+        - id: AC-04
+          description: |
+              Every failed operation produces an NDJSON line on
+              stdout matching the schema:
+              `{"schema_version":1, "op":"enable", "unit":"foo.service",
+              "success":false, "error":{"code":"no_such_unit",
+              "dbus_name":"org.freedesktop.systemd1.NoSuchUnit",
+              "detail":"Unit foo.service not found."}}`
+              The helper exits 1 (runtime error).
+          references_constraints: [C-02, C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              The helper subscribes to JobRemoved via
+              `dbus.Conn.Subscribe()` BEFORE invoking the method
+              (EnableUnitFiles / DisableUnitFiles / MaskUnitFiles).
+              Verified by a unit test that injects a fake
+              `dbus.Conn` recording the subscribe→invoke call
+              ordering and fails if invoke fires before subscribe.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-06
+          description: |
+              `--timeout=N` flag with default 60 seconds. When
+              JobRemoved doesn't fire within the timeout, the
+              helper emits an NDJSON line with
+              `error:{code:"timeout", "elapsed_ms":N000,
+              "waited_for_job_id":42}` and exits 1.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: |
+              `is-enabled <unit>` returns the unit's current
+              `UnitFileState` (one of `enabled`, `disabled`,
+              `masked`, `static`, `linked`, `generated`, `enabled-runtime`,
+              `transient`, `bad`, `not-found`) as the `settled_state`
+              field, no D-Bus job involved, exits 0 on any non-
+              `bad`/`not-found` result and exits 1 on
+              `bad`/`not-found`.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-08
+          description: |
+              `unit-state <unit>` returns a rich Capture-suitable
+              NDJSON object: UnitFileState + ActiveState +
+              SubState + LoadState + UnitFileLinks (the .wants /
+              .requires symlinks pointing at this unit) +
+              FragmentPath (the unit file source). Used by the
+              `service_enabled` Capture path to record the
+              pre-state for rollback.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-09
+          description: |
+              The kensa-rpm spec file installs
+              `/etc/sudoers.d/kensa-systemd-helper` with the exact
+              line in C-06 and mode 0440. Install fails if a
+              pre-existing file at that path has different
+              content (no silent overwrite of operator-customized
+              sudoers).
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-10
+          description: |
+              Helper version (matches kensa binary version, baked
+              in via `-ldflags -X main.version=...`) appears in
+              every NDJSON line as `helper_version`. The agent
+              treats this as INFORMATIONAL: on any mismatch (patch,
+              minor, or major) the agent emits a single stderr
+              warning line (`kensa: kensa-systemd-helper version
+              skew: agent=<a>, helper=<h>`) and continues. The
+              load-bearing skew check is `schema_version` (C-04):
+              if `schema_version` is not in the agent's known set
+              the operation fails closed with envelope error
+              `helper_schema_unsupported`. **Rationale** (founder
+              2026-05-13): schema_version is the contract; binary
+              version is informational. Operators legitimately
+              run mixed versions during rolling kensa-rpm /
+              kensa-systemd-helper updates; fail-closed on binary
+              version would break that workflow without buying
+              any safety the schema check doesn't already provide.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-11
+          description: |
+              D-Bus connection failure (e.g., bus socket not
+              reachable, systemd not running, container without
+              host's system bus mounted) produces NDJSON:
+              `error:{code:"dbus_unreachable", detail:"<err>"}` and
+              exits 1. This is the most likely failure mode for
+              development containers and detector probes should
+              degrade gracefully when it fires.
+          references_constraints: [C-02]
+          priority: high
+
+    tags: [agent, systemd, dbus, privilege-boundary, tier-1, option-c, helper-binary, phase-4]
