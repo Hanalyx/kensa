@@ -52,11 +52,12 @@ type propCall struct {
 
 // dbusErrFixture wraps a D-Bus wire-format error string as a
 // Go error. Used by tests that need the fixture string to match
-// the format coreos/go-systemd produces byte-for-byte. A simple
-// errors.New(...) would trip revive's error-strings lint
-// (capital letter, trailing period), but those properties are
-// exactly what makes the fixture realistic — D-Bus error
-// strings DO start with "Error " and DO end with a period.
+// the format coreos/go-systemd produces byte-for-byte. The
+// stdlib errors.New constructor would trip revive's
+// error-strings lint (no capital letter, no trailing period),
+// but those properties are exactly what makes the fixture
+// realistic — D-Bus error strings DO start with "Error " and
+// DO end with a period.
 type dbusFixtureErr struct{ msg string }
 
 func (e *dbusFixtureErr) Error() string { return e.msg }
