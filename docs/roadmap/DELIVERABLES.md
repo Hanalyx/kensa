@@ -723,7 +723,7 @@ missing-captured-mode tests for filecontent and fileabsent Rollback.
 - **Phase:** LL Phase 2 follow-up (lands BEFORE Phase 3 D-001)
 - **Deps:** Phase 2 corrected drop (merge `ef2e122`, 2026-05-11)
 - **Size:** ~½ day
-- **Status:** **pending** (ready for loop pickup)
+- **Status:** **done** (merge `02bd68d`, 2026-05-12)
 - **Scope:** Replace `KENSA_USE_AGENT=1` (opt-in) with `KENSA_NO_AGENT=1` (opt-out). Update remediate stderr disclosure, CHANGELOG, security.md §1.5, TRANSACTION_CONTRACT_V1 §2.6. Closes the Phase 2 founder-decision pending question (Q1.c ratified 2026-05-12 — agent-mode is default; direct-SSH retained as explicit fallback for environments without bootstrap).
 - **Risk:** Low. Single env-var sense flip; documented breaking change for any operator scripting against `KENSA_USE_AGENT`.
 
@@ -736,7 +736,7 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Deps:** P-011 (env-var flip lands first)
 - **Acceptance:** `Timer` type wrapping `unix.TimerfdCreate(unix.CLOCK_BOOTTIME, unix.TFD_CLOEXEC)`. Methods: `Arm(time.Duration)`, `Cancel()`, `FD()`, `Wait(ctx)`, `Close()`. Tests: fires-after-window, can-cancel, ctx-cancel, fd-readability-shape (8-byte le-uint64 expiration count).
 - **Size:** ~1-2 days
-- **Status:** **pending** (blocked on P-011)
+- **Status:** **done** (merge `f804be6`, 2026-05-12)
 - **Risk:** Low. timerfd is kernel ≥2.6.25 stable.
 
 #### D-002 — `internal/agent/deadman/pidfd/` primitive
@@ -744,7 +744,7 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Deps:** D-001 (sequencing only — independent code)
 - **Acceptance:** `ParentPidfd` type wrapping `unix.PidfdOpen(unix.Getppid(), 0)`. Probe at startup: returns sentinel error if kernel < 5.3; caller falls back to PR_SET_PDEATHSIG (D-003). Tests: fires-on-parent-exit, doesn't-fire-on-unrelated-exit, probe-detects-unsupported-kernel.
 - **Size:** ~1 day
-- **Status:** **pending** (blocked on D-001)
+- **Status:** **done** (merge `c857b93`, 2026-05-12)
 - **Risk:** Low-medium. Kernel ≥5.3 floor; probe + fallback pattern.
 
 #### D-003 — `internal/agent/deadman/signalfd/` + `prctl` wrapper
@@ -752,7 +752,7 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Deps:** D-001
 - **Acceptance:** `SignalFD` wrapping `unix.Signalfd` for SIGTERM. `SetParentDeathSignal(sig)` wrapping `unix.Prctl(unix.PR_SET_PDEATHSIG, ...)`. Tests: delivers-SIGTERM, prctl-pdeathsig-kills-orphan.
 - **Size:** ~½ day
-- **Status:** **pending** (blocked on D-001)
+- **Status:** **done** (merge `f8facf9`, 2026-05-12 — design pivot to self-pipe + signal.Notify instead of raw signalfd(2); rationale in commit body)
 - **Risk:** Low.
 
 #### D-004 — `internal/agent/deadman/eventloop/` epoll integrator
@@ -760,7 +760,7 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Deps:** D-001, D-002, D-003
 - **Acceptance:** `Loop` type. `Register(fd, handler)`, `Run(ctx) (Event, error)`. Event types: TimerFired, ParentDied, SignalReceived, ControlChannelActivity. Single-thread design (no per-fd goroutines). Tests: timer-fires-first, parent-death-wins, signal-wins, ctx-cancel.
 - **Size:** ~2-3 days
-- **Status:** **pending** (blocked on D-001/D-002/D-003)
+- **Status:** **done** (merge `0abad1b`, 2026-05-12)
 - **Risk:** Medium. Integration point flagged by the reviewer's note.
 
 #### D-005 — Agent-mode Armer rewrite (in-process deadman)
@@ -768,16 +768,16 @@ Founder ratified 2026-05-12 (PHASE-3-BREAKDOWN.md): Q1.c (keep both deadman impl
 - **Deps:** D-004
 - **Acceptance:** New `internal/agent/deadman/armer.go` + `internal/engine/deadman/` (renamed from `internal/deadman/`) Armer dispatches: agent-mode → RPC `Agent.ArmDeadman` to spawn in-process event loop; direct-SSH → existing at(1)/systemd-run shell-based path (retained per Q1.c). Cancel via `Agent.CancelDeadman` RPC. Failure-mode analysis in commit body. Two-human review.
 - **Size:** ~3-4 days
-- **Status:** **pending** (blocked on D-004)
-- **Risk:** **High.** Engine-level rollback infrastructure rewrite. Mitigations: keep shell path available; live-host integration test before merge.
+- **Status:** **done** (merge `52a0f21`, 2026-05-12 — original commit `a9d95c3` reviewed; peer review caught 3 P0s + 4 P1s; fix-up commit closes all)
+- **Risk:** **High.** Engine-level rollback infrastructure rewrite. Mitigations: keep shell path available; two-human review per CONTRIBUTING; live-host integration test deferred to D-006.
 
 #### D-006 — Fuzz harness extensions + Phase 3 close
 - **Phase:** LL Phase 3
 - **Deps:** D-005
 - **Acceptance:** `cmd/kensa-fuzz/` cases: DeadmanFiresAfterSuspend (CLOCK_BOOTTIME), DeadmanFiresAfterClockJump (does NOT fire), DeadmanFiresOnSSHKill (pidfd <200ms), DeadmanCancelStopsRollback. Docs: TRANSACTION_CONTRACT_V1 §1.1 reversibility update + security.md failure-mode list. CHANGELOG entry. Tests green on RHEL 8 (PR_SET_PDEATHSIG fallback), RHEL 9, Ubuntu 22.04, Ubuntu 24.04.
 - **Size:** ~2-3 days
-- **Status:** **pending** (blocked on D-005)
-- **Risk:** Low-medium. Test infrastructure work.
+- **Status:** **done — code-shipped; live-host execution gated on KENSA_FUZZ_HOST + KENSA_FUZZ_DEADMAN_* opt-in flags** (test scaffolding lands in `cmd/kensa-fuzz/deadman_fuzz_test.go`; founder runs against a dedicated test host when one is wired)
+- **Risk:** Low-medium. Test infrastructure work. Live-host green is the operational milestone; this deliverable ships the harness + docs in advance.
 
 ### LL Phase 3 follow-ups (post-D-006)
 

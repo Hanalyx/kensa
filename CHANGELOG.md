@@ -16,6 +16,40 @@ the canonical names; short forms are listed in
 
 ### Security
 
+- **Kernel-primitive deadman timer for control-channel-
+  sensitive remediation (Phase 3 P-011/D-001..D-006).** The
+  deadman timer — the safety net that rolls back a
+  half-applied rule if the controller-target SSH connection
+  drops mid-Apply — now uses kernel primitives instead of
+  `at(1)`/`systemd-run` scheduled shell scripts when running
+  in agent mode. The new architecture:
+  - `timerfd(CLOCK_BOOTTIME)`: counts elapsed seconds INCLUDING
+    system suspend. A laptop or VM suspended mid-Apply
+    resumes with the correct deadline (the old `at(1)` path
+    fired late or not at all because wall-clock-based
+    scheduling missed the suspended interval).
+  - `pidfd_open(getppid(), 0)`: race-free SSH-parent-death
+    detection in <200ms. The old path had no equivalent —
+    it relied on the scheduler firing on its own deadline,
+    with second-granularity latency.
+  - `signalfd` for SIGTERM (via `signal.Notify` + self-pipe
+    forwarder, the Go-runtime-friendly equivalent).
+  - `epoll_wait` single-thread event loop integrating all
+    three.
+
+  RHEL 8 kernels (<5.3) lack `pidfd_open`; the agent probes
+  at startup and falls back to
+  `prctl(PR_SET_PDEATHSIG, SIGKILL)` — the kernel SIGKILLs
+  the agent on parent death (rollback doesn't fire under
+  SIGKILL, accepted risk per Q3.a; the agent at least
+  doesn't linger orphaned).
+
+  **Direct-SSH mode retains the shell-based path** (opt-in via
+  `KENSA_NO_AGENT=1`) for environments where agent bootstrap
+  isn't viable. It does NOT gain suspend-resistance or
+  clock-jump-immunity — those properties require the
+  in-process agent-side primitives.
+
 - **Kernel-atomic file operations under agent mode (Phase 2,
   fix/phase-2-rework drop + P-011 default flip).** For the
   file-touching capturable handlers — `file_content`,

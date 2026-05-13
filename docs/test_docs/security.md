@@ -17,6 +17,20 @@ This is the founder-facing list of deliberate security exclusions in the current
 - **Risk.** A future rule that targets a symlink would fail with `fsatomic: refuses to follow symlink in path`. Today's corpus has none.
 - **Mitigation.** Typed `ErrSymlinkInPath` error gives operators a clear diagnostic; rule authors can use a stat-based check at rule design time.
 
+### 1.7 Agent-SIGKILL → no rollback fires (Phase 3 known limit)
+
+- **What.** Phase 3's in-process kernel-primitive deadman (`timerfd` + `pidfd` + `signalfd` + `epoll`) runs in the agent process. If the agent process is SIGKILLed mid-transaction (operator `kill -9`, oomkiller, kernel panic), the watcher goroutine dies and the rollback does NOT fire. The shell-based `at(1)`/`systemd-run` deadman (direct-SSH mode, opt-in via `KENSA_NO_AGENT=1`) DOES survive agent SIGKILL because the scheduled job is independent of the agent process.
+- **Risk.** Operators who SIGKILL the agent during a control-channel-sensitive Apply leave the host in an indeterminate state. Common triggers: oomkiller during memory pressure, deliberate `kill -9` to force a stuck process to exit, kernel panic.
+- **Mitigation.** Q3.a ratification (2026-05-12) accepts this trade-off: the in-process deadman's wins (suspend-resistance, clock-jump-immunity, no scheduler dependency, sub-200ms parent-death detection) outweigh the SIGKILL-survival regression. Operators preferring SIGKILL-survival can opt out via `KENSA_NO_AGENT=1`. Operationally: if a Phase 3 customer hits agent-SIGKILL mid-transaction, the engine logs "agent connection lost mid-Apply" and the operator must inspect the host manually + invoke `kensa rollback --info <txn>` for recovery.
+- **Sign-off question.** None — Q3.a is closed.
+
+### 1.8 Deadman fan-out on SIGTERM (Phase 3 intentional behavior)
+
+- **What.** Each in-flight ArmDeadman registers its own SIGTERM watcher (via `signal.Notify` + self-pipe). Go's runtime fans out a single process-level SIGTERM to every registered channel, so N concurrent armed transactions all wake and all N rollback scripts execute. This is fail-safe-closed behavior: SIGTERM means "the agent is being asked to die," so any in-flight transaction must roll back before the agent exits.
+- **Risk.** A successful Apply whose Cancel hasn't yet arrived from the controller (Cancel-in-flight window) will be rolled back if SIGTERM fires during that window. False-positive rollback.
+- **Mitigation.** Operationally recoverable: re-apply the rule. Evidence envelopes record the rollback source as "deadman-fired-on-signal" so audit reviewers can distinguish false-positive (race) from true-positive (controller died mid-Apply). The alternative (silent exit, no rollback) would leave hosts in indeterminate state with no recovery path — strictly worse.
+- **Sign-off question.** None — design decision documented in `internal/agent/deadman/armer.go` package doc-comment.
+
 ### ~~1. Evidence envelopes are unsigned~~ — RESOLVED 2026-05-10 (M-012 + C-060)
 
 - **Status.** Closed. M-012 shipped the Ed25519 signer primitive (`internal/evidence/Ed25519Signer` + `cmd/kensa-keygen/`). C-060 wired it through the engine, deleted `noopSigner`, and added `kensa verify <evidence-file>` for auditor validation.
