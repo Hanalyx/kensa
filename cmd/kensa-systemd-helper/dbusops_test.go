@@ -47,6 +47,33 @@ type fakeConn struct {
 	maskErr     error
 	maskCalls   int
 
+	// StartUnitContext + StopUnitContext (D-011)
+	// startCh / stopCh capture the channel argument so tests
+	// can assert spec C-03's "channel non-nil at invocation"
+	// requirement. startResult / stopResult drive the
+	// asynchronous JobRemoved signal — the fake spawns a goroutine
+	// on invocation that sends startResult to startCh after a
+	// short delay, mimicking systemd's JobRemoved dispatch.
+	// Setting startResultDelay = -1 suppresses the signal
+	// entirely so tests can exercise the ctx-timeout path.
+	startName        string
+	startMode        string
+	startCh          chan<- string
+	startCalls       int
+	startJobID       int
+	startErr         error
+	startResult      string
+	startResultDelay time.Duration
+
+	stopName        string
+	stopMode        string
+	stopCh          chan<- string
+	stopCalls       int
+	stopJobID       int
+	stopErr         error
+	stopResult      string
+	stopResultDelay time.Duration
+
 	// GetUnitPropertyContext
 	propResponses map[string]*dbus.Property
 	propErr       error
@@ -106,6 +133,67 @@ func (f *fakeConn) MaskUnitFilesContext(_ context.Context, files []string, runti
 	f.maskRuntime = runtime
 	f.maskForce = force
 	return f.maskChanges, f.maskErr
+}
+
+// StartUnitContext records the call AND spawns a goroutine
+// that delivers the simulated JobRemoved result to ch after
+// startResultDelay. This is the test seam for AC-05's
+// subscribe-before-invoke contract: the channel MUST be
+// non-nil at this point or the goroutine's send would panic
+// (sending to nil channel blocks forever; we assert non-nil
+// at top so the fake errors loudly on the wrong call shape).
+func (f *fakeConn) StartUnitContext(_ context.Context, name, mode string, ch chan<- string) (int, error) {
+	f.mu.Lock()
+	f.startCalls++
+	f.startName = name
+	f.startMode = mode
+	f.startCh = ch
+	jobID := f.startJobID
+	err := f.startErr
+	result := f.startResult
+	delay := f.startResultDelay
+	f.mu.Unlock()
+
+	if err != nil {
+		return 0, err
+	}
+	if ch != nil && delay >= 0 {
+		go func() {
+			if delay > 0 {
+				time.Sleep(delay)
+			}
+			// Buffered chan capacity 1; send won't block.
+			ch <- result
+		}()
+	}
+	return jobID, nil
+}
+
+// StopUnitContext mirrors StartUnitContext.
+func (f *fakeConn) StopUnitContext(_ context.Context, name, mode string, ch chan<- string) (int, error) {
+	f.mu.Lock()
+	f.stopCalls++
+	f.stopName = name
+	f.stopMode = mode
+	f.stopCh = ch
+	jobID := f.stopJobID
+	err := f.stopErr
+	result := f.stopResult
+	delay := f.stopResultDelay
+	f.mu.Unlock()
+
+	if err != nil {
+		return 0, err
+	}
+	if ch != nil && delay >= 0 {
+		go func() {
+			if delay > 0 {
+				time.Sleep(delay)
+			}
+			ch <- result
+		}()
+	}
+	return jobID, nil
 }
 
 func (f *fakeConn) GetUnitPropertyContext(_ context.Context, unit, name string) (*dbus.Property, error) {
@@ -427,6 +515,251 @@ func TestUnitState_DBusError(t *testing.T) {
 	}
 }
 
+// ─── start / stop + JobRemoved (D-011) ────────────────────────────
+
+// TestStart_Done: happy path — StartUnit succeeds, systemd
+// JobRemoved signals "done" → exit 0, success:true, job_result
+// populated.
+//
+// @spec agent-systemd-helper
+// @ac AC-03
+func TestStart_Done(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-03", func(t *testing.T) {})
+	fc := &fakeConn{
+		startJobID:  42,
+		startResult: "done",
+		// startResultDelay 0 → send completion immediately
+		// after the method returns (but the goroutine still
+		// runs concurrently, exercising the channel-receive
+		// pattern).
+		startResultDelay: 0,
+		propResponses: map[string]*dbus.Property{
+			"UnitFileState": makeStringProp("enabled"),
+		},
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "start", "sshd.service")
+	if exit != 0 {
+		t.Errorf("exit got %d, want 0", exit)
+	}
+	if !resp.Success {
+		t.Error("Success should be true")
+	}
+	if resp.JobID != 42 {
+		t.Errorf("JobID got %d, want 42", resp.JobID)
+	}
+	if resp.JobResult != "done" {
+		t.Errorf("JobResult got %q, want done", resp.JobResult)
+	}
+	if fc.startName != "sshd.service" {
+		t.Errorf("startName got %q", fc.startName)
+	}
+	if fc.startMode != "replace" {
+		t.Errorf("startMode got %q, want replace", fc.startMode)
+	}
+}
+
+// TestStart_AllFailureCompletions walks systemd's five
+// non-success JobRemoved result strings. All five should produce
+// exit 1 with a typed error code derived from the completion
+// string.
+//
+// @spec agent-systemd-helper
+// @ac AC-04
+func TestStart_AllFailureCompletions(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
+	for _, result := range []string{"canceled", "timeout", "failed", "dependency", "skipped"} {
+		t.Run(result, func(t *testing.T) {
+			fc := &fakeConn{
+				startJobID:       100,
+				startResult:      result,
+				startResultDelay: 0,
+			}
+			withFakeConn(t, fc, nil)
+			exit, resp, _ := dispatchHelper(t, "start", "x.service")
+			if exit != 1 {
+				t.Errorf("%s: exit got %d, want 1", result, exit)
+			}
+			if resp.Success {
+				t.Errorf("%s: Success should be false", result)
+			}
+			if resp.Error == nil {
+				t.Fatalf("%s: Error block should be set", result)
+			}
+			wantCode := "job_" + result
+			if resp.Error.Code != wantCode {
+				t.Errorf("%s: error.code got %q, want %q", result, resp.Error.Code, wantCode)
+			}
+		})
+	}
+}
+
+// TestStart_ChannelNonNil_BeforeInvoke locks spec C-03 / AC-05:
+// the JobRemoved channel MUST be passed non-nil to
+// StartUnitContext. The coreos/go-systemd library registers
+// the channel against the job path atomically with the method
+// call; passing nil would leave the job's completion signal
+// nowhere to land and runStart would block until ctx-timeout
+// even on instantaneous jobs.
+//
+// @spec agent-systemd-helper
+// @ac AC-05
+func TestStart_ChannelNonNil_BeforeInvoke(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-05", func(t *testing.T) {})
+	fc := &fakeConn{
+		startJobID:       7,
+		startResult:      "done",
+		startResultDelay: 0,
+	}
+	withFakeConn(t, fc, nil)
+	exit, _, _ := dispatchHelper(t, "start", "x.service")
+	if exit != 0 {
+		t.Errorf("happy path: exit got %d, want 0", exit)
+	}
+	if fc.startCh == nil {
+		t.Error("C-03 violation: StartUnitContext was called with a nil channel; subscribe-before-invoke contract requires a non-nil channel at the invocation site so coreos/go-systemd can register the channel against the job path atomically")
+	}
+	if fc.startCalls != 1 {
+		t.Errorf("StartUnitContext should be called exactly once; got %d", fc.startCalls)
+	}
+}
+
+// TestStart_FastCompletionNotLost: simulate a job that
+// completes BEFORE runStart's select wakes up. The send to the
+// channel must not be lost — that's why we use a buffered
+// channel (capacity 1) per the runJobUnit doc comment.
+//
+// Mechanism: startResultDelay=0 means the fake's goroutine
+// sends to ch immediately upon return from StartUnitContext.
+// The buffered channel holds the value until runStart's select
+// runs.
+//
+// @spec agent-systemd-helper
+// @ac AC-05
+func TestStart_FastCompletionNotLost(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-05", func(t *testing.T) {})
+	fc := &fakeConn{
+		startJobID:       9,
+		startResult:      "done",
+		startResultDelay: 0,
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "start", "x.service")
+	if exit != 0 {
+		t.Errorf("fast completion: exit got %d, want 0", exit)
+	}
+	if resp.JobResult != "done" {
+		t.Errorf("fast completion: JobResult got %q (the signal was lost — channel must be buffered)", resp.JobResult)
+	}
+}
+
+// TestStart_TimeoutWhenJobNeverCompletes: the fake suppresses
+// the JobRemoved signal (startResultDelay = -1) so runStart
+// blocks on the channel until ctx.Done() fires. Should emit
+// a timeout NDJSON envelope and exit 1.
+//
+// @spec agent-systemd-helper
+// @ac AC-06
+func TestStart_TimeoutWhenJobNeverCompletes(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-06", func(t *testing.T) {})
+	fc := &fakeConn{
+		startJobID:       11,
+		startResult:      "done",
+		startResultDelay: -1, // never send
+	}
+	withFakeConn(t, fc, nil)
+	// dispatchHelper uses a 5-second timeout. We override here
+	// to keep the test fast.
+	var stdout, stderr bytes.Buffer
+	exit := realDispatch(context.Background(), "start", "x.service", 100*time.Millisecond, &stdout, &stderr)
+	if exit != 1 {
+		t.Errorf("timeout: exit got %d, want 1", exit)
+	}
+	resp := parseSingleNDJSON(t, stdout.String())
+	if resp.Success {
+		t.Error("Success should be false on timeout")
+	}
+	if resp.Error == nil || resp.Error.Code != "timeout" {
+		t.Errorf("expected error.code=timeout; got %+v", resp.Error)
+	}
+	if resp.JobID != 11 {
+		t.Errorf("JobID got %d, want 11 (job was enqueued before timeout)", resp.JobID)
+	}
+}
+
+// TestStart_DBusError: StartUnitContext returns an error
+// (e.g., NoSuchUnit) → exit 1 with typed error, no channel
+// wait.
+//
+// @spec agent-systemd-helper
+// @ac AC-04
+func TestStart_DBusError(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-04", func(t *testing.T) {})
+	fc := &fakeConn{
+		startErr: dbusErrFixture(`Error org.freedesktop.systemd1.NoSuchUnit: Unit missing.service not found.`),
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "start", "missing.service")
+	if exit != 1 {
+		t.Errorf("exit got %d, want 1", exit)
+	}
+	if resp.Error == nil || resp.Error.Code != "no_such_unit" {
+		t.Errorf("expected no_such_unit; got %+v", resp.Error)
+	}
+}
+
+// TestStop_Done: symmetric with TestStart_Done. StopUnit
+// happy path.
+//
+// @spec agent-systemd-helper
+// @ac AC-03
+func TestStop_Done(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-03", func(t *testing.T) {})
+	fc := &fakeConn{
+		stopJobID:       43,
+		stopResult:      "done",
+		stopResultDelay: 0,
+		propResponses: map[string]*dbus.Property{
+			"UnitFileState": makeStringProp("enabled"),
+		},
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "stop", "sshd.service")
+	if exit != 0 {
+		t.Errorf("exit got %d, want 0", exit)
+	}
+	if !resp.Success {
+		t.Error("Success should be true")
+	}
+	if resp.JobID != 43 {
+		t.Errorf("JobID got %d, want 43", resp.JobID)
+	}
+	if fc.stopName != "sshd.service" {
+		t.Errorf("stopName got %q", fc.stopName)
+	}
+}
+
+// TestStop_ChannelNonNil locks spec C-03 for the stop path.
+//
+// @spec agent-systemd-helper
+// @ac AC-05
+func TestStop_ChannelNonNil(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-05", func(t *testing.T) {})
+	fc := &fakeConn{
+		stopJobID:       8,
+		stopResult:      "done",
+		stopResultDelay: 0,
+	}
+	withFakeConn(t, fc, nil)
+	exit, _, _ := dispatchHelper(t, "stop", "x.service")
+	if exit != 0 {
+		t.Errorf("exit got %d, want 0", exit)
+	}
+	if fc.stopCh == nil {
+		t.Error("C-03 violation: StopUnitContext was called with a nil channel")
+	}
+}
+
 // ─── dbus_unreachable ─────────────────────────────────────────────
 
 // TestDBusUnreachable: connFactoryHook returns an error →
@@ -437,7 +770,7 @@ func TestUnitState_DBusError(t *testing.T) {
 func TestDBusUnreachable(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-11", func(t *testing.T) {})
 	openErr := errors.New("dial unix /run/dbus/system_bus_socket: no such file or directory")
-	for _, op := range []string{"enable", "disable", "mask", "is-enabled", "unit-state"} {
+	for _, op := range []string{"enable", "disable", "mask", "start", "stop", "is-enabled", "unit-state"} {
 		t.Run(op, func(t *testing.T) {
 			withFakeConn(t, nil, openErr)
 			exit, resp, _ := dispatchHelper(t, op, "x.service")

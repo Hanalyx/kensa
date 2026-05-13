@@ -94,10 +94,24 @@ spec:
               becoming a vector for output-confusion attacks.
           type: security
           enforcement: error
-        # Constraint C-03 (JobRemoved subscribe-before-invoke
-        # ordering) deferred alongside AC-05 — see "Deferred ACs"
-        # block below. Re-introduced in D-008 when the real D-Bus
-        # implementation lands.
+        - id: C-03
+          description: |
+              For job-producing D-Bus methods (StartUnit,
+              StopUnit, and any future RestartUnit /
+              ReloadUnit), the helper MUST pass a non-nil
+              completion channel to the method at the call
+              site. The coreos/go-systemd library registers
+              this channel against the resulting job path
+              ATOMICALLY with the method call (jobListener
+              mutex held across both operations). Passing nil
+              would leave the JobRemoved signal nowhere to
+              land — the helper would block on the channel
+              wait until --timeout fires even on
+              instantaneous jobs, surfacing as a false
+              timeout failure to the operator.
+              **D-011 (2026-05-13)**: un-deferred and locked.
+          type: technical
+          enforcement: error
         - id: C-04
           description: |
               Every NDJSON output line MUST include a
@@ -206,6 +220,24 @@ spec:
           references_constraints: [C-04]
           priority: high
 
+        - id: AC-05
+          description: |
+              For job-producing operations (start, stop), the
+              helper passes a non-nil `chan<- string` to the
+              underlying D-Bus method (StartUnitContext /
+              StopUnitContext). The buffered channel
+              (capacity 1) holds the JobRemoved completion
+              signal — `done` / `canceled` / `timeout` /
+              `failed` / `dependency` / `skipped`. Verified
+              by a fakeConn test that asserts:
+              (a) the channel passed to the method is non-nil,
+              (b) the channel is buffered (so a fast-completing
+              job's signal is not dropped between method-return
+              and the consumer's select),
+              (c) the helper's select waits for either the
+              channel signal or ctx.Done() (timeout path).
+          references_constraints: [C-03]
+          priority: critical
         - id: AC-07
           description: |
               `is-enabled <unit>` returns the unit's current
@@ -245,16 +277,6 @@ spec:
     # the deliverable that locks them ships. Re-introduce by
     # uncommenting + restoring the matching constraint.
     #
-    #   - AC-05 (JobRemoved subscribe-before-invoke ordering):
-    #     The "subscribe before invoke" guard is for
-    #     *job-producing* D-Bus methods (StartUnit, StopUnit,
-    #     RestartUnit). EnableUnitFiles / DisableUnitFiles /
-    #     MaskUnitFiles are all SYNCHRONOUS in systemd's D-Bus
-    #     API — they return when the filesystem effect is
-    #     complete; no job is created. AC-05 stays deferred
-    #     through all of Phase 4. Re-introduce when (and if)
-    #     a v1.x deliverable adds StartUnit-style operations.
-    #     Companion constraint C-03 deferred above.
     #   - AC-09 (kensa-rpm sudoers fragment install): Requires
     #     the kensa-rpm spec file deliverable (currently
     #     post-D-011, tracked under v1.0 packaging). Companion

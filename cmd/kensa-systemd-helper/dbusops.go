@@ -29,6 +29,8 @@ type systemdConn interface {
 	EnableUnitFilesContext(ctx context.Context, files []string, runtime, force bool) (bool, []dbus.EnableUnitFileChange, error)
 	DisableUnitFilesContext(ctx context.Context, files []string, runtime bool) ([]dbus.DisableUnitFileChange, error)
 	MaskUnitFilesContext(ctx context.Context, files []string, runtime, force bool) ([]dbus.MaskUnitFileChange, error)
+	StartUnitContext(ctx context.Context, name, mode string, ch chan<- string) (int, error)
+	StopUnitContext(ctx context.Context, name, mode string, ch chan<- string) (int, error)
 	GetUnitPropertyContext(ctx context.Context, unit, propertyName string) (*dbus.Property, error)
 	GetUnitPropertiesContext(ctx context.Context, unit string) (map[string]any, error)
 	Close()
@@ -94,6 +96,10 @@ func realDispatch(ctx context.Context, op, unit string, timeout time.Duration, s
 		return runDisable(callCtx, conn, unit, stdout)
 	case "mask":
 		return runMask(callCtx, conn, unit, stdout)
+	case "start":
+		return runStart(callCtx, conn, unit, stdout)
+	case "stop":
+		return runStop(callCtx, conn, unit, stdout)
 	case "is-enabled":
 		return runIsEnabled(callCtx, conn, unit, stdout)
 	case "unit-state":
@@ -196,6 +202,140 @@ func runMask(ctx context.Context, conn systemdConn, unit string, stdout io.Write
 	}
 	writeNDJSON(stdout, &resp)
 	return 0
+}
+
+// runStart invokes StartUnitContext using the channel-based
+// JobRemoved synchronization that coreos/go-systemd provides
+// natively. D-011 deliverable; first job-producing operation
+// in the helper (un-defers spec AC-05 / C-03).
+//
+// **JobRemoved synchronization (spec C-03).** Per the
+// coreos/go-systemd contract, the channel passed to
+// StartUnitContext is registered against the resulting job
+// path BEFORE the D-Bus method returns. The library holds the
+// jobListener mutex across the method call + channel
+// registration, and the signal handler that dispatches
+// JobRemoved to channels acquires the same mutex; this gives
+// "subscribe before signal delivery" atomically. Test fixtures
+// verify the channel is non-nil at the method invocation site
+// (the structural shape that locks the contract).
+//
+// Mode is "replace": start the unit and its dependencies,
+// possibly replacing queued conflicting jobs. Matches the
+// historical `systemctl start <unit>` behavior.
+//
+// Result string is one of: done, canceled, timeout, failed,
+// dependency, skipped. Only "done" is treated as Apply success.
+func runStart(ctx context.Context, conn systemdConn, unit string, stdout io.Writer) int {
+	return runJobUnit(ctx, conn, "start", unit, conn.StartUnitContext, stdout)
+}
+
+// runStop invokes StopUnitContext with the same JobRemoved
+// synchronization pattern as runStart. Symmetric apart from the
+// underlying D-Bus method.
+func runStop(ctx context.Context, conn systemdConn, unit string, stdout io.Writer) int {
+	return runJobUnit(ctx, conn, "stop", unit, conn.StopUnitContext, stdout)
+}
+
+// jobMethod is the function-pointer shape shared by
+// StartUnitContext and StopUnitContext. Used by runJobUnit to
+// avoid duplicating the channel-creation + select logic.
+type jobMethod func(ctx context.Context, name, mode string, ch chan<- string) (int, error)
+
+// runJobUnit is the shared job-producing-D-Bus-op routine. Both
+// runStart and runStop call this with their respective method
+// references. Centralizes the channel lifecycle so the AC-05
+// "channel created before invocation" contract is implemented
+// in exactly one place — no two-implementation drift risk.
+func runJobUnit(ctx context.Context, conn systemdConn, op, unit string, method jobMethod, stdout io.Writer) int {
+	start := time.Now()
+
+	// Create the JobRemoved channel BEFORE invoking the method
+	// (spec C-03). The channel must exist at the method
+	// invocation site so coreos/go-systemd can register it
+	// against the resulting job path atomically — passing nil
+	// here would mean the job's completion signal has nowhere
+	// to land, so the wait below would block until ctx-timeout
+	// even on instantaneous jobs.
+	//
+	// Buffered to 1 so a fast-completing job (signal arrives
+	// while we're still constructing the response above) is
+	// not dropped — if the channel were unbuffered, the signal
+	// handler might send and discard before we read.
+	jobCh := make(chan string, 1)
+
+	jobID, err := method(ctx, unit, "replace", jobCh)
+	if err != nil {
+		emitDBusOpError(op, unit, err, stdout)
+		return 1
+	}
+
+	// Wait for JobRemoved or context timeout. The helper's
+	// --timeout flag (default 60s) is applied via the WithTimeout
+	// context wrapper in realDispatch; ctx.Done() fires when the
+	// deadline passes.
+	var result string
+	select {
+	case result = <-jobCh:
+		// got the completion signal
+	case <-ctx.Done():
+		emitJobTimeout(op, unit, jobID, time.Since(start), stdout)
+		return 1
+	}
+
+	settled := readUnitFileState(ctx, conn, unit)
+
+	// Apply success is conditional on "done". The other five
+	// completion strings (canceled, timeout, failed, dependency,
+	// skipped) all indicate the job did not finish cleanly; the
+	// kensa engine should treat any of these as Apply failure
+	// and trigger rollback.
+	success := result == "done"
+	resp := response{
+		SchemaVersion: schemaVersion,
+		HelperVersion: version,
+		Op:            op,
+		Unit:          unit,
+		Success:       success,
+		JobID:         uint32(jobID),
+		SettledState:  settled,
+		DurationMs:    time.Since(start).Milliseconds(),
+	}
+	if success {
+		resp.JobResult = result
+	} else {
+		resp.Error = &errorBlock{
+			Code:   "job_" + result,
+			Detail: fmt.Sprintf("systemd %s job for %s completed with result %q", op, unit, result),
+		}
+	}
+	writeNDJSON(stdout, &resp)
+	if success {
+		return 0
+	}
+	return 1
+}
+
+// emitJobTimeout writes the AC-05 timeout NDJSON envelope:
+// the helper waited for JobRemoved but ctx.Done() fired first.
+// Spec C-05's timeout semantics: a stuck systemd job MUST
+// surface as a typed failure within bounded time rather than
+// hang the agent indefinitely.
+func emitJobTimeout(op, unit string, jobID int, elapsed time.Duration, stdout io.Writer) {
+	resp := response{
+		SchemaVersion: schemaVersion,
+		HelperVersion: version,
+		Op:            op,
+		Unit:          unit,
+		Success:       false,
+		JobID:         uint32(jobID),
+		DurationMs:    elapsed.Milliseconds(),
+		Error: &errorBlock{
+			Code:   "timeout",
+			Detail: fmt.Sprintf("waited %dms for JobRemoved signal on job %d; --timeout exceeded", elapsed.Milliseconds(), jobID),
+		},
+	}
+	writeNDJSON(stdout, &resp)
 }
 
 // runIsEnabled reads the unit's UnitFileState property. Per
