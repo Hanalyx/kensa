@@ -14,7 +14,12 @@ import (
 // runs on (modern Linux), ProbeSupport returns nil. The
 // ENOSYS branch is unreachable here; that path is verified
 // via inspection of the probe code rather than a mock.
+//
+// @spec deadman-pidfd
+// @ac AC-01
 func TestPidfd_ProbeSupport(t *testing.T) {
+	t.Log("// @spec deadman-pidfd")
+	t.Log("// @ac AC-01")
 	if err := ProbeSupport(); err != nil {
 		if errors.Is(err, ErrKernelTooOld) {
 			t.Skip("kernel < 5.3 — pidfd_open unsupported, skipping rest of suite")
@@ -24,7 +29,12 @@ func TestPidfd_ProbeSupport(t *testing.T) {
 }
 
 // TestPidfd_FiresOnProcessExit: AC-02.
+//
+// @spec deadman-pidfd
+// @ac AC-02
 func TestPidfd_FiresOnProcessExit(t *testing.T) {
+	t.Log("// @spec deadman-pidfd")
+	t.Log("// @ac AC-02")
 	if err := ProbeSupport(); err != nil {
 		t.Skip("ProbeSupport failed:", err)
 	}
@@ -61,7 +71,12 @@ func TestPidfd_FiresOnProcessExit(t *testing.T) {
 }
 
 // TestPidfd_DoesNotFireOnUnrelatedExit: AC-03.
+//
+// @spec deadman-pidfd
+// @ac AC-03
 func TestPidfd_DoesNotFireOnUnrelatedExit(t *testing.T) {
+	t.Log("// @spec deadman-pidfd")
+	t.Log("// @ac AC-03")
 	if err := ProbeSupport(); err != nil {
 		t.Skip("ProbeSupport failed:", err)
 	}
@@ -105,7 +120,12 @@ func TestPidfd_DoesNotFireOnUnrelatedExit(t *testing.T) {
 }
 
 // TestPidfd_ContextCancel: AC-04.
+//
+// @spec deadman-pidfd
+// @ac AC-04
 func TestPidfd_ContextCancel(t *testing.T) {
+	t.Log("// @spec deadman-pidfd")
+	t.Log("// @ac AC-04")
 	if err := ProbeSupport(); err != nil {
 		t.Skip("ProbeSupport failed:", err)
 	}
@@ -138,7 +158,12 @@ func TestPidfd_ContextCancel(t *testing.T) {
 }
 
 // TestPidfd_CloseIdempotent: AC-05.
+//
+// @spec deadman-pidfd
+// @ac AC-05
 func TestPidfd_CloseIdempotent(t *testing.T) {
+	t.Log("// @spec deadman-pidfd")
+	t.Log("// @ac AC-05")
 	if err := ProbeSupport(); err != nil {
 		t.Skip("ProbeSupport failed:", err)
 	}

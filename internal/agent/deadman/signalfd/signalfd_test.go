@@ -13,7 +13,12 @@ import (
 )
 
 // TestSignalfd_DeliversSIGTERM locks AC-01.
+//
+// @spec deadman-signalfd
+// @ac AC-01
 func TestSignalfd_DeliversSIGTERM(t *testing.T) {
+	t.Log("// @spec deadman-signalfd")
+	t.Log("// @ac AC-01")
 	// Use SIGUSR1 instead of SIGTERM to avoid disturbing
 	// the test runner (Go's test harness sometimes installs
 	// SIGTERM handlers; SIGUSR1 is the safe canary).
@@ -42,7 +47,12 @@ func TestSignalfd_DeliversSIGTERM(t *testing.T) {
 }
 
 // TestSignalfd_ContextCancel locks AC-02.
+//
+// @spec deadman-signalfd
+// @ac AC-02
 func TestSignalfd_ContextCancel(t *testing.T) {
+	t.Log("// @spec deadman-signalfd")
+	t.Log("// @ac AC-02")
 	s, err := New(unix.SIGUSR2)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +76,12 @@ func TestSignalfd_ContextCancel(t *testing.T) {
 // is stopped (default disposition restored). Hard to verify
 // directly without sending the signal — instead verify the
 // goroutine exit + idempotent close.
+//
+// @spec deadman-signalfd
+// @ac AC-03
 func TestSignalfd_CloseIdempotent(t *testing.T) {
+	t.Log("// @spec deadman-signalfd")
+	t.Log("// @ac AC-03")
 	s, err := New(unix.SIGUSR1)
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +143,12 @@ func TestSignalfd_SignalAccessor(t *testing.T) {
 // TestPrctl_SetReturnsNoError locks AC-04 — SetParentDeathSignal
 // returns nil on a supported kernel. The end-to-end fork-and-
 // kill test is scoped to D-006's fuzz harness.
+//
+// @spec deadman-signalfd
+// @ac AC-04
 func TestPrctl_SetReturnsNoError(t *testing.T) {
+	t.Log("// @spec deadman-signalfd")
+	t.Log("// @ac AC-04")
 	if err := SetParentDeathSignal(unix.SIGKILL); err != nil {
 		t.Errorf("SetParentDeathSignal(SIGKILL): %v", err)
 	}

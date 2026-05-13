@@ -21,7 +21,12 @@ import (
 // TestEventLoop_TimerFiresFirst locks AC-01: a 100ms timer
 // fires before a long-running pidfd → Loop.Run returns
 // EventTimer.
+//
+// @spec deadman-eventloop
+// @ac AC-01
 func TestEventLoop_TimerFiresFirst(t *testing.T) {
+	t.Log("// @spec deadman-eventloop")
+	t.Log("// @ac AC-01")
 	if err := pidfd.ProbeSupport(); err != nil {
 		t.Skip("pidfd unsupported:", err)
 	}
@@ -80,7 +85,12 @@ func TestEventLoop_TimerFiresFirst(t *testing.T) {
 }
 
 // TestEventLoop_ParentDeathWins locks AC-02.
+//
+// @spec deadman-eventloop
+// @ac AC-02
 func TestEventLoop_ParentDeathWins(t *testing.T) {
+	t.Log("// @spec deadman-eventloop")
+	t.Log("// @ac AC-02")
 	if err := pidfd.ProbeSupport(); err != nil {
 		t.Skip("pidfd unsupported:", err)
 	}
@@ -136,7 +146,12 @@ func TestEventLoop_ParentDeathWins(t *testing.T) {
 }
 
 // TestEventLoop_SignalWins locks AC-03.
+//
+// @spec deadman-eventloop
+// @ac AC-03
 func TestEventLoop_SignalWins(t *testing.T) {
+	t.Log("// @spec deadman-eventloop")
+	t.Log("// @ac AC-03")
 	tm, err := timerfd.New()
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +193,12 @@ func TestEventLoop_SignalWins(t *testing.T) {
 }
 
 // TestEventLoop_CtxCancel locks AC-04.
+//
+// @spec deadman-eventloop
+// @ac AC-04
 func TestEventLoop_CtxCancel(t *testing.T) {
+	t.Log("// @spec deadman-eventloop")
+	t.Log("// @ac AC-04")
 	tm, err := timerfd.New()
 	if err != nil {
 		t.Fatal(err)
@@ -206,7 +226,12 @@ func TestEventLoop_CtxCancel(t *testing.T) {
 }
 
 // TestEventLoop_ConcurrentClose locks AC-05.
+//
+// @spec deadman-eventloop
+// @ac AC-05
 func TestEventLoop_ConcurrentClose(t *testing.T) {
+	t.Log("// @spec deadman-eventloop")
+	t.Log("// @ac AC-05")
 	tm, err := timerfd.New()
 	if err != nil {
 		t.Fatal(err)

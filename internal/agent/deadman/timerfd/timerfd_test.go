@@ -13,7 +13,12 @@ import (
 )
 
 // TestTimerfd_FiresAfterWindow locks AC-01.
+//
+// @spec deadman-timerfd
+// @ac AC-01
 func TestTimerfd_FiresAfterWindow(t *testing.T) {
+	t.Log("// @spec deadman-timerfd")
+	t.Log("// @ac AC-01")
 	tm, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +44,12 @@ func TestTimerfd_FiresAfterWindow(t *testing.T) {
 // TestTimerfd_CanCancel locks AC-02. Cancel does NOT unblock
 // a pending Wait per the documented contract — caller must
 // use ctx to abort.
+//
+// @spec deadman-timerfd
+// @ac AC-02
 func TestTimerfd_CanCancel(t *testing.T) {
+	t.Log("// @spec deadman-timerfd")
+	t.Log("// @ac AC-02")
 	tm, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +72,12 @@ func TestTimerfd_CanCancel(t *testing.T) {
 }
 
 // TestTimerfd_ContextCancel locks AC-03.
+//
+// @spec deadman-timerfd
+// @ac AC-03
 func TestTimerfd_ContextCancel(t *testing.T) {
+	t.Log("// @spec deadman-timerfd")
+	t.Log("// @ac AC-03")
 	tm, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +106,12 @@ func TestTimerfd_ContextCancel(t *testing.T) {
 
 // TestTimerfd_RejectsZeroDuration locks AC-04 + the
 // negative-boundary case (-1ns).
+//
+// @spec deadman-timerfd
+// @ac AC-04
 func TestTimerfd_RejectsZeroDuration(t *testing.T) {
+	t.Log("// @spec deadman-timerfd")
+	t.Log("// @ac AC-04")
 	tm, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +128,12 @@ func TestTimerfd_RejectsZeroDuration(t *testing.T) {
 
 // TestTimerfd_FDReadShape locks AC-05. Bumped the sleep to
 // 200ms (was 50ms) so this stays reliable on loaded CI.
+//
+// @spec deadman-timerfd
+// @ac AC-05
 func TestTimerfd_FDReadShape(t *testing.T) {
+	t.Log("// @spec deadman-timerfd")
+	t.Log("// @ac AC-05")
 	tm, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +160,12 @@ func TestTimerfd_FDReadShape(t *testing.T) {
 }
 
 // TestTimerfd_CloseIdempotent locks AC-06.
+//
+// @spec deadman-timerfd
+// @ac AC-06
 func TestTimerfd_CloseIdempotent(t *testing.T) {
+	t.Log("// @spec deadman-timerfd")
+	t.Log("// @ac AC-06")
 	tm, err := New()
 	if err != nil {
 		t.Fatal(err)
