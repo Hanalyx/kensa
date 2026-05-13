@@ -159,6 +159,18 @@ var probes = []probe{
 		"ubuntu_advantage",
 		`command -v ua >/dev/null 2>&1 || command -v pro >/dev/null 2>&1`,
 	},
+	// systemd_dbus is true when (a) systemd is the init system,
+	// (b) the system D-Bus socket exists, AND (c) the
+	// kensa-systemd-helper binary is installed at the FHS path.
+	// Phase 4 D-008. The probe runs as the SSH user (kensa-svc);
+	// the helper does the actual privileged D-Bus call via sudo.
+	// All three conditions must hold for the agent-mode D-Bus
+	// path to be exercisable; if any is false, handlers fall
+	// back to their direct-SSH shell-out path.
+	{
+		"systemd_dbus",
+		`[ -S /run/dbus/system_bus_socket ] && [ -x /usr/libexec/kensa-systemd-helper ] && systemctl --version >/dev/null 2>&1`,
+	},
 }
 
 // Detect runs all capability probes against the host reachable via

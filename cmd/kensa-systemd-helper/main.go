@@ -70,6 +70,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -178,23 +179,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 // responsible for emitting EXACTLY one NDJSON line on stdout and
 // returning the desired exit code (0 success, 1 runtime).
 //
-// D-007 scaffolding: every handler currently emits a
-// `not_yet_implemented` envelope error. D-008..D-010 replace
-// these with real D-Bus calls.
+// D-008 wires enable / is-enabled / unit-state to real D-Bus
+// calls in dbusops.go. The disable / mask subcommands still emit
+// not_yet_implemented until D-009 / D-010 fill them in.
 func dispatch(op, unit string, timeout time.Duration, stdout, stderr io.Writer) int {
-	_ = timeout // wired through but unused until D-008
-	switch op {
-	case "enable", "disable", "mask", "is-enabled", "unit-state":
-		return emitNotYetImplemented(op, unit, stdout)
-	default:
-		// Unreachable — main already filtered unknown subcommands.
-		// Defense-in-depth: a future maintainer adding a new
-		// subcommand to the main switch without wiring it here
-		// gets a clean runtime error rather than a panic.
-		fmt.Fprintf(stderr,
-			"kensa-systemd-helper: dispatch missing case for %q (build bug)\n", op)
-		return 1
-	}
+	return realDispatch(context.Background(), op, unit, timeout, stdout, stderr)
 }
 
 // emitNotYetImplemented produces the D-007 stub response: NDJSON
