@@ -12,7 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// @spec output-text-scan
+// @ac AC-01
 func TestTextCapsWriter(t *testing.T) {
+	t.Run("output-text-scan/AC-01", func(t *testing.T) {})
 	caps := api.CapabilitySet{
 		"selinux":   true,
 		"firewalld": true,
@@ -40,7 +43,10 @@ func TestTextCapsWriter(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-02
 func TestTextScanWriter(t *testing.T) {
+	t.Run("output-text-scan/AC-02", func(t *testing.T) {})
 	// C-022 layout: FAILED/WARN/PASSED grouped, host banner first,
 	// summary line at the bottom.
 	rules := []*api.Rule{
@@ -88,7 +94,10 @@ func TestTextScanWriter(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-03
 func TestTextScanWriter_TruncatesLongDetail(t *testing.T) {
+	t.Run("output-text-scan/AC-03", func(t *testing.T) {})
 	long := strings.Repeat("a", 200)
 	result := &api.ScanResult{
 		HostID: "h",
@@ -106,7 +115,10 @@ func TestTextScanWriter_TruncatesLongDetail(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-04
 func TestTextScanWriter_AllPassedNoFailedSection(t *testing.T) {
+	t.Run("output-text-scan/AC-04", func(t *testing.T) {})
 	// When everything passes, the FAILED and WARN sections are
 	// elided. The PASSED section + summary still emit.
 	rules := []*api.Rule{
@@ -134,7 +146,10 @@ func TestTextScanWriter_AllPassedNoFailedSection(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-05
 func TestTextScanWriter_StripsMechanismPrefix(t *testing.T) {
+	t.Run("output-text-scan/AC-05", func(t *testing.T) {})
 	// detail like "command: \"awk -F: '($2 == ...)'\"" should
 	// surface as "\"awk -F: '($2 == ...)\"" without the
 	// "command:" prefix.
@@ -158,7 +173,10 @@ func TestTextScanWriter_StripsMechanismPrefix(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-06
 func TestTextScanWriter_PassedCompactionAboveThreshold(t *testing.T) {
+	t.Run("output-text-scan/AC-06", func(t *testing.T) {})
 	// 9+ passed rules → compacted via glob patterns.
 	rules := []*api.Rule{
 		{ID: "accounts-a"}, {ID: "accounts-b"}, {ID: "accounts-c"},
@@ -191,7 +209,10 @@ func TestTextScanWriter_PassedCompactionAboveThreshold(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-07
 func TestTextScanWriter_PassedInlineBelowThreshold(t *testing.T) {
+	t.Run("output-text-scan/AC-07", func(t *testing.T) {})
 	// ≤8 passed rules → listed inline (no glob compaction).
 	rules := []*api.Rule{{ID: "rule-a"}, {ID: "rule-b"}}
 	result := &api.ScanResult{
@@ -213,7 +234,10 @@ func TestTextScanWriter_PassedInlineBelowThreshold(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-08
 func TestTextScanWriter_FixLineSynthesis(t *testing.T) {
+	t.Run("output-text-scan/AC-08", func(t *testing.T) {})
 	// A failing rule with file_permissions remediation should
 	// surface a "└ fix: chmod ... && chown ..." line.
 	rules := []*api.Rule{
@@ -257,7 +281,10 @@ func TestTextScanWriter_FixLineSynthesis(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-09
 func TestSeverityBadge(t *testing.T) {
+	t.Run("output-text-scan/AC-09", func(t *testing.T) {})
 	tests := []struct {
 		in, want string
 	}{
@@ -276,7 +303,10 @@ func TestSeverityBadge(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-10
 func TestCompactPasses(t *testing.T) {
+	t.Run("output-text-scan/AC-10", func(t *testing.T) {})
 	tests := []struct {
 		name string
 		in   []string
@@ -300,7 +330,10 @@ func TestCompactPasses(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-11
 func TestProgressBar(t *testing.T) {
+	t.Run("output-text-scan/AC-11", func(t *testing.T) {})
 	// All passed: bar is all '#'.
 	if got := progressBar(10, 0, 0, 10); got != "##########" {
 		t.Errorf("all-pass progressBar = %q, want ##########", got)
@@ -327,7 +360,10 @@ func TestProgressBar(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-12
 func TestSynthesizeFix_AllSupportedHandlers(t *testing.T) {
+	t.Run("output-text-scan/AC-12", func(t *testing.T) {})
 	tests := []struct {
 		name      string
 		mechanism string
@@ -390,20 +426,29 @@ func TestSynthesizeFix_AllSupportedHandlers(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-13
 func TestSynthesizeFix_NilRule(t *testing.T) {
+	t.Run("output-text-scan/AC-13", func(t *testing.T) {})
 	if got := synthesizeFix(nil); got != "" {
 		t.Errorf("synthesizeFix(nil) = %q, want empty", got)
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-14
 func TestSynthesizeFix_NoImplementations(t *testing.T) {
+	t.Run("output-text-scan/AC-14", func(t *testing.T) {})
 	r := &api.Rule{}
 	if got := synthesizeFix(r); got != "" {
 		t.Errorf("synthesizeFix(no-impls) = %q, want empty", got)
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-15
 func TestSynthesizeFix_MultiStepReturnsEmpty(t *testing.T) {
+	t.Run("output-text-scan/AC-15", func(t *testing.T) {})
 	// Multi-step remediations emit no fix line: surfacing only
 	// step 1 would silently hide steps 2..N from the operator.
 	r := &api.Rule{
@@ -423,7 +468,10 @@ func TestSynthesizeFix_MultiStepReturnsEmpty(t *testing.T) {
 	}
 }
 
+// @spec output-text-scan
+// @ac AC-16
 func TestTextScanWriter_PartiallyAppliedRendersAsFail(t *testing.T) {
+	t.Run("output-text-scan/AC-16", func(t *testing.T) {})
 	// Per spec C-07, StatusPartiallyApplied (which can't actually
 	// occur during a scan today, but is defensive) → FAIL bucket.
 	// Locks the mapping so a future change can't silently demote

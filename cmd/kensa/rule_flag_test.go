@@ -39,7 +39,10 @@ implementations:
 	return path
 }
 
+// @spec cli-rule-flag
+// @ac AC-01
 func TestLoadRulesFromDirOrFiles_FilesOnly(t *testing.T) {
+	t.Run("cli-rule-flag/AC-01", func(t *testing.T) {})
 	dir := t.TempDir()
 	a := writeMinimalRule(t, dir, "a.yml", "rule-a")
 	b := writeMinimalRule(t, dir, "b.yml", "rule-b")
@@ -53,7 +56,10 @@ func TestLoadRulesFromDirOrFiles_FilesOnly(t *testing.T) {
 	}
 }
 
+// @spec cli-rule-flag
+// @ac AC-02
 func TestLoadRulesFromDirOrFiles_DirOnly(t *testing.T) {
+	t.Run("cli-rule-flag/AC-02", func(t *testing.T) {})
 	dir := t.TempDir()
 	writeMinimalRule(t, dir, "a.yml", "rule-a")
 	writeMinimalRule(t, dir, "b.yml", "rule-b")
@@ -70,7 +76,10 @@ func TestLoadRulesFromDirOrFiles_DirOnly(t *testing.T) {
 // TestLoadRulesFromDirOrFiles_DirAndFiles_Additive locks the C-037
 // behavior change: --rules-dir and --rule (or positional) compose
 // additively, not mutually-exclusively.
+// @spec cli-rule-flag
+// @ac AC-03
 func TestLoadRulesFromDirOrFiles_DirAndFiles_Additive(t *testing.T) {
+	t.Run("cli-rule-flag/AC-03", func(t *testing.T) {})
 	dirRoot := t.TempDir()
 	corpus := filepath.Join(dirRoot, "corpus")
 	if err := os.MkdirAll(corpus, 0o755); err != nil {
@@ -100,7 +109,10 @@ func TestLoadRulesFromDirOrFiles_DirAndFiles_Additive(t *testing.T) {
 	}
 }
 
+// @spec cli-rule-flag
+// @ac AC-04
 func TestLoadRulesFromDirOrFiles_BothEmpty(t *testing.T) {
+	t.Run("cli-rule-flag/AC-04", func(t *testing.T) {})
 	_, err := loadRulesFromDirOrFiles("", nil, nil)
 	if err == nil {
 		t.Fatal("expected usage error when both empty")
@@ -114,7 +126,10 @@ func TestLoadRulesFromDirOrFiles_BothEmpty(t *testing.T) {
 // strict-vs-skip-invalid distinction. Files named explicitly via
 // --rule (or positional) MUST surface parse errors; only the
 // dir-walk path skips invalid YAMLs with a warning.
+// @spec cli-rule-flag
+// @ac AC-05
 func TestLoadRulesFromDirOrFiles_StrictOnExplicitFile(t *testing.T) {
+	t.Run("cli-rule-flag/AC-05", func(t *testing.T) {})
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "broken.yml")
 	if err := os.WriteFile(bad, []byte("not: valid: yaml: stuff:"), 0o644); err != nil {
@@ -126,7 +141,10 @@ func TestLoadRulesFromDirOrFiles_StrictOnExplicitFile(t *testing.T) {
 	}
 }
 
+// @spec cli-rule-flag
+// @ac AC-06
 func TestLoadRulesFromDirOrFiles_DirSkipsInvalid(t *testing.T) {
+	t.Run("cli-rule-flag/AC-06", func(t *testing.T) {})
 	dir := t.TempDir()
 	good := writeMinimalRule(t, dir, "good.yml", "rule-good")
 	if err := os.WriteFile(filepath.Join(dir, "broken.yml"), []byte("not: valid: yaml: stuff:"), 0o644); err != nil {
@@ -148,7 +166,10 @@ func TestLoadRulesFromDirOrFiles_DirSkipsInvalid(t *testing.T) {
 // TestLoadRulesFromDirOrFiles_NonExistentExplicitFile locks that
 // a non-existent --rule path produces an error rather than being
 // silently skipped (strict-loading discipline for explicit files).
+// @spec cli-rule-flag
+// @ac AC-07
 func TestLoadRulesFromDirOrFiles_NonExistentExplicitFile(t *testing.T) {
+	t.Run("cli-rule-flag/AC-07", func(t *testing.T) {})
 	_, err := loadRulesFromDirOrFiles("", []string{"/no/such/file.yml"}, nil)
 	if err == nil {
 		t.Fatal("non-existent file should error under strict loader")
@@ -161,7 +182,10 @@ func TestLoadRulesFromDirOrFiles_NonExistentExplicitFile(t *testing.T) {
 // (rule.Resolve) detect duplicate IDs and surface conflicts; the
 // loader doesn't dedup. Test locks current behavior so a future
 // dedup change is a deliberate decision, not accidental drift.
+// @spec cli-rule-flag
+// @ac AC-08
 func TestLoadRulesFromDirOrFiles_DuplicatePaths_BothLoaded(t *testing.T) {
+	t.Run("cli-rule-flag/AC-08", func(t *testing.T) {})
 	dir := t.TempDir()
 	corpus := filepath.Join(dir, "corpus")
 	if err := os.MkdirAll(corpus, 0o755); err != nil {

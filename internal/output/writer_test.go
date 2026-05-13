@@ -40,7 +40,12 @@ func (p *partialErrWriter) Write(b []byte) (int, error) {
 	return n, errAlwaysFails
 }
 
+// @spec output-writer
+// @ac AC-01
+// @ac AC-10
 func TestScanWriterFor(t *testing.T) {
+	t.Run("output-writer/AC-10", func(t *testing.T) {})
+	t.Run("output-writer/AC-01", func(t *testing.T) {})
 	tests := []struct {
 		format    string
 		want      bool
@@ -67,7 +72,12 @@ func TestScanWriterFor(t *testing.T) {
 	}
 }
 
+// @spec output-writer
+// @ac AC-02
+// @ac AC-11
 func TestRemediationWriterFor(t *testing.T) {
+	t.Run("output-writer/AC-11", func(t *testing.T) {})
+	t.Run("output-writer/AC-02", func(t *testing.T) {})
 	tests := []struct {
 		format string
 		want   bool
@@ -91,7 +101,12 @@ func TestRemediationWriterFor(t *testing.T) {
 	}
 }
 
+// @spec output-writer
+// @ac AC-03
+// @ac AC-12
 func TestHistoryWriterFor(t *testing.T) {
+	t.Run("output-writer/AC-12", func(t *testing.T) {})
+	t.Run("output-writer/AC-03", func(t *testing.T) {})
 	w, ok := HistoryWriterFor("text")
 	if !ok {
 		t.Fatal("HistoryWriterFor(text): not registered")
@@ -114,7 +129,12 @@ func TestHistoryWriterFor(t *testing.T) {
 	}
 }
 
+// @spec output-writer
+// @ac AC-04
+// @ac AC-13
 func TestCapsWriterFor(t *testing.T) {
+	t.Run("output-writer/AC-13", func(t *testing.T) {})
+	t.Run("output-writer/AC-04", func(t *testing.T) {})
 	for _, f := range []string{"text", "json"} {
 		t.Run(f, func(t *testing.T) {
 			w, ok := CapsWriterFor(f)
@@ -129,7 +149,12 @@ func TestCapsWriterFor(t *testing.T) {
 	}
 }
 
+// @spec output-writer
+// @ac AC-05
+// @ac AC-14
 func TestJSONValueWriterFor(t *testing.T) {
+	t.Run("output-writer/AC-14", func(t *testing.T) {})
+	t.Run("output-writer/AC-05", func(t *testing.T) {})
 	w, ok := JSONValueWriterFor("json")
 	if !ok {
 		t.Fatal("JSONValueWriterFor(json) should be registered")
@@ -147,7 +172,10 @@ func TestJSONValueWriterFor(t *testing.T) {
 // format → "text"; registered format → that writer. Exists so a
 // future change to the policy is forced through one update site
 // rather than smearing across the call sites.
+// @spec output-writer
+// @ac AC-06
 func TestWriterOrText_Fallback(t *testing.T) {
+	t.Run("output-writer/AC-06", func(t *testing.T) {})
 	tests := []struct {
 		name   string
 		format string
@@ -191,7 +219,10 @@ func TestWriterOrText_Fallback(t *testing.T) {
 	}
 }
 
+// @spec output-writer
+// @ac AC-07
 func TestErrUnsupportedPayload_Sentinel(t *testing.T) {
+	t.Run("output-writer/AC-07", func(t *testing.T) {})
 	// ErrUnsupportedPayload is exposed for future writers (csv, oscal,
 	// evidence) that may not handle every payload type. C-012's writers
 	// don't return it; this just locks the sentinel's existence.
@@ -207,7 +238,10 @@ func TestErrUnsupportedPayload_Sentinel(t *testing.T) {
 // populated before any test runs (AC-13). Failure here means a future
 // refactor switched to sync.Once + lazy init, which would race with
 // fan-out call sites that don't go through the eager-init path.
+// @spec output-writer
+// @ac AC-08
 func TestRegistries_EagerInit(t *testing.T) {
+	t.Run("output-writer/AC-08", func(t *testing.T) {})
 	if len(scanResultWriters) == 0 {
 		t.Error("scanResultWriters is empty at init time")
 	}
@@ -229,7 +263,10 @@ func TestRegistries_EagerInit(t *testing.T) {
 // returns the error from its underlying io.Writer (AC-14). Catches
 // regressions where a writer accidentally swallows the error or
 // returns nil instead.
+// @spec output-writer
+// @ac AC-09
 func TestWriters_PropagateWriteErrors(t *testing.T) {
+	t.Run("output-writer/AC-09", func(t *testing.T) {})
 	rules := []*api.Rule{{ID: "r"}}
 	scan := &api.ScanResult{
 		HostID: "h",

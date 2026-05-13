@@ -11,7 +11,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// @spec output-evidence
+// @ac AC-01
+// @ac AC-15
 func TestEvidenceWriter_SingleEnvelope(t *testing.T) {
+	t.Run("output-evidence/AC-15", func(t *testing.T) {})
+	t.Run("output-evidence/AC-01", func(t *testing.T) {})
 	env := makeEnvelope("rule-pass", "host-1", api.StatusCommitted)
 	env.SchemaVersion = "v1"
 	result := &api.RemediationResult{
@@ -39,7 +44,10 @@ func TestEvidenceWriter_SingleEnvelope(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-02
 func TestEvidenceWriter_IndentedJSON(t *testing.T) {
+	t.Run("output-evidence/AC-02", func(t *testing.T) {})
 	// AC: output is indented JSON for human inspection (operators
 	// read evidence files when debugging signature failures or
 	// auditing transactions).
@@ -57,7 +65,10 @@ func TestEvidenceWriter_IndentedJSON(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-03
 func TestEvidenceWriter_SkipsNilEnvelopes(t *testing.T) {
+	t.Run("output-evidence/AC-03", func(t *testing.T) {})
 	// Transactions without an envelope are silently skipped (matches
 	// the OSCAL writer's contract; partial-failure remediation runs
 	// must not crash the writer).
@@ -86,7 +97,10 @@ func TestEvidenceWriter_SkipsNilEnvelopes(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-04
 func TestEvidenceWriter_AllNilEnvelopesEmitsEmpty(t *testing.T) {
+	t.Run("output-evidence/AC-04", func(t *testing.T) {})
 	// All-nil envelopes produce zero output — same contract as the
 	// OSCAL writer. cmd/kensa surface (when -o evidence: lands in
 	// C-018) can then short-circuit before file creation.
@@ -104,7 +118,10 @@ func TestEvidenceWriter_AllNilEnvelopesEmitsEmpty(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-05
 func TestEvidenceWriter_MultipleEnvelopes(t *testing.T) {
+	t.Run("output-evidence/AC-05", func(t *testing.T) {})
 	// N envelopes produce N concatenated JSON documents that a
 	// json.Decoder iterates cleanly.
 	envA := makeEnvelope("rule-a", "h1", api.StatusCommitted)
@@ -136,7 +153,10 @@ func TestEvidenceWriter_MultipleEnvelopes(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-06
 func TestEvidenceWriter_PreservesEmptySignature(t *testing.T) {
+	t.Run("output-evidence/AC-06", func(t *testing.T) {})
 	// The writer must not crash on an envelope with empty Signature
 	// bytes (the M7 placeholder state). Documents emit even when
 	// unsigned; consumers verifying signatures use len(Signature) > 0
@@ -159,7 +179,10 @@ func TestEvidenceWriter_PreservesEmptySignature(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-07
 func TestEvidenceWriter_PreservesNonEmptySignature(t *testing.T) {
+	t.Run("output-evidence/AC-07", func(t *testing.T) {})
 	// Once M7 task #12 lands and signatures are real, the writer
 	// must round-trip them faithfully. Locks the wire-shape contract
 	// against future signature-stripping bugs.
@@ -191,7 +214,10 @@ func TestEvidenceWriter_PreservesNonEmptySignature(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-08
 func TestEvidenceWriter_PreservesFrameworkRefs(t *testing.T) {
+	t.Run("output-evidence/AC-08", func(t *testing.T) {})
 	// FrameworkRefs is critical for compliance audit trails. Locks
 	// the full round-trip contract: every entry, both ControlID
 	// AND FrameworkID, in declared order.
@@ -226,7 +252,10 @@ func TestEvidenceWriter_PreservesFrameworkRefs(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-09
 func TestEvidenceWriter_TimestampUTC(t *testing.T) {
+	t.Run("output-evidence/AC-09", func(t *testing.T) {})
 	// StartedAt and FinishedAt round-trip through JSON as RFC 3339.
 	// Locks the time-zone contract; auditors expect UTC.
 	env := makeEnvelope("r", "h", api.StatusCommitted)
@@ -244,7 +273,10 @@ func TestEvidenceWriter_TimestampUTC(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-10
 func TestEvidenceWriter_RegistryWiring(t *testing.T) {
+	t.Run("output-evidence/AC-10", func(t *testing.T) {})
 	w, ok := RemediationWriterFor("evidence")
 	if !ok {
 		t.Fatal("RemediationWriterFor(evidence): not registered")
@@ -254,7 +286,10 @@ func TestEvidenceWriter_RegistryWiring(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-11
 func TestEvidenceWriter_NotRegisteredForUnsupportedPayloads(t *testing.T) {
+	t.Run("output-evidence/AC-11", func(t *testing.T) {})
 	if _, ok := ScanWriterFor("evidence"); ok {
 		t.Error("ScanWriterFor(evidence) should not be registered (scan produces no envelopes)")
 	}
@@ -269,7 +304,10 @@ func TestEvidenceWriter_NotRegisteredForUnsupportedPayloads(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-12
 func TestEvidenceWriter_PropagateWriteErrors(t *testing.T) {
+	t.Run("output-evidence/AC-12", func(t *testing.T) {})
 	result := &api.RemediationResult{
 		Transactions: []api.TransactionResult{
 			{Envelope: makeEnvelope("r", "h", api.StatusCommitted)},
@@ -287,7 +325,10 @@ func TestEvidenceWriter_PropagateWriteErrors(t *testing.T) {
 // the same captured pre-state the engine recorded. A custom
 // MarshalJSON that silently drops Data fields would corrupt the
 // audit trail; this test catches it.
+// @spec output-evidence
+// @ac AC-13
 func TestEvidenceWriter_PreservesPreStateBundle(t *testing.T) {
+	t.Run("output-evidence/AC-13", func(t *testing.T) {})
 	env := makeEnvelope("r", "h", api.StatusCommitted)
 	env.PreStateBundle = []api.PreState{
 		{
@@ -330,7 +371,10 @@ func TestEvidenceWriter_PreservesPreStateBundle(t *testing.T) {
 	}
 }
 
+// @spec output-evidence
+// @ac AC-14
 func TestEvidenceWriter_TransactionIDInJSON(t *testing.T) {
+	t.Run("output-evidence/AC-14", func(t *testing.T) {})
 	// AC: TransactionID round-trips through the JSON encoding (it's
 	// the primary key auditors use to correlate envelope to log).
 	id := uuid.MustParse("00000000-0000-0000-0000-00000000beef")

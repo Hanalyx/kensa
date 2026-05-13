@@ -93,7 +93,13 @@ func assertRouted(t *testing.T, mechanism string, resp *wirev1.Response) {
 // ─── File-based handlers (full Apply + side-effect assertion) ────────────
 
 // L-015 file_content: write content to a temp file via agent.
+// @spec agent-handler-port-filepermissions
+// @ac AC-01
+// @spec agent-handler-ports-umbrella
+// @ac AC-01
 func TestAgentApply_FileContent(t *testing.T) {
+	t.Run("agent-handler-ports-umbrella/AC-01", func(t *testing.T) {})
+	t.Run("agent-handler-port-filepermissions/AC-01", func(t *testing.T) {})
 	dir := t.TempDir()
 	target := filepath.Join(dir, "test-file")
 	resp := dispatchApplyTest(t, "file_content", api.Params{
@@ -118,7 +124,13 @@ func TestAgentApply_FileContent(t *testing.T) {
 }
 
 // L-016 file_absent: agent removes a pre-existing file.
+// @spec agent-handler-port-filepermissions
+// @ac AC-02
+// @spec agent-handler-ports-umbrella
+// @ac AC-02
 func TestAgentApply_FileAbsent(t *testing.T) {
+	t.Run("agent-handler-ports-umbrella/AC-02", func(t *testing.T) {})
+	t.Run("agent-handler-port-filepermissions/AC-02", func(t *testing.T) {})
 	dir := t.TempDir()
 	target := filepath.Join(dir, "to-be-deleted")
 	if err := os.WriteFile(target, []byte("data"), 0o644); err != nil {
@@ -136,7 +148,13 @@ func TestAgentApply_FileAbsent(t *testing.T) {
 }
 
 // L-017 config_set: agent sets a key=value in a config file.
+// @spec agent-handler-port-filepermissions
+// @ac AC-03
+// @spec agent-handler-ports-umbrella
+// @ac AC-03
 func TestAgentApply_ConfigSet(t *testing.T) {
+	t.Run("agent-handler-ports-umbrella/AC-03", func(t *testing.T) {})
+	t.Run("agent-handler-port-filepermissions/AC-03", func(t *testing.T) {})
 	dir := t.TempDir()
 	configFile := filepath.Join(dir, "test.conf")
 	if err := os.WriteFile(configFile, []byte("# initial\n"), 0o644); err != nil {
@@ -161,7 +179,10 @@ func TestAgentApply_ConfigSet(t *testing.T) {
 
 // L-018 config_set_dropin: agent creates a drop-in file with
 // a key=value pair.
+// @spec agent-handler-port-filepermissions
+// @ac AC-04
 func TestAgentApply_ConfigSetDropin(t *testing.T) {
+	t.Run("agent-handler-port-filepermissions/AC-04", func(t *testing.T) {})
 	dir := t.TempDir()
 	dropin := filepath.Join(dir, "99-kensa.conf")
 	resp := dispatchApplyTest(t, "config_set_dropin", api.Params{
@@ -185,7 +206,10 @@ func TestAgentApply_ConfigSetDropin(t *testing.T) {
 
 // L-019 cron_job: routes to handler (writes /etc/cron.d
 // which needs root; routing-only).
+// @spec agent-handler-port-filepermissions
+// @ac AC-05
 func TestAgentApply_CronJob_RoutesToHandler(t *testing.T) {
+	t.Run("agent-handler-port-filepermissions/AC-05", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "cron_job", api.Params{
 		"name":     "kensa-test",
 		"schedule": "0 2 * * *",
@@ -197,7 +221,10 @@ func TestAgentApply_CronJob_RoutesToHandler(t *testing.T) {
 
 // L-020 pam_module_configure: routes to handler (writes
 // /etc/pam.d/<service>; routing-only).
+// @spec agent-handler-port-filepermissions
+// @ac AC-06
 func TestAgentApply_PAMModuleConfigure_RoutesToHandler(t *testing.T) {
+	t.Run("agent-handler-port-filepermissions/AC-06", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "pam_module_configure", api.Params{
 		"service":     "sshd",
 		"module_type": "auth",
@@ -209,7 +236,10 @@ func TestAgentApply_PAMModuleConfigure_RoutesToHandler(t *testing.T) {
 
 // L-021 sysctl_set: routes to handler (needs /proc write;
 // routing-only).
+// @spec agent-handler-port-filepermissions
+// @ac AC-07
 func TestAgentApply_SysctlSet_RoutesToHandler(t *testing.T) {
+	t.Run("agent-handler-port-filepermissions/AC-07", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "sysctl_set", api.Params{
 		"key":   "net.ipv4.ip_forward",
 		"value": "0",
@@ -218,7 +248,10 @@ func TestAgentApply_SysctlSet_RoutesToHandler(t *testing.T) {
 }
 
 // L-022 mount_option_set: routes to handler.
+// @spec agent-handler-port-filepermissions
+// @ac AC-08
 func TestAgentApply_MountOptionSet_RoutesToHandler(t *testing.T) {
+	t.Run("agent-handler-port-filepermissions/AC-08", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "mount_option_set", api.Params{
 		"mount":   "/tmp",
 		"options": "nodev,nosuid,noexec",
@@ -227,7 +260,10 @@ func TestAgentApply_MountOptionSet_RoutesToHandler(t *testing.T) {
 }
 
 // L-023 service_disabled.
+// @spec agent-handler-port-filepermissions
+// @ac AC-09
 func TestAgentApply_ServiceDisabled_RoutesToHandler(t *testing.T) {
+	t.Run("agent-handler-port-filepermissions/AC-09", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "service_disabled", api.Params{"service": "test.service"})
 	assertRouted(t, "service_disabled", resp)
 }

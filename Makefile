@@ -1,4 +1,4 @@
-.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check clean
+.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check clean
 
 help:
 	@echo "Kensa Go — common targets"
@@ -13,6 +13,8 @@ help:
 	@echo "  spec-parse      Parse and validate .spec.yaml files"
 	@echo "  spec-check      Type-check across the spec graph (use STRICT=1 for warnings-as-errors)"
 	@echo "  spec-coverage   Generate spec-to-test traceability matrix"
+	@echo "  spec-coverage-strict  Enforce tier-threshold coverage (P-012 CI gate)"
+	@echo "  spec-ingest     Re-run go test + ingest results into .specter-results.json"
 	@echo "  spec-graph      Output dependency graph (FORMAT=dot or FORMAT=mermaid)"
 	@echo "  spec-watch      Re-run sync on file changes (development loop)"
 	@echo "  spec-explain    Show annotation examples (usage: make spec-explain SPEC=id:AC-NN)"
@@ -67,6 +69,20 @@ endif
 
 spec-coverage:
 	specter coverage --tests 'tests/**/*_test.go'
+
+# spec-ingest: regenerate .specter-results.json from a fresh
+# `go test -json` run. Required before spec-coverage-strict so
+# the gate sees the current pass/fail state.
+spec-ingest:
+	@go test ./... -json > go-test.json 2>&1 || true
+	@specter ingest --go-test go-test.json --output .specter-results.json
+
+# spec-coverage-strict: the P-012 CI gate. Enforces tier-specific
+# thresholds (tier1: 100%, tier2: 80%, tier3: 50%) per
+# specter.yaml. Fails the build if any spec is below its tier's
+# threshold. Runs spec-ingest first so the gate sees fresh results.
+spec-coverage-strict: spec-ingest
+	specter coverage --strict
 
 spec-graph:
 ifeq ($(FORMAT),mermaid)

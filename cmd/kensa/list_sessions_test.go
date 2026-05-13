@@ -41,7 +41,10 @@ func seedSessions(t *testing.T, n int) string {
 	return path
 }
 
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-01
 func TestRunListSessions_EmptyStore(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-01", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "empty.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -54,7 +57,10 @@ func TestRunListSessions_EmptyStore(t *testing.T) {
 	}
 }
 
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-02
 func TestRunListSessions_Basic(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-02", func(t *testing.T) {})
 	path := seedSessions(t, 3)
 	stdout, _ := captureRunCLI([]string{"--db", path, "list", "sessions"}, t)
 	if !strings.Contains(stdout, "kensa list sessions") {
@@ -68,7 +74,10 @@ func TestRunListSessions_Basic(t *testing.T) {
 	}
 }
 
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-03
 func TestRunListSessions_FilterByHost(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-03", func(t *testing.T) {})
 	path := seedSessions(t, 6) // host-a, host-b, host-c x 2 each
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "list", "sessions", "-H", "host-a"},
@@ -79,7 +88,10 @@ func TestRunListSessions_FilterByHost(t *testing.T) {
 	}
 }
 
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-04
 func TestRunListSessions_LimitClamps(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-04", func(t *testing.T) {})
 	path := seedSessions(t, 5)
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "list", "sessions", "-n", "2"},
@@ -90,7 +102,10 @@ func TestRunListSessions_LimitClamps(t *testing.T) {
 	}
 }
 
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-05
 func TestRunListSessions_JSONShape(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-05", func(t *testing.T) {})
 	path := seedSessions(t, 2)
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "list", "sessions", "--format", "json"},

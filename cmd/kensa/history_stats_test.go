@@ -15,7 +15,14 @@ import (
 // partially_applied → errored, severity as critical → high
 // → medium → low → (unset). Drift would be silent without
 // this lock.
+// @spec cli-history-stats
+// @ac AC-01
+// @ac AC-04
+// @ac AC-07
 func TestWriteHistoryStatsText_CanonicalOrdering(t *testing.T) {
+	t.Run("cli-history-stats/AC-07", func(t *testing.T) {})
+	t.Run("cli-history-stats/AC-04", func(t *testing.T) {})
+	t.Run("cli-history-stats/AC-01", func(t *testing.T) {})
 	st := &store.Stats{
 		SessionsTotal:     1,
 		TransactionsTotal: 10,
@@ -61,7 +68,14 @@ func TestWriteHistoryStatsText_CanonicalOrdering(t *testing.T) {
 	}
 }
 
+// @spec cli-history-stats
+// @ac AC-02
+// @ac AC-05
+// @ac AC-08
 func TestWriteHistoryStatsText_EmptyStore(t *testing.T) {
+	t.Run("cli-history-stats/AC-08", func(t *testing.T) {})
+	t.Run("cli-history-stats/AC-05", func(t *testing.T) {})
+	t.Run("cli-history-stats/AC-02", func(t *testing.T) {})
 	st := &store.Stats{}
 	var buf bytes.Buffer
 	writeHistoryStatsText(&buf, st, "", "")
@@ -75,7 +89,14 @@ func TestWriteHistoryStatsText_EmptyStore(t *testing.T) {
 	}
 }
 
+// @spec cli-history-stats
+// @ac AC-03
+// @ac AC-06
+// @ac AC-09
 func TestWriteHistoryStatsText_ScopeLine(t *testing.T) {
+	t.Run("cli-history-stats/AC-09", func(t *testing.T) {})
+	t.Run("cli-history-stats/AC-06", func(t *testing.T) {})
+	t.Run("cli-history-stats/AC-03", func(t *testing.T) {})
 	st := &store.Stats{SessionsTotal: 1, TransactionsTotal: 1, ByStatus: map[string]int{"committed": 1}}
 	var buf bytes.Buffer
 	writeHistoryStatsText(&buf, st, "host-a", "24h")

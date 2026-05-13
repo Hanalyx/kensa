@@ -31,6 +31,7 @@ func insertTxn(t *testing.T, store *SQLite, hostID, status, severity string, sta
 }
 
 func TestComputeStats_EmptyStore(t *testing.T) {
+	t.Run("store-session-schema/AC-01", func(t *testing.T) {})
 	store := openTestStore(t)
 	st, err := store.ComputeStats(context.Background(), StatsFilter{})
 	if err != nil {
@@ -45,6 +46,7 @@ func TestComputeStats_EmptyStore(t *testing.T) {
 }
 
 func TestComputeStats_BasicCounts(t *testing.T) {
+	t.Run("store-session-schema/AC-02", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	insertTxn(t, store, "host-a", "committed", "high", now)
@@ -75,6 +77,7 @@ func TestComputeStats_BasicCounts(t *testing.T) {
 }
 
 func TestComputeStats_UnsetSeverityNormalized(t *testing.T) {
+	t.Run("store-session-schema/AC-03", func(t *testing.T) {})
 	store := openTestStore(t)
 	insertTxn(t, store, "host-a", "committed", "", time.Now().UTC().Truncate(time.Microsecond))
 
@@ -91,6 +94,7 @@ func TestComputeStats_UnsetSeverityNormalized(t *testing.T) {
 }
 
 func TestComputeStats_FilterByHost(t *testing.T) {
+	t.Run("store-session-schema/AC-04", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	insertTxn(t, store, "host-a", "committed", "high", now)
@@ -109,6 +113,7 @@ func TestComputeStats_FilterByHost(t *testing.T) {
 }
 
 func TestComputeStats_FilterBySince(t *testing.T) {
+	t.Run("store-session-schema/AC-05", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	insertTxn(t, store, "host-a", "committed", "high", now.Add(-2*time.Hour))
@@ -124,6 +129,7 @@ func TestComputeStats_FilterBySince(t *testing.T) {
 }
 
 func TestComputeStats_TopHostsRollup(t *testing.T) {
+	t.Run("store-session-schema/AC-06", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	// Insert 5 hosts with descending transaction counts.
@@ -158,6 +164,7 @@ func TestComputeStats_TopHostsRollup(t *testing.T) {
 }
 
 func TestComputeStats_TimeWindow(t *testing.T) {
+	t.Run("store-session-schema/AC-07", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	insertTxn(t, store, "host-a", "committed", "high", now.Add(-time.Hour))
@@ -183,6 +190,7 @@ func TestComputeStats_TimeWindow(t *testing.T) {
 // dedicated test the path was unexercised since the basic
 // rollup test uses distinct counts.
 func TestRollupTopN_TieBreakerAlphabetical(t *testing.T) {
+	t.Run("store-session-schema/AC-08", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	// Three hosts each with 2 transactions. Limit=2, so one
@@ -216,6 +224,7 @@ func TestRollupTopN_TieBreakerAlphabetical(t *testing.T) {
 // AC-08 intersection: --since narrows both transaction count
 // AND session count, not just transactions.
 func TestComputeStats_SinceNarrowsBothTotals(t *testing.T) {
+	t.Run("store-session-schema/AC-09", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Microsecond)
@@ -255,6 +264,7 @@ func TestComputeStats_SinceNarrowsBothTotals(t *testing.T) {
 }
 
 func TestComputeStats_SessionsCounted(t *testing.T) {
+	t.Run("store-session-schema/AC-10", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 

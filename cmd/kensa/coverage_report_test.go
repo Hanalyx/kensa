@@ -69,7 +69,15 @@ references:
 	return dir
 }
 
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-01
+// @spec cli-framework-coverage
+// @ac AC-01
+// @ac AC-14
 func TestRunCoverageReport_Basic(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-01", func(t *testing.T) {})
+	t.Run("cli-framework-coverage/AC-14", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-01", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"coverage", "--framework", "cis_rhel9", "--rules-dir", dir},
@@ -96,7 +104,13 @@ func TestRunCoverageReport_Basic(t *testing.T) {
 // TestRunCoverageReport_UnknownFramework locks AC-02. The error
 // message MUST list available frameworks so the operator can
 // recover without a separate `kensa list frameworks` call.
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-02
+// @spec cli-framework-coverage
+// @ac AC-02
 func TestRunCoverageReport_UnknownFramework(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-02", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-02", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	_, stderr := captureRunCLI(
 		[]string{"coverage", "--framework", "bogus_v999", "--rules-dir", dir},
@@ -117,7 +131,13 @@ func TestRunCoverageReport_UnknownFramework(t *testing.T) {
 // TestRunCoverageReport_BadFormat locks the format validation
 // (caught zero coverage today; --format yaml silently fell back
 // to text per peer review).
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-03
+// @spec cli-framework-coverage
+// @ac AC-03
 func TestRunCoverageReport_BadFormat(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-03", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-03", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	exit := runCLI([]string{"coverage", "--framework", "cis_rhel9", "--rules-dir", dir, "--format", "yaml"})
 	if exit != 2 {
@@ -128,7 +148,13 @@ func TestRunCoverageReport_BadFormat(t *testing.T) {
 // TestRunCoverageReport_FullFlag locks the --full audit-mode
 // escape hatch — without --full, rule IDs truncate to 3 + "+N
 // more"; with --full, all IDs render.
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-04
+// @spec cli-framework-coverage
+// @ac AC-04
 func TestRunCoverageReport_FullFlag(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-04", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-04", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	// Default: rule-a + rule-b both map cis_rhel9 5.1.12; only 2
 	// rules so no truncation either way. Use nist_800_53 with
@@ -149,14 +175,26 @@ func TestRunCoverageReport_FullFlag(t *testing.T) {
 	}
 }
 
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-05
+// @spec cli-framework-coverage
+// @ac AC-05
 func TestRunCoverageReport_MissingRulesDir(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-05", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-05", func(t *testing.T) {})
 	exit := runCLI([]string{"coverage", "--framework", "cis_rhel9"})
 	if exit != 2 {
 		t.Errorf("missing --rules-dir should exit 2; got %d", exit)
 	}
 }
 
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-06
+// @spec cli-framework-coverage
+// @ac AC-06
 func TestRunCoverageReport_MissingFramework(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-06", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-06", func(t *testing.T) {})
 	// --framework is what activates the new code path; without
 	// it dispatch falls through to the mechanism alias instead
 	// of erroring. So this test exercises the dispatch directly
@@ -171,7 +209,13 @@ func TestRunCoverageReport_MissingFramework(t *testing.T) {
 	}
 }
 
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-07
+// @spec cli-framework-coverage
+// @ac AC-07
 func TestRunCoverageReport_JSONShape(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-07", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-07", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"coverage", "--framework", "nist_800_53", "--rules-dir", dir, "--format", "json"},
@@ -199,7 +243,13 @@ func TestRunCoverageReport_JSONShape(t *testing.T) {
 // TestRunCoverage_FrameworkFlagSuppressesWarning locks AC-06 —
 // when --framework is on argv, the C-044 repurpose warning is
 // suppressed (operator already using the new behavior).
+// @spec cli-coverage-mechanisms-rename
+// @ac AC-08
+// @spec cli-framework-coverage
+// @ac AC-08
 func TestRunCoverage_FrameworkFlagSuppressesWarning(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-08", func(t *testing.T) {})
+	t.Run("cli-coverage-mechanisms-rename/AC-08", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	_, stderr := captureRunCLI(
 		[]string{"coverage", "--framework", "cis_rhel9", "--rules-dir", dir},
@@ -212,7 +262,10 @@ func TestRunCoverage_FrameworkFlagSuppressesWarning(t *testing.T) {
 
 // TestRunMechanisms_FrameworkRejected locks AC-07 / C-05 —
 // `kensa mechanisms --framework foo` is a usage error.
+// @spec cli-framework-coverage
+// @ac AC-09
 func TestRunMechanisms_FrameworkRejected(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-09", func(t *testing.T) {})
 	exit := runCLI([]string{"mechanisms", "--framework", "cis_rhel9"})
 	if exit != 2 {
 		t.Errorf("kensa mechanisms --framework should exit 2; got %d", exit)
@@ -224,7 +277,10 @@ func TestRunMechanisms_FrameworkRejected(t *testing.T) {
 // route correctly — the previous hand-rolled scanner missed
 // those, which would have routed `-qfcis_rhel9` to the alias
 // path with a misleading repurpose warning.
+// @spec cli-framework-coverage
+// @ac AC-10
 func TestHasFrameworkFlag(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-10", func(t *testing.T) {})
 	cases := map[string][]string{
 		// Should detect:
 		"long form alone":           {"--framework", "cis_rhel9"},
@@ -262,7 +318,10 @@ func TestHasFrameworkFlag(t *testing.T) {
 // `kensa coverage --framework FOO --help` MUST emit the C-044
 // repurpose warning to stderr. Operators reading docs to learn
 // the new surface need to see the upcoming v0.2 flip once.
+// @spec cli-framework-coverage
+// @ac AC-11
 func TestRunCoverage_FrameworkHelpEmitsWarning(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-11", func(t *testing.T) {})
 	stdout, stderr := captureRunCLI(
 		[]string{"coverage", "--framework", "cis_rhel9", "--help"},
 		t,
@@ -285,7 +344,10 @@ func TestRunCoverage_FrameworkHelpEmitsWarning(t *testing.T) {
 // R2's P1.2 fix: `kensa coverage --help` (no --framework) must
 // point operators at the new --framework surface so they can
 // discover the C-045 report without already knowing about it.
+// @spec cli-framework-coverage
+// @ac AC-12
 func TestPrintMechanismsCoverageHelp_AdvertisesNewSurface(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-12", func(t *testing.T) {})
 	stdout, _ := captureRunCLI([]string{"coverage", "--help"}, t)
 	if !strings.Contains(stdout, "AVAILABLE TODAY") {
 		t.Errorf("alias --help should advertise the new --framework surface; got:\n%s", stdout)
@@ -296,7 +358,10 @@ func TestPrintMechanismsCoverageHelp_AdvertisesNewSurface(t *testing.T) {
 }
 
 // TestRunCoverageReport_HelpExitsZero locks the help path.
+// @spec cli-framework-coverage
+// @ac AC-13
 func TestRunCoverageReport_HelpExitsZero(t *testing.T) {
+	t.Run("cli-framework-coverage/AC-13", func(t *testing.T) {})
 	for _, argv := range [][]string{
 		{"coverage", "--framework", "cis_rhel9", "--help"},
 		{"coverage", "--framework", "cis_rhel9", "-h"},

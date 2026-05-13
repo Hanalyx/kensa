@@ -60,6 +60,7 @@ func (discardWriter) Write(p []byte) (int, error) { return len(p), nil }
 // @spec agent-client
 // @ac AC-01
 func TestClient_OpenClose(t *testing.T) {
+	t.Run("agent-client/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-client")
 	t.Log("// @ac AC-01")
 	clientIn, clientOut, cleanup := runEchoServer(t)
@@ -88,6 +89,7 @@ func TestClient_OpenClose(t *testing.T) {
 // @spec agent-client
 // @ac AC-02
 func TestClient_Apply_EchoServer(t *testing.T) {
+	t.Run("agent-client/AC-02", func(t *testing.T) {})
 	t.Log("// @spec agent-client")
 	t.Log("// @ac AC-02")
 	clientIn, clientOut, cleanup := runEchoServer(t)
@@ -119,6 +121,7 @@ func TestClient_Apply_EchoServer(t *testing.T) {
 // @spec agent-client
 // @ac AC-03
 func TestClient_AllMethods_EchoServer(t *testing.T) {
+	t.Run("agent-client/AC-03", func(t *testing.T) {})
 	t.Log("// @spec agent-client")
 	t.Log("// @ac AC-03")
 	clientIn, clientOut, cleanup := runEchoServer(t)
@@ -174,6 +177,7 @@ func TestClient_AllMethods_EchoServer(t *testing.T) {
 // @spec agent-client
 // @ac AC-04
 func TestClient_CtxCancelPreemptsApply(t *testing.T) {
+	t.Run("agent-client/AC-04", func(t *testing.T) {})
 	t.Log("// @spec agent-client")
 	t.Log("// @ac AC-04")
 	// Use a "hung" server that reads frames but never writes
@@ -217,7 +221,10 @@ func TestClient_CtxCancelPreemptsApply(t *testing.T) {
 // TestClient_HeartbeatToken locks the token round-trip
 // contract — HeartbeatAck.Token must equal the requested
 // token. Verified by the echo server returning the same token.
+// @spec agent-client
+// @ac AC-05
 func TestClient_HeartbeatToken(t *testing.T) {
+	t.Run("agent-client/AC-05", func(t *testing.T) {})
 	clientIn, clientOut, cleanup := runEchoServer(t)
 	defer cleanup()
 
@@ -240,6 +247,7 @@ func TestClient_HeartbeatToken(t *testing.T) {
 // @spec agent-client
 // @ac AC-06
 func TestClient_ConcurrentApply(t *testing.T) {
+	t.Run("agent-client/AC-06", func(t *testing.T) {})
 	t.Log("// @spec agent-client")
 	t.Log("// @ac AC-06")
 	clientIn, clientOut, cleanup := runEchoServer(t)
@@ -325,7 +333,10 @@ func runErrorServer(t *testing.T) (clientIn io.WriteCloser, clientOut io.Reader,
 //
 // @spec agent-client
 // @ac AC-05
+// @spec agent-client
+// @ac AC-07
 func TestClient_EnvelopeErrorTranslation(t *testing.T) {
+	t.Run("agent-client/AC-07", func(t *testing.T) {})
 	t.Log("// @spec agent-client")
 	t.Log("// @ac AC-05")
 	clientIn, clientOut, cleanup := runErrorServer(t)
@@ -430,7 +441,10 @@ func runCustomServer(t *testing.T, handler agent.Handler) (clientIn io.WriteClos
 //
 // @spec agent-version-handshake
 // @ac AC-03
+// @spec agent-client
+// @ac AC-08
 func TestClient_Handshake_HappyPath(t *testing.T) {
+	t.Run("agent-client/AC-08", func(t *testing.T) {})
 	t.Log("// @spec agent-version-handshake")
 	t.Log("// @ac AC-03")
 	clientIn, clientOut, cleanup := runEchoServer(t)

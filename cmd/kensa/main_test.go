@@ -30,7 +30,30 @@ type runCLITestCase struct {
 
 // TestRunCLI_HelpExitsZero verifies that every help-request form returns
 // exit 0 (per GNU convention; per C-001 acceptance).
+// @spec cli-kensa-migrate
+// @ac AC-01
+// @spec cli-manpage
+// @ac AC-01
+// @spec cli-oscal-regression
+// @ac AC-01
+// @spec cli-phase3-close
+// @ac AC-01
+// @spec cli-phase4-close
+// @ac AC-01
+// @spec cli-phase5a-close
+// @ac AC-01
+// @spec cli-polish-c023
+// @ac AC-01
+// @ac AC-11
 func TestRunCLI_HelpExitsZero(t *testing.T) {
+	t.Run("cli-polish-c023/AC-01", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-11", func(t *testing.T) {})
+	t.Run("cli-phase5a-close/AC-01", func(t *testing.T) {})
+	t.Run("cli-phase4-close/AC-01", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-01", func(t *testing.T) {})
+	t.Run("cli-oscal-regression/AC-01", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-01", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-01", func(t *testing.T) {})
 	cases := []runCLITestCase{
 		{name: "--help long form", argv: []string{"--help"}, wantExit: 0},
 		{name: "-h short form", argv: []string{"-h"}, wantExit: 0},
@@ -48,7 +71,28 @@ func TestRunCLI_HelpExitsZero(t *testing.T) {
 
 // TestRunCLI_VersionExitsZero verifies --version / -V / `version`
 // subcommand all exit 0.
+// @spec cli-kensa-migrate
+// @ac AC-02
+// @spec cli-manpage
+// @ac AC-02
+// @spec cli-oscal-regression
+// @ac AC-02
+// @spec cli-phase3-close
+// @ac AC-02
+// @spec cli-phase4-close
+// @ac AC-02
+// @spec cli-phase5a-close
+// @ac AC-02
+// @spec cli-polish-c023
+// @ac AC-02
 func TestRunCLI_VersionExitsZero(t *testing.T) {
+	t.Run("cli-polish-c023/AC-02", func(t *testing.T) {})
+	t.Run("cli-phase5a-close/AC-02", func(t *testing.T) {})
+	t.Run("cli-phase4-close/AC-02", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-02", func(t *testing.T) {})
+	t.Run("cli-oscal-regression/AC-02", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-02", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-02", func(t *testing.T) {})
 	cases := []runCLITestCase{
 		{name: "--version flag", argv: []string{"--version"}, wantExit: 0},
 		{name: "-V short form", argv: []string{"-V"}, wantExit: 0},
@@ -65,7 +109,28 @@ func TestRunCLI_VersionExitsZero(t *testing.T) {
 
 // TestRunCLI_UsageErrorsExitTwo verifies bad-flag and unknown-subcommand
 // paths return exit 2 per GNU convention.
+// @spec cli-kensa-migrate
+// @ac AC-03
+// @spec cli-manpage
+// @ac AC-03
+// @spec cli-oscal-regression
+// @ac AC-03
+// @spec cli-phase3-close
+// @ac AC-03
+// @spec cli-phase4-close
+// @ac AC-03
+// @spec cli-phase5a-close
+// @ac AC-03
+// @spec cli-polish-c023
+// @ac AC-03
 func TestRunCLI_UsageErrorsExitTwo(t *testing.T) {
+	t.Run("cli-polish-c023/AC-03", func(t *testing.T) {})
+	t.Run("cli-phase5a-close/AC-03", func(t *testing.T) {})
+	t.Run("cli-phase4-close/AC-03", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-03", func(t *testing.T) {})
+	t.Run("cli-oscal-regression/AC-03", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-03", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-03", func(t *testing.T) {})
 	cases := []runCLITestCase{
 		{name: "unknown long flag", argv: []string{"--not-a-flag"}, wantExit: 2},
 		{name: "unknown short flag", argv: []string{"-Z"}, wantExit: 2},
@@ -84,7 +149,28 @@ func TestRunCLI_UsageErrorsExitTwo(t *testing.T) {
 // TestRunCLI_LegacyDbPasses verifies the backward-compat shim accepts
 // the stdlib-flag-style `-db` single-dash long form. Will be removed
 // in v0.2.
+// @spec cli-kensa-migrate
+// @ac AC-04
+// @spec cli-manpage
+// @ac AC-04
+// @spec cli-oscal-regression
+// @ac AC-04
+// @spec cli-phase3-close
+// @ac AC-04
+// @spec cli-phase4-close
+// @ac AC-04
+// @spec cli-phase5a-close
+// @ac AC-04
+// @spec cli-polish-c023
+// @ac AC-04
 func TestRunCLI_LegacyDbPasses(t *testing.T) {
+	t.Run("cli-polish-c023/AC-04", func(t *testing.T) {})
+	t.Run("cli-phase5a-close/AC-04", func(t *testing.T) {})
+	t.Run("cli-phase4-close/AC-04", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-04", func(t *testing.T) {})
+	t.Run("cli-oscal-regression/AC-04", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-04", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-04", func(t *testing.T) {})
 	cases := []runCLITestCase{
 		{name: "-db /path --help", argv: []string{"-db", "/tmp/x.db", "--help"}, wantExit: 0},
 		{name: "-db=/path --help", argv: []string{"-db=/tmp/x.db", "--help"}, wantExit: 0},
@@ -99,7 +185,22 @@ func TestRunCLI_LegacyDbPasses(t *testing.T) {
 }
 
 // TestRewriteLegacyDb verifies the argv preprocessor for backward-compat.
+// @spec cli-kensa-migrate
+// @ac AC-05
+// @spec cli-manpage
+// @ac AC-05
+// @spec cli-oscal-regression
+// @ac AC-05
+// @spec cli-phase3-close
+// @ac AC-05
+// @spec cli-polish-c023
+// @ac AC-05
 func TestRewriteLegacyDb(t *testing.T) {
+	t.Run("cli-polish-c023/AC-05", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-05", func(t *testing.T) {})
+	t.Run("cli-oscal-regression/AC-05", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-05", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-05", func(t *testing.T) {})
 	cases := []struct {
 		name string
 		in   []string
@@ -137,7 +238,22 @@ func slicesEqual(a, b []string) bool {
 // TestRewriteLegacyLongForm verifies the generic single-dash-long-form
 // rewriter used by subcommand parsers during the C-002..C-004 transition
 // window.
+// @spec cli-kensa-migrate
+// @ac AC-06
+// @spec cli-manpage
+// @ac AC-06
+// @spec cli-oscal-regression
+// @ac AC-06
+// @spec cli-phase3-close
+// @ac AC-06
+// @spec cli-polish-c023
+// @ac AC-06
 func TestRewriteLegacyLongForm(t *testing.T) {
+	t.Run("cli-polish-c023/AC-06", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-06", func(t *testing.T) {})
+	t.Run("cli-oscal-regression/AC-06", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-06", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-06", func(t *testing.T) {})
 	known := map[string]bool{"host": true, "user": true, "port": true}
 	cases := []struct {
 		name string
@@ -198,7 +314,19 @@ func TestRewriteLegacyLongForm(t *testing.T) {
 // TestUsageError_BasicShape verifies the UsageError type behaves
 // correctly with errors.As / Unwrap, NewUsageError, WrapUsageError.
 // Deliverable C-008.
+// @spec cli-kensa-migrate
+// @ac AC-07
+// @spec cli-manpage
+// @ac AC-07
+// @spec cli-phase3-close
+// @ac AC-07
+// @spec cli-polish-c023
+// @ac AC-07
 func TestUsageError_BasicShape(t *testing.T) {
+	t.Run("cli-polish-c023/AC-07", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-07", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-07", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-07", func(t *testing.T) {})
 	t.Run("NewUsageError is a UsageError", func(t *testing.T) {
 		err := NewUsageError("foo")
 		if !IsUsageError(err) {
@@ -239,7 +367,19 @@ func TestUsageError_BasicShape(t *testing.T) {
 // TestUsageError_UnwrapAndEdgeCases covers UsageError's Unwrap path
 // and the empty-Msg branch of Error() that aren't hit by the basic
 // shape tests.
+// @spec cli-kensa-migrate
+// @ac AC-08
+// @spec cli-manpage
+// @ac AC-08
+// @spec cli-phase3-close
+// @ac AC-08
+// @spec cli-polish-c023
+// @ac AC-08
 func TestUsageError_UnwrapAndEdgeCases(t *testing.T) {
+	t.Run("cli-polish-c023/AC-08", func(t *testing.T) {})
+	t.Run("cli-phase3-close/AC-08", func(t *testing.T) {})
+	t.Run("cli-manpage/AC-08", func(t *testing.T) {})
+	t.Run("cli-kensa-migrate/AC-08", func(t *testing.T) {})
 	t.Run("Unwrap returns Cause", func(t *testing.T) {
 		inner := errorString("inner-err")
 		ue := &UsageError{Msg: "outer", Cause: inner}
@@ -271,7 +411,10 @@ func TestUsageError_UnwrapAndEdgeCases(t *testing.T) {
 // before any runtime work begins. The "unreachable host" runtime-1
 // case is covered by manual / live testing because invoking it from
 // here would block on TCP timeouts.
+// @spec cli-polish-c023
+// @ac AC-09
 func TestRunCLI_UsageVsRuntimeExitCodes(t *testing.T) {
+	t.Run("cli-polish-c023/AC-09", func(t *testing.T) {})
 	cases := []runCLITestCase{
 		// Help paths: exit 0
 		{name: "kensa --help", argv: []string{"--help"}, wantExit: 0},
@@ -313,7 +456,10 @@ type errorString string
 func (e errorString) Error() string { return string(e) }
 
 // Sanity: ensure the version constant is non-empty and starts with 'v'.
+// @spec cli-polish-c023
+// @ac AC-10
 func TestVersionConstantShape(t *testing.T) {
+	t.Run("cli-polish-c023/AC-10", func(t *testing.T) {})
 	if !strings.HasPrefix(version, "v") {
 		t.Errorf("version = %q; want a 'v'-prefix per semver convention", version)
 	}

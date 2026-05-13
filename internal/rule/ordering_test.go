@@ -25,7 +25,10 @@ func supersedes(supers ...string) func(*api.Rule) {
 	return func(r *api.Rule) { r.Supersedes = supers }
 }
 
+// @spec rule-ordering
+// @ac AC-01
 func TestResolve_EmptyInput(t *testing.T) {
+	t.Run("rule-ordering/AC-01", func(t *testing.T) {})
 	r := Resolve(nil)
 	if len(r.Order) != 0 {
 		t.Errorf("Order = %v, want empty", r.Order)
@@ -35,7 +38,10 @@ func TestResolve_EmptyInput(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-02
 func TestResolve_NoDependencies_PreservesAllRules(t *testing.T) {
+	t.Run("rule-ordering/AC-02", func(t *testing.T) {})
 	rules := []*api.Rule{
 		makeRule("a"), makeRule("b"), makeRule("c"),
 	}
@@ -52,7 +58,10 @@ func TestResolve_NoDependencies_PreservesAllRules(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-03
 func TestResolve_DependsOn_OrdersDependenciesFirst(t *testing.T) {
+	t.Run("rule-ordering/AC-03", func(t *testing.T) {})
 	// a depends on b; b depends on c. Topological order: c, b, a.
 	rules := []*api.Rule{
 		makeRule("a", dependsOn("b")),
@@ -71,7 +80,10 @@ func TestResolve_DependsOn_OrdersDependenciesFirst(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-04
 func TestResolve_DependsOn_IgnoresExternalRefs(t *testing.T) {
+	t.Run("rule-ordering/AC-04", func(t *testing.T) {})
 	// a depends on a rule not in the input set. The external dep
 	// is filtered out; a still runs.
 	rules := []*api.Rule{
@@ -86,7 +98,10 @@ func TestResolve_DependsOn_IgnoresExternalRefs(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-05
 func TestResolve_Cycles_Detected(t *testing.T) {
+	t.Run("rule-ordering/AC-05", func(t *testing.T) {})
 	// a → b → c → a (cycle).
 	rules := []*api.Rule{
 		makeRule("a", dependsOn("b")),
@@ -109,7 +124,10 @@ func TestResolve_Cycles_Detected(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-06
 func TestResolve_Cycles_MembersDroppedFromOrder(t *testing.T) {
+	t.Run("rule-ordering/AC-06", func(t *testing.T) {})
 	// Cycle members can't be linearized by Kahn's algorithm, so
 	// they're excluded from Order. CycleMembers carries the
 	// consequence so the operator-facing layer can surface
@@ -129,7 +147,10 @@ func TestResolve_Cycles_MembersDroppedFromOrder(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-07
 func TestResolve_CycleMembers_DedupedAcrossCycles(t *testing.T) {
+	t.Run("rule-ordering/AC-07", func(t *testing.T) {})
 	// Two overlapping cycles share node b. CycleMembers dedupes.
 	rules := []*api.Rule{
 		makeRule("a", dependsOn("b")),
@@ -144,7 +165,10 @@ func TestResolve_CycleMembers_DedupedAcrossCycles(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-08
 func TestResolve_Cycles_SelfLoop(t *testing.T) {
+	t.Run("rule-ordering/AC-08", func(t *testing.T) {})
 	// a → a (self-loop).
 	rules := []*api.Rule{makeRule("a", dependsOn("a"))}
 	r := Resolve(rules)
@@ -153,7 +177,10 @@ func TestResolve_Cycles_SelfLoop(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-09
 func TestResolve_Supersedes_SkipsOlder(t *testing.T) {
+	t.Run("rule-ordering/AC-09", func(t *testing.T) {})
 	// new-rule supersedes old-rule. Both in input; old-rule excluded
 	// from Order and recorded in Superseded.
 	rules := []*api.Rule{
@@ -172,7 +199,10 @@ func TestResolve_Supersedes_SkipsOlder(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-10
 func TestResolve_Supersedes_FirstWinsOnDoubleSupersede(t *testing.T) {
+	t.Run("rule-ordering/AC-10", func(t *testing.T) {})
 	// Both b and c claim to supersede a. First-rule-wins (b in
 	// alphabetical order; matches Python kensa behavior).
 	rules := []*api.Rule{
@@ -186,7 +216,10 @@ func TestResolve_Supersedes_FirstWinsOnDoubleSupersede(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-11
 func TestResolve_Supersedes_IgnoresExternalRefs(t *testing.T) {
+	t.Run("rule-ordering/AC-11", func(t *testing.T) {})
 	// rule supersedes an ID not in the set. Nothing happens; the
 	// rule itself runs.
 	rules := []*api.Rule{
@@ -201,7 +234,10 @@ func TestResolve_Supersedes_IgnoresExternalRefs(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-12
 func TestResolve_Conflicts_DetectedAmongActive(t *testing.T) {
+	t.Run("rule-ordering/AC-12", func(t *testing.T) {})
 	// pam-direct conflicts with pam-authselect. Both active.
 	// One conflict pair recorded (deduped by canonical ordering).
 	rules := []*api.Rule{
@@ -219,7 +255,10 @@ func TestResolve_Conflicts_DetectedAmongActive(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-13
 func TestResolve_Conflicts_DedupedAcrossDirections(t *testing.T) {
+	t.Run("rule-ordering/AC-13", func(t *testing.T) {})
 	// Both rules declare conflicts_with mutually. One pair only.
 	rules := []*api.Rule{
 		makeRule("a", conflictsWith("b")),
@@ -231,7 +270,10 @@ func TestResolve_Conflicts_DedupedAcrossDirections(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-14
 func TestResolve_Conflicts_SkippedRulesIgnored(t *testing.T) {
+	t.Run("rule-ordering/AC-14", func(t *testing.T) {})
 	// pam-direct conflicts with pam-authselect, but pam-direct is
 	// superseded by pam-modern. The conflict no longer applies
 	// (pam-direct isn't active).
@@ -246,7 +288,10 @@ func TestResolve_Conflicts_SkippedRulesIgnored(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-15
 func TestResolve_Combined_DepsConflictsSupersedes(t *testing.T) {
+	t.Run("rule-ordering/AC-15", func(t *testing.T) {})
 	// Realistic mix: A→B (deps), C supersedes A, D conflicts with C.
 	rules := []*api.Rule{
 		makeRule("a", dependsOn("b")),
@@ -277,7 +322,10 @@ func TestResolve_Combined_DepsConflictsSupersedes(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-16
 func TestResolve_DeterministicAcrossRuns(t *testing.T) {
+	t.Run("rule-ordering/AC-16", func(t *testing.T) {})
 	// Same input, same output across runs AND across input
 	// permutations. Running the same slice 3 times only catches
 	// hidden mutation; a real determinism test must scramble input
@@ -314,7 +362,10 @@ func TestResolve_DeterministicAcrossRuns(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-17
 func TestResolve_Supersedes_AlphabeticalWinsRegardlessOfInputOrder(t *testing.T) {
+	t.Run("rule-ordering/AC-17", func(t *testing.T) {})
 	// b and c both supersede a. b should win (smallest superseder
 	// ID alphabetically), regardless of input order. This is the
 	// Go improvement over Python's last-in-input-order behavior.
@@ -332,7 +383,10 @@ func TestResolve_Supersedes_AlphabeticalWinsRegardlessOfInputOrder(t *testing.T)
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-18
 func TestFailedDependencies(t *testing.T) {
+	t.Run("rule-ordering/AC-18", func(t *testing.T) {})
 	rules := []*api.Rule{
 		makeRule("a", dependsOn("b", "c")),
 		makeRule("b"),
@@ -355,7 +409,10 @@ func TestFailedDependencies(t *testing.T) {
 	}
 }
 
+// @spec rule-ordering
+// @ac AC-19
 func TestShouldSkip_DirectFailure(t *testing.T) {
+	t.Run("rule-ordering/AC-19", func(t *testing.T) {})
 	rules := []*api.Rule{
 		makeRule("a", dependsOn("b")),
 		makeRule("b"),

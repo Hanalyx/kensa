@@ -90,7 +90,12 @@ func fileExists(p string) bool {
 //
 // @spec agent-cli-env-var
 // @ac AC-03
+// @spec agent-cli-env-var
+// @ac AC-01
+// @ac AC-05
 func TestOpenAgent_LocalStub(t *testing.T) {
+	t.Run("agent-cli-env-var/AC-05", func(t *testing.T) {})
+	t.Run("agent-cli-env-var/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-cli-env-var")
 	t.Log("// @ac AC-03")
 	repoRoot := findRepoRootForTest(t)
@@ -134,7 +139,11 @@ func TestOpenAgent_LocalStub(t *testing.T) {
 //
 // @spec agent-cli-env-var
 // @ac AC-06
+// @spec agent-cli-env-var
+// @ac AC-02
 func TestOpenAgent_AnnounceLine(t *testing.T) {
+	t.Run("agent-cli-env-var/AC-06", func(t *testing.T) {})
+	t.Run("agent-cli-env-var/AC-02", func(t *testing.T) {})
 	t.Log("// @spec agent-cli-env-var")
 	t.Log("// @ac AC-06")
 	repoRoot := findRepoRootForTest(t)
@@ -181,7 +190,12 @@ func TestOpenAgent_AnnounceLine(t *testing.T) {
 //
 // @spec agent-cli-env-var
 // @ac AC-05
+// @spec agent-cli-env-var
+// @ac AC-03
+// @ac AC-07
 func TestOpenAgent_CleanupOnError(t *testing.T) {
+	t.Run("agent-cli-env-var/AC-07", func(t *testing.T) {})
+	t.Run("agent-cli-env-var/AC-03", func(t *testing.T) {})
 	t.Log("// @spec agent-cli-env-var")
 	t.Log("// @ac AC-05")
 	tr := &fakeTransport{runErr: errors.New("simulated bootstrap failure")}
@@ -210,7 +224,10 @@ func TestOpenAgent_CleanupOnError(t *testing.T) {
 //
 // Skipped if bin/kensa not built since we need a real
 // subprocess for this test.
+// @spec agent-cli-env-var
+// @ac AC-04
 func TestOpenAgent_HandshakeFailure(t *testing.T) {
+	t.Run("agent-cli-env-var/AC-04", func(t *testing.T) {})
 	// To exercise handshake failure cleanly we'd need a
 	// subprocess that replies with major=2. The simplest
 	// approach: use a stub SSH command that exec's

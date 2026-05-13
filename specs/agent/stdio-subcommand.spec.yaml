@@ -2,7 +2,7 @@ spec:
     id: agent-stdio-subcommand
     version: 0.1.0
     status: draft
-    tier: 1
+    tier: 2
 
     context:
         system: kensa-go

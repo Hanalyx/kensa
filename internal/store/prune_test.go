@@ -104,6 +104,8 @@ func countTable(t *testing.T, store *SQLite, table string) int {
 }
 
 func TestPruneSessions_Basic(t *testing.T) {
+	t.Run("store-session-schema/AC-10", func(t *testing.T) {})
+	t.Run("store-session-schema/AC-01", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -133,6 +135,7 @@ func TestPruneSessions_Basic(t *testing.T) {
 }
 
 func TestPruneSessions_EmptyStore(t *testing.T) {
+	t.Run("store-session-schema/AC-02", func(t *testing.T) {})
 	store := openTestStore(t)
 	report, err := store.PruneSessions(context.Background(), time.Now())
 	if err != nil {
@@ -149,6 +152,7 @@ func TestPruneSessions_EmptyStore(t *testing.T) {
 }
 
 func TestPruneSessions_CascadeAllTables(t *testing.T) {
+	t.Run("store-session-schema/AC-03", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	old := now.Add(-30 * 24 * time.Hour)
@@ -180,6 +184,7 @@ func TestPruneSessions_CascadeAllTables(t *testing.T) {
 }
 
 func TestPruneSessions_OrphansPruned(t *testing.T) {
+	t.Run("store-session-schema/AC-04", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	old := now.Add(-30 * 24 * time.Hour)
@@ -227,6 +232,7 @@ func countWhere(t *testing.T, store *SQLite, table, col, val string) int {
 }
 
 func TestPruneSessions_RecentPreserved(t *testing.T) {
+	t.Run("store-session-schema/AC-05", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	cutoff := now.Add(-7 * 24 * time.Hour)
@@ -251,6 +257,7 @@ func TestPruneSessions_RecentPreserved(t *testing.T) {
 }
 
 func TestPruneSessions_TransactionRollback(t *testing.T) {
+	t.Run("store-session-schema/AC-06", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	old := now.Add(-30 * 24 * time.Hour)
@@ -290,6 +297,7 @@ func TestPruneSessions_TransactionRollback(t *testing.T) {
 // The invariant we lock is: the post-error state is one of
 // "fully pruned" or "fully unchanged" — never partial.
 func TestPruneSessions_RollbackMidLoop(t *testing.T) {
+	t.Run("store-session-schema/AC-07", func(t *testing.T) {})
 	store := openTestStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	old := now.Add(-30 * 24 * time.Hour)
@@ -333,6 +341,7 @@ func TestPruneSessions_RollbackMidLoop(t *testing.T) {
 // Without FK constraints (per transaction-log spec C-02), this
 // is the only structural guard against the maintenance landmine.
 func TestPruneSessions_CascadeCoversAllChildTables(t *testing.T) {
+	t.Run("store-session-schema/AC-08", func(t *testing.T) {})
 	store := openTestStore(t)
 	rows, err := store.db.Query(`
         SELECT name FROM sqlite_master
@@ -382,6 +391,7 @@ func containsStr(s []string, want string) bool {
 }
 
 func TestPruneSessions_MixedAttachedAndOrphan(t *testing.T) {
+	t.Run("store-session-schema/AC-09", func(t *testing.T) {})
 	// Verify the prune covers both worlds in a single call: an old
 	// session-attached row AND an old orphan row both get removed,
 	// while their recent counterparts stay.

@@ -11,7 +11,10 @@ import (
 // produces a header + per-framework table covering the fixtures
 // in the C-045 makeCoverageCorpus (rule-a + rule-b: cis_rhel9,
 // rule-a + rule-c: nist_800_53). Two frameworks expected.
+// @spec cli-list-frameworks
+// @ac AC-01
 func TestRunListFrameworks_Basic(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-01", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"list", "frameworks", "--rules-dir", dir},
@@ -33,7 +36,10 @@ func TestRunListFrameworks_Basic(t *testing.T) {
 
 // TestRunListFrameworks_MissingRulesDir locks the C-01
 // validation: --rules-dir is required.
+// @spec cli-list-frameworks
+// @ac AC-02
 func TestRunListFrameworks_MissingRulesDir(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-02", func(t *testing.T) {})
 	exit := runCLI([]string{"list", "frameworks"})
 	if exit != 2 {
 		t.Errorf("missing --rules-dir should exit 2; got %d", exit)
@@ -42,7 +48,10 @@ func TestRunListFrameworks_MissingRulesDir(t *testing.T) {
 
 // TestRunList_UnknownSubject locks AC-04: unknown subject
 // rejected with usage error mentioning available subjects.
+// @spec cli-list-frameworks
+// @ac AC-03
 func TestRunList_UnknownSubject(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-03", func(t *testing.T) {})
 	_, stderr := captureRunCLI([]string{"list", "widgets"}, t)
 	if !strings.Contains(stderr, "frameworks") {
 		t.Errorf("error should list available subjects; got:\n%s", stderr)
@@ -57,7 +66,10 @@ func TestRunList_UnknownSubject(t *testing.T) {
 // The `kensa list` (no args) case is INTENTIONALLY excluded —
 // see TestRunList_NoArgsIsUsageError for the script-footgun
 // rationale.
+// @spec cli-list-frameworks
+// @ac AC-04
 func TestRunList_HelpExitsZero(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-04", func(t *testing.T) {})
 	for _, argv := range [][]string{
 		{"list", "--help"},
 		{"list", "-h"},
@@ -78,7 +90,10 @@ func TestRunList_HelpExitsZero(t *testing.T) {
 // $D | jq …` would silently no-op if the subject is dropped by
 // a templating bug. Subject-less invocation is now an error;
 // `--help` / `-h` remains exit 0 for true help requests.
+// @spec cli-list-frameworks
+// @ac AC-05
 func TestRunList_NoArgsIsUsageError(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-05", func(t *testing.T) {})
 	exit := runCLI([]string{"list"})
 	if exit != 2 {
 		t.Errorf("kensa list (no subject) should exit 2; got %d", exit)
@@ -93,7 +108,10 @@ func TestRunList_NoArgsIsUsageError(t *testing.T) {
 // intent guard: `kensa list --rules-dir DIR` (forgot subject)
 // produces a usage error containing "did you mean" and the
 // suggested rewrite.
+// @spec cli-list-frameworks
+// @ac AC-06
 func TestRunList_FlagBeforeSubjectHints(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-06", func(t *testing.T) {})
 	_, stderr := captureRunCLI([]string{"list", "--rules-dir", "/x"}, t)
 	if !strings.Contains(stderr, "did you mean") {
 		t.Errorf("flag-before-subject should hint 'did you mean'; got:\n%s", stderr)
@@ -107,7 +125,10 @@ func TestRunList_FlagBeforeSubjectHints(t *testing.T) {
 }
 
 // TestRunListFrameworks_BadFormat locks AC-05.
+// @spec cli-list-frameworks
+// @ac AC-07
 func TestRunListFrameworks_BadFormat(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-07", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	exit := runCLI([]string{"list", "frameworks", "--rules-dir", dir, "--format", "yaml"})
 	if exit != 2 {
@@ -118,7 +139,10 @@ func TestRunListFrameworks_BadFormat(t *testing.T) {
 // TestRunListFrameworks_JSONShape locks AC-06: snake_case
 // fields under a top-level `frameworks` envelope (so future
 // fields can be added additively without breaking consumers).
+// @spec cli-list-frameworks
+// @ac AC-08
 func TestRunListFrameworks_JSONShape(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-08", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"list", "frameworks", "--rules-dir", dir, "--format", "json"},
@@ -148,7 +172,10 @@ func TestRunListFrameworks_JSONShape(t *testing.T) {
 
 // TestRunListFrameworks_QuietSuppressesStdout locks --quiet
 // behavior parity with other body-emitting subcommands.
+// @spec cli-list-frameworks
+// @ac AC-09
 func TestRunListFrameworks_QuietSuppressesStdout(t *testing.T) {
+	t.Run("cli-list-frameworks/AC-09", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"list", "frameworks", "--rules-dir", dir, "--quiet"},

@@ -19,6 +19,8 @@ import (
 // @spec cli-verify-subcommand
 // @ac AC-06
 func TestKensaDefault_LoadsSigningKey(t *testing.T) {
+	t.Log("// @spec cli-verify-subcommand")
+	t.Log("// @ac AC-06")
 	dir := t.TempDir()
 	keyPath := filepath.Join(dir, "test.priv")
 	// PEM-encoded PKCS#8 Ed25519 private key. Generated once with
@@ -77,6 +79,8 @@ MC4CAQAwBQYDK2VwBCIEIIN2WeGFNzdYfuYhZQ/MGmxv2yvMoXyU3kVOwEJEK1JC
 // @spec agent-cli-env-var
 // @ac AC-02
 func TestDefaultWithEngineOptions_BackwardCompat(t *testing.T) {
+	t.Log("// @spec agent-cli-env-var")
+	t.Log("// @ac AC-02")
 	dir := t.TempDir()
 	storePath := filepath.Join(dir, "results.db")
 
@@ -111,6 +115,8 @@ func TestDefaultWithEngineOptions_BackwardCompat(t *testing.T) {
 // @spec agent-cli-env-var
 // @ac AC-01
 func TestDefaultWithEngineOptions_ExtraOptionsApplied(t *testing.T) {
+	t.Log("// @spec agent-cli-env-var")
+	t.Log("// @ac AC-01")
 	dir := t.TempDir()
 	storePath := filepath.Join(dir, "results.db")
 

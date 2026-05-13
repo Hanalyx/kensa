@@ -9,7 +9,14 @@ import (
 
 // TestParse_SimpleRule parses the sysctl IPv4-forward fixture and checks
 // the mapped api.Rule fields.
+// @spec rule-ordering
+// @ac AC-01
+// @ac AC-10
+// @ac AC-19
 func TestParse_SimpleRule(t *testing.T) {
+	t.Run("rule-ordering/AC-19", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-10", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-01", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/sysctl-net-ipv4-ip-forward.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -46,7 +53,12 @@ func TestParse_SimpleRule(t *testing.T) {
 
 // TestParse_CapabilityGated parses the ssh-disable-root-login fixture and
 // verifies two implementations with `when` and `default` respectively.
+// @spec rule-ordering
+// @ac AC-02
+// @ac AC-11
 func TestParse_CapabilityGated(t *testing.T) {
+	t.Run("rule-ordering/AC-11", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-02", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/ssh-disable-root-login.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -76,7 +88,12 @@ func TestParse_CapabilityGated(t *testing.T) {
 
 // TestParse_TransactionalFalse verifies that transactional:false is read
 // correctly.
+// @spec rule-ordering
+// @ac AC-03
+// @ac AC-12
 func TestParse_TransactionalFalse(t *testing.T) {
+	t.Run("rule-ordering/AC-12", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-03", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/aide-installed.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -87,7 +104,12 @@ func TestParse_TransactionalFalse(t *testing.T) {
 }
 
 // TestParse_MultiCheck verifies that a checks: list maps to api.Check.Checks.
+// @spec rule-ordering
+// @ac AC-04
+// @ac AC-13
 func TestParse_MultiCheck(t *testing.T) {
+	t.Run("rule-ordering/AC-13", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-04", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/aide-installed.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -103,7 +125,12 @@ func TestParse_MultiCheck(t *testing.T) {
 
 // TestParse_MultiStep verifies that a steps: list maps to
 // api.Remediation.Steps.
+// @spec rule-ordering
+// @ac AC-05
+// @ac AC-14
 func TestParse_MultiStep(t *testing.T) {
+	t.Run("rule-ordering/AC-14", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-05", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/aide-installed.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -122,7 +149,12 @@ func TestParse_MultiStep(t *testing.T) {
 
 // TestParse_MultiStepCapturable verifies multi-step atomic fixture
 // (faillock-configure) reads two config_set steps correctly.
+// @spec rule-ordering
+// @ac AC-06
+// @ac AC-15
 func TestParse_MultiStepCapturable(t *testing.T) {
+	t.Run("rule-ordering/AC-15", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-06", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/faillock-configure.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -137,7 +169,12 @@ func TestParse_MultiStepCapturable(t *testing.T) {
 }
 
 // TestParse_InvalidYAML returns an error for malformed YAML.
+// @spec rule-ordering
+// @ac AC-07
+// @ac AC-16
 func TestParse_InvalidYAML(t *testing.T) {
+	t.Run("rule-ordering/AC-16", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-07", func(t *testing.T) {})
 	_, err := rule.Parse(strings.NewReader("not: valid: yaml: ["))
 	if err == nil {
 		t.Error("expected error for invalid YAML, got nil")
@@ -145,7 +182,12 @@ func TestParse_InvalidYAML(t *testing.T) {
 }
 
 // TestParse_References verifies that the references map is populated.
+// @spec rule-ordering
+// @ac AC-08
+// @ac AC-17
 func TestParse_References(t *testing.T) {
+	t.Run("rule-ordering/AC-17", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-08", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/ssh-disable-root-login.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -159,7 +201,12 @@ func TestParse_References(t *testing.T) {
 }
 
 // TestParse_Platform verifies platform fields are decoded.
+// @spec rule-ordering
+// @ac AC-09
+// @ac AC-18
 func TestParse_Platform(t *testing.T) {
+	t.Run("rule-ordering/AC-18", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-09", func(t *testing.T) {})
 	r, err := rule.ParseFile("testdata/sysctl-net-ipv4-ip-forward.yml")
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)

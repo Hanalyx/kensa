@@ -40,9 +40,93 @@ domains:
             - handler-service-enabled
             - handler-service-masked
             - handler-sysctl-set
+    deadman-primitives:
+        tier: 1         # Phase 3 kernel-primitive deadman — directly load-bearing for rollback
+        description: timerfd / pidfd / signalfd / eventloop primitives the deadman runs on.
+        specs:
+            - deadman-timerfd
+            - deadman-pidfd
+            - deadman-signalfd
+            - deadman-eventloop
+    agent:
+        tier: 2         # Agent wire + bootstrap — apply-path infrastructure, not rollback-critical
+        description: Agent stack (bootstrap, client, wire protocol, framing, handler ports). Tier 2 because the agent itself is dispensable — when it fails, kensa falls back to direct-SSH via KENSA_NO_AGENT=1 (P-011).
+        specs:
+            - agent-bootstrap
+            - agent-cli-env-var
+            - agent-client
+            - agent-framing-production
+            - agent-handler-port-filepermissions
+            - agent-handler-ports-umbrella
+            - agent-live-host-parity
+            - agent-stdio-subcommand
+            - agent-version-handshake
+            - agent-wire-handler-schema
+            - agent-wire-protocol
+    cli:
+        tier: 3         # CLI surface — formatters, flags, UX. Non-mutation paths.
+        description: CLI flag parsing, output formatting, history/session presentation. Tier 3 because none of these affect the atomicity contract.
+        specs:
+            - cli-agent-placeholder
+            - cli-capability-override
+            - cli-category-filter
+            - cli-control-filter
+            - cli-coverage-mechanisms-rename
+            - cli-deprecation
+            - cli-embedded-defaults
+            - cli-framework-coverage
+            - cli-framework-filter
+            - cli-history-jsonl
+            - cli-history-prune
+            - cli-history-stats
+            - cli-info
+            - cli-inventory-perhost-vars
+            - cli-kensa-migrate
+            - cli-limit-host-glob
+            - cli-list-frameworks
+            - cli-list-sessions-info-jsonl
+            - cli-manpage
+            - cli-oscal-regression
+            - cli-password-flag
+            - cli-phase3-close
+            - cli-phase4-close
+            - cli-phase5a-close
+            - cli-polish-c023
+            - cli-quiet
+            - cli-rollback-session-aware
+            - cli-rule-flag
+            - cli-session-diff
+            - cli-severity-filter
+            - cli-short-letter-table
+            - cli-store-flag
+            - cli-strict-host-keys-flag
+            - cli-tag-filter
+            - cli-variable-substitution
+            - cli-variable-tiers
+            - cli-verify-subcommand
+            - cli-workers-flag
+    output:
+        tier: 3         # Output serializers — non-mutation paths.
+        description: Output writers (CSV / PDF / OSCAL / evidence / JSON / markdown / text). Render-only; no atomicity exposure.
+        specs:
+            - output-csv
+            - output-evidence
+            - output-fanout
+            - output-oscal
+            - output-parser
+            - output-pdf
+            - output-text-scan
+            - output-writer
+    rule-store:
+        tier: 2         # Rule ordering + session persistence — atomicity-adjacent
+        description: Rule-level ordering rules and the session/transaction store.
+        specs:
+            - rule-ordering
+            - store-session-schema
 
 settings:
     specs_dir: specs
+    strictness: threshold  # P-012: enforce tier-specific thresholds (vs default zero-tolerance 100%-everywhere)
     coverage:
         tier1: 100   # rollback-safety-critical components — zero unmapped ACs
         tier2: 80    # apply-path / validation components

@@ -15,7 +15,11 @@ import (
 //
 // @spec agent-framing-production
 // @ac AC-01
+// @spec agent-framing-production
+// @ac AC-08
 func TestFraming_Roundtrip(t *testing.T) {
+	t.Run("agent-framing-production/AC-08", func(t *testing.T) {})
+	t.Run("agent-framing-production/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-framing-production")
 	t.Log("// @ac AC-01")
 	cases := []struct {
@@ -61,6 +65,7 @@ func TestFraming_Roundtrip(t *testing.T) {
 // @spec agent-framing-production
 // @ac AC-02
 func TestFraming_RejectsUnknownType(t *testing.T) {
+	t.Run("agent-framing-production/AC-02", func(t *testing.T) {})
 	t.Log("// @spec agent-framing-production")
 	t.Log("// @ac AC-02")
 	t.Run("decode_unknown_type", func(t *testing.T) {
@@ -98,6 +103,7 @@ func TestFraming_RejectsUnknownType(t *testing.T) {
 // @spec agent-framing-production
 // @ac AC-03
 func TestFraming_ConfigurableMaxSize(t *testing.T) {
+	t.Run("agent-framing-production/AC-03", func(t *testing.T) {})
 	t.Log("// @spec agent-framing-production")
 	t.Log("// @ac AC-03")
 	t.Run("decode_respects_override", func(t *testing.T) {
@@ -150,7 +156,10 @@ func TestFraming_ConfigurableMaxSize(t *testing.T) {
 // the default 16 MiB cap rejects a peer's oversize length
 // prefix BEFORE allocation. Without this, a 4 GiB length would
 // force make([]byte, 4 GB) and OOM the agent.
+// @spec agent-framing-production
+// @ac AC-04
 func TestFraming_RejectsOversizedFrame(t *testing.T) {
+	t.Run("agent-framing-production/AC-04", func(t *testing.T) {})
 	var buf bytes.Buffer
 	buf.WriteByte(byte(FramePayload))
 	var lenBuf [4]byte
@@ -169,7 +178,10 @@ func TestFraming_RejectsOversizedFrame(t *testing.T) {
 // TestFraming_PartialReads: io.ReadFull semantics for both the
 // 5-byte header and the payload. Worst-case 1-byte-per-Read
 // fragmentation (SSH transport with small TCP segments).
+// @spec agent-framing-production
+// @ac AC-05
 func TestFraming_PartialReads(t *testing.T) {
+	t.Run("agent-framing-production/AC-05", func(t *testing.T) {})
 	payload := []byte("hello, framed world")
 
 	var buf bytes.Buffer
@@ -209,7 +221,10 @@ func (r *oneByteReader) Read(p []byte) (int, error) {
 // TestFraming_EOFSemantics: clean EOF before any header byte
 // returns io.EOF (legitimate stream close); EOF mid-frame
 // returns io.ErrUnexpectedEOF.
+// @spec agent-framing-production
+// @ac AC-06
 func TestFraming_EOFSemantics(t *testing.T) {
+	t.Run("agent-framing-production/AC-06", func(t *testing.T) {})
 	t.Run("clean_eof_between_frames", func(t *testing.T) {
 		var buf bytes.Buffer
 		_, _, err := Read(&buf, nil)
@@ -243,7 +258,10 @@ func TestFraming_EOFSemantics(t *testing.T) {
 
 // TestFraming_OversizedErrorMessage locks the error string
 // content for the size-rejection case.
+// @spec agent-framing-production
+// @ac AC-07
 func TestFraming_OversizedErrorMessage(t *testing.T) {
+	t.Run("agent-framing-production/AC-07", func(t *testing.T) {})
 	var buf bytes.Buffer
 	buf.WriteByte(byte(FramePayload))
 	var lenBuf [4]byte

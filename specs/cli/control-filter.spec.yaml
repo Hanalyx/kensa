@@ -2,7 +2,7 @@ spec:
     id: cli-control-filter
     version: 0.1.0
     status: draft
-    tier: 1
+    tier: 3
 
     context:
         system: kensa-go

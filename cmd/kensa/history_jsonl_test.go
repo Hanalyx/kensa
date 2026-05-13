@@ -57,7 +57,10 @@ func makeHistoryStore(t *testing.T, n int) string {
 
 // TestRunHistory_JSONLFormat locks AC-01: --format jsonl emits
 // one JSON object per line (no top-level array wrapper).
+// @spec cli-history-jsonl
+// @ac AC-01
 func TestRunHistory_JSONLFormat(t *testing.T) {
+	t.Run("cli-history-jsonl/AC-01", func(t *testing.T) {})
 	path := makeHistoryStore(t, 3)
 	stdout, _ := captureRunCLI([]string{"--db", path, "history", "--format", "jsonl"}, t)
 	lines := strings.Split(strings.TrimRight(stdout, "\n"), "\n")
@@ -79,7 +82,10 @@ func TestRunHistory_JSONLFormat(t *testing.T) {
 // TestRunHistory_JSONLEachLineParseable locks AC-02: every line
 // is independently parseable as a transaction-record-shaped
 // object.
+// @spec cli-history-jsonl
+// @ac AC-02
 func TestRunHistory_JSONLEachLineParseable(t *testing.T) {
+	t.Run("cli-history-jsonl/AC-02", func(t *testing.T) {})
 	path := makeHistoryStore(t, 3)
 	stdout, _ := captureRunCLI([]string{"--db", path, "history", "--format", "jsonl"}, t)
 	for i, line := range strings.Split(strings.TrimRight(stdout, "\n"), "\n") {
@@ -102,7 +108,10 @@ func TestRunHistory_JSONLEachLineParseable(t *testing.T) {
 // TestRunHistory_JSONLRejectsDocumentModes locks AC-03: jsonl
 // combined with --aggregate / --stats / --txn rejects with
 // usage error.
+// @spec cli-history-jsonl
+// @ac AC-03
 func TestRunHistory_JSONLRejectsDocumentModes(t *testing.T) {
+	t.Run("cli-history-jsonl/AC-03", func(t *testing.T) {})
 	path := makeHistoryStore(t, 1)
 	cases := [][]string{
 		{"--db", path, "history", "--format", "jsonl", "--aggregate", "by_host"},
@@ -127,7 +136,10 @@ func TestRunHistory_JSONLRejectsDocumentModes(t *testing.T) {
 // TestRunHistory_JSONLShapeMatchesJSON locks AC-04: each jsonl
 // line is byte-identical to a single element of the --format
 // json `transactions` array.
+// @spec cli-history-jsonl
+// @ac AC-04
 func TestRunHistory_JSONLShapeMatchesJSON(t *testing.T) {
+	t.Run("cli-history-jsonl/AC-04", func(t *testing.T) {})
 	path := makeHistoryStore(t, 2)
 
 	stdoutJSON, _ := captureRunCLI(
@@ -172,7 +184,10 @@ func TestRunHistory_JSONLShapeMatchesJSON(t *testing.T) {
 // TestRunHistory_JSONLTrailerToStderr locks AC-05: the "N of M
 // transactions shown" trailer must NOT corrupt stdout (consumers
 // piping to jq -c '.' would choke on the human-readable line).
+// @spec cli-history-jsonl
+// @ac AC-05
 func TestRunHistory_JSONLTrailerToStderr(t *testing.T) {
+	t.Run("cli-history-jsonl/AC-05", func(t *testing.T) {})
 	path := makeHistoryStore(t, 2)
 	stdout, stderr := captureRunCLI(
 		[]string{"--db", path, "history", "--format", "jsonl"}, t,
@@ -187,7 +202,10 @@ func TestRunHistory_JSONLTrailerToStderr(t *testing.T) {
 
 // TestRunHistory_JSONLAdvertisedInHelp verifies the --help text
 // surfaces jsonl as a valid format.
+// @spec cli-history-jsonl
+// @ac AC-06
 func TestRunHistory_JSONLAdvertisedInHelp(t *testing.T) {
+	t.Run("cli-history-jsonl/AC-06", func(t *testing.T) {})
 	stdout, _ := captureRunCLI([]string{"history", "--help"}, t)
 	if !strings.Contains(stdout, "jsonl") {
 		t.Errorf("history --help should mention jsonl; got:\n%s", stdout)

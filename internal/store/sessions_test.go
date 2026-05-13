@@ -21,7 +21,12 @@ func openTestStore(t *testing.T) *SQLite {
 	return store
 }
 
+// @spec store-session-schema
+// @ac AC-01
+// @ac AC-10
 func TestCreateSession_Roundtrip(t *testing.T) {
+	t.Run("store-session-schema/AC-10", func(t *testing.T) {})
+	t.Run("store-session-schema/AC-01", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -59,7 +64,10 @@ func TestCreateSession_Roundtrip(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-02
 func TestCreateSession_RejectsZeroID(t *testing.T) {
+	t.Run("store-session-schema/AC-02", func(t *testing.T) {})
 	store := openTestStore(t)
 	err := store.CreateSession(context.Background(), &Session{
 		StartedAt: time.Now(),
@@ -69,7 +77,10 @@ func TestCreateSession_RejectsZeroID(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-03
 func TestCreateSession_RejectsZeroStartedAt(t *testing.T) {
+	t.Run("store-session-schema/AC-03", func(t *testing.T) {})
 	store := openTestStore(t)
 	err := store.CreateSession(context.Background(), &Session{
 		ID: uuid.New(),
@@ -79,7 +90,10 @@ func TestCreateSession_RejectsZeroStartedAt(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-04
 func TestFinishSession_UpdatesTimestamp(t *testing.T) {
+	t.Run("store-session-schema/AC-04", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -105,7 +119,10 @@ func TestFinishSession_UpdatesTimestamp(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-05
 func TestFinishSession_Idempotent(t *testing.T) {
+	t.Run("store-session-schema/AC-05", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -127,7 +144,10 @@ func TestFinishSession_Idempotent(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-06
 func TestListSessions_OrderByStartedAtDesc(t *testing.T) {
+	t.Run("store-session-schema/AC-06", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -161,7 +181,10 @@ func TestListSessions_OrderByStartedAtDesc(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-07
 func TestListSessions_FilterByHostname(t *testing.T) {
+	t.Run("store-session-schema/AC-07", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -183,7 +206,10 @@ func TestListSessions_FilterByHostname(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-08
 func TestAttachTransaction_NotFound(t *testing.T) {
+	t.Run("store-session-schema/AC-08", func(t *testing.T) {})
 	store := openTestStore(t)
 	err := store.AttachTransaction(context.Background(), uuid.New(), uuid.New())
 	if err == nil {
@@ -191,7 +217,10 @@ func TestAttachTransaction_NotFound(t *testing.T) {
 	}
 }
 
+// @spec store-session-schema
+// @ac AC-09
 func TestSessionsTable_Exists(t *testing.T) {
+	t.Run("store-session-schema/AC-09", func(t *testing.T) {})
 	// Confirm migration 2 ran. Querying a session that doesn't
 	// exist should return sql.ErrNoRows (wrapped), not a "no
 	// such table" error.

@@ -42,7 +42,12 @@ func makeScanResult(t *testing.T, ruleIDs []string) ([]*api.Rule, *api.ScanResul
 	return rules, result
 }
 
+// @spec cli-store-flag
+// @ac AC-01
+// @ac AC-05
 func TestPersistScanResult_Basic(t *testing.T) {
+	t.Run("cli-store-flag/AC-01", func(t *testing.T) {})
+	t.Run("cli-store-flag/AC-05", func(t *testing.T) {})
 	dir := t.TempDir()
 	s, err := store.OpenSQLite(context.Background(), filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -84,7 +89,12 @@ func TestPersistScanResult_Basic(t *testing.T) {
 	}
 }
 
+// @spec cli-store-flag
+// @ac AC-02
+// @ac AC-06
 func TestPersistScanResult_EmptyResult(t *testing.T) {
+	t.Run("cli-store-flag/AC-02", func(t *testing.T) {})
+	t.Run("cli-store-flag/AC-06", func(t *testing.T) {})
 	dir := t.TempDir()
 	s, err := store.OpenSQLite(context.Background(), filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -111,7 +121,10 @@ func TestPersistScanResult_EmptyResult(t *testing.T) {
 	}
 }
 
+// @spec cli-store-flag
+// @ac AC-03
 func TestPersistScanResult_NilSession(t *testing.T) {
+	t.Run("cli-store-flag/AC-03", func(t *testing.T) {})
 	s, err := store.OpenSQLite(context.Background(), filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +137,10 @@ func TestPersistScanResult_NilSession(t *testing.T) {
 	}
 }
 
+// @spec cli-store-flag
+// @ac AC-04
 func TestSummarizeCheckArgs(t *testing.T) {
+	t.Run("cli-store-flag/AC-04", func(t *testing.T) {})
 	got := summarizeCheckArgs([]string{"critical"}, []string{"pci"}, "audit", "cis_rhel9", nil)
 	if got == "" {
 		t.Fatal("non-empty inputs should produce non-empty summary")

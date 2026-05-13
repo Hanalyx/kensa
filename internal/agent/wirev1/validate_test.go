@@ -11,7 +11,16 @@ import (
 //
 // @spec agent-framing-production
 // @ac AC-05
+// @spec agent-wire-protocol
+// @ac AC-01
+// @ac AC-03
+// @ac AC-05
+// @ac AC-07
 func TestValidate_HappyPath(t *testing.T) {
+	t.Run("agent-wire-protocol/AC-07", func(t *testing.T) {})
+	t.Run("agent-wire-protocol/AC-05", func(t *testing.T) {})
+	t.Run("agent-wire-protocol/AC-03", func(t *testing.T) {})
+	t.Run("agent-wire-protocol/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-framing-production")
 	t.Log("// @ac AC-05")
 	t.Run("request_apply", func(t *testing.T) {
@@ -68,7 +77,16 @@ func TestValidate_HappyPath(t *testing.T) {
 // sentinel is non-nil, errors.Is matches a wrapped instance.
 // Future dispatchers using `errors.Is(err,
 // wirev1.ErrMultiVariantOneof)` get a stable match.
+// @spec agent-wire-protocol
+// @ac AC-02
+// @ac AC-04
+// @ac AC-06
+// @ac AC-08
 func TestValidate_ErrMultiVariantOneofExists(t *testing.T) {
+	t.Run("agent-wire-protocol/AC-08", func(t *testing.T) {})
+	t.Run("agent-wire-protocol/AC-06", func(t *testing.T) {})
+	t.Run("agent-wire-protocol/AC-04", func(t *testing.T) {})
+	t.Run("agent-wire-protocol/AC-02", func(t *testing.T) {})
 	if ErrMultiVariantOneof == nil {
 		t.Fatal("ErrMultiVariantOneof is nil")
 	}

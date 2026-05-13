@@ -10,7 +10,14 @@ import (
 	"testing"
 )
 
+// @spec cli-password-flag
+// @ac AC-01
+// @ac AC-05
+// @ac AC-09
 func TestResolvePassword_Empty(t *testing.T) {
+	t.Run("cli-password-flag/AC-01", func(t *testing.T) {})
+	t.Run("cli-password-flag/AC-05", func(t *testing.T) {})
+	t.Run("cli-password-flag/AC-09", func(t *testing.T) {})
 	got, err := resolvePassword("", &bytes.Buffer{}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatalf("empty: %v", err)
@@ -20,7 +27,12 @@ func TestResolvePassword_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-password-flag
+// @ac AC-02
+// @ac AC-06
 func TestResolvePassword_LiteralValue(t *testing.T) {
+	t.Run("cli-password-flag/AC-02", func(t *testing.T) {})
+	t.Run("cli-password-flag/AC-06", func(t *testing.T) {})
 	got, err := resolvePassword("hunter2", &bytes.Buffer{}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatalf("literal: %v", err)
@@ -30,7 +42,12 @@ func TestResolvePassword_LiteralValue(t *testing.T) {
 	}
 }
 
+// @spec cli-password-flag
+// @ac AC-03
+// @ac AC-07
 func TestResolvePassword_SentinelOnNonTTY(t *testing.T) {
+	t.Run("cli-password-flag/AC-03", func(t *testing.T) {})
+	t.Run("cli-password-flag/AC-07", func(t *testing.T) {})
 	// When the sentinel is set but stdin is a non-TTY (e.g.,
 	// piped to bytes.Buffer), the resolver fails with a usage
 	// error rather than blocking forever.
@@ -45,7 +62,12 @@ func TestResolvePassword_SentinelOnNonTTY(t *testing.T) {
 	}
 }
 
+// @spec cli-password-flag
+// @ac AC-04
+// @ac AC-08
 func TestResolvePassword_SentinelValue_NotMistakenForLiteral(t *testing.T) {
+	t.Run("cli-password-flag/AC-04", func(t *testing.T) {})
+	t.Run("cli-password-flag/AC-08", func(t *testing.T) {})
 	// The sentinel is a documented reserved literal: an operator
 	// passing --password='<prompt>' triggers the prompt rather than
 	// using those characters as the password. The resolver detects

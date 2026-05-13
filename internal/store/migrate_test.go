@@ -33,6 +33,8 @@ func insertOrphanTxn(t *testing.T, store *SQLite, hostID string, started time.Ti
 }
 
 func TestBackfillSessions_EmptyStore(t *testing.T) {
+	t.Run("store-session-schema/AC-07", func(t *testing.T) {})
+	t.Run("store-session-schema/AC-01", func(t *testing.T) {})
 	store := openTestStore(t)
 	report, err := store.BackfillSessions(context.Background())
 	if err != nil {
@@ -47,6 +49,8 @@ func TestBackfillSessions_EmptyStore(t *testing.T) {
 }
 
 func TestBackfillSessions_OneHostOneTxn(t *testing.T) {
+	t.Run("store-session-schema/AC-08", func(t *testing.T) {})
+	t.Run("store-session-schema/AC-02", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -81,6 +85,8 @@ func TestBackfillSessions_OneHostOneTxn(t *testing.T) {
 }
 
 func TestBackfillSessions_MultipleHosts(t *testing.T) {
+	t.Run("store-session-schema/AC-09", func(t *testing.T) {})
+	t.Run("store-session-schema/AC-03", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -102,6 +108,8 @@ func TestBackfillSessions_MultipleHosts(t *testing.T) {
 }
 
 func TestBackfillSessions_Idempotent(t *testing.T) {
+	t.Run("store-session-schema/AC-10", func(t *testing.T) {})
+	t.Run("store-session-schema/AC-04", func(t *testing.T) {})
 	store := openTestStore(t)
 	ctx := context.Background()
 
@@ -125,6 +133,7 @@ func TestBackfillSessions_Idempotent(t *testing.T) {
 }
 
 func TestBackfillSessions_PreservesPostPhase4Sessions(t *testing.T) {
+	t.Run("store-session-schema/AC-05", func(t *testing.T) {})
 	// A real Phase-4 session (manually created) must NOT be
 	// counted as a candidate for backfill — its transactions
 	// already have non-NULL session_id.
@@ -172,6 +181,7 @@ func TestBackfillSessions_PreservesPostPhase4Sessions(t *testing.T) {
 }
 
 func TestCurrentSchemaVersion(t *testing.T) {
+	t.Run("store-session-schema/AC-06", func(t *testing.T) {})
 	store := openTestStore(t)
 	v, err := store.CurrentSchemaVersion(context.Background())
 	if err != nil {

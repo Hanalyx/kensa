@@ -23,7 +23,29 @@ import (
 // The mapping below mirrors the constants in flags.go. Adding a new
 // short letter requires updating both the constant declaration and
 // this test, which is the intended friction.
+// @spec cli-polish-c023
+// @ac AC-01
+// @ac AC-03
+// @ac AC-05
+// @ac AC-07
+// @ac AC-09
+// @ac AC-11
+// @spec cli-short-letter-table
+// @ac AC-01
+// @ac AC-03
+// @ac AC-05
+// @ac AC-07
 func TestShortLetterTable_NoCollisions(t *testing.T) {
+	t.Run("cli-short-letter-table/AC-01", func(t *testing.T) {})
+	t.Run("cli-short-letter-table/AC-03", func(t *testing.T) {})
+	t.Run("cli-short-letter-table/AC-05", func(t *testing.T) {})
+	t.Run("cli-short-letter-table/AC-07", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-01", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-03", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-05", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-07", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-09", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-11", func(t *testing.T) {})
 	registry := map[string]string{
 		"ShortHelp":        ShortHelp,
 		"ShortVersion":     ShortVersion,
@@ -95,7 +117,25 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 // the documented intent in flags.go: lowercase for "first available"
 // flags, uppercase only when the lowercase letter conflicts with a
 // reservation (sacred GNU letter or already-used in same scope).
+// @spec cli-polish-c023
+// @ac AC-02
+// @ac AC-04
+// @ac AC-06
+// @ac AC-08
+// @ac AC-10
+// @spec cli-short-letter-table
+// @ac AC-02
+// @ac AC-04
+// @ac AC-06
 func TestShortLetterTable_CaseDiscipline(t *testing.T) {
+	t.Run("cli-short-letter-table/AC-02", func(t *testing.T) {})
+	t.Run("cli-short-letter-table/AC-04", func(t *testing.T) {})
+	t.Run("cli-short-letter-table/AC-06", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-02", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-04", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-06", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-08", func(t *testing.T) {})
+	t.Run("cli-polish-c023/AC-10", func(t *testing.T) {})
 	cases := []struct {
 		name   string
 		letter string

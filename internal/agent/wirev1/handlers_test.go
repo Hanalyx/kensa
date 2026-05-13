@@ -18,7 +18,10 @@ import (
 //
 // @spec agent-wire-handler-schema
 // @ac AC-03
+// @spec agent-wire-handler-schema
+// @ac AC-01
 func TestBridge_StepResultRoundtrip(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-wire-handler-schema")
 	t.Log("// @ac AC-03")
 	cases := []struct {
@@ -63,7 +66,10 @@ func TestBridge_StepResultRoundtrip(t *testing.T) {
 // TestBridge_StepResultNilDecode locks the nil-input safety
 // contract: WireStepResultToAPI(nil) returns the zero
 // api.StepResult, not a panic.
+// @spec agent-wire-handler-schema
+// @ac AC-02
 func TestBridge_StepResultNilDecode(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-02", func(t *testing.T) {})
 	got := WireStepResultToAPI(nil)
 	if !reflect.DeepEqual(got, api.StepResult{}) {
 		t.Errorf("nil → expected zero StepResult; got %#v", got)
@@ -81,6 +87,7 @@ func TestBridge_StepResultNilDecode(t *testing.T) {
 // @spec agent-wire-handler-schema
 // @ac AC-03
 func TestBridge_PreStateRoundtrip(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-03", func(t *testing.T) {})
 	t.Log("// @spec agent-wire-handler-schema")
 	t.Log("// @ac AC-03")
 	when := time.Date(2026, 5, 11, 9, 30, 0, 0, time.UTC)
@@ -160,7 +167,10 @@ func TestBridge_PreStateRoundtrip(t *testing.T) {
 }
 
 // TestBridge_PreStateNilDecode locks the nil-input safety.
+// @spec agent-wire-handler-schema
+// @ac AC-04
 func TestBridge_PreStateNilDecode(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-04", func(t *testing.T) {})
 	got, err := WirePreStateToAPI(nil)
 	if err != nil {
 		t.Fatalf("WirePreStateToAPI(nil): %v", err)
@@ -174,7 +184,10 @@ func TestBridge_PreStateNilDecode(t *testing.T) {
 // precision-guard propagation: a PreState whose Data has an
 // int64 > 2^53 surfaces a wrapped error from the underlying
 // MapToStruct rather than corrupting silently.
+// @spec agent-wire-handler-schema
+// @ac AC-05
 func TestBridge_PreStateOversizedIntError(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-05", func(t *testing.T) {})
 	in := api.PreState{
 		Data: map[string]any{
 			"unix_nano": int64(1_760_000_000_000_000_000), // ~1.76e18, > 2^53
@@ -191,7 +204,10 @@ func TestBridge_PreStateOversizedIntError(t *testing.T) {
 //
 // @spec agent-wire-handler-schema
 // @ac AC-03
+// @spec agent-wire-handler-schema
+// @ac AC-06
 func TestBridge_RollbackResultRoundtrip(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-06", func(t *testing.T) {})
 	t.Log("// @spec agent-wire-handler-schema")
 	t.Log("// @ac AC-03")
 	when := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
@@ -240,7 +256,10 @@ func TestBridge_RollbackResultRoundtrip(t *testing.T) {
 }
 
 // TestBridge_RollbackResultNilDecode locks nil-input safety.
+// @spec agent-wire-handler-schema
+// @ac AC-07
 func TestBridge_RollbackResultNilDecode(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-07", func(t *testing.T) {})
 	got, err := WireRollbackResultToAPI(nil)
 	if err != nil {
 		t.Fatalf("nil → expected nil err; got: %v", err)
@@ -257,7 +276,10 @@ func TestBridge_RollbackResultNilDecode(t *testing.T) {
 // now validates via Timestamp.CheckValid before AsTime, surfaces
 // an error, and the dispatcher refuses to commit a Response
 // with an out-of-range time field.
+// @spec agent-wire-handler-schema
+// @ac AC-08
 func TestBridge_RejectsMalformedTimestamp(t *testing.T) {
+	t.Run("agent-wire-handler-schema/AC-08", func(t *testing.T) {})
 	malformed := &timestamppb.Timestamp{Seconds: math.MaxInt64}
 
 	t.Run("PreState_CapturedAt", func(t *testing.T) {

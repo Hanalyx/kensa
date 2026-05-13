@@ -21,7 +21,15 @@ func makeHosts() []inventoryHost {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-01
+// @spec cli-limit-host-glob
+// @ac AC-01
+// @ac AC-15
 func TestFilterByLimit_EmptyPatternReturnsAll(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-01", func(t *testing.T) {})
+	t.Run("cli-limit-host-glob/AC-15", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-01", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "")
 	if err != nil {
@@ -32,7 +40,15 @@ func TestFilterByLimit_EmptyPatternReturnsAll(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-02
+// @spec cli-limit-host-glob
+// @ac AC-02
+// @ac AC-16
 func TestFilterByLimit_AllWildcards(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-02", func(t *testing.T) {})
+	t.Run("cli-limit-host-glob/AC-16", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-02", func(t *testing.T) {})
 	hosts := makeHosts()
 	for _, p := range []string{"all", "*"} {
 		got, err := filterByLimit(hosts, p)
@@ -45,7 +61,13 @@ func TestFilterByLimit_AllWildcards(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-03
+// @spec cli-limit-host-glob
+// @ac AC-03
 func TestFilterByLimit_ExactAddrMatch(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-03", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-03", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "web-01")
 	if err != nil {
@@ -56,7 +78,13 @@ func TestFilterByLimit_ExactAddrMatch(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-04
+// @spec cli-limit-host-glob
+// @ac AC-04
 func TestFilterByLimit_GlobPattern(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-04", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-04", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "web-*")
 	if err != nil {
@@ -72,7 +100,13 @@ func TestFilterByLimit_GlobPattern(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-05
+// @spec cli-limit-host-glob
+// @ac AC-05
 func TestFilterByLimit_GroupMatch(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-05", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-05", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "prod")
 	if err != nil {
@@ -83,7 +117,13 @@ func TestFilterByLimit_GroupMatch(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-06
+// @spec cli-limit-host-glob
+// @ac AC-06
 func TestFilterByLimit_CommaSeparated(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-06", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-06", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "web-*,db-01")
 	if err != nil {
@@ -94,7 +134,13 @@ func TestFilterByLimit_CommaSeparated(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-07
+// @spec cli-limit-host-glob
+// @ac AC-07
 func TestFilterByLimit_Exclusion(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-07", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-07", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "all,!stage-*")
 	if err != nil {
@@ -110,7 +156,13 @@ func TestFilterByLimit_Exclusion(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-08
+// @spec cli-limit-host-glob
+// @ac AC-08
 func TestFilterByLimit_GroupExclusion(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-08", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-08", func(t *testing.T) {})
 	hosts := makeHosts()
 	got, err := filterByLimit(hosts, "all,!stage")
 	if err != nil {
@@ -125,7 +177,13 @@ func TestFilterByLimit_GroupExclusion(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-09
+// @spec cli-limit-host-glob
+// @ac AC-09
 func TestFilterByLimit_OrderMatters(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-09", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-09", func(t *testing.T) {})
 	// "all,!stage,stage-app-01" — start with all, drop stage,
 	// then re-add stage-app-01. Order matters per ansible semantics.
 	hosts := makeHosts()
@@ -145,7 +203,13 @@ func TestFilterByLimit_OrderMatters(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-10
+// @spec cli-limit-host-glob
+// @ac AC-10
 func TestFilterByLimit_TypoFailsLoud(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-10", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-10", func(t *testing.T) {})
 	// A typo'd host name produces a usage error, not a silent
 	// empty scan.
 	hosts := makeHosts()
@@ -155,7 +219,13 @@ func TestFilterByLimit_TypoFailsLoud(t *testing.T) {
 	}
 }
 
+// @spec cli-inventory-perhost-vars
+// @ac AC-11
+// @spec cli-limit-host-glob
+// @ac AC-11
 func TestFilterByLimit_EmptyExclusionToken(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-11", func(t *testing.T) {})
+	t.Run("cli-inventory-perhost-vars/AC-11", func(t *testing.T) {})
 	// "!" alone is malformed.
 	hosts := makeHosts()
 	_, err := filterByLimit(hosts, "all,!")
@@ -164,7 +234,10 @@ func TestFilterByLimit_EmptyExclusionToken(t *testing.T) {
 	}
 }
 
+// @spec cli-limit-host-glob
+// @ac AC-12
 func TestFilterByLimit_NoMatchExclusion(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-12", func(t *testing.T) {})
 	// An exclusion token that matches nothing is NOT an error
 	// (ansible allows it; operator may have a "remove staging if
 	// any" template that's idempotent on staging-free inventories).
@@ -178,7 +251,10 @@ func TestFilterByLimit_NoMatchExclusion(t *testing.T) {
 	}
 }
 
+// @spec cli-limit-host-glob
+// @ac AC-13
 func TestFilterByLimit_PreservesOrder(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-13", func(t *testing.T) {})
 	// Output preserves input host order (for deterministic
 	// per-host scan order).
 	hosts := makeHosts()
@@ -194,7 +270,10 @@ func TestFilterByLimit_PreservesOrder(t *testing.T) {
 	}
 }
 
+// @spec cli-limit-host-glob
+// @ac AC-14
 func TestFilterByLimit_GlobAgainstAddrNotGroup(t *testing.T) {
+	t.Run("cli-limit-host-glob/AC-14", func(t *testing.T) {})
 	// Globs match addr only — they don't expand against group
 	// names. This is an intentional kensa-go choice (ansible's
 	// behavior here is implementation-defined).

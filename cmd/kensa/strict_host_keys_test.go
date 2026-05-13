@@ -19,7 +19,12 @@ func newStrictTestFlagSet() *pflag.FlagSet {
 	return fs
 }
 
+// @spec cli-strict-host-keys-flag
+// @ac AC-01
+// @ac AC-06
 func TestResolveStrictHostKeys_NeitherFlag(t *testing.T) {
+	t.Run("cli-strict-host-keys-flag/AC-01", func(t *testing.T) {})
+	t.Run("cli-strict-host-keys-flag/AC-06", func(t *testing.T) {})
 	fs := newStrictTestFlagSet()
 	if err := fs.Parse([]string{}); err != nil {
 		t.Fatalf("parse: %v", err)
@@ -43,7 +48,12 @@ func TestResolveStrictHostKeys_NeitherFlag(t *testing.T) {
 	}
 }
 
+// @spec cli-strict-host-keys-flag
+// @ac AC-02
+// @ac AC-07
 func TestResolveStrictHostKeys_StrictOnly(t *testing.T) {
+	t.Run("cli-strict-host-keys-flag/AC-02", func(t *testing.T) {})
+	t.Run("cli-strict-host-keys-flag/AC-07", func(t *testing.T) {})
 	fs := newStrictTestFlagSet()
 	if err := fs.Parse([]string{"--strict-host-keys"}); err != nil {
 		t.Fatalf("parse: %v", err)
@@ -57,7 +67,12 @@ func TestResolveStrictHostKeys_StrictOnly(t *testing.T) {
 	}
 }
 
+// @spec cli-strict-host-keys-flag
+// @ac AC-03
+// @ac AC-08
 func TestResolveStrictHostKeys_NoStrictOnly(t *testing.T) {
+	t.Run("cli-strict-host-keys-flag/AC-03", func(t *testing.T) {})
+	t.Run("cli-strict-host-keys-flag/AC-08", func(t *testing.T) {})
 	fs := newStrictTestFlagSet()
 	if err := fs.Parse([]string{"--no-strict-host-keys"}); err != nil {
 		t.Fatalf("parse: %v", err)
@@ -77,7 +92,10 @@ func TestResolveStrictHostKeys_NoStrictOnly(t *testing.T) {
 // Spawns ./bin/kensa as a subprocess; skipped when bin is not
 // built (so plain `go test ./...` doesn't fail for someone who
 // hasn't run `make build` yet).
+// @spec cli-strict-host-keys-flag
+// @ac AC-04
 func TestStrictHostKeys_AllSSHSubcommandsAdvertiseFlags(t *testing.T) {
+	t.Run("cli-strict-host-keys-flag/AC-04", func(t *testing.T) {})
 	bin := findKensaBin(t)
 	if bin == "" {
 		t.Skip("bin/kensa not built; run `make build` to enable")
@@ -113,7 +131,10 @@ func findKensaBin(t *testing.T) string {
 	return ""
 }
 
+// @spec cli-strict-host-keys-flag
+// @ac AC-05
 func TestResolveStrictHostKeys_BothFlagsConflict(t *testing.T) {
+	t.Run("cli-strict-host-keys-flag/AC-05", func(t *testing.T) {})
 	fs := newStrictTestFlagSet()
 	if err := fs.Parse([]string{"--strict-host-keys", "--no-strict-host-keys"}); err != nil {
 		t.Fatalf("parse: %v", err)

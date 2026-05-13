@@ -9,7 +9,10 @@ import (
 
 // TestRunInfo_RuleMode locks AC-01: --rule prints the rule's
 // title, severity, and references.
+// @spec cli-info
+// @ac AC-01
 func TestRunInfo_RuleMode(t *testing.T) {
+	t.Run("cli-info/AC-01", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "--rule", "rule-a", "--rules-dir", dir},
@@ -27,7 +30,10 @@ func TestRunInfo_RuleMode(t *testing.T) {
 }
 
 // TestRunInfo_ControlMode locks AC-02.
+// @spec cli-info
+// @ac AC-02
 func TestRunInfo_ControlMode(t *testing.T) {
+	t.Run("cli-info/AC-02", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "--control", "cis_rhel9:5.1.12", "--rules-dir", dir},
@@ -43,7 +49,10 @@ func TestRunInfo_ControlMode(t *testing.T) {
 }
 
 // TestRunInfo_ListControlsMode locks AC-03.
+// @spec cli-info
+// @ac AC-03
 func TestRunInfo_ListControlsMode(t *testing.T) {
+	t.Run("cli-info/AC-03", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "--list-controls", "nist_800_53", "--rules-dir", dir},
@@ -59,7 +68,10 @@ func TestRunInfo_ListControlsMode(t *testing.T) {
 }
 
 // TestRunInfo_QueryMode locks AC-04: positional QUERY.
+// @spec cli-info
+// @ac AC-04
 func TestRunInfo_QueryMode(t *testing.T) {
+	t.Run("cli-info/AC-04", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	// makeCoverageCorpus rules all have title "Test rule" and
 	// description "minimal rule". Query "test" should hit all 3.
@@ -81,7 +93,10 @@ func TestRunInfo_QueryMode(t *testing.T) {
 // QUERY. The earlier spec text claimed --rule + QUERY composes,
 // but the implementation never honored it — the spec was lying
 // about behavior. Resolved by rejecting every pair.
+// @spec cli-info
+// @ac AC-05
 func TestRunInfo_ModeMutualExclusion(t *testing.T) {
+	t.Run("cli-info/AC-05", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	cases := [][]string{
 		// Mode-flag pairs:
@@ -104,7 +119,10 @@ func TestRunInfo_ModeMutualExclusion(t *testing.T) {
 // TestRunInfo_NistRhelRejected locks the C-06 / spec note that
 // --nist + --rhel produces a silent no-match (nist_800_53 is
 // unversioned). Rejected with a usage error.
+// @spec cli-info
+// @ac AC-06
 func TestRunInfo_NistRhelRejected(t *testing.T) {
+	t.Run("cli-info/AC-06", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	exit := runCLI([]string{"info", "--nist", "--rhel", "9", "ssh", "--rules-dir", dir})
 	if exit != 2 {
@@ -119,7 +137,10 @@ func TestRunInfo_NistRhelRejected(t *testing.T) {
 // TestRunInfo_NoRulesDirNoMode locks the coalesced error: if
 // BOTH --rules-dir AND mode are missing, the error message
 // names both so the operator doesn't have to retry to learn.
+// @spec cli-info
+// @ac AC-07
 func TestRunInfo_NoRulesDirNoMode(t *testing.T) {
+	t.Run("cli-info/AC-07", func(t *testing.T) {})
 	_, stderr := captureRunCLI([]string{"info"}, t)
 	if !strings.Contains(stderr, "missing --rules-dir") {
 		t.Errorf("error should mention --rules-dir; got:\n%s", stderr)
@@ -132,7 +153,10 @@ func TestRunInfo_NoRulesDirNoMode(t *testing.T) {
 // TestRunInfo_LimitClampsSearch locks the --limit truncation
 // in search mode. makeCoverageCorpus has 3 rules; --limit 1
 // should produce 1 hit row + truncation footer.
+// @spec cli-info
+// @ac AC-08
 func TestRunInfo_LimitClampsSearch(t *testing.T) {
+	t.Run("cli-info/AC-08", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "test", "--rules-dir", dir, "--limit", "1"},
@@ -144,7 +168,10 @@ func TestRunInfo_LimitClampsSearch(t *testing.T) {
 }
 
 // TestRunInfo_LimitZeroUnlimited locks the 0=unlimited contract.
+// @spec cli-info
+// @ac AC-09
 func TestRunInfo_LimitZeroUnlimited(t *testing.T) {
+	t.Run("cli-info/AC-09", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "test", "--rules-dir", dir, "--limit", "0"},
@@ -156,7 +183,10 @@ func TestRunInfo_LimitZeroUnlimited(t *testing.T) {
 }
 
 // TestRunInfo_LimitNegativeRejected locks the validator.
+// @spec cli-info
+// @ac AC-10
 func TestRunInfo_LimitNegativeRejected(t *testing.T) {
+	t.Run("cli-info/AC-10", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	exit := runCLI([]string{"info", "test", "--rules-dir", dir, "--limit", "-1"})
 	if exit != 2 {
@@ -168,7 +198,10 @@ func TestRunInfo_LimitNegativeRejected(t *testing.T) {
 // rendering: max=0 must NOT appear in operator-facing output;
 // it should render as "any version" / ">= N" depending on
 // MinVersion.
+// @spec cli-info
+// @ac AC-11
 func TestRunInfo_PlatformAnyVersion(t *testing.T) {
+	t.Run("cli-info/AC-11", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	// makeCoverageCorpus rules use "rhel" min_version=8 max=0.
 	// Expected rendering: "rhel >= 8".
@@ -189,7 +222,10 @@ func TestRunInfo_PlatformAnyVersion(t *testing.T) {
 // rule-a maps cis_rhel9; rule-b maps cis_rhel9; rule-c maps
 // nist_800_53 only. Search "test" + --cis should yield rule-a
 // and rule-b; rule-c filtered out.
+// @spec cli-info
+// @ac AC-12
 func TestRunInfo_QueryWithFamilyFilter(t *testing.T) {
+	t.Run("cli-info/AC-12", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "test", "--cis", "--rules-dir", dir},
@@ -205,7 +241,10 @@ func TestRunInfo_QueryWithFamilyFilter(t *testing.T) {
 
 // TestRunInfo_FamilyMutualExclusion locks AC-06: --cis + --stig
 // rejected.
+// @spec cli-info
+// @ac AC-13
 func TestRunInfo_FamilyMutualExclusion(t *testing.T) {
+	t.Run("cli-info/AC-13", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	exit := runCLI([]string{"info", "--cis", "--stig", "--rules-dir", dir})
 	if exit != 2 {
@@ -214,7 +253,10 @@ func TestRunInfo_FamilyMutualExclusion(t *testing.T) {
 }
 
 // TestRunInfo_RhelValidation locks AC-07.
+// @spec cli-info
+// @ac AC-14
 func TestRunInfo_RhelValidation(t *testing.T) {
+	t.Run("cli-info/AC-14", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	for _, v := range []string{"7", "11", "100", "0"} {
 		exit := runCLI([]string{"info", "test", "--rhel", v, "--rules-dir", dir})
@@ -233,7 +275,10 @@ func TestRunInfo_RhelValidation(t *testing.T) {
 
 // TestRunInfo_NotFoundExitCode locks AC-08: unknown rule and
 // unknown control return exit 1 (runtime), NOT exit 2 (usage).
+// @spec cli-info
+// @ac AC-15
 func TestRunInfo_NotFoundExitCode(t *testing.T) {
+	t.Run("cli-info/AC-15", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	cases := [][]string{
 		{"info", "--rule", "no-such-rule", "--rules-dir", dir},
@@ -251,7 +296,10 @@ func TestRunInfo_NotFoundExitCode(t *testing.T) {
 // TestRunInfo_JSONShape locks AC-09: snake_case JSON via
 // --format json. Each mode emits its own shape; we sample
 // rule-mode for the structural assertion.
+// @spec cli-info
+// @ac AC-16
 func TestRunInfo_JSONShape(t *testing.T) {
+	t.Run("cli-info/AC-16", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "--rule", "rule-a", "--rules-dir", dir, "--format", "json"},

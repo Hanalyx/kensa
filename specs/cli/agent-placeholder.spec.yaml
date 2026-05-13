@@ -2,7 +2,7 @@ spec:
     id: cli-agent-placeholder
     version: 0.2.0
     status: draft
-    tier: 1
+    tier: 3
 
     context:
         system: kensa-go

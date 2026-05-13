@@ -57,6 +57,7 @@ func sampleTransaction(t *testing.T, status api.TransactionStatus, ruleID, hostI
 // @spec transaction-log
 // @ac AC-01
 func TestStore_AC01_PreStatesPersistedSynchronously(t *testing.T) {
+	t.Run("store-session-schema/AC-01", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-01")
 	s := newTestStore(t)
@@ -87,6 +88,7 @@ func TestStore_AC01_PreStatesPersistedSynchronously(t *testing.T) {
 // @spec transaction-log
 // @ac AC-03
 func TestStore_AC03_QueryFiltersByEveryDimension(t *testing.T) {
+	t.Run("store-session-schema/AC-02", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-03")
 	s := newTestStore(t)
@@ -137,6 +139,7 @@ func TestStore_AC03_QueryFiltersByEveryDimension(t *testing.T) {
 // @spec transaction-log
 // @ac AC-04
 func TestStore_AC04_GetReturnsEnvelopeByDefault(t *testing.T) {
+	t.Run("store-session-schema/AC-03", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-04")
 	s := newTestStore(t)
@@ -170,6 +173,7 @@ func TestStore_AC04_GetReturnsEnvelopeByDefault(t *testing.T) {
 // @spec transaction-log
 // @ac AC-05
 func TestStore_AC05_AggregateByHost(t *testing.T) {
+	t.Run("store-session-schema/AC-04", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-05")
 	s := newTestStore(t)
@@ -214,6 +218,7 @@ func TestStore_AC05_AggregateByHost(t *testing.T) {
 // @spec transaction-log
 // @ac AC-08
 func TestStore_AC08_SchemaMigrationsAreIdempotent(t *testing.T) {
+	t.Run("store-session-schema/AC-05", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-08")
 	dir := t.TempDir()
@@ -234,6 +239,7 @@ func TestStore_AC08_SchemaMigrationsAreIdempotent(t *testing.T) {
 // @spec transaction-log
 // @ac AC-02
 func TestStore_AC02_WriteErrorIsPropagated(t *testing.T) {
+	t.Run("store-session-schema/AC-06", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-02")
 	// Open a valid store, close it, then attempt to write — SQLite should
@@ -256,6 +262,7 @@ func TestStore_AC02_WriteErrorIsPropagated(t *testing.T) {
 // @spec transaction-log
 // @ac AC-06
 func TestStore_AC06_AggregatePerformanceBenchmark(t *testing.T) {
+	t.Run("store-session-schema/AC-07", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-06")
 	// AC-06 requires p95 < 500ms against a 500K-row corpus. This is a
@@ -278,6 +285,7 @@ func TestStore_AC06_AggregatePerformanceBenchmark(t *testing.T) {
 // @spec transaction-log
 // @ac AC-07
 func TestStore_AC07_RetentionPrunesOldRecords(t *testing.T) {
+	t.Run("store-session-schema/AC-08", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-07")
 	// AC-07 requires a background retention task that moves pre_states older
@@ -289,6 +297,7 @@ func TestStore_AC07_RetentionPrunesOldRecords(t *testing.T) {
 // @spec transaction-log
 // @ac AC-09
 func TestStore_AC09_IndexesExistOnTransactionsTable(t *testing.T) {
+	t.Run("store-session-schema/AC-09", func(t *testing.T) {})
 	t.Log("// @spec transaction-log")
 	t.Log("// @ac AC-09")
 	// AC-09 requires indexes on (host_id), (rule_id), (status), (started_at),
@@ -302,6 +311,7 @@ func TestStore_AC09_IndexesExistOnTransactionsTable(t *testing.T) {
 
 // Ensure SQLite satisfies api.LogQuery's three methods at compile time.
 func TestStore_SatisfiesLogQuerySurface(t *testing.T) {
+	t.Run("store-session-schema/AC-10", func(t *testing.T) {})
 	var s any = (*store.SQLite)(nil)
 	if _, ok := s.(interface {
 		Query(context.Context, api.LogFilter, api.Page) (*api.QueryResult, error)

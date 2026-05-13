@@ -22,7 +22,12 @@ import (
 // The test passes "--format json" and a non-resolvable host; the
 // SSH connect fails, but the deprecation warning fires before
 // that error path.
+// @spec cli-deprecation
+// @ac AC-01
+// @ac AC-15
 func TestDeprecation_FormatFlag_DetectFires(t *testing.T) {
+	t.Run("cli-deprecation/AC-15", func(t *testing.T) {})
+	t.Run("cli-deprecation/AC-01", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1", "--format", "json"},
 		t,
@@ -39,7 +44,10 @@ func TestDeprecation_FormatFlag_DetectFires(t *testing.T) {
 // fires under --quiet. Per spec, --quiet silences stdout body
 // output; deprecation warnings are stderr-bound diagnostics that
 // operators must see during the deprecation window.
+// @spec cli-deprecation
+// @ac AC-02
 func TestDeprecation_FormatFlag_DetectQuiet(t *testing.T) {
+	t.Run("cli-deprecation/AC-02", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1", "--format", "json", "--quiet"},
 		t,
@@ -53,7 +61,10 @@ func TestDeprecation_FormatFlag_DetectQuiet(t *testing.T) {
 // does NOT pass --format, the default "table" fires but the
 // warning must NOT emit. Catches a regression to "always-warn"
 // which would spam every legacy script.
+// @spec cli-deprecation
+// @ac AC-03
 func TestDeprecation_FormatFlag_DefaultDoesNotFire(t *testing.T) {
+	t.Run("cli-deprecation/AC-03", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1"},
 		t,
@@ -64,7 +75,10 @@ func TestDeprecation_FormatFlag_DefaultDoesNotFire(t *testing.T) {
 }
 
 // TestDeprecation_FormatFlag_CheckFires: same coverage on check.
+// @spec cli-deprecation
+// @ac AC-04
 func TestDeprecation_FormatFlag_CheckFires(t *testing.T) {
+	t.Run("cli-deprecation/AC-04", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"check", "--host", "127.0.0.1", "--port", "1", "--format", "json", "--rules-dir", t.TempDir()},
 		t,
@@ -75,7 +89,10 @@ func TestDeprecation_FormatFlag_CheckFires(t *testing.T) {
 }
 
 // TestDeprecation_FormatFlag_RemediateFires: same coverage on remediate.
+// @spec cli-deprecation
+// @ac AC-05
 func TestDeprecation_FormatFlag_RemediateFires(t *testing.T) {
+	t.Run("cli-deprecation/AC-05", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"remediate", "--host", "127.0.0.1", "--port", "1", "--format", "json", "--rules-dir", t.TempDir()},
 		t,
@@ -87,7 +104,10 @@ func TestDeprecation_FormatFlag_RemediateFires(t *testing.T) {
 
 // TestDeprecation_OscalFlag_RemediateFires: --oscal joins
 // --format's deprecation cycle (same v0.2 removal target).
+// @spec cli-deprecation
+// @ac AC-06
 func TestDeprecation_OscalFlag_RemediateFires(t *testing.T) {
+	t.Run("cli-deprecation/AC-06", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"remediate", "--host", "127.0.0.1", "--port", "1", "--oscal", "/tmp/x.json", "--rules-dir", t.TempDir()},
 		t,
@@ -105,7 +125,10 @@ func TestDeprecation_OscalFlag_RemediateFires(t *testing.T) {
 // QueryResult-shape concern documented in C-013/C-016 reviews).
 // Catches a regression where history accidentally inherits the
 // warning.
+// @spec cli-deprecation
+// @ac AC-07
 func TestDeprecation_HistoryFormatDoesNotWarn(t *testing.T) {
+	t.Run("cli-deprecation/AC-07", func(t *testing.T) {})
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
 	_, stderr := captureRunCLI(
@@ -120,7 +143,10 @@ func TestDeprecation_HistoryFormatDoesNotWarn(t *testing.T) {
 // TestDeprecation_PlanFormatDoesNotWarn: plan's --format is also
 // not deprecated; engine.FormatPlan owns the format vocabulary
 // for plan output.
+// @spec cli-deprecation
+// @ac AC-08
 func TestDeprecation_PlanFormatDoesNotWarn(t *testing.T) {
+	t.Run("cli-deprecation/AC-08", func(t *testing.T) {})
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
 	_, stderr := captureRunCLI(
@@ -140,7 +166,10 @@ func TestDeprecation_PlanFormatDoesNotWarn(t *testing.T) {
 // This test locks the C-024 short-letter reconciliation: -f is
 // now reserved for --framework (C-033), not a deprecated alias
 // for --format.
+// @spec cli-deprecation
+// @ac AC-09
 func TestDeprecation_FormatFlag_ShortFormGone(t *testing.T) {
+	t.Run("cli-deprecation/AC-09", func(t *testing.T) {})
 	exit := runCLI([]string{"detect", "--host", "127.0.0.1", "-P", "1", "-f", "json"})
 	if exit != 2 {
 		t.Errorf("expected exit 2 (unknown shorthand) for -f after C-024; got %d", exit)
@@ -152,7 +181,10 @@ func TestDeprecation_FormatFlag_ShortFormGone(t *testing.T) {
 // the concrete release where their script will break. Catches a
 // regression that drops the marker (e.g., a future refactor that
 // emits a generic "is deprecated" without the version target).
+// @spec cli-deprecation
+// @ac AC-10
 func TestDeprecation_V02RemovalMarker(t *testing.T) {
+	t.Run("cli-deprecation/AC-10", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1", "--format", "json"},
 		t,
@@ -171,7 +203,10 @@ func TestDeprecation_V02RemovalMarker(t *testing.T) {
 //
 // Without this test, a future PR could delete either section from
 // CHANGELOG.md and ship without a CI signal.
+// @spec cli-deprecation
+// @ac AC-11
 func TestDeprecation_ChangelogContent(t *testing.T) {
+	t.Run("cli-deprecation/AC-11", func(t *testing.T) {})
 	body, err := os.ReadFile("../../CHANGELOG.md")
 	if err != nil {
 		t.Fatalf("read CHANGELOG.md: %v (run from repo root or adjust path)", err)
@@ -200,7 +235,10 @@ func TestDeprecation_ChangelogContent(t *testing.T) {
 // planned the migration but can't migrate immediately set the env
 // var to silence the warning without resorting to `2>/dev/null`
 // (which would silence real errors too).
+// @spec cli-deprecation
+// @ac AC-12
 func TestDeprecation_EnvVarOptOut(t *testing.T) {
+	t.Run("cli-deprecation/AC-12", func(t *testing.T) {})
 	t.Setenv("KENSA_NO_DEPRECATION_WARNINGS", "1")
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1", "--format", "json"},
@@ -216,7 +254,10 @@ func TestDeprecation_EnvVarOptOut(t *testing.T) {
 // "true" or "yes" do NOT silence the warning. Conservative
 // design: explicit opt-in only, so an env var leaked from a
 // parent process can't silently disable the migration signal.
+// @spec cli-deprecation
+// @ac AC-13
 func TestDeprecation_EnvVarOnlySilencesOnExactValue(t *testing.T) {
+	t.Run("cli-deprecation/AC-13", func(t *testing.T) {})
 	t.Setenv("KENSA_NO_DEPRECATION_WARNINGS", "true")
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1", "--format", "json"},
@@ -231,7 +272,10 @@ func TestDeprecation_EnvVarOnlySilencesOnExactValue(t *testing.T) {
 // fires when `-o` is also set. -o doesn't accidentally suppress
 // the deprecation signal (which would happen if a future refactor
 // moved warnDeprecatedFlag inside the `len(outputs) == 0` branch).
+// @spec cli-deprecation
+// @ac AC-14
 func TestDeprecation_FormatPlusOutputFlag(t *testing.T) {
+	t.Run("cli-deprecation/AC-14", func(t *testing.T) {})
 	_, stderr := captureRunCLI(
 		[]string{"detect", "--host", "127.0.0.1", "--port", "1",
 			"--format", "json", "-o", "text"},

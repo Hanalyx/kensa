@@ -24,7 +24,10 @@ import (
 // These checks confirm correct wiring without requiring an external
 // PDF parser dependency.
 
+// @spec output-pdf
+// @ac AC-01
 func TestPDFScanWriter_MagicBytes(t *testing.T) {
+	t.Run("output-pdf/AC-01", func(t *testing.T) {})
 	rules := []*api.Rule{{ID: "rule-pass"}}
 	result := &api.ScanResult{
 		HostID: "test-host",
@@ -47,7 +50,10 @@ func TestPDFScanWriter_MagicBytes(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-02
 func TestPDFScanWriter_ContainsContent(t *testing.T) {
+	t.Run("output-pdf/AC-02", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "rule-alpha"},
 		{ID: "rule-beta"},
@@ -83,7 +89,10 @@ func TestPDFScanWriter_ContainsContent(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-03
 func TestPDFScanWriter_StatusVocabularyCollapsed(t *testing.T) {
+	t.Run("output-pdf/AC-03", func(t *testing.T) {})
 	// Scan PDF mirrors scan CSV: collapses to PASS / FAIL / ERROR.
 	// partially_applied (which can't occur in a scan by API contract)
 	// must not surface as raw text.
@@ -105,7 +114,10 @@ func TestPDFScanWriter_StatusVocabularyCollapsed(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-04
 func TestPDFRemediationWriter_PreservesRawStatus(t *testing.T) {
+	t.Run("output-pdf/AC-04", func(t *testing.T) {})
 	// Remediation PDF mirrors remediation CSV: the raw API vocabulary
 	// is preserved so auditors can distinguish rolled_back from
 	// partially_applied.
@@ -136,7 +148,10 @@ func TestPDFRemediationWriter_PreservesRawStatus(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-05
 func TestPDFScanWriter_EmptyTransactions(t *testing.T) {
+	t.Run("output-pdf/AC-05", func(t *testing.T) {})
 	// Header-only invariant: empty Transactions still produces a
 	// valid PDF with title and table header but no data rows.
 	result := &api.ScanResult{HostID: "h"}
@@ -152,7 +167,10 @@ func TestPDFScanWriter_EmptyTransactions(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-06
 func TestPDFWriters_RegistryWiring(t *testing.T) {
+	t.Run("output-pdf/AC-06", func(t *testing.T) {})
 	if w, ok := ScanWriterFor("pdf"); !ok {
 		t.Error("ScanWriterFor(pdf): not registered")
 	} else if w.Format() != "pdf" {
@@ -165,7 +183,10 @@ func TestPDFWriters_RegistryWiring(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-07
 func TestPDFWriters_NotRegisteredForUnsupportedPayloads(t *testing.T) {
+	t.Run("output-pdf/AC-07", func(t *testing.T) {})
 	// PDF is intentionally NOT registered for caps, history, or
 	// json-value payloads. Caps is too small to need pagination,
 	// history is paginated (PDF over thousands of rows is a
@@ -182,7 +203,10 @@ func TestPDFWriters_NotRegisteredForUnsupportedPayloads(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-08
 func TestPDFWriters_FormatIdentity(t *testing.T) {
+	t.Run("output-pdf/AC-08", func(t *testing.T) {})
 	for _, w := range []Writer{pdfScanWriter{}, pdfRemediationWriter{}} {
 		if got := w.Format(); got != "pdf" {
 			t.Errorf("Format() = %q, want pdf", got)
@@ -193,7 +217,10 @@ func TestPDFWriters_FormatIdentity(t *testing.T) {
 // TestPDFWriters_TimestampShape locks AC-11: the summary line
 // contains a UTC RFC 3339 timestamp. Catches a regression to local
 // timezone or a different format.
+// @spec output-pdf
+// @ac AC-09
 func TestPDFWriters_TimestampShape(t *testing.T) {
+	t.Run("output-pdf/AC-09", func(t *testing.T) {})
 	utcStamp := regexp.MustCompile(`generated \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`)
 	t.Run("scan", func(t *testing.T) {
 		var buf bytes.Buffer
@@ -228,7 +255,10 @@ func TestPDFWriters_TimestampShape(t *testing.T) {
 //  3. The PDF is structurally valid (magic + EOF).
 //
 // A future test could parse maroto's bbox output for stronger checks.
+// @spec output-pdf
+// @ac AC-10
 func TestPDFScanWriter_LongRuleIDDoesNotPanic(t *testing.T) {
+	t.Run("output-pdf/AC-10", func(t *testing.T) {})
 	longRule := "xccdf_org.ssgproject.content_rule_account_disable_post_pw_expiration_with_extra_padding_to_force_wrap"
 	if len(longRule) < 80 {
 		t.Fatalf("test fixture must be >= 80 chars; got %d", len(longRule))
@@ -255,7 +285,10 @@ func TestPDFScanWriter_LongRuleIDDoesNotPanic(t *testing.T) {
 	}
 }
 
+// @spec output-pdf
+// @ac AC-11
 func TestPDFWriters_PropagateWriteErrors(t *testing.T) {
+	t.Run("output-pdf/AC-11", func(t *testing.T) {})
 	// errWriter (defined in writer_test.go) returns an error on every
 	// Write. Both PDF writers must surface it rather than swallow.
 	rules := []*api.Rule{{ID: "r"}}

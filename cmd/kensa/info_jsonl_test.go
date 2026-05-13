@@ -10,7 +10,12 @@ import (
 
 // TestRunInfo_QueryJSONLFormat locks AC-02: --format jsonl on
 // QUERY mode emits one SearchHit per line.
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-01
+// @ac AC-05
 func TestRunInfo_QueryJSONLFormat(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-01", func(t *testing.T) {})
+	t.Run("cli-list-sessions-info-jsonl/AC-05", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "test", "--rules-dir", dir, "--format", "jsonl"}, t,
@@ -39,7 +44,10 @@ func TestRunInfo_QueryJSONLFormat(t *testing.T) {
 
 // TestRunInfo_DocumentModesRejectJSONL locks AC-03: jsonl on the
 // three single-document modes is rejected with usage error.
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-02
 func TestRunInfo_DocumentModesRejectJSONL(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-02", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	cases := [][]string{
 		{"info", "--rule", "rule-a", "--rules-dir", dir, "--format", "jsonl"},
@@ -63,7 +71,10 @@ func TestRunInfo_DocumentModesRejectJSONL(t *testing.T) {
 
 // TestRunInfo_QueryJSONLShapeMatchesJSON locks AC-04: per-line
 // jsonl shape matches per-element JSON envelope `hits[]` shape.
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-03
 func TestRunInfo_QueryJSONLShapeMatchesJSON(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-03", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 
 	stdoutJSON, _ := captureRunCLI(
@@ -103,7 +114,10 @@ func TestRunInfo_QueryJSONLShapeMatchesJSON(t *testing.T) {
 // TestRunInfo_QueryJSONLEmptyHits locks the zero-results path:
 // when QUERY matches nothing under jsonl, output is empty (no
 // envelope, no banner — that's text-mode behavior).
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-04
 func TestRunInfo_QueryJSONLEmptyHits(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-04", func(t *testing.T) {})
 	dir := makeCoverageCorpus(t)
 	stdout, _ := captureRunCLI(
 		[]string{"info", "no-such-rule-substring", "--rules-dir", dir, "--format", "jsonl"}, t,

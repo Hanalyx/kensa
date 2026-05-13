@@ -87,7 +87,12 @@ func makeDiffStore(t *testing.T, hostname2 string) (path string, sess1, sess2 uu
 
 // TestRunDiff_Basic locks AC-01: two valid session IDs print
 // the drift report end-to-end.
+// @spec cli-session-diff
+// @ac AC-01
+// @ac AC-14
 func TestRunDiff_Basic(t *testing.T) {
+	t.Run("cli-session-diff/AC-01", func(t *testing.T) {})
+	t.Run("cli-session-diff/AC-14", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-a")
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "diff", sess1.String(), sess2.String()},
@@ -114,7 +119,12 @@ func TestRunDiff_Basic(t *testing.T) {
 }
 
 // TestRunDiff_ShowUnchanged locks AC-10.
+// @spec cli-session-diff
+// @ac AC-02
+// @ac AC-15
 func TestRunDiff_ShowUnchanged(t *testing.T) {
+	t.Run("cli-session-diff/AC-02", func(t *testing.T) {})
+	t.Run("cli-session-diff/AC-15", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-a")
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "diff", sess1.String(), sess2.String(), "--show-unchanged"},
@@ -129,7 +139,10 @@ func TestRunDiff_ShowUnchanged(t *testing.T) {
 }
 
 // TestRunDiff_JSONShape locks AC-09.
+// @spec cli-session-diff
+// @ac AC-03
 func TestRunDiff_JSONShape(t *testing.T) {
+	t.Run("cli-session-diff/AC-03", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-a")
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "diff", sess1.String(), sess2.String(), "--format", "json"},
@@ -158,7 +171,10 @@ func TestRunDiff_JSONShape(t *testing.T) {
 
 // TestRunDiff_CrossHostnameNote locks AC-08: cross-hostname
 // diff emits a stderr informational note (not a usage error).
+// @spec cli-session-diff
+// @ac AC-04
 func TestRunDiff_CrossHostnameNote(t *testing.T) {
+	t.Run("cli-session-diff/AC-04", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-b") // different from session1's "host-a"
 	stdout, stderr := captureRunCLI(
 		[]string{"--db", path, "diff", sess1.String(), sess2.String()},
@@ -178,7 +194,10 @@ func TestRunDiff_CrossHostnameNote(t *testing.T) {
 }
 
 // TestRunDiff_BadArgCount locks AC-03.
+// @spec cli-session-diff
+// @ac AC-05
 func TestRunDiff_BadArgCount(t *testing.T) {
+	t.Run("cli-session-diff/AC-05", func(t *testing.T) {})
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	cases := [][]string{
 		{"--db", dbPath, "diff"},
@@ -194,7 +213,10 @@ func TestRunDiff_BadArgCount(t *testing.T) {
 }
 
 // TestRunDiff_BadUUID locks AC-04.
+// @spec cli-session-diff
+// @ac AC-06
 func TestRunDiff_BadUUID(t *testing.T) {
+	t.Run("cli-session-diff/AC-06", func(t *testing.T) {})
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	exit := runCLI([]string{"--db", dbPath, "diff", "not-a-uuid", uuid.New().String()})
 	if exit != 2 {
@@ -207,7 +229,10 @@ func TestRunDiff_BadUUID(t *testing.T) {
 }
 
 // TestRunDiff_MissingSessionExitCode locks AC-05.
+// @spec cli-session-diff
+// @ac AC-07
 func TestRunDiff_MissingSessionExitCode(t *testing.T) {
+	t.Run("cli-session-diff/AC-07", func(t *testing.T) {})
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	s, err := store.OpenSQLite(context.Background(), dbPath)
 	if err != nil {
@@ -222,7 +247,10 @@ func TestRunDiff_MissingSessionExitCode(t *testing.T) {
 }
 
 // TestRunDiff_BadFormat.
+// @spec cli-session-diff
+// @ac AC-08
 func TestRunDiff_BadFormat(t *testing.T) {
+	t.Run("cli-session-diff/AC-08", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-a")
 	exit := runCLI([]string{"--db", path, "diff", sess1.String(), sess2.String(), "--format", "yaml"})
 	if exit != 2 {
@@ -231,7 +259,10 @@ func TestRunDiff_BadFormat(t *testing.T) {
 }
 
 // TestRunDiff_HelpExitsZero.
+// @spec cli-session-diff
+// @ac AC-09
 func TestRunDiff_HelpExitsZero(t *testing.T) {
+	t.Run("cli-session-diff/AC-09", func(t *testing.T) {})
 	for _, argv := range [][]string{
 		{"diff", "--help"},
 		{"diff", "-h"},
@@ -255,7 +286,10 @@ func TestRunDiff_HelpExitsZero(t *testing.T) {
 // session2 has rule-x once: committed. The diff must collapse
 // session1 to the LATEST attempt (committed) and report
 // "unchanged" — NOT "changed from errored to committed."
+// @spec cli-session-diff
+// @ac AC-10
 func TestRunDiff_DedupsRetriesViaStore(t *testing.T) {
+	t.Run("cli-session-diff/AC-10", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "diff.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -317,7 +351,10 @@ func TestRunDiff_DedupsRetriesViaStore(t *testing.T) {
 // up "session not found" error: must NOT leak the SQL "no rows
 // in result set" or the "store: GetSession" prefix; must
 // suggest `kensa list sessions` for discovery.
+// @spec cli-session-diff
+// @ac AC-11
 func TestRunDiff_MissingSessionMessageIsClean(t *testing.T) {
+	t.Run("cli-session-diff/AC-11", func(t *testing.T) {})
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	s, err := store.OpenSQLite(context.Background(), dbPath)
 	if err != nil {
@@ -342,7 +379,10 @@ func TestRunDiff_MissingSessionMessageIsClean(t *testing.T) {
 // TestRunDiff_MissingFirstVsSecondDistinct (R1 #4) splits the
 // missing-session check so we exercise the lookup of S1 AND
 // S2 independently.
+// @spec cli-session-diff
+// @ac AC-12
 func TestRunDiff_MissingFirstVsSecondDistinct(t *testing.T) {
+	t.Run("cli-session-diff/AC-12", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-a")
 	missing := uuid.New()
 
@@ -364,7 +404,10 @@ func TestRunDiff_MissingFirstVsSecondDistinct(t *testing.T) {
 // --show-unchanged the field is still present as an empty
 // array, eliminating the consumer's "is this null because
 // not requested or null because empty?" ambiguity.
+// @spec cli-session-diff
+// @ac AC-13
 func TestRunDiff_JSONShapeAlwaysHasUnchanged(t *testing.T) {
+	t.Run("cli-session-diff/AC-13", func(t *testing.T) {})
 	path, sess1, sess2 := makeDiffStore(t, "host-a")
 	// Without --show-unchanged.
 	stdout, _ := captureRunCLI(

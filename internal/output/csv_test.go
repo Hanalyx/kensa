@@ -12,7 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// @spec output-csv
+// @ac AC-01
 func TestCSVScanWriter_HeaderAndRows(t *testing.T) {
+	t.Run("output-csv/AC-01", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "rule-pass"},
 		{ID: "rule-fail"},
@@ -47,7 +50,10 @@ func TestCSVScanWriter_HeaderAndRows(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-02
 func TestCSVScanWriter_StatusVocabularyCollapsed(t *testing.T) {
+	t.Run("output-csv/AC-02", func(t *testing.T) {})
 	// AC-03: scan output must collapse to {pass, fail, error}; raw API
 	// statuses like "rolled_back" or "partially_applied" must NOT
 	// surface in scan CSV.
@@ -68,7 +74,10 @@ func TestCSVScanWriter_StatusVocabularyCollapsed(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-03
 func TestCSVRemediationWriter_PreservesRawStatus(t *testing.T) {
+	t.Run("output-csv/AC-03", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "r1"}, {ID: "r2"}, {ID: "r3"}, {ID: "r4"},
 	}
@@ -97,7 +106,10 @@ func TestCSVRemediationWriter_PreservesRawStatus(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-04
 func TestCSVHistoryWriter(t *testing.T) {
+	t.Run("output-csv/AC-04", func(t *testing.T) {})
 	id := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	finished := time.Date(2026, 5, 8, 12, 30, 45, 0, time.UTC)
 	txns := []api.TransactionRecord{
@@ -126,7 +138,10 @@ func TestCSVHistoryWriter(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-05
 func TestCSVHistoryWriter_TimestampInUTC(t *testing.T) {
+	t.Run("output-csv/AC-05", func(t *testing.T) {})
 	// AC: finished_at must be UTC RFC 3339 even if the input time has
 	// a non-UTC location attached. Use a fixed-offset zone so the test
 	// doesn't depend on a system tzdata install.
@@ -148,7 +163,10 @@ func TestCSVHistoryWriter_TimestampInUTC(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-06
 func TestCSVScanWriter_RFC4180Escaping(t *testing.T) {
+	t.Run("output-csv/AC-06", func(t *testing.T) {})
 	// AC-08: cells containing commas, quotes, or newlines must round-
 	// trip through csv.NewReader unchanged.
 	rules := []*api.Rule{{ID: "rule-with-quote-and-comma"}}
@@ -173,7 +191,10 @@ newlines`
 	}
 }
 
+// @spec output-csv
+// @ac AC-07
 func TestStreamingCSVScan_HeaderOnce(t *testing.T) {
+	t.Run("output-csv/AC-07", func(t *testing.T) {})
 	// AC-09: two sequential WriteScanResult calls produce one header.
 	// Locks both row count AND per-call data freshness — assert every
 	// data column of every row so a state-carryover bug (where the
@@ -219,7 +240,10 @@ func TestStreamingCSVScan_HeaderOnce(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-08
 func TestStreamingCSVScan_FreshInstancePerStream(t *testing.T) {
+	t.Run("output-csv/AC-08", func(t *testing.T) {})
 	// AC-11: two NewStreamingCSVScan calls against the same underlying
 	// writer each emit their own header (per-stream state is fresh).
 	var buf bytes.Buffer
@@ -240,7 +264,10 @@ func TestStreamingCSVScan_FreshInstancePerStream(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-09
 func TestStreamingCSVRemediation_HeaderOnce(t *testing.T) {
+	t.Run("output-csv/AC-09", func(t *testing.T) {})
 	rules := []*api.Rule{{ID: "r1"}}
 	r1 := &api.RemediationResult{Transactions: []api.TransactionResult{{Status: api.StatusCommitted}}}
 	r2 := &api.RemediationResult{Transactions: []api.TransactionResult{{Status: api.StatusRolledBack}}}
@@ -258,7 +285,10 @@ func TestStreamingCSVRemediation_HeaderOnce(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-10
 func TestCSVWriters_FormatIdentity(t *testing.T) {
+	t.Run("output-csv/AC-10", func(t *testing.T) {})
 	tests := []struct {
 		name string
 		w    Writer
@@ -278,7 +308,10 @@ func TestCSVWriters_FormatIdentity(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-11
 func TestCSVWriters_RegistryWiring(t *testing.T) {
+	t.Run("output-csv/AC-11", func(t *testing.T) {})
 	if _, ok := ScanWriterFor("csv"); !ok {
 		t.Error("ScanWriterFor(csv): not registered (AC-01)")
 	}
@@ -290,7 +323,10 @@ func TestCSVWriters_RegistryWiring(t *testing.T) {
 	}
 }
 
+// @spec output-csv
+// @ac AC-12
 func TestCSVWriters_NotInUnsupportedRegistries(t *testing.T) {
+	t.Run("output-csv/AC-12", func(t *testing.T) {})
 	// CSV is intentionally NOT registered for caps or json-value
 	// payloads (per spec, those types have no useful CSV shape).
 	if _, ok := CapsWriterFor("csv"); ok {

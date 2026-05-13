@@ -23,7 +23,10 @@ import (
 // io.Discard; when false, returns os.Stdout. Locks the contract
 // against a future refactor that might invert the bool or return a
 // nil writer.
+// @spec cli-quiet
+// @ac AC-01
 func TestBodyOut(t *testing.T) {
+	t.Run("cli-quiet/AC-01", func(t *testing.T) {})
 	if got := bodyOut(false); got != os.Stdout {
 		t.Errorf("bodyOut(false) = %v, want os.Stdout", got)
 	}
@@ -36,7 +39,10 @@ func TestBodyOut(t *testing.T) {
 // silently consumes any bytes written to it without erroring (the
 // stdlib contract). If a future refactor swapped io.Discard for a
 // nil writer, the WriteX call sites would panic on first byte.
+// @spec cli-quiet
+// @ac AC-02
 func TestBodyOut_QuietActuallyDiscards(t *testing.T) {
+	t.Run("cli-quiet/AC-02", func(t *testing.T) {})
 	w := bodyOut(true)
 	n, err := w.Write([]byte("any number of bytes"))
 	if err != nil {
@@ -50,34 +56,55 @@ func TestBodyOut_QuietActuallyDiscards(t *testing.T) {
 // TestQuietFlag_DetectHelp confirms --quiet appears in detect's --help
 // output. (We can't easily exercise the SSH path; help output is the
 // proxy for "the flag was registered.")
+// @spec cli-quiet
+// @ac AC-03
 func TestQuietFlag_DetectHelp(t *testing.T) {
+	t.Run("cli-quiet/AC-03", func(t *testing.T) {})
 	requireFlagInHelp(t, "detect", []string{"--quiet", "-q"})
 }
 
+// @spec cli-quiet
+// @ac AC-04
 func TestQuietFlag_CheckHelp(t *testing.T) {
+	t.Run("cli-quiet/AC-04", func(t *testing.T) {})
 	requireFlagInHelp(t, "check", []string{"--quiet", "-q"})
 }
 
+// @spec cli-quiet
+// @ac AC-05
 func TestQuietFlag_RemediateHelp(t *testing.T) {
+	t.Run("cli-quiet/AC-05", func(t *testing.T) {})
 	requireFlagInHelp(t, "remediate", []string{"--quiet", "-q"})
 }
 
+// @spec cli-quiet
+// @ac AC-06
 func TestQuietFlag_RollbackHelp(t *testing.T) {
+	t.Run("cli-quiet/AC-06", func(t *testing.T) {})
 	requireFlagInHelp(t, "rollback", []string{"--quiet", "-q"})
 }
 
+// @spec cli-quiet
+// @ac AC-07
 func TestQuietFlag_HistoryHelp(t *testing.T) {
+	t.Run("cli-quiet/AC-07", func(t *testing.T) {})
 	requireFlagInHelp(t, "history", []string{"--quiet", "-q"})
 }
 
+// @spec cli-quiet
+// @ac AC-08
 func TestQuietFlag_PlanHelp(t *testing.T) {
+	t.Run("cli-quiet/AC-08", func(t *testing.T) {})
 	requireFlagInHelp(t, "plan", []string{"--quiet", "-q"})
 }
 
 // TestQuietFlag_NotInVersion: --quiet should NOT be on `version` —
 // the operator explicitly asked for the version banner; suppressing
 // it would be surprising.
+// @spec cli-quiet
+// @ac AC-09
 func TestQuietFlag_NotInVersion(t *testing.T) {
+	t.Run("cli-quiet/AC-09", func(t *testing.T) {})
 	stdout, _ := captureRunCLI([]string{"version", "--help"}, t)
 	if strings.Contains(stdout, "--quiet") || strings.Contains(stdout, "-q ") {
 		t.Errorf("kensa version --help should not advertise --quiet; got:\n%s", stdout)

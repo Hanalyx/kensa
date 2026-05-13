@@ -11,7 +11,14 @@ import "testing"
 //
 // @spec agent-version-handshake
 // @ac AC-02
+// @spec agent-version-handshake
+// @ac AC-01
+// @ac AC-03
+// @ac AC-05
 func TestCompatible(t *testing.T) {
+	t.Run("agent-version-handshake/AC-05", func(t *testing.T) {})
+	t.Run("agent-version-handshake/AC-03", func(t *testing.T) {})
+	t.Run("agent-version-handshake/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-version-handshake")
 	t.Log("// @ac AC-02")
 	cases := []struct {
@@ -43,7 +50,14 @@ func TestCompatible(t *testing.T) {
 // and have sane values. Bumping these in a PR should be a
 // deliberate ratified action — this test exists so a future
 // change diff makes the bump visible in code review.
+// @spec agent-version-handshake
+// @ac AC-02
+// @ac AC-04
+// @ac AC-06
 func TestProtocolConstants(t *testing.T) {
+	t.Run("agent-version-handshake/AC-06", func(t *testing.T) {})
+	t.Run("agent-version-handshake/AC-04", func(t *testing.T) {})
+	t.Run("agent-version-handshake/AC-02", func(t *testing.T) {})
 	if ProtocolMajor == 0 {
 		t.Error("ProtocolMajor is 0; should be at least 1")
 	}

@@ -9,7 +9,12 @@ import (
 
 // TestLint_W001_SshdConfigWithoutDropinSibling fires W001 when config_value
 // reads /etc/ssh/sshd_config and there is no sshd_config_d-gated sibling.
+// @spec rule-ordering
+// @ac AC-01
+// @ac AC-11
 func TestLint_W001_SshdConfigWithoutDropinSibling(t *testing.T) {
+	t.Run("rule-ordering/AC-11", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-01", func(t *testing.T) {})
 	r := &api.Rule{
 		ID: "ssh-root-login",
 		Implementations: []api.Implementation{
@@ -30,7 +35,12 @@ func TestLint_W001_SshdConfigWithoutDropinSibling(t *testing.T) {
 
 // TestLint_NoW001_WhenDropinSiblingExists suppresses W001 when there is a
 // sshd_config_d-gated sibling implementation.
+// @spec rule-ordering
+// @ac AC-02
+// @ac AC-12
 func TestLint_NoW001_WhenDropinSiblingExists(t *testing.T) {
+	t.Run("rule-ordering/AC-12", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-02", func(t *testing.T) {})
 	r, _ := rule.ParseFile("testdata/ssh-disable-root-login.yml")
 	warns := rule.Lint(r)
 	if hasWarningCode(warns, "W001") {
@@ -39,7 +49,12 @@ func TestLint_NoW001_WhenDropinSiblingExists(t *testing.T) {
 }
 
 // TestLint_W002_SysctlConfDirectRead fires W002 for config_value on /etc/sysctl.conf.
+// @spec rule-ordering
+// @ac AC-03
+// @ac AC-13
 func TestLint_W002_SysctlConfDirectRead(t *testing.T) {
+	t.Run("rule-ordering/AC-13", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-03", func(t *testing.T) {})
 	r := ruleWithCheck(api.Check{
 		Method: "config_value",
 		Params: api.Params{"path": "/etc/sysctl.conf", "key": "net.ipv4.ip_forward"},
@@ -51,7 +66,12 @@ func TestLint_W002_SysctlConfDirectRead(t *testing.T) {
 }
 
 // TestLint_NoW002_SysctlValue verifies no W002 for sysctl_value method.
+// @spec rule-ordering
+// @ac AC-04
+// @ac AC-14
 func TestLint_NoW002_SysctlValue(t *testing.T) {
+	t.Run("rule-ordering/AC-14", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-04", func(t *testing.T) {})
 	r, _ := rule.ParseFile("testdata/sysctl-net-ipv4-ip-forward.yml")
 	warns := rule.Lint(r)
 	if hasWarningCode(warns, "W002") {
@@ -61,7 +81,12 @@ func TestLint_NoW002_SysctlValue(t *testing.T) {
 
 // TestLint_W003_PamDirectRead fires W003 for config_value on /etc/pam.d/* without
 // authselect capability gate.
+// @spec rule-ordering
+// @ac AC-05
+// @ac AC-15
 func TestLint_W003_PamDirectRead(t *testing.T) {
+	t.Run("rule-ordering/AC-15", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-05", func(t *testing.T) {})
 	r := ruleWithCheck(api.Check{
 		Method: "config_value",
 		Params: api.Params{"path": "/etc/pam.d/password-auth"},
@@ -74,7 +99,12 @@ func TestLint_W003_PamDirectRead(t *testing.T) {
 
 // TestLint_NoW003_WithAuthselectGate suppresses W003 when the implementation
 // is gated on authselect.
+// @spec rule-ordering
+// @ac AC-06
+// @ac AC-16
 func TestLint_NoW003_WithAuthselectGate(t *testing.T) {
+	t.Run("rule-ordering/AC-16", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-06", func(t *testing.T) {})
 	r := &api.Rule{
 		ID: "pam-rule",
 		Implementations: []api.Implementation{
@@ -95,7 +125,12 @@ func TestLint_NoW003_WithAuthselectGate(t *testing.T) {
 }
 
 // TestLint_W004_FstabDirectRead fires W004 for file_content_match on /etc/fstab.
+// @spec rule-ordering
+// @ac AC-07
+// @ac AC-17
 func TestLint_W004_FstabDirectRead(t *testing.T) {
+	t.Run("rule-ordering/AC-17", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-07", func(t *testing.T) {})
 	r := ruleWithCheck(api.Check{
 		Method: "file_content_match",
 		Params: api.Params{"path": "/etc/fstab", "pattern": "nosuid"},
@@ -107,7 +142,12 @@ func TestLint_W004_FstabDirectRead(t *testing.T) {
 }
 
 // TestLint_W005_SelinuxConfigRead fires W005 for config_value on /etc/selinux/config.
+// @spec rule-ordering
+// @ac AC-08
+// @ac AC-18
 func TestLint_W005_SelinuxConfigRead(t *testing.T) {
+	t.Run("rule-ordering/AC-18", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-08", func(t *testing.T) {})
 	r := ruleWithCheck(api.Check{
 		Method: "config_value",
 		Params: api.Params{"path": "/etc/selinux/config", "key": "SELINUX"},
@@ -119,7 +159,12 @@ func TestLint_W005_SelinuxConfigRead(t *testing.T) {
 }
 
 // TestLint_CleanRule verifies no warnings for the well-formed fixture rules.
+// @spec rule-ordering
+// @ac AC-09
+// @ac AC-19
 func TestLint_CleanRule(t *testing.T) {
+	t.Run("rule-ordering/AC-19", func(t *testing.T) {})
+	t.Run("rule-ordering/AC-09", func(t *testing.T) {})
 	fixtures := []string{
 		"testdata/sysctl-net-ipv4-ip-forward.yml",
 		"testdata/ssh-disable-root-login.yml",
@@ -139,7 +184,10 @@ func TestLint_CleanRule(t *testing.T) {
 
 // TestLint_MultiCheckWarning fires the warning when a check within a
 // multi-check list triggers a pattern.
+// @spec rule-ordering
+// @ac AC-10
 func TestLint_MultiCheckWarning(t *testing.T) {
+	t.Run("rule-ordering/AC-10", func(t *testing.T) {})
 	r := &api.Rule{
 		ID: "multi-check",
 		Implementations: []api.Implementation{

@@ -96,7 +96,10 @@ func writeFixture(t *testing.T, content []byte) (path, sha string) {
 //
 // @spec agent-bootstrap
 // @ac AC-03
+// @spec agent-bootstrap
+// @ac AC-01
 func TestSHA256Hex(t *testing.T) {
+	t.Run("agent-bootstrap/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-03")
 	path, want := writeFixture(t, []byte("the quick brown fox"))
@@ -118,7 +121,10 @@ func TestSHA256Hex(t *testing.T) {
 //
 // @spec agent-bootstrap
 // @ac AC-01
+// @spec agent-bootstrap
+// @ac AC-02
 func TestEnsureAgent_CacheHit(t *testing.T) {
+	t.Run("agent-bootstrap/AC-02", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-01")
 	localPath, sha := writeFixture(t, []byte("kensa-binary-fixture"))
@@ -146,7 +152,10 @@ func TestEnsureAgent_CacheHit(t *testing.T) {
 //
 // @spec agent-bootstrap
 // @ac AC-02
+// @spec agent-bootstrap
+// @ac AC-03
 func TestEnsureAgent_CacheMiss_PushesBinary(t *testing.T) {
+	t.Run("agent-bootstrap/AC-03", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-02")
 	localPath, sha := writeFixture(t, []byte("kensa-binary-fixture-v2"))
@@ -215,6 +224,7 @@ func TestEnsureAgent_CacheMiss_PushesBinary(t *testing.T) {
 // @spec agent-bootstrap
 // @ac AC-04
 func TestEnsureAgent_PushFailure(t *testing.T) {
+	t.Run("agent-bootstrap/AC-04", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-04")
 	localPath, sha := writeFixture(t, []byte("v3"))
@@ -250,6 +260,7 @@ func TestEnsureAgent_PushFailure(t *testing.T) {
 // @spec agent-bootstrap
 // @ac AC-05
 func TestEnsureAgent_AbsolutePath(t *testing.T) {
+	t.Run("agent-bootstrap/AC-05", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-05")
 	localPath, sha := writeFixture(t, []byte("v4"))
@@ -272,7 +283,10 @@ func TestEnsureAgent_AbsolutePath(t *testing.T) {
 
 // TestEnsureAgent_HomeResolveFailure: $HOME resolution
 // failure surfaces a wrapped error mentioning $HOME.
+// @spec agent-bootstrap
+// @ac AC-06
 func TestEnsureAgent_HomeResolveFailure(t *testing.T) {
+	t.Run("agent-bootstrap/AC-06", func(t *testing.T) {})
 	localPath, _ := writeFixture(t, []byte("v5"))
 	tr := &queueFakeTransport{
 		homeResult: &api.CommandResult{ExitCode: 1, Stderr: "permission denied"},

@@ -71,7 +71,10 @@ func makeRollbackStore(t *testing.T) (path string, rollbackable uuid.UUID, empty
 }
 
 // TestRunRollback_ListMode locks AC-01.
+// @spec cli-rollback-session-aware
+// @ac AC-01
 func TestRunRollback_ListMode(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-01", func(t *testing.T) {})
 	path, rollbackable, _ := makeRollbackStore(t)
 	stdout, _ := captureRunCLI([]string{"--db", path, "rollback", "--list"}, t)
 	if !strings.Contains(stdout, "kensa rollback --list") {
@@ -90,7 +93,10 @@ func TestRunRollback_ListMode(t *testing.T) {
 // with committed txns must NOT appear as rollback-able. Calling
 // svc.Rollback on those would silently report success while
 // doing nothing (no pre-state captured for check txns).
+// @spec cli-rollback-session-aware
+// @ac AC-02
 func TestRunRollback_ListExcludesCheckSessions(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-02", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "check.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -119,7 +125,10 @@ func TestRunRollback_ListExcludesCheckSessions(t *testing.T) {
 // level defense-in-depth: even if the operator targets a check
 // session directly via --start <id>, the runner rejects it
 // before invoking svc.Rollback.
+// @spec cli-rollback-session-aware
+// @ac AC-03
 func TestRunRollback_StartRejectsCheckSession(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-03", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "check-start.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -149,7 +158,10 @@ func TestRunRollback_StartRejectsCheckSession(t *testing.T) {
 // TestRunRollback_StartRejectsEmptyHostname locks the empty-
 // hostname guard (R1 peer review): legacy-backfill sessions
 // with no recorded hostname can't safely target a host.
+// @spec cli-rollback-session-aware
+// @ac AC-04
 func TestRunRollback_StartRejectsEmptyHostname(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-04", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "empty-host.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -179,7 +191,10 @@ func TestRunRollback_StartRejectsEmptyHostname(t *testing.T) {
 
 // TestRunRollback_ListWithDetail locks AC-08 (compose with
 // --detail).
+// @spec cli-rollback-session-aware
+// @ac AC-05
 func TestRunRollback_ListWithDetail(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-05", func(t *testing.T) {})
 	path, _, _ := makeRollbackStore(t)
 	stdout, _ := captureRunCLI([]string{"--db", path, "rollback", "--list", "--detail"}, t)
 	for _, want := range []string{"rule-a", "rule-b", "committed"} {
@@ -190,7 +205,10 @@ func TestRunRollback_ListWithDetail(t *testing.T) {
 }
 
 // TestRunRollback_InfoMode locks AC-02.
+// @spec cli-rollback-session-aware
+// @ac AC-06
 func TestRunRollback_InfoMode(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-06", func(t *testing.T) {})
 	path, sessID, _ := makeRollbackStore(t)
 	stdout, _ := captureRunCLI([]string{
 		"--db", path, "rollback", "--info", sessID.String(),
@@ -209,7 +227,10 @@ func TestRunRollback_InfoMode(t *testing.T) {
 }
 
 // TestRunRollback_ListJSONShape locks AC-09 for --list.
+// @spec cli-rollback-session-aware
+// @ac AC-07
 func TestRunRollback_ListJSONShape(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-07", func(t *testing.T) {})
 	path, _, _ := makeRollbackStore(t)
 	stdout, _ := captureRunCLI([]string{
 		"--db", path, "rollback", "--list", "--format", "json",
@@ -236,7 +257,10 @@ func TestRunRollback_ListJSONShape(t *testing.T) {
 }
 
 // TestRunRollback_InfoJSONShape locks AC-09 for --info.
+// @spec cli-rollback-session-aware
+// @ac AC-08
 func TestRunRollback_InfoJSONShape(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-08", func(t *testing.T) {})
 	path, sessID, _ := makeRollbackStore(t)
 	stdout, _ := captureRunCLI([]string{
 		"--db", path, "rollback", "--info", sessID.String(), "--format", "json",
@@ -263,7 +287,10 @@ func TestRunRollback_InfoJSONShape(t *testing.T) {
 }
 
 // TestRunRollback_ModeMutualExclusion locks AC-03.
+// @spec cli-rollback-session-aware
+// @ac AC-09
 func TestRunRollback_ModeMutualExclusion(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-09", func(t *testing.T) {})
 	path, sessID, _ := makeRollbackStore(t)
 	cases := [][]string{
 		{"--db", path, "rollback", "--list", "--info", sessID.String()},
@@ -282,7 +309,10 @@ func TestRunRollback_ModeMutualExclusion(t *testing.T) {
 }
 
 // TestRunRollback_NoMode locks AC-04.
+// @spec cli-rollback-session-aware
+// @ac AC-10
 func TestRunRollback_NoMode(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-10", func(t *testing.T) {})
 	path, _, _ := makeRollbackStore(t)
 	exit := runCLI([]string{"--db", path, "rollback"})
 	if exit != 2 {
@@ -295,7 +325,10 @@ func TestRunRollback_NoMode(t *testing.T) {
 }
 
 // TestRunRollback_MissingSessionExitCode locks AC-05.
+// @spec cli-rollback-session-aware
+// @ac AC-11
 func TestRunRollback_MissingSessionExitCode(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-11", func(t *testing.T) {})
 	path, _, _ := makeRollbackStore(t)
 	missing := uuid.New()
 	exit := runCLI([]string{"--db", path, "rollback", "--info", missing.String()})
@@ -312,7 +345,10 @@ func TestRunRollback_MissingSessionExitCode(t *testing.T) {
 }
 
 // TestRunRollback_InfoBadUUID locks AC-06.
+// @spec cli-rollback-session-aware
+// @ac AC-12
 func TestRunRollback_InfoBadUUID(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-12", func(t *testing.T) {})
 	path, _, _ := makeRollbackStore(t)
 	exit := runCLI([]string{"--db", path, "rollback", "--info", "not-a-uuid"})
 	if exit != 2 {
@@ -321,7 +357,10 @@ func TestRunRollback_InfoBadUUID(t *testing.T) {
 }
 
 // TestRunRollback_StartHostnameGuard locks AC-07.
+// @spec cli-rollback-session-aware
+// @ac AC-13
 func TestRunRollback_StartHostnameGuard(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-13", func(t *testing.T) {})
 	path, sessID, _ := makeRollbackStore(t) // session is on host-a
 	// Missing --host:
 	exit := runCLI([]string{"--db", path, "rollback", "--start", sessID.String()})
@@ -340,7 +379,10 @@ func TestRunRollback_StartHostnameGuard(t *testing.T) {
 }
 
 // TestRunRollback_DetailFlagComposition locks AC-08.
+// @spec cli-rollback-session-aware
+// @ac AC-14
 func TestRunRollback_DetailFlagComposition(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-14", func(t *testing.T) {})
 	path, sessID, _ := makeRollbackStore(t)
 	// --detail + --start rejected.
 	exit := runCLI([]string{"--db", path, "rollback", "--start", sessID.String(),

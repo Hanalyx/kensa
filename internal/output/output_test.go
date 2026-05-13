@@ -6,7 +6,10 @@ import (
 	"testing"
 )
 
+// @spec output-parser
+// @ac AC-01
 func TestParse_Valid(t *testing.T) {
+	t.Run("output-parser/AC-01", func(t *testing.T) {})
 	tests := []struct {
 		name  string
 		input string
@@ -43,7 +46,10 @@ func TestParse_Valid(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-02
 func TestParse_EmptyFormat(t *testing.T) {
+	t.Run("output-parser/AC-02", func(t *testing.T) {})
 	tests := []struct {
 		name  string
 		input string
@@ -64,14 +70,20 @@ func TestParse_EmptyFormat(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-03
 func TestParse_EmptyPath(t *testing.T) {
+	t.Run("output-parser/AC-03", func(t *testing.T) {})
 	_, err := Parse("json:")
 	if !errors.Is(err, ErrEmptyPath) {
 		t.Errorf("Parse(\"json:\") error = %v, want ErrEmptyPath", err)
 	}
 }
 
+// @spec output-parser
+// @ac AC-04
 func TestParse_PathRequired(t *testing.T) {
+	t.Run("output-parser/AC-04", func(t *testing.T) {})
 	// pdf without a path must be rejected at parse time so a binary
 	// blob never reaches the operator's terminal.
 	tests := []struct {
@@ -92,7 +104,10 @@ func TestParse_PathRequired(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-05
 func TestParse_PathRequired_StillRequiresAFormat(t *testing.T) {
+	t.Run("output-parser/AC-05", func(t *testing.T) {})
 	// Sanity: ErrPathRequired only fires AFTER format validation,
 	// so unknown formats still get ErrUnknownFormat regardless of path.
 	_, err := Parse("xml")
@@ -101,7 +116,10 @@ func TestParse_PathRequired_StillRequiresAFormat(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-06
 func TestParse_UnknownFormat(t *testing.T) {
+	t.Run("output-parser/AC-06", func(t *testing.T) {})
 	tests := []struct {
 		name  string
 		input string
@@ -130,7 +148,10 @@ func TestParse_UnknownFormat(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-07
 func TestParse_UnknownFormat_PreservesOperatorCase(t *testing.T) {
+	t.Run("output-parser/AC-07", func(t *testing.T) {})
 	// Locked behavior: the error message must echo the operator's
 	// original (uppercase) input, not the lowercased lookup form.
 	_, err := Parse("XML")
@@ -142,7 +163,10 @@ func TestParse_UnknownFormat_PreservesOperatorCase(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-08
 func TestParse_NoWhitespaceTrimming(t *testing.T) {
+	t.Run("output-parser/AC-08", func(t *testing.T) {})
 	// Locked policy: Parse does not trim whitespace. A trailing space
 	// in the path is preserved verbatim. This is documented in Parse's
 	// doc comment; the test exists so future refactors don't silently
@@ -178,7 +202,10 @@ func TestParse_NoWhitespaceTrimming(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-09
 func TestParseAll_Valid(t *testing.T) {
+	t.Run("output-parser/AC-09", func(t *testing.T) {})
 	values := []string{"json", "csv:r.csv", "oscal:assessment.json"}
 	specs, err := ParseAll(values)
 	if err != nil {
@@ -199,7 +226,10 @@ func TestParseAll_Valid(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-10
 func TestParseAll_PreservesOrder(t *testing.T) {
+	t.Run("output-parser/AC-10", func(t *testing.T) {})
 	// Operator's argv order matters for fan-out determinism (C-019).
 	values := []string{"oscal", "json", "csv", "text"}
 	specs, err := ParseAll(values)
@@ -213,7 +243,10 @@ func TestParseAll_PreservesOrder(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-11
 func TestParseAll_EmptySlice(t *testing.T) {
+	t.Run("output-parser/AC-11", func(t *testing.T) {})
 	specs, err := ParseAll(nil)
 	if err != nil {
 		t.Fatalf("ParseAll(nil) error: %v", err)
@@ -230,7 +263,10 @@ func TestParseAll_EmptySlice(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-12
 func TestParseAll_ReportsIndex(t *testing.T) {
+	t.Run("output-parser/AC-12", func(t *testing.T) {})
 	// When an --output value is invalid, the error must tell the operator
 	// which positional argument failed so they can fix the right one.
 	values := []string{"json", "csv:r.csv", "yaml:bad.yaml", "oscal"}
@@ -246,7 +282,10 @@ func TestParseAll_ReportsIndex(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-13
 func TestParseAll_FailsFastOnFirstError(t *testing.T) {
+	t.Run("output-parser/AC-13", func(t *testing.T) {})
 	// Confirm we report the *first* bad value, not the last; consistent
 	// with operator expectation that argv is parsed left-to-right.
 	values := []string{"json", "yaml:first.yaml", "xml:second.xml"}
@@ -262,7 +301,10 @@ func TestParseAll_FailsFastOnFirstError(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-14
 func TestSpec_String(t *testing.T) {
+	t.Run("output-parser/AC-14", func(t *testing.T) {})
 	tests := []struct {
 		name string
 		spec Spec
@@ -281,7 +323,10 @@ func TestSpec_String(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-15
 func TestSpec_StringRoundTrip(t *testing.T) {
+	t.Run("output-parser/AC-15", func(t *testing.T) {})
 	// Every Spec produced by Parse must round-trip back to itself.
 	// Excludes "json:-" because that normalizes to "json" (Path is
 	// emptied), which is the intended behavior.
@@ -308,7 +353,10 @@ func TestSpec_StringRoundTrip(t *testing.T) {
 	}
 }
 
+// @spec output-parser
+// @ac AC-16
 func TestIsKnownFormat(t *testing.T) {
+	t.Run("output-parser/AC-16", func(t *testing.T) {})
 	tests := []struct {
 		name string
 		in   string

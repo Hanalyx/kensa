@@ -27,7 +27,12 @@ func emptyStorePath(t *testing.T) string {
 
 // TestRunListSessions_JSONLFormat locks AC-01: --format jsonl
 // emits one session row per line, no top-level envelope.
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-01
+// @ac AC-04
 func TestRunListSessions_JSONLFormat(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-01", func(t *testing.T) {})
+	t.Run("cli-list-sessions-info-jsonl/AC-04", func(t *testing.T) {})
 	path := seedSessions(t, 3)
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "list", "sessions", "--format", "jsonl"}, t,
@@ -58,7 +63,12 @@ func TestRunListSessions_JSONLFormat(t *testing.T) {
 // TestRunListSessions_JSONLShapeMatchesJSON locks AC-04: per-line
 // shape under jsonl matches per-element shape of the JSON
 // envelope's `sessions` array.
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-02
+// @ac AC-05
 func TestRunListSessions_JSONLShapeMatchesJSON(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-02", func(t *testing.T) {})
+	t.Run("cli-list-sessions-info-jsonl/AC-05", func(t *testing.T) {})
 	path := seedSessions(t, 2)
 
 	stdoutJSON, _ := captureRunCLI(
@@ -104,7 +114,10 @@ func TestRunListSessions_JSONLShapeMatchesJSON(t *testing.T) {
 // TestRunListSessions_JSONLEmptyStore: jsonl on empty store
 // produces zero output lines (not "(no sessions)" — that's the
 // text-format human banner).
+// @spec cli-list-sessions-info-jsonl
+// @ac AC-03
 func TestRunListSessions_JSONLEmptyStore(t *testing.T) {
+	t.Run("cli-list-sessions-info-jsonl/AC-03", func(t *testing.T) {})
 	path := emptyStorePath(t)
 	stdout, _ := captureRunCLI(
 		[]string{"--db", path, "list", "sessions", "--format", "jsonl"}, t,

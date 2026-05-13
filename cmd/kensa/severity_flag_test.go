@@ -8,7 +8,12 @@ import (
 	"github.com/Hanalyx/kensa-go/api"
 )
 
+// @spec cli-severity-filter
+// @ac AC-01
+// @ac AC-11
 func TestValidateSeverities_Empty(t *testing.T) {
+	t.Run("cli-severity-filter/AC-01", func(t *testing.T) {})
+	t.Run("cli-severity-filter/AC-11", func(t *testing.T) {})
 	got, err := validateSeverities(nil)
 	if err != nil {
 		t.Fatalf("nil: %v", err)
@@ -25,7 +30,10 @@ func TestValidateSeverities_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-02
 func TestValidateSeverities_AllValid(t *testing.T) {
+	t.Run("cli-severity-filter/AC-02", func(t *testing.T) {})
 	for _, s := range []string{"critical", "high", "medium", "low"} {
 		got, err := validateSeverities([]string{s})
 		if err != nil {
@@ -37,7 +45,10 @@ func TestValidateSeverities_AllValid(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-03
 func TestValidateSeverities_CaseInsensitive(t *testing.T) {
+	t.Run("cli-severity-filter/AC-03", func(t *testing.T) {})
 	got, err := validateSeverities([]string{"CRITICAL", "High", "  medium  "})
 	if err != nil {
 		t.Fatalf("case: %v", err)
@@ -53,7 +64,10 @@ func TestValidateSeverities_CaseInsensitive(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-04
 func TestValidateSeverities_Deduplicates(t *testing.T) {
+	t.Run("cli-severity-filter/AC-04", func(t *testing.T) {})
 	got, err := validateSeverities([]string{"high", "high", "HIGH"})
 	if err != nil {
 		t.Fatalf("dedup: %v", err)
@@ -63,7 +77,10 @@ func TestValidateSeverities_Deduplicates(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-05
 func TestValidateSeverities_Unknown(t *testing.T) {
+	t.Run("cli-severity-filter/AC-05", func(t *testing.T) {})
 	for _, in := range []string{"severe", "info", "warn", "", "med"} {
 		_, err := validateSeverities([]string{in})
 		if err == nil {
@@ -79,7 +96,10 @@ func TestValidateSeverities_Unknown(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-06
 func TestFilterRulesBySeverity_Empty(t *testing.T) {
+	t.Run("cli-severity-filter/AC-06", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Severity: "critical"},
 		{ID: "b", Severity: "low"},
@@ -90,7 +110,10 @@ func TestFilterRulesBySeverity_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-07
 func TestFilterRulesBySeverity_Single(t *testing.T) {
+	t.Run("cli-severity-filter/AC-07", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Severity: "critical"},
 		{ID: "b", Severity: "low"},
@@ -103,7 +126,10 @@ func TestFilterRulesBySeverity_Single(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-08
 func TestFilterRulesBySeverity_Multiple(t *testing.T) {
+	t.Run("cli-severity-filter/AC-08", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Severity: "critical"},
 		{ID: "b", Severity: "low"},
@@ -119,7 +145,10 @@ func TestFilterRulesBySeverity_Multiple(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-09
 func TestFilterRulesBySeverity_PreservesOrder(t *testing.T) {
+	t.Run("cli-severity-filter/AC-09", func(t *testing.T) {})
 	// Filter must not re-sort; the surrounding pipeline expects
 	// stable ordering for deterministic output.
 	rules := []*api.Rule{
@@ -133,7 +162,10 @@ func TestFilterRulesBySeverity_PreservesOrder(t *testing.T) {
 	}
 }
 
+// @spec cli-severity-filter
+// @ac AC-10
 func TestFilterRulesBySeverity_RuleSeverityCaseInsensitive(t *testing.T) {
+	t.Run("cli-severity-filter/AC-10", func(t *testing.T) {})
 	// Rules in the corpus may have severity in any case; the filter
 	// should match regardless.
 	rules := []*api.Rule{

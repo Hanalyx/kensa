@@ -8,7 +8,10 @@ import (
 	"github.com/Hanalyx/kensa-go/api"
 )
 
+// @spec cli-control-filter
+// @ac AC-01
 func TestParseControlFilters_Empty(t *testing.T) {
+	t.Run("cli-control-filter/AC-01", func(t *testing.T) {})
 	got, err := parseControlFilters(nil)
 	if err != nil {
 		t.Fatalf("nil: %v", err)
@@ -18,7 +21,10 @@ func TestParseControlFilters_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-02
 func TestParseControlFilters_WellFormed(t *testing.T) {
+	t.Run("cli-control-filter/AC-02", func(t *testing.T) {})
 	got, err := parseControlFilters([]string{"cis_rhel9:5.1.12"})
 	if err != nil {
 		t.Fatalf("well-formed: %v", err)
@@ -28,7 +34,10 @@ func TestParseControlFilters_WellFormed(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-03
 func TestParseControlFilters_HyphenAlias(t *testing.T) {
+	t.Run("cli-control-filter/AC-03", func(t *testing.T) {})
 	got, err := parseControlFilters([]string{"cis-rhel9:5.1.12"})
 	if err != nil {
 		t.Fatalf("hyphen: %v", err)
@@ -38,7 +47,10 @@ func TestParseControlFilters_HyphenAlias(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-04
 func TestParseControlFilters_PreservesControlCase(t *testing.T) {
+	t.Run("cli-control-filter/AC-04", func(t *testing.T) {})
 	// NIST control IDs are case-sensitive ("AC-1" vs "ac-1");
 	// don't lowercase the control portion.
 	got, err := parseControlFilters([]string{"nist_800_53:AC-1"})
@@ -50,7 +62,10 @@ func TestParseControlFilters_PreservesControlCase(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-05
 func TestParseControlFilters_Multiple(t *testing.T) {
+	t.Run("cli-control-filter/AC-05", func(t *testing.T) {})
 	got, err := parseControlFilters([]string{"cis_rhel9:5.1.12", "nist_800_53:AC-1"})
 	if err != nil {
 		t.Fatalf("multiple: %v", err)
@@ -60,21 +75,30 @@ func TestParseControlFilters_Multiple(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-06
 func TestParseControlFilters_MissingColon(t *testing.T) {
+	t.Run("cli-control-filter/AC-06", func(t *testing.T) {})
 	_, err := parseControlFilters([]string{"cis_rhel9"})
 	if err == nil || !strings.Contains(err.Error(), "missing ':'") {
 		t.Errorf("expected missing-colon error; got %v", err)
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-07
 func TestParseControlFilters_EmptyFramework(t *testing.T) {
+	t.Run("cli-control-filter/AC-07", func(t *testing.T) {})
 	_, err := parseControlFilters([]string{":5.1.12"})
 	if err == nil || !strings.Contains(err.Error(), "empty FRAMEWORK") {
 		t.Errorf("expected empty-framework error; got %v", err)
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-08
 func TestParseControlFilters_EmptyControl(t *testing.T) {
+	t.Run("cli-control-filter/AC-08", func(t *testing.T) {})
 	_, err := parseControlFilters([]string{"cis_rhel9:"})
 	if err == nil || !strings.Contains(err.Error(), "empty CONTROL") {
 		t.Errorf("expected empty-control error; got %v", err)
@@ -100,20 +124,29 @@ func sampleRulesForControl() []*api.Rule {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-09
 func TestValidateControls_Empty(t *testing.T) {
+	t.Run("cli-control-filter/AC-09", func(t *testing.T) {})
 	if err := validateControls(nil, sampleRulesForControl()); err != nil {
 		t.Errorf("nil filters: %v", err)
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-10
 func TestValidateControls_KnownFrameworkAndControl(t *testing.T) {
+	t.Run("cli-control-filter/AC-10", func(t *testing.T) {})
 	filters := []controlFilter{{frameworkID: "cis_rhel9", controlID: "5.1.12"}}
 	if err := validateControls(filters, sampleRulesForControl()); err != nil {
 		t.Errorf("known: %v", err)
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-11
 func TestValidateControls_UnknownFramework(t *testing.T) {
+	t.Run("cli-control-filter/AC-11", func(t *testing.T) {})
 	filters := []controlFilter{{frameworkID: "hipaa", controlID: "X"}}
 	err := validateControls(filters, sampleRulesForControl())
 	if err == nil {
@@ -127,7 +160,10 @@ func TestValidateControls_UnknownFramework(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-12
 func TestValidateControls_UnknownControl(t *testing.T) {
+	t.Run("cli-control-filter/AC-12", func(t *testing.T) {})
 	filters := []controlFilter{{frameworkID: "cis_rhel9", controlID: "9.9.9"}}
 	err := validateControls(filters, sampleRulesForControl())
 	if err == nil {
@@ -143,7 +179,10 @@ func TestValidateControls_UnknownControl(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-13
 func TestFilterRulesByControl_Empty(t *testing.T) {
+	t.Run("cli-control-filter/AC-13", func(t *testing.T) {})
 	rules := sampleRulesForControl()
 	got := filterRulesByControl(rules, nil)
 	if len(got) != len(rules) {
@@ -151,7 +190,10 @@ func TestFilterRulesByControl_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-14
 func TestFilterRulesByControl_SingleMatch(t *testing.T) {
+	t.Run("cli-control-filter/AC-14", func(t *testing.T) {})
 	rules := sampleRulesForControl()
 	filters := []controlFilter{{frameworkID: "cis_rhel9", controlID: "5.1.12"}}
 	got := filterRulesByControl(rules, filters)
@@ -160,7 +202,10 @@ func TestFilterRulesByControl_SingleMatch(t *testing.T) {
 	}
 }
 
+// @spec cli-control-filter
+// @ac AC-15
 func TestFilterRulesByControl_OrSemanticsAcrossFilters(t *testing.T) {
+	t.Run("cli-control-filter/AC-15", func(t *testing.T) {})
 	rules := sampleRulesForControl()
 	filters := []controlFilter{
 		{frameworkID: "cis_rhel9", controlID: "5.2.1"},

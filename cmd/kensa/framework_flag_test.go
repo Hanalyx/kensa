@@ -8,19 +8,28 @@ import (
 	"github.com/Hanalyx/kensa-go/api"
 )
 
+// @spec cli-framework-filter
+// @ac AC-01
 func TestNormalizeFrameworkID_Identity(t *testing.T) {
+	t.Run("cli-framework-filter/AC-01", func(t *testing.T) {})
 	if got := normalizeFrameworkID("cis_rhel9"); got != "cis_rhel9" {
 		t.Errorf("got %q", got)
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-02
 func TestNormalizeFrameworkID_HyphenToUnderscore(t *testing.T) {
+	t.Run("cli-framework-filter/AC-02", func(t *testing.T) {})
 	if got := normalizeFrameworkID("cis-rhel9"); got != "cis_rhel9" {
 		t.Errorf("got %q; want cis_rhel9", got)
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-03
 func TestNormalizeFrameworkID_LowercasesAndTrims(t *testing.T) {
+	t.Run("cli-framework-filter/AC-03", func(t *testing.T) {})
 	if got := normalizeFrameworkID("  CIS-RHEL9  "); got != "cis_rhel9" {
 		t.Errorf("got %q; want cis_rhel9", got)
 	}
@@ -62,7 +71,10 @@ func sampleRules() []*api.Rule {
 // TestFilterRulesByFramework_StigVersionedShape locks the STIG
 // versioned-object handling path through mappings. Adds defense
 // against a regression that breaks one shape but not the other.
+// @spec cli-framework-filter
+// @ac AC-04
 func TestFilterRulesByFramework_StigVersionedShape(t *testing.T) {
+	t.Run("cli-framework-filter/AC-04", func(t *testing.T) {})
 	rules := sampleRules()
 	got := filterRulesByFramework(rules, "stig_rhel9")
 	if len(got) != 1 || got[0].ID != "e" {
@@ -70,7 +82,10 @@ func TestFilterRulesByFramework_StigVersionedShape(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-05
 func TestAvailableFrameworks_UnionAndSorted(t *testing.T) {
+	t.Run("cli-framework-filter/AC-05", func(t *testing.T) {})
 	got := availableFrameworks(sampleRules())
 	want := []string{"cis_rhel8", "cis_rhel9", "nist_800_53", "stig_rhel9"}
 	if len(got) != len(want) {
@@ -83,7 +98,10 @@ func TestAvailableFrameworks_UnionAndSorted(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-06
 func TestAvailableFrameworks_Empty(t *testing.T) {
+	t.Run("cli-framework-filter/AC-06", func(t *testing.T) {})
 	got := availableFrameworks([]*api.Rule{
 		ruleWithRefs("a", nil),
 		ruleWithRefs("b", map[string]interface{}{}),
@@ -93,7 +111,10 @@ func TestAvailableFrameworks_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-07
 func TestValidateFramework_Empty(t *testing.T) {
+	t.Run("cli-framework-filter/AC-07", func(t *testing.T) {})
 	got, err := validateFramework("", []string{"cis_rhel9"})
 	if err != nil {
 		t.Fatalf("empty: %v", err)
@@ -103,7 +124,10 @@ func TestValidateFramework_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-08
 func TestValidateFramework_Match(t *testing.T) {
+	t.Run("cli-framework-filter/AC-08", func(t *testing.T) {})
 	got, err := validateFramework("cis_rhel9", []string{"cis_rhel9", "nist_800_53"})
 	if err != nil {
 		t.Fatalf("match: %v", err)
@@ -113,7 +137,10 @@ func TestValidateFramework_Match(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-09
 func TestValidateFramework_HyphenAlias(t *testing.T) {
+	t.Run("cli-framework-filter/AC-09", func(t *testing.T) {})
 	got, err := validateFramework("cis-rhel9", []string{"cis_rhel9"})
 	if err != nil {
 		t.Fatalf("hyphen alias: %v", err)
@@ -123,7 +150,10 @@ func TestValidateFramework_HyphenAlias(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-10
 func TestValidateFramework_CaseInsensitive(t *testing.T) {
+	t.Run("cli-framework-filter/AC-10", func(t *testing.T) {})
 	got, err := validateFramework("CIS_RHEL9", []string{"cis_rhel9"})
 	if err != nil {
 		t.Fatalf("case: %v", err)
@@ -133,7 +163,10 @@ func TestValidateFramework_CaseInsensitive(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-11
 func TestValidateFramework_Unknown(t *testing.T) {
+	t.Run("cli-framework-filter/AC-11", func(t *testing.T) {})
 	_, err := validateFramework("hipaa", []string{"cis_rhel9", "nist_800_53"})
 	if err == nil {
 		t.Fatal("unknown framework should error")
@@ -146,7 +179,10 @@ func TestValidateFramework_Unknown(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-12
 func TestValidateFramework_EmptyAvailable(t *testing.T) {
+	t.Run("cli-framework-filter/AC-12", func(t *testing.T) {})
 	_, err := validateFramework("cis_rhel9", nil)
 	if err == nil {
 		t.Fatal("empty available + non-empty input should error")
@@ -156,7 +192,10 @@ func TestValidateFramework_EmptyAvailable(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-13
 func TestFilterRulesByFramework_Empty(t *testing.T) {
+	t.Run("cli-framework-filter/AC-13", func(t *testing.T) {})
 	rules := sampleRules()
 	got := filterRulesByFramework(rules, "")
 	if len(got) != len(rules) {
@@ -164,7 +203,10 @@ func TestFilterRulesByFramework_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-14
 func TestFilterRulesByFramework_Match(t *testing.T) {
+	t.Run("cli-framework-filter/AC-14", func(t *testing.T) {})
 	rules := sampleRules()
 	got := filterRulesByFramework(rules, "cis_rhel9")
 	// Both 'a' and 'b' have cis.rhel9.
@@ -173,7 +215,10 @@ func TestFilterRulesByFramework_Match(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-15
 func TestFilterRulesByFramework_FlatListMatch(t *testing.T) {
+	t.Run("cli-framework-filter/AC-15", func(t *testing.T) {})
 	rules := sampleRules()
 	got := filterRulesByFramework(rules, "nist_800_53")
 	if len(got) != 2 || got[0].ID != "a" || got[1].ID != "c" {
@@ -181,7 +226,10 @@ func TestFilterRulesByFramework_FlatListMatch(t *testing.T) {
 	}
 }
 
+// @spec cli-framework-filter
+// @ac AC-16
 func TestFilterRulesByFramework_PreservesOrder(t *testing.T) {
+	t.Run("cli-framework-filter/AC-16", func(t *testing.T) {})
 	rules := []*api.Rule{
 		ruleWithRefs("z", map[string]interface{}{"nist_800_53": []interface{}{"AC-1"}}),
 		ruleWithRefs("a", map[string]interface{}{"nist_800_53": []interface{}{"AC-2"}}),

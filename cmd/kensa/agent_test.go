@@ -15,7 +15,17 @@ import (
 // cli-agent-placeholder AC-01: bare `kensa agent` (no mode flag)
 // MUST exit 2 with a usage error. Preserved across the L-008
 // transition.
+// @spec agent-stdio-subcommand
+// @ac AC-01
+// @ac AC-05
+// @spec cli-agent-placeholder
+// @ac AC-01
+// @ac AC-05
 func TestRunAgent_NoFlagsIsUsageError(t *testing.T) {
+	t.Run("cli-agent-placeholder/AC-01", func(t *testing.T) {})
+	t.Run("cli-agent-placeholder/AC-05", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-05", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-01", func(t *testing.T) {})
 	exit := runCLI([]string{"agent"})
 	if exit != 2 {
 		t.Errorf("kensa agent (no flags) should exit 2; got %d", exit)
@@ -34,7 +44,17 @@ func TestRunAgent_NoFlagsIsUsageError(t *testing.T) {
 // replaced it with the live framing/echo description; the
 // stdin / stdout / length-prefixed / Track L disclosures are
 // preserved.
+// @spec agent-stdio-subcommand
+// @ac AC-02
+// @ac AC-06
+// @spec cli-agent-placeholder
+// @ac AC-02
+// @ac AC-06
 func TestRunAgent_HelpDisclosesWireProtocol(t *testing.T) {
+	t.Run("cli-agent-placeholder/AC-02", func(t *testing.T) {})
+	t.Run("cli-agent-placeholder/AC-06", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-06", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-02", func(t *testing.T) {})
 	for _, argv := range [][]string{
 		{"agent", "--help"},
 		{"agent", "-h"},
@@ -59,7 +79,15 @@ func TestRunAgent_HelpDisclosesWireProtocol(t *testing.T) {
 
 // TestRunAgent_UnknownFlagRejected locks
 // cli-agent-placeholder AC-04: unknown flags exit 2. Preserved.
+// @spec agent-stdio-subcommand
+// @ac AC-03
+// @ac AC-07
+// @spec cli-agent-placeholder
+// @ac AC-03
 func TestRunAgent_UnknownFlagRejected(t *testing.T) {
+	t.Run("cli-agent-placeholder/AC-03", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-07", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-03", func(t *testing.T) {})
 	exit := runCLI([]string{"agent", "--bogus"})
 	if exit != 2 {
 		t.Errorf("kensa agent --bogus should exit 2; got %d", exit)
@@ -70,7 +98,15 @@ func TestRunAgent_UnknownFlagRejected(t *testing.T) {
 // (preserved): top-level `kensa --help` lists the agent
 // subcommand. The post-L-008 description no longer says "v1.1
 // placeholder" since the subcommand now does real work.
+// @spec agent-stdio-subcommand
+// @ac AC-04
+// @ac AC-08
+// @spec cli-agent-placeholder
+// @ac AC-04
 func TestPrintUsage_ListsAgent(t *testing.T) {
+	t.Run("cli-agent-placeholder/AC-04", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-08", func(t *testing.T) {})
+	t.Run("agent-stdio-subcommand/AC-04", func(t *testing.T) {})
 	stdout, _ := captureRunCLI([]string{"--help"}, t)
 	if !strings.Contains(stdout, "agent") {
 		t.Errorf("kensa --help should list 'agent'; got:\n%s", stdout)

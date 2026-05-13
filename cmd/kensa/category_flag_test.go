@@ -7,7 +7,12 @@ import (
 	"github.com/Hanalyx/kensa-go/api"
 )
 
+// @spec cli-category-filter
+// @ac AC-01
+// @ac AC-08
 func TestFilterRulesByCategory_Empty(t *testing.T) {
+	t.Run("cli-category-filter/AC-01", func(t *testing.T) {})
+	t.Run("cli-category-filter/AC-08", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Category: "audit"},
 		{ID: "b", Category: "network"},
@@ -20,7 +25,10 @@ func TestFilterRulesByCategory_Empty(t *testing.T) {
 	}
 }
 
+// @spec cli-category-filter
+// @ac AC-02
 func TestFilterRulesByCategory_ExactMatch(t *testing.T) {
+	t.Run("cli-category-filter/AC-02", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Category: "audit"},
 		{ID: "b", Category: "network"},
@@ -32,7 +40,10 @@ func TestFilterRulesByCategory_ExactMatch(t *testing.T) {
 	}
 }
 
+// @spec cli-category-filter
+// @ac AC-03
 func TestFilterRulesByCategory_CaseInsensitive(t *testing.T) {
+	t.Run("cli-category-filter/AC-03", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Category: "Audit"},
 		{ID: "b", Category: "AUDIT"},
@@ -44,7 +55,10 @@ func TestFilterRulesByCategory_CaseInsensitive(t *testing.T) {
 	}
 }
 
+// @spec cli-category-filter
+// @ac AC-04
 func TestFilterRulesByCategory_NoMatch(t *testing.T) {
+	t.Run("cli-category-filter/AC-04", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Category: "audit"},
 	}
@@ -54,7 +68,10 @@ func TestFilterRulesByCategory_NoMatch(t *testing.T) {
 	}
 }
 
+// @spec cli-category-filter
+// @ac AC-05
 func TestFilterRulesByCategory_PreservesOrder(t *testing.T) {
+	t.Run("cli-category-filter/AC-05", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "z", Category: "audit"},
 		{ID: "a", Category: "network"},
@@ -66,7 +83,10 @@ func TestFilterRulesByCategory_PreservesOrder(t *testing.T) {
 	}
 }
 
+// @spec cli-category-filter
+// @ac AC-06
 func TestFilterRulesByCategory_RuleEmptyCategory(t *testing.T) {
+	t.Run("cli-category-filter/AC-06", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Category: ""},
 		{ID: "b", Category: "audit"},
@@ -77,7 +97,10 @@ func TestFilterRulesByCategory_RuleEmptyCategory(t *testing.T) {
 	}
 }
 
+// @spec cli-category-filter
+// @ac AC-07
 func TestFilterRulesByCategory_OperatorInputTrimmed(t *testing.T) {
+	t.Run("cli-category-filter/AC-07", func(t *testing.T) {})
 	rules := []*api.Rule{
 		{ID: "a", Category: "audit"},
 	}

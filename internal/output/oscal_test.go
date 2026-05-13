@@ -26,7 +26,12 @@ func makeEnvelope(ruleID, hostID string, decision api.TransactionStatus) *api.Ev
 	}
 }
 
+// @spec output-oscal
+// @ac AC-01
+// @ac AC-09
 func TestOSCALRemediationWriter_SingleTransaction(t *testing.T) {
+	t.Run("output-oscal/AC-09", func(t *testing.T) {})
+	t.Run("output-oscal/AC-01", func(t *testing.T) {})
 	result := &api.RemediationResult{
 		Transactions: []api.TransactionResult{
 			{
@@ -49,7 +54,10 @@ func TestOSCALRemediationWriter_SingleTransaction(t *testing.T) {
 	}
 }
 
+// @spec output-oscal
+// @ac AC-02
 func TestOSCALRemediationWriter_SkipsNilEnvelopes(t *testing.T) {
+	t.Run("output-oscal/AC-02", func(t *testing.T) {})
 	// Transactions without an envelope (e.g., non-capturable rule
 	// that errored before commit) must be silently skipped, not
 	// crash and not emit a document for them.
@@ -82,7 +90,10 @@ func TestOSCALRemediationWriter_SkipsNilEnvelopes(t *testing.T) {
 	}
 }
 
+// @spec output-oscal
+// @ac AC-03
 func TestOSCALRemediationWriter_AllNilEnvelopesEmitsEmpty(t *testing.T) {
+	t.Run("output-oscal/AC-03", func(t *testing.T) {})
 	// Edge case: a result with zero envelopes (every transaction
 	// errored before commit) must produce empty output without
 	// erroring. Operators see no file or empty file rather than a
@@ -101,7 +112,10 @@ func TestOSCALRemediationWriter_AllNilEnvelopesEmitsEmpty(t *testing.T) {
 	}
 }
 
+// @spec output-oscal
+// @ac AC-04
 func TestOSCALRemediationWriter_MultipleTransactions(t *testing.T) {
+	t.Run("output-oscal/AC-04", func(t *testing.T) {})
 	// N envelopes produce N OSCAL documents concatenated.
 	result := &api.RemediationResult{
 		Transactions: []api.TransactionResult{
@@ -127,7 +141,10 @@ func TestOSCALRemediationWriter_MultipleTransactions(t *testing.T) {
 	}
 }
 
+// @spec output-oscal
+// @ac AC-05
 func TestOSCALRemediationWriter_RegistryWiring(t *testing.T) {
+	t.Run("output-oscal/AC-05", func(t *testing.T) {})
 	w, ok := RemediationWriterFor("oscal")
 	if !ok {
 		t.Fatal("RemediationWriterFor(oscal): not registered")
@@ -137,7 +154,10 @@ func TestOSCALRemediationWriter_RegistryWiring(t *testing.T) {
 	}
 }
 
+// @spec output-oscal
+// @ac AC-06
 func TestOSCALRemediationWriter_NotRegisteredForUnsupportedPayloads(t *testing.T) {
+	t.Run("output-oscal/AC-06", func(t *testing.T) {})
 	// OSCAL is RemediationResult-only because envelopes are produced
 	// only during remediation. Scan / caps / history / json-value
 	// payloads carry no envelopes and have no OSCAL representation.
@@ -155,7 +175,10 @@ func TestOSCALRemediationWriter_NotRegisteredForUnsupportedPayloads(t *testing.T
 	}
 }
 
+// @spec output-oscal
+// @ac AC-07
 func TestOSCALRemediationWriter_PropagateWriteErrors(t *testing.T) {
+	t.Run("output-oscal/AC-07", func(t *testing.T) {})
 	result := &api.RemediationResult{
 		Transactions: []api.TransactionResult{
 			{Status: api.StatusCommitted, Envelope: makeEnvelope("r1", "h1", api.StatusCommitted)},
@@ -166,7 +189,10 @@ func TestOSCALRemediationWriter_PropagateWriteErrors(t *testing.T) {
 	}
 }
 
+// @spec output-oscal
+// @ac AC-08
 func TestOSCALRemediationWriter_PropagateWriteErrors_NoEnvelopes(t *testing.T) {
+	t.Run("output-oscal/AC-08", func(t *testing.T) {})
 	// When there are no envelopes to write, the writer is never
 	// invoked — and a failing io.Writer should NOT see any writes at
 	// all (no spurious empty-document write).

@@ -26,7 +26,10 @@ func makeStoreFile(t *testing.T) string {
 }
 
 // TestRunHistoryPrune_RejectsNonPositiveDays locks AC-07.
+// @spec cli-history-prune
+// @ac AC-01
 func TestRunHistoryPrune_RejectsNonPositiveDays(t *testing.T) {
+	t.Run("cli-history-prune/AC-01", func(t *testing.T) {})
 	path := makeStoreFile(t)
 
 	for _, days := range []int{0, -1, -7} {
@@ -47,7 +50,10 @@ func TestRunHistoryPrune_RejectsNonPositiveDays(t *testing.T) {
 // TestRunHistoryPrune_RejectsTooManyDays locks the typo-protection
 // upper bound (pruneDaysMax = 100 years), well below the
 // time.Duration overflow boundary.
+// @spec cli-history-prune
+// @ac AC-02
 func TestRunHistoryPrune_RejectsTooManyDays(t *testing.T) {
+	t.Run("cli-history-prune/AC-02", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	// pruneDaysMax+1 must reject; far above is the realistic
 	// typo case ("100000" instead of "10000").
@@ -67,7 +73,10 @@ func TestRunHistoryPrune_RejectsTooManyDays(t *testing.T) {
 }
 
 // TestRunHistoryPrune_NonTTYWithoutForce locks AC-08.
+// @spec cli-history-prune
+// @ac AC-03
 func TestRunHistoryPrune_NonTTYWithoutForce(t *testing.T) {
+	t.Run("cli-history-prune/AC-03", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	// stdin is a *bytes.Buffer, not *os.File — IsTerminal returns false.
 	stdin := bytes.NewBufferString("")
@@ -85,7 +94,10 @@ func TestRunHistoryPrune_NonTTYWithoutForce(t *testing.T) {
 
 // TestRunHistoryPrune_ForceBypassesPrompt locks the happy-path with
 // --force on an empty store.
+// @spec cli-history-prune
+// @ac AC-04
 func TestRunHistoryPrune_ForceBypassesPrompt(t *testing.T) {
+	t.Run("cli-history-prune/AC-04", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	var stdout, stderr bytes.Buffer
 	err := runHistoryPrune(context.Background(), path, 7, true, false, nil, &stdout, &stderr)
@@ -114,7 +126,10 @@ func TestRunHistoryPrune_ForceBypassesPrompt(t *testing.T) {
 // TestRunHistoryPrune_QuietStillEmitsAuditSummary documents that the
 // audit summary goes to stderr regardless of --quiet (destructive
 // op needs a trail visible to the operator).
+// @spec cli-history-prune
+// @ac AC-05
 func TestRunHistoryPrune_QuietStillEmitsAuditSummary(t *testing.T) {
+	t.Run("cli-history-prune/AC-05", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	var stdout, stderr bytes.Buffer
 	err := runHistoryPrune(context.Background(), path, 7, true, true, nil, &stdout, &stderr)
@@ -132,7 +147,10 @@ func TestRunHistoryPrune_QuietStillEmitsAuditSummary(t *testing.T) {
 // TestConfirmedYes locks the parser for the TTY confirmation gate.
 // confirmedYes requires a trailing newline so Ctrl-D mid-input
 // (EOF after typing "y" without Enter) does NOT confirm.
+// @spec cli-history-prune
+// @ac AC-06
 func TestConfirmedYes(t *testing.T) {
+	t.Run("cli-history-prune/AC-06", func(t *testing.T) {})
 	cases := map[string]bool{
 		"y\n":   true,
 		"Y\n":   true,
@@ -157,7 +175,10 @@ func TestConfirmedYes(t *testing.T) {
 // TestRunHistory_PruneInvalidDays drives runHistory through runCLI to
 // confirm the dispatch routes flag-validation errors out as usage
 // errors (exit code 2). Re-locks AC-07 at the dispatch boundary.
+// @spec cli-history-prune
+// @ac AC-07
 func TestRunHistory_PruneInvalidDays(t *testing.T) {
+	t.Run("cli-history-prune/AC-07", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	for _, days := range []string{"0", "-1"} {
 		argv := []string{"--db", path, "history", "--prune", days, "--force"}
@@ -170,7 +191,10 @@ func TestRunHistory_PruneInvalidDays(t *testing.T) {
 
 // TestRunHistory_PruneNonNumericDays verifies pflag's own type
 // validation kicks in before our positive-integer check, also exit 2.
+// @spec cli-history-prune
+// @ac AC-08
 func TestRunHistory_PruneNonNumericDays(t *testing.T) {
+	t.Run("cli-history-prune/AC-08", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	argv := []string{"--db", path, "history", "--prune", "abc", "--force"}
 	got := runCLI(argv)
@@ -181,7 +205,10 @@ func TestRunHistory_PruneNonNumericDays(t *testing.T) {
 
 // TestRunHistory_PruneMutualExclusion locks AC-09 — combining --prune
 // with any of the query flags is a usage error.
+// @spec cli-history-prune
+// @ac AC-09
 func TestRunHistory_PruneMutualExclusion(t *testing.T) {
+	t.Run("cli-history-prune/AC-09", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	cases := [][]string{
 		{"history", "--prune", "7", "--force", "--stats"},
@@ -204,7 +231,10 @@ func TestRunHistory_PruneMutualExclusion(t *testing.T) {
 
 // TestRunHistory_ForceWithoutPruneRejected verifies --force without
 // --prune is a usage error (operator-confused-intent guard).
+// @spec cli-history-prune
+// @ac AC-10
 func TestRunHistory_ForceWithoutPruneRejected(t *testing.T) {
+	t.Run("cli-history-prune/AC-10", func(t *testing.T) {})
 	path := makeStoreFile(t)
 	argv := []string{"--db", path, "history", "--force"}
 	got := runCLI(argv)

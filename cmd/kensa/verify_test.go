@@ -73,7 +73,10 @@ func makeVerifyFixture(t *testing.T) (trustDir, evidencePath, keyID string) {
 
 // TestRunVerify_Valid locks AC-01: signed envelope + matching
 // .pub in trust dir → exit 0.
+// @spec cli-verify-subcommand
+// @ac AC-01
 func TestRunVerify_Valid(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-01", func(t *testing.T) {})
 	trustDir, evidencePath, _ := makeVerifyFixture(t)
 	exit := runCLI([]string{"verify", "--trust-dir", trustDir, evidencePath})
 	if exit != 0 {
@@ -87,7 +90,10 @@ func TestRunVerify_Valid(t *testing.T) {
 
 // TestRunVerify_Tampered locks AC-02: modify envelope post-sign
 // → exit 1.
+// @spec cli-verify-subcommand
+// @ac AC-02
 func TestRunVerify_Tampered(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-02", func(t *testing.T) {})
 	trustDir, evidencePath, _ := makeVerifyFixture(t)
 
 	// Read, mutate severity, write back.
@@ -110,7 +116,10 @@ func TestRunVerify_Tampered(t *testing.T) {
 
 // TestRunVerify_MissingKey locks AC-03: trust dir doesn't have a
 // matching .pub for the envelope's signing_key_id → exit 1.
+// @spec cli-verify-subcommand
+// @ac AC-03
 func TestRunVerify_MissingKey(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-03", func(t *testing.T) {})
 	_, evidencePath, _ := makeVerifyFixture(t)
 	emptyTrustDir := t.TempDir() // no .pub files
 
@@ -121,7 +130,10 @@ func TestRunVerify_MissingKey(t *testing.T) {
 }
 
 // TestRunVerify_UsageErrors locks AC-04.
+// @spec cli-verify-subcommand
+// @ac AC-04
 func TestRunVerify_UsageErrors(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-04", func(t *testing.T) {})
 	cases := [][]string{
 		{"verify"},                                // no positional arg
 		{"verify", "/nonexistent/file.json"},      // file doesn't exist
@@ -139,7 +151,10 @@ func TestRunVerify_UsageErrors(t *testing.T) {
 // TestRunVerify_MalformedJSON locks the file-exists-but-not-JSON
 // path: usage error (operator gave a wrong file path that
 // happened to exist).
+// @spec cli-verify-subcommand
+// @ac AC-05
 func TestRunVerify_MalformedJSON(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-05", func(t *testing.T) {})
 	bogusPath := filepath.Join(t.TempDir(), "not-json.json")
 	os.WriteFile(bogusPath, []byte("this is not JSON"), 0o644)
 	exit := runCLI([]string{"verify", bogusPath})
@@ -149,7 +164,10 @@ func TestRunVerify_MalformedJSON(t *testing.T) {
 }
 
 // TestRunVerify_HelpExitsZero.
+// @spec cli-verify-subcommand
+// @ac AC-06
 func TestRunVerify_HelpExitsZero(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-06", func(t *testing.T) {})
 	for _, argv := range [][]string{
 		{"verify", "--help"},
 		{"verify", "-h"},
@@ -162,7 +180,10 @@ func TestRunVerify_HelpExitsZero(t *testing.T) {
 }
 
 // TestRunVerify_JSONFormat locks the --format json shape.
+// @spec cli-verify-subcommand
+// @ac AC-07
 func TestRunVerify_JSONFormat(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-07", func(t *testing.T) {})
 	trustDir, evidencePath, _ := makeVerifyFixture(t)
 	stdout, _ := captureRunCLI(
 		[]string{"verify", "--trust-dir", trustDir, evidencePath, "--format", "json"}, t)
@@ -176,7 +197,10 @@ func TestRunVerify_JSONFormat(t *testing.T) {
 }
 
 // TestRunVerify_BadFormat locks --format validation.
+// @spec cli-verify-subcommand
+// @ac AC-08
 func TestRunVerify_BadFormat(t *testing.T) {
+	t.Run("cli-verify-subcommand/AC-08", func(t *testing.T) {})
 	trustDir, evidencePath, _ := makeVerifyFixture(t)
 	exit := runCLI([]string{"verify", "--trust-dir", trustDir, evidencePath, "--format", "yaml"})
 	if exit != 2 {
