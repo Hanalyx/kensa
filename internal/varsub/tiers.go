@@ -142,8 +142,8 @@ func LoadConfDir(configDir string) (Variables, error) {
 // config dir layer (operators using --host but not having a
 // hosts/<host>.yml fall through cleanly).
 //
-// groups may be empty — single-host mode has no groups; only
-// inventory mode populates this.
+// The groups argument may be empty — single-host mode has no
+// groups; only inventory mode populates this.
 func ResolveTiers(configDir, hostname string, groups []string, cliOverrides Variables) (Variables, error) {
 	embedded, err := BuiltInDefaults()
 	if err != nil {

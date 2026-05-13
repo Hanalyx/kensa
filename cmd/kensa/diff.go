@@ -203,7 +203,7 @@ func writeDiffText(w io.Writer, r *diff.SessionDiff, showUnchanged bool) {
 // leak: the raw error reads "store: GetSession: sql: no rows
 // in result set" — internals an operator shouldn't have to
 // parse to know "I typed a session ID that isn't in the
-// store."
+// store".
 func cleanSessionLookupError(id uuid.UUID, err error) error {
 	// store.GetSession wraps sql.ErrNoRows; either match works
 	// today, but errors.Is(err, sql.ErrNoRows) is the durable

@@ -121,8 +121,8 @@ func classifyTransactions(_ []*api.Rule, result *api.ScanResult) transactionGrou
 // characters (IDN labels per RFC 5890). Using len() on either
 // would produce a too-short banner.
 //
-// osLabel is empty when the caller couldn't detect the OS; the
-// banner renders just the hostID in that case.
+// The osLabel argument is empty when the caller couldn't detect
+// the OS; the banner renders just the hostID in that case.
 func writeHostBanner(w io.Writer, hostID, osLabel string) error {
 	const totalRunes = 60
 	const prefixRunes = 4 // "─── "

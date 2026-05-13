@@ -182,7 +182,7 @@ func KnownFormats() []string {
 }
 
 // FormatRequiresPath reports whether the given format must be written
-// to a file (path required) vs. accepting stdout when path is "".
+// to a file (path required) versus accepting stdout when path is "".
 // Currently only "pdf" requires a path because PDF output is a binary
 // blob that doesn't render usefully on a terminal.
 //

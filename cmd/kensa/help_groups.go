@@ -86,7 +86,7 @@ func hasAnyFlag(fs *pflag.FlagSet) bool {
 // uses target_options + a small subset of output_options. There
 // is intentionally no Rule options group here — detect doesn't
 // load rules; future contributors must NOT add --severity / --tag
-// / --rules-dir on detect "for symmetry."
+// / --rules-dir on detect "for symmetry".
 var detectFlagGroups = []flagGroup{
 	{
 		title: "Target options",
