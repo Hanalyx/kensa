@@ -1444,6 +1444,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 
 		agentClient, cleanup, err := dispatcher.OpenAgent(ctx, bootstrapTransport, host, dispatcher.Options{
 			User:   user,
+			Sudo:   hostCfg.Sudo,
 			Stderr: os.Stderr,
 		})
 		if err != nil {
