@@ -122,6 +122,16 @@ func main() {
 // real OS handles so unit tests can assert exact bytes on each
 // stream without spawning a subprocess.
 func run(args []string, stdout, stderr io.Writer) int {
+	// --version / -V is handled BEFORE the EUID check (B7 fix,
+	// 2026-05-13). The version string is not privileged
+	// information; requiring sudo to read it is wrong.
+	for _, a := range args {
+		if a == "--version" || a == "-V" {
+			fmt.Fprintf(stdout, "kensa-systemd-helper %s\n", version)
+			return 0
+		}
+	}
+
 	if err := euidCheck(stderr); err != nil {
 		return 2
 	}

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,7 +27,22 @@ type SQLite struct {
 // OpenSQLite opens or creates a SQLite database at path and runs any
 // pending schema migrations. The connection is configured with
 // PRAGMA synchronous=FULL and PRAGMA journal_mode=WAL.
+//
+// The parent directory is auto-created (B4 fix, 2026-05-13). Pre-fix,
+// the default path `.kensa/results.db` failed to open on first run
+// because the `.kensa/` directory didn't exist; operators had to
+// mkdir manually before kensa would work. The mkdir uses mode 0755
+// so the dir is operator-readable; the DB file itself gets the
+// default umask from sql.Open. Skipped for in-memory paths (`:memory:`,
+// `file::memory:?...`) which SQLite handles internally.
 func OpenSQLite(ctx context.Context, path string) (*SQLite, error) {
+	if path != "" && !strings.HasPrefix(path, ":memory:") && !strings.Contains(path, "mode=memory") {
+		if dir := filepath.Dir(path); dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return nil, fmt.Errorf("store: ensure parent dir %s: %w", dir, err)
+			}
+		}
+	}
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", path, err)

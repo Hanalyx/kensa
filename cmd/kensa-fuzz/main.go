@@ -102,6 +102,7 @@ type FuzzResult struct {
 // short letters).
 const (
 	shortHelp      = "h"
+	shortVersion   = "V"
 	shortHost      = "H"
 	shortUser      = "u"
 	shortPort      = "p"
@@ -109,6 +110,11 @@ const (
 	shortSudo      = "s"
 	shortMechanism = "m"
 )
+
+// version is the binary version printed by --version / -V.
+// Kept in sync with cmd/kensa/main.go's version constant.
+// (B7 fix, 2026-05-13.)
+const version = "v0.1.0-dev"
 
 func main() {
 	os.Exit(runCLI(os.Args[1:]))
@@ -139,22 +145,24 @@ func runCLI(argv []string) int {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp   bool
-		host       string
-		port       int
-		user       string
-		keyPath    string
-		sudo       bool
-		mechanism  string
-		phase      string
-		paramsJSON string
-		timeout    time.Duration
+		showHelp    bool
+		showVersion bool
+		host        string
+		port        int
+		user        string
+		keyPath     string
+		sudo        bool
+		mechanism   string
+		phase       string
+		paramsJSON  string
+		timeout     time.Duration
 	)
 	// Default for --host honors the KENSA_FUZZ_HOST env var (existing
 	// behavior preserved per C-007 acceptance).
 	hostDefault := os.Getenv("KENSA_FUZZ_HOST")
 
 	fs.BoolVarP(&showHelp, "help", shortHelp, false, "show this help and exit")
+	fs.BoolVarP(&showVersion, "version", shortVersion, false, "print version and exit")
 	fs.StringVarP(&host, "host", shortHost, hostDefault, "target host (or KENSA_FUZZ_HOST env)")
 	fs.IntVarP(&port, "port", shortPort, 22, "SSH port")
 	fs.StringVarP(&user, "user", shortUser, "", "SSH user (default: ssh client default)")
@@ -173,6 +181,10 @@ func runCLI(argv []string) int {
 		fmt.Fprintf(os.Stderr, "kensa-fuzz: %v\n", err)
 		fmt.Fprintln(os.Stderr, "Try 'kensa-fuzz --help' for usage.")
 		return 1
+	}
+	if showVersion {
+		fmt.Fprintf(os.Stdout, "kensa-fuzz %s\n", version)
+		return 0
 	}
 	if showHelp {
 		printUsage(os.Stdout, fs)
