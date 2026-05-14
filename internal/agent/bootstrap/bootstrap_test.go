@@ -17,16 +17,23 @@ import (
 
 // fakeTransport implements api.Transport for tests. Records
 // every Run/Put/Get call and returns canned results.
+//
+// **Stage-then-install architecture (B1 fix, 2026-05-13).**
+// EnsureAgent's call sequence on cache miss is:
+//  1. test -x /var/cache/kensa/agent-<sha>     → cache probe
+//  2. mkdir -p /var/cache/kensa                 → ensure cache dir
+//  3. Put bin/kensa → /var/tmp/kensa-stage-<sha>  → user-writable stage
+//  4. install -m 0755 /var/tmp/kensa-stage-<sha> /var/cache/kensa/agent-<sha> && rm -f /var/tmp/kensa-stage-<sha>
+//     → sudo'd atomic install + cleanup
+//  5. test -x /var/cache/kensa/agent-<sha>     → post-install verify
 type fakeTransport struct {
 	mu sync.Mutex
 
-	// runResults is keyed by exact command string; absent
-	// keys default to {ExitCode: 0, ...}.
 	runResults map[string]*api.CommandResult
-	runErrors  map[string]error // returned alongside the run result
+	runErrors  map[string]error
 	runHistory []string
 
-	putErrors  map[string]error // keyed by remotePath
+	putErrors  map[string]error
 	putHistory []putCall
 
 	closeCalled bool
@@ -55,7 +62,6 @@ func (f *fakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, 
 	if r, ok := f.runResults[cmd]; ok {
 		return r, nil
 	}
-	// Default: success.
 	return &api.CommandResult{ExitCode: 0}, nil
 }
 
@@ -78,8 +84,6 @@ func (f *fakeTransport) Close() error {
 	return nil
 }
 
-// writeFixture creates a temp file with the given content
-// and returns the path + its expected sha256 hex.
 func writeFixture(t *testing.T, content []byte) (path, sha string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -91,13 +95,9 @@ func writeFixture(t *testing.T, content []byte) (path, sha string) {
 	return path, hex.EncodeToString(h[:])
 }
 
-// TestSHA256Hex locks AC-03: streaming SHA-256 produces
-// the expected lower-hex 64-char digest for a known input.
-//
-// @spec agent-bootstrap
-// @ac AC-03
 // @spec agent-bootstrap
 // @ac AC-01
+// @ac AC-03
 func TestSHA256Hex(t *testing.T) {
 	t.Run("agent-bootstrap/AC-01", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
@@ -115,13 +115,11 @@ func TestSHA256Hex(t *testing.T) {
 	}
 }
 
-// TestEnsureAgent_CacheHit locks AC-01: when the cache probe
-// returns exit 0, EnsureAgent returns the cachePath WITHOUT
-// invoking Put.
+// TestEnsureAgent_CacheHit: probe returns exit 0 → return
+// cachePath WITHOUT invoking Put or install.
 //
 // @spec agent-bootstrap
 // @ac AC-01
-// @spec agent-bootstrap
 // @ac AC-02
 func TestEnsureAgent_CacheHit(t *testing.T) {
 	t.Run("agent-bootstrap/AC-02", func(t *testing.T) {})
@@ -130,8 +128,7 @@ func TestEnsureAgent_CacheHit(t *testing.T) {
 	localPath, sha := writeFixture(t, []byte("kensa-binary-fixture"))
 
 	tr := newFakeTransport()
-	tr.runResults[`printf '%s' "$HOME"`] = &api.CommandResult{ExitCode: 0, Stdout: "/home/operator"}
-	cachePath := "/home/operator/.cache/kensa/agent-" + sha
+	cachePath := systemCacheDir + "/agent-" + sha
 	tr.runResults["test -x '"+cachePath+"'"] = &api.CommandResult{ExitCode: 0}
 
 	got, err := EnsureAgent(context.Background(), tr, localPath)
@@ -144,118 +141,151 @@ func TestEnsureAgent_CacheHit(t *testing.T) {
 	if len(tr.putHistory) != 0 {
 		t.Errorf("cache hit should not Put; got %d Puts", len(tr.putHistory))
 	}
+	for _, cmd := range tr.runHistory {
+		if strings.HasPrefix(cmd, "install -m") {
+			t.Errorf("cache hit should not invoke install; got: %s", cmd)
+		}
+		if strings.HasPrefix(cmd, "mkdir -p") {
+			t.Errorf("cache hit should not invoke mkdir; got: %s", cmd)
+		}
+	}
 }
 
-// TestEnsureAgent_CacheMiss_PushesBinary locks AC-02: cache
-// probe returns non-zero → mkdir + Put + final-test-x; returns
-// cachePath.
+// TestEnsureAgent_CacheMiss_StageThenInstall locks the B1 fix
+// (2026-05-13). On cache miss, EnsureAgent must
+//  1. mkdir the system cache dir,
+//  2. Put the binary at a USER-WRITABLE stage path
+//     (/var/tmp/kensa-stage-<sha>) — NOT the cache path
+//     directly (would fail under sudo because scp runs as
+//     the SSH user, not root),
+//  3. sudo-run install -m 0755 to move it into place,
+//  4. test -x the cache path.
 //
 // @spec agent-bootstrap
 // @ac AC-02
-// @spec agent-bootstrap
 // @ac AC-03
-func TestEnsureAgent_CacheMiss_PushesBinary(t *testing.T) {
+func TestEnsureAgent_CacheMiss_StageThenInstall(t *testing.T) {
 	t.Run("agent-bootstrap/AC-03", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-02")
 	localPath, sha := writeFixture(t, []byte("kensa-binary-fixture-v2"))
+	cachePath := systemCacheDir + "/agent-" + sha
+	stagePath := stageDir + "/kensa-stage-" + sha
 
-	tr := newFakeTransport()
-	tr.runResults[`printf '%s' "$HOME"`] = &api.CommandResult{ExitCode: 0, Stdout: "/home/op"}
-	cachePath := "/home/op/.cache/kensa/agent-" + sha
-	// First probe → cache miss.
-	tr.runResults["test -x '"+cachePath+"'"] = &api.CommandResult{ExitCode: 1}
-	// mkdir succeeds (default).
-	// Post-push verify needs to flip to exit 0 — but the
-	// fake transport's runResults map can't distinguish
-	// before-vs-after-Put unless we mutate it during Put.
-	// Use a stateful callback approach: install a putError
-	// hook that flips the test-x result.
-	tr.putErrors[cachePath] = nil // success
-	// We'll instrument the post-push verify by using a
-	// separate result lookup — since both probes use the
-	// SAME command string, we need to swap the result
-	// between calls. Easiest: track call count.
-	probeCmd := "test -x '" + cachePath + "'"
-	probeCount := 0
-	tr.mu.Lock()
-	delete(tr.runResults, probeCmd) // remove the static entry
-	tr.mu.Unlock()
-	// Re-attach a dynamic handler via runHistory + a custom
-	// pre-Run hook is too much plumbing. Simpler: switch
-	// to a slice-of-results, popping each call.
-
-	// Reinitialize with a queue-based fake.
-	tr2 := &queueFakeTransport{
-		homeResult:   &api.CommandResult{ExitCode: 0, Stdout: "/home/op"},
-		probeResults: []*api.CommandResult{{ExitCode: 1}, {ExitCode: 0}}, // miss then hit
-		cachePath:    cachePath,
-		cacheDir:     "/home/op/.cache/kensa",
+	tr := &queueFakeTransport{
+		probeResults: []*api.CommandResult{{ExitCode: 1}, {ExitCode: 0}},
 	}
-	_ = probeCount
 
-	got, err := EnsureAgent(context.Background(), tr2, localPath)
+	got, err := EnsureAgent(context.Background(), tr, localPath)
 	if err != nil {
 		t.Fatalf("EnsureAgent: %v", err)
 	}
 	if got != cachePath {
-		t.Errorf("path: got %q, want %q", got, cachePath)
+		t.Errorf("returned path: got %q, want %q", got, cachePath)
 	}
-	if len(tr2.putHistory) != 1 {
-		t.Fatalf("cache miss should Put exactly once; got %d", len(tr2.putHistory))
+
+	if len(tr.putHistory) != 1 {
+		t.Fatalf("cache miss should Put exactly once; got %d", len(tr.putHistory))
 	}
-	if tr2.putHistory[0].localPath != localPath {
-		t.Errorf("Put localPath: got %q, want %q", tr2.putHistory[0].localPath, localPath)
+	if tr.putHistory[0].remotePath != stagePath {
+		t.Errorf("Put remotePath: got %q, want %q (must stage to /var/tmp, NOT the root-owned cache path)",
+			tr.putHistory[0].remotePath, stagePath)
 	}
-	if tr2.putHistory[0].remotePath != cachePath {
-		t.Errorf("Put remotePath: got %q, want %q", tr2.putHistory[0].remotePath, cachePath)
+	if tr.putHistory[0].localPath != localPath {
+		t.Errorf("Put localPath: got %q, want %q", tr.putHistory[0].localPath, localPath)
 	}
-	if tr2.putHistory[0].mode != 0o755 {
-		t.Errorf("Put mode: got %o, want 0755", tr2.putHistory[0].mode)
+	if tr.putHistory[0].mode != 0o755 {
+		t.Errorf("Put mode: got %o, want 0755", tr.putHistory[0].mode)
 	}
-	if !tr2.mkdirCalled {
-		t.Error("cache miss should mkdir first")
+
+	if !tr.mkdirCalled {
+		t.Error("cache miss should mkdir the system cache dir")
+	}
+	if !tr.installCalled {
+		t.Error("cache miss should invoke install -m 0755")
+	}
+	if !strings.Contains(tr.installCmd, stagePath) {
+		t.Errorf("install cmd should mention stage path %q; got: %q", stagePath, tr.installCmd)
+	}
+	if !strings.Contains(tr.installCmd, cachePath) {
+		t.Errorf("install cmd should mention cache path %q; got: %q", cachePath, tr.installCmd)
+	}
+	if !strings.Contains(tr.installCmd, "rm -f") {
+		t.Errorf("install cmd should clean up the stage file; got: %q", tr.installCmd)
 	}
 }
 
-// TestEnsureAgent_PushFailure locks AC-04: Put error is
-// wrapped with both paths in the error message.
+// TestEnsureAgent_PutFailure: stage upload fails → wrapped
+// error mentioning both local + stage paths.
 //
 // @spec agent-bootstrap
 // @ac AC-04
-func TestEnsureAgent_PushFailure(t *testing.T) {
+func TestEnsureAgent_PutFailure(t *testing.T) {
 	t.Run("agent-bootstrap/AC-04", func(t *testing.T) {})
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-04")
 	localPath, sha := writeFixture(t, []byte("v3"))
+	stagePath := stageDir + "/kensa-stage-" + sha
 
-	cachePath := "/home/op/.cache/kensa/agent-" + sha
 	tr := &queueFakeTransport{
-		homeResult:   &api.CommandResult{ExitCode: 0, Stdout: "/home/op"},
-		probeResults: []*api.CommandResult{{ExitCode: 1}}, // miss; no second probe since Put fails
-		cachePath:    cachePath,
-		cacheDir:     "/home/op/.cache/kensa",
+		probeResults: []*api.CommandResult{{ExitCode: 1}},
 		putErr:       errors.New("scp: disk full"),
 	}
 
 	_, err := EnsureAgent(context.Background(), tr, localPath)
 	if err == nil {
-		t.Fatal("expected push failure error")
+		t.Fatal("expected stage upload failure error")
 	}
 	msg := err.Error()
 	if !strings.Contains(msg, localPath) {
 		t.Errorf("error should mention local path; got: %v", err)
 	}
-	if !strings.Contains(msg, cachePath) {
-		t.Errorf("error should mention remote path; got: %v", err)
+	if !strings.Contains(msg, stagePath) {
+		t.Errorf("error should mention stage path; got: %v", err)
 	}
 	if !strings.Contains(msg, "scp: disk full") {
 		t.Errorf("error should wrap underlying cause; got: %v", err)
 	}
 }
 
-// TestEnsureAgent_AbsolutePath locks AC-05: the returned
-// path always starts with `/`.
+// TestEnsureAgent_InstallFailure: sudo-install fails →
+// surface error AND best-effort stage cleanup.
+//
+// @spec agent-bootstrap
+// @ac AC-04
+func TestEnsureAgent_InstallFailure(t *testing.T) {
+	t.Run("agent-bootstrap/AC-04", func(t *testing.T) {})
+	t.Log("// @spec agent-bootstrap")
+	t.Log("// @ac AC-04")
+	localPath, sha := writeFixture(t, []byte("v3a"))
+	stagePath := stageDir + "/kensa-stage-" + sha
+
+	tr := &queueFakeTransport{
+		probeResults:  []*api.CommandResult{{ExitCode: 1}},
+		installResult: &api.CommandResult{ExitCode: 1, Stderr: "install: cannot create regular file: read-only filesystem"},
+	}
+
+	_, err := EnsureAgent(context.Background(), tr, localPath)
+	if err == nil {
+		t.Fatal("expected install failure error")
+	}
+	if !strings.Contains(err.Error(), "install") {
+		t.Errorf("error should mention install; got: %v", err)
+	}
+	cleanupFound := false
+	for _, cmd := range tr.runHistory {
+		if strings.HasPrefix(cmd, "rm -f ") && strings.Contains(cmd, stagePath) {
+			cleanupFound = true
+			break
+		}
+	}
+	if !cleanupFound {
+		t.Errorf("install failure should trigger stage cleanup; runHistory=%v", tr.runHistory)
+	}
+}
+
+// TestEnsureAgent_AbsolutePath: returned path is absolute +
+// under /var/cache/kensa/.
 //
 // @spec agent-bootstrap
 // @ac AC-05
@@ -264,90 +294,86 @@ func TestEnsureAgent_AbsolutePath(t *testing.T) {
 	t.Log("// @spec agent-bootstrap")
 	t.Log("// @ac AC-05")
 	localPath, sha := writeFixture(t, []byte("v4"))
-	cachePath := "/home/abs/.cache/kensa/agent-" + sha
+	cachePath := systemCacheDir + "/agent-" + sha
 	tr := &queueFakeTransport{
-		homeResult:   &api.CommandResult{ExitCode: 0, Stdout: "/home/abs"},
-		probeResults: []*api.CommandResult{{ExitCode: 0}}, // hit
-		cachePath:    cachePath,
-		cacheDir:     "/home/abs/.cache/kensa",
+		probeResults: []*api.CommandResult{{ExitCode: 0}},
 	}
 
 	got, err := EnsureAgent(context.Background(), tr, localPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(got, "/") {
-		t.Errorf("returned path is not absolute: %q", got)
+	if got != cachePath {
+		t.Errorf("returned path: got %q, want %q", got, cachePath)
+	}
+	if !strings.HasPrefix(got, "/var/cache/kensa/") {
+		t.Errorf("returned path should be under /var/cache/kensa/; got: %q", got)
 	}
 }
 
-// TestEnsureAgent_HomeResolveFailure: $HOME resolution
-// failure surfaces a wrapped error mentioning $HOME.
+// TestEnsureAgent_MkdirFailure: cache-dir mkdir fails →
+// wrapped error before any Put attempt.
+//
 // @spec agent-bootstrap
-// @ac AC-06
-func TestEnsureAgent_HomeResolveFailure(t *testing.T) {
-	t.Run("agent-bootstrap/AC-06", func(t *testing.T) {})
+// @ac AC-04
+func TestEnsureAgent_MkdirFailure(t *testing.T) {
+	t.Run("agent-bootstrap/AC-04", func(t *testing.T) {})
 	localPath, _ := writeFixture(t, []byte("v5"))
 	tr := &queueFakeTransport{
-		homeResult: &api.CommandResult{ExitCode: 1, Stderr: "permission denied"},
+		probeResults: []*api.CommandResult{{ExitCode: 1}},
+		mkdirResult:  &api.CommandResult{ExitCode: 1, Stderr: "mkdir: permission denied"},
 	}
 	_, err := EnsureAgent(context.Background(), tr, localPath)
 	if err == nil {
-		t.Fatal("expected $HOME resolution error")
+		t.Fatal("expected mkdir failure error")
 	}
-	if !strings.Contains(err.Error(), "HOME") {
-		t.Errorf("error should mention HOME; got: %v", err)
+	if !strings.Contains(err.Error(), "mkdir") {
+		t.Errorf("error should mention mkdir; got: %v", err)
 	}
-}
-
-// TestEnsureAgent_NonAbsoluteHome rejects a $HOME value that
-// isn't absolute (defense against a misconfigured target shell).
-func TestEnsureAgent_NonAbsoluteHome(t *testing.T) {
-	localPath, _ := writeFixture(t, []byte("v6"))
-	tr := &queueFakeTransport{
-		homeResult: &api.CommandResult{ExitCode: 0, Stdout: "relative/home"},
-	}
-	_, err := EnsureAgent(context.Background(), tr, localPath)
-	if err == nil {
-		t.Fatal("expected error on non-absolute $HOME")
+	if len(tr.putHistory) != 0 {
+		t.Errorf("Put should not be attempted when mkdir fails; got %d Puts", len(tr.putHistory))
 	}
 }
 
-// ─── queue-based fake transport for sequenced tests ───────
+// ─── queue-based fake transport ──────────────────────────
 
-// queueFakeTransport is the fake when test expectations
-// require ORDERED Run responses (e.g., probe-miss then
-// probe-hit after Put). The fields document the expected
-// call sequence; each call advances the queue.
 type queueFakeTransport struct {
 	mu sync.Mutex
 
-	homeResult   *api.CommandResult   // returned for `printf '%s' "$HOME"`
-	probeResults []*api.CommandResult // returned for each `test -x ...` call in order
-	putErr       error
-	cachePath    string
-	cacheDir     string
+	probeResults  []*api.CommandResult
+	mkdirResult   *api.CommandResult
+	installResult *api.CommandResult
+	putErr        error
 
-	mkdirCalled bool
-	probeCalls  int
-	putHistory  []putCall
+	mkdirCalled   bool
+	installCalled bool
+	installCmd    string
+	probeCalls    int
+	putHistory    []putCall
+	runHistory    []string
 }
 
 func (f *queueFakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.runHistory = append(f.runHistory, cmd)
 	switch {
-	case cmd == `printf '%s' "$HOME"`:
-		if f.homeResult == nil {
-			return &api.CommandResult{ExitCode: 0, Stdout: "/home/default"}, nil
-		}
-		return f.homeResult, nil
 	case strings.HasPrefix(cmd, "mkdir -p "):
 		f.mkdirCalled = true
+		if f.mkdirResult != nil {
+			return f.mkdirResult, nil
+		}
+		return &api.CommandResult{ExitCode: 0}, nil
+	case strings.HasPrefix(cmd, "install -m"):
+		f.installCalled = true
+		f.installCmd = cmd
+		if f.installResult != nil {
+			return f.installResult, nil
+		}
 		return &api.CommandResult{ExitCode: 0}, nil
 	case strings.HasPrefix(cmd, "test -x "):
 		if f.probeCalls >= len(f.probeResults) {
-			return &api.CommandResult{ExitCode: 0}, nil // default success
+			return &api.CommandResult{ExitCode: 0}, nil
 		}
 		r := f.probeResults[f.probeCalls]
 		f.probeCalls++

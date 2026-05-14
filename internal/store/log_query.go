@@ -90,6 +90,21 @@ func (s *SQLite) Get(ctx context.Context, txnID uuid.UUID, opts ...api.GetOption
 			return nil, fmt.Errorf("store: unmarshal envelope for %s: %w", txnID, err)
 		}
 		rec.Envelope = &env
+		// Populate rec.Steps from envelope.ApplySteps. Pre-this
+		// line, rec.Steps was always nil after a Get(), so the
+		// manual-rollback CLI path
+		// (engine.RollbackTransaction reads record.Steps to
+		// know what to reverse) executed an empty step list
+		// and produced a synthetic
+		// "all rollback steps succeeded" response while host
+		// state stayed unchanged — a silent atomicity-contract
+		// violation surfaced by the 2026-05-13 live test on
+		// 192.168.1.211. Steps are persisted into both the
+		// normalized `steps` table (for filterable queries)
+		// and the envelope_json blob (signed audit truth);
+		// the envelope is already in memory here, so reading
+		// it costs nothing and avoids a second SELECT.
+		rec.Steps = env.ApplySteps
 	}
 	if includePre {
 		preStates, err := s.LoadPreStates(ctx, txnID)

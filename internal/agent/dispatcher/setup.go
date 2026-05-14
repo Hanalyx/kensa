@@ -60,6 +60,20 @@ type Options struct {
 	// User is the SSH user for the target connection.
 	// Empty means "current user" (per ssh's default).
 	User string
+
+	// Sudo controls whether the agent invocation runs under
+	// `sudo -n` on the target. Pre-B1 (2026-05-13) the
+	// agent always ran as the SSH user; that worked when the
+	// SSH user was root but broke for the documented
+	// security model of "unprivileged SSH user + sudo for
+	// privileged ops" because the agent binary lives in
+	// `/var/cache/kensa/` (root-owned) and the non-root SSH
+	// user can't enter the cache dir to exec the binary.
+	// Setting Sudo=true prefixes the invocation with
+	// `sudo -n` so sudo elevates BEFORE the binary path is
+	// resolved by the remote shell. Callers pass through
+	// from api.HostConfig.Sudo.
+	Sudo bool
 }
 
 // OpenAgent runs the L-014b lifecycle setup and returns a
@@ -79,7 +93,12 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 		opts.LocalBinary = os.Args[0]
 	}
 	if opts.SSHCommandFunc == nil {
-		opts.SSHCommandFunc = defaultSSHCommand
+		// Capture Sudo in the closure so the SSHCommandFunc
+		// signature stays stable for test injectors.
+		sudo := opts.Sudo
+		opts.SSHCommandFunc = func(ctx context.Context, user, host, remotePath string) *exec.Cmd {
+			return defaultSSHCommand(ctx, user, host, remotePath, sudo)
+		}
 	}
 
 	cachePath, err := bootstrap.EnsureAgent(ctx, transport, opts.LocalBinary)
@@ -149,11 +168,23 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 
 // defaultSSHCommand builds the production ssh-subprocess
 // invocation. The user argument can be empty (ssh uses the
-// current user).
-func defaultSSHCommand(ctx context.Context, user, host, remotePath string) *exec.Cmd {
+// current user). When sudo is true the remote command is
+// prefixed with `sudo -n` so the agent binary at the
+// root-owned cache path (/var/cache/kensa/agent-<sha>) can
+// be exec'd — the non-root SSH user can't enter that dir
+// to exec the binary directly, but sudo elevates before
+// path resolution by the remote shell.
+//
+// `-n` (non-interactive) is the sudoers-NOPASSWD friendly
+// form: matches the kensa-rpm sudoers fragment template
+// and fails fast if a password would be required.
+func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo bool) *exec.Cmd {
 	target := host
 	if user != "" {
 		target = user + "@" + host
+	}
+	if sudo {
+		return exec.CommandContext(ctx, "ssh", target, "sudo", "-n", remotePath, "agent", "--stdio")
 	}
 	return exec.CommandContext(ctx, "ssh", target, remotePath, "agent", "--stdio")
 }
