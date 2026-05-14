@@ -252,26 +252,37 @@ Indicates production-ready software:
 
 ### Tagging
 
-Kensa releases are git tags of the form `v$(cat VERSION)`:
+Kensa releases are git tags of the form `v$(cat VERSION)`. The release
+process is manual today; release automation (GoReleaser, RPM packaging,
+Ed25519-signed checksums) is planned for v1.0.
 
 ```bash
-# Bump VERSION
-printf '0.2.0' > VERSION
+# 1. Bump VERSION on a release branch
+echo "0.2.0" > VERSION
 
-# Update CHANGELOG.md with the new version's notes
+# 2. Update CHANGELOG.md: stamp ## Unreleased as ## v0.2.0 — <date>
 $EDITOR CHANGELOG.md
 
-# Commit + tag
+# 3. Open a release PR
+git checkout -b release/v0.2.0
 git add VERSION CHANGELOG.md
 git commit -m "chore(release): v0.2.0"
+git push -u origin release/v0.2.0
+gh pr create --title "chore(release): v0.2.0" --body "..."
+
+# 4. After CI green + PR merge, tag the merge commit and create the
+#    GitHub Release page from the CHANGELOG section.
+git checkout main && git pull --ff-only
 git tag -a "v0.2.0" -m "Release v0.2.0 — Sentinel"
-git push origin main --tags
+git push origin "v0.2.0"
+gh release create v0.2.0 --title "v0.2.0 — Sentinel" \
+    --notes-file <(awk '/^## v0.2.0/,/^## v[0-9]/' CHANGELOG.md | sed '$d')
 ```
 
-The push triggers the GoReleaser workflow which builds all five binaries
-statically (CGO_ENABLED=0, `-tags netgo`), assembles the kensa-rpm and
-kensa-rules packages, attaches them to a GitHub Release, and publishes
-checksums + Ed25519 signatures (M-012).
+The 0.x line ships source-only. OpenWatch and other Go consumers
+import the `api/` package via `go get github.com/Hanalyx/kensa@v0.x.y`
+against the tag. Operators build from source per `README.md` →
+**Building from source**.
 
 ### Commit Message Format
 

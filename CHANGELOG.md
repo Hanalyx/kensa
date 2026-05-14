@@ -12,6 +12,56 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes since v0.1.0 yet)
+
+## v0.1.0 — 2026-05-14 (Sentinel)
+
+First versioned release on the renamed repository (formerly
+`Hanalyx/kensa-go`, now `Hanalyx/kensa` after the Python kensa was
+archived). The 0.1.0 line is the development phase: the public
+`api/` Go package is held to v1 semver for OpenWatch's consumption,
+and the rest of the surface may change between MINOR versions with
+one release of deprecation warning. See
+[`VERSIONING_PLAN.md`](VERSIONING_PLAN.md) for the full release
+contract.
+
+### Added
+
+- **VERSION file at the repo root** as the single source of truth for
+  the version string. All five binaries (`kensa`, `kensa-fuzz`,
+  `kensa-validate`, `kensa-keygen`, `kensa-systemd-helper`) read it
+  via `-ldflags "-X main.version=$(cat VERSION)"` and report `0.1.0`
+  from `--version` / `-V`.
+- **`VERSIONING_PLAN.md`** documenting SemVer 2.0.0 discipline,
+  codename Sentinel (guardianship theme), atomicity-contract changes
+  as always-MAJOR, and the frozen `api/` v1 contract.
+- **`docs/guide/`** operator manual skeleton: index plus nine chapter
+  stubs (install, quickstart, concepts, scan-and-remediate,
+  rollback-and-history, rule-authoring, integration, troubleshooting,
+  reference). Content lands in subsequent releases.
+
+### Changed
+
+- **Module path**: `github.com/Hanalyx/kensa-go` →
+  `github.com/Hanalyx/kensa`. GitHub keeps a URL redirect from the
+  old path so existing `go get` continues to resolve, but consumers
+  should migrate when convenient. Re-run `go mod tidy` after bumping.
+- **`docs/man/` → top-level `man/`.** The manpage source
+  (`gen-manpage.go`) is real Go code and `kensa.1` ships in the RPM;
+  it doesn't belong under `docs/`. Makefile, specter.yaml, and CI
+  paths updated.
+- **`docs/*` is now gitignored except `docs/guide/`.** Internal
+  working notes (vision, roadmap, foundation contracts, coordination,
+  AI session logs, founder release sign-off) stay locally as
+  untracked working material. The published documentation surface is
+  the operator guide.
+- **README rewritten** to operator-facing voice per the new
+  documentation style guide: runnable example up top, guarantees
+  stated as facts (no marketing language), portability and atomicity
+  contract as compact tables, explicit pre-1.0 callouts so today's
+  reader knows what works (`make build` + `--rules-dir <local-path>`)
+  versus the documented v1.0 ship state.
+
 ### Security
 
 - **Kernel-primitive deadman timer for control-channel-
