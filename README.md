@@ -14,11 +14,20 @@ kensa rollback <transaction-id>
 One static binary. No glibc floor. No runtime dependency on the target
 host beyond OpenSSH.
 
+> **Pre-1.0 note.** The commands above describe the v1.0 ship state.
+> Until the `kensa-rpm` and `kensa-rules` packages publish, install is
+> `make build` from this repo and `--rules-dir <local-path>` is
+> mandatory. See [Building from source](#building-from-source) for
+> what runs today.
+
 ## Getting started
 
 The operator manual is in [`docs/guide/`](docs/guide/). Start with
 [01-install](docs/guide/01-install.md) and
-[02-quickstart](docs/guide/02-quickstart.md).
+[02-quickstart](docs/guide/02-quickstart.md). Chapters that mark
+themselves **Stub** carry pre-1.0 placeholders; the binary's `--help`
+and the relevant `.spec.yaml` under `specs/` are the authoritative
+source until they land.
 
 ## What every remediation is
 
@@ -55,21 +64,58 @@ A regression — a transitive dependency that pulls cgo, a Makefile
 change that drops `-tags netgo`, a binary that links against
 glibc-specific symbols — fails CI before merge.
 
-Verify locally:
+## Building from source
+
+This is how to run kensa today, pre-1.0. Requires Go 1.26+ and make.
 
 ```bash
-make build
+git clone git@github.com:Hanalyx/kensa.git
+cd kensa
+make build                # builds all five binaries into bin/
+./bin/kensa --version     # → kensa 0.1.0 (kensa)
+```
+
+The five binaries:
+
+| Binary | Purpose |
+|---|---|
+| `kensa` | The CLI: `check`, `remediate`, `rollback`, `history`, `plan`, `verify` |
+| `kensa-fuzz` | Failure-injection harness for atomicity verification on real hosts |
+| `kensa-validate` | Rule YAML and spec validator |
+| `kensa-keygen` | Ed25519 keypair generator for evidence signing |
+| `kensa-systemd-helper` | Privileged systemd D-Bus helper (sudo-invoked) |
+
+Run a scan today:
+
+```bash
+./bin/kensa check \
+    --rules-dir /path/to/kensa-rules \
+    --severity high \
+    <host>
+```
+
+Verify the binary is statically linked:
+
+```bash
 file bin/kensa   # "ELF 64-bit ... statically linked"
 ldd  bin/kensa   # "not a dynamic executable"
 ```
 
 ## Status
 
-`v0.1.0` (codename Sentinel). The 0.x line is the development phase:
-behavior may change between MINOR versions with one release of
-deprecation warning. The `api/` Go package is held to a stricter
-contract — frozen under v1 semver from this version onward for
-OpenWatch's consumption.
+`v0.1.0` (codename Sentinel). The 0.x line is the development phase.
+
+The `api/` Go package is held to a stricter contract — frozen under v1
+semver from this version onward for OpenWatch's consumption. Behavior
+on the rest of the surface (CLI flags, rule schema additions, output
+formats) may change between MINOR versions with one release of
+deprecation warning.
+
+Open ship items before v1.0: rules-dir default-path resolution
+(`/usr/share/kensa/rules`), `grub_parameter_set` deadman wiring,
+service-handler ports onto the systemd D-Bus primitive layer, and
+first-principles tests for the ten currently-untested non-capturable
+handlers.
 
 See [`VERSION`](VERSION) for the current string and
 [`VERSIONING_PLAN.md`](VERSIONING_PLAN.md) for the release contract.
@@ -77,8 +123,8 @@ See [`VERSION`](VERSION) for the current string and
 ## Quality discipline
 
 Every component has a `.spec.yaml` under `specs/` with acceptance
-criteria that map to Go tests. The strict-coverage gate (`make
-spec-coverage-strict`) enforces tier-specific thresholds:
+criteria that map to Go tests. The strict-coverage gate
+(`make spec-coverage-strict`) enforces tier-specific thresholds:
 
 - **Tier 1** (engine, handlers, deadman) — 100% AC-to-test
 - **Tier 2** (checks, transport, API) — 80%
