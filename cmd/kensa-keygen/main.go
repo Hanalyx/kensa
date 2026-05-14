@@ -59,6 +59,12 @@ var nowUnix = func() int64 {
 	return time.Now().Unix()
 }
 
+// version is the binary version printed by --version / -V.
+// Kept in sync with cmd/kensa/main.go's version constant so
+// `kensa-keygen --version` matches `kensa --version` in lockstep
+// releases. (B7 fix, 2026-05-13.)
+const version = "v0.1.0-dev"
+
 const (
 	// File-mode constants. Private key is 0600 (owner read/write
 	// only) — leaking the private key compromises every evidence
@@ -86,12 +92,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp bool
-		outDir   string
-		keyID    string
-		force    bool
+		showHelp    bool
+		showVersion bool
+		outDir      string
+		keyID       string
+		force       bool
 	)
 	fs.BoolVarP(&showHelp, "help", "h", false, "show this help and exit")
+	fs.BoolVarP(&showVersion, "version", "V", false, "print version and exit")
 	fs.StringVarP(&outDir, "out", "o", "", "output directory (default: $KENSA_CONFIG_DIR/keys, then $XDG_CONFIG_HOME/kensa/keys, then ~/.config/kensa/keys)")
 	fs.StringVar(&keyID, "key-id", "", "key identifier used as the filename stem (default: lower-hex SHA-256 of the public key)")
 	fs.BoolVar(&force, "force", false, "overwrite existing key files at the target path (DESTRUCTIVE)")
@@ -103,6 +111,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stderr, "kensa-keygen: %v\nrun 'kensa-keygen --help' for usage\n", err)
 		return 2
+	}
+	if showVersion {
+		fmt.Fprintf(stdout, "kensa-keygen %s\n", version)
+		return 0
 	}
 	if showHelp {
 		printUsage(stdout, fs)

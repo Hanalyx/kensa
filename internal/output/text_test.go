@@ -674,14 +674,25 @@ func TestCompactPasses_DeepestPrefix(t *testing.T) {
 
 func TestTextRemediationWriter(t *testing.T) {
 	rules := []*api.Rule{
-		{ID: "rule-committed"},
+		{ID: "rule-applied"},
+		{ID: "rule-compliant"},
 		{ID: "rule-rolledback"},
 		{ID: "rule-errored"},
 		{ID: "rule-partial"},
 	}
 	result := &api.RemediationResult{
 		Transactions: []api.TransactionResult{
-			{Status: api.StatusCommitted},
+			// Status=committed, real apply (no skip marker)
+			{Status: api.StatusCommitted, Steps: []api.StepResult{
+				{Mechanism: "file_permissions", Success: true, Detail: "applied"},
+			}},
+			// Status=committed, the scanner's already-compliant
+			// synthetic record. B6 (2026-05-13) split this out
+			// from the "applied" count so operators can tell
+			// "kensa did work" from "kensa verified state".
+			{Status: api.StatusCommitted, Steps: []api.StepResult{
+				{Mechanism: "check", Success: true, Detail: "already in desired state — skipped"},
+			}},
 			{Status: api.StatusRolledBack},
 			{Status: api.StatusErrored, Error: errors.New("boom")},
 			{Status: api.StatusPartiallyApplied},
@@ -692,11 +703,17 @@ func TestTextRemediationWriter(t *testing.T) {
 		t.Fatalf("WriteRemediationResult: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "1 committed, 1 rolled_back, 1 errors, 1 skipped") {
-		t.Errorf("expected 1/1/1/1 tally:\n%s", out)
+	if !strings.Contains(out, "1 applied, 1 already-compliant, 1 rolled_back, 1 errors, 1 skipped") {
+		t.Errorf("expected 1/1/1/1/1 tally with split applied/already-compliant:\n%s", out)
 	}
 	if !strings.Contains(out, "errored: boom") {
 		t.Errorf("expected errored prefix in status:\n%s", out)
+	}
+	if !strings.Contains(out, "rule-compliant") || !strings.Contains(out, "already-compliant") {
+		t.Errorf("rule-compliant row should show status=already-compliant:\n%s", out)
+	}
+	if !strings.Contains(out, "rule-applied") || !strings.Contains(out, "applied") {
+		t.Errorf("rule-applied row should show status=applied:\n%s", out)
 	}
 }
 

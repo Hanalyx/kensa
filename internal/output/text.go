@@ -55,14 +55,23 @@ type textRemediationWriter struct{}
 func (textRemediationWriter) Format() string { return "text" }
 
 func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, rules []*api.Rule, result *api.RemediationResult) error {
-	committed, rolledBack, skipped, errs := 0, 0, 0, 0
+	// B6 (2026-05-13): split the "committed" count into
+	// (a) already-compliant skips (scanner's pre-check
+	// returned passed → no engine.Run, no store record)
+	// and (b) actually-applied commits (engine.Run wrote a
+	// transaction record). Pre-fix both were tallied under
+	// "committed" — operators couldn't tell whether kensa
+	// did real work or just verified state. The 2026-05-13
+	// live test on 192.168.1.211 surfaced this: a 433-rule
+	// "committed" summary against a 36-row history table.
+	applied, alreadyCompliant, rolledBack, skipped, errs := 0, 0, 0, 0, 0
 	if _, err := fmt.Fprintf(w, "Remediation results for %s:\n\n", hostID); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "  %-40s  %-15s\n", "RULE", "STATUS"); err != nil {
+	if _, err := fmt.Fprintf(w, "  %-40s  %-20s\n", "RULE", "STATUS"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "  "+strings.Repeat("-", 60)); err != nil {
+	if _, err := fmt.Fprintln(w, "  "+strings.Repeat("-", 65)); err != nil {
 		return err
 	}
 	for i, txr := range result.Transactions {
@@ -73,7 +82,13 @@ func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, 
 		status := string(txr.Status)
 		switch txr.Status {
 		case api.StatusCommitted:
-			committed++
+			if isAlreadyCompliantSkip(&txr) {
+				alreadyCompliant++
+				status = "already-compliant"
+			} else {
+				applied++
+				status = "applied"
+			}
 		case api.StatusRolledBack:
 			rolledBack++
 		case api.StatusErrored:
@@ -84,13 +99,31 @@ func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, 
 		default:
 			skipped++
 		}
-		if _, err := fmt.Fprintf(w, "  %-40s  %-15s\n", truncate(ruleID, 40), status); err != nil {
+		if _, err := fmt.Fprintf(w, "  %-40s  %-20s\n", truncate(ruleID, 40), status); err != nil {
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(w, "\n  %d committed, %d rolled_back, %d errors, %d skipped\n",
-		committed, rolledBack, errs, skipped)
+	_, err := fmt.Fprintf(w, "\n  %d applied, %d already-compliant, %d rolled_back, %d errors, %d skipped\n",
+		applied, alreadyCompliant, rolledBack, errs, skipped)
 	return err
+}
+
+// isAlreadyCompliantSkip reports whether the given
+// TransactionResult is the scanner's "rule already passed
+// pre-check; nothing to apply" synthetic record. Pattern:
+// exactly one StepResult with Mechanism="check" and Detail
+// containing "already in desired state". These records are
+// in-memory only — they are NOT persisted by the engine
+// (no apply ran), so an operator inspecting kensa history
+// won't see them. The summary count splits them out so the
+// operator can distinguish "kensa did work" from "kensa
+// verified state."
+func isAlreadyCompliantSkip(txr *api.TransactionResult) bool {
+	if len(txr.Steps) != 1 {
+		return false
+	}
+	s := txr.Steps[0]
+	return s.Mechanism == "check" && strings.Contains(s.Detail, "already in desired state")
 }
 
 // textHistoryWriter renders a transaction list as a fixed-width table.

@@ -48,10 +48,16 @@ import (
 // consistency: capital letters connote "treat-as-error" / serious flag).
 const (
 	shortHelp     = "h"
+	shortVersion  = "V"
 	shortFormat   = "f"
 	shortRulesDir = "r"
 	shortStrict   = "S"
 )
+
+// version is the binary version printed by --version / -V.
+// Kept in sync with cmd/kensa/main.go's version constant.
+// (B7 fix, 2026-05-13.)
+const version = "v0.1.0-dev"
 
 func main() {
 	os.Exit(runCLI(os.Args[1:]))
@@ -80,14 +86,16 @@ func runCLI(argv []string) int {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp bool
-		rulesDir string
-		capCheck bool
-		format   string
-		noLint   bool
-		strict   bool
+		showHelp    bool
+		showVersion bool
+		rulesDir    string
+		capCheck    bool
+		format      string
+		noLint      bool
+		strict      bool
 	)
 	fs.BoolVarP(&showHelp, "help", shortHelp, false, "show this help and exit")
+	fs.BoolVarP(&showVersion, "version", shortVersion, false, "print version and exit")
 	fs.StringVarP(&rulesDir, "rules-dir", shortRulesDir, "", "root directory to scan for *.yml rule files")
 	fs.BoolVar(&capCheck, "cap-check", false, "validate capability references against known set (long-only)")
 	fs.StringVarP(&format, "format", shortFormat, "table", "output format: table or json")
@@ -102,6 +110,10 @@ func runCLI(argv []string) int {
 		fmt.Fprintf(os.Stderr, "kensa-validate: %v\n", err)
 		fmt.Fprintln(os.Stderr, "Try 'kensa-validate --help' for usage.")
 		return 2
+	}
+	if showVersion {
+		fmt.Fprintf(os.Stdout, "kensa-validate %s\n", version)
+		return 0
 	}
 	if showHelp {
 		printUsage(os.Stdout, fs)
