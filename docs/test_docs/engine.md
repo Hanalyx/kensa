@@ -21,9 +21,43 @@ DONE for the 19 capturable handlers. The contract is enforced by:
 
 Specter specs covering this:
 - `engine-transaction.spec.yaml` (Tier 1, 100% coverage).
-- `transaction-log.spec.yaml`.
+- `transaction-log.spec.yaml` (Tier 1; AC-04 regression test added 2026-05-13 for B2 fix — see "Bug-fix history" below).
 - `evidence-envelope.spec.yaml`.
 - `deadman-timer.spec.yaml`.
+
+## Bug-fix history (2026-05-13)
+
+Two atomicity-critical bugs surfaced by live testing on
+192.168.1.211. Both were silent failures — unit tests passed but
+the production code path was broken:
+
+- **B2 — rollback reported success but didn't restore state.**
+  `store.SQLite.Get()` loaded the envelope and pre-states but never
+  populated `rec.Steps`. `engine.RollbackTransaction` iterates
+  `record.Steps` to find capturable apply results to reverse;
+  with a nil Steps slice the loop iterated zero times → empty
+  results → synthetic `"all rollback steps succeeded"` while host
+  state stayed unchanged. **Silent atomicity-contract violation.**
+  Fix: populate `rec.Steps = env.ApplySteps` after loading the
+  envelope (the envelope's `apply_steps` field is the signed
+  source of truth and was already in memory). Lockdown test:
+  `TestStore_GetPopulatesSteps_B2Regression`.
+
+- **B1 — agent-mode bootstrap failed with non-root SSH user.**
+  Two-part architectural mismatch: (a) bootstrap put the binary
+  at `$HOME/.cache/kensa/` where `$HOME` resolved to `/root`
+  under sudo, but scp ran as the SSH user and couldn't write to
+  `/root/.cache/`; (b) the dispatcher invoked the agent without
+  sudo, so the SSH user couldn't exec the binary even after it
+  landed in `/var/cache/kensa/` (root-owned, mode 0755 file in
+  mode 0700 dir). Fix: switch to root-owned `/var/cache/kensa/`
+  with a stage-then-install dance (`/var/tmp/kensa-stage-<sha>` →
+  sudo `install -m 0755` → cache), and prefix the agent
+  invocation with `sudo -n`.
+
+Both fixed in PR #7 (merge `c28e3d6`, 2026-05-13). Live-validated:
+remediate `var-log-messages-permissions` (mode 600 → 640) →
+rollback by transaction ID → mode 640 → 600 (restored).
 
 ## Per-handler matrix
 

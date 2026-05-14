@@ -10,11 +10,15 @@ DONE. Verified by `make build` followed by `file ./bin/kensa | grep "statically 
 
 ## Build matrix
 
-| Target | Tool | Output | Discipline |
-|---|---|---|---|
-| `kensa` | `cmd/kensa` | `bin/kensa` | CGO_ENABLED=0 + `-tags netgo` |
-| `kensa-fuzz` | `cmd/kensa-fuzz` | `bin/kensa-fuzz` | same |
-| `kensa-validate` | `cmd/kensa-validate` | `bin/kensa-validate` | same |
+| Target | Tool | Output | Discipline | Shipped |
+|---|---|---|---|---|
+| `kensa` | `cmd/kensa` | `bin/kensa` | CGO_ENABLED=0 + `-tags netgo` | M1 |
+| `kensa-fuzz` | `cmd/kensa-fuzz` | `bin/kensa-fuzz` | same | M5 |
+| `kensa-validate` | `cmd/kensa-validate` | `bin/kensa-validate` | same | M5 |
+| `kensa-keygen` | `cmd/kensa-keygen` | `bin/kensa-keygen` | same | M-012 (2026-05-10) |
+| `kensa-systemd-helper` | `cmd/kensa-systemd-helper` | `bin/kensa-systemd-helper` | same | Phase 4 D-007 (2026-05-13) |
+
+All five binaries accept `--version` / `-V` (B7 fix, 2026-05-13). Each prints `<binary-name> <version>` on stdout and exits 0.
 
 ## Verification protocol
 
@@ -23,13 +27,18 @@ DONE. Verified by `make build` followed by `file ./bin/kensa | grep "statically 
 make build
 
 # 2. Confirm static linkage on every binary.
-for b in bin/kensa bin/kensa-fuzz bin/kensa-validate; do
+for b in bin/kensa bin/kensa-fuzz bin/kensa-validate bin/kensa-keygen bin/kensa-systemd-helper; do
     if file "$b" | grep -q "statically linked"; then
         echo "OK  $b"
     else
         echo "FAIL $b"
         ldd "$b"   # diagnostic; should report "not a dynamic executable"
     fi
+done
+
+# 2b. Confirm --version works on every binary (B7 fix, 2026-05-13).
+for b in bin/kensa bin/kensa-fuzz bin/kensa-validate bin/kensa-keygen bin/kensa-systemd-helper; do
+    echo -n "$b: "; $b --version
 done
 
 # 3. Confirm no CGO.

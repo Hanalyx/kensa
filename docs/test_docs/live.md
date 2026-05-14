@@ -148,6 +148,57 @@ TXN=$(cat /tmp/txn.uuid)
 # Expected: FAIL (matches the original pre-remediate state).
 ```
 
+### Stage 2.5 — Agent-mode remediate + rollback (B1/B2 regression guard, ~5 minutes)
+
+Added 2026-05-13. Pre-fix, the agent-mode-with-sudo bootstrap was
+broken AND manual rollback silently no-op'd. Both surfaced ONLY
+via this end-to-end live test — unit tests passed. Run this on
+any host where the SSH user differs from root + sudo is enabled
+(the documented production model).
+
+```bash
+# 2.5.1 Pick a low-blast-radius rule. var-log-messages-permissions
+# is the documented fixture (single chmod, no service impact).
+HOST=192.168.1.211
+USER=owadmin
+RULE=/home/rracine/hanalyx/kensa/rules/filesystem/var-log-messages-permissions.yml
+DB=/tmp/kensa-stage25.db
+rm -f $DB
+
+# 2.5.2 Pre-state snapshot.
+ssh $USER@$HOST 'sudo stat -c "mode=%a" /var/log/messages'
+# Expected: mode=600 (default on RHEL 9)
+
+# 2.5.3 Agent-mode remediate (the default path).
+./bin/kensa --db $DB remediate -H $HOST -u $USER --sudo --rule "$RULE"
+# Expected:
+#   - "kensa: agent mode (default; unset with KENSA_NO_AGENT=1):
+#      bootstrap+spawn+handshake completed for host <H>"
+#   - "var-log-messages-permissions: applied" (NOT "committed" —
+#      B6 distinguishes real-work from already-compliant skips)
+#   - "1 applied, 0 already-compliant, 0 rolled_back, 0 errors, 0 skipped"
+
+# 2.5.4 Verify the apply landed AND the cache is root-owned.
+ssh $USER@$HOST 'sudo stat -c "mode=%a" /var/log/messages'
+# Expected: mode=640
+ssh $USER@$HOST 'sudo ls -la /var/cache/kensa/ | head -3'
+# Expected: drwx------ root:root, agent-<sha> root:root mode 0755
+
+# 2.5.5 Rollback by transaction ID.
+TXN=$(./bin/kensa --db $DB history -n 5 | grep var-log-messages | awk '{print $1}')
+./bin/kensa --db $DB rollback -H $HOST -u $USER --sudo -T "$TXN"
+# Expected: JSON output with Success: true, Detail: "all rollback
+# steps succeeded".
+
+# 2.5.6 Verify the rollback restored pre-state.
+ssh $USER@$HOST 'sudo stat -c "mode=%a" /var/log/messages'
+# Expected: mode=600 (back to original)
+```
+
+If 2.5.4 shows a permission-denied error or 2.5.6 still shows
+mode=640, the build is regressed against B1 or B2. Refuse the
+release.
+
 ### Stage 3 — Strict-mode SSH (~5 minutes)
 
 ```bash
