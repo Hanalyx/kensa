@@ -102,9 +102,11 @@ The canonical version is stored in `/VERSION` at the repository root.
 0.1.0
 ```
 
-The file contains ONLY the version string, with no trailing newline, so
-`cat VERSION` and shell substitution `$(cat VERSION)` produce a clean
-version token.
+The file contains the version string followed by a single trailing
+newline (POSIX text-file convention). Shell command substitution
+(`$(cat VERSION)`) strips the trailing newline, so the `-ldflags`
+injection and `git tag -a "v$(cat VERSION)"` produce a clean version
+token without further processing.
 
 ### Version Propagation
 
