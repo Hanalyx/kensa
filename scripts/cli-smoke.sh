@@ -9,7 +9,7 @@
 # binaries. Does NOT require network access — every test is a flag-parse
 # scenario that fails fast before any SSH or store work.
 #
-# Deliverable C-010 in docs/roadmap/DELIVERABLES.md (CLI Phase 1).
+# CLI Phase 1 smoke harness.
 #
 # Exit codes:
 #   0  All smoke tests passed.
@@ -342,46 +342,46 @@ echo
 
 # ─── kensa(1) manpage (C-055) ─────────────────────────────────────────────
 echo "kensa(1) manpage (C-055):"
-# docs/man/kensa.1 must be present and non-empty.
-if [ -s "docs/man/kensa.1" ]; then
+# man/kensa.1 must be present and non-empty.
+if [ -s "man/kensa.1" ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  docs/man/kensa.1 exists and is non-empty"
+    echo "  ${GREEN}PASS${RESET}  man/kensa.1 exists and is non-empty"
 else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("docs/man/kensa.1 missing or empty (run 'make manpage')")
-    echo "  ${RED}FAIL${RESET}  docs/man/kensa.1 missing or empty"
+    FAILURES+=("man/kensa.1 missing or empty (run 'make manpage')")
+    echo "  ${RED}FAIL${RESET}  man/kensa.1 missing or empty"
 fi
 # All required header sections.
 for section in "NAME" "SYNOPSIS" "DESCRIPTION" "GLOBAL OPTIONS" "COMMANDS"; do
-    if grep -qE "^\.SH ${section}\$" docs/man/kensa.1; then
+    if grep -qE "^\.SH ${section}\$" man/kensa.1; then
         PASS_COUNT=$((PASS_COUNT + 1))
-        echo "  ${GREEN}PASS${RESET}  docs/man/kensa.1 has .SH ${section}"
+        echo "  ${GREEN}PASS${RESET}  man/kensa.1 has .SH ${section}"
     else
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        FAILURES+=("docs/man/kensa.1 missing .SH ${section}")
-        echo "  ${RED}FAIL${RESET}  docs/man/kensa.1 missing .SH ${section}"
+        FAILURES+=("man/kensa.1 missing .SH ${section}")
+        echo "  ${RED}FAIL${RESET}  man/kensa.1 missing .SH ${section}"
     fi
 done
 # All required footer sections.
 for section in "FILES" "ENVIRONMENT" "EXIT CODES" "SEE ALSO" "AUTHORS" "BUGS"; do
-    if grep -qE "^\.SH ${section}\$" docs/man/kensa.1; then
+    if grep -qE "^\.SH ${section}\$" man/kensa.1; then
         PASS_COUNT=$((PASS_COUNT + 1))
-        echo "  ${GREEN}PASS${RESET}  docs/man/kensa.1 has .SH ${section}"
+        echo "  ${GREEN}PASS${RESET}  man/kensa.1 has .SH ${section}"
     else
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        FAILURES+=("docs/man/kensa.1 missing .SH ${section}")
-        echo "  ${RED}FAIL${RESET}  docs/man/kensa.1 missing .SH ${section}"
+        FAILURES+=("man/kensa.1 missing .SH ${section}")
+        echo "  ${RED}FAIL${RESET}  man/kensa.1 missing .SH ${section}"
     fi
 done
 # Every registered subcommand has a .SS subsection.
 for sub in DETECT CHECK REMEDIATE ROLLBACK HISTORY PLAN MECHANISMS LIST INFO DIFF AGENT VERIFY MIGRATE VERSION; do
-    if grep -qE "^\.SS ${sub}\$" docs/man/kensa.1; then
+    if grep -qE "^\.SS ${sub}\$" man/kensa.1; then
         PASS_COUNT=$((PASS_COUNT + 1))
-        echo "  ${GREEN}PASS${RESET}  docs/man/kensa.1 has .SS ${sub}"
+        echo "  ${GREEN}PASS${RESET}  man/kensa.1 has .SS ${sub}"
     else
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        FAILURES+=("docs/man/kensa.1 missing .SS ${sub}")
-        echo "  ${RED}FAIL${RESET}  docs/man/kensa.1 missing .SS ${sub}"
+        FAILURES+=("man/kensa.1 missing .SS ${sub}")
+        echo "  ${RED}FAIL${RESET}  man/kensa.1 missing .SS ${sub}"
     fi
 done
 echo

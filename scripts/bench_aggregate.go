@@ -35,8 +35,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // rules is a small static list used to vary rule_id across the corpus.

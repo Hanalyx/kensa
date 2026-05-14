@@ -3,8 +3,8 @@ package engine
 import (
 	"fmt"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/handler"
 )
 
 // preflight validates the transaction before any host interaction.

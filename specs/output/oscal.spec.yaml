@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-output-oscal
         description: |
             OSCAL (Open Security Controls Assessment Language)
@@ -16,7 +16,7 @@ spec:
             Milestones (POA&M) reports, and Continuous Monitoring
             dashboards.
 
-            kensa-go has had OSCAL export since M3 via
+            kensa has had OSCAL export since M3 via
             internal/evidence/oscal.go (ExportOSCAL takes a single
             EvidenceEnvelope and returns OSCAL Assessment Results
             JSON bytes). The cmd/kensa --oscal flag has been the

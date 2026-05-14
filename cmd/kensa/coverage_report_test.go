@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/coverage"
+	"github.com/Hanalyx/kensa/internal/coverage"
 )
 
 // makeCoverageCorpus writes a 3-rule directory:

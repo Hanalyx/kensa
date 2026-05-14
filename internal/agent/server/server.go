@@ -33,12 +33,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent"
-	"github.com/Hanalyx/kensa-go/internal/agent/deadman"
-	"github.com/Hanalyx/kensa-go/internal/agent/transport/local"
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent"
+	"github.com/Hanalyx/kensa/internal/agent/deadman"
+	"github.com/Hanalyx/kensa/internal/agent/transport/local"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/internal/handler"
 )
 
 // Handle is the agent's typed Request → Response dispatcher.

@@ -12,7 +12,7 @@
 // Denominator-based percentage ("212 / 318 = 66.7%") would
 // require an external control catalog (CIS publishes RHEL9
 // benchmarks; NIST 800-53 has a defined set; STIG has STIG-IDs).
-// kensa-go has no such catalog at v1.0; this package ships
+// kensa has no such catalog at v1.0; this package ships
 // numerator-only. JSON shape is forward-compatible: adding
 // ControlsTotal later is additive.
 package coverage
@@ -20,13 +20,13 @@ package coverage
 import (
 	"sort"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/mappings"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/mappings"
 )
 
 // CoverageReport is the operator-facing shape of a coverage
 // computation. JSON tags use snake_case to match the rest of
-// kensa-go's API surface (consistent with PruneReport,
+// kensa's API surface (consistent with PruneReport,
 // store.Stats, etc.).
 type CoverageReport struct {
 	Framework      string            `json:"framework"`

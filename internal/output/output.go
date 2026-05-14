@@ -12,7 +12,7 @@
 //
 // Phase 2's design lifts the canonical -o FORMAT[:PATH] from Python
 // kensa (see docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §6) and
-// extends it with kensa-go-specific formats (jsonl, oscal). Operators
+// extends it with kensa-specific formats (jsonl, oscal). Operators
 // can request multiple simultaneous outputs in one run:
 //
 //	kensa check -H prod-01 -u admin --sudo \
@@ -208,11 +208,11 @@ func FormatRequiresPath(format string) bool {
 //
 //	text       human-readable default (default for most subcommands)
 //	json       structured JSON object
-//	jsonl      newline-delimited JSON (NDJSON) — kensa-go addition
+//	jsonl      newline-delimited JSON (NDJSON) — kensa addition
 //	csv        comma-separated values for spreadsheet ingestion
 //	pdf        binary PDF report (path required)
 //	evidence   signed-envelope JSON (per TRANSACTION_CONTRACT_V1.md)
-//	oscal      OSCAL Assessment Results JSON — kensa-go addition
+//	oscal      OSCAL Assessment Results JSON — kensa addition
 //	markdown   GitHub-flavored Markdown (used by `kensa plan`)
 var knownFormats = map[string]struct{}{
 	"text":     {},

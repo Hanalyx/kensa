@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 // TestParse_SimpleRule parses the sysctl IPv4-forward fixture and checks

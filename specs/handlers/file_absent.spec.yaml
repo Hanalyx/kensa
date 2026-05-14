@@ -5,7 +5,7 @@ spec:
     tier: 1
 
     context:
-        system: kensa-go
+        system: kensa
         feature: handler-file-absent
         description: |
             The file_absent handler removes a file from the target host.

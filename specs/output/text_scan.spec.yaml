@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-output-text-scan
         description: |
             C-022 rewrites textScanWriter from a flat tabular layout

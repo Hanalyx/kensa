@@ -60,10 +60,10 @@ var nowUnix = func() int64 {
 }
 
 // version is the binary version printed by --version / -V.
-// Kept in sync with cmd/kensa/main.go's version constant so
-// `kensa-keygen --version` matches `kensa --version` in lockstep
-// releases. (B7 fix, 2026-05-13.)
-const version = "v0.1.0-dev"
+// Set by -ldflags "-X main.version=$(cat VERSION)" at build time per
+// VERSIONING_PLAN.md so all five kensa binaries report the same string
+// from a single source of truth.
+var version = "dev"
 
 const (
 	// File-mode constants. Private key is 0600 (owner read/write
@@ -274,7 +274,7 @@ Default output directory (in priority order):
   $HOME/.config/kensa/keys/
 
 Default <keyid> is the lower-hex SHA-256 of the public key bytes
-(matches the kensa-go signer's key-identity convention). Override
+(matches the kensa signer's key-identity convention). Override
 with --key-id NAME for human-readable filenames.
 
 Flags:

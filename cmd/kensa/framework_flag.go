@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/mappings"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/mappings"
 )
 
 // registerFrameworkFlag wires `--framework / -f` as a single

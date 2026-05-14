@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 )
 
 // mechanism is the canonical handler name.

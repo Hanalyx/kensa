@@ -3,7 +3,7 @@ package diff
 import (
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 func mkTxn(rule, status string) store.SessionTxn {

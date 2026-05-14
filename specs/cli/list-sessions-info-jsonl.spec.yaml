@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-list-sessions-info-jsonl
         description: |
             CLI Phase 5a deliverable C-052. Adds

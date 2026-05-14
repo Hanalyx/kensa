@@ -5,7 +5,7 @@ spec:
     tier: 1
 
     context:
-        system: kensa-go
+        system: kensa
         feature: handler-sysctl-set
         description: |
             The sysctl_set handler sets a kernel parameter both at

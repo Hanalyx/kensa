@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // makeRule is a tiny factory so the tests below stay terse.

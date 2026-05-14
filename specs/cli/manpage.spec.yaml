@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-manpage
         description: |
             CLI Phase 5a deliverable C-055. Adds a Unix
@@ -28,7 +28,7 @@ spec:
             output).
 
             **Generator approach.** The generator
-            program (`docs/man/gen-manpage.go`) spawns
+            program (`man/gen-manpage.go`) spawns
             `bin/kensa <cmd> --help` for each
             registered subcommand, transforms the
             output to roff `.SS <NAME>` subsections,
@@ -42,28 +42,28 @@ spec:
             **Drift gate.** A new make target
             (`make manpage-check`) regenerates the
             manpage to a temp file and diffs against
-            the committed `docs/man/kensa.1`. Drift fails
+            the committed `man/kensa.1`. Drift fails
             the CI gate so a contributor adding a flag
             without regenerating gets caught at PR
             time, not by a downstream packager.
 
     objective:
         summary: |
-            Add docs/man/kensa.1.header.roff and
-            docs/man/kensa.1.footer.roff (hand-written).
-            Add docs/man/gen-manpage.go (generator).
+            Add man/kensa.1.header.roff and
+            man/kensa.1.footer.roff (hand-written).
+            Add man/gen-manpage.go (generator).
             Add Makefile targets `manpage` (build) and
             `manpage-check` (drift gate). Commit
-            `docs/man/kensa.1` as the source-of-truth
+            `man/kensa.1` as the source-of-truth
             shipped artifact. Spec close.
         scope:
             includes:
-                - "docs/man/kensa.1.header.roff: NAME, SYNOPSIS, DESCRIPTION (hand-written)"
-                - "docs/man/kensa.1.footer.roff: FILES, ENVIRONMENT, EXIT CODES, SEE ALSO, AUTHORS, BUGS (hand-written)"
-                - "docs/man/gen-manpage.go: subprocess each subcommand --help, emit .SS subsections"
-                - "Makefile target: `make manpage` produces docs/man/kensa.1"
+                - "man/kensa.1.header.roff: NAME, SYNOPSIS, DESCRIPTION (hand-written)"
+                - "man/kensa.1.footer.roff: FILES, ENVIRONMENT, EXIT CODES, SEE ALSO, AUTHORS, BUGS (hand-written)"
+                - "man/gen-manpage.go: subprocess each subcommand --help, emit .SS subsections"
+                - "Makefile target: `make manpage` produces man/kensa.1"
                 - "Makefile target: `make manpage-check` regenerates to temp + diffs vs committed; non-zero exit on drift"
-                - "Committed docs/man/kensa.1 (source-of-truth artifact for distros to package)"
+                - "Committed man/kensa.1 (source-of-truth artifact for distros to package)"
             excludes:
                 - "Per-subcommand split (kensa-check.1, kensa-remediate.1, etc.): single-file approach per founder ratification; revisit if surface doubles"
                 - "Manpage section other than 1: kensa is a user-facing tool, not a syscall / library / config-file format"
@@ -73,7 +73,7 @@ spec:
     constraints:
         - id: C-01
           description: |
-              The committed `docs/man/kensa.1` MUST be
+              The committed `man/kensa.1` MUST be
               regenerable from sources via `make
               manpage`. A contributor can't ship a
               manpage that doesn't match the binary —
@@ -128,7 +128,7 @@ spec:
               `make manpage` MUST be deterministic
               given the same kensa binary: running
               twice produces byte-identical
-              docs/man/kensa.1. Otherwise manpage-check
+              man/kensa.1. Otherwise manpage-check
               produces false positives.
           type: technical
           enforcement: error
@@ -136,14 +136,14 @@ spec:
     acceptance_criteria:
         - id: AC-01
           description: |
-              `make manpage` produces docs/man/kensa.1
+              `make manpage` produces man/kensa.1
               from sources. Locked by manual
               verification + the manpage-check gate.
           references_constraints: [C-01]
           priority: critical
         - id: AC-02
           description: |
-              docs/man/kensa.1 contains a .SS subsection
+              man/kensa.1 contains a .SS subsection
               for every registered subcommand listed
               in C-02. Locked by
               TestGenManpage_AllSubcommandsCovered.
@@ -152,7 +152,7 @@ spec:
         - id: AC-03
           description: |
               Header sections (NAME, SYNOPSIS,
-              DESCRIPTION) appear in docs/man/kensa.1.
+              DESCRIPTION) appear in man/kensa.1.
               Locked by
               TestGenManpage_HeaderSectionsPresent.
           references_constraints: [C-03]
@@ -161,7 +161,7 @@ spec:
           description: |
               Footer sections (FILES, ENVIRONMENT,
               EXIT CODES, SEE ALSO, AUTHORS, BUGS)
-              appear in docs/man/kensa.1. Locked by
+              appear in man/kensa.1. Locked by
               TestGenManpage_FooterSectionsPresent.
           references_constraints: [C-04]
           priority: high
@@ -191,7 +191,7 @@ spec:
           priority: critical
         - id: AC-08
           description: |
-              `man -l docs/man/kensa.1` renders without
+              `man -l man/kensa.1` renders without
               roff syntax errors. Verified during
               the C-055 merge workflow (manual
               eyeball-render check).

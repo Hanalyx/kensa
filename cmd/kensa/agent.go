@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/agent"
-	"github.com/Hanalyx/kensa-go/internal/agent/server"
+	"github.com/Hanalyx/kensa/internal/agent"
+	"github.com/Hanalyx/kensa/internal/agent/server"
 )
 
 // shutdownGracePeriod is how long the agent waits between ctx

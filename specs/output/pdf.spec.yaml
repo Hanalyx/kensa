@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-output-pdf
         description: |
             PDF is the operator triage / handoff format — humans
@@ -15,7 +15,7 @@ spec:
             PDF is NOT audit-grade evidence. A maroto-rendered PDF
             has no digital signature and is editable in any PDF
             editor. Auditors who accept PDF evidence at all want a
-            tamper-evident artifact, which kensa-go provides through
+            tamper-evident artifact, which kensa provides through
             two complementary paths:
 
               - EvidenceEnvelope (C-017): the canonical Ed25519-

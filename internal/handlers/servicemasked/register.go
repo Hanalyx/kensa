@@ -1,6 +1,6 @@
 package servicemasked
 
-import "github.com/Hanalyx/kensa-go/internal/handler"
+import "github.com/Hanalyx/kensa/internal/handler"
 
 // init registers the service_masked handler with the global registry.
 func init() {

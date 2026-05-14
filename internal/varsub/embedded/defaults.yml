@@ -1,4 +1,4 @@
-# kensa-go built-in defaults.
+# kensa built-in defaults.
 #
 # This file is vendored from kensa/config/defaults.yml (Python sister repo)
 # and embedded into the kensa binary at build time via go:embed. It provides

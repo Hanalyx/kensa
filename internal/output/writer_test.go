@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // errWriter is an io.Writer that always returns errAlwaysFails. Used

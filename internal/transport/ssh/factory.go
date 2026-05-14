@@ -3,7 +3,7 @@ package ssh
 import (
 	"context"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Factory satisfies [api.TransportFactory] by constructing a

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/handlers/servicedisabled"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/handlers/servicedisabled"
 )
 
 // @spec handler-service-disabled

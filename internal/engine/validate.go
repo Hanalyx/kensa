@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // validate runs the post-apply validators during the VALIDATE phase.

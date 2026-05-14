@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-list-frameworks
         description: |
             CLI Phase 4 deliverable C-046. Adds the
@@ -38,7 +38,7 @@ spec:
             box-drawing fix). JSON shape is a `frameworks`
             array of `{framework_id, controls, rules}`
             objects, snake_case for parity with the rest
-            of kensa-go's API surface.
+            of kensa's API surface.
 
     objective:
         summary: |

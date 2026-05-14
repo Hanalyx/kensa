@@ -1,16 +1,14 @@
 Changelog
 =========
 
-All notable user-visible changes to kensa-go are documented here.
+All notable user-visible changes to kensa are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) loosely:
 sections grouped by category (Added / Changed / Deprecated / Removed
 / Fixed / Security) under each release heading. Pre-1.0 we ship
 unreleased changes under `## Unreleased` and stamp them at tag time.
 
-The CLI is governed by GNU/POSIX conventions per
-`docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md`. Long-form flags are
-the canonical names; short forms are listed in
-`cmd/kensa/flags.go`.
+The CLI is governed by GNU/POSIX conventions. Long-form flags are
+the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
@@ -161,16 +159,15 @@ the canonical names; short forms are listed in
   `KENSA_NO_AGENT=1` (opt-out). Operators scripting against the
   old sense must invert the check OR drop the env-var entirely
   to get the new default behavior. Rationale (Q1.c ratified
-  2026-05-12): kensa-go is pre-production; the kernel-atomic
+  2026-05-12): kensa is pre-production; the kernel-atomic
   path is the safer default. Direct-SSH stays available for
   hosts where agent bootstrap is not viable. No deprecation
-  period — kensa-go is pre-1.0.
+  period — kensa is pre-1.0.
 
 - **CLI Phase 3 short-letter table reconciliation (C-024).** Four
-  short letters are reassigned to align with `Python kensa` parity
-  per `docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md` §4.2. Operators
-  scripting kensa-go with the old short forms must migrate before
-  upgrade. Long forms are unchanged; only the short letters move.
+  short letters are reassigned to align with `Python kensa` parity.
+  Operators scripting kensa with the old short forms must migrate
+  before upgrade. Long forms are unchanged; only the short letters move.
 
   | Flag | Old short | New short | Migration |
   |---|---|---|---|
@@ -183,7 +180,7 @@ the canonical names; short forms are listed in
   Phase 3 deliverables: `--password` (C-026), `--severity` (C-030),
   `--tag` (C-031), `--framework` (C-033). Operators using the old
   short forms after upgrade get pflag's "unknown shorthand" error
-  (exit code 2). No deprecation period — kensa-go is pre-1.0 and
+  (exit code 2). No deprecation period — kensa is pre-1.0 and
   the migration doc explicitly notes Python kensa has no production
   users to migrate.
 
@@ -292,7 +289,7 @@ the canonical names; short forms are listed in
   - `kensa(1)` Unix manpage (C-055). Hand-written wrapper
     + generated flag body. `make manpage` produces
     `dist/kensa.1`; `make manpage-check` is the drift gate
-    for CI. Source-of-truth committed at `docs/man/kensa.1`.
+    for CI. Source-of-truth committed at `man/kensa.1`.
 
 ### Changed
 

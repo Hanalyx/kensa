@@ -5,7 +5,7 @@ spec:
     tier: 2
 
     context:
-        system: kensa-go
+        system: kensa
         feature: agent-live-host-parity
         description: |
             LL Phase 1 deliverable L-014c — the live-host

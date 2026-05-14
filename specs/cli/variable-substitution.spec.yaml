@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-variable-substitution
         description: |
             CLI Phase 3.5 deliverable (C-034 + C-036 combined).
@@ -21,7 +21,7 @@ spec:
             templates in fields like check.expected and
             remediation.value (see e.g.
             rules/access-control/pam-faillock-deny.yml). Pre-
-            Phase 3.5 kensa-go did NOT substitute these — the
+            Phase 3.5 kensa did NOT substitute these — the
             comparator compared host output against the literal
             string `{{ pam_faillock_deny }}`, so those rules
             silently failed evaluation regardless of host
@@ -56,7 +56,7 @@ spec:
             (runs commands literally). An operator passing
             `-x banner='$(rm -rf /)'` would have the resulting
             shell command run on the host as configured. This
-            is not a kensa-go-specific risk: the same
+            is not a kensa-specific risk: the same
             substitution path exists in Python kensa, and
             `--var` requires the operator to be already
             authorized to remediate the host. Future Phase 4

@@ -5,7 +5,7 @@ spec:
     tier: 2
 
     context:
-        system: kensa-go
+        system: kensa
         feature: store-session-schema
         description: |
             CLI Phase 4 deliverable C-039. Adds the session

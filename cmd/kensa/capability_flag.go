@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/detect"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/detect"
 )
 
 // registerCapabilityFlag wires --capability / -C as a repeatable

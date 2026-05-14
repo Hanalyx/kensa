@@ -5,7 +5,7 @@ spec:
     tier: 2
 
     context:
-        system: kensa-go
+        system: kensa
         feature: agent-bootstrap
         description: |
             LL Phase 1 deliverable L-013. The

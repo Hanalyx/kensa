@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Fan-out is the multi-target dispatcher for `kensa <cmd> -o FORMAT:PATH

@@ -4,7 +4,7 @@
 // The kensa rule corpus uses Jinja-style `{{ name }}` templates
 // in fields like check.expected and remediation.value (see e.g.
 // rules/access-control/pam-faillock-deny.yml). Pre-Phase 3.5
-// kensa-go did NOT substitute these — those rules silently
+// kensa did NOT substitute these — those rules silently
 // failed evaluation because the comparator compared host output
 // against the literal string `{{ pam_faillock_deny }}`.
 //

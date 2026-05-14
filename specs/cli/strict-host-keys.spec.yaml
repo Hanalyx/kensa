@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-strict-host-keys
         description: |
             CLI Phase 3 deliverable C-027. Adds the boolean pair
@@ -73,7 +73,7 @@ spec:
               keys are auto-trusted on first contact, key
               changes still rejected). This matches Python
               kensa's default and is backward-compatible with
-              existing kensa-go deployments that didn't set the
+              existing kensa deployments that didn't set the
               field.
           type: technical
           enforcement: error

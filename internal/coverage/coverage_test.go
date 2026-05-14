@@ -4,7 +4,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // makeRule constructs an api.Rule with the given ID and

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // mechanism is the canonical handler name.

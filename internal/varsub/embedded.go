@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// embeddedDefaultsYAML is the kensa-go built-in defaults file.
+// embeddedDefaultsYAML is the kensa built-in defaults file.
 // Vendored from kensa/config/defaults.yml (Python sister repo);
 // see internal/varsub/embedded/defaults.yml for the source.
 //

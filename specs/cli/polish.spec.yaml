@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-phase-2-5-polish
         description: |
             Final deliverable of CLI Phase 2.5. Three small additions

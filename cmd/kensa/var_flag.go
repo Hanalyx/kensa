@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/varsub"
+	"github.com/Hanalyx/kensa/internal/varsub"
 )
 
 // registerVarFlag wires `--var / -x` as a repeatable

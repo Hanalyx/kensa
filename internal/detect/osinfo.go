@@ -5,7 +5,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // OSInfo carries the structured /etc/os-release fields the operator-

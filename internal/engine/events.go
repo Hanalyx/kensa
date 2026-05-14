@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // publish sends event to the configured [EventBus]. Errors are

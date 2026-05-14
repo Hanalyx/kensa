@@ -15,8 +15,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/evidence"
 )
 
 // makeVerifyFixture creates a temp trust dir with a real keypair

@@ -1,4 +1,4 @@
-# Pre-commit hooks for kensa-go.
+# Pre-commit hooks for kensa.
 #
 # Install:           pip install pre-commit && pre-commit install
 # Run defaults:      pre-commit run --all-files

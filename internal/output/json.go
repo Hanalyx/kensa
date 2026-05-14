@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // scanLine is the JSON Lines wire shape consumed by OpenWatch's

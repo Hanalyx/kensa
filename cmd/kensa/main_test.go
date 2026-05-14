@@ -455,15 +455,20 @@ type errorString string
 
 func (e errorString) Error() string { return string(e) }
 
-// Sanity: ensure the version constant is non-empty and starts with 'v'.
+// Sanity: ensure the version variable is non-empty. The variable is
+// set by `-ldflags "-X main.version=$(cat VERSION)"` at build time
+// (VERSIONING_PLAN.md), so under `go test` it carries the default
+// "dev" value; under `make build` it carries the bare semver from the
+// VERSION file (e.g. "0.1.0"). Either is valid here — the contract is
+// that it's not empty.
 // @spec cli-polish-c023
 // @ac AC-10
 func TestVersionConstantShape(t *testing.T) {
 	t.Run("cli-polish-c023/AC-10", func(t *testing.T) {})
-	if !strings.HasPrefix(version, "v") {
-		t.Errorf("version = %q; want a 'v'-prefix per semver convention", version)
+	if version == "" {
+		t.Error("version is empty; ldflags injection or fallback default broken")
 	}
-	if len(version) < 4 {
-		t.Errorf("version = %q; suspiciously short", version)
+	if strings.HasPrefix(version, "v") {
+		t.Errorf("version = %q; expected bare semver without 'v' prefix per VERSIONING_PLAN.md", version)
 	}
 }

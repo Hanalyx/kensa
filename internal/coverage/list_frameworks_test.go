@@ -3,7 +3,7 @@ package coverage
 import (
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 func TestListFrameworks_Basic(t *testing.T) {

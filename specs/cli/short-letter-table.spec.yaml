@@ -5,10 +5,10 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-short-letter-reconciliation
         description: |
-            CLI Phase 3's foundation: reconciles the kensa-go short-
+            CLI Phase 3's foundation: reconciles the kensa short-
             letter table with `CLI_GNU_POSIX_MIGRATION_V1.md` §4.2
             so the Phase 3 flag additions (--password, --severity,
             --tag, --framework, --capability, --workers, --var,
@@ -38,7 +38,7 @@ spec:
             "unknown shorthand" error (exit 2). Per the migration
             doc §4.3, "Python kensa is being phased out as an
             internal prototype with no production users, so there
-            is no operator muscle memory to migrate." kensa-go
+            is no operator muscle memory to migrate." kensa
             itself is pre-1.0 with no v0.1 tag yet — the breaking
             short-letter changes are recorded in CHANGELOG.md.
 

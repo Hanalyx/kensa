@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-embedded-defaults
         description: |
             Adds two operator-facing improvements that close
@@ -13,7 +13,7 @@ spec:
             canonical command against the production rule
             corpus without --var or --config-dir:
 
-              1. Built-in (embedded) defaults — kensa-go now
+              1. Built-in (embedded) defaults — kensa now
                  ships with a vendored copy of Python kensa's
                  defaults.yml `variables:` block, embedded via
                  go:embed. Resolves the ~30 templated rules in
@@ -72,7 +72,7 @@ spec:
                 - "Test coverage: embedded parses + covers corpus vars, auto-detect chain priority"
             excludes:
                 - "Vendoring Python kensa's frameworks: section: out of scope (no downstream consumer for framework-specific overrides yet)"
-                - "Vendoring Python kensa's rollback: policy: separate concern; rollback semantics differ in kensa-go"
+                - "Vendoring Python kensa's rollback: policy: separate concern; rollback semantics differ in kensa"
                 - "Auto-update of embedded defaults from Python at build time: defer; manual sync via this spec's revision history"
                 - "--show-defaults / --print-resolution flags: future polish for debugging the resolution chain"
 

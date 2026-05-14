@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/coverage"
-	"github.com/Hanalyx/kensa-go/internal/output"
+	"github.com/Hanalyx/kensa/internal/coverage"
+	"github.com/Hanalyx/kensa/internal/output"
 )
 
 // runCoverageReport handles `kensa coverage --framework
@@ -159,7 +159,7 @@ map to it.
 
 NUMERATOR ONLY: this report shows controls with rules, not the
 framework's full control set. A "212 / 318 covered (66.7%%)"
-reading would require an external control catalog kensa-go
+reading would require an external control catalog kensa
 does not bundle today; that's a future deliverable.
 
 Today this report is opt-in via --framework; without --framework

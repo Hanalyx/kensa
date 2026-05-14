@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // finalize composes the [api.TransactionResult], generates and signs

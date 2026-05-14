@@ -275,7 +275,7 @@ func TestFilterByLimit_PreservesOrder(t *testing.T) {
 func TestFilterByLimit_GlobAgainstAddrNotGroup(t *testing.T) {
 	t.Run("cli-limit-host-glob/AC-14", func(t *testing.T) {})
 	// Globs match addr only — they don't expand against group
-	// names. This is an intentional kensa-go choice (ansible's
+	// names. This is an intentional kensa choice (ansible's
 	// behavior here is implementation-defined).
 	hosts := makeHosts()
 	// "pr*" would match "prod" group if globs hit groups, but

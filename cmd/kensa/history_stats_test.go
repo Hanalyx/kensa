@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // TestWriteHistoryStatsText_CanonicalOrdering locks the C-06

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent"
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 )
 
 // pipePair returns two connected io.Pipe pairs: one for

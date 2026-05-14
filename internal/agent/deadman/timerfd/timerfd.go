@@ -3,7 +3,7 @@
 // deadman subsystem.
 //
 // **Why CLOCK_BOOTTIME.** This is the load-bearing reason
-// timerfd exists in kensa-go: it's the ONLY Linux clock that
+// timerfd exists in kensa: it's the ONLY Linux clock that
 // counts elapsed time DURING system suspend. Go's stdlib
 // time.Timer uses CLOCK_MONOTONIC which stops during sleep,
 // so a laptop or VM suspended mid-remediation would resume

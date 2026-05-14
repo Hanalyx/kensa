@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/varsub"
+	"github.com/Hanalyx/kensa/internal/varsub"
 )
 
 // pipelineRule writes a templated rule whose check.expected

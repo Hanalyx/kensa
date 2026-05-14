@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-phase4-close
         description: |
             CLI Phase 4 deliverable C-050. The closeout

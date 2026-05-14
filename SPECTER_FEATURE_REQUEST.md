@@ -1,6 +1,6 @@
 # Specter Feature Requests
 
-Feature requests for the Specter tool itself. Kensa-go implementation gaps
+Feature requests for the Specter tool itself. Kensa implementation gaps
 that surfaced during Specter integration are tracked in BACKLOG.md.
 
 ---

@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-flag-deprecation
         description: |
             CLI Phase 2 introduces -o/--output as the canonical

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/evidence"
 )
 
 // makeEnvelope returns a minimal valid v1 envelope.

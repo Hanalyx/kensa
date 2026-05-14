@@ -32,7 +32,7 @@ type Kensa struct {
 // Config configures [New]. The bare config (zero-value) yields a
 // stub Kensa whose execution methods all return [ErrNotYetImplemented];
 // useful for OpenWatch's compile-against-the-API pattern. The kensa
-// factory package (github.com/Hanalyx/kensa-go/pkg/kensa) provides a
+// factory package (github.com/Hanalyx/kensa/pkg/kensa) provides a
 // Default constructor that fills the [Config.Engine],
 // [Config.TransportFactory], [Config.Log], and [Config.Verifier]
 // fields with the standard internal implementations.

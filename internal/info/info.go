@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/mappings"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/mappings"
 )
 
 // RuleDetails is the shape returned by DescribeRule. The full

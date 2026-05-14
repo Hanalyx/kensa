@@ -1,6 +1,6 @@
 package pammoduleconfigure
 
-import "github.com/Hanalyx/kensa-go/internal/handler"
+import "github.com/Hanalyx/kensa/internal/handler"
 
 // init registers the pam_module_configure handler with the global
 // registry.

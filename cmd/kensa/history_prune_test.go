@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // makeStoreFile returns a fresh temp DB path and ensures the store

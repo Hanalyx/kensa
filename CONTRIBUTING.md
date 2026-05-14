@@ -5,7 +5,7 @@ infrastructure at 3 AM. The discipline below is not optional.
 
 ## Developer prerequisites
 
-Beyond Go itself (toolchain version pinned in `go.mod`), kensa-go's
+Beyond Go itself (toolchain version pinned in `go.mod`), kensa's
 build expects:
 
 - **`protoc`** (Protocol Buffers compiler). Required by `make proto`
@@ -56,8 +56,7 @@ live tests showing as `SKIP` in `-v` output.
 
 The Kensa AI team and collaborator write all of the application code. The
 founders conduct rigorous tests and review every change. Human review of
-the code is non-negotiable — see `docs/HANALYX_MISSION_AND_ROADMAP.md`
-§"The human-review commitment" for the full statement.
+the code is non-negotiable.
 
 This means: PR authorship is typically AI; PR approval is always human.
 Every section below assumes that split.
@@ -140,5 +139,4 @@ implementation is wrong, not the fixture.
 
 Nothing. A PR that skips the failure-mode analysis, skips the rollback
 integration test, or tries to adjust a test to match broken code is not
-merged. This is the only way the atomicity commitment in
-`docs/TRANSACTION_CONTRACT_V1.md` remains honest.
+merged. This is the only way the atomicity commitment remains honest.

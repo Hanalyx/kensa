@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-output-csv
         description: |
             CSV is the spreadsheet-ingestion format for kensa output.

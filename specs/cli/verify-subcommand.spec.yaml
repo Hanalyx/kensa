@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-verify-subcommand
         description: |
             CLI Phase 5b deliverable C-060. Wires M-012's

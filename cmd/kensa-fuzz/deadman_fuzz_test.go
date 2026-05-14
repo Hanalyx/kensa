@@ -46,9 +46,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/dispatcher"
-	sshtransport "github.com/Hanalyx/kensa-go/internal/transport/ssh"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/dispatcher"
+	sshtransport "github.com/Hanalyx/kensa/internal/transport/ssh"
 )
 
 // witnessFile is the on-host path the rollback command

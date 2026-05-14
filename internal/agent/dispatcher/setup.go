@@ -31,9 +31,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/bootstrap"
-	"github.com/Hanalyx/kensa-go/internal/agent/client"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/bootstrap"
+	"github.com/Hanalyx/kensa/internal/agent/client"
 )
 
 // Options configures OpenAgent. Zero value works for the

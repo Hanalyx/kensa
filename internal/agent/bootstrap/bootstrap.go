@@ -24,7 +24,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // systemCacheDir is the FHS-correct system-wide variable-cache

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Rule ordering, conflict detection, and supersedes resolution.

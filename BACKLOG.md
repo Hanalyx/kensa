@@ -1,4 +1,4 @@
-# Kensa-go Backlog
+# Kensa Backlog
 
 Items are ordered roughly by priority within each section. No commitment to scheduling until promoted to a milestone.
 
@@ -51,7 +51,7 @@ Live result on `.217`: 13/31 caps detected (was 7/25).
 
 ## Spec coverage gaps (surfaced by Specter)
 
-These are kensa-go implementation items required to remove `t.Skip` from existing spec tests.
+These are kensa implementation items required to remove `t.Skip` from existing spec tests.
 
 - **deadman AC-07** — `Armer.Extend(ctx, transport, txnID)` keep-alive that re-schedules the job +60s every 30s during long-running applies. Failed keep-alive must abort the transaction.
 - **deadman AC-10** — Clock skew detection in `Armer.Arm()`: compare host `date` before and after script upload; extend timer window if skew >30s.

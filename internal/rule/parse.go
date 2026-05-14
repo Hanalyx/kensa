@@ -37,8 +37,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/varsub"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/varsub"
 )
 
 // rawRule is the YAML-decode target for a V1 rule file.

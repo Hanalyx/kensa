@@ -126,7 +126,7 @@ func LoadConfDir(configDir string) (Variables, error) {
 //	embedded → defaults → conf.d → groups → host → CLI
 //
 // Each later tier overrides earlier on key collision. The
-// embedded tier ships with the kensa-go binary and is the
+// embedded tier ships with the kensa binary and is the
 // lowest-priority floor — operators get sensible defaults out
 // of the box for the ~30 templated rules in the production
 // corpus. Every other source overrides; operators wanting

@@ -19,11 +19,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/check"
-	"github.com/Hanalyx/kensa-go/internal/detect"
-	"github.com/Hanalyx/kensa-go/internal/mappings"
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/check"
+	"github.com/Hanalyx/kensa/internal/detect"
+	"github.com/Hanalyx/kensa/internal/mappings"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 // CheckResult is the outcome of checking one rule against a host.

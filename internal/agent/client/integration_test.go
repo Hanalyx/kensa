@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // TestClient_SubprocessIntegration locks AC-07: spawn the

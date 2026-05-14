@@ -48,54 +48,56 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/dispatcher"
-	"github.com/Hanalyx/kensa-go/internal/detect"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/handler"
-	"github.com/Hanalyx/kensa-go/internal/output"
-	"github.com/Hanalyx/kensa-go/internal/rule"
-	"github.com/Hanalyx/kensa-go/internal/scan"
-	"github.com/Hanalyx/kensa-go/internal/store"
-	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
-	"github.com/Hanalyx/kensa-go/internal/varsub"
-	"github.com/Hanalyx/kensa-go/pkg/kensa"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/dispatcher"
+	"github.com/Hanalyx/kensa/internal/detect"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/handler"
+	"github.com/Hanalyx/kensa/internal/output"
+	"github.com/Hanalyx/kensa/internal/rule"
+	"github.com/Hanalyx/kensa/internal/scan"
+	"github.com/Hanalyx/kensa/internal/store"
+	"github.com/Hanalyx/kensa/internal/transport/ssh"
+	"github.com/Hanalyx/kensa/internal/varsub"
+	"github.com/Hanalyx/kensa/pkg/kensa"
 
 	// Import all handler packages to trigger their init() registrations.
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/aptabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/aptpresent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/authselectfeatureenable"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/commandexec"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configappend"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configsetdropin"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/cronjob"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/cryptopolicyset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/cryptopolicysubpolicy"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/dconfset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/fileabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/filepermissions"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/grubparameterremove"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/grubparameterset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/kernelmoduledisable"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/manual"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/mountoptionset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/packageabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/packagepresent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/pammodulearg"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/pammoduleconfigure"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/selinuxbooleanset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicedisabled"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/serviceenabled"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicemasked"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/sysctlset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/aptabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/aptpresent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/auditruleset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/authselectfeatureenable"
+	_ "github.com/Hanalyx/kensa/internal/handlers/commandexec"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configappend"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configsetdropin"
+	_ "github.com/Hanalyx/kensa/internal/handlers/cronjob"
+	_ "github.com/Hanalyx/kensa/internal/handlers/cryptopolicyset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/cryptopolicysubpolicy"
+	_ "github.com/Hanalyx/kensa/internal/handlers/dconfset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/fileabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/filecontent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/filepermissions"
+	_ "github.com/Hanalyx/kensa/internal/handlers/grubparameterremove"
+	_ "github.com/Hanalyx/kensa/internal/handlers/grubparameterset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/kernelmoduledisable"
+	_ "github.com/Hanalyx/kensa/internal/handlers/manual"
+	_ "github.com/Hanalyx/kensa/internal/handlers/mountoptionset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/packageabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/packagepresent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/pammodulearg"
+	_ "github.com/Hanalyx/kensa/internal/handlers/pammoduleconfigure"
+	_ "github.com/Hanalyx/kensa/internal/handlers/selinuxbooleanset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/servicedisabled"
+	_ "github.com/Hanalyx/kensa/internal/handlers/serviceenabled"
+	_ "github.com/Hanalyx/kensa/internal/handlers/servicemasked"
+	_ "github.com/Hanalyx/kensa/internal/handlers/sysctlset"
 )
 
-// version is the kensa-go binary version string surfaced by --version
-// and the `version` subcommand. Bumped manually per release.
-const version = "v0.1.0-dev"
+// version is the kensa binary version string surfaced by --version
+// and the `version` subcommand. Set by -ldflags "-X main.version=$(cat VERSION)"
+// at build time per VERSIONING_PLAN.md. Defaults to "dev" so `go run`
+// works locally without invoking make.
+var version = "dev"
 
 func main() {
 	os.Exit(runCLI(os.Args[1:]))
@@ -158,7 +160,7 @@ func runCLI(argv []string) int {
 		return 0
 	}
 	if showVersion {
-		fmt.Printf("kensa %s (kensa-go)\n", version)
+		fmt.Printf("kensa %s (kensa)\n", version)
 		return 0
 	}
 
@@ -1415,7 +1417,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	// pipeline best-effort atomicity for the file mechanisms).
 	// Strict "1" match avoids false positives on misset values.
 	//
-	// Sense reversed 2026-05-12 per Q1.c ratification: kensa-go
+	// Sense reversed 2026-05-12 per Q1.c ratification: kensa
 	// is pre-production; the cleaner default is agent-mode.
 	// Direct-SSH stays available for environments where agent
 	// bootstrap isn't viable (noexec /tmp, restricted SSH user,
@@ -2157,7 +2159,7 @@ func runVersion(args []string) error {
 		return nil
 	}
 
-	fmt.Printf("kensa %s (kensa-go)\n", version)
+	fmt.Printf("kensa %s (kensa)\n", version)
 	return nil
 }
 
@@ -2165,7 +2167,7 @@ func runVersion(args []string) error {
 func printVersionUsage(w io.Writer, fs *pflag.FlagSet) {
 	fmt.Fprintf(w, `Usage: kensa version
 
-Print the kensa-go binary version. The top-level '--version' flag is
+Print the kensa binary version. The top-level '--version' flag is
 the canonical GNU/POSIX form; this subcommand is preserved for
 backward compatibility and is planned for removal in v0.2.
 
@@ -2193,7 +2195,7 @@ func printMechanismsUsage(w io.Writer, fs *pflag.FlagSet, name string) {
 				"  kensa coverage --framework FRAMEWORK --rules-dir DIR\n"+
 				"  kensa coverage --framework cis_rhel9 --help    # full report help\n\n")
 	}
-	fmt.Fprintf(w, `List every handler mechanism registered with the kensa-go engine,
+	fmt.Fprintf(w, `List every handler mechanism registered with the kensa engine,
 marked capturable (participates in atomic transactions) or
 non-capturable (transactional: false escape hatch).
 

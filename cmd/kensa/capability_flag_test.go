@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/detect"
+	"github.com/Hanalyx/kensa/internal/detect"
 )
 
 // firstKnownCap returns a capability name guaranteed to be in the

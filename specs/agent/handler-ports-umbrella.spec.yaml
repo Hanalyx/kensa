@@ -5,7 +5,7 @@ spec:
     tier: 2
 
     context:
-        system: kensa-go
+        system: kensa
         feature: agent-handler-ports-umbrella
         description: |
             LL Phase 1 deliverables L-015 through L-032 —

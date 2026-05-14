@@ -3,8 +3,8 @@ package output
 import (
 	"io"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/evidence"
 )
 
 // oscalRemediationWriter renders a RemediationResult as a stream of

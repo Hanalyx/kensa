@@ -3,8 +3,8 @@ package coverage
 import (
 	"sort"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/mappings"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/mappings"
 )
 
 // FrameworkSummary is one row of the `kensa list frameworks`

@@ -1,4 +1,4 @@
-module github.com/Hanalyx/kensa-go
+module github.com/Hanalyx/kensa
 
 go 1.26.1
 
