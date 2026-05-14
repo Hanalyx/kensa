@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // validSeverities is the canonical severity vocabulary (the same

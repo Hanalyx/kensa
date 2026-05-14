@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/evidence"
+	"github.com/Hanalyx/kensa/internal/evidence"
 )
 
 // writePEMKeypair generates and writes a kensa-keygen-compatible

@@ -5,7 +5,7 @@ import (
 	"io/fs"
 	"sync"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // FakeTransport is an in-memory [api.Transport] for engine tests.

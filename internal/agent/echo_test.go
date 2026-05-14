@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 )
 
 // TestHandleEcho_TypedDispatch locks L-009 AC-04: the echo

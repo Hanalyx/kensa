@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // osTestTransport is a minimal Transport for unit tests that intercepts

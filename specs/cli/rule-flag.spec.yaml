@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-rule-flag
         description: |
             CLI Phase 3 deliverable C-037. Adds long-only

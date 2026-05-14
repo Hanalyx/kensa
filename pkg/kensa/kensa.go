@@ -25,13 +25,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/engine/deadman"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
-	"github.com/Hanalyx/kensa-go/internal/scan"
-	"github.com/Hanalyx/kensa-go/internal/store"
-	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/engine/deadman"
+	"github.com/Hanalyx/kensa/internal/evidence"
+	"github.com/Hanalyx/kensa/internal/scan"
+	"github.com/Hanalyx/kensa/internal/store"
+	"github.com/Hanalyx/kensa/internal/transport/ssh"
 )
 
 // Service wraps an [api.Kensa] together with the closable resources

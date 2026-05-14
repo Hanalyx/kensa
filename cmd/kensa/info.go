@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/info"
-	"github.com/Hanalyx/kensa-go/internal/output"
+	"github.com/Hanalyx/kensa/internal/info"
+	"github.com/Hanalyx/kensa/internal/output"
 )
 
 // runInfo handles `kensa info` (C-047). Four mode selectors:

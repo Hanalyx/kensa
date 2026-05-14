@@ -23,7 +23,7 @@ syntax = "proto3";
 
 package kensa.agent.wirev1;
 
-option go_package = "github.com/Hanalyx/kensa-go/internal/agent/wirev1";
+option go_package = "github.com/Hanalyx/kensa/internal/agent/wirev1";
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";

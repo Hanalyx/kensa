@@ -4,7 +4,7 @@ spec:
     status: draft
     tier: 1
     context:
-        system: kensa-go
+        system: kensa
         feature: handler-pam-module-configure
         description: |
             The pam_module_configure handler adds or replaces a PAM

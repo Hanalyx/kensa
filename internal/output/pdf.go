@@ -14,7 +14,7 @@ import (
 	"github.com/johnfercher/maroto/v2/pkg/core"
 	"github.com/johnfercher/maroto/v2/pkg/props"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // PDF rendering uses the maroto v2 high-level layout DSL on top of

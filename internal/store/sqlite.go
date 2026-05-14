@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite" // pure-Go SQLite driver
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // SQLite is the durable [Store] implementation backed by a SQLite

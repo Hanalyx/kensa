@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-# Build discipline (deliverables L-001 and L-002 in docs/roadmap/DELIVERABLES.md):
+# Build discipline (deliverables L-001 and L-002):
 #   CGO_ENABLED=0      ensures the binary talks directly to the kernel ABI
 #                      rather than going through glibc, so the same binary
 #                      runs on RHEL 8 (glibc 2.28) through RHEL 12 and on
@@ -230,7 +230,7 @@ jobs:
         run: pre-commit run --all-files --show-diff-on-failure
 
   build-static-verify:
-    # Deliverable L-003 (docs/roadmap/DELIVERABLES.md): proves the
+    # Deliverable L-003: proves the
     # CGO_ENABLED=0 + -tags netgo discipline (L-001 + L-002) is honored
     # on every CI run by building all three binaries and asserting each
     # one is statically linked. Fails the workflow immediately if a
@@ -274,7 +274,7 @@ jobs:
           fi
 
   build-portability-glibc228:
-    # Deliverable L-004 (docs/roadmap/DELIVERABLES.md): proves the static
+    # Deliverable L-004: proves the static
     # binary actually runs on a glibc 2.28 system (RHEL 8 vintage). This
     # is the supported "oldest glibc" floor; if the binary fails here, a
     # transitive dependency or build-flag regression has reintroduced
@@ -318,7 +318,7 @@ jobs:
           fi
 
   cli-smoke:
-    # Deliverable C-010 (docs/roadmap/DELIVERABLES.md): runs the
+    # Deliverable C-010: runs the
     # GNU/POSIX exit-code smoke test on every PR, catching regressions
     # in --help / --version / bad-flag / unknown-subcommand paths
     # before they reach operators. Fast (~5s) and network-free.
@@ -335,11 +335,11 @@ jobs:
         run: make cli-smoke
 
   build-portability-alpine:
-    # Deliverable L-005 (docs/roadmap/DELIVERABLES.md): proves the static
+    # Deliverable L-005: proves the static
     # binary runs on Alpine (musl libc), not just glibc-based distros.
-    # Together with L-004 (glibc 2.28), this verifies kensa-go's binary
+    # Together with L-004 (glibc 2.28), this verifies kensa's binary
     # is libc-independent end-to-end — the "compile once, run anywhere
-    # Linux" claim cited in docs/context/AI_DEFENSIBILITY.md.
+    # Linux" claim.
     #
     # Note: uses `kensa version` (subcommand) rather than `kensa --version`
     # (flag) because the GNU/POSIX flag form is added in CLI Phase 1

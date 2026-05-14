@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 func TestKnownCapabilities_NonEmpty(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/transport/ssh"
+	"github.com/Hanalyx/kensa/internal/transport/ssh"
 )
 
 // realHostFromEnv returns the connection details for an integration
@@ -51,15 +51,15 @@ func TestConnect_RealHost(t *testing.T) {
 	}
 	defer tp.Close()
 
-	res, err := tp.Run(ctx, "echo hello-from-kensa-go")
+	res, err := tp.Run(ctx, "echo hello-from-kensa")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if res.ExitCode != 0 {
 		t.Errorf("ExitCode=%d, want 0 (stderr=%q)", res.ExitCode, res.Stderr)
 	}
-	if res.Stdout != "hello-from-kensa-go" {
-		t.Errorf("Stdout=%q, want %q", res.Stdout, "hello-from-kensa-go")
+	if res.Stdout != "hello-from-kensa" {
+		t.Errorf("Stdout=%q, want %q", res.Stdout, "hello-from-kensa")
 	}
 }
 

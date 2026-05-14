@@ -1,12 +1,12 @@
 # Specter Project Manifest
 # See: https://github.com/Hanalyx/specter
 #
-# Kensa Go spec discipline is tiered by atomicity risk. Components that the
-# atomicity commitment in docs/TRANSACTION_CONTRACT_V1.md depends on run at
-# Tier 1 (100% AC-to-test coverage). Everything else defaults to Tier 2.
+# Kensa spec discipline is tiered by atomicity risk. Components that the
+# atomicity commitment depends on run at Tier 1 (100% AC-to-test coverage).
+# Everything else defaults to Tier 2.
 
 system:
-    name: kensa-go
+    name: kensa
     tier: 2   # default for unclassified specs
 
 domains:

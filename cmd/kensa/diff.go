@@ -12,9 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/diff"
-	"github.com/Hanalyx/kensa-go/internal/output"
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/diff"
+	"github.com/Hanalyx/kensa/internal/output"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // runDiff handles `kensa diff SESSION1 SESSION2 [flags]` (C-048).

@@ -4,9 +4,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/mappings"
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/mappings"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 // TestRefsFromReferences_CIS verifies that CIS versioned references are

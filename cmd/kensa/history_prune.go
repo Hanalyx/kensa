@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // pruneDaysMax bounds the --prune DAYS argument at 100 years.

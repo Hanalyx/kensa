@@ -29,6 +29,14 @@ coverage.html
 CLAUDE.md
 inventory.ini
 
+# Internal docs surface — vision, roadmap, foundation contracts, AI
+# session logs, founder release sign-off. Kept locally as working
+# notes; not part of the published repo. Only docs/guide/ (operator
+# guide) is tracked.
+/docs/*
+!/docs/guide/
+!/docs/.gitignore
+
 # Local-only artifacts
 .claude/
 .specter-results.json

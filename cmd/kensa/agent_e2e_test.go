@@ -23,8 +23,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/Hanalyx/kensa-go/internal/agent"
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/internal/agent"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 )
 
 // TestKensaAgent_StdioEndToEnd locks AC-07: spawn the kensa

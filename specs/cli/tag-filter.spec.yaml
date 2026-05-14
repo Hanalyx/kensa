@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-tag-filter
         description: |
             CLI Phase 3 deliverable C-031. Adds repeatable

@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // apply executes each step in order, halting on the first failure

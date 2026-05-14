@@ -1719,7 +1719,7 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\x06txn_id\x18\x01 \x01(\tR\x05txnId\"6\n" +
 	"\x15CancelDeadmanResponse\x12\x1d\n" +
 	"\n" +
-	"was_active\x18\x01 \x01(\bR\twasActiveB3Z1github.com/Hanalyx/kensa-go/internal/agent/wirev1b\x06proto3"
+	"was_active\x18\x01 \x01(\bR\twasActiveB0Z.github.com/Hanalyx/kensa/internal/agent/wirev1b\x06proto3"
 
 var (
 	file_internal_agent_wirev1_wire_proto_rawDescOnce sync.Once

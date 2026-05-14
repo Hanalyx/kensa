@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/engine/deadman"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/engine/deadman"
+	"github.com/Hanalyx/kensa/internal/handler"
 
 	// Register sysctlset so dry-run rollback tests can use it.
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/sysctlset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/sysctlset"
 )
 
 // substringFakeTransport is a test fake for api.Transport that matches

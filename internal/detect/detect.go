@@ -7,7 +7,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // probe is a single capability probe: a name and the shell command to

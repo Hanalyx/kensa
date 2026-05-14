@@ -12,7 +12,7 @@
 //
 //	-h  → --help     (GNU convention)
 //	-V  → --version  (GNU convention)
-//	-v  → --verbose  (GNU convention; not yet used by kensa-go)
+//	-v  → --verbose  (GNU convention; not yet used by kensa)
 //
 // The case discipline is intentional. Several short letters use the
 // uppercase form because the lowercase form was already taken by a
@@ -207,7 +207,7 @@ const (
 
 	// ShortVar is `--var` (rule-variable override KEY=VALUE,
 	// repeatable). Wired in C-034. Lowercase x — Python kensa
-	// uses -V which is reserved for --version in kensa-go;
+	// uses -V which is reserved for --version in kensa;
 	// `-x` mnemonic is "eXtra var" matching ansible's `-e`.
 	ShortVar = "x"
 )

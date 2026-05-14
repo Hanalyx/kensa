@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // hostConfig builds a test config from KENSA_FUZZ_* env vars.

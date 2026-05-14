@@ -5,7 +5,7 @@ spec:
     tier: 1
 
     context:
-        system: kensa-go
+        system: kensa
         feature: handler-service-masked
         description: |
             The service_masked handler masks a systemd service

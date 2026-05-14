@@ -1,4 +1,4 @@
-# golangci-lint configuration for kensa-go.
+# golangci-lint configuration for kensa.
 #
 # Comment style enforces Google's Go Style Guide:
 #   https://google.github.io/styleguide/go/guide
@@ -36,7 +36,7 @@ linters-settings:
     simplify: true
 
   goimports:
-    local-prefixes: github.com/Hanalyx/kensa-go
+    local-prefixes: github.com/Hanalyx/kensa
 
   staticcheck:
     # Comment-style checks from staticcheck:

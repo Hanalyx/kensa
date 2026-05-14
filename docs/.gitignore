@@ -1,0 +1,13 @@
+# This directory is operator-guide only. Only docs/guide/ is tracked.
+# Other files under docs/ (vision, roadmap, foundation contracts, AI
+# session logs, founder release sign-off) are kept locally as working
+# notes — they are not part of the published repo surface.
+#
+# The rule is enforced from the repo-root .gitignore:
+#
+#     /docs/*
+#     !/docs/guide/
+#     !/docs/.gitignore
+#
+# To add a new public document, put it under docs/guide/ or carve out
+# an explicit exception above.

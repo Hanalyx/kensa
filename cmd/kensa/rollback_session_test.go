@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // makeRollbackStore seeds a temp DB with one rollback-able

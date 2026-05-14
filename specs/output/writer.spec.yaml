@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-output-writers
         description: |
             internal/output owns every concrete serializer the kensa CLI

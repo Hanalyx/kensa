@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/scan"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/scan"
 )
 
 // fakeTransport satisfies api.Transport using a map of command → result.

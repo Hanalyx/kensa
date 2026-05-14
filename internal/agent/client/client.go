@@ -32,9 +32,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent"
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 )
 
 // Sentinel errors callers can match via errors.Is.

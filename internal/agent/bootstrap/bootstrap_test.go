@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // fakeTransport implements api.Transport for tests. Records

@@ -12,10 +12,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/Hanalyx/kensa-go/internal/agent/deadman/eventloop"
-	"github.com/Hanalyx/kensa-go/internal/agent/deadman/pidfd"
-	"github.com/Hanalyx/kensa-go/internal/agent/deadman/signalfd"
-	"github.com/Hanalyx/kensa-go/internal/agent/deadman/timerfd"
+	"github.com/Hanalyx/kensa/internal/agent/deadman/eventloop"
+	"github.com/Hanalyx/kensa/internal/agent/deadman/pidfd"
+	"github.com/Hanalyx/kensa/internal/agent/deadman/signalfd"
+	"github.com/Hanalyx/kensa/internal/agent/deadman/timerfd"
 )
 
 // TestEventLoop_TimerFiresFirst locks AC-01: a 100ms timer

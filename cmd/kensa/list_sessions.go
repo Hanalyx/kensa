@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/output"
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/output"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // runListSessions handles `kensa list sessions [flags]` (C-048).
@@ -99,7 +99,7 @@ func runListSessions(ctx context.Context, dbPath string, args []string) error {
 }
 
 // sessionRow is the JSON-shape row for `list sessions`. Snake
-// case for parity with the rest of kensa-go's API surface.
+// case for parity with the rest of kensa's API surface.
 // Mirrors store.Session but with operator-relevant fields and
 // stable JSON tags (the store.Session shape carries internal
 // timestamps in time.Time, which JSON-encode as RFC3339).

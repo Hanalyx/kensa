@@ -4,7 +4,7 @@ spec:
     status: draft
     tier: 1
     context:
-        system: kensa-go
+        system: kensa
         feature: handler-kernel-module-disable
         description: |
             The kernel_module_disable handler blacklists a kernel module

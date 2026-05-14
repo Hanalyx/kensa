@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/handler"
 )
 
 const mechanism = "command_exec"

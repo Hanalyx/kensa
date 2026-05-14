@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/engine"
+	"github.com/Hanalyx/kensa/internal/engine"
 )
 
 // TestKensaDefault_LoadsSigningKey locks C-060 AC-06: when

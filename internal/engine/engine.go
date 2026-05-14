@@ -33,9 +33,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/evidence"
+	"github.com/Hanalyx/kensa/internal/handler"
 )
 
 // Engine is the transaction coordinator. Construct one with [New], then

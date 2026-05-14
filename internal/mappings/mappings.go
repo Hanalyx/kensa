@@ -27,7 +27,7 @@ package mappings
 import (
 	"fmt"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // RefsFromReferences converts the raw references map decoded from a rule YAML

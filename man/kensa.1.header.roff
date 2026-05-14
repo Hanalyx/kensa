@@ -1,0 +1,70 @@
+.\" Manpage for kensa(1) — kensa CLI
+.\" This file is the HAND-WRITTEN header. The body is generated
+.\" from `bin/kensa <subcmd> --help` output by docs/man/gen-manpage.go.
+.\" Run `make manpage` to regenerate dist/kensa.1; run
+.\" `make manpage-check` to verify the committed copy is in sync.
+.TH KENSA 1 "May 2026" "kensa v1.0" "User Commands"
+.
+.SH NAME
+kensa \- atomic Linux configuration remediation with
+capture/apply/validate/commit-or-rollback transactions
+.
+.SH SYNOPSIS
+.B kensa
+[\fI--db PATH\fR]
+.I command
+[\fIflags\fR] [\fIarguments\fR]
+.PP
+.B kensa
+[\fI--help\fR | \fI--version\fR]
+.
+.SH DESCRIPTION
+.B kensa
+is a compliance and atomicity engine for Linux configuration changes.
+Every change runs as a four-phase transaction: capture the pre-state,
+apply the change, validate the result, then commit or roll back. The
+atomicity contract is the product; the compliance rules are the first
+application of it.
+.PP
+The CLI surface is operator-facing: subcommands probe a host's
+capabilities, run read-only compliance checks, apply remediations,
+roll back past transactions, query the transaction log, and surface
+session-aware drift reports. All transport defaults to system OpenSSH
+(with ControlMaster connection sharing) so SSH agent, jump-host, and
+known_hosts integration just works.
+.PP
+Rules are runtime input, not compiled in. The CLI requires
+.I --rules-dir DIR
+on most subcommands; the canonical 539-rule corpus ships separately
+as the
+.B kensa-rules
+package.
+.
+.SH GLOBAL OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help and exit. Use
+.B kensa <command> --help
+for subcommand-specific flags.
+.TP
+.BR \-V ", " \-\-version
+Print the kensa binary version and exit.
+.TP
+.BR \-D " " \fIPATH\fR ", " \-\-db " " \fIPATH\fR
+SQLite transaction-log path. Default: \fB.kensa/results.db\fR in the
+current working directory. Required for
+.B history
+,
+.B rollback
+,
+.B diff
+, and
+.B migrate
+subcommands; optional elsewhere.
+.
+.SH COMMANDS
+The following subcommands are documented in detail below. Each
+section is generated from the live
+.B kensa <command> --help
+output so the manpage and the binary stay in sync.
+.

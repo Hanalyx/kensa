@@ -5,7 +5,7 @@ spec:
     tier: 2
 
     context:
-        system: kensa-go
+        system: kensa
         feature: agent-wire-protocol
         description: |
             LL Phase 1 deliverable L-007. Scaffolds the
@@ -99,7 +99,7 @@ spec:
           description: |
               `internal/agent/wirev1/wire.proto` MUST declare
               `syntax = "proto3"` and `go_package =
-              "github.com/Hanalyx/kensa-go/internal/agent/wirev1"`.
+              "github.com/Hanalyx/kensa/internal/agent/wirev1"`.
               proto2 syntax is rejected (the optional/required
               distinction is a known footgun; proto3's
               singular-default model + explicit `optional`
@@ -239,7 +239,7 @@ spec:
         - id: AC-07
           description: |
               The generated package import path is
-              `github.com/Hanalyx/kensa-go/internal/agent/wirev1`.
+              `github.com/Hanalyx/kensa/internal/agent/wirev1`.
               Importing it from a hypothetical `wirev2/`
               package (when v2 lands) produces no import
               collision. Verified by manual inspection of

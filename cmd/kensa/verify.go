@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/evidence"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/evidence"
 )
 
 // validKeyID gates the format of envelope.signing_key_id before we
@@ -28,7 +28,7 @@ var validKeyID = regexp.MustCompile(`^[a-f0-9]{64}$`)
 // Reads a JSON-encoded EvidenceEnvelope from disk, looks up the
 // corresponding public key by signing_key_id in a configured
 // trust directory, runs Ed25519 verification, exits 0 / 1 / 2
-// per the standard kensa-go contract.
+// per the standard kensa contract.
 //
 // Trust-directory model: each public key lives at
 // `<trust-dir>/<keyID>.pub` (matches kensa-keygen's default

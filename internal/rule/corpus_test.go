@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 // @spec rule-ordering

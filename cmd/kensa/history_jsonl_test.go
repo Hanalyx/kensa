@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // makeHistoryStore seeds a temp DB with N committed transactions

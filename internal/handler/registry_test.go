@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/handler"
 )
 
 // stubHandler is a minimal capturable handler used to exercise the registry.

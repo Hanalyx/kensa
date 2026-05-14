@@ -6,14 +6,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
-	"github.com/Hanalyx/kensa-go/internal/handler"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/internal/handler"
 
 	// Blank import so file_permissions registers in
 	// handler.Default(). Same pattern cmd/kensa/main.go
 	// uses.
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/filepermissions"
+	_ "github.com/Hanalyx/kensa/internal/handlers/filepermissions"
 )
 
 // TestServer_Handle_UnknownMechanism locks AC-05: a

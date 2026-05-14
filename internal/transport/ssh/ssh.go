@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Config configures [Connect].

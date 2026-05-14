@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Rollback restores owner, group, mode, and SELinux context from the

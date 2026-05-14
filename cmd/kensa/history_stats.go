@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // writeHistoryStatsText renders the C-042 stats summary in the

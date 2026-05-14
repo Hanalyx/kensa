@@ -5,7 +5,7 @@ spec:
     tier: 1
 
     context:
-        system: kensa-go
+        system: kensa
         feature: deadman-timerfd
         description: |
             LL Phase 3 deliverable D-001. The kernel-primitive

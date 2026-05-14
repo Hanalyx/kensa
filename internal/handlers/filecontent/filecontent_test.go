@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/transport/local"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/transport/local"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/handlers/filecontent"
 )
 
 // captureOutput returns the fake capture stdout for an existing file.

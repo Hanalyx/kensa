@@ -3,7 +3,7 @@ package rule
 import (
 	"fmt"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Select returns the best [api.Implementation] for rule given caps.

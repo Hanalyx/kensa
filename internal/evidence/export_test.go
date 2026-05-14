@@ -1,6 +1,6 @@
 package evidence
 
-import "github.com/Hanalyx/kensa-go/api"
+import "github.com/Hanalyx/kensa/api"
 
 // CanonicalForTest exposes canonicalize() to package-external
 // tests. Lives in *_test.go so it doesn't ship in production

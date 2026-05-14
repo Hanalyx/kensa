@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-capability-override
         description: |
             CLI Phase 3 deliverable C-028. Adds repeatable

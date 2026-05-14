@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-limit-flag
         description: |
             CLI Phase 3 deliverable C-025. Adds --limit/-l to
@@ -49,7 +49,7 @@ spec:
             excludes:
                 - "--limit on kensa remediate (remediate doesn't have inventory mode yet; defer)"
                 - "--limit on kensa detect (single-host only; no inventory)"
-                - Glob match against group names (kensa-go intentionally restricts globs to addrs)
+                - Glob match against group names (kensa intentionally restricts globs to addrs)
                 - "@/path/file pattern syntax (ansible limit-from-file; defer)"
                 - "~regex syntax (ansible regex; defer)"
                 - YAML inventory format (only INI today; YAML is a separate parser deliverable)

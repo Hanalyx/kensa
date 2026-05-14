@@ -4,7 +4,7 @@ spec:
     status: draft
     tier: 1
     context:
-        system: kensa-go
+        system: kensa
         feature: handler-cron-job
         description: |
             The cron_job handler writes a scheduled job to /etc/cron.d/.

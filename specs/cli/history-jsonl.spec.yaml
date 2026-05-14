@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-history-jsonl
         description: |
             CLI Phase 5a deliverable C-051. Adds
@@ -16,7 +16,7 @@ spec:
 
             **Why jsonl on history specifically.** The
             transaction log is the canonical streamable
-            sequence in kensa-go. Operators pipe history
+            sequence in kensa. Operators pipe history
             output into Splunk, ELK, Loki, and similar
             log aggregators that parse one JSON object
             per line — the natural shape for time-series

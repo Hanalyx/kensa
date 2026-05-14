@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-quiet-flag
         description: |
             The --quiet (-q) flag suppresses default human-readable

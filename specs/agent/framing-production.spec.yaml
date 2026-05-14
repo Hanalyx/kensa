@@ -5,7 +5,7 @@ spec:
     tier: 2
 
     context:
-        system: kensa-go
+        system: kensa
         feature: agent-framing-production
         description: |
             LL Phase 1 deliverable L-010. Supersedes L-008's
@@ -67,7 +67,7 @@ spec:
             compatibility — the L-008 framing is INTERNAL
             and was always advertised as a stub. L-010
             breaks the wire format; L-008-era code does
-            not exist outside the kensa-go repo. The new
+            not exist outside the kensa repo. The new
             framing is the production contract from L-010
             forward.
 

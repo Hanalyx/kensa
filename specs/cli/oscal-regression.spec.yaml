@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-oscal-regression
         description: |
             CLI Phase 5a deliverable C-053. Adds golden-
@@ -41,7 +41,7 @@ spec:
             nesting changes, removed fields, type
             changes (string → array), addition of new
             mandatory fields. These are the drift modes
-            that break consumers parsing kensa-go's
+            that break consumers parsing kensa's
             OSCAL output downstream.
 
             **What this does NOT catch.** Semantics

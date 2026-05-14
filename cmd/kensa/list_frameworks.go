@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/coverage"
-	"github.com/Hanalyx/kensa-go/internal/output"
+	"github.com/Hanalyx/kensa/internal/coverage"
+	"github.com/Hanalyx/kensa/internal/output"
 )
 
 // runListFrameworks handles `kensa list frameworks

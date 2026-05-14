@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/handlers/selinuxbooleanset"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/handlers/selinuxbooleanset"
 )
 
 // @spec handler-selinux-boolean-set

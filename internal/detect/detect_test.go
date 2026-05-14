@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // fakeTransport is a test double for [api.Transport] that maps exact

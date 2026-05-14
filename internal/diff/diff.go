@@ -7,7 +7,7 @@ package diff
 import (
 	"sort"
 
-	"github.com/Hanalyx/kensa-go/internal/store"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // RuleChange is one row in a SessionDiff. Section is implicit

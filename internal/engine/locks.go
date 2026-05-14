@@ -3,7 +3,7 @@ package engine
 import (
 	"sync"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // hostLocks owns the per-host mutexes that satisfy engine-transaction

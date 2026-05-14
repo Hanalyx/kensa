@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 func makeRule(id, title, desc string, severity string, refs map[string]any, platforms ...api.Platform) *api.Rule {

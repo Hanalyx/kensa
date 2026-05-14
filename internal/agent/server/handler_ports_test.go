@@ -26,32 +26,32 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 
 	// Blank-import every capturable handler so handler.Default()
 	// is populated. Mirrors cmd/kensa/main.go's pattern. Without
 	// these, routing tests below get "unknown_mechanism" for
 	// every mechanism and the L-015..L-032 contract fails
 	// silently.
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/aptabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/aptpresent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configsetdropin"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/cronjob"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/fileabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/kernelmoduledisable"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/mountoptionset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/packageabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/packagepresent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/pammoduleconfigure"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/selinuxbooleanset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicedisabled"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/serviceenabled"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicemasked"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/sysctlset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/aptabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/aptpresent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/auditruleset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configsetdropin"
+	_ "github.com/Hanalyx/kensa/internal/handlers/cronjob"
+	_ "github.com/Hanalyx/kensa/internal/handlers/fileabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/filecontent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/kernelmoduledisable"
+	_ "github.com/Hanalyx/kensa/internal/handlers/mountoptionset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/packageabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/packagepresent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/pammoduleconfigure"
+	_ "github.com/Hanalyx/kensa/internal/handlers/selinuxbooleanset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/servicedisabled"
+	_ "github.com/Hanalyx/kensa/internal/handlers/serviceenabled"
+	_ "github.com/Hanalyx/kensa/internal/handlers/servicemasked"
+	_ "github.com/Hanalyx/kensa/internal/handlers/sysctlset"
 )
 
 // dispatchApplyTest is the common helper. Sends an

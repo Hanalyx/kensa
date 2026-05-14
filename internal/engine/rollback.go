@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // rollback reverses every successfully applied capturable step in

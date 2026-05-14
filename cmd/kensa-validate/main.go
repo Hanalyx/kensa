@@ -37,7 +37,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 // Short-letter constants for kensa-validate. Mirror the kensa CLI
@@ -55,9 +55,10 @@ const (
 )
 
 // version is the binary version printed by --version / -V.
-// Kept in sync with cmd/kensa/main.go's version constant.
-// (B7 fix, 2026-05-13.)
-const version = "v0.1.0-dev"
+// Set by -ldflags "-X main.version=$(cat VERSION)" at build time per
+// VERSIONING_PLAN.md so all five kensa binaries report the same string
+// from a single source of truth.
+var version = "dev"
 
 func main() {
 	os.Exit(runCLI(os.Args[1:]))

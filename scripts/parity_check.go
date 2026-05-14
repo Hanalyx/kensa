@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 func main() {

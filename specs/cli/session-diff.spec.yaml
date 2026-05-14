@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-session-diff
         description: |
             CLI Phase 4 deliverable C-048. Adds `kensa diff

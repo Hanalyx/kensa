@@ -3,8 +3,8 @@ package rule_test
 import (
 	"testing"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/rule"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/rule"
 )
 
 // TestValidate_ValidRule verifies that the well-formed fixture rules produce

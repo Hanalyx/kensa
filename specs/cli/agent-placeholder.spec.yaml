@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-agent-placeholder
         description: |
             **PARTIALLY SUPERSEDED 2026-05-11 (L-008).** This
@@ -19,7 +19,7 @@ spec:
             listing) remain authoritative — those
             behaviors are preserved across the L-008
             transition. A reader of this spec should treat
-            C-02 / AC-02 as historical: kensa-go v1.0
+            C-02 / AC-02 as historical: kensa v1.0
             shipped them; v1.1 supersedes them.
 
             CLI Phase 5a deliverable C-054. Reserves the

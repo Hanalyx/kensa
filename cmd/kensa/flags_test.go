@@ -83,7 +83,7 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 	// Constants that are intentionally empty per the CLI Phase 3
 	// short-letter table (no canonical short, long-form only). The
 	// migration doc §3 documents which flags lack a Python-kensa
-	// short; kensa-go matches.
+	// short; kensa matches.
 	intentionallyEmpty := map[string]bool{
 		"ShortSudo":   true, // §3.2: --sudo has no short
 		"ShortFormat": true, // C-024: --format short freed for --framework
@@ -172,7 +172,7 @@ func TestShortLetterTable_CaseDiscipline(t *testing.T) {
 		{"ShortCategory", ShortCategory, false, "Python kensa parity"},
 		{"ShortFramework", ShortFramework, false, "Python kensa parity"},
 		{"ShortWorkers", ShortWorkers, false, "Python kensa parity"},
-		{"ShortVar", ShortVar, false, "kensa-go-only — eXtra var mnemonic"},
+		{"ShortVar", ShortVar, false, "kensa-only — eXtra var mnemonic"},
 		// Intentionally empty cases — skipped by the case check.
 		// ShortSudo, ShortFormat are excluded above.
 	}

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/varsub"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/varsub"
 )
 
 // ruleLoadFilterSpec captures the rule-load + filter inputs as a

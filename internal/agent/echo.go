@@ -24,7 +24,7 @@
 //     implementation.
 //  2. **Handler registry.** The agent binary blank-imports
 //     `internal/handlers/*` (same pattern as cmd/kensa/main.go's
-//     `_ "github.com/Hanalyx/kensa-go/internal/handlers/..."`)
+//     `_ "github.com/Hanalyx/kensa/internal/handlers/..."`)
 //     so handler.Default() is populated at startup. The
 //     dispatcher looks up `Apply.GetMechanism()` against
 //     handler.Default().Get(mechanism) and rejects with an
@@ -53,7 +53,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/Hanalyx/kensa-go/internal/agent/wirev1"
+	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 )
 
 // Handler routes a wirev1.Request to a Response. L-009 ships

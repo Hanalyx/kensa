@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // capture invokes the CaptureHandler for every capturable step and

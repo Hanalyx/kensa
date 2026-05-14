@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/output"
-	"github.com/Hanalyx/kensa-go/internal/store"
-	"github.com/Hanalyx/kensa-go/pkg/kensa"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/output"
+	"github.com/Hanalyx/kensa/internal/store"
+	"github.com/Hanalyx/kensa/pkg/kensa"
 )
 
 // runRollbackList implements `kensa rollback --list` (C-049):

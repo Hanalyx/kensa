@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Capture records owner (name+uid), group (name+gid), mode (octal),

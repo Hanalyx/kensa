@@ -36,28 +36,28 @@ import (
 	// Import all handler packages to trigger their init() registrations.
 	// Each register.go calls handler.Register(New()), which populates the
 	// global registry that the fuzz engine uses to look up handlers.
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/auditruleset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/configsetdropin"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/cronjob"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/fileabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/filecontent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/filepermissions"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/kernelmoduledisable"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/mountoptionset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/packageabsent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/packagepresent"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/pammoduleconfigure"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/selinuxbooleanset"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicedisabled"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/serviceenabled"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/servicemasked"
-	_ "github.com/Hanalyx/kensa-go/internal/handlers/sysctlset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/auditruleset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/configsetdropin"
+	_ "github.com/Hanalyx/kensa/internal/handlers/cronjob"
+	_ "github.com/Hanalyx/kensa/internal/handlers/fileabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/filecontent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/filepermissions"
+	_ "github.com/Hanalyx/kensa/internal/handlers/kernelmoduledisable"
+	_ "github.com/Hanalyx/kensa/internal/handlers/mountoptionset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/packageabsent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/packagepresent"
+	_ "github.com/Hanalyx/kensa/internal/handlers/pammoduleconfigure"
+	_ "github.com/Hanalyx/kensa/internal/handlers/selinuxbooleanset"
+	_ "github.com/Hanalyx/kensa/internal/handlers/servicedisabled"
+	_ "github.com/Hanalyx/kensa/internal/handlers/serviceenabled"
+	_ "github.com/Hanalyx/kensa/internal/handlers/servicemasked"
+	_ "github.com/Hanalyx/kensa/internal/handlers/sysctlset"
 
-	"github.com/Hanalyx/kensa-go/api"
-	"github.com/Hanalyx/kensa-go/internal/engine"
-	"github.com/Hanalyx/kensa-go/internal/handler"
-	sshtransport "github.com/Hanalyx/kensa-go/internal/transport/ssh"
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/engine"
+	"github.com/Hanalyx/kensa/internal/handler"
+	sshtransport "github.com/Hanalyx/kensa/internal/transport/ssh"
 )
 
 // config collects CLI flags.
@@ -112,9 +112,10 @@ const (
 )
 
 // version is the binary version printed by --version / -V.
-// Kept in sync with cmd/kensa/main.go's version constant.
-// (B7 fix, 2026-05-13.)
-const version = "v0.1.0-dev"
+// Set by -ldflags "-X main.version=$(cat VERSION)" at build time per
+// VERSIONING_PLAN.md so all five kensa binaries report the same string
+// from a single source of truth.
+var version = "dev"
 
 func main() {
 	os.Exit(runCLI(os.Args[1:]))

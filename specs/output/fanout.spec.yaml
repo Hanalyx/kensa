@@ -5,7 +5,7 @@ spec:
     tier: 3
 
     context:
-        system: kensa-go
+        system: kensa
         feature: cli-output-fanout
         description: |
             C-019 wires the `-o FORMAT[:PATH]` mechanism end-to-end.

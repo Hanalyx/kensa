@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // textCapsWriter renders a CapabilitySet as a sorted check/cross list.

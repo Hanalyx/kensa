@@ -66,7 +66,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Hanalyx/kensa-go/api"
+	"github.com/Hanalyx/kensa/api"
 )
 
 // sigDomainTag is the fixed prefix prepended to canonical envelope
