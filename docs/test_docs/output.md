@@ -69,11 +69,25 @@ kensa: warning: --format is deprecated; use --output FORMAT[:PATH]
 
 Operators upgrading existing scripts see one warning per run; CI consumers can suppress.
 
+## Remediate text-output summary semantics (B6 fix, 2026-05-13)
+
+The text writer's `kensa remediate` summary now distinguishes:
+
+- **`applied`** — the engine ran a transaction: capture → apply → commit (or rollback on validate failure). A persisted record is written to the transaction log. `kensa history` will show this transaction.
+- **`already-compliant`** — the scanner's pre-check found the host already in desired state; no apply ran, no transaction was created. These do NOT appear in `kensa history` (no engine work, no persisted record).
+- **`rolled_back`** / **`errors`** / **`skipped`** — unchanged semantics.
+
+Pre-fix, both `applied` and `already-compliant` rolled into a single `committed` count, which created a 433-vs-36 discrepancy between the remediate summary and the history table observed during the 2026-05-13 live test. The split makes the actual work kensa did legible without consulting history.
+
+Per-row STATUS column also shows `applied` or `already-compliant` instead of the generic `committed`.
+
+The JSON/CSV/OSCAL/Evidence output formats are unchanged — the underlying TransactionResult shape is preserved (Status=Committed for both cases; the in-memory synthetic record's `Steps[0].Mechanism == "check"` is the discriminator). Programmatic consumers can replicate the split by checking that marker.
+
 ## Known limits
 
 - **Evidence envelopes carry real Ed25519 signatures (M-012 + C-060, 2026-05-10).** `kensa verify <evidence-file>` validates against a trust dir of kensa-keygen-produced `.pub` files; persistent operator keys via `KENSA_SIGNING_KEY=/path/to/key.priv`.
 - **No streaming output for inventory.** Per-host results are collected then rendered. A 100-host fleet pays the latency penalty; the `-o csv:PATH` data-loss guard exists because of this.
 - **PDF format embeds maroto v2.** The PDF builder is a heavy dependency. Operators not needing PDF can build with `-tags=nopdf` (future build-tag, not yet wired) to drop the dependency. Today the binary always includes maroto.
 - **No `markdown:PATH` smoke check.** The markdown writer is exercised by unit tests but not the cli-smoke matrix; format-specific smoke gates are queued.
-- **No diff-mode output.** `kensa diff` is Phase 4. Today, comparing two scans requires shell scripting against the JSON outputs.
+- **`kensa diff` shipped in CLI Phase 4 (`c0b58a3`, 2026-05-09).** Compares two stored sessions by ID; rule-by-rule drift report.
 - **OSCAL output is Assessment Results only, not Plan or Profile.** Operators wanting OSCAL-Profile-aligned input must use Python kensa.
