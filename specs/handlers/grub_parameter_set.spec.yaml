@@ -1,0 +1,103 @@
+spec:
+    id: handler-grub-parameter-set
+    version: 0.1.0
+    status: draft
+    tier: 2
+    context:
+        system: kensa
+        feature: handler-grub-parameter-set
+        description: |
+            The grub_parameter_set handler adds or updates a kernel
+            command-line parameter (key=value) in GRUB_CMDLINE_LINUX inside
+            /etc/default/grub and regenerates the GRUB configuration via
+            grub2-mkconfig (falling back to grub-mkconfig). Apply first strips
+            any existing occurrence of the key, then appends key=value before
+            the closing quote. The change takes effect only after a reboot.
+
+            This handler is non-capturable: it implements only Handler, not
+            CaptureHandler or RollbackHandler. A GRUB config change cannot be
+            atomically rolled back in the running kernel, so rules using it
+            must declare transactional: false.
+
+            Note: deadman-guard wiring for this handler (so a bad boot
+            parameter does not strand the host) is tracked as a separate
+            pending roadmap item and is intentionally NOT in this spec's
+            scope.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Set params.key=params.value in GRUB_CMDLINE_LINUX in
+            /etc/default/grub and regenerate the boot configuration. No
+            pre-state is captured and no rollback is offered.
+        scope:
+            includes:
+                - sed strip of any prior occurrence of the key
+                - sed append of key=value before the closing GRUB_CMDLINE_LINUX quote
+                - grub config regeneration via grub2-mkconfig / grub-mkconfig
+                - validation of the required key and value params
+                - the non-capturable nature of the handler
+            excludes:
+                - capture of prior GRUB state
+                - rollback of the set parameter
+                - deadman-guard wiring (separate pending roadmap item)
+                - rebooting the host (operator responsibility)
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST strip any existing occurrence of params.key and then
+              append key=value before the closing quote of GRUB_CMDLINE_LINUX
+              in /etc/default/grub, then regenerate the GRUB configuration,
+              all in a single chained pipeline.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              decodeParams MUST reject a nil params map, a missing or
+              non-string or empty key, and a missing or non-string value,
+              returning an error before any command runs.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              When the underlying pipeline exits non-zero, Apply MUST return
+              a StepResult with Success=false (not an error), surfacing the
+              exit code and stderr in Detail.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              grub_parameter_set is non-capturable: Capturable() MUST return
+              false and the type MUST NOT satisfy CombinedHandler at runtime,
+              so the engine never attempts capture or rollback.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply strips the prior key, appends key=value to
+              GRUB_CMDLINE_LINUX, and regenerates the GRUB config.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              decodeParams rejects a nil map, a missing/empty/non-string key,
+              or a missing/non-string value.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              Apply reports Success=false (no error) when the pipeline exits
+              non-zero.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              The handler is non-capturable — Capturable() is false and a
+              runtime type-assert to CombinedHandler returns false.
+          references_constraints: [C-04]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, non-capturable, tier-2, grub, boot]

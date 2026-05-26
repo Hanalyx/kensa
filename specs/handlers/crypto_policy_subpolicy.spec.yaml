@@ -1,0 +1,103 @@
+spec:
+    id: handler-crypto-policy-subpolicy
+    version: 0.1.0
+    status: draft
+    tier: 2
+    context:
+        system: kensa
+        feature: handler-crypto-policy-subpolicy
+        description: |
+            The crypto_policy_subpolicy handler appends a subpolicy
+            module (e.g. NO-SHA1) to the active RHEL crypto policy via
+            update-crypto-policies. It is non-capturable: subpolicy
+            changes stack on the existing base policy and cannot be
+            trivially reversed without knowing the full prior subpolicy
+            state, so rules using it must declare transactional: false.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Read the active crypto policy with
+            "update-crypto-policies --show", and if the requested
+            subpolicy is not already present, append it to the current
+            policy with "update-crypto-policies --set". Idempotent when
+            the subpolicy is already active.
+        scope:
+            includes:
+                - read the current policy via --show
+                - append the subpolicy via --set when absent
+                - no-op when the subpolicy is already active (case-insensitive)
+                - param validation of the required "subpolicy" string
+                - non-capturable nature (Handler only, no Capture/Rollback)
+            excludes:
+                - removing a subpolicy from the active policy
+                - capture of pre-state or rollback of the policy change
+                - setting the base crypto policy (use a base-policy mechanism)
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST read the active policy via
+              "update-crypto-policies --show" and, when the requested
+              subpolicy is absent, set the new policy as the current
+              policy with the subpolicy appended after a colon.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Apply MUST be idempotent: when the requested subpolicy is
+              already present in the colon-separated policy string
+              (case-insensitive), Apply is a no-op success and issues no
+              --set command.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Apply MUST report Success=false (not a Go error) when
+              --show or --set exits non-zero, surfacing the exit code and
+              stderr in the detail.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              decodeParams MUST reject nil params, a missing "subpolicy"
+              key, or a "subpolicy" value that is not a non-empty string,
+              returning errMissingSubpolicy before any command runs.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              crypto_policy_subpolicy is non-capturable (Capturable()
+              returns false, transactional: false). It implements only
+              Handler and MUST NOT satisfy CombinedHandler, because
+              stacked subpolicy changes cannot be trivially reversed
+              without the full prior subpolicy state.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply appends the subpolicy via --set when it is absent from the active policy.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Apply is a no-op (no --set) when the subpolicy is already active.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Apply reports Success=false (no Go error) when --show or --set exits non-zero.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: decodeParams rejects nil params, a missing key, and an empty/non-string subpolicy.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              crypto_policy_subpolicy is non-capturable — Capturable()
+              returns false and a runtime type-assert to CombinedHandler
+              returns false.
+          references_constraints: [C-05]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, non-capturable, tier-2, crypto-policy]

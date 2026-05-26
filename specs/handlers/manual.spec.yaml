@@ -1,0 +1,92 @@
+spec:
+    id: handler-manual
+    version: 0.1.0
+    status: draft
+    tier: 3
+    context:
+        system: kensa
+        feature: handler-manual
+        description: |
+            The manual handler records a human-action-required note in the
+            transaction log without touching the target host. Apply runs no
+            remote command; it always succeeds so the step is recorded as
+            committed, and the returned StepResult Detail carries the
+            operator-facing action description.
+
+            This handler is non-capturable: it implements only Handler, not
+            CaptureHandler or RollbackHandler. There is nothing to capture
+            (no host state is changed) and nothing to roll back. Rules using
+            manual must declare transactional: false.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Record an operator action description in the transaction log
+            without mutating the host. No command runs, no pre-state is
+            captured, and no rollback is offered.
+        scope:
+            includes:
+                - resolution of the action text from params.description, then params.action
+                - a default description when neither param is provided
+                - always-successful StepResult with the description in Detail
+                - the no-op (no transport.Run) and non-capturable nature of the handler
+            excludes:
+                - any remote command execution
+                - capture of host state
+                - rollback of any change
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST NOT run any remote command: it performs zero
+              transport.Run calls and never mutates the target host.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Apply MUST always return Success=true with the resolved action
+              description in Detail, resolving description from
+              params.description, then params.action, then a default
+              "manual action required" string when neither is present.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Apply MUST reject a nil params map with an error, since a
+              manual step still requires a (possibly empty) params container.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              manual is non-capturable: Capturable() MUST return false and
+              the type MUST NOT satisfy CombinedHandler at runtime, so the
+              engine never attempts capture or rollback.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Apply runs no remote command (no transport.Run) and returns
+              Success=true with the description in Detail.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              Apply resolves the description from params.action when
+              params.description is absent, and uses a default string when
+              neither is present.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: Apply rejects a nil params map with an error.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              The handler is non-capturable — Capturable() is false and a
+              runtime type-assert to CombinedHandler returns false.
+          references_constraints: [C-04]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, non-capturable, tier-3, manual, operator]

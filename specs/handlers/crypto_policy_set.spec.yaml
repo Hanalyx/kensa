@@ -1,0 +1,84 @@
+spec:
+    id: handler-crypto-policy-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: handler-crypto-policy-set
+        description: |
+            The crypto_policy_set handler sets the system-wide RHEL
+            crypto policy via `update-crypto-policies --set`. Capture
+            records the current policy via `--show`; rollback restores it.
+            Crypto-policy changes affect TLS, SSH, and kernel crypto and
+            warrant review before production use.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Set the system crypto policy to params.policy. Capture records
+            the prior policy so rollback can restore it.
+        scope:
+            includes:
+                - Set the policy via update-crypto-policies --set
+                - Capture of the prior policy via --show
+                - Rollback restoring the prior policy
+            excludes:
+                - Custom subpolicy management (use crypto_policy_subpolicy)
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST set the system crypto policy to params.policy via
+              `update-crypto-policies --set`.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record the current crypto policy via
+              `update-crypto-policies --show`, returning
+              ErrCaptureIncomplete when that command fails.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST restore the captured prior policy via
+              `update-crypto-policies --set`.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              decodeParams MUST reject a missing, empty, or non-string
+              policy param.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Crypto-policy changes affect TLS, SSH, and kernel crypto.
+              Rules using this handler should be reviewed for
+              control-channel sensitivity before running against
+              production hosts.
+          type: security
+          enforcement: warning
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply sets the crypto policy via update-crypto-policies --set.
+          references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-02
+          description: |
+              Capture records the prior policy, and returns
+              ErrCaptureIncomplete when --show fails.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Rollback restores the captured prior policy.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: decodeParams rejects a missing or empty policy param.
+          references_constraints: [C-04]
+          priority: high
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, capturable, tier-1, crypto]
