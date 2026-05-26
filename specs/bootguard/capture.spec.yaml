@@ -1,0 +1,87 @@
+spec:
+    id: bootguard-capture
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-capture
+        description: |
+            The bootguard package provides the read-only boot-state capture
+            that underpins the grub deadman guard (see
+            docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md). It detects the
+            bootloader flavor — BLS on RHEL 8/9/10, legacy grub.cfg on
+            Ubuntu 22.04/24.04/26.04 — and snapshots the state needed to
+            later restore a host that boots into a bad kernel parameter.
+            This spec covers detection and capture ONLY; Restore (write-back)
+            and the boot-resident revert are separate, gated specs.
+    objective:
+        summary: |
+            Detect bootloader flavor and capture a read-only snapshot of the
+            pre-change boot state.
+        scope:
+            includes:
+                - Bootloader flavor detection (BLS vs legacy)
+                - Read-only capture of /etc/default/grub
+                - Capture of the active grub.cfg path
+                - Capture of BLS entry files on RHEL
+            excludes:
+                - Restore / write-back (separate gated spec)
+                - Boot-resident success/revert mechanism (separate gated spec)
+    constraints:
+        - id: C-01
+          description: |
+              DetectFlavor MUST report BLS when /boot/loader/entries exists
+              (RHEL 8/9/10) and legacy otherwise (Ubuntu).
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST be read-only — it issues no command that mutates
+              host state.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Capture MUST record /etc/default/grub contents and the active
+              grub.cfg path on every supported flavor.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              On BLS, Capture MUST additionally record the BootLoaderSpec
+              entry files so per-entry kernel args can later be restored.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Capture MUST return an error rather than a partial snapshot
+              when /etc/default/grub cannot be read.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: DetectFlavor returns BLS when /boot/loader/entries exists.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: DetectFlavor returns legacy when /boot/loader/entries is absent.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: Capture records /etc/default/grub contents and the active grub.cfg path.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: On BLS, Capture records the BLS entry files keyed by path.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: Capture issues only read-only commands (no host mutation).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: Capture returns an error when /etc/default/grub cannot be read.
+          references_constraints: [C-05]
+          priority: high
+    tags: [bootguard, grub, boot-safety, tier-1, capture, read-only]
