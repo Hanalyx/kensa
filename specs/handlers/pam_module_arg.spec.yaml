@@ -1,0 +1,99 @@
+spec:
+    id: handler-pam-module-arg
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: handler-pam-module-arg
+        description: |
+            The pam_module_arg handler ensures or removes an argument on a
+            PAM module line across one or more /etc/pam.d files, using sed
+            with an on-host .bak backup. PAM changes can affect
+            authentication and are flagged for control-channel review
+            before production use.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Add ("ensure") or strip ("remove") an argument on PAM module
+            lines across the listed files. Capture snapshots the affected
+            lines; rollback restores them.
+        scope:
+            includes:
+                - Edit PAM module lines in each params.files entry
+                - ensure (append arg if missing) and remove (strip arg)
+                - capture of the affected lines per file
+                - rollback restoring the captured lines (or the .bak copy)
+            excludes:
+                - adding or removing whole module lines (use pam_module_configure)
+    constraints:
+        - id: C-01
+          description: |
+              Apply "ensure" MUST be idempotent — when a matching module
+              line already carries the arg, Apply is a no-op for that file.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Apply MUST support "ensure" (append arg to matching module
+              lines) and "remove" (strip the arg), applied to every file in
+              params.files.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Capture MUST record the affected module lines (a grep -n
+              snapshot) for each file before Apply edits it.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Rollback MUST restore the captured lines verbatim, falling
+              back to the on-host .bak copy when no lines were captured for
+              a file.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              decodeParams MUST reject missing or invalid required params:
+              action in {ensure, remove}, module, arg, and a non-empty
+              files list.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              PAM changes affect authentication. Rules using this handler
+              should be reviewed for control-channel sensitivity before
+              running against production hosts.
+          type: security
+          enforcement: warning
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply "ensure" appends the arg to matching module lines when absent.
+          references_constraints: [C-02, C-06]
+          priority: critical
+        - id: AC-02
+          description: Apply "ensure" is a no-op when the arg is already present.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: Apply "remove" strips the arg from matching module lines.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: Capture records the affected module lines per file.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: Rollback restores the captured lines.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: decodeParams rejects missing or invalid params.
+          references_constraints: [C-05]
+          priority: high
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, capturable, tier-1, pam, auth]

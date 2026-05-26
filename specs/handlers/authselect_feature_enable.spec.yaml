@@ -1,0 +1,102 @@
+spec:
+    id: handler-authselect-feature-enable
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: handler-authselect-feature-enable
+        description: |
+            The authselect_feature_enable handler enables an authselect
+            feature (e.g. "with-faillock") via
+            `authselect enable-feature <feature>`. Capture records the
+            prior `authselect current --raw` output so rollback can decide
+            whether the feature was pre-existing or newly enabled.
+            authselect changes affect authentication and are flagged for
+            control-channel review before production use.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Enable an authselect feature. Capture snapshots the current
+            authselect profile/features; rollback disables the feature
+            only when it was not present before Apply ran.
+        scope:
+            includes:
+                - Run `authselect enable-feature <feature>`
+                - Capture of `authselect current --raw` output
+                - Rollback disabling a newly-enabled feature
+                - Rollback no-op when the feature was pre-existing
+            excludes:
+                - Selecting an authselect profile (use a profile handler)
+                - Editing PAM files directly (use pam_module_configure)
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST run `authselect enable-feature <feature>`. The
+              command is itself idempotent when the feature is already
+              enabled.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Capture MUST record the feature name and the prior
+              `authselect current --raw` output so rollback can detect a
+              pre-existing feature.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Rollback MUST run `authselect disable-feature <feature>`
+              when the feature was NOT present in the captured prior
+              output, and MUST be a no-op when it was present.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              decodeParams MUST reject params missing a non-empty
+              required 'feature'.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Rollback MUST reject a nil pre-state or one missing the
+              'feature' key.
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              authselect changes affect authentication. Rules using this
+              handler should be reviewed for control-channel sensitivity
+              before running against production hosts.
+          type: security
+          enforcement: warning
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply runs `authselect enable-feature <feature>`.
+          references_constraints: [C-01, C-06]
+          priority: critical
+        - id: AC-02
+          description: Capture records the feature name and prior authselect output.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Rollback disables the feature when it was not pre-existing.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: Rollback is a no-op when the feature was pre-existing.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: decodeParams rejects params missing a non-empty feature.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-06
+          description: Rollback rejects a nil pre-state.
+          references_constraints: [C-05]
+          priority: high
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, capturable, tier-1, authselect, auth]

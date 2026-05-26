@@ -1,0 +1,89 @@
+spec:
+    id: handler-command-exec
+    version: 0.1.0
+    status: draft
+    tier: 2
+    context:
+        system: kensa
+        feature: handler-command-exec
+        description: |
+            The command_exec handler runs an operator-supplied shell
+            command verbatim on the target host as a remediation step.
+            It is non-capturable: no pre-state is recorded and no
+            automatic rollback is possible, so rules using it must
+            declare transactional: false. Because it executes free-form
+            commands, it is security-sensitive and the burden of safety
+            rests entirely on the rule author.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Execute the operator-supplied "run" command on the target
+            host, reporting success when it exits 0 and failure when it
+            does not. Validate that the "run" param is present and a
+            non-empty string before executing anything.
+        scope:
+            includes:
+                - run the "run" command verbatim via the transport
+                - report Success=false when the command exits non-zero
+                - param validation of the required "run" string
+                - non-capturable nature (Handler only, no Capture/Rollback)
+            excludes:
+                - capture of any pre-state
+                - rollback of the executed command's effects
+                - any authorization or allow-list gate on the command
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST run the operator-supplied "run" command verbatim
+              through the transport. The handler performs no rewriting,
+              escaping, or filtering of the command.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Apply MUST report Success=true only when the command exits
+              0; a non-zero exit MUST yield Success=false with the exit
+              code and stderr in the detail (not a Go error).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Apply MUST reject invalid params: nil params, a missing
+              "run" key, or a "run" value that is not a non-empty string,
+              each returning a Go error before any command runs.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              command_exec is non-capturable (Capturable() returns false,
+              transactional: false). It implements only Handler and MUST
+              NOT satisfy CombinedHandler, since it records no pre-state
+              and supports no automatic rollback. Because it runs
+              free-form operator-supplied commands, rules using it carry
+              the full safety burden on the rule author.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply runs the supplied "run" command verbatim through the transport.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Apply reports Success=false (no Go error) when the command exits non-zero.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Apply rejects nil params, a missing "run" key, and an empty/non-string "run".
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              command_exec is non-capturable — Capturable() returns false
+              and a runtime type-assert to CombinedHandler returns false.
+          references_constraints: [C-04]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, non-capturable, tier-2, command-exec, security-sensitive]
