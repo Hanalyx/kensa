@@ -137,3 +137,17 @@ func TestCapture_ErrorWhenDefaultGrubUnreadable(t *testing.T) {
 		t.Fatal("expected error when /etc/default/grub is unreadable")
 	}
 }
+
+// @spec bootguard-capture
+// @ac AC-07
+func TestCapture_BLS_FailsClosedOnNoEntries(t *testing.T) {
+	t.Run("bootguard-capture/AC-07", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	tp.Results[`test -d '/boot/loader/entries'`] = &api.CommandResult{ExitCode: 0} // BLS
+	tp.Results[`cat '/etc/default/grub'`] = &api.CommandResult{Stdout: "GRUB_CMDLINE_LINUX=\"quiet\"\n"}
+	// No readable entries (e.g. unprivileged transport on a 0700 boot dir).
+	tp.Results[`ls -1 /boot/loader/entries/*.conf 2>/dev/null || true`] = &api.CommandResult{Stdout: ""}
+	if _, err := bootguard.Capture(context.Background(), tp); err == nil {
+		t.Fatal("expected fail-closed error on BLS host with no readable entries")
+	}
+}

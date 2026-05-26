@@ -59,6 +59,14 @@ spec:
               when /etc/default/grub cannot be read.
           type: security
           enforcement: error
+        - id: C-06
+          description: |
+              Capture MUST run over a privileged (sudo) transport and fail
+              closed on a BLS host when no entries are readable, rather than
+              returning a silently-incomplete snapshot. (The boot directories
+              are mode 0700 root on hardened RHEL.)
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: DetectFlavor returns BLS when /boot/loader/entries exists.
@@ -84,4 +92,8 @@ spec:
           description: Capture returns an error when /etc/default/grub cannot be read.
           references_constraints: [C-05]
           priority: high
+        - id: AC-07
+          description: On a BLS host, Capture returns an error when no entry files are readable (fail closed).
+          references_constraints: [C-06]
+          priority: critical
     tags: [bootguard, grub, boot-safety, tier-1, capture, read-only]

@@ -71,8 +71,14 @@ func DetectFlavor(ctx context.Context, t api.Transport) (Flavor, error) {
 }
 
 // Capture takes a read-only snapshot of boot state. It issues only read
-// commands (test, cat, ls) and never mutates the host. It returns an error
-// rather than a partial snapshot when /etc/default/grub cannot be read.
+// commands (test, cat, ls) and never mutates the host.
+//
+// Capture MUST run over a privileged (Sudo) transport: on hardened RHEL,
+// /boot/grub2 and /boot/loader/entries are mode 0700 root, so an
+// unprivileged transport cannot read them (and the entry glob expands as
+// the unprivileged user). Capture fails closed rather than returning a
+// silently-incomplete snapshot — it errors when /etc/default/grub cannot
+// be read, and (on BLS) when no entries are readable.
 func Capture(ctx context.Context, t api.Transport) (*Snapshot, error) {
 	flavor, err := DetectFlavor(ctx, t)
 	if err != nil {
@@ -98,6 +104,9 @@ func Capture(ctx context.Context, t api.Transport) (*Snapshot, error) {
 		entries, err := captureBLSEntries(ctx, t)
 		if err != nil {
 			return nil, err
+		}
+		if len(entries) == 0 {
+			return nil, fmt.Errorf("bootguard: BLS host but no readable entries under %s — incomplete capture (Capture requires a privileged/sudo transport to read the root-only boot directories)", blsEntriesDir)
 		}
 		snap.BLSEntries = entries
 	}
