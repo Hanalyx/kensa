@@ -1,0 +1,92 @@
+spec:
+    id: bootguard-oneshot
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-oneshot
+        description: |
+            Option B of the grub deadman guard (founder-ratified 2026-05-27):
+            instead of editing the global kernel command line and reverting on
+            a failed boot, ArmOneshot creates a TRIAL boot entry = a clone of
+            the current default plus the new args, and sets it as a ONE-SHOT
+            next boot. The saved default stays the old/known-good entry, so a
+            failed boot auto-falls back to it (the one-shot is consumed) with NO
+            boot-time script and NO userspace — which is why B is safe for the
+            kernel-panic case (§7.1f). A confirm step promotes the trial to the
+            permanent default after a healthy boot (separate increment).
+
+            This SUPERSEDES Option A's revert.sh staging (bootguard-arm). The
+            Capture/Restore primitives, the refuse-to-arm gate, and the
+            confirm-unit scaffolding remain; the Option-A revert.sh and the
+            boot_success/recordfail markers are superseded by B and will be
+            removed once B is complete.
+
+            Currently RHEL/BLS only (grubby + grub2-reboot, validated present on
+            RHEL 8.10/10.1); Ubuntu legacy (40_custom + grub-reboot) is a
+            separate increment. Must run over a privileged (sudo) transport.
+            Behavior is validated by the destructive reboot test (founders').
+        related_specs:
+            - bootguard-capture
+            - bootguard-confirm
+    objective:
+        summary: |
+            Arm a one-shot trial boot entry with the new args, leaving the saved
+            default known-good for automatic fallback.
+        scope:
+            includes:
+                - "RHEL/BLS: clone the default entry + new args via grubby --copy-default"
+                - Set the trial entry as a one-shot next boot (grub2-reboot)
+                - Record the trial entry identity for the confirm step
+            excludes:
+                - Ubuntu legacy arm (separate increment)
+                - The confirm/promote step (separate increment)
+                - The handler wiring (task #15)
+    constraints:
+        - id: C-01
+          description: |
+              ArmOneshot MUST create a trial boot entry that is a clone of the
+              current default plus the new args (RHEL via grubby --copy-default),
+              WITHOUT modifying the existing default entry.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              ArmOneshot MUST set the trial entry as a ONE-SHOT next boot
+              (grub2-reboot), leaving the saved default unchanged so a failed
+              boot auto-falls back to the known-good default with no boot-time
+              script.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              ArmOneshot MUST record the trial entry identity so the confirm
+              step can promote it (on success) or remove it (on fallback).
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: ArmOneshot MUST reject flavors it does not yet support, rather than arming incorrectly.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: RHEL ArmOneshot creates the trial entry via grubby --copy-default with the new args and does not modify the default entry.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: RHEL ArmOneshot sets the trial entry as a one-shot via grub2-reboot (saved default untouched).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: ArmOneshot records the trial entry identity to the state dir.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: ArmOneshot rejects an unsupported flavor (e.g. legacy) with an error.
+          references_constraints: [C-04]
+          priority: high
+    depends_on:
+        - spec_id: bootguard-capture
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, oneshot, option-b, rhel, gated]
