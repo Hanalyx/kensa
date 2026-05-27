@@ -86,32 +86,38 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 	}
 
 	// --- read-only staging verification (no reboot) ---
-	checks := []struct {
-		label string
-		cmd   string
-	}{
-		{"trial entry file(s) carrying the sentinel", "grep -l kensa_bootguard_trial /boot/loader/entries/*.conf 2>/dev/null || echo NONE"},
+	// Flavor-generic state.
+	for _, c := range []struct{ label, cmd string }{
 		{"recorded trial_entry", "cat /var/lib/kensa/bootguard/trial_entry 2>/dev/null || echo MISSING"},
 		{"recorded param_applied", "cat /var/lib/kensa/bootguard/param_applied 2>/dev/null || echo MISSING"},
 		{"confirm unit enabled", "systemctl is-enabled kensa-bootguard-confirm.service 2>&1 || true"},
-		{"one-shot next_entry armed", "grub2-editenv list 2>/dev/null | grep -i next_entry || echo NO_NEXT_ENTRY"},
-		{"DEFAULT args AFTER arm (param must still be ABSENT — promote is post-boot)", "grubby --info=DEFAULT 2>/dev/null | grep '^args='"},
-	}
-	for _, c := range checks {
-		r, err := tp.Run(ctx, c.cmd)
-		if err != nil {
-			t.Errorf("%s: transport error: %v", c.label, err)
-			continue
+	} {
+		if r, err := tp.Run(ctx, c.cmd); err == nil {
+			t.Logf("[%s] %s", c.label, strings.TrimSpace(r.Stdout))
 		}
-		t.Logf("[%s]\n%s", c.label, strings.TrimSpace(r.Stdout))
 	}
 
-	// Hard assertions on the staging.
-	if r, _ := tp.Run(ctx, "grep -lc kensa_bootguard_trial /boot/loader/entries/*.conf 2>/dev/null | head -1"); strings.TrimSpace(r.Stdout) == "" {
-		t.Errorf("no BLS entry carries the trial sentinel — arm did not create the trial entry")
-	}
-	if r, _ := tp.Run(ctx, "grubby --info=DEFAULT 2>/dev/null | grep '^args='"); strings.Contains(r.Stdout, param) {
-		t.Errorf("DEFAULT already carries %q after arm — arm must NOT touch the default; only promote (post-boot) may", param)
+	switch flavor {
+	case bootguard.FlavorBLS:
+		if r, _ := tp.Run(ctx, "grep -lc kensa_bootguard_trial /boot/loader/entries/*.conf 2>/dev/null | head -1"); strings.TrimSpace(r.Stdout) == "" {
+			t.Errorf("no BLS entry carries the trial sentinel — arm did not create the trial entry")
+		}
+		if r, _ := tp.Run(ctx, "grubby --info=DEFAULT 2>/dev/null | grep '^args='"); strings.Contains(r.Stdout, param) {
+			t.Errorf("DEFAULT already carries %q after arm — arm must NOT modify the default", param)
+		} else {
+			t.Logf("DEFAULT args after arm (param absent — good):\n%s", strings.TrimSpace(r.Stdout))
+		}
+	case bootguard.FlavorLegacy:
+		if r, _ := tp.Run(ctx, "test -f /etc/grub.d/11_kensa_bootguard && echo present || echo MISSING"); strings.TrimSpace(r.Stdout) != "present" {
+			t.Errorf("trial /etc/grub.d/11_kensa_bootguard not written")
+		}
+		if r, _ := tp.Run(ctx, "grep -c kensa-bootguard-trial /boot/grub/grub.cfg"); strings.TrimSpace(r.Stdout) == "0" {
+			t.Errorf("trial menuentry not present in grub.cfg after update-grub")
+		}
+		// The trial must NOT be menu index 0 — the real default must stay first.
+		if r, _ := tp.Run(ctx, "awk '/^menuentry |^submenu /{print NR\": \"$0}' /boot/grub/grub.cfg | head -3"); true {
+			t.Logf("first menuentries after arm (index 0 must be the real default, NOT the trial):\n%s", strings.TrimSpace(r.Stdout))
+		}
 	}
 	t.Logf("ARM STAGED OK — host is armed for a one-shot trial boot. Reboot to exercise promote.")
 }

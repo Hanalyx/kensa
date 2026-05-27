@@ -78,7 +78,7 @@ func TestBuildConfirmScript_Ubuntu_CleansUpTrialScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildConfirmScript(legacy): %v", err)
 	}
-	if !strings.Contains(s, "rm -f /etc/grub.d/09_kensa_bootguard") {
+	if !strings.Contains(s, "rm -f /etc/grub.d/11_kensa_bootguard") {
 		t.Errorf("Ubuntu confirm must remove the trial /etc/grub.d script; got:\n%s", s)
 	}
 	if !strings.Contains(s, "else") {

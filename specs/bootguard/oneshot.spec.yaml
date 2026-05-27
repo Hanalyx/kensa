@@ -1,6 +1,6 @@
 spec:
     id: bootguard-oneshot
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 1
     context:
@@ -69,6 +69,17 @@ spec:
           description: ArmOneshot MUST reject an unsupported flavor rather than arming incorrectly.
           type: security
           enforcement: error
+        - id: C-06
+          description: |
+              On Ubuntu (GRUB_DEFAULT=0) the trial menuentry MUST be emitted by a
+              /etc/grub.d script ordered AFTER 10_linux, so the real default
+              stays menu index 0 and a FAILED trial's next boot falls back to it.
+              A script ordered before 10_linux makes the trial index 0 and would
+              boot-loop a failed trial instead of falling back, defeating the
+              auto-fallback safety. The one-shot references the trial by title,
+              so its index is irrelevant to arming.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: RHEL ArmOneshot creates the trial via grubby --copy-default with the param+sentinel and does not modify the default.
@@ -94,6 +105,10 @@ spec:
           description: ArmOneshot rejects an unsupported flavor with an error.
           references_constraints: [C-05]
           priority: high
+        - id: AC-07
+          description: The Ubuntu trial /etc/grub.d script is ordered after 10_linux so the real default remains the index-0 fallback for a failed trial.
+          references_constraints: [C-06]
+          priority: critical
     depends_on:
         - spec_id: bootguard-capture
           relationship: requires

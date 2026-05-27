@@ -27,10 +27,14 @@ const trialSentinel = "kensa_bootguard_trial"
 const paramAppliedPath = StateDir + "/param_applied"
 
 // ubuntuTrialScript is the /etc/grub.d/ script that emits the cloned trial
-// menuentry on Ubuntu. The 09_ prefix orders it before 10_linux so the trial
-// is visible; it adds an entry without touching the 10_linux-generated
-// defaults.
-const ubuntuTrialScript = "/etc/grub.d/09_kensa_bootguard"
+// menuentry on Ubuntu. The prefix MUST sort AFTER 10_linux so the real default
+// stays menu index 0: with GRUB_DEFAULT=0 a failed trial's next boot falls back
+// to index 0, which must be the known-good default, NOT the trial. A 09_ prefix
+// (before 10_linux) made the trial index 0 and would boot-loop a failed trial
+// instead of falling back — caught while validating the Ubuntu fallback path.
+// The one-shot references the trial by title, so its menu index is irrelevant
+// to arming.
+const ubuntuTrialScript = "/etc/grub.d/11_kensa_bootguard"
 
 // ArmOneshot implements Option B (founder-ratified 2026-05-27): create a TRIAL
 // boot entry = clone of the current default plus the new param (and a sentinel

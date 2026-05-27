@@ -53,3 +53,17 @@ func TestExtractDefaultMenuentry(t *testing.T) {
 		t.Error("expected error when no menuentry is present")
 	}
 }
+
+// @spec bootguard-oneshot
+// @ac AC-07
+func TestUbuntuTrialScript_OrdersAfter10Linux(t *testing.T) {
+	t.Run("bootguard-oneshot/AC-07", func(t *testing.T) {})
+	base := ubuntuTrialScript[strings.LastIndex(ubuntuTrialScript, "/")+1:]
+	// update-grub runs /etc/grub.d scripts in LC_ALL=C sorted order. The trial
+	// script must sort AFTER 10_linux so the real default stays menu index 0;
+	// with GRUB_DEFAULT=0 a failed trial then falls back to the real default,
+	// not to the trial (which would boot-loop).
+	if base <= "10_linux" {
+		t.Errorf("trial script %q must sort after 10_linux (failed-trial fallback safety); base=%q", ubuntuTrialScript, base)
+	}
+}

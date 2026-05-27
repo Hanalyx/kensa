@@ -76,7 +76,7 @@ func TestArmOneshot_Ubuntu_ClonesAndOneShot(t *testing.T) {
 	if title != "kensa-bootguard-trial" {
 		t.Errorf("title=%q", title)
 	}
-	if !runsContain(tp.Runs, "base64 -d > '/etc/grub.d/09_kensa_bootguard'") {
+	if !runsContain(tp.Runs, "base64 -d > '/etc/grub.d/11_kensa_bootguard'") {
 		t.Errorf("expected the trial menuentry script to be written; runs=%v", tp.Runs)
 	}
 	if !runsContain(tp.Runs, "update-grub") {
