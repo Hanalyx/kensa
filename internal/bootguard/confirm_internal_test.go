@@ -51,8 +51,43 @@ func TestBuildConfirmScript_RemovesSpecificEntry(t *testing.T) {
 	}
 }
 
-func TestBuildConfirmScript_LegacyNotYetImplemented(t *testing.T) {
-	if _, err := buildConfirmScript(FlavorLegacy); err == nil {
-		t.Error("expected error: legacy confirm script not implemented yet")
+// @spec bootguard-confirm
+// @ac AC-05
+func TestBuildConfirmScript_Ubuntu_Promotes(t *testing.T) {
+	t.Run("bootguard-confirm/AC-05", func(t *testing.T) {})
+	s, err := buildConfirmScript(FlavorLegacy)
+	if err != nil {
+		t.Fatalf("buildConfirmScript(legacy): %v", err)
+	}
+	if !strings.Contains(s, "grep -q kensa_bootguard_trial /proc/cmdline") {
+		t.Errorf("Ubuntu confirm must detect the trial via /proc/cmdline; got:\n%s", s)
+	}
+	if !strings.Contains(s, "GRUB_CMDLINE_LINUX") || !strings.Contains(s, "/etc/default/grub") {
+		t.Errorf("Ubuntu promote must append the param to GRUB_CMDLINE_LINUX; got:\n%s", s)
+	}
+	if !strings.Contains(s, "update-grub") {
+		t.Errorf("Ubuntu confirm must regenerate via update-grub; got:\n%s", s)
+	}
+}
+
+// @spec bootguard-confirm
+// @ac AC-06
+func TestBuildConfirmScript_Ubuntu_CleansUpTrialScript(t *testing.T) {
+	t.Run("bootguard-confirm/AC-06", func(t *testing.T) {})
+	s, err := buildConfirmScript(FlavorLegacy)
+	if err != nil {
+		t.Fatalf("buildConfirmScript(legacy): %v", err)
+	}
+	if !strings.Contains(s, "rm -f /etc/grub.d/09_kensa_bootguard") {
+		t.Errorf("Ubuntu confirm must remove the trial /etc/grub.d script; got:\n%s", s)
+	}
+	if !strings.Contains(s, "else") {
+		t.Errorf("Ubuntu confirm must have a fallback (else) branch; got:\n%s", s)
+	}
+}
+
+func TestBuildConfirmScript_UnsupportedFlavor(t *testing.T) {
+	if _, err := buildConfirmScript(Flavor("weird")); err == nil {
+		t.Error("expected error for unsupported flavor")
 	}
 }

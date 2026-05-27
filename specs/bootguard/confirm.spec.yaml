@@ -16,7 +16,11 @@ spec:
             failed), so CLEAN UP the trial and leave the default. Recovery on a
             failed boot is the bootloader's automatic saved-default fallback
             (no boot-time script). Supersedes v0.1.0 (Option A marker-clearing).
-            RHEL/BLS only so far. Must run over a privileged (sudo) transport.
+            RHEL promotes via grubby --update-kernel=DEFAULT and removes the
+            specific BLS trial entry; Ubuntu promotes by appending the param to
+            GRUB_CMDLINE_LINUX and removes the /etc/grub.d trial script,
+            regenerating via update-grub. Must run over a privileged (sudo)
+            transport.
         related_specs:
             - bootguard-oneshot
     objective:
@@ -60,6 +64,13 @@ spec:
               that kernel, including the default).
           type: security
           enforcement: error
+        - id: C-05
+          description: |
+              On Ubuntu, promote MUST append the param to GRUB_CMDLINE_LINUX in
+              /etc/default/grub; both promote and clean-up MUST remove the
+              /etc/grub.d trial script and regenerate via update-grub.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: InstallConfirmUnit stages the script and installs+enables the oneshot.
@@ -76,6 +87,14 @@ spec:
         - id: AC-04
           description: Trial removal targets the sentinel-bearing entry file, not grubby --remove-kernel.
           references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: The Ubuntu confirm script promotes by appending the param to GRUB_CMDLINE_LINUX and regenerating via update-grub when the sentinel is present.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: The Ubuntu confirm script removes the /etc/grub.d trial script and runs update-grub on fallback.
+          references_constraints: [C-05]
           priority: critical
     depends_on:
         - spec_id: bootguard-oneshot

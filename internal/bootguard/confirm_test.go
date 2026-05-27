@@ -30,11 +30,11 @@ func TestInstallConfirmUnit_StagesScriptAndUnit(t *testing.T) {
 	}
 }
 
-// Robustness (unannotated): unknown flavor errors rather than installing a
-// malformed/RHEL-only script.
+// Robustness (unannotated): an unsupported flavor errors rather than installing
+// a malformed script.
 func TestInstallConfirmUnit_UnknownFlavorErrors(t *testing.T) {
 	tp := engine.NewFakeTransport()
-	if err := bootguard.InstallConfirmUnit(context.Background(), tp, bootguard.FlavorLegacy); err == nil {
-		t.Error("expected error: confirm script not implemented for legacy yet")
+	if err := bootguard.InstallConfirmUnit(context.Background(), tp, bootguard.Flavor("weird")); err == nil {
+		t.Error("expected error for unsupported flavor")
 	}
 }
