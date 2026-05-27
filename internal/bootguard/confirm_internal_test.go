@@ -7,48 +7,52 @@ import (
 
 // @spec bootguard-confirm
 // @ac AC-02
-func TestBuildConfirmUnit_RHEL_ClearsBootSuccess(t *testing.T) {
+func TestBuildConfirmScript_RHEL_Promotes(t *testing.T) {
 	t.Run("bootguard-confirm/AC-02", func(t *testing.T) {})
-	u, err := buildConfirmUnit(FlavorBLS)
+	s, err := buildConfirmScript(FlavorBLS)
 	if err != nil {
-		t.Fatalf("buildConfirmUnit(BLS): %v", err)
+		t.Fatalf("buildConfirmScript(BLS): %v", err)
 	}
-	if !strings.Contains(u, "boot_success") {
-		t.Errorf("RHEL confirm unit must set boot_success; got:\n%s", u)
+	if !strings.Contains(s, "grep -q kensa_bootguard_trial /proc/cmdline") {
+		t.Errorf("confirm script must detect the trial via /proc/cmdline; got:\n%s", s)
 	}
-	if !strings.Contains(u, "Type=oneshot") {
-		t.Errorf("confirm unit must be a oneshot; got:\n%s", u)
+	if !strings.Contains(s, "grubby --update-kernel=DEFAULT --args=") {
+		t.Errorf("confirm script must promote the param onto the default entry; got:\n%s", s)
 	}
 }
 
 // @spec bootguard-confirm
 // @ac AC-03
-func TestBuildConfirmUnit_Ubuntu_UnsetsRecordfail(t *testing.T) {
+func TestBuildConfirmScript_RHEL_CleansUpOnFallback(t *testing.T) {
 	t.Run("bootguard-confirm/AC-03", func(t *testing.T) {})
-	u, err := buildConfirmUnit(FlavorLegacy)
+	s, err := buildConfirmScript(FlavorBLS)
 	if err != nil {
-		t.Fatalf("buildConfirmUnit(legacy): %v", err)
+		t.Fatalf("buildConfirmScript(BLS): %v", err)
 	}
-	if !strings.Contains(u, "grub-editenv /boot/grub/grubenv unset recordfail") {
-		t.Errorf("Ubuntu confirm unit must unset recordfail; got:\n%s", u)
-	}
-	if strings.Contains(u, "boot_success") {
-		t.Errorf("Ubuntu confirm unit must not touch boot_success; got:\n%s", u)
+	// The else (fallback) branch removes the trial without promoting.
+	if !strings.Contains(s, "else") || !strings.Contains(s, "remove_trial") {
+		t.Errorf("confirm script must clean up the trial on fallback; got:\n%s", s)
 	}
 }
 
 // @spec bootguard-confirm
 // @ac AC-04
-func TestBuildConfirmUnit_DisarmsAndOrdered(t *testing.T) {
+func TestBuildConfirmScript_RemovesSpecificEntry(t *testing.T) {
 	t.Run("bootguard-confirm/AC-04", func(t *testing.T) {})
-	u, err := buildConfirmUnit(FlavorBLS)
+	s, err := buildConfirmScript(FlavorBLS)
 	if err != nil {
-		t.Fatalf("buildConfirmUnit: %v", err)
+		t.Fatalf("buildConfirmScript(BLS): %v", err)
 	}
-	if !strings.Contains(u, "rm -rf "+StateDir) {
-		t.Errorf("confirm unit must remove the staged state dir; got:\n%s", u)
+	if !strings.Contains(s, "grep -l kensa_bootguard_trial /boot/loader/entries/*.conf") {
+		t.Errorf("trial removal must target the sentinel-bearing entry file; got:\n%s", s)
 	}
-	if !strings.Contains(u, "After=multi-user.target") {
-		t.Errorf("confirm unit must be ordered after multi-user.target; got:\n%s", u)
+	if strings.Contains(s, "grubby --remove-kernel") {
+		t.Errorf("must NOT use grubby --remove-kernel (would drop the default too); got:\n%s", s)
+	}
+}
+
+func TestBuildConfirmScript_LegacyNotYetImplemented(t *testing.T) {
+	if _, err := buildConfirmScript(FlavorLegacy); err == nil {
+		t.Error("expected error: legacy confirm script not implemented yet")
 	}
 }

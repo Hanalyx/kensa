@@ -31,8 +31,11 @@ func TestArmOneshot_RHEL_CreatesTrialAndOneShot(t *testing.T) {
 	}
 	// AC-01: a trial entry is created by cloning the default (--copy-default,
 	// --add-kernel) with the new args — NOT by modifying the default.
-	if !runsContain(tp.Runs, "grubby --add-kernel='/boot/vmlinuz-x' --copy-default --args='audit=1' --title='kensa-bootguard-trial'") {
-		t.Errorf("expected trial-entry creation via grubby --copy-default; runs=%v", tp.Runs)
+	if !runsContain(tp.Runs, "grubby --add-kernel='/boot/vmlinuz-x' --copy-default --args='audit=1 kensa_bootguard_trial' --title='kensa-bootguard-trial'") {
+		t.Errorf("expected trial-entry creation via grubby --copy-default with the sentinel; runs=%v", tp.Runs)
+	}
+	if !runsContain(tp.Runs, "base64 -d > '/var/lib/kensa/bootguard/param_applied'") {
+		t.Errorf("expected the real param to be recorded for promote; runs=%v", tp.Runs)
 	}
 	if runsContain(tp.Runs, "--update-kernel") {
 		t.Errorf("ArmOneshot must not modify the default entry (--update-kernel); runs=%v", tp.Runs)

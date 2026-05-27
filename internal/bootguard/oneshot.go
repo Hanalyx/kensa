@@ -16,6 +16,15 @@ const trialTitle = "kensa-bootguard-trial"
 // promote it (on a healthy boot into the trial) or remove it (on fallback).
 const trialIDPath = StateDir + "/trial_entry"
 
+// trialSentinel is a marker kernel arg added to the trial entry. The confirm
+// step greps /proc/cmdline for it to tell whether the trial actually booted
+// (promote) or the host fell back to the saved default (clean up).
+const trialSentinel = "kensa_bootguard_trial"
+
+// paramAppliedPath records the real param so the confirm step can make it
+// permanent on the default entry when it promotes.
+const paramAppliedPath = StateDir + "/param_applied"
+
 // ArmOneshot implements Option B (founder-ratified 2026-05-27) for a BLS (RHEL)
 // host: create a TRIAL boot entry = clone of the current default plus
 // trialArgs, set it as a ONE-SHOT next boot, and record its title. The saved
@@ -29,13 +38,17 @@ const trialIDPath = StateDir + "/trial_entry"
 //
 // Behavior (does the boot actually fall back / promote) is validated by the
 // destructive reboot test, not these unit tests.
-func ArmOneshot(ctx context.Context, t api.Transport, flavor Flavor, trialArgs string) (string, error) {
+func ArmOneshot(ctx context.Context, t api.Transport, flavor Flavor, param string) (string, error) {
 	if flavor != FlavorBLS {
 		return "", fmt.Errorf("bootguard: ArmOneshot supports only BLS so far, got %q", flavor)
 	}
-	if strings.TrimSpace(trialArgs) == "" {
-		return "", fmt.Errorf("bootguard: ArmOneshot: empty trialArgs")
+	if strings.TrimSpace(param) == "" {
+		return "", fmt.Errorf("bootguard: ArmOneshot: empty param")
 	}
+	// The trial carries the real param plus a sentinel arg so the confirm step
+	// can tell, via /proc/cmdline, whether the trial actually booted vs. the
+	// host fell back to the saved default.
+	trialArgs := param + " " + trialSentinel
 
 	// Resolve the current default kernel to clone.
 	res, err := t.Run(ctx, "grubby --default-kernel")
@@ -70,6 +83,10 @@ func ArmOneshot(ctx context.Context, t api.Transport, flavor Flavor, trialArgs s
 		return "", err
 	}
 	if err := writeRemoteFile(ctx, t, trialIDPath, trialTitle+"\n"); err != nil {
+		return "", err
+	}
+	// Record the real param so the confirm step can make it permanent on promote.
+	if err := writeRemoteFile(ctx, t, paramAppliedPath, param+"\n"); err != nil {
 		return "", err
 	}
 	return trialTitle, nil
