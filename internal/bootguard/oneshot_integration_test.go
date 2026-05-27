@@ -11,7 +11,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/transport/ssh"
 )
 
-// TestArmHappyPath_RealHost arms the Option-B one-shot trial on a real host with
+// TestArmHappyPath_RealHost arms the one-shot trial on a real host with
 // a BENIGN, inert kernel param (kensa_selftest=1) and installs the confirm unit,
 // then verifies the staging read-only. It deliberately does NOT reboot — the
 // reboot + post-boot promote verification is driven externally (the operator
