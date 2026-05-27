@@ -1,0 +1,76 @@
+spec:
+    id: bootguard-confirm
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-confirm
+        description: |
+            InstallConfirmUnit installs a systemd oneshot that, on reaching a
+            healthy boot, clears the per-family boot marker (RHEL boot_success,
+            Ubuntu recordfail) and removes the staged revert artifacts —
+            standing the guard down. The guard OWNS this signal because native
+            marker-clearing was found unreliable on the fleet (design §10:
+            RHEL server lacks grub-boot-success.service; Ubuntu 26.04 left
+            recordfail=1 while healthy). This is the success half of the
+            boot-resident mechanism; the revert trigger is separate. Part of
+            the gated #14 mechanism; must run over a privileged (sudo)
+            transport.
+        related_specs:
+            - bootguard-boot-marker
+            - bootguard-arm
+    objective:
+        summary: |
+            Install a flavor-aware confirm oneshot that clears the marker and
+            disarms on a healthy boot.
+        scope:
+            includes:
+                - Write the unit to /etc/systemd/system and enable it
+                - RHEL clears boot_success; Ubuntu unsets recordfail
+                - Remove the staged revert artifacts on success
+                - Order after the healthy target (multi-user/network-online)
+            excludes:
+                - The revert trigger that runs revert.sh on a failed boot
+    constraints:
+        - id: C-01
+          description: |
+              InstallConfirmUnit MUST write the oneshot unit to
+              /etc/systemd/system, daemon-reload, and enable it.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The confirm unit MUST clear the per-family marker on a healthy
+              boot — RHEL boot_success=1, Ubuntu unset recordfail.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: The confirm unit MUST remove the staged revert artifacts (disarm) on success.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: The confirm unit MUST be ordered after the healthy boot target (multi-user / network-online).
+          type: technical
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: InstallConfirmUnit writes the unit, daemon-reloads, and enables it.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: The RHEL confirm unit clears boot_success.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: The Ubuntu confirm unit unsets recordfail.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: The confirm unit removes the staged state dir and is ordered after multi-user.target.
+          references_constraints: [C-03, C-04]
+          priority: high
+    depends_on:
+        - spec_id: bootguard-boot-marker
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, confirm, systemd, gated]
