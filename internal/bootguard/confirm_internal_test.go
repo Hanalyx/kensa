@@ -91,3 +91,38 @@ func TestBuildConfirmScript_UnsupportedFlavor(t *testing.T) {
 		t.Error("expected error for unsupported flavor")
 	}
 }
+
+// @spec bootguard-confirm
+// @ac AC-07
+func TestBuildConfirmUnit_InvokesViaInterpreter(t *testing.T) {
+	t.Run("bootguard-confirm/AC-07", func(t *testing.T) {})
+	u := buildConfirmUnit()
+	if !strings.Contains(u, "ExecStart=/bin/sh "+confirmScriptPath) {
+		t.Errorf("confirm unit must invoke the script via /bin/sh (SELinux var_lib_t cannot be execve'd directly); got:\n%s", u)
+	}
+	if strings.Contains(u, "ExecStart="+confirmScriptPath) {
+		t.Errorf("confirm unit must NOT exec the var_lib script path directly; got:\n%s", u)
+	}
+}
+
+// @spec bootguard-confirm
+// @ac AC-08
+func TestConfirmUnit_IsSelfLimiting(t *testing.T) {
+	t.Run("bootguard-confirm/AC-08", func(t *testing.T) {})
+	u := buildConfirmUnit()
+	if !strings.Contains(u, "ConditionPathExists="+trialIDPath) {
+		t.Errorf("confirm unit must be guarded by ConditionPathExists on the trial marker; got:\n%s", u)
+	}
+	for _, fl := range []Flavor{FlavorBLS, FlavorLegacy} {
+		s, err := buildConfirmScript(fl)
+		if err != nil {
+			t.Fatalf("buildConfirmScript(%s): %v", fl, err)
+		}
+		if !strings.Contains(s, "systemctl disable "+confirmUnitName) {
+			t.Errorf("%s confirm script must disable its own unit when done; got:\n%s", fl, s)
+		}
+		if !strings.Contains(s, "rm -f "+confirmUnitPath) {
+			t.Errorf("%s confirm script must remove its own unit file when done; got:\n%s", fl, s)
+		}
+	}
+}

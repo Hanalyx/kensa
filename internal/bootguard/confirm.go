@@ -62,10 +62,24 @@ func buildConfirmUnit() string {
 		"Description=kensa bootguard - confirm/promote a one-shot trial boot\n" +
 		"After=multi-user.target network-online.target\n" +
 		"Wants=network-online.target\n" +
+		// Only run when a trial is actually armed. The confirm script deletes
+		// the state dir (and its own script) when it finishes, so without this
+		// guard the still-enabled unit would fail on every subsequent boot
+		// (missing script) and leave the system 'degraded' — caught by the
+		// destructive reboot test (reboot #2) on RHEL 9.6. When the marker is
+		// absent systemd SKIPS the unit (inactive, not failed).
+		"ConditionPathExists=" + trialIDPath + "\n" +
 		"\n" +
 		"[Service]\n" +
 		"Type=oneshot\n" +
-		"ExecStart=" + confirmScriptPath + "\n" +
+		// Invoke via the interpreter, not as a direct ExecStart of the script
+		// path. On SELinux-enforcing RHEL the script staged under /var/lib is
+		// labeled var_lib_t, which systemd cannot execve (203/EXEC,
+		// "Permission denied" — caught by the destructive reboot test on
+		// RHEL 9.6). /bin/sh is bin_t and merely READS the script (read on
+		// var_lib_t is permitted), so promote runs. The script must persist
+		// across the reboot, so relabeling/moving it is not an option.
+		"ExecStart=/bin/sh " + confirmScriptPath + "\n" +
 		"\n" +
 		"[Install]\n" +
 		"WantedBy=multi-user.target\n"
@@ -107,6 +121,7 @@ func blsConfirmScript() string {
 		"  # Fell back to the saved default: the trial boot failed. Drop the trial.\n" +
 		"  remove_trial\n" +
 		"fi\n" +
+		selfRemoveSnippet() +
 		"rm -rf \"$STATE\"\n"
 }
 
@@ -136,5 +151,16 @@ func ubuntuConfirmScript() string {
 		"  # Fell back to the saved default: the trial boot failed. Drop the trial.\n" +
 		"  remove_trial\n" +
 		"fi\n" +
+		selfRemoveSnippet() +
 		"rm -rf \"$STATE\"\n"
+}
+
+// selfRemoveSnippet disables and deletes the confirm unit once it has run. The
+// unit is enabled (it must survive the reboot to run post-boot), and the script
+// deletes its own state dir on completion — so without self-removal the unit
+// would fail on every later boot. ConditionPathExists already makes a lingering
+// unit harmless; this keeps the system clean as well.
+func selfRemoveSnippet() string {
+	return "systemctl disable " + confirmUnitName + " >/dev/null 2>&1 || true\n" +
+		"rm -f " + confirmUnitPath + "\n"
 }
