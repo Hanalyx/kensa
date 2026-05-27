@@ -32,7 +32,10 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 	if v := os.Getenv("KENSA_TEST_SSH_PORT"); v != "" {
 		port, _ = strconv.Atoi(v)
 	}
-	const param = "kensa_selftest=1"
+	param := "kensa_selftest=1"
+	if p := os.Getenv("KENSA_BOOTGUARD_PARAM"); p != "" {
+		param = p // e.g. the fatal-fallback injection: "init=/bin/false panic=10"
+	}
 
 	ctx := context.Background()
 	tp, err := ssh.Connect(ctx, ssh.Config{
