@@ -10,9 +10,9 @@ import (
 )
 
 // Restore writes a captured [Snapshot] back to the host and, on legacy
-// (non-BLS) systems, regenerates grub.cfg. It is the counterpart to
-// [Capture] and the building block the boot-success fallback will invoke to
-// revert a host to its pre-change boot state.
+// (non-BLS) systems, regenerates grub.cfg. It is the counterpart to [Capture]:
+// given a snapshot taken before a change, it returns the host's boot
+// configuration to that captured state.
 //
 // MUTATING: Restore rewrites /etc/default/grub (and, on BLS, the captured
 // BootLoaderSpec entry files) and may run the bootloader config generator.
@@ -20,16 +20,14 @@ import (
 //
 // On BLS (RHEL 8/9/10) the per-entry options= lines are authoritative, so
 // Restore writes the captured entry files back verbatim and does NOT run
-// grub2-mkconfig — regenerating would rebuild entries from
-// GRUB_CMDLINE_LINUX and lose the per-entry args (see the §4 BLS caveat in
-// docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md). On legacy (Ubuntu)
-// GRUB_CMDLINE_LINUX is the source, so Restore writes it back and runs
-// update-grub.
+// grub2-mkconfig — regenerating would rebuild entries from GRUB_CMDLINE_LINUX
+// and lose the per-entry args. On legacy (Ubuntu) GRUB_CMDLINE_LINUX is the
+// source, so Restore writes it back and runs update-grub.
 //
-// GATED: production use is blocked on a founder-authored failure-mode
-// analysis (CONTRIBUTING.md §7), two-human review, and real-host reboot
-// validation on disposable VMs. As of this commit Restore has NOT been run
-// against a real host.
+// Restore mutates live boot configuration, so per the project's
+// rollback-handler discipline it requires a founder-authored failure-mode
+// analysis and two-human review before it backs production remediation
+// (CONTRIBUTING.md).
 func Restore(ctx context.Context, t api.Transport, snap *Snapshot) error {
 	if snap == nil {
 		return errors.New("bootguard: Restore called with nil snapshot")

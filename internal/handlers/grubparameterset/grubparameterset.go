@@ -1,8 +1,8 @@
 // Package grubparameterset implements the grub_parameter_set handler.
 //
-// It does NOT edit GRUB_CMDLINE_LINUX directly. Instead it arms the Option-B
-// boot guard (internal/bootguard): the new parameter is staged on a one-shot
-// TRIAL boot entry while the saved default stays known-good. On the operator's
+// It does NOT edit GRUB_CMDLINE_LINUX directly. Instead it arms the boot guard
+// (internal/bootguard): the new parameter is staged on a one-shot TRIAL boot
+// entry while the saved default stays known-good. On the operator's
 // next reboot the trial boots once — a healthy boot promotes the parameter onto
 // the default (via grubby on BLS / GRUB_CMDLINE_LINUX on legacy); a failed boot
 // auto-reverts to the saved default. Kensa never reboots, so the parameter is

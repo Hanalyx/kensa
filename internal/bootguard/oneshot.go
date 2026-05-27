@@ -36,13 +36,14 @@ const paramAppliedPath = StateDir + "/param_applied"
 // to arming.
 const ubuntuTrialScript = "/etc/grub.d/11_kensa_bootguard"
 
-// ArmOneshot implements Option B (founder-ratified 2026-05-27): create a TRIAL
-// boot entry = clone of the current default plus the new param (and a sentinel
-// arg), set it as a ONE-SHOT next boot, and record it. The saved default is
-// untouched, so a failed boot auto-falls back to it (the one-shot is consumed)
-// with no boot-time script — safe for the kernel-panic case (§7.1f). Returns
-// the trial entry title. Must run over a privileged (Sudo) transport. Behavior
-// is validated by the destructive reboot test.
+// ArmOneshot stages param on a one-shot TRIAL boot entry — a clone of the
+// current default plus param and a sentinel arg — and arms it as the next boot
+// only. The saved default is left untouched, so if the trial boot fails the
+// (already-consumed) one-shot lets the next boot fall back to the known-good
+// default. Crucially there is no boot-time script to run on recovery: a kernel
+// that panics is recovered by the bootloader selecting the old entry, not by
+// any code executing on the broken boot. Returns the trial entry title. Must
+// run over a privileged (Sudo) transport.
 func ArmOneshot(ctx context.Context, t api.Transport, flavor Flavor, param string) (string, error) {
 	if strings.TrimSpace(param) == "" {
 		return "", fmt.Errorf("bootguard: ArmOneshot: empty param")
