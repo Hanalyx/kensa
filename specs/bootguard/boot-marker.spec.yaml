@@ -1,0 +1,66 @@
+spec:
+    id: bootguard-boot-marker
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-boot-marker
+        description: |
+            The bootMarker is the per-family boot-attempt state the guard sets
+            before a guarded reboot ("this boot is not yet confirmed") and
+            reads afterward to decide confirm-vs-revert. RHEL uses the native
+            grubenv boot_success flag (validated present on RHEL 8.10/10.1 by
+            real-host recon 2026-05-26); Ubuntu's recordfail is a separate
+            increment. Part of the gated #14 mechanism; must run over a
+            privileged (sudo) transport.
+        related_specs:
+            - bootguard-arm
+    objective:
+        summary: |
+            Arm / read / clear a per-family boot-attempt marker. RHEL via
+            grubenv boot_success.
+        scope:
+            includes:
+                - RHEL marker Arm (boot_success=0), Confirmed (==1), Clear (=1)
+                - markerFor flavor dispatch
+            excludes:
+                - Ubuntu recordfail marker (separate increment)
+                - The confirm service and the revert trigger (separate increments)
+    constraints:
+        - id: C-01
+          description: Marker Arm MUST set the "boot not yet confirmed" state.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: Marker Confirmed MUST report whether the last boot reached a healthy state.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: Marker Clear MUST mark the boot confirmed / disarm the revert.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The RHEL marker MUST use the native grubenv boot_success flag via
+              grub2-editenv (set by the confirm step / grub2-set-bootflag on a
+              healthy boot).
+          type: technical
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: The RHEL marker (via markerFor BLS) Arms by setting boot_success=0.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-02
+          description: The RHEL marker Confirmed is true iff grubenv boot_success is 1.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: The RHEL marker Clear sets boot_success=1.
+          references_constraints: [C-03]
+          priority: high
+    depends_on:
+        - spec_id: bootguard-arm
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, boot-marker, rhel, gated]
