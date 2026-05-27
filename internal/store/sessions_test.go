@@ -1,4 +1,4 @@
-// Tests for the Phase 4 / C-039 session schema and API.
+// Tests for the session schema and API.
 package store
 
 import (

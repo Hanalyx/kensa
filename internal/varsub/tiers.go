@@ -10,8 +10,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Phase 3.6 multi-tier variable resolution. Adds per-host /
-// per-group / conf.d loaders on top of the Phase 3.5 minimum
+// Multi-tier variable resolution. Adds per-host /
+// per-group / conf.d loaders on top of the single-file minimum
 // (CLI + defaults). The resolution priority, highest first,
 // matches Python kensa's 5-tier scheme:
 //

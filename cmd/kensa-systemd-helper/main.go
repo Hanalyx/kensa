@@ -1,8 +1,8 @@
 // Command kensa-systemd-helper is a small privileged binary
 // invoked by the (unprivileged) kensa agent via sudo to perform
-// systemd D-Bus operations as root. LL Phase 4 D-007 deliverable.
+// systemd D-Bus operations as root.
 //
-// **Privilege model (Option C, founder-ratified 2026-05-13).**
+// **Privilege model: sudo, not setuid.**
 // The kensa agent itself runs as the SSH user, NOT as root. For
 // each systemd operation that requires D-Bus access (enable,
 // disable, mask, etc.), the agent invokes:

@@ -1,9 +1,9 @@
-// Package varsub implements the Phase 3.5 rule-variable
+// Package varsub implements rule-variable
 // substitution layer.
 //
 // The kensa rule corpus uses Jinja-style `{{ name }}` templates
 // in fields like check.expected and remediation.value (see e.g.
-// rules/access-control/pam-faillock-deny.yml). Pre-Phase 3.5
+// rules/access-control/pam-faillock-deny.yml). Before variable substitution,
 // kensa did NOT substitute these — those rules silently
 // failed evaluation because the comparator compared host output
 // against the literal string `{{ pam_faillock_deny }}`.
@@ -14,11 +14,11 @@
 // substituted automatically, no enumeration of fields needed.
 //
 // Resolution priority (highest first), simplified for the
-// initial Phase 3.5 cut:
+// initial cut:
 //  1. CLI --var KEY=VALUE  (operator override)
 //  2. <config-dir>/defaults.yml `variables:` block
 //
-// Future Phase 3.6+ will add intermediate tiers (per-host
+// Future work may add intermediate tiers (per-host
 // config, per-group config, conf.d overlay) per the Python
 // kensa 5-tier scheme. The current shape is forward-compatible:
 // callers build a Variables map by merging sources in priority

@@ -10,7 +10,7 @@
 //   - C-016/C-017: oscal, evidence serializers
 //   - C-019: concurrent fan-out for multi-output runs
 //
-// Phase 2's design lifts the canonical -o FORMAT[:PATH] from Python
+// The -o FORMAT[:PATH] design is lifted from Python
 // kensa (see docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §6) and
 // extends it with kensa-specific formats (jsonl, oscal). Operators
 // can request multiple simultaneous outputs in one run:

@@ -799,7 +799,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
-	// Phase 3.5/3.6: resolve variable substitution before rule load.
+	// Resolve variable substitution before rule load.
 	// Priority chain (highest first, per Python kensa):
 	//   1. CLI --var KEY=VALUE
 	//   2. <config-dir>/hosts/<host>.yml          (single-host only)
@@ -810,7 +810,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 	// In single-host mode, full 5-tier resolution; the host name is
 	// taken from --host. Inventory mode handles its own per-host
 	// merge inside runCheckInventory using the host name + groups
-	// from the parsed inventory, but as a pragmatic Phase 3.6 cut
+	// from the parsed inventory, but as a pragmatic simplification
 	// only the 3 "global" tiers (defaults + conf.d + CLI) are
 	// active there — true per-host / per-group inventory vars
 	// require re-loading the corpus per host, deferred to Phase
@@ -829,7 +829,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 
 	// In single-host mode the host name is known at flag-parse
 	// time and the per-host file <config-dir>/hosts/<host>.yml is
-	// part of the resolution. In inventory mode (Phase 3.7), each
+	// part of the resolution. In inventory mode, each
 	// per-host goroutine in runCheckInventory resolves its own
 	// chain using the inventory's host address and group
 	// memberships; the global pre-load below uses the host-
@@ -1342,7 +1342,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 	normalizedTags := normalizeTags(tags)
 
-	// Phase 3.5/3.6: resolve variable substitution before rule load.
+	// Resolve variable substitution before rule load.
 	// Remediate is single-host today, so the full 5-tier chain
 	// (defaults + conf.d + groups (empty) + hosts/<host>.yml + CLI)
 	// applies via ResolveTiers.
@@ -1423,7 +1423,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	// bootstrap isn't viable (noexec /tmp, restricted SSH user,
 	// etc.) but no longer the default.
 	//
-	// Phase 2 operability (F-007): atomic file operations
+	// Operability (F-007): atomic file operations
 	// for file_content/file_absent/config_set/config_set_dropin
 	// require agent-mode. Disclose the basis to operators on
 	// stderr so audits don't claim atomicity that isn't being

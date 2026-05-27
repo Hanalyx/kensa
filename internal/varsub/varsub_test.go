@@ -1,4 +1,4 @@
-// Tests for the Phase 3.5 substitution layer.
+// Tests for the substitution layer.
 package varsub
 
 import (
@@ -177,7 +177,7 @@ func TestSubstitute_UndefinedSentinelDetected(t *testing.T) {
 	}
 }
 
-// TestMerge_Associative locks Phase 3.6 forward compat: adding
+// TestMerge_Associative locks forward compat: adding
 // a third tier (per-host config) on top of (CLI > defaults)
 // must not change semantics. Merge must be associative for the
 // last-wins map-copy approach to work cleanly.

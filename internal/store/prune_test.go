@@ -68,7 +68,7 @@ func insertPruneFixture(t *testing.T, store *SQLite, sessID uuid.UUID, hostID st
 }
 
 // insertOrphanTransaction inserts a transaction with NULL session_id
-// at the given timestamp. Models pre-Phase-4 / unmigrated rows.
+// at the given timestamp. Models legacy sessionless / unmigrated rows.
 func insertOrphanTransaction(t *testing.T, store *SQLite, hostID string, when time.Time) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()

@@ -59,7 +59,7 @@ func (h *Handler) Capturable() bool { return true }
 // Apply removes the target file. Idempotent: an already-absent file
 // is not an error.
 //
-// **Phase 2 migration (P-003, 2026-05-11)**: when transport satisfies
+// When transport satisfies
 // fsatomic.Transport (agent-mode), uses `AtomicRemove` for
 // kernel-atomic unlink + parent-dir Fsync. Direct-SSH transport
 // falls back to `rm -f` (best-effort shell pipeline). The
@@ -103,7 +103,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 		}, nil
 	}
 
-	// Direct-SSH fallback: shell pipeline (best-effort, pre-Phase-2).
+	// Direct-SSH fallback: shell pipeline (best-effort).
 	res, err := transport.Run(ctx, fmt.Sprintf("rm -f %s", shellEscape(p.Path)))
 	if err != nil {
 		return nil, fmt.Errorf("file_absent: apply transport error: %w", err)
@@ -245,7 +245,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	group, _ := pre.Data["group"].(string)
 	selinux, _ := pre.Data["selinux"].(string)
 
-	// Phase 2 P-003 migration: when transport is
+	// When transport is
 	// fsatomic.Transport, use AtomicWrite for crash-safe file
 	// re-creation. The attr commands (chmod/chown/chcon) remain
 	// transport.Run because no atomic-attrs primitive exists at
