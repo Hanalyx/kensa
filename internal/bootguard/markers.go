@@ -26,9 +26,45 @@ func markerFor(flavor Flavor) (bootMarker, error) {
 	switch flavor {
 	case FlavorBLS:
 		return rhelMarker{}, nil
+	case FlavorLegacy:
+		return ubuntuMarker{}, nil
 	default:
 		return nil, fmt.Errorf("bootguard: no boot marker implemented for flavor %q", flavor)
 	}
+}
+
+const ubuntuGrubenv = "/boot/grub/grubenv"
+
+// ubuntuMarker uses the native Ubuntu grubenv recordfail flag. Real-host recon
+// (2026-05-26/27) confirmed grub-editenv + /boot/grub/grubenv; but native
+// clearing is NOT reliably observed (.248 showed recordfail=1 while up), so —
+// mirroring the RHEL boot_success ownership — the confirm step (separate
+// increment) clears recordfail on a healthy boot rather than trusting the
+// grub-initrd-fallback machinery.
+type ubuntuMarker struct{}
+
+// Arm sets recordfail=1 — "this boot has not been confirmed healthy".
+func (ubuntuMarker) Arm(ctx context.Context, t api.Transport) error {
+	_, err := runOK(ctx, t, "grub-editenv "+ubuntuGrubenv+" set recordfail=1")
+	return err
+}
+
+// Confirmed reports whether recordfail is absent (cleared = healthy).
+func (ubuntuMarker) Confirmed(ctx context.Context, t api.Transport) (bool, error) {
+	res, err := t.Run(ctx, "grub-editenv "+ubuntuGrubenv+" list")
+	if err != nil {
+		return false, fmt.Errorf("bootguard: grub-editenv list: transport error: %w", err)
+	}
+	if !res.OK() {
+		return false, fmt.Errorf("bootguard: grub-editenv list failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	return grubenvValue(res.Stdout, "recordfail") == "", nil
+}
+
+// Clear unsets recordfail, marking the boot confirmed / disarming the revert.
+func (ubuntuMarker) Clear(ctx context.Context, t api.Transport) error {
+	_, err := runOK(ctx, t, "grub-editenv "+ubuntuGrubenv+" unset recordfail")
+	return err
 }
 
 // rhelMarker uses the native RHEL grubenv boot_success flag. Real-host recon

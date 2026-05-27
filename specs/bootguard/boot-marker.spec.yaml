@@ -47,6 +47,13 @@ spec:
               healthy boot).
           type: technical
           enforcement: error
+        - id: C-05
+          description: |
+              The Ubuntu marker MUST use the native grubenv recordfail flag via
+              grub-editenv; the confirm step clears it on a healthy boot (native
+              clearing is not relied upon — observed unreliable on Ubuntu 26.04).
+          type: technical
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: The RHEL marker (via markerFor BLS) Arms by setting boot_success=0.
@@ -58,6 +65,18 @@ spec:
           priority: critical
         - id: AC-03
           description: The RHEL marker Clear sets boot_success=1.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: The Ubuntu marker (via markerFor legacy) Arms by setting recordfail=1.
+          references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-05
+          description: The Ubuntu marker Confirmed is true iff grubenv recordfail is absent.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: The Ubuntu marker Clear unsets recordfail.
           references_constraints: [C-03]
           priority: high
     depends_on:
