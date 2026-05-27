@@ -29,7 +29,7 @@ type BackfillReport struct {
 }
 
 // BackfillSessions walks transactions whose session_id is
-// NULL (pre-Phase-4 rows or rows persisted without session
+// NULL (rows written before the session model, or without session
 // bookkeeping) and groups them into synthetic sessions —
 // one per distinct host_id. Each synthetic session's
 // started_at / finished_at span the host's earliest and

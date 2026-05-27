@@ -123,7 +123,7 @@ func confirmedYes(line string) bool {
 
 // writePruneReport renders the C-043 prune summary. The
 // "transactions: N (orphans: M)" line discloses how many of
-// the deleted transactions were pre-Phase-4 NULL-session
+// the deleted transactions were legacy NULL-session
 // orphans — operator-auditable telemetry per spec C-04.
 func writePruneReport(w io.Writer, r store.PruneReport, days int) {
 	fmt.Fprintf(w, "kensa history --prune %d\n", days)

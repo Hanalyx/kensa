@@ -8,7 +8,7 @@ import (
 )
 
 // runList is the C-046 sub-dispatcher for `kensa list <subject>`.
-// Today the only subject is `frameworks`. Future Phase 4
+// Today the only subject is `frameworks`. Future
 // follow-ups (e.g. `list controls`, `list rules`) compose
 // naturally without name collisions; the dispatcher stays
 // thin so adding a subject is one switch arm + one new

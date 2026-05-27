@@ -66,7 +66,7 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		"ShortAggregate":   ShortAggregate,
 		"ShortQuiet":       ShortQuiet,
 		"ShortInventory":   ShortInventory,
-		// CLI Phase 3 placeholders (C-024 declares; C-026..C-034
+		// Placeholder short letters (C-024 declares; C-026..C-034
 		// wire to actual flags). Inclusion here ensures collision
 		// detection covers them now.
 		"ShortPassword":   ShortPassword,
@@ -80,7 +80,7 @@ func TestShortLetterTable_NoCollisions(t *testing.T) {
 		"ShortVar":        ShortVar,
 	}
 
-	// Constants that are intentionally empty per the CLI Phase 3
+	// Constants that are intentionally empty per the
 	// short-letter table (no canonical short, long-form only). The
 	// migration doc §3 documents which flags lack a Python-kensa
 	// short; kensa matches.

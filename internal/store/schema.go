@@ -89,10 +89,10 @@ CREATE TABLE IF NOT EXISTS rollback_events (
 
 CREATE INDEX IF NOT EXISTS idx_rollback_events_txn ON rollback_events(transaction_id);
 `,
-	// Migration 2 (Phase 4 / C-039): introduce the session model.
+	// Migration 2: introduce the session model.
 	//
 	// A session groups the transactions produced by one CLI
-	// invocation. Pre-Phase-4 the store had transactions but no
+	// invocation. Before this migration the store had transactions but no
 	// session header; queries by "everything that ran on host X
 	// at time T" required a string-prefix search on started_at.
 	// Sessions make `kensa diff`, `kensa history --stats`, and

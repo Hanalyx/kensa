@@ -7,7 +7,7 @@ import (
 
 // defaultsDoc is the on-disk shape of <config-dir>/defaults.yml.
 // Matches the Python kensa convention of a top-level `variables:`
-// map. We're forward-compatible: future Phase 3.6 may add a
+// map. We're forward-compatible: future work may add a
 // `frameworks:` overlay block; the loader returns only the
 // `variables:` content for now.
 type defaultsDoc struct {

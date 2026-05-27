@@ -106,7 +106,7 @@ func (h *Handler) Capturable() bool { return true }
 // Apply sets key=value in the target file. If the key already
 // exists, the matching line is replaced. If absent, the line is appended.
 //
-// **Phase 2 P-004 migration (2026-05-11)**: agent-mode uses Go's
+// Agent-mode uses Go's
 // regexp package + fsatomic.AtomicReplace for crash-safe line
 // rewrites. The Go pattern mirrors sed's
 // `^[[:space:]]*KEY[[:space:]=]` semantics: line-start, optional
@@ -346,7 +346,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		return nil, errors.New("config_set: pre-state missing 'file' or 'key'")
 	}
 
-	// Phase 2 P-004 migration: agent-mode uses Go regex +
+	// Agent-mode uses Go regex +
 	// AtomicReplace for symmetric line-oriented rollback.
 	// The capture contract is preserved: capture records
 	// `prior_line` (the matching line as it was pre-Apply),

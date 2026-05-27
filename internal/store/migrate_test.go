@@ -10,7 +10,7 @@ import (
 )
 
 // insertOrphanTxn inserts a transaction with NULL session_id —
-// simulating a pre-Phase-4 row that the backfill should pick up.
+// simulating a legacy sessionless row that the backfill should pick up.
 func insertOrphanTxn(t *testing.T, store *SQLite, hostID string, started time.Time) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
@@ -134,7 +134,7 @@ func TestBackfillSessions_Idempotent(t *testing.T) {
 
 func TestBackfillSessions_PreservesPostPhase4Sessions(t *testing.T) {
 	t.Run("store-session-schema/AC-05", func(t *testing.T) {})
-	// A real Phase-4 session (manually created) must NOT be
+	// A real session (manually created) must NOT be
 	// counted as a candidate for backfill — its transactions
 	// already have non-NULL session_id.
 	store := openTestStore(t)

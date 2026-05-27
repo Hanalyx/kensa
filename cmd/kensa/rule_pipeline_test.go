@@ -1,4 +1,4 @@
-// Tests for the Phase 3.7 ruleLoadFilterSpec helper used by
+// Tests for the ruleLoadFilterSpec helper used by
 // inventory mode to re-load the corpus per host with that
 // host's full 5-tier resolved variables.
 package main
@@ -74,7 +74,7 @@ func TestRuleLoadFilterSpec_LoadAndFilter_Basic(t *testing.T) {
 }
 
 func TestRuleLoadFilterSpec_LoadAndFilter_DifferentVarsPerCall(t *testing.T) {
-	// The Phase 3.7 contract: calling LoadAndFilter with
+	// The contract: calling LoadAndFilter with
 	// different vars produces rules with different
 	// substituted values. This is the load-bearing semantic
 	// for per-host inventory re-load.

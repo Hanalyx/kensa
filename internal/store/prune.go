@@ -13,7 +13,7 @@ import (
 //
 // OrphanTransactionsDeleted is a sub-count of TransactionsDeleted
 // — it counts transactions that had session_id IS NULL at prune
-// time (pre-Phase-4 / unmigrated rows). Operators auditing the
+// time (legacy sessionless / unmigrated rows). Operators auditing the
 // summary can tell whether the deleted rows came from real
 // session-grouped runs or legacy backfill territory.
 type PruneReport struct {
@@ -29,7 +29,7 @@ type PruneReport struct {
 // PruneSessions deletes sessions whose started_at is strictly
 // before cutoff, plus the cascade of child rows: attached
 // transactions, steps, pre_states, framework_refs,
-// rollback_events. Pre-Phase-4 NULL-session transactions
+// rollback_events. Legacy NULL-session transactions
 // older than cutoff (by their own started_at) are also pruned;
 // operators with a long-running legacy store don't need to run
 // `kensa migrate` first to shed old data (C-04 in spec).
@@ -53,7 +53,7 @@ func (s *SQLite) PruneSessions(ctx context.Context, cutoff time.Time) (PruneRepo
 	// orphans whose own started_at < cutoff. Both arms feed
 	// into the same cascade DELETEs. The is_orphan flag is
 	// surfaced in PruneReport so operators can audit the
-	// pre-Phase-4 backfill share.
+	// sessionless-row backfill share.
 	rows, err := tx.QueryContext(ctx, `
         SELECT t.id, (t.session_id IS NULL) AS is_orphan FROM transactions t
         LEFT JOIN sessions s ON s.id = t.session_id
