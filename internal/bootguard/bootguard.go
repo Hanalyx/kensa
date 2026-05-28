@@ -1,17 +1,19 @@
-// Package bootguard provides the boot-state capture that underpins the
-// grub deadman guard (see docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md).
+// Package bootguard provides the boot-state capture, restore, and one-shot
+// trial mechanism behind the grub deadman guard.
 //
-// A bad kernel parameter set via grub_parameter_set only manifests at the
-// next reboot — potentially leaving the host unbootable and unreachable, so
-// the in-window deadman cannot help. The eventual guard captures boot state
-// before applying, then relies on a bootloader-level boot-success mechanism
-// to revert on a failed boot.
+// A bad kernel parameter set via grub_parameter_set only manifests at the next
+// reboot — potentially leaving the host unbootable and unreachable, where an
+// in-process rollback cannot help. The guard instead stages the change on a
+// throwaway "trial" boot entry armed as a one-shot, leaving the saved default
+// untouched: a healthy trial boot is promoted to permanent; a failed one is
+// abandoned when the bootloader falls back to the saved default. Recovery is
+// therefore the bootloader's job, not any code running on the broken boot.
 //
-// This package currently implements DETECTION and read-only CAPTURE only.
-// Restore (write-back + regenerate) and the boot-resident success/revert
-// mechanism are separate, gated increments pending real-host reboot testing
-// and a founder-authored failure-mode analysis. Capture issues only
-// read commands and never mutates the host.
+// The package provides DetectFlavor and Capture (read-only); Restore
+// (write-back + regenerate); CheckArmable (a fail-closed preflight); and the
+// trial/confirm mechanism (ArmOneshot + InstallConfirmUnit). Capture issues
+// only read commands and never mutates the host; the mutating paths must run
+// over a privileged (Sudo) transport.
 package bootguard
 
 import (

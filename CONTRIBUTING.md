@@ -135,6 +135,43 @@ implementation is wrong, not the fixture.
 - Tests go in `tests/` mirroring the source path (not co-located with source).
   This matches the Specter coverage layout.
 
+## Comments
+
+Comments explain the **intent and invariants** of the code, in terms a reader
+who has *only the code* can understand — no design docs, no PR history, no
+memory of the meeting.
+
+**Self-check:** *delete every design doc and forget every meeting — does this
+comment still teach me why the code is this way?* If not, rewrite it.
+
+Do **not** write:
+
+- **Planning labels** — `Phase 3`, `Option B`, `Stage 2`, `Milestone 1`,
+  `Stream A`, `increment 2`, task codes like `P-004` / `M-012`. They point into
+  plans and conversations the reader can't reach. Write the *mechanism* instead:
+  not "implements Option B" but "stages the change on a one-shot trial entry and
+  leaves the saved default as the fallback."
+  (A `Phase N:` heading that names a step of an *algorithm in this file* — e.g.
+  the engine's `Phase 2: CAPTURE` — is fine: it's self-contained and describes
+  the code, not a roadmap.)
+- **Incident provenance / error codes** — `203/EXEC`, "caught by the reboot test
+  on RHEL 9.6". Write the cause→effect: "under SELinux a file below `/var/lib`
+  is `var_lib_t`, which the service domain may not execute."
+- **Chronology** — `founder-ratified 2026-05-27`, "so far", "separate
+  increment", "as of this commit". It rots on the next change; it lives in git
+  history and the changelog.
+- **References into gitignored docs** — `§7.1b`, `see docs/roadmap/…`. A fresh
+  clone doesn't contain `docs/`, so the pointer can't be followed. Inline the
+  constraint. (Referencing a *tracked* file like `CONTRIBUTING.md` is fine.)
+
+Do write the high-value comment: **why this and not the obvious alternative** —
+e.g. "delete the specific entry file, NOT `grubby --remove-kernel`, which would
+drop every entry for that kernel including the default."
+
+A `make comment-lint` check (and a CI job) enforces the planning-label rule on
+changed code. A comment that genuinely needs an exempt label can carry the
+`planlint:allow` directive.
+
 ## What Gets Merged Without This Discipline
 
 Nothing. A PR that skips the failure-mode analysis, skips the rollback
