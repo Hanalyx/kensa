@@ -1,0 +1,68 @@
+id: gdm-screensaver-blank
+title: Ensure GDM session lock displays a blank or publicly viewable image
+description: 'If GNOME Display Manager is in use, the session lock screen must conceal information previously visible on the
+  display by showing a blank screen or publicly viewable image.
+
+  '
+rationale: 'Without concealing the screen contents when the session locks, sensitive information previously displayed remains
+  visible to anyone who approaches the workstation, creating a confidentiality risk even when access is otherwise restricted.
+
+  '
+severity: medium
+category: services
+tags:
+- gdm
+- gnome
+- screen-lock
+- screensaver
+- security
+conflicts_with:
+- gdm-removed
+references:
+  stig:
+    rhel9:
+      vuln_id: V-258027
+      stig_id: RHEL-09-271070
+      severity: CAT II
+  nist_800_53:
+  - AC-11(1)
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: gdm
+  check:
+    method: command
+    run: "# Check if picture-options is set to 'none' or picture-uri is empty\nif grep -qr \"^picture-options='none'\" /etc/dconf/db/local.d/\
+      \ 2>/dev/null || \\\n   grep -qr '^picture-options='\"'\"'none'\"'\" /etc/dconf/db/local.d/ 2>/dev/null || \\\n   grep\
+      \ -qr \"^picture-uri=''\" /etc/dconf/db/local.d/ 2>/dev/null; then\n  echo \"OK: GDM screensaver is configured to display\
+      \ a blank screen\"\n  exit 0\nfi\necho \"FAIL: GDM screensaver may display sensitive screen contents\"\nexit 1\n"
+    expected_exit: 0
+  remediation:
+    steps:
+    - mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: picture-uri
+      value: ''''''
+      file: 00-screensaver
+    - mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: picture-options
+      value: '''none'''
+      file: 00-screensaver
+- when: apt
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gdm
+- default: true
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gdm

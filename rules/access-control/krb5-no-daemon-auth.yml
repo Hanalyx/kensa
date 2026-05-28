@@ -1,0 +1,50 @@
+id: krb5-no-daemon-auth
+title: Prevent system daemons from using Kerberos for authentication
+description: >
+  RHEL 8 must prevent system daemons from using Kerberos for authentication.
+  Keytab files in /etc/ allow daemons to authenticate to the Kerberos realm
+  without interactive credentials. Only explicitly approved services should
+  have keytab files.
+rationale: >
+  System daemons using Kerberos authentication without explicit configuration
+  and approval could allow compromised Kerberos credentials to be used for
+  lateral movement. Controlling Kerberos use by daemons limits the impact of
+  credential compromise.
+severity: medium
+transactional: false
+category: access-control
+tags: [kerberos, authentication, daemons, security, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230238"
+      severity: "CAT II"
+  nist_800_53: ["AC-17", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q krb5-workstation &>/dev/null && ! rpm -q krb5-libs &>/dev/null; then
+          exit 0
+        fi
+        keytabs=$(find /etc -name '*.keytab' -type f 2>/dev/null)
+        if [ -n "$keytabs" ]; then
+          echo "FAIL: keytab files found in /etc/ (review for authorized use):"
+          echo "$keytabs"
+          exit 1
+        fi
+        echo "OK: no keytab files found in /etc/"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Review any .keytab files found in /etc/ and verify they are
+        required and documented. Remove unauthorized keytab files.
+        Contact the Kerberos administrator to validate daemon keytab usage.

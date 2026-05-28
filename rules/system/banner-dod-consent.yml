@@ -1,0 +1,58 @@
+id: banner-dod-consent
+title: Configure login warning banner
+description: >
+  The system must display an authorized-use warning banner before granting
+  local or remote access. The banner text is written to /etc/issue, which
+  sshd displays via the Banner directive (see ssh-banner rule). The check
+  verifies that the file contains meaningful warning text, not just the OS
+  default. Customize the text by setting the banner_text variable in
+  rules/rules.d/.
+rationale: >
+  A pre-authentication banner establishes the legal basis for monitoring
+  and prosecution of unauthorized access. Without a warning banner, an
+  attacker may claim they were unaware the system was restricted.
+severity: medium
+category: system
+tags: [banner, compliance, login]
+
+references:
+  cis:
+    rhel9: { section: "1.7.2", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.7.1", level: "L1", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-257779"
+      severity: "CAT II"
+    rhel8:
+      vuln_id: "V-230227"
+      severity: "CAT II"
+  nist_800_53: ["AC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if [ ! -s /etc/issue ]; then
+          echo "FAIL: /etc/issue is empty or missing"
+          exit 1
+        fi
+        # Strip getty escape sequences (\S, \r, \m, \l, etc.) and whitespace
+        textlen=$(sed 's/\\[[:alpha:]]//g' /etc/issue | tr -d '[:space:]' | wc -c)
+        if [ "$textlen" -lt 20 ]; then
+          echo "FAIL: /etc/issue has no meaningful warning text ($textlen chars after stripping escapes)"
+          exit 1
+        fi
+        echo "OK: /etc/issue contains warning banner ($textlen meaningful chars)"
+      expected_exit: 0
+    remediation:
+      mechanism: file_content
+      path: "/etc/issue"
+      content: "{{ banner_text }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"

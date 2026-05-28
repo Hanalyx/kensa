@@ -1,0 +1,41 @@
+id: rsyslog-remote-server
+title: Configure rsyslog to offload audit records to a remote server
+description: >
+  RHEL 8 audit records must be off-loaded onto a different system or storage
+  media from the system being audited. Rsyslog must be configured with a
+  remote server using TCP (@@) forwarding.
+rationale: >
+  Storing audit records only on the audited system means that if the system
+  is compromised, the attacker can modify or destroy the audit trail. Off-loading
+  audit records to a remote server provides an independent copy of the audit
+  data that cannot be modified by a local attacker.
+severity: medium
+category: audit
+tags: [audit, rsyslog, remote, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230479"
+      severity: "CAT II"
+  nist_800_53: ["AU-4", "AU-9"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -E '^\s*\*\.\*\s+@@' /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null |
+        grep -v '^\s*#'
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/rsyslog.d"
+      file: "00-kensa-remote.conf"
+      key: "*.*"
+      value: "@@{{ rsyslog_remote_server }}"
+      restart: "rsyslog"

@@ -1,0 +1,39 @@
+id: library-dirs-owner
+title: Ensure library directories are owned by root
+description: >
+  All shared library directories must be owned by root to prevent
+  unauthorized modification.
+rationale: >
+  Library directories not owned by root could allow non-privileged users
+  to add malicious libraries that are loaded by system applications.
+severity: medium
+category: filesystem
+tags: [file-permissions, library-files, security]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-251708"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /lib /lib64 /usr/lib /usr/lib64 ! -user root -type d 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: file_permissions
+      find_paths:
+        - /lib
+        - /lib64
+        - /usr/lib
+        - /usr/lib64
+      find_type: d
+      find_args: "! -user root"
+      owner: root

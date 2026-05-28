@@ -1,0 +1,51 @@
+id: root-umask
+title: Ensure root user umask is configured
+description: >
+  The root user's umask should be set to 027 or more restrictive to
+  ensure files created by root are not world-readable by default.
+rationale: >
+  A restrictive umask for root prevents sensitive configuration files
+  or logs from being accidentally created with permissive access.
+severity: medium
+category: access-control
+tags: [root, umask, permissions, security]
+
+references:
+  cis:
+    rhel9: { section: "5.4.2.6", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Check root's effective umask from profile files
+        umask_val=$(grep -E '^\s*umask\s+[0-7]+' /root/.bashrc /root/.bash_profile /etc/profile /etc/bashrc 2>/dev/null | tail -1 | grep -oE '[0-7]+$')
+        if [ -z "$umask_val" ]; then
+          echo "FAIL: No umask configured for root"
+          exit 1
+        fi
+        # Pad to 3 digits if needed
+        while [ ${#umask_val} -lt 3 ]; do umask_val="0${umask_val}"; done
+        # Per-digit comparison: each digit must be >= the corresponding digit in 027
+        u_digit=$(echo "$umask_val" | cut -c1)
+        g_digit=$(echo "$umask_val" | cut -c2)
+        o_digit=$(echo "$umask_val" | cut -c3)
+        if [ "$u_digit" -lt 0 ] || [ "$g_digit" -lt 2 ] || [ "$o_digit" -lt 7 ]; then
+          echo "FAIL: Root umask ($umask_val) is less restrictive than 027"
+          exit 1
+        fi
+        echo "OK: Root umask is $umask_val"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/root/.bashrc"
+      key: "umask"
+      value: "027"
+      separator: " "

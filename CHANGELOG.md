@@ -17,6 +17,15 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
   2029-01-01); same terms as the archived Python kensa. Required by rpm/deb
   packaging metadata and removes the previous "BSL 1.1 declared in README,
   no LICENSE file" mismatch.
+- `rules/` — vendored the 539 SCAP-derived rules from the archived Python
+  kensa (`/home/rracine/hanalyx/kensa.archive/rules`) into this repo,
+  byte-identical to source (sha256-verified). Eight topic dirs
+  (`access-control` 129, `audit` 101, `filesystem` 73, `kernel` 22,
+  `logging` 14, `network` 23, `services` 107, `system` 70). 2.2 MB on disk.
+  This is what the forthcoming `kensa-rules` noarch package installs to
+  `/usr/share/kensa/rules`; subsequent rule edits land here, the archive
+  is frozen. `rules/README.md` documents the layout, the validate-corpus
+  workflow, and provenance.
 - `internal/rules.Resolve` — default-path resolution policy for `--rules-dir`.
   Explicit `--rules-dir` still wins; positional rule YAML paths alone skip
   the walk; when neither is given the CLI falls back to

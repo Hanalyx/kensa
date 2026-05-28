@@ -1,0 +1,86 @@
+id: ssh-banner
+title: Configure SSH warning banner
+description: >
+  The SSH daemon must display a warning banner before authentication. The
+  Banner directive specifies a file whose contents are sent to connecting
+  clients prior to authentication, providing legal notice that the system
+  is monitored and unauthorized access is prohibited.
+
+rationale: >
+  A pre-authentication banner establishes the legal basis for monitoring
+  and prosecution of unauthorized access. Without a warning banner, an
+  attacker may claim they were unaware the system was restricted, weakening
+  the organization's legal standing in the event of a security incident or
+  prosecution.
+
+severity: low
+category: access-control
+tags: [ssh, banner, notice]
+
+depends_on: [pkg-openssh-server-present]
+
+references:
+  cis:
+    rhel10:  { section: "5.1.5", level: "L1", type: "Automated" }
+    rhel8:  { section: "5.1.7", level: "L1", type: "Automated" }
+    rhel9:  { section: "5.1.8", level: "L1", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-258014"
+      stig_id: "RHEL-09-255025"
+      severity: "CAT II"
+      cci: ["CCI-000048"]
+  nist_800_53: ["AC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: sshd_config_d
+    check:
+      method: command
+      run: |
+        val=$(sshd -T 2>/dev/null | grep -i '^banner ' | awk '{print $2}')
+        if [ -z "$val" ] || [ "$val" = "none" ]; then
+          echo "FAIL: banner not configured"
+          exit 1
+        fi
+        if [ "$val" = "/etc/issue" ] || [ "$val" = "/etc/issue.net" ]; then
+          echo "OK: banner=$val"
+          exit 0
+        fi
+        echo "FAIL: banner=$val (expected /etc/issue or /etc/issue.net)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-banner.conf"
+      key: "Banner"
+      value: "/etc/issue"
+      reload: "sshd"
+
+  - default: true
+    check:
+      method: command
+      run: |
+        val=$(sshd -T 2>/dev/null | grep -i '^banner ' | awk '{print $2}')
+        if [ -z "$val" ] || [ "$val" = "none" ]; then
+          echo "FAIL: banner not configured"
+          exit 1
+        fi
+        if [ "$val" = "/etc/issue" ] || [ "$val" = "/etc/issue.net" ]; then
+          echo "OK: banner=$val"
+          exit 0
+        fi
+        echo "FAIL: banner=$val (expected /etc/issue or /etc/issue.net)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/ssh/sshd_config"
+      key: "Banner"
+      value: "/etc/issue"
+      separator: " "
+      reload: "sshd"

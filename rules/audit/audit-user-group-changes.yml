@@ -1,0 +1,65 @@
+id: audit-user-group-changes
+title: Audit user and group modifications
+description: >
+  Changes to user and group identity files must be audited. This includes
+  modifications to /etc/passwd, /etc/shadow, /etc/group, and /etc/gshadow.
+rationale: >
+  Auditing changes to identity files allows detection of unauthorized account
+  creation, privilege escalation, or account manipulation.
+severity: medium
+category: audit
+tags: [audit, auditd, identity]
+
+depends_on: [auditd-enabled]
+
+references:
+  cis:
+    rhel8:  { section: "6.3.3.6", level: "L2", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-258217"
+      stig_id: "RHEL-09-654015"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12", "AC-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      # Check all identity files are audited (flexible key name matching)
+      run: |
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/passwd.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/shadow.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/group.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/gshadow.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/security/opasswd.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/sudoers.*-p wa' && \
+        auditctl -l 2>/dev/null | grep -q '^-w /etc/sudoers\.d.*-p wa'
+      expected_exit: 0
+    remediation:
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /etc/passwd -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/shadow -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/group -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/gshadow -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/security/opasswd -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/sudoers -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/sudoers.d/ -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"

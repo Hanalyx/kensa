@@ -1,0 +1,69 @@
+id: gdm-disable-user-list
+title: Ensure GDM disable-user-list option is enabled
+description: 'If GNOME Display Manager is in use, the user list should be disabled to prevent username enumeration.
+
+  '
+rationale: 'Displaying usernames at login provides information that could be used in brute force attacks. Disabling the list
+  improves security.
+
+  '
+severity: medium
+category: services
+tags:
+- gdm
+- gnome
+- user-list
+- security
+- stig
+conflicts_with:
+- gdm-removed
+references:
+  cis:
+    rhel9:
+      section: 1.8.3
+      level: L1
+      type: Automated
+  stig:
+    rhel8:
+      vuln_id: V-244536
+      severity: CAT II
+  nist_800_53:
+  - AC-3
+  - AC-9
+  - CM-6
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: gdm
+  check:
+    method: command
+    run: 'if ! rpm -q gdm &>/dev/null; then exit 0; fi val=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/disable-user-list
+      2>/dev/null) [ "$val" = "true" ]
+
+      '
+    expected_exit: 0
+  remediation:
+    mechanism: dconf_set
+    schema: org/gnome/login-screen
+    key: disable-user-list
+    value: 'true'
+    file: 00-security-settings
+    db: gdm
+    lock: true
+- when: apt
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gdm
+- default: true
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gdm

@@ -1,0 +1,38 @@
+id: kmod-disable-tipc
+title: Disable TIPC kernel module
+description: >
+  The Transparent Inter-Process Communication (TIPC) kernel module should
+  be disabled if not required.
+rationale: >
+  TIPC is a cluster communication protocol rarely used on most systems.
+  Disabling unused protocols reduces the attack surface and potential
+  for exploitation of protocol vulnerabilities.
+severity: medium
+category: kernel
+tags: [kernel-module, tipc, network, attack-surface, stig]
+
+references:
+  cis:
+    rhel9: { section: "3.2.2", level: "L1", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-257808"
+      severity: "CAT II"
+    rhel8:
+      vuln_id: "V-230497"
+      severity: "CAT III"
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: kernel_module_state
+      name: "tipc"
+      state: "disabled"
+    remediation:
+      mechanism: kernel_module_disable
+      name: "tipc"

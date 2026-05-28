@@ -1,0 +1,62 @@
+id: pam-pwhistory-root
+title: Ensure password history is enforced for the root user
+description: >
+  The pam_pwhistory module should be configured to enforce password
+  history for the root user.
+rationale: >
+  Preventing root from reusing old passwords ensures better security
+  by requiring truly new passwords.
+severity: medium
+category: access-control
+tags: [pam, password, pwhistory, root, security]
+
+depends_on: [pam-pwhistory-enabled]
+
+references:
+  cis:
+    rhel9: { section: "5.3.3.3.2", level: "L1", type: "Automated" }
+  nist_800_53: ["IA-5"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - when: authselect
+    check:
+      method: command
+      run: |
+        # Check pwhistory.conf for enforce_for_root (authselect-managed)
+        if grep -qE '^\s*enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
+          echo "OK: enforce_for_root set in pwhistory.conf"
+          exit 0
+        fi
+        # Also check PAM files directly
+        if grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/pam.d/system-auth 2>/dev/null; then
+          echo "OK: enforce_for_root set in system-auth"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory does not enforce history for root"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_append
+      path: "/etc/security/pwhistory.conf"
+      line: "enforce_for_root"
+
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -qE 'pam_pwhistory\.so.*enforce_for_root' /etc/pam.d/system-auth 2>/dev/null ||
+           grep -qE '^\s*enforce_for_root' /etc/security/pwhistory.conf 2>/dev/null; then
+          echo "OK: pam_pwhistory enforces history for root"
+          exit 0
+        fi
+        echo "FAIL: pam_pwhistory does not enforce history for root"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_append
+      path: "/etc/security/pwhistory.conf"
+      line: "enforce_for_root"

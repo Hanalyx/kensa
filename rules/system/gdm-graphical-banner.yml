@@ -1,0 +1,70 @@
+id: gdm-graphical-banner
+title: Configure GDM graphical login banner text
+description: >
+  The GDM banner-message-text dconf setting must contain a warning banner
+  before granting graphical logon access. The check verifies that banner
+  text is configured and non-empty. Customize the text by setting the
+  banner_text variable in config/conf.d/ with your organization's consent
+  language.
+rationale: >
+  A pre-authentication banner establishes the legal basis for monitoring
+  and prosecution of unauthorized access. Without meaningful banner text,
+  users are not informed of acceptable use policies and system monitoring.
+severity: medium
+transactional: false
+category: system
+tags: [gdm, graphical, banner, compliance]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230226"
+      severity: "CAT II"
+  nist_800_53: ["AC-8", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        # Check banner-message-enable is true
+        enable=$(grep -rhs '^\s*banner-message-enable\s*=' \
+          /etc/dconf/db/gdm.d/ /etc/dconf/db/local.d/ 2>/dev/null |
+          tail -1 | grep -io 'true' || true)
+        if [ -z "$enable" ]; then
+          enable=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/login-screen/banner-message-enable 2>/dev/null || true)
+        fi
+        if [ "$enable" != "true" ]; then
+          echo "FAIL: banner-message-enable is not true"
+          exit 1
+        fi
+        # Check banner-message-text is set and non-empty
+        text=$(grep -rhs '^\s*banner-message-text\s*=' \
+          /etc/dconf/db/gdm.d/ /etc/dconf/db/local.d/ 2>/dev/null |
+          tail -1 | sed "s/^[^=]*=\s*//;s/^['\"]//;s/['\"]$//" || true)
+        if [ -z "$text" ]; then
+          text=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/login-screen/banner-message-text 2>/dev/null |
+            sed "s/^'//;s/'$//" || true)
+        fi
+        textlen=$(echo "$text" | tr -d '[:space:]' | wc -c)
+        if [ "$textlen" -lt 20 ]; then
+          echo "FAIL: banner-message-text is empty or too short ($textlen chars)"
+          exit 1
+        fi
+        echo "OK: GDM banner enabled with $textlen chars of text"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Banner text is organization-specific and must be customized.
+        Create /etc/dconf/db/gdm.d/00-security-settings with:
+          [org/gnome/login-screen]
+          banner-message-text='<your organization consent banner>'
+        Then run: dconf update
