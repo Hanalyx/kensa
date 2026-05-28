@@ -154,11 +154,12 @@ issues:
       text: "exported"
 
     # internal/ packages don't need the same exported-comment rigor as api/.
-    # They get exported, package-comments, and naming, but not godot strictness.
+    # They get exported, package-comments, and naming, but not godot strictness
+    # (neither the period nor the capital-first-letter check — Go convention is
+    # for unexported-symbol doc comments to start with the identifier name).
     - path: internal/
       linters:
         - godot
-      text: "Comment should end in a period"
 
   # Cap the noise — show all instances per linter.
   max-issues-per-linter: 0

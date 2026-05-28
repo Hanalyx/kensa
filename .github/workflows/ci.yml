@@ -212,6 +212,26 @@ jobs:
           # Google's Go Style Guide on the api/ surface.
           args: --config=.golangci.yml --timeout=5m
 
+  comment-lint:
+    # Fails when a NEW Go // comment carries a planning label (Phase 3,
+    # Option B, ...) — those point into plans a future reader can't resolve.
+    # Lints only lines added vs origin/main, so legacy comments are
+    # grandfathered. fetch-depth: 0 + the explicit fetch give the diff a
+    # merge-base to work from. See CONTRIBUTING.md, "Comments".
+    name: Comment lint (no planning labels in new comments)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Ensure base ref is present
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      - name: comment-lint (added lines vs origin/main)
+        run: make comment-lint
+
   pre-commit:
     # Mirror the pre-commit framework checks contributors run locally.
     # Default-stage hooks in .pre-commit-config.yaml are file hygiene

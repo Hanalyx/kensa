@@ -1,0 +1,88 @@
+spec:
+    id: bootguard-restore
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-restore
+        description: |
+            Restore writes a captured boot-state Snapshot back to the host
+            and regenerates the bootloader config on legacy systems. It is
+            the counterpart to bootguard-capture and the primitive the
+            boot-success fallback invokes to revert a host that booted into
+            a bad kernel parameter.
+
+            MUTATING and boot-safety-critical. Production use is GATED on a
+            founder-authored failure-mode analysis (CONTRIBUTING.md §7),
+            two-human review, and real-host reboot validation on disposable
+            VMs — it has NOT been run against a real host. This spec covers
+            the command logic, verified by FakeTransport unit tests only.
+        related_specs:
+            - bootguard-capture
+    objective:
+        summary: |
+            Faithfully restore /etc/default/grub and (on BLS) the captured
+            BootLoaderSpec entry files; regenerate grub.cfg on legacy.
+        scope:
+            includes:
+                - Write /etc/default/grub back verbatim
+                - "BLS: write captured entry files back; do NOT regenerate"
+                - "legacy: regenerate grub.cfg via update-grub / grub-mkconfig"
+            excludes:
+                - The boot-resident success/revert mechanism (separate spec)
+                - Adding/removing parameters (that is the handler's job)
+    constraints:
+        - id: C-01
+          description: |
+              Restore MUST write the captured /etc/default/grub contents
+              back verbatim on every flavor.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              On BLS, Restore MUST write the captured entry files back
+              verbatim and MUST NOT run grub2-mkconfig — regenerating would
+              rebuild entries from GRUB_CMDLINE_LINUX and lose per-entry args.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              On legacy, Restore MUST regenerate grub.cfg (update-grub, with
+              a grub-mkconfig fallback) so the restored GRUB_CMDLINE_LINUX
+              takes effect.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Restore MUST fail (return an error) on a nil snapshot, an
+              unknown flavor, or any failed write/regenerate command, rather
+              than reporting partial success. It requires a privileged
+              (sudo) transport.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Restore writes the captured /etc/default/grub back.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: On BLS, Restore writes the captured entry files and does not regenerate.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: On legacy, Restore regenerates grub.cfg via update-grub/grub-mkconfig.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: Restore returns an error on a nil snapshot.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: Restore returns an error when a write command fails.
+          references_constraints: [C-04]
+          priority: high
+    depends_on:
+        - spec_id: bootguard-capture
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, restore, mutating, gated]
