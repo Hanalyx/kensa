@@ -1,0 +1,46 @@
+id: pkg-abrt-absent
+title: Ensure ABRT and crash reporting packages are not installed
+description: 'The abrt, abrt-libs, abrt-addon-kerneloops, abrt-addon-ccpp, libreport, and related crash-reporting packages
+  must not be installed. These packages collect and transmit crash data.
+
+  '
+rationale: 'Crash reporting tools can expose sensitive system information in core dumps and transmit it to external systems.
+  RHEL 8 systems must not have ABRT or libreport packages installed.
+
+  '
+severity: medium
+category: services
+tags:
+- package
+- abrt
+- libreport
+- attack-surface
+references:
+  stig:
+    rhel8:
+      vuln_id: V-230488
+      severity: CAT II
+  nist_800_53:
+  - CM-7
+  - SI-12
+platforms:
+- family: rhel
+  min_version: 8
+  max_version: 8
+implementations:
+- when: apt
+  check:
+    method: package_state
+    name: abrt
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: abrt
+- default: true
+  check:
+    method: command
+    run: rpm -q abrt abrt-libs libreport 2>/dev/null | grep -v 'not installed' || true
+    expected_stdout: ''
+  remediation:
+    mechanism: package_absent
+    name: abrt

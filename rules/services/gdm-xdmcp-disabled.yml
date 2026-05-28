@@ -1,0 +1,60 @@
+id: gdm-xdmcp-disabled
+title: Ensure XDMCP is not enabled
+description: 'If GNOME Display Manager is in use, the X Display Manager Control Protocol (XDMCP) should be disabled.
+
+  '
+rationale: 'XDMCP sends credentials in clear text and is vulnerable to man-in-the-middle attacks. It should be disabled for
+  security.
+
+  '
+severity: high
+transactional: false
+category: services
+tags:
+- gdm
+- gnome
+- xdmcp
+- security
+conflicts_with:
+- gdm-removed
+references:
+  cis:
+    rhel9:
+      section: 1.8.10
+      level: L1
+      type: Automated
+  nist_800_53:
+  - CM-7
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: gdm
+  check:
+    method: command
+    run: "# Check if XDMCP is enabled\nif grep -qE '^\\[xdmcp\\]' /etc/gdm/custom.conf 2>/dev/null; then\n  if grep -qE '^Enable=true'\
+      \ /etc/gdm/custom.conf 2>/dev/null; then\n    echo \"FAIL: XDMCP is enabled in GDM\"\n    exit 1\n  fi\nfi\necho \"\
+      OK: XDMCP is not enabled\"\nexit 0\n"
+    expected_exit: 0
+  remediation:
+    mechanism: manual
+    note: 'Disable XDMCP in /etc/gdm/custom.conf by removing or commenting the [xdmcp] section or setting Enable=false under
+      it.
+
+      '
+- when: apt
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gdm
+- default: true
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gdm

@@ -1,0 +1,46 @@
+id: pkg-gssproxy-absent
+title: Ensure gssproxy package is not installed
+description: 'The gssproxy package must not be installed unless required for Kerberos authentication. It provides GSS-API
+  proxy services.
+
+  '
+rationale: 'Removing unnecessary Kerberos-related packages reduces the attack surface when Kerberos is not in use.
+
+  '
+severity: low
+category: services
+tags:
+- package
+- kerberos
+- attack-surface
+references:
+  stig:
+    rhel9:
+      vuln_id: V-257832
+      stig_id: RHEL-09-215045
+      severity: CAT III
+    rhel8:
+      vuln_id: V-230559
+      severity: CAT II
+  nist_800_53:
+  - CM-7
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: apt
+  check:
+    method: package_state
+    name: gssproxy
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gssproxy
+- default: true
+  check:
+    method: package_state
+    name: gssproxy
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gssproxy

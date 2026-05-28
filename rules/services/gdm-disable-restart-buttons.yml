@@ -1,0 +1,63 @@
+id: gdm-disable-restart-buttons
+title: Ensure GDM disables restart and power-off buttons on login screen
+description: 'If GNOME Display Manager is in use, the ability to restart the system from the GDM login screen must be disabled.
+
+  '
+rationale: 'Allowing a user to restart or shut down the system from the login screen without authentication could be used
+  to disrupt availability or to boot into alternate media to bypass access controls.
+
+  '
+severity: medium
+category: services
+tags:
+- gdm
+- gnome
+- login-screen
+- restart
+- security
+conflicts_with:
+- gdm-removed
+references:
+  stig:
+    rhel9:
+      vuln_id: V-258029
+      stig_id: RHEL-09-271080
+      severity: CAT II
+  nist_800_53:
+  - CM-6
+  - AC-6
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: gdm
+  check:
+    method: command
+    run: "# Check if disable-restart-buttons=true in gdm dconf config\nif grep -qr \"^disable-restart-buttons=true\" /etc/dconf/db/gdm.d/\
+      \ 2>/dev/null || \\\n   grep -qr \"^disable-restart-buttons=true\" /etc/dconf/db/local.d/ 2>/dev/null; then\n  echo\
+      \ \"OK: GDM restart buttons are disabled on login screen\"\n  exit 0\nfi\necho \"FAIL: GDM restart buttons are not disabled\
+      \ on login screen\"\nexit 1\n"
+    expected_exit: 0
+  remediation:
+    mechanism: dconf_set
+    schema: org/gnome/login-screen
+    key: disable-restart-buttons
+    value: 'true'
+    file: 00-security-settings
+    db: gdm
+- when: apt
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gdm
+- default: true
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gdm

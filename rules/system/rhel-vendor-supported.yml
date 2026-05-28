@@ -1,0 +1,55 @@
+id: rhel-vendor-supported
+title: Ensure RHEL is a vendor-supported release
+description: >
+  The operating system must be a vendor-supported release. Red Hat
+  must continue to provide security patches and support for the
+  installed version of RHEL.
+rationale: >
+  An operating system that is no longer supported by the vendor will
+  not receive security updates. Running unsupported software exposes
+  the system to unpatched vulnerabilities.
+severity: critical
+transactional: false
+category: system
+tags: [vendor-support, patching, lifecycle]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230221"
+      severity: "CAT I"
+  nist_800_53: ["SI-2", "SA-22"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+    max_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if [ ! -f /etc/redhat-release ]; then
+          echo "FAIL: /etc/redhat-release not found"
+          exit 1
+        fi
+        release=$(cat /etc/redhat-release)
+        ver=$(echo "$release" | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        major=$(echo "$ver" | cut -d. -f1)
+        if [ -z "$major" ]; then
+          echo "FAIL: cannot parse version from $release"
+          exit 1
+        fi
+        if [ "$major" -ge 8 ]; then
+          echo "OK: $release"
+          exit 0
+        fi
+        echo "FAIL: $release (unsupported)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Upgrade to a vendor-supported RHEL release. Check support dates
+        at https://access.redhat.com/support/policy/updates/errata

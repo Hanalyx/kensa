@@ -1,0 +1,59 @@
+id: gdm-screensaver-lock
+title: Ensure screensaver lock delay is 5 seconds or less
+description: >
+  RHEL 8 must initiate a session lock for graphical user interfaces when
+  the screensaver is activated. The lock-delay dconf setting must be
+  configured to 5 seconds or less (lock-delay=uint32 5) in the local
+  user database.
+rationale: >
+  A session lock is a temporary action taken when a user stops work and moves
+  away from their workstation. Configuring a session lock ensures the screen
+  is locked when the screensaver activates, preventing unauthorized access.
+severity: medium
+category: system
+tags: [gdm, graphical, screensaver, session-lock, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-244535"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        # Check lock-delay setting from dconf database files
+        delay=$(grep -rhs '^\s*lock-delay\s*=' \
+          /etc/dconf/db/local.d/ /etc/dconf/db/gdm.d/ 2>/dev/null |
+          tail -1 | sed 's/^[^=]*=\s*//' | tr -d "'" | grep -oE '^uint32 [0-9]+|^[0-9]+' |
+          grep -oE '[0-9]+' || true)
+        if [ -z "$delay" ]; then
+          delay=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/desktop/screensaver/lock-delay 2>/dev/null |
+            sed "s/^uint32 //" | tr -d "'" || true)
+        fi
+        if [ -z "$delay" ]; then
+          echo "FAIL: lock-delay not configured"
+          exit 1
+        fi
+        if [ "$delay" -gt 5 ] 2>/dev/null; then
+          echo "FAIL: lock-delay=$delay (must be <= 5)"
+          exit 1
+        fi
+        echo "OK: lock-delay=$delay"
+      expected_exit: 0
+    remediation:
+      mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: lock-delay
+      value: "5"
+      value_type: uint32
+      file: 00-screensaver

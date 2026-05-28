@@ -1,0 +1,64 @@
+id: gdm-smartcard-removal-lock
+title: Ensure GDM smart card removal action cannot be overridden
+description: 'If GNOME Display Manager is in use, the smart card removal action must be set to lock the screen and users must
+  not be able to override this setting.
+
+  '
+rationale: 'Preventing users from overriding the smart card removal action ensures that removing a smart card automatically
+  locks the screen, maintaining access control when the authentication token is removed.
+
+  '
+severity: medium
+category: services
+tags:
+- gdm
+- gnome
+- smartcard
+- screen-lock
+- security
+conflicts_with:
+- gdm-removed
+references:
+  stig:
+    rhel9:
+      vuln_id: V-258020
+      stig_id: RHEL-09-271040
+      severity: CAT II
+  nist_800_53:
+  - AC-11
+  - IA-3
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: gdm
+  check:
+    method: command
+    run: "# Check if smart card removal action is locked\nfound=0\nfor lockfile in /etc/dconf/db/local.d/locks/*; do\n  if\
+      \ [ -f \"$lockfile\" ] && grep -q \"/org/gnome/settings-daemon/peripherals/smartcard/removal-action\" \"$lockfile\"\
+      \ 2>/dev/null; then\n    found=1\n    break\n  fi\ndone\nif [ \"$found\" -eq 1 ]; then\n  echo \"OK: GDM smart card\
+      \ removal action is locked\"\n  exit 0\nfi\necho \"FAIL: GDM smart card removal action can be overridden\"\nexit 1\n"
+    expected_exit: 0
+  remediation:
+    mechanism: dconf_set
+    schema: org/gnome/settings-daemon/peripherals/smartcard
+    key: removal-action
+    value: '''lock-screen'''
+    file: 00-smartcard
+    lock: true
+- when: apt
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gdm
+- default: true
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gdm

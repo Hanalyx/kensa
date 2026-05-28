@@ -1,0 +1,39 @@
+id: no-duplicate-uids
+title: Ensure no duplicate UIDs exist in /etc/passwd
+description: >
+  No duplicate user IDs (UIDs) must exist in /etc/passwd. Each user account
+  must have a unique UID to ensure proper access control and audit trail
+  accountability.
+rationale: >
+  Duplicate UIDs allow multiple accounts to operate with the same privileges.
+  An attacker could exploit a duplicate UID to access another user's files
+  and processes without knowing that user's credentials, undermining
+  the principle of individual accountability.
+severity: medium
+transactional: false
+category: access-control
+tags: [users, uid, accountability, access-control]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230371"
+      severity: "CAT II"
+  nist_800_53: ["IA-2", "AC-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "awk -F: '{print $3}' /etc/passwd | sort | uniq -d | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: manual
+      note: >
+        Identify duplicate UIDs with: awk -F: '{print $3}' /etc/passwd | sort | uniq -d
+        For each duplicate, assign a unique UID using: usermod -u <new_uid> <username>
+        Ensure all files owned by the old UID are updated accordingly.

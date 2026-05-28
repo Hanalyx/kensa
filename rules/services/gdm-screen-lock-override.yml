@@ -1,0 +1,61 @@
+id: gdm-screen-lock-override
+title: Ensure GDM screen locks cannot be overridden
+description: 'If GNOME Display Manager is in use, users should not be able to override the screen lock settings.
+
+  '
+rationale: 'Preventing users from disabling screen lock ensures the security policy is enforced consistently.
+
+  '
+severity: medium
+category: services
+tags:
+- gdm
+- gnome
+- screen-lock
+- security
+conflicts_with:
+- gdm-removed
+references:
+  cis:
+    rhel9:
+      section: 1.8.5
+      level: L1
+      type: Automated
+  nist_800_53:
+  - AC-11
+platforms:
+- family: rhel
+  min_version: 8
+implementations:
+- when: gdm
+  check:
+    method: command
+    run: "# Check if lock settings are locked\nif [ -f /etc/dconf/db/local.d/locks/00-screensaver ]; then\n  if grep -q \"\
+      /org/gnome/desktop/screensaver/lock-delay\" /etc/dconf/db/local.d/locks/00-screensaver 2>/dev/null; then\n    echo \"\
+      OK: GDM screen lock settings are locked\"\n    exit 0\n  fi\nfi\necho \"FAIL: GDM screen lock settings can be overridden\"\
+      \nexit 1\n"
+    expected_exit: 0
+  remediation:
+    mechanism: dconf_set
+    schema: org/gnome/desktop/screensaver
+    key: lock-delay
+    value: '5'
+    value_type: uint32
+    file: 00-screensaver
+    lock: true
+- when: apt
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: gdm
+- default: true
+  check:
+    method: package_state
+    name: gdm
+    state: absent
+  remediation:
+    mechanism: package_absent
+    name: gdm

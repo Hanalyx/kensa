@@ -1,0 +1,52 @@
+id: audit-cmd-usermod
+title: Audit uses of the usermod command
+description: >
+  All uses of the usermod command must be audited. The usermod command
+  modifies user account properties including group memberships.
+rationale: >
+  Auditing usermod usage allows detection of unauthorized user
+  account modifications that could grant elevated access.
+severity: medium
+category: audit
+tags: [audit, auditd, privileged, user]
+
+depends_on: [auditd-enabled]
+
+references:
+  cis:
+    rhel8: { section: "6.3.3.18", level: "L2", type: "Automated" }
+    rhel9: { section: "6.3.3.18", level: "L1", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-258209"
+      stig_id: "RHEL-09-654295"
+      severity: "CAT II"
+    rhel8:
+      vuln_id: "V-230463"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        rule=$(auditctl -l 2>/dev/null | grep 'path=/usr/sbin/usermod')
+        if [ -z "$rule" ]; then
+          echo "FAIL: no audit rule for /usr/sbin/usermod"
+          exit 1
+        fi
+        if ! echo "$rule" | grep -q 'perm=x'; then
+          echo "FAIL: audit rule for /usr/sbin/usermod missing perm=x"
+          exit 1
+        fi
+        echo "OK: /usr/sbin/usermod is audited"
+      expected_exit: 0
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k privileged"
+      persist_file: "/etc/audit/rules.d/50-privileged.rules"

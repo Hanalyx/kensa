@@ -1,0 +1,50 @@
+id: ssh-macs-fips
+title: Configure SSH to use FIPS-approved MACs
+description: >
+  The SSH daemon must be configured to use only FIPS 140-2 validated
+  Message Authentication Codes (MACs).
+rationale: >
+  FIPS-approved MACs ensure data integrity for SSH sessions. Using
+  only validated MACs prevents manipulation of encrypted traffic.
+severity: high
+category: access-control
+tags: [ssh, fips, macs, cryptography, stig]
+
+depends_on: [pkg-openssh-server-present]
+conflicts_with: [ssh-crypto-policy]
+
+references:
+  stig:
+    rhel9:
+      vuln_id: "V-257991"
+      stig_id: "RHEL-09-255025"
+      severity: "CAT II"
+    rhel8:
+      vuln_id: "V-230251"
+      severity: "CAT II"
+  nist_800_53: ["SC-12", "SC-13"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! command -v sshd &>/dev/null; then exit 0; fi
+        macs=$(sshd -T 2>/dev/null | awk '/^macs /{print $2}')
+        echo "$macs" | tr ',' '\n' | grep -qvE '^(hmac-sha2-256|hmac-sha2-512|hmac-sha2-256-etm@openssh\.com|hmac-sha2-512-etm@openssh\.com)$' && {
+          echo "FAIL: non-FIPS MAC in effective config: $macs"
+          exit 1
+        }
+        echo "OK: $macs"
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-fips-macs.conf"
+      key: "MACs"
+      value: "hmac-sha2-512,hmac-sha2-256,hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com"
+      restart: sshd

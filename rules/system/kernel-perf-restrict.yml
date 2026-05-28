@@ -1,0 +1,37 @@
+id: kernel-perf-restrict
+title: Restrict use of performance events
+description: >
+  The kernel.perf_event_paranoid sysctl must be set to restrict access
+  to performance monitoring events.
+rationale: >
+  Performance events can be used for side-channel attacks or to gather
+  information about system activity. Restricting access prevents
+  unauthorized profiling.
+severity: low
+category: system
+tags: [sysctl, perf, kernel, security, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230270"
+      severity: "CAT II"
+    rhel9:
+      vuln_id: "V-257798"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: sysctl_value
+      key: "kernel.perf_event_paranoid"
+      expected: "2"
+    remediation:
+      mechanism: sysctl_set
+      key: "kernel.perf_event_paranoid"
+      value: "2"

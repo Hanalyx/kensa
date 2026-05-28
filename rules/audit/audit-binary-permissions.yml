@@ -1,0 +1,35 @@
+id: audit-binary-permissions
+title: Set permissions on audit binaries
+description: >
+  Audit binary files (/sbin/auditctl, /sbin/aureport, /sbin/ausearch,
+  /sbin/autrace, /sbin/auditd, /sbin/augenrules) must have restrictive
+  permissions to prevent unauthorized modification.
+rationale: >
+  Audit binaries are critical for security monitoring. Unauthorized
+  modification could allow attackers to disable auditing or hide their
+  activities.
+severity: high
+transactional: false
+category: audit
+tags: [audit, permissions, binaries, security]
+
+conflicts_with: [audit-tools-permissions, audit-tools-owner, audit-tools-group]
+depends_on: [auditd-enabled]
+
+references:
+  nist_800_53: ["AU-9", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules -type f \\( ! -perm 755 -o ! -user root -o ! -group root \\) 2>/dev/null | head -1"
+      expected_exit: 0
+      expected_stdout: ""
+    remediation:
+      mechanism: command_exec
+      run: "chmod 755 /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; chown root:root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules"

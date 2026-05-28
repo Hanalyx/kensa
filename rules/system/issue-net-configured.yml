@@ -1,0 +1,38 @@
+id: issue-net-configured
+title: Ensure remote login warning banner is configured properly
+description: >
+  The /etc/issue.net file contains the message displayed to users before
+  remote login. It should contain an authorized use warning and not
+  display OS version information. Customize the text by setting the
+  banner_text variable in rules/rules.d/.
+rationale: >
+  Displaying a warning banner before login helps establish legal notice
+  that the system is for authorized use only. Removing OS information
+  reduces attack surface information disclosure.
+severity: low
+category: system
+tags: [banner, issue.net, login, security, ssh]
+
+references:
+  cis:
+    rhel9: { section: "1.7.3", level: "L1", type: "Automated" }
+    rhel8: { section: "1.7.3", level: "L1", type: "Automated" }
+  nist_800_53: ["AC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: file_content
+      path: "/etc/issue.net"
+      expected_content: "{{ banner_text }}"
+    remediation:
+      mechanism: file_content
+      path: "/etc/issue.net"
+      content: "{{ banner_text }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"

@@ -1,0 +1,41 @@
+id: gdm-screensaver-lock-override
+title: Prevent users from overriding screensaver lock-enabled setting
+description: >
+  RHEL 8 must prevent a user from overriding the screensaver lock-enabled
+  setting for the graphical user interface. The lock-enabled setting must
+  be locked in the dconf system database.
+rationale: >
+  Allowing users to disable the screen lock defeats the purpose of requiring
+  automatic session locks. Locking the dconf setting prevents users from
+  circumventing the session lock security control.
+severity: medium
+category: system
+tags: [gdm, graphical, dconf, screensaver, lock, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-244539"
+      severity: "CAT II"
+  nist_800_53: ["AC-11", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+        grep -rq '/org/gnome/desktop/screensaver/lock-enabled' \
+          /etc/dconf/db/local.d/locks/ 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: dconf_set
+      schema: org/gnome/desktop/screensaver
+      key: lock-enabled
+      value: "true"
+      file: 00-screensaver
+      lock: true

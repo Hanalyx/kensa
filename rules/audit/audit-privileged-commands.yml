@@ -1,0 +1,33 @@
+id: audit-privileged-commands
+title: Audit execution of privileged commands
+description: >
+  The system must audit all executions of setuid and setgid programs
+  to track privileged command usage.
+rationale: >
+  Privileged commands run with elevated permissions and are common
+  targets for attackers. Auditing their execution provides accountability
+  and helps detect unauthorized privilege escalation attempts.
+severity: medium
+category: audit
+tags: [audit, privileged, suid, sgid, stig]
+
+depends_on: [auditd-enabled]
+
+references:
+  cis:
+    rhel9: { section: "6.3.3.6", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-k execpriv"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"
+      persist_file: "/etc/audit/rules.d/50-privileged.rules"

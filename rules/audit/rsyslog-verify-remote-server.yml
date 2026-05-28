@@ -1,0 +1,40 @@
+id: rsyslog-verify-remote-server
+title: Authenticate rsyslog remote logging server with x509 certificate
+description: >
+  RHEL 8 must authenticate the remote logging server for off-loading audit
+  logs. Rsyslog must be configured with ActionSendStreamDriverAuthMode set
+  to x509/name to verify the remote server's certificate.
+rationale: >
+  Without verifying the identity of the remote logging server, audit records
+  could be sent to a rogue server. Configuring certificate verification ensures
+  the audit data is sent only to the authorized remote logging system.
+severity: medium
+category: audit
+tags: [audit, rsyslog, authentication, tls, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230482"
+      severity: "CAT II"
+  nist_800_53: ["AU-9", "SC-8", "IA-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: >
+        grep -qE '^\s*\$ActionSendStreamDriverAuthMode\s+x509/name'
+        /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/rsyslog.d"
+      file: "00-kensa-stream-auth.conf"
+      key: "$ActionSendStreamDriverAuthMode"
+      value: "x509/name"
+      restart: "rsyslog"
