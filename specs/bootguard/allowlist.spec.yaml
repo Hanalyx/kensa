@@ -1,0 +1,70 @@
+spec:
+    id: bootguard-allowlist
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-allowlist
+        description: |
+            The per-param preflight gate for arming the boot guard (task #15).
+            The deadman guard protects boot-ABILITY (a failed trial falls back to
+            the saved default), but it does NOT protect against a param that
+            boots fine yet is harmful, a param that could damage the fallback
+            target, or operator typos / a bad rule. So CheckParamArmable refuses
+            any kernel-cmdline key that is not on a curated allowlist BEFORE
+            arming — the allowlist is the exact set the rule corpus uses for grub
+            remediations (CIS/STIG kernel hardening) plus the one key the corpus
+            removes (systemd.confirm_spawn). The allowlist is a second safety net
+            in front of the guard, not a replacement for it; host-level
+            arm-ability (GRUB present, not UEFI/ostree/encrypted /boot) is the
+            separate CheckArmable gate.
+        related_specs:
+            - bootguard-arm-gate
+            - bootguard-oneshot
+    objective:
+        summary: |
+            Refuse to arm the boot guard for any kernel param outside the curated
+            compliance allowlist, before any bootloader mutation.
+        scope:
+            includes:
+                - Allow only the corpus grub-param keys (exact, bare-name match)
+                - Refuse a non-allowlisted key with a clear, naming error
+                - Refuse an empty key
+            excludes:
+                - Host-level arm-ability (bootguard-arm-gate / CheckArmable)
+                - The arm itself (bootguard-oneshot) and the handler wiring
+    constraints:
+        - id: C-01
+          description: |
+              CheckParamArmable MUST refuse (error) any key that is not on the
+              allowlist, naming the key, so a typo / exotic / dangerous param
+              never reaches a trial boot.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: CheckParamArmable MUST refuse an empty key.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The allowlist MUST be exactly the kernel params the rule corpus
+              uses (audit, audit_backlog_limit, init_on_alloc, page_poison, pti,
+              slub_debug, vsyscall) plus systemd.confirm_spawn (the remove
+              target), and MUST NOT contain boot-device / init keys (root, init).
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: CheckParamArmable returns nil for each allowlisted corpus key and an error (naming the key) for a non-allowlisted key.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: CheckParamArmable returns an error for an empty key.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: The allowlist contains the seven corpus set-keys plus systemd.confirm_spawn, and excludes root and init.
+          references_constraints: [C-03]
+          priority: critical
+    tags: [bootguard, grub, boot-safety, tier-1, allowlist, preflight, gated]

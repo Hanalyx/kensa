@@ -1,55 +1,62 @@
 spec:
     id: handler-grub-parameter-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
     context:
         system: kensa
         feature: handler-grub-parameter-set
         description: |
-            The grub_parameter_set handler adds or updates a kernel
-            command-line parameter (key=value) in GRUB_CMDLINE_LINUX inside
-            /etc/default/grub and regenerates the GRUB configuration via
-            grub2-mkconfig (falling back to grub-mkconfig). Apply first strips
-            any existing occurrence of the key, then appends key=value before
-            the closing quote. The change takes effect only after a reboot.
+            The grub_parameter_set handler stages a kernel command-line
+            parameter (key=value) through the Option-B boot guard
+            (internal/bootguard) instead of editing GRUB_CMDLINE_LINUX directly.
+            Apply arms a one-shot TRIAL boot entry carrying the parameter while
+            the saved default stays known-good; on the operator's next reboot the
+            trial boots once — a healthy boot promotes the parameter onto the
+            default, a failed boot auto-reverts to the saved default. Kensa never
+            reboots, so the parameter is PENDING until the operator reboots.
 
-            This handler is non-capturable: it implements only Handler, not
-            CaptureHandler or RollbackHandler. A GRUB config change cannot be
-            atomically rolled back in the running kernel, so rules using it
-            must declare transactional: false.
+            Preflight refuses, WITHOUT touching the bootloader, when the key is
+            not on the boot-guard allowlist (CheckParamArmable — a rule-level
+            error) or the host is outside the validated arming envelope
+            (CheckArmable: UEFI / ostree / encrypted /boot / non-GRUB — a
+            runtime Success=false). The confirm unit is installed before the
+            one-shot is armed (fail-safe ordering).
 
-            Note: deadman-guard wiring for this handler (so a bad boot
-            parameter does not strand the host) is tracked as a separate
-            pending roadmap item and is intentionally NOT in this spec's
-            scope.
+            This handler is non-capturable: the guard owns boot-atomicity (the
+            untouched saved default + a self-limiting confirm unit), so the
+            engine drives no capture/rollback and rules declare
+            transactional: false.
         related_specs:
             - handler-interface
+            - bootguard-allowlist
+            - bootguard-arm-gate
+            - bootguard-oneshot
     objective:
         summary: |
-            Set params.key=params.value in GRUB_CMDLINE_LINUX in
-            /etc/default/grub and regenerate the boot configuration. No
-            pre-state is captured and no rollback is offered.
+            Stage params.key=params.value via the boot guard (arm a one-shot
+            trial), refusing off-allowlist params and non-armable hosts. No
+            pre-state is captured; the guard's saved-default fallback is the
+            rollback.
         scope:
             includes:
-                - sed strip of any prior occurrence of the key
-                - sed append of key=value before the closing GRUB_CMDLINE_LINUX quote
-                - grub config regeneration via grub2-mkconfig / grub-mkconfig
                 - validation of the required key and value params
+                - allowlist preflight (refuse off-allowlist keys before any host command)
+                - arm-ability preflight (refuse non-armable hosts, Success=false)
+                - install the confirm unit then arm the one-shot trial (fail-safe order)
                 - the non-capturable nature of the handler
             excludes:
-                - capture of prior GRUB state
-                - rollback of the set parameter
-                - deadman-guard wiring (separate pending roadmap item)
+                - editing GRUB_CMDLINE_LINUX / the default entry directly (the guard promotes on reboot)
                 - rebooting the host (operator responsibility)
+                - the guard internals (bootguard-oneshot / bootguard-confirm / bootguard-arm-gate)
+                - grub_parameter_remove (separate handler; needs an arm-a-removal path)
     constraints:
         - id: C-01
           description: |
-              Apply MUST strip any existing occurrence of params.key and then
-              append key=value before the closing quote of GRUB_CMDLINE_LINUX
-              in /etc/default/grub, then regenerate the GRUB configuration,
-              all in a single chained pipeline.
-          type: technical
+              Apply MUST refuse a key that is not on the boot-guard allowlist
+              (bootguard.CheckParamArmable) by returning an error BEFORE running
+              any host command, so an off-allowlist param never reaches a boot.
+          type: security
           enforcement: error
         - id: C-02
           description: |
@@ -60,44 +67,53 @@ spec:
           enforcement: error
         - id: C-03
           description: |
-              When the underlying pipeline exits non-zero, Apply MUST return
-              a StepResult with Success=false (not an error), surfacing the
-              exit code and stderr in Detail.
-          type: technical
+              When the host is not armable (bootguard.CheckArmable reports
+              !Armable), Apply MUST return a StepResult with Success=false (not
+              an error), surfacing the refusal reasons in Detail, and MUST NOT
+              arm or edit the bootloader.
+          type: security
           enforcement: error
         - id: C-04
           description: |
+              On an armable host with an allowlisted key, Apply MUST install the
+              confirm unit and then arm a one-shot trial via the boot guard (in
+              that order), and MUST NOT edit GRUB_CMDLINE_LINUX / the default
+              entry directly. On success the parameter is PENDING until reboot
+              (Detail says so).
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
               grub_parameter_set is non-capturable: Capturable() MUST return
               false and the type MUST NOT satisfy CombinedHandler at runtime,
-              so the engine never attempts capture or rollback.
+              so the engine never attempts capture or rollback (the guard owns
+              boot-atomicity).
           type: security
           enforcement: error
     acceptance_criteria:
         - id: AC-01
-          description: |
-              Apply strips the prior key, appends key=value to
-              GRUB_CMDLINE_LINUX, and regenerates the GRUB config.
+          description: Apply returns an error and runs no host command when the key is not on the boot-guard allowlist.
           references_constraints: [C-01]
           priority: critical
         - id: AC-02
-          description: |
-              decodeParams rejects a nil map, a missing/empty/non-string key,
-              or a missing/non-string value.
+          description: decodeParams rejects a nil map, a missing/empty/non-string key, or a missing/non-string value, with no command run.
           references_constraints: [C-02]
           priority: high
         - id: AC-03
-          description: |
-              Apply reports Success=false (no error) when the pipeline exits
-              non-zero.
+          description: Apply reports Success=false (no error) and arms nothing when the host is not armable.
           references_constraints: [C-03]
-          priority: high
+          priority: critical
         - id: AC-04
-          description: |
-              The handler is non-capturable — Capturable() is false and a
-              runtime type-assert to CombinedHandler returns false.
+          description: On an armable host with an allowlisted key, Apply installs the confirm unit and arms the one-shot trial (and does not edit GRUB_CMDLINE_LINUX); Detail reports the param is pending until reboot.
           references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: The handler is non-capturable — Capturable() is false and a runtime type-assert to CombinedHandler returns false.
+          references_constraints: [C-05]
           priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires
-    tags: [handler, non-capturable, tier-2, grub, boot]
+        - spec_id: bootguard-allowlist
+          relationship: requires
+    tags: [handler, non-capturable, tier-2, grub, boot, bootguard, gated]

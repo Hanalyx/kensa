@@ -42,8 +42,8 @@ type ArmDecision struct {
 // arm on this host. It fails closed: the guard is "armable" only on a tested
 // configuration (GRUB on BIOS, not image-based, not encrypted /boot). Every
 // out-of-envelope condition (UEFI, non-GRUB, ostree, encrypted /boot) yields a
-// refusal rather than a silent best-effort. See the §7.3 edge-case table and
-// §12 gate in docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md.
+// refusal rather than a silent best-effort, because the guard's recovery path
+// has only been validated on the BIOS/GRUB configurations above.
 //
 // CheckArmable mutates nothing. It should run over a privileged (Sudo)
 // transport so the probes can read root-only boot paths.
