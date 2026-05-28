@@ -12,28 +12,88 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes yet)
+
+## v0.2.0 — 2026-05-28
+
+First "real" packaged release. Operators can now install kensa via
+`dnf install kensa kensa-rules` (rpm) or
+`apt install ./kensa_0.2.0_linux_amd64.deb ./kensa-rules_0.2.0_noarch.deb`
+(deb) and run `kensa check <host>` with no flags — the default-path
+fallback (this release) picks up the corpus from
+`/usr/share/kensa/rules` automatically.
+
+Also lands the full grub deadman guard (set + remove paths), the
+`grub_parameter_set` and `grub_parameter_remove` handlers wired through
+it, the first operator-guide chapter, and the supporting plumbing.
+
 ### Added
-- `LICENSE` — Business Source License 1.1 (converts to Apache 2.0 on
-  2029-01-01); same terms as the archived Python kensa. Required by rpm/deb
-  packaging metadata and removes the previous "BSL 1.1 declared in README,
-  no LICENSE file" mismatch.
-- `rules/` — vendored the 539 SCAP-derived rules from the archived Python
-  kensa (`/home/rracine/hanalyx/kensa.archive/rules`) into this repo,
-  byte-identical to source (sha256-verified). Eight topic dirs
-  (`access-control` 129, `audit` 101, `filesystem` 73, `kernel` 22,
-  `logging` 14, `network` 23, `services` 107, `system` 70). 2.2 MB on disk.
-  This is what the forthcoming `kensa-rules` noarch package installs to
-  `/usr/share/kensa/rules`; subsequent rule edits land here, the archive
-  is frozen. `rules/README.md` documents the layout, the validate-corpus
-  workflow, and provenance.
-- `internal/rules.Resolve` — default-path resolution policy for `--rules-dir`.
-  Explicit `--rules-dir` still wins; positional rule YAML paths alone skip
-  the walk; when neither is given the CLI falls back to
-  `/usr/share/kensa/rules` (where the forthcoming `kensa-rules` package
-  installs); when that path also doesn't exist the loader surfaces a
-  usage error naming all three fix paths. Specced as
-  `rule-default-path-resolution` v0.1.0; `cli-rule-flag` bumped to v0.2.0
-  to lock the new "neither dir nor files" behavior.
+
+#### Packaging
+- `LICENSE` at repo root — Business Source License 1.1 (→ Apache 2.0 on
+  2029-01-01); same terms as the archived Python kensa. Required by
+  rpm/deb metadata.
+- `kensa` rpm + deb (amd64, arm64) — installs `/usr/bin/{kensa,
+  kensa-validate, kensa-keygen}` + `/usr/libexec/kensa-systemd-helper`
+  + `/usr/share/doc/kensa/{LICENSE,README,CHANGELOG}`. Signed with the
+  Hanalyx GPG key.
+- `kensa-rules` noarch rpm + deb — installs the 539-rule corpus to
+  `/usr/share/kensa/rules`. Updates independent of the binary release.
+  Signed with the Hanalyx GPG key.
+- `kensa_<version>_linux_<arch>.tar.gz` — air-gapped install bundle for
+  amd64 + arm64 (all 4 binaries + LICENSE + docs).
+- `kensa_<version>_checksums.sha256` — sha256 over the full artifact
+  set. cosign-signed.
+- `.goreleaser.yaml` + tag-triggered `.github/workflows/release.yml` —
+  hard-fails if any of GPG_PRIVATE_KEY, GPG_PASSPHRASE,
+  COSIGN_PRIVATE_KEY, COSIGN_PASSWORD secrets is missing (no silent
+  unsigned ship). Snapshot smoke job in `ci.yml` exercises the same
+  pipeline on every PR.
+
+#### Rules
+- `rules/` — vendored the 539 SCAP-derived rules from the archived
+  Python kensa (`/home/rracine/hanalyx/kensa.archive/rules`),
+  byte-identical to source. Eight topic dirs (`access-control` 129,
+  `audit` 101, `filesystem` 73, `kernel` 22, `logging` 14, `network`
+  23, `services` 107, `system` 70). 2.2 MB. The archive is frozen;
+  rule edits land via PR here going forward. `rules/README.md`
+  documents layout, validate workflow, and provenance.
+- `internal/rules.Resolve` — default-path resolution for `--rules-dir`.
+  Explicit `--rules-dir` still wins; positional rule YAML paths alone
+  skip the walk; when neither is given the CLI falls back to
+  `/usr/share/kensa/rules` (where `kensa-rules` installs); when that
+  path also doesn't exist the loader surfaces a usage error naming all
+  three fix paths. Specced as `rule-default-path-resolution` v0.1.0;
+  `cli-rule-flag` bumped to v0.2.0.
+
+#### Grub deadman guard
+- `internal/bootguard/` (PR #15) — Option-B one-shot trial entry +
+  saved-default auto-fallback for grub parameter changes. RHEL/BLS
+  via `grubby --copy-default`; Ubuntu legacy via `/etc/grub.d/11_kensa_bootguard`
+  + `update-grub`. Confirm unit installed at arm time; healthy boot
+  promotes onto the default, failed boot auto-reverts. Specs:
+  `bootguard-{capture,arm-gate,allowlist,oneshot,confirm}`.
+- `internal/handlers/grubparameterset` — replaces direct
+  `GRUB_CMDLINE_LINUX` editing with `bootguard.ArmOneshot`. Refuses
+  off-allowlist keys + non-armable hosts. PENDING until reboot.
+- `internal/handlers/grubparameterremove` (PR #21) — same flow for
+  REMOVAL via `bootguard.ArmOneshotRemove`. `bootguard-oneshot` bumped
+  to v0.4.0 (C-07/C-08, AC-08..AC-11); `bootguard-confirm` v0.5.0.
+- Verified end-to-end on real RHEL 9.7 (.213) and Ubuntu 24.04 (.249)
+  with the destructive reboot matrix.
+
+#### Docs
+- `docs/guide/01-install.md` (PR #12) — first real operator-guide
+  chapter.
+
+### Changed
+- `cli-rule-flag` C-04 + AC-04 — now acknowledge the default-path
+  fallback layer and the three-fix-paths error wording.
+
+### Internal
+- `.golangci.yml` — extended the existing `internal/` godot exclusion
+  to `cmd/` (same rationale: Go's identifier-first convention conflicts
+  with `capital: true`).
 
 ## v0.1.1 — 2026-05-27
 

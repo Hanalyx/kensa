@@ -1,0 +1,121 @@
+name: Release
+
+# Tag-triggered: pushing a v* tag (e.g. v0.2.0) builds and publishes
+# the release. The workflow hard-fails if any signing secret is missing
+# — no silent unsigned ship per founder posture 2026-05-28.
+#
+# Required secrets (all four MUST be set in repo settings before tagging):
+#   GPG_PRIVATE_KEY     ASCII-armored Hanalyx signing key (private)
+#   GPG_PASSPHRASE      Unlock password for the GPG key
+#   COSIGN_PRIVATE_KEY  cosign keypair (private half)
+#   COSIGN_PASSWORD     Unlock password for the cosign key
+#
+# Build discipline matches CI: CGO_ENABLED=0, -tags netgo, Go 1.25.
+# See .goreleaser.yaml for the artifact layout and signing config.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write  # required to create the GitHub release + upload assets
+
+env:
+  CGO_ENABLED: '0'
+  GODEBUG: 'netdns=go'
+  GO_VERSION: '1.25'
+  GORELEASER_VERSION: 'v2.5.1'
+  NFPM_VERSION: 'v2.41.0'
+  COSIGN_VERSION: 'v2.4.1'
+
+jobs:
+  release:
+    name: Build, sign, publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for goreleaser)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      # Hard-fail preflight: every signing secret MUST be set. We refuse
+      # to ship unsigned. The empty-string default + length check catches
+      # both "secret missing" and "secret set to empty".
+      - name: Preflight — verify signing secrets present
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          missing=0
+          for var in GPG_PRIVATE_KEY GPG_PASSPHRASE COSIGN_PRIVATE_KEY COSIGN_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "::error::required secret '$var' is unset; refusing to ship unsigned"
+              missing=1
+            fi
+          done
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+          echo "All four signing secrets present."
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      - name: Install nfpm (for goreleaser's internal package signing)
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@${NFPM_VERSION}
+          nfpm --version
+
+      - name: Install goreleaser
+        run: |
+          go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
+          goreleaser --version
+
+      # nfpm signs rpm + deb at package-build time by reading the GPG key
+      # from a file path (signature.key_file in .goreleaser.yaml). We
+      # materialize the ASCII-armored secret to a tempfile, set
+      # GPG_PRIVATE_KEY_PATH to that path, and let goreleaser/nfpm read
+      # it directly. The file is mode 0600 and lives in a runner-local
+      # tempdir destroyed when the job ends. We do NOT load it into a
+      # GPG keyring on the runner — nfpm's signing reads the file
+      # directly, no keyring needed.
+      - name: Stage GPG key for nfpm signing
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          key_path="$(mktemp -t kensa-gpg.XXXXXX.asc)"
+          printf '%s' "$GPG_PRIVATE_KEY" > "$key_path"
+          chmod 0600 "$key_path"
+          echo "GPG_PRIVATE_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: GoReleaser release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # nfpm reads the key file. The passphrase is supplied via the
+          # nfpm-standard NFPM_DEFAULT_PASSPHRASE env (applies to all
+          # signature blocks unless overridden per-rpm/deb).
+          NFPM_DEFAULT_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          # cosign reads its key + password from these env vars; the
+          # signs: block in .goreleaser.yaml passes --key=env://COSIGN_PRIVATE_KEY
+          # and pipes COSIGN_PASSWORD on stdin.
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          goreleaser release --clean
+
+      - name: Shred the staged GPG key
+        if: always()
+        run: |
+          if [ -n "${GPG_PRIVATE_KEY_PATH:-}" ] && [ -f "$GPG_PRIVATE_KEY_PATH" ]; then
+            shred -u "$GPG_PRIVATE_KEY_PATH" || rm -f "$GPG_PRIVATE_KEY_PATH"
+          fi

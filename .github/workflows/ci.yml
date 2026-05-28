@@ -387,6 +387,47 @@ jobs:
             exit 1
           fi
 
+  release-snapshot:
+    # Catches breakage in .goreleaser.yaml + the rules-corpus packaging
+    # before tag time. Runs goreleaser in snapshot mode (no publish, no
+    # sign) so it exercises the build matrix, archive layout, both nfpm
+    # blocks (kensa amd64+arm64 rpm+deb, kensa-rules noarch rpm+deb)
+    # and the checksum step. Skips: publish (no GitHub release),
+    # sign (no cosign secrets available on PR runs). The release-time
+    # workflow (.github/workflows/release.yml) re-runs without the
+    # skips and adds GPG + cosign signing.
+    name: Release snapshot (no publish, no sign)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # goreleaser needs full history for version templating
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Install goreleaser
+        run: |
+          go install github.com/goreleaser/goreleaser/v2@v2.5.1
+          goreleaser --version
+      - name: goreleaser check
+        run: goreleaser check
+      - name: goreleaser release --snapshot --skip=publish,sign
+        run: goreleaser release --snapshot --clean --skip=publish,sign
+      - name: List artifacts
+        run: |
+          ls -lh dist/*.{tar.gz,rpm,deb,sha256} 2>/dev/null || true
+          echo "Artifact count: $(ls dist/*.{tar.gz,rpm,deb,sha256} 2>/dev/null | wc -l)"
+      - name: Verify expected artifact set (9 files)
+        run: |
+          # 2 tarballs + 2 amd64 + 2 arm64 + 2 noarch + 1 checksum = 9
+          got=$(ls dist/*.tar.gz dist/*.rpm dist/*.deb dist/*.sha256 2>/dev/null | wc -l)
+          if [ "$got" != "9" ]; then
+            echo "::error::expected 9 release artifacts, got $got"
+            ls -lh dist/
+            exit 1
+          fi
+          echo "✓ 9/9 expected artifacts present"
+
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
   #   fuzz: kensa-fuzz atomicity verification (after Week 7)

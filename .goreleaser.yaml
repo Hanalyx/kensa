@@ -1,0 +1,216 @@
+# GoReleaser config for kensa.
+#
+# Builds linux/amd64 + linux/arm64 binaries for 4 cmd/* targets
+# (kensa, kensa-validate, kensa-keygen, kensa-systemd-helper — the
+# destructive `kensa-fuzz` harness is deliberately NOT shipped), bundles
+# them into tarballs, produces signed rpm + deb packages for the kensa
+# binary, and produces a noarch rpm + deb for the kensa-rules corpus.
+# Driven by the tag-triggered .github/workflows/release.yml.
+#
+# Build discipline: CGO_ENABLED=0 + -tags netgo + -ldflags "-s -w
+# -X main.version={{.Version}}" — matches the Makefile so packaged
+# binaries are byte-identical to a local `make build`. The existing
+# "Build & Static Linking Verify" and "Portability" CI jobs already
+# enforce CGO_ENABLED=0 + -tags netgo.
+#
+# Signing posture (founder ratified 2026-05-28): rpm + deb signed with
+# the Hanalyx GPG key (required); sha256 checksums signed with cosign
+# (required). The release workflow hard-fails if any of the four
+# secrets is missing — no silent unsigned ship.
+
+version: 2
+
+project_name: kensa
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+env:
+  - CGO_ENABLED=0
+
+builds:
+  - id: kensa
+    main: ./cmd/kensa
+    binary: kensa
+    flags: [-tags=netgo]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux]
+    goarch: [amd64, arm64]
+
+  - id: kensa-validate
+    main: ./cmd/kensa-validate
+    binary: kensa-validate
+    flags: [-tags=netgo]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux]
+    goarch: [amd64, arm64]
+
+  - id: kensa-keygen
+    main: ./cmd/kensa-keygen
+    binary: kensa-keygen
+    flags: [-tags=netgo]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux]
+    goarch: [amd64, arm64]
+
+  - id: kensa-systemd-helper
+    main: ./cmd/kensa-systemd-helper
+    binary: kensa-systemd-helper
+    flags: [-tags=netgo]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux]
+    goarch: [amd64, arm64]
+
+# One tarball per arch carrying all 4 binaries + LICENSE + docs.
+# This is the air-gapped-install path called out in the packaging plan.
+archives:
+  - id: kensa
+    name_template: "kensa_{{ .Version }}_linux_{{ .Arch }}"
+    formats: [tar.gz]
+    ids:
+      - kensa
+      - kensa-validate
+      - kensa-keygen
+      - kensa-systemd-helper
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+nfpms:
+  # ---- kensa (binary package) -------------------------------------------
+  # rpm + deb, amd64 + arm64. The three user-facing CLIs auto-install
+  # to /usr/bin via `bindir`. The systemd helper is a privileged
+  # D-Bus subprocess invoked by the agent over sudo, NOT a user-facing
+  # CLI — it lives in /usr/libexec per FHS and the hardcoded path in
+  # internal/agent/systemd/helper.go:HelperPath and
+  # internal/detect/detect.go's capability probe. The templated src
+  # path resolves to goreleaser's per-arch dist subdir.
+  - id: kensa
+    package_name: kensa
+    ids:
+      - kensa
+      - kensa-validate
+      - kensa-keygen
+    vendor: Hanalyx LLC
+    homepage: https://github.com/Hanalyx/kensa
+    maintainer: Hanalyx LLC <kensa@hanalyx.com>
+    description: |-
+      Kensa — atomic Linux configuration changes with compliance.
+
+      Every change runs as a four-phase transaction
+      (Capture → Apply → Validate → Commit/Rollback) so a failed
+      remediation rolls the host back to the captured pre-state and
+      a successful one writes a signed evidence envelope.
+    license: BSL-1.1
+    section: admin
+    priority: optional
+    formats: [rpm, deb]
+    bindir: /usr/bin
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    contents:
+      # Per-arch dist path: linux_amd64_v1 (default goamd64) and
+      # linux_arm64_v8.0 (default goarm64) — the ternary in the
+      # template appends the right suffix.
+      - src: "./dist/kensa-systemd-helper_linux_{{ .Arch }}{{ if eq .Arch \"amd64\" }}_v1{{ end }}{{ if eq .Arch \"arm64\" }}_v8.0{{ end }}/kensa-systemd-helper"
+        dst: /usr/libexec/kensa-systemd-helper
+        file_info:
+          mode: 0755
+      - src: LICENSE
+        dst: /usr/share/doc/kensa/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/kensa/README.md
+      - src: CHANGELOG.md
+        dst: /usr/share/doc/kensa/CHANGELOG.md
+    rpm:
+      # The release workflow writes the imported GPG key to this path
+      # before invoking goreleaser. The `index` lookup returns "" when
+      # the env var is unset (snapshot/CI smoke builds), so nfpm skips
+      # signing cleanly. The release workflow's preflight verifies the
+      # secret is set before invoking goreleaser — that's where the
+      # "no silent unsigned ship" gate lives (founder posture 2026-05-28).
+      signature:
+        key_file: '{{ index .Env "GPG_PRIVATE_KEY_PATH" }}'
+    deb:
+      signature:
+        key_file: '{{ index .Env "GPG_PRIVATE_KEY_PATH" }}'
+        type: origin
+
+  # ---- kensa-rules (noarch corpus) --------------------------------------
+  # The 539 .yml corpus installed to /usr/share/kensa/rules so an
+  # operator with both packages can run `kensa check <host>` with no
+  # flags (default-path resolution from rule-default-path-resolution
+  # spec, shipped in PR #22). meta: true emits a single noarch
+  # package per format (no binary build references).
+  - id: kensa-rules
+    package_name: kensa-rules
+    meta: true
+    vendor: Hanalyx LLC
+    homepage: https://github.com/Hanalyx/kensa
+    maintainer: Hanalyx LLC <kensa@hanalyx.com>
+    description: |-
+      Compliance rules corpus for kensa — 539 SCAP-derived rules
+      grouped by topic. Installs to /usr/share/kensa/rules so the
+      kensa CLI falls back to it automatically when --rules-dir is
+      unset (see rule-default-path-resolution spec). Update without
+      a kensa binary release.
+    license: BSL-1.1
+    section: admin
+    priority: optional
+    formats: [rpm, deb]
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_noarch"
+    contents:
+      - src: ./rules
+        dst: /usr/share/kensa/rules
+        type: tree
+    rpm:
+      signature:
+        key_file: '{{ index .Env "GPG_PRIVATE_KEY_PATH" }}'
+    deb:
+      signature:
+        key_file: '{{ index .Env "GPG_PRIVATE_KEY_PATH" }}'
+        type: origin
+
+checksum:
+  name_template: "kensa_{{ .Version }}_checksums.sha256"
+  algorithm: sha256
+
+# cosign sign-blob over the checksums file. The whole artifact set is
+# anchored by that one signed file (which lists every artifact's
+# sha256), so verifying the cosign signature + each artifact's checksum
+# detects any tampering. COSIGN_PRIVATE_KEY + COSIGN_PASSWORD env vars
+# are set by the release workflow.
+signs:
+  - id: cosign
+    cmd: cosign
+    stdin: '{{ index .Env "COSIGN_PASSWORD" }}'
+    args:
+      - sign-blob
+      - --key=env://COSIGN_PRIVATE_KEY
+      - --output-signature=${signature}
+      - --yes
+      - ${artifact}
+    artifacts: checksum
+    signature: ${artifact}.sig
+
+snapshot:
+  version_template: "{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}"
+
+# We maintain CHANGELOG.md by hand under SDD discipline; goreleaser's
+# auto-changelog from git commits would duplicate or conflict.
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: Hanalyx
+    name: kensa
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
