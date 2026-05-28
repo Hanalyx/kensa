@@ -93,8 +93,9 @@ func lintDiff(base string) ([]finding, error) {
 				findings = append(findings, finding{file, newLine, lbl})
 			}
 			newLine++
-		case strings.HasPrefix(l, "-"):
-			// a removed line does not advance the new-file counter
+			// Removed lines (prefix "-", not "---") fall through with no case
+			// match — that is intentional: a removed line does not advance the
+			// new-file line counter.
 		}
 	}
 	return findings, sc.Err()
