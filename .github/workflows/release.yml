@@ -25,7 +25,12 @@ env:
   CGO_ENABLED: '0'
   GODEBUG: 'netdns=go'
   GO_VERSION: '1.25'
-  GORELEASER_VERSION: 'v2.5.1'
+  # v2.10.x onward has `archives.formats` (plural), `archives.ids`,
+  # and `nfpms.ids` — the post-rename field names this config uses.
+  # v2.5.1 is too old and rejects them at `goreleaser check`. Pin to
+  # the version verified locally so the release-snapshot job in ci.yml
+  # exercises the same binary.
+  GORELEASER_VERSION: 'v2.15.4'
   NFPM_VERSION: 'v2.41.0'
   COSIGN_VERSION: 'v2.4.1'
 
