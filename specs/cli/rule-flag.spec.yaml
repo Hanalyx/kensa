@@ -1,6 +1,6 @@
 spec:
     id: cli-rule-flag
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 3
 
@@ -95,8 +95,15 @@ spec:
           description: |
               An invocation with no rule sources (no
               --rules-dir, no --rule, no positional args)
-              MUST produce a usage error mentioning the
-              expected forms.
+              MUST fall back to the kensa-rules package's
+              installed default path (rulespath.DefaultPath
+              = /usr/share/kensa/rules) when present, per
+              rule-default-path-resolution. When that path
+              ALSO does not exist, the loader MUST produce a
+              usage error naming all three fix paths so the
+              operator sees every option: --rules-dir, a rule
+              YAML path, or installing the kensa-rules
+              package.
           type: business
           enforcement: error
         - id: C-05
@@ -132,9 +139,13 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              Loader with neither dir nor files returns a
-              usage error. Locked by
+              Loader with neither dir nor files AND the
+              default path absent (stub stat → fs.ErrNotExist)
+              returns a usage error naming --rules-dir, "rule
+              YAML", and kensa-rules. Locked by
               TestLoadRulesFromDirOrFiles_BothEmpty.
+              The default-path fallback itself is locked by
+              rule-default-path-resolution.AC-03/AC-04.
           references_constraints: [C-04]
           priority: critical
         - id: AC-05

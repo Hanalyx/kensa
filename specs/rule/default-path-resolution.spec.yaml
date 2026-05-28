@@ -1,0 +1,102 @@
+spec:
+    id: rule-default-path-resolution
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: rule-default-path-resolution
+        description: |
+            kensa loads rules at runtime — the binary carries no embedded
+            corpus. Today the operator must pass --rules-dir or positional
+            rule YAML files on every invocation; with neither, the CLI
+            returns a usage error. The packaging plan (kensa binary
+            package + kensa-rules noarch package) installs the corpus to
+            /usr/share/kensa/rules so an operator who has both packages
+            installed can just run `kensa check <host>` with no flags.
+
+            This spec defines the resolution policy that makes that
+            ergonomic possible without changing the semantics for
+            operators who pass --rules-dir explicitly or pass positional
+            rule files (parity-script use cases, custom corpora).
+
+            Resolution is policy-only: it picks an effective rules
+            directory; it does not load or parse rules. Stat is injected
+            so unit tests do not touch the filesystem.
+
+    objective:
+        summary: |
+            internal/rules.Resolve(dir, paths, stat) picks the effective
+            rules directory: explicit --rules-dir wins; positional rule
+            files alone leave the dir empty (caller loads paths only);
+            otherwise fall back to /usr/share/kensa/rules when it exists;
+            otherwise return a usage error naming both the flag and the
+            default path so the operator knows how to fix it.
+        scope:
+            includes:
+                - Resolve(dir string, paths []string, stat func(string) (os.FileInfo, error)) (string, error)
+                - DefaultPath constant ("/usr/share/kensa/rules")
+                - Integration in cmd/kensa loadRules path
+            excludes:
+                - reading or parsing rule YAML (the rule loader does that)
+                - any fallback when --rules-dir is set explicitly (explicit always wins)
+                - any fallback when positional rule paths are provided alone (caller uses them as-is)
+                - changes to --rules-dir flag semantics or env-var fallback (out of scope)
+
+    constraints:
+        - id: C-01
+          description: |
+              When --rules-dir is set (dir != ""), Resolve MUST return
+              that directory unchanged with a nil error. Explicit operator
+              intent always wins over the packaged-default fallback.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              When --rules-dir is unset AND positional rule paths are
+              given, Resolve MUST return ("", nil) so the caller loads
+              the positional files alone without dir-walking. The default
+              fallback MUST NOT kick in — the operator passed explicit
+              files for a reason.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              When neither --rules-dir nor positional paths are given AND
+              the default path /usr/share/kensa/rules exists (stat
+              succeeds), Resolve MUST return that path with a nil error.
+              This is the kensa-rules package's installed location.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              When neither --rules-dir nor positional paths are given AND
+              the default path does NOT exist (stat returns an error),
+              Resolve MUST return ("", err) where err names both
+              --rules-dir AND the default path so the operator sees the
+              two fix paths (pass the flag or install kensa-rules).
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: Resolve returns the explicit dir verbatim when dir != "" (positional paths and stat irrelevant).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Resolve returns ("", nil) when dir == "" and len(paths) > 0, regardless of whether the default path exists.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: Resolve returns ("/usr/share/kensa/rules", nil) when dir == "" and paths is empty and stat(DefaultPath) succeeds.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: Resolve returns ("", error) when dir == "" and paths is empty and stat(DefaultPath) fails; the error string contains both "--rules-dir" and "/usr/share/kensa/rules".
+          references_constraints: [C-04]
+          priority: critical
+
+    depends_on: []
+
+    tags: [rule, cli, packaging, tier-2]

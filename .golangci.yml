@@ -161,6 +161,19 @@ issues:
       linters:
         - godot
 
+    # cmd/ binaries are internal-binary code, not exported library surface.
+    # Same reasoning as internal/: doc comments on unexported symbols start
+    # with the identifier name (Go convention), which collides with godot's
+    # capital-first rule. Adding cmd/ here closes the gap. Surfaced 2026-05-28
+    # when a benign edit to cmd/kensa/main.go shifted an unchanged
+    # `// loadRulesFromDirOrFiles loads...` comment block by 11 lines and
+    # golangci-lint-action's new-from-rev diff flagged the moved comment as
+    # a new capital-first violation; capitalising the lead would have made
+    # the godoc reference wrong (the func is lowercase).
+    - path: cmd/
+      linters:
+        - godot
+
   # Cap the noise — show all instances per linter.
   max-issues-per-linter: 0
   max-same-issues: 0

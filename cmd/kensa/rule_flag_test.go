@@ -3,6 +3,7 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,12 +114,25 @@ func TestLoadRulesFromDirOrFiles_DirAndFiles_Additive(t *testing.T) {
 // @ac AC-04
 func TestLoadRulesFromDirOrFiles_BothEmpty(t *testing.T) {
 	t.Run("cli-rule-flag/AC-04", func(t *testing.T) {})
+	// Force the kensa-rules default-path fallback to report "absent"
+	// so this test exercises the no-sources error regardless of what
+	// the dev/CI host has installed at /usr/share/kensa/rules. The
+	// resolution policy itself is locked by rule-default-path-resolution.
+	saved := rulesStat
+	rulesStat = func(string) (os.FileInfo, error) { return nil, fs.ErrNotExist }
+	defer func() { rulesStat = saved }()
+
 	_, err := loadRulesFromDirOrFiles("", nil, nil)
 	if err == nil {
-		t.Fatal("expected usage error when both empty")
+		t.Fatal("expected usage error when both empty and default path absent")
 	}
-	if !strings.Contains(err.Error(), "rule YAML file or --rules-dir") {
-		t.Errorf("error should mention required input; got %v", err)
+	// The new error names all three fix paths so the operator sees
+	// every option: pass --rules-dir, give rule YAML paths, or install
+	// the kensa-rules package.
+	for _, sub := range []string{"--rules-dir", "rule YAML", "kensa-rules"} {
+		if !strings.Contains(err.Error(), sub) {
+			t.Errorf("error should mention %q; got %v", sub, err)
+		}
 	}
 }
 
