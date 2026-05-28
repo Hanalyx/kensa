@@ -118,7 +118,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 		}, nil
 	}
 
-	// Phase 2 P-002: agent-mode uses fsatomic for the write
+	// Agent-mode uses fsatomic for the write
 	// path (AtomicReplace for existing, AtomicWrite for new).
 	// chmod is single-syscall atomic — passed via mode arg
 	// to fsatomic. chown stays shell because there's no
@@ -363,7 +363,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 	fileExisted, _ := pre.Data["file_existed"].(bool)
 
-	// Phase 2 P-002 migration: agent-mode uses fsatomic;
+	// Agent-mode uses fsatomic;
 	// direct-SSH falls back to shell. Symmetric with Apply.
 	if afs, ok := transport.(fsatomic.Transport); ok {
 		if !fileExisted {

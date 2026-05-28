@@ -7,7 +7,7 @@ import (
 
 // ruleLoadFilterSpec captures the rule-load + filter inputs as a
 // single value so they can be passed to inventory-mode goroutines.
-// Phase 3.7 introduced this so each per-host goroutine can re-run
+// This lets each per-host goroutine can re-run
 // the load+filter pipeline against that host's full 5-tier
 // variable resolution, not the corpus-wide globalVars.
 //

@@ -1,4 +1,4 @@
-// Tests for the Phase 3.6 multi-tier variable resolution
+// Tests for the multi-tier variable resolution
 // (LoadHost, LoadGroups, LoadConfDir, ResolveTiers).
 package varsub
 

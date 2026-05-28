@@ -103,7 +103,7 @@ type rawRemStep struct {
 // ParseFile opens path and delegates to [Parse]. No variable
 // substitution: the file's `{{ name }}` templates pass through
 // to evaluation as literals. Use [ParseFileWithVars] when
-// templates are in play (Phase 3.5).
+// templates are in play.
 func ParseFile(path string) (*api.Rule, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -115,7 +115,7 @@ func ParseFile(path string) (*api.Rule, error) {
 
 // ParseFileWithVars opens path, substitutes `{{ name }}` templates
 // using vars, then decodes the resulting YAML into an
-// [api.Rule]. Wired in Phase 3.5 (C-034 + C-036) so the rule
+// [api.Rule]. It exists so the rule
 // corpus's pam_faillock_deny / pam_pwquality_minlen / etc.
 // templates resolve to the operator's chosen values before
 // evaluation.

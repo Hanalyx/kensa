@@ -1,4 +1,4 @@
-// Tests for the Phase 3.5 defaults.yml loader.
+// Tests for the defaults.yml loader.
 package varsub
 
 import (
@@ -131,7 +131,7 @@ func TestLoadDefaults_InvalidVarName(t *testing.T) {
 
 func TestLoadDefaults_NoVariablesBlock(t *testing.T) {
 	// A defaults.yml with an unrelated top-level key (frameworks:,
-	// for forward compat with Phase 3.6) should load empty
+	// for forward compat with later tiers) should load empty
 	// variables — not error.
 	dir := t.TempDir()
 	body := `frameworks:

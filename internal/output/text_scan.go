@@ -11,7 +11,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 )
 
-// Operator-UX text rendering for scan results (C-022 — CLI Phase 2.5).
+// Operator-UX text rendering for scan results.
 //
 // Replaces the C-012 tabular rendering with a grouped/severity-aware
 // layout that surfaces failures first, summarizes passes via glob

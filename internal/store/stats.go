@@ -13,7 +13,7 @@ import (
 // to a host or time window.
 type Stats struct {
 	// SessionsTotal is the count of distinct sessions in the
-	// store after the filter applies. Pre-Phase-4 transactions
+	// store after the filter applies. Sessionless legacy transactions
 	// without a session (NULL session_id) contribute zero
 	// sessions; their transactions still appear in
 	// TransactionsTotal etc.
@@ -102,7 +102,7 @@ func (s *SQLite) ComputeStats(ctx context.Context, filter StatsFilter) (*Stats, 
 	}
 
 	// Sessions total — scope by the same host/since filter as
-	// transactions for consistency. A pre-Phase-4 row's parent
+	// transactions for consistency. A sessionless row's parent
 	// session is counted only after C-040 backfill runs.
 	sessWhere := "WHERE 1=1"
 	sessArgs := []any{}

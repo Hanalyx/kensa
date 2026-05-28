@@ -13,17 +13,17 @@ import (
 )
 
 // runMigrate applies pending schema migrations to the SQLite
-// store and backfills synthetic sessions for pre-Phase-4
+// store and backfills synthetic sessions for sessionless legacy
 // transactions. Idempotent: a second run on an already-
 // migrated DB applies no migration and finds no NULL session
 // rows, exiting 0 with a "no work" report.
 //
-// Phase 4 / C-040. The schema migrations themselves run
-// automatically on every OpenSQLite call (Phase 1 design); the
+// The schema migrations themselves run
+// automatically on every OpenSQLite call; the
 // `kensa migrate` subcommand exists primarily to:
 //  1. Surface the schema version for operators auditing a DB.
 //  2. Run the session backfill explicitly so operators
-//     upgrading from pre-Phase-4 see a deterministic
+//     upgrading from a sessionless store see a deterministic
 //     one-time conversion they can script around.
 func runMigrate(ctx context.Context, dbPath string, args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{

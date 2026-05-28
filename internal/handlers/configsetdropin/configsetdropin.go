@@ -81,7 +81,7 @@ func (h *Handler) Capturable() bool { return true }
 // the key-value pair. Creates the parent directory if needed.
 // Idempotent per spec C-01.
 //
-// Phase 2 P-005 migration (2026-05-11): when transport satisfies
+// When transport satisfies
 // fsatomic.Transport (agent-mode), Apply uses AtomicWrite for the
 // publish (with AtomicReplace fallback for re-Apply on existing
 // files — the FMA explicitly flagged this; AtomicWrite errors with
@@ -222,7 +222,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	fileExisted, _ := pre.Data["file_existed"].(bool)
 	priorContent, _ := pre.Data["prior_content"].(string)
 
-	// Phase 2 P-005 migration: agent-mode uses fsatomic for
+	// Agent-mode uses fsatomic for
 	// the write/remove; direct-SSH falls back to the shell
 	// pipeline. Symmetric with Apply's branching.
 	if afs, ok := transport.(fsatomic.Transport); ok {
