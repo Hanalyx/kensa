@@ -104,14 +104,14 @@ func ArmOneshotRemove(ctx context.Context, t api.Transport, flavor Flavor, key s
 }
 
 // armOneshotRemoveBLS (RHEL): clone the default entry via grubby --copy-default
-// + sentinel, then strip the key from the resulting trial entry via a separate
-// grubby --update-kernel call. The two-step is necessary because grubby's
-// --remove-args is honored only with --update-kernel; combined with
-// --add-kernel --copy-default it is silently ignored and the new entry still
-// carries the key. The trial entry must reflect the post-promote state
-// (default minus key), so that a key whose removal could affect boot is tested
-// by the trial boot itself, not just by the promote. Finally arm the one-shot
-// with grub2-reboot.
+// + sentinel, then strip the key from the new trial entry by editing its
+// BootLoaderSpec .conf file directly. Two earlier approaches failed:
+// `grubby --add-kernel --remove-args=<key>` silently ignores the --remove-args,
+// and `grubby --update-kernel=<title>` is not supported (grubby's --update-kernel
+// takes a kernel path, and the trial shares the default's kernel path, so
+// targeting via grubby would also strip the saved default — unacceptable).
+// Editing the trial's specific .conf (found via the sentinel grep) targets
+// only the new entry. Finally arm the one-shot with grub2-reboot.
 func armOneshotRemoveBLS(ctx context.Context, t api.Transport, key string) error {
 	res, err := t.Run(ctx, "grubby --default-kernel")
 	if err != nil {
@@ -130,10 +130,22 @@ func armOneshotRemoveBLS(ctx context.Context, t api.Transport, key string) error
 	if _, err := runOK(ctx, t, create); err != nil {
 		return err
 	}
-	// Step 2: strip the key from the trial entry. grubby --update-kernel
-	// accepts a title-or-path; the title is unique to this trial.
-	strip := fmt.Sprintf("grubby --update-kernel=%s --remove-args=%s",
-		shellQuote(trialTitle), shellQuote(key))
+	// Step 2: find the trial's .conf (uniquely identified by the sentinel just
+	// added) and strip the key from its options line. The sentinel grep is the
+	// only thing that distinguishes the trial from the default — same kernel
+	// path — so a sed-edit scoped to this one file is the only correct target.
+	findCmd := "grep -l " + shellQuote(trialSentinel) + " /boot/loader/entries/*.conf 2>/dev/null | head -1"
+	res, err = t.Run(ctx, findCmd)
+	if err != nil {
+		return fmt.Errorf("bootguard: locate trial .conf: transport error: %w", err)
+	}
+	trialPath := strings.TrimSpace(res.Stdout)
+	if trialPath == "" {
+		return errors.New("bootguard: trial .conf not found after --add-kernel (sentinel grep returned empty)")
+	}
+	// Strip both "key=<value>" and bare "key" tokens from the options line.
+	sedExpr := fmt.Sprintf(`/^options/ s/\b%s=[^ ]*//g; /^options/ s/\b%s\b//g`, key, key)
+	strip := "sed -i -E " + shellQuote(sedExpr) + " " + shellQuote(trialPath)
 	if _, err := runOK(ctx, t, strip); err != nil {
 		return err
 	}

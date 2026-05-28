@@ -107,6 +107,9 @@ func TestArmOneshotRemove_BLS_ClonesAndStripsKey(t *testing.T) {
 	t.Run("bootguard-oneshot/AC-10", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results["grubby --default-kernel"] = &api.CommandResult{Stdout: "/boot/vmlinuz-test\n"}
+	// Program the sentinel-grep so the find-trial-conf step returns a path.
+	tp.Results["grep -l 'kensa_bootguard_trial' /boot/loader/entries/*.conf 2>/dev/null | head -1"] =
+		&api.CommandResult{Stdout: "/boot/loader/entries/trial.conf\n"}
 
 	title, err := bootguard.ArmOneshotRemove(context.Background(), tp, bootguard.FlavorBLS, "systemd.confirm_spawn")
 	if err != nil {
@@ -115,15 +118,18 @@ func TestArmOneshotRemove_BLS_ClonesAndStripsKey(t *testing.T) {
 	if title != "kensa-bootguard-trial" {
 		t.Errorf("title=%q", title)
 	}
-	// Trial creation is two grubby calls: (1) --add-kernel --copy-default with
-	// the sentinel ADDED, then (2) --update-kernel on the new trial with the
-	// key REMOVED. (One call combining --add-kernel + --remove-args silently
-	// drops the --remove-args; this two-step is required.)
+	// Trial creation: (1) grubby --add-kernel --copy-default + sentinel; then
+	// (2) find the trial .conf via the sentinel grep and sed-strip the key
+	// from its options line. (grubby cannot target by title and --update-kernel
+	// would also affect the saved default, since they share a kernel path.)
+	// Then (3) arm grub2-reboot.
 	joined := strings.Join(tp.Runs, "\n")
 	for _, sub := range []string{
 		"grubby --add-kernel", "--copy-default",
 		"--args='kensa_bootguard_trial'", "--title='kensa-bootguard-trial'",
-		"grubby --update-kernel='kensa-bootguard-trial'", "--remove-args='systemd.confirm_spawn'",
+		"grep -l 'kensa_bootguard_trial' /boot/loader/entries/*.conf",
+		"sed -i -E", `/^options/ s/\bsystemd.confirm_spawn=`,
+		"/boot/loader/entries/trial.conf",
 		"grub2-reboot 'kensa-bootguard-trial'",
 	} {
 		if !strings.Contains(joined, sub) {
