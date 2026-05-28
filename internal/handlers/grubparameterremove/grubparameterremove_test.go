@@ -132,8 +132,16 @@ func TestApply_ArmsRemovalNotSed(t *testing.T) {
 	if !anyRunContains(tp.Runs, "kensa-bootguard-confirm") {
 		t.Errorf("expected the confirm unit to be installed; runs=%v", tp.Runs)
 	}
-	if !anyRunContains(tp.Runs, "grubby --add-kernel", "--remove-args=", "systemd.confirm_spawn", "kensa_bootguard_trial") {
-		t.Errorf("expected a one-shot trial entry that removes the key + carries the sentinel; runs=%v", tp.Runs)
+	// Trial creation is now a 2-step grubby/sed pair (see bootguard/oneshot.go
+	// armOneshotRemoveBLS rationale): grubby --add-kernel adds the sentinel,
+	// then sed-strips the key from the trial's .conf (grubby cannot target
+	// the trial by title and a kernel-path selector would also affect the
+	// saved default).
+	if !anyRunContains(tp.Runs, "grubby --add-kernel", "--copy-default", "kensa_bootguard_trial") {
+		t.Errorf("expected step 1: grubby --add-kernel --copy-default + sentinel; runs=%v", tp.Runs)
+	}
+	if !anyRunContains(tp.Runs, "sed -i -E", "systemd.confirm_spawn", "/boot/loader/entries/trial.conf") {
+		t.Errorf("expected step 2: sed-strip of the key from the trial .conf; runs=%v", tp.Runs)
 	}
 	if !anyRunContains(tp.Runs, "grub2-reboot") {
 		t.Errorf("expected the one-shot to be armed (grub2-reboot); runs=%v", tp.Runs)
