@@ -12,7 +12,19 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+### Added
+- `LICENSE` — Business Source License 1.1 (converts to Apache 2.0 on
+  2029-01-01); same terms as the archived Python kensa. Required by rpm/deb
+  packaging metadata and removes the previous "BSL 1.1 declared in README,
+  no LICENSE file" mismatch.
+- `internal/rules.Resolve` — default-path resolution policy for `--rules-dir`.
+  Explicit `--rules-dir` still wins; positional rule YAML paths alone skip
+  the walk; when neither is given the CLI falls back to
+  `/usr/share/kensa/rules` (where the forthcoming `kensa-rules` package
+  installs); when that path also doesn't exist the loader surfaces a
+  usage error naming all three fix paths. Specced as
+  `rule-default-path-resolution` v0.1.0; `cli-rule-flag` bumped to v0.2.0
+  to lock the new "neither dir nor files" behavior.
 
 ## v0.1.1 — 2026-05-27
 

@@ -55,6 +55,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/handler"
 	"github.com/Hanalyx/kensa/internal/output"
 	"github.com/Hanalyx/kensa/internal/rule"
+	rulespath "github.com/Hanalyx/kensa/internal/rules"
 	"github.com/Hanalyx/kensa/internal/scan"
 	"github.com/Hanalyx/kensa/internal/store"
 	"github.com/Hanalyx/kensa/internal/transport/ssh"
@@ -2236,7 +2237,24 @@ func loadRules(paths []string, vars varsub.Variables) ([]*api.Rule, error) {
 // file paths use the strict loader because the operator named the
 // file deliberately and a parse failure should surface, not be
 // silently dropped.
+// rulesStat is the stat function used by loadRulesFromDirOrFiles to detect
+// the kensa-rules package's default install path. Production uses os.Stat;
+// tests override it to make the default-path fallback deterministic
+// regardless of what's on the test host's filesystem.
+var rulesStat = os.Stat
+
 func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) ([]*api.Rule, error) {
+	// Resolve the effective rules directory before walking: explicit
+	// --rules-dir wins, positional paths alone skip the walk, otherwise
+	// fall back to the kensa-rules package's installed corpus at
+	// rulespath.DefaultPath when present, otherwise return a usage
+	// error naming both fix paths. See specs/rule/default-path-resolution.
+	resolved, err := rulespath.Resolve(dir, paths, rulesStat)
+	if err != nil {
+		return nil, NewUsageError(err.Error())
+	}
+	dir = resolved
+
 	var rules []*api.Rule
 	if dir != "" {
 		var found []string
