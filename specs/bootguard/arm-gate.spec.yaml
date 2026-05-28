@@ -1,0 +1,86 @@
+spec:
+    id: bootguard-arm-gate
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-arm-gate
+        description: |
+            CheckArmable is the refuse-to-arm gate for the grub boot guard. It
+            runs read-only probes and reports whether the host is inside the
+            guard's VALIDATED envelope (GRUB on BIOS, not image-based, not
+            encrypted /boot). It fails closed: any out-of-envelope condition
+            yields a refusal rather than a silent best-effort. This
+            operationalizes the §7.3 edge-case table from
+            docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md so code and doc stay in
+            lockstep.
+        related_specs:
+            - bootguard-capture
+    objective:
+        summary: |
+            Detect the supported envelope and refuse to arm outside it.
+        scope:
+            includes:
+                - Refuse when GRUB is not the bootloader
+                - Refuse on UEFI (BIOS-only validated)
+                - Refuse on image-based/ostree systems
+                - Refuse on encrypted /boot (best-effort detection)
+                - Armable only when there are zero refusals (fail closed)
+            excludes:
+                - The arm/confirm/revert mechanism itself (separate, gated)
+                - Secure Boot detection (documented manual precondition)
+    constraints:
+        - id: C-01
+          description: |
+              CheckArmable MUST refuse when GRUB is not the bootloader — a grub
+              config generator absent from PATH or /etc/default/grub missing.
+              (/boot/loader/entries exists for both grub-BLS and systemd-boot,
+              so flavor detection alone is insufficient.)
+          type: security
+          enforcement: error
+        - id: C-02
+          description: CheckArmable MUST refuse on UEFI firmware (validated on BIOS only).
+          type: security
+          enforcement: error
+        - id: C-03
+          description: CheckArmable MUST refuse on image-based/ostree systems.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              CheckArmable MUST refuse (best-effort) when /boot sits atop a
+              LUKS/crypt device, since boot would be interactive.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              Armable is true ONLY when there are zero refusals (fail closed);
+              all probes are read-only.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: On a BIOS GRUB host with no out-of-envelope condition, Armable is true with no refusals.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-02
+          description: CheckArmable refuses (Armable false) on UEFI.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: CheckArmable refuses when GRUB is not the bootloader.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: CheckArmable refuses on an image-based/ostree system.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: CheckArmable refuses on encrypted /boot.
+          references_constraints: [C-04]
+          priority: high
+    depends_on:
+        - spec_id: bootguard-capture
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, gate, read-only, fail-closed]
