@@ -2,6 +2,7 @@ package bootguard_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Hanalyx/kensa/api"
@@ -93,6 +94,105 @@ func TestArmOneshot_RejectsUnsupportedFlavor(t *testing.T) {
 	t.Run("bootguard-oneshot/AC-06", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	if _, err := bootguard.ArmOneshot(context.Background(), tp, bootguard.Flavor("weird"), "audit=1"); err == nil {
+		t.Error("expected error for unsupported flavor")
+	}
+}
+
+// @spec bootguard-oneshot
+// @ac AC-08
+// @spec bootguard-oneshot
+// @ac AC-10
+func TestArmOneshotRemove_BLS_ClonesAndStripsKey(t *testing.T) {
+	t.Run("bootguard-oneshot/AC-08", func(t *testing.T) {})
+	t.Run("bootguard-oneshot/AC-10", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	tp.Results["grubby --default-kernel"] = &api.CommandResult{Stdout: "/boot/vmlinuz-test\n"}
+	// Program the sentinel-grep so the find-trial-conf step returns a path.
+	tp.Results["grep -l 'kensa_bootguard_trial' /boot/loader/entries/*.conf 2>/dev/null | head -1"] =
+		&api.CommandResult{Stdout: "/boot/loader/entries/trial.conf\n"}
+
+	title, err := bootguard.ArmOneshotRemove(context.Background(), tp, bootguard.FlavorBLS, "systemd.confirm_spawn")
+	if err != nil {
+		t.Fatalf("ArmOneshotRemove(BLS): %v", err)
+	}
+	if title != "kensa-bootguard-trial" {
+		t.Errorf("title=%q", title)
+	}
+	// Trial creation: (1) grubby --add-kernel --copy-default + sentinel; then
+	// (2) find the trial .conf via the sentinel grep and sed-strip the key
+	// from its options line. (grubby cannot target by title and --update-kernel
+	// would also affect the saved default, since they share a kernel path.)
+	// Then (3) arm grub2-reboot.
+	joined := strings.Join(tp.Runs, "\n")
+	for _, sub := range []string{
+		"grubby --add-kernel", "--copy-default",
+		"--args='kensa_bootguard_trial'", "--title='kensa-bootguard-trial'",
+		"grep -l 'kensa_bootguard_trial' /boot/loader/entries/*.conf",
+		"sed -i -E", `/^options/ s/\bsystemd.confirm_spawn=`,
+		"/boot/loader/entries/trial.conf",
+		"grub2-reboot 'kensa-bootguard-trial'",
+	} {
+		if !strings.Contains(joined, sub) {
+			t.Errorf("expected %q in runs; got %v", sub, tp.Runs)
+		}
+	}
+	// AC-10: op_mode=remove recorded. base64("remove\n") == "cmVtb3ZlCg==".
+	if !strings.Contains(joined, "cmVtb3ZlCg==") || !strings.Contains(joined, "op_mode") {
+		t.Errorf("expected op_mode=remove recorded on disk; runs=%v", tp.Runs)
+	}
+}
+
+// @spec bootguard-oneshot
+// @ac AC-09
+func TestArmOneshotRemove_Ubuntu_StripsKeyAndArmsOneshot(t *testing.T) {
+	t.Run("bootguard-oneshot/AC-09", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	tp.Results["cat /boot/grub/grub.cfg"] = &api.CommandResult{Stdout: sampleUbuntuGrubCfg}
+
+	title, err := bootguard.ArmOneshotRemove(context.Background(), tp, bootguard.FlavorLegacy, "ro")
+	if err != nil {
+		t.Fatalf("ArmOneshotRemove(legacy): %v", err)
+	}
+	if title != "kensa-bootguard-trial" {
+		t.Errorf("title=%q", title)
+	}
+	if !runsContain(tp.Runs, "base64 -d > '/etc/grub.d/11_kensa_bootguard'") {
+		t.Errorf("expected the trial menuentry script to be written; runs=%v", tp.Runs)
+	}
+	if !runsContain(tp.Runs, "update-grub") {
+		t.Errorf("expected update-grub; runs=%v", tp.Runs)
+	}
+	if !runsContain(tp.Runs, "grub-reboot 'kensa-bootguard-trial'") {
+		t.Errorf("expected grub-reboot one-shot; runs=%v", tp.Runs)
+	}
+}
+
+// @spec bootguard-oneshot
+// @ac AC-10
+func TestArmOneshot_Set_RecordsOpModeSet(t *testing.T) {
+	t.Run("bootguard-oneshot/AC-10", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	tp.Results["grubby --default-kernel"] = &api.CommandResult{Stdout: "/boot/vmlinuz-test\n"}
+
+	if _, err := bootguard.ArmOneshot(context.Background(), tp, bootguard.FlavorBLS, "audit=1"); err != nil {
+		t.Fatalf("ArmOneshot: %v", err)
+	}
+	// base64("set\n") == "c2V0Cg==".
+	joined := strings.Join(tp.Runs, "\n")
+	if !strings.Contains(joined, "c2V0Cg==") || !strings.Contains(joined, "op_mode") {
+		t.Errorf("expected op_mode=set recorded; runs=%v", tp.Runs)
+	}
+}
+
+// @spec bootguard-oneshot
+// @ac AC-11
+func TestArmOneshotRemove_RejectsBadInput(t *testing.T) {
+	t.Run("bootguard-oneshot/AC-11", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	if _, err := bootguard.ArmOneshotRemove(context.Background(), tp, bootguard.FlavorBLS, ""); err == nil {
+		t.Error("expected error for empty key")
+	}
+	if _, err := bootguard.ArmOneshotRemove(context.Background(), tp, bootguard.Flavor("weird"), "audit"); err == nil {
 		t.Error("expected error for unsupported flavor")
 	}
 }

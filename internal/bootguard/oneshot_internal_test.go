@@ -67,3 +67,44 @@ func TestUbuntuTrialScript_OrdersAfter10Linux(t *testing.T) {
 		t.Errorf("trial script %q must sort after 10_linux (failed-trial fallback safety); base=%q", ubuntuTrialScript, base)
 	}
 }
+
+func TestStripKeyFromLinuxLine_StripsKeyValueAndBareToken(t *testing.T) {
+	in := "\tlinux\t/vmlinuz-X ro audit=1 systemd.confirm_spawn pti=on quiet"
+	out := stripKeyFromLinuxLine(in, "systemd.confirm_spawn")
+	if strings.Contains(out, "systemd.confirm_spawn") {
+		t.Errorf("expected bare key removed; got %q", out)
+	}
+	out2 := stripKeyFromLinuxLine(in, "audit")
+	if strings.Contains(out2, "audit=1") {
+		t.Errorf("expected key=value removed; got %q", out2)
+	}
+	// Positional preservation: "linux" and the kernel path must stay.
+	for _, want := range []string{"linux", "/vmlinuz-X"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q preserved; got %q", want, out)
+		}
+	}
+	// Leading whitespace preserved.
+	if !strings.HasPrefix(out, "\tlinux") {
+		t.Errorf("expected leading tab preserved; got %q", out)
+	}
+}
+
+func TestBuildUbuntuTrialEntryRemove_StripsKeyAndAppendsSentinel(t *testing.T) {
+	out := buildUbuntuTrialEntryRemove(sampleBlock, "ro")
+	// The key must be gone from the linux line.
+	for _, ln := range strings.Split(out, "\n") {
+		trim := strings.TrimSpace(ln)
+		if strings.HasPrefix(trim, "linux ") || strings.HasPrefix(trim, "linux\t") {
+			if strings.Contains(" "+trim+" ", " ro ") {
+				t.Errorf("expected bare 'ro' stripped from linux line; got %q", trim)
+			}
+			if !strings.Contains(trim, trialSentinel) {
+				t.Errorf("expected sentinel appended to linux line; got %q", trim)
+			}
+		}
+	}
+	if !strings.Contains(out, "menuentry '"+trialTitle+"'") {
+		t.Errorf("expected retitled menuentry; got:\n%s", out)
+	}
+}

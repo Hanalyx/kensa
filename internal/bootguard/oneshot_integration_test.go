@@ -34,7 +34,11 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 	}
 	param := "kensa_selftest=1"
 	if p := os.Getenv("KENSA_BOOTGUARD_PARAM"); p != "" {
-		param = p // e.g. the fatal-fallback injection: "init=/bin/false panic=10"
+		param = p // e.g. fatal-fallback "init=/bin/false panic=10"; for op=remove, the key alone (e.g. "audit_backlog_limit").
+	}
+	op := "set"
+	if v := os.Getenv("KENSA_BOOTGUARD_OP"); v != "" {
+		op = v // "set" (default, calls ArmOneshot) or "remove" (calls ArmOneshotRemove).
 	}
 
 	ctx := context.Background()
@@ -65,12 +69,21 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 	}
 	t.Logf("armable=%t refusals=%v", dec.Armable, dec.Refusals)
 
-	// Baseline: the default entry's args BEFORE arm (promote must add the param
-	// here, post-boot — it must NOT be present yet).
+	// Baseline: the default entry's args BEFORE arm. For op=set, the param must
+	// NOT yet be on the default (promote will add it post-boot). For op=remove,
+	// the key SHOULD be present (else there is nothing to test removing — we
+	// still proceed, but log it).
 	if r, err := tp.Run(ctx, "grubby --info=DEFAULT 2>/dev/null | grep -E '^(args|kernel|title)='"); err == nil {
 		t.Logf("DEFAULT before arm:\n%s", strings.TrimSpace(r.Stdout))
-		if strings.Contains(r.Stdout, param) {
-			t.Fatalf("param %q already present on default before arm — pick a clean host", param)
+		switch op {
+		case "remove":
+			if !strings.Contains(r.Stdout, param) {
+				t.Logf("WARN op=remove but key %q is NOT on the default — test will exercise the mechanism but the promote is a no-op", param)
+			}
+		default:
+			if strings.Contains(r.Stdout, param) {
+				t.Fatalf("op=set: param %q already present on default before arm — pick a clean host", param)
+			}
 		}
 	}
 
@@ -78,11 +91,18 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 		t.Fatalf("Capture baseline: %v", err)
 	}
 
-	title, err := bootguard.ArmOneshot(ctx, tp, flavor, param)
-	if err != nil {
-		t.Fatalf("ArmOneshot: %v", err)
+	var title string
+	var armErr error
+	switch op {
+	case "remove":
+		title, armErr = bootguard.ArmOneshotRemove(ctx, tp, flavor, param)
+	default:
+		title, armErr = bootguard.ArmOneshot(ctx, tp, flavor, param)
 	}
-	t.Logf("armed trial title=%q param=%q", title, param)
+	if armErr != nil {
+		t.Fatalf("Arm (op=%s): %v", op, armErr)
+	}
+	t.Logf("armed trial title=%q op=%s param=%q", title, op, param)
 
 	if err := bootguard.InstallConfirmUnit(ctx, tp, flavor); err != nil {
 		t.Fatalf("InstallConfirmUnit: %v", err)
@@ -105,10 +125,24 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 		if r, _ := tp.Run(ctx, "grep -lc kensa_bootguard_trial /boot/loader/entries/*.conf 2>/dev/null | head -1"); strings.TrimSpace(r.Stdout) == "" {
 			t.Errorf("no BLS entry carries the trial sentinel — arm did not create the trial entry")
 		}
-		if r, _ := tp.Run(ctx, "grubby --info=DEFAULT 2>/dev/null | grep '^args='"); strings.Contains(r.Stdout, param) {
-			t.Errorf("DEFAULT already carries %q after arm — arm must NOT modify the default", param)
-		} else {
-			t.Logf("DEFAULT args after arm (param absent — good):\n%s", strings.TrimSpace(r.Stdout))
+		// The saved default's args must be UNCHANGED by arm: for op=set the
+		// param must still be absent; for op=remove the key must still be
+		// present. Either way the trial (not the default) holds the change.
+		r, _ := tp.Run(ctx, "grubby --info=DEFAULT 2>/dev/null | grep '^args='")
+		has := strings.Contains(r.Stdout, param)
+		switch op {
+		case "remove":
+			if !has {
+				t.Errorf("op=remove: DEFAULT lost key %q after arm — arm must NOT modify the default", param)
+			} else {
+				t.Logf("DEFAULT args after arm (key still present — good):\n%s", strings.TrimSpace(r.Stdout))
+			}
+		default:
+			if has {
+				t.Errorf("op=set: DEFAULT already carries %q after arm — arm must NOT modify the default", param)
+			} else {
+				t.Logf("DEFAULT args after arm (param absent — good):\n%s", strings.TrimSpace(r.Stdout))
+			}
 		}
 	case bootguard.FlavorLegacy:
 		if r, _ := tp.Run(ctx, "test -f /etc/grub.d/11_kensa_bootguard && echo present || echo MISSING"); strings.TrimSpace(r.Stdout) != "present" {

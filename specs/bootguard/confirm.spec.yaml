@@ -1,6 +1,6 @@
 spec:
     id: bootguard-confirm
-    version: 0.4.0
+    version: 0.5.0
     status: draft
     tier: 1
     context:
@@ -95,6 +95,18 @@ spec:
               AND the confirm script MUST disable + remove the unit when done.
           type: security
           enforcement: error
+        - id: C-08
+          description: |
+              On promote, the confirm script MUST read the op_mode state file
+              that the arm step recorded and branch — for "set" use
+              grubby --update-kernel=DEFAULT --args="$PARAM" (BLS) /
+              sed-append "$PARAM" to GRUB_CMDLINE_LINUX (legacy); for "remove"
+              use grubby --remove-args="$PARAM" (BLS) / sed-strip both
+              "$PARAM=<value>" and bare "$PARAM" tokens from /etc/default/grub
+              (legacy). The arm step (bootguard-oneshot) writes op_mode; this
+              constraint is the read-and-branch counterpart.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: InstallConfirmUnit stages the script and installs+enables the oneshot.
@@ -127,6 +139,14 @@ spec:
         - id: AC-08
           description: The confirm unit carries ConditionPathExists on the trial marker, and the confirm script disables+removes the unit after running, so it never fails (degraded) on later boots.
           references_constraints: [C-07]
+          priority: critical
+        - id: AC-09
+          description: On promote, the RHEL/BLS confirm script branches on op_mode — grubby --update-kernel=DEFAULT --args="$PARAM" for "set"; --remove-args="$PARAM" for "remove".
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-10
+          description: On promote, the Ubuntu/legacy confirm script branches on op_mode — sed-append "$PARAM" to GRUB_CMDLINE_LINUX for "set"; sed-strip both "$PARAM=<value>" and bare "$PARAM" tokens from /etc/default/grub for "remove".
+          references_constraints: [C-08]
           priority: critical
     depends_on:
         - spec_id: bootguard-oneshot

@@ -1,6 +1,6 @@
 spec:
     id: bootguard-oneshot
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
     context:
@@ -80,6 +80,25 @@ spec:
               so its index is irrelevant to arming.
           type: security
           enforcement: error
+        - id: C-07
+          description: |
+              ArmOneshotRemove stages a trial that is the saved default's args
+              MINUS the named key (plus the sentinel), WITHOUT modifying the
+              saved default, and arms it as the one-shot next boot. The trial
+              is the test surface: it is the boot WITHOUT the key, while the
+              saved default still has the key — so a failed trial falls back
+              to the known-good (key-present) default.
+          type: security
+          enforcement: error
+        - id: C-08
+          description: |
+              The Arm functions MUST record an operation mode alongside the
+              payload: "set" for ArmOneshot (payload "key=value", added on
+              promote) or "remove" for ArmOneshotRemove (payload "key",
+              removed on promote). The confirm step relies on this to pick the
+              right grubby flag (BLS) or sed direction (legacy).
+          type: technical
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: RHEL ArmOneshot creates the trial via grubby --copy-default with the param+sentinel and does not modify the default.
@@ -109,6 +128,22 @@ spec:
           description: The Ubuntu trial /etc/grub.d script is ordered after 10_linux so the real default remains the index-0 fallback for a failed trial.
           references_constraints: [C-06]
           priority: critical
+        - id: AC-08
+          description: ArmOneshotRemove (BLS) clones the default via grubby --copy-default with the sentinel ADDED (--args) and the named key REMOVED (--remove-args), leaves the saved default unchanged, and arms the one-shot via grub2-reboot.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-09
+          description: ArmOneshotRemove (Ubuntu) writes a cloned trial /etc/grub.d script whose linux line has the named key stripped (both "key=value" and bare "key" tokens) and the sentinel appended, runs update-grub, and arms the one-shot via grub-reboot.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-10
+          description: ArmOneshot records op_mode=set; ArmOneshotRemove records op_mode=remove. The confirm step reads this to choose --args vs --remove-args on BLS (sed append vs strip on legacy).
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-11
+          description: ArmOneshotRemove rejects an unsupported flavor and an empty key with an error.
+          references_constraints: [C-05]
+          priority: high
     depends_on:
         - spec_id: bootguard-capture
           relationship: requires

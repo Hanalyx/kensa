@@ -10,7 +10,31 @@ import (
 	"github.com/Hanalyx/kensa/internal/handlers/grubparameterremove"
 )
 
-// anyRunContains reports whether any recorded command contains all subs.
+// These mirror the unexported probe commands in internal/bootguard/gate.go. If
+// they drift, the armable-path test below stops seeing an armable host and
+// fails loudly — which is the intended coupling alarm.
+const (
+	uefiProbe   = `test -d /sys/firmware/efi`
+	ostreeProbe = `test -e /run/ostree-booted`
+	encProbe    = `t=$(findmnt -no SOURCE /boot 2>/dev/null || findmnt -no SOURCE / 2>/dev/null); test -n "$t" && lsblk -nso TYPE "$t" 2>/dev/null | grep -qx crypt`
+)
+
+// armableBLS programs a FakeTransport to look like a plain BIOS/GRUB/BLS host:
+// uefi/ostree/encrypted probes fail (exit 1), grub is present (default exit 0),
+// /boot/loader/entries exists (default exit 0 → BLS), grubby reports a default
+// kernel, and the sentinel-grep that locates the freshly-created trial .conf
+// (step 2 of armOneshotRemoveBLS) returns a stub path.
+func armableBLS() *engine.FakeTransport {
+	tp := engine.NewFakeTransport()
+	tp.Results[uefiProbe] = &api.CommandResult{ExitCode: 1}
+	tp.Results[ostreeProbe] = &api.CommandResult{ExitCode: 1}
+	tp.Results[encProbe] = &api.CommandResult{ExitCode: 1}
+	tp.Results["grubby --default-kernel"] = &api.CommandResult{Stdout: "/boot/vmlinuz-test\n"}
+	tp.Results["grep -l 'kensa_bootguard_trial' /boot/loader/entries/*.conf 2>/dev/null | head -1"] =
+		&api.CommandResult{Stdout: "/boot/loader/entries/trial.conf\n"}
+	return tp
+}
+
 func anyRunContains(runs []string, subs ...string) bool {
 	for _, r := range runs {
 		all := true
@@ -29,32 +53,22 @@ func anyRunContains(runs []string, subs ...string) bool {
 
 // @spec handler-grub-parameter-remove
 // @ac AC-01
-func TestApply_StripsKeyAndRegenerates(t *testing.T) {
+func TestApply_RefusesOffAllowlistKey(t *testing.T) {
 	t.Run("handler-grub-parameter-remove/AC-01", func(t *testing.T) {})
-	tp := engine.NewFakeTransport()
+	tp := armableBLS()
 	h := grubparameterremove.New()
-	res, err := h.Apply(context.Background(), tp, api.Params{
-		"key": "audit",
-	}, nil)
-	if err != nil {
-		t.Fatalf("Apply: %v", err)
+	_, err := h.Apply(context.Background(), tp, api.Params{"key": "evil_key"}, nil)
+	if err == nil {
+		t.Fatal("expected an error for an off-allowlist key")
 	}
-	if !res.Success {
-		t.Errorf("Success=false: %s", res.Detail)
-	}
-	// The strip sed must target both key= and bare-key forms and edit
-	// /etc/default/grub, chained with a grub config regeneration.
-	if !anyRunContains(tp.Runs, "sed -i -E", `audit=[^ "]*`, `audit\b`, "/etc/default/grub") {
-		t.Errorf("expected a sed strip of the key; runs=%v", tp.Runs)
-	}
-	if !anyRunContains(tp.Runs, "grub2-mkconfig", "grub-mkconfig") {
-		t.Errorf("expected grub config regeneration; runs=%v", tp.Runs)
+	if len(tp.Runs) != 0 {
+		t.Errorf("off-allowlist key must be refused before any host command; runs=%v", tp.Runs)
 	}
 }
 
 // @spec handler-grub-parameter-remove
 // @ac AC-02
-func TestApply_RejectsInvalidParams(t *testing.T) {
+func TestDecodeParams_RejectsInvalid(t *testing.T) {
 	t.Run("handler-grub-parameter-remove/AC-02", func(t *testing.T) {})
 	h := grubparameterremove.New()
 	cases := []struct {
@@ -81,31 +95,71 @@ func TestApply_RejectsInvalidParams(t *testing.T) {
 
 // @spec handler-grub-parameter-remove
 // @ac AC-03
-func TestApply_PipelineFailureReportsUnsuccessful(t *testing.T) {
+func TestApply_RefusesNonArmableHost(t *testing.T) {
 	t.Run("handler-grub-parameter-remove/AC-03", func(t *testing.T) {})
+	// A default fake answers every probe with exit 0 → looks like a UEFI +
+	// ostree + encrypted host → CheckArmable refuses.
 	tp := engine.NewFakeTransport()
-	pipeline := `sed -i -E 's/\baudit=[^ "]*//g; s/\baudit\b//g' /etc/default/grub` +
-		` && grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null`
-	tp.Results[pipeline] = &api.CommandResult{ExitCode: 1, Stderr: "no such file"}
 	h := grubparameterremove.New()
-	res, err := h.Apply(context.Background(), tp, api.Params{"key": "audit"}, nil)
+	res, err := h.Apply(context.Background(), tp, api.Params{"key": "systemd.confirm_spawn"}, nil)
 	if err != nil {
-		t.Fatalf("Apply returned error (want StepResult with Success=false): %v", err)
+		t.Fatalf("Apply returned error (want StepResult Success=false): %v", err)
 	}
 	if res.Success {
-		t.Errorf("expected Success=false on non-zero exit; detail=%s", res.Detail)
+		t.Errorf("expected Success=false on a non-armable host; detail=%s", res.Detail)
 	}
-	if !strings.Contains(res.Detail, "no such file") {
-		t.Errorf("expected stderr surfaced in detail; got %q", res.Detail)
+	if anyRunContains(tp.Runs, "grubby --add-kernel") || anyRunContains(tp.Runs, "kensa-bootguard-confirm") {
+		t.Errorf("must not arm on a non-armable host; runs=%v", tp.Runs)
 	}
 }
 
 // @spec handler-grub-parameter-remove
 // @ac AC-04
+func TestApply_ArmsRemovalNotSed(t *testing.T) {
+	t.Run("handler-grub-parameter-remove/AC-04", func(t *testing.T) {})
+	tp := armableBLS()
+	h := grubparameterremove.New()
+	res, err := h.Apply(context.Background(), tp, api.Params{"key": "systemd.confirm_spawn"}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("expected Success=true on an armable host; detail=%s", res.Detail)
+	}
+	if !strings.Contains(res.Detail, "REMOVAL") || !strings.Contains(res.Detail, "PENDING") {
+		t.Errorf("Detail must report a pending removal; got %q", res.Detail)
+	}
+	if !anyRunContains(tp.Runs, "kensa-bootguard-confirm") {
+		t.Errorf("expected the confirm unit to be installed; runs=%v", tp.Runs)
+	}
+	// Trial creation is now a 2-step grubby/sed pair (see bootguard/oneshot.go
+	// armOneshotRemoveBLS rationale): grubby --add-kernel adds the sentinel,
+	// then sed-strips the key from the trial's .conf (grubby cannot target
+	// the trial by title and a kernel-path selector would also affect the
+	// saved default).
+	if !anyRunContains(tp.Runs, "grubby --add-kernel", "--copy-default", "kensa_bootguard_trial") {
+		t.Errorf("expected step 1: grubby --add-kernel --copy-default + sentinel; runs=%v", tp.Runs)
+	}
+	if !anyRunContains(tp.Runs, "sed -i -E", "systemd.confirm_spawn", "/boot/loader/entries/trial.conf") {
+		t.Errorf("expected step 2: sed-strip of the key from the trial .conf; runs=%v", tp.Runs)
+	}
+	if !anyRunContains(tp.Runs, "grub2-reboot") {
+		t.Errorf("expected the one-shot to be armed (grub2-reboot); runs=%v", tp.Runs)
+	}
+	// Must NOT use the legacy sed-on-default-grub + mkconfig path. ("-o " is the
+	// run flag; "grub2-mkconfig" alone also appears in the CheckArmable probe
+	// `command -v grub2-mkconfig` and is not a regression.)
+	if anyRunContains(tp.Runs, "GRUB_CMDLINE_LINUX") || anyRunContains(tp.Runs, "grub2-mkconfig -o") {
+		t.Errorf("Apply must NOT directly edit GRUB_CMDLINE_LINUX or run grub2-mkconfig -o; runs=%v", tp.Runs)
+	}
+}
+
+// @spec handler-grub-parameter-remove
+// @ac AC-05
 // @spec handler-interface
 // @ac AC-05
 func TestHandler_NonCapturable(t *testing.T) {
-	t.Run("handler-grub-parameter-remove/AC-04", func(t *testing.T) {})
+	t.Run("handler-grub-parameter-remove/AC-05", func(t *testing.T) {})
 	t.Run("handler-interface/AC-05", func(t *testing.T) {})
 	h := grubparameterremove.New()
 	if h.Capturable() {

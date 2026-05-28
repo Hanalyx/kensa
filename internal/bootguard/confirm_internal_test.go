@@ -126,3 +126,43 @@ func TestConfirmUnit_IsSelfLimiting(t *testing.T) {
 		}
 	}
 }
+
+// @spec bootguard-confirm
+// @ac AC-09
+func TestBuildConfirmScript_RHEL_Promote_BranchesOnOpMode(t *testing.T) {
+	t.Run("bootguard-confirm/AC-09", func(t *testing.T) {})
+	s, err := buildConfirmScript(FlavorBLS)
+	if err != nil {
+		t.Fatalf("buildConfirmScript(BLS): %v", err)
+	}
+	if !strings.Contains(s, `"$STATE/op_mode"`) {
+		t.Errorf("RHEL confirm must read op_mode; got:\n%s", s)
+	}
+	if !strings.Contains(s, `grubby --update-kernel=DEFAULT --args=`) {
+		t.Errorf("RHEL confirm must have a set branch (--args); got:\n%s", s)
+	}
+	if !strings.Contains(s, `grubby --update-kernel=DEFAULT --remove-args=`) {
+		t.Errorf("RHEL confirm must have a remove branch (--remove-args); got:\n%s", s)
+	}
+}
+
+// @spec bootguard-confirm
+// @ac AC-10
+func TestBuildConfirmScript_Ubuntu_Promote_BranchesOnOpMode(t *testing.T) {
+	t.Run("bootguard-confirm/AC-10", func(t *testing.T) {})
+	s, err := buildConfirmScript(FlavorLegacy)
+	if err != nil {
+		t.Fatalf("buildConfirmScript(legacy): %v", err)
+	}
+	if !strings.Contains(s, `"$STATE/op_mode"`) {
+		t.Errorf("Ubuntu confirm must read op_mode; got:\n%s", s)
+	}
+	// set branch: sed-append to GRUB_CMDLINE_LINUX
+	if !strings.Contains(s, "GRUB_CMDLINE_LINUX=") {
+		t.Errorf("Ubuntu confirm must reference GRUB_CMDLINE_LINUX in the set branch; got:\n%s", s)
+	}
+	// remove branch: sed-strip "$PARAM=<value>" and bare "$PARAM"
+	if !strings.Contains(s, `$PARAM=[^ `) || !strings.Contains(s, `\b$PARAM\b`) {
+		t.Errorf("Ubuntu confirm must have a remove branch that strips both key=value and bare key; got:\n%s", s)
+	}
+}
