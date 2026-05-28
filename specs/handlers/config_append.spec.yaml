@@ -1,0 +1,88 @@
+spec:
+    id: handler-config-append
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: handler-config-append
+        description: |
+            The config_append handler appends a single line to a file
+            when that exact line is not already present (grep -qxF match,
+            no regex). Capture records whether the line was already
+            present; rollback removes the line only when Apply added it.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Append a line to params.path when absent, idempotently.
+            Capture records the pre-existing presence so rollback can
+            distinguish a line we added from one that was already there.
+        scope:
+            includes:
+                - Exact-line presence check (grep -qxF)
+                - Append the line when absent (echo >> path)
+                - Capture of was_present before Apply
+                - Rollback removing only lines Apply added
+            excludes:
+                - Editing or replacing existing lines (use config_set)
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST be idempotent — when the exact line is already
+              present in the file, Apply is a no-op and does not append.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Apply MUST append the line to params.path when the exact
+              line is not already present.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Capture MUST record whether the exact line was already
+              present in the file before Apply runs (was_present), so
+              rollback can leave pre-existing lines untouched.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Rollback MUST remove the appended line only when it was not
+              present before Apply (was_present=false), and MUST leave the
+              file untouched when the line was pre-existing.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              decodeParams MUST reject missing or invalid required params:
+              a non-empty string path and a string line.
+          type: technical
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply appends the line to the file when it is absent.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-02
+          description: Apply is a no-op when the exact line is already present.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: Capture records was_present for the file before Apply.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Rollback removes the appended line when was_present=false,
+              and leaves the file untouched when was_present=true.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: decodeParams rejects missing or invalid params.
+          references_constraints: [C-05]
+          priority: high
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, capturable, tier-1, config]

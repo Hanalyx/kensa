@@ -1,0 +1,154 @@
+spec:
+    id: bootguard-confirm
+    version: 0.5.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-confirm
+        description: |
+            Option B confirm step. InstallConfirmUnit stages a confirm script
+            and a systemd oneshot that runs it after a healthy boot (multi-user
+            + network-online). The script reads /proc/cmdline for the trial
+            sentinel: present → the trial booted and is healthy, so PROMOTE
+            (apply the recorded param to the default entry, drop the trial);
+            absent → the host fell back to the saved default (trial boot
+            failed), so CLEAN UP the trial and leave the default. Recovery on a
+            failed boot is the bootloader's automatic saved-default fallback
+            (no boot-time script). Supersedes v0.1.0 (Option A marker-clearing).
+            RHEL promotes via grubby --update-kernel=DEFAULT and removes the
+            specific BLS trial entry; Ubuntu promotes by appending the param to
+            GRUB_CMDLINE_LINUX and removes the /etc/grub.d trial script,
+            regenerating via update-grub. Must run over a privileged (sudo)
+            transport.
+        related_specs:
+            - bootguard-oneshot
+    objective:
+        summary: |
+            Install a confirm oneshot that promotes a healthy trial boot or
+            cleans up after an auto-fallback.
+        scope:
+            includes:
+                - Stage the confirm script + install/enable the oneshot
+                - Promote (grubby --update-kernel=DEFAULT) when the sentinel is present
+                - Clean up the trial when the sentinel is absent
+                - Remove the trial by its specific sentinel-bearing entry file
+            excludes:
+                - Ubuntu legacy confirm (separate increment)
+                - The arm step (bootguard-oneshot)
+    constraints:
+        - id: C-01
+          description: |
+              InstallConfirmUnit MUST stage the confirm script and install a
+              systemd oneshot (daemon-reload + enable) ordered after the healthy
+              boot target.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              When the trial sentinel is in /proc/cmdline, the script MUST
+              promote — apply the recorded param to the default entry (grubby
+              --update-kernel=DEFAULT) and remove the trial.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              When the sentinel is absent (auto-fallback), the script MUST
+              remove the trial and leave the default entry unchanged.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Trial removal MUST target the specific sentinel-bearing entry
+              file, NOT grubby --remove-kernel (which would drop every entry for
+              that kernel, including the default).
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              On Ubuntu, promote MUST append the param to GRUB_CMDLINE_LINUX in
+              /etc/default/grub; both promote and clean-up MUST remove the
+              /etc/grub.d trial script and regenerate via update-grub.
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              The confirm unit MUST invoke the script through an interpreter
+              (ExecStart=/bin/sh <path>), not as a direct executable ExecStart
+              of the staged path. On SELinux-enforcing RHEL the script staged
+              under /var/lib is labeled var_lib_t, which systemd cannot execve
+              (203/EXEC, "Permission denied" — caught by the destructive reboot
+              test on RHEL 9.6); the script must persist across the reboot, so
+              it cannot be relocated to a bin-labeled path. Reading var_lib_t is
+              permitted, so /bin/sh runs it.
+          type: security
+          enforcement: error
+        - id: C-07
+          description: |
+              The confirm unit MUST be self-limiting. It is enabled so it
+              survives the reboot, and the confirm script deletes its own state
+              dir (and script) when it finishes — so a still-enabled unit would
+              fail on every later boot (missing script) and leave the system
+              'degraded' (caught by the destructive reboot test, reboot #2, on
+              RHEL 9.6). The unit MUST therefore carry ConditionPathExists on the
+              trial marker (an un-armed boot is skipped: inactive, not failed),
+              AND the confirm script MUST disable + remove the unit when done.
+          type: security
+          enforcement: error
+        - id: C-08
+          description: |
+              On promote, the confirm script MUST read the op_mode state file
+              that the arm step recorded and branch — for "set" use
+              grubby --update-kernel=DEFAULT --args="$PARAM" (BLS) /
+              sed-append "$PARAM" to GRUB_CMDLINE_LINUX (legacy); for "remove"
+              use grubby --remove-args="$PARAM" (BLS) / sed-strip both
+              "$PARAM=<value>" and bare "$PARAM" tokens from /etc/default/grub
+              (legacy). The arm step (bootguard-oneshot) writes op_mode; this
+              constraint is the read-and-branch counterpart.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: InstallConfirmUnit stages the script and installs+enables the oneshot.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: The RHEL confirm script promotes (grubby --update-kernel=DEFAULT --args) when the sentinel is present.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: The RHEL confirm script removes the trial when the sentinel is absent.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: Trial removal targets the sentinel-bearing entry file, not grubby --remove-kernel.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: The Ubuntu confirm script promotes by appending the param to GRUB_CMDLINE_LINUX and regenerating via update-grub when the sentinel is present.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: The Ubuntu confirm script removes the /etc/grub.d trial script and runs update-grub on fallback.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-07
+          description: The confirm unit invokes the script via /bin/sh (interpreter), not a direct ExecStart of the var_lib path, so SELinux-enforcing RHEL can run it.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: The confirm unit carries ConditionPathExists on the trial marker, and the confirm script disables+removes the unit after running, so it never fails (degraded) on later boots.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-09
+          description: On promote, the RHEL/BLS confirm script branches on op_mode — grubby --update-kernel=DEFAULT --args="$PARAM" for "set"; --remove-args="$PARAM" for "remove".
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-10
+          description: On promote, the Ubuntu/legacy confirm script branches on op_mode — sed-append "$PARAM" to GRUB_CMDLINE_LINUX for "set"; sed-strip both "$PARAM=<value>" and bare "$PARAM" tokens from /etc/default/grub for "remove".
+          references_constraints: [C-08]
+          priority: critical
+    depends_on:
+        - spec_id: bootguard-oneshot
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, confirm, option-b, systemd, gated]

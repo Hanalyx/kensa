@@ -1,5 +1,4 @@
-// Deadman-specific live-host fuzz tests for D-006 (Phase 3
-// close). These tests exercise the agent-side in-process
+// Deadman-specific live-host fuzz tests. These tests exercise the agent-side in-process
 // deadman end-to-end against a real Linux host. Unlike the
 // generic runFuzz-based tests in fuzz_integration_test.go,
 // these talk to the agent's ArmDeadman / CancelDeadman RPC
@@ -32,7 +31,7 @@
 // tests could verify. These tests exercise the LIVE-HOST
 // behavior the design promises (suspend resistance, clock-
 // jump immunity, SSH-kill response time). They're the
-// final integration gate before Phase 3 is "done."
+// final integration gate before the deadman timer ships.
 //
 // Spec: docs/roadmap/PHASE-3-BREAKDOWN.md D-006.
 

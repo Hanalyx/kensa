@@ -45,7 +45,7 @@ func summarizeCheckArgs(severities, tags []string, category, framework string, c
 
 // persistScanResult writes a check-mode ScanResult into the
 // store as one session with N transactions attached. C-041
-// makes this opt-in via --store on `kensa check`; pre-Phase-4
+// makes this opt-in via --store on `kensa check`; sessionless legacy
 // check was strictly read-only.
 //
 // The rules slice MUST be the same ordered list scan iterated;

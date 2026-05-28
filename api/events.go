@@ -7,11 +7,19 @@ import (
 	"github.com/google/uuid"
 )
 
-// EventKind enumerates every event type the engine emits. Subscribers
-// filter by passing specific kinds in [EventFilter.Kinds].
+// EventKind classifies an event on the stream. Kensa emits only the
+// transaction-lifecycle kinds (TransactionStarted, PhaseCompleted,
+// Committed, RolledBack) and — once wired — the deadman kinds; those are
+// the events a single-host Kensa transaction produces. HeartbeatPulse and
+// DriftDetected are OpenWatch-owned fleet-monitoring signals that Kensa
+// never emits; per the ratified liveness/heartbeat boundary (2026-05-25)
+// they are slated to move out of this package into OpenWatch's taxonomy
+// as part of M7. Subscribers filter by passing specific kinds in
+// [EventFilter.Kinds].
 type EventKind string
 
-// The full set of [EventKind] values the engine emits.
+// The [EventKind] values. See the EventKind doc for which Kensa emits
+// versus the OpenWatch-owned kinds defined here only as shared vocabulary.
 const (
 	// TransactionStarted fires when the engine enters [PhaseCapture]
 	// for a new transaction. [Event.TxnID] is set.
@@ -30,12 +38,16 @@ const (
 	// path executed (inline, deadman, or manual).
 	RolledBack EventKind = "rolled_back"
 
-	// DriftDetected fires when a scheduled scan finds a rule's check
-	// failing on a host where it previously passed.
+	// DriftDetected is an OpenWatch-owned signal: Kensa has no scheduler
+	// and never emits it. OpenWatch computes drift over the transaction
+	// log. Defined here only as shared vocabulary; slated to move to
+	// OpenWatch's taxonomy as part of M7.
 	DriftDetected EventKind = "drift_detected"
 
-	// HeartbeatPulse is the periodic "this host is reachable" signal.
-	// Pulse rate is governed by [EventFilter.HeartbeatInterval].
+	// HeartbeatPulse is an OpenWatch-owned signal: the periodic "this host
+	// is reachable" pulse is produced by OpenWatch's liveness loop, not by
+	// Kensa. Defined here only as shared vocabulary; slated to move to
+	// OpenWatch's taxonomy as part of M7.
 	HeartbeatPulse EventKind = "heartbeat_pulse"
 
 	// DeadmanTimerArmed fires when the engine schedules a rollback
@@ -61,19 +73,19 @@ type EventPublisher interface {
 	Publish(ctx context.Context, event Event) error
 }
 
-// EventSubscriber is the read side of the event stream. OpenWatch's
-// Heartbeat (see docs/OPENWATCH_VISION.md §3.2) subscribes to drive
-// real-time drift alerts, progress indicators, and the fleet-health
-// view.
+// EventSubscriber is the read side of the event stream. OpenWatch
+// subscribes to follow the progress of an in-flight Kensa transaction
+// (TransactionStarted/PhaseCompleted/Committed/RolledBack, and the
+// deadman kinds once wired). It does NOT subscribe to Kensa for liveness
+// or drift — those are OpenWatch-generated on its own bus per the
+// liveness/heartbeat boundary (2026-05-25).
 type EventSubscriber interface {
 	// Subscribe returns a channel that receives events matching
 	// filter. The channel closes when ctx is done.
 	//
-	// Back-pressure: when the consumer falls behind, non-pulse
-	// events may be dropped and counted; [HeartbeatPulse] events
-	// are coalesced rather than dropped, so subscribers always see
-	// at least one pulse per host per [EventFilter.HeartbeatInterval]
-	// while the host is alive.
+	// Back-pressure (coalescing, drop-counting, per-host pulse
+	// rate-limiting) is a property of OpenWatch's long-lived bus, not
+	// this in-process one; Kensa's bus drops on a full channel.
 	Subscribe(ctx context.Context, filter EventFilter) (<-chan Event, error)
 }
 

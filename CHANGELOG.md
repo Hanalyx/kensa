@@ -12,7 +12,29 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes since v0.1.0 yet)
+(no changes yet)
+
+## v0.1.1 — 2026-05-27
+
+First tag carrying the ratified Kensa/OpenWatch boundary, so OpenWatch can
+pin a kensa with the agreed `api/` surface. No `api/` contract change since
+v0.1.0 — the public Go API is identical; this is a documentation +
+internal-quality release.
+
+### Changed
+
+- `api/` event-stream godoc (`EventKind`) corrected to the ratified
+  Kensa/OpenWatch boundary: OpenWatch owns liveness / heartbeat / drift;
+  Kensa emits the shared event vocabulary (`transaction_started`,
+  `committed`, `rolled_back`, `drift_detected`, `heartbeat_pulse`,
+  `deadman_timer_armed` / `_fired`). Godoc only — the types are unchanged.
+
+### Internal
+
+- Spec-driven tests added for 10 previously-untested handlers.
+- Code comments scrubbed of planning labels (e.g. roadmap phase / option
+  names) per the new "Comments" section of `CONTRIBUTING.md`; a
+  `make comment-lint` check guards new comments.
 
 ## v0.1.0 — 2026-05-14 (Sentinel)
 

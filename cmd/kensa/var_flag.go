@@ -32,9 +32,8 @@ func registerVarFlag(fs *pflag.FlagSet, dst *[]string) {
 // Long-only (no short letter). Default empty: when unset, no
 // defaults file is loaded and only --var values are in scope.
 //
-// Phase 3.5 ships the minimum: just defaults.yml. Future Phase
-// 3.6 will layer per-host / per-group / conf.d overrides on
-// top.
+// Currently only defaults.yml is loaded. Later tiers layer
+// per-host / per-group / conf.d overrides on top.
 func registerConfigDirFlag(fs *pflag.FlagSet, dst *string) {
 	fs.StringVar(dst, "config-dir", "",
 		"directory holding defaults.yml (variable defaults source). Phase 3.5 minimum: only defaults.yml is read; per-host / per-group / conf.d overrides land in Phase 3.6.")

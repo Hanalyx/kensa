@@ -37,7 +37,7 @@ import (
 // "N conflicts auto-resolved" and similar.
 //
 // Intentionally NOT exposed via api/. The shape will evolve as the
-// CLI Phase 2.5 operator UX matures (adding fields like skip-by-
+// the operator UX matures (adding fields like skip-by-
 // capability, deterministic-supersede-tie-break, etc.); api/ is
 // frozen v1 and can't absorb that churn. The cmd/kensa dispatcher
 // carries ResolvedRules across the resolve→scan→render boundary
@@ -348,7 +348,7 @@ func topologicalSort(ruleIDs map[string]struct{}, deps map[string][]string) []st
 //
 // EXPOSED FOR ENGINE WIRING — no in-tree caller as of C-021. The
 // engine-side wiring (transaction-coordinator skip-when-dep-failed)
-// lands in a follow-up post-CLI-Phase-2.5 deliverable. Keep the
+// lands in a follow-up deliverable. Keep the
 // function exported so the engine PR doesn't have to revisit
 // visibility.
 func FailedDependencies(ruleID string, rules []*api.Rule, failed map[string]struct{}) []string {
@@ -378,7 +378,7 @@ func FailedDependencies(ruleID string, rules []*api.Rule, failed map[string]stru
 //
 // EXPOSED FOR ENGINE WIRING — no in-tree caller as of C-021. The
 // engine-side wiring (transaction-coordinator skip-when-dep-failed)
-// lands in a follow-up post-CLI-Phase-2.5 deliverable. Keep the
+// lands in a follow-up deliverable. Keep the
 // function exported so the engine PR doesn't have to revisit
 // visibility.
 func ShouldSkip(ruleID string, rules []*api.Rule, failed map[string]struct{}, transitive bool) (bool, string) {

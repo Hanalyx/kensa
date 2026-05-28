@@ -11,7 +11,7 @@ import (
 )
 
 // Session is a CLI-invocation grouping over transactions.
-// Phase 4 / C-039 introduced this layer so `kensa diff`,
+// This layer exists so `kensa diff`,
 // `kensa history --stats`, and the session-aware rollback
 // workflow have a stable handle for "everything that ran
 // from one operator command."
@@ -33,7 +33,7 @@ type Session struct {
 // counts are populated by FinishSession at the end of the
 // run. Returns the session ID for subsequent attaches.
 //
-// Pre-Phase-4 callers can ignore this entirely — sessions
+// Callers that don't need sessions can ignore this entirely — sessions
 // are optional. Transactions written without an attached
 // session will have NULL session_id, treated as legacy.
 func (s *SQLite) CreateSession(ctx context.Context, sess *Session) error {
@@ -124,7 +124,7 @@ func (s *SQLite) FinishSession(ctx context.Context, sessID uuid.UUID, finishedAt
 // session as part of session bookkeeping. Idempotent — re-
 // attaching to the same session is a no-op.
 //
-// Pre-Phase-4 transactions with NULL session_id can be
+// Transactions with NULL session_id can be
 // retroactively attached by the kensa-migrate tool (C-040)
 // using a synthetic backfilled session.
 func (s *SQLite) AttachTransaction(ctx context.Context, txnID, sessID uuid.UUID) error {

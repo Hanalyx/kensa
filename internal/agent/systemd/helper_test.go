@@ -29,8 +29,7 @@ func fakeRunner(stdout, stderr []byte, exitCode int, runErr error) (*[]string, f
 // ─── Argv contract ──────────────────────────────────────────────
 
 // TestInvoke_BuildsSudoArgv locks the subprocess-invocation
-// contract: agent invokes `sudo <helperPath> <op> <unit>`. Per
-// Option C the helper is NEVER invoked directly (no setuid;
+// contract: agent invokes `sudo <helperPath> <op> <unit>`. The helper is NEVER invoked directly (no setuid;
 // sudo is the auditable path per the kensa-rpm sudoers fragment).
 //
 // @spec agent-systemd-helper

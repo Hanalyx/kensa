@@ -162,7 +162,7 @@ var probes = []probe{
 	// systemd_dbus is true when (a) systemd is the init system,
 	// (b) the system D-Bus socket exists, AND (c) the
 	// kensa-systemd-helper binary is installed at the FHS path.
-	// Phase 4 D-008. The probe runs as the SSH user (kensa-svc);
+	// The probe runs as the SSH user (kensa-svc);
 	// the helper does the actual privileged D-Bus call via sudo.
 	// All three conditions must hold for the agent-mode D-Bus
 	// path to be exercisable; if any is false, handlers fall

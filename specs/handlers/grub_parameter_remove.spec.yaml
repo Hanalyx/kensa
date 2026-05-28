@@ -1,0 +1,125 @@
+spec:
+    id: handler-grub-parameter-remove
+    version: 0.2.0
+    status: draft
+    tier: 2
+    context:
+        system: kensa
+        feature: handler-grub-parameter-remove
+        description: |
+            The grub_parameter_remove handler stages the REMOVAL of a kernel
+            command-line parameter through the Option-B boot guard
+            (internal/bootguard) instead of editing GRUB_CMDLINE_LINUX directly.
+            Apply arms a one-shot TRIAL boot entry whose args are the saved
+            default's args MINUS the named key (plus a sentinel); the saved
+            default stays known-good. On the operator's next reboot the trial
+            boots once — a healthy boot promotes the removal onto the default
+            (grubby --remove-args on BLS / strip from GRUB_CMDLINE_LINUX on
+            legacy); a failed boot auto-falls-back to the saved default with the
+            key still present. Kensa never reboots, so the removal is PENDING
+            until the operator reboots.
+
+            Preflight refuses, WITHOUT touching the bootloader, when the key is
+            not on the boot-guard allowlist (CheckParamArmable — a rule-level
+            error) or the host is outside the validated arming envelope
+            (CheckArmable: UEFI / ostree / encrypted /boot / non-GRUB — a
+            runtime Success=false). The confirm unit is installed before the
+            one-shot is armed (fail-safe ordering).
+
+            This handler is non-capturable: the guard owns boot-atomicity (the
+            untouched saved default + a self-limiting confirm unit), so the
+            engine drives no capture/rollback and rules declare
+            transactional: false.
+        related_specs:
+            - handler-interface
+            - handler-grub-parameter-set
+            - bootguard-allowlist
+            - bootguard-arm-gate
+            - bootguard-oneshot
+            - bootguard-confirm
+    objective:
+        summary: |
+            Stage the REMOVAL of params.key via the boot guard (arm a one-shot
+            trial with the key stripped), refusing off-allowlist keys and
+            non-armable hosts. No pre-state is captured; the guard's
+            saved-default fallback is the rollback.
+        scope:
+            includes:
+                - validation of the required key param
+                - allowlist preflight (refuse off-allowlist keys before any host command)
+                - arm-ability preflight (refuse non-armable hosts, Success=false)
+                - install the confirm unit then arm the one-shot trial that removes the key (fail-safe order)
+                - the non-capturable nature of the handler
+            excludes:
+                - editing GRUB_CMDLINE_LINUX / the default entry directly (the guard promotes on reboot)
+                - rebooting the host (operator responsibility)
+                - the guard internals (bootguard-oneshot / bootguard-confirm / bootguard-arm-gate)
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST refuse a key that is not on the boot-guard allowlist
+              (bootguard.CheckParamArmable) by returning an error BEFORE running
+              any host command, so an off-allowlist key never reaches a boot.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              decodeParams MUST reject a nil params map, a missing or
+              non-string or empty key, returning an error before any command
+              runs.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              When the host is not armable (bootguard.CheckArmable reports
+              !Armable), Apply MUST return a StepResult with Success=false (not
+              an error), surfacing the refusal reasons in Detail, and MUST NOT
+              arm or edit the bootloader.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              On an armable host with an allowlisted key, Apply MUST install the
+              confirm unit and then arm a one-shot trial via the boot guard
+              (ArmOneshotRemove — clone of default + sentinel, key stripped),
+              and MUST NOT edit GRUB_CMDLINE_LINUX / the default entry directly.
+              On success the removal is PENDING until reboot (Detail says so).
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              grub_parameter_remove is non-capturable: Capturable() MUST return
+              false and the type MUST NOT satisfy CombinedHandler at runtime,
+              so the engine never attempts capture or rollback (the guard owns
+              boot-atomicity).
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply returns an error and runs no host command when the key is not on the boot-guard allowlist.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: decodeParams rejects a nil map, a missing/empty/non-string key, with no command run.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: Apply reports Success=false (no error) and arms nothing when the host is not armable.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: On an armable host with an allowlisted key, Apply installs the confirm unit and arms the one-shot trial via grubby --remove-args (and does not edit GRUB_CMDLINE_LINUX); Detail reports the removal is pending until reboot.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: The handler is non-capturable — Capturable() is false and a runtime type-assert to CombinedHandler returns false.
+          references_constraints: [C-05]
+          priority: critical
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+        - spec_id: bootguard-allowlist
+          relationship: requires
+        - spec_id: bootguard-oneshot
+          relationship: requires
+    tags: [handler, non-capturable, tier-2, grub, boot, bootguard, gated]

@@ -1,7 +1,5 @@
 // Package systemd is the agent-side wrapper around the
-// privileged kensa-systemd-helper subprocess. LL Phase 4 D-007
-// deliverable. Per the founder-ratified Option C privilege model
-// (2026-05-13), the agent itself runs as the unprivileged SSH
+// privileged kensa-systemd-helper subprocess. It runs under the sudo-not-setuid privilege model — the agent itself runs as the unprivileged SSH
 // user; this package builds and invokes `sudo
 // /usr/libexec/kensa-systemd-helper ...` to perform systemd
 // D-Bus operations as root for the duration of one call, parses
@@ -338,7 +336,7 @@ func parseLastNDJSONLine(buf []byte) (*Response, error) {
 // execHelper is the production subprocess runner. Spawns the
 // helper via sudo, captures stdout + stderr + exit code.
 //
-// **Why sudo and not setuid.** Per Option C the helper is NOT
+// **Why sudo and not setuid.** The helper is NOT
 // setuid (would re-introduce the "any unprivileged caller can
 // invoke" risk). Sudo with the kensa-rpm-shipped sudoers
 // fragment is the auditable invocation path.

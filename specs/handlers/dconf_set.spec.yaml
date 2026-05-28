@@ -1,0 +1,124 @@
+spec:
+    id: handler-dconf-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: handler-dconf-set
+        description: |
+            The dconf_set handler configures a dconf key in a system-level
+            profile snippet, optionally writes a lock file to prevent user
+            override, and runs `dconf update`. Capture records the prior
+            snippet file content so rollback can restore or remove it.
+        related_specs:
+            - handler-interface
+    objective:
+        summary: |
+            Write a [schema]\nkey=value snippet under
+            /etc/dconf/db/<db>.d/<file>, ensure the profile and db dir
+            exist, optionally lock the key, then run `dconf update`.
+            Rollback restores the prior snippet content (or removes the
+            file when it did not previously exist).
+        scope:
+            includes:
+                - Ensure /etc/dconf/profile/<db> exists
+                - Write the key=value snippet under /etc/dconf/db/<db>.d/
+                - Optional lock file under .d/locks/
+                - Optional GVariant value_type wrapping (type(value))
+                - Run `dconf update` on apply and rollback
+                - Capture of prior snippet content + file_existed flag
+                - Rollback restoring or removing the snippet
+            excludes:
+                - User-level (non-system) dconf databases
+                - dconf key reads / introspection
+    constraints:
+        - id: C-01
+          description: |
+              Apply MUST write the [schema]\nkey=value snippet to
+              /etc/dconf/db/<db>.d/<file>, ensure the profile and db
+              directory exist, and run `dconf update`.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              When params.lock is true, Apply MUST create the .d/locks/
+              directory and write a lock entry for /<schema>/<key>.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              When params.value_type is set, Apply MUST write the value
+              wrapped as value_type(value) in the snippet.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Capture MUST record file_path, prior_content, and
+              file_existed for the snippet before Apply edits it. When the
+              snippet is absent, file_existed is false and prior_content
+              is empty.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              Rollback MUST restore the captured prior_content verbatim
+              when file_existed was true, MUST remove the snippet when
+              file_existed was false, and MUST re-run `dconf update`.
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              decodeParams MUST reject missing or invalid required params:
+              non-empty schema, key, value, and file; db (when present)
+              must be a non-empty string; lock must be a bool; value_type
+              must be a string.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              Rollback MUST reject a nil pre-state or one missing
+              file_path.
+          type: security
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: Apply writes the key snippet and runs `dconf update`.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Apply with lock=true writes a lock file under .d/locks/.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: Apply with value_type wraps the value as value_type(value).
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: Capture records file_path, prior_content, and file_existed.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: Capture records file_existed=false when the snippet is absent.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: Rollback restores prior_content verbatim when file_existed was true.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-07
+          description: Rollback removes the snippet when file_existed was false.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-08
+          description: decodeParams rejects missing or invalid params.
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-09
+          description: Rollback rejects a nil pre-state.
+          references_constraints: [C-07]
+          priority: high
+    depends_on:
+        - spec_id: handler-interface
+          relationship: requires
+    tags: [handler, capturable, tier-1, dconf, file-edit]

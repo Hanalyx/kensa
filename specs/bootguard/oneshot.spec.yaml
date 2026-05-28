@@ -1,0 +1,150 @@
+spec:
+    id: bootguard-oneshot
+    version: 0.4.0
+    status: draft
+    tier: 1
+    context:
+        system: kensa
+        feature: bootguard-oneshot
+        description: |
+            Option B of the grub deadman guard (founder-ratified 2026-05-27):
+            ArmOneshot creates a TRIAL boot entry = a clone of the current
+            default plus the new param and a sentinel arg, and sets it as a
+            ONE-SHOT next boot. The saved default stays the old/known-good
+            entry, so a failed boot auto-falls back to it (the one-shot is
+            consumed) with NO boot-time script — safe for the kernel-panic case
+            (§7.1f). A confirm step (bootguard-confirm) promotes the trial after
+            a healthy boot.
+
+            RHEL/BLS clones via grubby --copy-default (isolated new entry).
+            Ubuntu legacy clones the default grub.cfg menuentry VERBATIM into a
+            /etc/grub.d script (preserving its boot-critical search/linux/initrd
+            lines), changing only the title and appending the param+sentinel to
+            the linux line, then update-grub + grub-reboot. Validated present on
+            RHEL 8.10/10.1 and Ubuntu 22.04. Must run over a privileged (sudo)
+            transport. Behavior validated by the founders' destructive reboot
+            test.
+        related_specs:
+            - bootguard-confirm
+    objective:
+        summary: |
+            Arm a one-shot trial boot entry with the new param, leaving the
+            saved default known-good for automatic fallback.
+        scope:
+            includes:
+                - "RHEL/BLS: clone the default + param via grubby --copy-default"
+                - "Ubuntu: clone the default menuentry verbatim into /etc/grub.d + update-grub"
+                - Set the trial as a one-shot next boot (grub2-reboot / grub-reboot)
+                - Record the trial identity and the real param for confirm
+            excludes:
+                - The confirm/promote step (bootguard-confirm)
+                - The handler wiring (task #15)
+    constraints:
+        - id: C-01
+          description: |
+              ArmOneshot MUST create a trial boot entry = clone of the current
+              default plus the new param and a sentinel arg, WITHOUT modifying
+              the existing default entry.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              ArmOneshot MUST set the trial as a ONE-SHOT next boot
+              (grub2-reboot / grub-reboot), leaving the saved default unchanged
+              so a failed boot auto-falls back with no boot-time script.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: ArmOneshot MUST record the trial identity and the real param for the confirm step.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The Ubuntu trial clone MUST preserve the default menuentry's
+              boot-critical lines verbatim, changing only the title and
+              appending the param+sentinel to the linux line.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: ArmOneshot MUST reject an unsupported flavor rather than arming incorrectly.
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              On Ubuntu (GRUB_DEFAULT=0) the trial menuentry MUST be emitted by a
+              /etc/grub.d script ordered AFTER 10_linux, so the real default
+              stays menu index 0 and a FAILED trial's next boot falls back to it.
+              A script ordered before 10_linux makes the trial index 0 and would
+              boot-loop a failed trial instead of falling back, defeating the
+              auto-fallback safety. The one-shot references the trial by title,
+              so its index is irrelevant to arming.
+          type: security
+          enforcement: error
+        - id: C-07
+          description: |
+              ArmOneshotRemove stages a trial that is the saved default's args
+              MINUS the named key (plus the sentinel), WITHOUT modifying the
+              saved default, and arms it as the one-shot next boot. The trial
+              is the test surface: it is the boot WITHOUT the key, while the
+              saved default still has the key — so a failed trial falls back
+              to the known-good (key-present) default.
+          type: security
+          enforcement: error
+        - id: C-08
+          description: |
+              The Arm functions MUST record an operation mode alongside the
+              payload: "set" for ArmOneshot (payload "key=value", added on
+              promote) or "remove" for ArmOneshotRemove (payload "key",
+              removed on promote). The confirm step relies on this to pick the
+              right grubby flag (BLS) or sed direction (legacy).
+          type: technical
+          enforcement: error
+    acceptance_criteria:
+        - id: AC-01
+          description: RHEL ArmOneshot creates the trial via grubby --copy-default with the param+sentinel and does not modify the default.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: RHEL ArmOneshot sets the one-shot via grub2-reboot.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: ArmOneshot records the trial identity and the real param.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: Ubuntu ArmOneshot writes a cloned trial menuentry /etc/grub.d script, runs update-grub, and arms the one-shot via grub-reboot.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-05
+          description: The Ubuntu trial clone retitles the entry and appends the param+sentinel to the linux line, preserving the other lines.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: ArmOneshot rejects an unsupported flavor with an error.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: The Ubuntu trial /etc/grub.d script is ordered after 10_linux so the real default remains the index-0 fallback for a failed trial.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: ArmOneshotRemove (BLS) clones the default via grubby --copy-default with the sentinel ADDED (--args) and the named key REMOVED (--remove-args), leaves the saved default unchanged, and arms the one-shot via grub2-reboot.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-09
+          description: ArmOneshotRemove (Ubuntu) writes a cloned trial /etc/grub.d script whose linux line has the named key stripped (both "key=value" and bare "key" tokens) and the sentinel appended, runs update-grub, and arms the one-shot via grub-reboot.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-10
+          description: ArmOneshot records op_mode=set; ArmOneshotRemove records op_mode=remove. The confirm step reads this to choose --args vs --remove-args on BLS (sed append vs strip on legacy).
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-11
+          description: ArmOneshotRemove rejects an unsupported flavor and an empty key with an error.
+          references_constraints: [C-05]
+          priority: high
+    depends_on:
+        - spec_id: bootguard-capture
+          relationship: requires
+    tags: [bootguard, grub, boot-safety, tier-1, oneshot, option-b, gated]

@@ -1,4 +1,4 @@
-.PHONY: help build test lint cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check clean
 
 help:
 	@echo "Kensa — common targets"
@@ -55,6 +55,17 @@ cli-smoke:
 
 lint:
 	golangci-lint run
+
+# comment-lint fails on planning labels (Phase 3, Option B, ...) in NEW Go
+# comments — those added relative to BASE (default origin/main). See the
+# "Comments" section of CONTRIBUTING.md.
+BASE ?= origin/main
+comment-lint:
+	go run ./cmd/comment-lint -base $(BASE)
+
+# comment-lint-all scans every tracked .go comment (for an opt-in legacy sweep).
+comment-lint-all:
+	go run ./cmd/comment-lint -all
 
 FORMAT ?= dot
 

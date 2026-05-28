@@ -1,0 +1,337 @@
+package bootguard
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/Hanalyx/kensa/api"
+)
+
+// trialTitle is the title of the one-shot trial boot entry the guard creates.
+// A single trial is armed at a time.
+const trialTitle = "kensa-bootguard-trial"
+
+// trialIDPath records the armed trial entry's title so the confirm step can
+// promote it (on a healthy boot into the trial) or remove it (on fallback).
+const trialIDPath = StateDir + "/trial_entry"
+
+// trialSentinel is a marker kernel arg added to the trial entry. The confirm
+// step greps /proc/cmdline for it to tell whether the trial actually booted
+// (promote) or the host fell back to the saved default (clean up).
+const trialSentinel = "kensa_bootguard_trial"
+
+// paramAppliedPath records the real param so the confirm step can make it
+// permanent on the default entry when it promotes. The content depends on
+// opModePath: for "set" it is "key=value"; for "remove" it is "key" alone.
+const paramAppliedPath = StateDir + "/param_applied"
+
+// opModePath records whether the trial represents a SET (param added on
+// promote) or REMOVE (key removed on promote) operation. The confirm step
+// reads this to pick the right grubby flag (--args vs --remove-args on BLS)
+// or sed direction (append vs strip on legacy).
+const opModePath = StateDir + "/op_mode"
+
+// ubuntuTrialScript is the /etc/grub.d/ script that emits the cloned trial
+// menuentry on Ubuntu. The prefix MUST sort AFTER 10_linux so the real default
+// stays menu index 0: with GRUB_DEFAULT=0 a failed trial's next boot falls back
+// to index 0, which must be the known-good default, NOT the trial. A 09_ prefix
+// (before 10_linux) made the trial index 0 and would boot-loop a failed trial
+// instead of falling back — caught while validating the Ubuntu fallback path.
+// The one-shot references the trial by title, so its menu index is irrelevant
+// to arming.
+const ubuntuTrialScript = "/etc/grub.d/11_kensa_bootguard"
+
+// ArmOneshot stages param on a one-shot TRIAL boot entry — a clone of the
+// current default plus param and a sentinel arg — and arms it as the next boot
+// only. The saved default is left untouched, so if the trial boot fails the
+// (already-consumed) one-shot lets the next boot fall back to the known-good
+// default. Crucially there is no boot-time script to run on recovery: a kernel
+// that panics is recovered by the bootloader selecting the old entry, not by
+// any code executing on the broken boot. Returns the trial entry title. Must
+// run over a privileged (Sudo) transport.
+func ArmOneshot(ctx context.Context, t api.Transport, flavor Flavor, param string) (string, error) {
+	if strings.TrimSpace(param) == "" {
+		return "", fmt.Errorf("bootguard: ArmOneshot: empty param")
+	}
+	switch flavor {
+	case FlavorBLS:
+		if err := armOneshotBLS(ctx, t, param); err != nil {
+			return "", err
+		}
+	case FlavorLegacy:
+		if err := armOneshotLegacy(ctx, t, param); err != nil {
+			return "", err
+		}
+	default:
+		return "", fmt.Errorf("bootguard: ArmOneshot: unsupported flavor %q", flavor)
+	}
+	if err := recordTrial(ctx, t, param, "set"); err != nil {
+		return "", err
+	}
+	return trialTitle, nil
+}
+
+// ArmOneshotRemove is the counterpart to ArmOneshot for the REMOVAL operation.
+// It stages a one-shot TRIAL boot entry that is a clone of the current default
+// MINUS the named key (plus the sentinel arg), and arms it as the next boot
+// only. The saved default is left untouched, so if the trial boot fails the
+// (already-consumed) one-shot lets the next boot fall back to the known-good
+// default with the key still present. On a healthy trial boot the confirm step
+// removes the key from the default entry permanently. Returns the trial entry
+// title. Must run over a privileged (Sudo) transport.
+func ArmOneshotRemove(ctx context.Context, t api.Transport, flavor Flavor, key string) (string, error) {
+	if strings.TrimSpace(key) == "" {
+		return "", fmt.Errorf("bootguard: ArmOneshotRemove: empty key")
+	}
+	switch flavor {
+	case FlavorBLS:
+		if err := armOneshotRemoveBLS(ctx, t, key); err != nil {
+			return "", err
+		}
+	case FlavorLegacy:
+		if err := armOneshotRemoveLegacy(ctx, t, key); err != nil {
+			return "", err
+		}
+	default:
+		return "", fmt.Errorf("bootguard: ArmOneshotRemove: unsupported flavor %q", flavor)
+	}
+	if err := recordTrial(ctx, t, key, "remove"); err != nil {
+		return "", err
+	}
+	return trialTitle, nil
+}
+
+// armOneshotRemoveBLS (RHEL): clone the default entry via grubby --copy-default
+// + sentinel, then strip the key from the new trial entry by editing its
+// BootLoaderSpec .conf file directly. Two earlier approaches failed:
+// `grubby --add-kernel --remove-args=<key>` silently ignores the --remove-args,
+// and `grubby --update-kernel=<title>` is not supported (grubby's --update-kernel
+// takes a kernel path, and the trial shares the default's kernel path, so
+// targeting via grubby would also strip the saved default — unacceptable).
+// Editing the trial's specific .conf (found via the sentinel grep) targets
+// only the new entry. Finally arm the one-shot with grub2-reboot.
+func armOneshotRemoveBLS(ctx context.Context, t api.Transport, key string) error {
+	res, err := t.Run(ctx, "grubby --default-kernel")
+	if err != nil {
+		return fmt.Errorf("bootguard: grubby --default-kernel: transport error: %w", err)
+	}
+	if !res.OK() {
+		return fmt.Errorf("bootguard: grubby --default-kernel failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	defaultKernel := strings.TrimSpace(res.Stdout)
+	if defaultKernel == "" {
+		return errors.New("bootguard: grubby returned no default kernel")
+	}
+	// Step 1: clone default + sentinel into a new entry titled trialTitle.
+	create := fmt.Sprintf("grubby --add-kernel=%s --copy-default --args=%s --title=%s",
+		shellQuote(defaultKernel), shellQuote(trialSentinel), shellQuote(trialTitle))
+	if _, err := runOK(ctx, t, create); err != nil {
+		return err
+	}
+	// Step 2: find the trial's .conf (uniquely identified by the sentinel just
+	// added) and strip the key from its options line. The sentinel grep is the
+	// only thing that distinguishes the trial from the default — same kernel
+	// path — so a sed-edit scoped to this one file is the only correct target.
+	findCmd := "grep -l " + shellQuote(trialSentinel) + " /boot/loader/entries/*.conf 2>/dev/null | head -1"
+	res, err = t.Run(ctx, findCmd)
+	if err != nil {
+		return fmt.Errorf("bootguard: locate trial .conf: transport error: %w", err)
+	}
+	trialPath := strings.TrimSpace(res.Stdout)
+	if trialPath == "" {
+		return errors.New("bootguard: trial .conf not found after --add-kernel (sentinel grep returned empty)")
+	}
+	// Strip both "key=<value>" and bare "key" tokens from the options line.
+	sedExpr := fmt.Sprintf(`/^options/ s/\b%s=[^ ]*//g; /^options/ s/\b%s\b//g`, key, key)
+	strip := "sed -i -E " + shellQuote(sedExpr) + " " + shellQuote(trialPath)
+	if _, err := runOK(ctx, t, strip); err != nil {
+		return err
+	}
+	_, err = runOK(ctx, t, "grub2-reboot "+shellQuote(trialTitle))
+	return err
+}
+
+// armOneshotRemoveLegacy (Ubuntu): clone the default grub.cfg menuentry, retitle
+// it, strip the key from the linux line, append the sentinel, emit it via the
+// /etc/grub.d/ trial script (ordered after 10_linux), update-grub, then arm the
+// one-shot with grub-reboot.
+func armOneshotRemoveLegacy(ctx context.Context, t api.Transport, key string) error {
+	res, err := t.Run(ctx, "cat /boot/grub/grub.cfg")
+	if err != nil {
+		return fmt.Errorf("bootguard: reading grub.cfg: transport error: %w", err)
+	}
+	if !res.OK() {
+		return fmt.Errorf("bootguard: cannot read grub.cfg (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	block, err := extractDefaultMenuentry(res.Stdout)
+	if err != nil {
+		return err
+	}
+	trial := buildUbuntuTrialEntryRemove(block, key)
+	script := "#!/bin/sh\nexec cat <<'KENSA_BOOTGUARD_EOF'\n" + trial + "\nKENSA_BOOTGUARD_EOF\n"
+	if err := writeRemoteFile(ctx, t, ubuntuTrialScript, script); err != nil {
+		return err
+	}
+	if _, err := runOK(ctx, t, "chmod 0755 "+shellQuote(ubuntuTrialScript)); err != nil {
+		return err
+	}
+	if _, err := runOK(ctx, t, "update-grub"); err != nil {
+		return err
+	}
+	_, err = runOK(ctx, t, "grub-reboot "+shellQuote(trialTitle))
+	return err
+}
+
+// armOneshotBLS (RHEL): clone the default entry via grubby --copy-default with
+// the param + sentinel, then arm the one-shot with grub2-reboot.
+func armOneshotBLS(ctx context.Context, t api.Transport, param string) error {
+	res, err := t.Run(ctx, "grubby --default-kernel")
+	if err != nil {
+		return fmt.Errorf("bootguard: grubby --default-kernel: transport error: %w", err)
+	}
+	if !res.OK() {
+		return fmt.Errorf("bootguard: grubby --default-kernel failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	defaultKernel := strings.TrimSpace(res.Stdout)
+	if defaultKernel == "" {
+		return errors.New("bootguard: grubby returned no default kernel")
+	}
+	trialArgs := param + " " + trialSentinel
+	create := fmt.Sprintf("grubby --add-kernel=%s --copy-default --args=%s --title=%s",
+		shellQuote(defaultKernel), shellQuote(trialArgs), shellQuote(trialTitle))
+	if _, err := runOK(ctx, t, create); err != nil {
+		return err
+	}
+	_, err = runOK(ctx, t, "grub2-reboot "+shellQuote(trialTitle))
+	return err
+}
+
+// armOneshotLegacy (Ubuntu): clone the default grub.cfg menuentry verbatim,
+// retitle it, append the param + sentinel to its linux line, emit it via a
+// /etc/grub.d/ script, update-grub, then arm the one-shot with grub-reboot.
+func armOneshotLegacy(ctx context.Context, t api.Transport, param string) error {
+	res, err := t.Run(ctx, "cat /boot/grub/grub.cfg")
+	if err != nil {
+		return fmt.Errorf("bootguard: reading grub.cfg: transport error: %w", err)
+	}
+	if !res.OK() {
+		return fmt.Errorf("bootguard: cannot read grub.cfg (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	block, err := extractDefaultMenuentry(res.Stdout)
+	if err != nil {
+		return err
+	}
+	trial := buildUbuntuTrialEntry(block, param)
+	script := "#!/bin/sh\nexec cat <<'KENSA_BOOTGUARD_EOF'\n" + trial + "\nKENSA_BOOTGUARD_EOF\n"
+	if err := writeRemoteFile(ctx, t, ubuntuTrialScript, script); err != nil {
+		return err
+	}
+	if _, err := runOK(ctx, t, "chmod 0755 "+shellQuote(ubuntuTrialScript)); err != nil {
+		return err
+	}
+	if _, err := runOK(ctx, t, "update-grub"); err != nil {
+		return err
+	}
+	_, err = runOK(ctx, t, "grub-reboot "+shellQuote(trialTitle))
+	return err
+}
+
+// recordTrial stages the trial title + the payload + the operation mode for
+// the confirm step. mode is "set" (payload is "key=value", added on promote)
+// or "remove" (payload is just "key", removed on promote).
+func recordTrial(ctx context.Context, t api.Transport, payload, mode string) error {
+	if _, err := runOK(ctx, t, "mkdir -p "+shellQuote(StateDir)); err != nil {
+		return err
+	}
+	if err := writeRemoteFile(ctx, t, trialIDPath, trialTitle+"\n"); err != nil {
+		return err
+	}
+	if err := writeRemoteFile(ctx, t, paramAppliedPath, payload+"\n"); err != nil {
+		return err
+	}
+	return writeRemoteFile(ctx, t, opModePath, mode+"\n")
+}
+
+// extractDefaultMenuentry returns the first top-level menuentry block from a
+// grub.cfg (GRUB_DEFAULT=0 boots the first entry), from its `menuentry` line
+// through the matching closing brace.
+func extractDefaultMenuentry(cfg string) (string, error) {
+	lines := strings.Split(cfg, "\n")
+	start := -1
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "menuentry ") {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return "", errors.New("bootguard: no menuentry found in grub.cfg")
+	}
+	var b []string
+	for i := start; i < len(lines); i++ {
+		b = append(b, lines[i])
+		if i > start && strings.TrimSpace(lines[i]) == "}" {
+			return strings.Join(b, "\n"), nil
+		}
+	}
+	return "", errors.New("bootguard: unterminated menuentry block in grub.cfg")
+}
+
+// buildUbuntuTrialEntry clones a menuentry block into the trial: retitle it and
+// append the param + sentinel to its linux line. Other boot-critical lines
+// (search/set root, initrd, gfxmode) are preserved verbatim.
+func buildUbuntuTrialEntry(block, param string) string {
+	lines := strings.Split(block, "\n")
+	for i, ln := range lines {
+		trimmed := strings.TrimSpace(ln)
+		switch {
+		case strings.HasPrefix(trimmed, "menuentry "):
+			lines[i] = "menuentry '" + trialTitle + "' {"
+		case strings.HasPrefix(trimmed, "linux ") || strings.HasPrefix(trimmed, "linux\t"):
+			lines[i] = strings.TrimRight(ln, " \t") + " " + param + " " + trialSentinel
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// buildUbuntuTrialEntryRemove clones a menuentry block into the trial: retitle
+// it, strip the named key (both "key=value" and bare "key" forms) from the
+// linux line, then append the sentinel. Other boot-critical lines are
+// preserved verbatim.
+func buildUbuntuTrialEntryRemove(block, key string) string {
+	lines := strings.Split(block, "\n")
+	for i, ln := range lines {
+		trimmed := strings.TrimSpace(ln)
+		switch {
+		case strings.HasPrefix(trimmed, "menuentry "):
+			lines[i] = "menuentry '" + trialTitle + "' {"
+		case strings.HasPrefix(trimmed, "linux ") || strings.HasPrefix(trimmed, "linux\t"):
+			lines[i] = strings.TrimRight(stripKeyFromLinuxLine(ln, key), " \t") + " " + trialSentinel
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// stripKeyFromLinuxLine removes "key=<value>" and bare "key" tokens from a grub
+// "linux <path> <args...>" line, preserving the leading whitespace, the "linux"
+// keyword, and the kernel path. Tokens after the kernel path that exactly match
+// key, or that begin with "key=", are dropped.
+func stripKeyFromLinuxLine(line, key string) string {
+	leading := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+	parts := strings.Fields(line)
+	out := make([]string, 0, len(parts))
+	for i, p := range parts {
+		if i < 2 {
+			// "linux" + kernel path are positional and never the key.
+			out = append(out, p)
+			continue
+		}
+		if p == key || strings.HasPrefix(p, key+"=") {
+			continue
+		}
+		out = append(out, p)
+	}
+	return leading + strings.Join(out, " ")
+}

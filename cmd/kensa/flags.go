@@ -51,7 +51,7 @@ const (
 	//     uppercase D preserves recognizability for operators migrating
 	//     from that form (`-D` looks adjacent to the legacy `-db`).
 	//  2. Lowercase d is left unclaimed for a potential future
-	//     `--dry-run` short (Phase 3 deliverables in
+	//     `--dry-run` short (future deliverables in
 	//     CLI_GNU_POSIX_MIGRATION_V1.md introduce `--dry-run` for
 	//     remediate; if a short alias is later added, `-d` is the
 	//     conventional choice).
@@ -71,7 +71,7 @@ const (
 	// ShortPort is `--port`. SSH port. CAPITAL P per
 	// CLI_GNU_POSIX_MIGRATION_V1.md §4.2; lowercase `-p` is reserved
 	// for `--password` (wired in C-026). The C-024 reconciliation
-	// flipped this from the CLI Phase 1 default; CHANGELOG.md notes
+	// flipped this from the original default; CHANGELOG.md notes
 	// the breaking change.
 	ShortPort = "P"
 
@@ -131,7 +131,7 @@ const (
 
 	// ShortLimit is `--limit` (max rows / max items). The head/tail
 	// convention. (Note: in target_options scope where `--limit`
-	// means a host glob — Phase 3 deliverable — `-l` is the planned
+	// means a host glob — a future deliverable — `-l` is the planned
 	// short form; the meanings don't conflict because the two flags
 	// take different argument types.)
 	ShortLimit = "n"
@@ -148,17 +148,16 @@ const (
 	// ShortQuiet is `--quiet`. Suppresses default human-readable
 	// output to stdout. Errors and warnings still go to stderr;
 	// exit codes are unchanged. Operators use --quiet in CI
-	// scripts where only the exit code matters, or with `-o` (CLI
-	// Phase 2) when they want the formatted output to land in a
+	// scripts where only the exit code matters, or with `-o` when they want the formatted output to land in a
 	// file without a copy on stdout.
 	ShortQuiet = "q"
 
 	// ShortInventory is `--inventory` (Ansible-style inventory.ini
 	// for multi-host runs). Wired in C-023; the long form has been
-	// supported since CLI Phase 1.
+	// supported since the first release.
 	ShortInventory = "i"
 
-	// CLI Phase 3 placeholder short letters. The constants are
+	// Placeholder short letters reserved for future flags. The constants are
 	// declared here (in the centralized table) so the collision
 	// checker and case-discipline tests cover them; the actual flag
 	// wiring lands in the named deliverable. Until then, attempting

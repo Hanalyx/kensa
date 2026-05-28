@@ -87,7 +87,7 @@ type ScannerBackend interface {
 // `overrides` (operator-supplied keys override probed values)
 // before rule selection.
 //
-// Added in C-028 of the CLI Phase 3 migration. Provided as an
+// Added in C-028 of the CLI migration. Provided as an
 // optional extension rather than amending [ScannerBackend] so
 // existing in-tree and out-of-tree backends continue to satisfy
 // the original contract; type-assert to this surface to opt in.
@@ -147,7 +147,7 @@ type HostConfig struct {
 	// ~/.ssh/config.
 	KeyPath string
 	// Password is the SSH password for password-auth hosts. Wired
-	// in C-026 of the CLI Phase 3 migration. Empty defers to
+	// in C-026 of the CLI migration. Empty defers to
 	// key-based auth (KeyPath, ssh-agent, ~/.ssh/config). When
 	// non-empty, the SSH transport requires `sshpass` on the host
 	// running kensa.
@@ -157,12 +157,12 @@ type HostConfig struct {
 	// unknown host keys cause connect failure rather than silent
 	// trust-on-first-use. When false (default), the transport sets
 	// StrictHostKeyChecking=accept-new, matching Python kensa's
-	// default. Wired in C-027 of the CLI Phase 3 migration.
+	// default. Wired in C-027 of the CLI migration.
 	StrictHostKeys bool
 	// Capabilities is an optional capability override map. Keys
 	// present here override the values produced by the host's
 	// capability probes — they're applied AFTER detection and
-	// before rule selection. Wired in C-028 of the CLI Phase 3
+	// before rule selection. Wired in C-028 of the CLI
 	// migration. Empty means "no overrides; use detected
 	// capabilities verbatim". Used by Scan and Remediate; Plan
 	// does not currently capability-gate selection.
