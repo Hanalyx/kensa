@@ -106,10 +106,16 @@ jobs:
       - name: GoReleaser release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # nfpm reads the key file. The passphrase is supplied via the
-          # nfpm-standard NFPM_DEFAULT_PASSPHRASE env (applies to all
-          # signature blocks unless overridden per-rpm/deb).
-          NFPM_DEFAULT_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          # nfpm v2 reads the GPG passphrase from these env vars (in
+          # order): NFPM_PASSPHRASE > NFPM_<PACKAGER>_PASSPHRASE. The
+          # initial v0.2.0 run set NFPM_DEFAULT_PASSPHRASE (wrong name
+          # — that var doesn't exist in nfpm) which is why the run
+          # failed with "openpgp: invalid argument: signing key is
+          # encrypted". Set all three names belt-and-suspenders so
+          # future nfpm renames don't silently break us again.
+          NFPM_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          NFPM_RPM_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          NFPM_DEB_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           # cosign reads its key + password from these env vars; the
           # signs: block in .goreleaser.yaml passes --key=env://COSIGN_PRIVATE_KEY
           # and pipes COSIGN_PASSWORD on stdin.
