@@ -103,9 +103,15 @@ func ArmOneshotRemove(ctx context.Context, t api.Transport, flavor Flavor, key s
 	return trialTitle, nil
 }
 
-// armOneshotRemoveBLS (RHEL): clone the default entry via grubby --copy-default,
-// add only the sentinel (--args) and drop the named key (--remove-args), then
-// arm the one-shot with grub2-reboot.
+// armOneshotRemoveBLS (RHEL): clone the default entry via grubby --copy-default
+// + sentinel, then strip the key from the resulting trial entry via a separate
+// grubby --update-kernel call. The two-step is necessary because grubby's
+// --remove-args is honored only with --update-kernel; combined with
+// --add-kernel --copy-default it is silently ignored and the new entry still
+// carries the key. The trial entry must reflect the post-promote state
+// (default minus key), so that a key whose removal could affect boot is tested
+// by the trial boot itself, not just by the promote. Finally arm the one-shot
+// with grub2-reboot.
 func armOneshotRemoveBLS(ctx context.Context, t api.Transport, key string) error {
 	res, err := t.Run(ctx, "grubby --default-kernel")
 	if err != nil {
@@ -118,9 +124,17 @@ func armOneshotRemoveBLS(ctx context.Context, t api.Transport, key string) error
 	if defaultKernel == "" {
 		return errors.New("bootguard: grubby returned no default kernel")
 	}
-	create := fmt.Sprintf("grubby --add-kernel=%s --copy-default --args=%s --remove-args=%s --title=%s",
-		shellQuote(defaultKernel), shellQuote(trialSentinel), shellQuote(key), shellQuote(trialTitle))
+	// Step 1: clone default + sentinel into a new entry titled trialTitle.
+	create := fmt.Sprintf("grubby --add-kernel=%s --copy-default --args=%s --title=%s",
+		shellQuote(defaultKernel), shellQuote(trialSentinel), shellQuote(trialTitle))
 	if _, err := runOK(ctx, t, create); err != nil {
+		return err
+	}
+	// Step 2: strip the key from the trial entry. grubby --update-kernel
+	// accepts a title-or-path; the title is unique to this trial.
+	strip := fmt.Sprintf("grubby --update-kernel=%s --remove-args=%s",
+		shellQuote(trialTitle), shellQuote(key))
+	if _, err := runOK(ctx, t, strip); err != nil {
 		return err
 	}
 	_, err = runOK(ctx, t, "grub2-reboot "+shellQuote(trialTitle))

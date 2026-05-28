@@ -115,12 +115,16 @@ func TestArmOneshotRemove_BLS_ClonesAndStripsKey(t *testing.T) {
 	if title != "kensa-bootguard-trial" {
 		t.Errorf("title=%q", title)
 	}
-	// Trial = default args + sentinel (--args) - key (--remove-args).
+	// Trial creation is two grubby calls: (1) --add-kernel --copy-default with
+	// the sentinel ADDED, then (2) --update-kernel on the new trial with the
+	// key REMOVED. (One call combining --add-kernel + --remove-args silently
+	// drops the --remove-args; this two-step is required.)
 	joined := strings.Join(tp.Runs, "\n")
 	for _, sub := range []string{
 		"grubby --add-kernel", "--copy-default",
-		"--args='kensa_bootguard_trial'", "--remove-args='systemd.confirm_spawn'",
-		"--title='kensa-bootguard-trial'", "grub2-reboot 'kensa-bootguard-trial'",
+		"--args='kensa_bootguard_trial'", "--title='kensa-bootguard-trial'",
+		"grubby --update-kernel='kensa-bootguard-trial'", "--remove-args='systemd.confirm_spawn'",
+		"grub2-reboot 'kensa-bootguard-trial'",
 	} {
 		if !strings.Contains(joined, sub) {
 			t.Errorf("expected %q in runs; got %v", sub, tp.Runs)
