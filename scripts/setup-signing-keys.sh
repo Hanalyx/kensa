@@ -104,27 +104,33 @@ bold '=== 1/7 generate master key (RSA 4096, certify-only) ==='
 yellow "GPG will prompt you for a strong passphrase. WRITE IT DOWN —"
 yellow "you'll record it in your durable secrets vault."
 
-# --batch isn't used here because the master passphrase needs to be
-# entered interactively via pinentry (no plaintext in env / process
-# args / shell history). Instead, drive the interactive prompts with
-# the canonical "key spec" file passed via --command-fd.
-#
-# The spec below picks RSA 4096, toggles off Sign + Encrypt + Authenticate
-# so only Certify remains, sets the 2y expiry, and supplies the UID.
-gpg --expert --full-generate-key --command-fd 0 --pinentry-mode default <<EOF
-8
-S
-E
-A
-Q
-4096
-$MASTER_EXPIRY
-y
-$REAL_NAME
-$EMAIL
-$COMMENT
-O
+# Use gpg --batch --gen-key with a unattended-key-parm spec file. This
+# is the canonical non-interactive recipe — no fragile prompt
+# ordering, no "one extra prompt ate my UID" bug. The previous version
+# of this script drove the interactive --full-generate-key flow via a
+# stdin heredoc; an unexpected confirmation prompt in --expert mode
+# shifted the input by one slot and captured "y" as the Real Name,
+# requiring an after-the-fact UID rewrite. The batch form is immune
+# because each field is named explicitly. (Pinentry still pops for
+# the passphrase — the Passphrase: field is intentionally omitted so
+# the user enters it interactively, never in plaintext.)
+spec="$(mktemp -t kensa-gpg-spec.XXXXXX)"
+chmod 0600 "$spec"
+cat >"$spec" <<EOF
+%echo Generating Hanalyx LLC master signing key
+Key-Type: RSA
+Key-Length: 4096
+Key-Usage: cert
+Name-Real: $REAL_NAME
+Name-Comment: $COMMENT
+Name-Email: $EMAIL
+Expire-Date: $MASTER_EXPIRY
+%ask-passphrase
+%commit
+%echo Master key generated
 EOF
+gpg --batch --gen-key "$spec"
+shred -u "$spec"
 
 MASTER_FPR=$(gpg --list-secret-keys --with-colons "$EMAIL" \
   | awk -F: '/^fpr:/ {print $10; exit}')
@@ -213,20 +219,51 @@ green 'subkey export file shredded'
 
 bold ''
 bold '=== 7/7 (optional) remove master private half from this keyring ==='
-yellow 'This deletes ONLY the master private. The signing subkey private'
-yellow 'stays so you can still test-sign locally. The master public stays'
-yellow 'so GPG knows the trust chain. Only do this AFTER you have moved'
-yellow "$BACKUP_DIR/ to a durable vault (1Password attachment / safe / USB)."
+yellow 'This keeps the signing subkey private (so you can still test-sign'
+yellow 'locally) and the public master (so GPG knows the trust chain).'
+yellow 'The master private is what leaves. Only do this AFTER you have'
+yellow "moved $BACKUP_DIR/ to a durable vault (1Password / safe / USB)."
+echo
+yellow 'IMPORTANT: gpg --delete-secret-keys <master-fpr> deletes the ENTIRE'
+yellow 'secret keyset (master AND subkeys). The correct subkey-preserving'
+yellow 'pattern is: export the subkey alone, delete everything, then'
+yellow 're-import just the subkey. That is what this script does.'
+yellow '(An earlier version called --delete-secret-keys directly and'
+yellow 'nuked the subkey too; bug found landing v0.2.0.)'
 echo
 read -rp 'Have you backed up the directory above? Type YES to confirm: ' ack
 if [[ "$ack" == 'YES' ]]; then
-  gpg --delete-secret-keys "$MASTER_FPR"
-  green 'master private removed from daily keyring'
-  yellow 'Verify with: gpg --list-secret-keys'
-  yellow "Look for  'sec#'  (# means private absent) on the master line."
+  subkey_only="$(mktemp -t kensa-subkey-only.XXXXXX.asc)"
+  chmod 0600 "$subkey_only"
+
+  # 7a. Export the subkey alone — gnu-dummy stub for the master.
+  gpg --output "$subkey_only" --armor --export-secret-subkeys "${SUBKEY_FPR}!"
+
+  # 7b. Safety check: refuse to delete if the export is suspect.
+  if ! gpg --list-packets "$subkey_only" 2>&1 | grep -q 'gnu-dummy'; then
+    red 'SAFETY: subkey-only export does not contain a gnu-dummy stub'
+    red "         for the master. Refusing to delete. Inspect: $subkey_only"
+    shred -u "$subkey_only"
+    exit 1
+  fi
+
+  # 7c. Delete the entire secret keyset (master AND subkey).
+  gpg --batch --yes --delete-secret-keys "$MASTER_FPR"
+
+  # 7d. Re-import just the subkey-only export.
+  gpg --batch --import "$subkey_only"
+  shred -u "$subkey_only"
+
+  # 7e. Verify: master should be sec# (private absent), subkey should
+  # still show ssb (private present).
+  green 'master private removed; subkey private re-imported'
+  echo
+  yellow 'Expected: sec#  rsa4096 ... [C]   (# means private absent)'
+  yellow '          ssb   rsa4096 ... [S]   (no # means private present)'
+  echo
+  gpg --list-secret-keys "$MASTER_FPR"
 else
-  yellow 'skipped — run manually later:'
-  yellow "  gpg --delete-secret-keys $MASTER_FPR"
+  yellow 'skipped — to run manually later, see step 7 in this script.'
 fi
 
 # ---- final verification --------------------------------------------------
