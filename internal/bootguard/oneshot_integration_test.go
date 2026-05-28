@@ -91,10 +91,8 @@ func TestArmHappyPath_RealHost(t *testing.T) {
 		t.Fatalf("Capture baseline: %v", err)
 	}
 
-	var (
-		title   string
-		armErr  error
-	)
+	var title string
+	var armErr error
 	switch op {
 	case "remove":
 		title, armErr = bootguard.ArmOneshotRemove(ctx, tp, flavor, param)

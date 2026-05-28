@@ -21,14 +21,17 @@ const (
 
 // armableBLS programs a FakeTransport to look like a plain BIOS/GRUB/BLS host:
 // uefi/ostree/encrypted probes fail (exit 1), grub is present (default exit 0),
-// /boot/loader/entries exists (default exit 0 → BLS), and grubby reports a
-// default kernel.
+// /boot/loader/entries exists (default exit 0 → BLS), grubby reports a default
+// kernel, and the sentinel-grep that locates the freshly-created trial .conf
+// (step 2 of armOneshotRemoveBLS) returns a stub path.
 func armableBLS() *engine.FakeTransport {
 	tp := engine.NewFakeTransport()
 	tp.Results[uefiProbe] = &api.CommandResult{ExitCode: 1}
 	tp.Results[ostreeProbe] = &api.CommandResult{ExitCode: 1}
 	tp.Results[encProbe] = &api.CommandResult{ExitCode: 1}
 	tp.Results["grubby --default-kernel"] = &api.CommandResult{Stdout: "/boot/vmlinuz-test\n"}
+	tp.Results["grep -l 'kensa_bootguard_trial' /boot/loader/entries/*.conf 2>/dev/null | head -1"] =
+		&api.CommandResult{Stdout: "/boot/loader/entries/trial.conf\n"}
 	return tp
 }
 
