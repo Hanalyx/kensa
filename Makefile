@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check clean
 
 help:
 	@echo "Kensa — common targets"
@@ -21,6 +21,9 @@ help:
 	@echo ""
 	@echo "  manpage         Generate dist/kensa.1 from sources"
 	@echo "  manpage-check   Verify dist/kensa.1 is in sync with sources (CI gate)"
+	@echo ""
+	@echo "  vuln            Run govulncheck against the binary call graph (CI gate)"
+	@echo "  mod-tidy-check  Verify go.mod + go.sum match 'go mod tidy' output (CI gate)"
 	@echo ""
 	@echo "  clean           Remove build artifacts"
 
@@ -45,6 +48,41 @@ build:
 
 test:
 	go test ./...
+
+# vuln runs govulncheck against the binary call graph. Track S S-005.
+#
+# Why the GOTOOLCHAIN pin matters: with GOTOOLCHAIN=auto (the default),
+# `go run pkg@latest` picks the smallest toolchain that satisfies all
+# directives — for govulncheck@latest that means go1.25.x, which then
+# can't typecheck source written against go1.26.x. Reading the `go`
+# directive from go.mod and pinning GOTOOLCHAIN explicitly forces the
+# matching toolchain. Auto-tracks future go.mod bumps.
+vuln:
+	@TOOLCHAIN=go$$(awk '/^go /{print $$2; exit}' go.mod) && \
+	  echo "govulncheck with GOTOOLCHAIN=$$TOOLCHAIN" && \
+	  GOTOOLCHAIN=$$TOOLCHAIN go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+# mod-tidy-check verifies `go mod tidy` is a no-op against the current
+# working tree — i.e., the contributor has already tidied before
+# running this. Saves pre-tidy state, runs tidy, diffs against the
+# saved state (NOT against HEAD — comparing to HEAD would false-fail
+# on intentional in-flight go.mod edits during development).
+# Track S S-014.
+mod-tidy-check:
+	@cp go.mod /tmp/.kensa-go-mod.before
+	@cp go.sum /tmp/.kensa-go-sum.before
+	@go mod tidy
+	@if ! diff -q go.mod /tmp/.kensa-go-mod.before >/dev/null || \
+	    ! diff -q go.sum /tmp/.kensa-go-sum.before >/dev/null; then \
+	  echo ''; \
+	  echo '::error::go mod tidy produced changes — go.mod or go.sum drifted.'; \
+	  echo 'Run `go mod tidy` locally and commit the result.'; \
+	  diff go.mod /tmp/.kensa-go-mod.before || true; \
+	  diff go.sum /tmp/.kensa-go-sum.before || true; \
+	  rm -f /tmp/.kensa-go-mod.before /tmp/.kensa-go-sum.before; \
+	  exit 1; \
+	fi
+	@rm -f /tmp/.kensa-go-mod.before /tmp/.kensa-go-sum.before
 
 # cli-smoke runs scripts/cli-smoke.sh — a fast (~5s) end-to-end smoke
 # test of the CLI binaries' GNU/POSIX exit-code contract: every

@@ -1,6 +1,6 @@
 module github.com/Hanalyx/kensa
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/coreos/go-systemd/v22 v22.7.0

@@ -1,0 +1,50 @@
+# Dependabot configuration — supply-chain governance per Track S S-012.
+#
+# Why this file exists at all: the repo previously had no Dependabot
+# configuration. Track S supply-chain audit (2026-05-29) flagged this as
+# a real gap — Go and GitHub Actions deps could drift indefinitely with
+# no automated PR cadence. The companion gates (S-005 govulncheck,
+# S-014 -mod=readonly, S-010+S-011 depguard allowlist) catch what
+# Dependabot misses; Dependabot catches the routine "v1.2.3 → v1.2.4"
+# floor most projects bleed on.
+
+version: 2
+updates:
+  # Go modules — direct deps in kensa-go/go.mod. Grouped minor + patch
+  # so a single PR carries each weekly batch instead of 10 PRs landing
+  # at 09:00 Monday. Major-version bumps still get their own PR (those
+  # need a human deciding whether the API change is acceptable + a
+  # corresponding entry in the supply-chain spec's allowlist rationale
+  # per Track S S-010).
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions — actions/checkout, actions/setup-go, golangci/golangci-lint-action,
+  # sigstore/cosign-installer, etc. The Node.js 20 deprecation warning we
+  # already see in CI logs (actions/checkout@v4 + actions/setup-go@v5 ship
+  # Node.js 20 wrappers) is exactly the kind of thing Dependabot would
+  # surface a fix PR for.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch

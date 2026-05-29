@@ -21,6 +21,10 @@ on:
 env:
   CGO_ENABLED: '0'
   GODEBUG: 'netdns=go'
+  # Read-only modules: every `go` invocation refuses to mutate go.mod
+  # or go.sum. Catches CI steps that would silently `go get` a new dep
+  # under the contributor's nose. Track S S-014.
+  GOFLAGS: '-mod=readonly'
   # Specter pin per P-012. The release tarball URL is used by the
   # spec-sync + spec-coverage-strict jobs. v0.12.1 is the earliest
   # version that supports the tier-threshold strictness mode P-012
@@ -435,6 +439,80 @@ jobs:
             exit 1
           fi
           echo "✓ 11/11 expected artifacts present"
+
+  vulnerability-scan:
+    # Track S S-005: govulncheck against the binary call graph. Blocks
+    # merge on a CALLED vulnerability (uncalled stdlib/dep vulns are
+    # reported as informational only by govulncheck and do not fail).
+    # Invoked via `go run` so go.mod's toolchain directive controls
+    # which Go version compiles + runs govulncheck — required because
+    # govulncheck installed via `go install` on Go N can't typecheck
+    # source written against Go N+1.
+    name: Vulnerability Scan (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.3
+      - name: govulncheck
+        # GOFLAGS unset for this step so `go run` can populate the
+        # module cache (the top-level `-mod=readonly` would reject any
+        # cache hit that requires a new download). The actual analysis
+        # runs against committed go.mod / go.sum unchanged.
+        env:
+          GOFLAGS: ''
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  module-drift-check:
+    # Track S S-014: verify go.mod + go.sum match `go mod tidy` output.
+    # Drift signals a missing indirect, a leftover require, or a
+    # checksum the contributor didn't commit — all supply-chain
+    # smells. Fails loudly with a one-line "run go mod tidy locally" fix.
+    name: Module drift check (go mod tidy is a no-op)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.3
+      - name: go mod tidy + diff
+        env:
+          GOFLAGS: ''  # tidy needs write access to go.mod / go.sum
+        run: make mod-tidy-check
+
+  secret-scan:
+    # Track S S-006: detect-secrets baseline drift. Compares the current
+    # working tree against .secrets.baseline; any new finding not on the
+    # baseline fails the job. Contributors who hit a real false positive
+    # run `detect-secrets audit .secrets.baseline` locally to triage +
+    # accept the finding before re-pushing.
+    name: Secret scan (detect-secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install detect-secrets
+        run: pip install detect-secrets==1.5.0
+      - name: Scan for new secrets
+        run: |
+          # Scan against the committed baseline. New findings not in the
+          # baseline fail the job. The --baseline-tmp file is the rescan
+          # output; if it differs from .secrets.baseline (modulo metadata),
+          # there's a new secret somewhere.
+          detect-secrets scan --baseline .secrets.baseline
+          # The above mutates .secrets.baseline in place when it works.
+          # Failure on new findings is built-in to the exit code.
+          if ! git diff --quiet .secrets.baseline; then
+            echo "::error::detect-secrets found new potential secrets not in the baseline."
+            echo "Run 'detect-secrets audit .secrets.baseline' locally, triage, and commit."
+            git diff .secrets.baseline | head -50
+            exit 1
+          fi
+          echo "✓ no new secret findings vs baseline"
 
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
