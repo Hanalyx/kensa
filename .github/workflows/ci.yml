@@ -422,16 +422,19 @@ jobs:
         run: |
           ls -lh dist/*.{tar.gz,rpm,deb,sha256} 2>/dev/null || true
           echo "Artifact count: $(ls dist/*.{tar.gz,rpm,deb,sha256} 2>/dev/null | wc -l)"
-      - name: Verify expected artifact set (9 files)
+      - name: Verify expected artifact set (11 files)
         run: |
-          # 2 tarballs + 2 amd64 + 2 arm64 + 2 noarch + 1 checksum = 9
+          # 2 binary-only tarballs + 2 with-rules tarballs + 4 binary
+          # packages (rpm/deb × amd64/arm64) + 2 noarch packages (kensa-rules
+          # rpm/deb) + 1 checksum file = 11. Update this count if the
+          # archives or nfpms blocks in .goreleaser.yaml gain a new variant.
           got=$(ls dist/*.tar.gz dist/*.rpm dist/*.deb dist/*.sha256 2>/dev/null | wc -l)
-          if [ "$got" != "9" ]; then
-            echo "::error::expected 9 release artifacts, got $got"
+          if [ "$got" != "11" ]; then
+            echo "::error::expected 11 release artifacts, got $got"
             ls -lh dist/
             exit 1
           fi
-          echo "✓ 9/9 expected artifacts present"
+          echo "✓ 11/11 expected artifacts present"
 
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
