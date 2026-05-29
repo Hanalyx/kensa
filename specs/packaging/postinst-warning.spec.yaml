@@ -1,0 +1,106 @@
+spec:
+    id: packaging-postinst-warning
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: packaging-postinst-warning
+        description: |
+            The kensa rpm and deb both run packaging/postinst.sh after
+            the package's files are extracted. The script's only job is
+            to surface a friendly warning when the rules corpus is not
+            present on disk, so an operator who declined the Recommends:
+            kensa-rules dependency (or who installed kensa standalone
+            via `rpm -Uvh` / `dpkg -i`) sees an actionable message at
+            install time rather than discovering the gap when their
+            first `kensa check` errors out.
+
+            The script deliberately does NOT fetch anything from the
+            network — Fedora packaging guidelines forbid network access
+            in %post, Debian discourages it, both would bypass the
+            GPG/cosign trust chain v0.2.0 ships with, and most Hanalyx
+            customers are air-gapped anyway. The Recommends dependency
+            in the package metadata is what actually wires the corpus
+            install on a stock `dnf install kensa` / `apt install kensa`.
+
+            POSIX /bin/sh is the syntax target since the same script
+            file is wired into both nfpm formats (rpm + deb).
+
+    objective:
+        summary: |
+            packaging/postinst.sh exits 0 silently when the rules
+            corpus is present; emits a warning naming all three fix
+            paths (install kensa-rules, --rules-dir, or place rules at
+            the default location) when it's missing; never accesses
+            the network; never fails the install.
+        scope:
+            includes:
+                - Detection of the rules corpus at RULES_DIR (default /usr/share/kensa/rules)
+                - Warning emission to stderr with all three fix paths
+                - Exit code in both branches
+            excludes:
+                - Actually installing rules (the Recommends + kensa-rules package owns that)
+                - Verifying rule YAML correctness (kensa-validate's job)
+                - Any network operation (forbidden by C-03)
+
+    constraints:
+        - id: C-01
+          description: |
+              When RULES_DIR exists AND contains at least one file
+              (any extension — not just .yml — so a future
+              non-yml index file would still count as "corpus present"),
+              postinst MUST exit 0 with no output to stdout or stderr.
+              Silent happy path.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              When RULES_DIR is missing OR empty, postinst MUST emit a
+              warning to stderr containing all three substrings
+              "kensa-rules", "--rules-dir", and "/usr/share/kensa/rules"
+              so an operator sees every fix path without having to read
+              docs.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              postinst MUST NOT invoke any network-fetching tool —
+              curl, wget, nc, ssh, git, dnf, apt, etc. — directly or
+              indirectly. Distro packaging guidelines forbid network
+              access in maintainer scripts; the Recommends dependency
+              is the install path.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              postinst MUST exit 0 in BOTH branches. The corpus is a
+              soft install-time requirement (warning, not error); a
+              non-zero exit would fail the rpm/deb install for what is
+              effectively a configuration gap the operator can fix
+              afterward.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: With RULES_DIR pointing at a directory containing at least one file, postinst exits 0 with no stdout and no stderr.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-02
+          description: With RULES_DIR pointing at an empty directory, postinst exits 0 and stderr contains "kensa-rules", "--rules-dir", AND "/usr/share/kensa/rules".
+          references_constraints: [C-02, C-04]
+          priority: critical
+        - id: AC-03
+          description: With RULES_DIR pointing at a path that does not exist, postinst exits 0 and stderr contains the same three substrings as AC-02.
+          references_constraints: [C-02, C-04]
+          priority: critical
+        - id: AC-04
+          description: The postinst script source contains no reference to network-fetching tools (curl, wget, nc, ssh, git, dnf, apt) at any line — verified by grep of the script text itself.
+          references_constraints: [C-03]
+          priority: critical
+
+    depends_on: []
+
+    tags: [packaging, postinst, rpm, deb, tier-3]

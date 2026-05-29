@@ -14,6 +14,71 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.2.1 — 2026-05-28
+
+Packaging-UX hardening on top of v0.2.0's first signed packages. No
+binary-behaviour change — every difference here is in the package
+metadata, install scripts, archive variants, and operator docs.
+
+### Added
+
+- **`KEYS` at repo root** — single canonical file holding both
+  verification keys (Hanalyx LLC GPG public + Kensa cosign public) with
+  inline `rpm --import` / `apt`-add / `cosign verify-blob` instructions
+  as a fallback if the install guide is unreachable. Operators can
+  point `rpm --import` straight at the raw GitHub URL.
+- **`kensa_<v>_linux_<arch>_with-rules.tar.gz`** — second per-arch
+  tarball variant carrying the full 539-rule corpus next to the
+  binaries + LICENSE + KEYS. Single-download air-gap path called out
+  in CLAUDE.md's packaging plan. Topic-dir layout preserved
+  (`rules/<topic>/<rule>.yml`) so it matches the `kensa-rules`
+  package's installed tree.
+- **`packaging/postinst.sh`** — POSIX `/bin/sh` script wired into the
+  `kensa` rpm and deb. Surfaces a warning when `/usr/share/kensa/rules`
+  is empty after install with explicit next-step commands (install
+  `kensa-rules` or pass `--rules-dir`). No network access, no signature
+  re-verification — Fedora packaging guidelines forbid the former and
+  the latter belongs to dnf/apt's existing trust chain.
+- **`docs/guide/01-install.md` rewritten** for the packaged-release
+  reality: signed-key import is Step 1, three install paths (dnf, apt,
+  air-gap tarball), explicit verify with `cosign verify-blob` +
+  `sha256sum -c` for the air-gap flow, and build-from-source kept as
+  the contributors' path. Version references bumped 0.1.0 → 0.2.1.
+
+### Changed
+
+- **`kensa` rpm + deb now `Recommends: kensa-rules`** — `dnf install
+  kensa` / `apt install kensa` alone pulls the corpus by default.
+  Operator can opt out with `--setopt=install_weak_deps=False` (rpm)
+  or `--no-install-recommends` (apt) if they bring their own corpus
+  via `--rules-dir`.
+
+### Internal
+
+- Goreleaser bumped one notch on the second `archives:` entry —
+  the `kensa-with-rules` ID adds `KEYS` to the bundled file list.
+- The release-snapshot CI smoke job now produces 11 artifacts (was 9):
+  the two `with-rules` tarballs added a binary-tarball variant per arch.
+
+### Not changed
+
+- The kensa CLI itself is byte-identical to v0.2.0 (same source, same
+  build flags). The release is metadata + scripts + docs only.
+- No `api/` change.
+- All signing posture (GPG-signed rpm/deb + cosign-signed checksums)
+  preserved from v0.2.0.
+
+### Known follow-ups
+
+- File the nfpm `gnu-dummy` subkey-decrypt bug upstream
+  (`goreleaser/nfpm` `internal/sign/pgp.go:readSigningKey`). Once
+  fixed, the GitHub `GPG_PRIVATE_KEY` secret can go back to a
+  subkey-only export (smaller blast radius than the current full
+  encrypted master+subkey).
+- v0.3.x: ship the kensa-systemd-helper sudoers fragment in the rpm
+  (`%files /etc/sudoers.d/kensa-systemd-helper`) so the manual step
+  in `docs/guide/01-install.md` § "Service handlers" disappears.
+
 ## v0.2.0 — 2026-05-28
 
 First "real" packaged release. Operators can now install kensa via

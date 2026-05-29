@@ -67,8 +67,23 @@ builds:
     goos: [linux]
     goarch: [amd64, arm64]
 
-# One tarball per arch carrying all 4 binaries + LICENSE + docs.
-# This is the air-gapped-install path called out in the packaging plan.
+# Tarballs. Two variants per arch:
+#
+#   kensa_<v>_linux_<arch>.tar.gz             binaries + LICENSE + docs.
+#                                             Operator already has the rules
+#                                             corpus elsewhere (clone of this
+#                                             repo, --rules-dir, etc.).
+#
+#   kensa_<v>_linux_<arch>_with-rules.tar.gz  binaries + LICENSE + docs +
+#                                             the full 539-rule corpus. The
+#                                             air-gapped single-download path
+#                                             called out in CLAUDE.md's
+#                                             packaging plan: copy one file
+#                                             onto a disconnected host, untar,
+#                                             you have everything needed to
+#                                             run `kensa check --rules-dir
+#                                             ./rules <host>` without any
+#                                             package-manager step.
 archives:
   - id: kensa
     name_template: "kensa_{{ .Version }}_linux_{{ .Arch }}"
@@ -82,6 +97,27 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
+
+  - id: kensa-with-rules
+    name_template: "kensa_{{ .Version }}_linux_{{ .Arch }}_with-rules"
+    formats: [tar.gz]
+    ids:
+      - kensa
+      - kensa-validate
+      - kensa-keygen
+      - kensa-systemd-helper
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - KEYS
+      # The rules tree carried in-tarball at ./rules/ with the topic
+      # subdirectories preserved (rules/<topic>/<rule>.yml), matching
+      # the layout the kensa-rules package installs to /usr/share/kensa/rules.
+      # 539 .yml files / 2.2 MB. Operator extracts and runs:
+      #   kensa check --rules-dir ./rules <host>
+      - src: rules
+        dst: rules
 
 nfpms:
   # ---- kensa (binary package) -------------------------------------------
@@ -114,6 +150,18 @@ nfpms:
     formats: [rpm, deb]
     bindir: /usr/bin
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    # Soft dependency on kensa-rules. dnf/apt install kensa pulls
+    # kensa-rules by default; operator can opt out with
+    # --setopt=install_weak_deps=False (rpm) or --no-install-recommends
+    # (apt) if they bring their own corpus via --rules-dir. The
+    # post-install scriptlet warns when the corpus is missing on disk
+    # so this only goes silently wrong if the operator notices AND
+    # ignores the warning — see packaging/postinst.sh for the
+    # rationale on not network-fetching from there.
+    recommends:
+      - kensa-rules
+    scripts:
+      postinstall: ./packaging/postinst.sh
     contents:
       # Per-arch dist path: linux_amd64_v1 (default goamd64) and
       # linux_arm64_v8.0 (default goarm64) — the ternary in the
