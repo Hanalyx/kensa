@@ -170,6 +170,20 @@ nfpms:
         dst: /usr/libexec/kensa-systemd-helper
         file_info:
           mode: 0755
+      # Sudoers fragment for the service handlers. mode 0440 root:root
+      # is mandatory — sudo ignores (and warns on) any sudoers.d file
+      # that is group- or world-writable. type:config so the package
+      # manager removes it on uninstall and preserves operator edits on
+      # upgrade. The companion 'kensa' group is created empty by
+      # packaging/postinst.sh; the rule is inert until an admin adds a
+      # member. See specs/packaging/sudoers-helper.spec.yaml.
+      - src: ./packaging/sudoers-kensa-systemd-helper
+        dst: /etc/sudoers.d/kensa-systemd-helper
+        type: config
+        file_info:
+          mode: 0440
+          owner: root
+          group: root
       - src: LICENSE
         dst: /usr/share/doc/kensa/LICENSE
       - src: README.md

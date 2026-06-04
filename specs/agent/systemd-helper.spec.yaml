@@ -143,10 +143,22 @@ spec:
               a stuck unit to hang the run for unbounded time.
           type: technical
           enforcement: error
-        # Constraint C-06 (sudoers fragment + %kensa group)
-        # deferred alongside AC-09 — see "Deferred ACs" block
-        # below. Re-introduced in the kensa-rpm packaging
-        # deliverable (post-D-011) when the .spec file lands.
+        - id: C-06
+          description: |
+              The kensa package MUST provision the sudoers escalation
+              path the helper depends on: it ships
+              /etc/sudoers.d/kensa-systemd-helper granting
+              `%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper`
+              and creates the 'kensa' group EMPTY, so the C-01 sudo path
+              exists out of the box while the privilege is granted to no
+              user until an administrator opts one in. The packaging
+              mechanics (file mode, idempotent group creation, the
+              never-add-a-user safety property) are specified and tested
+              by packaging-sudoers-helper.
+              **Un-deferred 2026-06-03**: the kensa-rpm packaging
+              deliverable (v0.2.2) ships this; companion AC-09 below.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -261,6 +273,20 @@ spec:
               the pre-state for rollback.
           references_constraints: [C-02]
           priority: high
+        - id: AC-09
+          description: |
+              The kensa rpm/deb ship /etc/sudoers.d/kensa-systemd-helper
+              with the `%kensa ALL=(root) NOPASSWD:
+              /usr/libexec/kensa-systemd-helper` rule and create the
+              'kensa' group empty at install time. The install adds no
+              user to the group, so the C-01 sudo escalation path exists
+              but is granted to nobody until an administrator opts a user
+              in. Install mechanics (mode 0440, idempotent group
+              creation, never-add-a-user) are tested by
+              packaging-sudoers-helper; this AC asserts the contract is
+              provisioned, not manual.
+          references_constraints: [C-06]
+          priority: high
         - id: AC-11
           description: |
               D-Bus connection failure (e.g., bus socket not
@@ -273,13 +299,10 @@ spec:
           references_constraints: [C-02]
           priority: high
 
-    # Deferred ACs — moved out of strict-coverage scope until
-    # the deliverable that locks them ships. Re-introduce by
-    # uncommenting + restoring the matching constraint.
-    #
-    #   - AC-09 (kensa-rpm sudoers fragment install): Requires
-    #     the kensa-rpm spec file deliverable (currently
-    #     post-D-011, tracked under v1.0 packaging). Companion
-    #     constraint C-06 deferred above.
+    # AC-09 (kensa-package sudoers fragment install) + companion C-06
+    # were un-deferred 2026-06-03 when the v0.2.2 packaging deliverable
+    # shipped them. Install mechanics live in the packaging-sudoers-helper
+    # spec; the tier-1 contract here asserts the escalation path is
+    # provisioned by the package rather than left as a manual step.
 
     tags: [agent, systemd, dbus, privilege-boundary, tier-1, option-c, helper-binary, phase-4]

@@ -102,18 +102,30 @@ signer identity.
 ## Service handlers (optional)
 
 You only need this step if your rules use `service_enabled`,
-`service_disabled`, or `service_masked`. Add yourself to a `kensa`
-group, then create `/etc/sudoers.d/kensa-systemd-helper` (mode `0440`,
-owned by root) containing:
+`service_disabled`, or `service_masked`.
 
-```
-%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper
+The rpm/deb already ship `/etc/sudoers.d/kensa-systemd-helper` (the
+`%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper` rule)
+and create the `kensa` group **empty** at install time, so the grant is
+inert until you opt a user in. The only remaining step is to add that
+user to the group:
+
+```bash
+sudo usermod -aG kensa "$USER"   # log out / back in for it to take effect
 ```
 
-Run `sudo visudo -c` to syntax-check. The canonical definition is
+(Installing from the air-gap tarball instead of the package? Create the
+group and drop the sudoers file yourself: `sudo groupadd --system
+kensa`, then write the one-line rule above to
+`/etc/sudoers.d/kensa-systemd-helper` mode `0440` root-owned and run
+`sudo visudo -c` to syntax-check.)
+
+The canonical definition is
 [`agent-systemd-helper`](../../specs/agent/systemd-helper.spec.yaml)
-AC C-06. Without the helper, only the service handlers fail; everything
-else (file permissions, sysctl, mount options, SELinux booleans, audit,
+AC-09 / C-06 and
+[`packaging-sudoers-helper`](../../specs/packaging/sudoers-helper.spec.yaml).
+Without the helper, only the service handlers fail; everything else
+(file permissions, sysctl, mount options, SELinux booleans, audit,
 cron, packages, PAM) works as-is.
 
 ## Build from source
