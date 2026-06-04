@@ -454,7 +454,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.3
+          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.4
       - name: govulncheck
         # GOFLAGS unset for this step so `go run` can populate the
         # module cache (the top-level `-mod=readonly` would reject any
@@ -476,7 +476,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.3
+          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.4
       - name: go mod tidy + diff
         env:
           GOFLAGS: ''  # tidy needs write access to go.mod / go.sum
