@@ -21,8 +21,25 @@ and `CAPABILITY_PROBES` all updated and committed.
 Live result on `.217`: 13/31 caps detected (was 7/25).
 
 **Remaining (lower priority):**
-- `pam_tally2` probe for older Ubuntu (pam_faillock may not be present).
-- Service rules where Ubuntu service name differs from RHEL (e.g. `chronyd` → `chrony`).
+- ~~`pam_tally2` probe for older Ubuntu (pam_faillock may not be present).~~
+  — **SHIPPED 2026-06-04** (v0.2.2). `internal/detect/detect.go` probes for
+  the pam_tally2 CLI or module `.so`; added to `rule.KnownCapabilities`.
+  Rules don't yet gate on it — that's part of the deferred service-name
+  work below.
+- **Service rules where the Ubuntu service name differs from RHEL** (e.g.
+  `chronyd` → `chrony`). **DEFERRED out of v0.2.2** to a dedicated effort
+  (2026-06-04). This is not a mechanical rename: the ~11–17 affected rules
+  in `rules/services/` are `family: rhel`-only today, so the work is
+  *extending* them to Debian/Ubuntu with the correct per-distro service
+  name (via `when: apt` gates, the pattern already in
+  `chrony-installed.yml`). It can't be CI-verified — `kensa-validate` is
+  schema-only — so it needs real-host validation on the Ubuntu test-fleet
+  box. A first-pass mapping survey also turned up at least one wrong entry
+  (`kdump` → `crash`; the real Ubuntu unit is `kdump-tools`) and an
+  uncertain one (`rngd` → `rng-tools`), so each rule needs its actual unit
+  name verified rather than table-applied. Affected families: chrony,
+  `crond`→`cron`, `httpd`→`apache2`, `named`→`bind9`,
+  `nfs-server`→`nfs-kernel-server`, plus the two uncertain ones above.
 
 ---
 
@@ -46,6 +63,43 @@ Live result on `.217`: 13/31 caps detected (was 7/25).
 
 - `scripts/bench_aggregate.go` — aggregate benchmark across a rule corpus.
 - FIPS-mode enforcement option for the SSH transport (reject connections when `fips_mode` is false on target).
+
+---
+
+## Architecture review findings
+
+These items came from a code review of whether Kensa's implementation
+fully supports the atomic remediation, auditability, and evidence claims.
+
+- **Post-apply rule validation** — `internal/engine/validate.go` does not
+  re-run the selected rule check after remediation. A successful handler
+  `Apply` can currently commit when no injected or built-in validator runs.
+  Wire `api.Rule.Implementations[selected].Check` through the transaction
+  path and make the VALIDATE phase independently confirm desired state.
+- **Terminal persistence errors are ignored** — `internal/engine/commit.go`
+  discards `e.store.PersistResult(...)` errors. Return or surface terminal
+  store failures so callers cannot observe `committed`/`rolled_back` results
+  that are missing from durable history.
+- **Errored transactions are not durably recorded by SQLite** —
+  `engine.errored()` builds a `TransactionResult` without an evidence
+  envelope, while `store.SQLite.PersistResult` rejects nil envelopes. Add an
+  errored-envelope path or relax the store contract so preflight/capture/store
+  failures appear in history.
+- **Remediation evidence host ID can be empty** — scanner-built remediation
+  transactions do not populate `Transaction.HostID`, and the evidence
+  envelope copies `HostID` from the transaction. Thread host identity into
+  `internal/scan.Runner.Remediate` / transaction construction so every signed
+  remediation envelope identifies the target host.
+- **Control-channel risk classification is too coarse** — deadman arming uses
+  a static mechanism-level map. Generic mechanisms such as `config_set`,
+  `config_set_dropin`, `file_content`, and `sysctl_set` can affect SSH,
+  networking, PAM, or firewall state depending on params/path. Add per-rule
+  or per-handler risk metadata so risky parameterized changes arm the
+  deadman reliably.
+- **Post-state evidence is not captured** — committed evidence envelopes set
+  `PostStateBundle` to nil. Add post-apply/post-rollback recapture where
+  feasible so evidence can prove both pre-state and resulting state, not only
+  the attempted apply steps.
 
 ---
 
