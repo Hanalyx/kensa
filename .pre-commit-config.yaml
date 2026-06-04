@@ -32,6 +32,28 @@ repos:
       - id: mixed-line-ending
         args: ["--fix=lf"]
 
+  # ─── Default stage: detect-secrets baseline scan ─────────────────────
+  # Track S S-006. Matches the CI "Secret scan (detect-secrets)" job
+  # in .github/workflows/ci.yml. Default-stage so contributors see new
+  # potential-secret findings before they push. The baseline file at
+  # .secrets.baseline pins the 3 known-false-positive findings (an
+  # error-message keyword in internal/evidence/signer.go, a test-fixture
+  # Ed25519 key in pkg/kensa/kensa_test.go, and the literal word
+  # "password" in specs/cli/password.spec.yaml) so the hook only fires
+  # on new findings. Real false positives in future PRs run
+  # `detect-secrets audit .secrets.baseline` locally to triage + accept.
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: |
+          (?x)^(
+            KEYS|
+            rules/.*|
+            \.secrets\.baseline
+          )$
+
   # ─── Manual stage: Go toolchain hooks ────────────────────────────────
   - repo: https://github.com/dnephin/pre-commit-golang
     rev: v0.5.1
