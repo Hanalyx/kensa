@@ -130,8 +130,8 @@ cron, packages, PAM) works as-is.
 
 ## Build from source
 
-For contributors and for customising the build. Requires Go 1.26.1+, GNU
-make, git:
+For contributors and for customising the build. Requires Go 1.26.4+ (the
+version pinned in `go.mod`), GNU make, git:
 
 ```bash
 git clone https://github.com/Hanalyx/kensa.git && cd kensa && make build
