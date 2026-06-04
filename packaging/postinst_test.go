@@ -35,8 +35,23 @@ func postinstPath(t *testing.T) string {
 // and returns (stdout, stderr, exitCode).
 func runPostinst(t *testing.T, rulesDir string) (string, string, int) {
 	t.Helper()
+	// GETENT_CMD=true makes the service-handler group block treat the
+	// 'kensa' group as already present, so it never shells out to
+	// groupadd. That keeps these rules-corpus tests isolated from group
+	// provisioning (and keeps stderr clean for the AC-01 silent-path
+	// assertion on hosts where the group is absent and groupadd would
+	// fail). The dedicated group tests below drive that block directly.
+	return runPostinstEnv(t, []string{"RULES_DIR=" + rulesDir, "GETENT_CMD=true"})
+}
+
+// runPostinstEnv executes postinst.sh under /bin/sh with a fully
+// specified extra-env slice (appended to os.Environ) and returns
+// (stdout, stderr, exitCode). Used by the group-provisioning tests to
+// inject GETENT_CMD / GROUPADD_CMD stubs.
+func runPostinstEnv(t *testing.T, extra []string) (string, string, int) {
+	t.Helper()
 	cmd := exec.Command("/bin/sh", postinstPath(t))
-	cmd.Env = append(os.Environ(), "RULES_DIR="+rulesDir)
+	cmd.Env = append(os.Environ(), extra...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -50,6 +65,40 @@ func runPostinst(t *testing.T, rulesDir string) (string, string, int) {
 		}
 	}
 	return stdout.String(), stderr.String(), exit
+}
+
+// sudoersPath resolves packaging/sudoers-kensa-systemd-helper relative
+// to this test file.
+func sudoersPath(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("could not determine test file path")
+	}
+	return filepath.Join(filepath.Dir(thisFile), "sudoers-kensa-systemd-helper")
+}
+
+// writeStub writes an executable /bin/sh stub with the given body and
+// returns its absolute path.
+func writeStub(t *testing.T, dir, name, body string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// populatedRulesDir returns a temp dir holding one marker file, so the
+// rules-corpus branch of postinst stays silent and the group tests can
+// isolate the provisioning behavior.
+func populatedRulesDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "marker"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }
 
 // @spec packaging-postinst-warning
@@ -114,8 +163,15 @@ func TestPostinst_WarnsOnMissingCorpus(t *testing.T) {
 
 // @spec packaging-postinst-warning
 // @ac AC-04
+// @spec packaging-sudoers-helper
+// @ac AC-06
 func TestPostinst_NoNetworkTools(t *testing.T) {
 	t.Run("packaging-postinst-warning/AC-04", func(t *testing.T) {})
+	// Same source-level no-network assertion satisfies the
+	// packaging-sudoers-helper AC-06 obligation (maintainer scripts
+	// touch no network) — the group block this PR adds introduces no
+	// network tool.
+	t.Run("packaging-sudoers-helper/AC-06", func(t *testing.T) {})
 
 	// AC-04 is a source-level check: the script must not REFERENCE
 	// network-fetching tools at any line. Grep on word boundaries to
@@ -168,6 +224,169 @@ func TestPostinst_NoNetworkTools(t *testing.T) {
 			if strings.Contains(src, pat) {
 				t.Errorf("postinst.sh invokes network tool %q (matched %q) — violates C-03", tool, pat)
 			}
+		}
+	}
+}
+
+// expectedSudoersRule is the single rule the package must ship. Kept as
+// one constant so the content test and the goreleaser-wiring test agree.
+const expectedSudoersRule = "%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper"
+
+// @spec packaging-sudoers-helper
+// @ac AC-01
+// @spec agent-systemd-helper
+// @ac AC-09
+func TestSudoersFragment_ContentAndWiring(t *testing.T) {
+	t.Run("packaging-sudoers-helper/AC-01", func(t *testing.T) {})
+	t.Run("agent-systemd-helper/AC-09", func(t *testing.T) {})
+
+	body, err := os.ReadFile(sudoersPath(t))
+	if err != nil {
+		t.Fatalf("sudoers fragment not found: %v", err)
+	}
+
+	// Exactly one runnable (non-comment, non-blank) line, and it is the
+	// expected rule — nothing else is granted.
+	var runnable []string
+	for _, line := range strings.Split(string(body), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		runnable = append(runnable, trimmed)
+	}
+	if len(runnable) != 1 {
+		t.Fatalf("expected exactly one runnable sudoers line, got %d: %q", len(runnable), runnable)
+	}
+	if runnable[0] != expectedSudoersRule {
+		t.Errorf("sudoers rule = %q, want %q", runnable[0], expectedSudoersRule)
+	}
+
+	// AC-09: the package actually wires the fragment to the canonical
+	// path at the mandatory mode. Assert the goreleaser nfpm contents
+	// reference both the dst path and mode 0440.
+	_, thisFile, _, _ := runtime.Caller(0)
+	repoRoot := filepath.Dir(filepath.Dir(thisFile))
+	gr, err := os.ReadFile(filepath.Join(repoRoot, ".goreleaser.yaml"))
+	if err != nil {
+		t.Fatalf("read .goreleaser.yaml: %v", err)
+	}
+	grs := string(gr)
+	for _, want := range []string{
+		"/etc/sudoers.d/kensa-systemd-helper",
+		"./packaging/sudoers-kensa-systemd-helper",
+		"mode: 0440",
+	} {
+		if !strings.Contains(grs, want) {
+			t.Errorf(".goreleaser.yaml must wire the sudoers fragment: missing %q", want)
+		}
+	}
+}
+
+// @spec packaging-sudoers-helper
+// @ac AC-02
+func TestSudoersFragment_VisudoSyntax(t *testing.T) {
+	t.Run("packaging-sudoers-helper/AC-02", func(t *testing.T) {})
+
+	visudo, err := exec.LookPath("visudo")
+	if err != nil {
+		t.Skip("visudo not available; skipping syntax check")
+	}
+	// `visudo -c -f <file>` parses the file and reports OK/errors. It
+	// validates syntax independent of ownership; an unknown group is not
+	// a syntax error. Run on a 0440 copy so a mode warning can't muddy
+	// the result.
+	tmp := filepath.Join(t.TempDir(), "sudoers")
+	body, err := os.ReadFile(sudoersPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmp, body, 0o440); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(visudo, "-c", "-f", tmp).CombinedOutput()
+	if err != nil {
+		t.Fatalf("visudo -c rejected the fragment: %v\n%s", err, out)
+	}
+}
+
+// @spec packaging-sudoers-helper
+// @ac AC-03
+func TestPostinst_CreatesKensaGroupWhenAbsent(t *testing.T) {
+	t.Run("packaging-sudoers-helper/AC-03", func(t *testing.T) {})
+
+	stubDir := t.TempDir()
+	log := filepath.Join(t.TempDir(), "groupadd.log")
+	getent := writeStub(t, stubDir, "getent", "exit 1") // group absent
+	groupadd := writeStub(t, stubDir, "groupadd", "printf '%s\\n' \"$*\" >> "+log)
+
+	_, stderr, exit := runPostinstEnv(t, []string{
+		"RULES_DIR=" + populatedRulesDir(t),
+		"GETENT_CMD=" + getent,
+		"GROUPADD_CMD=" + groupadd,
+	})
+	if exit != 0 {
+		t.Fatalf("expected exit 0, got %d; stderr=%q", exit, stderr)
+	}
+	got, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("groupadd was not invoked when the group was absent: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(got)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected groupadd invoked exactly once, got %d invocations: %q", len(lines), lines)
+	}
+	if lines[0] != "--system kensa" {
+		t.Errorf("groupadd args = %q, want %q", lines[0], "--system kensa")
+	}
+}
+
+// @spec packaging-sudoers-helper
+// @ac AC-04
+func TestPostinst_GroupCreationIdempotent(t *testing.T) {
+	t.Run("packaging-sudoers-helper/AC-04", func(t *testing.T) {})
+
+	stubDir := t.TempDir()
+	log := filepath.Join(t.TempDir(), "groupadd.log")
+	getent := writeStub(t, stubDir, "getent", "exit 0") // group present
+	groupadd := writeStub(t, stubDir, "groupadd", "printf '%s\\n' \"$*\" >> "+log)
+
+	_, stderr, exit := runPostinstEnv(t, []string{
+		"RULES_DIR=" + populatedRulesDir(t),
+		"GETENT_CMD=" + getent,
+		"GROUPADD_CMD=" + groupadd,
+	})
+	if exit != 0 {
+		t.Fatalf("expected exit 0, got %d; stderr=%q", exit, stderr)
+	}
+	if b, err := os.ReadFile(log); err == nil && strings.TrimSpace(string(b)) != "" {
+		t.Errorf("groupadd must not run when the group is already present; invoked with %q", string(b))
+	}
+}
+
+// @spec packaging-sudoers-helper
+// @ac AC-05
+func TestPostinst_NeverAddsUserToGroup(t *testing.T) {
+	t.Run("packaging-sudoers-helper/AC-05", func(t *testing.T) {})
+
+	body, err := os.ReadFile(postinstPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Strip comment lines — the rationale comment legitimately spells out
+	// the `usermod -aG kensa <user>` an admin runs by hand. The assertion
+	// is about what the script EXECUTES, not what it documents.
+	var stripped strings.Builder
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		stripped.WriteString(line + "\n")
+	}
+	src := stripped.String()
+	for _, bad := range []string{"usermod", "gpasswd", "adduser", "-aG"} {
+		if strings.Contains(src, bad) {
+			t.Errorf("postinst executes %q — install must never add a user to the kensa group (C-04)", bad)
 		}
 	}
 }

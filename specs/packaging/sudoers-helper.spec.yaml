@@ -1,0 +1,138 @@
+spec:
+    id: packaging-sudoers-helper
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: packaging-sudoers-helper
+        description: |
+            The kensa rpm and deb ship the sudoers fragment that
+            authorizes the unprivileged agent to escalate to the
+            privileged systemd helper for the service_enabled /
+            service_disabled / service_masked handlers. Before v0.2.2
+            this was a manual operator step documented in
+            docs/guide/01-install.md; the package now provisions it.
+
+            Two coupled artifacts make this safe:
+
+              1. /etc/sudoers.d/kensa-systemd-helper — a 0440 root-owned
+                 file with the single rule
+                   %kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper
+                 shipped via nfpm contents as a config file.
+
+              2. The 'kensa' group, created EMPTY by packaging/postinst.sh.
+                 Creating it empty is the security property that makes
+                 auto-shipping a NOPASSWD rule acceptable in a package:
+                 a fresh install grants the escalation to NOBODY. The
+                 rule is inert until an administrator deliberately runs
+                 `usermod -aG kensa <user>`.
+
+            This spec owns the packaging mechanics. The runtime
+            privilege-boundary contract (sudo is the helper's only
+            authorized escalation path) lives in the tier-1
+            agent-systemd-helper spec (C-01, C-06, AC-09); AC-09 there
+            delegates the install mechanics here.
+
+            POSIX /bin/sh is the syntax target for postinst.sh since the
+            same script is wired into both nfpm formats (rpm + deb).
+
+    objective:
+        summary: |
+            The package ships /etc/sudoers.d/kensa-systemd-helper (0440,
+            root-owned, the single %kensa NOPASSWD helper rule) and
+            creates the 'kensa' group empty and idempotently at install
+            time, never adding any user to it, so the escalation grant
+            is opt-in.
+        scope:
+            includes:
+                - The sudoers fragment file content, mode, and ownership
+                - postinst creation of the empty 'kensa' group
+                - Idempotency of group creation across upgrades
+                - The privilege-boundary safety property (no user added on install)
+            excludes:
+                - The helper binary's runtime contract (agent-systemd-helper spec)
+                - Adding users to the group (an explicit operator action)
+                - polkit / setuid alternatives (agent-systemd-helper excludes them)
+                - Any network operation (forbidden, same posture as packaging-postinst-warning C-03)
+
+    constraints:
+        - id: C-01
+          description: |
+              The shipped sudoers fragment MUST contain exactly the rule
+              `%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper`
+              granting the 'kensa' group passwordless root execution of
+              the helper at its FHS /usr/libexec path and nothing else
+              (no other runnable command, no other user/group).
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              The sudoers fragment MUST be installed mode 0440 owned by
+              root:root. sudo refuses to load (and warns on) any
+              sudoers.d file that is group- or world-writable, so a
+              looser mode silently disables the rule.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              postinst MUST create the 'kensa' group when it is absent
+              and MUST be a no-op when it already exists (idempotent
+              across upgrades). Group creation failure MUST NOT fail the
+              install — it degrades to a warning, leaving the sudoers
+              rule inert.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              postinst MUST NOT add any user to the 'kensa' group, and
+              MUST NOT reference any user-to-group tool (usermod,
+              gpasswd, adduser) or the supplementary-group flag `-aG`.
+              The install grants the escalation to nobody; opting a user
+              in is an explicit, human-performed action. This is the
+              property that makes auto-shipping the NOPASSWD rule safe.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              postinst MUST NOT invoke any network-fetching tool (curl,
+              wget, nc, ssh, git, dnf, apt) — same posture as
+              packaging-postinst-warning C-03. Maintainer scripts do not
+              touch the network.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              The shipped packaging/sudoers-kensa-systemd-helper file
+              contains the exact rule
+              "%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper"
+              and no other runnable sudoers rule.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: The sudoers fragment passes `visudo -c -f` syntax validation (skipped only when visudo is unavailable on the test host).
+          references_constraints: [C-01, C-02]
+          priority: high
+        - id: AC-03
+          description: With the 'kensa' group absent (stub getent exits non-zero), postinst invokes groupadd with "--system kensa" exactly once and exits 0.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: With the 'kensa' group present (stub getent exits 0), postinst does NOT invoke groupadd and exits 0 — idempotent.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: The postinst script source references no user-to-group tool (usermod, gpasswd, adduser) and no `-aG` flag — verified by grep of the script text — so install never adds a member.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-06
+          description: The postinst script source references no network-fetching tool (curl, wget, nc, ssh, git, dnf, apt) in any non-comment line — verified by grep.
+          references_constraints: [C-05]
+          priority: high
+
+    depends_on: []
+
+    tags: [packaging, sudoers, systemd-helper, privilege-boundary, rpm, deb, tier-3]

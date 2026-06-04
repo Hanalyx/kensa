@@ -1,0 +1,17 @@
+# Managed by the kensa package — do not edit by hand.
+#
+# Grants members of the 'kensa' group passwordless root execution of
+# the systemd helper that `kensa` (agent mode) invokes for the
+# service_enabled / service_disabled / service_masked handlers. The
+# helper is a tightly-scoped D-Bus subprocess; sudo is its ONLY
+# authorized escalation path so this file is the auditable record of
+# that boundary (see specs/agent/systemd-helper.spec.yaml C-01).
+#
+# The 'kensa' group is created EMPTY by the package postinstall, so a
+# fresh install grants this to nobody. An administrator opts a user in
+# explicitly:
+#
+#     usermod -aG kensa <user>
+#
+# Canonical definition: specs/agent/systemd-helper.spec.yaml AC-09 / C-06.
+%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper

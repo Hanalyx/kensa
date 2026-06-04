@@ -31,6 +31,30 @@
 
 set -eu
 
+# --- Service-handler support: ensure the 'kensa' group exists --------
+# The package ships /etc/sudoers.d/kensa-systemd-helper, which grants
+# members of the 'kensa' group passwordless root execution of the
+# systemd helper. We create that group here, EMPTY: a fresh install
+# hands the privilege to NOBODY. An administrator opts a user in
+# explicitly with `usermod -aG kensa <user>`. Creating the group empty
+# keeps the privilege boundary opt-in — the shipped sudoers rule is
+# inert until a human deliberately adds a member.
+#
+# Idempotent: re-running on upgrade is a no-op when the group already
+# exists. Failure to create the group is a warning, not an install
+# failure — the sudoers rule simply stays inert (sudo treats an unknown
+# group as no match) until the operator creates the group by hand.
+#
+# GETENT_CMD / GROUPADD_CMD are override hooks for the packaging tests
+# (see packaging/postinst_test.go) exactly like RULES_DIR below; nothing
+# sets them on a real install, so the defaults apply.
+GETENT_CMD="${GETENT_CMD:-getent}"
+GROUPADD_CMD="${GROUPADD_CMD:-groupadd}"
+if ! "$GETENT_CMD" group kensa >/dev/null 2>&1; then
+    "$GROUPADD_CMD" --system kensa >/dev/null 2>&1 || \
+        printf '%s\n' "kensa post-install: could not create the 'kensa' group; create it with 'groupadd --system kensa' before using the service handlers." >&2
+fi
+
 # RULES_DIR is the path the kensa-rules package installs to. Env-
 # overridable so unit tests can inject mock paths (see
 # packaging/postinst_test.go). On a real install nothing sets it and
