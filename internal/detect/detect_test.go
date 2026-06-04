@@ -3,6 +3,7 @@ package detect
 import (
 	"context"
 	"io/fs"
+	"strings"
 	"testing"
 	"time"
 
@@ -155,5 +156,26 @@ func TestDetect_CapabilitySetLength(t *testing.T) {
 	}
 	if len(caps) != len(probes) {
 		t.Errorf("expected %d capabilities, got %d", len(probes), len(caps))
+	}
+}
+
+// TestProbe_PamTally2Registered guards the legacy-lockout fallback probe
+// against accidental removal and verifies its command actually looks for
+// pam_tally2 (CLI or module .so). pam_tally2 is the pre-faillock account
+// lockout mechanism on older Debian/Ubuntu + RHEL 7; rules gate on it
+// when pam_faillock is absent.
+func TestProbe_PamTally2Registered(t *testing.T) {
+	var found *probe
+	for i := range probes {
+		if probes[i].name == "pam_tally2" {
+			found = &probes[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("pam_tally2 probe not registered in detect.probes")
+	}
+	if !strings.Contains(found.cmd, "pam_tally2") {
+		t.Errorf("pam_tally2 probe command must look for pam_tally2; got %q", found.cmd)
 	}
 }

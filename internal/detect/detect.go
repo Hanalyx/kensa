@@ -47,6 +47,16 @@ var probes = []probe{
 		`[ -f /etc/security/faillock.conf ]`,
 	},
 	{
+		// pam_tally2 is the legacy account-lockout module that predates
+		// pam_faillock. It survives on older Debian/Ubuntu (≤18.04, pam
+		// < 1.4) and RHEL 7, exactly the hosts where pam_faillock is
+		// absent, so rules can fall back to it when [pam_faillock] is
+		// false. Detected via the pam_tally2 CLI or the module .so under
+		// the multiarch / lib64 PAM security dirs.
+		"pam_tally2",
+		`command -v pam_tally2 >/dev/null 2>&1 || ls /lib/security/pam_tally2.so /lib/*/security/pam_tally2.so /lib64/security/pam_tally2.so /usr/lib/*/security/pam_tally2.so /usr/lib64/security/pam_tally2.so 2>/dev/null | grep -q .`,
+	},
+	{
 		"pam_pwquality",
 		`[ -f /etc/security/pwquality.conf ]`,
 	},

@@ -228,6 +228,7 @@ var KnownCapabilities = map[string]struct{}{
 	"fips_mode":            {},
 	"firewalld_nftables":   {},
 	"pam_faillock":         {},
+	"pam_tally2":           {},
 	"pam_pwquality":        {},
 	"grub_bls":             {},
 	"selinux":              {},
