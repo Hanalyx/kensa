@@ -499,19 +499,23 @@ jobs:
         run: pip install detect-secrets==1.5.0
       - name: Scan for new secrets
         run: |
-          # Scan against the committed baseline. New findings not in the
-          # baseline fail the job. The --baseline-tmp file is the rescan
-          # output; if it differs from .secrets.baseline (modulo metadata),
-          # there's a new secret somewhere.
-          detect-secrets scan --baseline .secrets.baseline
-          # The above mutates .secrets.baseline in place when it works.
-          # Failure on new findings is built-in to the exit code.
-          if ! git diff --quiet .secrets.baseline; then
-            echo "::error::detect-secrets found new potential secrets not in the baseline."
-            echo "Run 'detect-secrets audit .secrets.baseline' locally, triage, and commit."
-            git diff .secrets.baseline | head -50
-            exit 1
-          fi
+          # Use the detect-secrets pre-commit entrypoint (`detect-secrets-hook`),
+          # which compares each tracked file against the committed baseline and
+          # exits non-zero on any finding NOT already in it — WITHOUT rewriting
+          # the baseline. This is the exact code path the .pre-commit-config.yaml
+          # detect-secrets hook runs, so CI and local pre-commit agree byte-for-byte.
+          #
+          # The previous `detect-secrets scan --baseline` form rewrote the baseline
+          # in place every run (churning generated_at + per-line hashes), so the
+          # downstream `git diff --quiet` flagged that metadata drift as if it were
+          # a new secret — failing the job on clean trees. detect-secrets-hook has
+          # no such side effect.
+          #
+          # Excludes mirror the pre-commit hook exactly: KEYS (public-key bundle),
+          # rules/** (539 SCAP YAML files that trip entropy detectors), and the
+          # baseline file itself.
+          git ls-files -z -- . ':!:KEYS' ':!:rules/**' ':!:.secrets.baseline' \
+            | xargs -0 detect-secrets-hook --baseline .secrets.baseline
           echo "✓ no new secret findings vs baseline"
 
   # Future jobs (land as the codebase grows):
