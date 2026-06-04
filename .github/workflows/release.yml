@@ -10,7 +10,7 @@ name: Release
 #   COSIGN_PRIVATE_KEY  cosign keypair (private half)
 #   COSIGN_PASSWORD     Unlock password for the cosign key
 #
-# Build discipline matches CI: CGO_ENABLED=0, -tags netgo, Go 1.25.
+# Build discipline matches CI: CGO_ENABLED=0, -tags netgo, Go from go.mod.
 # See .goreleaser.yaml for the artifact layout and signing config.
 
 on:
@@ -24,7 +24,6 @@ permissions:
 env:
   CGO_ENABLED: '0'
   GODEBUG: 'netdns=go'
-  GO_VERSION: '1.25'
   # v2.10.x onward has `archives.formats` (plural), `archives.ids`,
   # and `nfpms.ids` — the post-rename field names this config uses.
   # v2.5.1 is too old and rejects them at `goreleaser check`. Pin to
@@ -40,14 +39,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for goreleaser)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       # Hard-fail preflight: every signing secret MUST be set. We refuse
       # to ship unsigned. The empty-string default + length check catches

@@ -43,10 +43,10 @@ jobs:
     name: Spec Sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Install Specter
         id: install
         run: |
@@ -116,10 +116,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [spec-sync, unit]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Install Specter
         run: |
           set -eo pipefail
@@ -167,10 +167,10 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       # protoc + protoc-gen-go installed BEFORE `go test ./...` so
       # TestCodegenSync (the L-007 wire-protocol codegen-drift gate)
       # actually runs instead of self-skipping. The test fails hard
@@ -198,18 +198,18 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
           # install-mode: goinstall builds the linter from source using
-          # the runner's Go (1.25). Required because our deps
-          # (modernc/sqlite) require Go 1.25 and pre-built linter
-          # binaries shipped before that toolchain release can't read
-          # 1.25 export data.
+          # the runner's Go (pinned by go-version-file: go.mod above).
+          # Required because our deps (modernc/sqlite) require a recent
+          # Go and pre-built linter binaries shipped against an older
+          # toolchain can't read the newer Go's export data.
           install-mode: goinstall
           # Read .golangci.yml from the repo root. Comment-style rules
           # (revive exported, godot, misspell, gocritic) enforce
@@ -225,12 +225,12 @@ jobs:
     name: Comment lint (no planning labels in new comments)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Ensure base ref is present
         run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
       - name: comment-lint (added lines vs origin/main)
@@ -244,8 +244,8 @@ jobs:
     name: Pre-commit hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install pre-commit
@@ -262,10 +262,10 @@ jobs:
     name: Build & Static Linking Verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Build all binaries
         run: make build
       - name: Verify static linking via ldd
@@ -312,10 +312,10 @@ jobs:
     name: Portability — glibc 2.28 (RHEL 8)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Build static binary
         run: make build
       - name: Verify binary runs in rockylinux:8 (glibc 2.28)
@@ -349,10 +349,10 @@ jobs:
     name: CLI Smoke Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Build all binaries
         run: make build
       - name: Run cli-smoke.sh
@@ -372,10 +372,10 @@ jobs:
     name: Portability — Alpine (musl)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Build static binary
         run: make build
       - name: Verify binary runs in alpine:3 (musl libc)
@@ -403,12 +403,12 @@ jobs:
     name: Release snapshot (no publish, no sign)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0  # goreleaser needs full history for version templating
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
       - name: Install goreleaser
         # Pinned to the version that has `archives.formats`,
         # `archives.ids`, and `nfpms.ids` (the post-rename field names
@@ -451,10 +451,10 @@ jobs:
     name: Vulnerability Scan (govulncheck)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.4
+          go-version-file: go.mod
       - name: govulncheck
         # GOFLAGS unset for this step so `go run` can populate the
         # module cache (the top-level `-mod=readonly` would reject any
@@ -473,10 +473,10 @@ jobs:
     name: Module drift check (go mod tidy is a no-op)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.25'  # auto-toolchain promotes to go.mod's 1.26.4
+          go-version-file: go.mod
       - name: go mod tidy + diff
         env:
           GOFLAGS: ''  # tidy needs write access to go.mod / go.sum
@@ -491,8 +491,8 @@ jobs:
     name: Secret scan (detect-secrets)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.x'
       - name: Install detect-secrets
