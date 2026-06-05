@@ -61,11 +61,15 @@ func TestStreamRemediate_DrainsBeyondBuffer(t *testing.T) {
 							<-c.Done()
 							return
 						}
-						select {
-						case out <- ev:
-						case <-c.Done():
-							return
-						}
+						// Forward UNCONDITIONALLY (no Done race here): the helper
+						// keeps reading the channel in its main loop and its
+						// post-cancel tail-drain until we close(out), so this
+						// send always has a reader and is never dropped.
+						// Selecting on c.Done() here was the flake source — it
+						// could drop the last in-flight event when remediate's
+						// done outcome won the main-loop select before this
+						// forward completed.
+						out <- ev
 					}
 				}
 			}()

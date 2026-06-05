@@ -54,6 +54,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/engine"
 	"github.com/Hanalyx/kensa/internal/handler"
 	"github.com/Hanalyx/kensa/internal/output"
+	"github.com/Hanalyx/kensa/internal/progress"
 	"github.com/Hanalyx/kensa/internal/rule"
 	rulespath "github.com/Hanalyx/kensa/internal/rules"
 	"github.com/Hanalyx/kensa/internal/scan"
@@ -965,7 +966,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 			framework:      canonicalFramework,
 			controlFilters: controlFilters,
 		}
-		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, workers, format, spec, configDir, cliVars, quiet, outputs)
+		return runCheckInventory(ctx, inventory, limit, user, port, keyPath, sudo, strictHostKeys, capOverrides, workers, format, spec, configDir, cliVars, quiet, progressMode, outputs)
 	}
 	if host == "" {
 		printCheckUsage(os.Stderr, fs)
@@ -1102,7 +1103,7 @@ Examples:
 // checkOptions struct. The C-019 review flagged this; deferred to
 // a separate refactor ticket because changing the signature mid-
 // fan-out wiring would obscure the diff.
-func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, workers int, format string, spec ruleLoadFilterSpec, configDir string, cliVars varsub.Variables, quiet bool, outputs []string) error {
+func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, port int, keyPath string, sudo, strictHostKeys bool, capOverrides api.CapabilitySet, workers int, format string, spec ruleLoadFilterSpec, configDir string, cliVars varsub.Variables, quiet bool, progressMode string, outputs []string) error {
 	hosts, err := parseInventory(inventoryPath)
 	if err != nil {
 		return fmt.Errorf("inventory: %w", err)
@@ -1178,10 +1179,36 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 	}
 
 	results := make([]hostResult, len(hosts))
+
+	// PR6: live host-prefixed progress on stderr while the parallel
+	// per-host scans run. The merge is a fan-in: each worker gets its own
+	// host-stamping sink that sends Updates on one shared channel; a single
+	// closer goroutine wg.Wait()s the workers then closes the channel; a
+	// single renderer goroutine ranges the channel into one stderr text
+	// consumer (spec cli-inventory-stream). Workers never touch the writer.
+	//
+	// Enabled exactly like the single-host path (spec cli-progress-stream
+	// C-02): auto => stderr-is-TTY && !quiet; always/never override. When
+	// disabled, merge stays nil and every worker passes a nil sink to
+	// scan.New — byte-identical to pre-PR6.
+	var merge *inventoryMerge
+	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
+		merge = newInventoryMerge(newProgressSink(os.Stderr, stderrIsTerminal()))
+	}
+
 	// C-029: per-host work runs through fanOutBounded which caps
 	// concurrent goroutines at `workers` (1-50, validated upstream).
 	// fanOutBounded honors ctx cancellation between items.
 	fanOutBounded(ctx, hosts, workers, func(idx int, ih inventoryHost) {
+		// PR6: this worker's host-stamping sink (nil when progress off).
+		// done MUST be called exactly once per worker so the closer's
+		// wg.Wait() can complete — defer it across every return path.
+		var hostSink progress.Sink
+		if merge != nil {
+			var done func()
+			hostSink, done = merge.workerSink(ih.addr)
+			defer done()
+		}
 		u := ih.user
 		if user != "" {
 			u = user
@@ -1223,7 +1250,15 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 			return
 		}
 		defer func() { _ = transport.Close() }()
-		runner := scan.New(nil)
+		// PR6: wire this host's stamping sink so per-rule progress merges
+		// onto the shared stderr stream (nil sink => byte-identical to
+		// pre-PR6). The runner emits Updates with an empty Host; hostSink
+		// stamps ih.addr before the merge channel carries them.
+		var scanOpts []scan.Option
+		if hostSink != nil {
+			scanOpts = append(scanOpts, scan.WithProgress(hostSink))
+		}
+		runner := scan.New(nil, scanOpts...)
 		res, err := runner.ScanWithOverrides(ctx, transport, hostResolved.Order, capOverrides)
 		if err != nil {
 			results[idx] = hostResult{host: ih, err: err}
@@ -1232,6 +1267,15 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 		res.HostID = ih.addr
 		results[idx] = hostResult{host: ih, rules: hostResolved.Order, result: res}
 	})
+
+	// PR6: dispatch is complete (every worker registered). Release the
+	// dispatch guard and wait for the merge to fully drain so the canonical
+	// stdout result docs below do not interleave with the progress stream
+	// (spec cli-inventory-stream C-04/C-05).
+	if merge != nil {
+		merge.dispatchDone()
+		merge.wait()
+	}
 
 	stdoutOverride := bodyOut(quiet)
 	if len(outputs) > 0 {

@@ -1,0 +1,195 @@
+spec:
+    id: cli-inventory-stream
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: cli-inventory-stream
+        description: |
+            PR4 wired the FIRST user-visible streaming: `kensa check` and
+            `kensa detect` (single host) feed the text renderer via the
+            SYNCHRONOUS progress.Sink. PR5 wired the engine-backed single-host
+            `kensa remediate`. Both are single-host: the per-host runner's sink
+            renders Updates with an EMPTY Host field directly to stderr.
+
+            PR6 extends live progress to the ONLY multi-host path that exists:
+            `kensa check --inventory` (and, by the same machinery, detect has no
+            inventory mode, and remediate/rollback both require --host, so this
+            PR is check-inventory ONLY). Before PR6, runCheckInventory fanned out
+            per-host scans through fanOutBounded, stored each host's ScanResult in
+            a results slice, and rendered everything AFTER the fan-out returned —
+            there was no live progress during the parallel scan.
+
+            PR6 replaces that buffer-then-render-progress with a LIVE MERGE while
+            preserving the canonical stdout path unchanged. The merge topology is
+            the textbook fan-in:
+
+              - ONE channel of progress.Update carries every host's updates.
+              - Each per-host worker gets its OWN sink that STAMPS that host's
+                addr (the CLI knows the addr from the inventory entry) onto every
+                Update and sends it on the shared channel. The scan runner itself
+                still emits Updates with an empty Host; the host-stamping wrapper
+                attributes them. Workers NEVER touch the stderr writer directly —
+                they only send Updates onto the channel.
+              - A producer WaitGroup counts the live workers. A SINGLE closer
+                goroutine does wg.Wait() then close(channel) — exactly once, after
+                the last worker has sent its last Update.
+              - A SINGLE renderer goroutine ranges over the channel to close,
+                writing each Update (host-prefixed) to the text StreamConsumer on
+                stderr. Because there is exactly one renderer goroutine and one
+                writer, the stderr stream needs no per-write mutex: serialization
+                is structural (the channel is the synchronization point).
+
+            Two invariants carry over from the single-host specs and are pinned
+            again for the merge:
+
+              1. ALL merged progress goes to STDERR, host-prefixed; stdout keeps
+                 the concatenated per-host canonical result docs, byte-identical
+                 to a non-progress inventory run. Progress on/off changes only
+                 stderr.
+              2. The result is canonical. The merged stream is display-only and
+                 lossy-tolerant; the per-host ScanResult docs on stdout come from
+                 each runner's returned result, never reconstructed from the
+                 stream. The stdout rendering happens AFTER the merge has fully
+                 drained (workers done -> channel closed -> renderer done), so
+                 progress and result bytes never interleave on different streams
+                 in a way that reorders the result.
+
+            Out of scope (explicitly): the --inventory + -o FILE rejection is NOT
+            reopened — that BLOCKING constraint from C-019 stays exactly as is.
+            remediate/rollback inventory streaming does not exist (no inventory
+            mode). events-jsonl selection and --stream-file are later. In-place
+            TTY polish is PR7.
+
+            Tier 2: like the other streaming specs this mutates nothing and the
+            ScanResult docs stay authoritative, but a botched merge would be a
+            real defect — a closer that closed the channel before a worker's last
+            send would panic (send on closed channel) and abort the whole
+            inventory run, and a worker writing to the shared stderr writer
+            without the channel would race. So the single-closer / single-renderer
+            / workers-never-write topology is spec-pinned.
+
+    objective:
+        summary: |
+            `kensa check --inventory` renders live, host-prefixed per-rule
+            progress on stderr while the parallel per-host scans run, via a
+            fan-in merge: one Update channel, a host-stamping sink per worker
+            that sends on the channel (workers never write to stderr), one closer
+            goroutine that wg.Wait()s then closes the channel exactly once, and
+            one renderer goroutine that ranges the channel to close into the text
+            StreamConsumer on stderr. The concatenated per-host ScanResult docs on
+            stdout are byte-identical to a non-progress inventory run and are
+            rendered only after the merge has fully drained. The --inventory + -o
+            FILE rejection is unchanged.
+        scope:
+            includes:
+                - A host-stamping sink that sets Update.Host to the worker's inventory addr and forwards
+                - A fan-in merge with a single Update channel shared by all per-host workers
+                - A single closer goroutine that wg.Wait()s the producers then closes the channel exactly once
+                - A single renderer goroutine ranging the channel to close into one stderr text consumer
+                - Workers sending Updates only via the channel, never writing to the stderr writer themselves
+                - Merged progress host-prefixed on stderr; stdout carrying the unchanged concatenated per-host result docs
+                - The stdout result docs being rendered only after the merge has fully drained (workers done, channel closed, renderer done)
+            excludes:
+                - Reopening or altering the --inventory + -o FILE rejection (C-019 stays as is)
+                - remediate / rollback inventory streaming (no inventory mode; both require --host)
+                - events-jsonl selection or --stream-file on the inventory path (later PR)
+                - In-place / carriage-return TTY polish (PR7)
+                - Changing the per-host ScanResult docs, exit code, or output serialization based on progress state
+
+    constraints:
+        - id: C-01
+          description: |
+              The inventory merge MUST use exactly one shared channel of
+              progress.Update for all per-host workers. Each worker MUST send its
+              Updates onto that channel through a per-host sink and MUST NOT write
+              to the stderr renderer's writer directly. The host attribution MUST
+              come from the worker's own inventory addr (a host-stamping sink that
+              sets Update.Host), not from the runner.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The host-stamping sink MUST set Update.Host to its configured addr
+              on every Update it forwards, overriding whatever Host the upstream
+              source set (the scan runner emits an empty Host). It MUST forward
+              every Update it receives (nil-safe by convention if its downstream
+              is nil).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Exactly one closer goroutine MUST close the shared channel, and it
+              MUST do so only after a producer WaitGroup that counts all workers
+              has been waited on (wg.Wait() then close). No worker may close the
+              channel. This ordering guarantees no send-on-closed-channel panic:
+              the channel is closed strictly after the last worker's last send.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Exactly one renderer goroutine MUST range over the shared channel
+              until it is closed, delivering each Update to the single stderr text
+              consumer. Because there is one renderer and one writer, no
+              per-write lock is needed; the channel is the synchronization point.
+              The merge MUST deliver every Update a worker sent (lossless fan-in:
+              the channel is unbounded-by-drain, not the lossy 64-slot bus).
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              The concatenated per-host canonical result docs on stdout MUST be
+              independent of progress state: for a fixed inventory run the stdout
+              bytes MUST be identical whether the merge is wired or not. Progress
+              is additive on stderr only. The stdout docs MUST be rendered only
+              after the merge has fully drained (all workers done, channel closed,
+              renderer goroutine finished), so the merge cannot truncate or
+              interleave the canonical result.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              PR6 MUST NOT reopen the --inventory + -o FILE rejection: an
+              inventory run combined with a file-bound -o output stays a usage
+              error exactly as before PR6. The streaming merge applies only to the
+              stderr progress channel, never to -o file serialization.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: The host-stamping sink sets Update.Host to its addr on every forwarded Update, overriding an empty or different upstream Host, and forwards each Update to its downstream.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: The merge fans in Updates from multiple concurrent host workers through one channel and one renderer; every Update sent by every worker is delivered to the consumer (lossless), and each is host-prefixed by the addr its worker stamped.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-03
+          description: A single closer goroutine closes the channel only after wg.Wait() returns; with many workers each sending up to their final Update concurrently, the merge completes with no send-on-closed-channel panic and the renderer ranges to a clean close.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: The merge run() returns only after the renderer goroutine has finished draining the closed channel, so a caller that renders stdout result docs after run() returns is guaranteed the progress stream has fully flushed (no interleave with the canonical result rendering).
+          references_constraints: [C-04, C-05]
+          priority: high
+        - id: AC-05
+          description: For a fixed set of per-host results, the concatenated stdout result docs are identical whether the progress merge was active (sinks wired) or not (nil sinks) — progress changes only stderr.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: An inventory run with a file-bound -o output is still rejected as a usage error; PR6 does not alter that rejection.
+          references_constraints: [C-06]
+          priority: high
+
+    depends_on:
+        - spec_id: progress-renderer
+          relationship: requires
+        - spec_id: cli-progress-stream
+          relationship: requires
+        - spec_id: cli-workers-flag
+          relationship: requires
+
+    tags: [cli, progress, streaming, inventory, tier-2]

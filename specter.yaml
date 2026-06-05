@@ -134,6 +134,7 @@ domains:
         specs:
             - progress-renderer
             - cli-remediate-stream
+            - cli-inventory-stream
 
 settings:
     specs_dir: specs
