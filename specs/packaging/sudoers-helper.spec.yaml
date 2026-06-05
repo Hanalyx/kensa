@@ -77,11 +77,13 @@ spec:
           enforcement: error
         - id: C-03
           description: |
-              postinst MUST create the 'kensa' group when it is absent
-              and MUST be a no-op when it already exists (idempotent
-              across upgrades). Group creation failure MUST NOT fail the
-              install — it degrades to a warning, leaving the sudoers
-              rule inert.
+              postinst MUST create the LOCAL 'kensa' group when it is
+              absent and MUST be a no-op when it already exists
+              (idempotent across upgrades). Presence MUST be tested
+              against the local group file (grep '^kensa:' /etc/group),
+              NOT via `getent` — see C-06. Group creation failure MUST
+              NOT fail the install — it degrades to a warning, leaving
+              the sudoers rule inert.
           type: technical
           enforcement: error
         - id: C-04
@@ -102,6 +104,31 @@ spec:
               touch the network.
           type: security
           enforcement: error
+        - id: C-06
+          description: |
+              The group-existence guard MUST consult the LOCAL group
+              file (/etc/group) and MUST NOT use `getent`. `getent`
+              resolves through nsswitch, so on a host joined to a
+              directory service (LDAP / NIS / SSSD / AD) a remote group
+              merely *named* "kensa" would make the guard skip groupadd;
+              the shipped %kensa rule would then resolve to that remote
+              group's members, granting them passwordless root on
+              install and breaking the empty-group invariant (C-04).
+              Checking /etc/group directly guarantees a local group we
+              control is created.
+
+              RESIDUAL ASSUMPTION (documented, accepted limit): sudo
+              itself resolves %kensa through nsswitch, so the local
+              group does not override a *populated* remote group of the
+              same name for sudo's own matching. An environment that
+              already has a populated directory group named "kensa" MUST
+              rename or scope it before installing, or those members
+              gain the helper grant regardless of this guard. The local
+              empty group keeps the common (no-collision) case
+              zero-blast-radius; the collision case is an explicit
+              operator-facing limit recorded in docs/test_docs/security.md.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -117,11 +144,11 @@ spec:
           references_constraints: [C-01, C-02]
           priority: high
         - id: AC-03
-          description: With the 'kensa' group absent (stub getent exits non-zero), postinst invokes groupadd with "--system kensa" exactly once and exits 0.
+          description: With no kensa line in the GROUP_FILE (local group absent), postinst invokes groupadd with "--system kensa" exactly once and exits 0.
           references_constraints: [C-03]
           priority: critical
         - id: AC-04
-          description: With the 'kensa' group present (stub getent exits 0), postinst does NOT invoke groupadd and exits 0 — idempotent.
+          description: With a kensa line present in the GROUP_FILE (local group present), postinst does NOT invoke groupadd and exits 0 — idempotent.
           references_constraints: [C-03]
           priority: critical
         - id: AC-05
@@ -131,6 +158,14 @@ spec:
         - id: AC-06
           description: The postinst script source references no network-fetching tool (curl, wget, nc, ssh, git, dnf, apt) in any non-comment line — verified by grep.
           references_constraints: [C-05]
+          priority: high
+        - id: AC-07
+          description: When the local GROUP_FILE has no kensa line but a same-named group could exist remotely (the LDAP/NIS/SSSD case), postinst still invokes groupadd "--system kensa" — i.e. it does not defer to a remote group. Verified with a GROUP_FILE that omits kensa.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: The built rpm AND deb ship /etc/sudoers.d/kensa-systemd-helper at mode 0440 owned by root:root and flagged as a config/conffile. Verified in CI's release-snapshot job by extracting the artifacts (dpkg-deb / rpm), NOT by the Go test suite.
+          references_constraints: [C-02]
           priority: high
 
     depends_on: []

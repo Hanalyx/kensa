@@ -439,6 +439,41 @@ jobs:
             exit 1
           fi
           echo "✓ 11/11 expected artifacts present"
+      - name: Verify sudoers fragment ships 0440 root:root (rpm + deb)
+        run: |
+          # packaging-sudoers-helper C-02 / AC-08: the sudoers.d file must
+          # ship mode 0440 owned by root:root AND be flagged a config file
+          # in BOTH formats. sudo silently ignores a group/world-writable
+          # OR non-root-owned sudoers.d file, so owner drift would disable
+          # the escalation path with no other signal. Assert against the
+          # actually-built artifacts, not just the .goreleaser.yaml tokens.
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq rpm >/dev/null
+          deb=$(ls dist/kensa_*_linux_amd64.deb | head -1)
+          rpm=$(ls dist/kensa_*_linux_amd64.rpm | head -1)
+          fail=0
+
+          echo "== deb: $deb =="
+          dline=$(dpkg-deb -c "$deb" | grep 'etc/sudoers.d/kensa-systemd-helper' || true)
+          echo "$dline"
+          echo "$dline" | grep -qE '^-r--r----- +root/root ' \
+            || { echo "::error::deb: sudoers fragment not 0440 root:root"; fail=1; }
+          dpkg-deb --ctrl-tarfile "$deb" | tar -xO ./conffiles 2>/dev/null \
+            | grep -qx /etc/sudoers.d/kensa-systemd-helper \
+            || { echo "::error::deb: sudoers fragment not registered as a conffile"; fail=1; }
+
+          echo "== rpm: $rpm =="
+          rline=$(rpm -qlvp "$rpm" 2>/dev/null | grep '/etc/sudoers.d/kensa-systemd-helper' || true)
+          echo "$rline"
+          echo "$rline" | grep -qE '^-r--r----- +[0-9]+ +root +root ' \
+            || { echo "::error::rpm: sudoers fragment not 0440 root:root"; fail=1; }
+          rpm -qcp "$rpm" 2>/dev/null | grep -qx /etc/sudoers.d/kensa-systemd-helper \
+            || { echo "::error::rpm: sudoers fragment not flagged as config"; fail=1; }
+
+          if [ "$fail" = "0" ]; then
+            echo "✓ sudoers fragment is 0440 root:root + config in rpm and deb"
+          fi
+          exit "$fail"
 
   vulnerability-scan:
     # Track S S-005: govulncheck against the binary call graph. Blocks
