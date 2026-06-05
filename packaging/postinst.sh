@@ -31,7 +31,7 @@
 
 set -eu
 
-# --- Service-handler support: ensure the 'kensa' group exists --------
+# --- Service-handler support: ensure the LOCAL 'kensa' group exists ---
 # The package ships /etc/sudoers.d/kensa-systemd-helper, which grants
 # members of the 'kensa' group passwordless root execution of the
 # systemd helper. We create that group here, EMPTY: a fresh install
@@ -40,17 +40,34 @@ set -eu
 # keeps the privilege boundary opt-in — the shipped sudoers rule is
 # inert until a human deliberately adds a member.
 #
-# Idempotent: re-running on upgrade is a no-op when the group already
-# exists. Failure to create the group is a warning, not an install
-# failure — the sudoers rule simply stays inert (sudo treats an unknown
+# We test for the group by grepping /etc/group directly, NOT via
+# `getent group kensa`. getent resolves through nsswitch, so on a host
+# joined to a directory service (LDAP / NIS / SSSD / AD) a *remote*
+# group happening to be named "kensa" would make the guard skip
+# groupadd — and the shipped %kensa sudoers rule would then resolve to
+# that remote group's members, handing them passwordless root on
+# install. groupadd writes to /etc/group, so a local-file check is the
+# correct symmetry and guarantees we create a local group we control.
+#
+# Residual assumption (documented in specs/packaging/sudoers-helper.spec.yaml
+# C-06 and docs/test_docs/security.md): sudo itself resolves %kensa
+# through nsswitch, so an environment that already has a *populated*
+# directory group named "kensa" must rename/scope it before installing,
+# or those members gain the helper grant regardless of this local group.
+# The local empty group keeps the common case (no name collision)
+# zero-blast-radius; the collision case is an explicit, documented limit.
+#
+# Idempotent: re-running on upgrade is a no-op when the local group
+# already exists. Failure to create the group is a warning, not an
+# install failure — the sudoers rule stays inert (sudo treats an unknown
 # group as no match) until the operator creates the group by hand.
 #
-# GETENT_CMD / GROUPADD_CMD are override hooks for the packaging tests
+# GROUP_FILE / GROUPADD_CMD are override hooks for the packaging tests
 # (see packaging/postinst_test.go) exactly like RULES_DIR below; nothing
 # sets them on a real install, so the defaults apply.
-GETENT_CMD="${GETENT_CMD:-getent}"
+GROUP_FILE="${GROUP_FILE:-/etc/group}"
 GROUPADD_CMD="${GROUPADD_CMD:-groupadd}"
-if ! "$GETENT_CMD" group kensa >/dev/null 2>&1; then
+if ! grep -q '^kensa:' "$GROUP_FILE" 2>/dev/null; then
     "$GROUPADD_CMD" --system kensa >/dev/null 2>&1 || \
         printf '%s\n' "kensa post-install: could not create the 'kensa' group; create it with 'groupadd --system kensa' before using the service handlers." >&2
 fi

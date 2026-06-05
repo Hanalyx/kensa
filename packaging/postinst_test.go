@@ -35,19 +35,20 @@ func postinstPath(t *testing.T) string {
 // and returns (stdout, stderr, exitCode).
 func runPostinst(t *testing.T, rulesDir string) (string, string, int) {
 	t.Helper()
-	// GETENT_CMD=true makes the service-handler group block treat the
-	// 'kensa' group as already present, so it never shells out to
-	// groupadd. That keeps these rules-corpus tests isolated from group
+	// GROUPADD_CMD=true makes the service-handler group block a no-op:
+	// whatever the host's /etc/group says, the "groupadd" it shells out
+	// to is /bin/true, so it never mutates anything and never writes to
+	// stderr. That keeps these rules-corpus tests isolated from group
 	// provisioning (and keeps stderr clean for the AC-01 silent-path
-	// assertion on hosts where the group is absent and groupadd would
-	// fail). The dedicated group tests below drive that block directly.
-	return runPostinstEnv(t, []string{"RULES_DIR=" + rulesDir, "GETENT_CMD=true"})
+	// assertion). The dedicated group tests below drive that block
+	// directly via GROUP_FILE.
+	return runPostinstEnv(t, []string{"RULES_DIR=" + rulesDir, "GROUPADD_CMD=true"})
 }
 
 // runPostinstEnv executes postinst.sh under /bin/sh with a fully
 // specified extra-env slice (appended to os.Environ) and returns
 // (stdout, stderr, exitCode). Used by the group-provisioning tests to
-// inject GETENT_CMD / GROUPADD_CMD stubs.
+// inject GROUP_FILE / GROUPADD_CMD stubs.
 func runPostinstEnv(t *testing.T, extra []string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command("/bin/sh", postinstPath(t))
@@ -317,12 +318,17 @@ func TestPostinst_CreatesKensaGroupWhenAbsent(t *testing.T) {
 
 	stubDir := t.TempDir()
 	log := filepath.Join(t.TempDir(), "groupadd.log")
-	getent := writeStub(t, stubDir, "getent", "exit 1") // group absent
+	// Group "absent": a group file with no kensa line. Local-file check,
+	// NOT getent — see the postinst comment on the nsswitch threat.
+	groupFile := filepath.Join(t.TempDir(), "group")
+	if err := os.WriteFile(groupFile, []byte("root:x:0:\ndaemon:x:1:\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	groupadd := writeStub(t, stubDir, "groupadd", "printf '%s\\n' \"$*\" >> "+log)
 
 	_, stderr, exit := runPostinstEnv(t, []string{
 		"RULES_DIR=" + populatedRulesDir(t),
-		"GETENT_CMD=" + getent,
+		"GROUP_FILE=" + groupFile,
 		"GROUPADD_CMD=" + groupadd,
 	})
 	if exit != 0 {
@@ -342,18 +348,57 @@ func TestPostinst_CreatesKensaGroupWhenAbsent(t *testing.T) {
 }
 
 // @spec packaging-sudoers-helper
+// @ac AC-07
+func TestPostinst_IgnoresRemoteOnlyGroup(t *testing.T) {
+	t.Run("packaging-sudoers-helper/AC-07", func(t *testing.T) {})
+
+	// The local /etc/group has NO kensa line — simulating a host where
+	// "kensa" exists only in a directory service (LDAP/NIS/SSSD), which
+	// `getent` would have matched but a local-file check must not. The
+	// guard MUST still create the local group so the privilege boundary
+	// doesn't silently defer to the remote group's membership.
+	stubDir := t.TempDir()
+	log := filepath.Join(t.TempDir(), "groupadd.log")
+	groupFile := filepath.Join(t.TempDir(), "group")
+	if err := os.WriteFile(groupFile, []byte("root:x:0:\nsudo:x:27:alice\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	groupadd := writeStub(t, stubDir, "groupadd", "printf '%s\\n' \"$*\" >> "+log)
+
+	_, stderr, exit := runPostinstEnv(t, []string{
+		"RULES_DIR=" + populatedRulesDir(t),
+		"GROUP_FILE=" + groupFile,
+		"GROUPADD_CMD=" + groupadd,
+	})
+	if exit != 0 {
+		t.Fatalf("expected exit 0, got %d; stderr=%q", exit, stderr)
+	}
+	got, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("guard must create the LOCAL group even when a same-named remote group could exist: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != "--system kensa" {
+		t.Errorf("groupadd args = %q, want %q", strings.TrimSpace(string(got)), "--system kensa")
+	}
+}
+
+// @spec packaging-sudoers-helper
 // @ac AC-04
 func TestPostinst_GroupCreationIdempotent(t *testing.T) {
 	t.Run("packaging-sudoers-helper/AC-04", func(t *testing.T) {})
 
 	stubDir := t.TempDir()
 	log := filepath.Join(t.TempDir(), "groupadd.log")
-	getent := writeStub(t, stubDir, "getent", "exit 0") // group present
+	// Group "present": a local group file that already has a kensa line.
+	groupFile := filepath.Join(t.TempDir(), "group")
+	if err := os.WriteFile(groupFile, []byte("root:x:0:\nkensa:x:999:\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	groupadd := writeStub(t, stubDir, "groupadd", "printf '%s\\n' \"$*\" >> "+log)
 
 	_, stderr, exit := runPostinstEnv(t, []string{
 		"RULES_DIR=" + populatedRulesDir(t),
-		"GETENT_CMD=" + getent,
+		"GROUP_FILE=" + groupFile,
 		"GROUPADD_CMD=" + groupadd,
 	})
 	if exit != 0 {

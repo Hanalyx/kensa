@@ -66,6 +66,30 @@ Live result on `.217`: 13/31 caps detected (was 7/25).
 
 ---
 
+## Review follow-ups — v0.2.2 multi-agent review (2026-06-04)
+
+Lower-severity items from the adversarial review of the v0.2.2 PRs. The
+two MEDIUM findings (postinst `getent`→`/etc/group`; built-artifact
+mode+owner CI assertion) were fixed directly; these are the LOW/NIT
+residue, deferred by the founder.
+
+- **LOW (security, defense-in-depth):** `cmd/kensa-systemd-helper/main.go`
+  `euidCheck` honors `KENSA_HELPER_EUID_OVERRIDE` unconditionally (no
+  build-tag guard; the code comment already flags the lock as deferred).
+  Now that the package ships this binary as the *sanctioned* sudo
+  escalation target, lock the override behind a `//go:build test` tag so
+  the released helper ignores the env var entirely. Currently mitigated:
+  the shipped sudoers fragment sets no `env_keep`/`setenv`, so sudo's
+  default `env_reset` strips the var on the sanctioned path — residual
+  risk is a future `env_keep` regression or a non-sudo root caller only.
+- **NIT (docs):** `.github/workflows/ci.yml` secret-scan step comment
+  says CI and pre-commit "agree byte-for-byte" — overstated. They share
+  one exclude policy, but CI scans the full tracked tree each run while
+  pre-commit scans staged files incrementally. Reword when next touching
+  the file.
+
+---
+
 ## Architecture review findings
 
 These items came from a code review of whether Kensa's implementation
