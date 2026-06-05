@@ -99,7 +99,7 @@ var detectFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "output", "quiet"},
+		flags: []string{"format", "output", "quiet", "progress"},
 	},
 }
 
@@ -128,7 +128,7 @@ var checkFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "output", "quiet", "verbose"},
+		flags: []string{"format", "output", "quiet", "verbose", "progress"},
 	},
 }
 

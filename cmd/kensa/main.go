@@ -556,6 +556,7 @@ func runDetect(ctx context.Context, args []string) error {
 		sudo         bool
 		format       string
 		quiet        bool
+		progressMode string
 		outputs      []string
 		capabilities []string
 	)
@@ -570,6 +571,7 @@ func runDetect(ctx context.Context, args []string) error {
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	registerProgressFlag(fs, &progressMode)
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable (e.g., -o json -o csv:results.csv)")
 
 	if err := fs.Parse(args); err != nil {
@@ -590,9 +592,12 @@ func runDetect(ctx context.Context, args []string) error {
 	warnDeprecatedFlag(fs, "format", "--output FORMAT[:PATH]")
 
 	// Flag-only constraints up front, before SSH setup. Bad
-	// --password, --strict-host-keys conflicts, or malformed
-	// --capability entries should surface before we open a
-	// transport.
+	// --password, --strict-host-keys conflicts, malformed
+	// --capability entries, or an unknown --progress mode should
+	// surface before we open a transport.
+	if err := validateProgressMode(progressMode); err != nil {
+		return err
+	}
 	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
 	if err != nil {
 		return &UsageError{Cause: err}
@@ -621,7 +626,19 @@ func runDetect(ctx context.Context, args []string) error {
 	}
 	defer func() { _ = transport.Close() }()
 
-	caps, err := detect.Detect(ctx, transport)
+	// PR4: live per-probe progress on stderr when enabled (auto =
+	// stderr is a TTY and not --quiet; always/never override). The
+	// renderer writes only to stderr; the capability set on stdout is
+	// unchanged whether progress is on or off (spec cli-progress-stream
+	// C-05/C-06). Off => detect.Detect (nil sink), byte-identical to
+	// pre-PR4.
+	var caps api.CapabilitySet
+	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
+		sink := newProgressSink(os.Stderr, stderrIsTerminal())
+		caps, err = detect.DetectWithProgress(ctx, transport, sink)
+	} else {
+		caps, err = detect.Detect(ctx, transport)
+	}
 	if err != nil {
 		return fmt.Errorf("detect: %w", err)
 	}
@@ -700,6 +717,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		limit        string
 		quiet        bool
 		verbose      bool
+		progressMode string
 		outputs      []string
 		capabilities []string
 		workers      int
@@ -738,6 +756,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 	registerWorkersFlag(fs, &workers)
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 	fs.BoolVarP(&verbose, "verbose", ShortVerbose, false, "expand the compacted PASSED list (text format only)")
+	registerProgressFlag(fs, &progressMode)
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
 
 	if err := fs.Parse(args); err != nil {
@@ -778,8 +797,12 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 
 	// Flag-only validations up front, before rule load and SSH
 	// setup. Bad --strict-host-keys conflicts, malformed
-	// --capability, out-of-range --workers, or unknown --severity
-	// should surface before we touch the filesystem.
+	// --capability, out-of-range --workers, unknown --severity, or
+	// an unknown --progress mode should surface before we touch the
+	// filesystem.
+	if err := validateProgressMode(progressMode); err != nil {
+		return err
+	}
 	strictHostKeys, err := resolveStrictHostKeys(fs)
 	if err != nil {
 		return err
@@ -991,7 +1014,18 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 
 	resolved := resolveAndPrintIssues(rules, quiet)
 
-	runner := scan.New(nil)
+	// PR4: live per-rule progress on stderr when enabled (auto =
+	// stderr is a TTY and not --quiet; always/never override). The
+	// text renderer writes only to stderr; the canonical ScanResult on
+	// stdout is identical whether progress is on or off (spec
+	// cli-progress-stream C-05/C-06). Off => scan.New(nil), a nil sink,
+	// byte-identical to pre-PR4.
+	var scanOpts []scan.Option
+	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
+		sink := newProgressSink(os.Stderr, stderrIsTerminal())
+		scanOpts = append(scanOpts, scan.WithProgress(sink))
+	}
+	runner := scan.New(nil, scanOpts...)
 	startedAt := time.Now().UTC()
 	result, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
 	if err != nil {

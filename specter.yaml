@@ -96,6 +96,7 @@ domains:
             - cli-phase4-close
             - cli-phase5a-close
             - cli-polish-c023
+            - cli-progress-stream
             - cli-quiet
             - cli-rollback-session-aware
             - cli-rule-flag
