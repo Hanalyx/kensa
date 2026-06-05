@@ -14,6 +14,68 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.2.2 — 2026-06-05
+
+Supply-chain and service-handler hardening on top of v0.2.1. The
+headline operator-facing change is that the package now provisions the
+systemd-helper sudo escalation path itself; the rest is supply-chain
+trust posture (a govulncheck gate that immediately paid for itself by
+forcing two toolchain CVE bumps) and a new capability probe.
+
+### Added
+
+- **Sudoers fragment + `kensa` group, shipped by the package** — the
+  rpm and deb now install `/etc/sudoers.d/kensa-systemd-helper` (mode
+  `0440`, root-owned, registered as a config file) granting
+  `%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper`, and
+  `postinst` creates the `kensa` group **empty**. The service handlers
+  (`service_enabled` / `_disabled` / `_masked`) previously required a
+  manual sudoers step; the operator's remaining action shrinks to
+  `usermod -aG kensa <user>`. The empty group means a fresh install
+  grants the escalation to nobody. Spec `packaging-sudoers-helper`.
+- **`pam_tally2` capability probe** — detects the legacy account-lockout
+  module present on older Debian/Ubuntu (≤18.04) and RHEL 7, where
+  `pam_faillock` is absent, so rules can gate a fallback.
+- **Supply-chain CI gates** — a `govulncheck` vulnerability scan, a
+  `go mod tidy` drift check, top-level `GOFLAGS=-mod=readonly`, a
+  `detect-secrets` baseline + pre-commit hook, and Dependabot for the
+  `gomod` and `github-actions` ecosystems.
+
+### Changed
+
+- **Go toolchain pinned to 1.26.4** via the `go.mod` `go` directive;
+  building from source now requires Go 1.26.4+.
+- **CI actions moved to their Node 24 majors** — `actions/checkout@v5`,
+  `actions/setup-go@v6`, `actions/setup-python@v6` — ahead of GitHub's
+  Node 20 removal. `setup-go` now installs the exact toolchain from
+  `go.mod` (`go-version-file`).
+- **Install guide** rewritten for the now-automatic service-handler
+  setup and the Go 1.26.4 build requirement.
+
+### Security
+
+- The shipped `%kensa` NOPASSWD rule is **inert on install**: the group
+  is created empty, and the post-install guard checks `/etc/group`
+  directly rather than via `getent`, so a same-named directory
+  (LDAP/NIS/SSSD) group cannot silently inherit the grant. The residual
+  limit — `sudo`'s own `%kensa` resolution still consults nsswitch — is
+  documented as an explicit install-time precondition.
+- **Eight standard-library CVEs cleared.** The new govulncheck gate
+  surfaced six stdlib advisories (fixed by the 1.26.3 bump) and then
+  `GO-2026-5039` (net/textproto) + `GO-2026-5037` (crypto/x509), fixed
+  by 1.26.4.
+- CI now **asserts the sudoers fragment ships at `0440` root:root** in
+  both the rpm and the deb on every build (owner drift would silently
+  disable the rule).
+
+### Fixed
+
+- The secret-scan CI job no longer false-fails on `detect-secrets`
+  baseline metadata churn — it uses the non-mutating `detect-secrets-hook`
+  entrypoint, the same code path as the pre-commit hook.
+- Removed a stray committed gitlink (`.claude/worktrees/...`) that made
+  every `git checkout` emit a submodule warning.
+
 ## v0.2.1 — 2026-05-28
 
 Packaging-UX hardening on top of v0.2.0's first signed packages. No
