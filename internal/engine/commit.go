@@ -110,7 +110,7 @@ func (e *Engine) finalize(
 			TxnID:     &txn.ID,
 			HostID:    txn.HostID,
 			Timestamp: now,
-			Data:      api.RolledBackData{Source: source},
+			Data:      api.RolledBackData{Source: source, RuleID: txn.RuleID},
 		})
 	}
 
@@ -139,6 +139,7 @@ func (e *Engine) errored(ctx context.Context, txn *api.Transaction, startedAt ti
 			Phase:    phase,
 			Success:  false,
 			Duration: time.Since(startedAt),
+			RuleID:   txn.RuleID,
 		},
 	})
 	return result

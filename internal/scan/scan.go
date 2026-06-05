@@ -23,6 +23,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/check"
 	"github.com/Hanalyx/kensa/internal/detect"
 	"github.com/Hanalyx/kensa/internal/mappings"
+	"github.com/Hanalyx/kensa/internal/progress"
 	"github.com/Hanalyx/kensa/internal/rule"
 )
 
@@ -43,11 +44,32 @@ type CheckResult struct {
 type Runner struct {
 	// engine backs remediations. When nil, Remediate returns an error.
 	engine api.Engine
+	// progress is the optional display sink. When nil, no progress is
+	// emitted and behavior is byte-identical to a Runner with no sink.
+	progress progress.Sink
 }
 
-// New returns a Runner. Pass a non-nil engine to enable Remediate.
-func New(eng api.Engine) *Runner {
-	return &Runner{engine: eng}
+// Option configures a [Runner] at construction time.
+type Option func(*Runner)
+
+// WithProgress wires a progress [progress.Sink] into the Runner so that
+// ScanWithOverrides emits a per-rule RuleChecked Update. Passing a nil sink
+// (or omitting the option entirely) leaves the Runner's behavior
+// byte-identical to today — the sink is the only added effect, and delivery
+// is nil-safe via [progress.Emit].
+func WithProgress(sink progress.Sink) Option {
+	return func(r *Runner) { r.progress = sink }
+}
+
+// New returns a Runner. Pass a non-nil engine to enable Remediate, and
+// optionally one or more [Option]s (e.g. [WithProgress]). With no options the
+// Runner emits no progress and behaves exactly as before this seam was added.
+func New(eng api.Engine, opts ...Option) *Runner {
+	r := &Runner{engine: eng}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Scan checks every rule against the host reachable via transport and
@@ -71,18 +93,32 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 	hostID := "" // transport does not expose hostname; populated by caller
 	result := &api.ScanResult{HostID: hostID}
 
-	for _, rl := range rules {
+	total := len(rules)
+	for i, rl := range rules {
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Detail: err.Error(),
+			})
 			continue
 		}
 
 		passed, detail, checkErr := check.Run(ctx, transport, impl.Check)
 		if checkErr != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Detail: checkErr.Error(),
+			})
 			continue
 		}
+
+		r.emit(progress.Update{
+			Kind: progress.RuleChecked, RuleID: rl.ID,
+			Index: i + 1, Total: total, OK: passed, Detail: detail,
+		})
 
 		status := api.StatusRolledBack // "not compliant"
 		if passed {
@@ -161,6 +197,19 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		result.Transactions = append(result.Transactions, *txr)
 	}
 	return result, nil
+}
+
+// emit delivers a progress Update to the Runner's sink, treating a nil sink
+// as a no-op and swallowing any panic the sink raises. Progress is cosmetic
+// and strictly subordinate to the scan path: a misbehaving sink MUST NEVER
+// break or abort a scan (spec progress-emission C-05), mirroring the engine's
+// deliberate event-publish error-swallow.
+func (r *Runner) emit(u progress.Update) {
+	if r.progress == nil {
+		return
+	}
+	defer func() { _ = recover() }()
+	progress.Emit(r.progress, u)
 }
 
 // implToTransaction converts a selected rule implementation into an

@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/progress"
 )
 
 // probe is a single capability probe: a name and the shell command to
@@ -189,11 +190,41 @@ var probes = []probe{
 // errors on individual probes are suppressed — the capability is
 // marked false and detection continues with the remaining probes.
 func Detect(ctx context.Context, transport api.Transport) (api.CapabilitySet, error) {
+	return DetectWithProgress(ctx, transport, nil)
+}
+
+// DetectWithProgress is the progress-emitting sibling of [Detect]. It runs
+// the same probes and returns the same [api.CapabilitySet], but additionally
+// emits one [progress.ProbeDone] Update per probe to sink (the probe name in
+// Detail, OK the probe result, with a 1-based Index over the probe Total).
+//
+// Detect's signature is intentionally left unchanged for callers that do not
+// want progress; DetectWithProgress(ctx, transport, nil) is identical to
+// Detect. A sink that panics MUST NEVER break detection — emission is
+// cosmetic and subordinate to the probe path (spec progress-emission C-05).
+func DetectWithProgress(ctx context.Context, transport api.Transport, sink progress.Sink) (api.CapabilitySet, error) {
 	caps := make(api.CapabilitySet, len(probes))
-	for _, p := range probes {
-		caps[p.name] = runProbe(ctx, transport, p.cmd)
+	total := len(probes)
+	for i, p := range probes {
+		ok := runProbe(ctx, transport, p.cmd)
+		caps[p.name] = ok
+		emitProbe(sink, progress.Update{
+			Kind: progress.ProbeDone, Index: i + 1, Total: total,
+			OK: ok, Detail: p.name,
+		})
 	}
 	return caps, nil
+}
+
+// emitProbe delivers a probe Update to sink, treating a nil sink as a no-op
+// and swallowing any panic the sink raises so a misbehaving sink cannot abort
+// detection (spec progress-emission C-05).
+func emitProbe(sink progress.Sink, u progress.Update) {
+	if sink == nil {
+		return
+	}
+	defer func() { _ = recover() }()
+	progress.Emit(sink, u)
 }
 
 // runProbe executes one probe command and returns true when it exits
