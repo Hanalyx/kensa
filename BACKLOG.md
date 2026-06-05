@@ -45,10 +45,26 @@ Live result on `.217`: 13/31 caps detected (was 7/25).
 
 ## Handlers
 
-- `audit_rule_set` — handler stub exists; implementation pending (Week 6 partial).
-- `grub_parameter_set` — non-capturable; requires deadman-guarded write to `/etc/default/grub` + `grub2-mkconfig`.
-- `command_exec` — generic escape hatch for one-off remediation commands not covered by a structured handler.
-- `manual` — mechanism that marks a rule as requiring human intervention; engine records it as `StatusSkipped` with a note.
+All four mechanisms originally listed here have **shipped** (29 handlers
+total now — see `CLAUDE.md` § "Shipped Handlers"):
+
+- ~~`audit_rule_set` — implementation pending.~~ **SHIPPED** — capturable,
+  `cli-best-effort` shell-out version. The `AUDIT_NETLINK` "Phase 5"
+  variant (transaction-phase events via `elastic/go-libaudit`) remains the
+  v1.0 quality bar; tracked in `docs/roadmap/DELIVERABLES.md`.
+- ~~`grub_parameter_set` — non-capturable, needs a deadman guard.~~
+  **SHIPPED** via #15 / #21 — bootguard-staged, Option-B one-shot trial +
+  saved-default auto-fallback. RHEL 8 `$kernelopts` capture (S-009) is the
+  remaining gated piece.
+- ~~`command_exec` — generic escape hatch.~~ **SHIPPED** (non-capturable;
+  `transactional: false` enforced by engine AC-07).
+- ~~`manual` — marks a rule as requiring human intervention.~~ **SHIPPED**
+  (non-capturable; engine records `StatusSkipped` with a note).
+
+**Remaining:** `commandexec`, `manual`, `grubparameterset`,
+`grubparameterremove`, and `cryptopolicysubpolicy` are shipped but
+**untested** — tests are a v1.0 ship gate (see `CLAUDE.md` § "What's left
+before v1.0").
 
 ---
 
@@ -124,6 +140,65 @@ fully supports the atomic remediation, auditability, and evidence claims.
   `PostStateBundle` to nil. Add post-apply/post-rollback recapture where
   feasible so evidence can prove both pre-state and resulting state, not only
   the attempted apply steps.
+
+---
+
+## Rule corpus review findings
+
+These items came from reviewing how the `rules/` corpus is validated,
+selected, ordered, and applied. On 2026-06-05,
+`kensa-validate --rules-dir rules --cap-check --strict` reported 539 files,
+96 capability-reference errors, and 1 lint warning.
+
+- **Unify capability vocabulary** — `internal/detect` and
+  `internal/rule.KnownCapabilities` maintain separate capability sets.
+  Detection includes `apt`, while strict validation rejects it. Derive
+  validation and CLI override vocabularies from one canonical registry so
+  the checked corpus and runtime selector cannot drift.
+- **Implement or remove unprobed capability gates** — rules reference `gdm`,
+  `nftables_active`, and `rsyslog_active`, but runtime detection does not
+  produce those capabilities. Add probes with tests or replace the gates
+  with existing capabilities. Until fixed, those implementations are
+  unreachable without manual overrides.
+- **Make capability fallbacks non-destructive** — several GDM configuration
+  rules select package-removal defaults when the unprobed `gdm` gate is
+  false. For example, `gdm-login-banner` can choose `apt_absent` or
+  `package_absent` instead of configuring an installed GDM. A missing or
+  unknown capability must skip/not-applicable rather than select a
+  destructive fallback.
+- **Re-detect capabilities across dependency boundaries** — remediation
+  detects capabilities once before processing the ordered rule set.
+  Dependencies can install packages or enable services that change later
+  selection decisions. Re-evaluate affected capabilities after successful
+  dependency remediation, or select each rule immediately before execution.
+  `service-enable-firewalld` followed by `nftables-service-disabled` is a
+  concrete failure case.
+- **Use runtime handler metadata for atomicity validation** — the validator's
+  static non-capturable mechanism list omits `crypto_policy_subpolicy`, even
+  though the registered handler reports non-capturable. As a result,
+  `crypto-policy-no-cbc-ssh`, `crypto-policy-strong-macs`, and
+  `crypto-policy-no-sha1` validate but are rejected by engine preflight.
+  Share handler capability metadata with validation and correct those rule
+  declarations.
+- **Enforce or resolve rule conflicts before remediation** —
+  `conflicts_with` currently produces an advisory warning while both rules
+  remain executable. Add a deterministic exclusion, policy choice, or hard
+  remediation error for contradictory controls such as GDM configuration
+  rules loaded alongside `gdm-removed`.
+- **Enforce platform applicability** — rule `platforms` metadata is not used
+  to exclude rules in the scan/remediate path; OS detection is primarily
+  presentation data. Filter by family/version/derivative before capability
+  selection so RHEL-only controls cannot run on unsupported distributions.
+- **Reduce and test arbitrary command checks** — many findings rely on
+  `method: command`, whose shell semantics cannot be validated by the rule
+  schema. Prefer structured check methods where possible and add corpus
+  tests or real-host fixtures for remaining command checks, including
+  expected exit/output behavior and check/remediation convergence.
+- **Resolve strict lint warning for SELinux policy** —
+  `system/selinux-policy-targeted.yml` checks only
+  `/etc/selinux/config`. Clarify that this is a next-boot configuration
+  control or add an effective/runtime policy check so the finding does not
+  overstate the host's current SELinux state.
 
 ---
 
