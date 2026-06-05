@@ -1,0 +1,124 @@
+spec:
+    id: engine-event-bus
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: in-memory-event-bus
+        description: |
+            InMemoryEventBus is the fan-out event bus the engine publishes
+            transaction-lifecycle events through (TransactionStarted,
+            PhaseCompleted, Committed, RolledBack, deadman). Subscribers —
+            today OpenWatch via pkg/kensa.Service.Subscribe, and soon the
+            kensa CLI's live-progress renderer — follow an in-flight
+            transaction by reading a buffered channel.
+
+            It is Tier 1 because it sits on the engine's hot path: the
+            engine calls Publish synchronously inside Run, so a Publish that
+            blocks, panics, or corrupts state stalls or crashes a live
+            remediation. The specific hazard this spec pins down is a
+            concurrency one — a subscriber whose context is canceled
+            (a CLI Ctrl-C, a per-host fan-out teardown) must never cause a
+            concurrent Publish to send on a closed channel and panic.
+
+    objective:
+        summary: |
+            Publish delivers each event to every matching subscriber without
+            blocking (dropping on a full buffer), assigns a fresh ID when the
+            event ID is nil, closes a subscriber's channel when its context
+            is canceled, and — critically — never panics when Publish races
+            a subscription cancellation.
+        scope:
+            includes:
+                - Fan-out delivery to all matching subscribers
+                - Filter semantics (kind, host)
+                - Non-blocking drop on a full subscriber channel
+                - Channel close on context cancellation
+                - Nil-event-ID assignment
+                - Concurrency safety of Publish vs. subscription cancel
+            excludes:
+                - Event-kind semantics (api/events.go owns the vocabulary)
+                - Cross-process / persistent delivery (this bus is in-process)
+                - Back-pressure policy beyond "drop on full" (OpenWatch's bus owns coalescing)
+
+    constraints:
+        - id: C-01
+          description: |
+              Publish MUST deliver each event to every subscriber whose
+              filter matches it (fan-out), and MUST NOT deliver it to a
+              subscriber whose filter excludes it (by kind or host).
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Publish MUST NOT block on a subscriber whose buffered channel
+              is full; it drops the event for that subscriber (non-blocking
+              send) and continues. A slow or stalled subscriber cannot stall
+              the engine's synchronous publish on its hot path.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A subscription's channel MUST close when the subscriber's
+              context is done, so the consumer detects termination via a
+              closed-channel receive.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Publish MUST assign a fresh UUID to event.ID when it is the nil
+              UUID, so every delivered event is identifiable.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Publish MUST NEVER send on a closed channel. Delivery and
+              channel-close MUST be mutually exclusive: a Publish in progress
+              and a concurrent subscription-cancel (which removes the
+              subscriber and closes its channel) cannot interleave such that
+              Publish sends after close. Concretely, the delivery loop holds
+              the read lock across the (non-blocking) send and the cancel
+              path closes the channel under the write lock, so the two never
+              run concurrently. A panic here would crash a live remediation.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: Publish delivers a matching event to a subscriber whose filter matches (host filter).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Publish does NOT deliver an event to a subscriber whose host or kind filter excludes it.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: Publishing more events than the buffer holds drops the overflow without blocking the publisher.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: Canceling a subscriber's context closes its channel (closed-channel receive observed).
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: Every active subscriber receives a copy of each published event (fan-out).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-06
+          description: Publishing an event with a nil ID assigns a fresh non-nil UUID before delivery.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-07
+          description: |
+              Publishing concurrently with subscription cancellation never
+              panics. A high-iteration stress test that publishes in a tight
+              loop while repeatedly subscribing and canceling subscriptions
+              completes without a send-on-closed-channel panic.
+          references_constraints: [C-05]
+          priority: critical
+
+    depends_on: []
+
+    tags: [engine, event-bus, concurrency, tier-1, fan-out]

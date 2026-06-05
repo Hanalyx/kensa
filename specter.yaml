@@ -15,6 +15,7 @@ domains:
         description: Transaction engine, deadman, evidence envelope, log — rollback-safety-critical.
         specs:
             - engine-transaction
+            - engine-event-bus
             - deadman-timer
             - evidence-envelope
             - transaction-log

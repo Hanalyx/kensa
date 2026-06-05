@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,7 +22,11 @@ func makeEvent(kind api.EventKind, hostID string) api.Event {
 
 // TestPublishDeliversToMatchingSubscriber verifies that a published event
 // reaches a subscriber whose filter matches.
+//
+// @spec engine-event-bus
+// @ac AC-01
 func TestPublishDeliversToMatchingSubscriber(t *testing.T) {
+	t.Run("engine-event-bus/AC-01", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -51,7 +56,11 @@ func TestPublishDeliversToMatchingSubscriber(t *testing.T) {
 // TestPublishDoesNotDeliverToNonMatchingSubscriber verifies that an event
 // for a different host is not delivered to a subscriber filtered on another
 // host.
+//
+// @spec engine-event-bus
+// @ac AC-02
 func TestPublishDoesNotDeliverToNonMatchingSubscriber(t *testing.T) {
+	t.Run("engine-event-bus/AC-02", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -78,7 +87,11 @@ func TestPublishDoesNotDeliverToNonMatchingSubscriber(t *testing.T) {
 
 // TestFullChannelDropsEventsWithoutBlocking verifies that publishing to a
 // subscriber with a full channel does not block.
+//
+// @spec engine-event-bus
+// @ac AC-03
 func TestFullChannelDropsEventsWithoutBlocking(t *testing.T) {
+	t.Run("engine-event-bus/AC-03", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	bus := NewInMemoryEventBus()
@@ -117,7 +130,11 @@ func TestFullChannelDropsEventsWithoutBlocking(t *testing.T) {
 
 // TestSubscriberChannelClosesOnContextCancel verifies that canceling the
 // subscriber context causes the channel to close.
+//
+// @spec engine-event-bus
+// @ac AC-04
 func TestSubscriberChannelClosesOnContextCancel(t *testing.T) {
+	t.Run("engine-event-bus/AC-04", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	bus := NewInMemoryEventBus()
@@ -140,7 +157,11 @@ func TestSubscriberChannelClosesOnContextCancel(t *testing.T) {
 
 // TestMultipleSubscribersEachReceivePublishedEvent verifies fan-out: every
 // active subscriber gets a copy of each published event.
+//
+// @spec engine-event-bus
+// @ac AC-05
 func TestMultipleSubscribersEachReceivePublishedEvent(t *testing.T) {
+	t.Run("engine-event-bus/AC-05", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -174,7 +195,11 @@ func TestMultipleSubscribersEachReceivePublishedEvent(t *testing.T) {
 
 // TestPublishAssignsUUIDWhenNil verifies that a nil event ID is replaced
 // with a fresh uuid before delivery.
+//
+// @spec engine-event-bus
+// @ac AC-06
 func TestPublishAssignsUUIDWhenNil(t *testing.T) {
+	t.Run("engine-event-bus/AC-06", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -206,7 +231,11 @@ func TestPublishAssignsUUIDWhenNil(t *testing.T) {
 
 // TestKindFilterDelivers verifies that kind-filtered subscriptions only
 // receive matching event kinds.
+//
+// @spec engine-event-bus
+// @ac AC-02
 func TestKindFilterDelivers(t *testing.T) {
+	t.Run("engine-event-bus/AC-02", func(t *testing.T) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -239,4 +268,66 @@ func TestKindFilterDelivers(t *testing.T) {
 		t.Errorf("unexpected second event: %v", got)
 	case <-time.After(50 * time.Millisecond):
 	}
+}
+
+// TestPublishConcurrentWithCancelNeverPanics is the regression guard for the
+// send-on-closed-channel race: Publish must never send to a subscriber whose
+// channel was closed by a concurrent context cancellation. Before the fix,
+// Publish snapshotted subscribers under the read lock, released it, then sent
+// — so a cancel firing between the snapshot and the send closed the channel
+// and the send panicked. This test publishes in a tight loop while a churn of
+// short-lived subscriptions is repeatedly created and canceled; with the bug
+// present it panics within a few iterations, with the fix it completes
+// cleanly. Run under `-race` it also flags the underlying data race.
+//
+// @spec engine-event-bus
+// @ac AC-07
+func TestPublishConcurrentWithCancelNeverPanics(t *testing.T) {
+	t.Run("engine-event-bus/AC-07", func(t *testing.T) {})
+
+	bus := NewInMemoryEventBus()
+	const iterations = 2000
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+
+	// Publisher: hammer Publish for the whole test.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ev := makeEvent(api.Committed, "host-race")
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				// A panic here (send on closed channel) fails the test by
+				// crashing the process — which is exactly the regression we
+				// guard against.
+				_ = bus.Publish(context.Background(), ev)
+			}
+		}
+	}()
+
+	// Churn: create and cancel subscriptions as fast as possible so a cancel
+	// (which removes the sub and closes its channel) is constantly racing the
+	// publisher's delivery loop.
+	for i := 0; i < iterations; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		ch, err := bus.Subscribe(ctx, api.EventFilter{HostIDs: []string{"host-race"}})
+		if err != nil {
+			cancel()
+			t.Fatalf("Subscribe: %v", err)
+		}
+		// Drain whatever is buffered, then cancel to trigger the close that
+		// races the in-flight Publish.
+		select {
+		case <-ch:
+		default:
+		}
+		cancel()
+	}
+
+	close(stop)
+	wg.Wait()
 }

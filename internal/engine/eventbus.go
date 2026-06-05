@@ -76,12 +76,22 @@ func (b *InMemoryEventBus) Publish(ctx context.Context, event api.Event) error {
 		event.ID = uuid.New()
 	}
 
+	// Hold the read lock across the entire delivery loop, INCLUDING the
+	// send. Subscribe's cancel goroutine closes sub.ch under the write
+	// lock (below), so an RLock here makes "send to sub.ch" and
+	// "close(sub.ch)" mutually exclusive — a sync.RWMutex never grants the
+	// write lock while any read lock is held. Without this (the previous
+	// snapshot-then-RUnlock-then-send form) a cancel firing between the
+	// snapshot and the send could close the channel first, and the send
+	// would panic with "send on closed channel" — crashing a live
+	// remediation, since the engine publishes synchronously on its hot
+	// path. The send is non-blocking (select/default), so holding RLock
+	// here cannot stall the publisher or block a concurrent close for more
+	// than the instant a buffered-or-dropped send takes. See spec
+	// engine-event-bus C-05 / AC-07.
 	b.mu.RLock()
-	subs := make([]*subscription, len(b.subs))
-	copy(subs, b.subs)
-	b.mu.RUnlock()
-
-	for _, s := range subs {
+	defer b.mu.RUnlock()
+	for _, s := range b.subs {
 		if !s.matches(event) {
 			continue
 		}
@@ -116,8 +126,13 @@ func (b *InMemoryEventBus) Subscribe(ctx context.Context, filter api.EventFilter
 				break
 			}
 		}
-		b.mu.Unlock()
+		// Close UNDER the write lock, so removal-from-subs and
+		// channel-close are one atomic step that excludes Publish's
+		// RLock-protected send. Closing outside the lock (the previous
+		// form) let a concurrent Publish send on the just-closed channel.
+		// See spec engine-event-bus C-05 / AC-07.
 		close(sub.ch)
+		b.mu.Unlock()
 	}()
 
 	return sub.ch, nil
