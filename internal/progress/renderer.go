@@ -27,6 +27,14 @@ import (
 type StreamConsumer struct {
 	w      io.Writer
 	render func(io.Writer, Update)
+	// txnDone counts the terminal per-rule Updates (TxnDone) this consumer
+	// has rendered. The CLI reads it via TxnDoneCount and compares it against
+	// the authoritative RemediationResult to detect completion events the
+	// lossy engine bus dropped (spec progress-renderer C-08). It is a
+	// display-side observation ONLY — never used to reconstruct or alter the
+	// canonical result. The consumer is driven by a single goroutine (the
+	// drain loop / the inventory renderer), so a plain int needs no lock.
+	txnDone int
 }
 
 // NewTextConsumer returns a [StreamConsumer] that renders each [Update] as a
@@ -36,12 +44,26 @@ type StreamConsumer struct {
 // unit-testable. The caller owns w and points it at stderr (or a stream file);
 // the consumer never writes to stdout.
 func NewTextConsumer(w io.Writer, isTTY bool) *StreamConsumer {
+	// inPlace holds the carriage-return rewrite state for the isTTY in-place
+	// mode (PR7 polish): true once a transient line has been written without a
+	// trailing newline, so the next line knows to clear it first. It is closed
+	// over by the render func and only ever touched by the single rendering
+	// goroutine, so no lock is needed. When isTTY=false the closure renders the
+	// plain, byte-identical-to-PR3 form and never sets inPlace.
+	pending := &inPlaceState{}
 	return &StreamConsumer{
 		w: w,
 		render: func(w io.Writer, u Update) {
-			renderText(w, u, isTTY)
+			renderText(w, u, isTTY, pending)
 		},
 	}
+}
+
+// inPlaceState carries the single-bit cursor state for in-place TTY rendering:
+// whether the writer currently holds a transient line that was emitted without
+// a trailing newline (and so must be cleared before the next write).
+type inPlaceState struct {
+	dirty bool
 }
 
 // NewEventsJSONLConsumer returns a [StreamConsumer] that renders each [Update]
@@ -58,7 +80,23 @@ func (c *StreamConsumer) Update(u Update) {
 	if c == nil || c.w == nil || c.render == nil {
 		return
 	}
+	if u.Kind == TxnDone {
+		c.txnDone++
+	}
 	c.render(c.w, u)
+}
+
+// TxnDoneCount reports how many TxnDone Updates this consumer has rendered. The
+// CLI compares it against the authoritative RemediationResult to surface how
+// many transaction-completion events the lossy engine bus dropped (spec
+// progress-renderer C-08, cli-remediate-stream C-07). It is a display-side
+// observation: it never feeds back into the canonical result, exit code, or any
+// -o FILE serialization. A nil consumer (progress off) reports zero.
+func (c *StreamConsumer) TxnDoneCount() int {
+	if c == nil {
+		return 0
+	}
+	return c.txnDone
 }
 
 // kindToken maps a [Kind] to a stable lower-case string token used in the
@@ -94,10 +132,34 @@ func okMark(ok bool) string {
 	return "FAIL"
 }
 
-// renderText writes one human-readable line per Update. isTTY selects a
-// slightly richer interactive form; both branches always emit a line so the
-// non-TTY path is never silent (and is unit-testable).
-func renderText(w io.Writer, u Update, isTTY bool) {
+// ANSI clear-from-cursor-to-end-of-line. Emitted after a leading carriage
+// return in in-place mode so a shorter line fully overwrites a longer previous
+// one (otherwise the tail of the old line would linger on screen).
+const clearToEOL = "\x1b[K"
+
+// isTransientKind reports whether a Kind is a high-frequency per-item update
+// that the in-place TTY mode rewrites in place (overwriting the previous such
+// line) rather than committing with a newline. Per-rule checks and per-phase
+// transaction updates are transient; scan/probe/transaction milestones are
+// committed so they stay on screen.
+func isTransientKind(k Kind) bool {
+	return k == RuleChecked || k == TxnPhase
+}
+
+// renderText writes one human-readable line per Update. isTTY selects the
+// interactive form; both branches always emit a line so the non-TTY path is
+// never silent (and is unit-testable).
+//
+// In the isTTY in-place mode (PR7 polish), transient Updates (RuleChecked,
+// TxnPhase) are written with a leading carriage return + clear-to-EOL and NO
+// trailing newline, so each successive transient line overwrites the previous
+// one in place; milestone/terminal Updates first clear any pending in-place
+// line, then commit their own line with a trailing newline so it stays on
+// screen. When isTTY=false the output is byte-identical to the pre-PR7 plain
+// form: one '\n'-terminated line per Update, no carriage return, no escape
+// sequence (so piped/CI logs are unchanged). pending carries the single-bit
+// cursor state between calls.
+func renderText(w io.Writer, u Update, isTTY bool, pending *inPlaceState) {
 	// host: prefix only when set; the single-host CLI may leave it empty.
 	host := ""
 	if u.Host != "" {
@@ -130,13 +192,35 @@ func renderText(w io.Writer, u Update, isTTY bool) {
 		line = fmt.Sprintf("%s%s", host, kindToken(u.Kind))
 	}
 
-	if isTTY {
-		// Interactive form: a leading marker distinguishes live progress
-		// from the canonical result that lands on stdout. Kept on its own
-		// line (no in-place carriage-return rewrite — that is PR7 polish).
-		line = "› " + line
+	if !isTTY {
+		// Plain mode: byte-identical to PR3 — one newline-terminated line per
+		// Update, no carriage return, no escape sequence. pending is never
+		// consulted or set in this branch. Write error swallowed: progress
+		// must never break the run.
+		_, _ = io.WriteString(w, line+"\n")
+		return
 	}
-	// Write error is intentionally swallowed: progress must never break the run.
+
+	// Interactive form: a leading marker distinguishes live progress from the
+	// canonical result that lands on stdout.
+	line = "› " + line
+
+	if isTransientKind(u.Kind) {
+		// Transient: rewrite in place. Leading CR returns the cursor to column
+		// zero, clearToEOL wipes the prior (possibly longer) line, and no
+		// trailing newline leaves the cursor parked for the next overwrite.
+		_, _ = io.WriteString(w, "\r"+clearToEOL+line)
+		pending.dirty = true
+		return
+	}
+
+	// Milestone/terminal: if a transient line is pending on the current row,
+	// clear it (CR + clearToEOL) before committing this line so the two do not
+	// concatenate. Then commit with a trailing newline so the line persists.
+	if pending.dirty {
+		_, _ = io.WriteString(w, "\r"+clearToEOL)
+		pending.dirty = false
+	}
 	_, _ = io.WriteString(w, line+"\n")
 }
 

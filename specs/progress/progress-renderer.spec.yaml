@@ -1,6 +1,6 @@
 spec:
     id: progress-renderer
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -123,6 +123,35 @@ spec:
               result. Subsequent Updates may still be delivered without panic.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              The text renderer MUST support an in-place TTY rendering mode
+              (PR7 polish) that is selected ONLY when isTTY=true. In that mode,
+              transient per-item Updates (RuleChecked, TxnPhase) MUST be written
+              with a leading carriage return and a clear-to-end-of-line sequence
+              and NO trailing newline, so each successive transient line
+              OVERWRITES the previous one in place rather than scrolling. Terminal
+              and milestone Updates (ScanStart, ProbeDone, TxnStarted, TxnDone,
+              ScanEnd) MUST commit their line with a trailing newline (after first
+              clearing any pending in-place line) so they remain on screen. When
+              isTTY=false the renderer MUST remain byte-for-byte the plain
+              one-line-per-Update form (no carriage return, no clear sequence,
+              every line newline-terminated) — the non-TTY output is unchanged
+              from PR3 so piped/CI logs stay clean and stable.
+          type: technical
+          enforcement: error
+        - id: C-08
+          description: |
+              The text renderer MUST expose a count of the terminal per-rule
+              Updates it has rendered (TxnDone), so the CLI can compare that
+              tally against the authoritative RemediationResult to detect events
+              the lossy engine bus dropped. The count is a display-side
+              observation only: it MUST NOT be used to reconstruct, alter, or
+              gate the canonical result — the result struct stays authoritative
+              (a dropped-event summary line is advisory stderr text, never a
+              change to stdout, the exit code, or any -o FILE serialization).
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -148,6 +177,18 @@ spec:
         - id: AC-06
           description: Delivering Updates to a renderer whose underlying io.Writer always returns an error does not panic and does not abort the consumer; a following Update is still accepted.
           references_constraints: [C-06]
+          priority: high
+        - id: AC-07
+          description: In isTTY=true in-place mode, a transient Update (RuleChecked / TxnPhase) is written with a leading carriage return and a clear-to-end-of-line sequence and NO trailing newline, while a milestone/terminal Update (ScanStart / TxnStarted / TxnDone / ScanEnd) commits its line with a trailing newline; consecutive transient lines therefore overwrite in place.
+          references_constraints: [C-07]
+          priority: high
+        - id: AC-08
+          description: In isTTY=false plain mode the rendered output is byte-identical to the pre-PR7 form — every Update produces exactly one line terminated by a single '\n', with no carriage return and no clear-to-end-of-line escape sequence — so piped/CI logs are unchanged.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-09
+          description: The text consumer exposes a tally of TxnDone Updates it has rendered; after rendering a stream the tally equals the number of TxnDone Updates delivered, letting the CLI compare it against the canonical RemediationResult to report dropped events without altering the result.
+          references_constraints: [C-08]
           priority: high
 
     depends_on:

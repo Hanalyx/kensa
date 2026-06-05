@@ -1193,7 +1193,15 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 	// scan.New — byte-identical to pre-PR6.
 	var merge *inventoryMerge
 	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
-		merge = newInventoryMerge(newProgressSink(os.Stderr, stderrIsTerminal()))
+		// Inventory mode renders the MERGED, host-prefixed stream from N
+		// concurrent hosts onto one consumer. The PR7 in-place TTY rewrite is
+		// deliberately NOT used here: interleaved per-host transient lines
+		// would overwrite each other on a single terminal row, collapsing the
+		// fleet view. So the inventory consumer is built in plain (newline-per-
+		// line) mode even on a TTY — each host's lines stay legible and
+		// scrollback-preserved. In-place rewrite stays scoped to the single-host
+		// check/detect/remediate paths.
+		merge = newInventoryMerge(newProgressSink(os.Stderr, false))
 	}
 
 	// C-029: per-host work runs through fanOutBounded which caps
@@ -1563,14 +1571,26 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	remediate := func(rctx context.Context) (*api.RemediationResult, error) {
 		return svc.Remediate(rctx, hostCfg, resolved.Order)
 	}
+	// sink is kept as the concrete *progress.StreamConsumer (not the Sink
+	// interface) so that, after the canonical result is in hand, the CLI can
+	// read its rendered TxnDone tally and report any completion events the
+	// lossy bus dropped (spec cli-remediate-stream C-07). It is nil when
+	// progress is off — reportDroppedEvents tolerates a zero tally.
+	var sink *progress.StreamConsumer
 	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
-		sink := newProgressSink(os.Stderr, stderrIsTerminal())
+		sink = newProgressSink(os.Stderr, stderrIsTerminal())
 		result, err = streamRemediate(ctx, svc.Subscribe, remediate, sink)
 	} else {
 		result, err = remediate(ctx)
 	}
 	if err != nil {
 		return err
+	}
+	// Advisory only: if the renderer saw fewer TxnDone events than the
+	// authoritative result reports, the bus dropped some. Derived from the
+	// canonical result + the renderer tally; never alters stdout/exit/-o FILE.
+	if sink != nil {
+		_ = reportDroppedEvents(os.Stderr, sink.TxnDoneCount(), len(result.Transactions))
 	}
 
 	if len(outputs) > 0 {

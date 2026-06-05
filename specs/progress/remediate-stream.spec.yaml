@@ -1,6 +1,6 @@
 spec:
     id: cli-remediate-stream
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -104,7 +104,6 @@ spec:
                 - Adding engine event emission to the rollback path (rollback stays event-free)
                 - Inventory / multi-host remediate (remediate is single-host; inventory streaming is PR6)
                 - events-jsonl selection or --stream-file on remediate (later PR)
-                - In-place / carriage-return TTY polish (PR7)
                 - Changing the RemediationResult struct, exit code, or -o FILE serialization based on progress state
 
     constraints:
@@ -163,6 +162,22 @@ spec:
               it does not alter the engine rollback code path.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              The engine bus is lossy by design (bounded 64-slot per-subscriber
+              buffer that DROPS rather than blocks). When the remediate stream is
+              rendered, the CLI MAY report how many transaction-completion events
+              the renderer rendered versus how many the authoritative
+              RemediationResult contains; if fewer were rendered than the result
+              reports, the difference is the count of completion events the bus
+              dropped and MAY be surfaced as one advisory line on stderr. This
+              accounting MUST be derived from the canonical RemediationResult
+              (the source of truth) and the renderer's own rendered tally — never
+              by reconstructing the result from the stream. It MUST NOT change the
+              stdout result, the exit code, or any -o FILE serialization, and MUST
+              be silent (no line) when nothing was dropped.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -192,6 +207,10 @@ spec:
         - id: AC-07
           description: The rollback progress path renders plain per-transaction text (rule id + outcome) to a non-stdout writer without subscribing to the event bus.
           references_constraints: [C-06]
+          priority: high
+        - id: AC-08
+          description: Given a rendered tally of TxnDone events and the authoritative RemediationResult, the dropped-event accounting reports the non-negative difference (result transactions minus rendered completions) to a non-stdout writer, writes nothing when the tally is complete, and never mutates the result, exit code, or output serialization.
+          references_constraints: [C-07]
           priority: high
 
     depends_on:

@@ -115,6 +115,35 @@ func streamRemediate(
 	return out.result, out.err
 }
 
+// reportDroppedEvents writes one advisory stderr line when the remediate
+// progress stream rendered FEWER transaction-completion events than the
+// authoritative RemediationResult contains — the difference is the count of
+// completion events the lossy engine bus (bounded 64-slot buffer) dropped
+// before the renderer read them.
+//
+// The accounting is derived strictly from the canonical result (resultTxns =
+// len(result.Transactions), the source of truth) and the renderer's own tally
+// of rendered TxnDone Updates (renderedDone) — never by reconstructing the
+// result from the stream (spec cli-remediate-stream C-07). It is advisory only:
+// it writes to w (the CLI points it at stderr, never stdout) and changes
+// nothing about the result, the exit code, or any -o FILE serialization.
+//
+// It is silent (writes nothing, returns 0) when the tally is complete or ahead
+// of the result — progress is lossy and cosmetic, so an over-count (e.g. a
+// rolled-back-then-recorded edge) must never produce a negative or alarming
+// line. dropped is returned (not just written) so the behavior is unit-testable
+// without capturing stderr formatting.
+func reportDroppedEvents(w io.Writer, renderedDone, resultTxns int) int {
+	dropped := resultTxns - renderedDone
+	if dropped <= 0 {
+		return 0
+	}
+	_, _ = io.WriteString(w, fmt.Sprintf(
+		"kensa: %d transaction-completion event(s) dropped from the progress stream (cosmetic; the result above is authoritative)\n",
+		dropped))
+	return dropped
+}
+
 // renderRollbackProgress writes one plain-text progress line for a single
 // rolled-back transaction to w (the CLI points it at stderr). It is the
 // rollback counterpart to the bus-streamed remediate progress: the engine's

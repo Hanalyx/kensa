@@ -220,6 +220,135 @@ func TestRenderersWriteOnlyToInjectedWriter(t *testing.T) {
 	})
 }
 
+// TestTextRendererInPlaceTTY verifies the isTTY in-place mode: transient
+// Updates (RuleChecked / TxnPhase) are written with a leading CR + clear-to-EOL
+// and no trailing newline (so they overwrite in place), while milestone/terminal
+// Updates commit with a trailing newline.
+//
+// @spec progress-renderer
+// @ac AC-07
+func TestTextRendererInPlaceTTY(t *testing.T) {
+	t.Run("progress-renderer/AC-07", func(t *testing.T) {
+		const cr = "\r"
+		const clear = "\x1b[K"
+
+		// A transient RuleChecked line: CR + clear, NO trailing newline.
+		var transient bytes.Buffer
+		progress.NewTextConsumer(&transient, true).Update(
+			progress.Update{Kind: progress.RuleChecked, RuleID: "r1", Index: 1, Total: 3, OK: true})
+		ts := transient.String()
+		if !strings.HasPrefix(ts, cr+clear) {
+			t.Errorf("transient line missing leading CR+clear: %q", ts)
+		}
+		if strings.HasSuffix(ts, "\n") {
+			t.Errorf("transient line must NOT end with newline (overwrites in place): %q", ts)
+		}
+
+		// A milestone TxnStarted line: commits with a trailing newline.
+		var milestone bytes.Buffer
+		progress.NewTextConsumer(&milestone, true).Update(
+			progress.Update{Kind: progress.TxnStarted, RuleID: "r1"})
+		ms := milestone.String()
+		if !strings.HasSuffix(ms, "\n") {
+			t.Errorf("milestone line must end with newline (stays on screen): %q", ms)
+		}
+		if strings.HasPrefix(ms, cr+clear) {
+			t.Errorf("a milestone with no pending transient line must not lead with CR+clear: %q", ms)
+		}
+
+		// Two consecutive transient lines then a milestone: the second
+		// transient overwrites (its own CR+clear), and the milestone clears the
+		// pending transient before committing with a newline.
+		var seq bytes.Buffer
+		c := progress.NewTextConsumer(&seq, true)
+		c.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "r1", Index: 1, Total: 3, OK: true})
+		c.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "r2", Index: 2, Total: 3, OK: true})
+		c.Update(progress.Update{Kind: progress.TxnDone, RuleID: "r2", OK: true})
+		got := seq.String()
+		// Exactly one trailing newline overall (only the milestone committed).
+		if strings.Count(got, "\n") != 1 {
+			t.Errorf("expected exactly one committed (newline) line, got %d in %q", strings.Count(got, "\n"), got)
+		}
+		// The pending transient must have been cleared before the milestone:
+		// a CR+clear appears immediately before the final committed line.
+		if !strings.Contains(got, cr+clear) {
+			t.Errorf("sequence missing CR+clear rewrites: %q", got)
+		}
+	})
+}
+
+// TestTextRendererPlainUnchanged verifies the isTTY=false plain mode is
+// byte-identical to the pre-PR7 form: one '\n'-terminated line per Update, no
+// carriage return, no clear-to-EOL escape sequence.
+//
+// @spec progress-renderer
+// @ac AC-08
+func TestTextRendererPlainUnchanged(t *testing.T) {
+	t.Run("progress-renderer/AC-08", func(t *testing.T) {
+		var buf bytes.Buffer
+		c := progress.NewTextConsumer(&buf, false)
+		ups := sampleUpdates()
+		for _, u := range ups {
+			c.Update(u)
+		}
+		out := buf.String()
+
+		if strings.Contains(out, "\r") {
+			t.Errorf("plain mode must not emit a carriage return: %q", out)
+		}
+		if strings.Contains(out, "\x1b[K") {
+			t.Errorf("plain mode must not emit a clear-to-EOL escape: %q", out)
+		}
+		// Exactly one '\n'-terminated line per Update.
+		if !strings.HasSuffix(out, "\n") {
+			t.Fatalf("plain output not newline-terminated: %q", out)
+		}
+		lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+		if len(lines) != len(ups) {
+			t.Errorf("plain mode: got %d lines, want one per Update (%d): %q", len(lines), len(ups), out)
+		}
+	})
+}
+
+// TestTextConsumerTxnDoneTally verifies the text consumer counts the TxnDone
+// Updates it rendered, so the CLI can compare it against the canonical result
+// to detect dropped events.
+//
+// @spec progress-renderer
+// @ac AC-09
+func TestTextConsumerTxnDoneTally(t *testing.T) {
+	t.Run("progress-renderer/AC-09", func(t *testing.T) {
+		var buf bytes.Buffer
+		c := progress.NewTextConsumer(&buf, false)
+
+		if c.TxnDoneCount() != 0 {
+			t.Fatalf("fresh consumer TxnDoneCount = %d, want 0", c.TxnDoneCount())
+		}
+
+		// Mixed stream: 2 TxnDone among other kinds.
+		stream := []progress.Update{
+			{Kind: progress.TxnStarted, RuleID: "r1"},
+			{Kind: progress.TxnPhase, RuleID: "r1", Phase: api.PhaseApply, OK: true},
+			{Kind: progress.TxnDone, RuleID: "r1", OK: true},
+			{Kind: progress.TxnStarted, RuleID: "r2"},
+			{Kind: progress.TxnDone, RuleID: "r2", OK: false},
+			{Kind: progress.RuleChecked, RuleID: "r3", Index: 1, Total: 1, OK: true},
+		}
+		for _, u := range stream {
+			c.Update(u)
+		}
+		if c.TxnDoneCount() != 2 {
+			t.Errorf("TxnDoneCount = %d, want 2 (one per TxnDone Update)", c.TxnDoneCount())
+		}
+
+		// A nil consumer reports zero (progress off).
+		var nilConsumer *progress.StreamConsumer
+		if nilConsumer.TxnDoneCount() != 0 {
+			t.Errorf("nil consumer TxnDoneCount = %d, want 0", nilConsumer.TxnDoneCount())
+		}
+	})
+}
+
 // TestRenderersTolerateWriteError verifies a failing io.Writer neither panics
 // nor aborts the consumer; a subsequent Update is still accepted.
 //

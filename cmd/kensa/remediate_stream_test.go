@@ -203,3 +203,47 @@ func TestRollback_PlainProgress_NotBus(t *testing.T) {
 		}
 	})
 }
+
+// TestReportDroppedEvents proves the lossy-bus dropped-event accounting: it
+// reports the non-negative difference (result transactions minus rendered
+// TxnDone) to a non-stdout writer, is silent when the tally is complete or
+// ahead, and returns the count for assertion. The result is derived from the
+// canonical RemediationResult (resultTxns) and the renderer tally — it never
+// touches stdout, the exit code, or any -o FILE serialization.
+// @spec cli-remediate-stream
+// @ac AC-08
+func TestReportDroppedEvents(t *testing.T) {
+	t.Run("cli-remediate-stream/AC-08", func(t *testing.T) {
+		// Fewer rendered than the result reports → some were dropped.
+		var dropped bytes.Buffer
+		n := reportDroppedEvents(&dropped, 3, 10)
+		if n != 7 {
+			t.Errorf("dropped count = %d, want 7 (10 result - 3 rendered)", n)
+		}
+		if !strings.Contains(dropped.String(), "7") {
+			t.Errorf("dropped summary missing the count; got: %q", dropped.String())
+		}
+		if !strings.Contains(dropped.String(), "authoritative") {
+			t.Errorf("dropped summary should reassure the result is authoritative; got: %q", dropped.String())
+		}
+
+		// Complete tally → silent, returns 0.
+		var complete bytes.Buffer
+		if n := reportDroppedEvents(&complete, 10, 10); n != 0 {
+			t.Errorf("complete tally count = %d, want 0", n)
+		}
+		if complete.Len() != 0 {
+			t.Errorf("complete tally must be silent; got: %q", complete.String())
+		}
+
+		// Renderer ahead of the result (lossy/edge over-count) → silent, no
+		// negative line.
+		var ahead bytes.Buffer
+		if n := reportDroppedEvents(&ahead, 12, 10); n != 0 {
+			t.Errorf("over-count tally = %d, want 0 (never negative)", n)
+		}
+		if ahead.Len() != 0 {
+			t.Errorf("over-count must be silent; got: %q", ahead.String())
+		}
+	})
+}
