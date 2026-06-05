@@ -172,7 +172,7 @@ var rollbackFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "quiet"},
+		flags: []string{"format", "quiet", "progress"},
 	},
 }
 
@@ -200,6 +200,6 @@ var remediateFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "output", "oscal", "quiet"},
+		flags: []string{"format", "output", "oscal", "quiet", "progress"},
 	},
 }

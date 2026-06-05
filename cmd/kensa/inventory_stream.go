@@ -65,7 +65,7 @@ type inventoryMerge struct {
 	ch       chan progress.Update
 	wg       sync.WaitGroup
 	consumer progress.Sink
-	closed   chan struct{} // signalled when the renderer goroutine exits
+	closed   chan struct{} // signaled when the renderer goroutine exits
 }
 
 // newInventoryMerge starts the closer and renderer goroutines and returns a
@@ -74,7 +74,7 @@ type inventoryMerge struct {
 // The producer WaitGroup is seeded with ONE "dispatch guard" up front, before
 // the closer goroutine starts. This is the correctness crux. Workers register
 // lazily (each workerSink does wg.Add(1)), because the fan-out may dispatch
-// FEWER than the host count if ctx is cancelled mid-loop — pre-seeding by host
+// FEWER than the host count if ctx is canceled mid-loop — pre-seeding by host
 // count would then deadlock on workers that never spawn. But a purely lazy
 // wg.Add risks the closer's wg.Wait() observing a transient zero between two
 // registrations and closing the channel while a later worker still holds a
@@ -127,7 +127,7 @@ func (m *inventoryMerge) workerSink(addr string) (progress.Sink, func()) {
 	return hostStampSink{host: addr, out: chanSink{ch: m.ch}}, done
 }
 
-// dispatchDone releases the dispatch guard, signalling that the fan-out loop has
+// dispatchDone releases the dispatch guard, signaling that the fan-out loop has
 // registered every worker it will. It MUST be called exactly once, after the
 // fan-out returns (every workerSink has been called). Until it is called the
 // closer's wg.Wait() cannot complete, so the channel cannot close mid-dispatch.

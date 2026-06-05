@@ -14,7 +14,7 @@ import (
 )
 
 // drainEvents collects every event delivered on ch until it is closed (the
-// bus closes the subscription channel when ctx is cancelled).
+// bus closes the subscription channel when ctx is canceled).
 func drainEvents(ch <-chan api.Event) []api.Event {
 	var out []api.Event
 	for ev := range ch {

@@ -97,7 +97,7 @@ func TestInventoryMerge_LosslessFanInWithAttribution(t *testing.T) {
 				}
 			}()
 		}
-		wg.Wait()       // all workers finished sending + called done
+		wg.Wait()        // all workers finished sending + called done
 		m.dispatchDone() // release the dispatch guard
 		m.wait()         // block until the renderer drained the closed channel
 
