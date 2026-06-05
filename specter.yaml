@@ -127,6 +127,11 @@ domains:
         specs:
             - rule-ordering
             - store-session-schema
+    cli-streaming:
+        tier: 2         # CLI live-progress renderer — display-only, result struct stays canonical
+        description: The internal/progress renderer (StreamConsumer — text + events-jsonl). Tier 2 because it is apply-path-adjacent display with no atomicity exposure, but writing to stdout or panicking would corrupt the canonical result channel, so the stdout/stderr separation and write-error tolerance are spec-pinned.
+        specs:
+            - progress-renderer
 
 settings:
     specs_dir: specs
