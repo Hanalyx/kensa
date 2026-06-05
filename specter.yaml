@@ -16,6 +16,8 @@ domains:
         specs:
             - engine-transaction
             - engine-event-bus
+            - api-event-rule-id
+            - progress-types
             - deadman-timer
             - evidence-envelope
             - transaction-log

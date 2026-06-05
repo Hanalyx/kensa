@@ -123,6 +123,18 @@ type EventFilter struct {
 	HeartbeatInterval time.Duration
 }
 
+// TransactionStartedData is the [Event.Data] payload for a
+// [TransactionStarted] event. It carries the per-rule identity a streaming
+// consumer needs to label the in-flight transaction. Severity is a string
+// matching [Transaction.Severity] (critical, high, medium, low).
+type TransactionStartedData struct {
+	// RuleID is the canonical rule the transaction implements.
+	RuleID string
+	// Severity is the rule severity (critical, high, medium, low),
+	// denormalised from the transaction so a consumer need not join.
+	Severity string
+}
+
 // PhaseCompletedData is the [Event.Data] payload for a
 // [PhaseCompleted] event.
 type PhaseCompletedData struct {
@@ -132,6 +144,9 @@ type PhaseCompletedData struct {
 	Success bool
 	// Duration is the wall-clock time the phase took.
 	Duration time.Duration
+	// RuleID is the canonical rule the transaction implements, so a
+	// streaming consumer can label the phase per rule.
+	RuleID string
 }
 
 // RolledBackData is the [Event.Data] payload for a [RolledBack] event.
@@ -141,6 +156,9 @@ type RolledBackData struct {
 	Source string
 	// Reason is a human-readable summary of why rollback fired.
 	Reason string
+	// RuleID is the canonical rule the transaction implements, so a
+	// streaming consumer can label the rollback per rule.
+	RuleID string
 }
 
 // DeadmanTimerData is the [Event.Data] payload for both

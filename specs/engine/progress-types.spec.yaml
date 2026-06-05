@@ -1,0 +1,104 @@
+spec:
+    id: progress-types
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: progress-types
+        description: |
+            The CLI streaming feature renders progress from several sources
+            (a non-engine scan/detect path that emits synchronously, and an
+            engine-backed remediate path that drains the api event bus). To
+            keep the renderer source-agnostic, every source adapts into ONE
+            internal display model: internal/progress.Update, delivered to a
+            progress.Sink callback.
+
+            This spec pins the PURE-TYPE contract of that package — the Kind
+            enumeration, the Update struct shape, and the Sink interface —
+            before any source or renderer depends on it. There is no behavior
+            here yet (emission is PR2, rendering is PR3); this PR establishes
+            the vocabulary the later PRs build against.
+
+            It is Tier 1 because this model is the single seam every progress
+            source and the renderer share; a mis-shaped Update or a Sink that
+            is not nil-safe by convention would force a non-additive change
+            once consumers exist. Pinning it now keeps the seam stable.
+
+    objective:
+        summary: |
+            internal/progress defines a Kind enumeration covering the
+            progress milestones (scan start/end, rule checked, probe done,
+            transaction started/phase/done), an Update struct carrying the
+            host, kind, rule id, index/total counters, an OK flag, a detail
+            string, and an api.Phase, and a Sink interface with a single
+            Update(Update) method that is nil-safe by convention.
+        scope:
+            includes:
+                - Kind constants for the progress milestones
+                - Update struct field set (Host, Kind, RuleID, Index, Total, OK, Detail, Phase)
+                - Update.Phase typed as api.Phase (reuse, not a new phase vocabulary)
+                - Sink interface with one Update(Update) method
+                - Nil-safe-by-convention — calling Emit on a nil Sink value is a no-op via the helper, never a panic
+            excludes:
+                - Emission of Updates from any source (PR2)
+                - Rendering Updates to text or events-jsonl (PR3)
+                - Any dependency on the lossy api event bus (check/detect use the Sink synchronously)
+
+    constraints:
+        - id: C-01
+          description: |
+              The package MUST define a Kind type with distinct constants for
+              each progress milestone: scan start, rule checked, probe done,
+              transaction started, transaction phase, transaction done, and
+              scan end. The constants MUST be distinct from one another.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The package MUST define an Update struct carrying Host string,
+              Kind Kind, RuleID string, Index int, Total int, OK bool, Detail
+              string, and Phase api.Phase. A struct literal MUST round-trip
+              every field value.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The package MUST define a Sink interface with exactly one
+              method, Update(Update). A concrete sink that records its
+              received Updates MUST satisfy the interface and observe the
+              delivered Update.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Delivery MUST be nil-safe by convention: a helper that emits an
+              Update to a possibly-nil Sink MUST treat a nil Sink as a no-op
+              and MUST NOT panic, while still delivering to a non-nil Sink.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: The Kind constants for scan-start, rule-checked, probe-done, txn-started, txn-phase, txn-done, and scan-end are all defined and mutually distinct.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: An Update struct literal round-trips Host, Kind, RuleID, Index, Total, OK, Detail, and Phase (api.Phase).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: A recording sink implementing Sink receives the exact Update delivered to its Update method.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: Emitting to a nil Sink via the nil-safe helper is a no-op (no panic); emitting the same Update to a non-nil Sink delivers it.
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: api-event-rule-id
+          relationship: requires
+
+    tags: [progress, display-model, streaming, tier-1]
