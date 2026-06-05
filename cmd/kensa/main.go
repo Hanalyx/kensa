@@ -1306,6 +1306,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		oscalOut     string
 		rulesDir     string
 		quiet        bool
+		progressMode string
 		outputs      []string
 		capabilities []string
 		severities   []string
@@ -1338,6 +1339,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	registerProgressFlag(fs, &progressMode)
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
 
 	if err := fs.Parse(args); err != nil {
@@ -1362,7 +1364,12 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	// setup (rule load, store open). Operators with both
 	// --strict-host-keys and --no-strict-host-keys (or a malformed
 	// --capability) should see the usage error, not a store-open
-	// or rule-parse error.
+	// or rule-parse error. An unknown --progress mode is rejected here
+	// too, before the SSH transport is dialed (spec cli-progress-stream
+	// C-04, shared by remediate via cli-remediate-stream).
+	if err := validateProgressMode(progressMode); err != nil {
+		return err
+	}
 	strictHostKeys, err := resolveStrictHostKeys(fs)
 	if err != nil {
 		return err
@@ -1498,7 +1505,26 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = svc.Close() }()
 
 	resolved := resolveAndPrintIssues(rules, quiet)
-	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
+
+	// PR5: live per-rule transaction progress on stderr when enabled.
+	// Remediate is engine-backed, so progress comes from the api.Event
+	// bus (Service.Subscribe), NOT the synchronous scan/detect Sink. The
+	// drain helper subscribes with a long-lived ctx, runs Remediate in a
+	// goroutine, drains the channel into the renderer on the calling
+	// goroutine, then cancels — so the bounded bus buffer never fills and
+	// drops (spec cli-remediate-stream C-04). The RemediationResult and its
+	// error come from Remediate's return, never the stream (C-05): progress
+	// off (nil sink) is byte-identical on stdout to progress on.
+	var result *api.RemediationResult
+	remediate := func(rctx context.Context) (*api.RemediationResult, error) {
+		return svc.Remediate(rctx, hostCfg, resolved.Order)
+	}
+	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
+		sink := newProgressSink(os.Stderr, stderrIsTerminal())
+		result, err = streamRemediate(ctx, svc.Subscribe, remediate, sink)
+	} else {
+		result, err = remediate(ctx)
+	}
 	if err != nil {
 		return err
 	}
@@ -1616,8 +1642,9 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		keyPath string
 		sudo    bool
 		// Output:
-		format string
-		quiet  bool
+		format       string
+		quiet        bool
+		progressMode string
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.BoolVar(&listMode, "list", false, "list rollback-able sessions")
@@ -1633,6 +1660,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	registerProgressFlag(fs, &progressMode)
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -1651,6 +1679,14 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	default:
 		return NewUsageError(fmt.Sprintf("--format %q: must be 'text' or 'json'", format))
 	}
+	if err := validateProgressMode(progressMode); err != nil {
+		return err
+	}
+	// Rollback progress is PLAIN per-transaction text (the engine rollback
+	// path emits no events, so there is no bus to stream — spec
+	// cli-remediate-stream C-06). The same auto/always/never resolution and
+	// --quiet precedence as remediate apply.
+	rollbackProgress := progressEnabled(progressMode, stderrIsTerminal(), quiet)
 
 	// Mode mux. Pick exactly one of the four mode selectors.
 	var modes []string
@@ -1697,7 +1733,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		if err != nil {
 			return err
 		}
-		return runRollbackStart(ctx, dbPath, sessID, hostCfg, format, quiet)
+		return runRollbackStart(ctx, dbPath, sessID, hostCfg, format, quiet, rollbackProgress)
 	}
 
 	// Legacy --txn path.
@@ -1715,6 +1751,18 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	}
 	defer func() { _ = svc.Close() }()
 	result, err := svc.Rollback(ctx, hostCfg, txnID)
+	// Plain rollback progress (no bus): the legacy --txn path rolls back a
+	// single transaction. Render the outcome line to stderr when enabled.
+	// RuleID is not known here (the caller passes a bare UUID), so the line
+	// names the txn id; the canonical result still lands on stdout.
+	if rollbackProgress {
+		detail := ""
+		ok := err == nil
+		if err != nil {
+			detail = err.Error()
+		}
+		renderRollbackProgress(os.Stderr, txnID.String(), ok, detail)
+	}
 	if err != nil {
 		return err
 	}

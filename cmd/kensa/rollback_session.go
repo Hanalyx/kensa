@@ -225,7 +225,7 @@ type rollbackStartTxnEntry struct {
 // hostCfg.Hostname, rejects with a usage error. Rolling back
 // host-A's session against host-B is almost never what the
 // operator meant.
-func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, hostCfg api.HostConfig, format string, quiet bool) error {
+func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, hostCfg api.HostConfig, format string, quiet bool, progress bool) error {
 	svc, err := kensa.Default(ctx, dbPath)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
@@ -288,6 +288,12 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
 				RuleID: ref.RuleID, Success: false, Error: err.Error(),
 			})
+			// PR5: plain per-transaction rollback progress on stderr (the
+			// engine rollback path emits no events, so there is no bus to
+			// stream — spec cli-remediate-stream C-06). The pre-existing
+			// failure line below already covers the failed case; only render
+			// the progress line in the success branch to avoid duplicate
+			// stderr noise on failure.
 			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s rollback failed: %v\n", ref.RuleID, err)
 			continue
 		}
@@ -295,6 +301,9 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 		result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
 			RuleID: ref.RuleID, Success: true,
 		})
+		if progress {
+			renderRollbackProgress(os.Stderr, ref.RuleID, true, "")
+		}
 	}
 
 	out := bodyOut(quiet)
