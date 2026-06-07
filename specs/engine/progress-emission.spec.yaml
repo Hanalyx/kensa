@@ -14,7 +14,10 @@ spec:
             PRs (the renderer, then the CLI wiring) consume — without changing
             any externally-observable behavior unless a caller wires a sink.
 
-            Three seams are opened here:
+            Two seams are opened here (a third, detect.DetectWithProgress,
+            was removed when the stderr progress overlay was superseded by
+            the stdout streaming check renderer — detect reverted to its
+            buffered Detect):
 
             1. scan.New becomes variadic, accepting WithProgress(progress.Sink)
                options. A nil sink (the default, and what every current call
@@ -23,13 +26,7 @@ spec:
                1-based Index and the rule Total, so a renderer can show
                per-rule scan progress.
 
-            2. detect gains a sibling DetectWithProgress(ctx, transport, sink)
-               that emits one ProbeDone Update per capability probe. The
-               original detect.Detect signature is UNCHANGED — it has callers
-               that do not want progress, and DetectWithProgress(.., nil) MUST
-               behave identically to Detect.
-
-            3. The engine sets RuleID (from txn.RuleID) on the three streaming
+            2. The engine sets RuleID (from txn.RuleID) on the three streaming
                payloads it already emits: TransactionStarted's
                TransactionStartedData, PhaseCompleted's PhaseCompletedData,
                and RolledBack's RolledBackData. This lets an engine-draining
@@ -45,24 +42,20 @@ spec:
         summary: |
             scan.New accepts WithProgress options (nil sink => unchanged
             behavior) and ScanWithOverrides emits a per-rule RuleChecked
-            Update; detect.DetectWithProgress emits a per-probe ProbeDone
-            Update while detect.Detect's signature is unchanged; the engine
-            stamps txn.RuleID onto the TransactionStarted, PhaseCompleted, and
-            RolledBack payloads; and a failing/panicking sink never breaks
-            scan or detect.
+            Update; the engine stamps txn.RuleID onto the TransactionStarted,
+            PhaseCompleted, and RolledBack payloads; and a failing/panicking
+            sink never breaks a scan run.
         scope:
             includes:
                 - scan.New variadic with a WithProgress(progress.Sink) option
                 - A nil progress sink leaves scan behavior byte-identical to today
                 - ScanWithOverrides emits one RuleChecked Update per rule (1-based Index, rule Total, RuleID, OK)
-                - detect.DetectWithProgress sibling emitting one ProbeDone Update per probe
-                - detect.Detect signature unchanged; DetectWithProgress with nil sink equals Detect
                 - Engine sets RuleID from txn.RuleID on TransactionStartedData, PhaseCompletedData, RolledBackData
             excludes:
-                - Rendering Updates to text or events-jsonl (PR3)
-                - Wiring the sink from the CLI (PR4/PR5)
+                - Rendering Updates to text or events-jsonl
+                - Wiring the sink from the CLI
                 - New EventKinds on api.Event (forbidden by design)
-                - Changing detect.Detect's signature
+                - detect.DetectWithProgress (removed; detect reverted to buffered Detect)
 
     constraints:
         - id: C-01
@@ -82,15 +75,6 @@ spec:
               check outcome.
           type: technical
           enforcement: error
-        - id: C-03
-          description: |
-              detect MUST provide DetectWithProgress(ctx, transport, sink)
-              that returns the same CapabilitySet as Detect and emits exactly
-              one ProbeDone Update per probe (the probe name in Detail, OK the
-              probe result). detect.Detect's signature MUST be unchanged, and
-              DetectWithProgress with a nil sink MUST equal Detect.
-          type: technical
-          enforcement: error
         - id: C-04
           description: |
               The engine MUST set RuleID (from txn.RuleID) on the
@@ -104,9 +88,8 @@ spec:
         - id: C-05
           description: |
               A progress sink that panics or otherwise misbehaves MUST NOT
-              break or abort a scan or detect run: the scan/detect result MUST
-              still be produced. Progress is cosmetic and subordinate to the
-              read path.
+              break or abort a scan run: the scan result MUST still be
+              produced. Progress is cosmetic and subordinate to the read path.
           type: technical
           enforcement: error
 
@@ -119,16 +102,12 @@ spec:
           description: With a recording sink wired, ScanWithOverrides emits one RuleChecked Update per rule in order, each with the rule's RuleID, a 1-based Index, the total count as Total, and OK matching the check outcome.
           references_constraints: [C-02]
           priority: critical
-        - id: AC-03
-          description: DetectWithProgress returns the same CapabilitySet as Detect, emits one ProbeDone Update per probe (probe name in Detail, OK the result), and with a nil sink equals Detect; detect.Detect's signature is unchanged.
-          references_constraints: [C-03]
-          priority: critical
         - id: AC-04
           description: A transaction run emits TransactionStarted, PhaseCompleted, and RolledBack events whose Data payloads carry RuleID equal to txn.RuleID.
           references_constraints: [C-04]
           priority: critical
         - id: AC-05
-          description: A sink whose Update method panics does not break a scan or a detect run — the result is still returned.
+          description: A sink whose Update method panics does not break a scan run — the result is still returned.
           references_constraints: [C-05]
           priority: high
 

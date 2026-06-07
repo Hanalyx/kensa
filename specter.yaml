@@ -96,7 +96,6 @@ domains:
             - cli-phase4-close
             - cli-phase5a-close
             - cli-polish-c023
-            - cli-progress-stream
             - cli-quiet
             - cli-rollback-session-aware
             - cli-rule-flag
@@ -120,6 +119,7 @@ domains:
             - output-oscal
             - output-parser
             - output-pdf
+            - output-stream-scan
             - output-text-scan
             - output-writer
     rule-store:
@@ -128,13 +128,6 @@ domains:
         specs:
             - rule-ordering
             - store-session-schema
-    cli-streaming:
-        tier: 2         # CLI live-progress renderer — display-only, result struct stays canonical
-        description: The internal/progress renderer (StreamConsumer — text + events-jsonl). Tier 2 because it is apply-path-adjacent display with no atomicity exposure, but writing to stdout or panicking would corrupt the canonical result channel, so the stdout/stderr separation and write-error tolerance are spec-pinned.
-        specs:
-            - progress-renderer
-            - cli-remediate-stream
-            - cli-inventory-stream
 
 settings:
     specs_dir: specs

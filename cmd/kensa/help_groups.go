@@ -99,7 +99,7 @@ var detectFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "output", "quiet", "progress"},
+		flags: []string{"format", "output", "quiet"},
 	},
 }
 
@@ -128,7 +128,7 @@ var checkFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "output", "quiet", "verbose", "progress"},
+		flags: []string{"format", "output", "quiet", "verbose"},
 	},
 }
 
@@ -172,7 +172,7 @@ var rollbackFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "quiet", "progress"},
+		flags: []string{"format", "quiet"},
 	},
 }
 
@@ -200,6 +200,6 @@ var remediateFlagGroups = []flagGroup{
 	},
 	{
 		title: "Output options",
-		flags: []string{"format", "output", "oscal", "quiet", "progress"},
+		flags: []string{"format", "output", "oscal", "quiet"},
 	},
 }

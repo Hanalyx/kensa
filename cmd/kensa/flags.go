@@ -209,12 +209,4 @@ const (
 	// uses -V which is reserved for --version in kensa;
 	// `-x` mnemonic is "eXtra var" matching ansible's `-e`.
 	ShortVar = "x"
-
-	// ShortProgress: --progress=auto|always|never has NO short
-	// letter. PR4 (cli-progress-stream). Progress is a mode knob
-	// the operator sets rarely and never types interactively in a
-	// hot loop; the remaining single letters are reserved, and a
-	// streaming flag does not warrant burning one. Mirrors --sudo,
-	// --format, and --store, which are also long-only.
-	ShortProgress = ""
 )
