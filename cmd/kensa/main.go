@@ -1015,16 +1015,22 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 
 	resolved := resolveAndPrintIssues(rules, quiet)
 
-	// PR4: live per-rule progress on stderr when enabled (auto =
-	// stderr is a TTY and not --quiet; always/never override). The
-	// text renderer writes only to stderr; the canonical ScanResult on
-	// stdout is identical whether progress is on or off (spec
-	// cli-progress-stream C-05/C-06). Off => scan.New(nil), a nil sink,
-	// byte-identical to pre-PR4.
+	// Default human output (text/table with no -o sink) streams the
+	// result rows live — one aligned row per rule, in scan order, printed
+	// as each rule's check completes — matching the reference kensa.
+	// Columns: STATUS  SEVERITY  RULE-ID  DESCRIPTION. The rows ARE the
+	// canonical text rendering, so they go to the result stream (stdout);
+	// the returned ScanResult is unchanged. Machine formats (json/jsonl)
+	// and -o sinks stay buffered/structured below — no live rows.
+	streamText := len(outputs) == 0 && (format == "text" || format == "table" || format == "")
+	var streamWriter *output.StreamScanWriter
 	var scanOpts []scan.Option
-	if progressEnabled(progressMode, stderrIsTerminal(), quiet) {
-		sink := newProgressSink(os.Stderr, stderrIsTerminal())
-		scanOpts = append(scanOpts, scan.WithProgress(sink))
+	if streamText {
+		streamWriter = output.NewStreamScanWriter(bodyOut(quiet), stdoutIsTerminal() && !quiet, resolved.Order)
+		if !quiet {
+			streamWriter.Banner(host, osInfo.Label())
+		}
+		scanOpts = append(scanOpts, scan.WithProgress(streamWriter))
 	}
 	runner := scan.New(nil, scanOpts...)
 	startedAt := time.Now().UTC()
@@ -1057,6 +1063,14 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		}
 	}
 
+	// Default human path: the rows already streamed live during the scan;
+	// close with the tally line.
+	if streamText {
+		if !quiet {
+			streamWriter.Summary()
+		}
+		return nil
+	}
 	if len(outputs) > 0 {
 		specs, err := output.ParseAll(outputs)
 		if err != nil {
@@ -1064,17 +1078,8 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		}
 		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, resolved.Order, result))
 	}
-	// When the operator picks the default text format, route through
-	// RenderScanResult directly so --verbose and the detected OS
-	// label can flow into the writer. The fan-out path above does
-	// not yet support these — operators wanting verbose+text via
-	// fan-out get the default rendering.
-	if format == "text" || format == "table" || format == "" {
-		return output.RenderScanResult(bodyOut(quiet), host, resolved.Order, result, output.ScanRenderOptions{
-			Verbose: verbose,
-			OSLabel: osInfo.Label(),
-		})
-	}
+	// Non-streaming machine formats (e.g. --format json/jsonl without -o)
+	// stay buffered and structured.
 	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, resolved.Order, result)
 }
 

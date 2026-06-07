@@ -85,6 +85,13 @@ func stderrIsTerminal() bool {
 	return term.IsTerminal(int(os.Stderr.Fd()))
 }
 
+// stdoutIsTerminal reports whether os.Stdout is attached to a terminal. Used
+// by the default text path, whose live result rows go to stdout (the result
+// stream), so color is gated on whether stdout — not stderr — is a TTY.
+func stdoutIsTerminal() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 // newProgressSink returns the text StreamConsumer the CLI wires into the
 // scan runner / DetectWithProgress when progress is enabled, pointed at
 // w (the caller passes os.Stderr). It returns a typed *progress.StreamConsumer

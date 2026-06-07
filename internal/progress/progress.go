@@ -62,6 +62,17 @@ type Update struct {
 	// OK is the boolean outcome for milestones that have one (a passing
 	// check, a successful phase).
 	OK bool
+	// Errored distinguishes an ERRORED check (the check could not run —
+	// no matching implementation, transport error) from a clean FAIL
+	// (the rule ran and is not in desired state). Both have OK=false;
+	// Errored separates them so a renderer can show ERROR vs FAIL. Only
+	// meaningful for RuleChecked updates.
+	Errored bool
+	// Fixed marks a remediation that committed a fix (the rule was not in
+	// desired state and a transaction brought it there). OK=true && Fixed
+	// renders as FIXED; OK=true && !Fixed renders as PASS (already
+	// compliant). Only meaningful for the remediate path.
+	Fixed bool
 	// Detail is an optional human-readable note (a refusal reason, a probe
 	// name, an error summary).
 	Detail string

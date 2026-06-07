@@ -100,7 +100,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
-				Index: i + 1, Total: total, OK: false, Detail: err.Error(),
+				Index: i + 1, Total: total, OK: false, Errored: true, Detail: err.Error(),
 			})
 			continue
 		}
@@ -110,7 +110,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr))
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
-				Index: i + 1, Total: total, OK: false, Detail: checkErr.Error(),
+				Index: i + 1, Total: total, OK: false, Errored: true, Detail: checkErr.Error(),
 			})
 			continue
 		}
@@ -164,10 +164,15 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 	hostID := ""
 	result := &api.RemediationResult{HostID: hostID}
 
-	for _, rl := range rules {
+	total := len(rules)
+	for i, rl := range rules {
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Errored: true, Detail: err.Error(),
+			})
 			continue
 		}
 
@@ -184,6 +189,10 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 					Detail: "already in desired state — skipped",
 				}},
 			})
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: true, Detail: "already in desired state",
+			})
 			continue
 		}
 
@@ -192,9 +201,25 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		txr, runErr := r.engine.Run(ctx, transport, txn, false)
 		if runErr != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, runErr))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Errored: true, Detail: runErr.Error(),
+			})
 			continue
 		}
 		result.Transactions = append(result.Transactions, *txr)
+		fixed := txr.Status == api.StatusCommitted
+		detail := ""
+		if !fixed {
+			detail = string(txr.Status)
+			if txr.Error != nil {
+				detail = txr.Error.Error()
+			}
+		}
+		r.emit(progress.Update{
+			Kind: progress.RuleChecked, RuleID: rl.ID,
+			Index: i + 1, Total: total, OK: fixed, Fixed: fixed, Detail: detail,
+		})
 	}
 	return result, nil
 }
