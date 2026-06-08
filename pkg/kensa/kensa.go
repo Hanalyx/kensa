@@ -29,6 +29,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/engine"
 	"github.com/Hanalyx/kensa/internal/engine/deadman"
 	"github.com/Hanalyx/kensa/internal/evidence"
+	"github.com/Hanalyx/kensa/internal/progress"
 	"github.com/Hanalyx/kensa/internal/scan"
 	"github.com/Hanalyx/kensa/internal/store"
 	"github.com/Hanalyx/kensa/internal/transport/ssh"
@@ -41,6 +42,31 @@ type Service struct {
 	*api.Kensa
 	store    *store.SQLite
 	eventBus *engine.InMemoryEventBus
+	eng      api.Engine
+}
+
+// RemediateWithProgress runs a remediation exactly like
+// [api.Kensa.Remediate] — connect a transport for host, then drive the
+// scanner — but wires a per-rule [progress.Sink] into the scanner so a
+// renderer can stream one result row per rule as each completes (covering
+// every outcome: already-compliant, fixed, failed, errored). It lives in
+// this assembly layer, building a sink-wired runner directly, so the frozen
+// api/ ScannerBackend contract stays untouched. A nil sink is a no-op
+// (byte-identical to Remediate).
+func (s *Service) RemediateWithProgress(ctx context.Context, host api.HostConfig, rules []*api.Rule, sink progress.Sink) (*api.RemediationResult, error) {
+	transport, err := ssh.Factory{}.Connect(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transport.Close() }()
+
+	runner := scan.New(s.eng, scan.WithProgress(sink))
+	result, err := runner.RemediateWithOverrides(ctx, transport, rules, host.Capabilities)
+	if err != nil {
+		return nil, err
+	}
+	result.HostID = host.Hostname
+	return result, nil
 }
 
 // Subscribe returns a channel of events matching filter. The channel
@@ -147,7 +173,7 @@ func DefaultWithEngineOptions(ctx context.Context, storePath string, engineOpts 
 		_ = s.Close()
 		return nil, fmt.Errorf("kensa: new: %w", err)
 	}
-	return &Service{Kensa: k, store: s, eventBus: bus}, nil
+	return &Service{Kensa: k, store: s, eventBus: bus, eng: eng}, nil
 }
 
 // storeAdapter bridges the [store.SQLite] type to the
