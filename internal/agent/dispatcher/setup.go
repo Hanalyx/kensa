@@ -183,8 +183,18 @@ func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo 
 	if user != "" {
 		target = user + "@" + host
 	}
+	// -o LogLevel=ERROR suppresses the server's pre-auth login banner
+	// (e.g. a USG/DoD consent banner) so it does not leak into the
+	// agent subprocess's stderr — which we forward to the operator's
+	// stderr for agent-side diagnostics. The transport (direct-SSH /
+	// check path) already hides the banner by capturing its
+	// ControlMaster stderr into a buffer; this keeps agent-mode
+	// (remediate/rollback) consistent. ERROR (not QUIET/-q) is chosen
+	// deliberately: it silences the info-level banner while preserving
+	// genuine ssh error diagnostics.
+	base := []string{"-o", "LogLevel=ERROR", target}
 	if sudo {
-		return exec.CommandContext(ctx, "ssh", target, "sudo", "-n", remotePath, "agent", "--stdio")
+		return exec.CommandContext(ctx, "ssh", append(base, "sudo", "-n", remotePath, "agent", "--stdio")...)
 	}
-	return exec.CommandContext(ctx, "ssh", target, remotePath, "agent", "--stdio")
+	return exec.CommandContext(ctx, "ssh", append(base, remotePath, "agent", "--stdio")...)
 }

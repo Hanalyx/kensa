@@ -255,3 +255,35 @@ func TestOpenAgent_HandshakeFailure(t *testing.T) {
 		t.Errorf("error should mention handshake; got: %v", err)
 	}
 }
+
+// TestDefaultSSHCommand_SuppressesBanner guards the fix for the
+// server login-banner (e.g. a USG consent banner) leaking into the
+// agent subprocess's forwarded stderr: defaultSSHCommand must pass
+// `-o LogLevel=ERROR` so the banner is suppressed while genuine ssh
+// errors still surface. The transport (direct-SSH path) already hides
+// the banner by buffering its ControlMaster stderr; this keeps
+// agent-mode (remediate/rollback) consistent with check.
+func TestDefaultSSHCommand_SuppressesBanner(t *testing.T) {
+	for _, sudo := range []bool{false, true} {
+		cmd := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", sudo)
+		joined := strings.Join(cmd.Args, " ")
+		if !strings.Contains(joined, "-o LogLevel=ERROR") {
+			t.Errorf("sudo=%v: expected `-o LogLevel=ERROR` in ssh args to suppress the login banner; got %q", sudo, joined)
+		}
+		// The LogLevel option must precede the target so ssh applies it.
+		oIdx := indexOf(cmd.Args, "LogLevel=ERROR")
+		tIdx := indexOf(cmd.Args, "owadmin@host-x")
+		if oIdx == -1 || tIdx == -1 || oIdx > tIdx {
+			t.Errorf("sudo=%v: LogLevel option must come before the target; args=%q", sudo, cmd.Args)
+		}
+	}
+}
+
+func indexOf(ss []string, want string) int {
+	for i, s := range ss {
+		if s == want {
+			return i
+		}
+	}
+	return -1
+}
