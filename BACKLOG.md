@@ -82,6 +82,37 @@ before v1.0").
 
 ---
 
+## Dependabot PRs (open — review individually, do NOT blind-merge)
+
+Dependabot (enabled via `.github/dependabot.yml` in v0.2.2, S-012) keeps
+raising these. They are **not** covered by the auto-merge-on-green rule —
+two are breaking. Triage each on its merits; CI passing is necessary but
+not sufficient (a green run can still hide a behavior or constraint break).
+
+- **#31 — `actions/checkout` 5 → 6.** Likely safe (a Node-24-era major
+  increment). Verify `runs.using: node24` and a clean diff, then merge if
+  green. Low risk.
+- **#33 — gomod minor-and-patch group (3 updates).** Review the
+  `go.mod`/`go.sum` diff; `make mod-tidy-check` and `govulncheck` must stay
+  green. Low–medium risk; check the changelogs of the bumped deps.
+- **#28 — `actions/upload-artifact` 4 → 7. CAUTION.** v4→v5 was still
+  node20 (no Node benefit at the time), and v5+ carried breaking changes
+  (the v3→v4 break was significant). Confirm the new major's behavior +
+  node runtime against `action.yml` `runs.using` before merging; the two
+  call sites are CI artifact uploads.
+- **#29 — `golangci-lint-action` 6 → 9. DO NOT MERGE as-is.** v7+ requires
+  **golangci-lint v2**; the repo pins **v1.64.8** with a v1 config. Merging
+  would break the Lint job (and v7/v8 were *still* node20 anyway — see the
+  v0.2.2 A2 analysis). This needs a deliberate golangci-lint v2 migration
+  (config rewrite) first, or close the PR until that work is scheduled.
+
+Note: when these land, the action bumps may reintroduce the Node-20
+deprecation churn — see the v0.2.2 A2 work (`#35`) which deliberately
+bumped only `checkout`/`setup-go`/`setup-python` to their node24 majors and
+left `upload-artifact@v4` + `golangci-lint-action@v6` as the safe state.
+
+---
+
 ## Review follow-ups — v0.2.2 multi-agent review (2026-06-04)
 
 Lower-severity items from the adversarial review of the v0.2.2 PRs. The
