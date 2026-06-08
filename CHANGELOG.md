@@ -12,34 +12,51 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes yet)
+
+## v0.2.3 — 2026-06-08
+
+Live result-row streaming for the default human output, plus engine and
+agent/transport fixes surfaced while building it. No machine-format or
+`api/` contract changes.
+
 ### Added
 
-- **Live progress streaming (`--progress=auto|always|never`)** — `kensa
-  check`, `kensa detect`, and `kensa remediate` can show a live stream of
-  per-rule check results, per-probe results, and per-phase transaction
-  updates while they run. `auto` (the default) shows progress only when
-  stderr is a terminal and `--quiet` is not set; `always` forces it on;
-  `never` forces it off. `--quiet` wins over `auto`. An unrecognized value
-  is a usage error (exit 2), reported before any SSH connection. On an
-  interactive terminal the single-host paths rewrite transient per-rule /
-  per-phase lines **in place** (no scroll) while milestone lines stay on
-  screen; piped/redirected/CI output and multi-host inventory mode render
-  plain newline-terminated lines instead. Multi-host `check`/`detect`
-  against an `--inventory` show one merged, host-prefixed stream.
-- **Dropped-event advisory on `remediate`** — the remediation event bus
-  is lossy by design (bounded buffer, drops rather than blocks the
-  engine). When the progress stream renders fewer transaction-completion
-  events than the authoritative result reports, `remediate` prints one
-  advisory line on stderr naming the dropped count. It is cosmetic only.
+- **Live result-row streaming for `kensa check` and `kensa remediate`** —
+  the default text output now renders one aligned row per rule **as each
+  rule completes**, in scan order, directly on stdout:
+  `STATUS  SEVERITY  RULE-ID  DESCRIPTION [detail]`, under a `── Host ──`
+  banner, ending with a tally. `check` shows `PASS` / `FAIL` / `ERROR`;
+  `remediate` shows `PASS` (already compliant) / `FIXED` / `FAIL` /
+  `ERROR`. Status and severity are colored when stdout is a terminal.
+  Machine formats (`--format json`, `-o FILE`) are unchanged — still
+  buffered and structured, never interleaved with rows.
 
 ### Changed
 
-- **All progress output goes to stderr; stdout is reserved for the
-  canonical result.** Turning progress on or off never changes the bytes
-  on stdout, the exit code, or any `-o FILE` serialization — the
-  `ScanResult` / `RemediationResult` struct remains the single source of
-  truth. The live stream is cosmetic and (for `remediate`) lossy; never
-  parse it as a record of what changed.
+- **`kensa check`'s default text output is now an in-order live row
+  stream** rather than a grouped, buffered end-of-scan report. The result
+  rows are the canonical text rendering and go to stdout; there is no
+  separate progress channel. Machine/`-o` output is unchanged.
+- **`--sudo` fails fast with an actionable error when the SSH user lacks
+  passwordless sudo.** kensa runs sudo non-interactively (`sudo -n`) on
+  every path and has no password fallback by design; a one-time probe at
+  connect now reports *"configure passwordless sudo … or drop --sudo"*
+  instead of letting every remote command fail cryptically. A non-password
+  sudo failure (e.g. user not in sudoers) is surfaced verbatim.
+
+### Fixed
+
+- **Engine event-bus panic** — `InMemoryEventBus.Publish` could send on a
+  closed channel when a subscription's context was canceled concurrently,
+  panicking a live transaction. Delivery and channel-close are now mutually
+  exclusive (Tier-1 spec `engine-event-bus` with a regression test).
+- **Server login banner leaking into agent-mode output** — `remediate` /
+  `rollback` (agent mode) re-authenticate over a fresh ssh session whose
+  stderr is forwarded to the operator; a server consent/login banner (e.g.
+  a USG banner) leaked there. The agent ssh now passes `-o LogLevel=ERROR`
+  to suppress the banner while preserving real ssh errors, matching
+  `kensa check`.
 
 ## v0.2.2 — 2026-06-05
 
