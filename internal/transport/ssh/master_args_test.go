@@ -60,3 +60,29 @@ func TestMasterArgs_UpdateHostKeysAbsentWhenNotStrict(t *testing.T) {
 			strings.Join(args, " "))
 	}
 }
+
+// TestSudoPasswordRequired covers the non-interactive sudo-failure
+// detection that drives the actionable "configure NOPASSWD" error.
+func TestSudoPasswordRequired(t *testing.T) {
+	yes := []string{
+		"sudo: a password is required",
+		"sudo: no tty present and no askpass program specified",
+		"sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper",
+	}
+	for _, s := range yes {
+		if !sudoPasswordRequired(s) {
+			t.Errorf("expected sudoPasswordRequired(true) for %q", s)
+		}
+	}
+	no := []string{
+		"",
+		"true",
+		"sudo: user owadmin is not allowed to execute '/bin/true' as root",
+		"bash: command not found",
+	}
+	for _, s := range no {
+		if sudoPasswordRequired(s) {
+			t.Errorf("expected sudoPasswordRequired(false) for %q", s)
+		}
+	}
+}
