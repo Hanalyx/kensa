@@ -1,0 +1,120 @@
+spec:
+    id: progress-emission
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: progress-emission
+        description: |
+            PR1 pinned the source-agnostic display model (internal/progress:
+            Kind, Update, Sink) and added an additive RuleID to the existing
+            api transaction payloads. PR2 opens the EMISSION seams that later
+            PRs (the renderer, then the CLI wiring) consume — without changing
+            any externally-observable behavior unless a caller wires a sink.
+
+            Two seams are opened here (a third, detect.DetectWithProgress,
+            was removed when the stderr progress overlay was superseded by
+            the stdout streaming check renderer — detect reverted to its
+            buffered Detect):
+
+            1. scan.New becomes variadic, accepting WithProgress(progress.Sink)
+               options. A nil sink (the default, and what every current call
+               site produces by passing one arg) is byte-identical to today.
+               ScanWithOverrides emits one RuleChecked Update per rule, with
+               1-based Index and the rule Total, so a renderer can show
+               per-rule scan progress.
+
+            2. The engine sets RuleID (from txn.RuleID) on the three streaming
+               payloads it already emits: TransactionStarted's
+               TransactionStartedData, PhaseCompleted's PhaseCompletedData,
+               and RolledBack's RolledBackData. This lets an engine-draining
+               consumer label transaction events per rule. No new EventKinds.
+
+            It is Tier 1 because the engine RuleID propagation runs inside the
+            transaction coordinator, and because a sink that panics or errors
+            MUST NEVER break a scan or detect run — progress is cosmetic and
+            strictly subordinate to the read/mutation path (mirrors
+            engine.publish's deliberate error-swallow).
+
+    objective:
+        summary: |
+            scan.New accepts WithProgress options (nil sink => unchanged
+            behavior) and ScanWithOverrides emits a per-rule RuleChecked
+            Update; the engine stamps txn.RuleID onto the TransactionStarted,
+            PhaseCompleted, and RolledBack payloads; and a failing/panicking
+            sink never breaks a scan run.
+        scope:
+            includes:
+                - scan.New variadic with a WithProgress(progress.Sink) option
+                - A nil progress sink leaves scan behavior byte-identical to today
+                - ScanWithOverrides emits one RuleChecked Update per rule (1-based Index, rule Total, RuleID, OK)
+                - Engine sets RuleID from txn.RuleID on TransactionStartedData, PhaseCompletedData, RolledBackData
+            excludes:
+                - Rendering Updates to text or events-jsonl
+                - Wiring the sink from the CLI
+                - New EventKinds on api.Event (forbidden by design)
+                - detect.DetectWithProgress (removed; detect reverted to buffered Detect)
+
+    constraints:
+        - id: C-01
+          description: |
+              scan.New MUST accept zero or more Options and remain callable
+              with just an engine argument. With no WithProgress option (a nil
+              sink), ScanWithOverrides MUST produce the same ScanResult it
+              produces today — the sink is the only added effect.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              When a non-nil progress.Sink is wired via WithProgress,
+              ScanWithOverrides MUST emit exactly one RuleChecked Update per
+              rule scanned, in rule order, each carrying the rule's RuleID, a
+              1-based Index, the total rule count as Total, and OK set to the
+              check outcome.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The engine MUST set RuleID (from txn.RuleID) on the
+              TransactionStartedData of the TransactionStarted event, the
+              PhaseCompletedData of every PhaseCompleted event, and the
+              RolledBackData of the RolledBack event, so an engine-draining
+              consumer can label transaction events per rule. No new
+              EventKinds are introduced.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              A progress sink that panics or otherwise misbehaves MUST NOT
+              break or abort a scan run: the scan result MUST still be
+              produced. Progress is cosmetic and subordinate to the read path.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: scan.New is variadic; with no WithProgress option the ScanResult is identical to the pre-PR2 behavior (sink is the only added effect).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: With a recording sink wired, ScanWithOverrides emits one RuleChecked Update per rule in order, each with the rule's RuleID, a 1-based Index, the total count as Total, and OK matching the check outcome.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: A transaction run emits TransactionStarted, PhaseCompleted, and RolledBack events whose Data payloads carry RuleID equal to txn.RuleID.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: A sink whose Update method panics does not break a scan run — the result is still returned.
+          references_constraints: [C-05]
+          priority: high
+
+    depends_on:
+        - spec_id: progress-types
+          relationship: requires
+        - spec_id: api-event-rule-id
+          relationship: requires
+
+    tags: [progress, emission, streaming, engine, tier-1]

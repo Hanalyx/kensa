@@ -153,7 +153,58 @@ func Connect(ctx context.Context, cfg Config) (*Transport, error) {
 		}
 		return nil, fmt.Errorf("ssh: connect failed: %w (stderr: %s)%s", err, stderrText, hint)
 	}
-	return &Transport{cfg: cfg, socketPath: socketPath}, nil
+	t := &Transport{cfg: cfg, socketPath: socketPath}
+	// Fail fast with an actionable message when --sudo is set but the
+	// SSH user lacks passwordless sudo. kensa runs non-interactively
+	// (sudo -n), so a host that prompts for a sudo password can't
+	// proceed; probe once here instead of letting every remote command
+	// fail with a cryptic per-command error.
+	if cfg.Sudo {
+		if err := t.checkSudoNoPasswd(ctx); err != nil {
+			_ = t.Close()
+			return nil, err
+		}
+	}
+	return t, nil
+}
+
+// checkSudoNoPasswd runs a no-op `sudo -n` probe over the established
+// connection. A clean exit means passwordless sudo works. A failure whose
+// stderr indicates a password/tty is required is turned into an actionable
+// error directing the operator to configure NOPASSWD (kensa runs
+// non-interactively by design — there is no password fallback). Any other
+// sudo failure (e.g. the user is not in sudoers) is surfaced verbatim so it
+// is not mistaken for a kensa bug.
+func (t *Transport) checkSudoNoPasswd(ctx context.Context) error {
+	res, err := t.Run(ctx, "true")
+	if err != nil {
+		return err // transport-level error, already wrapped by Run
+	}
+	if res.ExitCode == 0 {
+		return nil
+	}
+	user := t.cfg.User
+	if user == "" {
+		user = "the SSH user"
+	}
+	if sudoPasswordRequired(res.Stderr) {
+		return fmt.Errorf(
+			"sudo on %s requires a password for %s, but kensa runs non-interactively (sudo -n) and has no password fallback. "+
+				"Configure passwordless sudo for that user on the target — a NOPASSWD sudoers entry covering the operations kensa runs "+
+				"(see the shipped /etc/sudoers.d/ guidance) — or drop --sudo if root elevation isn't needed. [sudo: %s]",
+			t.cfg.Host, user, strings.TrimSpace(res.Stderr))
+	}
+	return fmt.Errorf("sudo probe on %s failed (exit %d): %s", t.cfg.Host, res.ExitCode, strings.TrimSpace(res.Stderr))
+}
+
+// sudoPasswordRequired reports whether sudo stderr indicates it needed a
+// password or terminal — the non-interactive (sudo -n) failure modes.
+func sudoPasswordRequired(stderr string) bool {
+	s := strings.ToLower(stderr)
+	return strings.Contains(s, "password is required") ||
+		strings.Contains(s, "a terminal is required") ||
+		strings.Contains(s, "no tty present") ||
+		strings.Contains(s, "askpass")
 }
 
 // computeSocketPath generates a deterministic socket path for the

@@ -12,7 +12,34 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+### Added
+
+- **Live progress streaming (`--progress=auto|always|never`)** — `kensa
+  check`, `kensa detect`, and `kensa remediate` can show a live stream of
+  per-rule check results, per-probe results, and per-phase transaction
+  updates while they run. `auto` (the default) shows progress only when
+  stderr is a terminal and `--quiet` is not set; `always` forces it on;
+  `never` forces it off. `--quiet` wins over `auto`. An unrecognized value
+  is a usage error (exit 2), reported before any SSH connection. On an
+  interactive terminal the single-host paths rewrite transient per-rule /
+  per-phase lines **in place** (no scroll) while milestone lines stay on
+  screen; piped/redirected/CI output and multi-host inventory mode render
+  plain newline-terminated lines instead. Multi-host `check`/`detect`
+  against an `--inventory` show one merged, host-prefixed stream.
+- **Dropped-event advisory on `remediate`** — the remediation event bus
+  is lossy by design (bounded buffer, drops rather than blocks the
+  engine). When the progress stream renders fewer transaction-completion
+  events than the authoritative result reports, `remediate` prints one
+  advisory line on stderr naming the dropped count. It is cosmetic only.
+
+### Changed
+
+- **All progress output goes to stderr; stdout is reserved for the
+  canonical result.** Turning progress on or off never changes the bytes
+  on stdout, the exit code, or any `-o FILE` serialization — the
+  `ScanResult` / `RemediationResult` struct remains the single source of
+  truth. The live stream is cosmetic and (for `remediate`) lossy; never
+  parse it as a record of what changed.
 
 ## v0.2.2 — 2026-06-05
 

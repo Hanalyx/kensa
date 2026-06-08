@@ -15,6 +15,10 @@ domains:
         description: Transaction engine, deadman, evidence envelope, log — rollback-safety-critical.
         specs:
             - engine-transaction
+            - engine-event-bus
+            - api-event-rule-id
+            - progress-types
+            - progress-emission
             - deadman-timer
             - evidence-envelope
             - transaction-log
@@ -115,6 +119,7 @@ domains:
             - output-oscal
             - output-parser
             - output-pdf
+            - output-stream-scan
             - output-text-scan
             - output-writer
     rule-store:

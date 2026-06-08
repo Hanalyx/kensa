@@ -23,6 +23,10 @@ func (e *Engine) publishStarted(ctx context.Context, txn *api.Transaction) {
 		TxnID:     &txn.ID,
 		HostID:    txn.HostID,
 		Timestamp: time.Now().UTC(),
+		Data: api.TransactionStartedData{
+			RuleID:   txn.RuleID,
+			Severity: txn.Severity,
+		},
 	})
 }
 
@@ -38,6 +42,7 @@ func (e *Engine) publishPhaseCompleted(ctx context.Context, txn *api.Transaction
 			Phase:    phase,
 			Success:  success,
 			Duration: sinceStart,
+			RuleID:   txn.RuleID,
 		},
 	})
 }

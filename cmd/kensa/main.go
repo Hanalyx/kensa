@@ -591,8 +591,7 @@ func runDetect(ctx context.Context, args []string) error {
 
 	// Flag-only constraints up front, before SSH setup. Bad
 	// --password, --strict-host-keys conflicts, or malformed
-	// --capability entries should surface before we open a
-	// transport.
+	// --capability entries should surface before we open a transport.
 	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
 	if err != nil {
 		return &UsageError{Cause: err}
@@ -991,7 +990,24 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 
 	resolved := resolveAndPrintIssues(rules, quiet)
 
-	runner := scan.New(nil)
+	// Default human output (text/table with no -o sink) streams the
+	// result rows live — one aligned row per rule, in scan order, printed
+	// as each rule's check completes — matching the reference kensa.
+	// Columns: STATUS  SEVERITY  RULE-ID  DESCRIPTION. The rows ARE the
+	// canonical text rendering, so they go to the result stream (stdout);
+	// the returned ScanResult is unchanged. Machine formats (json/jsonl)
+	// and -o sinks stay buffered/structured below — no live rows.
+	streamText := len(outputs) == 0 && (format == "text" || format == "table" || format == "")
+	var streamWriter *output.StreamScanWriter
+	var scanOpts []scan.Option
+	if streamText {
+		streamWriter = output.NewStreamScanWriter(bodyOut(quiet), stdoutIsTerminal() && !quiet, resolved.Order)
+		if !quiet {
+			streamWriter.Banner(host, osInfo.Label())
+		}
+		scanOpts = append(scanOpts, scan.WithProgress(streamWriter))
+	}
+	runner := scan.New(nil, scanOpts...)
 	startedAt := time.Now().UTC()
 	result, err := runner.ScanWithOverrides(ctx, transport, resolved.Order, capOverrides)
 	if err != nil {
@@ -1022,6 +1038,14 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		}
 	}
 
+	// Default human path: the rows already streamed live during the scan;
+	// close with the tally line.
+	if streamText {
+		if !quiet {
+			streamWriter.Summary()
+		}
+		return nil
+	}
 	if len(outputs) > 0 {
 		specs, err := output.ParseAll(outputs)
 		if err != nil {
@@ -1029,17 +1053,8 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		}
 		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, resolved.Order, result))
 	}
-	// When the operator picks the default text format, route through
-	// RenderScanResult directly so --verbose and the detected OS
-	// label can flow into the writer. The fan-out path above does
-	// not yet support these — operators wanting verbose+text via
-	// fan-out get the default rendering.
-	if format == "text" || format == "table" || format == "" {
-		return output.RenderScanResult(bodyOut(quiet), host, resolved.Order, result, output.ScanRenderOptions{
-			Verbose: verbose,
-			OSLabel: osInfo.Label(),
-		})
-	}
+	// Non-streaming machine formats (e.g. --format json/jsonl without -o)
+	// stay buffered and structured.
 	return output.ScanWriterOrText(format).WriteScanResult(bodyOut(quiet), host, resolved.Order, result)
 }
 
@@ -1144,6 +1159,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 	}
 
 	results := make([]hostResult, len(hosts))
+
 	// C-029: per-host work runs through fanOutBounded which caps
 	// concurrent goroutines at `workers` (1-50, validated upstream).
 	// fanOutBounded honors ctx cancellation between items.
@@ -1464,6 +1480,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = svc.Close() }()
 
 	resolved := resolveAndPrintIssues(rules, quiet)
+
 	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
 	if err != nil {
 		return err

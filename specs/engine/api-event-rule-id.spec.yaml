@@ -1,0 +1,104 @@
+spec:
+    id: api-event-rule-id
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: api-event-rule-id
+        description: |
+            The kensa CLI's live-progress renderer needs per-rule labels
+            on the transaction-lifecycle events the engine emits. Today the
+            transaction-scoped payloads (PhaseCompletedData, RolledBackData)
+            carry no rule identity, and there is no typed payload for the
+            TransactionStarted event at all. Without a rule id on the wire a
+            consumer can render "phase apply done" but not "phase apply done
+            for rule X", which the per-rule streaming UX requires.
+
+            This spec pins the ADDITIVE api/ change that unblocks that:
+            RuleID added to the existing PhaseCompletedData and
+            RolledBackData payloads, plus a new typed TransactionStartedData
+            payload carrying RuleID and Severity. It is a strictly additive
+            MINOR change — no new EventKinds, no removed or renamed fields,
+            no change to Event/EventKind/EventFilter. api/ stays
+            transaction-scoped: every payload here is the Data of an event
+            with a non-nil TxnID.
+
+            It is Tier 1 because api/ is the frozen public contract OpenWatch
+            imports; a field that does not round-trip a struct-literal value,
+            or a non-additive change here, is a contract break on the
+            atomicity surface.
+
+    objective:
+        summary: |
+            The transaction-scoped event payloads carry a RuleID, and the
+            TransactionStarted event has a typed payload (TransactionStartedData)
+            carrying RuleID and a string Severity. All fields round-trip as
+            plain struct values with zero behavior change, and the EventKind
+            vocabulary is unchanged (no kind added).
+        scope:
+            includes:
+                - RuleID field on PhaseCompletedData
+                - RuleID field on RolledBackData
+                - TransactionStartedData{RuleID, Severity string} as a typed payload
+                - Severity typed as string (matching api.Transaction.Severity)
+                - Additivity — the existing EventKind set is unchanged
+            excludes:
+                - Engine emission of these fields (that is PR2; this PR is types only)
+                - New EventKinds (explicitly forbidden by the design)
+                - Serialization format / wire encoding of events (the bus is in-process Go values)
+
+    constraints:
+        - id: C-01
+          description: |
+              PhaseCompletedData MUST carry a RuleID string field that
+              round-trips the value assigned in a struct literal, without
+              disturbing the existing Phase, Success, and Duration fields.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              RolledBackData MUST carry a RuleID string field that
+              round-trips the value assigned in a struct literal, without
+              disturbing the existing Source and Reason fields.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A TransactionStartedData type MUST exist as the typed
+              Event.Data payload for the TransactionStarted kind, carrying a
+              RuleID string and a Severity string, both of which round-trip
+              the values assigned in a struct literal. Severity is a string
+              to match api.Transaction.Severity.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The change MUST be strictly additive: the set of EventKind
+              constants MUST be unchanged (no kind added, removed, or
+              renamed). No new transaction-less event is introduced.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: A PhaseCompletedData struct literal with a RuleID round-trips that RuleID alongside its Phase, Success, and Duration fields.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: A RolledBackData struct literal with a RuleID round-trips that RuleID alongside its Source and Reason fields.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: A TransactionStartedData struct literal round-trips its RuleID and string Severity, and is assignable to an api.Event.Data field carrying the TransactionStarted kind.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: The EventKind vocabulary is unchanged — the four transaction-lifecycle kinds plus the deadman and OpenWatch-owned kinds remain exactly as before, and no new kind is added by this change.
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on: []
+
+    tags: [api, events, rule-id, streaming, tier-1]

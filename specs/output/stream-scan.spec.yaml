@@ -1,0 +1,119 @@
+spec:
+    id: output-stream-scan
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: cli-output-stream-scan
+        description: |
+            `kensa check` renders its default human output by streaming
+            one result row per rule, live, as each rule's check finishes —
+            matching the row-by-row style of the reference (Python) kensa,
+            rather than buffering the whole ScanResult and rendering at the
+            end.
+
+            StreamScanWriter (internal/output/stream_scan.go) implements
+            progress.Sink. The scan Runner drives it via scan.WithProgress,
+            so each row appears the instant its rule completes. The
+            canonical result is still the returned api.ScanResult; these
+            rows are the human rendering of it, not a separate progress
+            channel — so they go to the result stream (stdout), never
+            stderr.
+
+            This spec replaces the superseded stderr "progress overlay"
+            machinery (the removed cli-progress-stream / progress-renderer /
+            remediate-stream / inventory-stream specs). The detect,
+            remediate, rollback, and inventory commands reverted to buffered
+            output; only `kensa check`'s single-host default-text path
+            streams, and it streams to stdout via this writer.
+
+    objective:
+        summary: |
+            Render a scan incrementally: one aligned row per RuleChecked
+            update, in scan order, with columns
+            STATUS  SEVERITY  RULE-ID  DESCRIPTION [detail], a status word
+            mapped from the update's OK/Errored/Fixed flags, optional ANSI
+            color, and a trailing Summary tally line.
+        scope:
+            includes:
+                - One row per progress.RuleChecked update, in arrival order
+                - Column order STATUS / SEVERITY / RULE-ID / DESCRIPTION
+                - Status mapping PASS / FIXED / FAIL / ERROR
+                - Plain (no-ANSI) output when color is disabled
+                - Summary tally (passed / fixed / failed / errored of total)
+            excludes:
+                - The buffered grouped layout (output-text-scan owns that)
+                - Machine formats (json / jsonl / csv / oscal) — unchanged
+                - stderr progress overlays — removed
+                - Engine changes — pure presentation
+
+    constraints:
+        - id: C-01
+          description: |
+              Each progress.RuleChecked update MUST produce exactly one
+              row, written in the order the updates arrive (scan order).
+              Non-RuleChecked updates are ignored.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The column order MUST be STATUS, SEVERITY, RULE-ID,
+              DESCRIPTION. The rule id is always present; the description
+              falls back to the rule id when no title is known.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The status word MUST be derived from the update flags:
+              Errored → ERROR, Fixed → FIXED, OK (not fixed) → PASS,
+              otherwise → FAIL.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              When color is disabled, output MUST contain no ANSI SGR
+              escape sequences, so operators piping to a file/grep get
+              plain text.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Summary MUST tally passed / fixed / failed / errored counts
+              accumulated across the rendered rows and print the total
+              "(of N)".
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Three RuleChecked updates render three rows in arrival
+              order, each containing the STATUS / SEVERITY / RULE-ID /
+              DESCRIPTION columns; a non-RuleChecked update is ignored
+              (no extra row). Locked by output-stream-scan/AC-01.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              Status mapping: OK→PASS, Errored→ERROR, Fixed→FIXED,
+              !OK&&!Errored→FAIL, each rendered in its row's STATUS cell.
+              Locked by output-stream-scan/AC-02.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              With color=false the rendered output contains no ESC (0x1b)
+              byte. Locked by output-stream-scan/AC-03.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-04
+          description: |
+              After rendering a mix of pass/fixed/fail/error rows, Summary
+              prints the matching counts and "(of N)" total. Locked by
+              output-stream-scan/AC-04.
+          references_constraints: [C-05]
+          priority: high
+
+    tags: [output, stream-scan, operator-ux, tier-3]
