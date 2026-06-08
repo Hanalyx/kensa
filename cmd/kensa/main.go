@@ -1481,21 +1481,41 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 
 	resolved := resolveAndPrintIssues(rules, quiet)
 
-	result, err := svc.Remediate(ctx, hostCfg, resolved.Order)
-	if err != nil {
-		return err
-	}
+	// Default human path (text/table, no -o) streams result rows live —
+	// one row per rule as each remediation completes (PASS = already
+	// compliant, FIXED = remediated, FAIL = fix failed, ERROR), matching
+	// `kensa check`. Machine formats / -o sinks stay buffered/structured.
+	streamText := len(outputs) == 0 && (format == "text" || format == "table" || format == "")
 
-	if len(outputs) > 0 {
-		specs, err := output.ParseAll(outputs)
-		if err != nil {
-			return WrapUsageError("--output", err)
+	var result *api.RemediationResult
+	if streamText {
+		sw := output.NewStreamScanWriter(bodyOut(quiet), stdoutIsTerminal() && !quiet, resolved.Order)
+		if !quiet {
+			sw.Banner(host, "")
 		}
-		if err := routeFanOutError(output.FanOutRemediationResult(specs, bodyOut(quiet), host, resolved.Order, result)); err != nil {
+		result, err = svc.RemediateWithProgress(ctx, hostCfg, resolved.Order, sw)
+		if err != nil {
 			return err
 		}
-	} else if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, resolved.Order, result); err != nil {
-		return err
+		if !quiet {
+			sw.Summary()
+		}
+	} else {
+		result, err = svc.Remediate(ctx, hostCfg, resolved.Order)
+		if err != nil {
+			return err
+		}
+		if len(outputs) > 0 {
+			specs, perr := output.ParseAll(outputs)
+			if perr != nil {
+				return WrapUsageError("--output", perr)
+			}
+			if err := routeFanOutError(output.FanOutRemediationResult(specs, bodyOut(quiet), host, resolved.Order, result)); err != nil {
+				return err
+			}
+		} else if err := output.RemediationWriterOrText(format).WriteRemediationResult(bodyOut(quiet), host, resolved.Order, result); err != nil {
+			return err
+		}
 	}
 
 	// Optionally export OSCAL for each committed transaction.

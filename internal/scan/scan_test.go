@@ -316,3 +316,46 @@ func TestScan_PanicSinkDoesNotBreak(t *testing.T) {
 		}
 	})
 }
+
+// ruleForKey is minimalRule with a caller-chosen sysctl key so two rules in
+// one test can have independent check outcomes via the fakeTransport.
+func ruleForKey(id, key string) *api.Rule {
+	r := minimalRule(id)
+	r.Implementations[0].Check.Params = api.Params{"key": key, "expected": "0"}
+	r.Implementations[0].Remediation.Params = api.Params{"key": key, "value": "0"}
+	return r
+}
+
+// TestRemediateWithProgress_EmitsPerRule verifies RemediateWithOverrides emits
+// one RuleChecked Update per rule with outcome flags a renderer maps to rows:
+// already-compliant => OK && !Fixed (PASS), remediated => OK && Fixed (FIXED).
+// (FAIL/ERROR follow from OK=false / Errored on the same seam.) This is the
+// remediate counterpart to the scan emission in progress-emission.
+//
+// @spec progress-emission
+// @ac AC-06
+func TestRemediateWithProgress_EmitsPerRule(t *testing.T) {
+	t.Run("progress-emission/AC-06", func(t *testing.T) {})
+
+	okRule := ruleForKey("rule-ok", "net.a")   // check passes -> already compliant
+	fixRule := ruleForKey("rule-fix", "net.b") // check fails -> remediated (fakeEngine commits)
+	tp := &fakeTransport{results: map[string]api.CommandResult{
+		"sysctl -n 'net.a'": {Stdout: "0", ExitCode: 0},
+		"sysctl -n 'net.b'": {Stdout: "1", ExitCode: 0},
+	}}
+	sink := &recordingSink{}
+	runner := scan.New(&fakeEngine{}, scan.WithProgress(sink))
+
+	if _, err := runner.Remediate(context.Background(), tp, []*api.Rule{okRule, fixRule}); err != nil {
+		t.Fatalf("Remediate: %v", err)
+	}
+	if len(sink.got) != 2 {
+		t.Fatalf("expected 2 progress updates, got %d: %+v", len(sink.got), sink.got)
+	}
+	if u := sink.got[0]; u.RuleID != "rule-ok" || u.Kind != progress.RuleChecked || !u.OK || u.Fixed {
+		t.Errorf("already-compliant rule: want RuleChecked OK && !Fixed for rule-ok, got %+v", u)
+	}
+	if u := sink.got[1]; u.RuleID != "rule-fix" || u.Kind != progress.RuleChecked || !u.OK || !u.Fixed {
+		t.Errorf("remediated rule: want RuleChecked OK && Fixed for rule-fix, got %+v", u)
+	}
+}

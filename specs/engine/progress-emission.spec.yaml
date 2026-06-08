@@ -92,6 +92,17 @@ spec:
               produced. Progress is cosmetic and subordinate to the read path.
           type: technical
           enforcement: error
+        - id: C-06
+          description: |
+              When a non-nil progress.Sink is wired, RemediateWithOverrides
+              MUST also emit exactly one RuleChecked Update per rule, in rule
+              order, with outcome flags a renderer maps to a row: an
+              already-compliant rule => OK && !Fixed (PASS); a remediated rule
+              (transaction committed) => OK && Fixed (FIXED); a failed
+              remediation => OK=false; a select/run error => Errored. This is
+              the remediate counterpart to C-02's scan emission.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -110,6 +121,10 @@ spec:
           description: A sink whose Update method panics does not break a scan run — the result is still returned.
           references_constraints: [C-05]
           priority: high
+        - id: AC-06
+          description: With a recording sink wired, RemediateWithOverrides emits one RuleChecked Update per rule — an already-compliant rule with OK && !Fixed, a remediated (committed) rule with OK && Fixed.
+          references_constraints: [C-06]
+          priority: critical
 
     depends_on:
         - spec_id: progress-types
