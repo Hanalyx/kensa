@@ -212,10 +212,10 @@ func TestAgentApply_ConfigSetDropin(t *testing.T) {
 func TestAgentApply_CronJob_RoutesToHandler(t *testing.T) {
 	t.Run("agent-handler-port-filepermissions/AC-05", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "cron_job", api.Params{
-		"name":     "kensa-test",
 		"schedule": "0 2 * * *",
 		"user":     "root",
 		"command":  "/bin/true",
+		"file":     "/etc/cron.d/kensa-test",
 	})
 	assertRouted(t, "cron_job", resp)
 }
