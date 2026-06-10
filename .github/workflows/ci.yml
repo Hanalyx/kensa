@@ -99,7 +99,7 @@ jobs:
       - name: specter resolve --mermaid
         run: specter resolve --mermaid > spec-graph.mmd
       - name: Upload spec graph
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: spec-graph
           path: spec-graph.mmd
@@ -161,7 +161,7 @@ jobs:
         run: make spec-coverage-strict
       - name: Upload .specter-results.json on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: specter-results
           path: .specter-results.json
