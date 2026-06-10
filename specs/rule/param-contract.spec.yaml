@@ -1,0 +1,122 @@
+spec:
+    id: rule-param-contract
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: rule-param-contract
+        description: |
+            A remediation rule names a mechanism (config_set, sysctl_set, …)
+            and supplies that mechanism's parameters as YAML keys. The handler
+            that executes the mechanism reads those keys by exact name. Until
+            now nothing bound the three representations of that param contract
+            — the schema doc (CANONICAL_RULE_SCHEMA_V1.md §3.5.4), the rule
+            corpus, and the handler source — so they drifted: the 2026-06-09
+            end-to-end test (docs/test_docs/E2E_LIVE_TEST_2026-06-09.md, F1)
+            found 201 rules that fail at Capture because the handler reads a
+            different key (e.g. config_set reads "file" while the schema and
+            corpus use "path").
+
+            internal/mechanism is the single source of truth for the per-
+            mechanism param contract. This spec defines the two gates that
+            keep the corpus and the handlers honest against it:
+
+              - Layer 2: the rule validator checks every rule's remediation
+                params against the contract (runs in kensa-validate and CI).
+              - Layer 3: an integration test feeds every corpus rule's params
+                to its real handler and asserts the handler accepts them,
+                with a ratcheting ledger of the known handler divergences.
+
+    objective:
+        summary: |
+            The validator rejects remediation params that violate the
+            mechanism contract and accepts conforming ones; the shipped corpus
+            conforms except for a documented, ratcheting allowlist; and every
+            corpus rule's params decode through its real handler except for a
+            documented, ratcheting set of handler divergences.
+        scope:
+            includes:
+                - internal/mechanism.Contracts and ValidateParams
+                - internal/mechanism.HandlerParamDivergence (ratcheting ledger)
+                - internal/rule.validateRemediationParams (Validate constraint 9)
+                - internal/rule.knownNonConformingRules (ratcheting allowlist)
+                - corpus↔handler decode integration (cmd/kensa)
+
+    constraints:
+        - id: C-01
+          description: |
+              Validate MUST emit a ValidationError when a remediation supplies
+              params that do not satisfy the mechanism contract — a missing
+              required param, an absent one-of group, or an unknown param.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Validate MUST NOT emit a param-contract error when a remediation
+              supplies exactly the contract's required params (plus any allowed
+              optional/one-of/universal params).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Rules listed in knownNonConformingRules (the documented debt
+              allowlist) MUST be skipped by the param-contract check so the
+              gate can be introduced without blocking CI on pre-existing debt.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Every rule in the shipped corpus MUST satisfy the mechanism
+              param contract, except rules in knownNonConformingRules.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Each rule in knownNonConformingRules MUST still actually violate
+              the contract. When a rule is fixed it stops violating; the
+              ratchet then fails, forcing removal of the stale allowlist entry.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Every corpus rule's remediation params MUST decode through its
+              real handler without a missing-required param error, except where
+              the mechanism is in HandlerParamDivergence, the rule is
+              allowlisted, or the file_permissions find-form gap applies. Each
+              HandlerParamDivergence entry MUST still produce a rejection (no
+              stale ledger entries); a NON-listed mechanism that rejects
+              conforming params is a regression and MUST fail.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: RemediationParamErrors flags a config_set remediation that uses the handler name "file" instead of the contract name "path".
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: RemediationParamErrors returns no errors for a config_set remediation with path, key, value, separator.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: RemediationParamErrors returns no errors for a rule whose ID is in knownNonConformingRules even with deliberately-wrong params.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: Every rule in rules/ passes RemediationParamErrors (zero violations) except allowlisted rules.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: Each knownNonConformingRules entry still violates the contract when checked directly against internal/mechanism.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: Every corpus rule's params decode through its registered handler with no unexpected missing-required error; every HandlerParamDivergence mechanism is observed rejecting at least one rule.
+          references_constraints: [C-06]
+          priority: critical
+
+    depends_on: []
+
+    tags: [rule, validation, handler, tier-2]
