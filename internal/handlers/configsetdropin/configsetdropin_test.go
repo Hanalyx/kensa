@@ -21,7 +21,7 @@ func TestApply_AC01_WritesDropinFile(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := configsetdropin.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"path":  "/etc/systemd/system/sshd.service.d/kensa.conf",
+		"dir": filepath.Dir("/etc/systemd/system/sshd.service.d/kensa.conf"), "file": filepath.Base("/etc/systemd/system/sshd.service.d/kensa.conf"),
 		"key":   "LimitNOFILE",
 		"value": "65536",
 	}, nil)
@@ -54,8 +54,8 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := configsetdropin.New()
 	params := api.Params{
-		"path": "/etc/systemd/system/sshd.service.d/kensa.conf",
-		"key":  "LimitNOFILE", "value": "65536",
+		"dir": filepath.Dir("/etc/systemd/system/sshd.service.d/kensa.conf"), "file": filepath.Base("/etc/systemd/system/sshd.service.d/kensa.conf"),
+		"key": "LimitNOFILE", "value": "65536",
 	}
 	for i := 0; i < 3; i++ {
 		res, err := h.Apply(context.Background(), tp, params, nil)
@@ -78,7 +78,7 @@ func TestCapture_AC03_RecordsExistingDropin(t *testing.T) {
 
 	h := configsetdropin.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
-		"path": path, "key": "LimitNOFILE", "value": "131072",
+		"dir": filepath.Dir(path), "file": filepath.Base(path), "key": "LimitNOFILE", "value": "131072",
 	})
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
@@ -104,7 +104,7 @@ func TestCapture_AC04_AbsentDropinRecordsFileExistedFalse(t *testing.T) {
 
 	h := configsetdropin.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
-		"path": path, "key": "LimitNOFILE", "value": "65536",
+		"dir": filepath.Dir(path), "file": filepath.Base(path), "key": "LimitNOFILE", "value": "65536",
 	})
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
@@ -186,7 +186,7 @@ func TestApply_AgentMode_AtomicWrite(t *testing.T) {
 	tr := local.New()
 	h := configsetdropin.New()
 	res, err := h.Apply(context.Background(), tr, api.Params{
-		"path":  target,
+		"dir": filepath.Dir(target), "file": filepath.Base(target),
 		"key":   "kernel.dmesg_restrict",
 		"value": "1",
 	}, nil)
@@ -221,7 +221,7 @@ func TestApply_AgentMode_ReApplyOverwrites(t *testing.T) {
 
 	// First Apply.
 	if _, err := h.Apply(context.Background(), tr, api.Params{
-		"path": target, "key": "k", "value": "1",
+		"dir": filepath.Dir(target), "file": filepath.Base(target), "key": "k", "value": "1",
 	}, nil); err != nil {
 		t.Fatalf("first Apply: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestApply_AgentMode_ReApplyOverwrites(t *testing.T) {
 	// Re-Apply with different value — must overwrite,
 	// not return ErrAlreadyExists.
 	res, err := h.Apply(context.Background(), tr, api.Params{
-		"path": target, "key": "k", "value": "2",
+		"dir": filepath.Dir(target), "file": filepath.Base(target), "key": "k", "value": "2",
 	}, nil)
 	if err != nil {
 		t.Fatalf("re-Apply: %v", err)
@@ -260,7 +260,7 @@ func TestApply_AgentMode_ReApplyPreservesTightenedMode(t *testing.T) {
 	tr := local.New()
 	h := configsetdropin.New()
 	res, err := h.Apply(context.Background(), tr, api.Params{
-		"path": target, "key": "k", "value": "2",
+		"dir": filepath.Dir(target), "file": filepath.Base(target), "key": "k", "value": "2",
 	}, nil)
 	if err != nil {
 		t.Fatalf("re-Apply: %v", err)

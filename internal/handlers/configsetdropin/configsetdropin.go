@@ -22,7 +22,8 @@ const mechanism = "config_set_dropin"
 
 // Params is the decoded parameter struct for config_set_dropin.
 type Params struct {
-	// Path is the absolute drop-in file path. Required.
+	// Path is the absolute drop-in file path, composed from the rule's `dir`
+	// + `file` params (CANONICAL_RULE_SCHEMA_V1.md §3.5.4). Required.
 	Path string
 	// Key is the configuration key. Required.
 	Key string
@@ -33,19 +34,29 @@ type Params struct {
 }
 
 var (
-	errMissingPath  = errors.New("config_set_dropin: params missing required 'path'")
+	errMissingDir   = errors.New("config_set_dropin: params missing required 'dir'")
+	errMissingFile  = errors.New("config_set_dropin: params missing required 'file'")
 	errMissingKey   = errors.New("config_set_dropin: params missing required 'key'")
 	errMissingValue = errors.New("config_set_dropin: params missing required 'value'")
 )
 
 // decodeParams converts api.Params into the typed Params struct.
+//
+// The drop-in file path is composed from the `dir` + `file` rule params, the
+// canonical names in CANONICAL_RULE_SCHEMA_V1.md §3.5.4 (and what the corpus
+// uses). Only these input keys changed in the handler→schema alignment; the
+// captured pre-state ("path") and the Apply/Rollback logic are unchanged.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
-		return nil, errMissingPath
+		return nil, errMissingDir
 	}
-	path, ok := p["path"].(string)
-	if !ok || path == "" {
-		return nil, errMissingPath
+	dir, ok := p["dir"].(string)
+	if !ok || dir == "" {
+		return nil, errMissingDir
+	}
+	file, ok := p["file"].(string)
+	if !ok || file == "" {
+		return nil, errMissingFile
 	}
 	key, ok := p["key"].(string)
 	if !ok || key == "" {
@@ -62,7 +73,7 @@ func decodeParams(p api.Params) (*Params, error) {
 			sep = s
 		}
 	}
-	return &Params{Path: path, Key: key, Value: value, Separator: sep}, nil
+	return &Params{Path: filepath.Join(dir, file), Key: key, Value: value, Separator: sep}, nil
 }
 
 // Handler implements the config_set_dropin mechanism.

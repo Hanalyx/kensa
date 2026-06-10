@@ -186,7 +186,8 @@ func TestAgentApply_ConfigSetDropin(t *testing.T) {
 	dir := t.TempDir()
 	dropin := filepath.Join(dir, "99-kensa.conf")
 	resp := dispatchApplyTest(t, "config_set_dropin", api.Params{
-		"path":  dropin,
+		"dir":   filepath.Dir(dropin),
+		"file":  filepath.Base(dropin),
 		"key":   "MaxAuthTries",
 		"value": "3",
 	})
