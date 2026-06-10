@@ -209,6 +209,16 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: golangci/golangci-lint-action@v6
+        # GOTOOLCHAIN=local forces `goinstall` to build the linter with the
+        # setup-go toolchain above (the go.mod `go` version) instead of letting
+        # Go auto-switch DOWN to golangci-lint's own go.mod toolchain. Without
+        # this, `go install golangci-lint@v1.64.8` builds the linter against an
+        # older Go (e.g. go1.25), which then cannot typecheck this repo's newer
+        # Go (go1.26) code. The degraded typecheck makes staticcheck lose its
+        # `t.Fatal` noreturn knowledge and emit SA5011 nil-deref false positives
+        # across the test suite. `local` stays in sync with go.mod automatically.
+        env:
+          GOTOOLCHAIN: local
         with:
           version: v1.64.8
           # install-mode: goinstall builds the linter from source using
