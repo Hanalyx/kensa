@@ -23,7 +23,7 @@ func TestApply_AC01_SetsKeyEqualsValue(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"file":      "/etc/selinux/config",
+		"path":      "/etc/selinux/config",
 		"key":       "SELINUX",
 		"value":     "enforcing",
 		"separator": "=",
@@ -51,7 +51,7 @@ func TestApply_AC02_SpacedEqualsSign(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"file":      "/etc/login.defs",
+		"path":      "/etc/login.defs",
 		"key":       "PASS_MAX_DAYS",
 		"value":     "90",
 		"separator": " = ",
@@ -75,7 +75,7 @@ func TestApply_AC03_SpaceSeparator(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"file":      "/etc/ssh/sshd_config",
+		"path":      "/etc/ssh/sshd_config",
 		"key":       "PermitRootLogin",
 		"value":     "no",
 		"separator": " ",
@@ -98,7 +98,7 @@ func TestApply_AC04_IsIdempotent(t *testing.T) {
 	t.Log("// @ac AC-04")
 	tp := engine.NewFakeTransport()
 	h := configset.New()
-	params := api.Params{"file": "/etc/selinux/config", "key": "SELINUX", "value": "enforcing"}
+	params := api.Params{"path": "/etc/selinux/config", "key": "SELINUX", "value": "enforcing"}
 	for i := 0; i < 3; i++ {
 		res, err := h.Apply(context.Background(), tp, params, nil)
 		if err != nil || !res.Success {
@@ -126,7 +126,7 @@ func TestCapture_AC05_RecordsExistingLine(t *testing.T) {
 
 	h := configset.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
-		"file": path, "key": "SELINUX", "value": "enforcing",
+		"path": path, "key": "SELINUX", "value": "enforcing",
 	})
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
@@ -152,7 +152,7 @@ func TestCapture_AC06_RecordsAbsentKey(t *testing.T) {
 
 	h := configset.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
-		"file": path, "key": "NEWKEY", "value": "yes",
+		"path": path, "key": "NEWKEY", "value": "yes",
 	})
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
@@ -175,7 +175,7 @@ func TestCapture_AC07_NonExistentFileReturnsErrCaptureIncomplete(t *testing.T) {
 
 	h := configset.New()
 	_, err := h.Capture(context.Background(), tp, api.Params{
-		"file": path, "key": "KEY", "value": "v",
+		"path": path, "key": "KEY", "value": "v",
 	})
 	if err == nil {
 		t.Fatal("expected error for missing file")
@@ -287,7 +287,7 @@ func TestAgentApply_KeyAbsent_AppendsAtEnd(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+		"path": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -314,7 +314,7 @@ func TestAgentApply_ActiveKey_Replaces(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+		"path": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -339,7 +339,7 @@ func TestAgentApply_CommentedKey_NoChange_AppendsActive(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+		"path": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -364,7 +364,7 @@ func TestAgentApply_LeadingWhitespace_StillMatches(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
+		"path": target, "key": "MaxAuthTries", "value": "3", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -388,7 +388,7 @@ func TestAgentApply_MultipleMatches_AllReplaced(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "MaxAuthTries", "value": "1", "separator": "=",
+		"path": target, "key": "MaxAuthTries", "value": "1", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -414,7 +414,7 @@ func TestAgentApply_KeyWithDot_LiteralMatch(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "net.ipv4.ip_forward", "value": "1", "separator": "=",
+		"path": target, "key": "net.ipv4.ip_forward", "value": "1", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -440,7 +440,7 @@ func TestAgentApply_NoTrailingNewline(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "NewKey", "value": "bar", "separator": "=",
+		"path": target, "key": "NewKey", "value": "bar", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -463,7 +463,7 @@ func TestAgentApply_EmptyFile_AppendsLine(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	_, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "X", "value": "1", "separator": "=",
+		"path": target, "key": "X", "value": "1", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -536,7 +536,7 @@ func TestAgentApply_PreservesSetgid(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tr, api.Params{
-		"file":      target,
+		"path":      target,
 		"key":       "k",
 		"value":     "2",
 		"separator": "=",
@@ -574,7 +574,7 @@ func TestAgentApply_CRLF_BehavioralParity(t *testing.T) {
 	tr := local.New()
 	h := configset.New()
 	res, err := h.Apply(context.Background(), tr, api.Params{
-		"file": target, "key": "KEY", "value": "new", "separator": "=",
+		"path": target, "key": "KEY", "value": "new", "separator": "=",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)

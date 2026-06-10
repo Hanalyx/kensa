@@ -161,7 +161,7 @@ func TestAgentApply_ConfigSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp := dispatchApplyTest(t, "config_set", api.Params{
-		"file":  configFile,
+		"path":  configFile,
 		"key":   "EnableX",
 		"value": "yes",
 	})

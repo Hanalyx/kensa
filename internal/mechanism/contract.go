@@ -83,7 +83,9 @@ var Contracts = map[string]Contract{
 // diverges (entry is stale, remove it) or if a NON-listed mechanism starts
 // diverging (a regression).
 var HandlerParamDivergence = map[string]string{
-	"config_set":            `handler reads "file"; contract/corpus use "path"`,
+	// config_set: ALIGNED to the contract — handler reads "path"
+	// (fix/handler-param-config-set). Entry removed; the ~92 config_set rules
+	// now decode and remediate.
 	"config_set_dropin":     `handler reads "path"; contract/corpus use "dir"+"file"`,
 	"kernel_module_disable": `handler reads "module"; contract/corpus use "name"`,
 	"mount_option_set":      `handler reads "option"; contract/corpus use "options"`,

@@ -29,7 +29,8 @@ var validSeparators = map[string]bool{
 
 // Params is the decoded parameter struct for the config_set mechanism.
 type Params struct {
-	// File is the absolute path of the configuration file. Required.
+	// File is the absolute path of the configuration file, decoded from the
+	// rule's `path` param (CANONICAL_RULE_SCHEMA_V1.md §3.5.4). Required.
 	File string
 	// Key is the configuration key to set. Required.
 	Key string
@@ -41,17 +42,22 @@ type Params struct {
 }
 
 var (
-	errMissingFile  = errors.New("config_set: params missing required 'file'")
+	errMissingPath  = errors.New("config_set: params missing required 'path'")
 	errMissingKey   = errors.New("config_set: params missing required 'key'")
 	errMissingValue = errors.New("config_set: params missing required 'value'")
 )
 
 // decodeParams converts api.Params into the typed Params struct.
+//
+// The file path is read from the `path` rule param, the canonical name in
+// CANONICAL_RULE_SCHEMA_V1.md §3.5.4 (and the name the rule corpus uses). Only
+// this input key changed in the handler→schema alignment; the captured
+// pre-state format and the Apply/Rollback logic are unchanged.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
-		return nil, errMissingFile
+		return nil, errMissingPath
 	}
-	file, err := requireString(p, "file", errMissingFile)
+	file, err := requireString(p, "path", errMissingPath)
 	if err != nil {
 		return nil, err
 	}
