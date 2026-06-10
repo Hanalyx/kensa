@@ -299,8 +299,8 @@ func TestAgentApply_KernelModuleDisable_RoutesToHandler(t *testing.T) {
 // L-028 audit_rule_set.
 func TestAgentApply_AuditRuleSet_RoutesToHandler(t *testing.T) {
 	resp := dispatchApplyTest(t, "audit_rule_set", api.Params{
-		"name":  "test-rule",
-		"rules": []any{"-w /etc/sudoers -p wa -k sudoers"},
+		"rule":         "-w /etc/sudoers -p wa -k sudoers",
+		"persist_file": "/etc/audit/rules.d/50-sudoers.rules",
 	})
 	assertRouted(t, "audit_rule_set", resp)
 }

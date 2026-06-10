@@ -17,7 +17,7 @@ spec:
             Rollback restores or removes the prior rule file.
         scope:
             includes:
-                - Write to /etc/audit/rules.d/<rule_file>
+                - Write to the persist_file drop-in path under /etc/audit/rules.d/
                 - augenrules --load
                 - capture of prior file state
                 - rollback restoring prior file and reloading

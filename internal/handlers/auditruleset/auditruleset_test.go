@@ -18,8 +18,8 @@ func TestApply_WritesRuleAndLoads(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := auditruleset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"rule_file": "kensa-watch-passwd.rules",
-		"rule":      "-w /etc/passwd -p wa -k identity",
+		"persist_file": "/etc/audit/rules.d/kensa-watch-passwd.rules",
+		"rule":         "-w /etc/passwd -p wa -k identity",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
