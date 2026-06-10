@@ -86,7 +86,7 @@ var HandlerParamDivergence = map[string]string{
 	// config_set: ALIGNED to the contract — handler reads "path"
 	// (fix/handler-param-config-set). Entry removed; the ~92 config_set rules
 	// now decode and remediate.
-	"config_set_dropin":     `handler reads "path"; contract/corpus use "dir"+"file"`,
+	// config_set_dropin: ALIGNED — handler composes path from "dir"+"file".
 	"kernel_module_disable": `handler reads "module"; contract/corpus use "name"`,
 	"mount_option_set":      `handler reads "option"; contract/corpus use "options"`,
 	"audit_rule_set":        `handler reads "rule_file"; contract/corpus use "rule"`,
