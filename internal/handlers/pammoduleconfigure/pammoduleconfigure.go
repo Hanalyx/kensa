@@ -40,12 +40,17 @@ type Params struct {
 
 var (
 	errMissingService    = errors.New("pam_module_configure: params missing required 'service'")
-	errMissingModuleType = errors.New("pam_module_configure: params missing required 'module_type'")
+	errMissingModuleType = errors.New("pam_module_configure: params missing required 'type'")
 	errMissingControl    = errors.New("pam_module_configure: params missing required 'control'")
 	errMissingModule     = errors.New("pam_module_configure: params missing required 'module'")
 )
 
 // decodeParams converts api.Params into the typed Params struct.
+//
+// Input parameter keys follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4:
+// "service", "module", "type", "control" (required) and "args" (optional).
+// The internal Params field names and pre.Data map keys are left unchanged
+// so the capture/rollback round-trip stays byte-identical.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
 		return nil, errMissingService
@@ -54,7 +59,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	if service == "" {
 		return nil, errMissingService
 	}
-	modType, _ := p["module_type"].(string)
+	modType, _ := p["type"].(string)
 	if modType == "" {
 		return nil, errMissingModuleType
 	}
@@ -66,7 +71,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	if module == "" {
 		return nil, errMissingModule
 	}
-	options, _ := p["options"].(string)
+	options, _ := p["args"].(string)
 	return &Params{
 		Service: service, ModuleType: modType,
 		Control: control, Module: module, Options: options,

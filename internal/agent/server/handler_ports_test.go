@@ -227,10 +227,10 @@ func TestAgentApply_CronJob_RoutesToHandler(t *testing.T) {
 func TestAgentApply_PAMModuleConfigure_RoutesToHandler(t *testing.T) {
 	t.Run("agent-handler-port-filepermissions/AC-06", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "pam_module_configure", api.Params{
-		"service":     "sshd",
-		"module_type": "auth",
-		"control":     "required",
-		"module":      "pam_unix.so",
+		"service": "sshd",
+		"type":    "auth",
+		"control": "required",
+		"module":  "pam_unix.so",
 	})
 	assertRouted(t, "pam_module_configure", resp)
 }

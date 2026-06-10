@@ -22,11 +22,11 @@ func TestApply_AddsPAMModuleLine(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := pammoduleconfigure.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"service":     "sshd",
-		"module_type": "auth",
-		"control":     "required",
-		"module":      "pam_faillock.so",
-		"options":     "preauth silent deny=5",
+		"service": "sshd",
+		"type":    "auth",
+		"control": "required",
+		"module":  "pam_faillock.so",
+		"args":    "preauth silent deny=5",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -54,7 +54,7 @@ func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
 	}
 	h := pammoduleconfigure.New()
 	_, err := h.Capture(context.Background(), tp, api.Params{
-		"service": "nonexistent", "module_type": "auth",
+		"service": "nonexistent", "type": "auth",
 		"control": "required", "module": "pam_faillock.so",
 	})
 	if err == nil {
