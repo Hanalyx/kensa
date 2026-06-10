@@ -87,11 +87,11 @@ var HandlerParamDivergence = map[string]string{
 	// (fix/handler-param-config-set). Entry removed; the ~92 config_set rules
 	// now decode and remediate.
 	// config_set_dropin: ALIGNED — handler composes path from "dir"+"file".
-	"kernel_module_disable": `handler reads "module"; contract/corpus use "name"`,
-	"mount_option_set":      `handler reads "option"; contract/corpus use "options"`,
-	"audit_rule_set":        `handler reads "rule_file"; contract/corpus use "rule"`,
-	"pam_module_configure":  `handler reads "module_type"; contract/corpus use "type"`,
-	"cron_job":              `handler requires "name", which the contract does not define`,
+	// kernel_module_disable: ALIGNED to the contract.
+	"mount_option_set":     `handler reads "option"; contract/corpus use "options"`,
+	"audit_rule_set":       `handler reads "rule_file"; contract/corpus use "rule"`,
+	"pam_module_configure": `handler reads "module_type"; contract/corpus use "type"`,
+	"cron_job":             `handler requires "name", which the contract does not define`,
 }
 
 // Known returns whether mech has a registered contract.

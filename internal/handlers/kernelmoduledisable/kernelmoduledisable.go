@@ -25,17 +25,22 @@ type Params struct {
 	Module string
 }
 
-// errMissingModule is returned when params lacks the required module.
-var errMissingModule = errors.New("kernel_module_disable: params missing required 'module'")
+// errMissingName is returned when params lacks the required name.
+var errMissingName = errors.New("kernel_module_disable: params missing required 'name'")
 
 // decodeParams converts api.Params into the typed Params struct.
+//
+// The input key is "name" per CANONICAL_RULE_SCHEMA_V1.md §3.5.4 (the
+// corpus and internal/mechanism.Contracts agree on "name"). The internal
+// Params.Module field and the pre.Data["module"] key are unchanged so the
+// capture/rollback round-trip stays byte-identical.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
-		return nil, errMissingModule
+		return nil, errMissingName
 	}
-	v, ok := p["module"].(string)
+	v, ok := p["name"].(string)
 	if !ok || v == "" {
-		return nil, errMissingModule
+		return nil, errMissingName
 	}
 	return &Params{Module: v}, nil
 }

@@ -17,7 +17,7 @@ func TestApply_WritesBlacklistAndUnloads(t *testing.T) {
 	t.Log("// @ac AC-01")
 	tp := engine.NewFakeTransport()
 	h := kernelmoduledisable.New()
-	res, err := h.Apply(context.Background(), tp, api.Params{"module": "usb-storage"}, nil)
+	res, err := h.Apply(context.Background(), tp, api.Params{"name": "usb-storage"}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
