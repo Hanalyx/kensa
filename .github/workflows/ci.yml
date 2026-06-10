@@ -26,19 +26,22 @@ env:
   # under the contributor's nose. Track S S-014.
   GOFLAGS: '-mod=readonly'
   # Specter pin per P-012. The release tarball URL is used by the
-  # spec-sync + spec-coverage-strict jobs. v0.12.1 is the earliest
-  # version that supports the tier-threshold strictness mode P-012
-  # enforces (settings.strictness: threshold in specter.yaml).
-  SPECTER_VERSION: 'v0.12.1'
+  # spec-sync + spec-coverage-strict jobs. v0.13 unified `sync` and
+  # `coverage` to both honor settings.strictness (threshold), so `specter
+  # sync` now requires ingested results unless run with --strictness
+  # annotation. spec-sync therefore runs `specter sync --strictness
+  # annotation` (results-free structural check); spec-coverage-strict
+  # remains the outcome gate that ingests `go test -json` results.
+  SPECTER_VERSION: 'v0.13.2'
 
 jobs:
   spec-sync:
     # Specter runs before Go build — specs are the source of truth.
     # Hanalyx publishes Specter release tarballs at
-    # github.com/Hanalyx/specter/releases (pinned to v0.12.1 above);
+    # github.com/Hanalyx/specter/releases (pinned to v0.13.2 above);
     # the install step uses the tarball first, falling back to
     # go install only if the release URL is unreachable. This job is
-    # now REQUIRED (no continue-on-error) since v0.12.1 install is
+    # REQUIRED (no continue-on-error) since the pinned install is
     # reliable per P-012's CI validation.
     name: Spec Sync
     runs-on: ubuntu-latest
@@ -87,7 +90,10 @@ jobs:
       - name: specter doctor
         run: specter doctor
       - name: specter sync
-        run: specter sync
+        # v0.13 `sync` honors strictness:threshold, which needs ingested
+        # results; use annotation (structural) mode here. The outcome gate
+        # is the separate spec-coverage-strict job. See SPECTER_VERSION note.
+        run: specter sync --strictness annotation
       - name: specter check --strict
         run: specter check --strict
       - name: specter resolve --mermaid

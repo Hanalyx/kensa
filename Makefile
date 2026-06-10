@@ -111,7 +111,7 @@ spec-doctor:
 	specter doctor
 
 spec-sync:
-	specter sync
+	specter sync --strictness annotation
 
 spec-parse:
 	specter parse
