@@ -254,8 +254,8 @@ func TestAgentApply_SysctlSet_RoutesToHandler(t *testing.T) {
 func TestAgentApply_MountOptionSet_RoutesToHandler(t *testing.T) {
 	t.Run("agent-handler-port-filepermissions/AC-08", func(t *testing.T) {})
 	resp := dispatchApplyTest(t, "mount_option_set", api.Params{
-		"mount":   "/tmp",
-		"options": "nodev,nosuid,noexec",
+		"mount_point": "/tmp",
+		"options":     []interface{}{"nodev", "nosuid", "noexec"},
 	})
 	assertRouted(t, "mount_option_set", resp)
 }

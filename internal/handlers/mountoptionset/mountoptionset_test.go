@@ -19,7 +19,7 @@ func TestApply_AddsMountOptionAndRemounts(t *testing.T) {
 	h := mountoptionset.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
 		"mount_point": "/tmp",
-		"option":      "noexec",
+		"options":     []interface{}{"noexec"},
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)

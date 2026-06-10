@@ -22,17 +22,28 @@ type Params struct {
 	// MountPoint is the target filesystem mount point
 	// (e.g. "/tmp", "/var"). Required.
 	MountPoint string
-	// Option is the mount option to add (e.g. "noexec", "nosuid",
-	// "nodev"). Required.
+	// Option is the comma-separated set of mount options to add
+	// (e.g. "noexec", "nodev,nosuid,noexec"). Required.
+	//
+	// The field name stays "Option" so the Capture pre-state key
+	// (pre.Data["option"]) is byte-identical across this change; only
+	// the *input* decode source changed from "option" to "options".
 	Option string
 }
 
 var (
 	errMissingMountPoint = errors.New("mount_option_set: params missing required 'mount_point'")
-	errMissingOption     = errors.New("mount_option_set: params missing required 'option'")
+	errMissingOption     = errors.New("mount_option_set: params missing required 'options'")
 )
 
 // decodeParams converts api.Params into the typed Params struct.
+//
+// The input parameter names follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4:
+// the mount-option set is carried under the key "options". The corpus
+// expresses it as a YAML list (e.g. ["nodev", "nosuid"]) which the rule
+// parser delivers as []interface{}; a plain comma-separated string is
+// also accepted. Either form is normalised to a single comma-separated
+// string in Params.Option, which is what Apply/Capture/Rollback consume.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
 		return nil, errMissingMountPoint
@@ -41,11 +52,52 @@ func decodeParams(p api.Params) (*Params, error) {
 	if !ok || mp == "" {
 		return nil, errMissingMountPoint
 	}
-	opt, ok := p["option"].(string)
-	if !ok || opt == "" {
+	opts, err := optionList(p["options"])
+	if err != nil || len(opts) == 0 {
 		return nil, errMissingOption
 	}
-	return &Params{MountPoint: mp, Option: opt}, nil
+	return &Params{MountPoint: mp, Option: strings.Join(opts, ",")}, nil
+}
+
+// optionList normalises the "options" parameter into a slice of option
+// tokens. It accepts a YAML list ([]interface{} / []string) per
+// CANONICAL_RULE_SCHEMA_V1.md §3.5.4, or a comma-separated string.
+// Empty tokens are dropped. Returns an error if any list element is not
+// a string.
+func optionList(v interface{}) ([]string, error) {
+	splitCSV := func(s string) []string {
+		out := make([]string, 0, 1)
+		for _, tok := range strings.Split(s, ",") {
+			if tok = strings.TrimSpace(tok); tok != "" {
+				out = append(out, tok)
+			}
+		}
+		return out
+	}
+	switch val := v.(type) {
+	case nil:
+		return nil, errMissingOption
+	case string:
+		return splitCSV(val), nil
+	case []string:
+		out := make([]string, 0, len(val))
+		for _, s := range val {
+			out = append(out, splitCSV(s)...)
+		}
+		return out, nil
+	case []interface{}:
+		out := make([]string, 0, len(val))
+		for _, item := range val {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("mount_option_set: 'options' elements must be strings, got %T", item)
+			}
+			out = append(out, splitCSV(s)...)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("mount_option_set: 'options' must be a list of strings or a comma-separated string, got %T", v)
+	}
 }
 
 // Handler implements the mount_option_set mechanism.
@@ -72,12 +124,20 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 		return nil, err
 	}
 
-	// awk script: for the matching mount point line, check if the option
-	// is already present; if not, append it to field 4 (options).
-	awkScript := fmt.Sprintf(
-		`$2 == %[1]s && $4 !~ /(^|,)%[2]s(,|$)/ { $4 = $4 "," %[2]s } { print }`,
-		shellEscape(p.MountPoint), shellEscape(p.Option),
-	)
+	// awk script: for the matching mount point line, append each requested
+	// option to field 4 (options) if it is not already present. Each option
+	// is checked and appended independently so a multi-option request
+	// (e.g. "nodev,nosuid") only adds the tokens that are missing.
+	//
+	// Idempotent per option: an already-present option leaves $4 unchanged.
+	var clauses strings.Builder
+	for _, opt := range strings.Split(p.Option, ",") {
+		clauses.WriteString(fmt.Sprintf(
+			`$2 == %[1]s && $4 !~ /(^|,)%[2]s(,|$)/ { $4 = $4 "," %[2]s } `,
+			shellEscape(p.MountPoint), shellEscape(opt),
+		))
+	}
+	awkScript := clauses.String() + `{ print }`
 	// Atomically rewrite fstab, then remount.
 	cmd := fmt.Sprintf(
 		`awk %s /etc/fstab > /etc/fstab.kensa.tmp && mv /etc/fstab.kensa.tmp /etc/fstab && mount -o remount %s`,

@@ -88,7 +88,7 @@ var HandlerParamDivergence = map[string]string{
 	// now decode and remediate.
 	// config_set_dropin: ALIGNED — handler composes path from "dir"+"file".
 	// kernel_module_disable: ALIGNED to the contract.
-	"mount_option_set": `handler reads "option"; contract/corpus use "options"`,
+	// mount_option_set: ALIGNED to the contract.
 	// audit_rule_set: ALIGNED to the contract.
 	// pam_module_configure: ALIGNED to the contract.
 	"cron_job": `handler requires "name", which the contract does not define`,
