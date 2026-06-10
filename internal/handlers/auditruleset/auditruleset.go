@@ -21,34 +21,47 @@ const mechanism = "audit_rule_set"
 // defaultRulesDir is the standard drop-in location for auditd rules.
 const defaultRulesDir = "/etc/audit/rules.d"
 
+// defaultPersistFile is the drop-in path used when the rule does not
+// specify persist_file. CIS-style hardening conventionally lands managed
+// audit rules in a single Kensa-owned drop-in.
+const defaultPersistFile = defaultRulesDir + "/99-kensa.rules"
+
 // Params is the decoded parameter struct for audit_rule_set.
 type Params struct {
-	// RuleFile is the drop-in file name inside /etc/audit/rules.d/
-	// (e.g. "kensa-watch-passwd.rules"). Required.
+	// RuleFile is the absolute path of the drop-in file under
+	// /etc/audit/rules.d/ to write (the schema "persist_file" key).
+	// Optional in the contract; defaults to defaultPersistFile.
 	RuleFile string
 	// Rule is the complete audit rule line(s) to write. Required.
 	Rule string
 }
 
-var (
-	errMissingRuleFile = errors.New("audit_rule_set: params missing required 'rule_file'")
-	errMissingRule     = errors.New("audit_rule_set: params missing required 'rule'")
-)
+var errMissingRule = errors.New("audit_rule_set: params missing required 'rule'")
 
 // decodeParams converts api.Params into the typed Params struct.
+//
+// Input keys follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4: "rule" carries the
+// audit rule text (required) and "persist_file" the absolute drop-in path
+// (optional, defaulting to defaultPersistFile). The internal RuleFile field
+// and the pre.Data["path"] capture key are unchanged so the capture/rollback
+// round-trip stays byte-identical.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
-		return nil, errMissingRuleFile
-	}
-	rf, ok := p["rule_file"].(string)
-	if !ok || rf == "" {
-		return nil, errMissingRuleFile
+		return nil, errMissingRule
 	}
 	rule, ok := p["rule"].(string)
 	if !ok || rule == "" {
 		return nil, errMissingRule
 	}
-	return &Params{RuleFile: rf, Rule: rule}, nil
+	persist := defaultPersistFile
+	if v, ok := p["persist_file"]; ok {
+		s, ok := v.(string)
+		if !ok || s == "" {
+			return nil, fmt.Errorf("audit_rule_set: 'persist_file' must be a non-empty string, got %T", v)
+		}
+		persist = s
+	}
+	return &Params{RuleFile: persist, Rule: rule}, nil
 }
 
 // Handler implements the audit_rule_set mechanism.
@@ -71,7 +84,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
-	path := defaultRulesDir + "/" + p.RuleFile
+	path := p.RuleFile
 	content := "# Managed by Kensa.\n" + p.Rule + "\n"
 
 	cmd := fmt.Sprintf(
@@ -100,7 +113,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return nil, err
 	}
-	path := defaultRulesDir + "/" + p.RuleFile
+	path := p.RuleFile
 	cmd := fmt.Sprintf(
 		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
 		shellEscape(path),
