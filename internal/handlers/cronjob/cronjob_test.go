@@ -18,10 +18,10 @@ func TestApply_WritesCronFile(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	h := cronjob.New()
 	res, err := h.Apply(context.Background(), tp, api.Params{
-		"name":     "kensa-audit",
 		"schedule": "0 2 * * *",
 		"user":     "root",
 		"command":  "/usr/sbin/aide --check",
+		"file":     "/etc/cron.d/aide",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -30,7 +30,7 @@ func TestApply_WritesCronFile(t *testing.T) {
 		t.Errorf("Success=false: %s", res.Detail)
 	}
 	cmd := tp.Runs[0]
-	if !strings.Contains(cmd, "kensa-audit") {
+	if !strings.Contains(cmd, "/etc/cron.d/aide") {
 		t.Errorf("expected cron file path; got %q", cmd)
 	}
 	if !strings.Contains(cmd, "0 2 * * *") {
@@ -62,6 +62,32 @@ func TestRollback_RemovesCronFileWhenAbsentAtCapture(t *testing.T) {
 	}
 	if !strings.Contains(tp.Runs[0], "rm -f") {
 		t.Errorf("expected rm -f; got %q", tp.Runs[0])
+	}
+}
+
+// @spec handler-cron-job
+// @ac AC-01
+// TestApply_DerivesNameWhenAbsent proves Apply writes a deterministic,
+// rollback-identifiable /etc/cron.d/ file when neither "name" nor "file"
+// is supplied (the optional schema params per §3.5.4).
+func TestApply_DerivesNameWhenAbsent(t *testing.T) {
+	t.Log("// @spec handler-cron-job")
+	t.Log("// @ac AC-01")
+	tp := engine.NewFakeTransport()
+	h := cronjob.New()
+	res, err := h.Apply(context.Background(), tp, api.Params{
+		"schedule": "0 2 * * *",
+		"user":     "root",
+		"command":  "/usr/sbin/aide --check",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Success=false: %s", res.Detail)
+	}
+	if !strings.Contains(tp.Runs[0], "/etc/cron.d/kensa-") {
+		t.Errorf("expected derived /etc/cron.d/kensa-* path; got %q", tp.Runs[0])
 	}
 }
 

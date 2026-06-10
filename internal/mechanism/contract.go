@@ -91,7 +91,7 @@ var HandlerParamDivergence = map[string]string{
 	// mount_option_set: ALIGNED to the contract.
 	// audit_rule_set: ALIGNED to the contract.
 	// pam_module_configure: ALIGNED to the contract.
-	"cron_job": `handler requires "name", which the contract does not define`,
+	// cron_job: ALIGNED to the contract.
 }
 
 // Known returns whether mech has a registered contract.

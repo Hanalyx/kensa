@@ -17,7 +17,7 @@ spec:
             or removes the prior file.
         scope:
             includes:
-                - Write to /etc/cron.d/<name>
+                - Write to /etc/cron.d/ (path from optional file/name, else derived)
                 - capture of prior file state
                 - rollback restoring prior state
             excludes:
