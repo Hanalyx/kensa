@@ -148,6 +148,9 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 		}
 	}
 
+	// (9) Remediation params satisfy the mechanism contract (internal/mechanism).
+	validateRemediationParams(rule, add)
+
 	return errs
 }
 
