@@ -68,6 +68,12 @@ type Update struct {
 	// Errored separates them so a renderer can show ERROR vs FAIL. Only
 	// meaningful for RuleChecked updates.
 	Errored bool
+	// Skipped marks a rule that was NOT evaluated because it does not apply
+	// to the host — the rule's platforms don't cover the detected OS, or it
+	// has no applicable implementation. OK=false && Skipped renders as SKIP
+	// (distinct from a FAIL or an ERROR). Only meaningful for RuleChecked
+	// updates.
+	Skipped bool
 	// Fixed marks a remediation that committed a fix (the rule was not in
 	// desired state and a transaction brought it there). OK=true && Fixed
 	// renders as FIXED; OK=true && !Fixed renders as PASS (already

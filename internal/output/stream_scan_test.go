@@ -81,6 +81,7 @@ func TestStreamScanWriter_StatusMapping(t *testing.T) {
 			{"rule-b", progress.Update{Kind: progress.RuleChecked, RuleID: "rule-b", OK: false}, "FAIL"},
 			{"rule-c", progress.Update{Kind: progress.RuleChecked, RuleID: "rule-c", OK: true, Fixed: true}, "FIXED"},
 			{"rule-d", progress.Update{Kind: progress.RuleChecked, RuleID: "rule-d", Errored: true}, "ERROR"},
+			{"rule-e", progress.Update{Kind: progress.RuleChecked, RuleID: "rule-e", Skipped: true}, "SKIP"},
 		}
 		for _, c := range cases {
 			var buf bytes.Buffer
@@ -120,18 +121,19 @@ func TestStreamScanWriter_SummaryTally(t *testing.T) {
 	t.Run("output-stream-scan/AC-04", func(t *testing.T) {
 		var buf bytes.Buffer
 		w := NewStreamScanWriter(&buf, false, streamRules())
-		// 2 pass, 1 fixed, 1 fail, 1 error => total 5.
+		// 2 pass, 1 fixed, 1 fail, 1 error, 1 skip => total 6.
 		w.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "rule-a", OK: true})
 		w.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "rule-b", OK: true})
 		w.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "rule-c", OK: true, Fixed: true})
 		w.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "rule-d", OK: false})
 		w.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "rule-a", Errored: true})
+		w.Update(progress.Update{Kind: progress.RuleChecked, RuleID: "rule-e", Skipped: true})
 
 		// Reset the rendered rows; only assert against the Summary line.
 		buf.Reset()
 		w.Summary()
 		got := buf.String()
-		for _, want := range []string{"2 passed", "1 fixed", "1 failed", "1 errored", "(of 5)"} {
+		for _, want := range []string{"2 passed", "1 fixed", "1 failed", "1 errored", "1 skipped", "(of 6)"} {
 			if !strings.Contains(got, want) {
 				t.Errorf("summary %q missing %q", got, want)
 			}
