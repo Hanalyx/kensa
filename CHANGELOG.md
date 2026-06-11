@@ -14,6 +14,77 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.3.0 — 2026-06-11
+
+Compliance-verdict API on `Scan`, platform gating for the standalone CLI,
+and the param-contract fix that restores ~201 corpus rules whose handlers
+read the wrong parameter names. MINOR bump: additive surface on the frozen
+`api/` package (new types + a new `ScanResult` field; nothing existing
+changed signature or semantics).
+
+### Added
+
+- **`api`: compliance-verdict surface on `Scan`** — `ScanResult` gains
+  `Outcomes []RuleOutcome`, one per scanned rule in input order, each with
+  a `ComplianceStatus` of `pass` / `fail` / `skipped` / `error`, the rule's
+  severity, a human-readable detail, the error cause (iff `error`), and the
+  rule's `FrameworkRefs` (CIS / NIST 800-53 / STIG, normalised from the
+  rule's References block) so a consumer attributes verdicts to frameworks
+  without re-joining the corpus. This is the canonical compliance result;
+  the check-only `Transactions` entries (whose `committed` / `rolled_back`
+  statuses double as compliant / non-compliant) are retained unchanged for
+  backward compatibility. (#62, #63)
+- **Platform gating for `check` and `remediate`** — kensa now detects the
+  host OS (`/etc/os-release`) and compares each rule's `platforms:` block
+  (family + `min_version` / `max_version`) against it. A rule that does not
+  apply to the host — e.g. a `rhel >= 9` control on a RHEL 8 host — is
+  reported `SKIP` (with a "not applicable: host RHEL 8.10, rule targets
+  rhel >=9" detail) instead of a misleading pass/fail, and on `remediate`
+  its remediation is **never applied**. Rules with no `platforms:` block
+  run everywhere; an undetectable host OS gates nothing. The live row
+  stream renders a dim `SKIP` status and a `N skipped` tally entry. (#64)
+- **Param-contract gate** — `internal/mechanism` is now the single source
+  of truth for each mechanism's parameter contract
+  (CANONICAL_RULE_SCHEMA_V1.md §3.5.4). The rule validator rejects
+  remediation params that violate the contract (`kensa-validate` + CI),
+  and an integration test decodes every corpus rule's params through its
+  real handler with a ratcheting divergence ledger — now empty. (#50)
+
+### Fixed
+
+- **Seven handlers read parameter names that contradicted the canonical
+  schema and the shipped corpus**, so ~201 corpus rules failed at the
+  Capture phase instead of remediating. Each handler now decodes the
+  schema's names (pre-state data shapes unchanged, so existing rollback
+  records still restore): `config_set` reads `path` (was `file`) (#51);
+  `config_set_dropin` composes `dir`+`file` (#52); `kernel_module_disable`
+  reads `name` (was `module`) (#53); `pam_module_configure` reads
+  `type`/`args` (was `module_type`/`options`) (#54); `audit_rule_set`
+  reads absolute `persist_file` (was bare `rule_file`) (#55);
+  `mount_option_set` reads the `options` list (was singular `option`)
+  (#56); `cron_job` makes `name` optional and supports an absolute `file`
+  path (#57). Verified end-to-end on a live host: previously-failing rules
+  across these mechanisms now apply and roll back byte-perfectly.
+
+### Changed
+
+- **Scanning a host whose OS no rule targets now reports `SKIP` per rule**
+  (e.g. the RHEL corpus against a non-RHEL host renders all-SKIP) rather
+  than a wall of misleading FAIL/ERROR rows. This is the honest result —
+  those rules do not apply to that host.
+- Dependency refresh: `godbus/dbus` v5.2.2, `golang.org/x/sys` v0.46,
+  `golang.org/x/term` v0.44, `modernc.org/sqlite` v1.52 (pure-Go SQLite,
+  portability CI unchanged). (#58)
+
+### Internal
+
+- CI lint stack modernised: golangci-lint v1.64.8 → **v2.12.2** (native
+  Go 1.26 support) with `golangci-lint-action` v9 and a `GOTOOLCHAIN`
+  pin that prevents the linter from being built against an older Go
+  (the root cause of a repo-wide SA5011 false-positive storm); the full
+  staticcheck `S*`/`ST*`/`QF*` tiers are now enforced. Specter pinned at
+  v0.13.2 in CI with annotation-strictness sync. (#49, #59, #60, #61)
+
 ## v0.2.3 — 2026-06-08
 
 Live result-row streaming for the default human output, plus engine and

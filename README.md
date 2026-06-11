@@ -79,7 +79,7 @@ This is how to run kensa today, pre-1.0. Requires Go 1.26+ and make.
 git clone git@github.com:Hanalyx/kensa.git
 cd kensa
 make build                # builds all five binaries into bin/
-./bin/kensa --version     # → kensa 0.2.3 (kensa)
+./bin/kensa --version     # → kensa 0.3.0 (kensa)
 ```
 
 The five binaries:
@@ -110,7 +110,7 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.2.3`. The 0.x line is the development phase.
+`v0.3.0`. The 0.x line is the development phase.
 
 The `api/` Go package is held to a stricter contract — frozen under v1
 semver for OpenWatch's consumption. Behavior on the rest of the surface
@@ -120,9 +120,13 @@ MINOR versions with one release of deprecation warning.
 Shipped since v0.1.0: signed rpm/deb + `kensa-rules` packages (v0.2.0),
 rules-dir default-path resolution (`/usr/share/kensa/rules`), the
 `grub_parameter_set` / `grub_parameter_remove` boot guard, the
-`kensa-systemd-helper` sudoers fragment (v0.2.2), and live result-row
-streaming for `check`/`remediate` (v0.2.3). All 29 handlers carry passing
-spec-driven tests.
+`kensa-systemd-helper` sudoers fragment (v0.2.2), live result-row
+streaming for `check`/`remediate` (v0.2.3), and — in v0.3.0 — the
+`api` compliance-verdict surface (`ScanResult.Outcomes` with
+pass/fail/skipped/error + framework refs), OS-aware platform gating
+(out-of-platform rules render `SKIP` and are never remediated), and the
+param-contract fix restoring ~201 corpus rules across seven handlers.
+All 29 handlers carry passing spec-driven tests.
 
 Open ship items before v1.0: RHEL 8 `$kernelopts` capture in the boot
 guard, the `AUDIT_NETLINK` audit-rule path, and dual-path service
