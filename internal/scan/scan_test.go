@@ -2,6 +2,7 @@ package scan_test
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/progress"
+	"github.com/Hanalyx/kensa/internal/rule"
 	"github.com/Hanalyx/kensa/internal/scan"
 )
 
@@ -403,6 +405,21 @@ func uncheckableRule(id string) *api.Rule {
 	}
 }
 
+// malformedWhenRule returns a rule whose only implementation has a
+// structurally invalid `when` (an int, neither string nor map) and no default,
+// so rule.Select returns a real error that does NOT wrap ErrNoImplementation —
+// the error branch of the skip/error split, distinct from notApplicableRule.
+func malformedWhenRule(id string) *api.Rule {
+	return &api.Rule{
+		ID:       id,
+		Severity: "high",
+		Implementations: []api.Implementation{{
+			When:  12345,
+			Check: api.Check{Method: "sysctl_value", Params: api.Params{"key": "x", "expected": "0"}},
+		}},
+	}
+}
+
 // TestScan_Outcomes verifies the canonical compliance-verdict surface:
 // ScanResult.Outcomes carries one api.RuleOutcome per rule, in order, with the
 // pass/fail/skipped/error mapping — and Transactions stays populated.
@@ -466,7 +483,8 @@ func TestScan_Outcomes(t *testing.T) {
 		}
 	})
 
-	// AC-03: a not-applicable rule is skipped, not errored, and Err is nil.
+	// AC-03: a not-applicable rule (no impl, no default) is skipped, not
+	// errored, with nil Err — and Transactions stays length-aligned (C-05).
 	t.Run("scan-compliance-outcome/AC-03", func(t *testing.T) {
 		// @spec scan-compliance-outcome
 		// @ac AC-03
@@ -484,25 +502,76 @@ func TestScan_Outcomes(t *testing.T) {
 		if o.Err != nil {
 			t.Errorf("skipped outcome must have nil Err, got %v", o.Err)
 		}
+		// C-05: Transactions stays one-per-rule, errored for a skip.
+		if len(result.Transactions) != 1 || result.Transactions[0].Status != api.StatusErrored {
+			t.Errorf("want 1 errored transaction for skip, got %d %+v", len(result.Transactions), result.Transactions)
+		}
 	})
 
-	// AC-04: a rule whose check cannot run is error, with a non-nil Err.
+	// AC-04: a rule whose check cannot run is error with a non-nil Err. Two
+	// distinct sources: an unknown check method (check.Run errors) and a
+	// structurally invalid `when` (rule.Select errors but NOT with
+	// ErrNoImplementation — proving the skip/error split). Transactions stays
+	// length-aligned (C-05).
 	t.Run("scan-compliance-outcome/AC-04", func(t *testing.T) {
 		// @spec scan-compliance-outcome
 		// @ac AC-04
-		result, err := scan.New(nil).Scan(context.Background(), &fakeTransport{}, []*api.Rule{uncheckableRule("rule-err")})
+		cases := []struct {
+			name       string
+			rule       *api.Rule
+			fromSelect bool // error originates in rule.Select (malformed when)
+		}{
+			{"check-error", uncheckableRule("rule-checkerr"), false},
+			{"malformed-when", malformedWhenRule("rule-whenerr"), true},
+		}
+		for _, tc := range cases {
+			result, err := scan.New(nil).Scan(context.Background(), &fakeTransport{}, []*api.Rule{tc.rule})
+			if err != nil {
+				t.Fatalf("%s: Scan: %v", tc.name, err)
+			}
+			if len(result.Outcomes) != 1 {
+				t.Fatalf("%s: want 1 outcome, got %d", tc.name, len(result.Outcomes))
+			}
+			o := result.Outcomes[0]
+			if o.Status != api.ComplianceError {
+				t.Errorf("%s: want error, got %q", tc.name, o.Status)
+			}
+			if o.Err == nil {
+				t.Errorf("%s: error outcome must carry a non-nil Err", tc.name)
+			}
+			// A malformed `when` must NOT be mistaken for the skip sentinel.
+			if tc.fromSelect && errors.Is(o.Err, rule.ErrNoImplementation) {
+				t.Errorf("%s: malformed when wrongly classified as ErrNoImplementation (would skip)", tc.name)
+			}
+			if len(result.Transactions) != 1 || result.Transactions[0].Status != api.StatusErrored {
+				t.Errorf("%s: want 1 errored transaction, got %d %+v", tc.name, len(result.Transactions), result.Transactions)
+			}
+		}
+	})
+
+	// AC-06: every outcome carries the rule's FrameworkRefs, normalised from
+	// References, so a consumer attributes a verdict to a framework without a
+	// corpus re-join.
+	t.Run("scan-compliance-outcome/AC-06", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-06
+		r := sysctlRule("rule-fw", "medium", "net.ipv4.ip_forward", "0")
+		r.References = map[string]interface{}{"nist_800_53": []interface{}{"AC-6", "AC-17"}}
+		tp := &fakeTransport{results: map[string]api.CommandResult{
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "0", ExitCode: 0},
+		}}
+		result, err := scan.New(nil).Scan(context.Background(), tp, []*api.Rule{r})
 		if err != nil {
 			t.Fatalf("Scan: %v", err)
 		}
-		if len(result.Outcomes) != 1 {
-			t.Fatalf("want 1 outcome, got %d", len(result.Outcomes))
+		refs := result.Outcomes[0].FrameworkRefs
+		if len(refs) != 2 {
+			t.Fatalf("want 2 framework refs, got %d: %+v", len(refs), refs)
 		}
-		o := result.Outcomes[0]
-		if o.Status != api.ComplianceError {
-			t.Errorf("want error, got %q", o.Status)
-		}
-		if o.Err == nil {
-			t.Error("error outcome must carry a non-nil Err")
+		for _, fr := range refs {
+			if fr.FrameworkID != "nist_800_53" || (fr.ControlID != "AC-6" && fr.ControlID != "AC-17") {
+				t.Errorf("unexpected framework ref: %+v", fr)
+			}
 		}
 	})
 }

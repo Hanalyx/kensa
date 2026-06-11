@@ -52,6 +52,7 @@ spec:
                 - api.RuleOutcome (RuleID, Status, Severity, Detail, Err)
                 - ScanResult.Outcomes populated one-per-rule in input order
                 - internal/rule.ErrNoImplementation sentinel + errors.Is split
+                - RuleOutcome.FrameworkRefs normalised from the rule's References block
                 - Backward-compatible retention of ScanResult.Transactions
             excludes:
                 - Remediate / RemediationResult (apply path unchanged)
@@ -96,7 +97,21 @@ spec:
               ScanResult.Transactions MUST remain populated with one check-only
               api.TransactionResult per rule exactly as before this change, so
               existing consumers of Transactions are unaffected (additive
-              change only).
+              change only). The two surfaces intentionally diverge on the skip
+              case: a not-applicable rule is ComplianceSkipped on Outcomes but
+              StatusErrored on Transactions (the legacy overload has no skipped
+              value). This divergence is by design and MUST NOT be "fixed".
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Every api.RuleOutcome MUST carry the rule's FrameworkRefs,
+              normalised from the rule's References block via
+              mappings.RefsFromReferences, on every verdict (pass, fail,
+              skipped, error), so a consumer can attribute or filter a verdict
+              by compliance framework without re-deriving the mapping from the
+              rule corpus. Empty FrameworkRefs (rule maps to no framework) is
+              valid.
           type: technical
           enforcement: error
 
@@ -121,6 +136,10 @@ spec:
           description: After the change, ScanResult.Transactions is still populated one-per-rule with check-only TransactionResults (committed for pass, rolled_back for fail, errored for skip/error).
           references_constraints: [C-05]
           priority: high
+        - id: AC-06
+          description: A rule whose References block maps to a framework yields an outcome whose FrameworkRefs is populated with the normalised FrameworkRef entries; a rule with no References yields empty FrameworkRefs.
+          references_constraints: [C-06]
+          priority: critical
 
     depends_on: []
 

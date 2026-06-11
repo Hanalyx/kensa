@@ -145,7 +145,10 @@ type StepResult struct {
 	Mechanism string
 	// Capturable mirrors [Handler.Capturable] for this step's mechanism.
 	Capturable bool
-	// Success is true if the step's apply returned without error.
+	// Success is true if the step's apply returned without error. In a
+	// check-only [ScanResult.Transactions] entry no apply runs; there Success
+	// carries the check verdict (true == compliant). Prefer
+	// [ScanResult.Outcomes] for an unambiguous scan verdict.
 	Success bool
 	// Detail is human-readable per-step output suitable for logs and UI.
 	Detail string

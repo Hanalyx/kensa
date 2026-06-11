@@ -192,6 +192,13 @@ type ScanResult struct {
 // RemediationResult is the outcome of [Kensa.Remediate]. Each entry
 // in [RemediationResult.Transactions] is a full transaction for a
 // rule whose check failed during the scan phase.
+//
+// Unlike [ScanResult], this type does NOT yet expose a [RuleOutcome] surface,
+// and its already-compliant entries reuse StatusCommitted with a synthetic
+// "check" step — the same transaction-status overload that [ScanResult.Outcomes]
+// was introduced to replace. Giving Remediate a compliance-verdict surface is
+// tracked as a follow-up; for now read [TransactionResult.Status] with that
+// caveat in mind.
 type RemediationResult struct {
 	HostID       string
 	Transactions []TransactionResult

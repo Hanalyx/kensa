@@ -83,20 +83,28 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 
 	total := len(rules)
 	for i, rl := range rules {
+		// FrameworkRefs is normalised from the rule's References block via the
+		// internal mappings package (unreachable from external api consumers),
+		// so every outcome carries its compliance-framework mapping and a
+		// consumer never has to re-join the corpus to learn it.
+		frameworkRefs := mappings.RefsFromReferences(rl.References)
+
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
-			// A rule with no applicable implementation is not-applicable to
-			// this host (skipped), not an error; a structurally invalid `when`
-			// IS a genuine error. The Transactions entry stays StatusErrored
-			// for backward compatibility, but Outcomes carries the precise
-			// verdict so a consumer never records a not-applicable rule as an
-			// error.
-			outcome := api.RuleOutcome{RuleID: rl.ID, Severity: rl.Severity, Detail: err.Error()}
+			// A rule with no applicable implementation (no gate matched AND no
+			// default) is not-applicable to this host (skipped), not an error;
+			// a structurally invalid `when` IS a genuine error. The Transactions
+			// entry stays StatusErrored for backward compatibility, but Outcomes
+			// carries the precise verdict so a consumer never records a
+			// not-applicable rule as an error.
+			outcome := api.RuleOutcome{RuleID: rl.ID, Severity: rl.Severity, FrameworkRefs: frameworkRefs}
 			if errors.Is(err, rule.ErrNoImplementation) {
 				outcome.Status = api.ComplianceSkipped
+				outcome.Detail = "no applicable implementation for this host"
 			} else {
 				outcome.Status = api.ComplianceError
+				outcome.Detail = err.Error()
 				outcome.Err = err
 			}
 			result.Outcomes = append(result.Outcomes, outcome)
@@ -111,11 +119,12 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 		if checkErr != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr))
 			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
-				RuleID:   rl.ID,
-				Status:   api.ComplianceError,
-				Severity: rl.Severity,
-				Detail:   checkErr.Error(),
-				Err:      checkErr,
+				RuleID:        rl.ID,
+				Status:        api.ComplianceError,
+				Severity:      rl.Severity,
+				Detail:        checkErr.Error(),
+				Err:           checkErr,
+				FrameworkRefs: frameworkRefs,
 			})
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
@@ -138,10 +147,11 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			complianceStatus = api.CompliancePass
 		}
 		result.Outcomes = append(result.Outcomes, api.RuleOutcome{
-			RuleID:   rl.ID,
-			Status:   complianceStatus,
-			Severity: rl.Severity,
-			Detail:   detail,
+			RuleID:        rl.ID,
+			Status:        complianceStatus,
+			Severity:      rl.Severity,
+			Detail:        detail,
+			FrameworkRefs: frameworkRefs,
 		})
 		result.Transactions = append(result.Transactions, api.TransactionResult{
 			TransactionID: uuid.New(),
