@@ -359,3 +359,150 @@ func TestRemediateWithProgress_EmitsPerRule(t *testing.T) {
 		t.Errorf("remediated rule: want RuleChecked OK && Fixed for rule-fix, got %+v", u)
 	}
 }
+
+// sysctlRule returns a rule with a single default sysctl_value check on key,
+// expecting expected. The probe command is `sysctl -n '<key>'`.
+func sysctlRule(id, severity, key, expected string) *api.Rule {
+	return &api.Rule{
+		ID:       id,
+		Severity: severity,
+		Implementations: []api.Implementation{{
+			Default: true,
+			Check: api.Check{
+				Method: "sysctl_value",
+				Params: api.Params{"key": key, "expected": expected},
+			},
+		}},
+	}
+}
+
+// notApplicableRule returns a rule whose only implementation is gated on a
+// capability the host lacks and has no default — so rule.Select wraps
+// ErrNoImplementation and the rule is skipped (not-applicable), not errored.
+func notApplicableRule(id string) *api.Rule {
+	return &api.Rule{
+		ID:       id,
+		Severity: "low",
+		Implementations: []api.Implementation{{
+			When:  "a_capability_this_host_does_not_have",
+			Check: api.Check{Method: "sysctl_value", Params: api.Params{"key": "x", "expected": "0"}},
+		}},
+	}
+}
+
+// uncheckableRule returns a rule whose default check uses an unknown method,
+// so check.Run returns an error and the verdict is error.
+func uncheckableRule(id string) *api.Rule {
+	return &api.Rule{
+		ID:       id,
+		Severity: "high",
+		Implementations: []api.Implementation{{
+			Default: true,
+			Check:   api.Check{Method: "no_such_check_method"},
+		}},
+	}
+}
+
+// TestScan_Outcomes verifies the canonical compliance-verdict surface:
+// ScanResult.Outcomes carries one api.RuleOutcome per rule, in order, with the
+// pass/fail/skipped/error mapping — and Transactions stays populated.
+//
+// @spec scan-compliance-outcome
+func TestScan_Outcomes(t *testing.T) {
+	// AC-01/02/05 share one pass+fail scan: a passing then a failing rule, each
+	// on a distinct sysctl key so one transport drives both. Each AC is its own
+	// named subtest so the coverage gate credits a passing case per AC.
+	pfTransport := &fakeTransport{results: map[string]api.CommandResult{
+		"sysctl -n 'net.ipv4.ip_forward'":       {Stdout: "0", ExitCode: 0},
+		"sysctl -n 'kernel.randomize_va_space'": {Stdout: "1", ExitCode: 0},
+	}}
+	pf, err := scan.New(nil).Scan(context.Background(), pfTransport, []*api.Rule{
+		sysctlRule("rule-pass", "medium", "net.ipv4.ip_forward", "0"),
+		sysctlRule("rule-fail", "high", "kernel.randomize_va_space", "0"),
+	})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(pf.Outcomes) != 2 {
+		t.Fatalf("want 2 outcomes, got %d", len(pf.Outcomes))
+	}
+
+	// AC-01: one outcome per rule, in input order, with RuleID + Severity.
+	t.Run("scan-compliance-outcome/AC-01", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-01
+		if o := pf.Outcomes[0]; o.RuleID != "rule-pass" || o.Severity != "medium" {
+			t.Errorf("outcome[0]: want rule-pass/medium, got %s/%s", o.RuleID, o.Severity)
+		}
+		if o := pf.Outcomes[1]; o.RuleID != "rule-fail" || o.Severity != "high" {
+			t.Errorf("outcome[1]: want rule-fail/high, got %s/%s", o.RuleID, o.Severity)
+		}
+	})
+
+	// AC-02: passing check => pass; failing check => fail.
+	t.Run("scan-compliance-outcome/AC-02", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-02
+		if o := pf.Outcomes[0]; o.Status != api.CompliancePass {
+			t.Errorf("outcome[0]: want pass, got %q", o.Status)
+		}
+		if o := pf.Outcomes[1]; o.Status != api.ComplianceFail {
+			t.Errorf("outcome[1]: want fail, got %q", o.Status)
+		}
+	})
+
+	// AC-05: Transactions still populated (committed for pass, rolled_back for fail).
+	t.Run("scan-compliance-outcome/AC-05", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-05
+		if len(pf.Transactions) != 2 {
+			t.Fatalf("want 2 transactions, got %d", len(pf.Transactions))
+		}
+		if pf.Transactions[0].Status != api.StatusCommitted {
+			t.Errorf("txn[0]: want committed, got %s", pf.Transactions[0].Status)
+		}
+		if pf.Transactions[1].Status != api.StatusRolledBack {
+			t.Errorf("txn[1]: want rolled_back, got %s", pf.Transactions[1].Status)
+		}
+	})
+
+	// AC-03: a not-applicable rule is skipped, not errored, and Err is nil.
+	t.Run("scan-compliance-outcome/AC-03", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-03
+		result, err := scan.New(nil).Scan(context.Background(), &fakeTransport{}, []*api.Rule{notApplicableRule("rule-skip")})
+		if err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		if len(result.Outcomes) != 1 {
+			t.Fatalf("want 1 outcome, got %d", len(result.Outcomes))
+		}
+		o := result.Outcomes[0]
+		if o.Status != api.ComplianceSkipped {
+			t.Errorf("want skipped, got %q (detail=%q)", o.Status, o.Detail)
+		}
+		if o.Err != nil {
+			t.Errorf("skipped outcome must have nil Err, got %v", o.Err)
+		}
+	})
+
+	// AC-04: a rule whose check cannot run is error, with a non-nil Err.
+	t.Run("scan-compliance-outcome/AC-04", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-04
+		result, err := scan.New(nil).Scan(context.Background(), &fakeTransport{}, []*api.Rule{uncheckableRule("rule-err")})
+		if err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		if len(result.Outcomes) != 1 {
+			t.Fatalf("want 1 outcome, got %d", len(result.Outcomes))
+		}
+		o := result.Outcomes[0]
+		if o.Status != api.ComplianceError {
+			t.Errorf("want error, got %q", o.Status)
+		}
+		if o.Err == nil {
+			t.Error("error outcome must carry a non-nil Err")
+		}
+	})
+}

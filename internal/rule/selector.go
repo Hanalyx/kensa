@@ -1,10 +1,19 @@
 package rule
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Hanalyx/kensa/api"
 )
+
+// ErrNoImplementation is returned (wrapped) by [Select] when a rule has no
+// implementation whose `when` gate the host's capabilities satisfy and no
+// `default: true` fallback. It signals "this rule is not applicable to this
+// host" — a skipped/not-applicable condition — as distinct from a structurally
+// invalid `when` expression, which is a real error. Callers use
+// errors.Is(err, ErrNoImplementation) to tell the two apart.
+var ErrNoImplementation = errors.New("no implementation matched and no default")
 
 // Select returns the best [api.Implementation] for rule given caps.
 //
@@ -15,8 +24,9 @@ import (
 //  2. If no gated implementation matched, the `default: true` implementation
 //     is returned as the fallback.
 //
-// An error is returned only when the rule has no default implementation or
-// when a `when` expression is structurally invalid.
+// It returns an error wrapping [ErrNoImplementation] when the rule has no
+// applicable implementation and no default, or a structurally-invalid-`when`
+// error otherwise.
 func Select(rule *api.Rule, caps api.CapabilitySet) (*api.Implementation, error) {
 	if caps == nil {
 		caps = api.CapabilitySet{}
@@ -47,7 +57,7 @@ func Select(rule *api.Rule, caps api.CapabilitySet) (*api.Implementation, error)
 	if defImpl != nil {
 		return defImpl, nil
 	}
-	return nil, fmt.Errorf("rule %s: no implementation matched and no default", rule.ID)
+	return nil, fmt.Errorf("rule %s: %w", rule.ID, ErrNoImplementation)
 }
 
 // evalWhen evaluates a when expression against caps and returns true when
