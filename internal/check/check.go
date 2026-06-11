@@ -673,10 +673,10 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	norm := normaliseAuditRule(rule)
 	for _, line := range strings.Split(loaded, "\n") {
 		if normaliseAuditRule(line) == norm {
-			return true, fmt.Sprintf("audit_rule_exists: rule found in loaded ruleset"), nil
+			return true, "audit_rule_exists: rule found in loaded ruleset", nil
 		}
 	}
-	return false, fmt.Sprintf("audit_rule_exists: rule not found in loaded ruleset"), nil
+	return false, "audit_rule_exists: rule not found in loaded ruleset", nil
 }
 
 // extractAuditKey returns the value following -k in an audit rule string,
@@ -848,7 +848,7 @@ func checkGrubParameter(ctx context.Context, transport api.Transport, params api
 	runningOK := containsCmdlineParam(cmdline, needleFlag, expected)
 
 	// Check persistent GRUB configuration.
-	grubCmd := fmt.Sprintf(`grep -E 'GRUB_CMDLINE_LINUX' /etc/default/grub 2>/dev/null`)
+	grubCmd := `grep -E 'GRUB_CMDLINE_LINUX' /etc/default/grub 2>/dev/null`
 	res, err = transport.Run(ctx, grubCmd)
 	if err != nil {
 		return false, "", fmt.Errorf("check grub_parameter: transport error: %w", err)

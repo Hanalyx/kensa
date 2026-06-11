@@ -87,20 +87,19 @@ linters:
         - name: var-declaration
     staticcheck:
       # v2 merged the former standalone gosimple (S*) and stylecheck (ST*)
-      # linters into staticcheck, and `all` also pulls in the quickfix (QF*)
-      # category. v1.64.8 ran only the SA* bug-detection checks here, so this
-      # upgrade preserves that exact behavior: keep SA* (real-bug analysis —
-      # nil derefs, impossible assertions, stdlib misuse) and drop the
-      # simplify/style/quickfix tiers. Those surface ~22 trivial-but-cosmetic
-      # findings (pointless fmt.Sprintf, Db->DB naming, De Morgan rewrites);
-      # enabling them is a deliberate opt-in cleanup, tracked separately, not
-      # part of this tooling swap. It also keeps the migration from editing
-      # handler/engine rollback code for purely stylistic reasons.
+      # linters into staticcheck; `all` also pulls in the quickfix (QF*)
+      # category. We run the full set (SA bug-detection + S simplification +
+      # ST style + QF quickfixes) and exclude:
+      #   ST1000 — mandatory package-level doc comments; noise for internal pkgs.
+      #   QF1001 — "apply De Morgan's law". Opinionated and, at every site we
+      #            have, a readability loss: `!(isAlpha || isDigit || isUnder)`
+      #            and `if !(posA < posB && posB < posC)` express a single
+      #            semantic negation far more clearly than the expanded
+      #            `>=`/`||` form, especially in test assertions.
       checks:
         - all
-        - -S1*
-        - -ST1*
-        - -QF1*
+        - -ST1000
+        - -QF1001
   exclusions:
     generated: lax
     presets:

@@ -45,7 +45,7 @@ const (
 
 	// Top-level only.
 
-	// ShortDb is `--db` (SQLite transaction-log path). Top-level only.
+	// ShortDB is `--db` (SQLite transaction-log path). Top-level only.
 	// Uppercase D rather than lowercase d for two reasons:
 	//  1. The legacy stdlib-flag form was `-db` (single-dash long); the
 	//     uppercase D preserves recognizability for operators migrating
@@ -55,7 +55,7 @@ const (
 	//     CLI_GNU_POSIX_MIGRATION_V1.md introduce `--dry-run` for
 	//     remediate; if a short alias is later added, `-d` is the
 	//     conventional choice).
-	ShortDb = "D"
+	ShortDB = "D"
 
 	// SSH connection / target options (used by detect, check,
 	// remediate, rollback, plan).
