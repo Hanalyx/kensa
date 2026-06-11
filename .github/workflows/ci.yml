@@ -208,11 +208,11 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v9
         # GOTOOLCHAIN=local forces `goinstall` to build the linter with the
         # setup-go toolchain above (the go.mod `go` version) instead of letting
         # Go auto-switch DOWN to golangci-lint's own go.mod toolchain. Without
-        # this, `go install golangci-lint@v1.64.8` builds the linter against an
+        # this, `go install golangci-lint@<ver>` builds the linter against an
         # older Go (e.g. go1.25), which then cannot typecheck this repo's newer
         # Go (go1.26) code. The degraded typecheck makes staticcheck lose its
         # `t.Fatal` noreturn knowledge and emit SA5011 nil-deref false positives
@@ -220,7 +220,10 @@ jobs:
         env:
           GOTOOLCHAIN: local
         with:
-          version: v1.64.8
+          # golangci-lint v2 (config schema `version: "2"`). v2 natively
+          # supports go1.26; v1.64.8 predated it and only worked via the
+          # GOTOOLCHAIN pin above. Action v9 requires a v2 linter.
+          version: v2.12.2
           # install-mode: goinstall builds the linter from source using
           # the runner's Go (pinned by go-version-file: go.mod above).
           # Required because our deps (modernc/sqlite) require a recent

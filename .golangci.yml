@@ -1,179 +1,151 @@
-# golangci-lint configuration for kensa.
-#
-# Comment style enforces Google's Go Style Guide:
-#   https://google.github.io/styleguide/go/guide
-#   https://google.github.io/styleguide/go/decisions
-#   https://google.github.io/styleguide/go/best-practices
-# and the upstream go.dev/doc/comment parsing rules.
-#
-# The intent is that godoc / pkg.go.dev renders the api/ package
-# legibly without extra context — "the code tells the story."
-
-run:
-  timeout: 5m
-  go: "1.22"
-
+version: "2"
+# run.go is intentionally unset: golangci-lint reads the target Go version
+# from go.mod (currently 1.26.4). Keeping it unset means the linter tracks
+# go.mod automatically, the same sync-free principle as GOTOOLCHAIN=local in CI.
 linters:
-  disable-all: true
+  default: none
   enable:
-    # Standard Go correctness
-    - gofmt
-    - goimports
-    - govet
-    - staticcheck
     - errcheck
+    - gocritic
+    - godot
+    - govet
     - ineffassign
+    - misspell
+    - revive
+    - staticcheck
     - unused
-
-    # Comment style (the focus of this config)
-    - revive       # Doc-comment + naming rules from the Google guide
-    - godot        # Doc comments end with a period
-    - misspell     # Spell-check identifiers and comments
-    - gocritic     # commentFormatting, commentedOutCode, etc.
-
-linters-settings:
-  gofmt:
-    simplify: true
-
-  goimports:
-    local-prefixes: github.com/Hanalyx/kensa
-
-  staticcheck:
-    # Comment-style checks from staticcheck:
-    #   ST1000 — at least one file in a package should have a package comment
-    #   ST1003 — naming conventions
-    #   ST1020 — comment on exported function
-    #   ST1021 — comment on exported type
-    #   ST1022 — comment on exported variable
-    # Style checks are opt-in; we enable the comment-relevant ones explicitly.
-    checks:
-      - all
-      - -ST1000   # We have package comment in api/doc.go; this would re-flag
-
-  revive:
-    severity: error
-    enable-all-rules: false
+  settings:
+    gocritic:
+      enabled-checks:
+        - commentFormatting
+        - commentedOutCode
+        - deferInLoop
+        - emptyStringTest
+        - sloppyReassign
+        - typeAssertChain
+        - unnecessaryBlock
+        - whyNoLint
+      settings:
+        commentedOutCode:
+          minLength: 30
+    godot:
+      scope: declarations
+      exclude:
+        - ^\s*@spec\b
+        - ^\s*@ac\b
+        - ^\s*@c\b
+      capital: true
+      period: true
+    misspell:
+      locale: US
+      ignore-rules:
+        - kensa
+        - openwatch
+        - hanalyx
+        - rhel
+        - sshd
+        - sysctl
+        - selinux
+        - authselect
+        - faillock
+        - fapolicyd
+        - usbguard
+        - dnf
+        - oscal
+    revive:
+      severity: error
+      enable-all-rules: false
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - disableStutteringCheck
+        - name: package-comments
+        - name: comment-spacings
+          arguments:
+            - TODO
+            - FIXME
+            - NOTE
+            - Deprecated
+        - name: var-naming
+        - name: receiver-naming
+        - name: unexported-return
+        - name: dot-imports
+        - name: error-strings
+        - name: error-naming
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: var-declaration
+    staticcheck:
+      # v2 merged the former standalone gosimple (S*) and stylecheck (ST*)
+      # linters into staticcheck, and `all` also pulls in the quickfix (QF*)
+      # category. v1.64.8 ran only the SA* bug-detection checks here, so this
+      # upgrade preserves that exact behavior: keep SA* (real-bug analysis —
+      # nil derefs, impossible assertions, stdlib misuse) and drop the
+      # simplify/style/quickfix tiers. Those surface ~22 trivial-but-cosmetic
+      # findings (pointless fmt.Sprintf, Db->DB naming, De Morgan rewrites);
+      # enabling them is a deliberate opt-in cleanup, tracked separately, not
+      # part of this tooling swap. It also keeps the migration from editing
+      # handler/engine rollback code for purely stylistic reasons.
+      checks:
+        - all
+        - -S1*
+        - -ST1*
+        - -QF1*
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      # Doc-comment rules per Google's guide
-      - name: exported
-        arguments:
-          - "checkPrivateReceivers"
-          - "disableStutteringCheck"
-      - name: package-comments
-      - name: comment-spacings
-        arguments: ["TODO", "FIXME", "NOTE", "Deprecated"]
-
-      # Naming
-      - name: var-naming
-      - name: receiver-naming
-      - name: unexported-return
-      - name: dot-imports
-
-      # Error strings — "kensa: foo" lower-case, no trailing punct
-      - name: error-strings
-      - name: error-naming
-
-      # Code hygiene that supports clean comments
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: error-return
-      - name: errorf
-      - name: increment-decrement
-      - name: indent-error-flow
-      - name: range
-      - name: superfluous-else
-      - name: time-naming
-      - name: unreachable-code
-      - name: var-declaration
-
-  godot:
-    # Only enforce on doc comments (preceding declarations), not inline.
-    scope: declarations
-    # Enforce capital first letter (per Google guide complete-sentence rule).
-    capital: true
-    # Period at end of last sentence.
-    period: true
-    # Exclude specter annotation lines from the analysis. The
-    # Convention B format places `// @spec spec-id` and
-    # `// @ac AC-NN` markers at the end of doc-comment blocks
-    # (per CLAUDE.md and specter's coverage parser). They are
-    # not prose, and appending a period to "AC-01" would break
-    # specter's identifier match. Pattern is matched against
-    # the comment line WITHOUT the `//` prefix.
-    exclude:
-      - "^\\s*@spec\\b"
-      - "^\\s*@ac\\b"
-      - "^\\s*@c\\b"
-
-  gocritic:
-    enabled-checks:
-      - commentFormatting
-      - commentedOutCode
-      - deferInLoop
-      - emptyStringTest
-      - sloppyReassign
-      - typeAssertChain
-      - unnecessaryBlock
-      - whyNoLint
-    settings:
-      commentedOutCode:
-        minLength: 30   # short snippets in doc comments are fine
-
-  misspell:
-    locale: US
-    ignore-words:
-      - kensa
-      - openwatch
-      - hanalyx
-      - rhel
-      - sshd
-      - sysctl
-      - selinux
-      - authselect
-      - faillock
-      - fapolicyd
-      - usbguard
-      - dnf
-      - oscal
-
+      - linters:
+          - revive
+        path: _test\.go
+        text: exported
+      - linters:
+          - godot
+        path: internal/
+      - linters:
+          - godot
+        path: cmd/
+    paths:
+      - vendor
+      - bin
+      - dist
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  # Show all issues, not just new ones.
-  new: false
-  # Don't auto-skip dirs that contain `.go` test files.
-  exclude-dirs:
-    - vendor
-    - bin
-    - dist
-  # Per-rule exemptions
-  exclude-rules:
-    # Test files: relax exported-comment rule (test types are local-by-convention).
-    - path: _test\.go
-      linters:
-        - revive
-      text: "exported"
-
-    # internal/ packages don't need the same exported-comment rigor as api/.
-    # They get exported, package-comments, and naming, but not godot strictness
-    # (neither the period nor the capital-first-letter check — Go convention is
-    # for unexported-symbol doc comments to start with the identifier name).
-    - path: internal/
-      linters:
-        - godot
-
-    # cmd/ binaries are internal-binary code, not exported library surface.
-    # Same reasoning as internal/: doc comments on unexported symbols start
-    # with the identifier name (Go convention), which collides with godot's
-    # capital-first rule. Adding cmd/ here closes the gap. Surfaced 2026-05-28
-    # when a benign edit to cmd/kensa/main.go shifted an unchanged
-    # `// loadRulesFromDirOrFiles loads...` comment block by 11 lines and
-    # golangci-lint-action's new-from-rev diff flagged the moved comment as
-    # a new capital-first violation; capitalising the lead would have made
-    # the godoc reference wrong (the func is lowercase).
-    - path: cmd/
-      linters:
-        - godot
-
-  # Cap the noise — show all instances per linter.
   max-issues-per-linter: 0
   max-same-issues: 0
+  new: false
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/Hanalyx/kensa
+  exclusions:
+    generated: lax
+    paths:
+      - vendor
+      - bin
+      - dist
+      - third_party$
+      - builtin$
+      - examples$

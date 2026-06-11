@@ -69,7 +69,7 @@ repos:
 
   # ─── Manual stage: golangci-lint with comment-style suite ────────────
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.64.8
+    rev: v2.12.2
     hooks:
       - id: golangci-lint
         args: ["--config=.golangci.yml"]
