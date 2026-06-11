@@ -14,6 +14,7 @@ package scan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -26,19 +27,6 @@ import (
 	"github.com/Hanalyx/kensa/internal/progress"
 	"github.com/Hanalyx/kensa/internal/rule"
 )
-
-// CheckResult is the outcome of checking one rule against a host.
-type CheckResult struct {
-	// RuleID is the rule that was checked.
-	RuleID string
-	// Passed is true when the check confirmed desired state.
-	Passed bool
-	// Detail is a human-readable description of the check outcome.
-	Detail string
-	// Err is non-nil when the check could not run (transport error,
-	// unsupported method, etc.).
-	Err error
-}
 
 // Runner executes compliance scans and remediations over an SSH transport.
 type Runner struct {
@@ -95,9 +83,31 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 
 	total := len(rules)
 	for i, rl := range rules {
+		// FrameworkRefs is normalised from the rule's References block via the
+		// internal mappings package (unreachable from external api consumers),
+		// so every outcome carries its compliance-framework mapping and a
+		// consumer never has to re-join the corpus to learn it.
+		frameworkRefs := mappings.RefsFromReferences(rl.References)
+
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
+			// A rule with no applicable implementation (no gate matched AND no
+			// default) is not-applicable to this host (skipped), not an error;
+			// a structurally invalid `when` IS a genuine error. The Transactions
+			// entry stays StatusErrored for backward compatibility, but Outcomes
+			// carries the precise verdict so a consumer never records a
+			// not-applicable rule as an error.
+			outcome := api.RuleOutcome{RuleID: rl.ID, Severity: rl.Severity, FrameworkRefs: frameworkRefs}
+			if errors.Is(err, rule.ErrNoImplementation) {
+				outcome.Status = api.ComplianceSkipped
+				outcome.Detail = "no applicable implementation for this host"
+			} else {
+				outcome.Status = api.ComplianceError
+				outcome.Detail = err.Error()
+				outcome.Err = err
+			}
+			result.Outcomes = append(result.Outcomes, outcome)
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
 				Index: i + 1, Total: total, OK: false, Errored: true, Detail: err.Error(),
@@ -108,6 +118,14 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 		passed, detail, checkErr := check.Run(ctx, transport, impl.Check)
 		if checkErr != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr))
+			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
+				RuleID:        rl.ID,
+				Status:        api.ComplianceError,
+				Severity:      rl.Severity,
+				Detail:        checkErr.Error(),
+				Err:           checkErr,
+				FrameworkRefs: frameworkRefs,
+			})
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
 				Index: i + 1, Total: total, OK: false, Errored: true, Detail: checkErr.Error(),
@@ -120,10 +138,21 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			Index: i + 1, Total: total, OK: passed, Detail: detail,
 		})
 
+		// committed/rolled_back overload kept on Transactions for back-compat;
+		// Outcomes carries the canonical pass/fail verdict.
 		status := api.StatusRolledBack // "not compliant"
+		complianceStatus := api.ComplianceFail
 		if passed {
 			status = api.StatusCommitted // "compliant"
+			complianceStatus = api.CompliancePass
 		}
+		result.Outcomes = append(result.Outcomes, api.RuleOutcome{
+			RuleID:        rl.ID,
+			Status:        complianceStatus,
+			Severity:      rl.Severity,
+			Detail:        detail,
+			FrameworkRefs: frameworkRefs,
+		})
 		result.Transactions = append(result.Transactions, api.TransactionResult{
 			TransactionID: uuid.New(),
 			Status:        status,

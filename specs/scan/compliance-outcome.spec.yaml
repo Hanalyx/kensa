@@ -1,0 +1,146 @@
+spec:
+    id: scan-compliance-outcome
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: scan-compliance-outcome
+        description: |
+            Kensa.Scan is the read-only compliance check: for each rule it
+            selects the implementation for the host's capabilities, runs the
+            check, and reports whether the host is in the rule's desired state.
+
+            Until now Scan reported that verdict only by overloading the
+            remediation-transaction vocabulary: ScanResult.Transactions is a
+            slice of check-only api.TransactionResult whose StatusCommitted was
+            reused to mean "compliant" and StatusRolledBack to mean
+            "non-compliant" (internal/scan/scan.go). That overload has two
+            defects flagged in issue #62: (1) the api docs for StatusRolledBack
+            describe an apply-path reversal that never happens in a scan, so a
+            consumer reading the public api is actively misled; and (2) a rule
+            with no applicable implementation (a not-applicable / skipped
+            condition) was folded into StatusErrored, conflated with genuine
+            check errors, so the four states a compliance consumer needs
+            (pass / fail / skipped / error) could not be recovered — only three,
+            and one of those by reinterpreting transaction semantics.
+
+            This spec defines the canonical result-side type. api.RuleOutcome
+            carries a ComplianceStatus of pass/fail/skipped/error, and
+            ScanResult.Outcomes holds one per scanned rule in input order.
+            Transactions is retained unchanged for backward compatibility.
+            internal/rule.ErrNoImplementation is the sentinel that lets the
+            scanner separate "not applicable to this host" (skipped) from a
+            structurally invalid `when` (error).
+
+            Tier 2: this is core read-path correctness — a wrong verdict is a
+            wrong compliance report — but it mutates nothing on the host and is
+            not atomicity-critical.
+
+    objective:
+        summary: |
+            Kensa.Scan populates ScanResult.Outcomes with one api.RuleOutcome
+            per rule, in input order, whose ComplianceStatus is pass when the
+            check confirms desired state, fail when the check runs and the host
+            is not in desired state, skipped when no implementation applies to
+            the host, and error (with Err set) when the check cannot run; and
+            the legacy ScanResult.Transactions remains populated as before.
+        scope:
+            includes:
+                - api.ComplianceStatus values pass/fail/skipped/error
+                - api.RuleOutcome (RuleID, Status, Severity, Detail, Err)
+                - ScanResult.Outcomes populated one-per-rule in input order
+                - internal/rule.ErrNoImplementation sentinel + errors.Is split
+                - RuleOutcome.FrameworkRefs normalised from the rule's References block
+                - Backward-compatible retention of ScanResult.Transactions
+            excludes:
+                - Remediate / RemediationResult (apply path unchanged)
+                - CLI rendering of Outcomes (consumers read the api directly)
+                - Removing or renumbering TransactionStatus values
+
+    constraints:
+        - id: C-01
+          description: |
+              Kensa.Scan MUST produce exactly one api.RuleOutcome per rule
+              passed, appended to ScanResult.Outcomes in the same order as the
+              input rules, each carrying the rule's RuleID and Severity.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              An api.RuleOutcome MUST have Status CompliancePass when the
+              selected implementation's check confirms the host is in the
+              rule's desired state, and ComplianceFail when the check runs
+              successfully and the host is not in desired state.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              When a rule has no implementation applicable to the host's
+              capabilities (rule.Select returns an error wrapping
+              ErrNoImplementation), the api.RuleOutcome Status MUST be
+              ComplianceSkipped, not ComplianceError — a not-applicable rule is
+              an absence of verdict, not a failure.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              When the check cannot run (transport/check error, or a
+              structurally invalid `when` that is not ErrNoImplementation) the
+              api.RuleOutcome Status MUST be ComplianceError and Err MUST be
+              non-nil and identify the cause.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              ScanResult.Transactions MUST remain populated with one check-only
+              api.TransactionResult per rule exactly as before this change, so
+              existing consumers of Transactions are unaffected (additive
+              change only). The two surfaces intentionally diverge on the skip
+              case: a not-applicable rule is ComplianceSkipped on Outcomes but
+              StatusErrored on Transactions (the legacy overload has no skipped
+              value). This divergence is by design and MUST NOT be "fixed".
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Every api.RuleOutcome MUST carry the rule's FrameworkRefs,
+              normalised from the rule's References block via
+              mappings.RefsFromReferences, on every verdict (pass, fail,
+              skipped, error), so a consumer can attribute or filter a verdict
+              by compliance framework without re-deriving the mapping from the
+              rule corpus. Empty FrameworkRefs (rule maps to no framework) is
+              valid.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: A scan of N rules yields len(Outcomes)==N in input order, each RuleOutcome carrying its rule's RuleID and Severity.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: A rule whose check passes yields Status CompliancePass; a rule whose check fails yields Status ComplianceFail.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: A rule with no applicable implementation (Select wraps ErrNoImplementation) yields Status ComplianceSkipped with Err nil.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: A rule whose check returns an error yields Status ComplianceError with a non-nil Err.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: After the change, ScanResult.Transactions is still populated one-per-rule with check-only TransactionResults (committed for pass, rolled_back for fail, errored for skip/error).
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: A rule whose References block maps to a framework yields an outcome whose FrameworkRefs is populated with the normalised FrameworkRef entries; a rule with no References yields empty FrameworkRefs.
+          references_constraints: [C-06]
+          priority: critical
+
+    depends_on: []
+
+    tags: [scan, compliance, outcome, api, tier-2]

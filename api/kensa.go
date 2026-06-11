@@ -169,17 +169,36 @@ type HostConfig struct {
 	Capabilities CapabilitySet
 }
 
-// ScanResult is the outcome of [Kensa.Scan]. Each entry in
-// [ScanResult.Transactions] is a check-only [TransactionResult] —
-// no apply, no rollback, no signed envelope.
+// ScanResult is the outcome of [Kensa.Scan].
+//
+// [ScanResult.Outcomes] is the canonical compliance result: one [RuleOutcome]
+// per scanned rule, in input order, each with a [ComplianceStatus] of
+// pass/fail/skipped/error. Consumers mapping into a compliance model should
+// read Outcomes.
+//
+// [ScanResult.Transactions] is retained for backward compatibility. Each entry
+// is a check-only [TransactionResult] — no apply, no rollback, no signed
+// envelope — in which the [TransactionStatus] is reused to carry the verdict:
+// StatusCommitted means compliant and StatusRolledBack means non-compliant.
+// That reuse predates Outcomes and overloads a vocabulary whose doc comments
+// describe apply-path semantics (StatusRolledBack documents a reversal that
+// never happens in a scan); prefer Outcomes for an unambiguous verdict.
 type ScanResult struct {
 	HostID       string
 	Transactions []TransactionResult
+	Outcomes     []RuleOutcome
 }
 
 // RemediationResult is the outcome of [Kensa.Remediate]. Each entry
 // in [RemediationResult.Transactions] is a full transaction for a
 // rule whose check failed during the scan phase.
+//
+// Unlike [ScanResult], this type does NOT yet expose a [RuleOutcome] surface,
+// and its already-compliant entries reuse StatusCommitted with a synthetic
+// "check" step — the same transaction-status overload that [ScanResult.Outcomes]
+// was introduced to replace. Giving Remediate a compliance-verdict surface is
+// tracked as a follow-up; for now read [TransactionResult.Status] with that
+// caveat in mind.
 type RemediationResult struct {
 	HostID       string
 	Transactions []TransactionResult
