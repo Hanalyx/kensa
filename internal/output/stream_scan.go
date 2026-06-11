@@ -41,6 +41,7 @@ type StreamScanWriter struct {
 	fixed   int
 	fail    int
 	errored int
+	skipped int
 }
 
 // NewStreamScanWriter builds a writer over w. color enables ANSI styling
@@ -93,6 +94,9 @@ func (s *StreamScanWriter) Update(u progress.Update) {
 
 	var statusCell string
 	switch {
+	case u.Skipped:
+		s.skipped++
+		statusCell = s.status("SKIP", sgrDim)
 	case u.Errored:
 		s.errored++
 		statusCell = s.status("ERROR", sgrRed)
@@ -119,7 +123,7 @@ func (s *StreamScanWriter) Update(u progress.Update) {
 
 // Summary prints the trailing tally line after all rows.
 func (s *StreamScanWriter) Summary() {
-	total := s.pass + s.fixed + s.fail + s.errored
+	total := s.pass + s.fixed + s.fail + s.errored + s.skipped
 	fmt.Fprintf(s.w, "\n  %s passed", s.paint(sgrGreen, fmt.Sprintf("%d", s.pass)))
 	if s.fixed > 0 {
 		fmt.Fprintf(s.w, ", %s fixed", s.paint(sgrGreen, fmt.Sprintf("%d", s.fixed)))
@@ -127,6 +131,9 @@ func (s *StreamScanWriter) Summary() {
 	fmt.Fprintf(s.w, ", %s failed", s.failCount())
 	if s.errored > 0 {
 		fmt.Fprintf(s.w, ", %s errored", s.paint(sgrRed, fmt.Sprintf("%d", s.errored)))
+	}
+	if s.skipped > 0 {
+		fmt.Fprintf(s.w, ", %s skipped", s.paint(sgrDim, fmt.Sprintf("%d", s.skipped)))
 	}
 	fmt.Fprintf(s.w, "  (of %d)\n", total)
 }

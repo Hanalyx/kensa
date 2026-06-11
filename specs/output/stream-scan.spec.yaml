@@ -67,8 +67,8 @@ spec:
         - id: C-03
           description: |
               The status word MUST be derived from the update flags:
-              Errored → ERROR, Fixed → FIXED, OK (not fixed) → PASS,
-              otherwise → FAIL.
+              Skipped → SKIP (checked first), Errored → ERROR,
+              Fixed → FIXED, OK (not fixed) → PASS, otherwise → FAIL.
           type: business
           enforcement: error
         - id: C-04
@@ -80,9 +80,9 @@ spec:
           enforcement: error
         - id: C-05
           description: |
-              Summary MUST tally passed / fixed / failed / errored counts
-              accumulated across the rendered rows and print the total
-              "(of N)".
+              Summary MUST tally passed / fixed / failed / errored / skipped
+              counts accumulated across the rendered rows and print the total
+              "(of N)". The skipped count is shown only when non-zero.
           type: business
           enforcement: error
 
@@ -97,9 +97,9 @@ spec:
           priority: critical
         - id: AC-02
           description: |
-              Status mapping: OK→PASS, Errored→ERROR, Fixed→FIXED,
-              !OK&&!Errored→FAIL, each rendered in its row's STATUS cell.
-              Locked by output-stream-scan/AC-02.
+              Status mapping: Skipped→SKIP, OK→PASS, Errored→ERROR,
+              Fixed→FIXED, !OK&&!Errored→FAIL, each rendered in its row's
+              STATUS cell. Locked by output-stream-scan/AC-02.
           references_constraints: [C-03]
           priority: critical
         - id: AC-03
@@ -110,9 +110,9 @@ spec:
           priority: high
         - id: AC-04
           description: |
-              After rendering a mix of pass/fixed/fail/error rows, Summary
-              prints the matching counts and "(of N)" total. Locked by
-              output-stream-scan/AC-04.
+              After rendering a mix of pass/fixed/fail/error/skipped rows,
+              Summary prints the matching counts (skipped shown only when
+              non-zero) and "(of N)" total. Locked by output-stream-scan/AC-04.
           references_constraints: [C-05]
           priority: high
 

@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -78,6 +79,15 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 	}
 	caps := detect.ApplyOverrides(detected, overrides)
 
+	// Detect the host OS so we can platform-gate rules. A transport error here
+	// must NOT abort the scan or silently skip everything: fall back to a zero
+	// OSInfo, which detect.AppliesTo treats as "applies" (no gating). OpenWatch
+	// may pre-filter by platform upstream; this is the standalone-CLI safety net.
+	osInfo, osErr := detect.DetectOS(ctx, transport)
+	if osErr != nil {
+		osInfo = detect.OSInfo{}
+	}
+
 	hostID := "" // transport does not expose hostname; populated by caller
 	result := &api.ScanResult{HostID: hostID}
 
@@ -89,6 +99,27 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 		// consumer never has to re-join the corpus to learn it.
 		frameworkRefs := mappings.RefsFromReferences(rl.References)
 
+		// Platform applicability: a rule scoped to an OS the host is not (e.g.
+		// rhel >= 9 evaluated on rhel 8) is skipped, not evaluated — so a CLI
+		// user gets a SKIP rather than a misleading pass/fail. Undetectable
+		// hosts are never gated (AppliesTo returns true).
+		if !detect.AppliesTo(rl.Platforms, osInfo) {
+			detail := platformSkipDetail(rl, osInfo)
+			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail)))
+			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
+				RuleID:        rl.ID,
+				Status:        api.ComplianceSkipped,
+				Severity:      rl.Severity,
+				Detail:        detail,
+				FrameworkRefs: frameworkRefs,
+			})
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Skipped: true, Detail: detail,
+			})
+			continue
+		}
+
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
@@ -98,8 +129,9 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			// entry stays StatusErrored for backward compatibility, but Outcomes
 			// carries the precise verdict so a consumer never records a
 			// not-applicable rule as an error.
+			skipped := errors.Is(err, rule.ErrNoImplementation)
 			outcome := api.RuleOutcome{RuleID: rl.ID, Severity: rl.Severity, FrameworkRefs: frameworkRefs}
-			if errors.Is(err, rule.ErrNoImplementation) {
+			if skipped {
 				outcome.Status = api.ComplianceSkipped
 				outcome.Detail = "no applicable implementation for this host"
 			} else {
@@ -108,9 +140,11 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 				outcome.Err = err
 			}
 			result.Outcomes = append(result.Outcomes, outcome)
+			// Progress mirrors the verdict: a no-default rule is SKIP, a
+			// structurally invalid `when` is ERROR.
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
-				Index: i + 1, Total: total, OK: false, Errored: true, Detail: err.Error(),
+				Index: i + 1, Total: total, OK: false, Skipped: skipped, Errored: !skipped, Detail: outcome.Detail,
 			})
 			continue
 		}
@@ -190,11 +224,34 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 	}
 	caps := detect.ApplyOverrides(detected, overrides)
 
+	// Platform-gate remediation exactly like Scan — and more importantly so:
+	// an ungated remediate would APPLY a non-applicable rule's remediation to
+	// the host (e.g. a rhel>=9 change on rhel 8), not just misreport a verdict.
+	// Same leniency: undetectable OS gates nothing.
+	osInfo, osErr := detect.DetectOS(ctx, transport)
+	if osErr != nil {
+		osInfo = detect.OSInfo{}
+	}
+
 	hostID := ""
 	result := &api.RemediationResult{HostID: hostID}
 
 	total := len(rules)
 	for i, rl := range rules {
+		// A rule whose platforms don't cover this host is skipped BEFORE any
+		// check or apply — the engine must never run a non-applicable rule's
+		// remediation. Transactions records StatusErrored (the legacy seam,
+		// same as Scan); progress reports SKIP.
+		if !detect.AppliesTo(rl.Platforms, osInfo) {
+			detail := platformSkipDetail(rl, osInfo)
+			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail)))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Skipped: true, Detail: detail,
+			})
+			continue
+		}
+
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
@@ -302,6 +359,38 @@ func implToTransaction(rl *api.Rule, impl *api.Implementation, _ api.CapabilityS
 		}}
 	}
 	return txn
+}
+
+// platformSkipDetail explains why a rule was skipped as not-applicable to the
+// host's detected OS, e.g. "not applicable: host RHEL 8.10, rule targets rhel >=9".
+func platformSkipDetail(rl *api.Rule, os detect.OSInfo) string {
+	host := os.Label()
+	if host == "" {
+		host = "unknown host OS"
+	}
+	return fmt.Sprintf("not applicable: host %s, rule targets %s", host, platformsSummary(rl.Platforms))
+}
+
+// platformsSummary renders a rule's platform constraints compactly, e.g.
+// "rhel >=9", "rhel 8-9", "rhel <=8", or "rhel" when unversioned.
+func platformsSummary(platforms []api.Platform) string {
+	if len(platforms) == 0 {
+		return "any platform"
+	}
+	parts := make([]string, 0, len(platforms))
+	for _, p := range platforms {
+		switch {
+		case p.MinVersion != 0 && p.MaxVersion != 0:
+			parts = append(parts, fmt.Sprintf("%s %d-%d", p.Family, p.MinVersion, p.MaxVersion))
+		case p.MinVersion != 0:
+			parts = append(parts, fmt.Sprintf("%s >=%d", p.Family, p.MinVersion))
+		case p.MaxVersion != 0:
+			parts = append(parts, fmt.Sprintf("%s <=%d", p.Family, p.MaxVersion))
+		default:
+			parts = append(parts, p.Family)
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // erroredResult builds a synthetic errored [api.TransactionResult] for

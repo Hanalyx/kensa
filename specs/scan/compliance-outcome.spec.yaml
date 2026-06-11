@@ -53,6 +53,7 @@ spec:
                 - ScanResult.Outcomes populated one-per-rule in input order
                 - internal/rule.ErrNoImplementation sentinel + errors.Is split
                 - RuleOutcome.FrameworkRefs normalised from the rule's References block
+                - Platform applicability gating (detect.AppliesTo) → ComplianceSkipped
                 - Backward-compatible retention of ScanResult.Transactions
             excludes:
                 - Remediate / RemediationResult (apply path unchanged)
@@ -114,6 +115,22 @@ spec:
               valid.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              Scan AND Remediate MUST gate rules by platform applicability
+              against the host's detected OS (via detect.DetectOS). A rule
+              whose platforms do not cover the host family/version (e.g.
+              rhel >= 9 on rhel 8) MUST be skipped WITHOUT running its check —
+              and, on the remediate path, WITHOUT ever invoking the engine, so
+              a non-applicable rule's remediation can never mutate the host.
+              Scan reports such a rule ComplianceSkipped. A rule with no
+              platforms MUST be evaluated. An undetectable host OS (zero
+              OSInfo) MUST NOT gate any rule — every rule is evaluated — so a
+              detection blip cannot silently skip a scan. (OpenWatch may
+              additionally pre-filter by platform upstream; this gate is the
+              standalone-CLI safety net.)
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -139,6 +156,14 @@ spec:
         - id: AC-06
           description: A rule whose References block maps to a framework yields an outcome whose FrameworkRefs is populated with the normalised FrameworkRef entries; a rule with no References yields empty FrameworkRefs.
           references_constraints: [C-06]
+          priority: critical
+        - id: AC-07
+          description: A rhel>=9 rule on a rhel 8 host yields ComplianceSkipped without running the check; the same rule on rhel 9 is evaluated; a no-platform rule is evaluated on any host; and an undetectable-OS host gates nothing (the rhel>=9 rule is evaluated, not skipped).
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-08
+          description: On the remediate path, a FAILING rhel>=9 rule on a rhel 8 host never reaches the engine (zero Run invocations), records the errored-transaction skip seam, and emits a Skipped progress update; the same rule on rhel 9 invokes the engine exactly once.
+          references_constraints: [C-07]
           priority: critical
 
     depends_on: []

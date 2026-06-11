@@ -3,6 +3,7 @@ package scan_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"testing"
 	"time"
@@ -14,6 +15,18 @@ import (
 	"github.com/Hanalyx/kensa/internal/rule"
 	"github.com/Hanalyx/kensa/internal/scan"
 )
+
+// osReleaseResult fakes `cat /etc/os-release` output for a given ID/VERSION_ID.
+func osReleaseResult(id, versionID string) api.CommandResult {
+	return api.CommandResult{ExitCode: 0, Stdout: fmt.Sprintf("ID=%s\nVERSION_ID=%q\n", id, versionID)}
+}
+
+// rhelMinRule is a passing sysctl rule scoped to rhel >= minVersion.
+func rhelMinRule(id string, minVersion int) *api.Rule {
+	r := sysctlRule(id, "medium", "net.ipv4.ip_forward", "0")
+	r.Platforms = []api.Platform{{Family: "rhel", MinVersion: minVersion}}
+	return r
+}
 
 // recordingSink records every Update delivered to it.
 type recordingSink struct {
@@ -49,9 +62,11 @@ func (f *fakeTransport) ControlChannelSensitive() bool                          
 // fakeEngine records Run calls and returns a canned result.
 type fakeEngine struct {
 	result *api.TransactionResult
+	runs   int // number of Run invocations, for never-ran assertions
 }
 
 func (e *fakeEngine) Run(_ context.Context, _ api.Transport, txn *api.Transaction, _ bool) (*api.TransactionResult, error) {
+	e.runs++
 	if e.result != nil {
 		return e.result, nil
 	}
@@ -572,6 +587,112 @@ func TestScan_Outcomes(t *testing.T) {
 			if fr.FrameworkID != "nist_800_53" || (fr.ControlID != "AC-6" && fr.ControlID != "AC-17") {
 				t.Errorf("unexpected framework ref: %+v", fr)
 			}
+		}
+	})
+
+	// AC-07: platform applicability. A rule scoped to an OS the host is not is
+	// skipped (not evaluated); an in-scope or unconstrained rule is evaluated;
+	// an undetectable host is never gated.
+	t.Run("scan-compliance-outcome/AC-07", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-07
+		// (a) rhel>=9 rule on a rhel 8 host: skipped (would PASS if evaluated).
+		tp8 := &fakeTransport{results: map[string]api.CommandResult{
+			"cat /etc/os-release 2>/dev/null": osReleaseResult("rhel", "8.10"),
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "0", ExitCode: 0},
+		}}
+		r8, err := scan.New(nil).Scan(context.Background(), tp8, []*api.Rule{rhelMinRule("rule-rhel9", 9)})
+		if err != nil {
+			t.Fatalf("rhel8 scan: %v", err)
+		}
+		if o := r8.Outcomes[0]; o.Status != api.ComplianceSkipped || o.Err != nil {
+			t.Errorf("rhel>=9 on rhel8: want skipped/nil-Err, got %q/%v (detail=%q)", o.Status, o.Err, o.Detail)
+		}
+
+		// (b) same rule on a rhel 9 host: evaluated -> pass.
+		tp9 := &fakeTransport{results: map[string]api.CommandResult{
+			"cat /etc/os-release 2>/dev/null": osReleaseResult("rhel", "9.6"),
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "0", ExitCode: 0},
+		}}
+		r9, err := scan.New(nil).Scan(context.Background(), tp9, []*api.Rule{rhelMinRule("rule-rhel9b", 9)})
+		if err != nil {
+			t.Fatalf("rhel9 scan: %v", err)
+		}
+		if o := r9.Outcomes[0]; o.Status != api.CompliancePass {
+			t.Errorf("rhel>=9 on rhel9: want pass, got %q", o.Status)
+		}
+
+		// (c) a rule with no platforms is evaluated regardless of OS.
+		noPlat := sysctlRule("rule-noplat", "low", "net.ipv4.ip_forward", "0")
+		rNo, err := scan.New(nil).Scan(context.Background(), tp8, []*api.Rule{noPlat})
+		if err != nil {
+			t.Fatalf("noplat scan: %v", err)
+		}
+		if o := rNo.Outcomes[0]; o.Status != api.CompliancePass {
+			t.Errorf("no-platform rule on rhel8: want pass, got %q", o.Status)
+		}
+
+		// (d) undetectable OS must NOT gate (no os-release -> zero OSInfo).
+		tpUnknown := &fakeTransport{results: map[string]api.CommandResult{
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "0", ExitCode: 0},
+		}}
+		rUnk, err := scan.New(nil).Scan(context.Background(), tpUnknown, []*api.Rule{rhelMinRule("rule-unk", 9)})
+		if err != nil {
+			t.Fatalf("unknown-OS scan: %v", err)
+		}
+		if o := rUnk.Outcomes[0]; o.Status == api.ComplianceSkipped {
+			t.Errorf("undetectable OS must not gate: want evaluated, got skipped")
+		}
+	})
+}
+
+// TestRemediate_PlatformGate verifies the apply path is platform-gated too:
+// a failing rule whose platforms don't cover the host must NEVER reach the
+// engine — gating only the scan would still let remediate mutate a host with
+// a non-applicable change.
+//
+// @spec scan-compliance-outcome
+func TestRemediate_PlatformGate(t *testing.T) {
+	t.Run("scan-compliance-outcome/AC-08", func(t *testing.T) {
+		// @spec scan-compliance-outcome
+		// @ac AC-08
+		// The check would FAIL (sysctl returns 1, rule wants 0), so an ungated
+		// remediate would invoke the engine. The host is rhel 8.10; the rule
+		// targets rhel >= 9.
+		failing := minimalRule("rule-rhel9-remediate")
+		failing.Platforms = []api.Platform{{Family: "rhel", MinVersion: 9}}
+		tp := &fakeTransport{results: map[string]api.CommandResult{
+			"cat /etc/os-release 2>/dev/null": osReleaseResult("rhel", "8.10"),
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "1", ExitCode: 0},
+		}}
+		eng := &fakeEngine{}
+		sink := &recordingSink{}
+		runner := scan.New(eng, scan.WithProgress(sink))
+
+		result, err := runner.Remediate(context.Background(), tp, []*api.Rule{failing})
+		if err != nil {
+			t.Fatalf("Remediate: %v", err)
+		}
+		if eng.runs != 0 {
+			t.Fatalf("engine ran %d time(s) for a platform-skipped rule; must never run", eng.runs)
+		}
+		if len(result.Transactions) != 1 || result.Transactions[0].Status != api.StatusErrored {
+			t.Errorf("want 1 errored transaction (skip seam), got %+v", result.Transactions)
+		}
+		if len(sink.got) != 1 || !sink.got[0].Skipped || sink.got[0].Errored {
+			t.Errorf("want one Skipped progress update, got %+v", sink.got)
+		}
+
+		// Control: same failing rule on rhel 9 — the engine MUST run.
+		tp9 := &fakeTransport{results: map[string]api.CommandResult{
+			"cat /etc/os-release 2>/dev/null": osReleaseResult("rhel", "9.6"),
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "1", ExitCode: 0},
+		}}
+		if _, err := runner.Remediate(context.Background(), tp9, []*api.Rule{failing}); err != nil {
+			t.Fatalf("rhel9 Remediate: %v", err)
+		}
+		if eng.runs != 1 {
+			t.Errorf("engine should run exactly once on the in-platform host, ran %d", eng.runs)
 		}
 	})
 }
