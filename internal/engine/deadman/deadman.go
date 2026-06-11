@@ -353,8 +353,8 @@ func buildScript(txnID uuid.UUID, cmds []string) string {
 	var b strings.Builder
 	b.WriteString("#!/bin/sh\n")
 	b.WriteString("# Kensa deadman rollback script\n")
-	b.WriteString(fmt.Sprintf("# Transaction:  %s\n", txnID))
-	b.WriteString(fmt.Sprintf("# Generated at: %s\n", time.Now().UTC().Format(time.RFC3339)))
+	fmt.Fprintf(&b, "# Transaction:  %s\n", txnID)
+	fmt.Fprintf(&b, "# Generated at: %s\n", time.Now().UTC().Format(time.RFC3339))
 	b.WriteString("# This script fires if Kensa loses its control-channel connection\n")
 	b.WriteString("# after apply. It restores the pre-apply state captured before any\n")
 	b.WriteString("# changes ran. Self-deletes on exit per deadman-timer spec C-05.\n")
@@ -363,7 +363,7 @@ func buildScript(txnID uuid.UUID, cmds []string) string {
 	b.WriteString("trap cleanup EXIT\n")
 	b.WriteString("\n")
 	for i, cmd := range cmds {
-		b.WriteString(fmt.Sprintf("# rollback step %d\n", i+1))
+		fmt.Fprintf(&b, "# rollback step %d\n", i+1)
 		b.WriteString(cmd)
 		b.WriteString("\n")
 	}

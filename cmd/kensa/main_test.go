@@ -215,9 +215,9 @@ func TestRewriteLegacyDb(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := rewriteLegacyDb(tc.in)
+			got := rewriteLegacyDB(tc.in)
 			if !slicesEqual(got, tc.want) {
-				t.Errorf("rewriteLegacyDb(%q) = %q, want %q", tc.in, got, tc.want)
+				t.Errorf("rewriteLegacyDB(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}

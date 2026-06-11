@@ -122,7 +122,7 @@ func runCLI(argv []string) int {
 	// Rewrite the legacy form to `--db` with a deprecation warning so
 	// existing scripts keep working through one minor release. Remove
 	// this shim with the v0.2 cycle.
-	argv = rewriteLegacyDb(argv)
+	argv = rewriteLegacyDB(argv)
 
 	topFlags := pflag.NewFlagSet("kensa", pflag.ContinueOnError)
 	// Stop parsing flags at the first positional (the subcommand name) so
@@ -142,7 +142,7 @@ func runCLI(argv []string) int {
 	)
 	topFlags.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	topFlags.BoolVarP(&showVersion, "version", ShortVersion, false, "print version and exit")
-	topFlags.StringVarP(&dbPath, "db", ShortDb, "", "SQLite transaction-log path (default: .kensa/results.db)")
+	topFlags.StringVarP(&dbPath, "db", ShortDB, "", "SQLite transaction-log path (default: .kensa/results.db)")
 
 	if err := topFlags.Parse(argv); err != nil {
 		// pflag.ErrHelp shouldn't fire because we registered --help/-h
@@ -280,7 +280,7 @@ func runCLI(argv []string) int {
 // flag (as opposed to the default firing). The warning text:
 // "kensa: warning: --<name> is deprecated; use <replacement>
 // (will be removed in v0.2)". Format and v0.2 marker match the
-// pre-existing legacy-flag warnings (rewriteLegacyDb,
+// pre-existing legacy-flag warnings (rewriteLegacyDB,
 // rewriteLegacyLongForm) so operators see a consistent migration
 // signal across the deprecation cycle.
 //
@@ -410,14 +410,14 @@ func bodyOut(quiet bool) io.Writer {
 	return os.Stdout
 }
 
-// rewriteLegacyDb converts stdlib-flag-style single-dash `-db ...` and
+// rewriteLegacyDB converts stdlib-flag-style single-dash `-db ...` and
 // `-db=...` to pflag's `--db ...` and `--db=...`. Emits a deprecation
 // warning to stderr so users see they need to migrate the syntax.
 // Scope is intentionally narrow: only -db (the only top-level long flag
 // that previously worked with single dash). Subcommand-level legacy
 // flags will be handled by their own backward-compat shims as they
 // migrate to pflag (deliverables C-002..C-004).
-func rewriteLegacyDb(argv []string) []string {
+func rewriteLegacyDB(argv []string) []string {
 	out := make([]string, 0, len(argv))
 	warned := false
 	for _, a := range argv {

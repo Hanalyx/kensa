@@ -132,10 +132,8 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	// Idempotent per option: an already-present option leaves $4 unchanged.
 	var clauses strings.Builder
 	for _, opt := range strings.Split(p.Option, ",") {
-		clauses.WriteString(fmt.Sprintf(
-			`$2 == %[1]s && $4 !~ /(^|,)%[2]s(,|$)/ { $4 = $4 "," %[2]s } `,
-			shellEscape(p.MountPoint), shellEscape(opt),
-		))
+		fmt.Fprintf(&clauses, `$2 == %[1]s && $4 !~ /(^|,)%[2]s(,|$)/ { $4 = $4 "," %[2]s } `,
+			shellEscape(p.MountPoint), shellEscape(opt))
 	}
 	awkScript := clauses.String() + `{ print }`
 	// Atomically rewrite fstab, then remount.
