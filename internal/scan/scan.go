@@ -224,11 +224,34 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 	}
 	caps := detect.ApplyOverrides(detected, overrides)
 
+	// Platform-gate remediation exactly like Scan — and more importantly so:
+	// an ungated remediate would APPLY a non-applicable rule's remediation to
+	// the host (e.g. a rhel>=9 change on rhel 8), not just misreport a verdict.
+	// Same leniency: undetectable OS gates nothing.
+	osInfo, osErr := detect.DetectOS(ctx, transport)
+	if osErr != nil {
+		osInfo = detect.OSInfo{}
+	}
+
 	hostID := ""
 	result := &api.RemediationResult{HostID: hostID}
 
 	total := len(rules)
 	for i, rl := range rules {
+		// A rule whose platforms don't cover this host is skipped BEFORE any
+		// check or apply — the engine must never run a non-applicable rule's
+		// remediation. Transactions records StatusErrored (the legacy seam,
+		// same as Scan); progress reports SKIP.
+		if !detect.AppliesTo(rl.Platforms, osInfo) {
+			detail := platformSkipDetail(rl, osInfo)
+			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail)))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Skipped: true, Detail: detail,
+			})
+			continue
+		}
+
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, err))
