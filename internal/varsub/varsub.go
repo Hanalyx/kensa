@@ -103,6 +103,31 @@ func SubstituteFile(path string, raw []byte, vars Variables) ([]byte, error) {
 	return []byte(rendered), nil
 }
 
+// Names returns the distinct `{{ name }}` template variable names
+// in input, sorted. It uses the same template vocabulary as
+// [Substitute] (templateRe), so a name reported here is exactly a
+// name Substitute would attempt to resolve. Returns nil when the
+// input contains no templates.
+//
+// Used by the public rule-loader surface (pkg/kensa.RuleVariables)
+// so an orchestrator can discover which variables a rule corpus
+// consumes without substituting it first.
+func Names(input string) []string {
+	seen := map[string]bool{}
+	for _, m := range templateRe.FindAllStringSubmatch(input, -1) {
+		seen[m[1]] = true
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(seen))
+	for n := range seen {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // Merge returns a new Variables map combining base and override.
 // The override map's values win on key collision. Useful for
 // stacking CLI overrides on top of file defaults.
