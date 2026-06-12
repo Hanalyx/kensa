@@ -61,10 +61,26 @@ total now — see `CLAUDE.md` § "Shipped Handlers"):
 - ~~`manual` — marks a rule as requiring human intervention.~~ **SHIPPED**
   (non-capturable; engine records `StatusSkipped` with a note).
 
-**Remaining:** `commandexec`, `manual`, `grubparameterset`,
+~~**Remaining:** `commandexec`, `manual`, `grubparameterset`,
 `grubparameterremove`, and `cryptopolicysubpolicy` are shipped but
-**untested** — tests are a v1.0 ship gate (see `CLAUDE.md` § "What's left
-before v1.0").
+**untested**.~~ **RESOLVED** — all five carry spec-driven Apply +
+interface-compliance tests (since PR #13; grub set/remove extended by
+#15/#21) and pass the strict coverage gate at their tier. All 29 handler
+packages have passing tests.
+
+**Open (post-v0.3.0):**
+
+- **Founder real-host atomicity validation for `pam_module_configure`
+  (#54) and `mount_option_set` (#56)** — the F1 param-alignment PRs merged
+  with unit/spec coverage but without per-handler live-host tests (the
+  2026-06-10 live validation covered kmod/config_set/audit/sysctl/cron).
+  Run the kensa-fuzz matrix on a dedicated host for these two before
+  claiming them at the same confidence tier.
+- **`RemediationResult` compliance-verdict surface** — `Remediate` still
+  reports only transaction statuses; its already-compliant entries reuse
+  `StatusCommitted` with a synthetic "check" step (the overload #62/#63
+  removed from `Scan`). Flagged on the `RemediationResult` doc comment;
+  needs an `Outcomes`-style additive surface in a future `api/` minor.
 
 ---
 
@@ -75,6 +91,22 @@ before v1.0").
 
 ---
 
+## OpenWatch integration follow-ups (v0.3.0)
+
+- **OpenWatch should import `api.ComplianceStatus` directly** instead of
+  declaring its own `ResultStatus` with matching string values — turns the
+  pass/fail/skipped/error parity from convention into a compile-time
+  guarantee (or at minimum add a drift test on the OpenWatch side when the
+  live `Scan` binding replaces `unwiredScanFunc`).
+- **Confirm the "skipped vs absent" not-applicable contract with
+  OpenWatch.** Kensa's `ComplianceSkipped` fires for platform-gated and
+  no-default rules; OpenWatch's kensa-executor spec expects rules whose
+  capability gate didn't match to be *absent*. Both currently hold, but
+  the boundary should be ratified before OpenWatch persists `skipped`
+  rows into `host_rule_state`.
+
+---
+
 ## Infrastructure
 
 - `scripts/bench_aggregate.go` — aggregate benchmark across a rule corpus.
@@ -82,34 +114,31 @@ before v1.0").
 
 ---
 
-## Dependabot PRs (open — review individually, do NOT blind-merge)
+## Dependabot PRs — RESOLVED 2026-06-10/11 (kept for the triage record)
 
-Dependabot (enabled via `.github/dependabot.yml` in v0.2.2, S-012) keeps
-raising these. They are **not** covered by the auto-merge-on-green rule —
-two are breaking. Triage each on its merits; CI passing is necessary but
-not sufficient (a green run can still hide a behavior or constraint break).
+All four PRs from the 2026-06-08 triage are closed. The per-PR rule stands
+for future Dependabot PRs: review individually, do NOT blind-merge; they
+are **not** covered by the auto-merge-on-green rule.
 
-- **#31 — `actions/checkout` 5 → 6.** Likely safe (a Node-24-era major
-  increment). Verify `runs.using: node24` and a clean diff, then merge if
-  green. Low risk.
-- **#33 — gomod minor-and-patch group (3 updates).** Review the
-  `go.mod`/`go.sum` diff; `make mod-tidy-check` and `govulncheck` must stay
-  green. Low–medium risk; check the changelogs of the bumped deps.
-- **#28 — `actions/upload-artifact` 4 → 7. CAUTION.** v4→v5 was still
-  node20 (no Node benefit at the time), and v5+ carried breaking changes
-  (the v3→v4 break was significant). Confirm the new major's behavior +
-  node runtime against `action.yml` `runs.using` before merging; the two
-  call sites are CI artifact uploads.
-- **#29 — `golangci-lint-action` 6 → 9. DO NOT MERGE as-is.** v7+ requires
-  **golangci-lint v2**; the repo pins **v1.64.8** with a v1 config. Merging
-  would break the Lint job (and v7/v8 were *still* node20 anyway — see the
-  v0.2.2 A2 analysis). This needs a deliberate golangci-lint v2 migration
-  (config rewrite) first, or close the PR until that work is scheduled.
+- **#31 — `actions/checkout` 5 → 6.** MERGED (as triaged: low risk, green).
+- **#33 — gomod minor-and-patch group.** Closed by dependabot, recreated as
+  **#58** (4 updates: godbus v5.2.2, x/sys v0.46, x/term v0.44, modernc
+  sqlite v1.52) — MERGED after review; pure-Go SQLite preserved
+  (portability CI green).
+- **#28 — `actions/upload-artifact` 4 → 7.** MERGED after the CAUTION
+  review (behavior + node runtime checked against `action.yml`).
+- **#29 — `golangci-lint-action` 6 → 9.** CLOSED as triaged ("DO NOT MERGE
+  as-is" was correct), then **superseded by #60**, which did the deliberate
+  golangci-lint **v2.12.2** migration (config schema `version: "2"`,
+  staticcheck SA*-parity then S*/ST*/QF* tiers via #61) together with the
+  action v9 bump. The Lint job also gained `GOTOOLCHAIN: local` (#59) after
+  the v1-era linter was found being auto-built with go1.25 — the root cause
+  of a repo-wide SA5011 false-positive storm (poisoned action caches were
+  purged).
 
-Note: when these land, the action bumps may reintroduce the Node-20
-deprecation churn — see the v0.2.2 A2 work (`#35`) which deliberately
-bumped only `checkout`/`setup-go`/`setup-python` to their node24 majors and
-left `upload-artifact@v4` + `golangci-lint-action@v6` as the safe state.
+Residual note: the Node-20 deprecation churn concern from the v0.2.2 A2
+work (#35) did not materialize — #28/#31/#60 all landed green on node24
+majors.
 
 ---
 
@@ -216,10 +245,14 @@ selected, ordered, and applied. On 2026-06-05,
   remain executable. Add a deterministic exclusion, policy choice, or hard
   remediation error for contradictory controls such as GDM configuration
   rules loaded alongside `gdm-removed`.
-- **Enforce platform applicability** — rule `platforms` metadata is not used
-  to exclude rules in the scan/remediate path; OS detection is primarily
-  presentation data. Filter by family/version/derivative before capability
-  selection so RHEL-only controls cannot run on unsupported distributions.
+- ~~**Enforce platform applicability**~~ — **DONE 2026-06-11** (v0.3.0,
+  PR #64). `detect.AppliesTo` gates both `check` and `remediate` on
+  family/min/max-version (rhel/redhat aliased; EL derivatives honored)
+  before capability selection; out-of-platform rules render `SKIP`
+  (`ComplianceSkipped` on `ScanResult.Outcomes`) and never reach
+  `engine.Run`. Lenient rails: no-`platforms` rules run everywhere;
+  an undetectable host OS gates nothing. Spec `scan-compliance-outcome`
+  C-07/AC-07/AC-08.
 - **Reduce and test arbitrary command checks** — many findings rely on
   `method: command`, whose shell semantics cannot be validated by the rule
   schema. Prefer structured check methods where possible and add corpus
