@@ -121,11 +121,14 @@ Shipped since v0.1.0: signed rpm/deb + `kensa-rules` packages (v0.2.0),
 rules-dir default-path resolution (`/usr/share/kensa/rules`), the
 `grub_parameter_set` / `grub_parameter_remove` boot guard, the
 `kensa-systemd-helper` sudoers fragment (v0.2.2), live result-row
-streaming for `check`/`remediate` (v0.2.3), and — in v0.3.0 — the
-`api` compliance-verdict surface (`ScanResult.Outcomes` with
-pass/fail/skipped/error + framework refs), OS-aware platform gating
-(out-of-platform rules render `SKIP` and are never remediated), and the
-param-contract fix restoring ~201 corpus rules across seven handlers.
+streaming for `check`/`remediate` (v0.2.3), the `api` compliance-verdict
+surface (`ScanResult.Outcomes` with pass/fail/skipped/error + framework
+refs), OS-aware platform gating (out-of-platform rules render `SKIP` and
+are never remediated), the param-contract fix restoring ~201 corpus
+rules across seven handlers (all v0.3.0), and the public rule-loader
+surface on `pkg/kensa` — `LoadRules` / `BuiltInVars` / `RuleVariables` —
+so api consumers load the corpus and inject operator-configured
+variables without copying files or importing `internal/` (v0.3.1).
 All 29 handlers carry passing spec-driven tests.
 
 Open ship items before v1.0: RHEL 8 `$kernelopts` capture in the boot
