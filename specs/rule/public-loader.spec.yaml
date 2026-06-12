@@ -1,0 +1,138 @@
+spec:
+    id: rule-public-loader
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: rule-public-loader
+        description: |
+            api.Kensa.Scan and Remediate take []*api.Rule, but until now the
+            only loader producing that slice lived in internal/ (rule.ParseFile*
+            behind the cmd/kensa CLI). An external consumer (OpenWatch) could
+            not load the shipped corpus without re-implementing the loader —
+            which is more than YAML decoding: schema normalisation (two
+            references shapes, three when-gate forms, platforms), `{{ name }}`
+            variable substitution against defaults embedded in the kensa
+            binary (23 corpus rules are templates and do not parse naively),
+            and default-path resolution. A copied reader would diverge
+            silently from the canonical loader.
+
+            This spec defines the public loader surface on pkg/kensa — the
+            assembly layer that is public-but-NOT-frozen (the same home as
+            RemediateWithProgress), so the loader can evolve with the schema
+            without an api/ semver event:
+
+              - LoadRules(dir, paths, vars) — corpus → []*api.Rule with the
+                CLI's path-resolution policy and the embedded-defaults +
+                caller-override variable chain.
+              - BuiltInVars() — the embedded variable defaults, for rendering
+                an operator configuration UI.
+              - RuleVariables(dir) — variable name → rule IDs using it, for
+                showing operators what an override affects.
+
+            Library strictness is a deliberate divergence from the CLI: the
+            CLI's directory walk warns on stderr and skips draft rules; a
+            library must neither write to stderr nor silently drop rules from
+            a compliance corpus, so LoadRules fails the whole load naming the
+            offending file.
+
+    objective:
+        summary: |
+            pkg/kensa exposes LoadRules / BuiltInVars / RuleVariables such
+            that an api consumer can load the shipped corpus (including the
+            templated rules), inject operator-configured variable overrides,
+            and discover the variable surface — without importing internal/
+            packages or re-implementing the loader.
+        scope:
+            includes:
+                - pkg/kensa.LoadRules (path resolution, strict parse, var chain)
+                - pkg/kensa.BuiltInVars (embedded defaults, defensive copy)
+                - pkg/kensa.RuleVariables (template discovery per rule)
+                - internal/varsub.Names (template-name extraction helper)
+            excludes:
+                - Rule ordering / conflict resolution (rule.Resolve stays
+                  internal; shape still evolving)
+                - Semantic validation (kensa-validate's job)
+                - File-based operator tiers (config-dir defaults.yml, conf.d,
+                  per-group, per-host — CLI concern; a library caller passes
+                  its own already-merged overrides)
+                - Adding the loader to the frozen api/ package
+
+    constraints:
+        - id: C-01
+          description: |
+              LoadRules MUST follow the CLI's path-resolution policy
+              (specs/rule/default-path-resolution): explicit dir wins; paths
+              alone skip the directory walk; with neither, fall back to the
+              kensa-rules default install path when present, else error.
+              Directory walks MUST collect *.yml recursively in sorted order
+              so load order is deterministic.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              LoadRules MUST substitute each file's `{{ name }}` templates
+              against kensa's embedded built-in defaults merged with the
+              caller's vars, caller values winning on collision. With vars
+              nil, the production corpus (including its templated rules) MUST
+              load successfully on built-in defaults alone.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              LoadRules MUST be strict: a file that fails to parse, or that
+              references a variable with no value in the merged set, MUST
+              fail the whole load with an error naming the file. It MUST NOT
+              write to stderr and MUST NOT silently skip files (deliberate
+              divergence from the CLI's warn-and-skip directory walk).
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              BuiltInVars MUST return the embedded defaults as a copy —
+              mutating the returned map MUST NOT affect subsequent LoadRules
+              or BuiltInVars calls.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              RuleVariables MUST report every distinct `{{ name }}` template
+              variable under dir mapped to the sorted rule IDs that use it,
+              extracting names from the raw YAML (before substitution) using
+              the same template vocabulary as Substitute. Rules with no
+              templates MUST be omitted; a file whose id cannot be decoded
+              falls back to its base filename.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: LoadRules with an explicit dir loads every .yml under it (recursively, sorted); with only paths it loads exactly those files; with neither and no default install path it errors.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: A templated rule loads with nil vars via built-in defaults, and a caller override changes the substituted value in the parsed rule (caller wins over the built-in default).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: A directory containing one unparseable file fails the whole LoadRules call with the file named; a rule referencing an unknown variable fails naming the variable (errors.Is varsub.ErrUndefined).
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: Mutating the map returned by BuiltInVars does not change what a second BuiltInVars call returns nor how LoadRules substitutes.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: RuleVariables on a dir with templated and untemplated rules returns variable → sorted rule IDs for exactly the templated ones.
+          references_constraints: [C-05]
+          priority: critical
+
+    depends_on:
+        - spec_id: rule-default-path-resolution
+          relationship: requires
+        - spec_id: cli-variable-substitution
+          relationship: requires
+
+    tags: [rule, loader, api-consumer, varsub, tier-2]
