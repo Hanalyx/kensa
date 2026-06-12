@@ -123,6 +123,35 @@ func Default(ctx context.Context, storePath string) (*Service, error) {
 //
 // L-014b deliverable per spec agent-cli-env-var C-01.
 func DefaultWithEngineOptions(ctx context.Context, storePath string, engineOpts ...engine.Option) (*Service, error) {
+	return defaultService(ctx, storePath, ssh.Factory{}, engineOpts...)
+}
+
+// DefaultWithTransportFactory is Default with the transport swapped:
+// the standard engine / store / signer / scanner wiring, but every
+// remote connection goes through the caller's tf instead of the
+// bundled on-disk-key [ssh.Factory]. For embedders whose credential
+// model the bundled factory cannot serve — e.g. an orchestrator
+// (OpenWatch) that decrypts SSH credentials in memory only and
+// implements [api.Transport] over its own SSH stack.
+//
+// Everything else matches [DefaultWithEngineOptions], including the
+// KENSA_SIGNING_KEY handling and the engineOpts composition. A nil tf
+// is rejected at construction.
+//
+// Embedders that only need the read-only scan path (no remediation,
+// no transaction log) can avoid constructing the engine and store
+// entirely: compose [api.New] directly with [NewScanner] and their
+// TransportFactory.
+func DefaultWithTransportFactory(ctx context.Context, storePath string, tf api.TransportFactory, engineOpts ...engine.Option) (*Service, error) {
+	if tf == nil {
+		return nil, fmt.Errorf("kensa: DefaultWithTransportFactory: nil TransportFactory")
+	}
+	return defaultService(ctx, storePath, tf, engineOpts...)
+}
+
+// defaultService is the shared builder behind Default,
+// DefaultWithEngineOptions, and DefaultWithTransportFactory.
+func defaultService(ctx context.Context, storePath string, tf api.TransportFactory, engineOpts ...engine.Option) (*Service, error) {
 	if storePath == "" {
 		storePath = ".kensa/results.db"
 	}
@@ -163,7 +192,7 @@ func DefaultWithEngineOptions(ctx context.Context, storePath string, engineOpts 
 	cfg := api.Config{
 		StorePath:        storePath,
 		Engine:           eng,
-		TransportFactory: ssh.Factory{},
+		TransportFactory: tf,
 		Log:              s,
 		Verifier:         signer,
 		Scanner:          scan.New(eng),
