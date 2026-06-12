@@ -37,10 +37,21 @@ FAIL     medium    xccdf_org...sysctl_aslr      Enable randomized virtual memory
 ```
 
 - The columns are `STATUS  SEVERITY  RULE-ID  DESCRIPTION`, followed by a
-  trailing detail on `FAIL`/`ERROR` rows.
-- `check` shows `PASS` / `FAIL` / `ERROR`. `remediate` shows `PASS`
-  (already compliant), `FIXED` (remediated this run), `FAIL`, and
-  `ERROR`.
+  trailing detail on `FAIL`/`ERROR`/`SKIP` rows.
+- `check` shows `PASS` / `FAIL` / `ERROR` / `SKIP`. `remediate` shows
+  `PASS` (already compliant), `FIXED` (remediated this run), `FAIL`,
+  `ERROR`, and `SKIP`.
+- `SKIP` (since v0.3.0) means the rule **does not apply to this host** and
+  was not evaluated: kensa reads the host's OS from `/etc/os-release` and
+  compares it against the rule's `platforms:` block (family plus
+  `min_version`/`max_version`). A `rhel >= 9` control scanned on a RHEL 8
+  host renders `SKIP` with a detail like
+  `not applicable: host RHEL 8.10, rule targets rhel >=9` — instead of a
+  misleading pass/fail. On `remediate`, a skipped rule's remediation is
+  **never applied**. Rules with no `platforms:` block run everywhere, and
+  a host whose OS cannot be detected is never gated (every rule runs), so
+  a detection blip cannot silently skip a scan. The tally appends
+  `N skipped` when any rule was skipped.
 - `STATUS` and `SEVERITY` are colored **only when stdout is a terminal**;
   redirected or piped output is plain text with no escape sequences.
 
