@@ -1,0 +1,120 @@
+spec:
+    id: scan-public-construction
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: scan-public-construction
+        description: |
+            api.New(Config) is public and Kensa.Scan needs only two Config
+            fields (Scanner + TransportFactory), but until now neither field
+            was publicly constructible with a caller-supplied transport:
+            pkg/kensa.Default and DefaultWithEngineOptions hardcoded the
+            bundled on-disk-key ssh.Factory, and the only ScannerBackend
+            implementation lived in internal/scan. An embedder whose
+            credential model the bundled factory cannot serve — OpenWatch
+            decrypts SSH credentials in memory only and implements
+            api.Transport over its own SSH stack — had no public way to
+            construct a scanning Kensa at all.
+
+            This spec defines the two public construction paths on pkg/kensa
+            (public-but-not-frozen, same home as LoadRules):
+
+              - NewScanner() api.ScannerBackend — the scan-only path. The
+                embedder composes api.New{Scanner, TransportFactory}
+                directly; no engine, store, or signer is constructed.
+                The backend is stateless across calls (fields set at
+                construction, never mutated), so one shared instance is
+                safe for concurrent Scan calls across hosts.
+              - DefaultWithTransportFactory(ctx, storePath, tf,
+                engineOpts...) — the full-service path: identical wiring to
+                DefaultWithEngineOptions (store, signer, deadman, events,
+                engine, scanner) with the caller's TransportFactory in
+                place of ssh.Factory. Supports Remediate/Transact/history.
+
+            Default and DefaultWithEngineOptions keep their exact behavior
+            (bundled ssh.Factory) via a shared internal builder.
+
+    objective:
+        summary: |
+            An api consumer can construct a scanning Kensa with its own
+            TransportFactory through public surface only: NewScanner for
+            scan-only composition via api.New, or DefaultWithTransportFactory
+            for the full default service with the transport swapped — while
+            Default/DefaultWithEngineOptions remain byte-equivalent to before.
+        scope:
+            includes:
+                - pkg/kensa.NewScanner
+                - pkg/kensa.DefaultWithTransportFactory
+                - Shared defaultService builder (no behavior change for
+                  Default / DefaultWithEngineOptions)
+            excludes:
+                - Changes to the frozen api/ package
+                - A RunOption-level transport override (per-call transport
+                  swapping is out of scope; the factory is construction-time)
+                - Exposing internal/scan types beyond the api.ScannerBackend
+                  interface
+
+    constraints:
+        - id: C-01
+          description: |
+              NewScanner MUST return the standard ScannerBackend such that
+              api.New(Config{Scanner: NewScanner(), TransportFactory: tf})
+              yields a Kensa whose Scan executes rule checks over transports
+              produced by tf and returns populated Outcomes — with no
+              internal/ imports required of the embedder and no engine,
+              store, or signer constructed.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              A NewScanner-composed Kensa MUST be scan-only: Remediate
+              returns an engine-not-wired error rather than attempting any
+              mutation. The backend MUST be safe for concurrent Scan calls
+              from multiple goroutines (stateless across calls; per-call
+              state confined to the call).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              DefaultWithTransportFactory MUST produce a Service identical in
+              wiring to DefaultWithEngineOptions except that every transport
+              connection goes through the caller's factory — the bundled
+              ssh.Factory MUST NOT be reachable from it. A nil factory MUST
+              be rejected at construction, not at first use.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Default and DefaultWithEngineOptions MUST keep their existing
+              behavior, including the bundled ssh.Factory transport — the
+              refactor through the shared builder is invisible to existing
+              callers.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: api.New with NewScanner + a fake TransportFactory scans a rule end-to-end — the factory's Connect is invoked and the result carries pass/fail Outcomes.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Remediate on the NewScanner-composed Kensa returns an error (engine not wired) and performs no transaction; concurrent Scan calls from multiple goroutines against distinct fake transports complete correctly under the race detector.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: DefaultWithTransportFactory routes Scan connections through the supplied factory (observed via a recording fake) and returns a construction error for a nil factory.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: DefaultWithEngineOptions continues to construct successfully with unchanged defaults — smoke-tested by building a Service in a temp dir and closing it cleanly, with the bundled ssh transport wiring untouched.
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: scan-compliance-outcome
+          relationship: requires
+
+    tags: [scan, construction, transport, api-consumer, tier-2]

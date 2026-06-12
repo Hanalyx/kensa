@@ -12,7 +12,23 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+### Added
+
+- **Public construction with a caller-supplied `TransportFactory`**
+  (`pkg/kensa`) — for embedders whose credential model the bundled
+  on-disk-key ssh factory cannot serve (e.g. an orchestrator holding
+  SSH credentials in memory only):
+  - `kensa.NewScanner()` — the standard `api.ScannerBackend`, for
+    scan-only composition via `api.New(Config{Scanner, TransportFactory})`;
+    no engine, store, or signer is constructed. Stateless and safe for
+    concurrent `Scan` calls sharing one instance. `Remediate` on such a
+    construction errors (engine not wired), by design.
+  - `kensa.DefaultWithTransportFactory(ctx, storePath, tf, engineOpts...)`
+    — `Default`'s full wiring with the transport swapped for the
+    caller's factory (nil rejected at construction).
+
+  With v0.3.1's loader this completes the public consumer chain:
+  `LoadRules` → construct → `Scan` → `Outcomes`.
 
 ## v0.3.1 — 2026-06-11
 

@@ -43,3 +43,19 @@ Do not copy the rule files into a consuming repo and do not re-implement
 the loader: the corpus ships as the signed `kensa-rules` package, and 23
 of the 539 rules are `{{ var }}` templates that only parse through the
 substitution chain above.
+
+Constructing a scanner with your own transport is public surface as well
+(since v0.3.2): embedders whose credential model the bundled on-disk-key
+ssh factory cannot serve (e.g. credentials decrypted in memory only)
+supply their own `api.TransportFactory`:
+
+- Scan-only (no engine, store, or signer constructed):
+  `api.New(api.Config{Scanner: kensa.NewScanner(), TransportFactory: yours})`.
+  The backend is stateless — one shared instance is safe for concurrent
+  `Scan` calls. `Remediate` on this construction errors by design.
+- Full service (remediate, history, transaction log):
+  `kensa.DefaultWithTransportFactory(ctx, storePath, yours, engineOpts...)`.
+
+End-to-end, the whole consumer chain is public:
+`kensa.LoadRules(…, operatorVars)` → construct (either form above) →
+`Scan` → `ScanResult.Outcomes`.
