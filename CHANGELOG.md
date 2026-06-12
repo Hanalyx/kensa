@@ -14,6 +14,48 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.3.1 — 2026-06-11
+
+Public rule loader for programs that import the `api` package. PATCH
+bump: additions live on `pkg/kensa` (the public-but-not-frozen assembly
+layer); the frozen `api/` surface is untouched.
+
+### Added
+
+- **`pkg/kensa` public rule-loader surface** — external consumers (e.g.
+  OpenWatch) can now load the shipped corpus without copying rule files
+  or re-implementing the loader:
+  - `kensa.LoadRules(dir, paths, vars)` — corpus → `[]*api.Rule` ready
+    for `Scan`/`Remediate`. Follows the CLI's path-resolution policy
+    (explicit dir → explicit files → the `kensa-rules` package's
+    installed corpus at `/usr/share/kensa/rules`), and substitutes
+    `{{ name }}` rule templates against kensa's embedded defaults merged
+    with the caller's `vars` (caller wins) — the hook for
+    operator-configured values. **Strict** by design: any unparseable
+    file or undefined variable fails the load naming the file; nothing
+    is skipped silently (deliberate divergence from the CLI's
+    warn-and-skip directory walk).
+  - `kensa.BuiltInVars()` — the embedded variable defaults (29 vars,
+    STIG-strict), for rendering an operator configuration UI. The
+    `rsyslog_remote_server`, `chrony_ntp_pool`, and `banner_text`
+    defaults are organization-specific placeholders operators should
+    always review.
+  - `kensa.RuleVariables(dir)` — template variable → rule IDs using it,
+    so operators can see what an override affects.
+
+  Locked by spec `rule-public-loader`, including a production-corpus
+  test: all 539 rules — the 23 `{{ var }}` templates included — load
+  strictly with nil vars on built-in defaults alone.
+
+### Documentation
+
+- `docs/guide/04-scan-and-remediate.md` documents the v0.3.0 `SKIP`
+  status (platform gating) for `check` and `remediate`.
+- `docs/guide/07-integration.md` carries the api-consumer pointers:
+  read verdicts from `ScanResult.Outcomes`; load rules via
+  `kensa.LoadRules`; do not copy the rule files or re-implement the
+  loader.
+
 ## v0.3.0 — 2026-06-11
 
 Compliance-verdict API on `Scan`, platform gating for the standalone CLI,

@@ -79,7 +79,7 @@ This is how to run kensa today, pre-1.0. Requires Go 1.26+ and make.
 git clone git@github.com:Hanalyx/kensa.git
 cd kensa
 make build                # builds all five binaries into bin/
-./bin/kensa --version     # → kensa 0.3.0 (kensa)
+./bin/kensa --version     # → kensa 0.3.1 (kensa)
 ```
 
 The five binaries:
@@ -110,7 +110,7 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.3.0`. The 0.x line is the development phase.
+`v0.3.1`. The 0.x line is the development phase.
 
 The `api/` Go package is held to a stricter contract — frozen under v1
 semver for OpenWatch's consumption. Behavior on the rest of the surface
