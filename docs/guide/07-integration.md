@@ -22,7 +22,7 @@ compliant/non-compliant — prefer `Outcomes` for an unambiguous verdict.
 The doc comments in `api/scan.go` are the authoritative reference.
 
 Loading the rule corpus from a consuming program is public surface too
-(package `github.com/Hanalyx/kensa/pkg/kensa`):
+(package `github.com/Hanalyx/kensa/pkg/kensa`, since v0.3.1):
 
 - `kensa.LoadRules(dir, paths, vars)` — corpus → `[]*api.Rule` ready for
   `Scan`/`Remediate`. Uses the CLI's path-resolution policy (explicit
