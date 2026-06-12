@@ -12,6 +12,15 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes yet)
+
+## v0.3.2 — 2026-06-12
+
+Public scanner construction with a caller-supplied transport. PATCH
+bump: additions live on `pkg/kensa`; the frozen `api/` surface is
+untouched. With v0.3.1's loader this completes the public consumer
+chain: `LoadRules` → construct → `Scan` → `Outcomes`.
+
 ### Added
 
 - **Public construction with a caller-supplied `TransportFactory`**
@@ -25,10 +34,8 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
     construction errors (engine not wired), by design.
   - `kensa.DefaultWithTransportFactory(ctx, storePath, tf, engineOpts...)`
     — `Default`'s full wiring with the transport swapped for the
-    caller's factory (nil rejected at construction).
-
-  With v0.3.1's loader this completes the public consumer chain:
-  `LoadRules` → construct → `Scan` → `Outcomes`.
+    caller's factory (nil rejected at construction). `Default` and
+    `DefaultWithEngineOptions` are unchanged.
 
 ## v0.3.1 — 2026-06-11
 

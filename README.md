@@ -79,7 +79,7 @@ This is how to run kensa today, pre-1.0. Requires Go 1.26+ and make.
 git clone git@github.com:Hanalyx/kensa.git
 cd kensa
 make build                # builds all five binaries into bin/
-./bin/kensa --version     # → kensa 0.3.1 (kensa)
+./bin/kensa --version     # → kensa 0.3.2 (kensa)
 ```
 
 The five binaries:
@@ -110,7 +110,7 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.3.1`. The 0.x line is the development phase.
+`v0.3.2`. The 0.x line is the development phase.
 
 The `api/` Go package is held to a stricter contract — frozen under v1
 semver for OpenWatch's consumption. Behavior on the rest of the surface
@@ -128,7 +128,9 @@ are never remediated), the param-contract fix restoring ~201 corpus
 rules across seven handlers (all v0.3.0), and the public rule-loader
 surface on `pkg/kensa` — `LoadRules` / `BuiltInVars` / `RuleVariables` —
 so api consumers load the corpus and inject operator-configured
-variables without copying files or importing `internal/` (v0.3.1).
+variables without copying files or importing `internal/` (v0.3.1), and
+public scanner construction with a caller-supplied `TransportFactory` —
+`NewScanner` / `DefaultWithTransportFactory` (v0.3.2).
 All 29 handlers carry passing spec-driven tests.
 
 Open ship items before v1.0: RHEL 8 `$kernelopts` capture in the boot
