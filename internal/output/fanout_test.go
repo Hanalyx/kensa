@@ -135,9 +135,9 @@ func TestFanOutScanResult_NilStdoutOverride_Panics(t *testing.T) {
 func TestFanOutScanResult_UnsupportedFormat(t *testing.T) {
 	t.Run("output-fanout/AC-07", func(t *testing.T) {})
 	// A spec with a format that has no scan-result writer (e.g.,
-	// "oscal" — registered for remediation but not scan) returns
-	// ErrUnsupportedFormat.
-	specs := []Spec{{Format: "oscal", Path: filepath.Join(t.TempDir(), "out.oscal.json")}}
+	// "evidence" — registered for remediation but not scan; "oscal"
+	// is now a scan format as of v0.4.0) returns ErrUnsupportedFormat.
+	specs := []Spec{{Format: "evidence", Path: filepath.Join(t.TempDir(), "out.evidence.json")}}
 	err := FanOutScanResult(specs, &bytes.Buffer{}, "h", nil, makeScanResult())
 	if err == nil {
 		t.Fatal("expected error on unsupported format; got nil")

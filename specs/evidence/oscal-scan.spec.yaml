@@ -1,0 +1,165 @@
+spec:
+    id: evidence-oscal-scan
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: oscal-scan-export
+        description: |
+            Until v0.4.0, OSCAL Assessment Results export was
+            remediation-only: it was built from a signed
+            EvidenceEnvelope, which only the remediation transaction
+            path produces (see output-oscal). A read-only compliance
+            scan produced no envelope and therefore no OSCAL artifact —
+            an auditor who wanted OSCAL had to remediate.
+
+            v0.4.0's native-evidence parity work gave each scan verdict
+            structured observation evidence: api.RuleOutcome now carries
+            a slice of api.CheckEvidence (the exact command run on the
+            host, its captured stdout/stderr, exit code, and the value
+            the check expected). That is enough to emit a meaningful,
+            standards-conformant OSCAL document from a scan WITHOUT an
+            envelope — one finding + observation per rule, with the
+            CheckEvidence embedded as relevant-evidence.
+
+            The founder ratified that scan-path OSCAL is UNSIGNED
+            (NewScanner stays signer-free); the signature guarantee
+            remains exclusive to the remediation envelope path. Scan
+            OSCAL is the structured-verdict-plus-reproducible-evidence
+            artifact, not the audit-truth-of-record.
+
+            ExportOSCALScan lives in internal/evidence/oscal_scan.go and
+            is wired through the writer registry as oscalScanWriter
+            (internal/output/oscal.go), so `kensa check -o out:oscal`
+            and the fan-out both reach it with no CLI change.
+
+    objective:
+        summary: |
+            Add evidence.ExportOSCALScan(result *api.ScanResult,
+            hostname string) ([]byte, error) producing an OSCAL 1.0.6
+            Assessment Results document from a read-only ScanResult:
+            one finding + observation per RuleOutcome, CheckEvidence
+            embedded as relevant-evidence (command / method / exit-code
+            / expected as namespaced props), raw stdout carried in a
+            base64 back-matter resource referenced by href, and
+            framework refs rendered as framework-prefixed control-ids.
+            Register oscalScanWriter in scanResultWriters["oscal"].
+        scope:
+            includes:
+                - ExportOSCALScan / WriteOSCALScan byte production
+                - Per-RuleOutcome finding + observation
+                - CheckEvidence embedding as relevant-evidence with
+                  Kensa-namespaced props
+                - Raw stdout as base64 back-matter referenced by href
+                - complianceState mapping (pass -> satisfied; everything
+                  else -> not-satisfied)
+                - oscalScanWriter registration in scanResultWriters
+            excludes:
+                - Any signature on the scan OSCAL (unsigned by founder
+                  decision; the signed path is the remediation envelope)
+                - Combining multiple hosts into one document (one
+                  ScanResult = one host = one document)
+                - Changes to the remediation OSCAL writer (output-oscal)
+                - Per-check structured Actual values (follow-up; today
+                  Stdout is the authoritative observed state)
+
+    constraints:
+        - id: C-01
+          description: |
+              ExportOSCALScan output MUST validate against the vendored
+              official NIST OSCAL 1.0.6 Assessment Results schema. This
+              is the same hard conformance gate the remediation path
+              passes (TestExportOSCAL_ValidatesAgainst106Schema): UUIDs
+              RFC4122-valid, date-times RFC3339, control-id tokens
+              letter/underscore-leading.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Every non-standard OSCAL prop emitted (method, command,
+              exit-code, expected, truncated) MUST carry the Kensa
+              namespace (kensaOSCALNamespace) so it does not squat in
+              the OSCAL default vocabulary — identical to the
+              remediation path's prop discipline.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Raw stdout MUST be carried as a base64-encoded back-matter
+              resource referenced from the relevant-evidence by an
+              href #-fragment, NOT inlined in the observation
+              description. This keeps the inline observation small and
+              is the OSCAL-sanctioned home for arbitrary blobs. A
+              CheckEvidence with empty stdout produces no resource and
+              no href.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              control-id MUST be the framework-prefixed
+              "<FrameworkID>-<ControlID>" token (oscalControlID), so
+              digit-leading native ids (CIS "5.2.3") are valid OSCAL
+              tokens and the framework is disambiguated. Control-ids are
+              deduplicated across the whole document.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              The scan OSCAL MUST be unsigned. ExportOSCALScan takes
+              only the read-only ScanResult and a hostname — it never
+              touches a signer or an EvidenceEnvelope. The signature
+              guarantee is exclusive to the remediation path.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              ExportOSCALScan / WriteOSCALScan produce a single valid
+              OSCAL 1.0.6 Assessment Results JSON document with a
+              top-level "assessment-results" key, and the bytes validate
+              against the vendored 1.0.6 schema.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Each RuleOutcome's CheckEvidence is embedded as
+              relevant-evidence: method / command / exit-code (and
+              expected when present) appear as props, each carrying the
+              Kensa namespace, and the relevant-evidence carries an href
+              into back-matter when stdout is present.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              Raw stdout is base64-encoded in a back-matter resource
+              whose UUID matches the relevant-evidence href fragment,
+              and decoding that base64 reproduces the original stdout
+              byte-for-byte.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              A CompliancePass outcome maps to finding state
+              "satisfied"; fail / skipped / error map to "not-satisfied".
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              Framework refs render as deduplicated framework-prefixed
+              control-ids ("cis_rhel9_v2-5.2.3"), valid OSCAL tokens
+              despite digit-leading native ids.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-06
+          description: |
+              ExportOSCALScan returns an error on a nil ScanResult and
+              never panics. (It never consults a signer — the unsigned
+              contract is structural, enforced by the function only
+              taking a read-only result + hostname.)
+          references_constraints: [C-05]
+          priority: medium
+
+    tags: [evidence, oscal, scan, native-evidence, v0.4.0, tier-2]

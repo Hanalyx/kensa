@@ -1,6 +1,6 @@
 spec:
     id: output-oscal
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 3
 
@@ -37,14 +37,21 @@ spec:
             right shape for the eventual fix — only the byte-
             production layer changes.
 
-            OSCAL is RemediationResult-only: the OSCAL
-            Assessment Results model requires a per-transaction
-            evidence trail (the EvidenceEnvelope), and ScanResult
-            transactions all carry a nil Envelope by API contract
-            (scan is read-only; envelopes are produced post-commit).
-            Registering an oscalScanWriter would silently emit
-            zero documents; not registering it makes the asymmetry
-            visible at the registry level.
+            v0.4.0 UPDATE: OSCAL is now registered for BOTH the scan
+            and remediation paths. This spec covers the remediation
+            writer (envelope-anchored); the scan writer
+            (oscalScanWriter, unsigned, built from ScanResult.Outcomes
+            + CheckEvidence) is specified separately under
+            evidence-oscal-scan. The original v0.1.0 premise — "OSCAL
+            is RemediationResult-only because ScanResult carries no
+            EvidenceEnvelope" — was correct until v0.4.0 gave scans
+            their own structured observation evidence (CheckEvidence),
+            at which point a scan no longer needs an envelope to
+            produce a meaningful OSCAL document. The remediation writer
+            remains envelope-anchored (the signed audit-truth-of-
+            record); only caps / history / JSONValue payloads, which
+            carry no compliance verdict at all, still have no OSCAL
+            representation.
 
     objective:
         summary: |
@@ -72,8 +79,10 @@ spec:
                   remediation results (current model is concatenated
                   per-envelope documents; a single combined doc would
                   require model changes in internal/evidence/oscal.go)
-                - OSCAL for ScanResult / caps / history / JSONValue
-                  payloads (no envelopes; intentionally not registered)
+                - OSCAL for the ScanResult path (now registered as of
+                  v0.4.0 — specified separately under evidence-oscal-scan)
+                - OSCAL for caps / history / JSONValue payloads (no
+                  compliance verdict; intentionally not registered)
 
     constraints:
         - id: C-01
@@ -106,11 +115,15 @@ spec:
           enforcement: error
         - id: C-04
           description: |
-              OSCAL is RemediationResult-only. ScanResult, capability
-              probes, history queries, and the JSONValue escape-hatch
-              payloads MUST NOT have an OSCAL writer registered. A
-              test asserts each absence so a future contributor who
-              tries to register one is forced to update the assertion.
+              Capability probes, history queries, and the JSONValue
+              escape-hatch payloads MUST NOT have an OSCAL writer
+              registered — they carry no compliance verdict. The
+              ScanResult path IS registered as of v0.4.0 (see
+              evidence-oscal-scan); the remediation writer this spec
+              covers stays envelope-anchored. A test asserts the scan
+              writer IS present and the caps/history/JSONValue writers
+              are absent, so a future contributor who changes either is
+              forced to update the assertion.
           type: technical
           enforcement: error
         - id: C-05
@@ -165,10 +178,12 @@ spec:
           priority: critical
         - id: AC-06
           description: |
-              OSCAL is NOT registered for ScanResult, capability
-              probes, history queries, or JSONValue payloads. Test
-              asserts (nil, false) from each registry's WriterFor("oscal")
-              call.
+              OSCAL IS registered for the ScanResult path (as of
+              v0.4.0) and is NOT registered for capability probes,
+              history queries, or JSONValue payloads. Test asserts
+              ScanWriterFor("oscal") returns ok, and (nil, false) from
+              each of the caps / history / JSONValue registries'
+              WriterFor("oscal") call.
           references_constraints: [C-04]
           priority: high
         - id: AC-07
