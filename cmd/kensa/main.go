@@ -1051,7 +1051,36 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		if err != nil {
 			return WrapUsageError("--output", err)
 		}
-		return routeFanOutError(output.FanOutScanResult(specs, bodyOut(quiet), host, resolved.Order, result))
+		// `-o evidence:` emits the native-evidence document, which needs the
+		// session/host context (command, effective variables) the generic
+		// scan-writer interface cannot carry. Split those specs off and write
+		// them with that context; the rest fan out as usual.
+		var evSpecs, otherSpecs []output.Spec
+		for _, s := range specs {
+			if s.Format == "evidence" {
+				evSpecs = append(evSpecs, s)
+			} else {
+				otherSpecs = append(otherSpecs, s)
+			}
+		}
+		if len(evSpecs) > 0 {
+			ev := output.NativeEvidenceInput{
+				SessionID:          uuid.New().String(),
+				Timestamp:          startedAt,
+				Command:            "check",
+				Hostname:           host,
+				Result:             result,
+				Rules:              resolved.Order,
+				EffectiveVariables: loadVars,
+			}
+			if err := routeFanOutError(output.FanOutNativeEvidence(evSpecs, bodyOut(quiet), ev)); err != nil {
+				return err
+			}
+		}
+		if len(otherSpecs) > 0 {
+			return routeFanOutError(output.FanOutScanResult(otherSpecs, bodyOut(quiet), host, resolved.Order, result))
+		}
+		return nil
 	}
 	// Non-streaming machine formats (e.g. --format json/jsonl without -o)
 	// stay buffered and structured.
