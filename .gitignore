@@ -41,3 +41,6 @@ inventory.ini
 .claude/
 .specter-results.json
 go-test.json
+
+# Live-host scan artifacts (evidence/OSCAL); generated, contain host data
+results/

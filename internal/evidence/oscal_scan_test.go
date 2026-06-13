@@ -46,13 +46,20 @@ func sampleScanResult() *api.ScanResult {
 				Detail:   "PermitRootLogin is yes",
 				FrameworkRefs: []api.FrameworkRef{
 					{FrameworkID: "cis_rhel9_v2", ControlID: "5.2.3"},
+					// NIST enhancement with parens — illegal raw in an OSCAL
+					// token; must be coerced to "nist_800_53-AU-5.2".
+					{FrameworkID: "nist_800_53", ControlID: "AU-5(2)"},
 				},
 				Evidence: []api.CheckEvidence{
 					{
-						Method:   "config_value",
-						Command:  "sshd -T | grep -i permitrootlogin",
-						Stdout:   "permitrootlogin yes\n",
-						ExitCode: 0,
+						Method: "command_exec",
+						// A real corpus command: a MULTI-LINE shell script with a
+						// trailing newline. This is the case that broke OSCAL
+						// conformance in the live test — a prop value cannot hold
+						// it (pattern ^\S(.*\S)?$), so it MUST land in remarks.
+						Command:  "#!/bin/sh\nif grep -q '^PermitRootLogin yes' /etc/ssh/sshd_config; then\n  echo FAIL\n  exit 1\nfi\necho OK\n",
+						Stdout:   "FAIL\n",
+						ExitCode: 1,
 						Expected: "no",
 					},
 				},
@@ -100,8 +107,9 @@ func TestExportOSCALScan_EmbedsCheckEvidence(t *testing.T) {
 		t.Fatalf("expected 2 observations, got %d", len(res.Observations))
 	}
 
-	// First observation carries the sysctl evidence: command/method/exit-code
-	// as namespaced props, expected="2", and an href into back-matter.
+	// First observation carries the sysctl evidence: method/exit-code/expected
+	// as namespaced props, the command in remarks (NOT a prop — see below), and
+	// an href into back-matter.
 	obs := res.Observations[0]
 	if len(obs.RelevantEvidence) != 1 {
 		t.Fatalf("expected 1 relevant-evidence, got %d", len(obs.RelevantEvidence))
@@ -114,8 +122,13 @@ func TestExportOSCALScan_EmbedsCheckEvidence(t *testing.T) {
 		}
 		props[p.Name] = p.Value
 	}
-	if props["command"] != "sysctl -n kernel.randomize_va_space" {
-		t.Errorf("command prop = %q", props["command"])
+	// The command MUST NOT be a prop — prop values are single-line OSCAL tokens;
+	// it lives in remarks instead so multi-line scripts stay conformant.
+	if _, ok := props["command"]; ok {
+		t.Errorf("command must not be a prop (prop values are single-line tokens); got %q", props["command"])
+	}
+	if !strings.Contains(re.Remarks, "sysctl -n kernel.randomize_va_space") {
+		t.Errorf("command should appear in remarks; got remarks=%q", re.Remarks)
 	}
 	if props["method"] != "sysctl_value" {
 		t.Errorf("method prop = %q", props["method"])
@@ -163,7 +176,7 @@ func TestExportOSCALScan_RawStdoutInBackMatter(t *testing.T) {
 	res := doc.AssessmentResults.Results[0]
 	wantStdout := map[string]string{
 		"rule_sysctl_aslr":    "2\n",
-		"rule_ssh_root_login": "permitrootlogin yes\n",
+		"rule_ssh_root_login": "FAIL\n",
 	}
 	for i, obs := range res.Observations {
 		href := obs.RelevantEvidence[0].Href
@@ -232,7 +245,7 @@ func TestExportOSCALScan_ControlIDsFrameworkPrefixed(t *testing.T) {
 			got[c.ControlID] = true
 		}
 	}
-	for _, want := range []string{"cis_rhel9_v2-1.5.3", "nist_800_53_r5-SC-30", "cis_rhel9_v2-5.2.3"} {
+	for _, want := range []string{"cis_rhel9_v2-1.5.3", "nist_800_53_r5-SC-30", "cis_rhel9_v2-5.2.3", "nist_800_53-AU-5.2"} {
 		if !got[want] {
 			t.Errorf("missing control-id %q in %v", want, got)
 		}
@@ -246,6 +259,78 @@ func TestExportOSCALScan_NilResult(t *testing.T) {
 	t.Log("// @ac AC-06")
 	if _, err := ExportOSCALScan(nil, "host"); err == nil {
 		t.Fatal("expected error for nil result, got nil")
+	}
+}
+
+// @spec evidence-oscal-scan
+// @ac AC-07
+func TestExportOSCALScan_MultiLineCommandInRemarks(t *testing.T) {
+	t.Log("// @spec evidence-oscal-scan")
+	t.Log("// @ac AC-07")
+	// sampleScanResult's second outcome carries a multi-line script command.
+	schema := loadOSCALSchema(t)
+	b, err := ExportOSCALScan(sampleScanResult(), "host-a.example.com")
+	if err != nil {
+		t.Fatalf("ExportOSCALScan: %v", err)
+	}
+	// 1.0.6-valid despite the multi-line command.
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if err := schema.Validate(doc); err != nil {
+		t.Fatalf("multi-line command broke OSCAL 1.0.6 conformance:\n%v", err)
+	}
+	// And the command is in remarks, never a prop.
+	var typed OSCALAssessmentResults
+	if err := json.Unmarshal(b, &typed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	re := typed.AssessmentResults.Results[0].Observations[1].RelevantEvidence[0]
+	for _, p := range re.Props {
+		if p.Name == "command" {
+			t.Errorf("multi-line command must not be a prop")
+		}
+	}
+	if !strings.Contains(re.Remarks, "PermitRootLogin yes") {
+		t.Errorf("command should be in remarks; got %q", re.Remarks)
+	}
+}
+
+// @spec evidence-oscal-scan
+// @ac AC-08
+func TestExportOSCALScan_ParenControlIDCoerced(t *testing.T) {
+	t.Log("// @spec evidence-oscal-scan")
+	t.Log("// @ac AC-08")
+	schema := loadOSCALSchema(t)
+	b, err := ExportOSCALScan(sampleScanResult(), "host-a.example.com")
+	if err != nil {
+		t.Fatalf("ExportOSCALScan: %v", err)
+	}
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if err := schema.Validate(doc); err != nil {
+		t.Fatalf("paren control-id broke OSCAL 1.0.6 conformance:\n%v", err)
+	}
+	var typed OSCALAssessmentResults
+	if err := json.Unmarshal(b, &typed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	found := false
+	for _, sel := range typed.AssessmentResults.Results[0].ReviewedControls.ControlSelections {
+		for _, c := range sel.IncludeControls {
+			if c.ControlID == "nist_800_53-AU-5.2" {
+				found = true
+			}
+			if strings.ContainsAny(c.ControlID, "()") {
+				t.Errorf("control-id %q still contains parens", c.ControlID)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected coerced control-id nist_800_53-AU-5.2")
 	}
 }
 

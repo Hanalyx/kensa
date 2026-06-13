@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -119,6 +121,25 @@ type oscalRelevantEvidence struct {
 	Description string      `json:"description"`
 	Href        string      `json:"href,omitempty"`
 	Props       []oscalProp `json:"props,omitempty"`
+	// Remarks is OSCAL markup-multiline (no value pattern), so it is the
+	// conformant home for verbatim multi-line content — e.g. a check's command,
+	// which is frequently a multi-line shell script and therefore CANNOT go in a
+	// prop value (those are single-line StringDatatype tokens, pattern
+	// ^\S(.*\S)?$).
+	Remarks string `json:"remarks,omitempty"`
+}
+
+// oscalValidToken reports whether v is a legal OSCAL StringDatatype value —
+// the constraint on every prop value (pattern ^\S(.*\S)?$): non-empty, no
+// leading/trailing whitespace, and no interior line terminator (`.` does not
+// match \n/\r in ECMA-262 regex, so a multi-line value can never satisfy the
+// pattern). Props that fail this are dropped rather than emitted as
+// schema-invalid OSCAL; the content still survives in remarks/description.
+func oscalValidToken(v string) bool {
+	if v == "" || v != strings.TrimSpace(v) {
+		return false
+	}
+	return !strings.ContainsAny(v, "\n\r\u2028\u2029")
 }
 
 type oscalProp struct {
@@ -137,15 +158,51 @@ const kensaOSCALNamespace = "https://hanalyx.com/kensa/ns/oscal/v1/"
 
 // oscalControlID renders a framework reference as a valid OSCAL control-id
 // token. OSCAL control-id must match `^(\p{L}|_)(\p{L}|\p{N}|[.\-_])*$` — it
-// must start with a letter/underscore — but native control identifiers like
-// CIS "3.3.1" or PCI "2.2.6" start with a digit. Prefixing with the framework
-// id (which starts with a letter) yields a valid token AND disambiguates which
-// framework a control belongs to inside one include-controls list.
+// must start with a letter/underscore and may otherwise contain only letters,
+// digits, '.', '-', '_'. Two corpus realities violate this raw:
+//   - native ids like CIS "3.3.1" or PCI "2.2.6" start with a digit — fixed by
+//     prefixing the framework id (which starts with a letter), which also
+//     disambiguates which framework a control belongs to in one
+//     include-controls list;
+//   - NIST 800-53 enhancement notation like "AU-5(2)" / "AC-11(1)" carries
+//     PARENTHESES, which the token charset forbids — fixed by sanitizeOSCALToken
+//     mapping '(' to the OSCAL enhancement dot-separator ("AU-5.2") and dropping
+//     ')'.
 func oscalControlID(ref api.FrameworkRef) string {
-	if ref.FrameworkID == "" {
-		return ref.ControlID
+	raw := ref.ControlID
+	if ref.FrameworkID != "" {
+		raw = ref.FrameworkID + "-" + ref.ControlID
 	}
-	return ref.FrameworkID + "-" + ref.ControlID
+	return sanitizeOSCALToken(raw)
+}
+
+// sanitizeOSCALToken coerces s into a valid OSCAL token (pattern above). Legal
+// runes pass through; '(' becomes '.' and ')' is dropped (so the NIST
+// enhancement "AU-5(2)" reads as the OSCAL-idiomatic "AU-5.2"); any other
+// illegal rune becomes '_'. If the result is empty or does not start with a
+// letter/underscore, it is prefixed with '_' so the first-char constraint holds.
+func sanitizeOSCALToken(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '-' || r == '_':
+			b.WriteRune(r)
+		case r == '(':
+			b.WriteRune('.')
+		case r == ')':
+			// dropped — the '(' already became the dot separator
+		default:
+			b.WriteRune('_')
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "_"
+	}
+	if first := []rune(out)[0]; !unicode.IsLetter(first) && first != '_' {
+		out = "_" + out
+	}
+	return out
 }
 
 // hostSubjectUUID derives a stable subject UUID for a host id. A v5 (SHA-1)

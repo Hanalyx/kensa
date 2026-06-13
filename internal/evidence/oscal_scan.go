@@ -42,17 +42,23 @@ func ExportOSCALScan(result *api.ScanResult, hostname string) ([]byte, error) {
 		for _, ev := range o.Evidence {
 			re := oscalRelevantEvidence{
 				Description: evidenceDescription(ev),
-				Props: []oscalProp{
-					{Name: "method", Value: ev.Method, NS: kensaOSCALNamespace},
-					{Name: "command", Value: ev.Command, NS: kensaOSCALNamespace},
-					{Name: "exit-code", Value: strconv.Itoa(ev.ExitCode), NS: kensaOSCALNamespace},
-				},
 			}
-			if ev.Expected != "" {
-				re.Props = append(re.Props, oscalProp{Name: "expected", Value: ev.Expected, NS: kensaOSCALNamespace})
-			}
+			// Props carry ONLY single-line StringDatatype-valid tokens. method
+			// and exit-code are clean by construction; expected is guarded. The
+			// command is deliberately NOT a prop — it is frequently a multi-line
+			// shell script, which can never satisfy the prop-value pattern
+			// (^\S(.*\S)?$); it goes to remarks (below) instead.
+			re.Props = appendValidProp(re.Props, "method", ev.Method)
+			re.Props = appendValidProp(re.Props, "exit-code", strconv.Itoa(ev.ExitCode))
+			re.Props = appendValidProp(re.Props, "expected", ev.Expected)
 			if ev.Truncated {
-				re.Props = append(re.Props, oscalProp{Name: "truncated", Value: "true", NS: kensaOSCALNamespace})
+				re.Props = appendValidProp(re.Props, "truncated", "true")
+			}
+			// The verbatim command — multi-line-safe — lives in remarks (OSCAL
+			// markup-multiline, no value pattern) so an auditor can reproduce the
+			// check exactly.
+			if ev.Command != "" {
+				re.Remarks = "Command:\n" + ev.Command
 			}
 			// Raw stdout goes to a base64 back-matter resource, referenced by
 			// href — keeps the inline observation small while staying valid.
@@ -60,7 +66,7 @@ func ExportOSCALScan(result *api.ScanResult, hostname string) ([]byte, error) {
 				resUUID := uuid.New().String()
 				resources = append(resources, oscalResource{
 					UUID:   resUUID,
-					Title:  "stdout of: " + ev.Command,
+					Title:  "stdout (" + ev.Method + ")",
 					Base64: &oscalBase64{MediaType: "text/plain", Value: base64.StdEncoding.EncodeToString([]byte(ev.Stdout))},
 				})
 				re.Href = "#" + resUUID
@@ -159,13 +165,28 @@ func complianceState(s api.ComplianceStatus) string {
 	return "not-satisfied"
 }
 
-// evidenceDescription renders a human-readable summary of one check's
-// observation evidence.
+// appendValidProp appends a Kensa-namespaced prop only when value is a legal
+// OSCAL StringDatatype token (see oscalValidToken). A value that would violate
+// the prop-value pattern — empty, whitespace-bounded, or multi-line — is
+// dropped rather than emitted as schema-invalid OSCAL; such content is carried
+// in remarks/description instead. This keeps the emitted document conformant
+// regardless of what a check's params contain.
+func appendValidProp(props []oscalProp, name, value string) []oscalProp {
+	if !oscalValidToken(value) {
+		return props
+	}
+	return append(props, oscalProp{Name: name, Value: value, NS: kensaOSCALNamespace})
+}
+
+// evidenceDescription renders a single-line human summary of one check's
+// observation evidence. It deliberately does NOT inline the command (which may
+// be a multi-line script — that lives verbatim in the relevant-evidence
+// remarks); the description stays a short, queryable one-liner.
 func evidenceDescription(ev api.CheckEvidence) string {
 	if ev.Expected != "" {
-		return fmt.Sprintf("Check %s: `%s` -> exit %d; expected %q", ev.Method, ev.Command, ev.ExitCode, ev.Expected)
+		return fmt.Sprintf("Check %s (exit %d; expected %q)", ev.Method, ev.ExitCode, ev.Expected)
 	}
-	return fmt.Sprintf("Check %s: `%s` -> exit %d", ev.Method, ev.Command, ev.ExitCode)
+	return fmt.Sprintf("Check %s (exit %d)", ev.Method, ev.ExitCode)
 }
 
 func nonEmpty(s, def string) string {
