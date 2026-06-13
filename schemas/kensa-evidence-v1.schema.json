@@ -93,8 +93,8 @@
         },
         "frameworks": {
           "type": "object",
-          "description": "Framework -> native control identifier the rule maps to (e.g. {\"nist_800_53\":\"CM-7\",\"cis_rhel9_v2\":\"3.2.1\"}). Open map.",
-          "additionalProperties": { "type": "string" }
+          "description": "Framework id -> the native control identifiers the rule maps to within it (e.g. {\"nist_800_53\":[\"AC-6(2)\",\"AC-17(2)\"],\"cis_rhel9\":[\"5.2.3\"]}). A rule may map to several controls within one framework, so values are arrays. Open map.",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
         }
       }
     },

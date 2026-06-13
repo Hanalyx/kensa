@@ -1,0 +1,107 @@
+spec:
+    id: output-native-evidence
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: output-native-evidence
+        description: |
+            Kensa Python's `kensa check ... -o evidence:evidence.json` produced
+            a full native-evidence document — session + host context
+            (capabilities, effective variables) + per-rule results carrying
+            structured observation evidence + a summary. v0.4.0 restores it on
+            the Go check path.
+
+            The document spans data from two places: scan-side (the outcomes,
+            and — added here — the detected Capabilities and Platform now
+            carried on api.ScanResult) and CLI-side (the session command, the
+            hostname, and the resolved effective variables, which the scan does
+            not receive). output.WriteNativeEvidence assembles them; the CLI's
+            `-o evidence:` check path supplies the CLI-side context via
+            output.FanOutNativeEvidence (separate from the generic scan-writer
+            fan-out, whose interface cannot carry that context).
+
+            Every emitted document is validated against
+            schemas/kensa-evidence-v1.schema.json — the schema landed in the
+            v0.4.0 foundation PR — using a pure-Go validator.
+
+    objective:
+        summary: |
+            output.WriteNativeEvidence emits a document that validates against
+            kensa-evidence-v1 and carries the full host context + per-rule
+            observation evidence + framework grouping + summary; api.ScanResult
+            carries the detected Capabilities and Platform; and the
+            `-o evidence:` check path writes the document via
+            output.FanOutNativeEvidence.
+        scope:
+            includes:
+                - output.WriteNativeEvidence (the document assembler)
+                - output.FanOutNativeEvidence (path handling + session context)
+                - api.ScanResult.Capabilities + api.ScanResult.Platform
+                - CLI `-o evidence:` check-path wiring
+            excludes:
+                - The remediate-path native evidence (RemediationResult has no
+                  RuleOutcome surface yet)
+                - Cryptographic signing (scan evidence is unsigned by decision)
+                - OSCAL output (separate enrichment PR)
+
+    constraints:
+        - id: C-01
+          description: |
+              output.WriteNativeEvidence MUST emit a JSON document that
+              validates against schemas/kensa-evidence-v1.schema.json for any
+              ScanResult — across pass / fail / skipped / error outcomes, with
+              and without evidence.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The document MUST carry the full context: session (id, timestamp,
+              command), host (hostname, platform family/version, capabilities,
+              effective_variables), per-rule results (rule_id, severity,
+              passed/skipped/errored, detail, observation evidence, frameworks
+              grouped framework-id -> control-ids), and a summary tally.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              api.Kensa.Scan MUST surface on api.ScanResult the detected
+              Capabilities (after overrides) and Platform (family + version) the
+              scan evaluated against, so the document can report host context
+              without re-probing.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The CLI `-o evidence:` check path MUST write the native-evidence
+              document via output.FanOutNativeEvidence, supplying the CLI-side
+              session context (command, effective variables) the ScanResult does
+              not carry.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: A document emitted by WriteNativeEvidence for a ScanResult spanning pass/fail/skip/error outcomes validates against kensa-evidence-v1.schema.json.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: The emitted document carries platform family/version, capabilities, effective_variables, per-rule observation evidence, framework grouping, and a correct summary tally.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: A Kensa.Scan populates api.ScanResult.Capabilities and api.ScanResult.Platform with the detected capability set and OS.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: output.FanOutNativeEvidence writes a schema-valid native-evidence document to a spec destination.
+          references_constraints: [C-04]
+          priority: high
+
+    depends_on:
+        - spec_id: check-observation-evidence
+          relationship: requires
+
+    tags: [output, evidence, native, tier-3]

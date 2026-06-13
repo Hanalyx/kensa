@@ -187,6 +187,27 @@ type ScanResult struct {
 	HostID       string
 	Transactions []TransactionResult
 	Outcomes     []RuleOutcome
+	// Capabilities is the detected capability set the scan evaluated the
+	// rules against (after any [HostConfig.Capabilities] overrides). Surfaced
+	// so a consumer records the exact host context the verdicts were computed
+	// under — and so a native-evidence document can report it without
+	// re-probing.
+	Capabilities CapabilitySet
+	// Platform is the host's detected OS (family + version from
+	// /etc/os-release), the basis for platform gating. A zero value (empty
+	// Family) means the OS could not be detected.
+	Platform DetectedPlatform
+}
+
+// DetectedPlatform is a host's operating system family and version as
+// detected from /etc/os-release at scan time.
+type DetectedPlatform struct {
+	// Family is the lowercase os-release ID (e.g. "rhel", "ubuntu"). Empty
+	// when the host OS could not be detected.
+	Family string
+	// Version is the os-release VERSION_ID (e.g. "9.6", "22.04"). Empty when
+	// the host does not expose it.
+	Version string
 }
 
 // RemediationResult is the outcome of [Kensa.Remediate]. Each entry

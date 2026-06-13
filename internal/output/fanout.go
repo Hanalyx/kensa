@@ -76,6 +76,20 @@ func FanOutScanResult(specs []Spec, stdoutOverride io.Writer, hostID string, rul
 	})
 }
 
+// FanOutNativeEvidence writes the native-evidence document to every spec,
+// reusing the fan-out path handling (stdout override + dangerous-path guard).
+// It is separate from [FanOutScanResult] because the native-evidence document
+// needs the session/host context in `in` (command, effective variables) that
+// the generic ScanResultWriter interface does not carry.
+func FanOutNativeEvidence(specs []Spec, stdoutOverride io.Writer, in NativeEvidenceInput) error {
+	if stdoutOverride == nil {
+		panic("output: FanOutNativeEvidence: stdoutOverride must not be nil")
+	}
+	return fanOut(specs, stdoutOverride, func(_ Spec, w io.Writer) error {
+		return WriteNativeEvidence(w, in)
+	})
+}
+
 // FanOutRemediationResult fans out a RemediationResult across every spec.
 func FanOutRemediationResult(specs []Spec, stdoutOverride io.Writer, hostID string, rules []*api.Rule, result *api.RemediationResult) error {
 	if stdoutOverride == nil {

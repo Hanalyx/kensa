@@ -89,7 +89,11 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 	}
 
 	hostID := "" // transport does not expose hostname; populated by caller
-	result := &api.ScanResult{HostID: hostID}
+	result := &api.ScanResult{
+		HostID:       hostID,
+		Capabilities: caps,
+		Platform:     api.DetectedPlatform{Family: osInfo.Family, Version: osInfo.Version},
+	}
 
 	total := len(rules)
 	for i, rl := range rules {

@@ -683,6 +683,33 @@ func TestScan_PopulatesOutcomeEvidence(t *testing.T) {
 	})
 }
 
+// TestScan_PopulatesHostContext verifies the scan surfaces the detected
+// capabilities and platform on ScanResult, so a native-evidence document can
+// report host context without re-probing.
+//
+// @spec output-native-evidence
+func TestScan_PopulatesHostContext(t *testing.T) {
+	t.Run("output-native-evidence/AC-03", func(t *testing.T) {
+		// @spec output-native-evidence
+		// @ac AC-03
+		tp := &fakeTransport{results: map[string]api.CommandResult{
+			"cat /etc/os-release 2>/dev/null": osReleaseResult("rhel", "9.6"),
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "0", ExitCode: 0},
+		}}
+		rule := sysctlRule("rule-ctx", "low", "net.ipv4.ip_forward", "0")
+		res, err := scan.New(nil).Scan(context.Background(), tp, []*api.Rule{rule})
+		if err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		if res.Platform.Family != "rhel" || res.Platform.Version != "9.6" {
+			t.Errorf("platform: want rhel/9.6, got %+v", res.Platform)
+		}
+		if res.Capabilities == nil {
+			t.Errorf("Capabilities should be populated (detected set), got nil")
+		}
+	})
+}
+
 // TestRemediate_PlatformGate verifies the apply path is platform-gated too:
 // a failing rule whose platforms don't cover the host must NEVER reach the
 // engine — gating only the scan would still let remediate mutate a host with
