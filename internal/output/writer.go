@@ -81,15 +81,18 @@ var scanResultWriters = map[string]ScanResultWriter{
 	"jsonl": jsonlScanWriter{},
 	"csv":   csvScanWriter{},
 	"pdf":   pdfScanWriter{},
+	"oscal": oscalScanWriter{},
 }
 
 // remediationResultWriters maps format identifier → RemediationResultWriter.
 //
-// "oscal" and "evidence" are registered here only — both require a
-// signed EvidenceEnvelope per transaction, which only the
-// remediation path produces. ScanResult transactions all carry a nil
-// Envelope by API contract, so scan-side writers for these formats
-// would emit zero documents.
+// "evidence" is registered here only — it requires a signed
+// EvidenceEnvelope per transaction, which only the remediation path
+// produces. "oscal" is registered on BOTH paths as of v0.4.0: the
+// remediation OSCAL is envelope-anchored, the scan OSCAL (see
+// scanResultWriters) is built unsigned from ScanResult.Outcomes +
+// CheckEvidence. They emit the same OSCAL 1.0.6 AR shape from different
+// truth sources.
 var remediationResultWriters = map[string]RemediationResultWriter{
 	"text":     textRemediationWriter{},
 	"json":     jsonRemediationWriter{},

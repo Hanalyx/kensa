@@ -159,11 +159,12 @@ func TestOSCALRemediationWriter_RegistryWiring(t *testing.T) {
 // @ac AC-06
 func TestOSCALRemediationWriter_NotRegisteredForUnsupportedPayloads(t *testing.T) {
 	t.Run("output-oscal/AC-06", func(t *testing.T) {})
-	// OSCAL is RemediationResult-only because envelopes are produced
-	// only during remediation. Scan / caps / history / json-value
-	// payloads carry no envelopes and have no OSCAL representation.
-	if _, ok := ScanWriterFor("oscal"); ok {
-		t.Error("ScanWriterFor(oscal) should not be registered (scan produces no envelopes)")
+	// As of v0.4.0, OSCAL is registered for BOTH scan (unsigned, built
+	// from ScanResult.Outcomes + CheckEvidence) and remediation
+	// (envelope-anchored). It remains unrepresentable for caps /
+	// history / json-value payloads, which carry no compliance verdict.
+	if _, ok := ScanWriterFor("oscal"); !ok {
+		t.Error("ScanWriterFor(oscal) should be registered as of v0.4.0")
 	}
 	if _, ok := HistoryWriterFor("oscal"); ok {
 		t.Error("HistoryWriterFor(oscal) should not be registered")

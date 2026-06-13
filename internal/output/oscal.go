@@ -7,17 +7,41 @@ import (
 	"github.com/Hanalyx/kensa/internal/evidence"
 )
 
+// oscalScanWriter renders a read-only ScanResult as a single OSCAL
+// 1.0.6 Assessment Results document. Unlike the remediation path, the
+// scan path produces no signed EvidenceEnvelope — its OSCAL is the
+// unsigned compliance-verdict-plus-observation-evidence document built
+// directly from ScanResult.Outcomes (one finding + observation per
+// rule, with the rule's CheckEvidence embedded as relevant-evidence and
+// raw stdout as base64 back-matter). This is the v0.4.0 OSCAL
+// enrichment: scan results are now first-class OSCAL artifacts, not
+// just remediation transactions.
+//
+// hostID is the observation subject (it derives the host inventory-item
+// UUID inside evidence.ExportOSCALScan); rules is interface-mandated but
+// unused — every verdict and its framework refs already live on
+// ScanResult.Outcomes.
+type oscalScanWriter struct{}
+
+func (oscalScanWriter) Format() string { return "oscal" }
+
+func (oscalScanWriter) WriteScanResult(w io.Writer, hostID string, _ []*api.Rule, result *api.ScanResult) error {
+	return evidence.WriteOSCALScan(w, result, hostID)
+}
+
+// Compile-time interface assertion.
+var _ ScanResultWriter = oscalScanWriter{}
+
 // oscalRemediationWriter renders a RemediationResult as a stream of
 // OSCAL Assessment Results documents — one per transaction with a
 // non-nil EvidenceEnvelope. Transactions without an envelope (the
 // engine could not produce one — e.g., a non-capturable rule that
 // errored before the commit phase) are skipped.
 //
-// OSCAL applies only to RemediationResult, not ScanResult: scan is
-// read-only and produces no envelopes. ScanResult.Transactions all
-// carry a nil Envelope by API contract; a scan-side OSCAL writer
-// would emit no documents and that confusion is worse than not
-// registering the writer.
+// This is the remediation counterpart to oscalScanWriter: the
+// remediation document is anchored on the signed EvidenceEnvelope (the
+// audit-truth-of-record), whereas the scan document is the unsigned
+// read-only verdict set. Both emit OSCAL 1.0.6 AR.
 //
 // The output is the concatenation of N JSON documents (one per
 // envelope) as produced by evidence.WriteOSCAL. Strict OSCAL

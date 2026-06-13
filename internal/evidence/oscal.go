@@ -18,10 +18,29 @@ type OSCALAssessmentResults struct {
 }
 
 type oscalAssessmentResultsBody struct {
-	UUID     string        `json:"uuid"`
-	Metadata oscalMetadata `json:"metadata"`
-	ImportAP oscalImportAP `json:"import-ap"`
-	Results  []oscalResult `json:"results"`
+	UUID       string           `json:"uuid"`
+	Metadata   oscalMetadata    `json:"metadata"`
+	ImportAP   oscalImportAP    `json:"import-ap"`
+	Results    []oscalResult    `json:"results"`
+	BackMatter *oscalBackMatter `json:"back-matter,omitempty"`
+}
+
+// oscalBackMatter holds embedded resources — raw check output, base64-encoded —
+// referenced from relevant-evidence by href. The OSCAL-sanctioned home for
+// arbitrary/large blobs.
+type oscalBackMatter struct {
+	Resources []oscalResource `json:"resources"`
+}
+
+type oscalResource struct {
+	UUID   string       `json:"uuid"`
+	Title  string       `json:"title,omitempty"`
+	Base64 *oscalBase64 `json:"base64,omitempty"`
+}
+
+type oscalBase64 struct {
+	MediaType string `json:"media-type,omitempty"`
+	Value     string `json:"value"`
 }
 
 type oscalMetadata struct {
@@ -98,7 +117,8 @@ type oscalSubject struct {
 
 type oscalRelevantEvidence struct {
 	Description string      `json:"description"`
-	Props       []oscalProp `json:"props"`
+	Href        string      `json:"href,omitempty"`
+	Props       []oscalProp `json:"props,omitempty"`
 }
 
 type oscalProp struct {
