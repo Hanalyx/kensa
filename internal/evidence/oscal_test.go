@@ -129,8 +129,10 @@ func TestExportOSCAL_FrameworkRefsAsControlSelections(t *testing.T) {
 	if controls[0].ControlID != "cis_rhel9_v2-5.2.3" {
 		t.Errorf("expected control-id %q, got %q", "cis_rhel9_v2-5.2.3", controls[0].ControlID)
 	}
-	if controls[1].ControlID != "nist_800_53_r5-AC-6(2)" {
-		t.Errorf("expected control-id %q, got %q", "nist_800_53_r5-AC-6(2)", controls[1].ControlID)
+	// NIST enhancement parens "(2)" are illegal in an OSCAL token and are
+	// coerced to the dot-enhancement form: "AC-6(2)" -> "AC-6.2".
+	if controls[1].ControlID != "nist_800_53_r5-AC-6.2" {
+		t.Errorf("expected control-id %q, got %q", "nist_800_53_r5-AC-6.2", controls[1].ControlID)
 	}
 }
 

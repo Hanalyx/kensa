@@ -113,6 +113,30 @@ spec:
               guarantee is exclusive to the remediation path.
           type: business
           enforcement: error
+        - id: C-06
+          description: |
+              A check command is frequently a multi-line shell script.
+              An OSCAL prop value is a single-line StringDatatype token
+              (pattern ^\S(.*\S)?$) and CANNOT hold it. The command
+              therefore MUST go to relevant-evidence remarks (OSCAL
+              markup-multiline, no value pattern), NOT a prop. Any prop
+              value that is empty, whitespace-bounded, or multi-line is
+              dropped rather than emitted, so the document stays
+              schema-valid regardless of check-param content. Caught by
+              the live-host conformance run, not the original fixtures.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              NIST 800-53 enhancement notation ("AU-5(2)", "AC-11(1)")
+              carries parentheses, which the OSCAL control-id token
+              charset (^(\p{L}|_)(\p{L}|\p{N}|[.\-_])*$) forbids.
+              oscalControlID MUST coerce such ids to a valid token —
+              '(' to the OSCAL dot-enhancement separator and ')' dropped,
+              so "AU-5(2)" becomes "AU-5.2". Also caught live, not by the
+              clean dotted-CIS fixtures.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -161,5 +185,21 @@ spec:
               taking a read-only result + hostname.)
           references_constraints: [C-05]
           priority: medium
+        - id: AC-07
+          description: |
+              A CheckEvidence with a multi-line command produces OSCAL
+              that still validates against 1.0.6: the command is in
+              relevant-evidence remarks, NOT a prop, and no prop value
+              violates the single-line token pattern. The regression
+              fixture carries an actual multi-line script.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: |
+              A framework ref with NIST enhancement parens ("AU-5(2)")
+              renders as a valid OSCAL control-id token ("AU-5.2"); the
+              emitted document validates against 1.0.6.
+          references_constraints: [C-07]
+          priority: high
 
     tags: [evidence, oscal, scan, native-evidence, v0.4.0, tier-2]
