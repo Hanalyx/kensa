@@ -37,7 +37,7 @@
             "collected": "FIXTURE_TIMESTAMP",
             "description": "Pre-state captured: 0 steps",
             "methods": [
-              "EXAMINE"
+              "TEST"
             ],
             "relevant-evidence": [
               {
@@ -45,13 +45,21 @@
                 "props": [
                   {
                     "name": "signing-key-id",
+                    "ns": "https://hanalyx.com/kensa/ns/oscal/v1/",
                     "value": "test-key-1"
                   },
                   {
                     "name": "transaction-id",
+                    "ns": "https://hanalyx.com/kensa/ns/oscal/v1/",
                     "value": "FIXTURE_TXN_UUID"
                   }
                 ]
+              }
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "GENERATED_UUID",
+                "type": "inventory-item"
               }
             ],
             "uuid": "GENERATED_UUID"
@@ -62,16 +70,16 @@
             {
               "include-controls": [
                 {
-                  "control-id": "3.3.2.1"
+                  "control-id": "cis_rhel8-3.3.2.1"
                 },
                 {
-                  "control-id": "3.3.1"
+                  "control-id": "cis_rhel9-3.3.1"
                 },
                 {
-                  "control-id": "CM-7"
+                  "control-id": "nist_800_53-CM-7"
                 },
                 {
-                  "control-id": "V-257936"
+                  "control-id": "stig_rhel9-V-257936"
                 }
               ]
             }

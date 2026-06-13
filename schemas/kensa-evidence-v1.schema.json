@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://hanalyx.com/schemas/kensa-evidence-v1.schema.json",
+  "$id": "https://hanalyx.com/kensa/schemas/evidence/v1/",
   "title": "Kensa Native Evidence (v1)",
   "description": "Schema for Kensa's native evidence document, emitted by `kensa check`/`remediate` via `-o evidence:`. Full-file parity with the Python Kensa evidence format: session + host context (capabilities, effective variables) + per-rule results carrying structured per-check observation evidence + a summary. The per-check evidence is the reproducible proof (command, output, expected vs actual) that lets an auditor verify a finding without re-running the scan (KensaLabs evidence-engineering principle).",
   "type": "object",
