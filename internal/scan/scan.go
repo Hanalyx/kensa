@@ -149,7 +149,8 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			continue
 		}
 
-		passed, detail, checkErr := check.Run(ctx, transport, impl.Check)
+		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
+		passed, detail := checkRes.Passed, checkRes.Detail
 		if checkErr != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr))
 			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
@@ -159,6 +160,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 				Detail:        checkErr.Error(),
 				Err:           checkErr,
 				FrameworkRefs: frameworkRefs,
+				Evidence:      checkRes.Evidence,
 			})
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
@@ -186,6 +188,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			Severity:      rl.Severity,
 			Detail:        detail,
 			FrameworkRefs: frameworkRefs,
+			Evidence:      checkRes.Evidence,
 		})
 		result.Transactions = append(result.Transactions, api.TransactionResult{
 			TransactionID: uuid.New(),
@@ -263,7 +266,8 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		}
 
 		// Check first: skip rules already in desired state.
-		passed, _, checkErr := check.Run(ctx, transport, impl.Check)
+		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
+		passed := checkRes.Passed
 		if checkErr == nil && passed {
 			result.Transactions = append(result.Transactions, api.TransactionResult{
 				TransactionID: uuid.New(),
