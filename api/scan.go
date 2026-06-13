@@ -72,7 +72,45 @@ type RuleOutcome struct {
 	// by framework without re-deriving the mapping from the rule corpus. Empty
 	// when the rule maps to no framework.
 	FrameworkRefs []FrameworkRef
+	// Evidence is the structured observation evidence the check produced —
+	// one [CheckEvidence] per command it executed on the host. It is the
+	// reproducible proof behind the verdict (the exact command, its output,
+	// and the expected value), so a consumer can verify the finding without
+	// re-running the scan. Empty when no command ran (e.g. a skipped rule).
+	Evidence []CheckEvidence
 	// Err is non-nil if and only if Status is [ComplianceError]. It identifies
 	// why the check could not run.
 	Err error
+}
+
+// CheckEvidence is the reproducible observation evidence for one command a
+// rule's check executed: the exact command, its captured output and exit
+// status, and the value the check required. It is the structured proof that
+// distinguishes a Kensa verdict from an opaque pass/fail — an auditor can
+// re-run [CheckEvidence.Command] and compare against [CheckEvidence.Stdout]
+// and [CheckEvidence.Expected] without access to the original scan.
+type CheckEvidence struct {
+	// Method is the check method that produced this evidence (for example
+	// "sysctl_value", "config_value", "kernel_module_state").
+	Method string `json:"method"`
+	// Command is the exact command executed on the host.
+	Command string `json:"command,omitempty"`
+	// Stdout is the command's captured standard output. May be truncated at
+	// the per-field cap; see [CheckEvidence.Truncated].
+	Stdout string `json:"stdout,omitempty"`
+	// Stderr is the command's captured standard error. May be truncated.
+	Stderr string `json:"stderr,omitempty"`
+	// ExitCode is the command's exit status.
+	ExitCode int `json:"exit_code"`
+	// Expected is the value/state the check required, when the check declared
+	// one (from its `expected` parameter). Empty for checks that do not
+	// compare against a fixed expected value.
+	Expected string `json:"expected,omitempty"`
+	// Actual is the observed value when the check surfaced a single one;
+	// otherwise empty, in which case [CheckEvidence.Stdout] is the
+	// authoritative observed state.
+	Actual string `json:"actual,omitempty"`
+	// Truncated is true when Stdout or Stderr was truncated at the per-field
+	// byte cap. The retained content is the leading bytes.
+	Truncated bool `json:"truncated,omitempty"`
 }

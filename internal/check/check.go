@@ -12,16 +12,29 @@ import (
 	"github.com/Hanalyx/kensa/api"
 )
 
-// Run dispatches chk to the appropriate check method and returns
-// (passed, detail, error). When chk.Checks is non-empty the check
-// uses AND composition: all child checks must pass for the result to
-// be true. Individual method dispatch errors are returned as errors;
-// transport-level failures are surfaced via the error return rather
-// than the bool.
-func Run(ctx context.Context, transport api.Transport, chk api.Check) (bool, string, error) {
+// Run dispatches chk to the appropriate check method and returns a [Result]
+// carrying the verdict, a human-readable detail, and the structured
+// observation evidence (one [api.CheckEvidence] per command executed). When
+// chk.Checks is non-empty the check uses AND composition: all child checks
+// must pass and their evidence is concatenated. Individual method dispatch
+// errors are returned as errors; transport-level failures are surfaced via the
+// error return rather than the bool.
+//
+// Evidence is captured by wrapping transport in a recorder before dispatch, so
+// the individual check functions need no change — they call transport.Run as
+// before and the recorder captures what they ran and observed.
+func Run(ctx context.Context, transport api.Transport, chk api.Check) (Result, error) {
 	if len(chk.Checks) > 0 {
 		return runMulti(ctx, transport, chk.Checks)
 	}
+	rec := &recordingTransport{inner: transport}
+	passed, detail, err := dispatch(ctx, rec, chk)
+	return Result{Passed: passed, Detail: detail, Evidence: buildEvidence(chk, rec.cmds)}, err
+}
+
+// dispatch routes a single check to its method implementation. The check
+// functions are unchanged; they each return (passed, detail, error).
+func dispatch(ctx context.Context, transport api.Transport, chk api.Check) (bool, string, error) {
 	switch chk.Method {
 	case "config_value":
 		return checkConfigValue(ctx, transport, chk.Params)
@@ -76,25 +89,29 @@ func Run(ctx context.Context, transport api.Transport, chk api.Check) (bool, str
 	}
 }
 
-// runMulti executes each child check and returns true only when every
+// runMulti executes each child check and returns Passed=true only when every
 // child passes (AND semantics). Detail combines the individual details,
-// separated by semicolons.
-func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) (bool, string, error) {
+// separated by semicolons; Evidence concatenates every child's evidence (each
+// child's Run wraps the transport in its own recorder, so commands are
+// attributed to the right sub-check method).
+func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) (Result, error) {
 	var details []string
+	var evidence []api.CheckEvidence
 	allPass := true
 	for _, c := range checks {
-		passed, detail, err := Run(ctx, transport, c)
+		sub, err := Run(ctx, transport, c)
 		if err != nil {
-			return false, "", err
+			return Result{}, err
 		}
-		if detail != "" {
-			details = append(details, detail)
+		evidence = append(evidence, sub.Evidence...)
+		if sub.Detail != "" {
+			details = append(details, sub.Detail)
 		}
-		if !passed {
+		if !sub.Passed {
 			allPass = false
 		}
 	}
-	return allPass, strings.Join(details, "; "), nil
+	return Result{Passed: allPass, Detail: strings.Join(details, "; "), Evidence: evidence}, nil
 }
 
 // stringParam extracts a required string parameter from params.

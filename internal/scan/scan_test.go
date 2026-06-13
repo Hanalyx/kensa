@@ -646,6 +646,43 @@ func TestScan_Outcomes(t *testing.T) {
 	})
 }
 
+// TestScan_PopulatesOutcomeEvidence verifies the scan path surfaces the
+// check's structured observation evidence on RuleOutcome.Evidence — the
+// command and method that produced the verdict.
+//
+// @spec check-observation-evidence
+func TestScan_PopulatesOutcomeEvidence(t *testing.T) {
+	t.Run("check-observation-evidence/AC-04", func(t *testing.T) {
+		// @spec check-observation-evidence
+		// @ac AC-04
+		tp := &fakeTransport{results: map[string]api.CommandResult{
+			"sysctl -n 'net.ipv4.ip_forward'": {Stdout: "1", ExitCode: 0}, // != expected 0 -> fail
+		}}
+		rule := sysctlRule("rule-ev", "medium", "net.ipv4.ip_forward", "0")
+		res, err := scan.New(nil).Scan(context.Background(), tp, []*api.Rule{rule})
+		if err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		o := res.Outcomes[0]
+		if o.Status != api.ComplianceFail {
+			t.Fatalf("want fail, got %q", o.Status)
+		}
+		if len(o.Evidence) != 1 {
+			t.Fatalf("want 1 evidence entry on the outcome, got %d", len(o.Evidence))
+		}
+		ev := o.Evidence[0]
+		if ev.Method != "sysctl_value" {
+			t.Errorf("evidence method: want sysctl_value, got %q", ev.Method)
+		}
+		if ev.Command != "sysctl -n 'net.ipv4.ip_forward'" {
+			t.Errorf("evidence command: got %q", ev.Command)
+		}
+		if ev.Stdout != "1" || ev.Expected != "0" {
+			t.Errorf("evidence stdout/expected: got stdout=%q expected=%q", ev.Stdout, ev.Expected)
+		}
+	})
+}
+
 // TestRemediate_PlatformGate verifies the apply path is platform-gated too:
 // a failing rule whose platforms don't cover the host must NEVER reach the
 // engine — gating only the scan would still let remediate mutate a host with

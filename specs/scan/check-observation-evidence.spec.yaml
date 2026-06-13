@@ -1,0 +1,114 @@
+spec:
+    id: check-observation-evidence
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: check-observation-evidence
+        description: |
+            Kensa Python emitted, per rule result, a structured `evidence`
+            object — method, command, stdout, stderr, exit_code, expected — the
+            reproducible proof that lets an auditor verify a finding without
+            re-running the scan (the KensaLabs evidence-engineering principle).
+            The Go port lost this on the check path: internal/check.Run
+            collapsed every check to a `(passed, detail string, err)` triple,
+            discarding the command and output each check gathered. A consumer
+            (OpenWatch, OSCAL) could see the verdict and a human string, not the
+            proof.
+
+            This spec restores structured observation evidence on the scan
+            path. internal/check.Run now returns a [check.Result] carrying the
+            verdict, the detail (unchanged), and []api.CheckEvidence — one entry
+            per command the check executed. Evidence is captured by wrapping the
+            transport in a recorder before dispatch, so the 24 individual check
+            functions are UNCHANGED; they call transport.Run as before and the
+            recorder captures what they ran and observed. Scan surfaces the
+            evidence on api.RuleOutcome.Evidence.
+
+            Per the founder decision, oversize output is truncate-and-marked at
+            a 64 KiB per-field cap (not rejected), so evidence stays usable and
+            bounded. The raw stdout is the authoritative observed state; a
+            structured per-check `Actual` is a documented follow-up.
+
+    objective:
+        summary: |
+            internal/check.Run returns observation evidence (one
+            api.CheckEvidence per command run, with method/command/stdout/
+            stderr/exit_code/expected), truncated-and-marked at 64 KiB, with
+            multi-check evidence aggregated per sub-check; and Kensa.Scan
+            surfaces it on api.RuleOutcome.Evidence — all without changing the
+            individual check functions.
+        scope:
+            includes:
+                - api.CheckEvidence type + api.RuleOutcome.Evidence field
+                - internal/check.Result + the recording transport
+                - 64 KiB truncate-and-mark per stdout/stderr field
+                - multi-check (`checks:`) per-sub-check evidence aggregation
+                - scan surfacing evidence onto RuleOutcome.Evidence
+            excludes:
+                - Changes to the 24 individual check functions
+                - A structured per-check `Actual` (raw stdout is authoritative;
+                  follow-up)
+                - Cryptographic signing of scan evidence (NewScanner stays
+                  signer-free; the signed EvidenceEnvelope is the remediate path)
+                - The native-evidence document assembly + `-o evidence:` writer
+                  (the next PR)
+
+    constraints:
+        - id: C-01
+          description: |
+              check.Run MUST return one api.CheckEvidence per command the check
+              executed, each carrying the check Method, the exact Command, the
+              captured Stdout/Stderr/ExitCode, and the Expected value from the
+              check's `expected` param when present. The individual check
+              functions MUST be unchanged — evidence is captured by recording
+              the transport.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Each captured Stdout/Stderr field MUST be truncated at a 64 KiB
+              cap and api.CheckEvidence.Truncated set when truncation occurred;
+              the leading bytes are retained (truncate-and-mark, never reject).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              For a multi-check (chk.Checks non-empty), the evidence MUST
+              aggregate one set of CheckEvidence per sub-check, each carrying
+              that sub-check's own method.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Kensa.Scan MUST surface the check's evidence on
+              api.RuleOutcome.Evidence for every evaluated rule (both the
+              pass/fail outcome and the check-error outcome).
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: A single check returns one CheckEvidence carrying its command, stdout, exit code, method, and the expected value from params.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: Stdout beyond the 64 KiB cap is truncated to the cap length and CheckEvidence.Truncated is set.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: A multi-check yields one evidence entry per sub-check, each with its own method and a non-empty command.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: A Kensa.Scan of a rule populates RuleOutcome.Evidence with the check's command and method.
+          references_constraints: [C-04]
+          priority: critical
+
+    depends_on:
+        - spec_id: scan-compliance-outcome
+          relationship: requires
+
+    tags: [scan, evidence, check, tier-2]

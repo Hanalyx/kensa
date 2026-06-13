@@ -9,6 +9,14 @@ import (
 	"github.com/Hanalyx/kensa/api"
 )
 
+// runForTest adapts the structured [Run] to the legacy (passed, detail, err)
+// triple the per-method check tests assert against. The structured Result and
+// its evidence are exercised separately in evidence_test.go.
+func runForTest(ctx context.Context, t api.Transport, chk api.Check) (bool, string, error) {
+	res, err := Run(ctx, t, chk)
+	return res.Passed, res.Detail, err
+}
+
 // fakeTransport is a test double for [api.Transport]. Each call to Run
 // records the command and returns the configured [api.CommandResult].
 // If the command matches a key in errOn, a transport-level error is
@@ -59,7 +67,7 @@ func TestCheckConfigValue_Pass(t *testing.T) {
 			"expected": "no",
 		},
 	}
-	passed, detail, err := Run(context.Background(), ft, chk)
+	passed, detail, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,7 +92,7 @@ func TestCheckConfigValue_Fail(t *testing.T) {
 			"expected": "no",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +113,7 @@ func TestCheckConfigValue_KeyNotFound(t *testing.T) {
 			"expected": "no",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,7 +134,7 @@ func TestCheckSysctlValue_Pass(t *testing.T) {
 		Method: "sysctl_value",
 		Params: api.Params{"key": "net.ipv4.ip_forward", "expected": "0"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -147,7 +155,7 @@ func TestCheckSysctlValue_Fail(t *testing.T) {
 		Method: "sysctl_value",
 		Params: api.Params{"key": "net.ipv4.ip_forward", "expected": "0"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,7 +176,7 @@ func TestCheckPackageInstalled_Pass(t *testing.T) {
 		Method: "package_installed",
 		Params: api.Params{"name": "aide"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -185,7 +193,7 @@ func TestCheckPackageInstalled_Fail(t *testing.T) {
 		Method: "package_installed",
 		Params: api.Params{"name": "aide"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -206,7 +214,7 @@ func TestCheckPackageAbsent_Pass(t *testing.T) {
 		Method: "package_absent",
 		Params: api.Params{"name": "telnet"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -227,7 +235,7 @@ func TestCheckPackageAbsent_Fail(t *testing.T) {
 		Method: "package_absent",
 		Params: api.Params{"name": "telnet"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -248,7 +256,7 @@ func TestCheckFileExists_Pass(t *testing.T) {
 		Method: "file_exists",
 		Params: api.Params{"path": "/etc/passwd"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -265,7 +273,7 @@ func TestCheckFileExists_Fail(t *testing.T) {
 		Method: "file_exists",
 		Params: api.Params{"path": "/etc/passwd"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -286,7 +294,7 @@ func TestCheckFileAbsent_Pass(t *testing.T) {
 		Method: "file_absent",
 		Params: api.Params{"path": "/tmp/gone"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -303,7 +311,7 @@ func TestCheckFileAbsent_Fail(t *testing.T) {
 		Method: "file_absent",
 		Params: api.Params{"path": "/tmp/gone"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -329,7 +337,7 @@ func TestCheckFilePermissions_Pass(t *testing.T) {
 			"group": "shadow",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -355,7 +363,7 @@ func TestCheckFilePermissions_WrongMode(t *testing.T) {
 			"group": "shadow",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -381,7 +389,7 @@ func TestCheckFilePermissions_WrongOwner(t *testing.T) {
 			"group": "shadow",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -405,7 +413,7 @@ func TestCheckFileContentMatch_Pass(t *testing.T) {
 			"pattern": "PermitRootLogin\\s+no",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -425,7 +433,7 @@ func TestCheckFileContentMatch_Fail(t *testing.T) {
 			"pattern": "PermitRootLogin\\s+no",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -446,7 +454,7 @@ func TestCheckServiceEnabled_Pass(t *testing.T) {
 		Method: "service_enabled",
 		Params: api.Params{"name": "auditd"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -467,7 +475,7 @@ func TestCheckServiceEnabled_Fail(t *testing.T) {
 		Method: "service_enabled",
 		Params: api.Params{"name": "auditd"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -488,7 +496,7 @@ func TestCheckServiceActive_Pass(t *testing.T) {
 		Method: "service_active",
 		Params: api.Params{"name": "sshd"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -505,7 +513,7 @@ func TestCheckServiceActive_Fail(t *testing.T) {
 		Method: "service_active",
 		Params: api.Params{"name": "sshd"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -526,7 +534,7 @@ func TestCheckCommand_Pass(t *testing.T) {
 		Method: "command",
 		Params: api.Params{"cmd": "id -u"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -543,7 +551,7 @@ func TestCheckCommand_Fail(t *testing.T) {
 		Method: "command",
 		Params: api.Params{"cmd": "false"},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -567,7 +575,7 @@ func TestCheckCommand_ExpectedOutput_Pass(t *testing.T) {
 			"expected_output": "FIPS mode is enabled",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -591,7 +599,7 @@ func TestCheckCommand_ExpectedOutput_Fail(t *testing.T) {
 			"expected_output": "FIPS mode is enabled",
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -605,7 +613,7 @@ func TestCheckCommand_ExpectedOutput_Fail(t *testing.T) {
 func TestCheckUnknownMethod(t *testing.T) {
 	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{}}
 	chk := api.Check{Method: "no_such_method", Params: api.Params{}}
-	_, _, err := Run(context.Background(), ft, chk)
+	_, _, err := runForTest(context.Background(), ft, chk)
 	if err == nil {
 		t.Error("expected error for unknown method, got nil")
 	}
@@ -628,7 +636,7 @@ func TestCheckMulti_AllPass(t *testing.T) {
 			{Method: "file_exists", Params: api.Params{"path": "/etc/hosts"}},
 		},
 	}
-	passed, detail, err := Run(context.Background(), ft, chk)
+	passed, detail, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -652,7 +660,7 @@ func TestCheckMulti_OneFails(t *testing.T) {
 			{Method: "file_exists", Params: api.Params{"path": "/etc/missing"}},
 		},
 	}
-	passed, detail, err := Run(context.Background(), ft, chk)
+	passed, detail, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -671,7 +679,7 @@ func TestCheckMulti_AllFail(t *testing.T) {
 			{Method: "file_exists", Params: api.Params{"path": "/nonexistent/b"}},
 		},
 	}
-	passed, _, err := Run(context.Background(), ft, chk)
+	passed, _, err := runForTest(context.Background(), ft, chk)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
