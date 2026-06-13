@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hanalyx.com/schemas/kensa-evidence-v1.schema.json",
+  "title": "Kensa Native Evidence (v1)",
+  "description": "Schema for Kensa's native evidence document, emitted by `kensa check`/`remediate` via `-o evidence:`. Full-file parity with the Python Kensa evidence format: session + host context (capabilities, effective variables) + per-rule results carrying structured per-check observation evidence + a summary. The per-check evidence is the reproducible proof (command, output, expected vs actual) that lets an auditor verify a finding without re-running the scan (KensaLabs evidence-engineering principle).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "session", "host", "results", "summary"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Evidence document schema version (semver). v1 documents set the major to 1.",
+      "examples": ["1.0.0"]
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "timestamp", "command"],
+      "properties": {
+        "id": { "type": "string", "description": "Opaque scan/session identifier." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "RFC3339 session start time." },
+        "rules_path": { "type": "string", "description": "Rules directory or source used for the scan; may be empty." },
+        "command": { "type": "string", "enum": ["check", "remediate", "rollback"], "description": "The kensa subcommand that produced this document." }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostname", "platform"],
+      "properties": {
+        "hostname": { "type": "string", "description": "Target host as kensa addressed it (SSH host/address)." },
+        "groups": { "type": "array", "items": { "type": "string" }, "description": "Optional inventory/group memberships." },
+        "platform": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["family"],
+          "properties": {
+            "family": { "type": "string", "description": "OS family ID from /etc/os-release (e.g. rhel, ubuntu)." },
+            "version": { "type": ["integer", "string"], "description": "OS major version (int) or full VERSION_ID (string)." }
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "description": "Detected capability set (probe name -> bool). Open map: new probes may appear without a schema change.",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "effective_variables": {
+          "type": "object",
+          "description": "The resolved rule-variable set after the full tier merge (embedded defaults -> config-dir -> per-group -> per-host -> CLI). Values are the strings/numbers substituted into templated rules. Open map.",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "description": "One entry per rule evaluated, in scan order.",
+      "items": { "$ref": "#/definitions/result" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "pass", "fail", "skip"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "skip": { "type": "integer", "minimum": 0 },
+        "error": { "type": "integer", "minimum": 0 },
+        "fixed": { "type": "integer", "minimum": 0, "description": "Remediate path only: rules brought into compliance this run." }
+      }
+    }
+  },
+  "definitions": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "severity", "passed", "skipped"],
+      "properties": {
+        "rule_id": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", ""] },
+        "passed": { "type": "boolean", "description": "True when the check confirmed desired state." },
+        "skipped": { "type": "boolean", "description": "True when the rule did not apply to the host (platform/no-impl) and was not evaluated." },
+        "errored": { "type": "boolean", "description": "True when the check could not run; mutually exclusive with a clean pass/fail." },
+        "detail": { "type": "string", "description": "Human-readable summary of the verdict." },
+        "skip_reason": { "type": "string", "description": "Why the rule was skipped (populated when skipped is true)." },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "remediated": { "type": "boolean", "description": "Remediate path only: a fix was applied this run." },
+        "evidence": {
+          "type": "array",
+          "description": "Structured observation evidence, one entry per check the rule ran (a single-check rule yields a one-element array; a `checks:` list yields one per sub-check). May be empty when no check ran (e.g. a skipped rule).",
+          "items": { "$ref": "#/definitions/checkEvidence" }
+        },
+        "frameworks": {
+          "type": "object",
+          "description": "Framework -> native control identifier the rule maps to (e.g. {\"nist_800_53\":\"CM-7\",\"cis_rhel9_v2\":\"3.2.1\"}). Open map.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "checkEvidence": {
+      "type": "object",
+      "description": "The reproducible proof for one check: the exact command run and its observed result versus the expected value.",
+      "additionalProperties": false,
+      "required": ["method"],
+      "properties": {
+        "method": { "type": "string", "description": "The check method (e.g. kernel_module_state, sysctl_value, config_value)." },
+        "command": { "type": "string", "description": "The exact command executed on the host." },
+        "stdout": { "type": "string", "description": "Captured standard output (may be truncated; see `truncated`)." },
+        "stderr": { "type": "string", "description": "Captured standard error (may be truncated; see `truncated`)." },
+        "exit_code": { "type": "integer", "description": "Command exit status." },
+        "expected": { "type": "string", "description": "The value/state the check required." },
+        "actual": { "type": "string", "description": "The value/state observed on the host." },
+        "truncated": { "type": "boolean", "description": "True when `stdout`/`stderr` were truncated at the per-field byte cap (64 KiB). The retained content is the leading bytes." }
+      }
+    }
+  }
+}
