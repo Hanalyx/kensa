@@ -84,8 +84,16 @@ type oscalObservation struct {
 	UUID             string                  `json:"uuid"`
 	Description      string                  `json:"description"`
 	Methods          []string                `json:"methods"`
+	Subjects         []oscalSubject          `json:"subjects,omitempty"`
 	Collected        string                  `json:"collected"`
 	RelevantEvidence []oscalRelevantEvidence `json:"relevant-evidence"`
+}
+
+// oscalSubject identifies what an observation assessed — here, the host, as an
+// inventory item.
+type oscalSubject struct {
+	SubjectUUID string `json:"subject-uuid"`
+	Type        string `json:"type"`
 }
 
 type oscalRelevantEvidence struct {
@@ -96,6 +104,36 @@ type oscalRelevantEvidence struct {
 type oscalProp struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+	// NS qualifies a non-OSCAL-standard prop name with the owning vocabulary's
+	// namespace, per the OSCAL prop model. Kensa's custom props carry
+	// [kensaOSCALNamespace]; omitted for OSCAL-standard names.
+	NS string `json:"ns,omitempty"`
+}
+
+// kensaOSCALNamespace is the namespace URI Kensa stamps on every non-standard
+// OSCAL prop (signing-key-id, transaction-id, …) so it does not squat in the
+// OSCAL default namespace. Part of the public OSCAL artifact contract.
+const kensaOSCALNamespace = "https://hanalyx.com/kensa/ns/oscal/v1/"
+
+// oscalControlID renders a framework reference as a valid OSCAL control-id
+// token. OSCAL control-id must match `^(\p{L}|_)(\p{L}|\p{N}|[.\-_])*$` — it
+// must start with a letter/underscore — but native control identifiers like
+// CIS "3.3.1" or PCI "2.2.6" start with a digit. Prefixing with the framework
+// id (which starts with a letter) yields a valid token AND disambiguates which
+// framework a control belongs to inside one include-controls list.
+func oscalControlID(ref api.FrameworkRef) string {
+	if ref.FrameworkID == "" {
+		return ref.ControlID
+	}
+	return ref.FrameworkID + "-" + ref.ControlID
+}
+
+// hostSubjectUUID derives a stable subject UUID for a host id. A v5 (SHA-1)
+// UUID is deterministic per host (so re-emitting an assessment for the same
+// host yields the same subject) and satisfies the OSCAL uuid pattern (version
+// nibble 5 ∈ [45]; RFC4122 variant).
+func hostSubjectUUID(hostID string) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("kensa-host:"+hostID)).String()
 }
 
 // satisfiedState maps a [api.TransactionStatus] to the OSCAL finding
@@ -124,10 +162,12 @@ func ExportOSCAL(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	endStr := envelope.FinishedAt.UTC().Format(time.RFC3339)
 	txnIDStr := envelope.TransactionID.String()
 
-	// Build control selections from FrameworkRefs.
+	// Build control selections from FrameworkRefs. control-id is the
+	// framework-prefixed token (see oscalControlID) so digit-leading native
+	// ids (CIS "3.3.1", PCI "2.2.6") are valid OSCAL tokens.
 	var controlRefs []oscalControlRef
 	for _, ref := range envelope.FrameworkRefs {
-		controlRefs = append(controlRefs, oscalControlRef{ControlID: ref.ControlID})
+		controlRefs = append(controlRefs, oscalControlRef{ControlID: oscalControlID(ref)})
 	}
 	if len(controlRefs) == 0 {
 		controlRefs = []oscalControlRef{}
@@ -136,14 +176,19 @@ func ExportOSCAL(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	observation := oscalObservation{
 		UUID:        observationUUID,
 		Description: fmt.Sprintf("Pre-state captured: %d steps", len(envelope.PreStateBundle)),
-		Methods:     []string{"EXAMINE"},
-		Collected:   startStr,
+		// TEST: the remediation was applied and validated by exercising the
+		// host, not merely examining static documentation.
+		Methods: []string{"TEST"},
+		Subjects: []oscalSubject{
+			{SubjectUUID: hostSubjectUUID(envelope.HostID), Type: "inventory-item"},
+		},
+		Collected: startStr,
 		RelevantEvidence: []oscalRelevantEvidence{
 			{
 				Description: fmt.Sprintf("Evidence envelope signed by key %s", envelope.SigningKeyID),
 				Props: []oscalProp{
-					{Name: "signing-key-id", Value: envelope.SigningKeyID},
-					{Name: "transaction-id", Value: txnIDStr},
+					{Name: "signing-key-id", Value: envelope.SigningKeyID, NS: kensaOSCALNamespace},
+					{Name: "transaction-id", Value: txnIDStr, NS: kensaOSCALNamespace},
 				},
 			},
 		},

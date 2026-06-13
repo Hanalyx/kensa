@@ -123,11 +123,14 @@ func TestExportOSCAL_FrameworkRefsAsControlSelections(t *testing.T) {
 	if len(controls) != 2 {
 		t.Fatalf("expected 2 include-controls entries, got %d", len(controls))
 	}
-	if controls[0].ControlID != "5.2.3" {
-		t.Errorf("expected control-id %q, got %q", "5.2.3", controls[0].ControlID)
+	// control-id is the framework-prefixed token "<FrameworkID>-<ControlID>"
+	// (OSCAL tokens must start with a letter, so a raw CIS "5.2.3" is invalid);
+	// the prefix also disambiguates which framework each control belongs to.
+	if controls[0].ControlID != "cis_rhel9_v2-5.2.3" {
+		t.Errorf("expected control-id %q, got %q", "cis_rhel9_v2-5.2.3", controls[0].ControlID)
 	}
-	if controls[1].ControlID != "AC-6(2)" {
-		t.Errorf("expected control-id %q, got %q", "AC-6(2)", controls[1].ControlID)
+	if controls[1].ControlID != "nist_800_53_r5-AC-6(2)" {
+		t.Errorf("expected control-id %q, got %q", "nist_800_53_r5-AC-6(2)", controls[1].ControlID)
 	}
 }
 

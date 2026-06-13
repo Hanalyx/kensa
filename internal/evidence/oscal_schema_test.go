@@ -81,36 +81,28 @@ func normalizeOSCALAnchors(node any) {
 // it, including the regex-constrained fields (UUID v4, date-time, control-id
 // tokens) a Go validator checks.
 //
-// It is a SELF-ENABLING gate: today the emitter has two known OSCAL 1.0.6
-// conformance gaps this gate caught — (a) result.uuid trusts the transaction
-// id is RFC4122 v4, and (b) numeric-leading control-ids (CIS "3.3.1", PCI
-// "2.2.6") violate the OSCAL token pattern `^(\p{L}|_)...`. Both are addressed
-// by OSCAL_EVIDENCE_ENRICHMENT_DECISION.md (I-7). Until the emitter conforms,
-// the gate skips with the precise gap; once enrichment lands it passes and
-// becomes a hard gate automatically — no test edit required.
+// It is a HARD gate: the v0.4.0 OSCAL enrichment fixed the two 1.0.6 gaps this
+// gate originally caught (result.uuid is now RFC4122-valid; control-ids are
+// the framework-prefixed "<FrameworkID>-<ControlID>" token form), so any
+// future change that breaks 1.0.6 conformance fails the build here.
 func TestExportOSCAL_ValidatesAgainst106Schema(t *testing.T) {
 	schema := loadOSCALSchema(t) // proves the vendored 1.0.6 schema compiles
 	if len(goldenFixtures) == 0 {
 		t.Fatal("no golden envelope fixtures")
 	}
-	var nonconformant []string
 	for _, fx := range goldenFixtures {
-		b, err := ExportOSCAL(fx.envelope)
-		if err != nil {
-			t.Fatalf("ExportOSCAL %s: %v", fx.name, err)
-		}
-		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
-		if err != nil {
-			t.Fatalf("decode emitted OSCAL %s: %v", fx.name, err)
-		}
-		if err := schema.Validate(doc); err != nil {
-			nonconformant = append(nonconformant, fx.name)
-		}
-	}
-	if len(nonconformant) > 0 {
-		t.Skipf("OSCAL emitter not yet 1.0.6-conformant for %v — known gaps "+
-			"(result.uuid must be RFC4122 v4; numeric-leading control-ids violate the "+
-			"OSCAL token pattern) tracked in OSCAL_EVIDENCE_ENRICHMENT_DECISION.md (I-7). "+
-			"This gate auto-enables once the emitter conforms.", nonconformant)
+		t.Run(fx.name, func(t *testing.T) {
+			b, err := ExportOSCAL(fx.envelope)
+			if err != nil {
+				t.Fatalf("ExportOSCAL: %v", err)
+			}
+			doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+			if err != nil {
+				t.Fatalf("decode emitted OSCAL: %v", err)
+			}
+			if err := schema.Validate(doc); err != nil {
+				t.Errorf("emitted OSCAL is not valid OSCAL 1.0.6 AR:\n%v", err)
+			}
+		})
 	}
 }

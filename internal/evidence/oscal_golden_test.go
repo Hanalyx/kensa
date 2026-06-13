@@ -29,7 +29,7 @@ type goldenFixture struct {
 // transaction-id. ExportOSCAL surfaces it (see oscalResult.UUID =
 // txnIDStr at oscal.go:169) so it stays deterministic across runs
 // and acts as a pinpoint anchor in the golden file.
-var fixtureUUID = uuid.MustParse("11111111-2222-3333-4444-555555555555")
+var fixtureUUID = uuid.MustParse("11111111-1111-4111-8111-555555555555")
 
 // fixtureTime is a stable instant used in the envelope's
 // StartedAt / FinishedAt. ExportOSCAL emits these as RFC3339
