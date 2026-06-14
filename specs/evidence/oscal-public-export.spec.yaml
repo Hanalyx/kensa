@@ -1,0 +1,116 @@
+spec:
+    id: oscal-public-export
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: oscal-public-export
+        description: |
+            v0.4.0 shipped OSCAL 1.0.6 export, but only through the CLI
+            (`kensa check -o oscal:`) and the byte-production logic in
+            internal/evidence. internal/ Go packages cannot be imported
+            across the module boundary, so an embedder like OpenWatch —
+            which already drives the public consumer chain LoadRules ->
+            NewScanner -> Scan -> Outcomes — had no programmatic way to
+            turn an api.ScanResult into an OSCAL document. It would have
+            had to shell out to the CLI or re-implement the exporter.
+
+            This spec lifts the exporter into the public assembly layer
+            pkg/kensa (public-but-not-frozen, where LoadRules and
+            NewScanner already live) as thin delegating wrappers over
+            internal/evidence. The frozen api/ surface is untouched; the
+            byte-production logic is not duplicated.
+
+    objective:
+        summary: |
+            Add to pkg/kensa: ExportOSCALScan / WriteOSCALScan (an
+            api.ScanResult -> OSCAL 1.0.6 AR) and ExportOSCAL /
+            WriteOSCAL (a signed api.EvidenceEnvelope -> OSCAL 1.0.6 AR),
+            each delegating to the corresponding internal/evidence
+            function. This completes the public chain
+            LoadRules -> Scan -> Outcomes -> OSCAL for embedders.
+        scope:
+            includes:
+                - pkg/kensa.ExportOSCALScan / WriteOSCALScan (scan path)
+                - pkg/kensa.ExportOSCAL / WriteOSCAL (envelope path)
+                - Thin delegation to internal/evidence (no re-implemented
+                  serializer)
+            excludes:
+                - Any change to the byte-production logic or its OSCAL
+                  1.0.6 conformance (owned by internal/evidence and its
+                  spec evidence-oscal-scan; this spec only exposes it)
+                - A native-evidence (`-o evidence:`) public exporter —
+                  separate follow-up if an embedder needs it
+                - Any change to the frozen api/ surface
+
+    constraints:
+        - id: C-01
+          description: |
+              The public functions MUST delegate to internal/evidence
+              for byte production, not re-implement the OSCAL serializer.
+              A second implementation would drift from the conformance
+              gate.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The scan-path export (ExportOSCALScan) MUST remain
+              unsigned: its only inputs are the read-only ScanResult and
+              a hostname — no signer, no envelope. The signature
+              guarantee stays exclusive to the envelope path
+              (ExportOSCAL).
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              The frozen api/ surface MUST NOT change. These additions
+              live on pkg/kensa (public-but-not-frozen), consistent with
+              LoadRules (v0.3.1) and NewScanner (v0.3.2).
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              kensa.ExportOSCALScan(result, hostname) is exported and
+              returns a JSON document with a top-level
+              "assessment-results" key from an api.ScanResult. (Full
+              OSCAL 1.0.6 schema conformance is gated in internal/evidence
+              on the identical bytes — see evidence-oscal-scan.) The
+              function is exported from package pkg/kensa, not api/ — the
+              addition lives on the public-but-not-frozen assembly layer.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              The scan document carries the outcome's embedded
+              api.CheckEvidence: the check command and the framework
+              control-id are present in the public output, proving the
+              full evidence flows through, not just the verdict.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              kensa.WriteOSCALScan(w, result, hostname) streams the same
+              document to an io.Writer.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-04
+          description: |
+              kensa.ExportOSCAL(envelope) and kensa.WriteOSCAL(w,
+              envelope) are exported and produce an OSCAL AR document
+              from a signed api.EvidenceEnvelope; parenthesized NIST
+              control-ids are coerced to token-valid form even through
+              the public path.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              ExportOSCALScan(nil, ...) and ExportOSCAL(nil) each return
+              an error rather than panicking.
+          references_constraints: [C-02]
+          priority: medium
+
+    tags: [evidence, oscal, public-api, pkg-kensa, v0.4.x, tier-2]
