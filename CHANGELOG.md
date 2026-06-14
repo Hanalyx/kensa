@@ -12,7 +12,21 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+### Added
+
+- **Public OSCAL export on `pkg/kensa`** — `ExportOSCALScan` /
+  `WriteOSCALScan` (an `api.ScanResult` → OSCAL 1.0.6 Assessment
+  Results) and `ExportOSCAL` / `WriteOSCAL` (a signed
+  `api.EvidenceEnvelope` → OSCAL 1.0.6 AR). v0.4.0 shipped OSCAL export
+  only through the CLI and `internal/evidence`, which an embedder cannot
+  import; these thin wrappers lift it to the public-but-not-frozen
+  assembly layer (where `LoadRules`/`NewScanner` live), completing the
+  public chain `LoadRules → Scan → Outcomes → OSCAL` for consumers like
+  OpenWatch. The frozen `api/` surface is untouched; byte production
+  still lives in (and is conformance-gated by) `internal/evidence`. The
+  scan-path export stays unsigned by design; the signature guarantee
+  remains exclusive to the envelope path. Spec `oscal-public-export`
+  (Tier 2).
 
 ## v0.4.0 — 2026-06-13
 
