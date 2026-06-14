@@ -112,5 +112,21 @@ spec:
               an error rather than panicking.
           references_constraints: [C-02]
           priority: medium
+        - id: AC-06
+          description: |
+              kensa.ExportOSCALOutcome(scan, outcome, hostname) /
+              WriteOSCALOutcome render a SINGLE rule outcome as its own
+              valid one-finding/one-observation OSCAL AR document — the
+              per-rule analogue of ExportOSCALScan — preserving the parent
+              scan's host context (HostID/Capabilities/Platform).
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-07
+          description: |
+              ExportOSCALOutcome of a rule with no FrameworkRefs still
+              produces a schema-valid document (the exporter's include-all
+              fallback). The per-rule path must work for unmapped rules.
+          references_constraints: [C-01]
+          priority: high
 
     tags: [evidence, oscal, public-api, pkg-kensa, v0.4.x, tier-2]

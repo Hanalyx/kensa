@@ -133,6 +133,70 @@ func TestExportOSCAL_EnvelopePublic(t *testing.T) {
 }
 
 // @spec oscal-public-export
+// @ac AC-06
+func TestExportOSCALOutcome_PerRule(t *testing.T) {
+	t.Log("// @spec oscal-public-export")
+	t.Log("// @ac AC-06")
+	scan := sampleScanResult() // one mapped outcome; carries HostID
+	outcome := scan.Outcomes[0]
+	b, err := ExportOSCALOutcome(scan, outcome, scan.HostID)
+	if err != nil {
+		t.Fatalf("ExportOSCALOutcome: %v", err)
+	}
+	hasAssessmentResults(t, b)
+	// Minimal local shape — package kensa cannot import the internal OSCAL
+	// structs, so decode just the fields under assertion.
+	var doc struct {
+		AR struct {
+			Results []struct {
+				Findings []struct {
+					Title string `json:"title"`
+				} `json:"findings"`
+				Observations []json.RawMessage `json:"observations"`
+			} `json:"results"`
+		} `json:"assessment-results"`
+	}
+	if err := json.Unmarshal(b, &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	res := doc.AR.Results[0]
+	if len(res.Findings) != 1 || len(res.Observations) != 1 {
+		t.Errorf("per-rule doc should have 1 finding + 1 observation, got %d/%d",
+			len(res.Findings), len(res.Observations))
+	}
+	if res.Findings[0].Title != "rule_sysctl_aslr" {
+		t.Errorf("finding title = %q, want the expanded rule", res.Findings[0].Title)
+	}
+	var buf bytes.Buffer
+	if err := WriteOSCALOutcome(&buf, scan, outcome, scan.HostID); err != nil {
+		t.Fatalf("WriteOSCALOutcome: %v", err)
+	}
+	hasAssessmentResults(t, buf.Bytes())
+}
+
+// @spec oscal-public-export
+// @ac AC-07
+func TestExportOSCALOutcome_UnmappedRuleValid(t *testing.T) {
+	t.Log("// @spec oscal-public-export")
+	t.Log("// @ac AC-07")
+	// An expanded rule with no framework refs must still produce a valid
+	// single-rule document (include-all fallback in the exporter).
+	outcome := api.RuleOutcome{
+		RuleID: "rule_unmapped",
+		Status: api.CompliancePass,
+		Detail: "ok",
+		Evidence: []api.CheckEvidence{{
+			Method: "command_exec", Command: "true", Stdout: "ok\n",
+		}},
+	}
+	b, err := ExportOSCALOutcome(&api.ScanResult{HostID: "h1"}, outcome, "h1")
+	if err != nil {
+		t.Fatalf("ExportOSCALOutcome: %v", err)
+	}
+	hasAssessmentResults(t, b)
+}
+
+// @spec oscal-public-export
 // @ac AC-05
 func TestExportOSCAL_NilInputsError(t *testing.T) {
 	t.Log("// @spec oscal-public-export")

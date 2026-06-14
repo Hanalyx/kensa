@@ -12,7 +12,26 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+### Added
+
+- **Per-rule OSCAL export on `pkg/kensa`** — `ExportOSCALOutcome` /
+  `WriteOSCALOutcome` render a single `api.RuleOutcome` as its own valid
+  one-finding OSCAL 1.0.6 AR document, preserving the parent scan's host
+  context (HostID/Capabilities/Platform). The per-rule counterpart of
+  `ExportOSCALScan`, for a UI that exports OSCAL from one expanded rule
+  rather than the whole scan.
+
+### Fixed
+
+- **Unmapped rule produced invalid OSCAL.** A result with no
+  framework-mapped control emitted an empty `include-controls`, which the
+  OSCAL 1.0.6 schema rejects (`reviewed-controls` is required and a
+  control-selection must select `include-all` or a non-empty
+  `include-controls`). A whole-host scan never hit this (some rule is
+  always mapped), but a single-rule document for an unmapped rule — the
+  per-rule UI expansion — did. The exporter now falls back to OSCAL
+  `include-all` when there are no control refs, on both the scan
+  (`ExportOSCALScan`) and remediation (`ExportOSCAL`) paths.
 
 ## v0.4.1 — 2026-06-14
 

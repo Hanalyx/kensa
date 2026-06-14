@@ -335,6 +335,50 @@ func TestExportOSCALScan_ParenControlIDCoerced(t *testing.T) {
 }
 
 // @spec evidence-oscal-scan
+// @ac AC-09
+func TestExportOSCALScan_NoFrameworkRefs_IncludeAll(t *testing.T) {
+	t.Log("// @spec evidence-oscal-scan")
+	t.Log("// @ac AC-09")
+	// A single rule with NO FrameworkRefs — what a per-rule OSCAL export of an
+	// unmapped rule looks like. reviewed-controls is required and an empty
+	// include-controls is schema-invalid, so this must fall back to include-all.
+	schema := loadOSCALSchema(t)
+	res := &api.ScanResult{
+		HostID: "host-a.example.com",
+		Outcomes: []api.RuleOutcome{{
+			RuleID: "rule_unmapped",
+			Status: api.CompliancePass,
+			Detail: "ok",
+			Evidence: []api.CheckEvidence{{
+				Method: "command_exec", Command: "true", Stdout: "ok\n", ExitCode: 0,
+			}},
+		}},
+	}
+	b, err := ExportOSCALScan(res, "host-a.example.com")
+	if err != nil {
+		t.Fatalf("ExportOSCALScan: %v", err)
+	}
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if err := schema.Validate(doc); err != nil {
+		t.Fatalf("unmapped single-rule OSCAL is not 1.0.6-valid:\n%v", err)
+	}
+	var typed OSCALAssessmentResults
+	if err := json.Unmarshal(b, &typed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	sel := typed.AssessmentResults.Results[0].ReviewedControls.ControlSelections[0]
+	if sel.IncludeAll == nil {
+		t.Error("expected include-all for a rule with no framework refs")
+	}
+	if len(sel.IncludeControls) != 0 {
+		t.Errorf("expected no include-controls, got %v", sel.IncludeControls)
+	}
+}
+
+// @spec evidence-oscal-scan
 // @ac AC-01
 func TestWriteOSCALScan(t *testing.T) {
 	t.Log("// @spec evidence-oscal-scan")

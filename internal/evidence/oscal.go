@@ -72,7 +72,30 @@ type oscalReviewedControls struct {
 }
 
 type oscalControlSelection struct {
-	IncludeControls []oscalControlRef `json:"include-controls"`
+	IncludeAll      *oscalIncludeAll  `json:"include-all,omitempty"`
+	IncludeControls []oscalControlRef `json:"include-controls,omitempty"`
+}
+
+// oscalIncludeAll is OSCAL's "all controls" selector — serialized as an empty
+// object. See [controlSelection] for when it is emitted.
+type oscalIncludeAll struct{}
+
+// controlSelection builds the one reviewed-controls control-selection for a
+// result. With mapped controls it emits include-controls; with none it emits
+// include-all. The fallback is mandatory, not cosmetic: `reviewed-controls` is
+// required on every OSCAL result and a control-selection MUST select either
+// include-all or a non-empty include-controls (minItems 1) — an empty
+// include-controls is schema-invalid. A whole-host scan always has some mapped
+// rule so it never hits this, but a single-rule OSCAL document (the per-rule UI
+// expansion) of a rule with no FrameworkRefs would otherwise emit invalid
+// OSCAL. include-all is the conventional "no specific control subset enumerated"
+// signal; a consumer reads it as "this result reviewed no framework-mapped
+// control", with the rule's own objective carried on the finding target-id.
+func controlSelection(refs []oscalControlRef) oscalControlSelection {
+	if len(refs) == 0 {
+		return oscalControlSelection{IncludeAll: &oscalIncludeAll{}}
+	}
+	return oscalControlSelection{IncludeControls: refs}
 }
 
 type oscalControlRef struct {
@@ -246,9 +269,6 @@ func ExportOSCAL(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	for _, ref := range envelope.FrameworkRefs {
 		controlRefs = append(controlRefs, oscalControlRef{ControlID: oscalControlID(ref)})
 	}
-	if len(controlRefs) == 0 {
-		controlRefs = []oscalControlRef{}
-	}
 
 	observation := oscalObservation{
 		UUID:        observationUUID,
@@ -295,7 +315,7 @@ func ExportOSCAL(envelope *api.EvidenceEnvelope) ([]byte, error) {
 		End:         endStr,
 		ReviewedControls: oscalReviewedControls{
 			ControlSelections: []oscalControlSelection{
-				{IncludeControls: controlRefs},
+				controlSelection(controlRefs),
 			},
 		},
 		Findings:     []oscalFinding{finding},
