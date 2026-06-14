@@ -79,8 +79,10 @@ still go to stderr).
 
 The exit code and every `-o FORMAT[:PATH]` output are produced from the
 canonical result struct, not reconstructed from the rendered rows. Read
-the result document (or `-o json`/`oscal`/etc.) for the record of what
-changed; the rows are the same data rendered for a human as it arrives.
+the result document (`-o json`, `-o evidence` for the Kensa-native
+evidence document, `-o oscal` for OSCAL 1.0.6, etc.) for the record of
+what changed; the rows are the same data rendered for a human as it
+arrives.
 
 ### Inventory (multi-host)
 
