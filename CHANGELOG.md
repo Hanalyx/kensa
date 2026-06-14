@@ -14,6 +14,61 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.4.0 — 2026-06-13
+
+Native-evidence parity and OSCAL enrichment: a compliance **scan** now
+produces reproducible, structured evidence — per-check command/output
+proof — in two surfaces: a Kensa-native JSON document and a
+standards-conformant OSCAL 1.0.6 Assessment Results document. MINOR
+bump: the `api/` surface gains additive fields only; nothing is removed
+or changed. Both schemas are vendored and validated in CI, and the
+output was validated end-to-end against the live test fleet (RHEL
+8.10/9.7, Ubuntu 24.04/26.04, full 539-rule corpus).
+
+### Added
+
+- **Structured per-check observation evidence on the scan path.**
+  `api.RuleOutcome` gains `Evidence []api.CheckEvidence` — one
+  `CheckEvidence` per command a rule's check executed, carrying the
+  exact `Method`, `Command`, captured `Stdout`/`Stderr`, `ExitCode`, and
+  the `Expected` value. This is the reproducible proof behind a verdict:
+  an auditor can re-run the command and compare without re-running the
+  scan. Captured via a recording transport that wraps the check
+  transport, so none of the 24 check functions changed. Oversized output
+  is truncated at a 64 KiB per-field cap and flagged (`Truncated`). (#74)
+- **`-o evidence:PATH` on `kensa check`** — emits the Kensa-native
+  evidence document (`schemas/kensa-evidence-v1.schema.json`): session +
+  host context (hostname, detected platform, capabilities, effective
+  variables) and one result per rule with its embedded `CheckEvidence`
+  and framework refs, plus a pass/fail/skip summary. Full-file parity
+  with the prior Python Kensa evidence shape. (#75)
+- **`-o oscal:PATH` on `kensa check`** — renders the scan as an OSCAL
+  1.0.6 Assessment Results document: one finding + observation per rule,
+  the check evidence embedded as namespaced `relevant-evidence` props
+  with the verbatim command in `remarks`, raw stdout carried as base64
+  back-matter referenced by href, and framework refs as deduplicated
+  control-id tokens. Unsigned by design (the signature guarantee remains
+  exclusive to the remediation evidence-envelope path). (#77)
+- **Host context on `api.ScanResult`** — `Capabilities CapabilitySet`
+  and `Platform DetectedPlatform` (new `DetectedPlatform{Family,
+  Version}` type), so a consumer records the exact capability/OS context
+  a verdict was computed under without re-probing. (#75)
+- **Vendored schemas + conformance gate** — the official NIST OSCAL
+  1.0.6 Assessment Results schema and the `kensa-evidence-v1` schema are
+  vendored, and a hard test gate validates every emitted document
+  against OSCAL 1.0.6 (using a pure-Go validator that handles the
+  schema's ECMA `\p{}` regex and draft-07 anchors). (#73, #76)
+
+### Fixed
+
+- **OSCAL 1.0.6 conformance gaps surfaced by the live test fleet** that
+  the clean unit fixtures never exercised: a multi-line check command
+  cannot live in an OSCAL prop value (single-line token), so it now goes
+  to `relevant-evidence` remarks with prop values guarded; and NIST
+  control-enhancement parentheses (`AU-5(2)`) are illegal in an OSCAL
+  control-id token, now coerced to the dot-enhancement form (`AU-5.2`)
+  on both the scan and remediation export paths. (#78)
+
 ## v0.3.2 — 2026-06-12
 
 Public scanner construction with a caller-supplied transport. PATCH
