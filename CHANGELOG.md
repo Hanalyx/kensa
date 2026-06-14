@@ -12,6 +12,15 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes yet)
+
+## v0.4.2 — 2026-06-14
+
+Per-rule OSCAL export + an unmapped-rule conformance fix, prompted by the
+OpenWatch team's per-rule-expansion question. PATCH bump: the addition
+lives on `pkg/kensa` and the fix is in `internal/evidence`; the frozen
+`api/` surface is untouched.
+
 ### Added
 
 - **Per-rule OSCAL export on `pkg/kensa`** — `ExportOSCALOutcome` /
