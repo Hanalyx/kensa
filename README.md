@@ -79,7 +79,7 @@ This is how to run kensa today, pre-1.0. Requires Go 1.26+ and make.
 git clone git@github.com:Hanalyx/kensa.git
 cd kensa
 make build                # builds all five binaries into bin/
-./bin/kensa --version     # → kensa 0.3.2 (kensa)
+./bin/kensa --version     # → kensa 0.4.1 (kensa)
 ```
 
 The five binaries:
@@ -110,7 +110,7 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.3.2`. The 0.x line is the development phase.
+`v0.4.1`. The 0.x line is the development phase.
 
 The `api/` Go package is held to a stricter contract — frozen under v1
 semver for OpenWatch's consumption. Behavior on the rest of the surface
@@ -130,7 +130,15 @@ surface on `pkg/kensa` — `LoadRules` / `BuiltInVars` / `RuleVariables` —
 so api consumers load the corpus and inject operator-configured
 variables without copying files or importing `internal/` (v0.3.1), and
 public scanner construction with a caller-supplied `TransportFactory` —
-`NewScanner` / `DefaultWithTransportFactory` (v0.3.2).
+`NewScanner` / `DefaultWithTransportFactory` (v0.3.2). Most recently:
+structured per-check evidence (`RuleOutcome.Evidence []CheckEvidence` —
+the exact command, output, and expected value behind each verdict),
+exported as a Kensa-native document (`-o evidence:`) and an OSCAL 1.0.6
+Assessment Results document (`-o oscal:`), conformance-gated against the
+vendored NIST schema and live-validated on the test fleet (v0.4.0), and
+public OSCAL export on `pkg/kensa` — `ExportOSCALScan` /
+`WriteOSCALScan` / `ExportOSCAL` / `WriteOSCAL` — so api consumers turn a
+scan into OSCAL without the CLI (v0.4.1).
 All 29 handlers carry passing spec-driven tests.
 
 Open ship items before v1.0: RHEL 8 `$kernelopts` capture in the boot

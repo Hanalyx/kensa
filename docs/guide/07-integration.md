@@ -15,7 +15,14 @@ One pointer that IS current: programs importing the `api` Go package
 from `ScanResult.Outcomes` (since v0.3.0) — one `RuleOutcome` per rule
 with a `ComplianceStatus` of `pass` / `fail` / `skipped` / `error`, the
 rule's severity, a human-readable detail, and the rule's normalised
-compliance-framework references (`FrameworkRefs`). The check-only
+compliance-framework references (`FrameworkRefs`). Since v0.4.0 each
+`RuleOutcome` also carries `Evidence []CheckEvidence` — one entry per
+command the check ran, with the exact `Command`, captured
+`Stdout`/`Stderr`, `ExitCode`, and `Expected` value: the reproducible
+proof behind a verdict, so a consumer can show or re-verify the finding
+without re-running the scan. `ScanResult` additionally exposes the
+`Capabilities` and `Platform` the scan evaluated against, so the host
+context a verdict was computed under is self-describing. The check-only
 `ScanResult.Transactions` entries remain for backward compatibility, but
 their `committed`/`rolled_back` statuses are a legacy encoding of
 compliant/non-compliant — prefer `Outcomes` for an unambiguous verdict.
@@ -56,6 +63,26 @@ supply their own `api.TransportFactory`:
 - Full service (remediate, history, transaction log):
   `kensa.DefaultWithTransportFactory(ctx, storePath, yours, engineOpts...)`.
 
+Exporting a scan as a standards artifact is public surface too (package
+`github.com/Hanalyx/kensa/pkg/kensa`, since v0.4.1). A scan's verdicts
+and their embedded check evidence convert to an OSCAL 1.0.6 Assessment
+Results document with no shelling out to the CLI:
+
+- `kensa.ExportOSCALScan(result, hostname)` → `[]byte` of OSCAL 1.0.6 AR
+  JSON (`kensa.WriteOSCALScan(w, result, hostname)` streams to an
+  `io.Writer`). One finding + observation per rule, the `CheckEvidence`
+  embedded as relevant-evidence, framework refs as control-ids. The scan
+  document is **unsigned** by design — it is derived from the read-only
+  `ScanResult`.
+- `kensa.ExportOSCAL(envelope)` / `kensa.WriteOSCAL(w, envelope)` — the
+  remediation counterpart, rendering a signed `api.EvidenceEnvelope`
+  (the audit-truth-of-record a transaction produces) as OSCAL. This path
+  is anchored on the envelope's Ed25519 signature.
+
+The byte production lives in `internal/` and is conformance-gated against
+the vendored NIST OSCAL 1.0.6 schema; these are the importable entry
+points to it.
+
 End-to-end, the whole consumer chain is public:
 `kensa.LoadRules(…, operatorVars)` → construct (either form above) →
-`Scan` → `ScanResult.Outcomes`.
+`Scan` → `ScanResult.Outcomes` → `kensa.ExportOSCALScan(…)`.
