@@ -108,10 +108,6 @@ func ExportOSCALScan(result *api.ScanResult, hostname string) ([]byte, error) {
 			}
 		}
 	}
-	if controlRefs == nil {
-		controlRefs = []oscalControlRef{}
-	}
-
 	var backMatter *oscalBackMatter
 	if len(resources) > 0 {
 		backMatter = &oscalBackMatter{Resources: resources}
@@ -134,7 +130,7 @@ func ExportOSCALScan(result *api.ScanResult, hostname string) ([]byte, error) {
 				Start:       now,
 				End:         now,
 				ReviewedControls: oscalReviewedControls{
-					ControlSelections: []oscalControlSelection{{IncludeControls: controlRefs}},
+					ControlSelections: []oscalControlSelection{controlSelection(controlRefs)},
 				},
 				Findings:     findings,
 				Observations: observations,

@@ -113,6 +113,20 @@ spec:
               guarantee is exclusive to the remediation path.
           type: business
           enforcement: error
+        - id: C-08
+          description: |
+              A result with no framework-mapped control (e.g. a
+              single-rule document for a rule with no FrameworkRefs —
+              the per-rule UI expansion) MUST still be schema-valid.
+              `reviewed-controls` is required on every OSCAL result and a
+              control-selection must select include-all or a non-empty
+              include-controls (minItems 1); an empty include-controls is
+              invalid. The exporter MUST fall back to OSCAL include-all
+              when there are no control refs. (A whole-host scan never
+              hits this because some rule is always mapped; the per-rule
+              path does.)
+          type: technical
+          enforcement: error
         - id: C-06
           description: |
               A check command is frequently a multi-line shell script.
@@ -200,6 +214,14 @@ spec:
               renders as a valid OSCAL control-id token ("AU-5.2"); the
               emitted document validates against 1.0.6.
           references_constraints: [C-07]
+          priority: high
+        - id: AC-09
+          description: |
+              A ScanResult of a single rule with no FrameworkRefs exports
+              OSCAL that validates against 1.0.6: reviewed-controls falls
+              back to include-all (include-controls is absent/empty). This
+              is the per-rule-expansion case for an unmapped rule.
+          references_constraints: [C-08]
           priority: high
 
     tags: [evidence, oscal, scan, native-evidence, v0.4.0, tier-2]

@@ -42,6 +42,42 @@ func WriteOSCALScan(w io.Writer, result *api.ScanResult, hostname string) error 
 	return evidence.WriteOSCALScan(w, result, hostname)
 }
 
+// ExportOSCALOutcome renders a SINGLE rule outcome as its own OSCAL 1.0.6
+// Assessment Results document — the per-rule counterpart of [ExportOSCALScan],
+// for a UI that exports OSCAL from one expanded rule rather than the whole scan.
+//
+// OSCAL AR is a whole-document artifact, but the exporter is granularity-
+// agnostic: a one-outcome document is a valid one-finding/one-observation AR.
+// This helper exists so a caller does not hand-roll the single-outcome
+// [api.ScanResult] and accidentally drop the host context — it copies HostID,
+// Capabilities, and Platform from scan so the per-rule document is as
+// self-describing as the whole-scan one. A nil scan is allowed (only the
+// outcome and hostname are then used). The outcome is emitted even when it
+// carries no FrameworkRefs: reviewed-controls falls back to OSCAL include-all,
+// so an unmapped rule still produces a schema-valid document.
+//
+// For the whole scan, call [ExportOSCALScan] with the full result instead.
+func ExportOSCALOutcome(scan *api.ScanResult, outcome api.RuleOutcome, hostname string) ([]byte, error) {
+	return evidence.ExportOSCALScan(singleOutcomeResult(scan, outcome), hostname)
+}
+
+// WriteOSCALOutcome is [ExportOSCALOutcome] streamed to w.
+func WriteOSCALOutcome(w io.Writer, scan *api.ScanResult, outcome api.RuleOutcome, hostname string) error {
+	return evidence.WriteOSCALScan(w, singleOutcomeResult(scan, outcome), hostname)
+}
+
+// singleOutcomeResult wraps one outcome in a ScanResult that preserves the
+// parent scan's host context (HostID/Capabilities/Platform) when available.
+func singleOutcomeResult(scan *api.ScanResult, outcome api.RuleOutcome) *api.ScanResult {
+	one := &api.ScanResult{Outcomes: []api.RuleOutcome{outcome}}
+	if scan != nil {
+		one.HostID = scan.HostID
+		one.Capabilities = scan.Capabilities
+		one.Platform = scan.Platform
+	}
+	return one
+}
+
 // ExportOSCAL renders a signed [api.EvidenceEnvelope] (the audit-truth-of-record
 // a remediation transaction produces) as an OSCAL 1.0.6 Assessment Results
 // document. This is the remediation counterpart to [ExportOSCALScan]: where the
