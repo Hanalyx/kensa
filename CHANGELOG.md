@@ -12,6 +12,17 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes yet)
+
+## v0.4.1 — 2026-06-14
+
+Public OSCAL export for `api` consumers. PATCH bump: the addition lives
+on `pkg/kensa` (the public-but-not-frozen assembly layer); the frozen
+`api/` surface is untouched. With v0.4.0's `RuleOutcome.Evidence`, this
+makes the whole evidence-and-OSCAL feature reachable from outside the
+CLI: `LoadRules → NewScanner → Scan → Outcomes → ExportOSCALScan` is now
+entirely public for embedders (OpenWatch).
+
 ### Added
 
 - **Public OSCAL export on `pkg/kensa`** — `ExportOSCALScan` /
