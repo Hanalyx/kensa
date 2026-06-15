@@ -1,6 +1,6 @@
 spec:
     id: agent-cli-env-var
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -8,15 +8,25 @@ spec:
         system: kensa
         feature: agent-cli-env-var
         description: |
-            LL Phase 1 deliverable L-014b. The
-            CLI-lifecycle plumbing partitioned out of L-014:
-            `kensa remediate` invoked with
-            `KENSA_USE_AGENT=1` bootstraps the target-side
-            kensa binary, spawns `ssh <host> <cachePath>
-            agent --stdio`, opens an AgentClient, runs the
-            version handshake, and passes
-            `engine.WithAgentClient` so the remediate flow
-            dispatches through the agent.
+            LL Phase 1 deliverable L-014b, with the env-var sense
+            reversed by P-011 (Q1.c ratified 2026-05-12). `kensa
+            remediate` dispatches through the target-side agent **by
+            default**: it bootstraps the target kensa binary, spawns
+            `ssh <host> <cachePath> agent --stdio`, opens an
+            AgentClient, runs the version handshake, and passes
+            `engine.WithAgentClient` so the remediate flow dispatches
+            through the agent. An operator opts OUT with
+            `KENSA_NO_AGENT=1`, which falls back to the direct-SSH
+            transport (shell-pipeline best-effort atomicity for the
+            file mechanisms).
+
+            **P-011 sense reversal.** L-014b originally shipped this
+            as opt-IN via `KENSA_USE_AGENT=1` (default was direct-SSH).
+            P-011 made agent-mode the default and replaced the opt-in
+            flag with the opt-out `KENSA_NO_AGENT=1`, because kensa is
+            pre-production and the kernel-atomic path is the safer
+            default. There is no deprecation period (pre-1.0); the old
+            `KENSA_USE_AGENT` flag is gone, not aliased.
 
             **Why partitioned from L-014.** L-014 was the
             architectural bridge (LocalTransport,
@@ -41,8 +51,8 @@ spec:
                The cleanup function tears down the
                subprocess on engine completion (or error).
 
-            3. `cmd/kensa/main.go` runRemediate — when
-               `KENSA_USE_AGENT=1` is set, calls
+            3. `cmd/kensa/main.go` runRemediate — by default
+               (unless `KENSA_NO_AGENT=1` is set) calls
                dispatcher.OpenAgent first, then
                DefaultWithEngineOptions(... ,
                engine.WithAgentClient(c)).
@@ -60,15 +70,15 @@ spec:
         summary: |
             Add DefaultWithEngineOptions to pkg/kensa.
             Add dispatcher.OpenAgent lifecycle wrapper.
-            Wire KENSA_USE_AGENT=1 in runRemediate. Unit
-            tests + spec.
+            Wire agent-mode-as-default (opt out with
+            KENSA_NO_AGENT=1) in runRemediate. Unit tests + spec.
         scope:
             includes:
                 - "pkg/kensa/kensa.go: DefaultWithEngineOptions"
                 - "pkg/kensa/kensa_test.go: option-aware factory test"
                 - "internal/agent/dispatcher/setup.go: OpenAgent lifecycle"
                 - "internal/agent/dispatcher/setup_test.go: lifecycle test using a fake ssh-binary that just exec's kensa locally"
-                - "cmd/kensa/main.go: KENSA_USE_AGENT=1 detection in runRemediate; stderr log of the agent-mode path firing"
+                - "cmd/kensa/main.go: KENSA_NO_AGENT opt-out detection in runRemediate (agent-mode is the default); stderr log of the active path"
             excludes:
                 - "Live-host parity test: gated on KENSA_TEST_SSH_HOST"
                 - "kensa check --use-agent: only remediate gets the env-var path today (check is read-only; agent-mode value is less clear; defer)"
@@ -116,9 +126,9 @@ spec:
           enforcement: error
         - id: C-04
           description: |
-              `cmd/kensa/main.go runRemediate` MUST check
-              `os.Getenv("KENSA_USE_AGENT") == "1"` and,
-              when set, take the agent-mode path:
+              `cmd/kensa/main.go runRemediate` MUST take the
+              agent-mode path BY DEFAULT — that is, whenever
+              `os.Getenv("KENSA_NO_AGENT") != "1"`:
                   1. Construct a host-specific SSH transport
                      for bootstrap (using existing
                      internal/transport/ssh code).
@@ -129,10 +139,11 @@ spec:
                   5. Run normally; produces an identical
                      api.RemediationResult to direct-SSH
                      (modulo per-step timing).
-              `KENSA_USE_AGENT` values other than "1"
-              (unset, "0", "true", etc.) take the
-              existing direct-SSH path. Strict "1" matching
-              avoids false positives on misset values.
+              Only `KENSA_NO_AGENT=1` (strict "1" match) takes
+              the direct-SSH path; any other value (unset, "0",
+              "true", etc.) keeps the agent-mode default. Strict
+              "1" matching avoids a misset value silently
+              disabling the safer default.
           type: business
           enforcement: error
         - id: C-05
@@ -150,12 +161,11 @@ spec:
           description: |
               OpenAgent MUST log to stderr ONE line
               announcing the agent-mode path fired:
-              `"kensa: agent mode (KENSA_USE_AGENT=1):
-              bootstrap+spawn+handshake completed for
-              host <host>"`. Operators tailing stderr see
-              the agent-mode firing without ambiguity vs
-              direct-SSH (which produces no equivalent
-              line).
+              `"kensa: agent mode (default; unset with
+              KENSA_NO_AGENT=1): bootstrap+spawn+handshake
+              completed for host <host>"`. Operators tailing
+              stderr see the agent-mode firing without ambiguity
+              vs direct-SSH (which produces no equivalent line).
           type: business
           enforcement: error
 
@@ -187,11 +197,14 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              `KENSA_USE_AGENT=1` flips runRemediate into
-              the agent path; unset/0 takes direct-SSH.
-              Tested via runCLI harness with a stubbed
-              host. Locked by
-              `TestRunRemediate_KensaUseAgent_Detection`.
+              runRemediate takes the agent path by default;
+              `KENSA_NO_AGENT=1` flips it to direct-SSH. The
+              agent path's firing is observable on stderr via
+              the announce line (see AC-06 /
+              `TestOpenAgent_AnnounceLine`, which asserts the
+              `KENSA_NO_AGENT=1` opt-out hint), and the gating
+              logic lives in `cmd/kensa/main.go` runRemediate
+              (`useAgent := os.Getenv("KENSA_NO_AGENT") != "1"`).
           references_constraints: [C-04]
           priority: high
         - id: AC-05

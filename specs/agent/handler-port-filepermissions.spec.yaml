@@ -62,7 +62,7 @@ spec:
 
             5. **CLI wiring deferred to L-014b sub-deliverable.**
                The `agent-mode default (unset KENSA_NO_AGENT)` env var path in
-               `cmd/kensa/remediate.go` plus the
+               `cmd/kensa/main.go` plus the
                bootstrap→ssh→client.Open→Handshake plumbing
                is invasive enough that splitting it from
                the L-014 architectural pieces (which are
@@ -112,7 +112,7 @@ spec:
         summary: |
             Add LocalTransport + RemoteHandler + agent
             server.Handle + engine.WithAgentClient + CLI
-            KENSA_USE_AGENT path. End-to-end:
+            agent-mode-default (KENSA_NO_AGENT opt-out) path. End-to-end:
             file_permissions Apply / Capture / Rollback
             through the agent produces the same
             api.RemediationResult as the direct-SSH path.
@@ -122,7 +122,7 @@ spec:
                 - "internal/agent/remotehandler/remotehandler.go + _test.go"
                 - "internal/agent/server/server.go + _test.go"
                 - "internal/engine/engine.go: WithAgentClient option"
-                - "cmd/kensa/remediate.go: KENSA_USE_AGENT path"
+                - "cmd/kensa/main.go: agent-mode-default (KENSA_NO_AGENT opt-out) path"
                 - "Integration test: local-process agent (bypasses bootstrap+SSH for testability)"
                 - "Real-host live test: gated on KENSA_TEST_SSH_HOST + KENSA_TEST_AGENT_MODE=1"
             excludes:
