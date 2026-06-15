@@ -12,6 +12,16 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+(no changes yet)
+
+## v0.4.3 — 2026-06-14
+
+Public rule read model for catalog consumers — tranche 1 of the
+OpenWatch read-model ask, scoped by the Kensa/OpenWatch ownership test
+(publish the normalization Kensa owns; carry facts, not policy). PATCH
+bump: the addition lives on `pkg/kensa`; the frozen `api/` surface is
+untouched.
+
 ### Added
 
 - **Public rule read model on `pkg/kensa`** — the normalized catalog
