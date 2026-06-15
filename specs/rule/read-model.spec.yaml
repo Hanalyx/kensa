@@ -1,0 +1,152 @@
+spec:
+    id: rule-read-model
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: rule-read-model
+        description: |
+            A program importing the api package can load rules (LoadRules,
+            rule-public-loader) and read scan verdicts (ScanResult.Outcomes),
+            but to render a rule CATALOG it had only the raw api.Rule: the
+            heterogeneous `references` map (CIS/STIG versioned-object vs
+            nist_800_53 flat-list), and a Remediation struct with no summarized
+            mechanisms or side-effects. So every consumer re-implemented the
+            same normalization Kensa already runs internally
+            (internal/mappings.RefsFromReferences, the path the scanner uses for
+            ScanResult.Outcomes) and re-derived the framework-id scheme.
+
+            This spec publishes the normalized rule read model — the derivation
+            Kensa already owns — so consumers stop re-parsing References and
+            drifting from the canonical scheme. It lives on pkg/kensa
+            (public-but-not-frozen): a derivation that will grow, kept off the
+            frozen api/.
+
+            Per the Kensa/OpenWatch boundary (docs/KENSA_OPENWATCH_BOUNDARY.md
+            §3.3) it carries only FACTS Kensa can derive. It deliberately does
+            NOT carry a remediation risk level (operator policy, computed by the
+            consumer) or a blanket RequiresReboot boolean (not derivable for the
+            change-specific cases; RebootBehavior is the honest mechanism-level
+            signal instead).
+
+    objective:
+        summary: |
+            Add to pkg/kensa: RuleFrameworkRefs (Rule -> normalized
+            []api.FrameworkRef via internal/mappings), a Framework registry
+            (FrameworkFromID / Frameworks), and a RuleSummary / RemediationSummary
+            catalog projection with LoadRuleSummaries. The RemediationSummary
+            carries derivable facts only (Available, Mechanisms,
+            RestartsServices, RebootBehavior) — no risk level, no blanket
+            requires-reboot.
+        scope:
+            includes:
+                - RuleFrameworkRefs (delegates to internal/mappings — no
+                  re-implemented normalization)
+                - Framework + FrameworkFromID (pure parse, graceful on unknown)
+                  + Frameworks (distinct across a rule set)
+                - RuleSummary + RuleToSummary projection
+                - RemediationSummary factual derivation + RebootBehavior
+                - LoadRuleSummaries (reuses LoadRules)
+            excludes:
+                - RemediationSummary.RiskLevel — operator policy, declined per
+                  boundary §3.3 (consumer computes from the facts)
+                - A blanket RequiresReboot bool — not derivable for change-
+                  specific cases; needs an authored rule-schema field (deferred)
+                - Any change to the frozen api/ surface
+                - Rendering/labels-as-UI (the consumer renders; this provides
+                  the normalized data)
+
+    constraints:
+        - id: C-01
+          description: |
+              RuleFrameworkRefs MUST delegate to
+              internal/mappings.RefsFromReferences — the same normalization the
+              scanner applies to ScanResult.Outcomes — and MUST NOT
+              re-implement the References parse. A second implementation would
+              drift from the canonical framework-id scheme. (api/ is a leaf and
+              cannot import internal/mappings, so this is a pkg/kensa function,
+              not a method on api.Rule.)
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The read-model types live on pkg/kensa (public-but-not-frozen),
+              not api/. The frozen api/ surface MUST NOT change. The read model
+              is a derivation that is expected to grow (e.g. a future authored
+              reboot field), so freezing it would be wrong.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              RemediationSummary MUST carry only facts Kensa can derive from the
+              rule. It MUST NOT carry a risk level (operator policy — depends on
+              the host's environment) nor a blanket RequiresReboot boolean
+              (mechanism dictates reboot only for boot-param rules; deriving it
+              for change-specific cases is a false-negative). RebootBehavior is
+              the honest mechanism-level signal: "boot-param" or "none". See
+              docs/KENSA_OPENWATCH_BOUNDARY.md §3.3.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              RuleFrameworkRefs(rule) returns the rule's references normalized
+              to []api.FrameworkRef — CIS/STIG versioned refs as
+              "<family>_<osversion>" and nist_800_53 flat refs — matching the
+              scanner's normalization. Nil rule yields nil.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              FrameworkFromID parses a framework id into {ID, Family, Version,
+              Label}: versioned ("cis_rhel9" -> family cis, version rhel9, label
+              "CIS (RHEL 9)") and flat ("nist_800_53" -> "NIST 800-53"). An
+              unknown framework degrades gracefully (Family=id, Label=id) rather
+              than erroring.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              RuleToSummary projects an api.Rule's id/title/description/
+              rationale/severity/category/tags/transactional, its normalized
+              FrameworkRefs, and its platforms into a RuleSummary. Nil yields a
+              zero summary.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              RemediationSummary derives Available (any non-manual mechanism),
+              Mechanisms (distinct, sorted across implementations), and
+              RestartsServices (distinct Restart/Reload services). A manual-only
+              rule has Available=false.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              RebootBehavior is "boot-param" when any implementation uses a grub
+              boot-parameter mechanism, "none" otherwise — and is NOT treated as
+              a complete requires-reboot answer (an audit_rule_set rule that
+              needs reboot for the immutable flag still reports "none", by
+              design; the boundary defers the complete signal to an authored
+              schema field).
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-06
+          description: |
+              LoadRuleSummaries(dir, paths, vars) loads the production corpus
+              via LoadRules and projects every rule: all 539 rules load and each
+              summary has a non-empty ID and at least one normalized framework
+              ref.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-07
+          description: |
+              Frameworks(rules) returns the distinct frameworks referenced
+              across a rule set, deduplicated and sorted by id.
+          references_constraints: [C-01]
+          priority: medium
+
+    tags: [rule, read-model, catalog, public-api, pkg-kensa, boundary, tier-2]

@@ -12,7 +12,33 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+### Added
+
+- **Public rule read model on `pkg/kensa`** — the normalized catalog
+  projection an `api` consumer needs to render a rule browser without
+  re-parsing the heterogeneous raw `references` map or loading the full
+  `[]*api.Rule`:
+  - `RuleFrameworkRefs(*api.Rule) []api.FrameworkRef` — the rule's
+    framework references in the same normalized form the scanner puts on
+    `ScanResult.Outcomes`, delegating to the existing
+    `internal/mappings` normalization (no re-implementation, no drift
+    from the canonical framework-id scheme).
+  - `Framework` + `FrameworkFromID(id)` + `Frameworks(rules)` — a
+    framework registry so consumers render labels/families consistently
+    (`cis_rhel9` → `{Family:"cis", Version:"rhel9", Label:"CIS (RHEL 9)"}`)
+    instead of hardcoding prefix strings; unknown frameworks degrade
+    gracefully.
+  - `RuleSummary` + `RuleToSummary` + `LoadRuleSummaries(dir, paths, vars)`
+    — a lightweight catalog row (id/title/description/rationale/severity/
+    category/tags/platforms/transactional + normalized framework refs +
+    remediation summary), loaded via the existing `LoadRules` path.
+  - `RemediationSummary` carries derivable **facts only**: `Available`,
+    `Mechanisms`, `RestartsServices`, and `RebootBehavior`
+    (`boot-param`/`none`). Per the Kensa/OpenWatch boundary it
+    deliberately omits a remediation risk level (operator policy) and a
+    blanket requires-reboot boolean (not derivable for change-specific
+    cases). Spec `rule-read-model` (Tier 2). The frozen `api/` surface is
+    untouched.
 
 ## v0.4.2 — 2026-06-14
 
