@@ -165,7 +165,7 @@ spec:
     #     not yet written. Future deliverable: schema-codegen +
     #     round-trip test.
     #   - AC-10 (cross-repo schema match between kensa-spec/yaml
-    #     and api/envelope.go Go struct):
+    #     and the api.EvidenceEnvelope Go struct in api/transaction.go):
     #     Requires a cross-repo schema comparison step
     #     (`go generate` or CI check). Tracked in
     #     SPECTER_FEATURE_REQUEST.md.
