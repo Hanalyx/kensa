@@ -32,12 +32,15 @@ spec:
                always false (the agent IS the target), Close
                no-op.
 
-            2. `internal/agent/remotehandler/remotehandler.go`
-               — controller-side shim wrapping
-               `*client.Client` + a mechanism name; satisfies
-               `api.Handler`, `api.CaptureHandler`,
-               `api.RollbackHandler` by forwarding to
-               client.Apply/Capture/Rollback. The
+            2. The controller-side shim, implemented as
+               `agentBackedHandler` in
+               `internal/engine/engine.go` (returned by
+               `engine.lookupHandler` when an AgentClient is
+               set, NOT a separate `internal/agent/remotehandler`
+               package) — wraps the engine's `AgentClient` + a
+               mechanism name; satisfies `api.Handler`,
+               `api.CaptureHandler`, `api.RollbackHandler` by
+               forwarding to client.Apply/Capture/Rollback. The
                `transport` argument the engine passes is
                ignored (the agent runs locally on the
                target; it doesn't use a controller-supplied
@@ -119,7 +122,7 @@ spec:
         scope:
             includes:
                 - "internal/agent/transport/local/local.go + _test.go"
-                - "internal/agent/remotehandler/remotehandler.go + _test.go"
+                - "internal/engine/engine.go: agentBackedHandler (the agent-routing handler shim, via lookupHandler) + _test.go"
                 - "internal/agent/server/server.go + _test.go"
                 - "internal/engine/engine.go: WithAgentClient option"
                 - "cmd/kensa/main.go: agent-mode-default (KENSA_NO_AGENT opt-out) path"
