@@ -117,6 +117,32 @@ func TestResolveSudoPasswordFor_RequiresSudo(t *testing.T) {
 
 // @spec cli-sudo-password-flag
 // @ac AC-08
+func TestBuildRollbackHostCfg_SudoPassword(t *testing.T) {
+	t.Run("cli-sudo-password-flag/AC-08", func(t *testing.T) {})
+	newFS := func() *pflag.FlagSet {
+		fs := pflag.NewFlagSet("rollback", pflag.ContinueOnError)
+		registerStrictHostKeysFlag(fs)
+		return fs
+	}
+
+	// --sudo-password without --sudo → usage error.
+	if _, err := buildRollbackHostCfg(newFS(), "h", "u", 22, "", false, "pw"); err == nil ||
+		!strings.Contains(err.Error(), "requires --sudo") {
+		t.Errorf("rollback --sudo-password without --sudo should error; got %v", err)
+	}
+
+	// With --sudo, the password is wired onto the HostConfig.
+	cfg, err := buildRollbackHostCfg(newFS(), "h", "u", 22, "", true, "pw")
+	if err != nil {
+		t.Fatalf("with sudo: %v", err)
+	}
+	if cfg.SudoPassword != "pw" || !cfg.Sudo {
+		t.Errorf("expected SudoPassword wired with Sudo true; got Sudo=%v SudoPassword=%q", cfg.Sudo, cfg.SudoPassword)
+	}
+}
+
+// @spec cli-sudo-password-flag
+// @ac AC-08
 func TestInventorySudoPassword(t *testing.T) {
 	t.Setenv(sudoPasswordEnv, "fleetpw")
 	if got := inventorySudoPassword(false); got != "" {

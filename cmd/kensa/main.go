@@ -1686,11 +1686,12 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		// Legacy --txn UUID (preserved):
 		txnIDStr string
 		// Target/transport flags (used by --start and --txn):
-		host    string
-		user    string
-		port    int
-		keyPath string
-		sudo    bool
+		host         string
+		user         string
+		port         int
+		keyPath      string
+		sudo         bool
+		sudoPassword string
 		// Output:
 		format string
 		quiet  bool
@@ -1707,6 +1708,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&keyPath, "key", ShortKey, "", "SSH private key path")
 	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	registerSudoPasswordFlag(fs, &sudoPassword)
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
@@ -1769,7 +1771,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 		if err != nil {
 			return WrapUsageError(fmt.Sprintf("--start %q", startSpec), err)
 		}
-		hostCfg, err := buildRollbackHostCfg(fs, host, user, port, keyPath, sudo)
+		hostCfg, err := buildRollbackHostCfg(fs, host, user, port, keyPath, sudo, sudoPassword)
 		if err != nil {
 			return err
 		}
@@ -1781,7 +1783,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return WrapUsageError("invalid --txn UUID", err)
 	}
-	hostCfg, err := buildRollbackHostCfg(fs, host, user, port, keyPath, sudo)
+	hostCfg, err := buildRollbackHostCfg(fs, host, user, port, keyPath, sudo, sudoPassword)
 	if err != nil {
 		return err
 	}
@@ -1801,7 +1803,7 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 // buildRollbackHostCfg validates --host / strict-host-keys
 // and returns the api.HostConfig for the executing modes
 // (--start and legacy --txn). --host is REQUIRED for both.
-func buildRollbackHostCfg(fs *pflag.FlagSet, host, user string, port int, keyPath string, sudo bool) (api.HostConfig, error) {
+func buildRollbackHostCfg(fs *pflag.FlagSet, host, user string, port int, keyPath string, sudo bool, sudoPassword string) (api.HostConfig, error) {
 	if host == "" {
 		return api.HostConfig{}, NewUsageError("--host is required for rollback execution")
 	}
@@ -1809,9 +1811,12 @@ func buildRollbackHostCfg(fs *pflag.FlagSet, host, user string, port int, keyPat
 	if err != nil {
 		return api.HostConfig{}, err
 	}
+	if sudoPassword != "" && !sudo {
+		return api.HostConfig{}, NewUsageError("--sudo-password requires --sudo")
+	}
 	return api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
-		StrictHostKeys: strictHostKeys, Sudo: sudo,
+		StrictHostKeys: strictHostKeys, Sudo: sudo, SudoPassword: sudoPassword,
 	}, nil
 }
 
