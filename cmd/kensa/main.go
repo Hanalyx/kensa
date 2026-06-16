@@ -554,6 +554,7 @@ func runDetect(ctx context.Context, args []string) error {
 		keyPath      string
 		password     string
 		sudo         bool
+		sudoPassword string
 		format       string
 		quiet        bool
 		outputs      []string
@@ -568,6 +569,7 @@ func runDetect(ctx context.Context, args []string) error {
 	registerStrictHostKeysFlag(fs)
 	registerCapabilityFlag(fs, &capabilities)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	registerSudoPasswordFlag(fs, &sudoPassword)
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable (e.g., -o json -o csv:results.csv)")
@@ -596,6 +598,10 @@ func runDetect(ctx context.Context, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	resolvedSudoPwd, err := resolveSudoPasswordFor(fs, sudoPassword, sudo, os.Stdin, os.Stderr)
+	if err != nil {
+		return err
+	}
 	strictHostKeys, err := resolveStrictHostKeys(fs)
 	if err != nil {
 		return err
@@ -613,6 +619,7 @@ func runDetect(ctx context.Context, args []string) error {
 		Password:       resolvedPwd,
 		StrictHostKeys: strictHostKeys,
 		Sudo:           sudo,
+		SudoPassword:   resolvedSudoPwd,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
 	if err != nil {
@@ -693,6 +700,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		keyPath      string
 		password     string
 		sudo         bool
+		sudoPassword string
 		format       string
 		rulesDir     string
 		inventory    string
@@ -730,6 +738,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 	registerConfigDirFlag(fs, &configDir)
 	fs.BoolVar(&storeFlag, "store", false, "persist the scan as a session+transactions record in the SQLite store (default off; check is read-only by default)")
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	registerSudoPasswordFlag(fs, &sudoPassword)
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table, json, or jsonl (deprecated; use --output)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.StringVarP(&inventory, "inventory", ShortInventory, "", "Ansible-style inventory.ini for multi-host check")
@@ -917,6 +926,14 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 			printCheckUsage(os.Stderr, fs)
 			return NewUsageError("--password is not allowed with --inventory; use SSHPASS env or per-host config")
 		}
+		// Same footgun for --sudo-password inline: one sudo password
+		// broadcast across a heterogeneous fleet. A shared sudo
+		// password is supported through the KENSA_SUDO_PASSWORD env
+		// var, which the inventory fan-out applies to each host.
+		if fs.Changed("sudo-password") {
+			printCheckUsage(os.Stderr, fs)
+			return NewUsageError("--sudo-password is not allowed with --inventory; set " + sudoPasswordEnv + " env for a shared sudo password")
+		}
 		// C-041: --store wires session+transactions persistence
 		// in the single-host path only. The inventory fan-out
 		// goroutine doesn't yet write to the store; silent
@@ -952,10 +969,15 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	resolvedSudoPwd, err := resolveSudoPasswordFor(fs, sudoPassword, sudo, os.Stdin, os.Stderr)
+	if err != nil {
+		return err
+	}
 
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
 		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
+		SudoPassword: resolvedSudoPwd,
 		Capabilities: capOverrides,
 	}
 	transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
@@ -1226,6 +1248,7 @@ func runCheckInventory(ctx context.Context, inventoryPath, limit, user string, p
 		hostCfg := api.HostConfig{
 			Hostname: ih.addr, User: u, Port: p, KeyPath: keyPath,
 			StrictHostKeys: strictHostKeys, Sudo: sudo,
+			SudoPassword: inventorySudoPassword(sudo),
 			Capabilities: capOverrides,
 		}
 		transport, err := ssh.Factory{}.Connect(ctx, hostCfg)
@@ -1313,6 +1336,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		keyPath      string
 		password     string
 		sudo         bool
+		sudoPassword string
 		format       string
 		oscalOut     string
 		rulesDir     string
@@ -1345,6 +1369,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	registerVarFlag(fs, &varOverrides)
 	registerConfigDirFlag(fs, &configDir)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	registerSudoPasswordFlag(fs, &sudoPassword)
 	fs.StringVarP(&format, "format", ShortFormat, "table", "output format: table or json (deprecated; use --output)")
 	fs.StringVar(&oscalOut, "oscal", "", "write OSCAL Assessment Results to this file (deprecated; use --output oscal:PATH)")
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
@@ -1450,9 +1475,14 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	resolvedSudoPwd, err := resolveSudoPasswordFor(fs, sudoPassword, sudo, os.Stdin, os.Stderr)
+	if err != nil {
+		return err
+	}
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
 		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
+		SudoPassword: resolvedSudoPwd,
 		Capabilities: capOverrides,
 	}
 
@@ -2054,15 +2084,16 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp bool
-		host     string
-		user     string
-		port     int
-		keyPath  string
-		password string
-		sudo     bool
-		format   string
-		quiet    bool
+		showHelp     bool
+		host         string
+		user         string
+		port         int
+		keyPath      string
+		password     string
+		sudo         bool
+		sudoPassword string
+		format       string
+		quiet        bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -2072,6 +2103,7 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	registerPasswordFlag(fs, &password)
 	registerStrictHostKeysFlag(fs)
 	fs.BoolVarP(&sudo, "sudo", ShortSudo, false, "wrap commands in sudo")
+	registerSudoPasswordFlag(fs, &sudoPassword)
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text, markdown, json, plain")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 
@@ -2117,10 +2149,15 @@ func runPlan(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return &UsageError{Cause: err}
 	}
+	resolvedSudoPwd, err := resolveSudoPasswordFor(fs, sudoPassword, sudo, os.Stdin, os.Stderr)
+	if err != nil {
+		return err
+	}
 
 	hostCfg := api.HostConfig{
 		Hostname: host, User: user, Port: port, KeyPath: keyPath,
 		Password: resolvedPwd, StrictHostKeys: strictHostKeys, Sudo: sudo,
+		SudoPassword: resolvedSudoPwd,
 	}
 	plan, err := svc.Plan(ctx, hostCfg, r)
 	if err != nil {

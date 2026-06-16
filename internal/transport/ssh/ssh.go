@@ -44,8 +44,21 @@ type Config struct {
 	User string
 	// Port defaults to 22 when zero.
 	Port int
-	// Sudo wraps every Run command in `sudo -n sh -c`.
+	// Sudo wraps every Run command in sudo. With SudoPassword empty
+	// this is the non-interactive `sudo -n sh -c` path (host must
+	// allow passwordless sudo); with SudoPassword set it becomes
+	// `sudo -S -p '' sh -c`.
 	Sudo bool
+	// SudoPassword, when non-empty AND Sudo is true, switches the
+	// wrap to `sudo -S -p '' sh -c` and feeds the password over the
+	// ssh subprocess's stdin. The password never enters argv (so it
+	// is not /proc-visible) nor the captured stdout/stderr, so it
+	// cannot reach recorded evidence. `-p ''` suppresses sudo's
+	// prompt so nothing is written to the captured stderr on success.
+	// Empty keeps the `sudo -n` behavior. Ignored when Sudo is false
+	// (Connect rejects that combination). See
+	// docs/roadmap/SUDO_PASSWORD_SCAN_DECISION.md.
+	SudoPassword string
 	// KeyPath is an explicit identity file. Empty defers to ssh-agent
 	// and ~/.ssh/config.
 	KeyPath string
@@ -98,6 +111,9 @@ type Transport struct {
 func Connect(ctx context.Context, cfg Config) (*Transport, error) {
 	if cfg.Host == "" {
 		return nil, errors.New("ssh: Config.Host is required")
+	}
+	if cfg.SudoPassword != "" && !cfg.Sudo {
+		return nil, errors.New("ssh: SudoPassword set without Sudo — a sudo password is only meaningful when sudo is enabled")
 	}
 	if cfg.Port == 0 {
 		cfg.Port = 22
@@ -154,13 +170,13 @@ func Connect(ctx context.Context, cfg Config) (*Transport, error) {
 		return nil, fmt.Errorf("ssh: connect failed: %w (stderr: %s)%s", err, stderrText, hint)
 	}
 	t := &Transport{cfg: cfg, socketPath: socketPath}
-	// Fail fast with an actionable message when --sudo is set but the
-	// SSH user lacks passwordless sudo. kensa runs non-interactively
-	// (sudo -n), so a host that prompts for a sudo password can't
-	// proceed; probe once here instead of letting every remote command
-	// fail with a cryptic per-command error.
+	// Fail fast with an actionable message when sudo can't proceed:
+	// either --sudo is set but the host lacks passwordless sudo (no
+	// SudoPassword), or a SudoPassword was supplied but rejected.
+	// Probe once here instead of letting every remote command fail
+	// with a cryptic per-command error.
 	if cfg.Sudo {
-		if err := t.checkSudoNoPasswd(ctx); err != nil {
+		if err := t.checkSudo(ctx); err != nil {
 			_ = t.Close()
 			return nil, err
 		}
@@ -168,14 +184,21 @@ func Connect(ctx context.Context, cfg Config) (*Transport, error) {
 	return t, nil
 }
 
-// checkSudoNoPasswd runs a no-op `sudo -n` probe over the established
-// connection. A clean exit means passwordless sudo works. A failure whose
-// stderr indicates a password/tty is required is turned into an actionable
-// error directing the operator to configure NOPASSWD (kensa runs
-// non-interactively by design — there is no password fallback). Any other
-// sudo failure (e.g. the user is not in sudoers) is surfaced verbatim so it
-// is not mistaken for a kensa bug.
-func (t *Transport) checkSudoNoPasswd(ctx context.Context) error {
+// checkSudo runs a no-op sudo probe over the established connection so a
+// misconfigured host fails fast with one actionable error instead of a
+// cryptic failure on every remote command. A clean exit means sudo works.
+//
+// The probe goes through [Transport.Run], so it uses whichever wrap the
+// config selects: `sudo -n` (no SudoPassword) or `sudo -S -p ”` (password
+// fed over stdin). The error message is tailored to the path:
+//
+//   - SudoPassword set, probe fails with a rejected-password signature →
+//     the password is wrong/expired.
+//   - No SudoPassword, probe fails needing a password/tty → the host lacks
+//     passwordless sudo; configure NOPASSWD or supply a sudo password.
+//   - Any other failure (not in sudoers, etc.) is surfaced verbatim so it
+//     is not mistaken for a kensa bug.
+func (t *Transport) checkSudo(ctx context.Context) error {
 	res, err := t.Run(ctx, "true")
 	if err != nil {
 		return err // transport-level error, already wrapped by Run
@@ -187,14 +210,23 @@ func (t *Transport) checkSudoNoPasswd(ctx context.Context) error {
 	if user == "" {
 		user = "the SSH user"
 	}
+	stderr := strings.TrimSpace(res.Stderr)
+	if t.cfg.SudoPassword != "" {
+		if sudoPasswordRejected(res.Stderr) {
+			return fmt.Errorf(
+				"sudo password rejected on %s for %s — verify the supplied sudo password is correct and not expired. [sudo: %s]",
+				t.cfg.Host, user, stderr)
+		}
+		return fmt.Errorf("sudo probe on %s failed (exit %d): %s", t.cfg.Host, res.ExitCode, stderr)
+	}
 	if sudoPasswordRequired(res.Stderr) {
 		return fmt.Errorf(
-			"sudo on %s requires a password for %s, but kensa runs non-interactively (sudo -n) and has no password fallback. "+
+			"sudo on %s requires a password for %s, but no sudo password was supplied. "+
 				"Configure passwordless sudo for that user on the target — a NOPASSWD sudoers entry covering the operations kensa runs "+
-				"(see the shipped /etc/sudoers.d/ guidance) — or drop --sudo if root elevation isn't needed. [sudo: %s]",
-			t.cfg.Host, user, strings.TrimSpace(res.Stderr))
+				"(see the shipped /etc/sudoers.d/ guidance) — supply a sudo password (--sudo-password / HostConfig.SudoPassword), or drop --sudo if root elevation isn't needed. [sudo: %s]",
+			t.cfg.Host, user, stderr)
 	}
-	return fmt.Errorf("sudo probe on %s failed (exit %d): %s", t.cfg.Host, res.ExitCode, strings.TrimSpace(res.Stderr))
+	return fmt.Errorf("sudo probe on %s failed (exit %d): %s", t.cfg.Host, res.ExitCode, stderr)
 }
 
 // sudoPasswordRequired reports whether sudo stderr indicates it needed a
@@ -205,6 +237,16 @@ func sudoPasswordRequired(stderr string) bool {
 		strings.Contains(s, "a terminal is required") ||
 		strings.Contains(s, "no tty present") ||
 		strings.Contains(s, "askpass")
+}
+
+// sudoPasswordRejected reports whether sudo stderr indicates the supplied
+// password was wrong — the `sudo -S` authentication-failure signatures.
+func sudoPasswordRejected(stderr string) bool {
+	s := strings.ToLower(stderr)
+	return strings.Contains(s, "incorrect password") ||
+		strings.Contains(s, "sorry, try again") ||
+		strings.Contains(s, "1 incorrect password attempt") ||
+		strings.Contains(s, "no password was provided")
 }
 
 // computeSocketPath generates a deterministic socket path for the
@@ -271,8 +313,10 @@ func (t *Transport) reuseArgs() []string {
 // Run executes cmd on the target host and returns the result.
 //
 // When the transport is configured with sudo, the command is wrapped
-// in `sudo -n sh -c '...'`. The -n flag means non-interactive: a
-// password prompt fails immediately rather than blocking.
+// via [sudoWrap]: `sudo -n sh -c '...'` (non-interactive — a password
+// prompt fails immediately) when no sudo password is configured, or
+// `sudo -S -p ” sh -c '...'` with the password fed over stdin when one
+// is. The password is never placed in argv; see [sudoWrap].
 func (t *Transport) Run(ctx context.Context, command string) (*api.CommandResult, error) {
 	t.mu.Lock()
 	if t.closed {
@@ -281,12 +325,16 @@ func (t *Transport) Run(ctx context.Context, command string) (*api.CommandResult
 	}
 	t.mu.Unlock()
 
-	if t.cfg.Sudo {
-		command = "sudo -n sh -c " + shellQuote(command)
-	}
+	command, stdin := sudoWrap(command, t.cfg.Sudo, t.cfg.SudoPassword)
 
 	args := append(t.reuseArgs(), command)
 	cmd := exec.CommandContext(ctx, "ssh", args...)
+	if stdin != "" {
+		// The sudo password rides the ssh subprocess's stdin pipe only.
+		// It is not in argv (not /proc-visible) and not captured into
+		// stdout/stderr, so it cannot reach recorded evidence.
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -437,8 +485,33 @@ func trimNewline(s string) string {
 	return s
 }
 
+// sudoWrap returns the command to execute on the host and the stdin
+// payload to feed it. It is a pure function so the wrapping (and the
+// invariant that the password never enters the command string) is
+// unit-testable without a live host.
+//
+//   - sudo off              → (command, "")
+//   - sudo on, no password  → ("sudo -n sh -c '<command>'", "")
+//   - sudo on, with password→ ("sudo -S -p ” sh -c '<command>'", password+"\n")
+//
+// In the password case the secret is returned ONLY as the stdin payload,
+// never interpolated into the returned command string — so it stays out
+// of argv, /proc, and any captured stdout/stderr. `-p ”` suppresses
+// sudo's prompt so the success path writes nothing to stderr. sudo
+// consumes the single password line; the wrapped command then sees EOF
+// on stdin (compliance checks do not read stdin).
+func sudoWrap(command string, sudo bool, sudoPassword string) (wrapped, stdin string) {
+	if !sudo {
+		return command, ""
+	}
+	if sudoPassword != "" {
+		return "sudo -S -p '' sh -c " + shellQuote(command), sudoPassword + "\n"
+	}
+	return "sudo -n sh -c " + shellQuote(command), ""
+}
+
 // shellQuote wraps s in single quotes for safe inclusion in a
-// `sudo -n sh -c` argument or chmod path. Embedded single quotes are
+// `sudo … sh -c` argument or chmod path. Embedded single quotes are
 // escaped via the standard '\” idiom.
 func shellQuote(s string) string {
 	return "'" + replaceAll(s, "'", `'\''`) + "'"
