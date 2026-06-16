@@ -74,6 +74,19 @@ type Options struct {
 	// resolved by the remote shell. Callers pass through
 	// from api.HostConfig.Sudo.
 	Sudo bool
+
+	// SudoPassword, when non-empty (and Sudo true), switches the
+	// agent spawn from `sudo -n` to `sudo -S -p ''` and OpenAgent
+	// writes the password as the FIRST line of the agent's stdin —
+	// sudo consumes that line, then the spawned agent (now root)
+	// reads the wire protocol from the remaining stdin. The
+	// password never enters argv. Callers pass through from
+	// api.HostConfig.SudoPassword. Empty keeps the `sudo -n` path.
+	// Note: the on-host local transport needs no password — the
+	// agent runs as root after the sudo spawn, so its NewAuto sees
+	// euid 0 and does not re-sudo. See
+	// docs/roadmap/SUDO_PASSWORD_SCAN_DECISION.md.
+	SudoPassword string
 }
 
 // OpenAgent runs the L-014b lifecycle setup and returns a
@@ -93,11 +106,12 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 		opts.LocalBinary = os.Args[0]
 	}
 	if opts.SSHCommandFunc == nil {
-		// Capture Sudo in the closure so the SSHCommandFunc
-		// signature stays stable for test injectors.
+		// Capture Sudo + SudoPassword in the closure so the
+		// SSHCommandFunc signature stays stable for test injectors.
 		sudo := opts.Sudo
+		sudoPassword := opts.SudoPassword // pragma: allowlist secret  (variable, not a secret literal)
 		opts.SSHCommandFunc = func(ctx context.Context, user, host, remotePath string) *exec.Cmd {
-			return defaultSSHCommand(ctx, user, host, remotePath, sudo)
+			return defaultSSHCommand(ctx, user, host, remotePath, sudo, sudoPassword)
 		}
 	}
 
@@ -124,6 +138,17 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 	if err := cmd.Start(); err != nil {
 		_ = stdin.Close()
 		return nil, nil, fmt.Errorf("dispatcher: start agent subprocess: %w", err)
+	}
+
+	// For the `sudo -S` spawn, the remote sudo reads the password from
+	// the first line of stdin before exec'ing the agent. Write it now,
+	// before the client takes over the pipe for the wire protocol. sudo
+	// consumes exactly this line; the agent inherits the rest.
+	if opts.SudoPassword != "" {
+		if _, err := io.WriteString(stdin, opts.SudoPassword+"\n"); err != nil {
+			_ = stdin.Close()
+			return nil, nil, fmt.Errorf("dispatcher: write sudo password to agent stdin: %w", err)
+		}
 	}
 
 	c, err := client.Open(stdin, stdout)
@@ -178,7 +203,7 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 // `-n` (non-interactive) is the sudoers-NOPASSWD friendly
 // form: matches the kensa-rpm sudoers fragment template
 // and fails fast if a password would be required.
-func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo bool) *exec.Cmd {
+func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo bool, sudoPassword string) *exec.Cmd {
 	target := host
 	if user != "" {
 		target = user + "@" + host
@@ -194,6 +219,18 @@ func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo 
 	// genuine ssh error diagnostics.
 	base := []string{"-o", "LogLevel=ERROR", target}
 	if sudo {
+		if sudoPassword != "" {
+			// `sudo -S -p ''` reads the password from the FIRST line
+			// of stdin (OpenAgent writes it before the wire protocol),
+			// then execs the agent which inherits the remaining stdin.
+			// `-p ''` suppresses the prompt so it never reaches the
+			// forwarded stderr; the empty arg is written as the literal
+			// two-character token `''` because ssh space-joins these
+			// args into one string that the REMOTE shell re-parses — a
+			// bare "" would collapse and `-p` would swallow the agent
+			// path. The password is NOT in argv (it rides stdin).
+			return exec.CommandContext(ctx, "ssh", append(base, "sudo", "-S", "-p", "''", remotePath, "agent", "--stdio")...)
+		}
 		return exec.CommandContext(ctx, "ssh", append(base, "sudo", "-n", remotePath, "agent", "--stdio")...)
 	}
 	return exec.CommandContext(ctx, "ssh", append(base, remotePath, "agent", "--stdio")...)

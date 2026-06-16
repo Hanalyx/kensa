@@ -92,7 +92,7 @@ var detectFlagGroups = []flagGroup{
 		title: "Target options",
 		flags: []string{
 			"host", "user", "key", "password",
-			"port", "sudo",
+			"port", "sudo", "sudo-password",
 			"strict-host-keys", "no-strict-host-keys",
 			"capability",
 		},
@@ -111,7 +111,7 @@ var checkFlagGroups = []flagGroup{
 		title: "Target options",
 		flags: []string{
 			"host", "user", "key", "password",
-			"port", "sudo",
+			"port", "sudo", "sudo-password",
 			"strict-host-keys", "no-strict-host-keys",
 			"capability",
 			"inventory", "limit", "workers",
@@ -166,7 +166,7 @@ var rollbackFlagGroups = []flagGroup{
 		title: "Target options (required for --start and --txn)",
 		flags: []string{
 			"host", "user", "key",
-			"port", "sudo",
+			"port", "sudo", "sudo-password",
 			"strict-host-keys", "no-strict-host-keys",
 		},
 	},
@@ -184,7 +184,7 @@ var remediateFlagGroups = []flagGroup{
 		title: "Target options",
 		flags: []string{
 			"host", "user", "key", "password",
-			"port", "sudo",
+			"port", "sudo", "sudo-password",
 			"strict-host-keys", "no-strict-host-keys",
 			"capability",
 		},

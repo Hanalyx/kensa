@@ -152,6 +152,16 @@ type HostConfig struct {
 	// non-empty, the SSH transport requires `sshpass` on the host
 	// running kensa.
 	Password string
+	// SudoPassword is the password supplied to `sudo -S` for hosts
+	// whose sudoers policy is NOT NOPASSWD. Empty (the default) keeps
+	// the non-interactive `sudo -n` path: the host must allow
+	// passwordless sudo or the connect-time probe fails fast. When
+	// non-empty AND Sudo is true, the transport runs
+	// `sudo -S -p '' sh -c '<cmd>'` and feeds this value over the SSH
+	// session's stdin — it is held in memory only and never appears in
+	// argv, logs, or captured evidence (stdout/stderr). Ignored unless
+	// Sudo is true. See docs/roadmap/SUDO_PASSWORD_SCAN_DECISION.md.
+	SudoPassword string
 	// StrictHostKeys controls SSH host-key verification policy.
 	// When true, the transport sets StrictHostKeyChecking=yes:
 	// unknown host keys cause connect failure rather than silent
