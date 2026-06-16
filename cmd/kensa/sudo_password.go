@@ -18,7 +18,7 @@ import (
 // password when --sudo-password is not passed inline. It lets scripted
 // and --inventory runs supply a shared sudo password without putting it
 // on the command line (mirrors SSHPASS for --password).
-const sudoPasswordEnv = "KENSA_SUDO_PASSWORD"
+const sudoPasswordEnv = "KENSA_SUDO_PASSWORD" // pragma: allowlist secret  (env var name, not a secret)
 
 // sudoPasswordPromptSentinel is the value pflag stores when
 // --sudo-password was passed without an argument (NoOptDefVal). The

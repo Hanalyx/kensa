@@ -136,7 +136,7 @@ func TestBuildRollbackHostCfg_SudoPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("with sudo: %v", err)
 	}
-	if cfg.SudoPassword != "pw" || !cfg.Sudo {
+	if cfg.SudoPassword != "pw" || !cfg.Sudo { // pragma: allowlist secret  (fake test value)
 		t.Errorf("expected SudoPassword wired with Sudo true; got Sudo=%v SudoPassword=%q", cfg.Sudo, cfg.SudoPassword)
 	}
 }

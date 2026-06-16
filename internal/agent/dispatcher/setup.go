@@ -109,7 +109,7 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 		// Capture Sudo + SudoPassword in the closure so the
 		// SSHCommandFunc signature stays stable for test injectors.
 		sudo := opts.Sudo
-		sudoPassword := opts.SudoPassword
+		sudoPassword := opts.SudoPassword // pragma: allowlist secret  (variable, not a secret literal)
 		opts.SSHCommandFunc = func(ctx context.Context, user, host, remotePath string) *exec.Cmd {
 			return defaultSSHCommand(ctx, user, host, remotePath, sudo, sudoPassword)
 		}
