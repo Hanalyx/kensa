@@ -265,7 +265,7 @@ func TestOpenAgent_HandshakeFailure(t *testing.T) {
 // agent-mode (remediate/rollback) consistent with check.
 func TestDefaultSSHCommand_SuppressesBanner(t *testing.T) {
 	for _, sudo := range []bool{false, true} {
-		cmd := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", sudo)
+		cmd := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", sudo, "")
 		joined := strings.Join(cmd.Args, " ")
 		if !strings.Contains(joined, "-o LogLevel=ERROR") {
 			t.Errorf("sudo=%v: expected `-o LogLevel=ERROR` in ssh args to suppress the login banner; got %q", sudo, joined)
@@ -275,6 +275,36 @@ func TestDefaultSSHCommand_SuppressesBanner(t *testing.T) {
 		tIdx := indexOf(cmd.Args, "owadmin@host-x")
 		if oIdx == -1 || tIdx == -1 || oIdx > tIdx {
 			t.Errorf("sudo=%v: LogLevel option must come before the target; args=%q", sudo, cmd.Args)
+		}
+	}
+}
+
+// TestDefaultSSHCommand_SudoPasswordWrap verifies the agent spawn uses
+// `sudo -S -p ”` when a sudo password is supplied (so OpenAgent can
+// feed it on stdin), `sudo -n` when not, and that the password is NEVER
+// placed in argv.
+//
+// @spec cli-sudo-password-flag
+// @ac AC-03
+func TestDefaultSSHCommand_SudoPasswordWrap(t *testing.T) {
+	t.Run("cli-sudo-password-flag/AC-03", func(t *testing.T) {})
+
+	// No password → `sudo -n`.
+	noPw := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", true, "")
+	if got := strings.Join(noPw.Args, " "); !strings.Contains(got, "sudo -n") || strings.Contains(got, "-S") {
+		t.Errorf("no-password sudo spawn should use `sudo -n`; got %q", got)
+	}
+
+	// With password → `sudo -S -p ''`, and the password must not be in argv.
+	const pw = "s3cr3t-agent-pw"
+	withPw := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", true, pw)
+	joined := strings.Join(withPw.Args, " ")
+	if !strings.Contains(joined, "sudo -S -p ''") {
+		t.Errorf("password sudo spawn should use `sudo -S -p ''` (literal '' so the empty prompt survives the remote shell); got %q", joined)
+	}
+	for _, a := range withPw.Args {
+		if a == pw || strings.Contains(a, pw) {
+			t.Fatalf("SECURITY: sudo password leaked into agent spawn argv: %q", withPw.Args)
 		}
 	}
 }

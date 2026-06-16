@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,9 @@ import (
 
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
+
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/transport/ssh"
 )
 
 // sudoPasswordEnv is the environment variable consulted for the sudo
@@ -76,6 +80,31 @@ func resolveSudoPasswordFor(fs *pflag.FlagSet, raw string, sudo bool, stdin io.R
 		return "", nil
 	}
 	return pw, nil
+}
+
+// sudoRequiresPassword reports whether the target host's sudo needs a
+// password, by opening a non-sudo transport and running `sudo -n true`.
+// A clean exit means passwordless sudo (NOPASSWD); a non-zero exit (or
+// any connect/run failure, conservatively) means a password is required.
+//
+// Used by the remediate agent path to decide whether to feed the sudo
+// password over the agent's stdin: on a NOPASSWD host `sudo -S` would
+// not consume the line and it would corrupt the wire protocol, so the
+// password must be dropped there.
+func sudoRequiresPassword(ctx context.Context, hostCfg api.HostConfig) bool {
+	probeCfg := hostCfg
+	probeCfg.Sudo = false      // run our own `sudo -n`, unwrapped
+	probeCfg.SudoPassword = "" // no password on the probe connection
+	t, err := ssh.Factory{}.Connect(ctx, probeCfg)
+	if err != nil {
+		return true // can't tell; assume a password is needed (safe for real password hosts)
+	}
+	defer func() { _ = t.Close() }()
+	res, err := t.Run(ctx, "sudo -n true")
+	if err != nil {
+		return true
+	}
+	return res.ExitCode != 0
 }
 
 // inventorySudoPassword returns the KENSA_SUDO_PASSWORD env value when

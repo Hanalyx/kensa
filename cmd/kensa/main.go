@@ -1486,6 +1486,19 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		Capabilities: capOverrides,
 	}
 
+	// Agent-mode safety: the agent is spawned via `sudo` over ssh and
+	// its stdin carries the wire protocol. Feeding a sudo password to a
+	// host that DOESN'T need one is unsafe — on a NOPASSWD host `sudo -S`
+	// does not consume the stdin line, so it would corrupt the protocol.
+	// Probe once and drop the password when the host is NOPASSWD, so the
+	// password is fed (over ssh stdin) only to hosts that actually
+	// require it. Applies to every downstream transport (bootstrap,
+	// agent spawn, engine SSH path) since they all read hostCfg.
+	if hostCfg.SudoPassword != "" && !sudoRequiresPassword(ctx, hostCfg) {
+		fmt.Fprintln(os.Stderr, "kensa: host accepts passwordless sudo; ignoring --sudo-password (using sudo -n)")
+		hostCfg.SudoPassword = ""
+	}
+
 	// L-014b + P-011: `kensa remediate` dispatches through
 	// `kensa agent --stdio` on the target by default. Operators
 	// can opt OUT of agent-mode by setting `KENSA_NO_AGENT=1`,
@@ -1521,9 +1534,10 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		defer func() { _ = bootstrapTransport.Close() }()
 
 		agentClient, cleanup, err := dispatcher.OpenAgent(ctx, bootstrapTransport, host, dispatcher.Options{
-			User:   user,
-			Sudo:   hostCfg.Sudo,
-			Stderr: os.Stderr,
+			User:         user,
+			Sudo:         hostCfg.Sudo,
+			SudoPassword: hostCfg.SudoPassword,
+			Stderr:       os.Stderr,
 		})
 		if err != nil {
 			return fmt.Errorf("agent mode: %w", err)
