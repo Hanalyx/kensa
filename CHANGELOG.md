@@ -14,6 +14,53 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.5.0 — 2026-06-15
+
+Sudo-with-password support across the scan/remediate lifecycle. Reverses
+the earlier "`sudo -n` only, no password fallback" design so Kensa serves
+organizations running **either** passwordless sudo **or** sudo-with-password
+seamlessly — the latter common where "no NOPASSWD sudoers" is itself an
+enforced CIS/STIG control. MINOR bump: additive `api/` field
+(`HostConfig.SudoPassword`); the rest of the frozen `api/` surface is
+untouched.
+
+### Added
+
+- **`api.HostConfig.SudoPassword`** — the password supplied to `sudo -S`
+  for hosts whose sudoers policy is not NOPASSWD. Additive, backward-
+  compatible: empty keeps the existing non-interactive `sudo -n` behavior.
+  Held in memory only; fed to the target over the SSH session's stdin,
+  never placed in argv and never captured into evidence/OSCAL.
+- **`--sudo-password` flag** (and **`KENSA_SUDO_PASSWORD`** env fallback)
+  on `detect`, `check`, `remediate`, `plan`, and `rollback`. Omitting the
+  value prompts on the controlling TTY (like `--password`). Rejected with
+  `--inventory` (the env var is the shared-fleet channel) and requires
+  `--sudo`.
+- Connect-time sudo probe now distinguishes "a password is required"
+  (none supplied → configure NOPASSWD or pass a password) from "sudo
+  password rejected" (supplied password wrong/expired), each with an
+  actionable message.
+
+### Changed
+
+- The remote-command sudo wrap is now `sudo -S -p '' sh -c '…'` (password
+  on stdin) when a sudo password is configured, and the unchanged
+  `sudo -n sh -c '…'` otherwise. The `remediate` agent is spawned the same
+  way; on a NOPASSWD host the password is dropped via a `sudo -n true`
+  probe so it cannot corrupt the agent wire protocol. `SUDO_ASKPASS`/`-A`
+  was deliberately not used — it requires an askpass helper on the target,
+  incompatible with the agentless model.
+
+### Security
+
+- The sudo password is held in operator memory and transmitted only over
+  the already-encrypted SSH session's stdin — never in argv (`/proc`-safe)
+  and never in the recorded stdout/stderr that back `CheckEvidence`/OSCAL.
+  `-p ''` keeps sudo's prompt off captured stderr. On a wrong password,
+  sudo's auth-failure *text* (never the password) may appear in a check's
+  stderr; the connect-time probe maps it to a clean error. See
+  `docs/test_docs/security.md` limit #12.
+
 ## v0.4.3 — 2026-06-14
 
 Public rule read model for catalog consumers — tranche 1 of the
