@@ -14,6 +14,41 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.5.1 — 2026-06-18
+
+Fixes a packaging gap that blocked external consumers (e.g. OpenWatch)
+from running remediation through the public `pkg/kensa` API (issue #94).
+PATCH bump: `pkg/kensa` packaging only; the frozen `api/` surface is
+untouched.
+
+### Fixed
+
+- **`pkg/kensa.Default*().Remediate` / `.Rollback` now work for external
+  importers.** The apply-mechanism handlers (`file_permissions`,
+  `config_set`, `service_enabled`, …) self-register via `init()` and were
+  pulled into a binary only by blank imports of `internal/handlers/*` —
+  which an external module cannot import. So a consumer building a service
+  via `DefaultWithTransportFactory` hit `preflight: mechanism
+  "file_permissions" is not registered` before any host change. The
+  `Default*` constructors now register the standard handlers
+  automatically; an external consumer needs only to upgrade. Scanning was
+  never affected.
+
+### Added
+
+- **`pkg/kensa/handlers`** — a public, blank-importable bundle that
+  registers the standard apply handlers, for consumers composing a Kensa
+  via `api.New{…}` directly: `import _ "github.com/Hanalyx/kensa/pkg/kensa/handlers"`.
+
+### Changed
+
+- The kensa CLI now sources its handler set from the same
+  `pkg/kensa/handlers` bundle instead of its own import list — a single
+  source of truth, so the CLI and external-consumer handler sets cannot
+  diverge. A CI completeness test fails if any `internal/handlers/*`
+  package is missing from the bundle, so this class of gap cannot recur
+  for a future handler.
+
 ## v0.5.0 — 2026-06-15
 
 Sudo-with-password support across the scan/remediate lifecycle. Reverses
