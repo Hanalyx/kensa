@@ -1,0 +1,126 @@
+spec:
+    id: pkg-handler-registration
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: pkg-handler-registration
+        description: |
+            Issue #94: an external Go consumer of Kensa (importing
+            pkg/kensa + api) could construct a service via
+            DefaultWithTransportFactory but could NOT run Remediate /
+            Rollback — preflight failed with `mechanism "file_permissions"
+            is not registered`.
+
+            Root cause: the apply-mechanism handlers live in
+            internal/handlers/<mechanism>/ and self-register in init() via
+            handler.Register(New()). They are pulled into a binary ONLY by
+            blank imports. The CLI works because cmd/kensa/main.go blank-
+            imports all 29 handler packages — but Go forbids an external
+            module from importing another module's internal/ packages, so
+            an external consumer cannot trigger those registrations, and
+            pkg/kensa registered none of them. engine.New() defaults its
+            registry to handler.Default() (the process-global registry),
+            which is empty for an external consumer.
+
+            Fix: a public, blank-importable bundle pkg/kensa/handlers that
+            imports every internal/handlers/* package, and which pkg/kensa
+            itself imports so the Default* constructors register the
+            standard handlers automatically. The CLI drops its own 29-line
+            list and relies on the same bundle (single source of truth), so
+            the CLI handler set and the external-consumer handler set can
+            never diverge. A completeness test fails if any
+            internal/handlers/* package is missing from the bundle,
+            structurally preventing #94 from recurring for a future handler.
+
+            Accepted tradeoff: blank-import side effects are package-scoped,
+            so scan-only consumers using NewScanner also link the apply
+            handlers (modest binary cost; NewScanner's Remediate-errors-by-
+            design behavior is unchanged). Keeping NewScanner lean would
+            require splitting the package (a breaking import-path change),
+            which is not worth it.
+
+    objective:
+        summary: |
+            Make pkg/kensa.Default / DefaultWithEngineOptions /
+            DefaultWithTransportFactory register the standard apply handlers
+            for external consumers, via a public pkg/kensa/handlers bundle
+            that is the single source of truth shared with the CLI, guarded
+            by a completeness test.
+        scope:
+            includes:
+                - pkg/kensa/handlers bundle (blank-imports all internal/handlers/*)
+                - pkg/kensa imports the bundle so Default* register handlers
+                - cmd/kensa/main.go drops its own handler blank-import list (uses the bundle transitively)
+                - completeness guard test (every internal/handlers/* package is in the bundle)
+                - external-consumer regression test (registry populated without internal blank imports)
+            excludes:
+                - "Exporting handler.Register / per-mechanism New() — rejected (more surface, less ergonomic)"
+                - "go:generate codegen of the bundle — CI completeness guard is sufficient"
+                - "cmd/kensa-fuzz — dev harness with a deliberate subset; not the public surface"
+                - "api/ changes — none; this is pkg/kensa packaging only"
+
+    constraints:
+        - id: C-01
+          description: |
+              An external consumer that imports pkg/kensa and constructs a
+              service via the Default* constructors MUST be able to run
+              Remediate/Rollback — i.e. the standard apply handlers MUST be
+              registered in handler.Default() without the consumer importing
+              any internal/ package.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The CLI and the external-consumer handler set MUST share a
+              single source of truth. cmd/kensa/main.go MUST NOT carry its
+              own internal/handlers/* blank-import list; it relies on the
+              pkg/kensa/handlers bundle (transitively via pkg/kensa).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Every internal/handlers/* package MUST be present in the
+              bundle. A new handler that is not added to the bundle MUST
+              fail CI, so issue #94 cannot recur per-handler through drift.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              After importing pkg/kensa (and NO internal/handlers blank
+              imports), handler.Default() reports the apply mechanism
+              "file_permissions" (and the other standard mechanisms) as
+              registered. The #94 regression guard. Locked by
+              TestExternalConsumerHandlersRegistered.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              DefaultWithTransportFactory(...) builds a service whose engine
+              preflight accepts a file_permissions step (no "is not
+              registered" error) — constructed with a caller transport
+              factory and no internal blank imports. Locked by
+              TestDefaultWithTransportFactory_RemediateHandlersPresent.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              The number of handlers registered by the pkg/kensa/handlers
+              bundle equals the number of internal/handlers/* packages on
+              disk — the completeness guard that prevents drift. Locked by
+              TestHandlerBundleCompleteness.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              cmd/kensa/main.go contains no `_ ".../internal/handlers/..."`
+              blank imports (single source of truth; handlers come via the
+              bundle). Locked by TestMainHasNoHandlerBlankImports.
+          references_constraints: [C-02]
+          priority: high
+
+    tags: [pkg-kensa, handlers, openwatch, issue-94, tier-2]

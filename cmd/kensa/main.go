@@ -61,37 +61,10 @@ import (
 	"github.com/Hanalyx/kensa/internal/transport/ssh"
 	"github.com/Hanalyx/kensa/internal/varsub"
 	"github.com/Hanalyx/kensa/pkg/kensa"
-
-	// Import all handler packages to trigger their init() registrations.
-	_ "github.com/Hanalyx/kensa/internal/handlers/aptabsent"
-	_ "github.com/Hanalyx/kensa/internal/handlers/aptpresent"
-	_ "github.com/Hanalyx/kensa/internal/handlers/auditruleset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/authselectfeatureenable"
-	_ "github.com/Hanalyx/kensa/internal/handlers/commandexec"
-	_ "github.com/Hanalyx/kensa/internal/handlers/configappend"
-	_ "github.com/Hanalyx/kensa/internal/handlers/configset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/configsetdropin"
-	_ "github.com/Hanalyx/kensa/internal/handlers/cronjob"
-	_ "github.com/Hanalyx/kensa/internal/handlers/cryptopolicyset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/cryptopolicysubpolicy"
-	_ "github.com/Hanalyx/kensa/internal/handlers/dconfset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/fileabsent"
-	_ "github.com/Hanalyx/kensa/internal/handlers/filecontent"
-	_ "github.com/Hanalyx/kensa/internal/handlers/filepermissions"
-	_ "github.com/Hanalyx/kensa/internal/handlers/grubparameterremove"
-	_ "github.com/Hanalyx/kensa/internal/handlers/grubparameterset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/kernelmoduledisable"
-	_ "github.com/Hanalyx/kensa/internal/handlers/manual"
-	_ "github.com/Hanalyx/kensa/internal/handlers/mountoptionset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/packageabsent"
-	_ "github.com/Hanalyx/kensa/internal/handlers/packagepresent"
-	_ "github.com/Hanalyx/kensa/internal/handlers/pammodulearg"
-	_ "github.com/Hanalyx/kensa/internal/handlers/pammoduleconfigure"
-	_ "github.com/Hanalyx/kensa/internal/handlers/selinuxbooleanset"
-	_ "github.com/Hanalyx/kensa/internal/handlers/servicedisabled"
-	_ "github.com/Hanalyx/kensa/internal/handlers/serviceenabled"
-	_ "github.com/Hanalyx/kensa/internal/handlers/servicemasked"
-	_ "github.com/Hanalyx/kensa/internal/handlers/sysctlset"
+	// Apply-mechanism handlers register transitively via pkg/kensa, which
+	// blank-imports the pkg/kensa/handlers bundle — the single source of
+	// truth shared with external consumers (issue #94). The CLI no longer
+	// carries its own handler list, so the two sets cannot diverge.
 )
 
 // version is the kensa binary version string surfaced by --version
