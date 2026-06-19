@@ -1,0 +1,132 @@
+spec:
+    id: kernelio-sysctl
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: kernelio-sysctl
+        description: |
+            The sysctl_set handler applies the runtime layer of a kernel
+            parameter through direct kernel IO when running on the target
+            host (agent mode), instead of shelling out to sysctl(8): the
+            runtime value is written to / read from the parameter's
+            /proc/sys file, and the persistence drop-in under
+            /etc/sysctl.d is written via the atomic file primitives. The
+            primitives live in internal/agent/kernelio; the agent-mode
+            local transport implements kernelio.SysctlTransport (which
+            embeds fsatomic.Transport for the persist layer). A handler
+            type-asserts transport.(kernelio.SysctlTransport) and falls
+            back to the `sysctl -w` + shell path when the assertion fails.
+            Unlike the systemd helper, the kernel-IO primitives are
+            syscalls always available in agent mode, so the type assertion
+            alone selects the path — there is no "primitive absent"
+            fallback within the agent branch.
+        related_specs:
+            - handler-sysctl-set
+            - agent-handler-port-filepermissions
+
+    objective:
+        summary: |
+            Provide /proc/sys read/write + a persist-file read primitive,
+            and wire sysctl_set's Apply/Capture/Rollback to use them in
+            agent mode while preserving the shell fallback, an identical
+            persist-file body, and an identical captured PreState shape.
+        scope:
+            includes:
+                - kernelio.SysctlPath key→/proc/sys mapping + traversal rejection
+                - kernelio.WriteSysctl / ReadSysctl direct proc IO
+                - kernelio.ReadFileIfExists persist-file capture read
+                - sysctl_set dual-path Apply/Capture/Rollback
+                - byte-identical drop-in body across both paths
+            excludes:
+                - the shell path's behavior (handler-sysctl-set)
+                - mount / kernel-module kernel IO (separate specs)
+
+    constraints:
+        - id: C-01
+          description: |
+              SysctlPath MUST map a dotted sysctl key to its /proc/sys
+              path (dots → separators) and MUST reject any key that does
+              not resolve to a strict descendant of /proc/sys (empty,
+              containing a slash or NUL, or collapsing to the root via
+              "..") with ErrInvalidSysctlKey — so a crafted key cannot
+              redirect a write outside /proc/sys.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              WriteSysctl MUST open the proc file O_WRONLY without
+              O_CREATE (a nonexistent key fails loudly rather than
+              creating a stray file) and append a trailing newline.
+              ReadSysctl MUST return the value trimmed of trailing
+              whitespace.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              sysctl_set MUST select the kernel-IO path iff the transport
+              implements kernelio.SysctlTransport, else the shell path.
+              Both paths MUST write a byte-identical drop-in body and
+              record an identical PreState shape (key, persist_file,
+              runtime_value, persist_file_content, persist_file_existed)
+              so capture/rollback are path-agnostic.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              On the kernel-IO path, a value the kernel rejects (the proc
+              write errors) MUST surface as a Success:false StepResult,
+              NOT a returned Go error, and MUST leave the persist file
+              untouched (runtime-first ordering). Rollback MUST rewrite the
+              drop-in atomically when it existed at capture and remove it
+              when it did not, then restore the runtime value.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              SysctlPath maps net.ipv4.ip_forward →
+              /proc/sys/net/ipv4/ip_forward and rejects "", a key with a
+              slash, "..", and a NUL-bearing key with ErrInvalidSysctlKey.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              WriteSysctl writes a value to the proc file and ReadSysctl
+              reads it back trimmed; a nonexistent key write errors; an
+              invalid key is rejected before any IO.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              ReadFileIfExists returns ("", false, nil) for an absent file
+              and (content, true, nil) for a present one.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              sysctl_set kernel-IO Apply writes the runtime value to the
+              proc layer and the canonical drop-in to the persist layer; a
+              kernel-rejected value yields a Success:false step and leaves
+              the persist file untouched.
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              sysctl_set kernel-IO Capture → Apply → Rollback restores the
+              runtime value and rewrites the drop-in when it existed at
+              capture, or removes it when it did not. Capture records the
+              canonical PreState shape.
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-06
+          description: |
+              A transport without the kernelio capability falls back to
+              the `sysctl -w` shell path.
+          references_constraints: [C-03]
+          priority: critical
+
+    tags: [handler, kernelio, sysctl, agent, tier-1, phase-6]
