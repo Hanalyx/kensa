@@ -13,6 +13,17 @@ type FileTransport interface {
 	ReadFileIfExists(path string) (content string, existed bool, err error)
 }
 
+// ModuleTransport is the capability a transport implements when it can
+// manage kernel modules via direct kernel IO: the FileTransport ops for
+// the /etc/modprobe.d blacklist drop-in, plus DeleteModule (the
+// delete_module(2) runtime unload). The kernel_module_disable handler
+// asserts it and falls back to the modprobe + shell file-write path
+// otherwise.
+type ModuleTransport interface {
+	FileTransport
+	DeleteModule(name string) error
+}
+
 // SysctlTransport is the capability interface a transport implements when
 // it can apply sysctl changes via direct kernel IO — i.e. the agent-mode
 // local transport on the target host. A handler type-asserts

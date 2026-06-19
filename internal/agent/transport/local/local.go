@@ -302,10 +302,18 @@ func (t *Transport) ReadFileIfExists(path string) (string, bool, error) {
 	return kernelio.ReadFileIfExists(path)
 }
 
+// DeleteModule delegates to kernelio.DeleteModule (delete_module(2)).
+// Satisfies kernelio.ModuleTransport for the kernel_module_disable
+// handler's runtime unload.
+func (t *Transport) DeleteModule(name string) error {
+	return kernelio.DeleteModule(name)
+}
+
 // Compile-time interface check.
 var (
 	_ api.Transport            = (*Transport)(nil)
 	_ fsatomic.Transport       = (*Transport)(nil)
 	_ systemd.Transport        = (*Transport)(nil)
 	_ kernelio.SysctlTransport = (*Transport)(nil)
+	_ kernelio.ModuleTransport = (*Transport)(nil)
 )

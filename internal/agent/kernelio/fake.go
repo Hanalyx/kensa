@@ -26,15 +26,28 @@ type FakeSysctlTransport struct {
 	// Runs records shell commands issued via Run (e.g. the mount handler's
 	// remount, which stays on mount(8) even on the kernel-IO path).
 	Runs []string
+
+	// DeletedModules records DeleteModule calls (the module handler's
+	// runtime unload). DeleteModuleErr, keyed by module name, injects an
+	// unload error (e.g. ErrModuleNotLoaded or a busy module).
+	DeletedModules  []string
+	DeleteModuleErr map[string]error
 }
 
 // NewFakeSysctl returns a FakeSysctlTransport with initialized maps.
 func NewFakeSysctl() *FakeSysctlTransport {
 	return &FakeSysctlTransport{
-		Runtime:  map[string]string{},
-		Files:    map[string]string{},
-		WriteErr: map[string]error{},
+		Runtime:         map[string]string{},
+		Files:           map[string]string{},
+		WriteErr:        map[string]error{},
+		DeleteModuleErr: map[string]error{},
 	}
+}
+
+// DeleteModule records the unload and returns any canned error.
+func (f *FakeSysctlTransport) DeleteModule(name string) error {
+	f.DeletedModules = append(f.DeletedModules, name)
+	return f.DeleteModuleErr[name]
 }
 
 // WriteSysctl records the runtime value, or returns the canned WriteErr.
@@ -130,5 +143,6 @@ func (f *failingFakeSysctl) AtomicRemove(ctx context.Context, p string) error {
 // Compile-time assertions.
 var (
 	_ SysctlTransport = (*FakeSysctlTransport)(nil)
+	_ ModuleTransport = (*FakeSysctlTransport)(nil)
 	_ api.Transport   = (*FakeSysctlTransport)(nil)
 )

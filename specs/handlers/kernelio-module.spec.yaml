@@ -1,0 +1,107 @@
+spec:
+    id: kernelio-module
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: kernelio-module
+        description: |
+            The kernel_module_disable handler manages a module blacklist
+            via direct kernel IO when running on the target host (agent
+            mode): it writes the /etc/modprobe.d drop-in atomically
+            (fsatomic) and unloads the running module via delete_module(2),
+            instead of the shell printf + modprobe -r pipeline. The runtime
+            unload is best-effort on BOTH paths — the persistent
+            blacklist+install-/bin/true entry is the load-bearing change
+            that keeps the module out across boots; a module in use or not
+            loaded is not a failure. The agent-mode local transport
+            implements kernelio.ModuleTransport (FileTransport +
+            DeleteModule); a handler type-asserts it and falls back to the
+            modprobe + shell file-write path otherwise.
+        related_specs:
+            - handler-kernel-module-disable
+            - kernelio-sysctl
+            - kernelio-mount
+
+    objective:
+        summary: |
+            Provide the delete_module(2) unload primitive and wire
+            kernel_module_disable's Apply/Capture/Rollback to use it plus
+            atomic blacklist file IO in agent mode, preserving the shell
+            fallback, byte-identical drop-in content, and an identical
+            captured PreState shape.
+        scope:
+            includes:
+                - kernelio.DeleteModule (delete_module(2), best-effort, ENOENT→ErrModuleNotLoaded)
+                - kernelio.ModuleTransport capability (FileTransport + DeleteModule)
+                - kernel_module_disable dual-path Apply/Capture/Rollback
+            excludes:
+                - module RELOAD on rollback (not done on either path; reboot may be required)
+                - the shell path's behavior (handler-kernel-module-disable)
+
+    constraints:
+        - id: C-01
+          description: |
+              DeleteModule MUST reject an empty module name, call
+              delete_module(2) with O_NONBLOCK, and normalise ENOENT
+              (module not loaded) to ErrModuleNotLoaded so a caller can
+              distinguish it. It removes only the named module (not its
+              dependencies) — adequate because the blacklist is the
+              load-bearing change.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              kernel_module_disable MUST select the kernel-IO path iff the
+              transport implements kernelio.ModuleTransport, else the shell
+              path. The runtime unload MUST be best-effort on BOTH paths: a
+              failed unload (in use / not loaded) MUST NOT fail Apply, and
+              the blacklist drop-in MUST still be written. Both paths MUST
+              record an identical PreState shape (module, path,
+              file_existed, prior_content).
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The blacklist drop-in write MUST be atomic (fsatomic) on the
+              kernel-IO path. Rollback MUST restore the prior content when
+              the file existed at capture and remove it when it did not —
+              so a host with a pre-existing operator blacklist is left
+              exactly as found.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              DeleteModule rejects an empty name; ErrModuleNotLoaded is a
+              distinct sentinel. (The live delete_module(2) success/ENOENT
+              path needs root + a loaded module and is validated live, not
+              in CI.)
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-02
+          description: |
+              kernel_module_disable kernel-IO Apply writes the blacklist
+              drop-in and unloads via DeleteModule; an unload error (module
+              in use / not loaded) does NOT fail Apply and the drop-in is
+              still written.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              kernel-IO Capture → Apply → Rollback removes a drop-in that
+              did not exist at capture and restores the prior content of
+              one that did.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              A transport without the kernelio capability falls back to the
+              modprobe + shell file-write path.
+          references_constraints: [C-02]
+          priority: critical
+
+    tags: [handler, kernelio, kernel-module, modprobe, agent, tier-1, phase-6]
