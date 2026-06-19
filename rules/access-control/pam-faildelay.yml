@@ -31,6 +31,7 @@ implementations:
   - default: true
     check:
       method: config_value
+      delimiter: " "
       path: "/etc/login.defs"
       key: "FAIL_DELAY"
       expected: "4"

@@ -32,14 +32,14 @@ func TestCheckContractsCoverDispatch(t *testing.T) {
 func TestValidateCheckParams(t *testing.T) {
 	t.Run("check-param-contract/AC-02", func(t *testing.T) {})
 
-	// conforming
-	if p := ValidateCheckParams("config_value", []string{"path", "key", "expected", "delimiter"}); len(p) != 0 {
-		t.Errorf("conforming config_value should pass; got %v", p)
+	// conforming — comparator + delimiter are valid optionals on config_value.
+	if p := ValidateCheckParams("config_value", []string{"path", "key", "expected", "delimiter", "comparator"}); len(p) != 0 {
+		t.Errorf("conforming config_value (incl. comparator/delimiter) should pass; got %v", p)
 	}
-	// unknown param (the comparator class)
-	if p := ValidateCheckParams("config_value", []string{"path", "key", "expected", "comparator"}); len(p) == 0 ||
-		!strings.Contains(strings.Join(p, ";"), "comparator") {
-		t.Errorf("unknown 'comparator' must be flagged; got %v", p)
+	// genuinely unknown param is flagged
+	if p := ValidateCheckParams("config_value", []string{"path", "key", "expected", "bogus_param"}); len(p) == 0 ||
+		!strings.Contains(strings.Join(p, ";"), "bogus_param") {
+		t.Errorf("unknown 'bogus_param' must be flagged; got %v", p)
 	}
 	// missing required
 	if p := ValidateCheckParams("config_value", []string{"path", "key"}); len(p) == 0 ||

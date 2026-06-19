@@ -20,10 +20,14 @@ import (
 //     checkApparmorState / checkKernelModuleState / checkPackageState.
 
 // checkValueDomains maps a check method + param to its allowed values.
+var comparatorOps = []string{"==", "!=", "<", "<=", ">", ">="} // check.go compareValue
+
 var checkValueDomains = map[string]map[string][]string{
 	"apparmor_state":      {"state": {"enforcing", "loaded"}},     // check.go checkApparmorState
 	"kernel_module_state": {"state": {"blacklisted", "disabled"}}, // check.go checkKernelModuleState
 	"package_state":       {"state": {"absent", "present"}},       // check.go checkPackageState
+	"config_value":        {"comparator": comparatorOps},          // check.go compareValue
+	"sysctl_value":        {"comparator": comparatorOps},          // check.go compareValue
 }
 
 // mechanismValueDomains maps a remediation mechanism + param to its allowed

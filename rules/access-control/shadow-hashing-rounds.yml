@@ -27,6 +27,7 @@ implementations:
   - default: true
     check:
       method: config_value
+      delimiter: " "
       path: "/etc/login.defs"
       key: "SHA_CRYPT_MIN_ROUNDS"
       expected: "{{ shadow_crypt_min_rounds }}"
