@@ -20,12 +20,24 @@ import (
 // mechanism is the canonical handler name.
 const mechanism = "config_set"
 
-// validSeparators lists the accepted separator values.
-var validSeparators = map[string]bool{
-	"=":   true,
-	" = ": true,
-	" ":   true,
-}
+// separatorValues is the SSOT for accepted config_set separators. The rule
+// value-domain validator consumes it via SeparatorValues() so the handler's
+// accepted set and the validator's allowed set cannot drift apart.
+var separatorValues = []string{"=", " = ", " "}
+
+// validSeparators lists the accepted separator values, derived from
+// separatorValues so there is a single source.
+var validSeparators = func() map[string]bool {
+	m := make(map[string]bool, len(separatorValues))
+	for _, s := range separatorValues {
+		m[s] = true
+	}
+	return m
+}()
+
+// SeparatorValues returns the accepted config_set separator values in a stable
+// order. It is the single source of truth for the rule value-domain validator.
+func SeparatorValues() []string { return append([]string(nil), separatorValues...) }
 
 // Params is the decoded parameter struct for the config_set mechanism.
 type Params struct {

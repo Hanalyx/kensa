@@ -1,0 +1,87 @@
+spec:
+    id: value-domains
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: value-domains
+        description: |
+            The drift audit found the rule validators checked param KEYS but
+            never VALUES. So a config_set 'separator' of "\t"/"\t\t" (separator
+            is a valid KEY) passed validation and only errored at Capture on a
+            live host; and package_state checks with state:"installed" (valid
+            keys, out-of-domain value) silently never matched {absent,present}.
+            9 corpus rules carry such out-of-domain values.
+
+            This spec adds constraint (11) validateValueDomains — the VALUE
+            layer the key validators lacked — wired into the rule validator,
+            with a knownValueDomainViolators ratchet seeded with the 9. Each
+            domain is grounded in engine source; config_set.separator's set is
+            imported from configset.SeparatorValues() (the handler's own SSOT)
+            so the validator and handler cannot drift.
+
+    objective:
+        summary: |
+            Reject out-of-domain param values (separators, state enums) at load
+            instead of at Capture, sourcing the separator set from the handler.
+        scope:
+            includes:
+                - "internal/rule constraint (11) validateValueDomains (checks + remediations)"
+                - "config_set.separator domain sourced from configset.SeparatorValues() (no drift)"
+                - "check state enums (apparmor_state, kernel_module_state, package_state) from check.go"
+                - "knownValueDomainViolators ratchet (9 ids) + corpus ratchet test"
+                - "configset.SeparatorValues() exported as the separator SSOT"
+            excludes:
+                - "selinux_state.state — accepted set not confirmed from source; deferred"
+                - "comparator operator domain — lands with the comparator engine PR"
+
+    constraints:
+        - id: C-01
+          description: |
+              The config_set separator domain MUST be sourced from the handler
+              (configset.SeparatorValues) so the validator's allowed set equals
+              the handler's accepted set — no second literal that can drift.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              validateValueDomains MUST reject a param whose value is outside
+              its domain, for both checks and remediations, at LOAD time —
+              unless the rule is in the ratchet allowlist.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              knownValueDomainViolators MUST ratchet: every corpus rule not in
+              the allowlist has in-domain values, and every allowlist entry is
+              still a real violator.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              The validator's config_set separator domain equals
+              configset.SeparatorValues() exactly (SSOT parity). Locked by
+              TestSeparatorDomainMatchesHandler.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              validateValueDomains flags a config_set separator outside the set
+              and a package_state value outside {absent,present}; in-domain
+              values pass; allowlisted rules are skipped. Locked by
+              TestValidateValueDomains.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Corpus ratchet: across all 539 rules, value-domain violators
+              equal knownValueDomainViolators exactly. Locked by
+              TestValueDomainCorpusRatchet.
+          references_constraints: [C-03]
+          priority: high
+
+    tags: [rule-validation, value-domain, drift, tier-2]
