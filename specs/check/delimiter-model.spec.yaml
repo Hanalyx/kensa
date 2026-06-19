@@ -1,0 +1,71 @@
+spec:
+    id: delimiter-model
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: delimiter-model
+        description: |
+            config_value defaults its delimiter to "=" and the schema modeled
+            only "KEY=value", so 6 rules checking the whitespace-delimited
+            /etc/login.defs ("KEY value") silently returned "not found" — a
+            false FAIL (the originally-reported bug: PASS_MAX_DAYS 60 reported
+            as not found).
+
+            The check engine already supports a declared delimiter (the grep
+            pattern ^\s*KEY\s*[<delim>:]\s* and value-split are sound for
+            delimiter " "); the gap was that the 6 login.defs rules never
+            declared it. The fix declares delimiter " " on those 6 config_value
+            checks and documents delimiter as a first-class config_value param.
+            No regex rewrite was needed (verified by the design's adversarial
+            review).
+
+    objective:
+        summary: |
+            Make config_value correctly check whitespace-delimited files by
+            declaring delimiter " " on the 6 login.defs rules and documenting
+            delimiter in the schema.
+        scope:
+            includes:
+                - "delimiter ' ' declared on the 6 /etc/login.defs config_value checks"
+                - "behavioral test: config_value with delimiter ' ' extracts a value from 'KEY value'"
+                - "schema doc: delimiter documented on config_value"
+            excludes:
+                - "rewriting the config_value grep regex (sound as-is; not needed)"
+                - "tab-delimited files (login.defs on RHEL is space-delimited)"
+
+    constraints:
+        - id: C-01
+          description: |
+              config_value with delimiter " " MUST find a whitespace-delimited
+              "KEY value" line and extract the value (including multi-space
+              "KEY   value"), instead of returning "not found".
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The 6 /etc/login.defs config_value rules MUST declare delimiter
+              " " so they check rather than silently false-FAIL.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              config_value with delimiter " " extracts the value from
+              "KEY value" and "KEY   value" lines and compares it (PASS when
+              satisfied). Locked by TestConfigValueWhitespaceDelimiter.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              The 6 login.defs rules declare delimiter " " (corpus check) and
+              the corpus validates clean. Verified by kensa-validate over the
+              corpus + the live fleet run (login-defs-pass-max-days now finds
+              the key and PASSes).
+          references_constraints: [C-02]
+          priority: high
+
+    tags: [check, delimiter, login-defs, drift, tier-2]

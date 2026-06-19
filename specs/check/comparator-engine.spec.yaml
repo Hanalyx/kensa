@@ -1,0 +1,94 @@
+spec:
+    id: comparator-engine
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: comparator-engine
+        description: |
+            19 corpus rules declared a check 'comparator' (<=, >=) that no
+            check method read — config_value/sysctl_value compared with
+            exact match, so threshold controls (password age, min length,
+            log size) gave wrong PASS/FAIL on conformant hosts. 'comparator'
+            was absent from the schema and unimplemented.
+
+            This implements comparator as a first-class, documented check
+            param on config_value and sysctl_value via a shared
+            compareValue() helper:
+              - "==" (default) / "!=" preserve each method's existing equality
+                semantics — config_value case-INSENSITIVE (strings.EqualFold),
+                sysctl_value case-SENSITIVE exact. This asymmetry is deliberate
+                and preserved, not unified.
+              - "<", "<=", ">", ">=" parse both operands as int64; a non-numeric
+                operand makes the check non-compliant (returns false, not an
+                engine error).
+            'comparator' becomes an Optional param in the check contract; its
+            operator VALUE set {==,!=,<,<=,>,>=} is enforced by the value-domain
+            validator. The 19 rules leave the check-param ratchet.
+
+    objective:
+        summary: |
+            Implement comparator in checkConfigValue/checkSysctlValue,
+            register it in the contract + value domain, and clear the 19
+            comparator rules from the ratchet.
+        scope:
+            includes:
+                - "check.compareValue helper (==,!=,<,<=,>,>=) with per-method equality"
+                - "comparator wired into checkConfigValue + checkSysctlValue"
+                - "comparator as Optional in CheckContracts for config_value + sysctl_value"
+                - "comparator operator value-domain {==,!=,<,<=,>,>=}"
+                - "remove the 19 comparator rules from knownNonConformingCheckRules"
+                - "schema doc: comparator documented on config_value/sysctl_value"
+            excludes:
+                - "comparator on non-config check methods (out of scope)"
+                - "float / version-string comparison (int64 only for now)"
+
+    constraints:
+        - id: C-01
+          description: |
+              compareValue MUST preserve the per-method equality asymmetry:
+              config_value "=="/"!=" case-insensitive (EqualFold), sysctl_value
+              case-sensitive exact. Numeric comparators parse int64.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              A non-numeric operand under a numeric comparator MUST yield a
+              non-compliant check (false), NOT an engine error — a scan must
+              not abort on a malformed value.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              comparator MUST be a contract Optional with its operator value
+              set enforced by the value-domain validator, and the 19 comparator
+              rules MUST no longer appear in the check-param ratchet.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              compareValue implements ==,!=,<,<=,>,>= with config_value
+              case-insensitive and sysctl_value case-sensitive equality.
+              Locked by TestCompareValue.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              A non-numeric operand under </<=/>/>= returns false (non-
+              compliant), not an error. Locked by TestCompareValue.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-03
+          description: |
+              comparator is Optional in CheckContracts for config_value and
+              sysctl_value, and the 19 comparator rules are absent from
+              knownNonConformingCheckRules (covered by the check-param corpus
+              ratchet). Locked by TestCheckParamCorpusRatchet (ratchet shrinks).
+          references_constraints: [C-03]
+          priority: high
+
+    tags: [check, comparator, engine, drift, tier-2]
