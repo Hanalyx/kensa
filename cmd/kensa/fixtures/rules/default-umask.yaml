@@ -1,0 +1,16 @@
+rule: default-umask
+method: config_value
+params:
+  key: "UMASK"
+  expected: "077"
+  delimiter: " "
+cases:
+  - name: compliant            # exact match (== default)
+    content: "UMASK 077\n"
+    want: pass
+  - name: noncompliant
+    content: "UMASK 022\n"
+    want: fail
+  - name: key-missing
+    content: "PASS_MAX_DAYS 60\n"
+    want: fail
