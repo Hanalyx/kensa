@@ -22,6 +22,10 @@ type FakeSysctlTransport struct {
 	// WriteErr, keyed by sysctl key, simulates a kernel rejection (EINVAL)
 	// on WriteSysctl for that key.
 	WriteErr map[string]error
+
+	// Runs records shell commands issued via Run (e.g. the mount handler's
+	// remount, which stays on mount(8) even on the kernel-IO path).
+	Runs []string
 }
 
 // NewFakeSysctl returns a FakeSysctlTransport with initialized maps.
@@ -76,8 +80,10 @@ func (f *FakeSysctlTransport) AtomicRemove(_ context.Context, fullPath string) e
 // be passed in. Run defaults to success; the shell path is never reached
 // because the handler's type assertion to SysctlTransport succeeds.
 
-// Run is a no-op success (the kernel-IO path does not shell out).
-func (f *FakeSysctlTransport) Run(_ context.Context, _ string) (*api.CommandResult, error) {
+// Run records the command and returns success. The sysctl kernel-IO
+// path never calls it; the mount kernel-IO path uses it for the remount.
+func (f *FakeSysctlTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
+	f.Runs = append(f.Runs, cmd)
 	return &api.CommandResult{ExitCode: 0}, nil
 }
 

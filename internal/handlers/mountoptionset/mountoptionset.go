@@ -2,6 +2,16 @@
 // add or replace a mount option in /etc/fstab and remount the
 // filesystem to apply the change at runtime.
 // Spec: specs/handlers/mount_option_set.spec.yaml.
+//
+// Dual path: when the transport implements kernelio.FileTransport (agent
+// mode on the target host) the handler edits /etc/fstab by parsing it in
+// Go and rewriting it atomically (fsatomic), instead of the awk + mv
+// shell pipeline. The runtime remount deliberately STAYS on mount(8)
+// (transport.Run "mount -o remount") on both paths: a raw MS_REMOUNT via
+// unix.Mount would have to reconcile the filesystem's currently-applied
+// flags, and getting that wrong is filesystem-destructive — mount(8) does
+// it correctly. Founder-ratified. Both paths write byte-identical fstab
+// content and record an identical PreState shape.
 package mountoptionset
 
 import (
@@ -12,10 +22,23 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "mount_option_set"
+
+// fstabPath is the system mount table the handler edits.
+const fstabPath = "/etc/fstab"
+
+// fstabMode is the canonical /etc/fstab mode (root-owned, world-readable).
+const fstabMode = 0o644
+
+// remountCmd is the runtime-apply command, shared by both paths — the
+// remount stays on mount(8) for correct MS_* flag reconciliation.
+func remountCmd(mountPoint string) string {
+	return fmt.Sprintf("mount -o remount %s", shellEscape(mountPoint))
+}
 
 // Params is the decoded parameter struct for mount_option_set.
 type Params struct {
@@ -123,7 +146,44 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.applyKernel(ctx, ft, transport, p)
+	}
+	return h.applyShell(ctx, transport, p)
+}
 
+// applyKernel edits /etc/fstab in Go (parse + atomic rewrite) and
+// remounts via mount(8).
+func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, p *Params) (*api.StepResult, error) {
+	content, existed, err := ft.ReadFileIfExists(fstabPath)
+	if err != nil {
+		return nil, fmt.Errorf("mount_option_set: read fstab: %w", err)
+	}
+	if !existed {
+		return &api.StepResult{Success: false, Detail: "mount_option_set: /etc/fstab not found"}, nil
+	}
+	newContent, err := kernelio.FstabAddOptions(content, p.MountPoint, strings.Split(p.Option, ","))
+	if err != nil {
+		// No matching entry → non-compliant outcome, not a transport error.
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("mount_option_set: %v for %s", err, p.MountPoint),
+		}, nil
+	}
+	if err := ft.AtomicReplace(ctx, fstabPath, fstabMode, []byte(newContent)); err != nil {
+		return nil, fmt.Errorf("mount_option_set: rewrite fstab: %w", err)
+	}
+	if step := remount(ctx, transport, p.MountPoint, "apply"); step != nil {
+		return step, nil
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("mount_option_set: added %s to %s and remounted (kernel-io)", p.Option, p.MountPoint),
+	}, nil
+}
+
+// applyShell rewrites fstab via awk + mv and remounts.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
 	// awk script: for the matching mount point line, append each requested
 	// option to field 4 (options) if it is not already present. Each option
 	// is checked and appended independently so a multi-option request
@@ -158,12 +218,52 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}, nil
 }
 
+// remount runs `mount -o remount <mp>` and returns a non-nil failed
+// StepResult if it did not succeed, or nil on success. phase labels the
+// caller for the detail message.
+func remount(ctx context.Context, transport api.Transport, mountPoint, phase string) *api.StepResult {
+	res, err := transport.Run(ctx, remountCmd(mountPoint))
+	if err != nil {
+		return &api.StepResult{Success: false, Detail: fmt.Sprintf("mount_option_set: %s remount transport error: %v", phase, err)}
+	}
+	if !res.OK() {
+		return &api.StepResult{Success: false, Detail: fmt.Sprintf("mount_option_set: %s remount failed (exit %d): %s", phase, res.ExitCode, strings.TrimSpace(res.Stderr))}
+	}
+	return nil
+}
+
 // Capture records the current fstab options line for the mount point.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.captureKernel(ft, p)
+	}
+	return h.captureShell(ctx, transport, p)
+}
+
+// captureKernel reads /etc/fstab directly and records the matching line.
+func (h *Handler) captureKernel(ft kernelio.FileTransport, p *Params) (*api.PreState, error) {
+	content, existed, err := ft.ReadFileIfExists(fstabPath)
+	if err != nil {
+		return nil, fmt.Errorf("mount_option_set: capture read fstab: %w (%v)", api.ErrCaptureIncomplete, err)
+	}
+	if !existed {
+		return nil, fmt.Errorf("mount_option_set: capture failed for %s: %w (/etc/fstab not found)",
+			p.MountPoint, api.ErrCaptureIncomplete)
+	}
+	line, found := kernelio.FstabFindLine(content, p.MountPoint)
+	if !found {
+		return nil, fmt.Errorf("mount_option_set: capture failed for %s: %w (no matching fstab entry)",
+			p.MountPoint, api.ErrCaptureIncomplete)
+	}
+	return h.preState(p, line), nil
+}
+
+// captureShell extracts the matching fstab line via grep.
+func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params) (*api.PreState, error) {
 	// Extract the full fstab line for this mount point.
 	cmd := fmt.Sprintf(
 		`grep -E %s /etc/fstab | grep -v '^[[:space:]]*#' | head -1`,
@@ -177,7 +277,12 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		return nil, fmt.Errorf("mount_option_set: capture failed for %s: %w (no matching fstab entry)",
 			p.MountPoint, api.ErrCaptureIncomplete)
 	}
-	priorLine := strings.TrimSpace(res.Stdout)
+	return h.preState(p, strings.TrimSpace(res.Stdout)), nil
+}
+
+// preState builds the canonical PreState shape used by both capture
+// paths, so Rollback is path-agnostic.
+func (h *Handler) preState(p *Params, priorLine string) *api.PreState {
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
@@ -187,7 +292,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"option":      p.Option,
 			"prior_line":  priorLine,
 		},
-	}, nil
+	}
 }
 
 // Rollback restores the prior fstab line and remounts.
@@ -201,6 +306,41 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		return nil, errors.New("mount_option_set: pre-state missing 'mount_point' or 'prior_line'")
 	}
 
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.rollbackKernel(ctx, ft, transport, mountPoint, priorLine)
+	}
+	return h.rollbackShell(ctx, transport, mountPoint, priorLine)
+}
+
+// rollbackKernel restores the captured fstab line (Go parse + atomic
+// rewrite) and remounts via mount(8).
+func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, mountPoint, priorLine string) (*api.RollbackResult, error) {
+	content, existed, err := ft.ReadFileIfExists(fstabPath)
+	if err != nil {
+		return nil, fmt.Errorf("mount_option_set: rollback read fstab: %w", err)
+	}
+	if !existed {
+		return &api.RollbackResult{Success: false, Detail: "mount_option_set: /etc/fstab not found", ExecutedAt: time.Now().UTC()}, nil
+	}
+	newContent, err := kernelio.FstabReplaceLine(content, mountPoint, priorLine)
+	if err != nil {
+		return &api.RollbackResult{Success: false, Detail: fmt.Sprintf("mount_option_set: %v for %s", err, mountPoint), ExecutedAt: time.Now().UTC()}, nil
+	}
+	if err := ft.AtomicReplace(ctx, fstabPath, fstabMode, []byte(newContent)); err != nil {
+		return nil, fmt.Errorf("mount_option_set: rollback rewrite fstab: %w", err)
+	}
+	if step := remount(ctx, transport, mountPoint, "rollback"); step != nil {
+		return &api.RollbackResult{Success: false, Detail: step.Detail, ExecutedAt: time.Now().UTC()}, nil
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("mount_option_set: restored fstab entry and remounted %s (kernel-io)", mountPoint),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// rollbackShell restores the captured fstab line via awk + mv and remounts.
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mountPoint, priorLine string) (*api.RollbackResult, error) {
 	// Replace the fstab line for this mount point with the captured prior line.
 	awkScript := fmt.Sprintf(
 		`$2 == %s { print %s; next } { print }`,
