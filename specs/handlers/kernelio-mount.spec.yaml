@@ -1,0 +1,110 @@
+spec:
+    id: kernelio-mount
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: kernelio-mount
+        description: |
+            The mount_option_set handler edits /etc/fstab via direct file
+            IO when running on the target host (agent mode): it reads the
+            table, parses it in Go, adds the requested options to the
+            matching mount-point line's options field, and rewrites the
+            file atomically (fsatomic), instead of the awk + temp-file + mv
+            shell pipeline. The runtime apply — the remount — DELIBERATELY
+            stays on mount(8) (`mount -o remount`) on BOTH paths: a raw
+            MS_REMOUNT via unix.Mount must reconcile the filesystem's
+            currently-applied flags, and getting that wrong is
+            filesystem-destructive; mount(8) does it correctly. This is a
+            founder-ratified decision (the riskiest operation in the
+            kernel-primitive migration).
+        related_specs:
+            - handler-mount-option-set
+            - kernelio-sysctl
+
+    objective:
+        summary: |
+            Provide /etc/fstab parse/edit helpers and wire
+            mount_option_set's Apply/Capture/Rollback to use them in agent
+            mode, preserving the shell fallback, byte-identical fstab
+            content across both paths, an identical captured PreState
+            shape, and the mount(8) remount on both paths.
+        scope:
+            includes:
+                - kernelio.FileTransport capability (atomic file IO + existence-aware read)
+                - kernelio.FstabFindLine / FstabAddOptions / FstabReplaceLine
+                - mount_option_set dual-path Apply/Capture/Rollback (fstab layer)
+            excludes:
+                - the runtime remount mechanism (stays mount(8) on both paths, by design)
+                - the shell path's behavior (handler-mount-option-set)
+                - unix.Mount MS_REMOUNT (explicitly NOT implemented — see context)
+
+    constraints:
+        - id: C-01
+          description: |
+              FstabAddOptions MUST append only the missing option tokens
+              to the matching mount-point line's options field (idempotent
+              per token), re-join the modified line's fields with single
+              spaces (matching the awk path so both paths produce
+              byte-identical content), leave non-matching and comment lines
+              untouched, and return ErrNoFstabEntry when no line matches.
+              FstabReplaceLine MUST replace the matching line verbatim.
+              Comment/blank lines MUST never match a mount point.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              mount_option_set MUST select the kernel-IO path iff the
+              transport implements kernelio.FileTransport, else the shell
+              path. Both paths MUST record an identical PreState shape
+              (mount_point, option, prior_line) so capture/rollback are
+              path-agnostic, and BOTH paths MUST perform the runtime apply
+              via `mount -o remount` (mount(8)), never a raw remount
+              syscall.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              On the kernel-IO path, a mount point with no matching fstab
+              entry MUST surface as a Success:false StepResult on Apply
+              (and the remount MUST NOT run), and as ErrCaptureIncomplete
+              on Capture — never a silent success. The fstab rewrite MUST
+              be atomic (fsatomic), so a crash mid-write leaves the old or
+              new table, never a truncated one.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              FstabFindLine finds a mount point's line and skips comments;
+              FstabAddOptions adds missing options (idempotent, single-space
+              re-join, other lines untouched) and returns ErrNoFstabEntry
+              for a missing mount point; FstabReplaceLine replaces verbatim.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              mount_option_set kernel-IO Apply edits the fstab options
+              field atomically and remounts via mount(8); a mount point
+              with no fstab entry yields a Success:false step and does NOT
+              remount.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              mount_option_set kernel-IO Capture → Apply → Rollback
+              restores the prior fstab line; Capture on a missing entry
+              surfaces ErrCaptureIncomplete.
+          references_constraints: [C-02, C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              A transport without the kernelio capability falls back to the
+              awk + mv shell path.
+          references_constraints: [C-02]
+          priority: critical
+
+    tags: [handler, kernelio, mount, fstab, agent, tier-1, phase-6]
