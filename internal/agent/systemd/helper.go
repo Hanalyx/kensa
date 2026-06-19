@@ -193,6 +193,14 @@ func (c *Client) Mask(ctx context.Context, unit string) (*Response, error) {
 	return c.invoke(ctx, "mask", unit)
 }
 
+// Unmask runs `sudo helper unmask <unit>`. The inverse of Mask;
+// needed so service_masked's rollback can restore a unit whose
+// captured prior state was not masked without shelling out to
+// `systemctl unmask`.
+func (c *Client) Unmask(ctx context.Context, unit string) (*Response, error) {
+	return c.invoke(ctx, "unmask", unit)
+}
+
 // Start runs `sudo helper start <unit>`. D-011 — first
 // job-producing op; the helper waits on JobRemoved before
 // returning. The returned Response carries JobResult — the

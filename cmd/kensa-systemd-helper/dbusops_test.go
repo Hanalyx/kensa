@@ -47,6 +47,13 @@ type fakeConn struct {
 	maskErr     error
 	maskCalls   int
 
+	// UnmaskUnitFiles
+	unmaskUnits   []string
+	unmaskRuntime bool
+	unmaskChanges []dbus.UnmaskUnitFileChange
+	unmaskErr     error
+	unmaskCalls   int
+
 	// StartUnitContext + StopUnitContext (D-011)
 	// startCh / stopCh capture the channel argument so tests
 	// can assert spec C-03's "channel non-nil at invocation"
@@ -133,6 +140,15 @@ func (f *fakeConn) MaskUnitFilesContext(_ context.Context, files []string, runti
 	f.maskRuntime = runtime
 	f.maskForce = force
 	return f.maskChanges, f.maskErr
+}
+
+func (f *fakeConn) UnmaskUnitFilesContext(_ context.Context, files []string, runtime bool) ([]dbus.UnmaskUnitFileChange, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.unmaskCalls++
+	f.unmaskUnits = append([]string(nil), files...)
+	f.unmaskRuntime = runtime
+	return f.unmaskChanges, f.unmaskErr
 }
 
 // StartUnitContext records the call AND spawns a goroutine
@@ -925,6 +941,75 @@ func TestMask_DBusError(t *testing.T) {
 	}
 	withFakeConn(t, fc, nil)
 	exit, resp, _ := dispatchHelper(t, "mask", "sshd.service")
+	if exit != 1 {
+		t.Errorf("exit got %d, want 1", exit)
+	}
+	if resp.Error == nil || resp.Error.Code != "access_denied" {
+		t.Errorf("expected access_denied; got %+v", resp.Error)
+	}
+}
+
+// ─── unmask (Phase 4 consumption) ─────────────────────────────────
+
+// TestUnmask_HappyPath: UnmaskUnitFiles succeeds + UnitFileState
+// reads back "disabled" → exit 0, success:true, the symlink-removal
+// change captured. unmask takes no force parameter (mirrors disable).
+//
+// @spec agent-systemd-helper
+// @ac AC-12
+func TestUnmask_HappyPath(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-12", func(t *testing.T) {})
+	fc := &fakeConn{
+		unmaskChanges: []dbus.UnmaskUnitFileChange{
+			{Type: "unlink", Filename: "/etc/systemd/system/sshd.service", Destination: ""},
+		},
+		propResponses: map[string]*dbus.Property{
+			"UnitFileState": makeStringProp("disabled"),
+		},
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "unmask", "sshd.service")
+	if exit != 0 {
+		t.Errorf("exit got %d, want 0", exit)
+	}
+	if !resp.Success {
+		t.Error("Success should be true")
+	}
+	if resp.Op != "unmask" {
+		t.Errorf("Op got %q, want unmask", resp.Op)
+	}
+	if resp.SettledState != "disabled" {
+		t.Errorf("SettledState got %q, want disabled", resp.SettledState)
+	}
+	if len(resp.Changes) != 1 {
+		t.Fatalf("Changes len got %d, want 1", len(resp.Changes))
+	}
+	if resp.Changes[0].Type != "unlink" {
+		t.Errorf("unmask change type got %q, want unlink", resp.Changes[0].Type)
+	}
+	if len(fc.unmaskUnits) != 1 || fc.unmaskUnits[0] != "sshd.service" {
+		t.Errorf("unmask called with %v", fc.unmaskUnits)
+	}
+	if fc.unmaskCalls != 1 {
+		t.Errorf("unmask should be called once; got %d", fc.unmaskCalls)
+	}
+	if fc.maskCalls != 0 {
+		t.Errorf("mask must not be called on an unmask op; got %d", fc.maskCalls)
+	}
+}
+
+// TestUnmask_DBusError: UnmaskUnitFiles fails → exit 1 with typed
+// error code.
+//
+// @spec agent-systemd-helper
+// @ac AC-12
+func TestUnmask_DBusError(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-12", func(t *testing.T) {})
+	fc := &fakeConn{
+		unmaskErr: dbusErrFixture(`Error org.freedesktop.systemd1.AccessDenied: permission denied`),
+	}
+	withFakeConn(t, fc, nil)
+	exit, resp, _ := dispatchHelper(t, "unmask", "sshd.service")
 	if exit != 1 {
 		t.Errorf("exit got %d, want 1", exit)
 	}

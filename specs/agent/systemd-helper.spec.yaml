@@ -1,6 +1,6 @@
 spec:
     id: agent-systemd-helper
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -164,10 +164,10 @@ spec:
         - id: AC-01
           description: |
               `kensa-systemd-helper` accepts subcommands `enable`,
-              `disable`, `mask`, `is-enabled`, `unit-state` followed
-              by exactly one positional unit-name argument (e.g.,
-              `sshd.service`). Unknown subcommand → exit 2, usage
-              message on stderr.
+              `disable`, `mask`, `unmask`, `start`, `stop`,
+              `is-enabled`, `unit-state` followed by exactly one
+              positional unit-name argument (e.g., `sshd.service`).
+              Unknown subcommand → exit 2, usage message on stderr.
           references_constraints: [C-01]
           priority: critical
         - id: AC-02
@@ -298,6 +298,22 @@ spec:
               degrade gracefully when it fires.
           references_constraints: [C-02]
           priority: high
+        - id: AC-12
+          description: |
+              The helper supports an `unmask` subcommand — the inverse
+              of `mask` — invoking D-Bus UnmaskUnitFiles (no `force`
+              parameter, mirroring `disable`) and reading back the
+              settled UnitFileState. Success emits the standard NDJSON
+              envelope `{"op":"unmask", "success":true,
+              "settled_state":"disabled", "changes":[...]}` and exits 0;
+              a D-Bus failure emits the typed `error` block and exits 1.
+              Rationale: service_masked's rollback must restore a unit
+              whose captured prior state was NOT masked, so the agent
+              path needs unmask to fully replace `systemctl unmask`
+              (Phase 4 dual-path consumption — handlers stop shelling
+              out).
+          references_constraints: [C-02, C-04]
+          priority: critical
 
     # AC-09 (kensa-package sudoers fragment install) + companion C-06
     # were un-deferred 2026-06-03 when the v0.2.2 packaging deliverable

@@ -168,7 +168,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	positional := fs.Args()
 
 	switch subcmd {
-	case "enable", "disable", "mask", "start", "stop", "is-enabled", "unit-state":
+	case "enable", "disable", "mask", "unmask", "start", "stop", "is-enabled", "unit-state":
 		if len(positional) != 1 {
 			fmt.Fprintf(stderr,
 				"kensa-systemd-helper: %s: expected exactly one unit argument, got %d\n",
@@ -308,6 +308,7 @@ Subcommands:
   enable <unit>       Enable the unit (D-Bus EnableUnitFiles).
   disable <unit>      Disable the unit (D-Bus DisableUnitFiles).
   mask <unit>         Mask the unit (D-Bus MaskUnitFiles).
+  unmask <unit>       Unmask the unit (D-Bus UnmaskUnitFiles).
   start <unit>        Start the unit (D-Bus StartUnit + JobRemoved wait).
   stop <unit>         Stop the unit (D-Bus StopUnit + JobRemoved wait).
   is-enabled <unit>   Print the unit's UnitFileState.
