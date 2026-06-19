@@ -14,6 +14,70 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 (no changes yet)
 
+## v0.5.2 — 2026-06-19
+
+Closes a class of *silent* rule-engine drift: the rule schema, the
+corpus, the check/remediation engine, and the validator could disagree
+and a rule would still load and emit a confident-but-wrong compliance
+verdict. This release converts each axis into a code-enforced gate that
+fails CI on regression, fixes the one live-caught false verdict the new
+gates exposed, and corrects a CLI-output mislabel. PATCH bump: all
+changes are in `internal/`, `cmd/`, `specs/`, and `rules/` — the frozen
+`api/` surface is untouched.
+
+### Added
+
+- **Check-method parameter contract (closed-world).** Every check
+  method now declares the params it reads (`internal/check.CheckContracts`,
+  the SSOT derived from the check implementations, not the prose schema);
+  the rule validator rejects a check that declares a param the method
+  never reads, so a rule's intent can no longer be silently dropped. A
+  ratcheting allowlist tracks the remaining known-non-conforming corpus
+  rules and may only shrink (#97).
+- **Value-domain validation.** Param *values* are checked against their
+  domain at rule load — comparator ∈ {`==`,`!=`,`<`,`<=`,`>`,`>=`},
+  enum-valued params (apparmor/kernel_module/package state), and
+  `config_set.separator` — rejecting out-of-domain values that previously
+  loaded and misbehaved. Ratcheting allowlist (#98).
+- **Comparator + first-class delimiter engine for value checks.**
+  `config_value` and `sysctl_value` now accept an optional `comparator`
+  (the six relational operators; numeric operands parsed as int64,
+  non-numeric compares as non-compliant rather than erroring), and
+  `config_value` accepts a first-class `delimiter` param. Both are now
+  documented in `CANONICAL_RULE_SCHEMA_V1.md` §3.5.3 (regenerated from the
+  contracts) with new §3.5.3.1 (comparator) and §3.5.3.2 (delimiter) (#100).
+- **Full-spectrum behavior harness + schema/engine parity gate.** A
+  fixture-driven harness exercises each check against real temp files for
+  pass/fail/edge cases (#101); a parity test parses the check dispatch
+  switch from source and asserts it matches `CheckContracts` in both
+  directions, so the contract can never silently drift from the
+  implementation again (#102).
+
+### Fixed
+
+- **`config_value` with `delimiter: " "` now matches whitespace, not only
+  a literal space.** RHEL `login.defs` is TAB-delimited (`PASS_WARN_AGE⇥7`),
+  so the space-only match silently returned "not found" and produced a
+  false FAIL on the login.defs class of rules — exactly the wrong-verdict
+  failure these gates exist to catch (found by the live-fleet review, not
+  static analysis). Extraction is now whitespace-aware for the `" "`
+  delimiter, with TAB regression coverage (#103).
+- **`--format jsonl` no longer mislabels skipped rules as errors.** The
+  jsonl scan writer read the legacy `Transactions` surface, where a
+  platform-gated or not-applicable rule is recorded as `errored` for
+  back-compat; it now maps from the canonical `ScanResult.Outcomes`
+  (`pass`/`fail`/`skipped`/`error`). A first-class `skipped` count is added
+  and skips no longer inflate `errors`. Other formats are unchanged;
+  confirmed no-impact for OpenWatch, which consumes `Outcomes` via the
+  library path (#104).
+
+### Changed
+
+- `output-writer` spec bumped to v0.2.0: new constraint C-07 documents the
+  jsonl writer reading the canonical `Outcomes` surface, superseding C-03's
+  byte-stability guarantee for the jsonl writer only (all other formats
+  remain byte-identical) (#104).
+
 ## v0.5.1 — 2026-06-18
 
 Fixes a packaging gap that blocked external consumers (e.g. OpenWatch)
