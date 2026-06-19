@@ -18,6 +18,9 @@ cases:
   - name: multi-space          # whitespace-delimited extraction
     content: "# aging\nPASS_MAX_DAYS   30\nPASS_MIN_DAYS 1\n"
     want: pass
+  - name: tab-delimited        # RHEL default; the space-only fix missed this (live-test blocker)
+    content: "PASS_MAX_DAYS\t90\n"
+    want: pass
   - name: key-missing          # delimiter fix must not false-PASS when absent
     content: "PASS_MIN_DAYS 1\n"
     want: fail

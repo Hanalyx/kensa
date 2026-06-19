@@ -225,13 +225,23 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 		return true, fmt.Sprintf("config_value: bare key %q present in %s", key, path), nil
 	}
 
+	// A delimiter of " " means the file is WHITESPACE-delimited ("KEY value"
+	// or "KEY\tvalue", e.g. /etc/login.defs). Match the key followed by one or
+	// more whitespace chars — a literal-space char class [ :] would exclude
+	// TAB and false-report a TAB-delimited key as "not found" (a wrong
+	// compliance verdict). Other delimiters keep the exact char-class form.
+	whitespaceDelim := delimiter == " "
+	var pattern string
+	if whitespaceDelim {
+		pattern = fmt.Sprintf(`^\s*%s\s+`, key)
+	} else {
+		pattern = fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, key, delimiter)
+	}
 	var cmd string
 	if scanPattern != "" {
 		// Directory scan: grep recursively using the scan pattern as a file glob suffix.
-		pattern := fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, key, delimiter)
 		cmd = fmt.Sprintf("grep -rE %s %s/*.%s 2>/dev/null", shellQuote(pattern), shellQuote(path), shellQuote(scanPattern))
 	} else {
-		pattern := fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, key, delimiter)
 		cmd = fmt.Sprintf("grep -E %s %s 2>/dev/null", shellQuote(pattern), shellQuote(path))
 	}
 
@@ -254,16 +264,26 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 			line = line[idx+1:]
 		}
 	}
-	// Split on delimiter or colon to isolate the value.
-	sep := delimiter
-	if !strings.Contains(line, sep) {
-		sep = ":"
+	var got string
+	if whitespaceDelim {
+		// "KEY value" / "KEY\tvalue": fields[0] is the key, fields[1] the value.
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			return false, fmt.Sprintf("config_value: could not parse value from line %q", line), nil
+		}
+		got = fields[1]
+	} else {
+		// Split on delimiter or colon to isolate the value.
+		sep := delimiter
+		if !strings.Contains(line, sep) {
+			sep = ":"
+		}
+		parts := strings.SplitN(line, sep, 2)
+		if len(parts) < 2 {
+			return false, fmt.Sprintf("config_value: could not parse value from line %q", line), nil
+		}
+		got = strings.TrimSpace(parts[1])
 	}
-	parts := strings.SplitN(line, sep, 2)
-	if len(parts) < 2 {
-		return false, fmt.Sprintf("config_value: could not parse value from line %q", line), nil
-	}
-	got := strings.TrimSpace(parts[1])
 	comparator := optionalStringParam(params, "comparator", "==")
 	if !compareValue(got, expected, comparator, true) {
 		return false, fmt.Sprintf("config_value: key %q: got %q, expected %s %q", key, got, comparator, expected), nil

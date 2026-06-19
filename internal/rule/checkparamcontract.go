@@ -28,7 +28,7 @@ var knownNonConformingCheckRules = map[string]string{
 	"ssh-private-key-permissions": "file_permission declares unread 'glob'",
 	"ssh-public-key-permissions":  "file_permission declares unread 'glob'",
 	// typo / wrong-method params that the check silently ignores.
-	"coredump-socket-disabled":    "command declares unread 'expected_enabled'",
+	"coredump-socket-disabled":    "service_state declares unread 'expected_enabled' (should be enabled/active)",
 	"usbguard-block-unauthorized": "service_state declares unread 'state' (should be active:true)",
 }
 
