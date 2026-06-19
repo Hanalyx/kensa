@@ -156,6 +156,11 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 	// rejected at load instead of silently ignored at scan time.
 	validateCheckParams(rule, add)
 
+	// (11) Param VALUES are within the engine's accepted domain (separators,
+	// state enums). Rejects e.g. a config_set separator "\t" at load instead
+	// of at Capture on a live host.
+	validateValueDomains(rule, add)
+
 	return errs
 }
 
