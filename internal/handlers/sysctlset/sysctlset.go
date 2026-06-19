@@ -1,7 +1,16 @@
 // Package sysctlset implements the sysctl_set handler: set a kernel
-// parameter both at runtime (via sysctl -w) and persistently (via a
-// drop-in file under /etc/sysctl.d/). Spec:
-// specs/handlers/sysctl_set.spec.yaml.
+// parameter both at runtime and persistently (via a drop-in file under
+// /etc/sysctl.d/). Spec: specs/handlers/sysctl_set.spec.yaml.
+//
+// Dual path: when the transport implements kernelio.SysctlTransport
+// (agent mode on the target host) the handler applies the runtime value
+// by writing /proc/sys directly and the persist drop-in via the atomic
+// file primitives — no sysctl(8)/shell. Otherwise it falls back to the
+// `sysctl -w` + shell file-write path. The two paths write a
+// byte-identical drop-in file and record an identical PreState shape, so
+// capture/rollback are path-agnostic. Because the kernel-IO primitives
+// are syscalls (always available in agent mode), the type assertion
+// alone selects the path — there is no "primitive absent" fallback.
 package sysctlset
 
 import (
@@ -12,7 +21,17 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
+
+// persistMode is the drop-in file mode (root-readable config).
+const persistMode = 0o644
+
+// persistContent renders the canonical drop-in body for a key/value, so
+// the kernel-IO and shell paths write byte-identical files.
+func persistContent(key, value string) string {
+	return fmt.Sprintf("# Managed by Kensa.\n%s = %s\n", key, value)
+}
 
 // mechanism is the canonical handler name.
 const mechanism = "sysctl_set"
@@ -97,7 +116,38 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if k, ok := transport.(kernelio.SysctlTransport); ok {
+		return h.applyKernel(ctx, k, p)
+	}
+	return h.applyShell(ctx, transport, p)
+}
 
+// applyKernel sets the runtime value via a direct /proc/sys write and
+// writes the persist drop-in atomically. Runtime first: if the kernel
+// rejects the value the write errors and we abort before touching the
+// persist file (handler-sysctl-set spec AC-06).
+func (h *Handler) applyKernel(_ context.Context, k kernelio.SysctlTransport, p *Params) (*api.StepResult, error) {
+	if err := k.WriteSysctl(p.Key, p.Value); err != nil {
+		// A rejected value (kernel EINVAL) is a non-compliant outcome,
+		// not a transport failure — surface it as a failed step, mirroring
+		// the shell path's non-zero sysctl -w exit.
+		return &api.StepResult{
+			Success: false,
+			Detail:  fmt.Sprintf("sysctl_set: runtime apply failed: %v", err),
+		}, nil
+	}
+	if err := k.AtomicReplace(context.Background(), p.PersistFile, persistMode, []byte(persistContent(p.Key, p.Value))); err != nil {
+		return nil, fmt.Errorf("sysctl_set: persist write failed: %w", err)
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("sysctl_set: %s=%s applied to runtime + %s (kernel-io)", p.Key, p.Value, p.PersistFile),
+	}, nil
+}
+
+// applyShell sets the runtime value via `sysctl -w` and writes the
+// persist drop-in via a shell redirect.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
 	// Runtime first. If the kernel rejects the value, we abort before
 	// touching the persist file (handler-sysctl-set spec AC-06).
 	runtimeCmd := fmt.Sprintf("sysctl -w %s=%s", shellEscape(p.Key), shellEscape(p.Value))
@@ -115,8 +165,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	// Persist. Atomically overwrite the file with a single canonical
 	// "key = value\n" line, plus a header so future reviewers know
 	// who wrote it.
-	content := fmt.Sprintf("# Managed by Kensa.\n%s = %s\n", p.Key, p.Value)
-	persistCmd := fmt.Sprintf("printf %s > %s", shellEscape(content), shellEscape(p.PersistFile))
+	persistCmd := fmt.Sprintf("printf %s > %s", shellEscape(persistContent(p.Key, p.Value)), shellEscape(p.PersistFile))
 	res, err = transport.Run(ctx, persistCmd)
 	if err != nil {
 		return nil, fmt.Errorf("sysctl_set: persist write transport error: %w", err)
@@ -145,7 +194,30 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return nil, err
 	}
+	if k, ok := transport.(kernelio.SysctlTransport); ok {
+		return h.captureKernel(k, p)
+	}
+	return h.captureShell(ctx, transport, p)
+}
 
+// captureKernel records the runtime value (direct /proc/sys read) and the
+// persist-file content/existence (direct file read).
+func (h *Handler) captureKernel(k kernelio.SysctlTransport, p *Params) (*api.PreState, error) {
+	runtimeValue, err := k.ReadSysctl(p.Key)
+	if err != nil {
+		return nil, fmt.Errorf("sysctl_set: capture runtime failed for %s: %w (%v)",
+			p.Key, api.ErrCaptureIncomplete, err)
+	}
+	content, existed, err := k.ReadFileIfExists(p.PersistFile)
+	if err != nil {
+		return nil, fmt.Errorf("sysctl_set: capture persist failed for %s: %w (%v)",
+			p.PersistFile, api.ErrCaptureIncomplete, err)
+	}
+	return h.preState(p, runtimeValue, content, existed), nil
+}
+
+// captureShell records the runtime value and persist-file content via shell.
+func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params) (*api.PreState, error) {
 	// Runtime value via `sysctl -n` (no key prefix in output).
 	runtimeRes, err := transport.Run(ctx, fmt.Sprintf("sysctl -n %s", shellEscape(p.Key)))
 	if err != nil {
@@ -163,13 +235,18 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return nil, fmt.Errorf("sysctl_set: capture persist transport error: %w", err)
 	}
-	persistContent := persistRes.Stdout
-	persistExisted := true
-	if persistContent == "__KENSA_ABSENT__" {
-		persistContent = ""
-		persistExisted = false
+	content := persistRes.Stdout
+	existed := true
+	if content == "__KENSA_ABSENT__" {
+		content = ""
+		existed = false
 	}
+	return h.preState(p, strings.TrimSpace(runtimeRes.Stdout), content, existed), nil
+}
 
+// preState builds the canonical PreState shape used by both capture
+// paths, so Rollback is path-agnostic.
+func (h *Handler) preState(p *Params, runtimeValue, persistFileContent string, persistFileExisted bool) *api.PreState {
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
@@ -177,11 +254,11 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		Data: map[string]interface{}{
 			"key":                  p.Key,
 			"persist_file":         p.PersistFile,
-			"runtime_value":        strings.TrimSpace(runtimeRes.Stdout),
-			"persist_file_content": persistContent,
-			"persist_file_existed": persistExisted,
+			"runtime_value":        runtimeValue,
+			"persist_file_content": persistFileContent,
+			"persist_file_existed": persistFileExisted,
 		},
-	}, nil
+	}
 }
 
 // Rollback restores the runtime value and the persist file from
@@ -205,12 +282,48 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		return nil, fmt.Errorf("sysctl_set: pre-state missing 'key' or 'persist_file'")
 	}
 
+	if k, ok := transport.(kernelio.SysctlTransport); ok {
+		return h.rollbackKernel(k, key, persistFile, runtimeValue, persistContent, persistExisted)
+	}
+	return h.rollbackShell(ctx, transport, key, persistFile, runtimeValue, persistContent, persistExisted)
+}
+
+// rollbackKernel restores the persist drop-in (atomic rewrite or remove)
+// and the runtime value (direct /proc/sys write).
+func (h *Handler) rollbackKernel(k kernelio.SysctlTransport, key, persistFile, runtimeValue, persistFileContent string, persistFileExisted bool) (*api.RollbackResult, error) {
+	// Restore persist layer first; the runtime write then sets the
+	// captured runtime value (which may differ from the file's value).
+	if persistFileExisted {
+		if err := k.AtomicReplace(context.Background(), persistFile, persistMode, []byte(persistFileContent)); err != nil {
+			return nil, fmt.Errorf("sysctl_set: rollback persist write failed: %w", err)
+		}
+	} else if err := k.AtomicRemove(context.Background(), persistFile); err != nil {
+		return nil, fmt.Errorf("sysctl_set: rollback persist remove failed: %w", err)
+	}
+	if err := k.WriteSysctl(key, runtimeValue); err != nil {
+		// Persist already restored; runtime failed → PartialRestore.
+		return &api.RollbackResult{
+			Success:        false,
+			PartialRestore: true,
+			Detail:         fmt.Sprintf("sysctl_set: persist restored but runtime restore failed: %v", err),
+			ExecutedAt:     time.Now().UTC(),
+		}, nil
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("sysctl_set: restored %s=%s and %s (kernel-io)", key, runtimeValue, persistFile),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// rollbackShell restores the persist file and runtime value via shell.
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, key, persistFile, runtimeValue, persistFileContent string, persistFileExisted bool) (*api.RollbackResult, error) {
 	// Restore persist layer first; the next sysctl -w then overrides
 	// with the runtime value (which may differ from what's in the file
 	// if the file used a different value than runtime at capture time).
 	var persistCmd string
-	if persistExisted {
-		persistCmd = fmt.Sprintf("printf %s > %s", shellEscape(persistContent), shellEscape(persistFile))
+	if persistFileExisted {
+		persistCmd = fmt.Sprintf("printf %s > %s", shellEscape(persistFileContent), shellEscape(persistFile))
 	} else {
 		persistCmd = fmt.Sprintf("rm -f %s", shellEscape(persistFile))
 	}

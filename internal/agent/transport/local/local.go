@@ -30,6 +30,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 	"github.com/Hanalyx/kensa/internal/agent/systemd"
 )
 
@@ -283,9 +284,28 @@ func (t *Transport) UnitState(ctx context.Context, unit string) (*systemd.Respon
 	return t.client().UnitState(ctx, unit)
 }
 
+// WriteSysctl delegates to kernelio.WriteSysctl (a direct /proc/sys
+// write). Satisfies kernelio.SysctlTransport so the sysctl_set handler
+// can detect-and-use direct kernel IO via type assertion.
+func (t *Transport) WriteSysctl(key, value string) error {
+	return kernelio.WriteSysctl(key, value)
+}
+
+// ReadSysctl delegates to kernelio.ReadSysctl (a direct /proc/sys read).
+func (t *Transport) ReadSysctl(key string) (string, error) {
+	return kernelio.ReadSysctl(key)
+}
+
+// ReadFileIfExists delegates to kernelio.ReadFileIfExists, the
+// agent-side persist-file capture read.
+func (t *Transport) ReadFileIfExists(path string) (string, bool, error) {
+	return kernelio.ReadFileIfExists(path)
+}
+
 // Compile-time interface check.
 var (
-	_ api.Transport      = (*Transport)(nil)
-	_ fsatomic.Transport = (*Transport)(nil)
-	_ systemd.Transport  = (*Transport)(nil)
+	_ api.Transport            = (*Transport)(nil)
+	_ fsatomic.Transport       = (*Transport)(nil)
+	_ systemd.Transport        = (*Transport)(nil)
+	_ kernelio.SysctlTransport = (*Transport)(nil)
 )
