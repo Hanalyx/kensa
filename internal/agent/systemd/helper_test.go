@@ -70,6 +70,7 @@ func TestAllOps_BuildCorrectSubcommand(t *testing.T) {
 		{"Enable", func(c *Client) (*Response, error) { return c.Enable(context.Background(), "x.service") }, "enable"},
 		{"Disable", func(c *Client) (*Response, error) { return c.Disable(context.Background(), "x.service") }, "disable"},
 		{"Mask", func(c *Client) (*Response, error) { return c.Mask(context.Background(), "x.service") }, "mask"},
+		{"Unmask", func(c *Client) (*Response, error) { return c.Unmask(context.Background(), "x.service") }, "unmask"},
 		{"IsEnabled", func(c *Client) (*Response, error) { return c.IsEnabled(context.Background(), "x.service") }, "is-enabled"},
 		{"UnitState", func(c *Client) (*Response, error) { return c.UnitState(context.Background(), "x.service") }, "unit-state"},
 	}

@@ -29,6 +29,7 @@ type systemdConn interface {
 	EnableUnitFilesContext(ctx context.Context, files []string, runtime, force bool) (bool, []dbus.EnableUnitFileChange, error)
 	DisableUnitFilesContext(ctx context.Context, files []string, runtime bool) ([]dbus.DisableUnitFileChange, error)
 	MaskUnitFilesContext(ctx context.Context, files []string, runtime, force bool) ([]dbus.MaskUnitFileChange, error)
+	UnmaskUnitFilesContext(ctx context.Context, files []string, runtime bool) ([]dbus.UnmaskUnitFileChange, error)
 	StartUnitContext(ctx context.Context, name, mode string, ch chan<- string) (int, error)
 	StopUnitContext(ctx context.Context, name, mode string, ch chan<- string) (int, error)
 	GetUnitPropertyContext(ctx context.Context, unit, propertyName string) (*dbus.Property, error)
@@ -96,6 +97,8 @@ func realDispatch(ctx context.Context, op, unit string, timeout time.Duration, s
 		return runDisable(callCtx, conn, unit, stdout)
 	case "mask":
 		return runMask(callCtx, conn, unit, stdout)
+	case "unmask":
+		return runUnmask(callCtx, conn, unit, stdout)
 	case "start":
 		return runStart(callCtx, conn, unit, stdout)
 	case "stop":
@@ -198,6 +201,38 @@ func runMask(ctx context.Context, conn systemdConn, unit string, stdout io.Write
 		Success:       true,
 		SettledState:  settled,
 		Changes:       convertMaskChanges(changes),
+		DurationMs:    time.Since(start).Milliseconds(),
+	}
+	writeNDJSON(stdout, &resp)
+	return 0
+}
+
+// runUnmask invokes UnmaskUnitFilesContext + reads back the
+// post-call UnitFileState. The inverse of runMask: it removes the
+// symlink-to-/dev/null that mask created, returning the unit to its
+// prior enable/disable state. Same synchronous semantics as
+// DisableUnitFiles — no JobRemoved subscription required, and (like
+// disable) UnmaskUnitFiles takes no `force` parameter. Needed by
+// service_masked's rollback when the captured prior state was not
+// masked.
+func runUnmask(ctx context.Context, conn systemdConn, unit string, stdout io.Writer) int {
+	start := time.Now()
+	changes, err := conn.UnmaskUnitFilesContext(ctx, []string{unit}, false)
+	if err != nil {
+		emitDBusOpError("unmask", unit, err, stdout)
+		return 1
+	}
+
+	settled := readUnitFileState(ctx, conn, unit)
+
+	resp := response{
+		SchemaVersion: schemaVersion,
+		HelperVersion: version,
+		Op:            "unmask",
+		Unit:          unit,
+		Success:       true,
+		SettledState:  settled,
+		Changes:       convertUnmaskChanges(changes),
 		DurationMs:    time.Since(start).Milliseconds(),
 	}
 	writeNDJSON(stdout, &resp)
@@ -489,6 +524,25 @@ func convertDisableChanges(raw []dbus.DisableUnitFileChange) []change {
 // convertMaskChanges maps MaskUnitFileChange list to the
 // helper's `change` shape.
 func convertMaskChanges(raw []dbus.MaskUnitFileChange) []change {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make([]change, 0, len(raw))
+	for _, r := range raw {
+		out = append(out, change{
+			Type:        r.Type,
+			Source:      r.Filename,
+			Destination: r.Destination,
+		})
+	}
+	return out
+}
+
+// convertUnmaskChanges maps the D-Bus UnmaskUnitFiles change list
+// into the helper's NDJSON change shape. UnmaskUnitFileChange carries
+// the same Type/Filename/Destination fields as the mask/disable
+// variants.
+func convertUnmaskChanges(raw []dbus.UnmaskUnitFileChange) []change {
 	if len(raw) == 0 {
 		return nil
 	}
