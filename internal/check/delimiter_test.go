@@ -59,4 +59,17 @@ func TestConfigValueWhitespaceDelimiter(t *testing.T) {
 	if !passed2 {
 		t.Errorf("multi-space line should extract '7' and equal 7; detail=%q", detail2)
 	}
+
+	// TAB-delimited ("KEY\tvalue") — the RHEL /etc/login.defs default the
+	// space-only fix originally missed (false-FAIL on a compliant host, caught
+	// by the live-test review). A whitespace delimiter " " MUST match TAB too.
+	tr3 := &lineTransport{line: "PASS_WARN_AGE\t7"}
+	chk3 := api.Check{Method: "config_value", Params: api.Params{
+		"path": "/etc/login.defs", "key": "PASS_WARN_AGE",
+		"expected": "7", "delimiter": " ",
+	}}
+	passed3, detail3, _ := runForTest(context.Background(), tr3, chk3)
+	if !passed3 {
+		t.Errorf("TAB-delimited key must be found and extracted (regression guard); detail=%q", detail3)
+	}
 }
