@@ -1,0 +1,76 @@
+spec:
+    id: behavior-harness
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: behavior-harness
+        description: |
+            No test ran a rule's check against a known-good and known-bad input,
+            so checks that could never match (the login.defs delimiter class) or
+            compared wrongly (the comparator class) shipped broken and surfaced
+            only by luck on a live host. For "the safety rail every critical
+            Linux change runs through", that is the gap to close.
+
+            This adds a full-spectrum, fixture-driven behavioral harness. For
+            each fixture under cmd/kensa/fixtures/rules/<rule-id>.yaml, the
+            harness materializes the case's file content to a temp file, points
+            the rule's file-based check (method + resolved params) at it, runs
+            the REAL check engine over a no-sudo local transport, and asserts the
+            verdict. Cases cover compliant, non-compliant, boundary, and edge
+            inputs (e.g. multi-space delimiter, key-missing). A coverage ratchet
+            (coveredRulesFloor) may only be raised, so behavioral coverage cannot
+            regress and the corpus tail is driven toward full coverage.
+
+    objective:
+        summary: |
+            A table-driven behavioral harness over fixture files that runs the
+            real check engine for good/bad/edge cases, plus a monotonic coverage
+            ratchet, seeded with the comparator/delimiter rules just fixed.
+        scope:
+            includes:
+                - "fixture format cmd/kensa/fixtures/rules/<rule>.yaml (rule, method, params, cases)"
+                - "harness: materialize content, inject path, run check.Run over local transport, assert verdict"
+                - "good / bad / boundary / edge cases (multi-space, key-missing)"
+                - "monotonic coverage ratchet (coveredRulesFloor only rises)"
+            excludes:
+                - "non-file check methods (sysctl/service/package) — need command mocking, later"
+                - "apply -> rollback round-trip fixtures (capturable mechanisms) — later increment"
+
+    constraints:
+        - id: C-01
+          description: |
+              Each fixture case MUST run through the real check engine
+              (check.Run) over a transport against the materialized file, and
+              the asserted verdict MUST match the engine's result. No mocking of
+              the check logic.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              Behavioral coverage MUST NOT regress: the number of rules with a
+              fixture is floored by coveredRulesFloor, which may only be raised.
+              Every fixtured rule MUST exist in the corpus.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Every fixture's good/bad/boundary/edge cases run through check.Run
+              and the verdict matches `want`. Seeded with login-defs-pass-max-days,
+              shadow-hashing-rounds, default-umask (the comparator/delimiter
+              fixes). Locked by TestRuleBehaviorFixtures.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Fixtured rules all exist in the corpus and the covered count meets
+              the (raise-only) floor. Locked by
+              TestRuleBehaviorFixtureCoverageRatchet.
+          references_constraints: [C-02]
+          priority: high
+
+    tags: [test, behavior, fixtures, drift, tier-3]

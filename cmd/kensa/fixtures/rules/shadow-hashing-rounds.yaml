@@ -1,0 +1,20 @@
+rule: shadow-hashing-rounds
+method: config_value
+params:
+  key: "SHA_CRYPT_MIN_ROUNDS"
+  expected: "5000"
+  delimiter: " "
+  comparator: ">="
+cases:
+  - name: compliant            # 10000 >= 5000
+    content: "SHA_CRYPT_MIN_ROUNDS 10000\n"
+    want: pass
+  - name: noncompliant         # 1000 >= 5000 is false
+    content: "SHA_CRYPT_MIN_ROUNDS 1000\n"
+    want: fail
+  - name: boundary-equal
+    content: "SHA_CRYPT_MIN_ROUNDS 5000\n"
+    want: pass
+  - name: key-missing
+    content: "# no rounds set\n"
+    want: fail
