@@ -1,0 +1,71 @@
+spec:
+    id: schema-parity
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: schema-parity
+        description: |
+            The whole drift class exists because the prose schema, the corpus,
+            the engine, and the validator could disagree silently. The audit
+            found CANONICAL_RULE_SCHEMA_V1.md §3.5.3 listed check methods that
+            don't exist (config_absent, file_not_exists, file_content_no_match,
+            selinux_boolean, pam_module) and omitted real ones (package_installed,
+            dpkg_*, apparmor_state, file_absent, file_content, service_enabled/
+            active, sshd_effective_config, systemd_target).
+
+            This closes the loop with a code-enforced gate. internal/check.
+            CheckContracts is the SSOT; the §3.5.3 table is regenerated as its
+            documentation projection. TestSchemaContractDispatchParity parses
+            the dispatch switch in check.go from source and asserts the handled
+            method set equals CheckContracts in BOTH directions — so a new
+            `case "x":` forces a contract entry, a removed case forces removal,
+            and the doc can no longer drift from the engine.
+
+    objective:
+        summary: |
+            A source-parsed parity gate (engine dispatch == CheckContracts, both
+            directions) + regenerate the stale §3.5.3 table from the contract.
+        scope:
+            includes:
+                - "TestSchemaContractDispatchParity (dispatch <-> CheckContracts, parsed from check.go source)"
+                - "regenerate CANONICAL_RULE_SCHEMA_V1.md §3.5.3 from CheckContracts (correct methods + key fields)"
+            excludes:
+                - "automated gate on the prose doc itself (docs/ is gitignored; the code SSOT + parity test is the enforced guarantee)"
+
+    constraints:
+        - id: C-01
+          description: |
+              The set of methods handled by the engine dispatch MUST equal the
+              set of CheckContracts entries, in both directions, derived from
+              check.go source (not a hardcoded list). A dispatch case with no
+              contract, or a contract with no dispatch case, fails CI.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The §3.5.3 schema table MUST be the documentation projection of
+              CheckContracts (correct method names + key fields), not an
+              independently-maintained list that can drift.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Engine dispatch methods (parsed from check.go) equal CheckContracts
+              keys in both directions. Locked by TestSchemaContractDispatchParity.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              §3.5.3 is regenerated from CheckContracts — every listed method
+              exists in the dispatch and the nonexistent ones are removed.
+              Verified by inspection against CheckContracts (the doc is
+              gitignored; AC-01's gate is the enforced backstop).
+          references_constraints: [C-02]
+          priority: medium
+
+    tags: [check, schema, parity, drift, tier-3]
