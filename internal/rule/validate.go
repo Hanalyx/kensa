@@ -151,6 +151,11 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 	// (9) Remediation params satisfy the mechanism contract (internal/mechanism).
 	validateRemediationParams(rule, add)
 
+	// (10) Check params satisfy the check-method contract (internal/check),
+	// closed-world: unknown check params (e.g. an unread 'comparator') are
+	// rejected at load instead of silently ignored at scan time.
+	validateCheckParams(rule, add)
+
 	return errs
 }
 

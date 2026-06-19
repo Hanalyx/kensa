@@ -1,0 +1,116 @@
+spec:
+    id: check-param-contract
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: check-param-contract
+        description: |
+            A corpus drift audit found that the CHECK side of the rule engine
+            had no parameter governance, while the REMEDIATION side did
+            (internal/mechanism.Contracts SSOT + a closed-world validator +
+            a ratchet allowlist + a Layer-3 corpus test). Consequently 23
+            corpus rules silently declared check params no method reads —
+            e.g. 19 declare 'comparator' (config_value/sysctl_value compare
+            with exact-match and never read it), 2 declare 'glob' on a
+            file_permission check that reads only path/mode/owner/group, one
+            declares 'expected_enabled', and usbguard-block-unauthorized
+            declares service_state 'state: running' (service_state reads
+            enabled/active, not state — so it never verifies usbguard runs).
+            None were caught at validation; they only fail (or silently
+            mis-verify) at scan time.
+
+            This spec adds the missing check-side governance, mirroring the
+            remediation side:
+              - internal/check.CheckContracts: the SSOT mapping every check
+                method to its Required/Optional/OneOf params, derived from the
+                actual param reads in check.go (NOT the stale schema §3.5.3
+                table, which lists nonexistent methods and omits real ones).
+              - check.ValidateCheckParams: closed-world key validation.
+              - constraint (10) validateCheckParams in the rule validator,
+                with a knownNonConformingCheckRules ratchet allowlist seeded
+                with the 23 current violators so CI stays green while the
+                debt is paid down (fixing a rule removes its entry).
+
+    objective:
+        summary: |
+            Govern check params the way remediation params are governed:
+            a contract SSOT + closed-world validation wired into the rule
+            validator, ratcheting the 23 known violators.
+        scope:
+            includes:
+                - internal/check.CheckContracts (24 methods + file_permission alias)
+                - "internal/check.ValidateCheckParams — closed-world; required + OneOf + reject unknown"
+                - internal/rule constraint (10) validateCheckParams + nested-check recursion
+                - knownNonConformingCheckRules ratchet allowlist (23 ids)
+                - corpus ratchet test (non-allowlisted rules conform; allowlist is exactly the current violators)
+            excludes:
+                - "value-domain validation (separator/enum VALUES) — separate spec value-domains"
+                - "implementing 'comparator'/'delimiter' in the engine — separate specs; this PR only GATES them"
+                - "rewriting the schema §3.5.3 doc table — separate PR (regenerated from this contract)"
+
+    constraints:
+        - id: C-01
+          description: |
+              CheckContracts MUST be derived from check.go param reads, not
+              from CANONICAL_RULE_SCHEMA_V1.md (which is stale). It MUST cover
+              every method in the check dispatch switch; a method in the
+              dispatch with no contract entry is a gap.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              ValidateCheckParams MUST be closed-world: any param not in the
+              method's Required/Optional/OneOf is rejected. Required and OneOf
+              groups are enforced. Unknown method is rejected.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              The validator MUST reject a rule whose check declares an unknown
+              param at LOAD time (constraint 10), unless the rule is in the
+              ratchet allowlist. This converts the silent-at-scan failure into
+              a build failure.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              knownNonConformingCheckRules MUST ratchet: every corpus rule NOT
+              in the allowlist conforms, and every allowlist entry is still a
+              real violator (no stale entries). A new violation or a stale
+              entry fails the corpus test.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Every method accepted by the check dispatch has a CheckContracts
+              entry (parity with check.go). Locked by TestCheckContractsCoverDispatch.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              ValidateCheckParams rejects unknown params, flags missing
+              required, enforces OneOf, and rejects unknown methods; conforming
+              params yield no problems. Locked by TestValidateCheckParams.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              A rule with an unknown check param fails rule validation via
+              constraint (10) when not allowlisted; an allowlisted rule passes.
+              Locked by TestValidateCheckParams_Constraint10.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Corpus ratchet: across all 539 rules, non-allowlisted rules have
+              no CheckParamErrors, and every knownNonConformingCheckRules entry
+              still violates. Locked by TestCheckParamCorpusRatchet.
+          references_constraints: [C-04]
+          priority: high
+
+    tags: [check, rule-validation, contract, drift, tier-2]
