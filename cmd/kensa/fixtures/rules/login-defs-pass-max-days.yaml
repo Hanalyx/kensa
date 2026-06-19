@@ -1,0 +1,23 @@
+rule: login-defs-pass-max-days
+method: config_value
+params:
+  key: "PASS_MAX_DAYS"
+  expected: "365"
+  delimiter: " "
+  comparator: "<="
+cases:
+  - name: compliant            # 60 <= 365
+    content: "PASS_MAX_DAYS 60\n"
+    want: pass
+  - name: noncompliant         # 99999 <= 365 is false
+    content: "PASS_MAX_DAYS 99999\n"
+    want: fail
+  - name: boundary-equal       # 365 <= 365
+    content: "PASS_MAX_DAYS 365\n"
+    want: pass
+  - name: multi-space          # whitespace-delimited extraction
+    content: "# aging\nPASS_MAX_DAYS   30\nPASS_MIN_DAYS 1\n"
+    want: pass
+  - name: key-missing          # delimiter fix must not false-PASS when absent
+    content: "PASS_MIN_DAYS 1\n"
+    want: fail
