@@ -20,27 +20,10 @@ import (
 // (e.g. implementing 'comparator', or correcting 'state'->'active') removes its
 // entry here.
 var knownNonConformingCheckRules = map[string]string{
-	// 'comparator' declared but no check method reads it (exact-match instead).
-	// Resolved when the comparator engine PR lands and adds it to the contract.
-	"login-defs-pass-max-days":     "config_value declares unread 'comparator'",
-	"pam-faildelay":                "config_value declares unread 'comparator'",
-	"pam-faillock-deny":            "config_value declares unread 'comparator'",
-	"pam-faillock-fail-interval":   "config_value declares unread 'comparator'",
-	"pam-pwquality-dcredit":        "config_value declares unread 'comparator'",
-	"pam-pwquality-difok":          "config_value declares unread 'comparator'",
-	"pam-pwquality-lcredit":        "config_value declares unread 'comparator'",
-	"pam-pwquality-maxclassrepeat": "config_value declares unread 'comparator'",
-	"pam-pwquality-maxrepeat":      "config_value declares unread 'comparator'",
-	"pam-pwquality-minclass":       "config_value declares unread 'comparator'",
-	"pam-pwquality-minlen":         "config_value declares unread 'comparator'",
-	"pam-pwquality-ocredit":        "config_value declares unread 'comparator'",
-	"pam-pwquality-retry":          "config_value declares unread 'comparator'",
-	"pam-pwquality-ucredit":        "config_value declares unread 'comparator'",
-	"password-min-age":             "config_value declares unread 'comparator'",
-	"password-remember":            "config_value declares unread 'comparator'",
-	"password-warn-age":            "config_value declares unread 'comparator'",
-	"pwquality-maxsequence":        "config_value declares unread 'comparator'",
-	"shadow-hashing-rounds":        "config_value declares unread 'comparator'",
+	// The 19 'comparator' rules left this allowlist when the comparator engine
+	// landed (check.go compareValue + contract Optional + value-domain). They
+	// now conform.
+	//
 	// 'glob' declared on a file_permission check that never reads it.
 	"ssh-private-key-permissions": "file_permission declares unread 'glob'",
 	"ssh-public-key-permissions":  "file_permission declares unread 'glob'",

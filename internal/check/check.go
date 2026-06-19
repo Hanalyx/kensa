@@ -7,10 +7,54 @@ package check
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Hanalyx/kensa/api"
 )
+
+// compareValue reports whether got satisfies (comparator) expected.
+//
+// comparator defaults to "==" when empty. For "=="/"!=" the eqInsensitive flag
+// selects case-insensitive equality (config_value, which has always used
+// strings.EqualFold) vs exact equality (sysctl_value) — preserving the
+// existing per-method asymmetry. For the numeric comparators (<,<=,>,>=) both
+// operands are parsed as int64; if either side is non-numeric the comparison
+// returns false (the check is non-compliant, not an error). The set of valid
+// comparators is enforced at rule-load by the value-domain validator, so an
+// unrecognized operator here is defensively treated as non-compliant.
+func compareValue(got, expected, comparator string, eqInsensitive bool) bool {
+	switch comparator {
+	case "", "==":
+		if eqInsensitive {
+			return strings.EqualFold(got, expected)
+		}
+		return got == expected
+	case "!=":
+		if eqInsensitive {
+			return !strings.EqualFold(got, expected)
+		}
+		return got != expected
+	case "<", "<=", ">", ">=":
+		g, gerr := strconv.ParseInt(strings.TrimSpace(got), 10, 64)
+		e, eerr := strconv.ParseInt(strings.TrimSpace(expected), 10, 64)
+		if gerr != nil || eerr != nil {
+			return false
+		}
+		switch comparator {
+		case "<":
+			return g < e
+		case "<=":
+			return g <= e
+		case ">":
+			return g > e
+		default: // ">="
+			return g >= e
+		}
+	default:
+		return false
+	}
+}
 
 // Run dispatches chk to the appropriate check method and returns a [Result]
 // carrying the verdict, a human-readable detail, and the structured
@@ -220,10 +264,11 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 		return false, fmt.Sprintf("config_value: could not parse value from line %q", line), nil
 	}
 	got := strings.TrimSpace(parts[1])
-	if !strings.EqualFold(got, expected) {
-		return false, fmt.Sprintf("config_value: key %q: got %q, expected %q", key, got, expected), nil
+	comparator := optionalStringParam(params, "comparator", "==")
+	if !compareValue(got, expected, comparator, true) {
+		return false, fmt.Sprintf("config_value: key %q: got %q, expected %s %q", key, got, comparator, expected), nil
 	}
-	return true, fmt.Sprintf("config_value: key %q = %q", key, got), nil
+	return true, fmt.Sprintf("config_value: key %q = %q (%s %q)", key, got, comparator, expected), nil
 }
 
 // checkSysctlValue checks a kernel parameter value via sysctl -n.
@@ -247,10 +292,11 @@ func checkSysctlValue(ctx context.Context, transport api.Transport, params api.P
 		return false, fmt.Sprintf("sysctl_value: sysctl -n %s failed (exit %d)", key, res.ExitCode), nil
 	}
 	got := strings.TrimSpace(res.Stdout)
-	if got != expected {
-		return false, fmt.Sprintf("sysctl_value: %s = %q, expected %q", key, got, expected), nil
+	comparator := optionalStringParam(params, "comparator", "==")
+	if !compareValue(got, expected, comparator, false) {
+		return false, fmt.Sprintf("sysctl_value: %s = %q, expected %s %q", key, got, comparator, expected), nil
 	}
-	return true, fmt.Sprintf("sysctl_value: %s = %q", key, got), nil
+	return true, fmt.Sprintf("sysctl_value: %s = %q (%s %q)", key, got, comparator, expected), nil
 }
 
 // checkPackageInstalled checks whether a package is installed, trying

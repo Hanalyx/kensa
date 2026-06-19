@@ -92,17 +92,18 @@ func TestValidateCheckParams_Constraint10(t *testing.T) {
 			ID: id,
 			Implementations: []api.Implementation{{
 				Check: api.Check{Method: "config_value", Params: api.Params{
-					"path": "/etc/x", "key": "K", "expected": "1", "comparator": "<=",
+					"path": "/etc/x", "key": "K", "expected": "1", "bogus_param": "x",
 				}},
 			}},
 		}
 	}
-	// non-allowlisted: must be flagged by constraint (10).
+	// non-allowlisted: a genuinely-unknown check param must be flagged by (10).
 	if errs := rule.CheckParamErrors(mk("not-an-allowlisted-rule")); len(errs) == 0 {
-		t.Error("non-allowlisted rule with unknown 'comparator' must fail constraint (10)")
+		t.Error("non-allowlisted rule with unknown 'bogus_param' must fail constraint (10)")
 	}
-	// allowlisted: skipped (tracked debt).
-	if errs := rule.CheckParamErrors(mk("login-defs-pass-max-days")); len(errs) != 0 {
+	// allowlisted: skipped (tracked debt — ssh-private-key-permissions is still
+	// ratcheted for its unread 'glob').
+	if errs := rule.CheckParamErrors(mk("ssh-private-key-permissions")); len(errs) != 0 {
 		t.Errorf("allowlisted rule must be skipped by constraint (10); got %v", errs)
 	}
 }

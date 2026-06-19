@@ -23,10 +23,10 @@
 //     sysctl_value is case-SENSITIVE exact. The comparator feature (a later PR)
 //     must preserve this asymmetry for ==/!=.
 //
-// 'comparator' is intentionally ABSENT from config_value/sysctl_value: 19 corpus
-// rules declare it but no check method reads it. A later PR adds it to Optional
-// once checkConfigValue/checkSysctlValue actually honor it; until then the
-// closed-world validator flags it (those rules sit in the ratchet).
+// 'comparator' is an Optional param on config_value/sysctl_value now that
+// checkConfigValue/checkSysctlValue honor it (==,!=,<,<=,>,>=). Its operator
+// VALUE set is enforced by the value-domain validator. The 19 rules that
+// declared it left the check-param ratchet once the engine read it.
 package check
 
 import "sort"
@@ -44,8 +44,8 @@ type CheckContract struct {
 // contract. 24 functional methods; file_permission is an alias of
 // file_permissions sharing one contract.
 var CheckContracts = map[string]CheckContract{
-	"config_value":          {Required: []string{"path", "key", "expected"}, Optional: []string{"delimiter", "scan_pattern"}},
-	"sysctl_value":          {Required: []string{"key", "expected"}},
+	"config_value":          {Required: []string{"path", "key", "expected"}, Optional: []string{"delimiter", "scan_pattern", "comparator"}},
+	"sysctl_value":          {Required: []string{"key", "expected"}, Optional: []string{"comparator"}},
 	"package_installed":     {Required: []string{"name"}},
 	"package_absent":        {Required: []string{"name"}},
 	"package_state":         {Required: []string{"name"}, Optional: []string{"state"}},
