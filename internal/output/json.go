@@ -22,6 +22,7 @@ type scanLine struct {
 	HostID    string         `json:"host_id"`
 	Passed    int            `json:"passed"`
 	Failed    int            `json:"failed"`
+	Skipped   int            `json:"skipped"`
 	Errors    int            `json:"errors"`
 	Rules     []scanLineRule `json:"rules"`
 }
@@ -46,43 +47,45 @@ func (jsonScanWriter) WriteScanResult(w io.Writer, _ string, _ []*api.Rule, resu
 // jsonlScanWriter renders a ScanResult as a single compact NDJSON
 // line. Each call emits exactly one newline-terminated JSON object —
 // suitable for appending to a file or piping to OpenWatch's ingest
-// endpoint. The rules slice is indexed in parallel with
-// result.Transactions to supply rule IDs (the scan result does not
-// embed them).
+// endpoint.
+//
+// It maps from result.Outcomes — the canonical compliance verdict
+// (api.ComplianceStatus pass/fail/skipped/error, carrying RuleID
+// intrinsically) — NOT from result.Transactions. The Transactions
+// surface overloads committed/rolled_back/errored as the compliance
+// verdict and records a platform-gated or not-applicable rule as
+// StatusErrored for back-compat; reading it here mislabelled those
+// skips as "error" and gave no skipped count. Outcomes is the surface
+// every other consumer is told to read, so the rules parameter (the
+// old parallel-index source for rule IDs) is unused.
 type jsonlScanWriter struct{}
 
 func (jsonlScanWriter) Format() string { return "jsonl" }
 
-func (jsonlScanWriter) WriteScanResult(w io.Writer, _ string, rules []*api.Rule, result *api.ScanResult) error {
+func (jsonlScanWriter) WriteScanResult(w io.Writer, _ string, _ []*api.Rule, result *api.ScanResult) error {
 	line := scanLine{
 		ScannedAt: time.Now().UTC(),
 		HostID:    result.HostID,
-		Rules:     make([]scanLineRule, 0, len(result.Transactions)),
+		Rules:     make([]scanLineRule, 0, len(result.Outcomes)),
 	}
-	for i, txr := range result.Transactions {
-		ruleID := ""
-		if i < len(rules) {
-			ruleID = rules[i].ID
-		}
-		r := scanLineRule{RuleID: ruleID}
-		switch txr.Status {
-		case api.StatusCommitted:
-			r.Status = "pass"
+	for _, o := range result.Outcomes {
+		// ComplianceStatus values are exactly the wire status strings
+		// ("pass"/"fail"/"skipped"/"error"), so no remapping is needed.
+		line.Rules = append(line.Rules, scanLineRule{
+			RuleID: o.RuleID,
+			Status: string(o.Status),
+			Detail: o.Detail,
+		})
+		switch o.Status {
+		case api.CompliancePass:
 			line.Passed++
-		case api.StatusErrored:
-			r.Status = "error"
-			line.Errors++
-			if txr.Error != nil {
-				r.Detail = txr.Error.Error()
-			}
-		default:
-			r.Status = "fail"
+		case api.ComplianceFail:
 			line.Failed++
+		case api.ComplianceSkipped:
+			line.Skipped++
+		case api.ComplianceError:
+			line.Errors++
 		}
-		if r.Detail == "" && len(txr.Steps) > 0 {
-			r.Detail = txr.Steps[0].Detail
-		}
-		line.Rules = append(line.Rules, r)
 	}
 	return json.NewEncoder(w).Encode(line)
 }

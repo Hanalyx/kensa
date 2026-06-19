@@ -35,18 +35,26 @@ func TestJSONScanWriter(t *testing.T) {
 	}
 }
 
+// TestJSONLScanWriter verifies the NDJSON wire shape maps from the canonical
+// result.Outcomes surface: pass/fail/skipped/error statuses and per-status
+// counts, with RuleID carried intrinsically by each outcome.
+//
+// @spec output-writer
+// @ac AC-15
 func TestJSONLScanWriter(t *testing.T) {
-	rules := []*api.Rule{{ID: "rule-a"}, {ID: "rule-b"}, {ID: "rule-c"}}
+	t.Run("output-writer/AC-15", func(t *testing.T) {})
+
 	result := &api.ScanResult{
 		HostID: "host-1",
-		Transactions: []api.TransactionResult{
-			{Status: api.StatusCommitted},
-			{Status: api.StatusRolledBack, Steps: []api.StepResult{{Detail: "did not match"}}},
-			{Status: api.StatusErrored, Error: errors.New("ssh closed")},
+		Outcomes: []api.RuleOutcome{
+			{RuleID: "rule-a", Status: api.CompliancePass},
+			{RuleID: "rule-b", Status: api.ComplianceFail, Detail: "did not match"},
+			{RuleID: "rule-skip", Status: api.ComplianceSkipped, Detail: "rule targets rhel >= 9; host is rhel 8"},
+			{RuleID: "rule-c", Status: api.ComplianceError, Detail: "ssh closed"},
 		},
 	}
 	var buf bytes.Buffer
-	if err := (jsonlScanWriter{}).WriteScanResult(&buf, "host-1", rules, result); err != nil {
+	if err := (jsonlScanWriter{}).WriteScanResult(&buf, "host-1", nil, result); err != nil {
 		t.Fatalf("WriteScanResult: %v", err)
 	}
 	out := buf.String()
@@ -67,46 +75,61 @@ func TestJSONLScanWriter(t *testing.T) {
 	if line.HostID != "host-1" {
 		t.Errorf("HostID = %q, want host-1", line.HostID)
 	}
-	if line.Passed != 1 || line.Failed != 1 || line.Errors != 1 {
-		t.Errorf("counts: passed=%d failed=%d errors=%d, want 1/1/1", line.Passed, line.Failed, line.Errors)
+	if line.Passed != 1 || line.Failed != 1 || line.Skipped != 1 || line.Errors != 1 {
+		t.Errorf("counts: passed=%d failed=%d skipped=%d errors=%d, want 1/1/1/1",
+			line.Passed, line.Failed, line.Skipped, line.Errors)
 	}
-	if len(line.Rules) != 3 {
-		t.Fatalf("expected 3 rules, got %d", len(line.Rules))
+	if len(line.Rules) != 4 {
+		t.Fatalf("expected 4 rules, got %d", len(line.Rules))
 	}
 	if line.Rules[0].RuleID != "rule-a" || line.Rules[0].Status != "pass" {
 		t.Errorf("rule[0] = %+v, want {rule-a pass}", line.Rules[0])
 	}
-	if line.Rules[2].RuleID != "rule-c" || line.Rules[2].Status != "error" {
-		t.Errorf("rule[2] = %+v, want {rule-c error}", line.Rules[2])
+	if line.Rules[3].RuleID != "rule-c" || line.Rules[3].Status != "error" {
+		t.Errorf("rule[3] = %+v, want {rule-c error}", line.Rules[3])
 	}
-	if line.Rules[2].Detail != "ssh closed" {
-		t.Errorf("rule[2].Detail = %q, want %q", line.Rules[2].Detail, "ssh closed")
+	if line.Rules[3].Detail != "ssh closed" {
+		t.Errorf("rule[3].Detail = %q, want %q", line.Rules[3].Detail, "ssh closed")
 	}
 }
 
-func TestJSONLScanWriter_RuleIDFromStep(t *testing.T) {
-	// When result.Transactions has more entries than rules, RuleID is "".
-	rules := []*api.Rule{{ID: "rule-a"}}
+// TestJSONLScanWriter_SkippedNotError is the regression guard for the
+// mislabel: a platform-gated rule (ComplianceSkipped) must emit
+// status "skipped" and count toward skipped, never toward errors —
+// even though its back-compat Transactions entry is StatusErrored.
+//
+// @spec output-writer
+// @ac AC-15
+func TestJSONLScanWriter_SkippedNotError(t *testing.T) {
+	t.Run("output-writer/AC-15", func(t *testing.T) {})
+
 	result := &api.ScanResult{
 		HostID: "host-1",
+		// Transactions records the skip as StatusErrored for back-compat;
+		// the writer must ignore this surface and read Outcomes.
 		Transactions: []api.TransactionResult{
-			{Status: api.StatusCommitted},
-			{Status: api.StatusCommitted}, // no rule at index 1
+			{Status: api.StatusErrored, Error: errors.New("rule targets rhel >= 9; host is rhel 8")},
+		},
+		Outcomes: []api.RuleOutcome{
+			{RuleID: "rule-skip", Status: api.ComplianceSkipped, Detail: "rule targets rhel >= 9; host is rhel 8"},
 		},
 	}
 	var buf bytes.Buffer
-	if err := (jsonlScanWriter{}).WriteScanResult(&buf, "host-1", rules, result); err != nil {
+	if err := (jsonlScanWriter{}).WriteScanResult(&buf, "host-1", nil, result); err != nil {
 		t.Fatalf("WriteScanResult: %v", err)
 	}
 	var line scanLine
 	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &line); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if line.Rules[0].RuleID != "rule-a" {
-		t.Errorf("rule[0].RuleID = %q, want rule-a", line.Rules[0].RuleID)
+	if line.Errors != 0 {
+		t.Errorf("errors = %d, want 0 (a skip must not count as an error)", line.Errors)
 	}
-	if line.Rules[1].RuleID != "" {
-		t.Errorf("rule[1].RuleID = %q, want empty (no rule at index)", line.Rules[1].RuleID)
+	if line.Skipped != 1 {
+		t.Errorf("skipped = %d, want 1", line.Skipped)
+	}
+	if len(line.Rules) != 1 || line.Rules[0].Status != "skipped" {
+		t.Errorf("rule[0].Status = %q, want skipped", line.Rules[0].Status)
 	}
 }
 
