@@ -949,7 +949,7 @@ func TestMask_DBusError(t *testing.T) {
 	}
 }
 
-// ─── unmask (Phase 4 consumption) ─────────────────────────────────
+// ─── unmask (inverse of mask; restores a non-masked prior state) ──
 
 // TestUnmask_HappyPath: UnmaskUnitFiles succeeds + UnitFileState
 // reads back "disabled" → exit 0, success:true, the symlink-removal
