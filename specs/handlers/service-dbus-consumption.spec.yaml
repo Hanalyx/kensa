@@ -1,0 +1,142 @@
+spec:
+    id: service-dbus-consumption
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: service-dbus-consumption
+        description: |
+            The three systemd service handlers (service_enabled,
+            service_disabled, service_masked) drive systemd through the
+            privileged kensa-systemd-helper over D-Bus when the transport
+            supports it, instead of shelling out to `systemctl`. A handler
+            selects the path by type-asserting transport.(systemd.Transport):
+            the agent-mode local transport implements it (delegating to the
+            helper client); the SSH shell transport does not. When the
+            assertion fails — or the helper binary is absent
+            (systemd.ErrHelperNotFound) — the handler falls back to the
+            existing `systemctl` shell-out, so a host without the helper
+            behaves exactly as it did before (no regression).
+
+            The shared helpers live in internal/handlers/servicedbus so the
+            D-Bus/shell fallback contract and the captured-state shape are
+            identical across the three handlers.
+        related_specs:
+            - handler-service-enabled
+            - handler-service-disabled
+            - handler-service-masked
+            - agent-systemd-helper
+
+    objective:
+        summary: |
+            Service handlers consume the D-Bus helper for
+            enable/disable/mask/unmask/start/stop and rich state capture,
+            with a transparent shell fallback, preserving the captured
+            PreState shape and rollback semantics across both paths.
+        scope:
+            includes:
+                - transport.(systemd.Transport) path selection
+                - D-Bus Apply/Capture/Rollback for the three handlers
+                - identical PreState shape (name/prior_enabled/prior_active) on both paths
+                - HelperError → failed StepResult/RollbackResult (not a returned error)
+                - ErrHelperNotFound → shell fallback
+            excludes:
+                - the helper binary's own D-Bus ops (agent-systemd-helper)
+                - shell-path behavior (the per-handler specs)
+
+    constraints:
+        - id: C-01
+          description: |
+              A handler MUST select the D-Bus path iff the transport
+              implements systemd.Transport, and otherwise use the shell
+              path. The selection is a type assertion, mirroring the
+              fsatomic.Transport precedent. The capture path MUST record
+              an identical PreState shape (Data keys name, prior_enabled,
+              prior_active) regardless of which path produced it, so
+              Rollback is path-agnostic.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              On the D-Bus path, Apply MUST issue the same effective
+              operations as the shell command it replaces:
+              service_enabled → enable then start; service_disabled →
+              disable then stop; service_masked → mask then stop.
+              Rollback MUST restore the captured prior state, including
+              unmask-first for service_masked.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A structured helper failure (systemd.HelperError — the op
+              ran but systemd refused, e.g. access_denied / no_such_unit /
+              dbus_unreachable) MUST surface as a Success:false StepResult
+              (Apply) or RollbackResult (Rollback), NOT as a returned Go
+              error — mirroring the shell path's non-zero-exit handling. An
+              exec/transport-level failure launching the helper IS a
+              returned error.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              systemd.ErrHelperNotFound (helper binary absent) MUST cause
+              the handler to fall back to the shell path rather than fail.
+              This guarantees a host without the helper deployed behaves
+              exactly as before. A D-Bus capture whose response carries no
+              unit_state MUST surface ErrCaptureIncomplete.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              servicedbus.Step maps a D-Bus op outcome onto the handler
+              idiom: success → (nil, nil); HelperError → (failed StepResult,
+              nil); ErrHelperNotFound → (nil, ErrHelperNotFound);
+              exec-level error → (nil, wrapped error).
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-02
+          description: |
+              servicedbus.Capture projects the helper unit-state response
+              onto PreState{name, prior_enabled=UnitFileState,
+              prior_active=ActiveState}; a nil unit_state yields
+              ErrCaptureIncomplete; ErrHelperNotFound propagates for
+              fallback. servicedbus.PreState builds the canonical shape.
+          references_constraints: [C-01, C-04]
+          priority: critical
+        - id: AC-03
+          description: |
+              service_enabled D-Bus path: Apply issues enable then start;
+              Rollback restores the captured (enabled, active) — disable or
+              mask for the enable layer, stop for the active layer — via the
+              helper.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              service_disabled D-Bus path: Apply issues disable then stop;
+              Rollback re-enables + starts when prior was enabled, or starts
+              when prior was merely active.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              service_masked D-Bus path: Apply issues mask then stop;
+              Rollback issues unmask first, then enable/start per the
+              captured prior state. The unmask op is the reason the helper
+              gained unmask (agent-systemd-helper AC-12).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: |
+              Fallback: when the transport does not implement
+              systemd.Transport, or a D-Bus op returns ErrHelperNotFound,
+              the handler issues the equivalent `systemctl` shell command
+              and surfaces no error attributable to the missing helper.
+          references_constraints: [C-04]
+          priority: critical
+
+    tags: [handler, systemd, dbus, agent, tier-1, phase-4-consumption]

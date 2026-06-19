@@ -30,6 +30,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/agent/systemd"
 )
 
 // Transport is the local-syscall implementation of
@@ -43,6 +44,16 @@ type Transport struct {
 	// SSH user (often non-root); useSudo lets it escalate
 	// for privileged operations.
 	useSudo bool
+
+	// sd is the systemd D-Bus helper client backing the
+	// systemd.Transport capability methods. The service handlers
+	// type-assert transport.(systemd.Transport) and, when present,
+	// drive enable/disable/mask/unmask/start/stop/unit-state through
+	// the privileged kensa-systemd-helper instead of shelling out to
+	// `systemctl`. Defaults to systemd.New() (the packaged helper
+	// path); nil-guarded by client() so a zero-value Transport still
+	// works.
+	sd *systemd.Client
 }
 
 // Option mutates the Transport during construction.
@@ -220,8 +231,61 @@ func (t *Transport) AtomicRemove(ctx context.Context, fullPath string) error {
 	return fsatomic.AtomicRemove(ctx, fullPath)
 }
 
+// client returns the systemd helper client, lazily defaulting to the
+// packaged-helper-path Client so a zero-value Transport (constructed
+// without New) still satisfies the systemd.Transport capability.
+func (t *Transport) client() *systemd.Client {
+	if t.sd == nil {
+		t.sd = systemd.New()
+	}
+	return t.sd
+}
+
+// The systemd.Transport capability methods delegate to the helper
+// client. They satisfy systemd.Transport so service handlers running
+// under agent-mode can detect-and-use the privileged D-Bus helper via
+// type assertion, exactly as the AtomicWrite/Replace/Remove methods
+// satisfy fsatomic.Transport.
+
+// Enable delegates to the systemd helper's enable op.
+func (t *Transport) Enable(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().Enable(ctx, unit)
+}
+
+// Disable delegates to the systemd helper's disable op.
+func (t *Transport) Disable(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().Disable(ctx, unit)
+}
+
+// Mask delegates to the systemd helper's mask op.
+func (t *Transport) Mask(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().Mask(ctx, unit)
+}
+
+// Unmask delegates to the systemd helper's unmask op.
+func (t *Transport) Unmask(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().Unmask(ctx, unit)
+}
+
+// Start delegates to the systemd helper's start op (JobRemoved-synced).
+func (t *Transport) Start(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().Start(ctx, unit)
+}
+
+// Stop delegates to the systemd helper's stop op (JobRemoved-synced).
+func (t *Transport) Stop(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().Stop(ctx, unit)
+}
+
+// UnitState delegates to the systemd helper's unit-state op (the rich
+// Capture payload).
+func (t *Transport) UnitState(ctx context.Context, unit string) (*systemd.Response, error) {
+	return t.client().UnitState(ctx, unit)
+}
+
 // Compile-time interface check.
 var (
 	_ api.Transport      = (*Transport)(nil)
 	_ fsatomic.Transport = (*Transport)(nil)
+	_ systemd.Transport  = (*Transport)(nil)
 )

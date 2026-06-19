@@ -40,9 +40,17 @@ func handlerPackageDirs(t *testing.T) []string {
 	if err != nil {
 		t.Fatalf("read %s: %v", base, err)
 	}
+	// nonHandlerPkgs are directories under internal/handlers/ that are
+	// NOT per-mechanism handler packages and so must not be counted by
+	// the bundle-completeness guard. servicedbus holds the systemd
+	// dual-path helpers shared by the three service handlers; it
+	// registers no mechanism of its own.
+	nonHandlerPkgs := map[string]bool{
+		"servicedbus": true,
+	}
 	var dirs []string
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || nonHandlerPkgs[e.Name()] {
 			continue
 		}
 		// Only count directories that actually hold a handler package.

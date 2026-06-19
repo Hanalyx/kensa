@@ -1,6 +1,13 @@
 // Package serviceenabled implements the service_enabled handler:
 // ensure a systemd service is both enabled at boot and running right
 // now. Spec: specs/handlers/service_enabled.spec.yaml.
+//
+// Dual path: when the transport implements systemd.Transport (agent
+// mode, with the privileged kensa-systemd-helper available) the handler
+// drives systemd over D-Bus; otherwise it falls back to `systemctl`
+// shell-out. The fallback also fires when the helper binary is not
+// installed (systemd.ErrHelperNotFound), so a host without the helper
+// behaves exactly as it did before — no regression.
 package serviceenabled
 
 import (
@@ -11,6 +18,8 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/systemd"
+	"github.com/Hanalyx/kensa/internal/handlers/servicedbus"
 )
 
 // mechanism is the canonical handler name.
@@ -53,15 +62,44 @@ func (h *Handler) Name() string { return mechanism }
 // Capturable reports true.
 func (h *Handler) Capturable() bool { return true }
 
-// Apply runs `systemctl enable --now <name>` which both enables the
-// unit at boot and starts it immediately. Idempotent against units
-// already in that state.
+// Apply ensures the unit is enabled at boot and running now. Idempotent
+// against units already in that state.
 func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
-	cmd := fmt.Sprintf("systemctl enable --now %s", shellEscape(p.Name))
+	if sd, ok := transport.(systemd.Transport); ok {
+		res, err := h.applyDBus(ctx, sd, p.Name)
+		if !errors.Is(err, systemd.ErrHelperNotFound) {
+			return res, err
+		}
+		// Helper not installed — fall through to the shell path.
+	}
+	return h.applyShell(ctx, transport, p.Name)
+}
+
+// applyDBus enables then starts the unit via the D-Bus helper. A
+// structured HelperError (the op ran but systemd refused) becomes a
+// failed StepResult, matching the shell path's non-zero-exit handling;
+// an exec/transport-level failure is returned as an error. ErrHelperNotFound
+// is propagated so Apply can fall back to shell.
+func (h *Handler) applyDBus(ctx context.Context, sd systemd.Transport, name string) (*api.StepResult, error) {
+	if step, err := servicedbus.Step(mechanism, name, "enable", func() (*systemd.Response, error) { return sd.Enable(ctx, name) }); err != nil || step != nil {
+		return step, err
+	}
+	if step, err := servicedbus.Step(mechanism, name, "start", func() (*systemd.Response, error) { return sd.Start(ctx, name) }); err != nil || step != nil {
+		return step, err
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("service_enabled: %s enabled and started (D-Bus)", name),
+	}, nil
+}
+
+// applyShell runs `systemctl enable --now <name>`.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, name string) (*api.StepResult, error) {
+	cmd := fmt.Sprintf("systemctl enable --now %s", shellEscape(name))
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("service_enabled: apply transport error: %w", err)
@@ -69,55 +107,51 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if !res.OK() {
 		return &api.StepResult{
 			Success: false,
-			Detail:  fmt.Sprintf("service_enabled: %s failed (exit %d): %s", p.Name, res.ExitCode, strings.TrimSpace(res.Stderr)),
+			Detail:  fmt.Sprintf("service_enabled: %s failed (exit %d): %s", name, res.ExitCode, strings.TrimSpace(res.Stderr)),
 		}, nil
 	}
 	return &api.StepResult{
 		Success: true,
-		Detail:  fmt.Sprintf("service_enabled: %s enabled and started", p.Name),
+		Detail:  fmt.Sprintf("service_enabled: %s enabled and started", name),
 	}, nil
 }
 
-// Capture records `systemctl is-enabled` and `systemctl is-active`
-// raw output. Both commands return non-zero on negative results
-// (disabled, inactive) but their stdout is the meaningful answer; we
-// preserve it verbatim so rollback can pick the right restoration.
+// Capture records the unit's enable and active state. The captured
+// PreState shape (name / prior_enabled / prior_active) is identical on
+// both the D-Bus and shell paths, so Rollback works regardless of which
+// path produced it.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
+	if sd, ok := transport.(systemd.Transport); ok {
+		pre, err := servicedbus.Capture(ctx, sd, mechanism, p.Name)
+		if !errors.Is(err, systemd.ErrHelperNotFound) {
+			return pre, err
+		}
+		// Helper not installed — fall through to the shell path.
+	}
+	return h.captureShell(ctx, transport, p.Name)
+}
 
-	// `systemctl show` is more reliable than is-enabled/is-active for
-	// capturing both fields in one round trip and never fails on
-	// "negative" answers.
-	cmd := fmt.Sprintf("systemctl show -p UnitFileState -p ActiveState --value %s", shellEscape(p.Name))
+// captureShell reads UnitFileState + ActiveState via `systemctl show`.
+func (h *Handler) captureShell(ctx context.Context, transport api.Transport, name string) (*api.PreState, error) {
+	cmd := fmt.Sprintf("systemctl show -p UnitFileState -p ActiveState --value %s", shellEscape(name))
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("service_enabled: capture transport error: %w", err)
 	}
 	if !res.OK() {
 		return nil, fmt.Errorf("service_enabled: capture failed for %s: %w (stderr: %s)",
-			p.Name, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
+			name, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
 	}
-
 	enabled, active := parseShowOutput(res.Stdout)
-	return &api.PreState{
-		Mechanism:  mechanism,
-		Capturable: true,
-		CapturedAt: time.Now().UTC(),
-		Data: map[string]interface{}{
-			"name":          p.Name,
-			"prior_enabled": enabled,
-			"prior_active":  active,
-		},
-	}, nil
+	return servicedbus.PreState(mechanism, name, enabled, active), nil
 }
 
 // parseShowOutput extracts enabled and active from the two-line
 // `systemctl show -p UnitFileState -p ActiveState --value` output.
-// The order of properties on the command line is preserved in the
-// output, so line 0 is UnitFileState and line 1 is ActiveState.
 func parseShowOutput(stdout string) (enabled, active string) {
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	if len(lines) >= 1 {
@@ -136,10 +170,9 @@ func parseShowOutput(stdout string) (enabled, active string) {
 //
 //   - "enabled" / "enabled-runtime" / "static" / "" — no enable change
 //     needed (already enabled, or the unit cannot be enabled/disabled).
-//   - "disabled" / "indirect" / "alias" / "generated" — `systemctl
-//     disable` returns to the prior state.
-//   - "masked" — `systemctl mask` (rare; only if the rule somehow
-//     unmasked).
+//   - "disabled" / "indirect" / "alias" / "generated" — disable returns
+//     to the prior state.
+//   - "masked" — mask (rare; only if the rule somehow unmasked).
 //
 // The active-layer restoration is simpler: if prior_active was
 // "active", ensure it stays running; otherwise stop.
@@ -154,10 +187,49 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		return nil, fmt.Errorf("service_enabled: pre-state missing 'name'")
 	}
 
+	if sd, ok := transport.(systemd.Transport); ok {
+		res, err := h.rollbackDBus(ctx, sd, name, priorEnabled, priorActive)
+		if !errors.Is(err, systemd.ErrHelperNotFound) {
+			return res, err
+		}
+		// Helper not installed — fall through to the shell path.
+	}
+	return h.rollbackShell(ctx, transport, name, priorEnabled, priorActive)
+}
+
+// rollbackDBus restores the enable + active layers via the D-Bus helper.
+func (h *Handler) rollbackDBus(ctx context.Context, sd systemd.Transport, name, priorEnabled, priorActive string) (*api.RollbackResult, error) {
+	// Enable layer.
+	switch priorEnabled {
+	case "enabled", "enabled-runtime", "static", "":
+		// No-op.
+	case "masked":
+		if step, err := servicedbus.Step(mechanism, name, "mask", func() (*systemd.Response, error) { return sd.Mask(ctx, name) }); err != nil || step != nil {
+			return servicedbus.RollbackFrom(step, err)
+		}
+	default: // disabled, indirect, alias, generated, transient
+		if step, err := servicedbus.Step(mechanism, name, "disable", func() (*systemd.Response, error) { return sd.Disable(ctx, name) }); err != nil || step != nil {
+			return servicedbus.RollbackFrom(step, err)
+		}
+	}
+	// Active layer: stop unless prior was active (or unknown).
+	if priorActive != "active" && priorActive != "" {
+		if step, err := servicedbus.Step(mechanism, name, "stop", func() (*systemd.Response, error) { return sd.Stop(ctx, name) }); err != nil || step != nil {
+			return servicedbus.RollbackFrom(step, err)
+		}
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("service_enabled: restored %s to (enabled=%s, active=%s) (D-Bus)", name, priorEnabled, priorActive),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// rollbackShell restores via systemctl shell-out.
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, name, priorEnabled, priorActive string) (*api.RollbackResult, error) {
 	enableCmd := enableRollbackCommand(name, priorEnabled)
 	activeCmd := activeRollbackCommand(name, priorActive)
 
-	// Combine into one transport call when both are non-empty.
 	var pipeline string
 	switch {
 	case enableCmd != "" && activeCmd != "":
@@ -197,8 +269,6 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 func enableRollbackCommand(name, priorEnabled string) string {
 	switch priorEnabled {
 	case "enabled", "enabled-runtime", "static", "":
-		// Already in the target enable state, or unit cannot be
-		// disabled. No-op.
 		return ""
 	case "masked":
 		return fmt.Sprintf("systemctl mask %s", shellEscape(name))
@@ -211,7 +281,6 @@ func enableRollbackCommand(name, priorEnabled string) string {
 // to restore the captured active-layer state.
 func activeRollbackCommand(name, priorActive string) string {
 	if priorActive == "active" || priorActive == "" {
-		// Already active or unknown — leave running.
 		return ""
 	}
 	return fmt.Sprintf("systemctl stop %s", shellEscape(name))
