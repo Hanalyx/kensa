@@ -1,6 +1,6 @@
 spec:
     id: output-writer
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 3
 
@@ -126,6 +126,26 @@ spec:
               operator.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              The jsonl scan writer MUST derive its wire shape from
+              result.Outcomes (the canonical api.ComplianceStatus
+              verdict: pass/fail/skipped/error, carrying RuleID
+              intrinsically), NOT from result.Transactions. The
+              Transactions surface overloads committed/rolled_back/
+              errored as the verdict and records a platform-gated or
+              not-applicable rule as StatusErrored for back-compat;
+              mapping that surface mislabelled those skips as "error"
+              and produced no skipped count. This deliberately changes
+              the NDJSON wire shape relative to C-03's byte-for-byte
+              preservation: the "errors" count drops by the number of
+              skipped rules and a first-class "skipped" count + status
+              is added. The change is coordinated with OpenWatch (the
+              documented consumer of this surface). C-07 supersedes
+              C-03 for the jsonl writer only; all other formats remain
+              byte-stable.
+          type: business
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -247,6 +267,19 @@ spec:
               indirectly by passing an io.Writer that always errors
               and asserting the writer surfaces it.
           references_constraints: [C-06]
+          priority: high
+        - id: AC-15
+          description: |
+              jsonlScanWriter.WriteScanResult maps from result.Outcomes:
+              a scan with one pass, one fail, one ComplianceSkipped, and
+              one ComplianceError outcome emits rules with status
+              "pass"/"fail"/"skipped"/"error" respectively and counts
+              passed=1 failed=1 skipped=1 errors=1. Regression guard: a
+              ComplianceSkipped outcome whose back-compat Transactions
+              entry is StatusErrored emits status "skipped" and counts
+              toward skipped, never toward errors. RuleID is taken from
+              each outcome, so the rules []*api.Rule parameter is unused.
+          references_constraints: [C-07]
           priority: high
 
     tags: [cli, gnu-posix, tier-1, output-mechanism, c-012]
