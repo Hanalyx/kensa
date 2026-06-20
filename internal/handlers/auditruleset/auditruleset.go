@@ -1,8 +1,19 @@
 // Package auditruleset implements the audit_rule_set handler:
-// write an audit rule to /etc/audit/rules.d/ and reload with
-// augenrules --load. Capture records whether the rule file existed and
-// its prior content for rollback.
-// Spec: specs/handlers/audit_rule_set.spec.yaml.
+// write an audit rule to /etc/audit/rules.d/ and load it into the kernel.
+// Capture records whether the rule file existed and its prior content for
+// rollback. Spec: specs/handlers/audit_rule_set.spec.yaml.
+//
+// Dual path: when the transport implements auditnl.AuditTransport (agent
+// mode with AUDIT netlink available) the handler loads each rule line into
+// the running kernel via AUDIT_ADD_RULE and writes the drop-in atomically
+// (fsatomic), instead of shelling out to augenrules. The netlink model is
+// ADDITIVE per-rule (it loads this rule's lines into the kernel's flat
+// rule list) rather than augenrules' whole-rules.d compile-and-load — so
+// Capture records exactly which lines were NOT already loaded ("added_rules")
+// and Rollback deletes only those, never a rule another drop-in owns.
+// When netlink cannot be opened (no privilege / no audit, or an immutable
+// audit config), the handler falls back to the augenrules shell path —
+// which a host without netlink access behaves identically to before.
 package auditruleset
 
 import (
@@ -12,11 +23,17 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "audit_rule_set"
+
+// auditFileMode is the drop-in file mode (audit rule files are sensitive).
+const auditFileMode = 0o640
 
 // defaultRulesDir is the standard drop-in location for auditd rules.
 const defaultRulesDir = "/etc/audit/rules.d"
@@ -84,6 +101,49 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if at, ok := transport.(auditnl.AuditTransport); ok {
+		res, err := h.applyNetlink(ctx, at, p)
+		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
+			return res, err
+		}
+		// Netlink unavailable (no privilege / immutable audit) → shell.
+	}
+	return h.applyShell(ctx, transport, p)
+}
+
+// applyNetlink loads each rule line into the kernel via AUDIT_ADD_RULE and
+// writes the drop-in atomically.
+func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p *Params) (*api.StepResult, error) {
+	c, err := at.AuditClient()
+	if err != nil {
+		return nil, err // ErrAuditUnavailable propagates for fallback
+	}
+	defer c.Close()
+
+	for _, line := range auditnl.RuleLines(p.Rule) {
+		wire, berr := auditnl.BuildRule(line)
+		if berr != nil {
+			// A malformed rule line is a non-compliant outcome, not a
+			// transport error.
+			return &api.StepResult{Success: false, Detail: fmt.Sprintf("audit_rule_set: %v", berr)}, nil
+		}
+		if aerr := c.AddRule(wire); aerr != nil && !errors.Is(aerr, unix.EEXIST) {
+			return &api.StepResult{Success: false, Detail: fmt.Sprintf("audit_rule_set: load rule %q: %v", line, aerr)}, nil
+		}
+	}
+
+	content := "# Managed by Kensa.\n" + p.Rule + "\n"
+	if werr := at.AtomicReplace(ctx, p.RuleFile, auditFileMode, []byte(content)); werr != nil {
+		return nil, fmt.Errorf("audit_rule_set: persist write: %w", werr)
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("audit_rule_set: loaded rules into kernel + wrote %s (netlink)", p.RuleFile),
+	}, nil
+}
+
+// applyShell writes the drop-in and reloads via augenrules.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
 	path := p.RuleFile
 	content := "# Managed by Kensa.\n" + p.Rule + "\n"
 
@@ -107,12 +167,58 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}, nil
 }
 
-// Capture records whether the rule file existed and its prior content.
+// Capture records whether the rule file existed and its prior content,
+// plus (on the netlink path) which of the rule's lines are NOT already
+// loaded in the kernel — the set Rollback will unload.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
+	if at, ok := transport.(auditnl.AuditTransport); ok {
+		pre, err := h.captureNetlink(ctx, at, p)
+		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
+			return pre, err
+		}
+		// Netlink unavailable → shell capture.
+	}
+	return h.captureShell(ctx, transport, p)
+}
+
+// captureNetlink records the file state and the added_rules set (rule
+// lines not already loaded — by wire-format equality against the kernel's
+// current rule list).
+func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport, p *Params) (*api.PreState, error) {
+	c, err := at.AuditClient()
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
+	loaded, err := c.GetRules()
+	if err != nil {
+		return nil, fmt.Errorf("audit_rule_set: capture list rules: %w (%v)", api.ErrCaptureIncomplete, err)
+	}
+	var added []string
+	for _, line := range auditnl.RuleLines(p.Rule) {
+		wire, berr := auditnl.BuildRule(line)
+		if berr != nil {
+			return nil, fmt.Errorf("audit_rule_set: capture %w: %v", api.ErrCaptureIncomplete, berr)
+		}
+		if !containsWire(loaded, wire) {
+			added = append(added, line) // we will add it → rollback unloads it
+		}
+	}
+
+	content, existed, err := at.ReadFileIfExists(p.RuleFile)
+	if err != nil {
+		return nil, fmt.Errorf("audit_rule_set: capture read %s: %w (%v)", p.RuleFile, api.ErrCaptureIncomplete, err)
+	}
+	return h.preState(p, existed, content, added), nil
+}
+
+// captureShell records whether the rule file existed and its content.
+func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params) (*api.PreState, error) {
 	path := p.RuleFile
 	cmd := fmt.Sprintf(
 		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
@@ -131,19 +237,74 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if fileExisted {
 		priorContent = res.Stdout
 	}
+	return h.preState(p, fileExisted, priorContent, nil), nil
+}
+
+// preState builds the canonical PreState. added is the netlink-path set of
+// rule lines to unload on rollback; nil/empty on the shell path.
+func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, added []string) *api.PreState {
+	data := map[string]interface{}{
+		"path":          p.RuleFile,
+		"file_existed":  fileExisted,
+		"prior_content": priorContent,
+	}
+	if len(added) > 0 {
+		data["added_rules"] = added
+	}
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
 		CapturedAt: time.Now().UTC(),
-		Data: map[string]interface{}{
-			"path":          path,
-			"file_existed":  fileExisted,
-			"prior_content": priorContent,
-		},
-	}, nil
+		Data:       data,
+	}
 }
 
-// Rollback restores the prior rule file state and reloads augenrules.
+// containsWire reports whether want appears in the set of wire-format rules.
+func containsWire(set [][]byte, want []byte) bool {
+	for _, w := range set {
+		if bytesEqual(w, want) {
+			return true
+		}
+	}
+	return false
+}
+
+// bytesEqual is a tiny dependency-free []byte compare (avoids importing
+// bytes solely for this).
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// addedRules coerces the pre-state added_rules value (which round-trips
+// through JSON as []interface{} from the store, or stays []string
+// in-process) into a []string.
+func addedRules(v interface{}) []string {
+	switch val := v.(type) {
+	case []string:
+		return val
+	case []interface{}:
+		out := make([]string, 0, len(val))
+		for _, e := range val {
+			if s, ok := e.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// Rollback restores the prior rule-file state and unloads the rules the
+// Apply added (netlink path) or reloads augenrules (shell path).
 func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *api.PreState) (*api.RollbackResult, error) {
 	if pre == nil || pre.Data == nil {
 		return nil, errors.New("audit_rule_set: rollback called with nil pre-state")
@@ -154,7 +315,58 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 	fileExisted, _ := pre.Data["file_existed"].(bool)
 	priorContent, _ := pre.Data["prior_content"].(string)
+	added := addedRules(pre.Data["added_rules"])
 
+	if at, ok := transport.(auditnl.AuditTransport); ok {
+		res, err := h.rollbackNetlink(ctx, at, path, fileExisted, priorContent, added)
+		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
+			return res, err
+		}
+		// Netlink unavailable → shell rollback.
+	}
+	return h.rollbackShell(ctx, transport, path, fileExisted, priorContent)
+}
+
+// rollbackNetlink restores the drop-in atomically and unloads exactly the
+// rule lines Apply added (added_rules) — never a rule another drop-in owns.
+func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport, path string, fileExisted bool, priorContent string, added []string) (*api.RollbackResult, error) {
+	// Restore persist layer first.
+	if fileExisted {
+		if err := at.AtomicReplace(ctx, path, auditFileMode, []byte(priorContent)); err != nil {
+			return nil, fmt.Errorf("audit_rule_set: rollback persist write: %w", err)
+		}
+	} else if err := at.AtomicRemove(ctx, path); err != nil {
+		return nil, fmt.Errorf("audit_rule_set: rollback persist remove: %w", err)
+	}
+
+	c, err := at.AuditClient()
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+	for _, line := range added {
+		wire, berr := auditnl.BuildRule(line)
+		if berr != nil {
+			continue // unbuildable now but Apply built it; skip defensively
+		}
+		if derr := c.DeleteRule(wire); derr != nil && !errors.Is(derr, unix.ENOENT) {
+			return &api.RollbackResult{
+				Success:        false,
+				PartialRestore: true,
+				Detail:         fmt.Sprintf("audit_rule_set: file restored but unload of %q failed: %v", line, derr),
+				ExecutedAt:     time.Now().UTC(),
+			}, nil
+		}
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("audit_rule_set: restored %s and unloaded %d rule(s) (netlink; file_existed=%v)", path, len(added), fileExisted),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// rollbackShell restores the drop-in and reloads augenrules.
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileExisted bool, priorContent string) (*api.RollbackResult, error) {
 	var cmd string
 	if fileExisted {
 		cmd = fmt.Sprintf(

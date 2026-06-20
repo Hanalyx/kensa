@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 	"github.com/Hanalyx/kensa/internal/agent/systemd"
@@ -309,6 +310,14 @@ func (t *Transport) DeleteModule(name string) error {
 	return kernelio.DeleteModule(name)
 }
 
+// AuditClient opens an AUDIT netlink client. Satisfies
+// auditnl.AuditTransport for the audit_rule_set handler's runtime rule
+// load/unload. A non-root / no-audit host gets a wrapped
+// auditnl.ErrAuditUnavailable, sending the handler to its shell path.
+func (t *Transport) AuditClient() (auditnl.AuditClient, error) {
+	return auditnl.Open()
+}
+
 // Compile-time interface check.
 var (
 	_ api.Transport            = (*Transport)(nil)
@@ -316,4 +325,5 @@ var (
 	_ systemd.Transport        = (*Transport)(nil)
 	_ kernelio.SysctlTransport = (*Transport)(nil)
 	_ kernelio.ModuleTransport = (*Transport)(nil)
+	_ auditnl.AuditTransport   = (*Transport)(nil)
 )
