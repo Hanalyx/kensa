@@ -1,0 +1,127 @@
+spec:
+    id: auditnl-rule-set
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: auditnl-rule-set
+        description: |
+            The audit_rule_set handler loads audit rules into the running
+            kernel via AUDIT netlink (AUDIT_ADD_RULE / AUDIT_LIST_RULES /
+            AUDIT_DEL_RULE through github.com/elastic/go-libaudit) when
+            running on the target host (agent mode), and writes the
+            /etc/audit/rules.d drop-in atomically (fsatomic), instead of
+            shelling out to augenrules. The go-libaudit rule parser
+            (rule/flags.Parse) is the same grammar auditctl implements, so
+            the handler does not reimplement it.
+
+            The netlink model is ADDITIVE per-rule: it loads this rule's
+            lines into the kernel's flat rule list (it does NOT replicate
+            augenrules' whole-rules.d compile-dedup-order-load). To keep
+            rollback safe, Capture records which of the rule's lines were
+            NOT already loaded ("added_rules"), and Rollback deletes only
+            those — never a rule another drop-in owns.
+
+            AUDIT netlink needs CAP_AUDIT_CONTROL (root); when the socket
+            cannot be opened — or the audit config is immutable — the
+            handler falls back to the augenrules shell path, so a host
+            without netlink access behaves exactly as before.
+        related_specs:
+            - handler-audit-rule-set
+            - kernelio-sysctl
+
+    objective:
+        summary: |
+            Provide the AUDIT netlink rule primitives (BuildRule + an
+            AuditClient) and wire audit_rule_set's Apply/Capture/Rollback to
+            use them in agent mode, preserving the augenrules shell
+            fallback, the drop-in persistence, and a rollback that unloads
+            only the rules this apply added.
+        scope:
+            includes:
+                - auditnl.BuildRule (flags.Parse + rule.Build → wire format)
+                - auditnl.RuleLines (split a rule body into loadable lines)
+                - auditnl.AuditClient interface + Open (ErrAuditUnavailable on failure)
+                - auditnl.AuditTransport capability (FileTransport + AuditClient())
+                - audit_rule_set dual-path Apply/Capture/Rollback
+            excludes:
+                - reimplementing augenrules' whole-directory load semantics
+                - the engine transaction-phase event emission (separate deliverable)
+                - the shell path's behavior (handler-audit-rule-set)
+
+    constraints:
+        - id: C-01
+          description: |
+              BuildRule MUST parse one auditctl-syntax rule line via
+              go-libaudit and return its kernel wire format; the same line
+              MUST always yield the same bytes (the equality basis Capture
+              uses against AUDIT_LIST_RULES). A malformed line MUST return
+              an error, never a partial/zero rule.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              audit_rule_set MUST select the netlink path iff the transport
+              implements auditnl.AuditTransport AND AuditClient() opens; an
+              ErrAuditUnavailable (no privilege / immutable audit) MUST send
+              the handler to the augenrules shell path. A malformed rule
+              line on the netlink path is a Success:false StepResult (and
+              nothing is loaded or persisted), not a returned error.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Capture MUST record added_rules = the rule lines NOT already
+              loaded in the kernel (by wire-format equality). Rollback MUST
+              unload ONLY added_rules — a rule that was already loaded at
+              capture (owned by another drop-in) MUST survive rollback.
+              AUDIT_DEL_RULE of an already-absent rule (ENOENT) is a no-op.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              The drop-in write MUST be atomic (fsatomic) on the netlink
+              path. Rollback MUST restore the prior drop-in content when it
+              existed at capture and remove it when it did not.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              BuildRule parses watch ("-w /etc/passwd -p wa -k identity")
+              and syscall ("-a always,exit -F arch=b64 -S execve -k exec")
+              rules to non-empty, deterministic wire format and rejects a
+              malformed line; RuleLines drops blanks/comments.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Netlink Apply loads the rule into the kernel and writes the
+              drop-in; a malformed rule line yields a Success:false step
+              with nothing loaded or persisted.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Netlink Capture → Apply → Rollback unloads the rule it added
+              and removes a drop-in that did not exist at capture.
+          references_constraints: [C-03, C-04]
+          priority: critical
+        - id: AC-04
+          description: |
+              A rule already loaded at capture (owned by another drop-in)
+              survives rollback — only added_rules are unloaded.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              The handler falls back to the augenrules shell path both when
+              the transport lacks the audit capability and when AuditClient()
+              returns ErrAuditUnavailable.
+          references_constraints: [C-02]
+          priority: critical
+
+    tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]
