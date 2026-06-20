@@ -104,7 +104,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 // persistent blacklist is what guarantees it stays out.
 func (h *Handler) applyKernel(ctx context.Context, mt kernelio.ModuleTransport, p *Params) (*api.StepResult, error) {
 	path := blacklistPath(p.Module)
-	if err := mt.AtomicReplace(ctx, path, blacklistMode, []byte(blacklistContent(p.Module))); err != nil {
+	if err := kernelio.WriteFile(ctx, mt, path, blacklistMode, []byte(blacklistContent(p.Module))); err != nil {
 		return nil, fmt.Errorf("kernel_module_disable: write blacklist: %w", err)
 	}
 	// Best-effort unload; the blacklist is the load-bearing change.
@@ -224,10 +224,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 // rollbackKernel restores or removes the blacklist drop-in atomically.
 func (h *Handler) rollbackKernel(ctx context.Context, mt kernelio.ModuleTransport, path string, fileExisted bool, priorContent string) (*api.RollbackResult, error) {
 	if fileExisted {
-		if err := mt.AtomicReplace(ctx, path, blacklistMode, []byte(priorContent)); err != nil {
+		if err := kernelio.WriteFile(ctx, mt, path, blacklistMode, []byte(priorContent)); err != nil {
 			return nil, fmt.Errorf("kernel_module_disable: rollback rewrite %s: %w", path, err)
 		}
-	} else if err := mt.AtomicRemove(ctx, path); err != nil {
+	} else if err := kernelio.RemoveFile(ctx, mt, path); err != nil {
 		return nil, fmt.Errorf("kernel_module_disable: rollback remove %s: %w", path, err)
 	}
 	return &api.RollbackResult{

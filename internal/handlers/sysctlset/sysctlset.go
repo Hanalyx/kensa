@@ -136,7 +136,7 @@ func (h *Handler) applyKernel(_ context.Context, k kernelio.SysctlTransport, p *
 			Detail:  fmt.Sprintf("sysctl_set: runtime apply failed: %v", err),
 		}, nil
 	}
-	if err := k.AtomicReplace(context.Background(), p.PersistFile, persistMode, []byte(persistContent(p.Key, p.Value))); err != nil {
+	if err := kernelio.WriteFile(context.Background(), k, p.PersistFile, persistMode, []byte(persistContent(p.Key, p.Value))); err != nil {
 		return nil, fmt.Errorf("sysctl_set: persist write failed: %w", err)
 	}
 	return &api.StepResult{
@@ -294,10 +294,10 @@ func (h *Handler) rollbackKernel(k kernelio.SysctlTransport, key, persistFile, r
 	// Restore persist layer first; the runtime write then sets the
 	// captured runtime value (which may differ from the file's value).
 	if persistFileExisted {
-		if err := k.AtomicReplace(context.Background(), persistFile, persistMode, []byte(persistFileContent)); err != nil {
+		if err := kernelio.WriteFile(context.Background(), k, persistFile, persistMode, []byte(persistFileContent)); err != nil {
 			return nil, fmt.Errorf("sysctl_set: rollback persist write failed: %w", err)
 		}
-	} else if err := k.AtomicRemove(context.Background(), persistFile); err != nil {
+	} else if err := kernelio.RemoveFile(context.Background(), k, persistFile); err != nil {
 		return nil, fmt.Errorf("sysctl_set: rollback persist remove failed: %w", err)
 	}
 	if err := k.WriteSysctl(key, runtimeValue); err != nil {

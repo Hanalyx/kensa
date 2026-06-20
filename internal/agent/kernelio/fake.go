@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 )
 
 // FakeSysctlTransport is an in-memory test double implementing
@@ -80,20 +81,36 @@ func (f *FakeSysctlTransport) MkdirAll(path string, _ fs.FileMode) error {
 	return nil
 }
 
-// AtomicReplace writes content to the in-memory persist layer.
+// AtomicReplace writes content to an EXISTING in-memory file, modeling
+// fsatomic.AtomicReplace: it errors fsatomic.ErrNotExist when the target
+// is absent. (The earlier no-op map-set masked the live-caught bug where a
+// handler used AtomicReplace on a not-yet-created drop-in.)
 func (f *FakeSysctlTransport) AtomicReplace(_ context.Context, fullPath string, _ fs.FileMode, content []byte) error {
+	if _, ok := f.Files[fullPath]; !ok {
+		return fmt.Errorf("%w: %s", fsatomic.ErrNotExist, fullPath)
+	}
 	f.Files[fullPath] = string(content)
 	return nil
 }
 
-// AtomicWrite writes dir/name to the in-memory persist layer.
+// AtomicWrite creates a NEW in-memory file, modeling fsatomic.AtomicWrite:
+// it errors fsatomic.ErrAlreadyExists when the target already exists.
 func (f *FakeSysctlTransport) AtomicWrite(_ context.Context, dir, name string, _ fs.FileMode, content []byte) error {
-	f.Files[filepath.Join(dir, name)] = string(content)
+	p := filepath.Join(dir, name)
+	if _, ok := f.Files[p]; ok {
+		return fmt.Errorf("%w: %s", fsatomic.ErrAlreadyExists, p)
+	}
+	f.Files[p] = string(content)
 	return nil
 }
 
-// AtomicRemove deletes path from the in-memory persist layer.
+// AtomicRemove deletes an EXISTING in-memory file, modeling
+// fsatomic.AtomicRemove: it errors fsatomic.ErrNotExist when the target is
+// absent.
 func (f *FakeSysctlTransport) AtomicRemove(_ context.Context, fullPath string) error {
+	if _, ok := f.Files[fullPath]; !ok {
+		return fmt.Errorf("%w: %s", fsatomic.ErrNotExist, fullPath)
+	}
 	delete(f.Files, fullPath)
 	return nil
 }

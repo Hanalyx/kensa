@@ -27,6 +27,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
@@ -133,7 +134,7 @@ func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p
 	}
 
 	content := "# Managed by Kensa.\n" + p.Rule + "\n"
-	if werr := at.AtomicReplace(ctx, p.RuleFile, auditFileMode, []byte(content)); werr != nil {
+	if werr := kernelio.WriteFile(ctx, at, p.RuleFile, auditFileMode, []byte(content)); werr != nil {
 		return nil, fmt.Errorf("audit_rule_set: persist write: %w", werr)
 	}
 	return &api.StepResult{
@@ -332,10 +333,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport, path string, fileExisted bool, priorContent string, added []string) (*api.RollbackResult, error) {
 	// Restore persist layer first.
 	if fileExisted {
-		if err := at.AtomicReplace(ctx, path, auditFileMode, []byte(priorContent)); err != nil {
+		if err := kernelio.WriteFile(ctx, at, path, auditFileMode, []byte(priorContent)); err != nil {
 			return nil, fmt.Errorf("audit_rule_set: rollback persist write: %w", err)
 		}
-	} else if err := at.AtomicRemove(ctx, path); err != nil {
+	} else if err := kernelio.RemoveFile(ctx, at, path); err != nil {
 		return nil, fmt.Errorf("audit_rule_set: rollback persist remove: %w", err)
 	}
 

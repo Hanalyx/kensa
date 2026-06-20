@@ -220,7 +220,7 @@ func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, tr
 	if _, existed, rerr := ft.ReadFileIfExists(paths.profile); rerr != nil {
 		return nil, fmt.Errorf("dconf_set: read profile: %w", rerr)
 	} else if !existed {
-		if werr := ft.AtomicReplace(ctx, paths.profile, dconfFileMode, []byte(profileBody(p.DB))); werr != nil {
+		if werr := kernelio.WriteFile(ctx, ft, paths.profile, dconfFileMode, []byte(profileBody(p.DB))); werr != nil {
 			return nil, fmt.Errorf("dconf_set: profile write: %w", werr)
 		}
 	}
@@ -228,7 +228,7 @@ func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, tr
 	if err := ft.MkdirAll(paths.dbDir, dconfDirMode); err != nil {
 		return nil, fmt.Errorf("dconf_set: mkdir db.d: %w", err)
 	}
-	if err := ft.AtomicReplace(ctx, paths.snippet, dconfFileMode, []byte(snippetBody(p))); err != nil {
+	if err := kernelio.WriteFile(ctx, ft, paths.snippet, dconfFileMode, []byte(snippetBody(p))); err != nil {
 		return nil, fmt.Errorf("dconf_set: snippet write: %w", err)
 	}
 	// 3. Optional lock.
@@ -236,7 +236,7 @@ func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, tr
 		if err := ft.MkdirAll(paths.locksD, dconfDirMode); err != nil {
 			return nil, fmt.Errorf("dconf_set: mkdir locks: %w", err)
 		}
-		if err := ft.AtomicReplace(ctx, paths.lock, dconfFileMode, []byte(lockBody(p))); err != nil {
+		if err := kernelio.WriteFile(ctx, ft, paths.lock, dconfFileMode, []byte(lockBody(p))); err != nil {
 			return nil, fmt.Errorf("dconf_set: lock write: %w", err)
 		}
 	}
@@ -456,10 +456,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 // `dconf update` (the compile step, stays shell).
 func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, filePath, priorContent string, fileExisted bool) (*api.RollbackResult, error) {
 	if fileExisted {
-		if err := ft.AtomicReplace(ctx, filePath, dconfFileMode, []byte(priorContent)); err != nil {
+		if err := kernelio.WriteFile(ctx, ft, filePath, dconfFileMode, []byte(priorContent)); err != nil {
 			return nil, fmt.Errorf("dconf_set: rollback restore: %w", err)
 		}
-	} else if err := ft.AtomicRemove(ctx, filePath); err != nil {
+	} else if err := kernelio.RemoveFile(ctx, ft, filePath); err != nil {
 		return nil, fmt.Errorf("dconf_set: rollback remove: %w", err)
 	}
 	if res, err := transport.Run(ctx, "dconf update"); err != nil {
