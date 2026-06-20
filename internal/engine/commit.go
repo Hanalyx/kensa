@@ -23,6 +23,11 @@ func (e *Engine) finalize(
 	validators []api.ValidatorResult,
 	rollbacks []api.RollbackResult,
 ) *api.TransactionResult {
+	// Terminal transaction-phase audit record (best-effort; never affects
+	// the outcome). The status string is the phase name (committed /
+	// rolled_back / partially_applied).
+	e.emitter.EmitPhase(txn.ID.String(), string(status), status == api.StatusCommitted)
+
 	now := time.Now().UTC()
 	result := &api.TransactionResult{
 		TransactionID: txn.ID,
@@ -121,6 +126,8 @@ func (e *Engine) finalize(
 // [api.StatusErrored] outcome. The phase argument identifies which
 // phase failed for diagnostics.
 func (e *Engine) errored(ctx context.Context, txn *api.Transaction, startedAt time.Time, phase api.Phase, err error) *api.TransactionResult {
+	e.emitter.EmitPhase(txn.ID.String(), "errored", false)
+
 	now := time.Now().UTC()
 	result := &api.TransactionResult{
 		TransactionID: txn.ID,
