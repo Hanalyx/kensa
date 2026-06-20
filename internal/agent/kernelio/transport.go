@@ -1,16 +1,22 @@
 package kernelio
 
-import "github.com/Hanalyx/kensa/internal/agent/fsatomic"
+import (
+	"io/fs"
+
+	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+)
 
 // FileTransport is the capability a transport implements when it can do
 // atomic file IO on the target host: the fsatomic write/replace/remove
-// primitives plus an existence-aware read. The mount_option_set handler
-// asserts this for its /etc/fstab edits (its runtime remount stays on
-// mount(8) by design — see the kernelio-mount spec). SysctlTransport
-// embeds it for the sysctl persist drop-in.
+// primitives, an existence-aware read, and a mkdir-all. The
+// mount_option_set handler asserts this for its /etc/fstab edits (its
+// runtime remount stays on mount(8) by design — see the kernelio-mount
+// spec); dconf_set asserts it for its /etc/dconf drop-in writes.
+// SysctlTransport embeds it for the sysctl persist drop-in.
 type FileTransport interface {
 	fsatomic.Transport
 	ReadFileIfExists(path string) (content string, existed bool, err error)
+	MkdirAll(path string, mode fs.FileMode) error
 }
 
 // ModuleTransport is the capability a transport implements when it can

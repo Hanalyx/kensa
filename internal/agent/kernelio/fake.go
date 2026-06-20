@@ -32,6 +32,9 @@ type FakeSysctlTransport struct {
 	// unload error (e.g. ErrModuleNotLoaded or a busy module).
 	DeletedModules  []string
 	DeleteModuleErr map[string]error
+
+	// Dirs records MkdirAll calls (the dconf handler's drop-in dirs).
+	Dirs []string
 }
 
 // NewFakeSysctl returns a FakeSysctlTransport with initialized maps.
@@ -68,6 +71,13 @@ func (f *FakeSysctlTransport) ReadSysctl(key string) (string, error) {
 func (f *FakeSysctlTransport) ReadFileIfExists(path string) (string, bool, error) {
 	c, ok := f.Files[path]
 	return c, ok, nil
+}
+
+// MkdirAll records the directory (the in-memory Files layer needs no real
+// dir for AtomicReplace/Write to succeed).
+func (f *FakeSysctlTransport) MkdirAll(path string, _ fs.FileMode) error {
+	f.Dirs = append(f.Dirs, path)
+	return nil
 }
 
 // AtomicReplace writes content to the in-memory persist layer.

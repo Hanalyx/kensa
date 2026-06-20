@@ -303,6 +303,11 @@ func (t *Transport) ReadFileIfExists(path string) (string, bool, error) {
 	return kernelio.ReadFileIfExists(path)
 }
 
+// MkdirAll delegates to kernelio.MkdirAll (os.MkdirAll).
+func (t *Transport) MkdirAll(path string, mode fs.FileMode) error {
+	return kernelio.MkdirAll(path, mode)
+}
+
 // DeleteModule delegates to kernelio.DeleteModule (delete_module(2)).
 // Satisfies kernelio.ModuleTransport for the kernel_module_disable
 // handler's runtime unload.

@@ -1,0 +1,93 @@
+spec:
+    id: kernelio-dconf
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: kernelio-dconf
+        description: |
+            The dconf_set handler writes the system dconf policy files — the
+            profile (/etc/dconf/profile/<db>), the keyfile snippet
+            (/etc/dconf/db/<db>.d/<file>), and an optional lock
+            (/etc/dconf/db/<db>.d/locks/<file>) — via direct atomic file IO
+            (fsatomic) when running on the target host (agent mode), instead
+            of the shell printf + mkdir pipeline. The `dconf update` compile
+            step DELIBERATELY stays on the shell on both paths: it is the
+            dconf toolchain's job to compile the keyfile drop-ins into the
+            binary database, exactly as mount keeps the remount on mount(8)
+            and audit keeps the load on augenrules.
+
+            The migration doc's "D-Bus to ca.desrt.dconf" does NOT apply
+            here: that is the user-session dconf API, whereas dconf_set
+            manages SYSTEM policy, which is file-based (profiles, keyfiles,
+            locks compiled by dconf update). The handler asserts
+            kernelio.FileTransport and falls back to the shell path when the
+            transport does not implement it.
+        related_specs:
+            - handler-dconf-set
+            - kernelio-mount
+
+    objective:
+        summary: |
+            Wire dconf_set's Apply/Capture/Rollback to write the dconf
+            policy files atomically in agent mode, preserving the shell
+            fallback, byte-identical file content, an identical captured
+            PreState shape, and the `dconf update` compile on both paths.
+        scope:
+            includes:
+                - kernelio.MkdirAll primitive + FileTransport addition
+                - dconf_set dual-path Apply/Capture/Rollback (file layer)
+            excludes:
+                - the dconf update compile step (stays shell on both paths)
+                - the user-session ca.desrt.dconf D-Bus API (not applicable to system policy)
+                - the shell path's behavior (handler-dconf-set)
+
+    constraints:
+        - id: C-01
+          description: |
+              On the kernel-IO path, Apply MUST write the profile
+              (create-if-absent — an existing operator profile is left
+              untouched), ensure the db.d (and locks) directory exists via
+              MkdirAll, and write the snippet (and optional lock) via
+              fsatomic atomic replace, producing byte-identical content to
+              the shell path. The `dconf update` compile MUST run on both
+              paths.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              dconf_set MUST select the kernel-IO path iff the transport
+              implements kernelio.FileTransport, else the shell path. Both
+              paths MUST record an identical PreState shape (file_path,
+              prior_content, file_existed) so capture/rollback are
+              path-agnostic. Rollback MUST restore the prior snippet content
+              when it existed at capture and remove the snippet when it did
+              not, then run dconf update.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Kernel-IO Apply writes the profile (create-if-absent — an
+              existing profile is preserved), snippet, and (when requested)
+              lock files atomically and runs `dconf update`.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Kernel-IO Capture → Apply → Rollback removes a snippet that
+              did not exist at capture and restores the prior content of one
+              that did.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              A transport without the kernelio capability falls back to the
+              shell printf + mkdir + dconf update path.
+          references_constraints: [C-02]
+          priority: critical
+
+    tags: [handler, kernelio, dconf, agent, tier-1, phase-7]
