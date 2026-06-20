@@ -3,6 +3,18 @@
 // it to prevent user override, and run `dconf update`.
 // Capturable: records the prior file content for rollback.
 // Spec: specs/handlers/dconf_set.spec.yaml.
+//
+// Dual path: when the transport implements kernelio.FileTransport (agent
+// mode on the target host) the handler writes the dconf profile / keyfile
+// snippet / lock files atomically (fsatomic), instead of the shell
+// printf + mkdir pipeline. The `dconf update` compile step DELIBERATELY
+// stays shell on both paths — it is the dconf toolchain's job to compile
+// the keyfile drop-ins into the binary database, exactly as mount keeps
+// the remount on mount(8) and audit keeps the load on augenrules. (The
+// migration doc's "D-Bus to ca.desrt.dconf" does not apply here: that is
+// the user-session dconf API, whereas dconf_set manages system policy,
+// which is file-based.) Both paths write byte-identical files and record
+// an identical PreState shape.
 package dconfset
 
 import (
@@ -13,10 +25,53 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "dconf_set"
+
+// dconfDirMode / dconfFileMode are the modes for dconf config dirs/files
+// (root-owned, world-readable).
+const (
+	dconfDirMode  = 0o755
+	dconfFileMode = 0o644
+)
+
+// dconfPaths bundles the four filesystem paths a dconf_set apply touches.
+type dconfPaths struct {
+	profile string
+	dbDir   string
+	snippet string
+	locksD  string
+	lock    string
+}
+
+// pathsFor computes the dconf paths for the decoded params.
+func pathsFor(p *Params) dconfPaths {
+	dbDir := fmt.Sprintf("/etc/dconf/db/%s.d", p.DB)
+	return dconfPaths{
+		profile: fmt.Sprintf("/etc/dconf/profile/%s", p.DB),
+		dbDir:   dbDir,
+		snippet: fmt.Sprintf("%s/%s", dbDir, p.File),
+		locksD:  fmt.Sprintf("%s/locks", dbDir),
+		lock:    fmt.Sprintf("%s/locks/%s", dbDir, p.File),
+	}
+}
+
+// profileBody / snippetBody / lockBody render the file contents, shared by
+// both paths so they write byte-identical files.
+func profileBody(db string) string { return fmt.Sprintf("user\nsystem-db:%s\n", db) }
+
+func snippetBody(p *Params) string {
+	valueStr := p.Value
+	if p.ValueType != "" {
+		valueStr = fmt.Sprintf("%s(%s)", p.ValueType, p.Value)
+	}
+	return fmt.Sprintf("[%s]\n%s=%s\n", p.Schema, p.Key, valueStr)
+}
+
+func lockBody(p *Params) string { return fmt.Sprintf("/%s/%s\n", p.Schema, p.Key) }
 
 // defaultDB is the dconf database name used when the rule does not
 // specify one.
@@ -150,7 +205,55 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.applyKernel(ctx, ft, transport, p)
+	}
+	return h.applyShell(ctx, transport, p)
+}
 
+// applyKernel writes the profile / snippet / lock files atomically and
+// runs `dconf update` via the shell (the compile step).
+func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, p *Params) (*api.StepResult, error) {
+	paths := pathsFor(p)
+
+	// 1. Ensure the profile exists (create-if-absent, matching the shell).
+	if _, existed, rerr := ft.ReadFileIfExists(paths.profile); rerr != nil {
+		return nil, fmt.Errorf("dconf_set: read profile: %w", rerr)
+	} else if !existed {
+		if werr := ft.AtomicReplace(ctx, paths.profile, dconfFileMode, []byte(profileBody(p.DB))); werr != nil {
+			return nil, fmt.Errorf("dconf_set: profile write: %w", werr)
+		}
+	}
+	// 2. db.d dir + snippet.
+	if err := ft.MkdirAll(paths.dbDir, dconfDirMode); err != nil {
+		return nil, fmt.Errorf("dconf_set: mkdir db.d: %w", err)
+	}
+	if err := ft.AtomicReplace(ctx, paths.snippet, dconfFileMode, []byte(snippetBody(p))); err != nil {
+		return nil, fmt.Errorf("dconf_set: snippet write: %w", err)
+	}
+	// 3. Optional lock.
+	if p.Lock {
+		if err := ft.MkdirAll(paths.locksD, dconfDirMode); err != nil {
+			return nil, fmt.Errorf("dconf_set: mkdir locks: %w", err)
+		}
+		if err := ft.AtomicReplace(ctx, paths.lock, dconfFileMode, []byte(lockBody(p))); err != nil {
+			return nil, fmt.Errorf("dconf_set: lock write: %w", err)
+		}
+	}
+	// 4. Compile via the dconf toolchain (stays shell).
+	if res, err := transport.Run(ctx, "dconf update"); err != nil {
+		return nil, fmt.Errorf("dconf_set: dconf update transport error: %w", err)
+	} else if !res.OK() {
+		return &api.StepResult{Success: false, Detail: fmt.Sprintf("dconf_set: dconf update failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr))}, nil
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("dconf_set: %s/%s written to %s and dconf updated (kernel-io)", p.Schema, p.Key, paths.snippet),
+	}, nil
+}
+
+// applyShell creates/updates the dconf files via shell and runs dconf update.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
 	profilePath := fmt.Sprintf("/etc/dconf/profile/%s", p.DB)
 	dbDir := fmt.Sprintf("/etc/dconf/db/%s.d", p.DB)
 	snippetPath := fmt.Sprintf("%s/%s", dbDir, p.File)
@@ -250,8 +353,15 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return nil, err
 	}
-
 	snippetPath := fmt.Sprintf("/etc/dconf/db/%s.d/%s", p.DB, p.File)
+
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		content, existed, rerr := ft.ReadFileIfExists(snippetPath)
+		if rerr != nil {
+			return nil, fmt.Errorf("dconf_set: capture read %s: %w (%v)", snippetPath, api.ErrCaptureIncomplete, rerr)
+		}
+		return preState(snippetPath, content, existed), nil
+	}
 
 	// Read existing file content; fall back sentinel when absent.
 	checkCmd := fmt.Sprintf("test -f %s && cat %s || printf '__KENSA_ABSENT__'",
@@ -267,17 +377,21 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		priorContent = ""
 		fileExisted = false
 	}
+	return preState(snippetPath, priorContent, fileExisted), nil
+}
 
+// preState builds the canonical PreState shape used by both capture paths.
+func preState(filePath, priorContent string, fileExisted bool) *api.PreState {
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
 		CapturedAt: time.Now().UTC(),
 		Data: map[string]interface{}{
-			"file_path":     snippetPath,
+			"file_path":     filePath,
 			"prior_content": priorContent,
 			"file_existed":  fileExisted,
 		},
-	}, nil
+	}
 }
 
 // Rollback restores the prior snippet file content (or removes it if
@@ -292,6 +406,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 
 	if filePath == "" {
 		return nil, errors.New("dconf_set: pre-state missing 'file_path'")
+	}
+
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.rollbackKernel(ctx, ft, transport, filePath, priorContent, fileExisted)
 	}
 
 	var restoreCmd string
@@ -330,6 +448,37 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	return &api.RollbackResult{
 		Success:    true,
 		Detail:     fmt.Sprintf("dconf_set: %s %s and dconf updated", filePath, action),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// rollbackKernel restores or removes the snippet atomically, then runs
+// `dconf update` (the compile step, stays shell).
+func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, filePath, priorContent string, fileExisted bool) (*api.RollbackResult, error) {
+	if fileExisted {
+		if err := ft.AtomicReplace(ctx, filePath, dconfFileMode, []byte(priorContent)); err != nil {
+			return nil, fmt.Errorf("dconf_set: rollback restore: %w", err)
+		}
+	} else if err := ft.AtomicRemove(ctx, filePath); err != nil {
+		return nil, fmt.Errorf("dconf_set: rollback remove: %w", err)
+	}
+	if res, err := transport.Run(ctx, "dconf update"); err != nil {
+		return nil, fmt.Errorf("dconf_set: rollback dconf update transport error: %w", err)
+	} else if !res.OK() {
+		return &api.RollbackResult{
+			Success:        false,
+			PartialRestore: true,
+			Detail:         fmt.Sprintf("dconf_set: file restored but dconf update failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
+			ExecutedAt:     time.Now().UTC(),
+		}, nil
+	}
+	action := "restored"
+	if !fileExisted {
+		action = "removed (was absent before apply)"
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("dconf_set: %s %s and dconf updated (kernel-io)", filePath, action),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
 }

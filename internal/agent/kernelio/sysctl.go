@@ -99,6 +99,17 @@ func ReadFileIfExists(path string) (content string, existed bool, err error) {
 	return string(b), true, nil
 }
 
+// MkdirAll creates a directory and any missing parents, like
+// os.MkdirAll. Used by handlers (e.g. dconf_set) that must ensure a
+// config drop-in directory exists before an atomic write into it, on the
+// agent's direct-IO path.
+func MkdirAll(path string, mode os.FileMode) error {
+	if err := os.MkdirAll(path, mode); err != nil {
+		return fmt.Errorf("kernelio: mkdir %s: %w", path, err)
+	}
+	return nil
+}
+
 // ReadSysctl returns the current runtime value of a kernel parameter,
 // trimmed of trailing whitespace (procfs values carry a trailing
 // newline).
