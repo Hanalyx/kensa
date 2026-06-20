@@ -1,0 +1,110 @@
+spec:
+    id: engine-audit-emission
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: engine-audit-emission
+        description: |
+            The transaction coordinator emits an AUDIT_USER (type 1005)
+            record into the local auditd at each transaction-phase boundary
+            (Phase 5 of the kernel-primitive migration), so a SIEM ingesting
+            auditd sees Kensa's transaction lifecycle without additional
+            plumbing — the observability the FedRAMP reviewer flagged as
+            non-negotiable. The engine runs on the controller, so events
+            land in the controller (operator) host's auditd.
+
+            Emission is STRICTLY best-effort and non-blocking: the emitter
+            uses netlink SendNoWait (no ACK wait) and swallows every error,
+            and when the AUDIT socket cannot be opened (no CAP_AUDIT_WRITE)
+            it degrades to a silent no-op. An audit-log failure can NEVER
+            fail or delay a transaction. The PhaseEmitter interface lives in
+            the engine so the core does not import the netlink stack;
+            auditnl.Emitter satisfies it and is injected via
+            WithAuditEmitter (the pkg/kensa assembly wires the real one).
+        related_specs:
+            - engine-transaction
+            - auditnl-rule-set
+
+    objective:
+        summary: |
+            Emit one transaction-phase audit record per phase boundary
+            (started, capture, apply, validate, and the terminal
+            committed/rolled_back/partially_applied/errored), best-effort
+            and non-blocking, behind a no-op-by-default PhaseEmitter.
+        scope:
+            includes:
+                - PhaseEmitter interface + no-op default + WithAuditEmitter option
+                - emit calls at each phase boundary in Engine.Run / finalize / errored
+                - auditnl.Emitter (AUDIT_USER via SendNoWait) + NewEmitter (no-op on open failure)
+                - auditnl.formatPhaseMessage record body
+            excludes:
+                - the audit_rule_set rule handler (auditnl-rule-set)
+                - parsing/consuming the emitted records (a SIEM concern)
+
+    constraints:
+        - id: C-01
+          description: |
+              The engine MUST emit a phase record at each boundary: at
+              transaction start ("started"), after capture ("capture"),
+              after apply ("apply", carrying applyOK), after validate
+              ("validate", carrying validateOK — only when apply
+              succeeded), and at the terminal outcome (the status string:
+              committed / rolled_back / partially_applied, or "errored" on
+              the errored path). Order MUST follow execution order.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Emission MUST be best-effort and non-blocking and MUST NEVER
+              affect a transaction's outcome: the emitter uses SendNoWait
+              and swallows all errors; the default emitter is a no-op;
+              NewEmitter NEVER returns an error (a failed socket open yields
+              a no-op emitter). An engine with no emitter wired runs
+              identically to before.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The PhaseEmitter interface MUST be defined in the engine
+              package (not auditnl) so the engine core does not import the
+              netlink/go-libaudit stack; the real emitter is injected via
+              WithAuditEmitter. The emitted record MUST be AUDIT_USER (type
+              1005) auditd-style key=value text identifying the op, phase,
+              txn id, and result.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              A committed transaction emits, in order: started, capture,
+              apply, validate, committed.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              A rolled-back transaction (apply fails) emits started,
+              capture, apply, rolled_back — with NO validate phase (apply
+              did not succeed).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              The default engine (no emitter wired) runs to completion
+              without panicking; NewEmitter never errors and EmitPhase /
+              Close are safe on the no-op (failed-open) and zero-value
+              emitter — emission never affects the outcome.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              formatPhaseMessage renders "op=kensa_transaction phase=<p>
+              txn=<id> result=<ok|fail>" with result mapped from the ok
+              flag.
+          references_constraints: [C-03]
+          priority: high
+
+    tags: [engine, auditnl, audit, netlink, observability, tier-1, phase-5]

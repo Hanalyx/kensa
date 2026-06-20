@@ -50,6 +50,13 @@ type Engine struct {
 	validators        []Validator
 	forceValidateFail bool
 
+	// emitter writes a transaction-phase record into the host's auditd
+	// at each phase boundary (the AUDIT_NETLINK observability surface). It is
+	// strictly best-effort and non-blocking — an audit-log failure can
+	// NEVER fail or delay a transaction. Defaults to a no-op; the
+	// production path wires auditnl.NewEmitter via WithAuditEmitter.
+	emitter PhaseEmitter
+
 	// agentClient is set via WithAgentClient. When non-nil,
 	// every handler lookup returns a RemoteHandler wrapping
 	// this client (the original handler's Capturable() value
@@ -107,6 +114,24 @@ type AgentAwareDeadmanArmer interface {
 	UseAgentClient(c DeadmanAgentClient)
 }
 
+// PhaseEmitter receives a transaction-phase record at each phase
+// boundary. Implementations MUST be non-blocking and MUST NOT error —
+// the engine ignores any failure, and audit emission can never affect a
+// transaction's outcome. The interface lives here (not in auditnl) so the
+// engine core does not import the netlink stack; auditnl.Emitter
+// satisfies it structurally and is injected via WithAuditEmitter.
+type PhaseEmitter interface {
+	// EmitPhase records that transaction txnID reached phase with the
+	// given success state.
+	EmitPhase(txnID, phase string, ok bool)
+}
+
+// noopPhaseEmitter is the default — emission is off unless a real emitter
+// is wired in.
+type noopPhaseEmitter struct{}
+
+func (noopPhaseEmitter) EmitPhase(_, _ string, _ bool) {}
+
 // Option configures [Engine] at construction. The default zero-config
 // engine uses an in-memory store, a no-op signer, a no-op deadman
 // armer, and a no-op event bus — sufficient for unit tests but not for
@@ -130,6 +155,17 @@ func WithDeadman(d DeadmanArmer) Option { return func(e *Engine) { e.deadman = d
 
 // WithEvents overrides the event bus.
 func WithEvents(b EventBus) Option { return func(e *Engine) { e.events = b } }
+
+// WithAuditEmitter wires a transaction-phase auditd emitter.
+// The production path passes auditnl.NewEmitter(); tests pass a recorder.
+// Emission is best-effort and never affects a transaction.
+func WithAuditEmitter(em PhaseEmitter) Option {
+	return func(e *Engine) {
+		if em != nil {
+			e.emitter = em
+		}
+	}
+}
 
 // WithForceValidateFail forces the validate phase to return false for
 // every transaction. Used by kensa-fuzz to test the
@@ -180,6 +216,7 @@ func New(opts ...Option) *Engine {
 		deadman:  noopDeadman{},
 		events:   noopEventBus{},
 		locks:    newHostLocks(),
+		emitter:  noopPhaseEmitter{},
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -225,6 +262,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	defer release()
 
 	e.publishStarted(ctx, txn)
+	e.emitter.EmitPhase(txn.ID.String(), "started", true)
 
 	// Phase 1: PRE-FLIGHT.
 	if err := e.preflight(txn); err != nil {
@@ -241,6 +279,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 		return e.errored(ctx, txn, startedAt, api.PhaseCapture, err), nil
 	}
 	e.publishPhaseCompleted(ctx, txn, api.PhaseCapture, true, time.Since(startedAt))
+	e.emitter.EmitPhase(txn.ID.String(), "capture", true)
 
 	// Arm deadman timer for control-channel-sensitive transactions
 	// (engine-transaction spec AC-06, C-04).
@@ -255,6 +294,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	// Phase 3: APPLY.
 	applyResults, applyOK := e.apply(ctx, transport, txn, preStates)
 	e.publishPhaseCompleted(ctx, txn, api.PhaseApply, applyOK, time.Since(startedAt))
+	e.emitter.EmitPhase(txn.ID.String(), "apply", applyOK)
 
 	// Phase 4: VALIDATE (only if APPLY succeeded).
 	var validators []api.ValidatorResult
@@ -262,6 +302,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	if applyOK {
 		validators, validateOK = e.validate(ctx, transport, txn)
 		e.publishPhaseCompleted(ctx, txn, api.PhaseValidate, validateOK, time.Since(startedAt))
+		e.emitter.EmitPhase(txn.ID.String(), "validate", validateOK)
 	}
 
 	// Phase 5: COMMIT or ROLLBACK.
