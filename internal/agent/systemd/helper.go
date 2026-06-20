@@ -80,6 +80,17 @@ var (
 	// missing binary indicates incomplete packaging or a
 	// developer running the agent outside an installed kensa.
 	ErrHelperNotFound = errors.New("systemd: kensa-systemd-helper binary not found")
+
+	// ErrHelperUnavailable is the umbrella for "the helper could not be
+	// INVOKED at all" — the binary is missing (ErrHelperNotFound wraps
+	// this) OR the agent could not exec it (e.g. fapolicyd on a
+	// STIG-hardened host denies execve of a non-rpm-trusted binary →
+	// EPERM). It is distinct from a HelperError, which means the helper
+	// RAN and systemd refused. Service handlers fall back to the
+	// `systemctl` shell path on ErrHelperUnavailable — systemctl is a
+	// distro binary fapolicyd already trusts, so the fallback works where
+	// the un-trusted helper cannot run. Live-caught on the STIG fleet.
+	ErrHelperUnavailable = errors.New("systemd: helper could not be invoked")
 )
 
 // HelperError is the typed failure detail emitted in the
@@ -267,10 +278,13 @@ func (c *Client) invoke(ctx context.Context, op, unit string) (*Response, error)
 		// permission denied launching sudo, etc.). Distinguish
 		// the "helper not installed" case for operator clarity.
 		if errors.Is(err, exec.ErrNotFound) || strings.Contains(err.Error(), "no such file") {
-			return nil, fmt.Errorf("%w at %s", ErrHelperNotFound, c.helperPath)
+			return nil, fmt.Errorf("%w: %w at %s", ErrHelperUnavailable, ErrHelperNotFound, c.helperPath)
 		}
-		return nil, fmt.Errorf("systemd: helper exec %s %s: %w (stderr: %s)",
-			op, unit, err, strings.TrimSpace(string(stderr)))
+		// Any other spawn/exec failure (e.g. fapolicyd denying execve of a
+		// non-trusted helper → EPERM) is also "couldn't invoke it" → the
+		// caller falls back to the shell path.
+		return nil, fmt.Errorf("%w: helper exec %s %s: %w (stderr: %s)",
+			ErrHelperUnavailable, op, unit, err, strings.TrimSpace(string(stderr)))
 	}
 
 	// Exit codes:

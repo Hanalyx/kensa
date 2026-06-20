@@ -41,18 +41,18 @@ func TestStep_Outcomes(t *testing.T) {
 		t.Error("failed StepResult should carry a detail")
 	}
 
-	// ErrHelperNotFound → (nil, err) with errors.Is true: signals fallback.
+	// ErrHelperUnavailable → (nil, err) with errors.Is true: signals fallback.
 	step, err = servicedbus.Step("m", "u", "enable", func() (*systemd.Response, error) {
-		return nil, fmt.Errorf("%w at /x", systemd.ErrHelperNotFound)
+		return nil, fmt.Errorf("%w at /x", systemd.ErrHelperUnavailable)
 	})
 	if step != nil {
-		t.Errorf("ErrHelperNotFound: step should be nil, got %+v", step)
+		t.Errorf("ErrHelperUnavailable: step should be nil, got %+v", step)
 	}
-	if !errors.Is(err, systemd.ErrHelperNotFound) {
-		t.Errorf("ErrHelperNotFound must propagate for fallback; got %v", err)
+	if !errors.Is(err, systemd.ErrHelperUnavailable) {
+		t.Errorf("ErrHelperUnavailable must propagate for fallback; got %v", err)
 	}
 
-	// exec-level error → (nil, wrapped error), NOT ErrHelperNotFound.
+	// raw error (not wrapped Unavailable) → terminal, NOT a fallback.
 	sentinel := errors.New("exec boom")
 	step, err = servicedbus.Step("m", "u", "enable", func() (*systemd.Response, error) {
 		return nil, sentinel
@@ -60,8 +60,8 @@ func TestStep_Outcomes(t *testing.T) {
 	if step != nil {
 		t.Errorf("exec error: step should be nil, got %+v", step)
 	}
-	if err == nil || errors.Is(err, systemd.ErrHelperNotFound) {
-		t.Errorf("exec error should be a non-ErrHelperNotFound error; got %v", err)
+	if err == nil || errors.Is(err, systemd.ErrHelperUnavailable) {
+		t.Errorf("raw error should be a non-ErrHelperUnavailable terminal error; got %v", err)
 	}
 	if !errors.Is(err, sentinel) {
 		t.Errorf("exec error should wrap the underlying error; got %v", err)
@@ -76,8 +76,8 @@ func TestRollbackFrom(t *testing.T) {
 	t.Run("service-dbus-consumption/AC-01", func(t *testing.T) {})
 
 	// err propagates unchanged (fallback or real error).
-	if rr, err := servicedbus.RollbackFrom(nil, systemd.ErrHelperNotFound); rr != nil || !errors.Is(err, systemd.ErrHelperNotFound) {
-		t.Errorf("RollbackFrom(err): got (%v, %v), want (nil, ErrHelperNotFound)", rr, err)
+	if rr, err := servicedbus.RollbackFrom(nil, systemd.ErrHelperUnavailable); rr != nil || !errors.Is(err, systemd.ErrHelperUnavailable) {
+		t.Errorf("RollbackFrom(err): got (%v, %v), want (nil, ErrHelperUnavailable)", rr, err)
 	}
 	// failed step → Success:false RollbackResult, no error.
 	step := &api.StepResult{Success: false, Detail: "mask u failed"}
@@ -131,10 +131,10 @@ func TestCapture(t *testing.T) {
 		t.Errorf("HelperError: want ErrCaptureIncomplete, got %v", err)
 	}
 
-	// ErrHelperNotFound propagates for fallback.
+	// ErrHelperUnavailable propagates for fallback.
 	f4 := servicedbus.NewFake()
-	f4.Err["unit-state"] = fmt.Errorf("%w at /x", systemd.ErrHelperNotFound)
-	if _, err := servicedbus.Capture(context.Background(), f4, "service_enabled", "u"); !errors.Is(err, systemd.ErrHelperNotFound) {
-		t.Errorf("ErrHelperNotFound must propagate; got %v", err)
+	f4.Err["unit-state"] = fmt.Errorf("%w at /x", systemd.ErrHelperUnavailable)
+	if _, err := servicedbus.Capture(context.Background(), f4, "service_enabled", "u"); !errors.Is(err, systemd.ErrHelperUnavailable) {
+		t.Errorf("ErrHelperUnavailable must propagate; got %v", err)
 	}
 }

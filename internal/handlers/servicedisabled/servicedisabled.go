@@ -6,7 +6,7 @@
 // Dual path: when the transport implements systemd.Transport (agent
 // mode with the privileged kensa-systemd-helper available) the handler
 // drives systemd over D-Bus; otherwise — and when the helper binary is
-// absent (systemd.ErrHelperNotFound) — it falls back to `systemctl`
+// unavailable (systemd.ErrHelperUnavailable — absent OR exec-blocked, e.g. fapolicyd) — it falls back to `systemctl`
 // shell-out, so a host without the helper behaves exactly as before.
 package servicedisabled
 
@@ -72,10 +72,10 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}
 	if sd, ok := transport.(systemd.Transport); ok {
 		res, err := h.applyDBus(ctx, sd, p.Name)
-		if !errors.Is(err, systemd.ErrHelperNotFound) {
+		if !errors.Is(err, systemd.ErrHelperUnavailable) {
 			return res, err
 		}
-		// Helper not installed — fall through to the shell path.
+		// Helper unavailable (absent or exec-blocked) — fall through to shell.
 	}
 	return h.applyShell(ctx, transport, p.Name)
 }
@@ -123,10 +123,10 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	}
 	if sd, ok := transport.(systemd.Transport); ok {
 		pre, err := servicedbus.Capture(ctx, sd, mechanism, p.Name)
-		if !errors.Is(err, systemd.ErrHelperNotFound) {
+		if !errors.Is(err, systemd.ErrHelperUnavailable) {
 			return pre, err
 		}
-		// Helper not installed — fall through to the shell path.
+		// Helper unavailable (absent or exec-blocked) — fall through to shell.
 	}
 	return h.captureShell(ctx, transport, p.Name)
 }
@@ -182,10 +182,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 
 	if sd, ok := transport.(systemd.Transport); ok {
 		res, err := h.rollbackDBus(ctx, sd, name, priorEnabled, priorActive)
-		if !errors.Is(err, systemd.ErrHelperNotFound) {
+		if !errors.Is(err, systemd.ErrHelperUnavailable) {
 			return res, err
 		}
-		// Helper not installed — fall through to the shell path.
+		// Helper unavailable (absent or exec-blocked) — fall through to shell.
 	}
 	return h.rollbackShell(ctx, transport, name, priorEnabled, priorActive)
 }
