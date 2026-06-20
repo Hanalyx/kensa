@@ -6,7 +6,8 @@
 // mode, with the privileged kensa-systemd-helper available) the handler
 // drives systemd over D-Bus; otherwise it falls back to `systemctl`
 // shell-out. The fallback also fires when the helper binary is not
-// installed (systemd.ErrHelperNotFound), so a host without the helper
+// available (systemd.ErrHelperUnavailable — absent OR exec-blocked, e.g.
+// fapolicyd on a STIG host), so a host without a usable helper
 // behaves exactly as it did before — no regression.
 package serviceenabled
 
@@ -71,10 +72,10 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}
 	if sd, ok := transport.(systemd.Transport); ok {
 		res, err := h.applyDBus(ctx, sd, p.Name)
-		if !errors.Is(err, systemd.ErrHelperNotFound) {
+		if !errors.Is(err, systemd.ErrHelperUnavailable) {
 			return res, err
 		}
-		// Helper not installed — fall through to the shell path.
+		// Helper unavailable (absent or exec-blocked) — fall through to shell.
 	}
 	return h.applyShell(ctx, transport, p.Name)
 }
@@ -82,7 +83,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 // applyDBus enables then starts the unit via the D-Bus helper. A
 // structured HelperError (the op ran but systemd refused) becomes a
 // failed StepResult, matching the shell path's non-zero-exit handling;
-// an exec/transport-level failure is returned as an error. ErrHelperNotFound
+// an exec/transport-level failure is returned as an error. ErrHelperUnavailable
 // is propagated so Apply can fall back to shell.
 func (h *Handler) applyDBus(ctx context.Context, sd systemd.Transport, name string) (*api.StepResult, error) {
 	if step, err := servicedbus.Step(mechanism, name, "enable", func() (*systemd.Response, error) { return sd.Enable(ctx, name) }); err != nil || step != nil {
@@ -127,10 +128,10 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	}
 	if sd, ok := transport.(systemd.Transport); ok {
 		pre, err := servicedbus.Capture(ctx, sd, mechanism, p.Name)
-		if !errors.Is(err, systemd.ErrHelperNotFound) {
+		if !errors.Is(err, systemd.ErrHelperUnavailable) {
 			return pre, err
 		}
-		// Helper not installed — fall through to the shell path.
+		// Helper unavailable (absent or exec-blocked) — fall through to shell.
 	}
 	return h.captureShell(ctx, transport, p.Name)
 }
@@ -189,10 +190,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 
 	if sd, ok := transport.(systemd.Transport); ok {
 		res, err := h.rollbackDBus(ctx, sd, name, priorEnabled, priorActive)
-		if !errors.Is(err, systemd.ErrHelperNotFound) {
+		if !errors.Is(err, systemd.ErrHelperUnavailable) {
 			return res, err
 		}
-		// Helper not installed — fall through to the shell path.
+		// Helper unavailable (absent or exec-blocked) — fall through to shell.
 	}
 	return h.rollbackShell(ctx, transport, name, priorEnabled, priorActive)
 }

@@ -85,14 +85,14 @@ func TestRollback_DBus_RestoresMasked(t *testing.T) {
 	}
 }
 
-// Fallback: ErrHelperNotFound on the D-Bus path → shell-out.
+// Fallback: ErrHelperUnavailable (helper exec-blocked) on the D-Bus path → shell-out.
 //
 // @spec service-dbus-consumption
 // @ac AC-06
 func TestApply_DBus_FallsBackWhenHelperMissing(t *testing.T) {
 	t.Run("service-dbus-consumption/AC-06", func(t *testing.T) {})
 	f := servicedbus.NewFake()
-	f.Err["enable"] = fmt.Errorf("%w at /usr/libexec/kensa-systemd-helper", systemd.ErrHelperNotFound)
+	f.Err["enable"] = fmt.Errorf("%w at /usr/libexec/kensa-systemd-helper", systemd.ErrHelperUnavailable)
 	res, err := serviceenabled.New().Apply(context.Background(), f, api.Params{"name": "auditd"}, nil)
 	if err != nil || !res.Success {
 		t.Fatalf("fallback Apply: err=%v success=%v", err, res.Success)
@@ -109,7 +109,7 @@ func TestApply_DBus_FallsBackWhenHelperMissing(t *testing.T) {
 func TestCapture_DBus_FallsBackWhenHelperMissing(t *testing.T) {
 	t.Run("service-dbus-consumption/AC-06", func(t *testing.T) {})
 	f := servicedbus.NewFake()
-	f.Err["unit-state"] = fmt.Errorf("%w at /x", systemd.ErrHelperNotFound)
+	f.Err["unit-state"] = fmt.Errorf("%w at /x", systemd.ErrHelperUnavailable)
 	f.RunResults["systemctl show -p UnitFileState -p ActiveState --value 'auditd'"] =
 		&api.CommandResult{Stdout: "enabled\nactive\n"}
 	pre, err := serviceenabled.New().Capture(context.Background(), f, api.Params{"name": "auditd"})

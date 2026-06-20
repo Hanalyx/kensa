@@ -15,10 +15,13 @@ spec:
             selects the path by type-asserting transport.(systemd.Transport):
             the agent-mode local transport implements it (delegating to the
             helper client); the SSH shell transport does not. When the
-            assertion fails — or the helper binary is absent
-            (systemd.ErrHelperNotFound) — the handler falls back to the
-            existing `systemctl` shell-out, so a host without the helper
-            behaves exactly as it did before (no regression).
+            assertion fails — or the helper cannot be INVOKED
+            (systemd.ErrHelperUnavailable: the binary is absent, OR execve
+            is denied, e.g. fapolicyd on a STIG host blocks a non-rpm-trusted
+            helper → EPERM) — the handler falls back to the existing
+            `systemctl` shell-out (a distro binary fapolicyd already
+            trusts), so a host without a usable helper behaves exactly as
+            it did before (no regression). Live-caught on the STIG fleet.
 
             The shared helpers live in internal/handlers/servicedbus so the
             D-Bus/shell fallback contract and the captured-state shape are
@@ -41,7 +44,7 @@ spec:
                 - D-Bus Apply/Capture/Rollback for the three handlers
                 - identical PreState shape (name/prior_enabled/prior_active) on both paths
                 - HelperError → failed StepResult/RollbackResult (not a returned error)
-                - ErrHelperNotFound → shell fallback
+                - ErrHelperUnavailable (absent or exec-blocked) → shell fallback
             excludes:
                 - the helper binary's own D-Bus ops (agent-systemd-helper)
                 - shell-path behavior (the per-handler specs)
@@ -81,11 +84,15 @@ spec:
           enforcement: error
         - id: C-04
           description: |
-              systemd.ErrHelperNotFound (helper binary absent) MUST cause
-              the handler to fall back to the shell path rather than fail.
-              This guarantees a host without the helper deployed behaves
-              exactly as before. A D-Bus capture whose response carries no
-              unit_state MUST surface ErrCaptureIncomplete.
+              systemd.ErrHelperUnavailable (the helper could not be
+              invoked — binary absent OR execve denied, e.g. fapolicyd)
+              MUST cause the handler to fall back to the shell path rather
+              than fail. This guarantees a host without a usable helper
+              (including a STIG host that hasn't rpm-trusted it) behaves
+              exactly as before. A HelperError (the helper RAN and systemd
+              refused) is NOT a fallback trigger. A D-Bus capture whose
+              response carries no unit_state MUST surface
+              ErrCaptureIncomplete.
           type: technical
           enforcement: error
 
@@ -94,7 +101,7 @@ spec:
           description: |
               servicedbus.Step maps a D-Bus op outcome onto the handler
               idiom: success → (nil, nil); HelperError → (failed StepResult,
-              nil); ErrHelperNotFound → (nil, ErrHelperNotFound);
+              nil); ErrHelperUnavailable → (nil, ErrHelperUnavailable);
               exec-level error → (nil, wrapped error).
           references_constraints: [C-03, C-04]
           priority: critical
@@ -103,7 +110,7 @@ spec:
               servicedbus.Capture projects the helper unit-state response
               onto PreState{name, prior_enabled=UnitFileState,
               prior_active=ActiveState}; a nil unit_state yields
-              ErrCaptureIncomplete; ErrHelperNotFound propagates for
+              ErrCaptureIncomplete; ErrHelperUnavailable propagates for
               fallback. servicedbus.PreState builds the canonical shape.
           references_constraints: [C-01, C-04]
           priority: critical
@@ -133,9 +140,10 @@ spec:
         - id: AC-06
           description: |
               Fallback: when the transport does not implement
-              systemd.Transport, or a D-Bus op returns ErrHelperNotFound,
-              the handler issues the equivalent `systemctl` shell command
-              and surfaces no error attributable to the missing helper.
+              systemd.Transport, or a D-Bus op returns ErrHelperUnavailable
+              (helper absent OR execve-blocked, e.g. fapolicyd), the handler
+              issues the equivalent `systemctl` shell command and surfaces
+              no error attributable to the unusable helper.
           references_constraints: [C-04]
           priority: critical
 
