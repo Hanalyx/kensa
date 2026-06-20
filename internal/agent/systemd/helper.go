@@ -26,9 +26,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
+
+// geteuid is os.Geteuid, indirected so a test can drive both the
+// already-root (direct invocation) and non-root (sudo) argv branches.
+var geteuid = os.Geteuid
 
 // HelperPath is the absolute path the kensa-rpm installs the
 // helper to. Operators with non-standard packaging override via
@@ -233,7 +238,21 @@ func (c *Client) UnitState(ctx context.Context, unit string) (*Response, error) 
 // + binary-version checks, and constructs the typed error or
 // success response.
 func (c *Client) invoke(ctx context.Context, op, unit string) (*Response, error) {
-	argv := []string{"sudo", c.helperPath, op, unit}
+	// The helper only requires EUID 0 (it exits 2 for non-root). When the
+	// agent ALREADY runs as root — the normal agent-mode case, since
+	// `kensa remediate --sudo` spawns the agent under sudo — invoke the
+	// helper directly: a redundant `sudo helper` re-enters PAM for root,
+	// which on hardened hosts (root password "never changed" → flagged
+	// expired, or requiretty) fails with "Account or password is expired"
+	// / "a terminal is required". sudo is needed only to ESCALATE from a
+	// non-root agent (via the %kensa NOPASSWD sudoers fragment). Live-caught
+	// on RHEL 9.6/9.7.
+	var argv []string
+	if geteuid() == 0 {
+		argv = []string{c.helperPath, op, unit}
+	} else {
+		argv = []string{"sudo", c.helperPath, op, unit}
+	}
 
 	var stdout, stderr []byte
 	var exitCode int

@@ -62,6 +62,9 @@ func TestInvoke_BuildsSudoArgv(t *testing.T) {
 // @ac AC-01
 func TestAllOps_BuildCorrectSubcommand(t *testing.T) {
 	t.Run("agent-systemd-helper/AC-01", func(t *testing.T) {})
+	// Force the non-root (sudo) branch deterministically so argv is
+	// [sudo, path, op, unit] regardless of the test runner's uid.
+	defer withEUID(1000)()
 	cases := []struct {
 		name   string
 		invoke func(c *Client) (*Response, error)
@@ -82,10 +85,50 @@ func TestAllOps_BuildCorrectSubcommand(t *testing.T) {
 			if _, err := tc.invoke(c); err != nil {
 				t.Fatalf("%s: %v", tc.name, err)
 			}
-			if (*captured)[2] != tc.want {
-				t.Errorf("argv[2] got %q, want %q", (*captured)[2], tc.want)
+			if (*captured)[0] != "sudo" || (*captured)[2] != tc.want {
+				t.Errorf("non-root argv = %v, want [sudo, path, %s, unit]", *captured, tc.want)
 			}
 		})
+	}
+}
+
+// withEUID overrides the euid seam for a test; the returned func restores it.
+func withEUID(uid int) func() {
+	prev := geteuid
+	geteuid = func() int { return uid }
+	return func() { geteuid = prev }
+}
+
+// When the agent already runs as root, the helper is invoked DIRECTLY
+// (no redundant sudo) — the live-caught fix for hosts where root's sudo
+// re-enters PAM and fails. When non-root, sudo prefixes the invocation.
+//
+// @spec agent-systemd-helper
+// @ac AC-01
+func TestInvoke_SudoOnlyWhenNonRoot(t *testing.T) {
+	t.Run("agent-systemd-helper/AC-01", func(t *testing.T) {})
+	stdout := []byte(`{"schema_version":1,"helper_version":"dev","op":"mask","unit":"x.service","success":true}` + "\n")
+
+	// Root → direct invocation, no sudo.
+	restore := withEUID(0)
+	captured, runner := fakeRunner(stdout, nil, 0, nil)
+	if _, err := withRunner(HelperPath, runner).Mask(context.Background(), "x.service"); err != nil {
+		t.Fatalf("root invoke: %v", err)
+	}
+	restore()
+	if (*captured)[0] != HelperPath {
+		t.Errorf("root argv = %v, want it to start with the helper path (no sudo)", *captured)
+	}
+
+	// Non-root → sudo prefix.
+	restore = withEUID(1000)
+	captured2, runner2 := fakeRunner(stdout, nil, 0, nil)
+	if _, err := withRunner(HelperPath, runner2).Mask(context.Background(), "x.service"); err != nil {
+		t.Fatalf("non-root invoke: %v", err)
+	}
+	restore()
+	if (*captured2)[0] != "sudo" {
+		t.Errorf("non-root argv = %v, want sudo prefix", *captured2)
 	}
 }
 
