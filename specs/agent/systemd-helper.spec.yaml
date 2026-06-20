@@ -73,14 +73,26 @@ spec:
     constraints:
         - id: C-01
           description: |
-              The helper MUST be invoked via `sudo
-              /usr/libexec/kensa-systemd-helper <subcommand>
-              [args]`. Direct invocation (not through sudo) is a
-              usage error and the helper MUST exit 2. The agent
-              MUST NOT attempt to invoke the helper any other way.
-              Rationale: sudoers is the auditable record of what
-              the unprivileged agent is authorized to escalate; a
-              non-sudo path would bypass that audit trail.
+              The helper requires EUID 0 and exits 2 when run non-root
+              (AC-02). The agent obtains that root EUID by ONE of two
+              paths, chosen by its own euid:
+                - non-root agent → `sudo /usr/libexec/kensa-systemd-helper
+                  <subcommand> [args]`, escalating via the %kensa NOPASSWD
+                  sudoers fragment (the auditable escalation record);
+                - already-root agent (the normal agent-mode case —
+                  `kensa remediate --sudo` spawns the agent under sudo) →
+                  invoke the helper DIRECTLY. A redundant `sudo` here
+                  re-enters PAM for root and fails on hardened hosts whose
+                  root password is "never changed" (PAM flags it expired)
+                  or that requiretty — "Account or password is expired" /
+                  "a terminal is required" (live-caught on RHEL 9.6/9.7).
+                  When the caller is already root there is no privilege to
+                  escalate and nothing for sudoers to audit, so direct
+                  invocation honours C-01's rationale.
+              Rationale: sudoers is the auditable record of what an
+              UNPRIVILEGED agent is authorized to escalate; it is only
+              meaningful — and only required — when the agent is not
+              already root.
           type: security
           enforcement: error
         - id: C-02
