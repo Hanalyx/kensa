@@ -51,7 +51,7 @@ type Engine struct {
 	forceValidateFail bool
 
 	// emitter writes a transaction-phase record into the host's auditd
-	// at each phase boundary (Phase 5 AUDIT_NETLINK observability). It is
+	// at each phase boundary (the AUDIT_NETLINK observability surface). It is
 	// strictly best-effort and non-blocking — an audit-log failure can
 	// NEVER fail or delay a transaction. Defaults to a no-op; the
 	// production path wires auditnl.NewEmitter via WithAuditEmitter.
@@ -156,7 +156,7 @@ func WithDeadman(d DeadmanArmer) Option { return func(e *Engine) { e.deadman = d
 // WithEvents overrides the event bus.
 func WithEvents(b EventBus) Option { return func(e *Engine) { e.events = b } }
 
-// WithAuditEmitter wires a transaction-phase auditd emitter (Phase 5).
+// WithAuditEmitter wires a transaction-phase auditd emitter.
 // The production path passes auditnl.NewEmitter(); tests pass a recorder.
 // Emission is best-effort and never affects a transaction.
 func WithAuditEmitter(em PhaseEmitter) Option {

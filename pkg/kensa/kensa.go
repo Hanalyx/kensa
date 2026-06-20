@@ -184,7 +184,7 @@ func defaultService(ctx context.Context, storePath string, tf api.TransportFacto
 		engine.WithDeadman(deadman.New(0, nil)),
 		engine.WithSigner(signer),
 		engine.WithEvents(bus),
-		// Phase 5: emit a transaction-phase record into the host's auditd
+		// Emit a transaction-phase record into the host's auditd
 		// at each phase boundary. Best-effort — NewEmitter degrades to a
 		// no-op when the AUDIT netlink socket can't be opened (no
 		// privilege), so this never affects a transaction.
