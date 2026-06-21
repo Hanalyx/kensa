@@ -42,7 +42,7 @@ func (e *Engine) finalize(
 	// restoration beyond the handler's self-report. Recorded in the Detail
 	// (audit-visible) without changing the verdict, which still derives from
 	// the handler-reported Success/PartialRestore.
-	if status == api.StatusRolledBack || status == api.StatusRollbackFailed || status == api.StatusPartiallyApplied {
+	if status == api.StatusRolledBack || status == api.StatusRollbackFailed || status == api.StatusPartiallyApplied || status == api.StatusRecovered {
 		for i := range rollbacks {
 			matched, observed := postMatchesPre(preStates, postStates, rollbacks[i].StepIndex)
 			switch {
@@ -61,7 +61,7 @@ func (e *Engine) finalize(
 	// or partially-applied outcome mutated the host. A later signer/persist
 	// failure does not touch the host, so this value is preserved across the
 	// demotion-to-errored paths.
-	hostUnchanged := status == api.StatusRolledBack
+	hostUnchanged := status == api.StatusRolledBack || status == api.StatusRecovered
 	result := &api.TransactionResult{
 		TransactionID:   txn.ID,
 		Status:          status,
@@ -170,7 +170,7 @@ func (e *Engine) finalize(
 			HostID:    txn.HostID,
 			Timestamp: now,
 		})
-	case api.StatusRolledBack, api.StatusPartiallyApplied, api.StatusRollbackFailed:
+	case api.StatusRolledBack, api.StatusPartiallyApplied, api.StatusRollbackFailed, api.StatusRecovered:
 		source := "inline"
 		if len(rollbacks) > 0 && rollbacks[0].Source != "" {
 			source = rollbacks[0].Source

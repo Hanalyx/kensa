@@ -17,6 +17,7 @@ import (
 type journalRecorderStore struct {
 	mu       sync.Mutex
 	prepared map[uuid.UUID]api.JournalEntry
+	pre      map[uuid.UUID][]api.PreState
 	results  map[uuid.UUID]bool
 	cleared  map[uuid.UUID]bool
 }
@@ -24,12 +25,16 @@ type journalRecorderStore struct {
 func newJournalRecorderStore() *journalRecorderStore {
 	return &journalRecorderStore{
 		prepared: map[uuid.UUID]api.JournalEntry{},
+		pre:      map[uuid.UUID][]api.PreState{},
 		results:  map[uuid.UUID]bool{},
 		cleared:  map[uuid.UUID]bool{},
 	}
 }
 
-func (s *journalRecorderStore) PersistPreStates(context.Context, uuid.UUID, []api.PreState) error {
+func (s *journalRecorderStore) PersistPreStates(_ context.Context, txnID uuid.UUID, pre []api.PreState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pre[txnID] = pre
 	return nil
 }
 
@@ -40,14 +45,17 @@ func (s *journalRecorderStore) PersistResult(_ context.Context, r *api.Transacti
 	return nil
 }
 
-func (s *journalRecorderStore) LoadPreStates(context.Context, uuid.UUID) ([]api.PreState, error) {
-	return nil, nil
+func (s *journalRecorderStore) LoadPreStates(_ context.Context, txnID uuid.UUID) ([]api.PreState, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pre[txnID], nil
 }
 
-func (s *journalRecorderStore) PrepareTransaction(_ context.Context, e api.JournalEntry, _ []api.PreState) error {
+func (s *journalRecorderStore) PrepareTransaction(_ context.Context, e api.JournalEntry, pre []api.PreState) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.prepared[e.TxnID] = e
+	s.pre[e.TxnID] = pre
 	return nil
 }
 
