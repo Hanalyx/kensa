@@ -99,6 +99,45 @@ packages have passing tests.
   Full strategic framing + the reusable "should Kensa talk to subsystem X?"
   test: `docs/roadmap/FAPOLICYD_HANDLER_DECISION.md` §0.
 
+### Rollback-robustness follow-ups — LOW priority (per-handler idempotency audit)
+
+From the 2026-06-21 per-handler recovery-idempotency audit of all 24 capturable
+handlers (crash recovery drives every captured step's `Rollback`, including
+un-applied ones). The audit's headline held — **no handler corrupts a host on a
+never-applied rollback, so cursor-bounded recovery is not needed**. The three
+actionable, non-corrupting findings (dconf lock-orphan, mount unconditional
+remount, file_absent spurious-failure) shipped as the rollback-robustness trio.
+These three remain, all LOW priority (none corrupt, none block recovery):
+
+- **`pam_module_arg` — fragile edit-reversal; move to full-content restore.**
+  Rollback replaces line N via `sed '<N>s/.*/.../'` keyed on the line *number*
+  captured at grep time, plus a `.bak` fallback that references Apply-side state
+  (`cp <file>.bak <file>`), not pure pre-state. Non-idempotent under any
+  line-count change, and a double-run overwrites the `.bak` safety copy. Switch
+  to the verbatim full-content restore the sibling `pam_module_configure`
+  already uses (`internal/handlers/pammoduleconfigure`). Tolerant of the
+  never-applied case today, just fragile.
+- **`audit_rule_set` — the `unix.ENOENT` delete guard is dead code.** The real
+  `go-libaudit` `DeleteRule` (`internal/agent/auditnl/audit.go`) never decodes
+  the netlink errno — `getReply` returns the kernel's `NLMSG_ERROR` as a
+  *successful* message, so `DeleteRule` returns nil even when the kernel
+  rejected the delete. The handler's `errors.Is(derr, unix.ENOENT)` guard
+  (`auditruleset.go`) is therefore unreachable against the real client and is
+  only "tested" against a fake that cannot return `ENOENT`/`EPERM`. Net effect
+  is tolerant (the swallow makes never-loaded deletes succeed), but a *genuine*
+  delete failure is silently reported as a successful rollback. Decode the errno
+  in `DeleteRule` (mirror `AddRule`'s `ParseNetlinkError`), then make the guard
+  real. Immutable-audit hosts are correctly diverted to the shell fallback.
+- **`apt_present` / `package_present` — remove-direction rollback blast radius.**
+  Their rollback removes the package, and `dnf remove -y` removes its
+  *dependents recursively* (RPM default); `apt-get remove` drops a now-depended-on
+  package. This is the intended inverse of an install and the never-applied case
+  is a no-op (remove of an absent package exits 0), so it is **not** a
+  recovery-specific defect — but a leaf-only / `--noautoremove`-style guard
+  would bound the blast radius for a rollback of a genuinely-applied install
+  that acquired dependents in the interim. Pre-existing rollback property, not
+  introduced by recovery.
+
 ---
 
 ## CLI / UX
