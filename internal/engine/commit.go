@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,13 +30,22 @@ func (e *Engine) finalize(
 	e.emitter.EmitPhase(txn.ID.String(), string(status), status == api.StatusCommitted)
 
 	now := time.Now().UTC()
+	// HostUnchanged reflects the host state for THIS terminal status,
+	// computed before any signer/persist demotion below: only a (verified)
+	// rollback leaves the host provably in its pre-change state. A committed
+	// or partially-applied outcome mutated the host. A later signer/persist
+	// failure does not touch the host, so this value is preserved across the
+	// demotion-to-errored paths.
+	hostUnchanged := status == api.StatusRolledBack
 	result := &api.TransactionResult{
-		TransactionID: txn.ID,
-		Status:        status,
-		Steps:         steps,
-		PreStates:     preStates,
-		StartedAt:     startedAt,
-		FinishedAt:    now,
+		TransactionID:   txn.ID,
+		Status:          status,
+		Steps:           steps,
+		PreStates:       preStates,
+		RollbackResults: rollbacks,
+		HostUnchanged:   hostUnchanged,
+		StartedAt:       startedAt,
+		FinishedAt:      now,
 	}
 	switch status {
 	case api.StatusCommitted:
@@ -58,6 +68,7 @@ func (e *Engine) finalize(
 		PreStateBundle:   preStates,
 		ApplySteps:       steps,
 		ValidatorResults: validators,
+		RollbackResults:  rollbacks,
 		Decision:         status,
 		Severity:         txn.Severity,
 		PostStateBundle:  nil, // populated by post-state recapture in a later milestone
@@ -72,8 +83,15 @@ func (e *Engine) finalize(
 	// than persisting an unsigned envelope as if all is well.
 	sig, keyID, err := e.signer.Sign(envelope)
 	if err != nil {
+		// Signing failed after apply/rollback already completed on the host.
+		// Demote to errored but PRESERVE HostUnchanged: the host is in
+		// whatever state apply or rollback left it; the signing failure did
+		// not touch it. Clear the committed/rolled-back timestamps so they
+		// keep their "non-nil iff that status" invariant.
 		result.Status = api.StatusErrored
 		result.Error = fmt.Errorf("signer: %w", err)
+		result.CommittedAt = nil
+		result.RolledBackAt = nil
 		envelope.Decision = api.StatusErrored
 		envelope.Signature = nil
 		envelope.SigningKeyID = ""
@@ -92,12 +110,27 @@ func (e *Engine) finalize(
 		}
 	}
 
-	// Persist before returning so a caller that observes the
-	// committed result can read it back from the store.
-	_ = e.store.PersistResult(ctx, result)
+	// Persist before returning. A terminal result we cannot durably record
+	// is NOT a real committed/rolled_back outcome (C-08): demote so the
+	// caller never observes an unrecorded success. "Evidence written to the
+	// transaction log" must be a fact, not a claim.
+	if perr := e.store.PersistResult(ctx, result); perr != nil {
+		if result.Status == api.StatusCommitted || result.Status == api.StatusRolledBack {
+			result.Status = api.StatusErrored
+			result.CommittedAt = nil
+			result.RolledBackAt = nil
+			if result.Error == nil {
+				result.Error = fmt.Errorf("persist terminal result: %w", perr)
+			}
+			if result.Envelope != nil {
+				result.Envelope.Decision = api.StatusErrored
+			}
+		}
+	}
 
-	// Publish terminal event.
-	switch status {
+	// Publish the terminal event for the FINAL status (post-demotion), so a
+	// demoted result never publishes a Committed event it did not earn.
+	switch result.Status {
 	case api.StatusCommitted:
 		e.publish(ctx, api.Event{
 			Kind:      api.Committed,
@@ -117,6 +150,19 @@ func (e *Engine) finalize(
 			Timestamp: now,
 			Data:      api.RolledBackData{Source: source, RuleID: txn.RuleID},
 		})
+	case api.StatusErrored:
+		e.publish(ctx, api.Event{
+			Kind:      api.PhaseCompleted,
+			TxnID:     &txn.ID,
+			HostID:    txn.HostID,
+			Timestamp: now,
+			Data: api.PhaseCompletedData{
+				Phase:    api.PhaseCommit,
+				Success:  false,
+				Duration: time.Since(startedAt),
+				RuleID:   txn.RuleID,
+			},
+		})
 	}
 
 	return result
@@ -134,9 +180,24 @@ func (e *Engine) errored(ctx context.Context, txn *api.Transaction, startedAt ti
 		Status:        api.StatusErrored,
 		StartedAt:     startedAt,
 		FinishedAt:    now,
+		// Every errored() entry point is a pre-apply failure (preflight or
+		// capture); the host is provably untouched. The post-apply signer/
+		// persist failure path lives in finalize and preserves its own
+		// HostUnchanged value.
+		HostUnchanged: true,
 		Error:         err,
 	}
-	_ = e.store.PersistResult(ctx, result)
+	// Record a durable, UNSIGNED evidence envelope so the errored outcome is
+	// in the transaction log rather than vanishing (C-07). The store rejects
+	// a nil envelope; C-06 permits an unsigned errored row, identified by the
+	// errored decision + empty signature so verification tooling skips/flags
+	// it rather than treating it as a valid signed record.
+	result.Envelope = erroredEnvelope(txn, startedAt, now)
+	if perr := e.store.PersistResult(ctx, result); perr != nil {
+		// The outcome is already a failure the caller sees; surface the
+		// persistence failure alongside it rather than silently dropping it.
+		result.Error = errors.Join(result.Error, fmt.Errorf("persist errored result: %w", perr))
+	}
 	e.publish(ctx, api.Event{
 		Kind:      api.PhaseCompleted,
 		TxnID:     &txn.ID,
@@ -150,4 +211,24 @@ func (e *Engine) errored(ctx context.Context, txn *api.Transaction, startedAt ti
 		},
 	})
 	return result
+}
+
+// erroredEnvelope builds the durable, unsigned evidence envelope recorded
+// for an errored transaction so the outcome is never silently unrecorded.
+// It carries no apply/validator results (the transaction did not reach a
+// successful apply) and no signature; the errored decision plus the empty
+// signature is the marker verification tooling keys on.
+func erroredEnvelope(txn *api.Transaction, startedAt, finishedAt time.Time) *api.EvidenceEnvelope {
+	return &api.EvidenceEnvelope{
+		SchemaVersion: "v1",
+		TransactionID: txn.ID,
+		RuleID:        txn.RuleID,
+		HostID:        txn.HostID,
+		FleetID:       txn.FleetID,
+		StartedAt:     startedAt,
+		FinishedAt:    finishedAt,
+		Decision:      api.StatusErrored,
+		Severity:      txn.Severity,
+		FrameworkRefs: txn.FrameworkRefs,
+	}
 }
