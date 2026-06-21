@@ -340,6 +340,9 @@ func implToTransaction(rl *api.Rule, impl *api.Implementation, _ api.CapabilityS
 		Transactional: rl.Transactional,
 		Severity:      rl.Severity,
 		FrameworkRefs: mappings.RefsFromReferences(rl.References),
+		// Carry the selected impl's check so the VALIDATE phase re-verifies
+		// desired state post-apply.
+		Check: impl.Check,
 	}
 
 	rem := impl.Remediation

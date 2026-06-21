@@ -43,9 +43,9 @@ const (
 	// could NOT be machine-verified as complete (a rollback step failed
 	// or reported PartialRestore, or the recaptured post-state did not
 	// match the captured pre-state). The host is in an unconfirmed state;
-	// per-step detail is in [TransactionResult.RollbackResults]. Reserved
-	// by the engine-transaction contract; produced by the verified-
-	// rollback barrier milestone (not emitted by the engine yet).
+	// per-step detail is in [TransactionResult.RollbackResults]. Produced
+	// by the engine when a reversed step fails or reports a partial
+	// restore (the verdict-computed rollback status).
 	StatusRollbackFailed TransactionStatus = "rollback_failed"
 
 	// StatusRecovered indicates an interrupted transaction (the process
@@ -115,6 +115,12 @@ type Transaction struct {
 	// internal/mappings. The engine records them in the evidence
 	// envelope and in the framework_refs table.
 	FrameworkRefs []FrameworkRef
+	// Check is the selected implementation's desired-state check. The
+	// engine re-runs it in the VALIDATE phase, after apply, to confirm
+	// the change actually achieved the rule's intent before committing
+	// (a clean failure drives rollback). Empty Method (and no sub-checks)
+	// means no post-apply verification runs for this transaction.
+	Check Check
 }
 
 // Step is one mechanism invocation within a [Transaction].
