@@ -99,11 +99,19 @@ func TestRoundTrip_Kernel_RemovesWhenAbsent(t *testing.T) {
 	if _, ok := f.Files[snippetPath]; !ok {
 		t.Fatal("apply should have written the snippet")
 	}
+	if _, ok := f.Files[lockPath]; !ok {
+		t.Fatal("apply (lock:true) should have written the lock")
+	}
 	if _, err := h.Rollback(context.Background(), f, pre); err != nil {
 		t.Fatalf("Rollback: %v", err)
 	}
 	if _, ok := f.Files[snippetPath]; ok {
 		t.Error("rollback should have removed the snippet that did not exist at capture")
+	}
+	// Regression: rollback must also remove the lock that Apply created, or
+	// the override enforcement survives a reverted value (orphaned lock).
+	if _, ok := f.Files[lockPath]; ok {
+		t.Error("rollback should have removed the lock that did not exist at capture (lock-orphan regression)")
 	}
 }
 

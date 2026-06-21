@@ -274,10 +274,20 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		}
 		dir := filepath.Dir(path)
 		base := filepath.Base(path)
-		if writeErr := afs.AtomicWrite(ctx, dir, base, fileMode, []byte(content)); writeErr != nil {
+		// Create-or-replace: AtomicReplace handles the case where the file
+		// is still present (Apply never ran, or this rollback already ran —
+		// recovery drives rollback for every captured step, even un-applied
+		// ones); on ErrNotExist (Apply removed it) fall back to AtomicWrite.
+		// Without the fallback, a re-run over an already-restored file
+		// returned ErrAlreadyExists and reported a spurious rollback failure.
+		writeErr := afs.AtomicReplace(ctx, path, fileMode, []byte(content))
+		if writeErr != nil && errors.Is(writeErr, fsatomic.ErrNotExist) {
+			writeErr = afs.AtomicWrite(ctx, dir, base, fileMode, []byte(content))
+		}
+		if writeErr != nil {
 			return &api.RollbackResult{
 				Success:    false,
-				Detail:     fmt.Sprintf("file_absent: rollback AtomicWrite %s: %v", path, writeErr),
+				Detail:     fmt.Sprintf("file_absent: rollback restore %s: %v", path, writeErr),
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}

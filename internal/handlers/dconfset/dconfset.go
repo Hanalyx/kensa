@@ -346,50 +346,70 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 	}, nil
 }
 
-// Capture records the current snippet file content (if any) so
-// rollback can restore or remove it.
+// Capture records the prior state of BOTH files Apply may write — the
+// snippet and the lock — so rollback can restore or remove each. The lock
+// (when the rule sets lock: true) pins the key against user override; a
+// rollback that restored only the snippet left the lock orphaned, so the
+// enforcement survived a reverted value.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
-	snippetPath := fmt.Sprintf("/etc/dconf/db/%s.d/%s", p.DB, p.File)
+	paths := pathsFor(p)
 
 	if ft, ok := transport.(kernelio.FileTransport); ok {
-		content, existed, rerr := ft.ReadFileIfExists(snippetPath)
+		snippetContent, snippetExisted, rerr := ft.ReadFileIfExists(paths.snippet)
 		if rerr != nil {
-			return nil, fmt.Errorf("dconf_set: capture read %s: %w (%v)", snippetPath, api.ErrCaptureIncomplete, rerr)
+			return nil, fmt.Errorf("dconf_set: capture read %s: %w (%v)", paths.snippet, api.ErrCaptureIncomplete, rerr)
 		}
-		return preState(snippetPath, content, existed), nil
+		lockContent, lockExisted, lerr := ft.ReadFileIfExists(paths.lock)
+		if lerr != nil {
+			return nil, fmt.Errorf("dconf_set: capture read %s: %w (%v)", paths.lock, api.ErrCaptureIncomplete, lerr)
+		}
+		return preState(paths, snippetContent, snippetExisted, lockContent, lockExisted), nil
 	}
 
-	// Read existing file content; fall back sentinel when absent.
-	checkCmd := fmt.Sprintf("test -f %s && cat %s || printf '__KENSA_ABSENT__'",
-		shellEscape(snippetPath), shellEscape(snippetPath))
-	res, err := transport.Run(ctx, checkCmd)
+	snippetContent, snippetExisted, err := captureFileShell(ctx, transport, paths.snippet)
 	if err != nil {
-		return nil, fmt.Errorf("dconf_set: capture transport error: %w", err)
+		return nil, err
 	}
-
-	priorContent := res.Stdout
-	fileExisted := true
-	if priorContent == "__KENSA_ABSENT__" {
-		priorContent = ""
-		fileExisted = false
+	lockContent, lockExisted, err := captureFileShell(ctx, transport, paths.lock)
+	if err != nil {
+		return nil, err
 	}
-	return preState(snippetPath, priorContent, fileExisted), nil
+	return preState(paths, snippetContent, snippetExisted, lockContent, lockExisted), nil
 }
 
-// preState builds the canonical PreState shape used by both capture paths.
-func preState(filePath, priorContent string, fileExisted bool) *api.PreState {
+// captureFileShell reads a file's content and existence over a shell
+// transport, using a sentinel for the absent case.
+func captureFileShell(ctx context.Context, transport api.Transport, path string) (string, bool, error) {
+	cmd := fmt.Sprintf("test -f %s && cat %s || printf '__KENSA_ABSENT__'",
+		shellEscape(path), shellEscape(path))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return "", false, fmt.Errorf("dconf_set: capture transport error: %w", err)
+	}
+	if res.Stdout == "__KENSA_ABSENT__" {
+		return "", false, nil
+	}
+	return res.Stdout, true, nil
+}
+
+// preState builds the canonical PreState shape used by both capture paths,
+// recording both the snippet and the lock.
+func preState(paths dconfPaths, snippetContent string, snippetExisted bool, lockContent string, lockExisted bool) *api.PreState {
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
 		CapturedAt: time.Now().UTC(),
 		Data: map[string]interface{}{
-			"file_path":     filePath,
-			"prior_content": priorContent,
-			"file_existed":  fileExisted,
+			"file_path":     paths.snippet,
+			"prior_content": snippetContent,
+			"file_existed":  snippetExisted,
+			"lock_path":     paths.lock,
+			"lock_content":  lockContent,
+			"lock_existed":  lockExisted,
 		},
 	}
 }
@@ -403,33 +423,40 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	filePath, _ := pre.Data["file_path"].(string)
 	priorContent, _ := pre.Data["prior_content"].(string)
 	fileExisted, _ := pre.Data["file_existed"].(bool)
+	// Lock fields are absent on pre-states captured before lock-capture
+	// shipped; an empty lock_path skips lock restoration (the prior behavior).
+	lockPath, _ := pre.Data["lock_path"].(string)
+	lockContent, _ := pre.Data["lock_content"].(string)
+	lockExisted, _ := pre.Data["lock_existed"].(bool)
 
 	if filePath == "" {
 		return nil, errors.New("dconf_set: pre-state missing 'file_path'")
 	}
 
 	if ft, ok := transport.(kernelio.FileTransport); ok {
-		return h.rollbackKernel(ctx, ft, transport, filePath, priorContent, fileExisted)
+		return h.rollbackKernel(ctx, ft, transport, filePath, priorContent, fileExisted, lockPath, lockContent, lockExisted)
 	}
 
-	var restoreCmd string
-	if fileExisted {
-		restoreCmd = fmt.Sprintf("printf %s > %s", shellEscape(priorContent), shellEscape(filePath))
-	} else {
-		restoreCmd = fmt.Sprintf("rm -f %s", shellEscape(filePath))
+	// Restore the lock first (the override-enforcement state), then the
+	// snippet, then a single dconf update.
+	var restoreCmds []string
+	if lockPath != "" {
+		restoreCmds = append(restoreCmds, restoreFileShellCmd(lockPath, lockContent, lockExisted))
+	}
+	restoreCmds = append(restoreCmds, restoreFileShellCmd(filePath, priorContent, fileExisted))
+	for _, restoreCmd := range restoreCmds {
+		if res, err := transport.Run(ctx, restoreCmd); err != nil {
+			return nil, fmt.Errorf("dconf_set: rollback restore transport error: %w", err)
+		} else if !res.OK() {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("dconf_set: rollback restore failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
 	}
 
-	if res, err := transport.Run(ctx, restoreCmd); err != nil {
-		return nil, fmt.Errorf("dconf_set: rollback restore transport error: %w", err)
-	} else if !res.OK() {
-		return &api.RollbackResult{
-			Success:    false,
-			Detail:     fmt.Sprintf("dconf_set: rollback restore failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
-			ExecutedAt: time.Now().UTC(),
-		}, nil
-	}
-
-	// Re-run dconf update to apply the restored (or removed) file.
+	// Re-run dconf update to apply the restored (or removed) files.
 	if res, err := transport.Run(ctx, "dconf update"); err != nil {
 		return nil, fmt.Errorf("dconf_set: rollback dconf update transport error: %w", err)
 	} else if !res.OK() {
@@ -452,9 +479,29 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}, nil
 }
 
-// rollbackKernel restores or removes the snippet atomically, then runs
-// `dconf update` (the compile step, stays shell).
-func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, filePath, priorContent string, fileExisted bool) (*api.RollbackResult, error) {
+// restoreFileShellCmd returns the shell command that restores path to its
+// captured prior state: rewrite the content if it existed, else remove it.
+func restoreFileShellCmd(path, content string, existed bool) string {
+	if existed {
+		return fmt.Sprintf("printf %s > %s", shellEscape(content), shellEscape(path))
+	}
+	return fmt.Sprintf("rm -f %s", shellEscape(path))
+}
+
+// rollbackKernel restores or removes the lock then the snippet atomically,
+// then runs `dconf update` (the compile step, stays shell).
+func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, filePath, priorContent string, fileExisted bool, lockPath, lockContent string, lockExisted bool) (*api.RollbackResult, error) {
+	// Restore the lock first (the override-enforcement state). An empty
+	// lockPath means a pre-lock-capture pre-state — skip, as before.
+	if lockPath != "" {
+		if lockExisted {
+			if err := kernelio.WriteFile(ctx, ft, lockPath, dconfFileMode, []byte(lockContent)); err != nil {
+				return nil, fmt.Errorf("dconf_set: rollback restore lock: %w", err)
+			}
+		} else if err := kernelio.RemoveFile(ctx, ft, lockPath); err != nil {
+			return nil, fmt.Errorf("dconf_set: rollback remove lock: %w", err)
+		}
+	}
 	if fileExisted {
 		if err := kernelio.WriteFile(ctx, ft, filePath, dconfFileMode, []byte(priorContent)); err != nil {
 			return nil, fmt.Errorf("dconf_set: rollback restore: %w", err)
