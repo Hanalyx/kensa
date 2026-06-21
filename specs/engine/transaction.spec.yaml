@@ -1,6 +1,6 @@
 spec:
     id: engine-transaction
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
 
@@ -144,6 +144,22 @@ spec:
               so the signed record proves what restoration was attempted and
               its outcome rather than discarding it after the rollback runs.
           type: technical
+          enforcement: error
+        - id: C-12
+          description: |
+              After a successful apply, the VALIDATE phase MUST re-run the
+              selected implementation's own check against the live host
+              (post-apply desired-state verification) and gate commit on it: a
+              clean Passed == false MUST drive rollback ("verifies the result"
+              / "validation fails -> restore"). ERROR != FAIL — if the
+              re-check returns a transport/tool ERROR (the host state could not
+              be read), the engine MUST NOT roll back; the transaction is
+              committed-but-unverified, with the unverified outcome recorded in
+              the ValidatorResults. The re-check runs over the same transport
+              the pre-check used, so it reads with the same privilege
+              (privilege symmetry). The behavior is on by default and may be
+              disabled by configuration for cautious rollout.
+          type: security
           enforcement: error
         - id: C-11
           description: |
@@ -291,6 +307,40 @@ spec:
               from prior behavior.
           references_constraints: [C-11]
           priority: critical
+        - id: AC-18
+          description: |
+              When apply succeeds and the post-apply re-check of the rule's
+              own check Passes, the transaction is Committed and the
+              ValidatorResults include a passing "post-apply-recheck" entry
+              recording that desired state was verified on the live host.
+          references_constraints: [C-12]
+          priority: critical
+        - id: AC-19
+          description: |
+              When apply succeeds but the post-apply re-check cleanly returns
+              Passed == false (the change did not achieve the rule's intent),
+              the engine rolls the transaction back (Status RolledBack on a
+              clean reversal), with the failing re-check recorded in
+              ValidatorResults.
+          references_constraints: [C-12]
+          priority: critical
+        - id: AC-20
+          description: |
+              When the post-apply re-check returns a transport/tool ERROR (the
+              host state could not be read), the engine does NOT roll back: the
+              transaction is Committed and the re-check is recorded as
+              unverified (ERROR != FAIL). A read that could not be performed is
+              not evidence the change failed.
+          references_constraints: [C-12]
+          priority: critical
+        - id: AC-21
+          description: |
+              With the post-apply re-check disabled by configuration, a
+              transaction whose re-check would have failed still Commits and no
+              "post-apply-recheck" ValidatorResult is produced — the kill
+              switch fully suppresses the re-check.
+          references_constraints: [C-12]
+          priority: high
 
     depends_on:
         - spec_id: handler-interface

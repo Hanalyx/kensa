@@ -50,6 +50,15 @@ type Engine struct {
 	validators        []Validator
 	forceValidateFail bool
 
+	// postApplyRecheck enables the mandatory post-apply desired-state
+	// re-check in the VALIDATE phase: the rule's own check is re-run
+	// against the live host, and a clean Passed==false drives rollback.
+	// Defaults to true; WithPostApplyRecheck(false) is the kill-switch a
+	// cautious operator can use while the corpus check/remediation
+	// convergence audit is in flight. A re-check that ERRORS (transport
+	// or tool failure) never triggers rollback — ERROR != FAIL.
+	postApplyRecheck bool
+
 	// emitter writes a transaction-phase record into the host's auditd
 	// at each phase boundary (the AUDIT_NETLINK observability surface). It is
 	// strictly best-effort and non-blocking — an audit-log failure can
@@ -175,6 +184,14 @@ func WithForceValidateFail() Option {
 	return func(e *Engine) { e.forceValidateFail = true }
 }
 
+// WithPostApplyRecheck enables or disables the mandatory post-apply
+// desired-state re-check in the VALIDATE phase (default enabled). The
+// kill-switch exists for cautious rollout while the corpus
+// check/remediation convergence audit is in flight.
+func WithPostApplyRecheck(enabled bool) Option {
+	return func(e *Engine) { e.postApplyRecheck = enabled }
+}
+
 // WithAgentClient enables agent-mode dispatch. When set,
 // every handler invocation routes through a RemoteHandler
 // wrapping this client; the local handler code does NOT run
@@ -217,6 +234,9 @@ func New(opts ...Option) *Engine {
 		events:   noopEventBus{},
 		locks:    newHostLocks(),
 		emitter:  noopPhaseEmitter{},
+		// Mandatory post-apply re-check is on by default (atomicity
+		// roadmap Phase 2); an option may turn it off before opts run.
+		postApplyRecheck: true,
 	}
 	for _, opt := range opts {
 		opt(e)
