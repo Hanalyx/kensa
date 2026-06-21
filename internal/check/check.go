@@ -7,6 +7,7 @@ package check
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -205,10 +206,19 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 	delimiter := optionalStringParam(params, "delimiter", "=")
 	scanPattern := optionalStringParam(params, "scan_pattern", "")
 
+	// Escape the key before splicing it into the grep -E pattern: config
+	// keys legitimately contain regex metacharacters (e.g. rsyslog's
+	// "$FileCreateMode" — $ is an end-anchor; limits.conf's "* hard core" —
+	// * is a quantifier). Unescaped, such a key matches nothing, so the
+	// check reports the rule non-compliant even when the line is present —
+	// a wrong verdict (and a spurious rollback under the post-apply
+	// re-check). This mirrors config_set, which already QuoteMeta's its key.
+	keyPat := regexp.QuoteMeta(key)
+
 	// When expected is empty, the check is a bare-key existence check:
 	// the key must appear in the file as a standalone directive with no value.
 	if expected == "" {
-		barePattern := fmt.Sprintf(`^\s*%s\s*$`, key)
+		barePattern := fmt.Sprintf(`^\s*%s\s*$`, keyPat)
 		var bareCmd string
 		if scanPattern != "" {
 			bareCmd = fmt.Sprintf("grep -rqE %s %s/*.%s 2>/dev/null", shellQuote(barePattern), shellQuote(path), shellQuote(scanPattern))
@@ -233,9 +243,9 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 	whitespaceDelim := delimiter == " "
 	var pattern string
 	if whitespaceDelim {
-		pattern = fmt.Sprintf(`^\s*%s\s+`, key)
+		pattern = fmt.Sprintf(`^\s*%s\s+`, keyPat)
 	} else {
-		pattern = fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, key, delimiter)
+		pattern = fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, keyPat, delimiter)
 	}
 	var cmd string
 	if scanPattern != "" {
@@ -266,12 +276,15 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 	}
 	var got string
 	if whitespaceDelim {
-		// "KEY value" / "KEY\tvalue": fields[0] is the key, fields[1] the value.
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
+		// "KEY value" / "KEY\tvalue": the value is whatever follows the key.
+		// The key itself may contain spaces (e.g. limits.conf "* hard core"),
+		// so strip the matched key prefix rather than assuming fields[1] —
+		// strings.Fields would return an interior word of a multi-word key.
+		rest := strings.TrimPrefix(strings.TrimLeft(line, " \t"), key)
+		got = strings.TrimSpace(rest)
+		if got == "" {
 			return false, fmt.Sprintf("config_value: could not parse value from line %q", line), nil
 		}
-		got = fields[1]
 	} else {
 		// Split on delimiter or colon to isolate the value.
 		sep := delimiter

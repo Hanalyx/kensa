@@ -32,6 +32,7 @@ implementations:
       path: "/etc/security/limits.conf"
       key: "* hard core"
       expected: "0"
+      delimiter: " "
     remediation:
       mechanism: config_set
       path: "/etc/security/limits.conf"

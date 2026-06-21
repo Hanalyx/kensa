@@ -35,6 +35,7 @@ implementations:
     path: /etc/rsyslog.conf
     key: $FileCreateMode
     expected: '0640'
+    delimiter: ' '
   remediation:
     mechanism: config_set
     path: /etc/rsyslog.conf
