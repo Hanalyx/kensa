@@ -1,6 +1,6 @@
 spec:
     id: engine-transaction
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 1
 
@@ -57,10 +57,10 @@ spec:
               terminal Status from the closed set {Committed, RolledBack,
               PartiallyApplied, Errored, RollbackFailed, Recovered}. No other
               terminal state is permitted. RollbackFailed (a rollback whose
-              completeness could not be machine-verified) and Recovered (an
-              interrupted transaction reversed by out-of-band recovery replay)
-              are reserved by this contract and produced by later milestones;
-              the engine does not emit them yet but consumers MUST accept them.
+              per-step results were not all clean) IS produced by the engine
+              per C-11. Recovered (an interrupted transaction reversed by
+              out-of-band recovery replay) remains reserved by this contract
+              and produced by a later milestone; consumers MUST accept it.
           type: technical
           enforcement: error
         - id: C-02
@@ -144,6 +144,21 @@ spec:
               so the signed record proves what restoration was attempted and
               its outcome rather than discarding it after the rollback runs.
           type: technical
+          enforcement: error
+        - id: C-11
+          description: |
+              The terminal status of a transaction that rolled back MUST be a
+              VERDICT over the per-step RollbackResults, not a constant. The
+              status is RolledBack only when every reversed step restored
+              cleanly (Success == true AND PartialRestore == false). If any
+              reversed step failed or reported a partial restore, the host is
+              in an unconfirmed state and the status MUST be RollbackFailed
+              (with HostUnchanged == false and the per-step divergence carried
+              in RollbackResults) — the engine MUST NOT report RolledBack /
+              "the host is unchanged" for a restoration it did not confirm. A
+              clean rollback that left stranded non-capturable steps
+              (transactional:false) is PartiallyApplied.
+          type: security
           enforcement: error
 
     acceptance_criteria:
@@ -259,6 +274,23 @@ spec:
               PartialRestore / Source for the audit record.
           references_constraints: [C-10]
           priority: high
+        - id: AC-16
+          description: |
+              When a reversed step reports Success == false or
+              PartialRestore == true, the transaction's terminal Status is
+              RollbackFailed (not RolledBack), HostUnchanged is false, and the
+              diverging step is present in RollbackResults. The engine does not
+              report a clean rollback for an unconfirmed restoration.
+          references_constraints: [C-11, C-09]
+          priority: critical
+        - id: AC-17
+          description: |
+              When every reversed step restores cleanly (Success == true and
+              PartialRestore == false), the terminal Status is RolledBack and
+              HostUnchanged is true — the clean-rollback verdict is unchanged
+              from prior behavior.
+          references_constraints: [C-11]
+          priority: critical
 
     depends_on:
         - spec_id: handler-interface

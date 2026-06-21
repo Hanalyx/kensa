@@ -234,3 +234,87 @@ func TestEngine_AC15_RollbackResultsOnResultAndEnvelope(t *testing.T) {
 		t.Error("RollbackResults missing on the evidence envelope after a rollback")
 	}
 }
+
+// twoStepRollbackTxn builds a transaction whose step 0 applies (capturable,
+// with the given rollback outcome) and whose step 1 fails to apply, forcing
+// the engine to reverse step 0.
+func twoStepRollbackTxn(t *testing.T, step0Rollback *api.RollbackResult) (*engine.Engine, *api.Transaction) {
+	t.Helper()
+	h0 := &engine.FakeHandler{
+		HandlerName:    "rb_s0",
+		IsCapturable:   true,
+		RollbackResult: step0Rollback,
+	}
+	h1 := &engine.FakeHandler{
+		HandlerName:  "rb_s1",
+		IsCapturable: true,
+		ApplyErr:     errors.New("induced apply failure"),
+	}
+	e := durabilityEngine(t, nil, nil, h0, h1)
+	txn := &api.Transaction{
+		ID:            uuid.New(),
+		RuleID:        "test-rule",
+		HostID:        "test-host",
+		Steps:         []api.Step{{Index: 0, Mechanism: "rb_s0"}, {Index: 1, Mechanism: "rb_s1"}},
+		StartedAt:     time.Now().UTC(),
+		Deadline:      time.Now().Add(time.Minute),
+		Transactional: true,
+	}
+	return e, txn
+}
+
+// @spec engine-transaction
+// @ac AC-16
+func TestEngine_AC16_UncleanRollbackYieldsRollbackFailed(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-16")
+	// Step 0's rollback reports a partial restore: the engine must not call
+	// this a clean rolled_back.
+	e, txn := twoStepRollbackTxn(t, &api.RollbackResult{
+		Success:        true,
+		PartialRestore: true,
+		Detail:         "primary restored but a downstream reload failed",
+	})
+	res, err := e.Run(context.Background(), engine.NewFakeTransport(), txn, false)
+	if err != nil {
+		t.Fatalf("Run returned err: %v", err)
+	}
+	if res.Status != api.StatusRollbackFailed {
+		t.Errorf("an unconfirmed rollback must be StatusRollbackFailed; got %s", res.Status)
+	}
+	if res.HostUnchanged {
+		t.Error("a rollback-failed outcome must report HostUnchanged=false")
+	}
+	if len(res.RollbackResults) == 0 {
+		t.Fatal("expected the diverging step in RollbackResults")
+	}
+	foundPartial := false
+	for _, r := range res.RollbackResults {
+		if r.PartialRestore {
+			foundPartial = true
+		}
+	}
+	if !foundPartial {
+		t.Error("the partial-restore step should be present in RollbackResults")
+	}
+}
+
+// @spec engine-transaction
+// @ac AC-17
+func TestEngine_AC17_CleanRollbackYieldsRolledBack(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-17")
+	// Step 0's rollback restores cleanly: the clean-rollback verdict is
+	// unchanged from prior behavior.
+	e, txn := twoStepRollbackTxn(t, &api.RollbackResult{Success: true, PartialRestore: false})
+	res, err := e.Run(context.Background(), engine.NewFakeTransport(), txn, false)
+	if err != nil {
+		t.Fatalf("Run returned err: %v", err)
+	}
+	if res.Status != api.StatusRolledBack {
+		t.Errorf("a clean rollback must be StatusRolledBack; got %s", res.Status)
+	}
+	if !res.HostUnchanged {
+		t.Error("a clean rollback must report HostUnchanged=true")
+	}
+}

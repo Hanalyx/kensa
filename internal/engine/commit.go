@@ -138,7 +138,7 @@ func (e *Engine) finalize(
 			HostID:    txn.HostID,
 			Timestamp: now,
 		})
-	case api.StatusRolledBack, api.StatusPartiallyApplied:
+	case api.StatusRolledBack, api.StatusPartiallyApplied, api.StatusRollbackFailed:
 		source := "inline"
 		if len(rollbacks) > 0 && rollbacks[0].Source != "" {
 			source = rollbacks[0].Source
