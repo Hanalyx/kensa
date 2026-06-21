@@ -101,6 +101,12 @@ func TestEngine_AC19_RecheckCleanFailRollsBack(t *testing.T) {
 	if res.Status != api.StatusRolledBack {
 		t.Fatalf("a clean re-check failure must roll back; want RolledBack, got %s", res.Status)
 	}
+	// Pin the cause: apply succeeded (no ApplyErr) and there are no other
+	// validators, so the single rollback must have been driven by the
+	// re-check failure specifically.
+	if h.RollbackCalls != 1 {
+		t.Errorf("expected exactly one rollback driven by the re-check; got %d", h.RollbackCalls)
+	}
 	if vr := recheckValidator(res.Envelope); vr == nil || vr.Passed {
 		t.Errorf("expected a failing post-apply-recheck validator; got %+v", vr)
 	}

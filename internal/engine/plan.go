@@ -279,7 +279,7 @@ func ruleToTransaction(rule *api.Rule, impl *api.Implementation) *api.Transactio
 		StartedAt:     time.Now().UTC(),
 		Deadline:      time.Now().UTC().Add(5 * time.Minute),
 		// Carry the selected impl's check so the VALIDATE phase can
-		// re-verify desired state post-apply (atomicity roadmap Phase 2).
+		// re-verify desired state post-apply.
 		Check: impl.Check,
 	}
 

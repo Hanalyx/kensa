@@ -234,8 +234,8 @@ func New(opts ...Option) *Engine {
 		events:   noopEventBus{},
 		locks:    newHostLocks(),
 		emitter:  noopPhaseEmitter{},
-		// Mandatory post-apply re-check is on by default (atomicity
-		// roadmap Phase 2); an option may turn it off before opts run.
+		// Mandatory post-apply desired-state re-check is on by default;
+		// an option may turn it off before opts run.
 		postApplyRecheck: true,
 	}
 	for _, opt := range opts {
@@ -330,8 +330,10 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 		if armed {
 			if err := e.deadman.Cancel(ctx, transport, txn.ID); err != nil {
 				// Cancel failed — record but proceed; the deadman
-				// will fire and rollback the change. We mark the
-				// outcome RolledBack with deadman as the source.
+				// will fire and rollback the change. The terminal
+				// status is the verdict over the inline rollback
+				// (rolled_back if clean, rollback_failed if not) with
+				// deadman as the source.
 				rb := e.rollback(ctx, transport, applyResults, preStates, "deadman")
 				return e.finalize(ctx, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, preStates, validators, rb), nil
 			}
