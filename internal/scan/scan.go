@@ -36,6 +36,10 @@ type Runner struct {
 	// progress is the optional display sink. When nil, no progress is
 	// emitted and behavior is byte-identical to a Runner with no sink.
 	progress progress.Sink
+	// hostID stamps each remediation transaction (and its crash-recovery
+	// journal entry) with the target host, so host-scoped recovery can find
+	// it. Empty leaves Transaction.HostID empty (the prior behavior).
+	hostID string
 }
 
 // Option configures a [Runner] at construction time.
@@ -48,6 +52,13 @@ type Option func(*Runner)
 // is nil-safe via [progress.Emit].
 func WithProgress(sink progress.Sink) Option {
 	return func(r *Runner) { r.progress = sink }
+}
+
+// WithHostID stamps every remediation transaction (and thus its
+// crash-recovery journal entry) with hostID, so `kensa recover -H host` finds
+// the right entries. Omitting it leaves Transaction.HostID empty.
+func WithHostID(hostID string) Option {
+	return func(r *Runner) { r.hostID = hostID }
 }
 
 // New returns a Runner. Pass a non-nil engine to enable Remediate, and
@@ -240,7 +251,7 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		osInfo = detect.OSInfo{}
 	}
 
-	hostID := ""
+	hostID := r.hostID
 	result := &api.RemediationResult{HostID: hostID}
 
 	total := len(rules)
@@ -291,7 +302,7 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		}
 
 		// Build and run transaction.
-		txn := implToTransaction(rl, impl, caps)
+		txn := implToTransaction(rl, impl, caps, hostID)
 		txr, runErr := r.engine.Run(ctx, transport, txn, false)
 		if runErr != nil {
 			result.Transactions = append(result.Transactions, erroredResult(rl, runErr))
@@ -333,10 +344,11 @@ func (r *Runner) emit(u progress.Update) {
 
 // implToTransaction converts a selected rule implementation into an
 // [api.Transaction] ready for the engine.
-func implToTransaction(rl *api.Rule, impl *api.Implementation, _ api.CapabilitySet) *api.Transaction {
+func implToTransaction(rl *api.Rule, impl *api.Implementation, _ api.CapabilitySet, hostID string) *api.Transaction {
 	txn := &api.Transaction{
 		ID:            uuid.New(),
 		RuleID:        rl.ID,
+		HostID:        hostID,
 		Transactional: rl.Transactional,
 		Severity:      rl.Severity,
 		FrameworkRefs: mappings.RefsFromReferences(rl.References),

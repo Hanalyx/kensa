@@ -38,10 +38,10 @@ spec:
                 - Pre-state-driven rollback (no live apply results)
                 - Terminal StatusRecovered / StatusRollbackFailed record + journal clear
                 - Host scoping; idempotent re-run
+                - The recover.lock cross-process fencing primitive
             excludes:
-                - The recover.lock fencing primitive (tracked separately)
-                - The kensa recover CLI wiring
-                - On-host kill-9 cross-process durability test (destructive; gated)
+                - The kensa recover CLI argument parsing (cli spec)
+                - On-host kill-9 cross-process durability test (destructive; validated out-of-band)
 
     constraints:
         - id: C-01
@@ -68,6 +68,16 @@ spec:
               transaction targeting another.
           type: technical
           enforcement: error
+        - id: C-04
+          description: |
+              A recovery run MUST take an exclusive cross-process advisory lock
+              (the recover.lock, flock) before compensating, so two recovery
+              runs cannot race and a recovery run cannot act while a live
+              engine holds the lock. The acquisition is non-blocking and fails
+              fast when the lock is held; the lock is released automatically if
+              the holding process dies.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -91,6 +101,14 @@ spec:
               entries for other hosts are left untouched (still open).
           references_constraints: [C-03]
           priority: high
+        - id: AC-04
+          description: |
+              The recover lock fences: while one exclusive holder is active, a
+              second exclusive (or shared) acquisition fails fast with
+              ErrRecoverLocked; after release the lock is re-acquirable, and
+              two shared holders may coexist.
+          references_constraints: [C-04]
+          priority: critical
 
     depends_on:
         - spec_id: recovery-journal

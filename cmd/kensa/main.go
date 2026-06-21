@@ -157,6 +157,8 @@ func runCLI(argv []string) int {
 		err = runRemediate(ctx, dbPath, args)
 	case "rollback":
 		err = runRollback(ctx, dbPath, args)
+	case "recover":
+		err = runRecover(ctx, dbPath, args)
 	case "history":
 		err = runHistory(ctx, dbPath, args)
 	case "plan":

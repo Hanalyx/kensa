@@ -61,7 +61,7 @@ func (s *Service) RemediateWithProgress(ctx context.Context, host api.HostConfig
 	}
 	defer func() { _ = transport.Close() }()
 
-	runner := scan.New(s.eng, scan.WithProgress(sink))
+	runner := scan.New(s.eng, scan.WithProgress(sink), scan.WithHostID(host.Hostname))
 	result, err := runner.RemediateWithOverrides(ctx, transport, rules, host.Capabilities)
 	if err != nil {
 		return nil, err

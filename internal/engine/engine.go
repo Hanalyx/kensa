@@ -316,6 +316,9 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	} else if err := e.store.PersistPreStates(ctx, txn.ID, preStates); err != nil {
 		return e.errored(ctx, txn, startedAt, api.PhaseCapture, err), nil
 	}
+	// Crash-injection point (no-op unless built with -tags kensa_fault): the
+	// write-ahead barrier is now durable, so a crash here must be recoverable.
+	faultExitAfterPrepare()
 	e.publishPhaseCompleted(ctx, txn, api.PhaseCapture, true, time.Since(startedAt))
 	e.emitter.EmitPhase(txn.ID.String(), "capture", true)
 
@@ -331,6 +334,9 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 
 	// Phase 3: APPLY.
 	applyResults, applyOK := e.apply(ctx, transport, txn, preStates)
+	// Crash-injection point (no-op unless built with -tags kensa_fault): the
+	// host is now mutated but no terminal record exists — recovery must undo it.
+	faultExitAfterApply()
 	e.publishPhaseCompleted(ctx, txn, api.PhaseApply, applyOK, time.Since(startedAt))
 	e.emitter.EmitPhase(txn.ID.String(), "apply", applyOK)
 
