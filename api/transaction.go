@@ -115,6 +115,12 @@ type Transaction struct {
 	// internal/mappings. The engine records them in the evidence
 	// envelope and in the framework_refs table.
 	FrameworkRefs []FrameworkRef
+	// Check is the selected implementation's desired-state check. The
+	// engine re-runs it in the VALIDATE phase, after apply, to confirm
+	// the change actually achieved the rule's intent before committing
+	// (a clean failure drives rollback). Empty Method (and no sub-checks)
+	// means no post-apply verification runs for this transaction.
+	Check Check
 }
 
 // Step is one mechanism invocation within a [Transaction].
