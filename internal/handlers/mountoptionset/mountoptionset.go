@@ -326,6 +326,18 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 	if err != nil {
 		return &api.RollbackResult{Success: false, Detail: fmt.Sprintf("mount_option_set: %v for %s", err, mountPoint), ExecutedAt: time.Now().UTC()}, nil
 	}
+	if newContent == content {
+		// fstab already holds the captured prior line — the step never
+		// changed it (or this rollback already ran; recovery drives rollback
+		// for every captured step, including un-applied ones). Skip both the
+		// rewrite and the remount: a `mount -o remount` of an unchanged mount
+		// is an unnecessary live kernel operation with no state to revert.
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("mount_option_set: fstab already at prior state for %s; no remount needed (kernel-io)", mountPoint),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	if err := ft.AtomicReplace(ctx, fstabPath, fstabMode, []byte(newContent)); err != nil {
 		return nil, fmt.Errorf("mount_option_set: rollback rewrite fstab: %w", err)
 	}
