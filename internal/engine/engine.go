@@ -313,7 +313,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 				// will fire and rollback the change. We mark the
 				// outcome RolledBack with deadman as the source.
 				rb := e.rollback(ctx, transport, applyResults, preStates, "deadman")
-				return e.finalize(ctx, txn, startedAt, api.StatusRolledBack, applyResults, preStates, validators, rb), nil
+				return e.finalize(ctx, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, preStates, validators, rb), nil
 			}
 		}
 		return e.finalize(ctx, txn, startedAt, api.StatusCommitted, applyResults, preStates, validators, nil), nil
@@ -326,11 +326,37 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 		_ = e.deadman.Cancel(ctx, transport, txn.ID)
 	}
 
-	status := api.StatusRolledBack
-	if !txn.Transactional && hasStrandedNonCapturable(applyResults) {
-		status = api.StatusPartiallyApplied
-	}
+	status := rollbackStatus(rb, txn, applyResults)
 	return e.finalize(ctx, txn, startedAt, status, applyResults, preStates, validators, rb), nil
+}
+
+// rollbackStatus computes the terminal status after a rollback ran, as a
+// verdict over the per-step RollbackResults rather than a constant. The
+// rollback is clean only when every reversed step restored without error
+// and without a partial restore; otherwise the host is in an unconfirmed
+// state and the status is RollbackFailed (engine-transaction C-11). A clean
+// rollback that left stranded non-capturable steps (transactional:false) is
+// PartiallyApplied; an otherwise-clean rollback is RolledBack.
+func rollbackStatus(rb []api.RollbackResult, txn *api.Transaction, applyResults []api.StepResult) api.TransactionStatus {
+	if !rollbackClean(rb) {
+		return api.StatusRollbackFailed
+	}
+	if !txn.Transactional && hasStrandedNonCapturable(applyResults) {
+		return api.StatusPartiallyApplied
+	}
+	return api.StatusRolledBack
+}
+
+// rollbackClean reports whether every reversed step restored cleanly —
+// succeeded and reported no partial restore. An empty set is clean: there
+// was nothing to reverse (e.g. the first step failed to apply).
+func rollbackClean(results []api.RollbackResult) bool {
+	for _, r := range results {
+		if !r.Success || r.PartialRestore {
+			return false
+		}
+	}
+	return true
 }
 
 // hasStrandedNonCapturable reports whether any successful apply step
