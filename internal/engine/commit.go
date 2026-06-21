@@ -151,6 +151,13 @@ func (e *Engine) finalize(
 				result.Envelope.Decision = api.StatusErrored
 			}
 		}
+	} else if js, ok := e.store.(JournalStore); ok {
+		// Terminal record is durable, so the crash-recovery journal entry is
+		// no longer needed (the persisted transactions row already removes it
+		// from the open-entry set; this is hygiene). If persisting FAILED
+		// above, we deliberately leave the entry so recovery still sees an
+		// in-flight transaction. Best-effort: a failed clear is harmless.
+		_ = js.ClearJournalEntry(ctx, txn.ID)
 	}
 
 	// Publish the terminal event for the FINAL status (post-demotion), so a

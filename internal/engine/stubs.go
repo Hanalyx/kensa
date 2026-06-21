@@ -19,12 +19,14 @@ type inMemoryStore struct {
 	mu      sync.Mutex
 	pre     map[uuid.UUID][]api.PreState
 	results map[uuid.UUID]*api.TransactionResult
+	journal map[uuid.UUID]api.JournalEntry
 }
 
 func newInMemoryStore() *inMemoryStore {
 	return &inMemoryStore{
 		pre:     make(map[uuid.UUID][]api.PreState),
 		results: make(map[uuid.UUID]*api.TransactionResult),
+		journal: make(map[uuid.UUID]api.JournalEntry),
 	}
 }
 
@@ -48,6 +50,49 @@ func (s *inMemoryStore) LoadPreStates(_ context.Context, txnID uuid.UUID) ([]api
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.pre[txnID], nil
+}
+
+// inMemoryStore implements the optional JournalStore so engine tests
+// exercise the crash-recovery journal path. "Open" mirrors the SQLite
+// semantics: a journal entry with no persisted result.
+func (s *inMemoryStore) PrepareTransaction(_ context.Context, entry api.JournalEntry, preStates []api.PreState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := make([]api.PreState, len(preStates))
+	copy(cp, preStates)
+	s.pre[entry.TxnID] = cp
+	s.journal[entry.TxnID] = entry
+	return nil
+}
+
+func (s *inMemoryStore) AdvanceJournalCursor(_ context.Context, txnID uuid.UUID, cursor int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if e, ok := s.journal[txnID]; ok {
+		e.Cursor = cursor
+		e.Phase = "applying"
+		s.journal[txnID] = e
+	}
+	return nil
+}
+
+func (s *inMemoryStore) LoadOpenJournalEntries(_ context.Context) ([]api.JournalEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []api.JournalEntry
+	for id, e := range s.journal {
+		if _, done := s.results[id]; !done {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+func (s *inMemoryStore) ClearJournalEntry(_ context.Context, txnID uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.journal, txnID)
+	return nil
 }
 
 // noopDeadman is a [DeadmanArmer] that records arm/cancel calls without

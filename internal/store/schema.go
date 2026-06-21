@@ -3,7 +3,7 @@ package store
 // schemaVersion is the current schema number. Migrations (in
 // migrations) are appended; never edited or removed
 // (transaction-log spec C-06).
-const schemaVersion = 2
+const schemaVersion = 3
 
 // migrations is the ordered list of DDL statements. Each migration's
 // index corresponds to the schema version it produces. Migration 0 is
@@ -128,5 +128,33 @@ CREATE INDEX IF NOT EXISTS idx_sessions_subcommand ON sessions(subcommand);
 ALTER TABLE transactions ADD COLUMN session_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_transactions_session ON transactions(session_id);
+`,
+	// Migration 3: the crash-recovery intent journal.
+	//
+	// A recover_journal row is written in the PREPARE phase, in the SAME
+	// atomic commit as the pre-states, BEFORE any host mutation — the
+	// write-ahead barrier. It records enough intent to drive compensation
+	// (rollback) for a transaction that crashed mid-flight. The row is
+	// deleted when the transaction reaches a terminal status (its
+	// transactions row is the commit marker). An "open" journal entry — a
+	// row whose txn_id has no transactions row — is therefore a transaction
+	// the engine started but never finished: the recovery target.
+	//
+	// cursor is the highest step index whose mutation may have begun
+	// (advanced write-ahead during APPLY); -1 means nothing was applied yet.
+	`
+CREATE TABLE IF NOT EXISTS recover_journal (
+    txn_id        TEXT PRIMARY KEY,
+    host_id       TEXT NOT NULL,
+    rule_id       TEXT NOT NULL,
+    transactional INTEGER NOT NULL,
+    session_id    TEXT,
+    phase         TEXT NOT NULL,
+    cursor        INTEGER NOT NULL DEFAULT -1,
+    intent_json   TEXT NOT NULL,
+    created_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_recover_journal_host ON recover_journal(host_id);
 `,
 }
