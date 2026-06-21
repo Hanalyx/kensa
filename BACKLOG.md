@@ -81,6 +81,23 @@ packages have passing tests.
   `StatusCommitted` with a synthetic "check" step (the overload #62/#63
   removed from `Scan`). Flagged on the `RemediationResult` doc comment;
   needs an `Outcomes`-style additive surface in a future `api/` minor.
+- **fapolicyd transaction primitive — LOW priority; deliberately deferred,
+  not declined.** A first-class atomic fapolicyd transaction (capture
+  compiled `rules.d` → apply → validate-host-can-still-`execve` →
+  commit/rollback). The "no today" is a *priority/demand* call, not an
+  architectural one: fapolicyd is a Linux subsystem with a real ABI, and the
+  long-term *fully transactional layer for Linux* vision wants it — but its
+  compliance need is already met by generic primitives, the allowlist content
+  is operator policy (the mechanism is Kensa's, the policy isn't — they
+  compose), and nothing names it yet. Flips to a yes on either trigger:
+  a customer/control needing operator-defined fapolicyd allowlists enforced
+  atomically, **or** Kensa's roadmap broadening from compliance-config to the
+  general transactional layer. Two smaller, demand-gated follow-ups sit under
+  it: (1) add the RHEL 9 deny-all corpus rule (rules.d/ layout; today
+  rhel8-only), (2) harden the `config_append` deny-all into a placement-aware
+  atomic write + exec-validate (the deny-all is a lock-out foot-gun).
+  Full strategic framing + the reusable "should Kensa talk to subsystem X?"
+  test: `docs/roadmap/FAPOLICYD_HANDLER_DECISION.md` §0.
 
 ---
 
