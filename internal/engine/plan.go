@@ -177,10 +177,10 @@ func (e *Engine) ExecutePlan(ctx context.Context, transport api.Transport, plan 
 		if armed {
 			if err := e.deadman.Cancel(ctx, transport, txn.ID); err != nil {
 				rb := e.rollback(ctx, transport, applyResults, plan.PreStates, "deadman")
-				return e.finalize(ctx, txn, startedAt, api.StatusRolledBack, applyResults, plan.PreStates, validators, rb), nil
+				return e.finalize(ctx, transport, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, plan.PreStates, validators, rb), nil
 			}
 		}
-		return e.finalize(ctx, txn, startedAt, api.StatusCommitted, applyResults, plan.PreStates, validators, nil), nil
+		return e.finalize(ctx, transport, txn, startedAt, api.StatusCommitted, applyResults, plan.PreStates, validators, nil), nil
 	}
 
 	rb := e.rollback(ctx, transport, applyResults, plan.PreStates, "inline")
@@ -188,11 +188,7 @@ func (e *Engine) ExecutePlan(ctx context.Context, transport api.Transport, plan 
 		_ = e.deadman.Cancel(ctx, transport, txn.ID)
 	}
 
-	status := api.StatusRolledBack
-	if !txn.Transactional && hasStrandedNonCapturable(applyResults) {
-		status = api.StatusPartiallyApplied
-	}
-	return e.finalize(ctx, txn, startedAt, status, applyResults, plan.PreStates, validators, rb), nil
+	return e.finalize(ctx, transport, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, plan.PreStates, validators, rb), nil
 }
 
 // FormatPlan renders plan for human display. The CLI calls this

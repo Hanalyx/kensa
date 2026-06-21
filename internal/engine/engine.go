@@ -335,10 +335,10 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 				// (rolled_back if clean, rollback_failed if not) with
 				// deadman as the source.
 				rb := e.rollback(ctx, transport, applyResults, preStates, "deadman")
-				return e.finalize(ctx, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, preStates, validators, rb), nil
+				return e.finalize(ctx, transport, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, preStates, validators, rb), nil
 			}
 		}
-		return e.finalize(ctx, txn, startedAt, api.StatusCommitted, applyResults, preStates, validators, nil), nil
+		return e.finalize(ctx, transport, txn, startedAt, api.StatusCommitted, applyResults, preStates, validators, nil), nil
 	}
 
 	// Failure path: invoke rollback.
@@ -349,7 +349,7 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	}
 
 	status := rollbackStatus(rb, txn, applyResults)
-	return e.finalize(ctx, txn, startedAt, status, applyResults, preStates, validators, rb), nil
+	return e.finalize(ctx, transport, txn, startedAt, status, applyResults, preStates, validators, rb), nil
 }
 
 // rollbackStatus computes the terminal status after a rollback ran, as a

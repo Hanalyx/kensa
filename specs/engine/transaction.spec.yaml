@@ -1,6 +1,6 @@
 spec:
     id: engine-transaction
-    version: 0.4.0
+    version: 0.5.0
     status: draft
     tier: 1
 
@@ -144,6 +144,25 @@ spec:
               so the signed record proves what restoration was attempted and
               its outcome rather than discarding it after the rollback runs.
           type: technical
+          enforcement: error
+        - id: C-13
+          description: |
+              At a terminal apply or rollback, the engine MUST re-read the
+              post-transaction state of every capturable step (re-invoking its
+              CaptureHandler) into the evidence envelope's PostStateBundle, so
+              the signed record proves a RE-MEASURED end state, not only the
+              attempted apply steps. The recapture MUST run BEFORE the envelope
+              is signed (the signature covers the post-state). It MUST NOT fail
+              the transaction: a re-read that errors is recorded as an
+              "unobserved" post-state entry and the terminal status is
+              unchanged. It MUST run on a context detached from the
+              transaction's deadline/cancellation, bounded by its own timeout.
+              For rollback outcomes the engine MUST record, per reversed step,
+              whether the recaptured post-state byte-matches the captured
+              pre-state — independent proof of restoration beyond the
+              handler's self-report (recorded for audit; it does not by itself
+              change the verdict).
+          type: security
           enforcement: error
         - id: C-12
           description: |
@@ -341,6 +360,30 @@ spec:
               switch fully suppresses the re-check.
           references_constraints: [C-12]
           priority: high
+        - id: AC-22
+          description: |
+              A committed transaction's evidence envelope carries a
+              PostStateBundle with a recaptured post-state for every capturable
+              step (the signed record is a re-measurement of the end state, not
+              only the attempted apply steps).
+          references_constraints: [C-13]
+          priority: critical
+        - id: AC-23
+          description: |
+              A rolled-back transaction's envelope carries a populated
+              PostStateBundle, and each RollbackResult records whether the
+              recaptured post-state matches the captured pre-state
+              (independent restoration proof).
+          references_constraints: [C-13]
+          priority: critical
+        - id: AC-24
+          description: |
+              When the post-state recapture errors for a step, the
+              transaction's terminal status is UNCHANGED (recapture never fails
+              the transaction) and that step's PostStateBundle entry is marked
+              unobserved.
+          references_constraints: [C-13]
+          priority: critical
 
     depends_on:
         - spec_id: handler-interface

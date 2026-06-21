@@ -16,6 +16,7 @@ import (
 // modulo Status.
 func (e *Engine) finalize(
 	ctx context.Context,
+	transport api.Transport,
 	txn *api.Transaction,
 	startedAt time.Time,
 	status api.TransactionStatus,
@@ -30,6 +31,30 @@ func (e *Engine) finalize(
 	e.emitter.EmitPhase(txn.ID.String(), string(status), status == api.StatusCommitted)
 
 	now := time.Now().UTC()
+
+	// Post-state recapture: re-read the host's end state so the signed
+	// envelope proves a re-measurement, not just the attempted steps. Runs
+	// before the envelope is built so the signature covers it; never fails
+	// the transaction (a failed re-read is an "unobserved" entry).
+	postStates := e.recapture(ctx, transport, txn)
+	// For rollback outcomes, annotate each step with whether its recaptured
+	// post-state byte-matches the captured pre-state — independent proof of
+	// restoration beyond the handler's self-report. Recorded in the Detail
+	// (audit-visible) without changing the verdict, which still derives from
+	// the handler-reported Success/PartialRestore.
+	if status == api.StatusRolledBack || status == api.StatusRollbackFailed || status == api.StatusPartiallyApplied {
+		for i := range rollbacks {
+			matched, observed := postMatchesPre(preStates, postStates, rollbacks[i].StepIndex)
+			switch {
+			case !observed:
+				rollbacks[i].Detail += " [post-state: unobserved]"
+			case matched:
+				rollbacks[i].Detail += " [post-state: matches pre-state]"
+			default:
+				rollbacks[i].Detail += " [post-state: DIVERGES from pre-state]"
+			}
+		}
+	}
 	// HostUnchanged reflects the host state for THIS terminal status,
 	// computed before any signer/persist demotion below: only a (verified)
 	// rollback leaves the host provably in its pre-change state. A committed
@@ -71,7 +96,7 @@ func (e *Engine) finalize(
 		RollbackResults:  rollbacks,
 		Decision:         status,
 		Severity:         txn.Severity,
-		PostStateBundle:  nil, // populated by post-state recapture in a later milestone
+		PostStateBundle:  postStates,
 		FrameworkRefs:    txn.FrameworkRefs,
 	}
 	// C-060 contract: every committed transaction MUST carry a real
