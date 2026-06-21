@@ -13,8 +13,8 @@ import (
 //
 // Four categories run here:
 //
-//  1. The mandatory post-apply desired-state RE-CHECK (atomicity roadmap
-//     Phase 2): the rule's own check (txn.Check) is re-run against the live
+//  1. The mandatory post-apply desired-state RE-CHECK: the rule's own
+//     check (txn.Check) is re-run against the live
 //     host to confirm the apply actually achieved the rule's intent. A
 //     clean Passed==false drives rollback. Crucially ERROR != FAIL — a
 //     transport/tool error on the re-read yields committed-but-unverified,
@@ -33,9 +33,16 @@ import (
 //
 // Privilege symmetry: the re-check runs over the same transport the
 // pre-check used to decide the rule was non-compliant, so it reads with the
-// same privilege. Where an apply changed the readability of what the check
-// reads, the re-read surfaces an error, which ERROR != FAIL maps to
-// committed-but-unverified rather than a spurious rollback.
+// same privilege the pre-check had. Note this is NOT necessarily the
+// privilege the APPLY had: in agent mode apply runs as root via the agent
+// while the check reads over the SSH transport (e.g. owadmin). If an apply
+// makes a file root-only-readable, the unprivileged re-read typically
+// surfaces as a clean non-match (exit 1 -> Passed:false), NOT a transport
+// error, so ERROR != FAIL does NOT rescue it — it drives a rollback of an
+// otherwise-correct change. That reversal is byte-perfect (the host returns
+// to its pre-apply state, never damaged), but it is a real correctness/
+// convergence concern handled by the corpus check/remediation audit and the
+// WithPostApplyRecheck kill-switch, not by ERROR != FAIL.
 func (e *Engine) validate(ctx context.Context, transport api.Transport, txn *api.Transaction) ([]api.ValidatorResult, bool) {
 	if e.forceValidateFail {
 		return []api.ValidatorResult{{

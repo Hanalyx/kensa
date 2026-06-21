@@ -299,6 +299,58 @@ func TestEngine_AC16_UncleanRollbackYieldsRollbackFailed(t *testing.T) {
 	}
 }
 
+// cancelFailArmer arms successfully but fails to cancel, driving the engine's
+// deadman-cancel-failed branch (an inline rollback at commit time).
+type cancelFailArmer struct{}
+
+func (cancelFailArmer) Arm(context.Context, api.Transport, uuid.UUID, []api.PreState) (string, int64, error) {
+	return "/tmp/kensa-rollback-test.sh", 0, nil
+}
+
+func (cancelFailArmer) Cancel(context.Context, api.Transport, uuid.UUID) error {
+	return errors.New("induced deadman cancel failure")
+}
+
+// @spec engine-transaction
+// @ac AC-16
+func TestEngine_AC16_DeadmanPathUsesVerdict(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-16")
+	// A control-channel-sensitive transaction (service_enabled) that applies
+	// and validates, but whose deadman cancel fails -> the engine rolls back
+	// inline. The terminal status must be the VERDICT over that rollback, not
+	// a hardcoded RolledBack: here step 0's rollback reports a partial
+	// restore, so the deadman path must yield RollbackFailed.
+	h := &engine.FakeHandler{
+		HandlerName:    "service_enabled",
+		IsCapturable:   true,
+		RollbackResult: &api.RollbackResult{Success: true, PartialRestore: true, Detail: "partial"},
+	}
+	r := handler.NewRegistry()
+	r.Register(h)
+	e := engine.New(engine.WithRegistry(r), engine.WithDeadman(cancelFailArmer{}))
+
+	txn := &api.Transaction{
+		ID:            uuid.New(),
+		RuleID:        "test-rule",
+		HostID:        "test-host",
+		Steps:         []api.Step{{Index: 0, Mechanism: "service_enabled"}},
+		StartedAt:     time.Now().UTC(),
+		Deadline:      time.Now().Add(time.Minute),
+		Transactional: true,
+	}
+	res, err := e.Run(context.Background(), engine.NewFakeTransport(), txn, false)
+	if err != nil {
+		t.Fatalf("Run returned err: %v", err)
+	}
+	if res.Status != api.StatusRollbackFailed {
+		t.Errorf("deadman-path rollback with a partial restore must verdict RollbackFailed; got %s", res.Status)
+	}
+	if res.HostUnchanged {
+		t.Error("a deadman-path rollback_failed must report HostUnchanged=false")
+	}
+}
+
 // @spec engine-transaction
 // @ac AC-17
 func TestEngine_AC17_CleanRollbackYieldsRolledBack(t *testing.T) {
