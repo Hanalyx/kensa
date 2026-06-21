@@ -7,8 +7,9 @@ import (
 )
 
 // TransactionStatus is the terminal state of a [Transaction]. The engine
-// guarantees that every transaction ends in exactly one of the four
-// values below; no other state is permitted.
+// guarantees that every transaction ends in exactly one of the values
+// below; no other state is permitted. RollbackFailed and Recovered are
+// reserved by the contract and produced by later milestones.
 type TransactionStatus string
 
 // Terminal statuses for a [Transaction].
@@ -30,9 +31,29 @@ const (
 	StatusPartiallyApplied TransactionStatus = "partially_applied"
 
 	// StatusErrored indicates the engine could not complete a phase
-	// within the transaction deadline. The error in
+	// within the transaction deadline, or a terminal infrastructure
+	// step (signing, persistence) failed. The error in
 	// [TransactionResult.Error] identifies which phase failed.
+	// [TransactionResult.HostUnchanged] distinguishes an errored abort
+	// that never mutated the host from one that left a mutation behind.
 	StatusErrored TransactionStatus = "errored"
+
+	// StatusRollbackFailed indicates apply or validate failed and the
+	// engine attempted to reverse the applied steps, but the restoration
+	// could NOT be machine-verified as complete (a rollback step failed
+	// or reported PartialRestore, or the recaptured post-state did not
+	// match the captured pre-state). The host is in an unconfirmed state;
+	// per-step detail is in [TransactionResult.RollbackResults]. Reserved
+	// by the engine-transaction contract; produced by the verified-
+	// rollback barrier milestone (not emitted by the engine yet).
+	StatusRollbackFailed TransactionStatus = "rollback_failed"
+
+	// StatusRecovered indicates an interrupted transaction (the process
+	// died after pre-state persistence but before a terminal record was
+	// written) was reversed by the out-of-band recovery replay using the
+	// durable journal. Reserved by the contract; produced by the
+	// recovery milestone (not emitted by the engine yet).
+	StatusRecovered TransactionStatus = "recovered"
 )
 
 // Phase identifies one of the four transaction phases from the V1
@@ -107,7 +128,7 @@ type Step struct {
 }
 
 // TransactionResult is the outcome of executing a [Transaction]. The
-// [TransactionResult.Status] field is always one of the four
+// [TransactionResult.Status] field is always one of the
 // [TransactionStatus] values.
 type TransactionResult struct {
 	// TransactionID matches the source [Transaction.ID].
@@ -131,6 +152,21 @@ type TransactionResult struct {
 	RolledBackAt *time.Time
 	// Envelope is the signed evidence record for this transaction.
 	Envelope *EvidenceEnvelope
+	// RollbackResults records the per-step outcome of reversing applied
+	// steps, when a rollback ran. Empty for committed transactions and
+	// for pre-apply failures (nothing was applied to reverse). Carried
+	// here and on [EvidenceEnvelope.RollbackResults] so the audit record
+	// proves what restoration was attempted and whether it succeeded.
+	RollbackResults []RollbackResult
+	// HostUnchanged is true if and only if the host is provably in its
+	// pre-transaction state at terminal time: a failure that reached no
+	// later than pre-apply (preflight, capture, or pre-state
+	// persistence), or a verified RolledBack outcome. It is false
+	// whenever a mutation was applied and not verified-reversed —
+	// including a signer or persistence failure AFTER a successful apply,
+	// and any [StatusPartiallyApplied] outcome. Consumers use it to tell
+	// a clean abort apart from a mutated-but-errored host.
+	HostUnchanged bool
 	// Error is non-nil only when Status is [StatusErrored]. For
 	// committed and rolled-back transactions the engine considers
 	// the outcome a success and returns nil.
@@ -232,7 +268,11 @@ type EvidenceEnvelope struct {
 	PreStateBundle   []PreState        `json:"pre_state_bundle"`
 	ApplySteps       []StepResult      `json:"apply_steps"`
 	ValidatorResults []ValidatorResult `json:"validator_results"`
-	Decision         TransactionStatus `json:"decision"`
+	// RollbackResults records, per reversed step, whether restoration
+	// succeeded and whether it was only partial. Empty when no rollback
+	// ran (committed, or pre-apply failure). Part of the signed record.
+	RollbackResults []RollbackResult  `json:"rollback_results,omitempty"`
+	Decision        TransactionStatus `json:"decision"`
 	// Severity is denormalised from the rule at write time so the
 	// store can index by severity without joining against the rule
 	// corpus. Populated from [Transaction.Severity].

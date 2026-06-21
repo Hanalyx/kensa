@@ -98,6 +98,18 @@ func runVerify(args []string) error {
 		return WrapUsageError("read envelope", err)
 	}
 
+	// Unsigned-by-design records: an errored or recovered transaction is
+	// recorded in the log for audit but is NOT signed (engine-transaction
+	// C-06). Report that honestly instead of the generic "empty
+	// signing_key_id" path, so an operator is told why there is nothing to
+	// verify rather than being left to infer tampering.
+	if len(envelope.Signature) == 0 &&
+		(envelope.Decision == api.StatusErrored || envelope.Decision == api.StatusRecovered) {
+		return fmt.Errorf(
+			"envelope records an unsigned %s transaction: recorded for audit but not signed by design; there is no signature to verify",
+			envelope.Decision)
+	}
+
 	// Reject empty or malformed signing_key_id BEFORE joining into
 	// the trust-dir path. Otherwise:
 	//   - `signing_key_id: ""` → trustDir/.pub (an exotic filename)

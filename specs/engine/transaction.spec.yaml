@@ -1,6 +1,6 @@
 spec:
     id: engine-transaction
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -28,10 +28,16 @@ spec:
         summary: |
             Execute a rule's remediation as an atomic transaction. The engine
             captures pre-state for every capturable step, applies steps in
-            order, validates, and commits or rolls back. On any failure the
-            system ends in exactly one of three outcomes: Committed,
-            RolledBack, or PartiallyApplied (only for transactional:false
-            rules).
+            order, validates, and commits or rolls back. Every transaction
+            ends in exactly one terminal Status from the closed set
+            {Committed, RolledBack, PartiallyApplied, Errored, RollbackFailed,
+            Recovered}, and EVERY terminal outcome — including Errored and a
+            signer failure — leaves a durable record in the transaction log so
+            no outcome is ever silently unrecorded. RollbackFailed and
+            Recovered are reserved honest-outcome states produced by later
+            milestones (verified-rollback barrier; out-of-band recovery
+            replay); they are part of the contract now so consumers learn the
+            full status set in one additive surface.
         scope:
             includes:
                 - Four-phase transaction execution
@@ -47,9 +53,14 @@ spec:
     constraints:
         - id: C-01
           description: |
-              The engine MUST return a TransactionResult with exactly one of
-              four Status values: Committed, RolledBack, PartiallyApplied, or
-              Errored. No other terminal state is permitted.
+              The engine MUST return a TransactionResult with exactly one
+              terminal Status from the closed set {Committed, RolledBack,
+              PartiallyApplied, Errored, RollbackFailed, Recovered}. No other
+              terminal state is permitted. RollbackFailed (a rollback whose
+              completeness could not be machine-verified) and Recovered (an
+              interrupted transaction reversed by out-of-band recovery replay)
+              are reserved by this contract and produced by later milestones;
+              the engine does not emit them yet but consumers MUST accept them.
           type: technical
           enforcement: error
         - id: C-02
@@ -79,9 +90,15 @@ spec:
           enforcement: error
         - id: C-06
           description: |
-              Every TransactionResult MUST include a signed evidence
-              envelope. The signature MUST be Ed25519 over the
-              canonicalized envelope bytes.
+              Every Committed or RolledBack TransactionResult MUST include an
+              evidence envelope signed with Ed25519 over the canonicalized
+              envelope bytes (the C-060 always-signed guarantee). An Errored
+              or Recovered outcome MAY carry a durable but UNSIGNED envelope
+              when the failure precedes or interrupts evidence production;
+              such a row MUST be marked so verification tooling (kensa verify,
+              OSCAL export) skips or flags it rather than treating an empty
+              signature as valid. The engine MUST NOT persist a Committed or
+              RolledBack envelope with an empty signature.
           type: security
           enforcement: error
         - id: C-07
@@ -90,8 +107,43 @@ spec:
               If the engine cannot complete capture, apply, validate, commit,
               OR rollback within the transaction deadline, it MUST record
               Status=Errored with a typed error identifying the phase that
-              could not complete.
+              could not complete, AND persist a durable transaction-log row
+              for that errored outcome. No terminal outcome — including
+              Errored — may be silently unrecorded.
           type: security
+          enforcement: error
+        - id: C-08
+          description: |
+              A failure to durably persist a terminal TransactionResult MUST
+              NOT be silently discarded. A Committed or RolledBack result
+              whose store write fails MUST be demoted to Errored with the
+              persistence error surfaced in TransactionResult.Error: the
+              engine MUST NOT return a Committed or RolledBack result that was
+              never durably recorded ("evidence written to the transaction
+              log" must be a fact, not a claim).
+          type: security
+          enforcement: error
+        - id: C-09
+          description: |
+              Every TransactionResult MUST carry a HostUnchanged predicate.
+              It MUST be true if and only if the host is provably in its
+              pre-transaction state at terminal time — i.e. a failure reached
+              no later than pre-apply (preflight, capture, or pre-state
+              persistence), or a RolledBack outcome. It MUST be false whenever
+              a mutation was applied and not verified-reversed, including a
+              signer/persist failure AFTER a successful apply and any
+              PartiallyApplied outcome. Consumers use HostUnchanged to
+              distinguish a clean abort from a mutated-but-errored host.
+          type: security
+          enforcement: error
+        - id: C-10
+          description: |
+              When the engine reverses applied steps, the per-step
+              RollbackResult set (Success, PartialRestore, Source) MUST be
+              carried on both the TransactionResult and the evidence envelope,
+              so the signed record proves what restoration was attempted and
+              its outcome rather than discarding it after the rollback runs.
+          type: technical
           enforcement: error
 
     acceptance_criteria:
@@ -172,6 +224,41 @@ spec:
               The error identifies which step is non-capturable.
           references_constraints: [C-03]
           priority: critical
+        - id: AC-12
+          description: |
+              An Errored outcome persists a durable transaction-log row. A
+              transaction that errors (including with a nil/unsigned envelope)
+              is readable back from the store afterwards, marked so
+              verification tooling treats it as unsigned-errored rather than a
+              valid signed record.
+          references_constraints: [C-07, C-06]
+          priority: critical
+        - id: AC-13
+          description: |
+              When the store PersistResult call fails for an otherwise
+              Committed (or RolledBack) result, the engine demotes the result
+              to Errored and surfaces the persistence error in
+              TransactionResult.Error; it does not return a Committed result
+              that was never durably written.
+          references_constraints: [C-08]
+          priority: critical
+        - id: AC-14
+          description: |
+              HostUnchanged is true on a CAPTURE-phase (pre-apply) failure and
+              on a machine-verified RolledBack outcome, and false when a
+              mutation was applied and not verified-reversed — specifically a
+              signer failure after a successful apply yields Errored with
+              HostUnchanged=false.
+          references_constraints: [C-09]
+          priority: critical
+        - id: AC-15
+          description: |
+              After the engine reverses applied steps, the per-step
+              RollbackResult set is present on both TransactionResult and the
+              evidence envelope (RollbackResults), preserving Success /
+              PartialRestore / Source for the audit record.
+          references_constraints: [C-10]
+          priority: high
 
     depends_on:
         - spec_id: handler-interface
