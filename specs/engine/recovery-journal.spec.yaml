@@ -1,0 +1,116 @@
+spec:
+    id: recovery-journal
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: crash-recovery-intent-journal
+        description: |
+            The crash-recovery intent journal makes an interrupted transaction
+            recoverable. In the PREPARE phase the engine writes a journal entry
+            — the transaction intent — into the durable store in the SAME
+            atomic, synchronous commit as the captured pre-states, BEFORE any
+            host mutation. This is the write-ahead barrier: if the engine
+            process dies mid-apply, the intent and pre-state are on disk, so
+            out-of-band recovery can find the transaction and compensate it
+            (roll it back).
+
+            A journal entry is "open" while its transaction has no terminal
+            record (the persisted transactions row is the commit marker). An
+            open entry is precisely a transaction the engine started but never
+            finished — the recovery target. When a transaction reaches a
+            terminal status the entry leaves the open set (and the engine
+            clears it for hygiene). Journaling is an OPTIONAL store capability
+            (JournalStore), asserted by type; a store without it falls back to
+            a plain pre-state write with no recovery, so existing stores are
+            unaffected.
+        related_specs:
+            - engine-transaction
+            - transaction-log
+        assumptions:
+            - The store is SQLite with synchronous=FULL on local durable storage
+
+    objective:
+        summary: |
+            Persist a transaction's intent + pre-state atomically before any
+            mutation, so an interrupted transaction is durably recoverable, and
+            expose the set of open (unfinished) entries as recovery targets.
+        scope:
+            includes:
+                - Atomic PREPARE write (journal entry + pre-states, one commit)
+                - Open-entry query (entries with no terminal transaction record)
+                - Cursor advance and entry clear
+                - Engine wiring (PREPARE write, terminal clear) via the optional capability
+            excludes:
+                - The recovery replay loop and kensa recover CLI (recovery-replay spec)
+                - The recover.lock fencing (recovery-replay spec)
+
+    constraints:
+        - id: C-01
+          description: |
+              In the PREPARE phase the engine MUST write the journal entry and
+              the captured pre-states in ONE atomic, synchronous store commit,
+              before any apply step mutates the host. A store that implements
+              the optional JournalStore capability MUST be used for this; a
+              store without it falls back to a plain pre-state write (no
+              journaling), and existing behavior is unchanged.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              A journal entry is OPEN if and only if its transaction has no
+              terminal record in the store. LoadOpenJournalEntries MUST return
+              exactly the open entries (the recovery targets). Persisting a
+              terminal result MUST remove the entry from the open set; on a
+              durable terminal record the engine also clears the entry. If
+              persisting the terminal result FAILS, the entry MUST remain open
+              so recovery still sees the in-flight transaction.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The apply cursor MUST be advanced write-ahead of the mutation it
+              guards (recorded before the step mutates), so recovery never
+              skips undoing the last step a crash may have begun.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              PrepareTransaction writes the journal entry and the pre-states in
+              one commit; both are readable back, and LoadOpenJournalEntries
+              returns the entry while the transaction has no terminal record.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              After a terminal TransactionResult is persisted for the
+              transaction, LoadOpenJournalEntries no longer returns its entry
+              (the terminal record removes it from the open set).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              A full engine Run that commits writes the journal entry in
+              PREPARE and clears it at terminal: after Run, no open journal
+              entry remains for the transaction.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              AdvanceJournalCursor updates the entry's cursor (visible on the
+              open entry), and ClearJournalEntry removes the entry from the
+              store.
+          references_constraints: [C-03, C-02]
+          priority: high
+
+    depends_on:
+        - spec_id: engine-transaction
+          relationship: requires
+        - spec_id: transaction-log
+          relationship: requires
+
+    tags: [engine, store, recovery, atomicity, tier-1]

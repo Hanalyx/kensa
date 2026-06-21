@@ -1,0 +1,99 @@
+spec:
+    id: recovery-replay
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: crash-recovery-replay
+        description: |
+            Recovery replay compensates transactions interrupted before they
+            reached a terminal status. The engine's Recover scans the store's
+            open journal entries (recovery-journal spec) — a prepared
+            transaction with no terminal record — reconnects to the host, rolls
+            each one back from its captured pre-state, and records a terminal
+            StatusRecovered result (StatusRollbackFailed if the compensation
+            could not be machine-clean). It reuses the finalize path, so a
+            recovered transaction is recaptured, signed, persisted, and its
+            journal entry cleared, exactly like a live terminal outcome.
+
+            Recovery is idempotent: restore-from-pre-state is itself
+            re-runnable, and clearing the journal on a durable terminal record
+            means a second Recover finds nothing. Recovery is scoped by host;
+            the caller (kensa recover) is responsible for fencing Recover
+            against a live engine on the same store (the recover.lock).
+        related_specs:
+            - recovery-journal
+            - engine-transaction
+
+    objective:
+        summary: |
+            Compensate interrupted transactions by rolling each back from its
+            captured pre-state and recording a durable StatusRecovered outcome,
+            idempotently and scoped by host.
+        scope:
+            includes:
+                - Scan open journal entries and compensate each
+                - Pre-state-driven rollback (no live apply results)
+                - Terminal StatusRecovered / StatusRollbackFailed record + journal clear
+                - Host scoping; idempotent re-run
+            excludes:
+                - The recover.lock fencing primitive (tracked separately)
+                - The kensa recover CLI wiring
+                - On-host kill-9 cross-process durability test (destructive; gated)
+
+    constraints:
+        - id: C-01
+          description: |
+              Recover MUST process every open journal entry for the requested
+              host: roll it back from its captured pre-state in reverse step
+              order, then record a terminal result — StatusRecovered when the
+              compensation is machine-clean, StatusRollbackFailed otherwise —
+              and clear the journal entry once that record is durable.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Recover MUST be idempotent: after a successful recovery the
+              transaction has a terminal record, so a second Recover does not
+              process it again; and pre-state-driven rollback is safe to run
+              even on a step whose mutation never actually committed.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Recover MUST scope to the requested host (empty host = all open
+              entries), so a recovery run for one host never compensates a
+              transaction targeting another.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Given an open journal entry (prepared, never finalized) with
+              captured pre-state, Recover rolls the step back from pre-state,
+              records a StatusRecovered terminal result, and clears the journal
+              entry (no open entry remains).
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              After a successful recovery, a second Recover call returns no
+              results for that transaction (idempotent — the terminal record
+              removed it from the open set).
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Recover with a hostID only processes open entries for that host;
+              entries for other hosts are left untouched (still open).
+          references_constraints: [C-03]
+          priority: high
+
+    depends_on:
+        - spec_id: recovery-journal
+          relationship: requires
+
+    tags: [engine, recovery, atomicity, tier-1]

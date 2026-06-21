@@ -295,7 +295,25 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	if capErr != nil {
 		return e.errored(ctx, txn, startedAt, api.PhaseCapture, capErr), nil
 	}
-	if err := e.store.PersistPreStates(ctx, txn.ID, preStates); err != nil {
+	// PREPARE: make the intent + pre-state durable BEFORE any mutation. When
+	// the store supports crash-recovery journaling, the journal entry and the
+	// pre-states are written in one atomic commit (the write-ahead barrier);
+	// otherwise we fall back to a plain pre-state write.
+	if js, ok := e.store.(JournalStore); ok {
+		entry := api.JournalEntry{
+			TxnID:         txn.ID,
+			HostID:        txn.HostID,
+			RuleID:        txn.RuleID,
+			Transactional: txn.Transactional,
+			Phase:         "prepared",
+			Cursor:        -1,
+			Intent:        txn.Steps,
+			CreatedAt:     time.Now().UTC(),
+		}
+		if err := js.PrepareTransaction(ctx, entry, preStates); err != nil {
+			return e.errored(ctx, txn, startedAt, api.PhaseCapture, err), nil
+		}
+	} else if err := e.store.PersistPreStates(ctx, txn.ID, preStates); err != nil {
 		return e.errored(ctx, txn, startedAt, api.PhaseCapture, err), nil
 	}
 	e.publishPhaseCompleted(ctx, txn, api.PhaseCapture, true, time.Since(startedAt))

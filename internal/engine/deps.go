@@ -32,6 +32,27 @@ type Store interface {
 	LoadPreStates(ctx context.Context, txnID uuid.UUID) ([]api.PreState, error)
 }
 
+// JournalStore is the OPTIONAL crash-recovery capability a [Store] may
+// implement (asserted by type, mirroring the fsatomic.Transport pattern).
+// When the engine's store implements it, the engine writes the intent
+// journal in the PREPARE phase — atomically with the pre-state, before any
+// host mutation — and clears it at terminal. A store that does not implement
+// it falls back to plain [Store.PersistPreStates] with no crash-recovery
+// journaling, so existing stores keep working unchanged.
+type JournalStore interface {
+	// PrepareTransaction writes the journal entry and the pre-states in ONE
+	// atomic, synchronous commit (the write-ahead barrier).
+	PrepareTransaction(ctx context.Context, entry api.JournalEntry, preStates []api.PreState) error
+	// AdvanceJournalCursor durably records, write-ahead, the step about to
+	// mutate.
+	AdvanceJournalCursor(ctx context.Context, txnID uuid.UUID, cursor int) error
+	// LoadOpenJournalEntries returns entries whose transaction never reached
+	// a terminal status — the recovery targets.
+	LoadOpenJournalEntries(ctx context.Context) ([]api.JournalEntry, error)
+	// ClearJournalEntry removes an entry once its transaction is terminal.
+	ClearJournalEntry(ctx context.Context, txnID uuid.UUID) error
+}
+
 // Signer produces and verifies Ed25519 signatures over canonicalized
 // evidence envelopes (evidence-envelope spec). The engine calls Sign at
 // commit time; consumers call Verify via [api.Kensa.VerifyEnvelope].

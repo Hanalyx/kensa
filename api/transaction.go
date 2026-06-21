@@ -123,6 +123,36 @@ type Transaction struct {
 	Check Check
 }
 
+// JournalEntry is one row of the crash-recovery intent journal. The engine
+// writes it in the PREPARE phase — atomically with the captured pre-states,
+// before any host mutation — so a transaction that crashes mid-flight can be
+// found and compensated (rolled back) by out-of-band recovery. The entry is
+// cleared once the transaction reaches a terminal status (its persisted
+// result is the commit marker); an entry with no terminal result is an
+// in-flight transaction the engine started but never finished.
+type JournalEntry struct {
+	// TxnID is the transaction this entry journals.
+	TxnID uuid.UUID
+	// HostID identifies the target host; recovery reconnects to it.
+	HostID string
+	// RuleID is the rule whose remediation is in flight.
+	RuleID string
+	// Transactional mirrors [Transaction.Transactional].
+	Transactional bool
+	// SessionID groups the entry with its CLI invocation; may be empty.
+	SessionID string
+	// Phase is the last recorded lifecycle phase ("prepared", "applying").
+	Phase string
+	// Cursor is the highest step index whose mutation may have begun
+	// (advanced write-ahead during APPLY); -1 means nothing was applied.
+	Cursor int
+	// Intent is the transaction's steps, enough to reconstruct compensation
+	// during recovery.
+	Intent []Step
+	// CreatedAt is when the entry was written (PREPARE time).
+	CreatedAt time.Time
+}
+
 // Step is one mechanism invocation within a [Transaction].
 type Step struct {
 	// Index is the zero-based position in [Transaction.Steps].
