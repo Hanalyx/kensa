@@ -346,17 +346,44 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 	}, nil
 }
 
+// missingAncestorDirsCmd lists the absent ancestor directories of dir,
+// deepest first (one per line) — the directories Apply's MkdirAll will
+// create, and which rollback must remove. Empty output when dir exists.
+func missingAncestorDirsCmd(dir string) string {
+	return fmt.Sprintf(
+		`d=%s; while [ "$d" != "/" ] && [ "$d" != "." ] && [ ! -d "$d" ]; do echo "$d"; d=$(dirname "$d"); done`,
+		shellEscape(dir),
+	)
+}
+
 // Capture records the prior state of BOTH files Apply may write — the
-// snippet and the lock — so rollback can restore or remove each. The lock
-// (when the rule sets lock: true) pins the key against user override; a
-// rollback that restored only the snippet left the lock orphaned, so the
-// enforcement survived a reverted value.
+// snippet and the lock — so rollback can restore or remove each, plus the
+// profile existence, the db dir, and the absent ancestor directories Apply
+// will create, so the footprint gate is covered and rollback can reclaim a
+// created profile/directory. The lock (when the rule sets lock: true) pins
+// the key against user override; a rollback that restored only the snippet
+// left the lock orphaned, so the enforcement survived a reverted value.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
 	paths := pathsFor(p)
+
+	// The deepest directory Apply creates: the locks dir when locking, else
+	// the db dir. Detecting its absent ancestors covers both.
+	deepestDir := paths.dbDir
+	if p.Lock {
+		deepestDir = paths.locksD
+	}
+	dirRes, err := transport.Run(ctx, missingAncestorDirsCmd(deepestDir))
+	if err != nil {
+		return nil, fmt.Errorf("dconf_set: capture dirs transport error: %w", err)
+	}
+	if !dirRes.OK() {
+		return nil, fmt.Errorf("dconf_set: capture dirs failed: %w (stderr: %s)", api.ErrCaptureIncomplete, strings.TrimSpace(dirRes.Stderr))
+	}
+	createdDirs := strings.TrimSpace(dirRes.Stdout)
 
 	if ft, ok := transport.(kernelio.FileTransport); ok {
 		snippetContent, snippetExisted, rerr := ft.ReadFileIfExists(paths.snippet)
@@ -367,7 +394,11 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		if lerr != nil {
 			return nil, fmt.Errorf("dconf_set: capture read %s: %w (%v)", paths.lock, api.ErrCaptureIncomplete, lerr)
 		}
-		return preState(paths, snippetContent, snippetExisted, lockContent, lockExisted), nil
+		_, profileExisted, perr := ft.ReadFileIfExists(paths.profile)
+		if perr != nil {
+			return nil, fmt.Errorf("dconf_set: capture read %s: %w (%v)", paths.profile, api.ErrCaptureIncomplete, perr)
+		}
+		return preState(paths, snippetContent, snippetExisted, lockContent, lockExisted, profileExisted, createdDirs), nil
 	}
 
 	snippetContent, snippetExisted, err := captureFileShell(ctx, transport, paths.snippet)
@@ -378,7 +409,11 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return nil, err
 	}
-	return preState(paths, snippetContent, snippetExisted, lockContent, lockExisted), nil
+	_, profileExisted, err := captureFileShell(ctx, transport, paths.profile)
+	if err != nil {
+		return nil, err
+	}
+	return preState(paths, snippetContent, snippetExisted, lockContent, lockExisted, profileExisted, createdDirs), nil
 }
 
 // captureFileShell reads a file's content and existence over a shell
@@ -397,19 +432,24 @@ func captureFileShell(ctx context.Context, transport api.Transport, path string)
 }
 
 // preState builds the canonical PreState shape used by both capture paths,
-// recording both the snippet and the lock.
-func preState(paths dconfPaths, snippetContent string, snippetExisted bool, lockContent string, lockExisted bool) *api.PreState {
+// recording the snippet, the lock, the profile existence + path, the db dir,
+// and the directories Apply will create.
+func preState(paths dconfPaths, snippetContent string, snippetExisted bool, lockContent string, lockExisted, profileExisted bool, createdDirs string) *api.PreState {
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
 		CapturedAt: time.Now().UTC(),
 		Data: map[string]interface{}{
-			"file_path":     paths.snippet,
-			"prior_content": snippetContent,
-			"file_existed":  snippetExisted,
-			"lock_path":     paths.lock,
-			"lock_content":  lockContent,
-			"lock_existed":  lockExisted,
+			"file_path":       paths.snippet,
+			"prior_content":   snippetContent,
+			"file_existed":    snippetExisted,
+			"lock_path":       paths.lock,
+			"lock_content":    lockContent,
+			"lock_existed":    lockExisted,
+			"profile_path":    paths.profile,
+			"profile_existed": profileExisted,
+			"db_dir":          paths.dbDir,
+			"created_dirs":    createdDirs,
 		},
 	}
 }
@@ -434,7 +474,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 
 	if ft, ok := transport.(kernelio.FileTransport); ok {
-		return h.rollbackKernel(ctx, ft, transport, filePath, priorContent, fileExisted, lockPath, lockContent, lockExisted)
+		return h.rollbackKernel(ctx, ft, transport, pre, filePath, priorContent, fileExisted, lockPath, lockContent, lockExisted)
 	}
 
 	// Restore the lock first (the override-enforcement state), then the
@@ -456,7 +496,9 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		}
 	}
 
-	// Re-run dconf update to apply the restored (or removed) files.
+	// Remove the directories (and a created profile) Apply created, then
+	// re-run dconf update to apply the restored (or removed) files.
+	note := cleanupCreatedState(ctx, transport, pre)
 	if res, err := transport.Run(ctx, "dconf update"); err != nil {
 		return nil, fmt.Errorf("dconf_set: rollback dconf update transport error: %w", err)
 	} else if !res.OK() {
@@ -474,9 +516,46 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("dconf_set: %s %s and dconf updated", filePath, action),
+		Detail:     fmt.Sprintf("dconf_set: %s %s and dconf updated%s", filePath, action, note),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// cleanupCreatedState removes the directories Apply created (deepest first,
+// best-effort: rmdir of an EMPTY directory only, so a level another snippet
+// now shares is left as found) and — when the db dir is thereby removed (no
+// other snippet remains) AND we created the profile — removes the profile
+// too. A created shared resource is thus reclaimed only when nothing else
+// depends on it; if the db dir is still shared, both it and the profile are
+// left in place. Returns a human note for the rollback detail.
+func cleanupCreatedState(ctx context.Context, transport api.Transport, pre *api.PreState) string {
+	raw, _ := pre.Data["created_dirs"].(string)
+	dbDir, _ := pre.Data["db_dir"].(string)
+	profilePath, _ := pre.Data["profile_path"].(string)
+	profileExisted, _ := pre.Data["profile_existed"].(bool)
+
+	var removedDirs int
+	dbDirRemoved := false
+	for _, d := range strings.Split(strings.TrimSpace(raw), "\n") {
+		if d = strings.TrimSpace(d); d == "" {
+			continue
+		}
+		if res, err := transport.Run(ctx, fmt.Sprintf("rmdir %s 2>/dev/null", shellEscape(d))); err == nil && res != nil && res.OK() {
+			removedDirs++
+			if d == dbDir {
+				dbDirRemoved = true
+			}
+		}
+	}
+	if !profileExisted && profilePath != "" && dbDirRemoved {
+		if res, err := transport.Run(ctx, fmt.Sprintf("rm -f %s", shellEscape(profilePath))); err == nil && res != nil && res.OK() {
+			return fmt.Sprintf("; removed %d created dir(s) + profile", removedDirs)
+		}
+	}
+	if removedDirs > 0 {
+		return fmt.Sprintf("; removed %d created dir(s)", removedDirs)
+	}
+	return ""
 }
 
 // restoreFileShellCmd returns the shell command that restores path to its
@@ -490,7 +569,7 @@ func restoreFileShellCmd(path, content string, existed bool) string {
 
 // rollbackKernel restores or removes the lock then the snippet atomically,
 // then runs `dconf update` (the compile step, stays shell).
-func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, filePath, priorContent string, fileExisted bool, lockPath, lockContent string, lockExisted bool) (*api.RollbackResult, error) {
+func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, pre *api.PreState, filePath, priorContent string, fileExisted bool, lockPath, lockContent string, lockExisted bool) (*api.RollbackResult, error) {
 	// Restore the lock first (the override-enforcement state). An empty
 	// lockPath means a pre-lock-capture pre-state — skip, as before.
 	if lockPath != "" {
@@ -509,6 +588,7 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 	} else if err := kernelio.RemoveFile(ctx, ft, filePath); err != nil {
 		return nil, fmt.Errorf("dconf_set: rollback remove: %w", err)
 	}
+	note := cleanupCreatedState(ctx, transport, pre)
 	if res, err := transport.Run(ctx, "dconf update"); err != nil {
 		return nil, fmt.Errorf("dconf_set: rollback dconf update transport error: %w", err)
 	} else if !res.OK() {
@@ -525,7 +605,7 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("dconf_set: %s %s and dconf updated (kernel-io)", filePath, action),
+		Detail:     fmt.Sprintf("dconf_set: %s %s and dconf updated (kernel-io)%s", filePath, action, note),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
 }

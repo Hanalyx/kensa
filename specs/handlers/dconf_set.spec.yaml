@@ -1,6 +1,6 @@
 spec:
     id: handler-dconf-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -81,6 +81,20 @@ spec:
               file_path.
           type: security
           enforcement: error
+        - id: C-08
+          description: |
+              Capture MUST record the profile existence/path, the db dir, and
+              the absent ancestor directories Apply will create (db dir + locks
+              dir). CapturedFootprint MUST declare the snippet, lock, profile,
+              and those directories so the agent-mode pre-commit gate is
+              covered. Rollback MUST remove the created directories (deepest
+              first, empty-only) and, when the db dir is thereby removed (no
+              other snippet remains) AND the profile was created by this apply,
+              remove the profile too — a shared resource (profile, db dir) is
+              reclaimed only when nothing else depends on it; otherwise it is
+              left as found.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes the key snippet and runs `dconf update`.
@@ -118,6 +132,15 @@ spec:
           description: Rollback rejects a nil pre-state.
           references_constraints: [C-07]
           priority: high
+        - id: AC-10
+          description: |
+              Capture records the created dirs + profile state;
+              CapturedFootprint declares the snippet, lock, profile, and
+              created dirs for the gate; Rollback rmdir's the created dirs
+              and removes a created profile only once the db dir is emptied,
+              leaving a still-shared profile/dir in place.
+          references_constraints: [C-08]
+          priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires
