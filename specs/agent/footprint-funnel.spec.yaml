@@ -1,0 +1,116 @@
+spec:
+    id: footprint-funnel
+    version: 0.2.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: footprint-funnel
+        description: |
+            The footprint funnel records the concrete set of resources an
+            agent-mode transaction touches, so the engine can enforce that a
+            handler captured (and can therefore roll back) everything its
+            apply actually mutated — converting capture-completeness from a
+            human-review promise (CONTRIBUTING.md) into a code-enforced
+            precondition.
+
+            Two footprints exist per transaction: the CAPTURED footprint
+            (what a handler declared it intends to touch) and the OBSERVED
+            footprint (what the recording layer saw the apply touch, one
+            entry per mutating syscall, each with the pre-image read
+            synchronously BEFORE the mutation). The engine's pre-commit gate
+            asserts observed ⊆ captured.
+
+            This spec covers the footprint type, the subset gate logic, and
+            the recording layer (internal/agent/footprint). The engine
+            pre-commit gate that consumes the two footprints is a separate
+            deliverable that builds on it.
+        related_specs:
+            - kernelio-sysctl
+            - engine-transaction
+
+    objective:
+        summary: |
+            Provide the Footprint type — a path-keyed set of touched
+            resources, each with an op (create/modify/delete) and a
+            restorable pre-image (absent, or mode + size + content hash +
+            owner) — and the Uncovered(observed, captured) gate helper that
+            returns the observed paths not present in captured.
+        scope:
+            includes:
+                - Op (create/modify/delete) + String
+                - PreImage (absent | mode + size + sha256 + uid/gid + isdir)
+                - Entry (canonical path + op + pre-image)
+                - Footprint set (path-keyed, deterministic Entries ordering)
+                - Add net semantics (first pre-image retained, op advances, create-then-delete nets to untouched)
+                - Uncovered(observed, captured) subset gate
+                - Recorder wrapping the agent transport (records filesystem mutations to ObservedFootprint)
+                - pre-image read synchronously before each mutating syscall; canonical (symlink-resolved) paths
+                - MkdirAll decomposed per created level; reads and runtime ops (sysctl/module) forwarded, not recorded
+            excludes:
+                - the engine pre-commit gate wiring (separate deliverable)
+                - runtime-resource footprint entries (sysctl keys, module names) — forwarded for now
+                - promoting the footprint into the frozen api/ surface
+
+    constraints:
+        - id: C-01
+          description: |
+              A Footprint MUST key entries by canonical path. Entries() MUST
+              return them in a deterministic (path-sorted) order. Adding the
+              same path twice MUST retain the FIRST pre-image (it reverses
+              the whole transaction) and advance the op to the latest
+              mutation; a create followed by a delete MUST net to untouched
+              (no entry), because the resource is absent before and after.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Uncovered(observed, captured) MUST return exactly the canonical
+              paths present in observed but absent from captured, sorted. An
+              empty result means observed ⊆ captured (every touched resource
+              was captured for rollback).
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The Recorder MUST record each filesystem mutation it funnels
+              (AtomicWrite→create, AtomicReplace→modify, AtomicRemove→delete,
+              MkdirAll→one create per absent level) with the pre-image read
+              synchronously BEFORE delegating to the mutation, using a
+              canonical (parent-symlink-resolved) path. Reads
+              (ReadFileIfExists/ReadSysctl) and runtime ops
+              (WriteSysctl/DeleteModule) MUST be forwarded unchanged and NOT
+              recorded. The Recorder MUST transparently satisfy every
+              capability interface the wrapped transport offers so a handler's
+              agent-mode type assertion still succeeds.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Footprint keys by path with deterministic ordering; Add retains
+              the first pre-image and advances the op; create-then-delete
+              nets to untouched; Op.String and PreImage carry the rollback
+              fields.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Uncovered returns the sorted set of observed paths missing from
+              captured, and empty when observed is a subset of captured.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              The Recorder records AtomicWrite as create, AtomicReplace as
+              modify (with the prior pre-image), AtomicRemove as delete, and
+              MkdirAll as one create per absent level; reads and runtime ops
+              are forwarded without a footprint entry; realInspect reads a
+              true pre-image (absent / file with hash / dir) and refuses a
+              symlink.
+          references_constraints: [C-03]
+          priority: critical
+
+    tags: [agent, footprint, atomicity, tier-1]
