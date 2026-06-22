@@ -15,6 +15,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
@@ -113,10 +114,13 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 
 	content := fmt.Sprintf("# Managed by Kensa.\n%s%s%s\n", p.Key, p.Separator, p.Value)
 
-	if afs, ok := transport.(fsatomic.Transport); ok {
-		// Agent-mode path.
+	if afs, ok := transport.(kernelio.FileTransport); ok {
+		// Agent-mode path. MkdirAll is routed through the transport (not
+		// os.MkdirAll) so the footprint recorder observes every directory
+		// level this apply creates — the precondition for the pre-commit
+		// gate to confirm rollback can remove them.
 		dir := filepath.Dir(p.Path)
-		if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+		if mkErr := afs.MkdirAll(dir, 0o755); mkErr != nil {
 			return &api.StepResult{
 				Success: false,
 				Detail:  fmt.Sprintf("config_set_dropin: MkdirAll %s: %v", dir, mkErr),
@@ -173,8 +177,20 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}, nil
 }
 
-// Capture records file_existed and prior_content. An absent file is
-// a valid capture result (file_existed=false).
+// missingAncestorDirsCmd lists the absent ancestor directories of path's
+// parent, deepest first (one per line) — the directories Apply's MkdirAll
+// will create, and which rollback must remove (deepest first) to leave the
+// host as found. Empty output when the parent already exists.
+func missingAncestorDirsCmd(path string) string {
+	return fmt.Sprintf(
+		`d=$(dirname %s); while [ "$d" != "/" ] && [ "$d" != "." ] && [ ! -d "$d" ]; do echo "$d"; d=$(dirname "$d"); done`,
+		shellEscape(path),
+	)
+}
+
+// Capture records file_existed, prior_content, and created_dirs (the absent
+// ancestor directories Apply will create). An absent file is a valid capture
+// result (file_existed=false).
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
@@ -194,6 +210,18 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			p.Path, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
 	}
 
+	// Record which ancestor directories Apply will create, so rollback can
+	// remove them and the footprint gate can confirm the coverage.
+	dirRes, err := transport.Run(ctx, missingAncestorDirsCmd(p.Path))
+	if err != nil {
+		return nil, fmt.Errorf("config_set_dropin: capture dirs transport error: %w", err)
+	}
+	if !dirRes.OK() {
+		return nil, fmt.Errorf("config_set_dropin: capture dirs failed for %s: %w (stderr: %s)",
+			p.Path, api.ErrCaptureIncomplete, strings.TrimSpace(dirRes.Stderr))
+	}
+	createdDirs := strings.TrimSpace(dirRes.Stdout)
+
 	stdout := res.Stdout
 	if stdout == "__KENSA_ABSENT__" {
 		return &api.PreState{
@@ -204,6 +232,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 				"path":          p.Path,
 				"file_existed":  false,
 				"prior_content": "",
+				"created_dirs":  createdDirs,
 			},
 		}, nil
 	}
@@ -215,6 +244,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"path":          p.Path,
 			"file_existed":  true,
 			"prior_content": stdout,
+			"created_dirs":  createdDirs,
 		},
 	}, nil
 }
@@ -265,9 +295,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 				ExecutedAt: time.Now().UTC(),
 			}, nil
 		}
+		note := removeCreatedDirs(ctx, transport, pre)
 		return &api.RollbackResult{
 			Success:    true,
-			Detail:     fmt.Sprintf("config_set_dropin: atomically rolled back %s (file_existed=%v)", path, fileExisted),
+			Detail:     fmt.Sprintf("config_set_dropin: atomically rolled back %s (file_existed=%v)%s", path, fileExisted, note),
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
@@ -291,11 +322,39 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
+	note := removeCreatedDirs(ctx, transport, pre)
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("config_set_dropin: restored %s (file_existed=%v)", path, fileExisted),
+		Detail:     fmt.Sprintf("config_set_dropin: restored %s (file_existed=%v)%s", path, fileExisted, note),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// removeCreatedDirs rmdir's the directories Apply created (recorded in
+// created_dirs, deepest first) so rollback leaves the host as found. It is
+// best-effort: rmdir removes only an EMPTY directory, so a level another
+// drop-in now shares is left in place (and a missing level is a no-op).
+// Returns a human note for the rollback detail.
+func removeCreatedDirs(ctx context.Context, transport api.Transport, pre *api.PreState) string {
+	raw, _ := pre.Data["created_dirs"].(string)
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	var removed int
+	for _, d := range strings.Split(raw, "\n") {
+		if d = strings.TrimSpace(d); d == "" {
+			continue
+		}
+		res, err := transport.Run(ctx, fmt.Sprintf("rmdir %s 2>/dev/null", shellEscape(d)))
+		if err == nil && res != nil && res.OK() {
+			removed++
+		}
+	}
+	if removed > 0 {
+		return fmt.Sprintf("; removed %d created dir(s)", removed)
+	}
+	return ""
 }
 
 // parentDir returns the directory component of a path.

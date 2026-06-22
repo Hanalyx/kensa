@@ -1,6 +1,6 @@
 spec:
     id: handler-config-set-dropin
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -27,7 +27,10 @@ spec:
             includes:
                 - Writing a complete drop-in file
                 - Capture of prior file existence and content
-                - Rollback restoring or removing the drop-in
+                - Capture of the absent ancestor directories Apply will create
+                - Apply routing MkdirAll through the transport (funnel) in agent mode
+                - Rollback restoring or removing the drop-in and removing the created directories
+                - Footprinter opt-in to the agent-mode pre-commit gate (file + created dirs)
             excludes:
                 - Editing existing lines within the drop-in
                 - Multi-key drop-ins (use config_set on the drop-in path)
@@ -52,6 +55,19 @@ spec:
               Rollback MUST restore the prior file content when
               file_existed=true, or remove the file when
               file_existed=false.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              Capture MUST record created_dirs — the absent ancestor
+              directories Apply will create. Apply MUST create them through
+              the transport (kernelio.FileTransport.MkdirAll), not os.MkdirAll
+              directly, so the agent-mode footprint recorder observes them.
+              Rollback MUST remove the created directories (deepest first,
+              best-effort: an empty directory only, so a level now shared with
+              another drop-in is left as found). CapturedFootprint MUST declare
+              the drop-in file plus the created directories so the apply's
+              observed footprint is a subset (the pre-commit gate).
           type: security
           enforcement: error
 
@@ -90,6 +106,15 @@ spec:
           description: |
               Rollback with file_existed=false removes the drop-in file.
           references_constraints: [C-03]
+          priority: critical
+        - id: AC-07
+          description: |
+              Capture records the absent ancestor directories
+              (created_dirs); Apply funnels MkdirAll through the transport;
+              Rollback rmdir's the created directories deepest-first; and
+              CapturedFootprint declares the file plus those directories for
+              the pre-commit gate.
+          references_constraints: [C-04]
           priority: critical
 
     depends_on:
