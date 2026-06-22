@@ -36,6 +36,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent"
 	"github.com/Hanalyx/kensa/internal/agent/deadman"
+	"github.com/Hanalyx/kensa/internal/agent/footprint"
 	"github.com/Hanalyx/kensa/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 	"github.com/Hanalyx/kensa/internal/handler"
@@ -149,7 +150,13 @@ func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
 	tr := local.NewAuto()
 	defer tr.Close()
 
-	sr, err := h.Apply(context.Background(), tr, params, pre)
+	// Wrap the transport in a footprint recorder so the gate below can
+	// assert the apply touched nothing it did not capture. The recorder is
+	// a transparent stand-in (it satisfies every capability the handler may
+	// assert), so the kernel-IO path is unchanged.
+	rec := footprint.NewRecorder(tr)
+
+	sr, err := h.Apply(context.Background(), rec, params, pre)
 	if err != nil {
 		// Handler-returned error: convention from L-009
 		// package doc — wrap as envelope Error.
@@ -159,6 +166,22 @@ func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
 	if sr == nil {
 		setError(resp, "handler_error", fmt.Sprintf("Apply(%s) returned nil StepResult", mechanism))
 		return
+	}
+
+	// Pre-commit footprint gate (opt-in per handler): if the handler
+	// declares a captured footprint, assert observed ⊆ captured. A resource
+	// the apply touched but did not capture cannot be rolled back, so the
+	// step fails — the controller then rolls back before commit. A handler
+	// that does not implement Footprinter is not gated.
+	if fp, ok := h.(footprint.Footprinter); ok && sr.Success && pre != nil {
+		captured, ferr := fp.CapturedFootprint(pre)
+		if ferr != nil {
+			sr.Success = false
+			sr.Detail += fmt.Sprintf(" [footprint gate: captured-footprint error: %v]", ferr)
+		} else if miss := footprint.Gate(rec.Footprint(), captured); len(miss) > 0 {
+			sr.Success = false
+			sr.Detail += fmt.Sprintf(" [footprint gate: apply touched uncaptured resources %v — rollback would be incomplete]", miss)
+		}
 	}
 	resp.Payload = &wirev1.Response_ApplyResp{
 		ApplyResp: &wirev1.ApplyResponse{

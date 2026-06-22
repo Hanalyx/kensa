@@ -1,6 +1,6 @@
 spec:
     id: footprint-funnel
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 1
 
@@ -44,13 +44,16 @@ spec:
                 - Entry (canonical path + op + pre-image)
                 - Footprint set (path-keyed, deterministic Entries ordering)
                 - Add net semantics (first pre-image retained, op advances, create-then-delete nets to untouched)
-                - Uncovered(observed, captured) subset gate
+                - Uncovered(observed, captured) subset gate + Gate (canonicalizes both sides)
                 - Recorder wrapping the agent transport (records filesystem mutations to ObservedFootprint)
                 - pre-image read synchronously before each mutating syscall; canonical (symlink-resolved) paths
                 - MkdirAll decomposed per created level; reads and runtime ops (sysctl/module) forwarded, not recorded
+                - Footprinter opt-in interface + SingleFile helper
+                - agent dispatchApply pre-commit gate (observed ⊆ captured → fail the step → controller rolls back)
             excludes:
-                - the engine pre-commit gate wiring (separate deliverable)
+                - opting in handlers that create parent dirs (configsetdropin/dconfset) — needs dir capture+rollback first
                 - runtime-resource footprint entries (sysctl keys, module names) — forwarded for now
+                - the restorability probe (chattr +i / RO / immutable-auditd) — separate increment
                 - promoting the footprint into the frozen api/ surface
 
     constraints:
@@ -87,6 +90,20 @@ spec:
           type: security
           enforcement: error
 
+        - id: C-04
+          description: |
+              A handler MAY opt into the gate by implementing Footprinter
+              (CapturedFootprint, derived from its pre-state). In agent mode
+              dispatchApply MUST run the apply through a Recorder and, for an
+              opted-in handler whose apply succeeded, assert observed ⊆
+              captured (Gate). An uncovered resource MUST fail the step
+              (Success=false) so the controller rolls back before commit. A
+              handler that does NOT implement Footprinter MUST be left
+              ungated (no behavior change), so the gate rolls out per handler
+              with no flip-everything-at-once regression.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -111,6 +128,15 @@ spec:
               true pre-image (absent / file with hash / dir) and refuses a
               symlink.
           references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Gate catches a write to a resource the handler did not capture
+              and passes when observed ⊆ captured; SingleFile builds a
+              one-path captured footprint (and errors on a missing key); the
+              file_content/file_absent/config_set handlers declare their
+              single captured file via Footprinter.
+          references_constraints: [C-04]
           priority: critical
 
     tags: [agent, footprint, atomicity, tier-1]
