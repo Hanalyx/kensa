@@ -12,10 +12,15 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "cron_job"
+
+// cronFileMode is the canonical /etc/cron.d/ file mode (root-owned,
+// world-readable). The handler enforces it on both write and restore.
+const cronFileMode = 0o644
 
 // Params is the decoded parameter struct for cron_job.
 //
@@ -136,19 +141,43 @@ func (h *Handler) Name() string { return mechanism }
 // Capturable reports true.
 func (h *Handler) Capturable() bool { return true }
 
+// cronContent renders the /etc/cron.d/ file body: a Kensa header plus the
+// "<schedule> <user> <command>" line.
+func cronContent(p *Params) string {
+	return fmt.Sprintf("# Managed by Kensa.\n%s %s %s\n", p.Schedule, p.User, p.Command)
+}
+
 // Apply writes the cron job file to /etc/cron.d/. Idempotent.
 func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.applyKernel(ctx, ft, p)
+	}
+	return h.applyShell(ctx, transport, p)
+}
+
+// applyKernel writes the cron file atomically through the funnel (so the
+// footprint recorder observes the one file it touches), at the canonical
+// 0644 mode.
+func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, p *Params) (*api.StepResult, error) {
+	if err := kernelio.WriteFile(ctx, ft, p.Path, cronFileMode, []byte(cronContent(p))); err != nil {
+		return nil, fmt.Errorf("cron_job: write %s: %w", p.Path, err)
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("cron_job: wrote %s (kernel-io)", p.Path),
+	}, nil
+}
+
+// applyShell is the direct-SSH fallback: printf + chmod.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
 	path := p.Path
-	// /etc/cron.d/ files need 0644 mode. The format is:
-	//   <schedule> <user> <command>
-	content := fmt.Sprintf("# Managed by Kensa.\n%s %s %s\n", p.Schedule, p.User, p.Command)
 	cmd := fmt.Sprintf(
 		"printf '%%s' %s > %s && chmod 0644 %s",
-		shellEscape(content), shellEscape(path), shellEscape(path),
+		shellEscape(cronContent(p)), shellEscape(path), shellEscape(path),
 	)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
@@ -166,29 +195,18 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	}, nil
 }
 
-// Capture records whether the cron file existed and its prior content.
+// Capture records whether the cron file existed and its prior content. It
+// reads via the kernel-IO path (agent) or a shell cat with an absent
+// sentinel, so capture is correct on both transports.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
 	path := p.Path
-	cmd := fmt.Sprintf(
-		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
-		shellEscape(path),
-	)
-	res, err := transport.Run(ctx, cmd)
+	priorContent, fileExisted, err := h.readFile(ctx, transport, path)
 	if err != nil {
-		return nil, fmt.Errorf("cron_job: capture transport error: %w", err)
-	}
-	if !res.OK() {
-		return nil, fmt.Errorf("cron_job: capture failed for %s: %w (stderr: %s)",
-			path, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
-	}
-	fileExisted := res.Stdout != "__KENSA_ABSENT__"
-	priorContent := ""
-	if fileExisted {
-		priorContent = res.Stdout
+		return nil, err
 	}
 	return &api.PreState{
 		Mechanism:  mechanism,
@@ -214,6 +232,10 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	fileExisted, _ := pre.Data["file_existed"].(bool)
 	priorContent, _ := pre.Data["prior_content"].(string)
 
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.rollbackKernel(ctx, ft, path, priorContent, fileExisted)
+	}
+
 	var cmd string
 	if fileExisted {
 		cmd = fmt.Sprintf("printf '%%s' %s > %s", shellEscape(priorContent), shellEscape(path))
@@ -237,6 +259,47 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		Detail:     fmt.Sprintf("cron_job: restored %s (file_existed=%v)", path, fileExisted),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// rollbackKernel restores the prior cron file content atomically (or removes
+// it if it did not exist before Apply) through the funnel.
+func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, path, priorContent string, fileExisted bool) (*api.RollbackResult, error) {
+	if fileExisted {
+		if err := kernelio.WriteFile(ctx, ft, path, cronFileMode, []byte(priorContent)); err != nil {
+			return nil, fmt.Errorf("cron_job: rollback restore %s: %w", path, err)
+		}
+	} else if err := kernelio.RemoveFile(ctx, ft, path); err != nil {
+		return nil, fmt.Errorf("cron_job: rollback remove %s: %w", path, err)
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("cron_job: restored %s (file_existed=%v) (kernel-io)", path, fileExisted),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// readFile returns path's content and existence, via the kernel-IO read
+// (agent) or a shell cat with an absent sentinel.
+func (h *Handler) readFile(ctx context.Context, transport api.Transport, path string) (string, bool, error) {
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		c, existed, err := ft.ReadFileIfExists(path)
+		if err != nil {
+			return "", false, fmt.Errorf("cron_job: capture read %s: %w (%v)", path, api.ErrCaptureIncomplete, err)
+		}
+		return c, existed, nil
+	}
+	cmd := fmt.Sprintf("test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'", shellEscape(path))
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return "", false, fmt.Errorf("cron_job: capture transport error: %w", err)
+	}
+	if !res.OK() {
+		return "", false, fmt.Errorf("cron_job: capture failed for %s: %w (stderr: %s)", path, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
+	}
+	if res.Stdout == "__KENSA_ABSENT__" {
+		return "", false, nil
+	}
+	return res.Stdout, true, nil
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.
