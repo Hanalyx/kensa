@@ -72,8 +72,11 @@ spec:
               decodeParams MUST reject missing or invalid required params:
               non-empty schema, key, value, and file; db (when present)
               must be a non-empty string; lock must be a bool; value_type
-              must be a string.
-          type: technical
+              must be a string. db and file MUST each be a single path
+              component (no '/' or '..'), so a composed path cannot escape
+              the dconf tree — the footprint gate checks rollback coverage,
+              not path containment, so the bounds check lives at decode.
+          type: security
           enforcement: error
         - id: C-07
           description: |

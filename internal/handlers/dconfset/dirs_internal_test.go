@@ -9,6 +9,30 @@ import (
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
+// decodeParams rejects a db/file that is not a single path component, so a
+// crafted rule cannot compose a path escaping the dconf tree.
+//
+// @spec handler-dconf-set
+// @ac AC-08
+func TestDecodeParams_RejectsPathTraversal(t *testing.T) {
+	t.Run("handler-dconf-set/AC-08", func(t *testing.T) {})
+	base := api.Params{"schema": "org/gnome/x", "key": "k", "value": "v", "file": "00-x"}
+	cases := []api.Params{
+		{"schema": "org/gnome/x", "key": "k", "value": "v", "file": "../../etc/cron.d/evil"},
+		{"schema": "org/gnome/x", "key": "k", "value": "v", "file": "sub/evil"},
+		{"schema": "org/gnome/x", "key": "k", "value": "v", "file": "00-x", "db": "../escape"},
+	}
+	// Sanity: the base (clean) params decode fine.
+	if _, err := decodeParams(base); err != nil {
+		t.Fatalf("clean params should decode: %v", err)
+	}
+	for _, p := range cases {
+		if _, err := decodeParams(p); err == nil {
+			t.Errorf("expected rejection for traversal params %v", p)
+		}
+	}
+}
+
 // Capture records the created directories and that the profile was absent.
 //
 // @spec footprint-funnel

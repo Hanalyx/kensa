@@ -177,6 +177,17 @@ func decodeParams(p api.Params) (*Params, error) {
 		out.ValueType = vt
 	}
 
+	// db and file each become a single path component in pathsFor
+	// (/etc/dconf/db/<db>.d and .../<file>). Reject a separator or a
+	// dot-segment so a crafted rule (file: "../../etc/cron.d/evil") cannot
+	// compose a path that escapes the dconf tree — the footprint gate enforces
+	// rollback COVERAGE, not path CONTAINMENT, so the bounds check lives here.
+	for _, c := range []struct{ name, val string }{{"db", out.DB}, {"file", out.File}} {
+		if strings.ContainsRune(c.val, '/') || strings.Contains(c.val, "..") {
+			return nil, fmt.Errorf("dconf_set: %q must be a single path component (no '/' or '..'), got %q", c.name, c.val)
+		}
+	}
+
 	return out, nil
 }
 
@@ -528,6 +539,13 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 // too. A created shared resource is thus reclaimed only when nothing else
 // depends on it; if the db dir is still shared, both it and the profile are
 // left in place. Returns a human note for the rollback detail.
+//
+// The bias is "never wrongly remove, possibly orphan": if several rules share
+// one db and roll back out of reverse-apply order, a later rule sees the
+// profile already present (profile_existed=true) and never reclaims it, so a
+// created profile can be left behind when its last sharer rolls back. That
+// inert leftover is the deliberate price of never removing a profile another
+// snippet still needs; normal reverse-of-apply rollback order does not hit it.
 func cleanupCreatedState(ctx context.Context, transport api.Transport, pre *api.PreState) string {
 	raw, _ := pre.Data["created_dirs"].(string)
 	dbDir, _ := pre.Data["db_dir"].(string)
