@@ -12,16 +12,24 @@ import (
 	"syscall"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/agent/systemd"
 )
 
 // Compile-time assertions: the recorder is a transparent stand-in for the
 // agent transport, so every capability a handler may assert is satisfied.
+// systemd.Transport and auditnl.AuditTransport are forwarded unchanged (the
+// service and audit_rule_set handlers select their agent path by asserting
+// them) — omitting them silently routed those handlers to their shell
+// fallback once the recorder began wrapping every apply.
 var (
 	_ api.Transport            = (*Recorder)(nil)
 	_ kernelio.FileTransport   = (*Recorder)(nil)
 	_ kernelio.SysctlTransport = (*Recorder)(nil)
 	_ kernelio.ModuleTransport = (*Recorder)(nil)
+	_ systemd.Transport        = (*Recorder)(nil)
+	_ auditnl.AuditTransport   = (*Recorder)(nil)
 )
 
 // Inspector reads the canonical path and restorable pre-image of a resource
@@ -50,6 +58,8 @@ type Recorder struct {
 	file    kernelio.FileTransport
 	sysctl  kernelio.SysctlTransport
 	module  kernelio.ModuleTransport
+	systemd systemd.Transport
+	audit   auditnl.AuditTransport
 	fp      *Footprint
 	inspect Inspector
 }
@@ -62,6 +72,8 @@ func NewRecorder(inner api.Transport) *Recorder {
 	r.file, _ = inner.(kernelio.FileTransport)
 	r.sysctl, _ = inner.(kernelio.SysctlTransport)
 	r.module, _ = inner.(kernelio.ModuleTransport)
+	r.systemd, _ = inner.(systemd.Transport)
+	r.audit, _ = inner.(auditnl.AuditTransport)
 	return r
 }
 
@@ -164,6 +176,79 @@ func (r *Recorder) DeleteModule(name string) error {
 		return errNoCapability
 	}
 	return r.module.DeleteModule(name)
+}
+
+// systemd.Transport passthrough — the service handlers drive systemd units
+// through the privileged D-Bus helper (not the filesystem), so there is
+// nothing to record; the recorder forwards each call so a handler's
+// transport.(systemd.Transport) assertion still selects the agent D-Bus path.
+
+// Enable forwards to the wrapped systemd transport.
+func (r *Recorder) Enable(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.Enable(ctx, unit)
+}
+
+// Disable forwards to the wrapped systemd transport.
+func (r *Recorder) Disable(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.Disable(ctx, unit)
+}
+
+// Mask forwards to the wrapped systemd transport.
+func (r *Recorder) Mask(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.Mask(ctx, unit)
+}
+
+// Unmask forwards to the wrapped systemd transport.
+func (r *Recorder) Unmask(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.Unmask(ctx, unit)
+}
+
+// Start forwards to the wrapped systemd transport.
+func (r *Recorder) Start(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.Start(ctx, unit)
+}
+
+// Stop forwards to the wrapped systemd transport.
+func (r *Recorder) Stop(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.Stop(ctx, unit)
+}
+
+// UnitState forwards to the wrapped systemd transport.
+func (r *Recorder) UnitState(ctx context.Context, unit string) (*systemd.Response, error) {
+	if r.systemd == nil {
+		return nil, errNoCapability
+	}
+	return r.systemd.UnitState(ctx, unit)
+}
+
+// AuditClient forwards to the wrapped audit transport. The netlink rule
+// load/unload is not a filesystem mutation, so it is not recorded; the
+// audit drop-in file IS recorded via the fsatomic methods above. Forwarding
+// keeps the handler's transport.(auditnl.AuditTransport) assertion selecting
+// the agent netlink path instead of the augenrules shell fallback.
+func (r *Recorder) AuditClient() (auditnl.AuditClient, error) {
+	if r.audit == nil {
+		return nil, auditnl.ErrAuditUnavailable
+	}
+	return r.audit.AuditClient()
 }
 
 // missingDirLevels returns the canonical ancestor directories of path
