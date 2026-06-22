@@ -182,24 +182,36 @@ func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, tr
 	}, nil
 }
 
+// fstabAddAwk appends each missing option to field 4 of the matching fstab
+// line. The mount point and the comma-separated options arrive as the
+// environment variables KENSA_MP / KENSA_OPTS (read via awk ENVIRON), NOT
+// interpolated into the program text — so the program is a fixed constant
+// that a value (a single quote, a metacharacter) cannot break, and awk's
+// -v escape processing (which would mangle octal-escaped fstab paths like
+// \040) never runs. Idempotent per option: an already-present option leaves
+// $4 unchanged.
+const fstabAddAwk = `$2 == ENVIRON["KENSA_MP"] {
+	n = split(ENVIRON["KENSA_OPTS"], a, ",")
+	for (i = 1; i <= n; i++) {
+		if (a[i] != "" && $4 !~ ("(^|,)" a[i] "(,|$)")) $4 = $4 "," a[i]
+	}
+}
+{ print }`
+
+// fstabRestoreAwk replaces the matching fstab line with the captured prior
+// line, read from KENSA_LINE via ENVIRON (same injection/escape-safety as
+// fstabAddAwk).
+const fstabRestoreAwk = `$2 == ENVIRON["KENSA_MP"] { print ENVIRON["KENSA_LINE"]; next } { print }`
+
 // applyShell rewrites fstab via awk + mv and remounts.
 func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
-	// awk script: for the matching mount point line, append each requested
-	// option to field 4 (options) if it is not already present. Each option
-	// is checked and appended independently so a multi-option request
-	// (e.g. "nodev,nosuid") only adds the tokens that are missing.
-	//
-	// Idempotent per option: an already-present option leaves $4 unchanged.
-	var clauses strings.Builder
-	for _, opt := range strings.Split(p.Option, ",") {
-		fmt.Fprintf(&clauses, `$2 == %[1]s && $4 !~ /(^|,)%[2]s(,|$)/ { $4 = $4 "," %[2]s } `,
-			shellEscape(p.MountPoint), shellEscape(opt))
-	}
-	awkScript := clauses.String() + `{ print }`
-	// Atomically rewrite fstab, then remount.
+	// Atomically rewrite fstab, then remount. Values travel as environment
+	// variables (shell-escaped) consumed by ENVIRON in the awk program.
 	cmd := fmt.Sprintf(
-		`awk %s /etc/fstab > /etc/fstab.kensa.tmp && mv /etc/fstab.kensa.tmp /etc/fstab && mount -o remount %s`,
-		shellEscape(awkScript),
+		`KENSA_MP=%s KENSA_OPTS=%s awk %s /etc/fstab > /etc/fstab.kensa.tmp && mv /etc/fstab.kensa.tmp /etc/fstab && mount -o remount %s`,
+		shellEscape(p.MountPoint),
+		shellEscape(p.Option),
+		shellEscape(fstabAddAwk),
 		shellEscape(p.MountPoint),
 	)
 	res, err := transport.Run(ctx, cmd)
@@ -374,14 +386,12 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 
 // rollbackShell restores the captured fstab line via awk + mv and remounts.
 func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mountPoint, priorLine, appliedOpt string) (*api.RollbackResult, error) {
-	// Replace the fstab line for this mount point with the captured prior line.
-	awkScript := fmt.Sprintf(
-		`$2 == %s { print %s; next } { print }`,
-		shellEscape(mountPoint), shellEscape(priorLine),
-	)
+	// Replace the fstab line for this mount point with the captured prior
+	// line. Values travel as environment variables (shell-escaped) consumed
+	// by ENVIRON in the awk program.
 	cmd := fmt.Sprintf(
-		`awk %s /etc/fstab > /etc/fstab.kensa.tmp && mv /etc/fstab.kensa.tmp /etc/fstab && mount -o remount %s`,
-		shellEscape(awkScript), shellEscape(mountPoint),
+		`KENSA_MP=%s KENSA_LINE=%s awk %s /etc/fstab > /etc/fstab.kensa.tmp && mv /etc/fstab.kensa.tmp /etc/fstab && mount -o remount %s`,
+		shellEscape(mountPoint), shellEscape(priorLine), shellEscape(fstabRestoreAwk), shellEscape(mountPoint),
 	)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
