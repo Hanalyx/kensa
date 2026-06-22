@@ -1,0 +1,89 @@
+spec:
+    id: footprint-funnel
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: footprint-funnel
+        description: |
+            The footprint funnel records the concrete set of resources an
+            agent-mode transaction touches, so the engine can enforce that a
+            handler captured (and can therefore roll back) everything its
+            apply actually mutated — converting capture-completeness from a
+            human-review promise (CONTRIBUTING.md) into a code-enforced
+            precondition.
+
+            Two footprints exist per transaction: the CAPTURED footprint
+            (what a handler declared it intends to touch) and the OBSERVED
+            footprint (what the recording layer saw the apply touch, one
+            entry per mutating syscall, each with the pre-image read
+            synchronously BEFORE the mutation). The engine's pre-commit gate
+            asserts observed ⊆ captured.
+
+            This spec covers the footprint type and the subset gate logic
+            (internal/agent/footprint). The recording layer over
+            kernelio/fsatomic and the engine pre-commit gate are separate
+            deliverables that build on it.
+        related_specs:
+            - kernelio-sysctl
+            - engine-transaction
+
+    objective:
+        summary: |
+            Provide the Footprint type — a path-keyed set of touched
+            resources, each with an op (create/modify/delete) and a
+            restorable pre-image (absent, or mode + size + content hash +
+            owner) — and the Uncovered(observed, captured) gate helper that
+            returns the observed paths not present in captured.
+        scope:
+            includes:
+                - Op (create/modify/delete) + String
+                - PreImage (absent | mode + size + sha256 + uid/gid + isdir)
+                - Entry (canonical path + op + pre-image)
+                - Footprint set (path-keyed, deterministic Entries ordering)
+                - Add net semantics (first pre-image retained, op advances, create-then-delete nets to untouched)
+                - Uncovered(observed, captured) subset gate
+            excludes:
+                - the recording layer over kernelio/fsatomic (separate deliverable)
+                - the engine pre-commit gate wiring (separate deliverable)
+                - promoting the footprint into the frozen api/ surface
+
+    constraints:
+        - id: C-01
+          description: |
+              A Footprint MUST key entries by canonical path. Entries() MUST
+              return them in a deterministic (path-sorted) order. Adding the
+              same path twice MUST retain the FIRST pre-image (it reverses
+              the whole transaction) and advance the op to the latest
+              mutation; a create followed by a delete MUST net to untouched
+              (no entry), because the resource is absent before and after.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Uncovered(observed, captured) MUST return exactly the canonical
+              paths present in observed but absent from captured, sorted. An
+              empty result means observed ⊆ captured (every touched resource
+              was captured for rollback).
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Footprint keys by path with deterministic ordering; Add retains
+              the first pre-image and advances the op; create-then-delete
+              nets to untouched; Op.String and PreImage carry the rollback
+              fields.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Uncovered returns the sorted set of observed paths missing from
+              captured, and empty when observed is a subset of captured.
+          references_constraints: [C-02]
+          priority: critical
+
+    tags: [agent, footprint, atomicity, tier-1]
