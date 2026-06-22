@@ -1,6 +1,6 @@
 spec:
     id: handler-dconf-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -72,13 +72,30 @@ spec:
               decodeParams MUST reject missing or invalid required params:
               non-empty schema, key, value, and file; db (when present)
               must be a non-empty string; lock must be a bool; value_type
-              must be a string.
-          type: technical
+              must be a string. db and file MUST each be a single path
+              component (no '/' or '..'), so a composed path cannot escape
+              the dconf tree — the footprint gate checks rollback coverage,
+              not path containment, so the bounds check lives at decode.
+          type: security
           enforcement: error
         - id: C-07
           description: |
               Rollback MUST reject a nil pre-state or one missing
               file_path.
+          type: security
+          enforcement: error
+        - id: C-08
+          description: |
+              Capture MUST record the profile existence/path, the db dir, and
+              the absent ancestor directories Apply will create (db dir + locks
+              dir). CapturedFootprint MUST declare the snippet, lock, profile,
+              and those directories so the agent-mode pre-commit gate is
+              covered. Rollback MUST remove the created directories (deepest
+              first, empty-only) and, when the db dir is thereby removed (no
+              other snippet remains) AND the profile was created by this apply,
+              remove the profile too — a shared resource (profile, db dir) is
+              reclaimed only when nothing else depends on it; otherwise it is
+              left as found.
           type: security
           enforcement: error
     acceptance_criteria:
@@ -118,6 +135,15 @@ spec:
           description: Rollback rejects a nil pre-state.
           references_constraints: [C-07]
           priority: high
+        - id: AC-10
+          description: |
+              Capture records the created dirs + profile state;
+              CapturedFootprint declares the snippet, lock, profile, and
+              created dirs for the gate; Rollback rmdir's the created dirs
+              and removes a created profile only once the db dir is emptied,
+              leaving a still-shared profile/dir in place.
+          references_constraints: [C-08]
+          priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires
