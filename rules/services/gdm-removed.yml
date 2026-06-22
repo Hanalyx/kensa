@@ -22,8 +22,13 @@ references:
       section: 1.8.1
       level: L1
       type: Automated
+  stig:
+    rhel8:
+      vuln_id: V-230553
+      severity: CAT II
   nist_800_53:
   - CM-7
+  - CM-6
 platforms:
 - family: rhel
   min_version: 8

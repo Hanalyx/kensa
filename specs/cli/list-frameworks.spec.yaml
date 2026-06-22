@@ -203,7 +203,7 @@ spec:
               frameworks --rules-dir
               /home/rracine/hanalyx/kensa/rules`
               produces a multi-row listing covering
-              the framework IDs in the 539-rule
+              the framework IDs in the 538-rule
               corpus. Verified during the C-046 merge
               workflow.
           references_constraints: [C-01, C-03]

@@ -77,7 +77,9 @@ func TestValidate_InvalidSeverity(t *testing.T) {
 	}
 }
 
-// TestValidate_NoDefault flags a rule with no default implementation.
+// TestValidate_NoDefault flags a rule that has an UNGATED non-default
+// implementation but no default — that ungated impl would run everywhere,
+// so a default is still required.
 // @spec rule-ordering
 // @ac AC-04
 // @ac AC-17
@@ -86,11 +88,30 @@ func TestValidate_NoDefault(t *testing.T) {
 	t.Run("rule-ordering/AC-04", func(t *testing.T) {})
 	r := minimalRule()
 	r.Implementations = []api.Implementation{
-		{When: "some_cap", Remediation: api.Remediation{Mechanism: "config_set"}},
+		// Ungated (no When) and not default → needs a default fallback.
+		{Remediation: api.Remediation{Mechanism: "config_set"}},
 	}
 	errs := rule.Validate(r, rule.ValidateOptions{})
 	if !hasFieldError(errs, "implementations") {
 		t.Errorf("expected implementations error, got %v", errs)
+	}
+}
+
+// TestValidate_AllGatedNoDefault allows a rule whose every implementation is
+// capability-gated (when:) with no default — such a rule is intentionally
+// not-applicable (and SKIPPED) on a host lacking the capability, e.g. the
+// gdm-* dconf rules which apply only where GDM is installed.
+// @spec rule-ordering
+// @ac AC-04
+func TestValidate_AllGatedNoDefault(t *testing.T) {
+	t.Run("rule-ordering/AC-04", func(t *testing.T) {})
+	r := minimalRule()
+	r.Implementations = []api.Implementation{
+		{When: "gdm", Remediation: api.Remediation{Mechanism: "dconf_set"}},
+	}
+	errs := rule.Validate(r, rule.ValidateOptions{})
+	if hasFieldError(errs, "implementations") {
+		t.Errorf("all-capability-gated rule with no default must be valid, got %v", errs)
 	}
 }
 

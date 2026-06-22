@@ -115,7 +115,7 @@ spec:
 
               The asymmetry matches the C-037 strict-vs-skip
               loader discipline. The summary keeps the dir-walk
-              path practical (a 539-rule corpus shouldn't abort
+              path practical (a 538-rule corpus shouldn't abort
               on the first templated rule) without burying the
               missing-infrastructure signal.
           type: business

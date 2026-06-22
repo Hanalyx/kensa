@@ -325,7 +325,7 @@ func topologicalSort(ruleIDs map[string]struct{}, deps map[string][]string) []st
 
 		// Decrement in-degree for every rule that depends on `node`.
 		// We have to scan all rules because deps maps id→its-deps,
-		// not the reverse. For 539-rule corpora this is O(N·D)
+		// not the reverse. For 538-rule corpora this is O(N·D)
 		// where D is avg dependencies per rule (typically 1-3).
 		for id := range ruleIDs {
 			for _, d := range deps[id] {

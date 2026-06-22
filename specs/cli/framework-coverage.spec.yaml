@@ -248,7 +248,7 @@ spec:
               Live verification: `bin/kensa coverage
               --framework cis_rhel9 --rules-dir
               /home/rracine/hanalyx/kensa/rules` produces
-              a coverage report against the 539-rule
+              a coverage report against the 538-rule
               corpus. Verified during the C-045 merge
               workflow.
           references_constraints: [C-01, C-04]
