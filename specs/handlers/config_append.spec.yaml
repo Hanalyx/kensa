@@ -1,6 +1,6 @@
 spec:
     id: handler-config-append
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -59,6 +59,21 @@ spec:
               a non-empty string path and a string line.
           type: technical
           enforcement: error
+        - id: C-06
+          description: |
+              In agent mode (transport implements kernelio.FileTransport),
+              Apply MUST append by rewriting the file atomically through the
+              funnel (read → append-if-absent → kernelio.WriteFile), so the
+              footprint recorder observes the file, and Capture MUST record
+              prior_content + file_existed so Rollback restores the prior
+              content byte-perfect (file removed if it did not exist).
+              CapturedFootprint MUST declare the single file for the gate. A
+              pre-state lacking prior_content (captured before this migration)
+              MUST fall back to the legacy sed line-removal, never a file
+              delete. The direct-SSH fallback (grep + echo append) is
+              preserved.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply appends the line to the file when it is absent.
@@ -82,6 +97,14 @@ spec:
           description: decodeParams rejects missing or invalid params.
           references_constraints: [C-05]
           priority: high
+        - id: AC-06
+          description: |
+              Agent-mode Apply appends through the funnel (kernelio.WriteFile)
+              idempotently; Capture records prior_content; Rollback restores it
+              byte-perfect; a legacy pre-state (no prior_content) falls back to
+              sed removal; CapturedFootprint declares the single file.
+          references_constraints: [C-06]
+          priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires

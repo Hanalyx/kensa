@@ -88,9 +88,10 @@ func TestCapture_RecordsWasPresent(t *testing.T) {
 	t.Run("handler-config-append/AC-03", func(t *testing.T) {})
 	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
-	// Program the count command to report the line already present (count 1).
-	countCmd := "grep -cxF '" + testLine + "' '" + testPath + "' 2>/dev/null || echo 0"
-	tp.Results[countCmd] = &api.CommandResult{Stdout: "1\n"}
+	// Capture reads the file content (test -e && cat); program it to return
+	// content already containing the exact line → was_present=true.
+	catCmd := "test -e '" + testPath + "' && cat '" + testPath + "' || printf '__KENSA_ABSENT__'"
+	tp.Results[catCmd] = &api.CommandResult{Stdout: "# header\n" + testLine + "\n"}
 	h := configappend.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
 		"path": testPath,
@@ -104,7 +105,10 @@ func TestCapture_RecordsWasPresent(t *testing.T) {
 		t.Fatalf("missing was_present; data=%v", pre.Data)
 	}
 	if !wasPresent {
-		t.Errorf("expected was_present=true when count is 1; data=%v", pre.Data)
+		t.Errorf("expected was_present=true when the line is in the content; data=%v", pre.Data)
+	}
+	if got, _ := pre.Data["prior_content"].(string); got != "# header\n"+testLine+"\n" {
+		t.Errorf("prior_content not recorded for byte-perfect restore; got %q", got)
 	}
 	if got, _ := pre.Data["path"].(string); got != testPath {
 		t.Errorf("path recorded = %q, want %q", got, testPath)
@@ -117,6 +121,7 @@ func TestCapture_RecordsWasPresent(t *testing.T) {
 // @ac AC-03
 func TestRollback_RemovesAddedLineButKeepsPreExisting(t *testing.T) {
 	t.Run("handler-config-append/AC-04", func(t *testing.T) {})
+	t.Run("handler-config-append/AC-06", func(t *testing.T) {})
 	t.Run("handler-interface/AC-03", func(t *testing.T) {})
 	h := configappend.New()
 
