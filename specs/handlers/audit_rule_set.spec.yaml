@@ -1,6 +1,6 @@
 spec:
     id: handler-audit-rule-set
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 1
     context:
@@ -47,6 +47,18 @@ spec:
               when the live ruleset could not change.
           type: security
           enforcement: error
+        - id: C-05
+          description: |
+              audit_rule_set MUST opt into the agent-mode pre-commit gate via
+              Footprinter: CapturedFootprint declares the single
+              /etc/audit/rules.d drop-in (pre.Data["path"]). On the netlink
+              path the drop-in is written through the recorded fsatomic funnel
+              (kernelio.WriteFile) and the rule load/unload happens over AUDIT
+              netlink (not a filesystem mutation, so not recorded) — so the
+              observed footprint is exactly the drop-in and must be a subset of
+              the declaration.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes the rule file and runs augenrules --load.
@@ -66,6 +78,14 @@ spec:
               reports a verified-partial restore with a reboot remedy
               rather than a clean success.
           references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              CapturedFootprint declares exactly the single drop-in file from
+              the pre-state (and the existing netlink Apply test shows that
+              file is written through the kernelio funnel while the rule loads
+              over netlink), so the gate sees observed ⊆ captured.
+          references_constraints: [C-05]
           priority: critical
     depends_on:
         - spec_id: handler-interface
