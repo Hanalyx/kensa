@@ -24,7 +24,7 @@ platforms:
     min_version: 8
 
 implementations:
-  - default: true
+  - when: gdm
     check:
       method: command
       run: >

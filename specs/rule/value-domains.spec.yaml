@@ -78,7 +78,7 @@ spec:
           priority: critical
         - id: AC-03
           description: |
-              Corpus ratchet: across all 539 rules, value-domain violators
+              Corpus ratchet: across all 538 rules, value-domain violators
               equal knownValueDomainViolators exactly. Locked by
               TestValueDomainCorpusRatchet.
           references_constraints: [C-03]

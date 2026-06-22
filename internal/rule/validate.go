@@ -104,7 +104,22 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 		}
 	}
 	if len(rule.Implementations) > 0 && defaultCount == 0 {
-		add("implementations", "exactly one implementation must have default:true; found none")
+		// Zero default is allowed ONLY when every implementation is
+		// capability-gated (when != nil). Such a rule is intentionally
+		// not-applicable — and SKIPPED (ErrNoImplementation → compliance
+		// "skipped") — on a host lacking the capability, instead of falling
+		// back to a default that runs everywhere. A rule with any ungated
+		// non-default implementation still requires the default fallback.
+		allGated := true
+		for _, impl := range rule.Implementations {
+			if impl.When == nil {
+				allGated = false
+				break
+			}
+		}
+		if !allGated {
+			add("implementations", "exactly one implementation must have default:true, or every implementation must be capability-gated (when:); found neither")
+		}
 	}
 	if defaultCount > 1 {
 		add("implementations", fmt.Sprintf("exactly one implementation must have default:true; found %d", defaultCount))
@@ -261,4 +276,6 @@ var KnownCapabilities = map[string]struct{}{
 	"chronyd":              {},
 	"dnf_automatic":        {},
 	"subscription_manager": {},
+	"dconf":                {},
+	"gdm":                  {},
 }

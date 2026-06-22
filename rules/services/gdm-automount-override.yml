@@ -44,19 +44,3 @@ implementations:
     value: 'false'
     file: 00-media-automount
     lock: true
-- when: apt
-  check:
-    method: package_state
-    name: gdm
-    state: absent
-  remediation:
-    mechanism: apt_absent
-    name: gdm
-- default: true
-  check:
-    method: package_state
-    name: gdm
-    state: absent
-  remediation:
-    mechanism: package_absent
-    name: gdm

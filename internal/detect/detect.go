@@ -81,6 +81,21 @@ var probes = []probe{
 		`systemctl list-unit-files usbguard.service 2>/dev/null | grep -q usbguard`,
 	},
 	{
+		// dconf is the GNOME configuration backend; the dconf_set mechanism
+		// needs the `dconf` binary (for `dconf update`). Absent on a
+		// server/minimal install with no GNOME.
+		"dconf",
+		`command -v dconf >/dev/null 2>&1`,
+	},
+	{
+		// GDM (GNOME Display Manager). The gdm-* dconf_set rules configure
+		// its login screen, so their `when: gdm` implementation must select
+		// only where GDM is actually present — otherwise they fall through to
+		// a default that treats GDM as something to remove.
+		"gdm",
+		`command -v gdm >/dev/null 2>&1 || command -v gdm3 >/dev/null 2>&1 || systemctl list-unit-files 2>/dev/null | grep -qiE 'gdm[0-9]*\.service'`,
+	},
+	{
 		"systemd_resolved",
 		`systemctl is-active systemd-resolved >/dev/null 2>&1`,
 	},

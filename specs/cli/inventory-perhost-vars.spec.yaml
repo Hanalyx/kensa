@@ -44,7 +44,7 @@ spec:
             correct, and the per-host filter chain produces
             the same rule-ID set regardless of vars.
 
-            Performance: 539 rules × N hosts × ~0.5ms parse
+            Performance: 538 rules × N hosts × ~0.5ms parse
             ≈ 0.27 × N seconds added overhead. For typical
             10-host fleets this is sub-3-seconds, well below
             the SSH ControlMaster handshake cost it adds to.
@@ -130,8 +130,8 @@ spec:
           description: |
               Performance MUST remain bounded: per-host
               re-load adds parse-time only (no extra disk I/O
-              optimization). Acceptable at 539-rule corpus
-              and 100-host fleet (~0.5ms × 539 × 100 ≈ 27s
+              optimization). Acceptable at 538-rule corpus
+              and 100-host fleet (~0.5ms × 538 × 100 ≈ 27s
               added). Above 100 hosts, future caching may be
               warranted.
           type: technical
