@@ -19,7 +19,28 @@ const fsImmutableFL = 0x00000010
 // on a filesystem that does not support the ioctl returns (false, nil): the
 // probe is a best-effort restorability check, not a hard requirement.
 func IsImmutable(path string) (bool, error) {
-	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	// O_NOFOLLOW: never follow a symlink at the leaf (a captured path whose
+	// leaf is a symlink is not the regular file/dir a rollback rewrites).
+	// O_NONBLOCK: never block opening a FIFO/device. O_PATH-free because we
+	// need the flags ioctl, but we stat-gate to a regular file or directory
+	// first so the open cannot have a device-node open side effect.
+	var st unix.Stat_t
+	if err := unix.Lstat(path, &st); err != nil {
+		if errors.Is(err, unix.ENOENT) {
+			return false, nil
+		}
+		return false, err
+	}
+	// Only a regular file or directory can be immutable in a way that blocks
+	// a rollback rewrite/removal; a symlink, FIFO, socket, or device node is
+	// not something the footprint funnel writes, so it is not unrestorable.
+	switch st.Mode & unix.S_IFMT {
+	case unix.S_IFREG, unix.S_IFDIR:
+	default:
+		return false, nil
+	}
+
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		if errors.Is(err, unix.ENOENT) {
 			return false, nil

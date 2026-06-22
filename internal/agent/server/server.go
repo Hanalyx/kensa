@@ -113,6 +113,13 @@ func Handle(req *wirev1.Request) *wirev1.Response {
 //     Rollback failure with no specific guidance to inspect
 //     the target. Flag for L-014b operator-docs.
 //
+// immutableProbe is the restorability check the pre-apply gate uses to
+// detect a captured resource that cannot be rewritten/removed on rollback.
+// It is a package var (defaulting to the real ioctl probe) so a test can
+// inject a deterministic result for the immutable-refusal path, which cannot
+// be exercised in CI (chattr +i needs CAP_LINUX_IMMUTABLE).
+var immutableProbe = kernelio.IsImmutable
+
 // dispatchApply looks up the mechanism's handler, builds a
 // LocalTransport, runs Apply, populates resp with either
 // the ApplyResponse or an envelope Error.
@@ -159,7 +166,7 @@ func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
 	// "is it restorable now" complement.
 	if fp, ok := h.(footprint.Footprinter); ok && pre != nil {
 		if captured, ferr := fp.CapturedFootprint(pre); ferr == nil {
-			if bad := footprint.Unrestorable(captured, kernelio.IsImmutable); len(bad) > 0 {
+			if bad := footprint.Unrestorable(captured, immutableProbe); len(bad) > 0 {
 				resp.Payload = &wirev1.Response_ApplyResp{ApplyResp: &wirev1.ApplyResponse{
 					StepResult: wirev1.APIStepResultToWire(api.StepResult{
 						Success: false,
