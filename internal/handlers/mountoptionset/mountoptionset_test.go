@@ -47,6 +47,8 @@ func TestRollback_RestoresPriorLine(t *testing.T) {
 	t.Run("handler-mount-option-set/AC-02", func(t *testing.T) {})
 	t.Run("handler-mount-option-set/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
+	// The read-back verify must observe a /tmp with the noexec gone.
+	tp.Results["findmnt -rno OPTIONS '/tmp'"] = &api.CommandResult{Stdout: "rw,relatime\n"}
 	h := mountoptionset.New()
 	pre := &api.PreState{
 		Data: map[string]interface{}{
@@ -64,6 +66,60 @@ func TestRollback_RestoresPriorLine(t *testing.T) {
 	}
 	if !strings.Contains(tp.Runs[0], "defaults") {
 		t.Errorf("expected prior fstab line in rollback cmd; got %q", tp.Runs[0])
+	}
+}
+
+// Rollback reports a verified-partial restore (not a silent success) when
+// the live mount still carries a security option the restored fstab line
+// dropped — a remount that did not take.
+//
+// @spec handler-mount-option-set
+// @ac AC-04
+func TestRollback_PartialWhenRuntimeNotReconciled(t *testing.T) {
+	t.Run("handler-mount-option-set/AC-04", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// fstab is restored to defaults (no noexec), but the live mount still
+	// shows noexec → the runtime did not reconcile.
+	tp.Results["findmnt -rno OPTIONS '/tmp'"] = &api.CommandResult{Stdout: "rw,relatime,noexec\n"}
+	res, err := mountoptionset.New().Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"mount_point": "/tmp",
+			"option":      "noexec",
+			"prior_line":  "tmpfs /tmp tmpfs defaults 0 0",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if res.Success || !res.PartialRestore {
+		t.Errorf("want Success=false, PartialRestore=true; got Success=%v Partial=%v detail=%q",
+			res.Success, res.PartialRestore, res.Detail)
+	}
+}
+
+// The verify covers the option the rule actually applied, even when it is
+// outside the CIS baseline set — a lingering applied option is caught.
+//
+// @spec handler-mount-option-set
+// @ac AC-04
+func TestRollback_VerifiesAppliedOptionOutsideBaseline(t *testing.T) {
+	t.Run("handler-mount-option-set/AC-04", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// Prior line dropped nosymfollow, but the live mount still carries it.
+	tp.Results["findmnt -rno OPTIONS '/tmp'"] = &api.CommandResult{Stdout: "rw,relatime,nosymfollow\n"}
+	res, err := mountoptionset.New().Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"mount_point": "/tmp",
+			"option":      "nosymfollow",
+			"prior_line":  "tmpfs /tmp tmpfs defaults 0 0",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if res.Success || !res.PartialRestore {
+		t.Errorf("an applied option outside the CIS set must still be verified; got Success=%v Partial=%v detail=%q",
+			res.Success, res.PartialRestore, res.Detail)
 	}
 }
 

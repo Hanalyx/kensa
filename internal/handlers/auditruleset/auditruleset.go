@@ -44,6 +44,31 @@ const defaultRulesDir = "/etc/audit/rules.d"
 // audit rules in a single Kensa-owned drop-in.
 const defaultPersistFile = defaultRulesDir + "/99-kensa.rules"
 
+// auditStatusCmd reads the audit subsystem status. The shell rollback path
+// uses it to detect an immutable configuration (enabled 2): when the kernel
+// refuses all rule changes, augenrules cannot reconcile the live ruleset, so
+// the file-only restore is reported as a verified-partial rather than a
+// silent success.
+const auditStatusCmd = "auditctl -s 2>/dev/null"
+
+// auditImmutableShell reports whether the live audit configuration is
+// immutable (auditctl -s prints "enabled 2"). A read-back error or an
+// unparseable status is treated as not-immutable (best-effort): the goal is
+// to flag the case we are certain about, not to over-alarm.
+func auditImmutableShell(ctx context.Context, transport api.Transport) bool {
+	res, err := transport.Run(ctx, auditStatusCmd)
+	if err != nil || !res.OK() {
+		return false
+	}
+	for _, line := range strings.Split(res.Stdout, "\n") {
+		f := strings.Fields(line)
+		if len(f) == 2 && f[0] == "enabled" && f[1] == "2" {
+			return true
+		}
+	}
+	return false
+}
+
 // Params is the decoded parameter struct for audit_rule_set.
 type Params struct {
 	// RuleFile is the absolute path of the drop-in file under
@@ -359,9 +384,38 @@ func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport
 			}, nil
 		}
 	}
+
+	// Verify the unload took by reading the live rule list back and
+	// confirming none of the rules we added are still loaded — a positive
+	// read-back rather than trusting the delete return alone.
+	if len(added) > 0 {
+		loaded, gerr := c.GetRules()
+		if gerr != nil {
+			return &api.RollbackResult{
+				Success:        false,
+				PartialRestore: true,
+				Detail:         fmt.Sprintf("audit_rule_set: restored %s but could not verify live rules: %v", path, gerr),
+				ExecutedAt:     time.Now().UTC(),
+			}, nil
+		}
+		for _, line := range added {
+			wire, berr := auditnl.BuildRule(line)
+			if berr != nil {
+				continue
+			}
+			if containsWire(loaded, wire) {
+				return &api.RollbackResult{
+					Success:        false,
+					PartialRestore: true,
+					Detail:         fmt.Sprintf("audit_rule_set: file restored but rule %q still loaded after unload; remedy: reboot", line),
+					ExecutedAt:     time.Now().UTC(),
+				}, nil
+			}
+		}
+	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("audit_rule_set: restored %s and unloaded %d rule(s) (netlink; file_existed=%v)", path, len(added), fileExisted),
+		Detail:     fmt.Sprintf("audit_rule_set: restored %s and unloaded %d rule(s), verified (netlink; file_existed=%v)", path, len(added), fileExisted),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
 }
@@ -387,6 +441,18 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 			Success:    false,
 			Detail:     fmt.Sprintf("audit_rule_set: rollback failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
 			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
+	// augenrules --load exited cleanly, but on an immutable audit config
+	// (enabled 2) the kernel silently refuses live rule changes — the file
+	// is restored yet the running ruleset cannot be reconciled until reboot.
+	// Report that honestly instead of a clean success.
+	if auditImmutableShell(ctx, transport) {
+		return &api.RollbackResult{
+			Success:        false,
+			PartialRestore: true,
+			Detail:         fmt.Sprintf("audit_rule_set: restored %s but audit config is immutable (enabled 2); live ruleset unchanged until reboot (file_existed=%v)", path, fileExisted),
+			ExecutedAt:     time.Now().UTC(),
 		}, nil
 	}
 	return &api.RollbackResult{

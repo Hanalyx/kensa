@@ -79,6 +79,15 @@ func TestCapture_RecordsPriorPolicyAndIncompleteOnFailure(t *testing.T) {
 	if !errors.Is(err, api.ErrCaptureIncomplete) {
 		t.Errorf("expected ErrCaptureIncomplete, got %v", err)
 	}
+
+	// Empty-output path: --show exits 0 but prints nothing usable → capture
+	// must fail rather than record an unrestorable empty prior policy.
+	tpEmpty := engine.NewFakeTransport()
+	tpEmpty.Results["update-crypto-policies --show 2>/dev/null"] = &api.CommandResult{Stdout: "  \n"}
+	_, err = h.Capture(context.Background(), tpEmpty, api.Params{"policy": "FIPS"})
+	if !errors.Is(err, api.ErrCaptureIncomplete) {
+		t.Errorf("expected ErrCaptureIncomplete on empty --show, got %v", err)
+	}
 }
 
 // @spec handler-crypto-policy-set
@@ -89,15 +98,10 @@ func TestRollback_RestoresPriorPolicy(t *testing.T) {
 	t.Run("handler-crypto-policy-set/AC-03", func(t *testing.T) {})
 	t.Run("handler-interface/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
+	// The read-back verify must observe the restored policy.
+	tp.Results["update-crypto-policies --show 2>/dev/null"] = &api.CommandResult{Stdout: "DEFAULT\n"}
 	h := cryptopolicyset.New()
-	pre := &api.PreState{
-		Mechanism:  "crypto_policy_set",
-		Capturable: true,
-		Data: map[string]interface{}{
-			"prior_policy": "DEFAULT",
-		},
-	}
-	res, err := h.Rollback(context.Background(), tp, pre)
+	res, err := h.Rollback(context.Background(), tp, priorState("DEFAULT"))
 	if err != nil {
 		t.Fatalf("Rollback: %v", err)
 	}
@@ -106,6 +110,59 @@ func TestRollback_RestoresPriorPolicy(t *testing.T) {
 	}
 	if !anyRunContains(tp.Runs, "update-crypto-policies --set 'DEFAULT'") {
 		t.Errorf("expected restore via --set 'DEFAULT'; runs=%v", tp.Runs)
+	}
+}
+
+// priorState builds a crypto_policy_set pre-state for the prior policy.
+func priorState(policy string) *api.PreState {
+	return &api.PreState{
+		Mechanism:  "crypto_policy_set",
+		Capturable: true,
+		Data:       map[string]interface{}{"prior_policy": policy},
+	}
+}
+
+// Rollback verifies the live policy by reading it back; a clean restore
+// reports success and carries the running-daemon remedy note (verdict
+// scoped to the policy, not the long-lived daemons).
+//
+// @spec handler-crypto-policy-set
+// @ac AC-05
+func TestRollback_VerifiesAndCarriesRemedyNote(t *testing.T) {
+	t.Run("handler-crypto-policy-set/AC-05", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	tp.Results["update-crypto-policies --show 2>/dev/null"] = &api.CommandResult{Stdout: "DEFAULT\n"}
+	res, err := cryptopolicyset.New().Rollback(context.Background(), tp, priorState("DEFAULT"))
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("Success=false: %s", res.Detail)
+	}
+	if !anyRunContains(tp.Runs, "update-crypto-policies --show") {
+		t.Errorf("expected a --show read-back; runs=%v", tp.Runs)
+	}
+	if !strings.Contains(res.Detail, "restart") {
+		t.Errorf("expected running-daemon remedy note in detail, got %q", res.Detail)
+	}
+}
+
+// Rollback fails (does not silently claim success) when the read-back
+// shows the live policy did not become the prior policy.
+//
+// @spec handler-crypto-policy-set
+// @ac AC-05
+func TestRollback_FailsWhenLivePolicyMismatch(t *testing.T) {
+	t.Run("handler-crypto-policy-set/AC-05", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// --set "succeeds" (default exit 0) but the live policy reads back wrong.
+	tp.Results["update-crypto-policies --show 2>/dev/null"] = &api.CommandResult{Stdout: "FIPS\n"}
+	res, err := cryptopolicyset.New().Rollback(context.Background(), tp, priorState("DEFAULT"))
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if res.Success {
+		t.Errorf("expected Success=false on unverified restore; detail=%q", res.Detail)
 	}
 }
 

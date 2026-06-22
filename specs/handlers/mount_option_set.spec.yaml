@@ -1,6 +1,6 @@
 spec:
     id: handler-mount-option-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -40,6 +40,16 @@ spec:
           description: Rollback MUST restore the prior fstab line and remount.
           type: security
           enforcement: error
+        - id: C-04
+          description: |
+              After remounting, Rollback MUST read the live mount options
+              back (findmnt) and verify the security toggle options
+              (nodev/nosuid/noexec) match the restored fstab line. A
+              divergence, or an unreadable mount table, MUST be reported as
+              a verified-partial restore (Success=false, PartialRestore=true)
+              with a remedy, never a silent success.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply adds the option to the fstab line and remounts.
@@ -52,6 +62,14 @@ spec:
         - id: AC-03
           description: Rollback restores the prior line and remounts.
           references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Rollback reads the live mount options back and verifies the
+              security toggles match the restored line; a lingering or
+              missing option (or unreadable mount table) reports a
+              verified-partial restore with a remedy.
+          references_constraints: [C-04]
           priority: critical
     depends_on:
         - spec_id: handler-interface
