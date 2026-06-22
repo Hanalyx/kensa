@@ -121,6 +121,14 @@ func (f *Footprint) Add(e Entry) {
 		delete(f.entries, e.Path)
 		return
 	}
+	// A resource this transaction CREATED stays a create no matter what is
+	// done to it afterward: its net reversal is still removal (the prior
+	// state was absent). Keeping OpCreate keeps the op coherent with the
+	// retained absent pre-image — a later modify/create must not relabel it
+	// "restore prior content" when there was no prior content.
+	if prev.Op == OpCreate {
+		return
+	}
 	// Otherwise keep the earliest pre-image (prev) but advance the op to the
 	// latest mutation, so rollback reverses to the true prior state.
 	prev.Op = e.Op

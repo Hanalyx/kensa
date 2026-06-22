@@ -224,14 +224,14 @@ func realInspect(path string) (string, PreImage, error) {
 	return canon, pre, nil
 }
 
-// Canonicalize resolves symlinks in the PARENT directory (which must exist
-// for any write) and rejoins the base, so a symlinked parent cannot let an
-// apply touch one path while declaring another. Falls back to a lexical
-// clean when the parent does not resolve (e.g. a to-be-created tree).
+// Canonicalize returns the lexical canonical form of path (filepath.Clean):
+// it collapses "." / ".." / duplicate separators so the observed and
+// captured footprints compare on the same key. It deliberately does NOT
+// resolve symlinks: the underlying fsatomic primitives refuse any symlinked
+// component (O_NOFOLLOW) at write time, so a symlinked parent never produces
+// an observed mutation to reconcile — and resolving symlinks here would make
+// the gate's invariant depend on a sibling component's policy rather than on
+// its own deterministic, side-effect-free transform.
 func Canonicalize(path string) string {
-	dir := filepath.Dir(path)
-	if real, err := filepath.EvalSymlinks(dir); err == nil {
-		return filepath.Join(real, filepath.Base(path))
-	}
 	return filepath.Clean(path)
 }

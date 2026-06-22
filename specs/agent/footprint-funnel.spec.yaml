@@ -1,6 +1,6 @@
 spec:
     id: footprint-funnel
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
 
@@ -50,10 +50,10 @@ spec:
                 - MkdirAll decomposed per created level; reads and runtime ops (sysctl/module) forwarded, not recorded
                 - Footprinter opt-in interface + SingleFile helper
                 - agent dispatchApply pre-commit gate (observed ⊆ captured → fail the step → controller rolls back)
+                - pre-apply restorability probe (refuse when a captured resource is immutable)
             excludes:
-                - opting in handlers that create parent dirs (configsetdropin/dconfset) — needs dir capture+rollback first
                 - runtime-resource footprint entries (sysctl keys, module names) — forwarded for now
-                - the restorability probe (chattr +i / RO / immutable-auditd) — separate increment
+                - RO-fs / ENOSPC / immutable-auditd restorability checks (surface at write time; immutable flag is the proactive check)
                 - promoting the footprint into the frozen api/ surface
 
     constraints:
@@ -104,6 +104,21 @@ spec:
           type: security
           enforcement: error
 
+        - id: C-05
+          description: |
+              kernelio.IsImmutable MUST report whether a path has the
+              immutable inode flag (FS_IOC_GETFLAGS / FS_IMMUTABLE_FL), with an
+              absent path or a filesystem lacking the ioctl treated as not
+              immutable. Unrestorable MUST return the captured paths an
+              injected check flags immutable (sorted), and MUST NOT treat a
+              probe error as unrestorable. In agent mode dispatchApply MUST run
+              this probe over an opted-in handler's captured footprint BEFORE
+              Apply and, when any resource is immutable, refuse the step
+              (Success=false) WITHOUT mutating — a transaction whose rollback
+              is impossible is refused, not committed unrollbackable.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -137,6 +152,15 @@ spec:
               file_content/file_absent/config_set handlers declare their
               single captured file via Footprinter.
           references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              kernelio.IsImmutable returns false for an absent/ordinary path;
+              Unrestorable returns the injected-immutable captured paths
+              sorted and treats a probe error as not-unrestorable; the agent
+              refuses to apply (without mutating) when a captured resource is
+              immutable.
+          references_constraints: [C-05]
           priority: critical
 
     tags: [agent, footprint, atomicity, tier-1]
