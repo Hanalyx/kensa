@@ -37,6 +37,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/agent"
 	"github.com/Hanalyx/kensa/internal/agent/deadman"
 	"github.com/Hanalyx/kensa/internal/agent/footprint"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 	"github.com/Hanalyx/kensa/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 	"github.com/Hanalyx/kensa/internal/handler"
@@ -149,6 +150,26 @@ func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
 	// automatically. Per L-014 review fix.
 	tr := local.NewAuto()
 	defer tr.Close()
+
+	// Pre-apply restorability probe (opt-in per handler): refuse to mutate
+	// the host when a captured resource is immutable (chattr +i), because a
+	// rollback that would rewrite or remove it cannot succeed — better to
+	// fail the step BEFORE any change than to commit something unrollbackable.
+	// Coverage (the gate below) is necessary but insufficient; this is the
+	// "is it restorable now" complement.
+	if fp, ok := h.(footprint.Footprinter); ok && pre != nil {
+		if captured, ferr := fp.CapturedFootprint(pre); ferr == nil {
+			if bad := footprint.Unrestorable(captured, kernelio.IsImmutable); len(bad) > 0 {
+				resp.Payload = &wirev1.Response_ApplyResp{ApplyResp: &wirev1.ApplyResponse{
+					StepResult: wirev1.APIStepResultToWire(api.StepResult{
+						Success: false,
+						Detail:  fmt.Sprintf("restorability gate: captured resources are immutable (chattr +i), rollback impossible — refusing apply: %v", bad),
+					}),
+				}}
+				return
+			}
+		}
+	}
 
 	// Wrap the transport in a footprint recorder so the gate below can
 	// assert the apply touched nothing it did not capture. The recorder is
