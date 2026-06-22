@@ -1,6 +1,6 @@
 spec:
     id: handler-cron-job
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -35,6 +35,18 @@ spec:
           description: Rollback restores or removes the cron file.
           type: security
           enforcement: error
+        - id: C-04
+          description: |
+              In agent mode (transport implements kernelio.FileTransport),
+              Apply MUST write the cron file atomically through the funnel
+              (kernelio.WriteFile at mode 0644) so the footprint recorder
+              observes it, and Rollback MUST restore prior_content (or remove
+              the file when it did not exist) through the funnel.
+              CapturedFootprint MUST declare the single cron file for the
+              pre-commit gate. The direct-SSH printf + chmod fallback is
+              preserved.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes cron file with schedule/user/command.
@@ -47,6 +59,14 @@ spec:
         - id: AC-03
           description: Rollback removes file when absent at capture.
           references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Agent-mode Apply writes the cron file through the funnel;
+              round-trip rollback removes a file absent at capture and
+              restores a pre-existing one byte-perfect; CapturedFootprint
+              declares the single cron file.
+          references_constraints: [C-04]
           priority: critical
     depends_on:
         - spec_id: handler-interface
