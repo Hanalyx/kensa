@@ -1,6 +1,6 @@
 spec:
     id: footprint-funnel
-    version: 0.4.0
+    version: 0.5.0
     status: draft
     tier: 1
 
@@ -119,6 +119,23 @@ spec:
           type: security
           enforcement: error
 
+        - id: C-06
+          description: |
+              The Recorder MUST be a transparent stand-in for EVERY capability
+              the wrapped agent transport offers — not only the filesystem
+              capabilities it records. Specifically it MUST also satisfy
+              systemd.Transport (the service handlers' D-Bus path) and
+              auditnl.AuditTransport (audit_rule_set's netlink path), forwarding
+              each call to the wrapped transport unchanged (these are not
+              filesystem mutations, so nothing is recorded; the audit drop-in
+              file IS still recorded via the fsatomic methods). Because every
+              agent apply runs through the Recorder, a capability the Recorder
+              fails to expose silently routes its handler to the shell fallback
+              — so this transparency is a code-enforced invariant, not a
+              convenience.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -161,6 +178,16 @@ spec:
               refuses to apply (without mutating) when a captured resource is
               immutable.
           references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              The Recorder satisfies systemd.Transport and
+              auditnl.AuditTransport and forwards each call to the wrapped
+              transport unchanged (no footprint entry recorded for them), so a
+              handler's transport.(systemd.Transport) / .(auditnl.AuditTransport)
+              assertion still selects the agent path when wrapped by the
+              Recorder.
+          references_constraints: [C-06]
           priority: critical
 
     tags: [agent, footprint, atomicity, tier-1]
