@@ -13,10 +13,20 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "pam_module_arg"
+
+// pamFileMode is the canonical mode for PAM config files (root-writable,
+// world-readable). The agent-path atomic rewrite restores files at this mode;
+// on a conventionally-configured host (/etc/pam.d/* are 0644 root:root) it is
+// a no-op. The direct-SSH sed/printf fallback preserves the inode mode.
+const pamFileMode = 0o644
+
+// absentSentinel marks a non-existent file in the shell capture read.
+const absentSentinel = "__KENSA_ABSENT__"
 
 // Params is the decoded parameter struct for the pam_module_arg
 // mechanism.
@@ -153,7 +163,50 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		return h.applyKernel(ctx, ft, p)
+	}
+	return h.applyShell(ctx, transport, p)
+}
 
+// applyKernel edits each PAM file atomically through the kernelio funnel: read
+// the whole file, transform it in Go (the sed-equivalent), and write it back
+// via kernelio.WriteFile so the footprint recorder observes exactly the files
+// it touches. A file with no change is left untouched (no spurious write).
+func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, p *Params) (*api.StepResult, error) {
+	var results []string
+	for _, file := range p.Files {
+		content, existed, err := ft.ReadFileIfExists(file)
+		if err != nil {
+			return nil, fmt.Errorf("pam_module_arg: read %s: %w", file, err)
+		}
+		if !existed {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("pam_module_arg: %s does not exist", file),
+			}, nil
+		}
+		newContent, changed, terr := transformFile(p, content)
+		if terr != nil {
+			return &api.StepResult{Success: false, Detail: terr.Error()}, nil
+		}
+		if !changed {
+			results = append(results, fmt.Sprintf("%s: no change (no-op)", file))
+			continue
+		}
+		if werr := kernelio.WriteFile(ctx, ft, file, pamFileMode, []byte(newContent)); werr != nil {
+			return nil, fmt.Errorf("pam_module_arg: write %s: %w", file, werr)
+		}
+		results = append(results, fmt.Sprintf("%s: %sd (kernel-io)", file, p.Action))
+	}
+	return &api.StepResult{
+		Success: true,
+		Detail:  fmt.Sprintf("pam_module_arg: %s", strings.Join(results, "; ")),
+	}, nil
+}
+
+// applyShell is the direct-SSH fallback: per-file sed -i.bak edits, unchanged.
+func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Params) (*api.StepResult, error) {
 	var results []string
 	for _, file := range p.Files {
 		detail, applyErr := applyToFile(ctx, transport, p, file)
@@ -274,27 +327,26 @@ func buildRemoveCmd(file, typeFilter, modulePattern, arg string, isRegex bool) s
 	return fmt.Sprintf("sed -i.bak '/%s/s/ %s//g' %s", lineMatch, argPat, shellEscape(file))
 }
 
-// Capture records the affected lines from each PAM file before editing,
-// keyed by file path. Rollback restores these lines via sed.
+// Capture records the WHOLE prior content and existence of each PAM file
+// before Apply edits it, keyed by file path. Rollback restores the captured
+// content verbatim (byte-perfect), which is robust across the agent and shell
+// transports and immune to the line-number drift the prior grep-snapshot model
+// risked. The read is dual-path: kernel-IO on the agent, shell cat otherwise.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot := make(map[string]interface{})
+	filesContent := make(map[string]interface{})
+	filesExisted := make(map[string]interface{})
 	for _, file := range p.Files {
-		// Capture lines containing the module name (with optional type filter).
-		grepPattern := p.Module
-		if p.Type != "" {
-			grepPattern = p.Type + `.*` + p.Module
+		content, existed, rerr := h.readFile(ctx, transport, file)
+		if rerr != nil {
+			return nil, rerr
 		}
-		cmd := fmt.Sprintf("grep -n %s %s 2>/dev/null || true", shellEscape(grepPattern), shellEscape(file))
-		res, err := transport.Run(ctx, cmd)
-		if err != nil {
-			return nil, fmt.Errorf("pam_module_arg: capture transport error for %s: %w", file, err)
-		}
-		snapshot[file] = res.Stdout
+		filesContent[file] = content
+		filesExisted[file] = existed
 	}
 
 	return &api.PreState{
@@ -302,22 +354,56 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		Capturable: true,
 		CapturedAt: time.Now().UTC(),
 		Data: map[string]interface{}{
-			"module":         p.Module,
-			"files_snapshot": snapshot,
+			"module":        p.Module,
+			"files_content": filesContent,
+			"files_existed": filesExisted,
 		},
 	}, nil
 }
 
-// Rollback restores the captured PAM file lines by reinserting the
-// original content via sed line replacement. Idempotent.
+// readFile returns a file's content and existence via the kernel-IO read
+// (agent) or a shell cat with an absent sentinel.
+func (h *Handler) readFile(ctx context.Context, transport api.Transport, file string) (string, bool, error) {
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		c, existed, err := ft.ReadFileIfExists(file)
+		if err != nil {
+			return "", false, fmt.Errorf("pam_module_arg: capture read %s: %w (%v)", file, api.ErrCaptureIncomplete, err)
+		}
+		return c, existed, nil
+	}
+	cmd := fmt.Sprintf("test -e %[1]s && cat %[1]s || printf '%[2]s'", shellEscape(file), absentSentinel)
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return "", false, fmt.Errorf("pam_module_arg: capture transport error for %s: %w", file, err)
+	}
+	if !res.OK() {
+		return "", false, fmt.Errorf("pam_module_arg: capture failed for %s: %w (stderr: %s)", file, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
+	}
+	if res.Stdout == absentSentinel {
+		return "", false, nil
+	}
+	return res.Stdout, true, nil
+}
+
+// Rollback restores each PAM file to its captured pre-Apply state. For
+// pre-states from the whole-file capture model (files_content) it rewrites the
+// captured content verbatim — byte-perfect, dual-path (kernelio funnel on the
+// agent, printf/rm on the shell). For legacy pre-states (files_snapshot, the
+// grep-line model) it falls back to the prior sed line-restore so in-flight
+// transactions captured before this change still roll back.
 func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *api.PreState) (*api.RollbackResult, error) {
 	if pre == nil || pre.Data == nil {
 		return nil, errors.New("pam_module_arg: rollback called with nil pre-state")
 	}
 
+	if content, ok := pre.Data["files_content"].(map[string]interface{}); ok {
+		existed, _ := pre.Data["files_existed"].(map[string]interface{})
+		return h.rollbackWhole(ctx, transport, content, existed)
+	}
+
 	snapshotRaw, ok := pre.Data["files_snapshot"]
 	if !ok {
-		return nil, errors.New("pam_module_arg: pre-state missing 'files_snapshot'")
+		return nil, errors.New("pam_module_arg: pre-state missing 'files_content' and 'files_snapshot'")
 	}
 	snapshot, ok := snapshotRaw.(map[string]interface{})
 	if !ok {
@@ -382,6 +468,64 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		Detail:     fmt.Sprintf("pam_module_arg: rollback complete — %s", strings.Join(details, "; ")),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// rollbackWhole restores each captured file to its prior content (byte-perfect)
+// — or removes it when it did not exist at capture — through the kernelio
+// funnel on the agent, or printf/rm on the shell.
+func (h *Handler) rollbackWhole(ctx context.Context, transport api.Transport, content, existed map[string]interface{}) (*api.RollbackResult, error) {
+	var details []string
+	for file, cRaw := range content {
+		prior, _ := cRaw.(string)
+		fileExisted := true // default true: a captured file we have content for
+		if existed != nil {
+			if e, ok := existed[file].(bool); ok {
+				fileExisted = e
+			}
+		}
+		if err := h.restoreFile(ctx, transport, file, prior, fileExisted); err != nil {
+			return &api.RollbackResult{
+				Success:    false,
+				Detail:     fmt.Sprintf("pam_module_arg: rollback failed for %s: %v", file, err),
+				ExecutedAt: time.Now().UTC(),
+			}, nil
+		}
+		if fileExisted {
+			details = append(details, fmt.Sprintf("%s: restored", file))
+		} else {
+			details = append(details, fmt.Sprintf("%s: removed (absent at capture)", file))
+		}
+	}
+	return &api.RollbackResult{
+		Success:    true,
+		Detail:     fmt.Sprintf("pam_module_arg: rollback complete — %s", strings.Join(details, "; ")),
+		ExecutedAt: time.Now().UTC(),
+	}, nil
+}
+
+// restoreFile rewrites file to prior (or removes it when it was absent at
+// capture), dual-path: kernelio funnel on the agent, printf/rm on the shell.
+func (h *Handler) restoreFile(ctx context.Context, transport api.Transport, file, prior string, fileExisted bool) error {
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		if fileExisted {
+			return kernelio.WriteFile(ctx, ft, file, pamFileMode, []byte(prior))
+		}
+		return kernelio.RemoveFile(ctx, ft, file)
+	}
+	var cmd string
+	if fileExisted {
+		cmd = fmt.Sprintf("printf '%%s' %s > %s", shellEscape(prior), shellEscape(file))
+	} else {
+		cmd = fmt.Sprintf("rm -f %s", shellEscape(file))
+	}
+	res, err := transport.Run(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	if !res.OK() {
+		return fmt.Errorf("exit %d: %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	return nil
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.
