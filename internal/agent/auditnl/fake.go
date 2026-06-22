@@ -24,6 +24,9 @@ type FakeAuditTransport struct {
 	// the rule — modeling a kernel that accepts the call but leaves the
 	// rule loaded, so the rollback read-back verify can be exercised.
 	DeleteNoop bool
+	// DeleteErr, when set, is returned by DeleteRule — modeling a kernel
+	// that rejects the unload (e.g. EPERM on an immutable config).
+	DeleteErr error
 }
 
 // NewFakeAudit returns a FakeAuditTransport with initialized state.
@@ -56,6 +59,9 @@ func (c *fakeAuditClient) AddRule(wire []byte) error {
 }
 
 func (c *fakeAuditClient) DeleteRule(wire []byte) error {
+	if c.t.DeleteErr != nil {
+		return c.t.DeleteErr // kernel rejected the unload (e.g. EPERM)
+	}
 	if c.t.DeleteNoop {
 		return nil // accepted but not removed (immutable-kernel model)
 	}

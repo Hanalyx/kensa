@@ -109,6 +109,13 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	}
 
 	priorPolicy := strings.TrimSpace(res.Stdout)
+	if priorPolicy == "" {
+		// --show exited 0 but printed nothing usable (mis-provisioned host, or
+		// a stub on a non-RHEL host). Recording an empty prior policy would
+		// make a later rollback unable to restore anything — fail capture
+		// honestly instead, as the other capturable handlers do.
+		return nil, fmt.Errorf("crypto_policy_set: capture read an empty policy: %w", api.ErrCaptureIncomplete)
+	}
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,

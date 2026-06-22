@@ -2,6 +2,7 @@ package auditruleset_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -149,6 +150,35 @@ func TestRollback_Netlink_PartialWhenStillLoaded(t *testing.T) {
 	}
 	if rb.Success || !rb.PartialRestore {
 		t.Errorf("want Success=false, PartialRestore=true when a rule stays loaded; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+}
+
+// Netlink rollback reports a verified-partial restore when the kernel
+// rejects the unload (DeleteRule errors, e.g. EPERM on an immutable config).
+//
+// @spec auditnl-rule-set
+// @ac AC-06
+func TestRollback_Netlink_PartialWhenDeleteRejected(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-06", func(t *testing.T) {})
+	f := auditnl.NewFakeAudit()
+	f.DeleteErr = errors.New("operation not permitted")
+	h := auditruleset.New()
+	params := api.Params{"rule": ruleLine}
+
+	pre, err := h.Capture(context.Background(), f, params)
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if _, err := h.Apply(context.Background(), f, params, nil); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	rb, err := h.Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("want Success=false, PartialRestore=true when the kernel rejects the unload; got Success=%v Partial=%v detail=%q",
 			rb.Success, rb.PartialRestore, rb.Detail)
 	}
 }

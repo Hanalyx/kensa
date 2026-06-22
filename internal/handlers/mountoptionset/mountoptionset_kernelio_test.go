@@ -112,6 +112,75 @@ func TestCapture_Kernel_NoEntry(t *testing.T) {
 	}
 }
 
+// Kernel-IO rollback reports a verified-partial restore when the remount
+// runs but the live mount still carries the option that was removed from
+// fstab — the runtime did not reconcile.
+//
+// @spec kernelio-mount
+// @ac AC-03
+// @spec handler-mount-option-set
+// @ac AC-04
+func TestRollback_Kernel_PartialWhenRuntimeNotReconciled(t *testing.T) {
+	t.Run("kernelio-mount/AC-03", func(t *testing.T) {})
+	t.Run("handler-mount-option-set/AC-04", func(t *testing.T) {})
+	// fstab currently carries noexec; the prior line dropped it, so the
+	// rewrite changes fstab (not the early-return path) and a remount runs.
+	f := newFstabFake("UUID=bbbb /tmp ext4 defaults,noexec 0 2\n")
+	// The live mount still shows noexec → the runtime did not reconcile.
+	f.RunResults = map[string]*api.CommandResult{
+		"findmnt -rno OPTIONS '/tmp'": {Stdout: "rw,relatime,noexec\n"},
+	}
+	pre := &api.PreState{Data: map[string]interface{}{
+		"mount_point": "/tmp", "option": "noexec",
+		"prior_line": "UUID=bbbb /tmp ext4 defaults 0 2",
+	}}
+	rb, err := mountoptionset.New().Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("want Success=false, PartialRestore=true; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+}
+
+// Kernel-IO rollback verifies the live mount even when fstab already holds
+// the prior line (the no-rewrite early-return): a live divergence is caught
+// and reported, not assumed clean.
+//
+// @spec kernelio-mount
+// @ac AC-03
+// @spec handler-mount-option-set
+// @ac AC-04
+func TestRollback_Kernel_VerifiesOnNoRewrite(t *testing.T) {
+	t.Run("kernelio-mount/AC-03", func(t *testing.T) {})
+	t.Run("handler-mount-option-set/AC-04", func(t *testing.T) {})
+	// fstab already equals the prior line → no rewrite, no remount, but the
+	// live mount still shows the applied option, so the verify must catch it.
+	f := newFstabFake("UUID=bbbb /tmp ext4 defaults 0 2\n")
+	f.RunResults = map[string]*api.CommandResult{
+		"findmnt -rno OPTIONS '/tmp'": {Stdout: "rw,relatime,noexec\n"},
+	}
+	pre := &api.PreState{Data: map[string]interface{}{
+		"mount_point": "/tmp", "option": "noexec",
+		"prior_line": "UUID=bbbb /tmp ext4 defaults 0 2",
+	}}
+	rb, err := mountoptionset.New().Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("no-rewrite path must still verify; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+	// No remount should have been issued (only the findmnt read-back).
+	for _, c := range f.Runs {
+		if strings.Contains(c, "remount") {
+			t.Errorf("must not remount on the no-rewrite path; Runs=%v", f.Runs)
+		}
+	}
+}
+
 // Fallback: a transport without the kernelio capability uses the awk shell path.
 //
 // @spec kernelio-mount

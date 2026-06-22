@@ -79,6 +79,15 @@ func TestCapture_RecordsPriorPolicyAndIncompleteOnFailure(t *testing.T) {
 	if !errors.Is(err, api.ErrCaptureIncomplete) {
 		t.Errorf("expected ErrCaptureIncomplete, got %v", err)
 	}
+
+	// Empty-output path: --show exits 0 but prints nothing usable → capture
+	// must fail rather than record an unrestorable empty prior policy.
+	tpEmpty := engine.NewFakeTransport()
+	tpEmpty.Results["update-crypto-policies --show 2>/dev/null"] = &api.CommandResult{Stdout: "  \n"}
+	_, err = h.Capture(context.Background(), tpEmpty, api.Params{"policy": "FIPS"})
+	if !errors.Is(err, api.ErrCaptureIncomplete) {
+		t.Errorf("expected ErrCaptureIncomplete on empty --show, got %v", err)
+	}
 }
 
 // @spec handler-crypto-policy-set

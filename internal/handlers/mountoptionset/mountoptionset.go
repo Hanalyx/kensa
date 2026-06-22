@@ -305,16 +305,19 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	if mountPoint == "" || priorLine == "" {
 		return nil, errors.New("mount_option_set: pre-state missing 'mount_point' or 'prior_line'")
 	}
+	// The option(s) this rule applied — verified on rollback alongside the
+	// CIS toggle set so the "verified" claim covers whatever Kensa managed.
+	appliedOpt, _ := pre.Data["option"].(string)
 
 	if ft, ok := transport.(kernelio.FileTransport); ok {
-		return h.rollbackKernel(ctx, ft, transport, mountPoint, priorLine)
+		return h.rollbackKernel(ctx, ft, transport, mountPoint, priorLine, appliedOpt)
 	}
-	return h.rollbackShell(ctx, transport, mountPoint, priorLine)
+	return h.rollbackShell(ctx, transport, mountPoint, priorLine, appliedOpt)
 }
 
 // rollbackKernel restores the captured fstab line (Go parse + atomic
 // rewrite) and remounts via mount(8).
-func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, mountPoint, priorLine string) (*api.RollbackResult, error) {
+func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, transport api.Transport, mountPoint, priorLine, appliedOpt string) (*api.RollbackResult, error) {
 	content, existed, err := ft.ReadFileIfExists(fstabPath)
 	if err != nil {
 		return nil, fmt.Errorf("mount_option_set: rollback read fstab: %w", err)
@@ -329,12 +332,22 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 	if newContent == content {
 		// fstab already holds the captured prior line — the step never
 		// changed it (or this rollback already ran; recovery drives rollback
-		// for every captured step, including un-applied ones). Skip both the
-		// rewrite and the remount: a `mount -o remount` of an unchanged mount
-		// is an unnecessary live kernel operation with no state to revert.
+		// for every captured step, including un-applied ones). The rewrite and
+		// remount are skipped (a `mount -o remount` of an unchanged mount is an
+		// unnecessary live kernel operation), but the live mount is STILL read
+		// back: an fstab that already matches does not prove the runtime does,
+		// and a clean success must be verified, not assumed.
+		if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine, appliedOpt); !ok {
+			return &api.RollbackResult{
+				Success:        false,
+				PartialRestore: true,
+				Detail:         fmt.Sprintf("mount_option_set: fstab already at prior state for %s but live mount diverges — %s; remedy: manual remount or reboot (kernel-io)", mountPoint, why),
+				ExecutedAt:     time.Now().UTC(),
+			}, nil
+		}
 		return &api.RollbackResult{
 			Success:    true,
-			Detail:     fmt.Sprintf("mount_option_set: fstab already at prior state for %s; no remount needed (kernel-io)", mountPoint),
+			Detail:     fmt.Sprintf("mount_option_set: fstab already at prior state for %s, verified live options; no remount needed (kernel-io)", mountPoint),
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
@@ -344,7 +357,7 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 	if step := remount(ctx, transport, mountPoint, "rollback"); step != nil {
 		return &api.RollbackResult{Success: false, Detail: step.Detail, ExecutedAt: time.Now().UTC()}, nil
 	}
-	if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine); !ok {
+	if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine, appliedOpt); !ok {
 		return &api.RollbackResult{
 			Success:        false,
 			PartialRestore: true,
@@ -360,7 +373,7 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 }
 
 // rollbackShell restores the captured fstab line via awk + mv and remounts.
-func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mountPoint, priorLine string) (*api.RollbackResult, error) {
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mountPoint, priorLine, appliedOpt string) (*api.RollbackResult, error) {
 	// Replace the fstab line for this mount point with the captured prior line.
 	awkScript := fmt.Sprintf(
 		`$2 == %s { print %s; next } { print }`,
@@ -381,7 +394,7 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mo
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
-	if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine); !ok {
+	if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine, appliedOpt); !ok {
 		return &api.RollbackResult{
 			Success:        false,
 			PartialRestore: true,
@@ -396,12 +409,28 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mo
 	}, nil
 }
 
-// verifiableMountOpts are the toggle options whose live presence the
-// rollback verifies against the restored fstab line. These are the
-// security options mount_option_set manages (the CIS nodev/nosuid/noexec
-// set); kernel-implicit options (rw, relatime, seclabel, …) carry no fstab
-// intent and are ignored.
+// verifiableMountOpts are the baseline toggle options whose live presence
+// the rollback always verifies against the restored fstab line — the CIS
+// nodev/nosuid/noexec set. The option(s) the rule actually applied are
+// added on top per-rollback, so the verdict covers whatever Kensa managed,
+// not just these three. Kernel-implicit options (rw, relatime, seclabel, …)
+// carry no fstab intent and are ignored.
 var verifiableMountOpts = []string{"nodev", "nosuid", "noexec"}
+
+// optionsToVerify returns the deterministic, de-duplicated list of options
+// to read back: the CIS baseline plus the comma-separated options the rule
+// applied (appliedOpt), in that stable order.
+func optionsToVerify(appliedOpt string) []string {
+	out := append([]string{}, verifiableMountOpts...)
+	seen := map[string]bool{"nodev": true, "nosuid": true, "noexec": true}
+	for _, o := range strings.Split(appliedOpt, ",") {
+		if o = strings.TrimSpace(o); o != "" && !seen[o] {
+			out = append(out, o)
+			seen[o] = true
+		}
+	}
+	return out
+}
 
 // liveOptionsCmd reads the active mount options for a mount point. findmnt
 // is util-linux (present on RHEL and Ubuntu); -rno OPTIONS prints just the
@@ -439,7 +468,7 @@ func fstabOptionSet(line string) map[string]bool {
 // always live-reconcilable, so a divergence here means the runtime did not
 // actually take the restored options — operator attention (manual remount
 // or reboot) is warranted.
-func verifyRemount(ctx context.Context, transport api.Transport, mountPoint, priorLine string) (bool, string) {
+func verifyRemount(ctx context.Context, transport api.Transport, mountPoint, priorLine, appliedOpt string) (bool, string) {
 	res, err := transport.Run(ctx, liveOptionsCmd(mountPoint))
 	if err != nil {
 		return false, fmt.Sprintf("live mount options could not be read back: %v", err)
@@ -449,7 +478,7 @@ func verifyRemount(ctx context.Context, transport api.Transport, mountPoint, pri
 	}
 	live := optionSet(res.Stdout)
 	want := fstabOptionSet(priorLine)
-	for _, o := range verifiableMountOpts {
+	for _, o := range optionsToVerify(appliedOpt) {
 		if want[o] != live[o] {
 			return false, fmt.Sprintf("live option %q=%v but restored fstab intends %v", o, live[o], want[o])
 		}

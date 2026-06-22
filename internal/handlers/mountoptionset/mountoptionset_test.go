@@ -97,6 +97,32 @@ func TestRollback_PartialWhenRuntimeNotReconciled(t *testing.T) {
 	}
 }
 
+// The verify covers the option the rule actually applied, even when it is
+// outside the CIS baseline set — a lingering applied option is caught.
+//
+// @spec handler-mount-option-set
+// @ac AC-04
+func TestRollback_VerifiesAppliedOptionOutsideBaseline(t *testing.T) {
+	t.Run("handler-mount-option-set/AC-04", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// Prior line dropped nosymfollow, but the live mount still carries it.
+	tp.Results["findmnt -rno OPTIONS '/tmp'"] = &api.CommandResult{Stdout: "rw,relatime,nosymfollow\n"}
+	res, err := mountoptionset.New().Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"mount_point": "/tmp",
+			"option":      "nosymfollow",
+			"prior_line":  "tmpfs /tmp tmpfs defaults 0 0",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if res.Success || !res.PartialRestore {
+		t.Errorf("an applied option outside the CIS set must still be verified; got Success=%v Partial=%v detail=%q",
+			res.Success, res.PartialRestore, res.Detail)
+	}
+}
+
 // @spec handler-interface
 // @ac AC-04
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
