@@ -1,7 +1,9 @@
 // Package kernelmoduledisable implements the kernel_module_disable
 // handler: blacklist a kernel module via /etc/modprobe.d/ and remove
 // it from the running kernel if loaded. Capture records whether the
-// blacklist file existed for rollback.
+// blacklist file existed and whether the module was loaded; when it was,
+// Rollback re-loads it via modprobe and verifies against /proc/modules,
+// reporting a verified-partial restore if the module does not return.
 // Spec: specs/handlers/kernel_module_disable.spec.yaml.
 //
 // Dual path: when the transport implements kernelio.ModuleTransport
@@ -139,30 +141,36 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 	}, nil
 }
 
-// Capture records whether the blacklist file existed and its content.
+// Capture records whether the blacklist file existed and its content, plus
+// whether the module is currently loaded in the running kernel — the signal
+// Rollback uses to decide whether a runtime re-load is needed.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
 	}
-	if mt, ok := transport.(kernelio.ModuleTransport); ok {
-		return h.captureKernel(mt, p)
+	wasLoaded, err := moduleLoaded(ctx, transport, p.Module)
+	if err != nil {
+		return nil, fmt.Errorf("kernel_module_disable: capture module state for %s: %w (%v)", p.Module, api.ErrCaptureIncomplete, err)
 	}
-	return h.captureShell(ctx, transport, p)
+	if mt, ok := transport.(kernelio.ModuleTransport); ok {
+		return h.captureKernel(mt, p, wasLoaded)
+	}
+	return h.captureShell(ctx, transport, p, wasLoaded)
 }
 
 // captureKernel reads the blacklist file directly.
-func (h *Handler) captureKernel(mt kernelio.ModuleTransport, p *Params) (*api.PreState, error) {
+func (h *Handler) captureKernel(mt kernelio.ModuleTransport, p *Params, wasLoaded bool) (*api.PreState, error) {
 	path := blacklistPath(p.Module)
 	content, existed, err := mt.ReadFileIfExists(path)
 	if err != nil {
 		return nil, fmt.Errorf("kernel_module_disable: capture read %s: %w (%v)", path, api.ErrCaptureIncomplete, err)
 	}
-	return h.preState(p, path, existed, content), nil
+	return h.preState(p, path, existed, wasLoaded, content), nil
 }
 
 // captureShell reads the blacklist file via cat + an absent sentinel.
-func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params) (*api.PreState, error) {
+func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params, wasLoaded bool) (*api.PreState, error) {
 	path := blacklistPath(p.Module)
 	cmd := fmt.Sprintf(
 		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
@@ -181,12 +189,12 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 	if existed {
 		content = res.Stdout
 	}
-	return h.preState(p, path, existed, content), nil
+	return h.preState(p, path, existed, wasLoaded, content), nil
 }
 
 // preState builds the canonical PreState shape used by both capture
 // paths, so Rollback is path-agnostic.
-func (h *Handler) preState(p *Params, path string, fileExisted bool, priorContent string) *api.PreState {
+func (h *Handler) preState(p *Params, path string, fileExisted, wasLoaded bool, priorContent string) *api.PreState {
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
@@ -196,14 +204,17 @@ func (h *Handler) preState(p *Params, path string, fileExisted bool, priorConten
 			"path":          path,
 			"file_existed":  fileExisted,
 			"prior_content": priorContent,
+			"was_loaded":    wasLoaded,
 		},
 	}
 }
 
-// Rollback removes the blacklist file (or restores prior content).
-// Re-enabling the module at runtime after removal can require a manual
-// step or reboot in some configurations — a disclosed limitation that
-// both paths share.
+// Rollback removes the blacklist file (or restores prior content), then —
+// when the module was loaded at capture — re-loads it and verifies it is
+// loaded again by reading /proc/modules back. A confirmed re-load is a
+// clean success; a module that does not come back is a verified-partial
+// restore with a remedy. A module that was NOT loaded at capture needs no
+// re-load: removing the blacklist already matches the prior runtime state.
 func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *api.PreState) (*api.RollbackResult, error) {
 	if pre == nil || pre.Data == nil {
 		return nil, errors.New("kernel_module_disable: rollback called with nil pre-state")
@@ -214,15 +225,18 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 	fileExisted, _ := pre.Data["file_existed"].(bool)
 	priorContent, _ := pre.Data["prior_content"].(string)
+	module, _ := pre.Data["module"].(string)
+	wasLoaded, _ := pre.Data["was_loaded"].(bool)
 
 	if mt, ok := transport.(kernelio.ModuleTransport); ok {
-		return h.rollbackKernel(ctx, mt, path, fileExisted, priorContent)
+		return h.rollbackKernel(ctx, mt, transport, path, fileExisted, priorContent, module, wasLoaded)
 	}
-	return h.rollbackShell(ctx, transport, path, fileExisted, priorContent)
+	return h.rollbackShell(ctx, transport, path, fileExisted, priorContent, module, wasLoaded)
 }
 
-// rollbackKernel restores or removes the blacklist drop-in atomically.
-func (h *Handler) rollbackKernel(ctx context.Context, mt kernelio.ModuleTransport, path string, fileExisted bool, priorContent string) (*api.RollbackResult, error) {
+// rollbackKernel restores or removes the blacklist drop-in atomically, then
+// re-loads the module when it was loaded at capture.
+func (h *Handler) rollbackKernel(ctx context.Context, mt kernelio.ModuleTransport, transport api.Transport, path string, fileExisted bool, priorContent, module string, wasLoaded bool) (*api.RollbackResult, error) {
 	if fileExisted {
 		if err := kernelio.WriteFile(ctx, mt, path, blacklistMode, []byte(priorContent)); err != nil {
 			return nil, fmt.Errorf("kernel_module_disable: rollback rewrite %s: %w", path, err)
@@ -230,15 +244,19 @@ func (h *Handler) rollbackKernel(ctx context.Context, mt kernelio.ModuleTranspor
 	} else if err := kernelio.RemoveFile(ctx, mt, path); err != nil {
 		return nil, fmt.Errorf("kernel_module_disable: rollback remove %s: %w", path, err)
 	}
+	if wasLoaded && module != "" {
+		return h.reenable(ctx, transport, path, module, fileExisted), nil
+	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("kernel_module_disable: restored %s (file_existed=%v) (kernel-io); module re-enable may require reboot", path, fileExisted),
+		Detail:     fmt.Sprintf("kernel_module_disable: restored %s (file_existed=%v) (kernel-io); module was not loaded at capture", path, fileExisted),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
 }
 
-// rollbackShell restores or removes the blacklist file via shell.
-func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileExisted bool, priorContent string) (*api.RollbackResult, error) {
+// rollbackShell restores or removes the blacklist file via shell, then
+// re-loads the module when it was loaded at capture.
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileExisted bool, priorContent, module string, wasLoaded bool) (*api.RollbackResult, error) {
 	var cmd string
 	if fileExisted {
 		cmd = fmt.Sprintf("printf '%%s' %s > %s", shellEscape(priorContent), shellEscape(path))
@@ -257,11 +275,86 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
+	if wasLoaded && module != "" {
+		return h.reenable(ctx, transport, path, module, fileExisted), nil
+	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("kernel_module_disable: restored %s (file_existed=%v); module re-enable may require reboot", path, fileExisted),
+		Detail:     fmt.Sprintf("kernel_module_disable: restored %s (file_existed=%v); module was not loaded at capture", path, fileExisted),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// procModules is the kernel's loaded-module list.
+const procModules = "/proc/modules"
+
+// normalizeModule maps a module name to the underscore form the kernel uses
+// in /proc/modules. modprobe accepts both "usb-storage" and "usb_storage",
+// but /proc/modules always reports the underscore form.
+func normalizeModule(name string) string { return strings.ReplaceAll(name, "-", "_") }
+
+// moduleLoaded reports whether the named module is present in the running
+// kernel, by reading /proc/modules. It uses the FileTransport read on the
+// agent path and a shell read otherwise, so it works on both transports.
+func moduleLoaded(ctx context.Context, transport api.Transport, module string) (bool, error) {
+	norm := normalizeModule(module)
+	var content string
+	if ft, ok := transport.(kernelio.FileTransport); ok {
+		c, _, err := ft.ReadFileIfExists(procModules)
+		if err != nil {
+			return false, err
+		}
+		content = c
+	} else {
+		res, err := transport.Run(ctx, "cat /proc/modules 2>/dev/null")
+		if err != nil {
+			return false, err
+		}
+		content = res.Stdout
+	}
+	for _, line := range strings.Split(content, "\n") {
+		if f := strings.Fields(line); len(f) > 0 && f[0] == norm {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// reloadCmd re-inserts a module via modprobe, which resolves dependencies
+// and module-image decompression. The rollback re-enable uses it (on both
+// transports) rather than a raw kernel load, so Kensa does not reimplement
+// the module loader for the rare re-enable case.
+func reloadCmd(module string) string {
+	return fmt.Sprintf("modprobe %s", shellEscape(module))
+}
+
+// reenable re-loads a module that was loaded at capture and verifies it is
+// loaded again by reading /proc/modules back. A confirmed re-load is a
+// clean success; a module that does not come back (in-use conflict,
+// boot-time-only, or a load error) is a verified-partial restore with a
+// remedy — never a silent success. The blacklist drop-in has already been
+// restored/removed by the caller, so modprobe is no longer blocked by the
+// install-/bin/true line.
+func (h *Handler) reenable(ctx context.Context, transport api.Transport, path, module string, fileExisted bool) *api.RollbackResult {
+	res, runErr := transport.Run(ctx, reloadCmd(module))
+	loaded, verifyErr := moduleLoaded(ctx, transport, module)
+	if verifyErr == nil && loaded {
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("kernel_module_disable: restored %s (file_existed=%v) and re-loaded %s, verified", path, fileExisted, module),
+			ExecutedAt: time.Now().UTC(),
+		}
+	}
+	detail := fmt.Sprintf("kernel_module_disable: restored %s (file_existed=%v) but module %s did not re-load; remedy: 'modprobe %s' or reboot", path, fileExisted, module, module)
+	if runErr == nil && res != nil && !res.OK() {
+		detail += fmt.Sprintf(" (modprobe exit %d)", res.ExitCode)
+	}
+	return &api.RollbackResult{
+		Success:        false,
+		PartialRestore: true,
+		Detail:         detail,
+		ExecutedAt:     time.Now().UTC(),
+	}
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.

@@ -1,6 +1,6 @@
 spec:
     id: handler-crypto-policy-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -23,8 +23,11 @@ spec:
                 - Set the policy via update-crypto-policies --set
                 - Capture of the prior policy via --show
                 - Rollback restoring the prior policy
+                - Rollback verifies the live policy by reading it back with --show
+                - Running-daemon staleness reported as a remedy, not a failed restore
             excludes:
                 - Custom subpolicy management (use crypto_policy_subpolicy)
+                - Restarting long-lived daemons (operator action; reported as remedy)
     constraints:
         - id: C-01
           description: |
@@ -59,6 +62,17 @@ spec:
               production hosts.
           type: security
           enforcement: warning
+        - id: C-06
+          description: |
+              Rollback MUST verify the restore took by reading the live
+              policy back via `update-crypto-policies --show` and comparing
+              it to the captured prior policy. A mismatch (or an
+              unverifiable read-back) MUST be reported as a failed restore,
+              never a silent success. Already-running services that retain
+              their startup-time crypto are reported as a remedy in the
+              detail, not counted as a restore failure.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply sets the crypto policy via update-crypto-policies --set.
@@ -78,6 +92,13 @@ spec:
           description: decodeParams rejects a missing or empty policy param.
           references_constraints: [C-04]
           priority: high
+        - id: AC-05
+          description: |
+              Rollback reads the live policy back via --show: a match
+              reports success and carries the running-daemon remedy note;
+              a mismatch reports a failed (unverified) restore.
+          references_constraints: [C-06]
+          priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires

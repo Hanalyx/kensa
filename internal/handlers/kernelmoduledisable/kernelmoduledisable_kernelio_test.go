@@ -116,6 +116,90 @@ func TestRoundTrip_Kernel_RestoresPrior(t *testing.T) {
 	}
 }
 
+// Capture records was_loaded=true when the module is present in
+// /proc/modules (matched in the kernel's underscore form).
+//
+// @spec kernelio-module
+// @ac AC-05
+// @spec handler-kernel-module-disable
+// @ac AC-04
+func TestCapture_Kernel_RecordsLoaded(t *testing.T) {
+	t.Run("kernelio-module/AC-05", func(t *testing.T) {})
+	t.Run("handler-kernel-module-disable/AC-04", func(t *testing.T) {})
+	f := kernelio.NewFakeSysctl()
+	f.Files["/proc/modules"] = "usb_storage 12345 0 - Live 0x0\next4 900 1 - Live 0x0\n"
+	pre, err := kernelmoduledisable.New().Capture(context.Background(), f, api.Params{"name": "usb-storage"})
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if pre.Data["was_loaded"] != true {
+		t.Errorf("want was_loaded=true, got %+v", pre.Data)
+	}
+}
+
+// Rollback re-loads a module that was loaded at capture and verifies it is
+// loaded again via /proc/modules → clean success, with a modprobe attempt.
+//
+// @spec kernelio-module
+// @ac AC-05
+// @spec handler-kernel-module-disable
+// @ac AC-04
+func TestRollback_Kernel_ReenablesLoadedModule(t *testing.T) {
+	t.Run("kernelio-module/AC-05", func(t *testing.T) {})
+	t.Run("handler-kernel-module-disable/AC-04", func(t *testing.T) {})
+	f := kernelio.NewFakeSysctl()
+	f.Files[blPath] = "# pre\nblacklist usb-storage\n"
+	// The module reads back as loaded after the re-load.
+	f.Files["/proc/modules"] = "usb_storage 12345 0 - Live 0x0\n"
+	pre := &api.PreState{Data: map[string]interface{}{
+		"module": "usb-storage", "path": blPath,
+		"file_existed": true, "prior_content": "# pre\nblacklist usb-storage\n", "was_loaded": true,
+	}}
+	rb, err := kernelmoduledisable.New().Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !rb.Success {
+		t.Errorf("want clean success when the module re-loads; detail=%q", rb.Detail)
+	}
+	var sawModprobe bool
+	for _, c := range f.Runs {
+		if strings.Contains(c, "modprobe 'usb-storage'") {
+			sawModprobe = true
+		}
+	}
+	if !sawModprobe {
+		t.Errorf("expected a modprobe re-load; Runs=%v", f.Runs)
+	}
+}
+
+// Rollback reports a verified-partial restore when a module loaded at
+// capture does not come back after the re-load (in-use / boot-only).
+//
+// @spec kernelio-module
+// @ac AC-05
+// @spec handler-kernel-module-disable
+// @ac AC-04
+func TestRollback_Kernel_PartialWhenModuleStaysUnloaded(t *testing.T) {
+	t.Run("kernelio-module/AC-05", func(t *testing.T) {})
+	t.Run("handler-kernel-module-disable/AC-04", func(t *testing.T) {})
+	f := kernelio.NewFakeSysctl()
+	// /proc/modules never shows usb_storage → the re-load did not take.
+	f.Files["/proc/modules"] = "ext4 900 1 - Live 0x0\n"
+	pre := &api.PreState{Data: map[string]interface{}{
+		"module": "usb-storage", "path": blPath,
+		"file_existed": false, "prior_content": "", "was_loaded": true,
+	}}
+	rb, err := kernelmoduledisable.New().Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("want Success=false, PartialRestore=true; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+}
+
 // Fallback: a transport without the kernelio capability uses the shell path.
 //
 // @spec kernelio-module

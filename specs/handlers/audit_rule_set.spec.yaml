@@ -1,6 +1,6 @@
 spec:
     id: handler-audit-rule-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -36,6 +36,17 @@ spec:
           description: Rollback restores prior file and reloads augenrules.
           type: security
           enforcement: error
+        - id: C-04
+          description: |
+              On the shell path, after augenrules --load Rollback MUST
+              check the audit status (auditctl -s) and, when the config is
+              immutable (enabled 2), report a verified-partial restore
+              (Success=false, PartialRestore=true) with a reboot remedy —
+              the file is restored but the live ruleset cannot be
+              reconciled. A clean exit alone MUST NOT be reported as success
+              when the live ruleset could not change.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes the rule file and runs augenrules --load.
@@ -48,6 +59,13 @@ spec:
         - id: AC-03
           description: Rollback removes file (when absent at capture) and reloads.
           references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Shell rollback on an immutable audit config (enabled 2)
+              reports a verified-partial restore with a reboot remedy
+              rather than a clean success.
+          references_constraints: [C-04]
           priority: critical
     depends_on:
         - spec_id: handler-interface

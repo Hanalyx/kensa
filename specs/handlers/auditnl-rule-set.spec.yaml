@@ -1,6 +1,6 @@
 spec:
     id: auditnl-rule-set
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -87,6 +87,16 @@ spec:
               existed at capture and remove it when it did not.
           type: technical
           enforcement: error
+        - id: C-05
+          description: |
+              After unloading added_rules, Rollback MUST read the live rule
+              list back (AUDIT_LIST_RULES) and confirm none of the added
+              rules remain loaded. A rule still present (a kernel that
+              accepted DeleteRule without removing it), or a read-back that
+              fails, MUST be reported as a verified-partial restore
+              (Success=false, PartialRestore=true), never a silent success.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -122,6 +132,13 @@ spec:
               the transport lacks the audit capability and when AuditClient()
               returns ErrAuditUnavailable.
           references_constraints: [C-02]
+          priority: critical
+        - id: AC-06
+          description: |
+              Netlink Rollback reads the live rule list back and reports a
+              verified-partial restore when a rule it added is still loaded
+              after the unload attempt.
+          references_constraints: [C-05]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]

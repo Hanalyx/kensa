@@ -85,9 +85,13 @@ func TestRoundTrip_Kernel(t *testing.T) {
 	if !strings.Contains(f.Files["/etc/fstab"], "defaults,nodev") {
 		t.Fatalf("apply did not add the option:\n%s", f.Files["/etc/fstab"])
 	}
+	// The rollback read-back verify must observe /tmp with nodev gone.
+	f.RunResults = map[string]*api.CommandResult{
+		"findmnt -rno OPTIONS '/tmp'": {Stdout: "rw,relatime\n"},
+	}
 	rb, err := h.Rollback(context.Background(), f, pre)
 	if err != nil || !rb.Success {
-		t.Fatalf("Rollback: err=%v success=%v", err, rb.Success)
+		t.Fatalf("Rollback: err=%v success=%v detail=%s", err, rb.Success, rb.Detail)
 	}
 	if l, _ := kernelio.FstabFindLine(f.Files["/etc/fstab"], "/tmp"); l != "UUID=bbbb /tmp ext4 defaults 0 2" {
 		t.Errorf("rolled-back /tmp line = %q, want the prior line", l)

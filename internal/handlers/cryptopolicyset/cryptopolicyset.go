@@ -17,6 +17,18 @@ import (
 // mechanism is the canonical handler name.
 const mechanism = "crypto_policy_set"
 
+// showCmd reads the active system-wide crypto policy. Shared by Capture
+// (to record the prior policy) and Rollback (to verify the restore took).
+const showCmd = "update-crypto-policies --show 2>/dev/null"
+
+// daemonRemedy is appended to a verified-restore detail. update-crypto-policies
+// rewrites the policy files and back-end configs, but a service that already
+// read its crypto config at startup keeps using it until restarted. The
+// verdict is scoped to the policy itself (which this handler owns and verifies);
+// reconciling long-lived daemons is an operator action, stated here as the
+// remedy rather than counted as a failed restore.
+const daemonRemedy = "; already-running services keep their startup crypto until restarted (e.g. systemctl restart sshd)"
+
 // Params is the decoded parameter struct for the crypto_policy_set
 // mechanism.
 type Params struct {
@@ -87,7 +99,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		return nil, err
 	}
 
-	res, err := transport.Run(ctx, "update-crypto-policies --show 2>/dev/null")
+	res, err := transport.Run(ctx, showCmd)
 	if err != nil {
 		return nil, fmt.Errorf("crypto_policy_set: capture transport error: %w", err)
 	}
@@ -107,7 +119,16 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	}, nil
 }
 
-// Rollback restores the prior crypto policy. Idempotent.
+// Rollback restores the prior crypto policy and verifies the live policy
+// matches by reading it back with `--show`. Idempotent.
+//
+// The verdict is scoped to the crypto policy, which this handler owns:
+// a read-back that confirms the prior policy is a clean success; a
+// mismatch (or an unverifiable read-back) is a failure, not a silent
+// claim. Already-running services that hold startup-time crypto are
+// reported as the remedy (daemonRemedy), not a failed restore — the same
+// way every config handler leaves a running daemon's reload to the
+// operator.
 func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *api.PreState) (*api.RollbackResult, error) {
 	if pre == nil || pre.Data == nil {
 		return nil, errors.New("crypto_policy_set: rollback called with nil pre-state")
@@ -129,9 +150,23 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
+
+	// Verify the restore took by reading the live policy back.
+	show, err := transport.Run(ctx, showCmd)
+	if err != nil {
+		return nil, fmt.Errorf("crypto_policy_set: rollback verify transport error: %w", err)
+	}
+	got := strings.TrimSpace(show.Stdout)
+	if !show.OK() || got != priorPolicy {
+		return &api.RollbackResult{
+			Success:    false,
+			Detail:     fmt.Sprintf("crypto_policy_set: restore unverified — live policy is %q, want %q", got, priorPolicy),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("crypto_policy_set: policy restored to %s", priorPolicy),
+		Detail:     fmt.Sprintf("crypto_policy_set: policy restored to %s and verified%s", priorPolicy, daemonRemedy),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
 }

@@ -20,6 +20,10 @@ type FakeAuditTransport struct {
 	// OpenErr, when set, is returned by AuditClient() — set it to
 	// ErrAuditUnavailable to exercise the shell fallback.
 	OpenErr error
+	// DeleteNoop, when true, makes DeleteRule return nil WITHOUT removing
+	// the rule — modeling a kernel that accepts the call but leaves the
+	// rule loaded, so the rollback read-back verify can be exercised.
+	DeleteNoop bool
 }
 
 // NewFakeAudit returns a FakeAuditTransport with initialized state.
@@ -52,6 +56,9 @@ func (c *fakeAuditClient) AddRule(wire []byte) error {
 }
 
 func (c *fakeAuditClient) DeleteRule(wire []byte) error {
+	if c.t.DeleteNoop {
+		return nil // accepted but not removed (immutable-kernel model)
+	}
 	delete(c.t.Loaded, key(wire))
 	return nil
 }

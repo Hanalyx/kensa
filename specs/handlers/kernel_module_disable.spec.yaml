@@ -1,6 +1,6 @@
 spec:
     id: handler-kernel-module-disable
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -19,26 +19,36 @@ spec:
             includes:
                 - blacklist + install /bin/true in /etc/modprobe.d/
                 - modprobe -r (best-effort unload)
-                - capture of prior blacklist file state
-                - rollback removing blacklist file
+                - capture of prior blacklist file state and module load-state
+                - rollback removing/restoring the blacklist file
+                - rollback re-loading a was-loaded module (modprobe) and verifying via /proc/modules
             excludes:
-                - Module re-enable (requires reboot in many configs)
+                - reimplementing the module loader (modprobe is reused for re-load)
     constraints:
         - id: C-01
           description: Apply MUST write blacklist and install entries. Idempotent.
           type: technical
           enforcement: error
         - id: C-02
-          description: Capture records file_existed and prior_content.
+          description: Capture records file_existed, prior_content, and was_loaded.
           type: security
           enforcement: error
         - id: C-03
           description: |
               Rollback removes the blacklist file when file_existed=false
-              or restores prior_content when file_existed=true. Module
-              re-enable after rollback may require reboot.
+              or restores prior_content when file_existed=true.
           type: security
-          enforcement: warning
+          enforcement: error
+        - id: C-04
+          description: |
+              When the module was loaded at capture (was_loaded=true),
+              Rollback MUST re-load it via modprobe and verify it is loaded
+              again by reading /proc/modules back: a confirmed re-load is a
+              clean success; a module that does not return is a
+              verified-partial restore (Success=false, PartialRestore=true)
+              with a remedy. A module not loaded at capture needs no re-load.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes blacklist file and runs modprobe -r.
@@ -51,6 +61,14 @@ spec:
         - id: AC-03
           description: Rollback removes blacklist file when absent at capture.
           references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Capture records was_loaded; rollback re-loads a was-loaded
+              module and verifies via /proc/modules — a confirmed re-load is
+              a clean success, a module that stays unloaded is a
+              verified-partial restore with a remedy.
+          references_constraints: [C-04]
           priority: critical
     depends_on:
         - spec_id: handler-interface

@@ -1,6 +1,6 @@
 spec:
     id: kernelio-module
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -37,8 +37,10 @@ spec:
                 - kernelio.DeleteModule (delete_module(2), best-effort, ENOENT→ErrModuleNotLoaded)
                 - kernelio.ModuleTransport capability (FileTransport + DeleteModule)
                 - kernel_module_disable dual-path Apply/Capture/Rollback
+                - Capture records was_loaded (module present in /proc/modules)
+                - Rollback re-loads a was-loaded module via modprobe and verifies via /proc/modules
             excludes:
-                - module RELOAD on rollback (not done on either path; reboot may be required)
+                - a raw kernel module loader (finit_module/libkmod) — modprobe is reused for re-load
                 - the shell path's behavior (handler-kernel-module-disable)
 
     constraints:
@@ -60,7 +62,7 @@ spec:
               failed unload (in use / not loaded) MUST NOT fail Apply, and
               the blacklist drop-in MUST still be written. Both paths MUST
               record an identical PreState shape (module, path,
-              file_existed, prior_content).
+              file_existed, prior_content, was_loaded).
           type: technical
           enforcement: error
         - id: C-03
@@ -71,6 +73,18 @@ spec:
               so a host with a pre-existing operator blacklist is left
               exactly as found.
           type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Capture MUST record was_loaded — whether the module is present
+              in /proc/modules (matched in the kernel underscore form). When
+              was_loaded is true, Rollback MUST re-load the module via
+              modprobe and verify it is loaded again by reading /proc/modules
+              back: a confirmed re-load is a clean success; a module that
+              does not return (in-use / boot-only / load error) MUST be a
+              verified-partial restore (Success=false, PartialRestore=true)
+              with a remedy. A module not loaded at capture needs no re-load.
+          type: security
           enforcement: error
 
     acceptance_criteria:
@@ -102,6 +116,14 @@ spec:
               A transport without the kernelio capability falls back to the
               modprobe + shell file-write path.
           references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              Capture records was_loaded=true for a module present in
+              /proc/modules; Rollback re-loads a was-loaded module and
+              verifies via /proc/modules — a confirmed re-load is success, a
+              module that stays unloaded is a verified-partial restore.
+          references_constraints: [C-04]
           priority: critical
 
     tags: [handler, kernelio, kernel-module, modprobe, agent, tier-1, phase-6]

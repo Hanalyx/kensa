@@ -123,6 +123,62 @@ func TestRollback_Netlink_KeepsPreexisting(t *testing.T) {
 	}
 }
 
+// Netlink rollback reads the live rule list back: if a rule it added is
+// still loaded after the unload (a kernel that accepted DeleteRule but did
+// not remove it), the verdict is a verified-partial restore, not success.
+//
+// @spec auditnl-rule-set
+// @ac AC-06
+func TestRollback_Netlink_PartialWhenStillLoaded(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-06", func(t *testing.T) {})
+	f := auditnl.NewFakeAudit()
+	f.DeleteNoop = true // kernel "accepts" the unload but leaves the rule
+	h := auditruleset.New()
+	params := api.Params{"rule": ruleLine}
+
+	pre, err := h.Capture(context.Background(), f, params)
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if _, err := h.Apply(context.Background(), f, params, nil); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	rb, err := h.Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("want Success=false, PartialRestore=true when a rule stays loaded; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+}
+
+// Shell rollback on an immutable audit config (enabled 2) reports a
+// verified-partial restore: the file is restored but the live ruleset is
+// locked until reboot, so a clean success would be an overclaim.
+//
+// @spec handler-audit-rule-set
+// @ac AC-04
+func TestRollback_Shell_PartialWhenImmutable(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-04", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	tp.Results["auditctl -s 2>/dev/null"] = &api.CommandResult{Stdout: "enabled 2\nfailure 1\n"}
+	rb, err := auditruleset.New().Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"path":          auditPath,
+			"file_existed":  false,
+			"prior_content": "",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("want Success=false, PartialRestore=true on immutable audit; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+}
+
 // Fallback: AuditClient unavailable → augenrules shell path.
 //
 // @spec auditnl-rule-set

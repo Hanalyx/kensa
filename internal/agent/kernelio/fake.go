@@ -27,6 +27,11 @@ type FakeSysctlTransport struct {
 	// Runs records shell commands issued via Run (e.g. the mount handler's
 	// remount, which stays on mount(8) even on the kernel-IO path).
 	Runs []string
+	// RunResults programs the result for a Run command (keyed by the exact
+	// command string), so a test can feed read-back queries — findmnt for
+	// the mount verify, modprobe / grep /proc/modules for the module
+	// re-load. A command with no entry returns exit-0 with empty output.
+	RunResults map[string]*api.CommandResult
 
 	// DeletedModules records DeleteModule calls (the module handler's
 	// runtime unload). DeleteModuleErr, keyed by module name, injects an
@@ -124,6 +129,9 @@ func (f *FakeSysctlTransport) AtomicRemove(_ context.Context, fullPath string) e
 // path never calls it; the mount kernel-IO path uses it for the remount.
 func (f *FakeSysctlTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
 	f.Runs = append(f.Runs, cmd)
+	if r, ok := f.RunResults[cmd]; ok {
+		return r, nil
+	}
 	return &api.CommandResult{ExitCode: 0}, nil
 }
 

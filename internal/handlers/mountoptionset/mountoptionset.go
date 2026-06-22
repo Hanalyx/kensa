@@ -344,9 +344,17 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 	if step := remount(ctx, transport, mountPoint, "rollback"); step != nil {
 		return &api.RollbackResult{Success: false, Detail: step.Detail, ExecutedAt: time.Now().UTC()}, nil
 	}
+	if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine); !ok {
+		return &api.RollbackResult{
+			Success:        false,
+			PartialRestore: true,
+			Detail:         fmt.Sprintf("mount_option_set: fstab restored for %s but runtime not reconciled — %s; remedy: manual remount or reboot (kernel-io)", mountPoint, why),
+			ExecutedAt:     time.Now().UTC(),
+		}, nil
+	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("mount_option_set: restored fstab entry and remounted %s (kernel-io)", mountPoint),
+		Detail:     fmt.Sprintf("mount_option_set: restored fstab entry and remounted %s, verified live options (kernel-io)", mountPoint),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
 }
@@ -373,11 +381,80 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, mo
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
+	if ok, why := verifyRemount(ctx, transport, mountPoint, priorLine); !ok {
+		return &api.RollbackResult{
+			Success:        false,
+			PartialRestore: true,
+			Detail:         fmt.Sprintf("mount_option_set: fstab restored for %s but runtime not reconciled — %s; remedy: manual remount or reboot", mountPoint, why),
+			ExecutedAt:     time.Now().UTC(),
+		}, nil
+	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("mount_option_set: restored fstab entry and remounted %s", mountPoint),
+		Detail:     fmt.Sprintf("mount_option_set: restored fstab entry and remounted %s, verified live options", mountPoint),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// verifiableMountOpts are the toggle options whose live presence the
+// rollback verifies against the restored fstab line. These are the
+// security options mount_option_set manages (the CIS nodev/nosuid/noexec
+// set); kernel-implicit options (rw, relatime, seclabel, …) carry no fstab
+// intent and are ignored.
+var verifiableMountOpts = []string{"nodev", "nosuid", "noexec"}
+
+// liveOptionsCmd reads the active mount options for a mount point. findmnt
+// is util-linux (present on RHEL and Ubuntu); -rno OPTIONS prints just the
+// comma-separated option list for the one mount.
+func liveOptionsCmd(mountPoint string) string {
+	return fmt.Sprintf("findmnt -rno OPTIONS %s", shellEscape(mountPoint))
+}
+
+// optionSet splits a comma-separated mount-option string into a set.
+func optionSet(s string) map[string]bool {
+	set := make(map[string]bool)
+	for _, o := range strings.Split(s, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			set[o] = true
+		}
+	}
+	return set
+}
+
+// fstabOptionSet returns the option field (field 4) of an fstab line as a set.
+func fstabOptionSet(line string) map[string]bool {
+	fields := strings.Fields(line)
+	if len(fields) < 4 {
+		return map[string]bool{}
+	}
+	return optionSet(fields[3])
+}
+
+// verifyRemount reads the live mount options back and checks that each
+// verifiable toggle option's live presence matches the restored fstab
+// line's intent. It returns ok=true only when the read-back succeeds and
+// every verifiable option agrees; an unreadable mount table or any
+// divergence returns ok=false with a human detail, so the caller reports a
+// verified-partial restore rather than a silent success. A remount is
+// always live-reconcilable, so a divergence here means the runtime did not
+// actually take the restored options — operator attention (manual remount
+// or reboot) is warranted.
+func verifyRemount(ctx context.Context, transport api.Transport, mountPoint, priorLine string) (bool, string) {
+	res, err := transport.Run(ctx, liveOptionsCmd(mountPoint))
+	if err != nil {
+		return false, fmt.Sprintf("live mount options could not be read back: %v", err)
+	}
+	if !res.OK() || strings.TrimSpace(res.Stdout) == "" {
+		return false, "live mount options could not be read back (findmnt returned nothing)"
+	}
+	live := optionSet(res.Stdout)
+	want := fstabOptionSet(priorLine)
+	for _, o := range verifiableMountOpts {
+		if want[o] != live[o] {
+			return false, fmt.Sprintf("live option %q=%v but restored fstab intends %v", o, live[o], want[o])
+		}
+	}
+	return true, ""
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.
