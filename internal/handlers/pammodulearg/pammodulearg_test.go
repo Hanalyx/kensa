@@ -110,8 +110,9 @@ func TestCapture_RecordsAffectedLines(t *testing.T) {
 	t.Run("handler-pam-module-arg/AC-04", func(t *testing.T) {})
 	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
-	captureCmd := `grep -n 'pam_unix.so' '/etc/pam.d/system-auth' 2>/dev/null || true`
-	tp.Results[captureCmd] = &api.CommandResult{Stdout: "5:auth required pam_unix.so\n"}
+	const prior = "auth required pam_unix.so\naccount required pam_unix.so\n"
+	captureCmd := `test -e '/etc/pam.d/system-auth' && cat '/etc/pam.d/system-auth' || printf '__KENSA_ABSENT__'`
+	tp.Results[captureCmd] = &api.CommandResult{Stdout: prior}
 	h := pammodulearg.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
 		"action": "ensure",
@@ -122,13 +123,17 @@ func TestCapture_RecordsAffectedLines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
 	}
-	snap, ok := pre.Data["files_snapshot"].(map[string]interface{})
+	content, ok := pre.Data["files_content"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("missing files_snapshot; data=%v", pre.Data)
+		t.Fatalf("missing files_content; data=%v", pre.Data)
 	}
-	got, _ := snap["/etc/pam.d/system-auth"].(string)
-	if !strings.Contains(got, "pam_unix.so") {
-		t.Errorf("snapshot did not record the affected line; got %q", got)
+	got, _ := content["/etc/pam.d/system-auth"].(string)
+	if got != prior {
+		t.Errorf("capture did not record the whole prior content; got %q want %q", got, prior)
+	}
+	existed, _ := pre.Data["files_existed"].(map[string]interface{})
+	if e, _ := existed["/etc/pam.d/system-auth"].(bool); !e {
+		t.Errorf("expected files_existed[file]=true; data=%v", pre.Data)
 	}
 }
 

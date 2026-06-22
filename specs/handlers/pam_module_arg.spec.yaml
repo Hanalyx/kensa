@@ -1,6 +1,6 @@
 spec:
     id: handler-pam-module-arg
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
     context:
@@ -43,15 +43,20 @@ spec:
           enforcement: error
         - id: C-03
           description: |
-              Capture MUST record the affected module lines (a grep -n
-              snapshot) for each file before Apply edits it.
+              Capture MUST record each file's WHOLE prior content and its
+              existence before Apply edits it (keyed by path), so rollback can
+              restore the file byte-perfect across either transport. Legacy
+              grep-snapshot pre-states (files_snapshot) MUST remain
+              rollback-compatible.
           type: security
           enforcement: error
         - id: C-04
           description: |
-              Rollback MUST restore the captured lines verbatim, falling
-              back to the on-host .bak copy when no lines were captured for
-              a file.
+              Rollback MUST restore each file to its captured prior content
+              verbatim (removing a file that was absent at capture). For a
+              legacy snapshot pre-state it MUST fall back to the prior
+              line-restore (with the on-host .bak copy when no lines were
+              captured for a file).
           type: security
           enforcement: error
         - id: C-05
@@ -68,6 +73,21 @@ spec:
               running against production hosts.
           type: security
           enforcement: warning
+        - id: C-07
+          description: |
+              In agent mode (transport implements kernelio.FileTransport),
+              Apply MUST edit each PAM file by reading it, transforming the
+              content in Go (the sed-equivalent: ensure appends the arg to
+              matching module lines, remove strips it — arg taken as an
+              extended regex when arg_regex is set), and writing it back
+              atomically through the funnel (kernelio.WriteFile) so the
+              footprint recorder observes exactly the files it touches; an
+              unchanged file is not rewritten. Rollback MUST restore through
+              the funnel. CapturedFootprint MUST declare every captured PAM
+              file (from files_content, or files_snapshot for a legacy
+              pre-state). The direct-SSH sed -i.bak fallback is preserved.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply "ensure" appends the arg to matching module lines when absent.
@@ -82,17 +102,29 @@ spec:
           references_constraints: [C-02]
           priority: critical
         - id: AC-04
-          description: Capture records the affected module lines per file.
+          description: Capture records each file's whole prior content and existence.
           references_constraints: [C-03]
           priority: critical
         - id: AC-05
-          description: Rollback restores the captured lines.
+          description: |
+              Rollback restores each file's captured content byte-perfect;
+              a legacy files_snapshot pre-state still restores via the
+              line-restore path.
           references_constraints: [C-04]
           priority: critical
         - id: AC-06
           description: decodeParams rejects missing or invalid params.
           references_constraints: [C-05]
           priority: high
+        - id: AC-07
+          description: |
+              Agent-mode Apply edits PAM files through the funnel (ensure
+              appends, remove strips incl. the regex case), is a no-op when
+              already satisfied, and round-trip rollback restores byte-perfect
+              across multiple files; CapturedFootprint declares every captured
+              file (and a legacy snapshot pre-state too).
+          references_constraints: [C-07]
+          priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires
