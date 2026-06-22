@@ -196,7 +196,7 @@ func missingDirLevels(path string, inspect Inspector) []string {
 // realInspect reads the canonical path + pre-image from the local
 // filesystem. Symlinks are refused (matching the fsatomic contract).
 func realInspect(path string) (string, PreImage, error) {
-	canon := canonicalize(path)
+	canon := Canonicalize(path)
 	fi, err := os.Lstat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return canon, PreImage{Absent: true}, nil
@@ -224,11 +224,11 @@ func realInspect(path string) (string, PreImage, error) {
 	return canon, pre, nil
 }
 
-// canonicalize resolves symlinks in the PARENT directory (which must exist
+// Canonicalize resolves symlinks in the PARENT directory (which must exist
 // for any write) and rejoins the base, so a symlinked parent cannot let an
 // apply touch one path while declaring another. Falls back to a lexical
 // clean when the parent does not resolve (e.g. a to-be-created tree).
-func canonicalize(path string) string {
+func Canonicalize(path string) string {
 	dir := filepath.Dir(path)
 	if real, err := filepath.EvalSymlinks(dir); err == nil {
 		return filepath.Join(real, filepath.Base(path))

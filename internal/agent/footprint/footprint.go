@@ -22,8 +22,11 @@
 package footprint
 
 import (
+	"fmt"
 	"io/fs"
 	"sort"
+
+	"github.com/Hanalyx/kensa/api"
 )
 
 // Op is the kind of mutation applied to a resource — which determines how
@@ -157,4 +160,61 @@ func Uncovered(observed, captured *Footprint) []string {
 	}
 	sort.Strings(miss)
 	return miss
+}
+
+// Gate canonicalizes both footprints and returns the observed paths not
+// covered by captured. Canonicalizing both sides means a handler may declare
+// its captured footprint with raw paths: a symlinked parent (which the
+// recorder already resolved on the observed side) cannot cause a spurious
+// gate failure. An empty result means the apply touched nothing it did not
+// capture.
+func Gate(observed, captured *Footprint) []string {
+	return Uncovered(canonicalized(observed), canonicalized(captured))
+}
+
+// canonicalized returns a copy of f re-keyed by canonical path. Idempotent
+// on a footprint whose paths are already canonical (the observed side).
+func canonicalized(f *Footprint) *Footprint {
+	out := New()
+	for _, e := range f.Entries() {
+		e.Path = Canonicalize(e.Path)
+		out.Add(e)
+	}
+	return out
+}
+
+// Footprinter is the optional capability a capturable handler implements to
+// opt into the pre-commit footprint gate: given the pre-state it recorded,
+// it declares the CAPTURED footprint — the set of resources it intends to
+// touch, each with the pre-image its rollback can restore. The agent asserts
+// it after Apply and fails the step if the observed footprint is not a
+// subset (apply touched something the handler did not capture, so rollback
+// would be incomplete). A handler that does not implement it is not gated —
+// capture-completeness stays a review promise for it until it opts in, so
+// the gate rolls out per-handler with no flip-everything-at-once regression.
+type Footprinter interface {
+	CapturedFootprint(pre *api.PreState) (*Footprint, error)
+}
+
+// SingleFile builds a captured footprint for a handler that touches exactly
+// one file, whose path is recorded at pre.Data[pathKey]. The op is derived
+// from a "file_existed" flag when present (absent → create, else modify) and
+// is informational — the gate compares paths. It returns an error if the
+// path key is missing, so a handler opting into the gate cannot silently
+// declare an empty footprint.
+func SingleFile(pre *api.PreState, pathKey string) (*Footprint, error) {
+	if pre == nil || pre.Data == nil {
+		return nil, fmt.Errorf("footprint: nil pre-state")
+	}
+	path, _ := pre.Data[pathKey].(string)
+	if path == "" {
+		return nil, fmt.Errorf("footprint: pre-state missing %q", pathKey)
+	}
+	op := OpModify
+	if existed, ok := pre.Data["file_existed"].(bool); ok && !existed {
+		op = OpCreate
+	}
+	f := New()
+	f.Add(Entry{Path: path, Op: op})
+	return f, nil
 }
