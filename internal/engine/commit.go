@@ -118,7 +118,9 @@ func (e *Engine) finalize(
 		result.CommittedAt = nil
 		result.RolledBackAt = nil
 		envelope.Decision = api.StatusErrored
-		envelope.Signature = nil
+		// Empty (non-nil) signature, not nil: the demoted-errored row must
+		// persist into the NOT-NULL envelope_sig column (see erroredEnvelope).
+		envelope.Signature = []byte{}
 		envelope.SigningKeyID = ""
 	} else {
 		envelope.Signature = sig
@@ -262,5 +264,10 @@ func erroredEnvelope(txn *api.Transaction, startedAt, finishedAt time.Time) *api
 		Decision:      api.StatusErrored,
 		Severity:      txn.Severity,
 		FrameworkRefs: txn.FrameworkRefs,
+		// Empty (non-nil) signature is the unsigned-errored sentinel: it
+		// persists into the NOT-NULL envelope_sig column (a nil would violate
+		// it and drop the errored row from the audit log), and it tells
+		// verification tooling this row was never signed.
+		Signature: []byte{},
 	}
 }

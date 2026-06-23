@@ -395,3 +395,42 @@ func TestStore_SatisfiesLogQuerySurface(t *testing.T) {
 		t.Error("SQLite does not satisfy Aggregate")
 	}
 }
+
+// An Errored transaction whose evidence envelope is UNSIGNED (nil signature)
+// MUST still persist into the NOT-NULL envelope_sig column and read back. The
+// engine's AC-12 test uses a fake store that does not enforce the constraint,
+// which is how the nil-signature regression slipped through; this exercises the
+// real SQLite store, where envelope_sig is BLOB NOT NULL.
+//
+// @spec engine-transaction
+// @ac AC-12
+func TestStore_AC12_ErroredNilSignaturePersists(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-12")
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	res := sampleTransaction(t, api.StatusErrored, "rule-err", "host-err")
+	res.Envelope.Decision = api.StatusErrored
+	res.Envelope.SigningKeyID = ""
+	res.Envelope.Signature = nil // the unsigned-errored case AC-12 names explicitly
+
+	if err := s.PersistResult(ctx, res); err != nil {
+		t.Fatalf("PersistResult of errored txn with nil signature must succeed: %v", err)
+	}
+
+	rec, err := s.Get(ctx, res.TransactionID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if rec.Status != api.StatusErrored {
+		t.Errorf("status = %q, want errored", rec.Status)
+	}
+	if rec.Envelope == nil {
+		t.Fatal("errored row has no envelope")
+	}
+	// Persisted as the empty (non-nil) unsigned sentinel, not a real signature.
+	if len(rec.Envelope.Signature) != 0 {
+		t.Errorf("expected empty unsigned-signature sentinel, got %d bytes", len(rec.Envelope.Signature))
+	}
+}
