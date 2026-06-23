@@ -1,16 +1,16 @@
 # Integration
 
-**Stub.** Content forthcoming. Until this chapter lands, the
-authoritative source for this topic is:
+_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
 
-- The relevant binary's `--help` output
-- The `.spec.yaml` file(s) under `specs/` for the components
-  involved
-- The atomicity contract guarantees described in
-  [`README.md`](../../README.md) and
-  [`03-concepts.md`](03-concepts.md)
+This chapter is for programs that **embed** Kensa (notably OpenWatch) rather
+than run the CLI — consuming its `api`/`pkg/kensa` Go surfaces. The division of
+labor: Kensa is to a single host what `git` is to a repository; OpenWatch (or
+your own control plane) presents, schedules, and aggregates across a fleet, and
+never re-implements what Kensa does for one host. Embedders import the **frozen**
+`api/` contract (semver-stable; additive-only) plus the assembly layer
+`pkg/kensa` (public, not frozen).
 
-One pointer that IS current: programs importing the `api` Go package
+Programs importing the `api` Go package
 (`github.com/Hanalyx/kensa/api`) should read a scan's compliance verdicts
 from `ScanResult.Outcomes` (since v0.3.0) — one `RuleOutcome` per rule
 with a `ComplianceStatus` of `pass` / `fail` / `skipped` / `error`, the
