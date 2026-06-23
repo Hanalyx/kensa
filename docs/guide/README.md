@@ -1,4 +1,4 @@
-# Kensa Guide for Administrators and Engineers
+# Kensa guide for administrators and engineers
 
 The operator-facing manual for Kensa. Read in order if you are new to
 Kensa; jump in by topic otherwise.

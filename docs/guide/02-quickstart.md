@@ -10,12 +10,12 @@ runs against the shipped binary.
 
 You'll need `kensa` and `kensa-rules` installed (see
 [01-install](01-install.md)) and SSH access to the target. The examples use
-`-r rules/` to point at a local rules tree; if you installed `kensa-rules`,
+`-r rules/` to point at a local rules tree. If you installed `kensa-rules`,
 drop `-r` and Kensa finds `/usr/share/kensa/rules` automatically.
 
 ## Before you start
 
-The target host needs nothing installed — only OpenSSH reachable and, for
+The target host needs nothing installed, only OpenSSH reachable and, for
 privileged checks, `sudo`. Kensa connects over your system SSH (honoring
 your keys, agents, and `known_hosts`), so confirm a plain `ssh user@host`
 works first.
@@ -28,10 +28,10 @@ Two flags recur on every command:
   password on hosts that don't allow `NOPASSWD`. Omit the value to be
   prompted on the TTY. With passwordless sudo you don't need it at all.
 
-## Step 1 — Detect
+## Step 1: detect
 
 Probe the host and print its capability set. This is read-only and mutates
-nothing — it's the safe way to confirm Kensa can reach the host and to see
+nothing; it's the safe way to confirm Kensa can reach the host and to see
 which subsystems (systemd, SELinux, apt, auditd, …) it found.
 
 ```bash
@@ -44,10 +44,10 @@ Add `--sudo-password` if the host needs one:
 kensa detect -H 192.168.1.211 -u owadmin --sudo --sudo-password
 ```
 
-If detect can't connect, fix that before going further — every other
+If detect can't connect, fix that before going further. Every other
 command uses the same transport.
 
-## Step 2 — Check (read-only)
+## Step 2: check (read-only)
 
 Run the compliance checks. `check` never changes the host; it reports
 `PASS` / `FAIL` / `ERROR` per rule, plus a `SKIP` for any rule that doesn't
@@ -58,7 +58,7 @@ rule completes.
 kensa check -H 192.168.1.211 -u owadmin --sudo -r rules/
 ```
 
-Narrow the run with filters — by severity, framework, or category:
+Narrow the run with filters, by severity, framework, or category:
 
 ```bash
 # Only critical and high-severity rules
@@ -72,19 +72,21 @@ kensa check -H 192.168.1.211 -u owadmin --sudo -r rules/ -f cis-rhel9
 default. Pass `--store` if you want the scan persisted as a session you can
 query later with `kensa history`.
 
-## Step 3 — Remediate (apply)
+## Step 3: remediate (apply)
 
 `remediate` applies the failing rules. Each rule runs as a four-phase atomic
-transaction — capture, apply, validate, then commit or roll back — so a rule
+transaction (capture, apply, validate, then commit or roll back), so a rule
 whose change fails validation is reversed automatically before Kensa moves
-to the next rule. (The mental model is [03-concepts](03-concepts.md).)
+to the next rule. A transaction is Kensa's unit of atomic change: one rule's
+capture-apply-validate-commit-or-rollback cycle on one host. (The mental
+model is [03-concepts](03-concepts.md).)
 
 ```bash
 kensa remediate -H 192.168.1.211 -u owadmin --sudo -r rules/
 ```
 
 The output adds a `FIXED` status to the check statuses. As with `check`, you
-can scope the run — remediate only what you mean to change:
+can scope the run, remediating only what you mean to change:
 
 ```bash
 # Apply only critical PCI-tagged rules
@@ -92,10 +94,11 @@ kensa remediate -H 192.168.1.211 -u owadmin --sudo -r rules/ -s critical -t pci
 ```
 
 Every committed transaction is written to the transaction log with a signed
-evidence envelope. To preview a single rule's transaction without touching
-the host, use `kensa plan` instead.
+evidence envelope, the tamper-evident record of what changed and the proof
+it wasn't altered afterward. To preview a single rule's transaction without
+touching the host, use `kensa plan` instead.
 
-## Step 4 — Roll back
+## Step 4: roll back
 
 Remediation that *fails validation* rolls back on its own. Step 4 is the
 **deliberate** rollback: returning a host to the state captured before a
@@ -123,14 +126,14 @@ kensa rollback --start <SESSION_ID> -H 192.168.1.211 -u owadmin --sudo
 
 Rollback restores each transaction's captured pre-state. A mechanism Kensa
 can't reverse (a `transactional: false` rule) was never captured and is
-reported as skipped rather than silently "restored" — see the reversal
+reported as skipped rather than silently "restored." See the reversal
 table in [10-mechanisms](10-mechanisms.md).
 
 ## Where to go next
 
-- [03-concepts](03-concepts.md) — the four-phase transaction and why
+- [03-concepts](03-concepts.md): the four-phase transaction and why
   atomicity is the product.
-- [10-mechanisms](10-mechanisms.md) — every mechanism, where it runs, and
+- [10-mechanisms](10-mechanisms.md): every mechanism, where it runs, and
   what reversal you get.
-- `kensa history` — query past transactions; `kensa diff` compares two
+- `kensa history`: query past transactions; `kensa diff` compares two
   stored sessions for drift.

@@ -32,12 +32,12 @@ kensa [global flags] <command> [flags]
 | `mechanisms` | List registered handler mechanisms |
 | `coverage` | Alias for `mechanisms` today; reports framework control coverage with `--framework` |
 | `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`) |
-| `info` | Rule/control lookup — multi-criteria search over the corpus |
+| `info` | Rule/control lookup—multi-criteria search over the corpus |
 | `diff` | Compare two stored sessions and emit per-rule drift |
 | `verify` | Validate the Ed25519 signature on an evidence-envelope JSON file |
 | `migrate` | Apply pending schema migrations and backfill legacy sessions |
 | `version` | Print version and exit |
-| `agent` | Run kensa as a stdio agent on the target host (internal — see below) |
+| `agent` | Run kensa as a stdio agent on the target host (internal; see below) |
 
 ### Global flags
 
@@ -60,7 +60,7 @@ Run `kensa <command> --help` for a subcommand's own flags.
 | `2` | Usage error (bad flag, unknown subcommand, missing required arg) |
 
 `verify` overloads exit `1` to mean *signature INVALID* (tampered,
-wrong key, or missing key) — see [verify](#verify) for the full table.
+wrong key, or missing key); see [verify](#verify) for the full table.
 
 ### Environment variables
 
@@ -91,11 +91,11 @@ For commands that connect to a host over SSH.
 | | `--sudo-password` | `string[="<prompt>"]` | | Sudo password for non-NOPASSWD hosts; omit the value for a TTY prompt, or set `KENSA_SUDO_PASSWORD`. Requires `--sudo`. |
 | | `--strict-host-keys` | | | Verify SSH host keys; reject unknown (overrides `--no-strict-host-keys`) |
 | | `--no-strict-host-keys` | | default today | Trust on first use (explicit form for a future config-file override) |
-| `-C` | `--capability` | `stringArray` | | Override a detected capability `KEY=VALUE`; repeatable (e.g. `-C apparmor=true -C selinux=false`). On duplicate keys, last value wins. |
+| `-C` | `--capability` | `stringArray` | | Override a detected capability `KEY=VALUE`; repeatable (for example `-C apparmor=true -C selinux=false`). On duplicate keys, last value wins. |
 
 Sudo behaviour (passwordless vs. password, the stdin mechanism, and the
 fail-fast probe) is covered in [04-scan-and-remediate](04-scan-and-remediate.md).
-Not every command exposes every row — `rollback` and `recover` omit
+Not every command exposes every row: `rollback` and `recover` omit
 `-p/--password`, and `recover` omits `-C/--capability`. Each command's
 section lists exactly what it carries.
 
@@ -106,13 +106,13 @@ For commands that load and filter the rule corpus (`check`, `remediate`).
 | Short | Long | Argument | Meaning |
 |---|---|---|---|
 | `-r` | `--rules-dir` | `string` | Directory to scan for `*.yml` rule files |
-| | `--rule` | `stringArray` | Load a single rule YAML file (strict — parse errors fail the command); long-only, repeatable, additive with `--rules-dir` and positional `*.yml` args |
+| | `--rule` | `stringArray` | Load a single rule YAML file (strict—parse errors fail the command); long-only, repeatable, additive with `--rules-dir` and positional `*.yml` args |
 | `-s` | `--severity` | `stringArray` | Filter by severity, repeatable (`-s critical -s high`); choices: `critical\|high\|medium\|low` |
 | `-t` | `--tag` | `stringArray` | Filter by tag, repeatable; matches rules whose `tags:` array contains any value |
 | `-c` | `--category` | `string` | Filter by category (`-c access-control`); single value, NOT repeatable (later `-c` overrides earlier) |
 | `-f` | `--framework` | `cis-rhel9` | Filter to rules mapping a control under FRAMEWORK; single value. Hyphen and underscore interchangeable (`-f cis-rhel9 == -f cis_rhel9`). |
 | | `--control` | `stringArray` | Filter by `FRAMEWORK:CONTROL` (`--control cis-rhel9:5.1.12`); repeatable, OR across values; framework portion accepts hyphen or underscore |
-| `-x` | `--var` | `stringArray` | Override a rule variable, `KEY=VALUE`; repeatable. Wins over `--config-dir`/`defaults.yml`. **VALUE is spliced literally into rule YAML and may reach shell commands — pass only trusted input.** |
+| `-x` | `--var` | `stringArray` | Override a rule variable, `KEY=VALUE`; repeatable. Wins over `--config-dir`/`defaults.yml`. **VALUE is spliced literally into rule YAML and may reach shell commands. Pass only trusted input.** |
 | | `--config-dir` | `string` | Directory holding `defaults.yml` (variable defaults source). Only `defaults.yml` is read today. |
 
 Positional `rule.yml ...` arguments are additive with `--rules-dir` and
@@ -127,9 +127,9 @@ Most commands take a subset of these.
 | Short | Long | Argument | Default | Meaning |
 |---|---|---|---|---|
 | | `--format` | `string` | `table` / `text` | Output format; the exact choices vary per command (see each section). Deprecated on the host commands in favour of `--output`. |
-| `-o` | `--output` | `strings` | | Output destination `FORMAT[:PATH]`, repeatable (e.g. `-o json -o csv:results.csv`) |
+| `-o` | `--output` | `strings` | | Output destination `FORMAT[:PATH]`, repeatable (for example `-o json -o csv:results.csv`) |
 | `-q` | `--quiet` | | | Suppress default output (errors still go to stderr) |
-| `-v` | `--verbose` | | | (`check` only) Expand the compacted PASSED list — text format only |
+| `-v` | `--verbose` | | | (`check` only) Expand the compacted PASSED list; text format only |
 
 ---
 
@@ -220,7 +220,7 @@ options below.
 |---|---|---|---|
 | `--format` | `string` | `table` | `table` or `json` (deprecated; use `--output`) |
 | `-o, --output` | `strings` | | Output destination `FORMAT[:PATH]`, repeatable |
-| `--oscal` | `string` | | Write OSCAL Assessment Results to this file (deprecated; use `--output oscal:PATH`) |
+| `--oscal` | `string` | | Write Open Security Controls Assessment Language (OSCAL) Assessment Results to this file (deprecated; use `--output oscal:PATH`) |
 | `-q, --quiet` | | | Suppress default output |
 
 Set `KENSA_NO_AGENT=1` to disable agent mode and fall back to
@@ -251,7 +251,7 @@ kensa rollback [MODE] [flags]
 | | `--info` | `SESSION_ID` | Show session detail (txns + statuses) |
 | | `--start` | `SESSION_ID` | Execute rollback for every committed transaction in the session (needs `--host`) |
 | `-T` | `--txn` | `TXN_UUID` | Legacy: single-transaction rollback (needs `--host`) |
-| | `--detail` | | Modifier: per-step breakdown — composes with `--list` and `--info` (not `--start` or `--txn`) |
+| | `--detail` | | Modifier: per-step breakdown that composes with `--list` and `--info` (not `--start` or `--txn`) |
 
 Find session UUIDs first with `kensa list sessions`.
 
@@ -315,7 +315,7 @@ kensa history [flags]
 | `-h` | `--help` | | | Show help and exit |
 | `-H` | `--host` | `string` | | Filter by host ID |
 | `-R` | `--rule` | `string` | | Filter by rule ID |
-| `-S` | `--since` | `string` | | Filter since a duration (e.g. `24h`) or RFC3339 time |
+| `-S` | `--since` | `string` | | Filter since a duration (for example `24h`) or RFC3339 time |
 | `-n` | `--limit` | `int` | `50` | Maximum rows to return |
 | | `--format` | `string` | `table` | `table`, `json`, or `jsonl` (jsonl is transaction-list only) |
 | `-T` | `--txn` | `string` | | Get a single transaction by UUID |
@@ -382,8 +382,8 @@ kensa mechanisms [flags]
 An alias for `mechanisms` today; printing a deprecation warning on
 stderr. With `--framework`, it reports which controls in the named
 framework are referenced by rules in the loaded corpus (the rule IDs per
-control). The report is **numerator-only** — controls with rules, not
-the framework's full control set — because kensa does not bundle an
+control). The report is **numerator-only** (controls with rules, not
+the framework's full control set) because kensa does not bundle an
 external control catalog yet.
 
 ```
@@ -411,7 +411,7 @@ kensa coverage -f cis_rhel9 -r /path/to/rules --full
 ```
 
 > Migrate scripts that rely on the mechanism listing to `kensa mechanisms`
-> before upgrading: `kensa coverage` will change meaning in v0.2.
+> before upgrading: `kensa coverage` changes meaning in v0.2.0.
 
 ## list
 
@@ -475,7 +475,7 @@ kensa info [MODE] --rules-dir DIR [filters] [QUERY]
 | Short | Long | Argument | Meaning |
 |---|---|---|---|
 | | `--rule` | `string` | Show details for a single rule by ID (long-only; `-r` is `--rules-dir`) |
-| | `--control` | `string` | Show rules mapping `FRAMEWORK:ID` (e.g. `cis_rhel9:5.1.12`) |
+| | `--control` | `string` | Show rules mapping `FRAMEWORK:ID` (for example `cis_rhel9:5.1.12`) |
 | `-L` | `--list-controls` | `string` | List every control referenced under FRAMEWORK with rule counts |
 | `-r` | `--rules-dir` | `string` | Directory of rule YAMLs to scan (required) |
 
@@ -484,9 +484,9 @@ narrow within `--rule`/`--control`):
 
 | Long | Argument | Meaning |
 |---|---|---|
-| `--cis` | | Filter to CIS family (`cis_rhel8`, `cis_rhel9`, `cis_rhel10`) |
-| `--stig` | | Filter to STIG family (`stig_rhel8`, `stig_rhel9`, `stig_rhel10`) |
-| `--nist` | | Filter to NIST family (`nist_800_53`; not RHEL-versioned, so does NOT compose with `--rhel`) |
+| `--cis` | | Filter to the Center for Internet Security (CIS) family (`cis_rhel8`, `cis_rhel9`, `cis_rhel10`) |
+| `--stig` | | Filter to the Security Technical Implementation Guide (STIG) family (`stig_rhel8`, `stig_rhel9`, `stig_rhel10`) |
+| `--nist` | | Filter to the NIST 800-53 family (`nist_800_53`; not RHEL-versioned, so does NOT compose with `--rhel`) |
 | `--rhel` | `int` | Filter by RHEL version (8, 9, or 10); composes with `--cis`/`--stig` (not `--nist`) |
 
 `--cis`, `--stig`, and `--nist` are mutually exclusive.
@@ -513,7 +513,7 @@ kensa info file --rules-dir /path/to/rules --limit 0     # no truncation
 Compare two stored sessions and emit the per-rule drift report: status
 changes, rules added (in `SESSION_ID_2` only), and rules removed (in
 `SESSION_ID_1` only). The `from → to` direction follows git-diff
-convention — `SESSION_ID_1` is the earlier snapshot. Comparing across
+convention, so `SESSION_ID_1` is the earlier snapshot. Comparing across
 hostnames is allowed (a stderr note discloses the cross-host scope). Find
 session IDs with `kensa list sessions`.
 
@@ -572,7 +572,7 @@ unknown schema version (envelope from a future kensa).
 Success warnings that still exit `0`: `signed_by_rotated_key` (authentic
 but signed by a rotated-out key) and `signing_key_id_mismatch` (the
 signature is real but the matched key's id disagrees with the envelope's
-`signing_key_id` — investigate).
+`signing_key_id`; investigate).
 
 ```bash
 kensa verify evidence.json
@@ -583,7 +583,7 @@ kensa verify evidence.json --format json | jq -r .valid
 ## migrate
 
 Apply pending schema migrations to the SQLite store and backfill
-synthetic sessions for pre-Phase-4 transactions. Idempotent — a second
+synthetic sessions for pre-Phase-4 transactions. Idempotent: a second
 run finds no work and exits `0`. Pre-Phase-4 transactions (rows whose
 `session_id` is NULL) are grouped one synthetic session per `host_id`,
 with subcommand `legacy-backfill` so they're distinguishable from real
@@ -609,7 +609,7 @@ kensa migrate --quiet
 
 Print the kensa binary version. The top-level `--version` flag is the
 canonical GNU/POSIX form; this subcommand is preserved for backward
-compatibility and is planned for removal in v0.2.
+compatibility and is planned for removal in v0.2.0.
 
 ```
 kensa version
@@ -622,7 +622,7 @@ kensa version
 ## agent
 
 `kensa agent` runs kensa as a stdio agent on the *target* host. It is an
-internal command — `remediate` spawns it on the target over SSH (as root
+internal command; `remediate` spawns it on the target over SSH (as root
 via `--sudo`) to drive the kernel-IO primitives directly; you do not
 invoke it by hand. Run `kensa agent --help` on the target for its
 protocol flags. See [10-mechanisms](10-mechanisms.md) for which handlers

@@ -7,10 +7,10 @@ Every `kensa remediate` writes what it did to a durable transaction log
 recovery replays, and what you query to audit a host over time. This
 chapter covers the four commands built on it:
 
-- [`rollback`](#rollback--undo-a-remediation) — undo committed transactions
-- [`recover`](#recover--crash-recovery) — repair an interrupted run
-- [`history`](#history--query-the-transaction-log) — query the log
-- [`diff`](#diff--drift-between-two-sessions) — compare two scans
+- [`rollback`](#rollback-undo-a-remediation): undo committed transactions
+- [`recover`](#recover-crash-recovery): repair an interrupted run
+- [`history`](#history-query-the-transaction-log): query the log
+- [`diff`](#diff-drift-between-two-sessions): compare two scans
 
 It also explains [how a transaction reaches its terminal
 status](#how-a-transaction-reaches-its-terminal-status).
@@ -19,18 +19,18 @@ status](#how-a-transaction-reaches-its-terminal-status).
 
 ## How a transaction reaches its terminal status
 
-A `remediate` runs each rule as one **transaction** through four phases:
-**Capture → Apply → Validate → Commit**. The terminal status the
-transaction lands in is what the log records:
+A `remediate` runs each rule as one **transaction**, the four-phase Kensa
+operation (capture, apply, validate, then commit or roll back). The
+terminal status the transaction lands in is what the log records:
 
 | Status | How it gets there |
 |---|---|
-| `committed` | Every apply step succeeded and every validator passed. The host is in the target state; the signed evidence envelope is persisted. This is the status `rollback` reverses. |
-| `rolled_back` | Apply or validate failed, and the engine reversed every applied capturable step using the captured pre-state — in the **same run**. The host is back in its exact pre-change state. |
+| `committed` | Every apply step succeeded and every validator passed. The host is in the target state; the signed evidence envelope (the Ed25519-signed record of what the transaction did) is persisted. This is the status `rollback` reverses. |
+| `rolled_back` | Apply or validate failed, and the engine reversed every applied capturable step using the captured pre-state, in the **same run**. The host is back in its exact pre-change state. |
 | `partially_applied` | A `transactional: false` rule ran at least one non-capturable step before failing. Those steps are not reversed; per-step `Stranded` flags say which. |
-| `errored` | A phase could not complete within the deadline, or a terminal step (signing, persistence) failed. `HostUnchanged` distinguishes an abort that never mutated the host. |
+| `errored` | A phase could not complete within the deadline, or a terminal step (signing or persistence) failed. `HostUnchanged` distinguishes an abort that never mutated the host. |
 | `rollback_failed` | Apply/validate failed and the engine tried to reverse, but the restoration could not be machine-verified (a rollback step failed or reported a partial restore). The host is in an unconfirmed state. |
-| `recovered` | An interrupted transaction (the process died after pre-state was persisted but before any terminal record) was reversed out-of-band by [`kensa recover`](#recover--crash-recovery). |
+| `recovered` | An interrupted transaction (the process died after pre-state was persisted but before any terminal record) was reversed out-of-band by [`kensa recover`](#recover-crash-recovery). |
 
 The key distinction: **`rolled_back`** is the engine undoing a failure
 *within the same remediate run*; **`kensa rollback`** is you reversing a
@@ -38,14 +38,13 @@ The key distinction: **`rolled_back`** is the engine undoing a failure
 cleaning up a *crash*.
 
 A capturable mechanism writes its pre-state to durable storage **before**
-any host change, which is precisely what lets rollback and recovery
-restore the host. A `transactional: false` rule captures nothing, so it
-is outside the reversal guarantee (see
-[10 · Mechanisms](10-mechanisms.md)).
+any host change, which is what lets rollback and recovery restore the
+host. A `transactional: false` rule captures nothing, so it is outside
+the reversal guarantee (see [10 · Mechanisms](10-mechanisms.md)).
 
 ---
 
-## `rollback` — undo a remediation
+## `rollback`: undo a remediation
 
 `kensa rollback` reverses already-**committed** transactions using their
 captured pre-state. Pick exactly one mode.
@@ -59,7 +58,7 @@ kensa rollback --info <session-id> --detail
 
 | Flag | Meaning |
 |---|---|
-| `--list` | List rollback-able sessions — those with committed transactions. |
+| `--list` | List rollback-able sessions (those with committed transactions). |
 | `--info SESSION_ID` | Show a session's detail (its transactions and their statuses). |
 | `--detail` | Modifier: add a per-step breakdown. Composes with `--list` and `--info` (not with `--start`/`--txn`). |
 
@@ -81,7 +80,7 @@ kensa rollback --txn <txn-uuid> -H 192.168.1.211 -u owadmin --sudo
 | `--start SESSION_ID` | Execute rollback for **every** committed transaction in the session. Needs `--host`. |
 | `-T, --txn TXN_UUID` | Legacy: roll back a single transaction by UUID. Needs `--host`. |
 
-`--start` is the normal path; `--txn` is the legacy single-transaction
+`--start` is the normal path. `--txn` is the legacy single-transaction
 form kept for compatibility. Both connect to the host, so they take the
 same target flags as `check`/`remediate`: `-H/--host` (required here),
 `-u/--user`, `-k/--key`, `-P/--port`, `--sudo`, `--sudo-password`
@@ -98,7 +97,7 @@ Output: `--format text` (default) or `json`; `-q/--quiet` suppresses it.
 
 ---
 
-## `recover` — crash recovery
+## `recover`: crash recovery
 
 If a `kensa` process is interrupted mid-transaction (killed, host lost,
 power failure) **after** pre-state was persisted but **before** a
@@ -113,7 +112,7 @@ kensa recover -H 192.168.1.211 -u owadmin --sudo
 
 | Flag | Meaning |
 |---|---|
-| `-H, --host` | Scope recovery to this host — also the SSH target. **Required.** |
+| `-H, --host` | Scope recovery to this host (also the SSH target). **Required.** |
 | `-u, --user` | SSH user (default: current user). |
 | `-P, --port` | SSH port (default 22). |
 | `--key` | SSH private-key path. |
@@ -131,8 +130,8 @@ none was captured.
 ### `recover.lock` fencing
 
 `recover` takes an **exclusive** cross-process advisory lock (`flock`) at
-`<db>.recover.lock` — `RecoverLockPath` is the store path plus
-`.recover.lock` — so it can never race a second recovery run or a live
+`<db>.recover.lock` (`RecoverLockPath` is the store path plus
+`.recover.lock`), so it can never race a second recovery run or a live
 engine on the same store. A live engine takes the same lock **shared**;
 the exclusive acquisition blocks while any engine holds it. If the lock
 is already held, `recover` refuses to proceed rather than racing
@@ -144,7 +143,7 @@ open transactions are compensated.
 
 ---
 
-## `history` — query the transaction log
+## `history`: query the transaction log
 
 `kensa history` queries the log. With no filters it lists the most recent
 transactions.
@@ -184,7 +183,7 @@ interactive form prompts for confirmation; add `--force` for cron and CI.
 
 ---
 
-## `diff` — drift between two sessions
+## `diff`: drift between two sessions
 
 `kensa diff` compares two **stored** sessions and emits the per-rule
 drift between them: status changes, rules added (in the second session
@@ -206,7 +205,7 @@ kensa diff <id1> <id2> --format json          # programmatic output
 The direction follows git's convention: `SESSION_ID_1` is the earlier
 ("before") snapshot and `SESSION_ID_2` is the later ("after") one;
 reversing the arguments inverts the report. Comparing across hostnames is
-allowed — a stderr note discloses the cross-host scope.
+allowed; a stderr note discloses the cross-host scope.
 
 To populate sessions for `diff`, run `check --store` (a persisted scan)
 or `remediate` (always persisted), then find the UUIDs with `kensa list

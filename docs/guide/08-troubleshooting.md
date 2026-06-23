@@ -4,14 +4,15 @@ _Applies to: Kensa v0.6.0 — last updated 2026-06-22._
 
 Common failure modes, what they look like, and how to clear them. Each section
 names the condition first so you can match it to what you are seeing, then the
-remedy. When in doubt, run `kensa detect -H <host> --sudo` first — it reports
+remedy. When in doubt, run `kensa detect -H <host> --sudo` first; it reports
 the host's detected OS and capability set, which explains most "why did this
 rule skip / fail" questions.
 
 ## Sudo fails without a password
 
 By default `--sudo` runs `sudo -n` (non-interactive). On a host whose sudoers
-policy requires a password — itself a common CIS/STIG control — that fails fast
+policy requires a password (itself a common Center for Internet Security (CIS)
+and Security Technical Implementation Guide (STIG) control), that fails fast
 at connect time rather than mid-scan. Supply the password with
 `--sudo-password` (omit the value for a TTY prompt) or the
 `KENSA_SUDO_PASSWORD` environment variable; the password is fed over the SSH
@@ -24,16 +25,16 @@ need a helper on the target, which the agentless model does not ship).
 ## Agent bootstrap or GLIBC errors on remediate
 
 `remediate` defaults to agent mode: it ships a small agent binary to the target
-and runs the kernel-IO primitives there. If the agent fails to start — for
+and runs the kernel-IO primitives there. If the agent fails to start (for
 example a GLIBC-version mismatch on an older target than the build host, or a
-spawn/`fork-exec` error — set `KENSA_NO_AGENT=1` to drop to the shell
+spawn/`fork-exec` error), set `KENSA_NO_AGENT=1` to drop to the shell
 best-effort path, which uses the host's own tools over the SSH transport. The
 shell path is always available and produces byte-identical file writes; you lose
 only the direct kernel-IO primitives. The agent must run as root, so pair
 agent-mode remediation with `--sudo` (which spawns `sudo kensa agent`); without
 root the agent's direct `/proc` and `/etc` writes fail with permission errors.
 Service-handler (`service_enabled` / `_disabled` / `_masked`) remediation
-additionally needs the systemd helper installed — see
+additionally needs the systemd helper installed; see
 [01-install](01-install.md) "Service handlers".
 
 ## A rule skips when you expected it to run
@@ -42,14 +43,14 @@ Two independent gates produce a `SKIP` row:
 
 - **Out of platform.** Kensa compares each rule's `platforms:` block against the
   host's detected OS and skips out-of-platform rules. The shipped corpus targets
-  RHEL, so scanning Ubuntu skips the RHEL-only rules — a full Ubuntu scan can
+  RHEL, so scanning Ubuntu skips the RHEL-only rules; a full Ubuntu scan can
   return everything as `SKIP`. This is faithful behavior, not a bug; those rules
   have no in-platform implementation to run. Platform gating is lenient by
   design: a rule with no `platforms:` block runs everywhere, and a host whose OS
   Kensa cannot detect gates nothing.
 - **Capability mismatch.** An implementation's `when:` gate references a
-  capability the host lacks (no `sshd_config_d`, no `selinux`, no `firewalld`,
-  etc.) and no other implementation's gate matches. Run `kensa detect` to see
+  capability the host lacks (for example no `sshd_config_d`, no `selinux`, or
+  no `firewalld`) and no other implementation's gate matches. Run `kensa detect` to see
   the detected capability set, and use `-C KEY=VALUE` on `check` / `detect` to
   override a probe if it is wrong for your host (for example `-C selinux=true`).
 
@@ -70,7 +71,7 @@ positional `*.yml` paths (or `--rule FILE`) alone skip the directory walk; else
 Kensa falls back to `/usr/share/kensa/rules` (where the `kensa-rules` package
 installs); else it prints a usage error naming all three fix paths. If you
 installed `kensa` without `kensa-rules` (for example with
-`--setopt=install_weak_deps=False`), that fallback directory is empty — install
+`--setopt=install_weak_deps=False`), that fallback directory is empty; install
 `kensa-rules` or pass `--rules-dir <path>` on every command. A from-source
 checkout has the corpus at `rules/`; pass `-r rules`.
 
@@ -87,14 +88,15 @@ defines them.
 
 ## Getting more detail
 
-- `kensa detect -H <host> --sudo` — the detected OS and capability set behind
+- `kensa detect -H <host> --sudo`—the detected OS and capability set behind
   platform/`when` skips.
-- `kensa check ... -v` — expands the compacted PASS list in text output.
-- `kensa check ... -o json` or `-o jsonl` — structured per-rule outcomes
+- `kensa check ... -v`—expands the compacted PASS list in text output.
+- `kensa check ... -o json` or `-o jsonl`—structured per-rule outcomes
   (`pass` / `fail` / `skipped` / `error`) for scripting.
-- `kensa plan -H <host> <rule.yml>` — previews a rule's transaction without
-  executing it.
-- `kensa history` and `kensa rollback <id>` — inspect and reverse a past
+- `kensa plan -H <host> <rule.yml>`—previews a rule's transaction (Kensa's
+  four-phase change operation: capture, apply, validate, then commit or roll
+  back) without executing it.
+- `kensa history` and `kensa rollback <id>`—inspect and reverse a past
   transaction (see [05-rollback-and-history](05-rollback-and-history.md)).
 - A non-zero exit code distinguishes a runtime error (`1`) from a usage error
   (`2`, bad flag / missing argument).

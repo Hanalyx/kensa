@@ -6,13 +6,14 @@
 keys imported, and `kensa --version` printing `kensa 0.5.2`. From there,
 [02-quickstart](02-quickstart.md) is the next step.
 
-Target hosts (the machines you'll scan) need no kensa installation —
+Target hosts (the machines you'll scan) need no kensa installation:
 only OpenSSH and, for non-root remediation, sudo.
 
-## Step 1 — Import the verification keys
+## Step 1: import the verification keys
 
-Every release artifact is signed. The Hanalyx GPG public key verifies
-the `.rpm` and `.deb` files; the Kensa cosign public key verifies the
+Every release artifact is signed. The Hanalyx GNU Privacy Guard (GPG)
+public key verifies the `.rpm` and `.deb` files; the Kensa cosign public
+key verifies the
 checksums file that anchors the whole set. Both keys live at
 [`KEYS`](https://github.com/Hanalyx/kensa/blob/main/KEYS) in the repo
 root.
@@ -29,10 +30,10 @@ curl -fsSL https://raw.githubusercontent.com/Hanalyx/kensa/main/KEYS \
 ```
 
 With the Hanalyx GPG key imported, `dnf` and `apt` reject any unsigned
-or wrong-key kensa package automatically — you get the trust check for
+or wrong-key kensa package automatically, so you get the trust check for
 free.
 
-## Step 2 — Install
+## Step 2: install
 
 Pick one path.
 
@@ -87,7 +88,7 @@ back when `--rules-dir` is unset (see
 [`rule-default-path-resolution`](../../specs/rule/default-path-resolution.spec.yaml)
 spec).
 
-## Step 3 — Generate a signing key
+## Step 3: generate a signing key
 
 `kensa-keygen` writes a keypair to `~/.config/kensa/keys/`. The
 private half is mode `0600`; the public half is what you distribute
@@ -95,9 +96,13 @@ to anyone running `kensa verify` against your evidence envelopes.
 
 For a stable operator identity across runs, point `KENSA_SIGNING_KEY`
 at the `.priv` file before running `kensa remediate`. Without that
-env var, kensa generates an ephemeral key per process — fine for
+env var, kensa generates an ephemeral key per process (fine for
 trying things out, but your evidence envelopes won't share a stable
-signer identity.
+signer identity).
+
+An evidence envelope is the signed record Kensa produces for each
+committed transaction, capturing what changed and proving it wasn't
+altered after the fact.
 
 ## Service handlers (optional)
 
@@ -138,7 +143,7 @@ git clone https://github.com/Hanalyx/kensa.git && cd kensa && make build
 ```
 
 Five static binaries land in `bin/`: `kensa`, `kensa-fuzz` (the
-destructive atomicity harness — not shipped in packages),
+destructive atomicity harness, not shipped in packages),
 `kensa-validate`, `kensa-keygen`, `kensa-systemd-helper`. Install per
 the air-gap path above (the `bin/` directory replaces the extracted
 tarball). The rules corpus lives at `rules/` in the repo; copy it to
@@ -151,7 +156,7 @@ kensa --version
 ```
 
 You're done when this prints `kensa 0.5.2 (kensa)`. If it doesn't,
-the binary isn't on your `$PATH` — go back to **Step 2**.
+the binary isn't on your `$PATH`; go back to **Step 2**.
 
 ## Next
 

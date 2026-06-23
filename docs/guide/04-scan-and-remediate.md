@@ -8,8 +8,8 @@ failing rules as atomic transactions. They share the same target,
 rule-selection, and output flags, so most of this chapter applies to
 both; the differences are called out where they matter.
 
-- [`check` — read-only compliance](#check--read-only-compliance)
-- [`remediate` — apply failing rules](#remediate--apply-failing-rules)
+- [`check`: read-only compliance](#check-read-only-compliance)
+- [`remediate`: apply failing rules](#remediate-apply-failing-rules)
 - [Choosing a target](#choosing-a-target)
 - [Selecting rules](#selecting-rules)
 - [Privilege: sudo](#privilege-sudo)
@@ -21,14 +21,14 @@ both; the differences are called out where they matter.
 
 ---
 
-## `check` — read-only compliance
+## `check`: read-only compliance
 
 ```bash
 kensa check -H 192.168.1.211 -u owadmin --sudo -r ./rules
 ```
 
 `check` evaluates each rule's check method against the host and prints a
-verdict per rule. It changes nothing — no apply, no transaction, no
+verdict per rule. It changes nothing: no apply, no transaction, no
 rollback. By default it does not even write to the SQLite store; pass
 `--store` if you want the scan persisted as a session you can later
 `diff` or feed to `rollback --list`.
@@ -36,7 +36,7 @@ rollback. By default it does not even write to the SQLite store; pass
 `check` is the only scan command that accepts an **inventory** for
 multi-host runs (see [Choosing a target](#choosing-a-target)).
 
-## `remediate` — apply failing rules
+## `remediate`: apply failing rules
 
 ```bash
 kensa remediate -H 192.168.1.211 -u owadmin --sudo -r ./rules
@@ -68,7 +68,7 @@ Both commands take the same SSH connection flags.
 | `-P, --port` | SSH port (default 22). |
 | `--strict-host-keys` | Verify SSH host keys; reject an unknown host. |
 | `--no-strict-host-keys` | Trust on first use. This is today's default. |
-| `-C, --capability KEY=VALUE` | Override a detected capability. Repeatable; on duplicate keys the last value wins (e.g. `-C apparmor=true -C selinux=false`). |
+| `-C, --capability KEY=VALUE` | Override a detected capability. Repeatable; on duplicate keys the last value wins (for example, `-C apparmor=true -C selinux=false`). |
 
 Kensa drives the system `ssh` client (with ControlMaster), so your
 `~/.ssh/config`, agent keys, and jump hosts all work as they normally
@@ -101,7 +101,7 @@ filter is applied:
 | Flag | Meaning |
 |---|---|
 | `-r, --rules-dir DIR` | Scan a directory for `*.yml` rule files. |
-| `--rule FILE` | Load one rule YAML file, strictly — a parse error fails the command. Repeatable; additive with `--rules-dir` and positional args. |
+| `--rule FILE` | Load one rule YAML file, strictly: a parse error fails the command. Repeatable; additive with `--rules-dir` and positional args. |
 | *positional* `rule.yml …` | Load named rule files directly. |
 
 With the `kensa-rules` package installed, the corpus lives at
@@ -121,9 +121,9 @@ repeatable ones.
 |---|---|---|
 | `-s, --severity` | yes (OR) | `critical` \| `high` \| `medium` \| `low`. |
 | `-t, --tag` | yes (OR) | A rule matches if its `tags:` array contains any of these. |
-| `-c, --category` | no | Single category (e.g. `-c access-control`). A later `-c` overrides an earlier one. |
-| `-f, --framework` | no | Keep rules mapping any control under FRAMEWORK (e.g. `-f cis-rhel9`). Hyphen and underscore are interchangeable: `-f cis-rhel9` == `-f cis_rhel9`. |
-| `--control` | yes (OR) | `FRAMEWORK:CONTROL` (e.g. `--control cis-rhel9:5.1.12`). The framework portion accepts a hyphen or an underscore. |
+| `-c, --category` | no | Single category (for example, `-c access-control`). A later `-c` overrides an earlier one. |
+| `-f, --framework` | no | Keep rules mapping any control under FRAMEWORK (for example, `-f cis-rhel9`). Hyphen and underscore are interchangeable: `-f cis-rhel9` == `-f cis_rhel9`. |
+| `--control` | yes (OR) | `FRAMEWORK:CONTROL` (for example, `--control cis-rhel9:5.1.12`). The framework portion accepts a hyphen or an underscore. |
 
 ```bash
 # Critical + high only:
@@ -152,7 +152,7 @@ threshold). You supply values two ways:
 
 ## Privilege: sudo
 
-Most compliance checks read root-owned files, so you will almost always
+Most compliance checks read root-owned files, so you almost always
 use `--sudo`. Kensa supports both passwordless and password sudo.
 
 | Flag | Meaning |
@@ -166,9 +166,9 @@ use `--sudo`. Kensa supports both passwordless and password sudo.
   supply a sudo password*.
 - **With a password.** Supply it via `--sudo-password`, the prompt, or
   `KENSA_SUDO_PASSWORD`. The password is fed over the SSH session's
-  **stdin** — never placed in argv and never recorded in evidence
-  (`CheckEvidence`/OSCAL). A wrong password is reported as *sudo password
-  rejected*.
+  **stdin**, never placed in argv and never recorded in evidence
+  (`CheckEvidence` / Open Security Controls Assessment Language (OSCAL)).
+  A wrong password is reported as *sudo password rejected*.
 
 `SUDO_ASKPASS` / `sudo -A` is deliberately **not** supported: it needs an
 askpass helper on the target, which the agentless model does not ship.
@@ -192,7 +192,7 @@ In the default text output, `check` and `remediate` stream their results
 **live**: one aligned row per rule, printed **as each rule completes**,
 in scan order. You watch a long scan advance instead of waiting for a
 buffered report. There is no `--progress` flag and no separate progress
-channel — the rows *are* the text result, on stdout.
+channel; the rows *are* the text result, on stdout.
 
 ```
 ── Host: web01 ──
@@ -218,7 +218,7 @@ SKIP     low       xccdf_org...rhel8_only       not applicable: host RHEL 9.4, r
 
 The live rows apply to the **default human output only** (`--format
 table`/`text`, or no format flag, with no `-o FILE`). Choosing a machine
-format or an `-o FILE` destination turns the stream off — machine output
+format or an `-o FILE` destination turns the stream off; machine output
 is always buffered and structured, never interleaved with rows.
 
 The exit code and every `-o` output are produced from the canonical
@@ -237,7 +237,7 @@ compliance verdict carried on `ScanResult.Outcomes`:
 |---|---|
 | `pass` | The host already satisfies the rule. |
 | `fail` | The host does not satisfy the rule. On `remediate`, this is what gets applied (and becomes `FIXED` on success). |
-| `skipped` | The rule does not apply to this host — see [Platform gating](#platform-gating). It was not evaluated and, on `remediate`, never applied. |
+| `skipped` | The rule does not apply to this host (see [Platform gating](#platform-gating)). It was not evaluated and, on `remediate`, never applied. |
 | `error` | The check could not be completed (a command failed, the host was unreachable mid-scan, a capability could not be probed). |
 
 These outcomes are what an embedder (OpenWatch) consumes; the legacy
@@ -253,12 +253,12 @@ A rule may declare a `platforms:` block (an OS family plus optional
 OS from `/etc/os-release` and compares:
 
 - If the rule **does not apply**, it renders `SKIP` with a detail such as
-  `not applicable: host RHEL 8.10, rule targets rhel >=9` — instead of a
+  `not applicable: host RHEL 8.10, rule targets rhel >=9`, instead of a
   misleading pass or fail. On `remediate`, a skipped rule's remediation
   is **never applied** (the engine is provably not invoked for it).
 - A rule with **no `platforms:` block** runs everywhere.
-- A host whose OS **cannot be detected** is never gated — every rule
-  runs — so a detection blip cannot silently skip a scan.
+- A host whose OS **cannot be detected** is never gated (every rule
+  runs), so a detection blip cannot silently skip a scan.
 
 Platform gating is the standalone-CLI safety net. In a fleet, OpenWatch
 pre-filters by platform upstream; this in-engine gate exists for CLI
@@ -278,7 +278,7 @@ destination selector. Prefer `-o`.
 
 | Flag | Meaning |
 |---|---|
-| `--format` | `check`: `table`, `json`, `jsonl`. `remediate`: `table`, `json`. **Deprecated** — use `--output`. |
+| `--format` | `check`: `table`, `json`, `jsonl`. `remediate`: `table`, `json`. **Deprecated**; use `--output`. |
 | `-o, --output FORMAT[:PATH]` | Output destination. Repeatable. `PATH` omitted (or `-`) means stdout. |
 | `-q, --quiet` | Suppress default output. |
 | `--oscal FILE` | (`remediate` only) **Deprecated** alias for `-o oscal:FILE`. |
@@ -308,19 +308,19 @@ kensa remediate -H web01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.jso
 | `evidence` | yes | yes | Kensa-native evidence document. |
 | `oscal` | yes | yes | OSCAL 1.0.6 Assessment Results. |
 
-### `-o evidence:` — Kensa-native evidence
+### `-o evidence:` Kensa-native evidence
 
 ```bash
 kensa check -H web01 --sudo -o evidence:scan-evidence.json -r ./rules
 ```
 
-Reproducible per-check proof behind each verdict — session and host
+Reproducible per-check proof behind each verdict: session and host
 context plus, per rule, every command run with its stdout/stderr, exit
 code, expected vs actual, and a `Truncated` flag (64 KiB per-field cap).
 On `check` this document is **unsigned**; the Ed25519 signature is
 exclusive to the remediation evidence-envelope path.
 
-### `-o oscal:` — OSCAL 1.0.6
+### `-o oscal:` OSCAL 1.0.6
 
 ```bash
 kensa check -H web01 --sudo -o oscal:assessment.json -r ./rules
@@ -352,7 +352,7 @@ atomicity.
   must run as root, or its direct `/proc`+`/etc` writes hit `EACCES`.
 - Set `KENSA_NO_AGENT=1` to disable the agent and fall back to
   shell-best-effort. The fallback writes byte-identical files and records
-  an identical pre-state, so capture and rollback are path-agnostic — but
+  an identical pre-state, so capture and rollback are path-agnostic, but
   you lose the kernel-primitive atomicity on the agent-only mechanisms.
 
 `check` is read-only and does not spawn the agent.
@@ -369,7 +369,7 @@ atomicity.
 | `1` | Runtime error (connect failure, host error). |
 | `2` | Usage error (bad flag, unknown subcommand, missing required arg). |
 
-A scan that completes but finds failing rules still exits `0` — the
+A scan that completes but finds failing rules still exits `0`; the
 failures are in the result, not the exit status. Read the result
 document (or the rows) for the compliance verdict.
 

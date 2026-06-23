@@ -11,7 +11,7 @@ file per rule, under `rules/` organized by category.
 Rules are *inputs to the transaction engine*. A rule declares *what* state it
 wants and *which mechanism* produces it; the engine provides the *how* and the
 atomicity *guarantee* (capture → apply → validate → commit-or-rollback). The
-rule YAML never expresses capture, validation, or rollback — those are engine
+rule YAML never expresses capture, validation, or rollback; those are engine
 concerns. The authoritative schema is
 [`CANONICAL_RULE_SCHEMA_V1.md`](../foundation_docs/CANONICAL_RULE_SCHEMA_V1.md);
 this chapter is the working subset.
@@ -19,7 +19,7 @@ this chapter is the working subset.
 ## A complete rule
 
 This is the canonical "disable SSH root login" rule. It shows every field you
-will reach for most of the time:
+reach for most of the time:
 
 ```yaml
 id: ssh-disable-root-login          # unique, kebab-case, stable forever
@@ -77,7 +77,7 @@ implementations:                     # one or more check + remediation variants
 ## Metadata and classification
 
 `id`, `title`, `description`, `rationale`, and `severity` are required. The
-`id` is stable for the life of the rule — once assigned it never changes and is
+`id` is stable for the life of the rule. Once assigned it never changes and is
 never reused. `category` must match one of the directory names under `rules/`
 (`access-control`, `audit`, `filesystem`, `kernel`, `logging`, `network`,
 `services`, `system`), and `tags` is a free-form list for filtering
@@ -86,23 +86,23 @@ never reused. `category` must match one of the directory names under `rules/`
 ## `transactional`
 
 `transactional` is optional and defaults to `true`. Leave it at the default
-when every step in every implementation uses a *capturable* mechanism — the
+when every step in every implementation uses a *capturable* mechanism; the
 engine can then run the rule atomically and roll it back. You **must** set
 `transactional: false` when any step uses a non-capturable mechanism
 (`command_exec`, `manual`, `grub_parameter_set`, `grub_parameter_remove`); the
 validator rejects a `transactional: true` rule that contains one. See
 [Mechanisms reference](10-mechanisms.md) for which mechanisms are capturable.
 
-## `references` — framework mappings
+## `references`: framework mappings
 
 `references` maps the rule to external framework identifiers and is what
 `--framework` and `--control` filter on. `cis` and `stig` are objects keyed by
-`{os}{version}` (they carry version-specific section / vuln-id metadata); the
-remaining frameworks — `nist_800_53`, `pci_dss_4`, `iso27001_2022`, `cmmc_l2`,
-`hipaa`, `srg` — are flat lists of control IDs because those identifiers are
+`{os}{version}` (they carry version-specific section / vuln-id metadata). The
+remaining frameworks (`nist_800_53`, `pci_dss_4`, `iso27001_2022`, `cmmc_l2`,
+`hipaa`, `srg`) are flat lists of control IDs because those identifiers are
 stable across OS versions.
 
-## `platforms` — scope
+## `platforms`: scope
 
 Each entry has a required `family` and `min_version`, with optional
 `max_version` (inclusive) and `derivatives` (defaults `true`). A rule with no
@@ -110,7 +110,7 @@ Each entry has a required `family` and `min_version`, with optional
 renders `SKIP` on RHEL 8 and is never remediated there (see
 [Troubleshooting](08-troubleshooting.md) on out-of-platform skips).
 
-## `implementations` — checks and remediations
+## `implementations`: checks and remediations
 
 Implementations are evaluated top to bottom; the first whose `when` capability
 gate the host satisfies is selected, so order the specific variants before the
@@ -127,12 +127,12 @@ when: { not: systemd_resolved }
 
 Each implementation has a `check` and a `remediation`:
 
-- **`check.method`** is a read-only verb — `config_value`, `sysctl_value`,
+- **`check.method`** is a read-only verb: `config_value`, `sysctl_value`,
   `package_state`, `file_exists`, `service_state`, `audit_rule_exists`,
   `mount_option`, `command` (escape hatch), and others. Each method declares its
   required fields; for example `config_value` needs `path`, `key`, and
   `expected`, and takes an optional `comparator` (`==`, `!=`, `<`, `<=`, `>`,
-  `>=` — use `<=`/`>=` for thresholds like `PASS_MAX_DAYS <= 365`) and
+  `>=`; use `<=`/`>=` for thresholds like `PASS_MAX_DAYS <= 365`) and
   `delimiter`. Set `delimiter: " "` for whitespace-separated files such as
   `/etc/login.defs` (`KEY value`); the default delimiter is `=`. The full method
   table is schema §3.5.3.
@@ -172,7 +172,7 @@ whole tree:
 
 A clean corpus reports `0 error(s)` (the sole expected warning is a stylistic
 W005 on `selinux-policy-targeted.yml`). Any `FAIL` line names the file, the rule
-ID, and the violated constraint — for example `exactly one implementation must
+ID, and the violated constraint, for example `exactly one implementation must
 have default:true` if you forgot the fallback, or a `transactional: true` rule
 that contains a non-capturable mechanism. Fix every error before opening a PR;
 CI runs the same gate.
