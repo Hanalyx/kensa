@@ -195,23 +195,27 @@ buffered report. There is no `--progress` flag and no separate progress
 channel; the rows *are* the text result, on stdout.
 
 ```
-── Host: web01 ──
-Platform: rhel 9.4
+───────────────────── Host: 192.168.1.211 ──────────────────────
+  Platform: RHEL 9.6
+  PASS   MED   cron-logging                 Ensure cron logging is enabled
+  FAIL   LOW   journald-compress            Configure journald to compress logs  config_value: key "Compress" not found in /etc/systemd/journald.conf
+  PASS   MED   rsyslog-installed            Ensure rsyslog is installed
+  FAIL   MED   rsyslog-file-permissions     Ensure rsyslog log file creation mode is configured  config_value: key "$FileCreateMode" not found in /etc/rsyslog.conf
 
-STATUS   SEVERITY  RULE-ID                      DESCRIPTION
-PASS     high      xccdf_org...partition_tmp    Ensure /tmp is a separate partition
-FAIL     medium    xccdf_org...sysctl_aslr      Enable randomized virtual memory
-SKIP     low       xccdf_org...rhel8_only       not applicable: host RHEL 9.4, rule targets rhel 8
-3 passed, 1 failed, 0 error, 1 skipped   (5 rules)
+  6 passed, 8 failed  (of 14)
 ```
 
-- Columns are `STATUS  SEVERITY  RULE-ID  DESCRIPTION`, with a trailing
-  detail on `FAIL` / `ERROR` / `SKIP` rows.
-- `check` shows `PASS` / `FAIL` / `ERROR` / `SKIP`. `remediate` adds
-  `FIXED` (remediated this run); `PASS` there means already compliant.
+- A full-width `Host:` banner, then a `Platform:` line, then one indented row
+  per rule. There is no column-header row.
+- Columns are `STATUS  SEVERITY  RULE-ID  DESCRIPTION`, with a trailing detail
+  appended on `FAIL` / `ERROR` / `SKIP` rows.
+- `STATUS` is `PASS` / `FAIL` / `ERROR` / `SKIP`. `remediate` adds `FIXED`
+  (remediated this run); `PASS` there means already compliant.
+- `SEVERITY` renders as `CRIT` / `HIGH` / `MED` / `LOW`.
 - `STATUS` and `SEVERITY` are colored **only when stdout is a terminal**;
   redirected or piped output is plain text with no escape sequences.
-- The tally appends `N skipped` when any rule was skipped.
+- The tally lists only the non-zero outcomes and ends with `(of N)`; it adds a
+  `skipped` (and `error`) count when any rule is skipped or errors.
 - `-v, --verbose` (text only) expands the compacted PASSED list.
 - `-q, --quiet` suppresses the default output entirely; errors still go
   to stderr.

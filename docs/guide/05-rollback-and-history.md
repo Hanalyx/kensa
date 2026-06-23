@@ -62,8 +62,12 @@ kensa rollback --info <session-id> --detail
 | `--info SESSION_ID` | Show a session's detail (its transactions and their statuses). |
 | `--detail` | Modifier: add a per-step breakdown. Composes with `--list` and `--info` (not with `--start`/`--txn`). |
 
-Find the session UUIDs first with `kensa list sessions` (the
-`session_id` column).
+Sessions come from `kensa check --store` (the scan-persistence path); a bare
+`kensa remediate` records individual transactions, not a session. So to roll
+back a remediation you just ran on the CLI, find its transaction UUID with
+`kensa history` and use `rollback --txn` (below). The session modes
+(`--list` / `--info` / `--start`) apply once you have persisted sessions; find
+their UUIDs with `kensa list sessions` (the `session_id` column).
 
 ### Executing a rollback (host required)
 
@@ -80,8 +84,11 @@ kensa rollback --txn <txn-uuid> -H 192.168.1.211 -u owadmin --sudo
 | `--start SESSION_ID` | Execute rollback for **every** committed transaction in the session. Needs `--host`. |
 | `-T, --txn TXN_UUID` | Legacy: roll back a single transaction by UUID. Needs `--host`. |
 
-`--start` is the normal path. `--txn` is the legacy single-transaction
-form kept for compatibility. Both connect to the host, so they take the
+`--start` reverses a whole **session**; the binary's help labels `--txn` as
+*legacy* because the session model is the intended primary path. On the
+standalone CLI, though, `--txn` is what you use after a `kensa remediate`
+(which records transactions, not sessions): take the UUID from `kensa history`
+and roll it back. Both connect to the host, so they take the
 same target flags as `check`/`remediate`: `-H/--host` (required here),
 `-u/--user`, `-k/--key`, `-P/--port`, `--sudo`, `--sudo-password`
 (and `KENSA_SUDO_PASSWORD`), `--strict-host-keys`/`--no-strict-host-keys`.
