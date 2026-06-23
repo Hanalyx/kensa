@@ -51,8 +51,7 @@ const (
 	// StatusRecovered indicates an interrupted transaction (the process
 	// died after pre-state persistence but before a terminal record was
 	// written) was reversed by the out-of-band recovery replay using the
-	// durable journal. Reserved by the contract; produced by the
-	// recovery milestone (not emitted by the engine yet).
+	// durable journal. Produced by `kensa recover` (Engine.Recover).
 	StatusRecovered TransactionStatus = "recovered"
 )
 

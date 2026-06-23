@@ -8,19 +8,32 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "cron_job"
 
-// cronFileMode is the canonical /etc/cron.d/ file mode (root-owned,
-// world-readable). The handler enforces it on both write and restore.
+// cronFileMode is the fallback mode for a cron.d file Kensa creates (root-owned,
+// world-readable). When the file already exists the agent path preserves its
+// actual mode via existingMode rather than forcing this value.
 const cronFileMode = 0o644
+
+// existingMode returns path's current mode bits, or cronFileMode when the file
+// does not exist. The agent runs on the target host, so os.Stat is a local
+// read — this preserves a pre-existing cron file's mode on apply and rollback.
+func existingMode(path string) os.FileMode {
+	if info, err := os.Stat(path); err == nil {
+		return fsatomic.FileModeBits(info.Mode())
+	}
+	return cronFileMode
+}
 
 // Params is the decoded parameter struct for cron_job.
 //
@@ -163,7 +176,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 // footprint recorder observes the one file it touches), at the canonical
 // 0644 mode.
 func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, p *Params) (*api.StepResult, error) {
-	if err := kernelio.WriteFile(ctx, ft, p.Path, cronFileMode, []byte(cronContent(p))); err != nil {
+	if err := kernelio.WriteFile(ctx, ft, p.Path, existingMode(p.Path), []byte(cronContent(p))); err != nil {
 		return nil, fmt.Errorf("cron_job: write %s: %w", p.Path, err)
 	}
 	return &api.StepResult{
@@ -265,7 +278,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 // it if it did not exist before Apply) through the funnel.
 func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport, path, priorContent string, fileExisted bool) (*api.RollbackResult, error) {
 	if fileExisted {
-		if err := kernelio.WriteFile(ctx, ft, path, cronFileMode, []byte(priorContent)); err != nil {
+		if err := kernelio.WriteFile(ctx, ft, path, existingMode(path), []byte(priorContent)); err != nil {
 			return nil, fmt.Errorf("cron_job: rollback restore %s: %w", path, err)
 		}
 	} else if err := kernelio.RemoveFile(ctx, ft, path); err != nil {
