@@ -12,12 +12,15 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-Target: **v0.6.0** (MINOR — the frozen `api/` surface gains additive
-crash-recovery types; verified no breaking change). Stamped at tag time. This
-line ships the **atomicity engine**: a remediation is now a verified
-transaction that is durably journaled, re-measured after apply, reversed on
-crash, and — on the agent path — funnelled through kernel-atomic primitives
-behind a pre-commit rollback-completeness gate.
+(no changes yet)
+
+## v0.6.0 — 2026-06-23
+
+MINOR — the frozen `api/` surface gains additive crash-recovery types
+(verified no breaking change). This line ships the **atomicity engine**: a
+remediation is now a verified transaction that is durably journaled, re-measured
+after apply, reversed on crash, and — on the agent path — funnelled through
+kernel-atomic primitives behind a pre-commit rollback-completeness gate.
 
 ### Added
 
