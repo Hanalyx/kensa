@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -277,9 +278,13 @@ func (h *Handler) captureKernel(ft kernelio.FileTransport, p *Params) (*api.PreS
 // captureShell extracts the matching fstab line via grep.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params) (*api.PreState, error) {
 	// Extract the full fstab line for this mount point.
+	// regexp.QuoteMeta the mount point before embedding it in the grep -E
+	// pattern: an unescaped ERE metacharacter in the mount point (e.g. "." or
+	// "|") would otherwise widen the match and let Capture snapshot — and
+	// Rollback restore — the wrong fstab line.
 	cmd := fmt.Sprintf(
 		`grep -E %s /etc/fstab | grep -v '^[[:space:]]*#' | head -1`,
-		shellEscape(fmt.Sprintf(`^[^#].*[[:space:]]%s[[:space:]]`, p.MountPoint)),
+		shellEscape(fmt.Sprintf(`^[^#].*[[:space:]]%s[[:space:]]`, regexp.QuoteMeta(p.MountPoint))),
 	)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {

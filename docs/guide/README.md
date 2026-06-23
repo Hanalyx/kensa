@@ -1,4 +1,4 @@
-# Kensa Guide for Administrators and Engineers
+# Kensa guide for administrators and engineers
 
 The operator-facing manual for Kensa. Read in order if you are new to
 Kensa; jump in by topic otherwise.
@@ -27,11 +27,12 @@ makes, and what to do when something goes wrong.
 
 ## Status
 
-The guide is under active authoring. Chapters that say
-**Stub** at the top are placeholders; their content is forthcoming.
-Verified behavior is described in the binary `--help` output and in
-the `.spec.yaml` files under `specs/` until the corresponding chapter
-lands.
+All ten chapters are written and validated against the `kensa` binary
+(v0.6.0-staging, last reviewed 2026-06-22). Each chapter carries an
+_"Applies to"_ line. The install chapter (01) tracks the latest **tagged**
+release (v0.5.2 today, since that is what is installable); the remaining
+chapters describe the current code on `main` (v0.6.0-staging) and are
+re-stamped when v0.6.0 is tagged.
 
 ## How to read this guide
 

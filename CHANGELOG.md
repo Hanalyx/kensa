@@ -12,7 +12,81 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+Target: **v0.6.0** (MINOR — the frozen `api/` surface gains additive
+crash-recovery types; verified no breaking change). Stamped at tag time. This
+line ships the **atomicity engine**: a remediation is now a verified
+transaction that is durably journaled, re-measured after apply, reversed on
+crash, and — on the agent path — funnelled through kernel-atomic primitives
+behind a pre-commit rollback-completeness gate.
+
+### Added
+
+- **Crash-recovery intent journal + `kensa recover`** (#126/#127). Each
+  transaction's intent + captured pre-state is written to a durable SQLite
+  journal (fsync, `synchronous=FULL`) BEFORE any host mutation; an interrupted
+  transaction is reverse-replayed to its pre-state by `kensa recover` (exclusive
+  `recover.lock`). No state is left *permanently* half-applied.
+- **Mandatory post-apply VALIDATE re-check** (#122) + **verdict-computed
+  rollback status** (#121): the engine re-reads the host after apply and labels
+  `committed` only on machine-verified success, `rolled_back` only on verified
+  restoration.
+- **Post-state recapture into the signed evidence envelope** (#125) — the
+  envelope carries a re-measured `PostStateBundle`.
+- **Footprint pre-commit gate** (#133–#137): in agent mode the engine records
+  every filesystem mutation an apply funnels and asserts `observed ⊆ captured`
+  before commit, plus a pre-apply restorability probe that refuses to mutate a
+  captured resource that is immutable (`chattr +i`).
+- **Agent-mode kernel-IO** for runtime/file handlers (#107–#114, #130,
+  #139/#140/#143/#144): `sysctl_set`, `mount_option_set`, `kernel_module_disable`,
+  `audit_rule_set` (AUDIT netlink), `dconf_set`, the systemd service handlers,
+  and `config_append` / `cron_job` / `pam_module_arg`. Each keeps a byte-identical
+  shell fallback for the direct-SSH path.
+- **`api/` (additive):** `JournalEntry`; `TransactionResult.RollbackResults`,
+  `.HostUnchanged`, `.Decision`; `Transaction.Check`;
+  `EvidenceEnvelope.RollbackResults`; `TransactionStatus` values `recovered`
+  and `rollback_failed`.
+- **Honest SKIP for GDM rules** (#138): a `dconf`/`gdm` capability gate so
+  GNOME-display rules SKIP truthfully on servers without GDM; duplicate
+  GDM-removed control reconciled (corpus 539 → 538).
+- **Operator guide** completed: chapters 02–09 fully written and validated
+  against the CLI, plus the mechanisms reference (10).
+
+### Changed
+
+- Runtime/file handlers are now **dual-path** (agent kernel-IO vs shell
+  fallback); both write byte-identical files and record an identical pre-state,
+  so capture/rollback are path-agnostic.
+- `pam_module_arg` capture switched to **whole-file content** (byte-perfect
+  rollback; legacy grep-snapshot pre-states still supported).
+- The engine emits a per-phase `AUDIT_USER` record into auditd (best-effort,
+  never fails a transaction).
+
+### Fixed
+
+- **Footprint Recorder now forwards `systemd.Transport` + `auditnl.AuditTransport`**
+  (#141): a Phase-6 regression had silently routed the service and
+  `audit_rule_set` handlers to their shell fallback on the agent path;
+  compile-time assertions prevent recurrence.
+- `pam_module_arg` / `cron_job` agent path now **preserves the existing file
+  mode** instead of forcing 0644 (a non-0644 PAM include is no longer widened on
+  apply or rollback).
+- `kernelio` drop-in writes are create-or-replace (#115, live-caught); systemd
+  helper invoked directly when the agent is already root (#116); service handlers
+  fall back to shell when the helper cannot be invoked, not only when absent (#117).
+
+### Security
+
+- **Shell single-quote breakout** in the `sed` programs of `pam_module_arg` /
+  `config_append` shell paths (pre-existing; SSH/agentless path only) fixed —
+  the sed program is now `shellEscape`-wrapped.
+- `mount_option_set` shell capture now `regexp.QuoteMeta`s the mount point
+  (prevents wrong-fstab-line capture/rollback).
+- Pre-apply restorability probe refuses to apply when a captured resource is
+  immutable — a transaction whose rollback is impossible is refused, not
+  committed unrollbackable.
+
+> Known follow-ups tracked in `docs/roadmap/STATUS.md` (recover-vs-live-engine
+> shared lock not yet wired; journal `cursor` write-ahead unwired).
 
 ## v0.5.2 — 2026-06-19
 

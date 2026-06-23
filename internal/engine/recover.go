@@ -21,9 +21,11 @@ import (
 // recover) that reconnects to the host. Recover returns one result per
 // recovered transaction.
 //
-// Concurrency: the caller is responsible for fencing Recover against a live
-// engine on the same store (the recover.lock); without it, a recover process
-// and a live transaction could both act on one host.
+// Concurrency: the recover CLI takes the recover.lock EXCLUSIVE, which fences
+// concurrent recover runs. It does NOT currently fence against a LIVE engine —
+// the live remediate/rollback path does not yet take the lock SHARED (see
+// store.RecoverLock and docs/roadmap/STATUS.md). Until it does, the operator
+// MUST NOT run recover against a host with a live engine on the same store.
 func (e *Engine) Recover(ctx context.Context, transport api.Transport, hostID string) ([]*api.TransactionResult, error) {
 	js, ok := e.store.(JournalStore)
 	if !ok {

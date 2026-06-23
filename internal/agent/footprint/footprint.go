@@ -16,9 +16,11 @@
 // rollback would be incomplete. This converts capture-completeness from a
 // human-review promise (CONTRIBUTING.md) into a code-enforced precondition.
 //
-// Paths are canonical (resolved by the recorder via the touched fd/inode,
-// not the caller's string) so a symlink or a `..` cannot let an apply touch
-// one path while declaring another.
+// Paths are lexically canonicalized (filepath.Clean — `.`/`..`/duplicate
+// separators collapsed) so observed and captured compare on the same key. The
+// recorder does NOT resolve symlinks; symlink safety comes from the fsatomic
+// write primitives, which refuse any symlinked path component (O_NOFOLLOW) at
+// write time, so a symlinked parent never produces a recordable mutation.
 package footprint
 
 import (

@@ -9,21 +9,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 )
 
 // mechanism is the canonical handler name.
 const mechanism = "pam_module_arg"
 
-// pamFileMode is the canonical mode for PAM config files (root-writable,
-// world-readable). The agent-path atomic rewrite restores files at this mode;
-// on a conventionally-configured host (/etc/pam.d/* are 0644 root:root) it is
-// a no-op. The direct-SSH sed/printf fallback preserves the inode mode.
+// pamFileMode is the fallback mode for a PAM config file that does not yet
+// exist (root-writable, world-readable — the /etc/pam.d/* convention). When
+// the file already exists the agent path preserves its actual mode via
+// existingMode rather than forcing this value.
 const pamFileMode = 0o644
+
+// existingMode returns path's current mode bits, or pamFileMode when the file
+// does not exist. The agent runs on the target host, so os.Stat is a local
+// read. This preserves a non-0644 PAM file's mode on both apply and rollback
+// (a hardened include MUST NOT be silently widened) — mirroring config_append.
+func existingMode(path string) os.FileMode {
+	if info, err := os.Stat(path); err == nil {
+		return fsatomic.FileModeBits(info.Mode())
+	}
+	return pamFileMode
+}
 
 // absentSentinel marks a non-existent file in the shell capture read.
 const absentSentinel = "__KENSA_ABSENT__"
@@ -194,7 +207,7 @@ func (h *Handler) applyKernel(ctx context.Context, ft kernelio.FileTransport, p 
 			results = append(results, fmt.Sprintf("%s: no change (no-op)", file))
 			continue
 		}
-		if werr := kernelio.WriteFile(ctx, ft, file, pamFileMode, []byte(newContent)); werr != nil {
+		if werr := kernelio.WriteFile(ctx, ft, file, existingMode(file), []byte(newContent)); werr != nil {
 			return nil, fmt.Errorf("pam_module_arg: write %s: %w", file, werr)
 		}
 		results = append(results, fmt.Sprintf("%s: %sd (kernel-io)", file, p.Action))
@@ -303,7 +316,12 @@ func buildEnsureAppendCmd(file, typeFilter, modulePattern, appendArg string) str
 		matchPart = modulePattern
 	}
 	// Append arg at end of each matching line: s/\(pattern.*\)/\1 arg/
-	return fmt.Sprintf("sed -i.bak '/%s/s/$/ %s/' %s", matchPart, appendArg, shellEscape(file))
+	// Single-quote the whole sed program via shellEscape so a single quote in
+	// any rule-derived field (module/type/arg) cannot break out of the shell
+	// quoting and inject a command. The kernelio agent path is pure-Go and
+	// unaffected; this hardens the SSH-shell fallback.
+	prog := fmt.Sprintf("/%s/s/$/ %s/", matchPart, appendArg)
+	return fmt.Sprintf("sed -i.bak %s %s", shellEscape(prog), shellEscape(file))
 }
 
 // buildRemoveCmd returns a sed command that strips arg (or regex) from
@@ -316,15 +334,18 @@ func buildRemoveCmd(file, typeFilter, modulePattern, arg string, isRegex bool) s
 		lineMatch = modulePattern
 	}
 
+	// Single-quote the whole sed program via shellEscape (see buildEnsureAppendCmd).
 	var argPat string
 	if isRegex {
 		// Extended regex: use -E and strip the arg pattern.
 		argPat = arg
-		return fmt.Sprintf("sed -E -i.bak '/%s/s/ %s//g' %s", lineMatch, argPat, shellEscape(file))
+		prog := fmt.Sprintf("/%s/s/ %s//g", lineMatch, argPat)
+		return fmt.Sprintf("sed -E -i.bak %s %s", shellEscape(prog), shellEscape(file))
 	}
 	// Literal: escape for BRE sed.
 	argPat = shellEscapeForSed(arg)
-	return fmt.Sprintf("sed -i.bak '/%s/s/ %s//g' %s", lineMatch, argPat, shellEscape(file))
+	prog := fmt.Sprintf("/%s/s/ %s//g", lineMatch, argPat)
+	return fmt.Sprintf("sed -i.bak %s %s", shellEscape(prog), shellEscape(file))
 }
 
 // Capture records the WHOLE prior content and existence of each PAM file
@@ -446,8 +467,11 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			lineNum := greppedLine[:colonIdx]
 			lineContent := greppedLine[colonIdx+1:]
 			escapedContent := shellEscapeForSed(lineContent)
-			// Replace line N with the original content.
-			sedCmd := fmt.Sprintf("sed -i.bak '%ss/.*/%s/' %s", lineNum, escapedContent, shellEscape(file))
+			// Replace line N with the original content; single-quote the whole
+			// sed program via shellEscape so a single quote in the captured
+			// line cannot break out of the shell quoting.
+			prog := fmt.Sprintf("%ss/.*/%s/", lineNum, escapedContent)
+			sedCmd := fmt.Sprintf("sed -i.bak %s %s", shellEscape(prog), shellEscape(file))
 			res, err := transport.Run(ctx, sedCmd)
 			if err != nil {
 				return nil, fmt.Errorf("pam_module_arg: rollback sed transport error for %s line %s: %w", file, lineNum, err)
@@ -508,7 +532,7 @@ func (h *Handler) rollbackWhole(ctx context.Context, transport api.Transport, co
 func (h *Handler) restoreFile(ctx context.Context, transport api.Transport, file, prior string, fileExisted bool) error {
 	if ft, ok := transport.(kernelio.FileTransport); ok {
 		if fileExisted {
-			return kernelio.WriteFile(ctx, ft, file, pamFileMode, []byte(prior))
+			return kernelio.WriteFile(ctx, ft, file, existingMode(file), []byte(prior))
 		}
 		return kernelio.RemoveFile(ctx, ft, file)
 	}
