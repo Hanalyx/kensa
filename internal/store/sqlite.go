@@ -167,6 +167,17 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 		errText = sql.NullString{String: result.Error.Error(), Valid: true}
 	}
 
+	// envelope_sig is NOT NULL. An unsigned errored/demoted transaction carries
+	// an empty signature; a nil []byte would bind as SQL NULL and violate the
+	// constraint, dropping the errored row from the audit log. Coerce nil to an
+	// empty (non-null) BLOB so every terminal outcome is durably recorded — the
+	// "evidence written to the transaction log" guarantee must hold for errored
+	// transactions too, not just committed ones.
+	envSig := result.Envelope.Signature
+	if envSig == nil {
+		envSig = []byte{}
+	}
+
 	if _, err := tx.ExecContext(ctx, `
         INSERT OR REPLACE INTO transactions (
             id, rule_id, host_id, fleet_id, status, transactional, severity,
@@ -184,7 +195,7 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 		result.FinishedAt.UTC().Format(time.RFC3339Nano),
 		committedAt, rolledBackAt,
 		string(envJSON),
-		result.Envelope.Signature,
+		envSig,
 		errText,
 	); err != nil {
 		return fmt.Errorf("store: insert transaction: %w", err)
