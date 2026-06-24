@@ -24,10 +24,12 @@ type stigGroup struct {
 }
 
 type stigRule struct {
-	Severity string      `xml:"severity,attr"`
-	Version  string      `xml:"version"` // STIG id, e.g. RHEL-09-611070
-	Title    string      `xml:"title"`
-	Idents   []stigIdent `xml:"ident"`
+	Severity     string      `xml:"severity,attr"`
+	Version      string      `xml:"version"` // STIG id, e.g. RHEL-09-611070
+	Title        string      `xml:"title"`
+	Idents       []stigIdent `xml:"ident"`
+	CheckContent string      `xml:"check>check-content"`
+	FixText      string      `xml:"fixtext"`
 }
 
 type stigIdent struct {
@@ -42,6 +44,7 @@ type parsedControl struct {
 	Severity    string // high | medium | low
 	Title       string
 	CCIs        []string
+	CheckText   string // check-content + fixtext, for command-target extraction
 }
 
 // parseSTIG reads a STIG XCCDF file and returns its title plus one parsedControl
@@ -70,6 +73,7 @@ func parseSTIG(path string) (title string, controls []parsedControl, err error) 
 				Severity:    g.Rule.Severity,
 				Title:       g.Rule.Title,
 				CCIs:        ccis,
+				CheckText:   g.Rule.CheckContent + "\n" + g.Rule.FixText,
 			})
 		}
 		for _, sub := range g.Groups {

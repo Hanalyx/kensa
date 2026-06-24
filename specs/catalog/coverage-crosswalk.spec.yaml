@@ -103,6 +103,15 @@ spec:
               so "Kensa knows this works here" stands on its own as technical truth.
           type: business
           enforcement: error
+        - id: C-09
+          description: |
+              The crosswalk MUST classify each benchmark control as covered (a rule
+              cites it), extend (a rule's check target matches the control's
+              command-extracted target), or net-new (no match) — matching on the
+              ARGUMENT of the control's check/fix commands, never words in prose, so
+              the extend-vs-net-new split is precise rather than guesswork.
+          type: business
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -166,6 +175,14 @@ spec:
               flag reflecting whether the rule has a benchmark citation for that os.
               Locked by TestVerifications.
           references_constraints: [C-08]
+          priority: high
+        - id: AC-10
+          description: |
+              ExtractCommandTargets pulls the command argument (package/sysctl/
+              path/service/module), not prose; Crosswalk classifies a benchmark's
+              controls covered/extend/net-new and names the matching rule for each
+              extend candidate. Locked by TestCrosswalk.
+          references_constraints: [C-09]
           priority: high
 
     tags: [catalog, crosswalk, coverage, dev-tool]

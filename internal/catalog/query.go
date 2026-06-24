@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
 
 // VerifiedRule is a functional-verification fact: a rule proven to work on an OS,
@@ -45,6 +46,100 @@ func (s *Store) VerifiedRules(ctx context.Context, osFilter string) ([]VerifiedR
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+// CrosswalkResult classifies a benchmark's controls for one (framework, os) by
+// whether the corpus can cover them: covered (a rule already cites it), extend (no
+// citation, but a rule's check target matches the control's command-extracted
+// target — so an existing rule could cover it with a platform/ref extension), or
+// net-new (no matching rule target — genuine authoring). ExtendList names the
+// matching rule per extend candidate; NetNew lists the controls needing authoring.
+type CrosswalkResult struct {
+	Framework, OS          string
+	Total, Covered, Extend int
+	NetNew                 int
+	ExtendList             []ExtendCandidate
+	NetNewList             []Control
+}
+
+// ExtendCandidate is a control reachable by extending an existing rule, with the
+// target that matched and the rule that owns it.
+type ExtendCandidate struct {
+	ControlID, Title string
+	Kind, Value      string
+	Rule             string
+}
+
+// Crosswalk classifies every control of (framework, os) as covered / extend /
+// net-new using command-aware target matching. This is the measured extend-vs-
+// net-new split the gap plan needs, replacing prose-matching guesswork.
+func (s *Store) Crosswalk(ctx context.Context, framework, osID string) (*CrosswalkResult, error) {
+	res := &CrosswalkResult{Framework: framework, OS: osID}
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT c.id, c.control_id, c.severity, c.title,
+            EXISTS(SELECT 1 FROM coverage cov
+                   WHERE cov.framework = ? AND cov.os = ? AND cov.control_id = c.control_id) AS covered
+        FROM control c JOIN benchmark b ON c.benchmark_id = b.id
+        WHERE b.framework = ? AND b.os = ?
+        ORDER BY c.control_id`, framework, osID, framework, osID)
+	if err != nil {
+		return nil, err
+	}
+	type row struct {
+		pk        int64
+		controlID string
+		severity  string
+		title     string
+		covered   bool
+	}
+	var all []row
+	for rows.Next() {
+		var r row
+		var sev, title sql.NullString
+		var cov int
+		if err := rows.Scan(&r.pk, &r.controlID, &sev, &title, &cov); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		r.severity, r.title, r.covered = sev.String, title.String, cov != 0
+		all = append(all, r)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	_ = rows.Close()
+
+	res.Total = len(all)
+	for _, r := range all {
+		if r.covered {
+			res.Covered++
+			continue
+		}
+		// extend if any of this control's targets matches a rule_target.
+		var kind, value, rule sql.NullString
+		err := s.db.QueryRowContext(ctx, `
+            SELECT ct.kind, ct.value, rt.rule_id
+            FROM control_target ct
+            JOIN rule_target rt ON rt.kind = ct.kind AND rt.value = ct.value
+            WHERE ct.control_pk = ?
+            ORDER BY ct.kind, ct.value, rt.rule_id
+            LIMIT 1`, r.pk).Scan(&kind, &value, &rule)
+		switch {
+		case err == nil:
+			res.Extend++
+			res.ExtendList = append(res.ExtendList, ExtendCandidate{
+				ControlID: r.controlID, Title: r.title,
+				Kind: kind.String, Value: value.String, Rule: rule.String,
+			})
+		case errors.Is(err, sql.ErrNoRows):
+			res.NetNew++
+			res.NetNewList = append(res.NetNewList, Control{ControlID: r.controlID, Severity: r.severity, Title: r.title})
+		default:
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 // Control is a benchmark control as returned by query methods. Automatable is

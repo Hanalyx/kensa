@@ -56,7 +56,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// clean usage error that never creates a stray database file.
 	known := map[string]bool{
 		"build": true, "ingest": true, "coverage": true, "nist": true, "missing": true,
-		"drift": true, "control": true, "verified": true, "baseline": true, "check": true,
+		"drift": true, "control": true, "verified": true, "crosswalk": true,
+		"baseline": true, "check": true,
 	}
 	if !known[rest[0]] {
 		fmt.Fprintf(stderr, "kensa-catalog: unknown command %q\n", rest[0])
@@ -89,6 +90,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		runControl(ctx, store, rest[1:])
 	case "verified":
 		runVerified(ctx, store, rest[1:])
+	case "crosswalk":
+		runCrosswalk(ctx, store, rest[1:])
 	case "baseline":
 		runBaseline(ctx, store)
 	case "check":
@@ -389,6 +392,33 @@ func runIngest(ctx context.Context, store *catalog.Store, args []string) {
 	}
 }
 
+func runCrosswalk(ctx context.Context, store *catalog.Store, args []string) {
+	if len(args) != 2 {
+		fail(fmt.Errorf("usage: crosswalk <framework> <os>"))
+	}
+	r, err := store.Crosswalk(ctx, args[0], args[1])
+	if err != nil {
+		fail(err)
+	}
+	if r.Total == 0 {
+		fail(fmt.Errorf("no %s benchmark loaded for %s", args[0], args[1]))
+	}
+	pct := func(n int) float64 { return 100 * float64(n) / float64(r.Total) }
+	fmt.Printf("%s %s: %d controls\n", r.Framework, r.OS, r.Total)
+	fmt.Printf("  covered:  %3d (%.0f%%)   a rule already cites this control\n", r.Covered, pct(r.Covered))
+	fmt.Printf("  extend:   %3d (%.0f%%)   a rule's check target matches; extend it to this OS\n", r.Extend, pct(r.Extend))
+	fmt.Printf("  net-new:  %3d (%.0f%%)   no matching rule target; genuine authoring\n", r.NetNew, pct(r.NetNew))
+	fmt.Printf("  reuse (covered+extend): %d/%d = %.0f%%\n", r.Covered+r.Extend, r.Total, pct(r.Covered+r.Extend))
+	if len(r.ExtendList) > 0 {
+		fmt.Println("\nExtend candidates (control -> matching rule via target):")
+		w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+		for _, e := range r.ExtendList {
+			fmt.Fprintf(w, "  %s\t%s:%s\t-> %s\t%s\n", e.ControlID, e.Kind, e.Value, e.Rule, truncate(e.Title, 44))
+		}
+		_ = w.Flush()
+	}
+}
+
 func runVerified(ctx context.Context, store *catalog.Store, args []string) {
 	osFilter := ""
 	if len(args) > 0 {
@@ -470,6 +500,7 @@ Query (view) the catalog:
   kensa-catalog -db PATH drift   <framework> <os>          stale references (re-mapping list)
   kensa-catalog -db PATH control <framework> <os> <id>     full crosswalk for one control
   kensa-catalog -db PATH verified [os]                     rules functionally proven on an OS (+ mapped?)
+  kensa-catalog -db PATH crosswalk <framework> <os>        classify controls covered/extend/net-new
   kensa-catalog -db PATH baseline                          dump the matrix as JSON
   kensa-catalog -db PATH check <baseline.json>             CI gate: fail on regression/new drift
 

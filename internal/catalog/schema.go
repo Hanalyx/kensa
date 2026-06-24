@@ -67,7 +67,27 @@ CREATE TABLE IF NOT EXISTS verification (
     UNIQUE(rule_id, os, scope)
 );
 
+-- Structured subjects extracted from a control's check/fix commands (the package
+-- dpkg queries, the param sysctl sets, the path stat checks). The command-aware
+-- crosswalk matches these against rule_target to classify a control as covered /
+-- extend (a rule's target already matches) / net-new.
+CREATE TABLE IF NOT EXISTS control_target (
+    control_pk INTEGER NOT NULL REFERENCES control(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL,   -- package | sysctl | path | service | module
+    value      TEXT NOT NULL
+);
+
+-- The structured subject of each corpus rule's check method, for the crosswalk.
+CREATE TABLE IF NOT EXISTS rule_target (
+    rule_id TEXT NOT NULL,
+    kind    TEXT NOT NULL,
+    value   TEXT NOT NULL,
+    UNIQUE(rule_id, kind, value)
+);
+
 CREATE INDEX IF NOT EXISTS idx_control_lookup ON control(benchmark_id, control_id);
+CREATE INDEX IF NOT EXISTS idx_control_target ON control_target(kind, value);
+CREATE INDEX IF NOT EXISTS idx_rule_target ON rule_target(kind, value);
 CREATE INDEX IF NOT EXISTS idx_coverage_lookup ON coverage(framework, os, control_id);
 CREATE INDEX IF NOT EXISTS idx_verification_os ON verification(os);
 `

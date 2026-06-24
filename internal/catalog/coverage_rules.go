@@ -13,10 +13,36 @@ import (
 	"github.com/Hanalyx/kensa/internal/mappings"
 )
 
-// ruleRefs is the minimal rule shape needed to extract framework citations.
+// ruleRefs is the minimal rule shape needed to extract framework citations and
+// the structured target of each implementation's check.
 type ruleRefs struct {
-	ID         string                 `yaml:"id"`
-	References map[string]interface{} `yaml:"references"`
+	ID              string                 `yaml:"id"`
+	References      map[string]interface{} `yaml:"references"`
+	Implementations []struct {
+		Check map[string]interface{} `yaml:"check"`
+	} `yaml:"implementations"`
+}
+
+// ruleTargetsOf extracts the distinct structured targets of a rule's checks.
+func ruleTargetsOf(rr ruleRefs) []Target {
+	seen := map[Target]bool{}
+	for _, impl := range rr.Implementations {
+		method, _ := impl.Check["method"].(string)
+		params := map[string]string{}
+		for _, k := range []string{"name", "key", "path"} {
+			if v, ok := impl.Check[k].(string); ok {
+				params[k] = v
+			}
+		}
+		if kind, value := ruleTarget(method, params); value != "" {
+			seen[Target{Kind: kind, Value: value}] = true
+		}
+	}
+	out := make([]Target, 0, len(seen))
+	for t := range seen {
+		out = append(out, t)
+	}
+	return out
 }
 
 // IngestCoverageFromRules records which rule cites which CIS section and STIG vuln
@@ -46,6 +72,9 @@ func (s *Store) IngestCoverageFromRules(ctx context.Context, rulesDir string) (i
 	if _, err := tx.ExecContext(ctx, `DELETE FROM coverage WHERE framework IN ('stig','cis')`); err != nil {
 		return 0, err
 	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM rule_target`); err != nil {
+		return 0, err
+	}
 
 	n := 0
 	for _, f := range files {
@@ -59,6 +88,13 @@ func (s *Store) IngestCoverageFromRules(ctx context.Context, rulesDir string) (i
 		}
 		if rr.ID == "" {
 			continue
+		}
+		for _, t := range ruleTargetsOf(rr) {
+			if _, err := tx.ExecContext(ctx, `
+                INSERT OR IGNORE INTO rule_target (rule_id, kind, value) VALUES (?, ?, ?)`,
+				rr.ID, t.Kind, t.Value); err != nil {
+				return 0, err
+			}
 		}
 		for _, ref := range mappings.RefsFromReferences(rr.References) {
 			framework, osID, ok := splitVersionedFramework(ref.FrameworkID)

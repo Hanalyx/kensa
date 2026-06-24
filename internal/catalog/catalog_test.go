@@ -261,3 +261,62 @@ func TestVerifications(t *testing.T) {
 		}
 	})
 }
+
+func hasTarget(ts []Target, kind, val string) bool {
+	for _, t := range ts {
+		if t.Kind == kind && t.Value == val {
+			return true
+		}
+	}
+	return false
+}
+
+// @spec catalog-coverage-crosswalk
+// @ac AC-10
+func TestCrosswalk(t *testing.T) {
+	t.Run("catalog-coverage-crosswalk/AC-10", func(t *testing.T) {
+		// Extractor precision: command argument, not prose.
+		tg := ExtractCommandTargets("Verify:\n$ dpkg -l | grep telnetd\nFix:\n$ sudo apt remove telnetd")
+		if !hasTarget(tg, "package", "telnetd") {
+			t.Errorf("expected (package,telnetd) from the command, got %v", tg)
+		}
+		if hasTarget(tg, "package", "sudo") || hasTarget(tg, "package", "grep") {
+			t.Errorf("prose words leaked into targets: %v", tg)
+		}
+
+		s, ctx := newStore(t)
+		dir := t.TempDir()
+		xccdf := `<?xml version="1.0"?>
+<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1"><title>T</title>
+ <Group id="V-100"><Rule severity="high"><version>X-1</version><title>no telnetd</title>
+   <check system="x"><check-content>$ dpkg -l | grep telnetd</check-content></check>
+   <fixtext>$ sudo apt remove telnetd</fixtext></Rule></Group>
+ <Group id="V-101"><Rule severity="medium"><version>X-2</version><title>sysctl foo</title>
+   <check system="x"><check-content>$ sysctl kernel.foo</check-content></check></Rule></Group>
+ <Group id="V-102"><Rule severity="low"><version>X-3</version><title>manual review</title>
+   <check system="x"><check-content>Review the policy manually.</check-content></check></Rule></Group>
+</Benchmark>`
+		if _, err := s.IngestSTIG(ctx, "ubuntu24", "vT", writeFixture(t, dir, "x.xml", xccdf)); err != nil {
+			t.Fatal(err)
+		}
+		// rule-a targets telnetd (-> extend V-100); rule-b cites V-101 (-> covered).
+		rulesDir := t.TempDir()
+		writeFixture(t, rulesDir, "a.yml",
+			"id: rule-a\nimplementations:\n  - default: true\n    check:\n      method: package_state\n      name: telnetd\n")
+		writeFixture(t, rulesDir, "b.yml",
+			"id: rule-b\nreferences:\n  stig:\n    ubuntu24:\n      vuln_id: V-101\nimplementations:\n  - default: true\n    check:\n      method: sysctl_value\n      key: kernel.foo\n")
+		if _, err := s.IngestCoverageFromRules(ctx, rulesDir); err != nil {
+			t.Fatal(err)
+		}
+		r, err := s.Crosswalk(ctx, "stig", "ubuntu24")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Total != 3 || r.Covered != 1 || r.Extend != 1 || r.NetNew != 1 {
+			t.Fatalf("crosswalk = total %d / covered %d / extend %d / net-new %d; want 3/1/1/1", r.Total, r.Covered, r.Extend, r.NetNew)
+		}
+		if len(r.ExtendList) != 1 || r.ExtendList[0].ControlID != "V-100" || r.ExtendList[0].Rule != "rule-a" {
+			t.Errorf("extend candidate = %+v, want V-100 -> rule-a", r.ExtendList)
+		}
+	})
+}
