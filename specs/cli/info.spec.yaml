@@ -197,7 +197,7 @@ spec:
               Search and list-controls modes MUST
               support --limit N (default 100; 0 =
               unlimited). Without a limit, a generic
-              query like "file" against a 535-rule
+              query like "file" against a 540-rule
               corpus produces hundreds of lines of
               output that scroll the relevant header
               off the operator's terminal. Truncation
