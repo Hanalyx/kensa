@@ -1,0 +1,41 @@
+id: ufw-installed
+title: Ensure the UFW application firewall is installed
+description: >
+  The ufw (Uncomplicated Firewall) package provides the host application
+  firewall used to control network access on Ubuntu systems.
+rationale: >
+  A host firewall restricts inbound and outbound network connections to
+  those explicitly permitted, reducing the attack surface. Without ufw
+  installed, host-level network filtering cannot be configured.
+severity: medium
+category: network
+tags:
+- ufw
+- firewall
+- network
+- packages
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270654
+      stig_id: UBTU-24-100300
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260514
+      stig_id: UBTU-22-251010
+      severity: CAT II
+  nist_800_53:
+  - AC-17(1)
+  - CM-7
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: package_state
+    name: ufw
+    state: present
+  remediation:
+    mechanism: apt_present
+    name: ufw

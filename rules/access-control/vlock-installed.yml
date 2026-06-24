@@ -1,0 +1,40 @@
+id: vlock-installed
+title: Ensure vlock is installed for session locking
+description: >
+  The vlock package lets users directly lock their terminal sessions,
+  preventing access while a session is unattended.
+rationale: >
+  Allowing users to lock a session on demand protects an unattended
+  terminal from unauthorized use without requiring the user to log out.
+severity: medium
+category: access-control
+tags:
+- vlock
+- session-lock
+- access-control
+- packages
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270674
+      stig_id: UBTU-24-101000
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260553
+      stig_id: UBTU-22-412025
+      severity: CAT II
+  nist_800_53:
+  - AC-11
+  - AC-11(1)
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: package_state
+    name: vlock
+    state: present
+  remediation:
+    mechanism: apt_present
+    name: vlock

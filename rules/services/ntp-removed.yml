@@ -1,0 +1,40 @@
+id: ntp-removed
+title: Ensure the ntp package is not installed
+description: >
+  The legacy ntp daemon must not be installed on Ubuntu; chrony is the
+  supported time synchronization service.
+rationale: >
+  Running multiple time synchronization daemons, or the unmaintained ntp
+  daemon, risks inconsistent time and a larger attack surface. Removing
+  ntp leaves chrony as the single supported time source.
+severity: low
+category: services
+tags:
+- ntp
+- time
+- services
+- packages
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270646
+      stig_id: UBTU-24-100020
+      severity: CAT III
+    ubuntu22:
+      vuln_id: V-260481
+      stig_id: UBTU-22-215025
+      severity: CAT III
+  nist_800_53:
+  - CM-6
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: package_state
+    name: ntp
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: ntp

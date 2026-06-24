@@ -1,0 +1,40 @@
+id: systemd-timesyncd-removed
+title: Ensure the systemd-timesyncd package is not installed
+description: >
+  The systemd-timesyncd package must not be installed on Ubuntu; chrony
+  is the supported time synchronization service.
+rationale: >
+  Running more than one time synchronization mechanism risks inconsistent
+  system time, which undermines log correlation and authentication.
+  Removing systemd-timesyncd leaves chrony as the single time source.
+severity: low
+category: services
+tags:
+- time
+- systemd-timesyncd
+- services
+- packages
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270645
+      stig_id: UBTU-24-100010
+      severity: CAT III
+    ubuntu22:
+      vuln_id: V-260480
+      stig_id: UBTU-22-215020
+      severity: CAT III
+  nist_800_53:
+  - CM-6
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: package_state
+    name: systemd-timesyncd
+    state: absent
+  remediation:
+    mechanism: apt_absent
+    name: systemd-timesyncd
