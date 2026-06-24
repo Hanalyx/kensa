@@ -107,7 +107,7 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              Corpus ratchet: across all 538 rules, non-allowlisted rules have
+              Corpus ratchet: across all 535 rules, non-allowlisted rules have
               no CheckParamErrors, and every knownNonConformingCheckRules entry
               still violates. Locked by TestCheckParamCorpusRatchet.
           references_constraints: [C-04]
