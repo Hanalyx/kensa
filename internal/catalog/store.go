@@ -150,6 +150,39 @@ func (s *Store) IngestCIS(ctx context.Context, path string) (int, error) {
 	return len(f.Recommendations), nil
 }
 
+// IngestVerifications loads the functional-verification facts (a rule's
+// check/remediate/rollback proven on a live OS) and records them. Independent of
+// any benchmark: recorded facts, replaced wholesale on re-ingest.
+func (s *Store) IngestVerifications(ctx context.Context, path string) (int, error) {
+	vs, err := parseVerifications(path)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM verification`); err != nil {
+		return 0, err
+	}
+	for _, v := range vs {
+		if v.RuleID == "" || v.OS == "" || v.Scope == "" {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `
+            INSERT OR IGNORE INTO verification (rule_id, os, scope, host, verified_at, notes)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+			v.RuleID, v.OS, v.Scope, nullStr(v.Host), nullStr(v.VerifiedAt), nullStr(v.Notes)); err != nil {
+			return 0, fmt.Errorf("catalog: insert verification %s/%s: %w", v.RuleID, v.OS, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return len(vs), nil
+}
+
 // IngestCoverageFromCorpus reads a corpus-coverage.json index and records which
 // rule cites which STIG vuln id and which CIS section, per os. Citations are
 // stored raw; a citation matching no ingested control is later reported as drift.

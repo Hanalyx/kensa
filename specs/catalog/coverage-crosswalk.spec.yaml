@@ -94,6 +94,15 @@ spec:
               are usage errors: exit 2, reported on stderr.
           type: business
           enforcement: error
+        - id: C-08
+          description: |
+              Functional verification — a rule's check/remediate/rollback proven on
+              a live OS — MUST be a first-class fact, recorded and queryable
+              independent of any framework benchmark. A verified rule with no
+              framework citation for that OS MUST be reported as proven-but-unmapped,
+              so "Kensa knows this works here" stands on its own as technical truth.
+          type: business
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -149,6 +158,14 @@ spec:
               the help subcommand; returns 2 for no arguments and for an unknown
               command (reported on stderr). Locked by TestRun_Help.
           references_constraints: [C-07]
+          priority: high
+        - id: AC-09
+          description: |
+              IngestVerifications records functional-verification facts;
+              VerifiedRules returns them (optionally filtered by os) with a mapped
+              flag reflecting whether the rule has a benchmark citation for that os.
+              Locked by TestVerifications.
+          references_constraints: [C-08]
           priority: high
 
     tags: [catalog, crosswalk, coverage, dev-tool]

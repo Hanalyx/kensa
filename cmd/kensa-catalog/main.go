@@ -56,7 +56,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// clean usage error that never creates a stray database file.
 	known := map[string]bool{
 		"build": true, "ingest": true, "coverage": true, "nist": true, "missing": true,
-		"drift": true, "control": true, "baseline": true, "check": true,
+		"drift": true, "control": true, "verified": true, "baseline": true, "check": true,
 	}
 	if !known[rest[0]] {
 		fmt.Fprintf(stderr, "kensa-catalog: unknown command %q\n", rest[0])
@@ -87,6 +87,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		runDrift(ctx, store, rest[1:])
 	case "control":
 		runControl(ctx, store, rest[1:])
+	case "verified":
+		runVerified(ctx, store, rest[1:])
 	case "baseline":
 		runBaseline(ctx, store)
 	case "check":
@@ -271,9 +273,10 @@ type manifest struct {
 	Stig []struct {
 		OS, Release, File string
 	} `json:"stig"`
-	Cis  []string `json:"cis"`
-	Nist string   `json:"nist"`
-	Cci  string   `json:"cci"`
+	Cis           []string `json:"cis"`
+	Nist          string   `json:"nist"`
+	Cci           string   `json:"cci"`
+	Verifications string   `json:"verifications"`
 }
 
 // runBuild rebuilds the whole catalog from a vendored sources tree (its
@@ -312,8 +315,14 @@ func runBuild(ctx context.Context, store *catalog.Store, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("catalog built: %d STIG + %d CIS benchmarks, NIST + CCI loaded, %d coverage citations from %s\n",
-		len(m.Stig), len(m.Cis), cov, rulesDir)
+	ver := 0
+	if m.Verifications != "" {
+		if ver, err = store.IngestVerifications(ctx, filepath.Join(srcDir, m.Verifications)); err != nil {
+			fail(err)
+		}
+	}
+	fmt.Printf("catalog built: %d STIG + %d CIS benchmarks, NIST + CCI loaded, %d coverage citations, %d verifications, from %s\n",
+		len(m.Stig), len(m.Cis), cov, ver, rulesDir)
 }
 
 func runIngest(ctx context.Context, store *catalog.Store, args []string) {
@@ -366,9 +375,42 @@ func runIngest(ctx context.Context, store *catalog.Store, args []string) {
 			fail(err)
 		}
 		fmt.Printf("ingested %d CIS recommendations (facts only)\n", n)
+	case "verifications":
+		if len(args) != 2 {
+			fail(fmt.Errorf("usage: ingest verifications <verifications.json>"))
+		}
+		n, err := store.IngestVerifications(ctx, args[1])
+		if err != nil {
+			fail(err)
+		}
+		fmt.Printf("ingested %d functional verifications\n", n)
 	default:
 		fail(fmt.Errorf("unknown ingest kind %q", args[0]))
 	}
+}
+
+func runVerified(ctx context.Context, store *catalog.Store, args []string) {
+	osFilter := ""
+	if len(args) > 0 {
+		osFilter = args[0]
+	}
+	rows, err := store.VerifiedRules(ctx, osFilter)
+	if err != nil {
+		fail(err)
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(w, "OS\tRULE\tSCOPE\tMAPPED\tHOST\tDATE\n")
+	unmapped := 0
+	for _, r := range rows {
+		m := "yes"
+		if !r.Mapped {
+			m = "NO (awaiting benchmark)"
+			unmapped++
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r.OS, r.RuleID, r.Scope, m, r.Host, r.VerifiedAt)
+	}
+	_ = w.Flush()
+	fmt.Printf("\n%d verification(s); %d functionally proven but not yet benchmark-mapped.\n", len(rows), unmapped)
 }
 
 func runNIST(ctx context.Context, store *catalog.Store, _ []string) {
@@ -427,6 +469,7 @@ Query (view) the catalog:
   kensa-catalog -db PATH missing <framework> <os>          controls no rule covers (the backlog)
   kensa-catalog -db PATH drift   <framework> <os>          stale references (re-mapping list)
   kensa-catalog -db PATH control <framework> <os> <id>     full crosswalk for one control
+  kensa-catalog -db PATH verified [os]                     rules functionally proven on an OS (+ mapped?)
   kensa-catalog -db PATH baseline                          dump the matrix as JSON
   kensa-catalog -db PATH check <baseline.json>             CI gate: fail on regression/new drift
 
@@ -436,6 +479,7 @@ Ingest individual sources (normally driven by 'build'):
   kensa-catalog -db PATH ingest nist <nist_800-53_r5_controls.json>
   kensa-catalog -db PATH ingest cci  <cci_800-53_r5_edges.json>
   kensa-catalog -db PATH ingest coverage <corpus-coverage.json>
+  kensa-catalog -db PATH ingest verifications <verifications.json>
 `)
 }
 

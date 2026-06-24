@@ -14,5 +14,6 @@
   "cis/cis_facts_ubuntu24.json"
  ],
  "nist": "nist/nist_800-53_r5_controls.json",
- "cci": "nist/cci_800-53_r5_edges.json"
+ "cci": "nist/cci_800-53_r5_edges.json",
+ "verifications": "verifications.json"
 }

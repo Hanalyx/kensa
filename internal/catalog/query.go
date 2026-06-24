@@ -5,6 +5,48 @@ import (
 	"database/sql"
 )
 
+// VerifiedRule is a functional-verification fact: a rule proven to work on an OS,
+// with whether that (rule, os) also carries a benchmark mapping in coverage.
+// Mapped=false is the meaningful "works, awaiting a benchmark" state (e.g. a rule
+// proven on Ubuntu 26.04 before DISA/CIS publish a 26.04 benchmark).
+type VerifiedRule struct {
+	RuleID, OS, Scope, Host, VerifiedAt, Notes string
+	Mapped                                     bool
+}
+
+// VerifiedRules returns recorded functional verifications, optionally filtered to
+// one OS, each flagged with whether the rule also has a benchmark citation for
+// that OS. Ordered by os, rule, scope.
+func (s *Store) VerifiedRules(ctx context.Context, osFilter string) ([]VerifiedRule, error) {
+	q := `
+        SELECT v.rule_id, v.os, v.scope, v.host, v.verified_at, v.notes,
+            EXISTS(SELECT 1 FROM coverage c WHERE c.rule_id = v.rule_id AND c.os = v.os) AS mapped
+        FROM verification v`
+	args := []interface{}{}
+	if osFilter != "" {
+		q += " WHERE v.os = ?"
+		args = append(args, osFilter)
+	}
+	q += " ORDER BY v.os, v.rule_id, v.scope"
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []VerifiedRule
+	for rows.Next() {
+		var v VerifiedRule
+		var host, at, notes sql.NullString
+		var mapped int
+		if err := rows.Scan(&v.RuleID, &v.OS, &v.Scope, &host, &at, &notes, &mapped); err != nil {
+			return nil, err
+		}
+		v.Host, v.VerifiedAt, v.Notes, v.Mapped = host.String, at.String, notes.String, mapped != 0
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 // Control is a benchmark control as returned by query methods. Automatable is
 // 1 (yes), 0 (no), or -1 (unknown — STIG manual XCCDF marks no subset). Title is
 // empty for cis-restricted benchmarks, which store no prose.

@@ -210,3 +210,54 @@ func TestMissingControls(t *testing.T) {
 		}
 	})
 }
+
+// @spec catalog-coverage-crosswalk
+// @ac AC-09
+func TestVerifications(t *testing.T) {
+	t.Run("catalog-coverage-crosswalk/AC-09", func(t *testing.T) {
+		s, ctx := newStore(t)
+		dir := t.TempDir()
+		// A benchmark + coverage so "rule-mapped" has a rhel9 citation.
+		if _, err := s.IngestSTIG(ctx, "rhel9", "vT", writeFixture(t, dir, "x.xml", fixtureXCCDF)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.IngestCoverageFromCorpus(ctx, writeFixture(t, dir, "c.json",
+			`{"rules":[{"id":"rule-mapped","stig":{"rhel9":{"vuln_id":"V-1"}}}]}`)); err != nil {
+			t.Fatal(err)
+		}
+		// rule-mapped verified on rhel9 (has coverage); rule-proven verified on
+		// ubuntu26 (no benchmark/coverage -> proven-but-unmapped).
+		vf := `{"verifications":[
+            {"rule_id":"rule-mapped","os":"rhel9","scope":"full","host":"c","verified_at":"2026-06-24"},
+            {"rule_id":"rule-proven","os":"ubuntu26","scope":"check","host":"c","verified_at":"2026-06-24"}]}`
+		if n, err := s.IngestVerifications(ctx, writeFixture(t, dir, "v.json", vf)); err != nil || n != 2 {
+			t.Fatalf("IngestVerifications n=%d err=%v", n, err)
+		}
+		all, err := s.VerifiedRules(ctx, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(all) != 2 {
+			t.Fatalf("want 2 verifications, got %d", len(all))
+		}
+		// os filter narrows to one.
+		u, err := s.VerifiedRules(ctx, "ubuntu26")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(u) != 1 || u[0].RuleID != "rule-proven" || u[0].Mapped {
+			t.Errorf("ubuntu26 filter = %+v, want one unmapped rule-proven", u)
+		}
+		// mapped flag reflects coverage presence for that os.
+		byID := map[string]VerifiedRule{}
+		for _, v := range all {
+			byID[v.RuleID] = v
+		}
+		if !byID["rule-mapped"].Mapped {
+			t.Error("rule-mapped has rhel9 coverage; Mapped should be true")
+		}
+		if byID["rule-proven"].Mapped {
+			t.Error("rule-proven has no coverage; Mapped should be false (proven-but-unmapped)")
+		}
+	})
+}

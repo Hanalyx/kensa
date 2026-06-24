@@ -51,6 +51,23 @@ CREATE TABLE IF NOT EXISTS coverage (
     UNIQUE(rule_id, framework, os, control_id)
 );
 
+-- A rule's functional verification on an OS: that its check (and optionally
+-- remediate/rollback) was proven to work on a live host, independent of whether
+-- any framework benchmark exists for that OS yet. This is the "Kensa knows this
+-- works here" fact — separate from the benchmark mapping in coverage. A control
+-- body blessing the rule (CIS/STIG) is joined in later; functional truth does
+-- not wait on it.
+CREATE TABLE IF NOT EXISTS verification (
+    rule_id     TEXT NOT NULL,
+    os          TEXT NOT NULL,
+    scope       TEXT NOT NULL,   -- check | remediate | rollback | full (check+remediate+rollback)
+    host        TEXT,            -- e.g. fleet:192.168.1.248 | container:ubuntu24.04
+    verified_at TEXT,            -- ISO date
+    notes       TEXT,
+    UNIQUE(rule_id, os, scope)
+);
+
 CREATE INDEX IF NOT EXISTS idx_control_lookup ON control(benchmark_id, control_id);
 CREATE INDEX IF NOT EXISTS idx_coverage_lookup ON coverage(framework, os, control_id);
+CREATE INDEX IF NOT EXISTS idx_verification_os ON verification(os);
 `
