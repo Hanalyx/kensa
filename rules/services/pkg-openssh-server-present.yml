@@ -21,10 +21,20 @@ references:
     rhel8:
       vuln_id: V-230526
       severity: CAT II
+    ubuntu24:
+      vuln_id: V-270665
+      stig_id: UBTU-24-100800
+      severity: CAT I
+    ubuntu22:
+      vuln_id: V-260523
+      stig_id: UBTU-22-255010
+      severity: CAT I
   nist_800_53:
   - SC-8
   - AC-17
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
