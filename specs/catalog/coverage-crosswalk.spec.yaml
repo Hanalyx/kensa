@@ -1,0 +1,154 @@
+spec:
+    id: catalog-coverage-crosswalk
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: catalog
+        description: |
+            kensa-catalog is a dev and CI authoring tool (not shipped). It
+            builds a normalized SQLite store of compliance-benchmark controls
+            (CIS, STIG, NIST 800-53 Rev 5) and their cross-references from
+            vendored source files, so coverage and crosswalk questions are
+            answered by a query instead of by re-parsing PDFs and XML.
+
+            The store is a reference-data asset, not part of the frozen api/
+            contract: frameworks are metadata, not host-config mechanism, so it
+            publishes facts the rule-authoring process consumes rather than
+            anything OpenWatch executes.
+
+            Licensing is encoded per row. STIG XCCDF and NIST OSCAL and the CCI
+            list are public domain and carry full text. CIS benchmark text is
+            copyrighted, so CIS rows store only non-copyrightable facts
+            (recommendation number, profile level, automatable flag) and never
+            any title or prose; the copyrighted PDFs stay gitignored.
+
+            Coverage is read from the rule corpus directly via the same
+            internal/mappings normalization the engine uses, so it can never
+            drift from how Kensa itself reads a rule's references. The CI gate
+            compares a freshly built catalog against a committed baseline and
+            fails on coverage regression or newly introduced reference drift.
+
+    objective:
+        summary: |
+            Parse STIG XCCDF, CIS facts, and NIST/CCI slim facts into a
+            normalized catalog; compute per-cell covered/missing/drift against
+            the rule corpus; derive the 800-53 surface from STIG CCIs; and gate
+            CI on regression against a committed baseline.
+        scope:
+            includes:
+                - "internal/catalog: Store + STIG/CIS/NIST/CCI ingest + coverage-from-rules"
+                - "Query surface: CoverageMatrix, MissingControls, DriftedCitations, ControlCrosswalk, DerivedNISTByFamily"
+                - "cmd/kensa-catalog build/coverage/missing/drift/control/nist/baseline/check verbs"
+                - "make catalog / catalog-check; catalog/baseline.json gate"
+            excludes:
+                - "Shipping kensa-catalog in the rpm/deb (dev tool only)"
+                - "Storing CIS recommendation prose (copyrighted; facts only)"
+                - "A running service or HTTP API (file-backed, queried in-process)"
+
+    constraints:
+        - id: C-01
+          description: |
+              STIG XCCDF parsing MUST yield one control per requirement with its
+              vuln id, severity, and CCI idents.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              CIS ingest MUST store facts only: the control title MUST be empty
+              for a cis-restricted benchmark. No copyrighted prose is persisted.
+          type: business
+          enforcement: error
+        - id: C-03
+          description: |
+              Drift MUST count distinct cited controls absent from the
+              benchmark, not raw citation rows: one renumbered control cited by
+              many rules is one drift, the same DISTINCT basis as covered.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              Coverage MUST be read from the rule corpus via internal/mappings,
+              so a versioned framework id (cis_rhel9) splits to (cis, rhel9) and
+              a flat-list framework (nist_800_53) is skipped.
+          type: business
+          enforcement: error
+        - id: C-05
+          description: |
+              ControlCrosswalk MUST chain a STIG control's CCIs to their 800-53
+              Rev 5 controls and list the corpus rules that cover it.
+          type: business
+          enforcement: error
+        - id: C-06
+          description: |
+              The check gate MUST fail when a cell loses coverage or gains drift
+              versus the committed baseline, and pass otherwise.
+          type: business
+          enforcement: error
+        - id: C-07
+          description: |
+              The CLI MUST expose --help / -h and a help subcommand that print the
+              full usage to stdout and exit 0. No arguments and an unknown command
+              are usage errors: exit 2, reported on stderr.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              parseSTIG on a fixture XCCDF returns the expected controls, each
+              with vuln id, severity, and CCIs. Locked by TestParseSTIG.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              IngestCIS stores a NULL/empty title for every recommendation; only
+              section, level, and automatable are persisted. Locked by
+              TestIngestCIS_FactsOnly.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              CoverageMatrix drift counts distinct controls: one section cited by
+              several rules counts once. Locked by
+              TestCoverageMatrix_DriftIsDistinct.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              splitVersionedFramework maps cis_rhel9 to (cis, rhel9) and reports
+              not-ok for nist_800_53. Locked by TestSplitVersionedFramework.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              ControlCrosswalk returns the CCIs, derived 800-53 controls, and
+              covering rules for a STIG control. Locked by TestControlCrosswalk.
+          references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              MissingControls returns benchmark controls with no coverage row.
+              Locked by TestMissingControls.
+          references_constraints: [C-01]
+          priority: medium
+        - id: AC-07
+          description: |
+              The check gate passes a freshly built catalog against its own
+              baseline and exits non-zero when a cell loses coverage or gains
+              drift. Verified by the make catalog-check target and a regression
+              run (a doctored baseline raising expected coverage fails with a
+              "coverage REGRESSED" message and exit 1).
+          references_constraints: [C-06]
+          priority: high
+        - id: AC-08
+          description: |
+              run prints full usage to stdout and returns 0 for --help, -h, and
+              the help subcommand; returns 2 for no arguments and for an unknown
+              command (reported on stderr). Locked by TestRun_Help.
+          references_constraints: [C-07]
+          priority: high
+
+    tags: [catalog, crosswalk, coverage, dev-tool]

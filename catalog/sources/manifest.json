@@ -1,0 +1,18 @@
+{
+ "stig": [
+  {"os": "rhel8",    "release": "V2R7", "file": "stig/U_RHEL_8_STIG_V2R7_Manual-xccdf.xml"},
+  {"os": "rhel9",    "release": "V2R8", "file": "stig/U_RHEL_9_STIG_V2R8_Manual-xccdf.xml"},
+  {"os": "rhel10",   "release": "V1R1", "file": "stig/U_RHEL_10_STIG_V1R1_Manual-xccdf.xml"},
+  {"os": "ubuntu22", "release": "V2R8", "file": "stig/U_CAN_Ubuntu_22-04_LTS_STIG_V2R8_Manual-xccdf.xml"},
+  {"os": "ubuntu24", "release": "V1R5", "file": "stig/U_CAN_Ubuntu_24-04_LTS_STIG_V1R5_Manual-xccdf.xml"}
+ ],
+ "cis": [
+  "cis/cis_facts_rhel8.json",
+  "cis/cis_facts_rhel9.json",
+  "cis/cis_facts_rhel10.json",
+  "cis/cis_facts_ubuntu22.json",
+  "cis/cis_facts_ubuntu24.json"
+ ],
+ "nist": "nist/nist_800-53_r5_controls.json",
+ "cci": "nist/cci_800-53_r5_edges.json"
+}

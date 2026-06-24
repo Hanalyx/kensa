@@ -536,6 +536,24 @@ jobs:
           GOFLAGS: ''  # tidy needs write access to go.mod / go.sum
         run: make mod-tidy-check
 
+  catalog-drift:
+    # Rebuild the compliance-benchmark control catalog (kensa-catalog, a dev
+    # tool) from the vendored sources in catalog/sources/ plus the rule corpus,
+    # then gate against catalog/baseline.json. Fails the build if a rule drops a
+    # framework reference (coverage regression) or starts citing a control absent
+    # from the current benchmark (new reference drift). The known existing drift
+    # is baked into the baseline, so this is green until coverage changes — then
+    # `make catalog-baseline` refreshes it as part of the change.
+    name: Catalog drift gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: make catalog-check
+        run: make catalog-check
+
   secret-scan:
     # Track S S-006: detect-secrets baseline drift. Compares the current
     # working tree against .secrets.baseline; any new finding not on the

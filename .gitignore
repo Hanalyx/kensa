@@ -44,3 +44,6 @@ go-test.json
 
 # Live-host scan artifacts (evidence/OSCAL); generated, contain host data
 results/
+
+# kensa-catalog default db path (when -db is not given)
+catalog.db
