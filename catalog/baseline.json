@@ -1,0 +1,74 @@
+{
+ "cells": [
+  {
+   "framework": "stig",
+   "os": "rhel10",
+   "total": 434,
+   "covered": 0,
+   "drifted": 1
+  },
+  {
+   "framework": "stig",
+   "os": "rhel8",
+   "total": 366,
+   "covered": 265,
+   "drifted": 1
+  },
+  {
+   "framework": "stig",
+   "os": "rhel9",
+   "total": 446,
+   "covered": 240,
+   "drifted": 1
+  },
+  {
+   "framework": "stig",
+   "os": "ubuntu22",
+   "total": 188,
+   "covered": 0,
+   "drifted": 0
+  },
+  {
+   "framework": "stig",
+   "os": "ubuntu24",
+   "total": 194,
+   "covered": 0,
+   "drifted": 0
+  },
+  {
+   "framework": "cis",
+   "os": "rhel10",
+   "total": 328,
+   "covered": 22,
+   "drifted": 3
+  },
+  {
+   "framework": "cis",
+   "os": "rhel8",
+   "total": 322,
+   "covered": 155,
+   "drifted": 27
+  },
+  {
+   "framework": "cis",
+   "os": "rhel9",
+   "total": 297,
+   "covered": 266,
+   "drifted": 1
+  },
+  {
+   "framework": "cis",
+   "os": "ubuntu22",
+   "total": 306,
+   "covered": 0,
+   "drifted": 0
+  },
+  {
+   "framework": "cis",
+   "os": "ubuntu24",
+   "total": 332,
+   "covered": 0,
+   "drifted": 0
+  }
+ ]
+}
