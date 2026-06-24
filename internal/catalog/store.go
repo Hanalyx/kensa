@@ -99,6 +99,13 @@ func (s *Store) IngestSTIG(ctx context.Context, osID, release, path string) (int
 				return 0, fmt.Errorf("catalog: insert ident %s: %w", cci, err)
 			}
 		}
+		for _, t := range ExtractCommandTargets(c.CheckText) {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO control_target (control_pk, kind, value) VALUES (?, ?, ?)`,
+				ctlPK, t.Kind, t.Value); err != nil {
+				return 0, fmt.Errorf("catalog: insert control_target %s/%s: %w", t.Kind, t.Value, err)
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
