@@ -1,0 +1,13 @@
+{
+ "_comment": "Functional verifications: a rule's check/remediate/rollback proven to work on a live OS, independent of any framework benchmark. Scope: check | remediate | rollback | full. This is recorded fact, not inference — each entry corresponds to an actual live run.",
+ "verifications": [
+  {"rule_id": "chrony-installed",               "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, PASS (chrony present)"},
+  {"rule_id": "package-rsh-server-removed",      "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, PASS (rsh-server absent)"},
+  {"rule_id": "pkg-openssh-server-present",      "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, PASS (openssh-server present)"},
+  {"rule_id": "auditd-installed",                "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, FAIL correct (auditd absent on 26.04); confirms the audit->auditd name-fix queries the right package"},
+  {"rule_id": "package-libpwquality-installed",  "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, PASS (libpam-pwquality present); confirms the libpwquality->libpam-pwquality name-fix"},
+  {"rule_id": "pkg-nfs-utils-absent",            "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, PASS (nfs-kernel-server absent); confirms the nfs-utils->nfs-kernel-server name-fix"},
+  {"rule_id": "pkg-telnet-server-absent",        "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-24", "notes": "read-only check, PASS (telnetd absent); confirms the telnet-server->telnetd name-fix"},
+  {"rule_id": "auditd-installed",                "os": "ubuntu24", "scope": "full",  "host": "container:ubuntu24.04", "verified_at": "2026-06-24", "notes": "check FAIL -> remediate FIXED (apt install auditd 1:3.1.2) -> rollback restored (package removed). apt is cli-best-effort: rollback left /etc/audit config residue (dpkg rc state), not byte-perfect."}
+ ]
+}

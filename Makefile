@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline clean
 
 help:
 	@echo "Kensa — common targets"
@@ -24,6 +24,10 @@ help:
 	@echo ""
 	@echo "  vuln            Run govulncheck against the binary call graph (CI gate)"
 	@echo "  mod-tidy-check  Verify go.mod + go.sum match 'go mod tidy' output (CI gate)"
+	@echo ""
+	@echo "  catalog         Rebuild the benchmark control catalog (dev tool) from catalog/sources/ + rules/"
+	@echo "  catalog-check   Gate on coverage regression / new reference drift vs catalog/baseline.json (CI gate)"
+	@echo "  catalog-baseline  Refresh catalog/baseline.json after an intended coverage change"
 	@echo ""
 	@echo "  clean           Remove build artifacts"
 
@@ -225,6 +229,27 @@ proto-check:
 		fi; \
 		rm -rf "$$tmpdir"
 	@echo "wire.pb.go in sync with wire.proto"
+
+# --- Compliance-benchmark catalog (dev tool) ---------------------------------
+# kensa-catalog is a dev/CI authoring tool (not shipped). `catalog` rebuilds the
+# benchmark control catalog from the vendored sources in catalog/sources/ plus the
+# rule corpus; `catalog-check` is the CI gate, failing on coverage regression or
+# newly introduced reference drift against catalog/baseline.json. The .db lands in
+# bin/ (gitignored) and is fully rebuildable from committed inputs. Re-run
+# catalog-baseline after an intended coverage change to refresh the baseline.
+CATALOG_DB := bin/kensa-catalog.db
+
+catalog:
+	CGO_ENABLED=0 go build -tags netgo -o bin/kensa-catalog ./cmd/kensa-catalog
+	@rm -f $(CATALOG_DB)
+	./bin/kensa-catalog -db $(CATALOG_DB) build catalog/sources rules
+
+catalog-check: catalog
+	./bin/kensa-catalog -db $(CATALOG_DB) check catalog/baseline.json
+
+catalog-baseline: catalog
+	./bin/kensa-catalog -db $(CATALOG_DB) baseline > catalog/baseline.json
+	@echo "re-baselined catalog/baseline.json"
 
 clean:
 	rm -rf bin/ coverage.txt coverage.html dist/ man/kensa.1.regenerated

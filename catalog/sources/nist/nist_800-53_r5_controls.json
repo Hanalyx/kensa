@@ -1,0 +1,5982 @@
+[
+ {
+  "id": "ac-1",
+  "family": "ac",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ac-2",
+  "family": "ac",
+  "title": "Account Management"
+ },
+ {
+  "id": "ac-2.1",
+  "family": "ac",
+  "title": "Automated System Account Management"
+ },
+ {
+  "id": "ac-2.2",
+  "family": "ac",
+  "title": "Automated Temporary and Emergency Account Management"
+ },
+ {
+  "id": "ac-2.3",
+  "family": "ac",
+  "title": "Disable Accounts"
+ },
+ {
+  "id": "ac-2.4",
+  "family": "ac",
+  "title": "Automated Audit Actions"
+ },
+ {
+  "id": "ac-2.5",
+  "family": "ac",
+  "title": "Inactivity Logout"
+ },
+ {
+  "id": "ac-2.6",
+  "family": "ac",
+  "title": "Dynamic Privilege Management"
+ },
+ {
+  "id": "ac-2.7",
+  "family": "ac",
+  "title": "Privileged User Accounts"
+ },
+ {
+  "id": "ac-2.8",
+  "family": "ac",
+  "title": "Dynamic Account Management"
+ },
+ {
+  "id": "ac-2.9",
+  "family": "ac",
+  "title": "Restrictions on Use of Shared and Group Accounts"
+ },
+ {
+  "id": "ac-2.10",
+  "family": "ac",
+  "title": "Shared and Group Account Credential Change"
+ },
+ {
+  "id": "ac-2.11",
+  "family": "ac",
+  "title": "Usage Conditions"
+ },
+ {
+  "id": "ac-2.12",
+  "family": "ac",
+  "title": "Account Monitoring for Atypical Usage"
+ },
+ {
+  "id": "ac-2.13",
+  "family": "ac",
+  "title": "Disable Accounts for High-risk Individuals"
+ },
+ {
+  "id": "ac-3",
+  "family": "ac",
+  "title": "Access Enforcement"
+ },
+ {
+  "id": "ac-3.1",
+  "family": "ac",
+  "title": "Restricted Access to Privileged Functions"
+ },
+ {
+  "id": "ac-3.2",
+  "family": "ac",
+  "title": "Dual Authorization"
+ },
+ {
+  "id": "ac-3.3",
+  "family": "ac",
+  "title": "Mandatory Access Control"
+ },
+ {
+  "id": "ac-3.4",
+  "family": "ac",
+  "title": "Discretionary Access Control"
+ },
+ {
+  "id": "ac-3.5",
+  "family": "ac",
+  "title": "Security-relevant Information"
+ },
+ {
+  "id": "ac-3.6",
+  "family": "ac",
+  "title": "Protection of User and System Information"
+ },
+ {
+  "id": "ac-3.7",
+  "family": "ac",
+  "title": "Role-based Access Control"
+ },
+ {
+  "id": "ac-3.8",
+  "family": "ac",
+  "title": "Revocation of Access Authorizations"
+ },
+ {
+  "id": "ac-3.9",
+  "family": "ac",
+  "title": "Controlled Release"
+ },
+ {
+  "id": "ac-3.10",
+  "family": "ac",
+  "title": "Audited Override of Access Control Mechanisms"
+ },
+ {
+  "id": "ac-3.11",
+  "family": "ac",
+  "title": "Restrict Access to Specific Information Types"
+ },
+ {
+  "id": "ac-3.12",
+  "family": "ac",
+  "title": "Assert and Enforce Application Access"
+ },
+ {
+  "id": "ac-3.13",
+  "family": "ac",
+  "title": "Attribute-based Access Control"
+ },
+ {
+  "id": "ac-3.14",
+  "family": "ac",
+  "title": "Individual Access"
+ },
+ {
+  "id": "ac-3.15",
+  "family": "ac",
+  "title": "Discretionary and Mandatory Access Control"
+ },
+ {
+  "id": "ac-4",
+  "family": "ac",
+  "title": "Information Flow Enforcement"
+ },
+ {
+  "id": "ac-4.1",
+  "family": "ac",
+  "title": "Object Security and Privacy Attributes"
+ },
+ {
+  "id": "ac-4.2",
+  "family": "ac",
+  "title": "Processing Domains"
+ },
+ {
+  "id": "ac-4.3",
+  "family": "ac",
+  "title": "Dynamic Information Flow Control"
+ },
+ {
+  "id": "ac-4.4",
+  "family": "ac",
+  "title": "Flow Control of Encrypted Information"
+ },
+ {
+  "id": "ac-4.5",
+  "family": "ac",
+  "title": "Embedded Data Types"
+ },
+ {
+  "id": "ac-4.6",
+  "family": "ac",
+  "title": "Metadata"
+ },
+ {
+  "id": "ac-4.7",
+  "family": "ac",
+  "title": "One-way Flow Mechanisms"
+ },
+ {
+  "id": "ac-4.8",
+  "family": "ac",
+  "title": "Security and Privacy Policy Filters"
+ },
+ {
+  "id": "ac-4.9",
+  "family": "ac",
+  "title": "Human Reviews"
+ },
+ {
+  "id": "ac-4.10",
+  "family": "ac",
+  "title": "Enable and Disable Security or Privacy Policy Filters"
+ },
+ {
+  "id": "ac-4.11",
+  "family": "ac",
+  "title": "Configuration of Security or Privacy Policy Filters"
+ },
+ {
+  "id": "ac-4.12",
+  "family": "ac",
+  "title": "Data Type Identifiers"
+ },
+ {
+  "id": "ac-4.13",
+  "family": "ac",
+  "title": "Decomposition into Policy-relevant Subcomponents"
+ },
+ {
+  "id": "ac-4.14",
+  "family": "ac",
+  "title": "Security or Privacy Policy Filter Constraints"
+ },
+ {
+  "id": "ac-4.15",
+  "family": "ac",
+  "title": "Detection of Unsanctioned Information"
+ },
+ {
+  "id": "ac-4.16",
+  "family": "ac",
+  "title": "Information Transfers on Interconnected Systems"
+ },
+ {
+  "id": "ac-4.17",
+  "family": "ac",
+  "title": "Domain Authentication"
+ },
+ {
+  "id": "ac-4.18",
+  "family": "ac",
+  "title": "Security Attribute Binding"
+ },
+ {
+  "id": "ac-4.19",
+  "family": "ac",
+  "title": "Validation of Metadata"
+ },
+ {
+  "id": "ac-4.20",
+  "family": "ac",
+  "title": "Approved Solutions"
+ },
+ {
+  "id": "ac-4.21",
+  "family": "ac",
+  "title": "Physical or Logical Separation of Information Flows"
+ },
+ {
+  "id": "ac-4.22",
+  "family": "ac",
+  "title": "Access Only"
+ },
+ {
+  "id": "ac-4.23",
+  "family": "ac",
+  "title": "Modify Non-releasable Information"
+ },
+ {
+  "id": "ac-4.24",
+  "family": "ac",
+  "title": "Internal Normalized Format"
+ },
+ {
+  "id": "ac-4.25",
+  "family": "ac",
+  "title": "Data Sanitization"
+ },
+ {
+  "id": "ac-4.26",
+  "family": "ac",
+  "title": "Audit Filtering Actions"
+ },
+ {
+  "id": "ac-4.27",
+  "family": "ac",
+  "title": "Redundant/Independent Filtering Mechanisms"
+ },
+ {
+  "id": "ac-4.28",
+  "family": "ac",
+  "title": "Linear Filter Pipelines"
+ },
+ {
+  "id": "ac-4.29",
+  "family": "ac",
+  "title": "Filter Orchestration Engines"
+ },
+ {
+  "id": "ac-4.30",
+  "family": "ac",
+  "title": "Filter Mechanisms Using Multiple Processes"
+ },
+ {
+  "id": "ac-4.31",
+  "family": "ac",
+  "title": "Failed Content Transfer Prevention"
+ },
+ {
+  "id": "ac-4.32",
+  "family": "ac",
+  "title": "Process Requirements for Information Transfer"
+ },
+ {
+  "id": "ac-5",
+  "family": "ac",
+  "title": "Separation of Duties"
+ },
+ {
+  "id": "ac-6",
+  "family": "ac",
+  "title": "Least Privilege"
+ },
+ {
+  "id": "ac-6.1",
+  "family": "ac",
+  "title": "Authorize Access to Security Functions"
+ },
+ {
+  "id": "ac-6.2",
+  "family": "ac",
+  "title": "Non-privileged Access for Nonsecurity Functions"
+ },
+ {
+  "id": "ac-6.3",
+  "family": "ac",
+  "title": "Network Access to Privileged Commands"
+ },
+ {
+  "id": "ac-6.4",
+  "family": "ac",
+  "title": "Separate Processing Domains"
+ },
+ {
+  "id": "ac-6.5",
+  "family": "ac",
+  "title": "Privileged Accounts"
+ },
+ {
+  "id": "ac-6.6",
+  "family": "ac",
+  "title": "Privileged Access by Non-organizational Users"
+ },
+ {
+  "id": "ac-6.7",
+  "family": "ac",
+  "title": "Review of User Privileges"
+ },
+ {
+  "id": "ac-6.8",
+  "family": "ac",
+  "title": "Privilege Levels for Code Execution"
+ },
+ {
+  "id": "ac-6.9",
+  "family": "ac",
+  "title": "Log Use of Privileged Functions"
+ },
+ {
+  "id": "ac-6.10",
+  "family": "ac",
+  "title": "Prohibit Non-privileged Users from Executing Privileged Functions"
+ },
+ {
+  "id": "ac-7",
+  "family": "ac",
+  "title": "Unsuccessful Logon Attempts"
+ },
+ {
+  "id": "ac-7.1",
+  "family": "ac",
+  "title": "Automatic Account Lock"
+ },
+ {
+  "id": "ac-7.2",
+  "family": "ac",
+  "title": "Purge or Wipe Mobile Device"
+ },
+ {
+  "id": "ac-7.3",
+  "family": "ac",
+  "title": "Biometric Attempt Limiting"
+ },
+ {
+  "id": "ac-7.4",
+  "family": "ac",
+  "title": "Use of Alternate Authentication Factor"
+ },
+ {
+  "id": "ac-8",
+  "family": "ac",
+  "title": "System Use Notification"
+ },
+ {
+  "id": "ac-9",
+  "family": "ac",
+  "title": "Previous Logon Notification"
+ },
+ {
+  "id": "ac-9.1",
+  "family": "ac",
+  "title": "Unsuccessful Logons"
+ },
+ {
+  "id": "ac-9.2",
+  "family": "ac",
+  "title": "Successful and Unsuccessful Logons"
+ },
+ {
+  "id": "ac-9.3",
+  "family": "ac",
+  "title": "Notification of Account Changes"
+ },
+ {
+  "id": "ac-9.4",
+  "family": "ac",
+  "title": "Additional Logon Information"
+ },
+ {
+  "id": "ac-10",
+  "family": "ac",
+  "title": "Concurrent Session Control"
+ },
+ {
+  "id": "ac-11",
+  "family": "ac",
+  "title": "Device Lock"
+ },
+ {
+  "id": "ac-11.1",
+  "family": "ac",
+  "title": "Pattern-hiding Displays"
+ },
+ {
+  "id": "ac-12",
+  "family": "ac",
+  "title": "Session Termination"
+ },
+ {
+  "id": "ac-12.1",
+  "family": "ac",
+  "title": "User-initiated Logouts"
+ },
+ {
+  "id": "ac-12.2",
+  "family": "ac",
+  "title": "Termination Message"
+ },
+ {
+  "id": "ac-12.3",
+  "family": "ac",
+  "title": "Timeout Warning Message"
+ },
+ {
+  "id": "ac-13",
+  "family": "ac",
+  "title": "Supervision and Review \u2014 Access Control"
+ },
+ {
+  "id": "ac-14",
+  "family": "ac",
+  "title": "Permitted Actions Without Identification or Authentication"
+ },
+ {
+  "id": "ac-14.1",
+  "family": "ac",
+  "title": "Necessary Uses"
+ },
+ {
+  "id": "ac-15",
+  "family": "ac",
+  "title": "Automated Marking"
+ },
+ {
+  "id": "ac-16",
+  "family": "ac",
+  "title": "Security and Privacy Attributes"
+ },
+ {
+  "id": "ac-16.1",
+  "family": "ac",
+  "title": "Dynamic Attribute Association"
+ },
+ {
+  "id": "ac-16.2",
+  "family": "ac",
+  "title": "Attribute Value Changes by Authorized Individuals"
+ },
+ {
+  "id": "ac-16.3",
+  "family": "ac",
+  "title": "Maintenance of Attribute Associations by System"
+ },
+ {
+  "id": "ac-16.4",
+  "family": "ac",
+  "title": "Association of Attributes by Authorized Individuals"
+ },
+ {
+  "id": "ac-16.5",
+  "family": "ac",
+  "title": "Attribute Displays on Objects to Be Output"
+ },
+ {
+  "id": "ac-16.6",
+  "family": "ac",
+  "title": "Maintenance of Attribute Association"
+ },
+ {
+  "id": "ac-16.7",
+  "family": "ac",
+  "title": "Consistent Attribute Interpretation"
+ },
+ {
+  "id": "ac-16.8",
+  "family": "ac",
+  "title": "Association Techniques and Technologies"
+ },
+ {
+  "id": "ac-16.9",
+  "family": "ac",
+  "title": "Attribute Reassignment \u2014 Regrading Mechanisms"
+ },
+ {
+  "id": "ac-16.10",
+  "family": "ac",
+  "title": "Attribute Configuration by Authorized Individuals"
+ },
+ {
+  "id": "ac-17",
+  "family": "ac",
+  "title": "Remote Access"
+ },
+ {
+  "id": "ac-17.1",
+  "family": "ac",
+  "title": "Monitoring and Control"
+ },
+ {
+  "id": "ac-17.2",
+  "family": "ac",
+  "title": "Protection of Confidentiality and Integrity Using Encryption"
+ },
+ {
+  "id": "ac-17.3",
+  "family": "ac",
+  "title": "Managed Access Control Points"
+ },
+ {
+  "id": "ac-17.4",
+  "family": "ac",
+  "title": "Privileged Commands and Access"
+ },
+ {
+  "id": "ac-17.5",
+  "family": "ac",
+  "title": "Monitoring for Unauthorized Connections"
+ },
+ {
+  "id": "ac-17.6",
+  "family": "ac",
+  "title": "Protection of Mechanism Information"
+ },
+ {
+  "id": "ac-17.7",
+  "family": "ac",
+  "title": "Additional Protection for Security Function Access"
+ },
+ {
+  "id": "ac-17.8",
+  "family": "ac",
+  "title": "Disable Nonsecure Network Protocols"
+ },
+ {
+  "id": "ac-17.9",
+  "family": "ac",
+  "title": "Disconnect or Disable Access"
+ },
+ {
+  "id": "ac-17.10",
+  "family": "ac",
+  "title": "Authenticate Remote Commands"
+ },
+ {
+  "id": "ac-18",
+  "family": "ac",
+  "title": "Wireless Access"
+ },
+ {
+  "id": "ac-18.1",
+  "family": "ac",
+  "title": "Authentication and Encryption"
+ },
+ {
+  "id": "ac-18.2",
+  "family": "ac",
+  "title": "Monitoring Unauthorized Connections"
+ },
+ {
+  "id": "ac-18.3",
+  "family": "ac",
+  "title": "Disable Wireless Networking"
+ },
+ {
+  "id": "ac-18.4",
+  "family": "ac",
+  "title": "Restrict Configurations by Users"
+ },
+ {
+  "id": "ac-18.5",
+  "family": "ac",
+  "title": "Antennas and Transmission Power Levels"
+ },
+ {
+  "id": "ac-19",
+  "family": "ac",
+  "title": "Access Control for Mobile Devices"
+ },
+ {
+  "id": "ac-19.1",
+  "family": "ac",
+  "title": "Use of Writable and Portable Storage Devices"
+ },
+ {
+  "id": "ac-19.2",
+  "family": "ac",
+  "title": "Use of Personally Owned Portable Storage Devices"
+ },
+ {
+  "id": "ac-19.3",
+  "family": "ac",
+  "title": "Use of Portable Storage Devices with No Identifiable Owner"
+ },
+ {
+  "id": "ac-19.4",
+  "family": "ac",
+  "title": "Restrictions for Classified Information"
+ },
+ {
+  "id": "ac-19.5",
+  "family": "ac",
+  "title": "Full Device or Container-based Encryption"
+ },
+ {
+  "id": "ac-20",
+  "family": "ac",
+  "title": "Use of External Systems"
+ },
+ {
+  "id": "ac-20.1",
+  "family": "ac",
+  "title": "Limits on Authorized Use"
+ },
+ {
+  "id": "ac-20.2",
+  "family": "ac",
+  "title": "Portable Storage Devices \u2014 Restricted Use"
+ },
+ {
+  "id": "ac-20.3",
+  "family": "ac",
+  "title": "Non-organizationally Owned Systems \u2014 Restricted Use"
+ },
+ {
+  "id": "ac-20.4",
+  "family": "ac",
+  "title": "Network Accessible Storage Devices \u2014 Prohibited Use"
+ },
+ {
+  "id": "ac-20.5",
+  "family": "ac",
+  "title": "Portable Storage Devices \u2014 Prohibited Use"
+ },
+ {
+  "id": "ac-21",
+  "family": "ac",
+  "title": "Information Sharing"
+ },
+ {
+  "id": "ac-21.1",
+  "family": "ac",
+  "title": "Automated Decision Support"
+ },
+ {
+  "id": "ac-21.2",
+  "family": "ac",
+  "title": "Information Search and Retrieval"
+ },
+ {
+  "id": "ac-22",
+  "family": "ac",
+  "title": "Publicly Accessible Content"
+ },
+ {
+  "id": "ac-23",
+  "family": "ac",
+  "title": "Data Mining Protection"
+ },
+ {
+  "id": "ac-24",
+  "family": "ac",
+  "title": "Access Control Decisions"
+ },
+ {
+  "id": "ac-24.1",
+  "family": "ac",
+  "title": "Transmit Access Authorization Information"
+ },
+ {
+  "id": "ac-24.2",
+  "family": "ac",
+  "title": "No User or Process Identity"
+ },
+ {
+  "id": "ac-25",
+  "family": "ac",
+  "title": "Reference Monitor"
+ },
+ {
+  "id": "at-1",
+  "family": "at",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "at-2",
+  "family": "at",
+  "title": "Literacy Training and Awareness"
+ },
+ {
+  "id": "at-2.1",
+  "family": "at",
+  "title": "Practical Exercises"
+ },
+ {
+  "id": "at-2.2",
+  "family": "at",
+  "title": "Insider Threat"
+ },
+ {
+  "id": "at-2.3",
+  "family": "at",
+  "title": "Social Engineering and Mining"
+ },
+ {
+  "id": "at-2.4",
+  "family": "at",
+  "title": "Suspicious Communications and Anomalous System Behavior"
+ },
+ {
+  "id": "at-2.5",
+  "family": "at",
+  "title": "Advanced Persistent Threat"
+ },
+ {
+  "id": "at-2.6",
+  "family": "at",
+  "title": "Cyber Threat Environment"
+ },
+ {
+  "id": "at-3",
+  "family": "at",
+  "title": "Role-based Training"
+ },
+ {
+  "id": "at-3.1",
+  "family": "at",
+  "title": "Environmental Controls"
+ },
+ {
+  "id": "at-3.2",
+  "family": "at",
+  "title": "Physical Security Controls"
+ },
+ {
+  "id": "at-3.3",
+  "family": "at",
+  "title": "Practical Exercises"
+ },
+ {
+  "id": "at-3.4",
+  "family": "at",
+  "title": "Suspicious Communications and Anomalous System Behavior"
+ },
+ {
+  "id": "at-3.5",
+  "family": "at",
+  "title": "Processing Personally Identifiable Information"
+ },
+ {
+  "id": "at-4",
+  "family": "at",
+  "title": "Training Records"
+ },
+ {
+  "id": "at-5",
+  "family": "at",
+  "title": "Contacts with Security Groups and Associations"
+ },
+ {
+  "id": "at-6",
+  "family": "at",
+  "title": "Training Feedback"
+ },
+ {
+  "id": "au-1",
+  "family": "au",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "au-2",
+  "family": "au",
+  "title": "Event Logging"
+ },
+ {
+  "id": "au-2.1",
+  "family": "au",
+  "title": "Compilation of Audit Records from Multiple Sources"
+ },
+ {
+  "id": "au-2.2",
+  "family": "au",
+  "title": "Selection of Audit Events by Component"
+ },
+ {
+  "id": "au-2.3",
+  "family": "au",
+  "title": "Reviews and Updates"
+ },
+ {
+  "id": "au-2.4",
+  "family": "au",
+  "title": "Privileged Functions"
+ },
+ {
+  "id": "au-3",
+  "family": "au",
+  "title": "Content of Audit Records"
+ },
+ {
+  "id": "au-3.1",
+  "family": "au",
+  "title": "Additional Audit Information"
+ },
+ {
+  "id": "au-3.2",
+  "family": "au",
+  "title": "Centralized Management of Planned Audit Record Content"
+ },
+ {
+  "id": "au-3.3",
+  "family": "au",
+  "title": "Limit Personally Identifiable Information Elements"
+ },
+ {
+  "id": "au-4",
+  "family": "au",
+  "title": "Audit Log Storage Capacity"
+ },
+ {
+  "id": "au-4.1",
+  "family": "au",
+  "title": "Transfer to Alternate Storage"
+ },
+ {
+  "id": "au-5",
+  "family": "au",
+  "title": "Response to Audit Logging Process Failures"
+ },
+ {
+  "id": "au-5.1",
+  "family": "au",
+  "title": "Storage Capacity Warning"
+ },
+ {
+  "id": "au-5.2",
+  "family": "au",
+  "title": "Real-time Alerts"
+ },
+ {
+  "id": "au-5.3",
+  "family": "au",
+  "title": "Configurable Traffic Volume Thresholds"
+ },
+ {
+  "id": "au-5.4",
+  "family": "au",
+  "title": "Shutdown on Failure"
+ },
+ {
+  "id": "au-5.5",
+  "family": "au",
+  "title": "Alternate Audit Logging Capability"
+ },
+ {
+  "id": "au-6",
+  "family": "au",
+  "title": "Audit Record Review, Analysis, and Reporting"
+ },
+ {
+  "id": "au-6.1",
+  "family": "au",
+  "title": "Automated Process Integration"
+ },
+ {
+  "id": "au-6.2",
+  "family": "au",
+  "title": "Automated Security Alerts"
+ },
+ {
+  "id": "au-6.3",
+  "family": "au",
+  "title": "Correlate Audit Record Repositories"
+ },
+ {
+  "id": "au-6.4",
+  "family": "au",
+  "title": "Central Review and Analysis"
+ },
+ {
+  "id": "au-6.5",
+  "family": "au",
+  "title": "Integrated Analysis of Audit Records"
+ },
+ {
+  "id": "au-6.6",
+  "family": "au",
+  "title": "Correlation with Physical Monitoring"
+ },
+ {
+  "id": "au-6.7",
+  "family": "au",
+  "title": "Permitted Actions"
+ },
+ {
+  "id": "au-6.8",
+  "family": "au",
+  "title": "Full Text Analysis of Privileged Commands"
+ },
+ {
+  "id": "au-6.9",
+  "family": "au",
+  "title": "Correlation with Information from Nontechnical Sources"
+ },
+ {
+  "id": "au-6.10",
+  "family": "au",
+  "title": "Audit Level Adjustment"
+ },
+ {
+  "id": "au-7",
+  "family": "au",
+  "title": "Audit Record Reduction and Report Generation"
+ },
+ {
+  "id": "au-7.1",
+  "family": "au",
+  "title": "Automatic Processing"
+ },
+ {
+  "id": "au-7.2",
+  "family": "au",
+  "title": "Automatic Sort and Search"
+ },
+ {
+  "id": "au-8",
+  "family": "au",
+  "title": "Time Stamps"
+ },
+ {
+  "id": "au-8.1",
+  "family": "au",
+  "title": "Synchronization with Authoritative Time Source"
+ },
+ {
+  "id": "au-8.2",
+  "family": "au",
+  "title": "Secondary Authoritative Time Source"
+ },
+ {
+  "id": "au-9",
+  "family": "au",
+  "title": "Protection of Audit Information"
+ },
+ {
+  "id": "au-9.1",
+  "family": "au",
+  "title": "Hardware Write-once Media"
+ },
+ {
+  "id": "au-9.2",
+  "family": "au",
+  "title": "Store on Separate Physical Systems or Components"
+ },
+ {
+  "id": "au-9.3",
+  "family": "au",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "au-9.4",
+  "family": "au",
+  "title": "Access by Subset of Privileged Users"
+ },
+ {
+  "id": "au-9.5",
+  "family": "au",
+  "title": "Dual Authorization"
+ },
+ {
+  "id": "au-9.6",
+  "family": "au",
+  "title": "Read-only Access"
+ },
+ {
+  "id": "au-9.7",
+  "family": "au",
+  "title": "Store on Component with Different Operating System"
+ },
+ {
+  "id": "au-10",
+  "family": "au",
+  "title": "Non-repudiation"
+ },
+ {
+  "id": "au-10.1",
+  "family": "au",
+  "title": "Association of Identities"
+ },
+ {
+  "id": "au-10.2",
+  "family": "au",
+  "title": "Validate Binding of Information Producer Identity"
+ },
+ {
+  "id": "au-10.3",
+  "family": "au",
+  "title": "Chain of Custody"
+ },
+ {
+  "id": "au-10.4",
+  "family": "au",
+  "title": "Validate Binding of Information Reviewer Identity"
+ },
+ {
+  "id": "au-10.5",
+  "family": "au",
+  "title": "Digital Signatures"
+ },
+ {
+  "id": "au-11",
+  "family": "au",
+  "title": "Audit Record Retention"
+ },
+ {
+  "id": "au-11.1",
+  "family": "au",
+  "title": "Long-term Retrieval Capability"
+ },
+ {
+  "id": "au-12",
+  "family": "au",
+  "title": "Audit Record Generation"
+ },
+ {
+  "id": "au-12.1",
+  "family": "au",
+  "title": "System-wide and Time-correlated Audit Trail"
+ },
+ {
+  "id": "au-12.2",
+  "family": "au",
+  "title": "Standardized Formats"
+ },
+ {
+  "id": "au-12.3",
+  "family": "au",
+  "title": "Changes by Authorized Individuals"
+ },
+ {
+  "id": "au-12.4",
+  "family": "au",
+  "title": "Query Parameter Audits of Personally Identifiable Information"
+ },
+ {
+  "id": "au-13",
+  "family": "au",
+  "title": "Monitoring for Information Disclosure"
+ },
+ {
+  "id": "au-13.1",
+  "family": "au",
+  "title": "Use of Automated Tools"
+ },
+ {
+  "id": "au-13.2",
+  "family": "au",
+  "title": "Review of Monitored Sites"
+ },
+ {
+  "id": "au-13.3",
+  "family": "au",
+  "title": "Unauthorized Replication of Information"
+ },
+ {
+  "id": "au-14",
+  "family": "au",
+  "title": "Session Audit"
+ },
+ {
+  "id": "au-14.1",
+  "family": "au",
+  "title": "System Start-up"
+ },
+ {
+  "id": "au-14.2",
+  "family": "au",
+  "title": "Capture and Record Content"
+ },
+ {
+  "id": "au-14.3",
+  "family": "au",
+  "title": "Remote Viewing and Listening"
+ },
+ {
+  "id": "au-15",
+  "family": "au",
+  "title": "Alternate Audit Logging Capability"
+ },
+ {
+  "id": "au-16",
+  "family": "au",
+  "title": "Cross-organizational Audit Logging"
+ },
+ {
+  "id": "au-16.1",
+  "family": "au",
+  "title": "Identity Preservation"
+ },
+ {
+  "id": "au-16.2",
+  "family": "au",
+  "title": "Sharing of Audit Information"
+ },
+ {
+  "id": "au-16.3",
+  "family": "au",
+  "title": "Disassociability"
+ },
+ {
+  "id": "ca-1",
+  "family": "ca",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ca-2",
+  "family": "ca",
+  "title": "Control Assessments"
+ },
+ {
+  "id": "ca-2.1",
+  "family": "ca",
+  "title": "Independent Assessors"
+ },
+ {
+  "id": "ca-2.2",
+  "family": "ca",
+  "title": "Specialized Assessments"
+ },
+ {
+  "id": "ca-2.3",
+  "family": "ca",
+  "title": "Leveraging Results from External Organizations"
+ },
+ {
+  "id": "ca-3",
+  "family": "ca",
+  "title": "Information Exchange"
+ },
+ {
+  "id": "ca-3.1",
+  "family": "ca",
+  "title": "Unclassified National Security System Connections"
+ },
+ {
+  "id": "ca-3.2",
+  "family": "ca",
+  "title": "Classified National Security System Connections"
+ },
+ {
+  "id": "ca-3.3",
+  "family": "ca",
+  "title": "Unclassified Non-national Security System Connections"
+ },
+ {
+  "id": "ca-3.4",
+  "family": "ca",
+  "title": "Connections to Public Networks"
+ },
+ {
+  "id": "ca-3.5",
+  "family": "ca",
+  "title": "Restrictions on External System Connections"
+ },
+ {
+  "id": "ca-3.6",
+  "family": "ca",
+  "title": "Transfer Authorizations"
+ },
+ {
+  "id": "ca-3.7",
+  "family": "ca",
+  "title": "Transitive Information Exchanges"
+ },
+ {
+  "id": "ca-4",
+  "family": "ca",
+  "title": "Security Certification"
+ },
+ {
+  "id": "ca-5",
+  "family": "ca",
+  "title": "Plan of Action and Milestones"
+ },
+ {
+  "id": "ca-5.1",
+  "family": "ca",
+  "title": "Automation Support for Accuracy and Currency"
+ },
+ {
+  "id": "ca-6",
+  "family": "ca",
+  "title": "Authorization"
+ },
+ {
+  "id": "ca-6.1",
+  "family": "ca",
+  "title": "Joint Authorization \u2014 Intra-organization"
+ },
+ {
+  "id": "ca-6.2",
+  "family": "ca",
+  "title": "Joint Authorization \u2014 Inter-organization"
+ },
+ {
+  "id": "ca-7",
+  "family": "ca",
+  "title": "Continuous Monitoring"
+ },
+ {
+  "id": "ca-7.1",
+  "family": "ca",
+  "title": "Independent Assessment"
+ },
+ {
+  "id": "ca-7.2",
+  "family": "ca",
+  "title": "Types of Assessments"
+ },
+ {
+  "id": "ca-7.3",
+  "family": "ca",
+  "title": "Trend Analyses"
+ },
+ {
+  "id": "ca-7.4",
+  "family": "ca",
+  "title": "Risk Monitoring"
+ },
+ {
+  "id": "ca-7.5",
+  "family": "ca",
+  "title": "Consistency Analysis"
+ },
+ {
+  "id": "ca-7.6",
+  "family": "ca",
+  "title": "Automation Support for Monitoring"
+ },
+ {
+  "id": "ca-8",
+  "family": "ca",
+  "title": "Penetration Testing"
+ },
+ {
+  "id": "ca-8.1",
+  "family": "ca",
+  "title": "Independent Penetration Testing Agent or Team"
+ },
+ {
+  "id": "ca-8.2",
+  "family": "ca",
+  "title": "Red Team Exercises"
+ },
+ {
+  "id": "ca-8.3",
+  "family": "ca",
+  "title": "Facility Penetration Testing"
+ },
+ {
+  "id": "ca-9",
+  "family": "ca",
+  "title": "Internal System Connections"
+ },
+ {
+  "id": "ca-9.1",
+  "family": "ca",
+  "title": "Compliance Checks"
+ },
+ {
+  "id": "cm-1",
+  "family": "cm",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "cm-2",
+  "family": "cm",
+  "title": "Baseline Configuration"
+ },
+ {
+  "id": "cm-2.1",
+  "family": "cm",
+  "title": "Reviews and Updates"
+ },
+ {
+  "id": "cm-2.2",
+  "family": "cm",
+  "title": "Automation Support for Accuracy and Currency"
+ },
+ {
+  "id": "cm-2.3",
+  "family": "cm",
+  "title": "Retention of Previous Configurations"
+ },
+ {
+  "id": "cm-2.4",
+  "family": "cm",
+  "title": "Unauthorized Software"
+ },
+ {
+  "id": "cm-2.5",
+  "family": "cm",
+  "title": "Authorized Software"
+ },
+ {
+  "id": "cm-2.6",
+  "family": "cm",
+  "title": "Development and Test Environments"
+ },
+ {
+  "id": "cm-2.7",
+  "family": "cm",
+  "title": "Configure Systems and Components for High-risk Areas"
+ },
+ {
+  "id": "cm-3",
+  "family": "cm",
+  "title": "Configuration Change Control"
+ },
+ {
+  "id": "cm-3.1",
+  "family": "cm",
+  "title": "Automated Documentation, Notification, and Prohibition of Changes"
+ },
+ {
+  "id": "cm-3.2",
+  "family": "cm",
+  "title": "Testing, Validation, and Documentation of Changes"
+ },
+ {
+  "id": "cm-3.3",
+  "family": "cm",
+  "title": "Automated Change Implementation"
+ },
+ {
+  "id": "cm-3.4",
+  "family": "cm",
+  "title": "Security and Privacy Representatives"
+ },
+ {
+  "id": "cm-3.5",
+  "family": "cm",
+  "title": "Automated Security Response"
+ },
+ {
+  "id": "cm-3.6",
+  "family": "cm",
+  "title": "Cryptography Management"
+ },
+ {
+  "id": "cm-3.7",
+  "family": "cm",
+  "title": "Review System Changes"
+ },
+ {
+  "id": "cm-3.8",
+  "family": "cm",
+  "title": "Prevent or Restrict Configuration Changes"
+ },
+ {
+  "id": "cm-4",
+  "family": "cm",
+  "title": "Impact Analyses"
+ },
+ {
+  "id": "cm-4.1",
+  "family": "cm",
+  "title": "Separate Test Environments"
+ },
+ {
+  "id": "cm-4.2",
+  "family": "cm",
+  "title": "Verification of Controls"
+ },
+ {
+  "id": "cm-5",
+  "family": "cm",
+  "title": "Access Restrictions for Change"
+ },
+ {
+  "id": "cm-5.1",
+  "family": "cm",
+  "title": "Automated Access Enforcement and Audit Records"
+ },
+ {
+  "id": "cm-5.2",
+  "family": "cm",
+  "title": "Review System Changes"
+ },
+ {
+  "id": "cm-5.3",
+  "family": "cm",
+  "title": "Signed Components"
+ },
+ {
+  "id": "cm-5.4",
+  "family": "cm",
+  "title": "Dual Authorization"
+ },
+ {
+  "id": "cm-5.5",
+  "family": "cm",
+  "title": "Privilege Limitation for Production and Operation"
+ },
+ {
+  "id": "cm-5.6",
+  "family": "cm",
+  "title": "Limit Library Privileges"
+ },
+ {
+  "id": "cm-5.7",
+  "family": "cm",
+  "title": "Automatic Implementation of Security Safeguards"
+ },
+ {
+  "id": "cm-6",
+  "family": "cm",
+  "title": "Configuration Settings"
+ },
+ {
+  "id": "cm-6.1",
+  "family": "cm",
+  "title": "Automated Management, Application, and Verification"
+ },
+ {
+  "id": "cm-6.2",
+  "family": "cm",
+  "title": "Respond to Unauthorized Changes"
+ },
+ {
+  "id": "cm-6.3",
+  "family": "cm",
+  "title": "Unauthorized Change Detection"
+ },
+ {
+  "id": "cm-6.4",
+  "family": "cm",
+  "title": "Conformance Demonstration"
+ },
+ {
+  "id": "cm-7",
+  "family": "cm",
+  "title": "Least Functionality"
+ },
+ {
+  "id": "cm-7.1",
+  "family": "cm",
+  "title": "Periodic Review"
+ },
+ {
+  "id": "cm-7.2",
+  "family": "cm",
+  "title": "Prevent Program Execution"
+ },
+ {
+  "id": "cm-7.3",
+  "family": "cm",
+  "title": "Registration Compliance"
+ },
+ {
+  "id": "cm-7.4",
+  "family": "cm",
+  "title": "Unauthorized Software \u2014 Deny-by-exception"
+ },
+ {
+  "id": "cm-7.5",
+  "family": "cm",
+  "title": "Authorized Software \u2014 Allow-by-exception"
+ },
+ {
+  "id": "cm-7.6",
+  "family": "cm",
+  "title": "Confined Environments with Limited Privileges"
+ },
+ {
+  "id": "cm-7.7",
+  "family": "cm",
+  "title": "Code Execution in Protected Environments"
+ },
+ {
+  "id": "cm-7.8",
+  "family": "cm",
+  "title": "Binary or Machine Executable Code"
+ },
+ {
+  "id": "cm-7.9",
+  "family": "cm",
+  "title": "Prohibiting The Use of Unauthorized Hardware"
+ },
+ {
+  "id": "cm-8",
+  "family": "cm",
+  "title": "System Component Inventory"
+ },
+ {
+  "id": "cm-8.1",
+  "family": "cm",
+  "title": "Updates During Installation and Removal"
+ },
+ {
+  "id": "cm-8.2",
+  "family": "cm",
+  "title": "Automated Maintenance"
+ },
+ {
+  "id": "cm-8.3",
+  "family": "cm",
+  "title": "Automated Unauthorized Component Detection"
+ },
+ {
+  "id": "cm-8.4",
+  "family": "cm",
+  "title": "Accountability Information"
+ },
+ {
+  "id": "cm-8.5",
+  "family": "cm",
+  "title": "No Duplicate Accounting of Components"
+ },
+ {
+  "id": "cm-8.6",
+  "family": "cm",
+  "title": "Assessed Configurations and Approved Deviations"
+ },
+ {
+  "id": "cm-8.7",
+  "family": "cm",
+  "title": "Centralized Repository"
+ },
+ {
+  "id": "cm-8.8",
+  "family": "cm",
+  "title": "Automated Location Tracking"
+ },
+ {
+  "id": "cm-8.9",
+  "family": "cm",
+  "title": "Assignment of Components to Systems"
+ },
+ {
+  "id": "cm-9",
+  "family": "cm",
+  "title": "Configuration Management Plan"
+ },
+ {
+  "id": "cm-9.1",
+  "family": "cm",
+  "title": "Assignment of Responsibility"
+ },
+ {
+  "id": "cm-10",
+  "family": "cm",
+  "title": "Software Usage Restrictions"
+ },
+ {
+  "id": "cm-10.1",
+  "family": "cm",
+  "title": "Open-source Software"
+ },
+ {
+  "id": "cm-11",
+  "family": "cm",
+  "title": "User-installed Software"
+ },
+ {
+  "id": "cm-11.1",
+  "family": "cm",
+  "title": "Alerts for Unauthorized Installations"
+ },
+ {
+  "id": "cm-11.2",
+  "family": "cm",
+  "title": "Software Installation with Privileged Status"
+ },
+ {
+  "id": "cm-11.3",
+  "family": "cm",
+  "title": "Automated Enforcement and Monitoring"
+ },
+ {
+  "id": "cm-12",
+  "family": "cm",
+  "title": "Information Location"
+ },
+ {
+  "id": "cm-12.1",
+  "family": "cm",
+  "title": "Automated Tools to Support Information Location"
+ },
+ {
+  "id": "cm-13",
+  "family": "cm",
+  "title": "Data Action Mapping"
+ },
+ {
+  "id": "cm-14",
+  "family": "cm",
+  "title": "Signed Components"
+ },
+ {
+  "id": "cp-1",
+  "family": "cp",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "cp-2",
+  "family": "cp",
+  "title": "Contingency Plan"
+ },
+ {
+  "id": "cp-2.1",
+  "family": "cp",
+  "title": "Coordinate with Related Plans"
+ },
+ {
+  "id": "cp-2.2",
+  "family": "cp",
+  "title": "Capacity Planning"
+ },
+ {
+  "id": "cp-2.3",
+  "family": "cp",
+  "title": "Resume Mission and Business Functions"
+ },
+ {
+  "id": "cp-2.4",
+  "family": "cp",
+  "title": "Resume All Mission and Business Functions"
+ },
+ {
+  "id": "cp-2.5",
+  "family": "cp",
+  "title": "Continue Mission and Business Functions"
+ },
+ {
+  "id": "cp-2.6",
+  "family": "cp",
+  "title": "Alternate Processing and Storage Sites"
+ },
+ {
+  "id": "cp-2.7",
+  "family": "cp",
+  "title": "Coordinate with External Service Providers"
+ },
+ {
+  "id": "cp-2.8",
+  "family": "cp",
+  "title": "Identify Critical Assets"
+ },
+ {
+  "id": "cp-3",
+  "family": "cp",
+  "title": "Contingency Training"
+ },
+ {
+  "id": "cp-3.1",
+  "family": "cp",
+  "title": "Simulated Events"
+ },
+ {
+  "id": "cp-3.2",
+  "family": "cp",
+  "title": "Mechanisms Used in Training Environments"
+ },
+ {
+  "id": "cp-4",
+  "family": "cp",
+  "title": "Contingency Plan Testing"
+ },
+ {
+  "id": "cp-4.1",
+  "family": "cp",
+  "title": "Coordinate with Related Plans"
+ },
+ {
+  "id": "cp-4.2",
+  "family": "cp",
+  "title": "Alternate Processing Site"
+ },
+ {
+  "id": "cp-4.3",
+  "family": "cp",
+  "title": "Automated Testing"
+ },
+ {
+  "id": "cp-4.4",
+  "family": "cp",
+  "title": "Full Recovery and Reconstitution"
+ },
+ {
+  "id": "cp-4.5",
+  "family": "cp",
+  "title": "Self-challenge"
+ },
+ {
+  "id": "cp-5",
+  "family": "cp",
+  "title": "Contingency Plan Update"
+ },
+ {
+  "id": "cp-6",
+  "family": "cp",
+  "title": "Alternate Storage Site"
+ },
+ {
+  "id": "cp-6.1",
+  "family": "cp",
+  "title": "Separation from Primary Site"
+ },
+ {
+  "id": "cp-6.2",
+  "family": "cp",
+  "title": "Recovery Time and Recovery Point Objectives"
+ },
+ {
+  "id": "cp-6.3",
+  "family": "cp",
+  "title": "Accessibility"
+ },
+ {
+  "id": "cp-7",
+  "family": "cp",
+  "title": "Alternate Processing Site"
+ },
+ {
+  "id": "cp-7.1",
+  "family": "cp",
+  "title": "Separation from Primary Site"
+ },
+ {
+  "id": "cp-7.2",
+  "family": "cp",
+  "title": "Accessibility"
+ },
+ {
+  "id": "cp-7.3",
+  "family": "cp",
+  "title": "Priority of Service"
+ },
+ {
+  "id": "cp-7.4",
+  "family": "cp",
+  "title": "Preparation for Use"
+ },
+ {
+  "id": "cp-7.5",
+  "family": "cp",
+  "title": "Equivalent Information Security Safeguards"
+ },
+ {
+  "id": "cp-7.6",
+  "family": "cp",
+  "title": "Inability to Return to Primary Site"
+ },
+ {
+  "id": "cp-8",
+  "family": "cp",
+  "title": "Telecommunications Services"
+ },
+ {
+  "id": "cp-8.1",
+  "family": "cp",
+  "title": "Priority of Service Provisions"
+ },
+ {
+  "id": "cp-8.2",
+  "family": "cp",
+  "title": "Single Points of Failure"
+ },
+ {
+  "id": "cp-8.3",
+  "family": "cp",
+  "title": "Separation of Primary and Alternate Providers"
+ },
+ {
+  "id": "cp-8.4",
+  "family": "cp",
+  "title": "Provider Contingency Plan"
+ },
+ {
+  "id": "cp-8.5",
+  "family": "cp",
+  "title": "Alternate Telecommunication Service Testing"
+ },
+ {
+  "id": "cp-9",
+  "family": "cp",
+  "title": "System Backup"
+ },
+ {
+  "id": "cp-9.1",
+  "family": "cp",
+  "title": "Testing for Reliability and Integrity"
+ },
+ {
+  "id": "cp-9.2",
+  "family": "cp",
+  "title": "Test Restoration Using Sampling"
+ },
+ {
+  "id": "cp-9.3",
+  "family": "cp",
+  "title": "Separate Storage for Critical Information"
+ },
+ {
+  "id": "cp-9.4",
+  "family": "cp",
+  "title": "Protection from Unauthorized Modification"
+ },
+ {
+  "id": "cp-9.5",
+  "family": "cp",
+  "title": "Transfer to Alternate Storage Site"
+ },
+ {
+  "id": "cp-9.6",
+  "family": "cp",
+  "title": "Redundant Secondary System"
+ },
+ {
+  "id": "cp-9.7",
+  "family": "cp",
+  "title": "Dual Authorization for Deletion or Destruction"
+ },
+ {
+  "id": "cp-9.8",
+  "family": "cp",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "cp-10",
+  "family": "cp",
+  "title": "System Recovery and Reconstitution"
+ },
+ {
+  "id": "cp-10.1",
+  "family": "cp",
+  "title": "Contingency Plan Testing"
+ },
+ {
+  "id": "cp-10.2",
+  "family": "cp",
+  "title": "Transaction Recovery"
+ },
+ {
+  "id": "cp-10.3",
+  "family": "cp",
+  "title": "Compensating Security Controls"
+ },
+ {
+  "id": "cp-10.4",
+  "family": "cp",
+  "title": "Restore Within Time Period"
+ },
+ {
+  "id": "cp-10.5",
+  "family": "cp",
+  "title": "Failover Capability"
+ },
+ {
+  "id": "cp-10.6",
+  "family": "cp",
+  "title": "Component Protection"
+ },
+ {
+  "id": "cp-11",
+  "family": "cp",
+  "title": "Alternate Communications Protocols"
+ },
+ {
+  "id": "cp-12",
+  "family": "cp",
+  "title": "Safe Mode"
+ },
+ {
+  "id": "cp-13",
+  "family": "cp",
+  "title": "Alternative Security Mechanisms"
+ },
+ {
+  "id": "ia-1",
+  "family": "ia",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ia-2",
+  "family": "ia",
+  "title": "Identification and Authentication (Organizational Users)"
+ },
+ {
+  "id": "ia-2.1",
+  "family": "ia",
+  "title": "Multi-factor Authentication to Privileged Accounts"
+ },
+ {
+  "id": "ia-2.2",
+  "family": "ia",
+  "title": "Multi-factor Authentication to Non-privileged Accounts"
+ },
+ {
+  "id": "ia-2.3",
+  "family": "ia",
+  "title": "Local Access to Privileged Accounts"
+ },
+ {
+  "id": "ia-2.4",
+  "family": "ia",
+  "title": "Local Access to Non-privileged Accounts"
+ },
+ {
+  "id": "ia-2.5",
+  "family": "ia",
+  "title": "Individual Authentication with Group Authentication"
+ },
+ {
+  "id": "ia-2.6",
+  "family": "ia",
+  "title": "Access to Accounts \u2014separate Device"
+ },
+ {
+  "id": "ia-2.7",
+  "family": "ia",
+  "title": "Network Access to Non-privileged Accounts \u2014 Separate Device"
+ },
+ {
+  "id": "ia-2.8",
+  "family": "ia",
+  "title": "Access to Accounts \u2014 Replay Resistant"
+ },
+ {
+  "id": "ia-2.9",
+  "family": "ia",
+  "title": "Network Access to Non-privileged Accounts \u2014 Replay Resistant"
+ },
+ {
+  "id": "ia-2.10",
+  "family": "ia",
+  "title": "Single Sign-on"
+ },
+ {
+  "id": "ia-2.11",
+  "family": "ia",
+  "title": "Remote Access \u2014 Separate Device"
+ },
+ {
+  "id": "ia-2.12",
+  "family": "ia",
+  "title": "Acceptance of PIV Credentials"
+ },
+ {
+  "id": "ia-2.13",
+  "family": "ia",
+  "title": "Out-of-band Authentication"
+ },
+ {
+  "id": "ia-3",
+  "family": "ia",
+  "title": "Device Identification and Authentication"
+ },
+ {
+  "id": "ia-3.1",
+  "family": "ia",
+  "title": "Cryptographic Bidirectional Authentication"
+ },
+ {
+  "id": "ia-3.2",
+  "family": "ia",
+  "title": "Cryptographic Bidirectional Network Authentication"
+ },
+ {
+  "id": "ia-3.3",
+  "family": "ia",
+  "title": "Dynamic Address Allocation"
+ },
+ {
+  "id": "ia-3.4",
+  "family": "ia",
+  "title": "Device Attestation"
+ },
+ {
+  "id": "ia-4",
+  "family": "ia",
+  "title": "Identifier Management"
+ },
+ {
+  "id": "ia-4.1",
+  "family": "ia",
+  "title": "Prohibit Account Identifiers as Public Identifiers"
+ },
+ {
+  "id": "ia-4.2",
+  "family": "ia",
+  "title": "Supervisor Authorization"
+ },
+ {
+  "id": "ia-4.3",
+  "family": "ia",
+  "title": "Multiple Forms of Certification"
+ },
+ {
+  "id": "ia-4.4",
+  "family": "ia",
+  "title": "Identify User Status"
+ },
+ {
+  "id": "ia-4.5",
+  "family": "ia",
+  "title": "Dynamic Management"
+ },
+ {
+  "id": "ia-4.6",
+  "family": "ia",
+  "title": "Cross-organization Management"
+ },
+ {
+  "id": "ia-4.7",
+  "family": "ia",
+  "title": "In-person Registration"
+ },
+ {
+  "id": "ia-4.8",
+  "family": "ia",
+  "title": "Pairwise Pseudonymous Identifiers"
+ },
+ {
+  "id": "ia-4.9",
+  "family": "ia",
+  "title": "Attribute Maintenance and Protection"
+ },
+ {
+  "id": "ia-5",
+  "family": "ia",
+  "title": "Authenticator Management"
+ },
+ {
+  "id": "ia-5.1",
+  "family": "ia",
+  "title": "Password-based Authentication"
+ },
+ {
+  "id": "ia-5.2",
+  "family": "ia",
+  "title": "Public Key-based Authentication"
+ },
+ {
+  "id": "ia-5.3",
+  "family": "ia",
+  "title": "In-person or Trusted External Party Registration"
+ },
+ {
+  "id": "ia-5.4",
+  "family": "ia",
+  "title": "Automated Support for Password Strength Determination"
+ },
+ {
+  "id": "ia-5.5",
+  "family": "ia",
+  "title": "Change Authenticators Prior to Delivery"
+ },
+ {
+  "id": "ia-5.6",
+  "family": "ia",
+  "title": "Protection of Authenticators"
+ },
+ {
+  "id": "ia-5.7",
+  "family": "ia",
+  "title": "No Embedded Unencrypted Static Authenticators"
+ },
+ {
+  "id": "ia-5.8",
+  "family": "ia",
+  "title": "Multiple System Accounts"
+ },
+ {
+  "id": "ia-5.9",
+  "family": "ia",
+  "title": "Federated Credential Management"
+ },
+ {
+  "id": "ia-5.10",
+  "family": "ia",
+  "title": "Dynamic Credential Binding"
+ },
+ {
+  "id": "ia-5.11",
+  "family": "ia",
+  "title": "Hardware Token-based Authentication"
+ },
+ {
+  "id": "ia-5.12",
+  "family": "ia",
+  "title": "Biometric Authentication Performance"
+ },
+ {
+  "id": "ia-5.13",
+  "family": "ia",
+  "title": "Expiration of Cached Authenticators"
+ },
+ {
+  "id": "ia-5.14",
+  "family": "ia",
+  "title": "Managing Content of PKI Trust Stores"
+ },
+ {
+  "id": "ia-5.15",
+  "family": "ia",
+  "title": "GSA-approved Products and Services"
+ },
+ {
+  "id": "ia-5.16",
+  "family": "ia",
+  "title": "In-person or Trusted External Party Authenticator Issuance"
+ },
+ {
+  "id": "ia-5.17",
+  "family": "ia",
+  "title": "Presentation Attack Detection for Biometric Authenticators"
+ },
+ {
+  "id": "ia-5.18",
+  "family": "ia",
+  "title": "Password Managers"
+ },
+ {
+  "id": "ia-6",
+  "family": "ia",
+  "title": "Authentication Feedback"
+ },
+ {
+  "id": "ia-7",
+  "family": "ia",
+  "title": "Cryptographic Module Authentication"
+ },
+ {
+  "id": "ia-8",
+  "family": "ia",
+  "title": "Identification and Authentication (Non-organizational Users)"
+ },
+ {
+  "id": "ia-8.1",
+  "family": "ia",
+  "title": "Acceptance of PIV Credentials from Other Agencies"
+ },
+ {
+  "id": "ia-8.2",
+  "family": "ia",
+  "title": "Acceptance of External Authenticators"
+ },
+ {
+  "id": "ia-8.3",
+  "family": "ia",
+  "title": "Use of FICAM-approved Products"
+ },
+ {
+  "id": "ia-8.4",
+  "family": "ia",
+  "title": "Use of Defined Profiles"
+ },
+ {
+  "id": "ia-8.5",
+  "family": "ia",
+  "title": "Acceptance of PIV-I Credentials"
+ },
+ {
+  "id": "ia-8.6",
+  "family": "ia",
+  "title": "Disassociability"
+ },
+ {
+  "id": "ia-9",
+  "family": "ia",
+  "title": "Service Identification and Authentication"
+ },
+ {
+  "id": "ia-9.1",
+  "family": "ia",
+  "title": "Information Exchange"
+ },
+ {
+  "id": "ia-9.2",
+  "family": "ia",
+  "title": "Transmission of Decisions"
+ },
+ {
+  "id": "ia-10",
+  "family": "ia",
+  "title": "Adaptive Authentication"
+ },
+ {
+  "id": "ia-11",
+  "family": "ia",
+  "title": "Re-authentication"
+ },
+ {
+  "id": "ia-12",
+  "family": "ia",
+  "title": "Identity Proofing"
+ },
+ {
+  "id": "ia-12.1",
+  "family": "ia",
+  "title": "Supervisor Authorization"
+ },
+ {
+  "id": "ia-12.2",
+  "family": "ia",
+  "title": "Identity Evidence"
+ },
+ {
+  "id": "ia-12.3",
+  "family": "ia",
+  "title": "Identity Evidence Validation and Verification"
+ },
+ {
+  "id": "ia-12.4",
+  "family": "ia",
+  "title": "In-person Validation and Verification"
+ },
+ {
+  "id": "ia-12.5",
+  "family": "ia",
+  "title": "Address Confirmation"
+ },
+ {
+  "id": "ia-12.6",
+  "family": "ia",
+  "title": "Accept Externally-proofed Identities"
+ },
+ {
+  "id": "ia-13",
+  "family": "ia",
+  "title": "Identity Providers and Authorization Servers"
+ },
+ {
+  "id": "ia-13.1",
+  "family": "ia",
+  "title": "Protection of Cryptographic Keys"
+ },
+ {
+  "id": "ia-13.2",
+  "family": "ia",
+  "title": "Verification of Identity Assertions and Access Tokens"
+ },
+ {
+  "id": "ia-13.3",
+  "family": "ia",
+  "title": "Token Management"
+ },
+ {
+  "id": "ir-1",
+  "family": "ir",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ir-2",
+  "family": "ir",
+  "title": "Incident Response Training"
+ },
+ {
+  "id": "ir-2.1",
+  "family": "ir",
+  "title": "Simulated Events"
+ },
+ {
+  "id": "ir-2.2",
+  "family": "ir",
+  "title": "Automated Training Environments"
+ },
+ {
+  "id": "ir-2.3",
+  "family": "ir",
+  "title": "Breach"
+ },
+ {
+  "id": "ir-3",
+  "family": "ir",
+  "title": "Incident Response Testing"
+ },
+ {
+  "id": "ir-3.1",
+  "family": "ir",
+  "title": "Automated Testing"
+ },
+ {
+  "id": "ir-3.2",
+  "family": "ir",
+  "title": "Coordination with Related Plans"
+ },
+ {
+  "id": "ir-3.3",
+  "family": "ir",
+  "title": "Continuous Improvement"
+ },
+ {
+  "id": "ir-4",
+  "family": "ir",
+  "title": "Incident Handling"
+ },
+ {
+  "id": "ir-4.1",
+  "family": "ir",
+  "title": "Automated Incident Handling Processes"
+ },
+ {
+  "id": "ir-4.2",
+  "family": "ir",
+  "title": "Dynamic Reconfiguration"
+ },
+ {
+  "id": "ir-4.3",
+  "family": "ir",
+  "title": "Continuity of Operations"
+ },
+ {
+  "id": "ir-4.4",
+  "family": "ir",
+  "title": "Information Correlation"
+ },
+ {
+  "id": "ir-4.5",
+  "family": "ir",
+  "title": "Automatic Disabling of System"
+ },
+ {
+  "id": "ir-4.6",
+  "family": "ir",
+  "title": "Insider Threats"
+ },
+ {
+  "id": "ir-4.7",
+  "family": "ir",
+  "title": "Insider Threats \u2014 Intra-organization Coordination"
+ },
+ {
+  "id": "ir-4.8",
+  "family": "ir",
+  "title": "Correlation with External Organizations"
+ },
+ {
+  "id": "ir-4.9",
+  "family": "ir",
+  "title": "Dynamic Response Capability"
+ },
+ {
+  "id": "ir-4.10",
+  "family": "ir",
+  "title": "Supply Chain Coordination"
+ },
+ {
+  "id": "ir-4.11",
+  "family": "ir",
+  "title": "Integrated Incident Response Team"
+ },
+ {
+  "id": "ir-4.12",
+  "family": "ir",
+  "title": "Malicious Code and Forensic Analysis"
+ },
+ {
+  "id": "ir-4.13",
+  "family": "ir",
+  "title": "Behavior Analysis"
+ },
+ {
+  "id": "ir-4.14",
+  "family": "ir",
+  "title": "Security Operations Center"
+ },
+ {
+  "id": "ir-4.15",
+  "family": "ir",
+  "title": "Public Relations and Reputation Repair"
+ },
+ {
+  "id": "ir-5",
+  "family": "ir",
+  "title": "Incident Monitoring"
+ },
+ {
+  "id": "ir-5.1",
+  "family": "ir",
+  "title": "Automated Tracking, Data Collection, and Analysis"
+ },
+ {
+  "id": "ir-6",
+  "family": "ir",
+  "title": "Incident Reporting"
+ },
+ {
+  "id": "ir-6.1",
+  "family": "ir",
+  "title": "Automated Reporting"
+ },
+ {
+  "id": "ir-6.2",
+  "family": "ir",
+  "title": "Vulnerabilities Related to Incidents"
+ },
+ {
+  "id": "ir-6.3",
+  "family": "ir",
+  "title": "Supply Chain Coordination"
+ },
+ {
+  "id": "ir-7",
+  "family": "ir",
+  "title": "Incident Response Assistance"
+ },
+ {
+  "id": "ir-7.1",
+  "family": "ir",
+  "title": "Automation Support for Availability of Information and Support"
+ },
+ {
+  "id": "ir-7.2",
+  "family": "ir",
+  "title": "Coordination with External Providers"
+ },
+ {
+  "id": "ir-8",
+  "family": "ir",
+  "title": "Incident Response Plan"
+ },
+ {
+  "id": "ir-8.1",
+  "family": "ir",
+  "title": "Breaches"
+ },
+ {
+  "id": "ir-9",
+  "family": "ir",
+  "title": "Information Spillage Response"
+ },
+ {
+  "id": "ir-9.1",
+  "family": "ir",
+  "title": "Responsible Personnel"
+ },
+ {
+  "id": "ir-9.2",
+  "family": "ir",
+  "title": "Training"
+ },
+ {
+  "id": "ir-9.3",
+  "family": "ir",
+  "title": "Post-spill Operations"
+ },
+ {
+  "id": "ir-9.4",
+  "family": "ir",
+  "title": "Exposure to Unauthorized Personnel"
+ },
+ {
+  "id": "ir-10",
+  "family": "ir",
+  "title": "Integrated Information Security Analysis Team"
+ },
+ {
+  "id": "ma-1",
+  "family": "ma",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ma-2",
+  "family": "ma",
+  "title": "Controlled Maintenance"
+ },
+ {
+  "id": "ma-2.1",
+  "family": "ma",
+  "title": "Record Content"
+ },
+ {
+  "id": "ma-2.2",
+  "family": "ma",
+  "title": "Automated Maintenance Activities"
+ },
+ {
+  "id": "ma-3",
+  "family": "ma",
+  "title": "Maintenance Tools"
+ },
+ {
+  "id": "ma-3.1",
+  "family": "ma",
+  "title": "Inspect Tools"
+ },
+ {
+  "id": "ma-3.2",
+  "family": "ma",
+  "title": "Inspect Media"
+ },
+ {
+  "id": "ma-3.3",
+  "family": "ma",
+  "title": "Prevent Unauthorized Removal"
+ },
+ {
+  "id": "ma-3.4",
+  "family": "ma",
+  "title": "Restricted Tool Use"
+ },
+ {
+  "id": "ma-3.5",
+  "family": "ma",
+  "title": "Execution with Privilege"
+ },
+ {
+  "id": "ma-3.6",
+  "family": "ma",
+  "title": "Software Updates and Patches"
+ },
+ {
+  "id": "ma-4",
+  "family": "ma",
+  "title": "Nonlocal Maintenance"
+ },
+ {
+  "id": "ma-4.1",
+  "family": "ma",
+  "title": "Logging and Review"
+ },
+ {
+  "id": "ma-4.2",
+  "family": "ma",
+  "title": "Document Nonlocal Maintenance"
+ },
+ {
+  "id": "ma-4.3",
+  "family": "ma",
+  "title": "Comparable Security and Sanitization"
+ },
+ {
+  "id": "ma-4.4",
+  "family": "ma",
+  "title": "Authentication and Separation of Maintenance Sessions"
+ },
+ {
+  "id": "ma-4.5",
+  "family": "ma",
+  "title": "Approvals and Notifications"
+ },
+ {
+  "id": "ma-4.6",
+  "family": "ma",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "ma-4.7",
+  "family": "ma",
+  "title": "Disconnect Verification"
+ },
+ {
+  "id": "ma-5",
+  "family": "ma",
+  "title": "Maintenance Personnel"
+ },
+ {
+  "id": "ma-5.1",
+  "family": "ma",
+  "title": "Individuals Without Appropriate Access"
+ },
+ {
+  "id": "ma-5.2",
+  "family": "ma",
+  "title": "Security Clearances for Classified Systems"
+ },
+ {
+  "id": "ma-5.3",
+  "family": "ma",
+  "title": "Citizenship Requirements for Classified Systems"
+ },
+ {
+  "id": "ma-5.4",
+  "family": "ma",
+  "title": "Foreign Nationals"
+ },
+ {
+  "id": "ma-5.5",
+  "family": "ma",
+  "title": "Non-system Maintenance"
+ },
+ {
+  "id": "ma-6",
+  "family": "ma",
+  "title": "Timely Maintenance"
+ },
+ {
+  "id": "ma-6.1",
+  "family": "ma",
+  "title": "Preventive Maintenance"
+ },
+ {
+  "id": "ma-6.2",
+  "family": "ma",
+  "title": "Predictive Maintenance"
+ },
+ {
+  "id": "ma-6.3",
+  "family": "ma",
+  "title": "Automated Support for Predictive Maintenance"
+ },
+ {
+  "id": "ma-7",
+  "family": "ma",
+  "title": "Field Maintenance"
+ },
+ {
+  "id": "mp-1",
+  "family": "mp",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "mp-2",
+  "family": "mp",
+  "title": "Media Access"
+ },
+ {
+  "id": "mp-2.1",
+  "family": "mp",
+  "title": "Automated Restricted Access"
+ },
+ {
+  "id": "mp-2.2",
+  "family": "mp",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "mp-3",
+  "family": "mp",
+  "title": "Media Marking"
+ },
+ {
+  "id": "mp-4",
+  "family": "mp",
+  "title": "Media Storage"
+ },
+ {
+  "id": "mp-4.1",
+  "family": "mp",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "mp-4.2",
+  "family": "mp",
+  "title": "Automated Restricted Access"
+ },
+ {
+  "id": "mp-5",
+  "family": "mp",
+  "title": "Media Transport"
+ },
+ {
+  "id": "mp-5.1",
+  "family": "mp",
+  "title": "Protection Outside of Controlled Areas"
+ },
+ {
+  "id": "mp-5.2",
+  "family": "mp",
+  "title": "Documentation of Activities"
+ },
+ {
+  "id": "mp-5.3",
+  "family": "mp",
+  "title": "Custodians"
+ },
+ {
+  "id": "mp-5.4",
+  "family": "mp",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "mp-6",
+  "family": "mp",
+  "title": "Media Sanitization"
+ },
+ {
+  "id": "mp-6.1",
+  "family": "mp",
+  "title": "Review, Approve, Track, Document, and Verify"
+ },
+ {
+  "id": "mp-6.2",
+  "family": "mp",
+  "title": "Equipment Testing"
+ },
+ {
+  "id": "mp-6.3",
+  "family": "mp",
+  "title": "Nondestructive Techniques"
+ },
+ {
+  "id": "mp-6.4",
+  "family": "mp",
+  "title": "Controlled Unclassified Information"
+ },
+ {
+  "id": "mp-6.5",
+  "family": "mp",
+  "title": "Classified Information"
+ },
+ {
+  "id": "mp-6.6",
+  "family": "mp",
+  "title": "Media Destruction"
+ },
+ {
+  "id": "mp-6.7",
+  "family": "mp",
+  "title": "Dual Authorization"
+ },
+ {
+  "id": "mp-6.8",
+  "family": "mp",
+  "title": "Remote Purging or Wiping of Information"
+ },
+ {
+  "id": "mp-7",
+  "family": "mp",
+  "title": "Media Use"
+ },
+ {
+  "id": "mp-7.1",
+  "family": "mp",
+  "title": "Prohibit Use Without Owner"
+ },
+ {
+  "id": "mp-7.2",
+  "family": "mp",
+  "title": "Prohibit Use of Sanitization-resistant Media"
+ },
+ {
+  "id": "mp-8",
+  "family": "mp",
+  "title": "Media Downgrading"
+ },
+ {
+  "id": "mp-8.1",
+  "family": "mp",
+  "title": "Documentation of Process"
+ },
+ {
+  "id": "mp-8.2",
+  "family": "mp",
+  "title": "Equipment Testing"
+ },
+ {
+  "id": "mp-8.3",
+  "family": "mp",
+  "title": "Controlled Unclassified Information"
+ },
+ {
+  "id": "mp-8.4",
+  "family": "mp",
+  "title": "Classified Information"
+ },
+ {
+  "id": "pe-1",
+  "family": "pe",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "pe-2",
+  "family": "pe",
+  "title": "Physical Access Authorizations"
+ },
+ {
+  "id": "pe-2.1",
+  "family": "pe",
+  "title": "Access by Position or Role"
+ },
+ {
+  "id": "pe-2.2",
+  "family": "pe",
+  "title": "Two Forms of Identification"
+ },
+ {
+  "id": "pe-2.3",
+  "family": "pe",
+  "title": "Restrict Unescorted Access"
+ },
+ {
+  "id": "pe-3",
+  "family": "pe",
+  "title": "Physical Access Control"
+ },
+ {
+  "id": "pe-3.1",
+  "family": "pe",
+  "title": "System Access"
+ },
+ {
+  "id": "pe-3.2",
+  "family": "pe",
+  "title": "Facility and Systems"
+ },
+ {
+  "id": "pe-3.3",
+  "family": "pe",
+  "title": "Continuous Guards"
+ },
+ {
+  "id": "pe-3.4",
+  "family": "pe",
+  "title": "Lockable Casings"
+ },
+ {
+  "id": "pe-3.5",
+  "family": "pe",
+  "title": "Tamper Protection"
+ },
+ {
+  "id": "pe-3.6",
+  "family": "pe",
+  "title": "Facility Penetration Testing"
+ },
+ {
+  "id": "pe-3.7",
+  "family": "pe",
+  "title": "Physical Barriers"
+ },
+ {
+  "id": "pe-3.8",
+  "family": "pe",
+  "title": "Access Control Vestibules"
+ },
+ {
+  "id": "pe-4",
+  "family": "pe",
+  "title": "Access Control for Transmission"
+ },
+ {
+  "id": "pe-5",
+  "family": "pe",
+  "title": "Access Control for Output Devices"
+ },
+ {
+  "id": "pe-5.1",
+  "family": "pe",
+  "title": "Access to Output by Authorized Individuals"
+ },
+ {
+  "id": "pe-5.2",
+  "family": "pe",
+  "title": "Link to Individual Identity"
+ },
+ {
+  "id": "pe-5.3",
+  "family": "pe",
+  "title": "Marking Output Devices"
+ },
+ {
+  "id": "pe-6",
+  "family": "pe",
+  "title": "Monitoring Physical Access"
+ },
+ {
+  "id": "pe-6.1",
+  "family": "pe",
+  "title": "Intrusion Alarms and Surveillance Equipment"
+ },
+ {
+  "id": "pe-6.2",
+  "family": "pe",
+  "title": "Automated Intrusion Recognition and Responses"
+ },
+ {
+  "id": "pe-6.3",
+  "family": "pe",
+  "title": "Video Surveillance"
+ },
+ {
+  "id": "pe-6.4",
+  "family": "pe",
+  "title": "Monitoring Physical Access to Systems"
+ },
+ {
+  "id": "pe-7",
+  "family": "pe",
+  "title": "Visitor Control"
+ },
+ {
+  "id": "pe-8",
+  "family": "pe",
+  "title": "Visitor Access Records"
+ },
+ {
+  "id": "pe-8.1",
+  "family": "pe",
+  "title": "Automated Records Maintenance and Review"
+ },
+ {
+  "id": "pe-8.2",
+  "family": "pe",
+  "title": "Physical Access Records"
+ },
+ {
+  "id": "pe-8.3",
+  "family": "pe",
+  "title": "Limit Personally Identifiable Information Elements"
+ },
+ {
+  "id": "pe-9",
+  "family": "pe",
+  "title": "Power Equipment and Cabling"
+ },
+ {
+  "id": "pe-9.1",
+  "family": "pe",
+  "title": "Redundant Cabling"
+ },
+ {
+  "id": "pe-9.2",
+  "family": "pe",
+  "title": "Automatic Voltage Controls"
+ },
+ {
+  "id": "pe-10",
+  "family": "pe",
+  "title": "Emergency Shutoff"
+ },
+ {
+  "id": "pe-10.1",
+  "family": "pe",
+  "title": "Accidental and Unauthorized Activation"
+ },
+ {
+  "id": "pe-11",
+  "family": "pe",
+  "title": "Emergency Power"
+ },
+ {
+  "id": "pe-11.1",
+  "family": "pe",
+  "title": "Alternate Power Supply \u2014 Minimal Operational Capability"
+ },
+ {
+  "id": "pe-11.2",
+  "family": "pe",
+  "title": "Alternate Power Supply \u2014 Self-contained"
+ },
+ {
+  "id": "pe-12",
+  "family": "pe",
+  "title": "Emergency Lighting"
+ },
+ {
+  "id": "pe-12.1",
+  "family": "pe",
+  "title": "Essential Mission and Business Functions"
+ },
+ {
+  "id": "pe-13",
+  "family": "pe",
+  "title": "Fire Protection"
+ },
+ {
+  "id": "pe-13.1",
+  "family": "pe",
+  "title": "Detection Systems \u2014 Automatic Activation and Notification"
+ },
+ {
+  "id": "pe-13.2",
+  "family": "pe",
+  "title": "Suppression Systems \u2014 Automatic Activation and Notification"
+ },
+ {
+  "id": "pe-13.3",
+  "family": "pe",
+  "title": "Automatic Fire Suppression"
+ },
+ {
+  "id": "pe-13.4",
+  "family": "pe",
+  "title": "Inspections"
+ },
+ {
+  "id": "pe-14",
+  "family": "pe",
+  "title": "Environmental Controls"
+ },
+ {
+  "id": "pe-14.1",
+  "family": "pe",
+  "title": "Automatic Controls"
+ },
+ {
+  "id": "pe-14.2",
+  "family": "pe",
+  "title": "Monitoring with Alarms and Notifications"
+ },
+ {
+  "id": "pe-15",
+  "family": "pe",
+  "title": "Water Damage Protection"
+ },
+ {
+  "id": "pe-15.1",
+  "family": "pe",
+  "title": "Automation Support"
+ },
+ {
+  "id": "pe-16",
+  "family": "pe",
+  "title": "Delivery and Removal"
+ },
+ {
+  "id": "pe-17",
+  "family": "pe",
+  "title": "Alternate Work Site"
+ },
+ {
+  "id": "pe-18",
+  "family": "pe",
+  "title": "Location of System Components"
+ },
+ {
+  "id": "pe-18.1",
+  "family": "pe",
+  "title": "Facility Site"
+ },
+ {
+  "id": "pe-19",
+  "family": "pe",
+  "title": "Information Leakage"
+ },
+ {
+  "id": "pe-19.1",
+  "family": "pe",
+  "title": "National Emissions Policies and Procedures"
+ },
+ {
+  "id": "pe-20",
+  "family": "pe",
+  "title": "Asset Monitoring and Tracking"
+ },
+ {
+  "id": "pe-21",
+  "family": "pe",
+  "title": "Electromagnetic Pulse Protection"
+ },
+ {
+  "id": "pe-22",
+  "family": "pe",
+  "title": "Component Marking"
+ },
+ {
+  "id": "pe-23",
+  "family": "pe",
+  "title": "Facility Location"
+ },
+ {
+  "id": "pl-1",
+  "family": "pl",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "pl-2",
+  "family": "pl",
+  "title": "System Security and Privacy Plans"
+ },
+ {
+  "id": "pl-2.1",
+  "family": "pl",
+  "title": "Concept of Operations"
+ },
+ {
+  "id": "pl-2.2",
+  "family": "pl",
+  "title": "Functional Architecture"
+ },
+ {
+  "id": "pl-2.3",
+  "family": "pl",
+  "title": "Plan and Coordinate with Other Organizational Entities"
+ },
+ {
+  "id": "pl-3",
+  "family": "pl",
+  "title": "System Security Plan Update"
+ },
+ {
+  "id": "pl-4",
+  "family": "pl",
+  "title": "Rules of Behavior"
+ },
+ {
+  "id": "pl-4.1",
+  "family": "pl",
+  "title": "Social Media and External Site/Application Usage Restrictions"
+ },
+ {
+  "id": "pl-5",
+  "family": "pl",
+  "title": "Privacy Impact Assessment"
+ },
+ {
+  "id": "pl-6",
+  "family": "pl",
+  "title": "Security-related Activity Planning"
+ },
+ {
+  "id": "pl-7",
+  "family": "pl",
+  "title": "Concept of Operations"
+ },
+ {
+  "id": "pl-8",
+  "family": "pl",
+  "title": "Security and Privacy Architectures"
+ },
+ {
+  "id": "pl-8.1",
+  "family": "pl",
+  "title": "Defense in Depth"
+ },
+ {
+  "id": "pl-8.2",
+  "family": "pl",
+  "title": "Supplier Diversity"
+ },
+ {
+  "id": "pl-9",
+  "family": "pl",
+  "title": "Central Management"
+ },
+ {
+  "id": "pl-10",
+  "family": "pl",
+  "title": "Baseline Selection"
+ },
+ {
+  "id": "pl-11",
+  "family": "pl",
+  "title": "Baseline Tailoring"
+ },
+ {
+  "id": "pm-1",
+  "family": "pm",
+  "title": "Information Security Program Plan"
+ },
+ {
+  "id": "pm-2",
+  "family": "pm",
+  "title": "Information Security Program Leadership Role"
+ },
+ {
+  "id": "pm-3",
+  "family": "pm",
+  "title": "Information Security and Privacy Resources"
+ },
+ {
+  "id": "pm-4",
+  "family": "pm",
+  "title": "Plan of Action and Milestones Process"
+ },
+ {
+  "id": "pm-5",
+  "family": "pm",
+  "title": "System Inventory"
+ },
+ {
+  "id": "pm-5.1",
+  "family": "pm",
+  "title": "Inventory of Personally Identifiable Information"
+ },
+ {
+  "id": "pm-6",
+  "family": "pm",
+  "title": "Measures of Performance"
+ },
+ {
+  "id": "pm-7",
+  "family": "pm",
+  "title": "Enterprise Architecture"
+ },
+ {
+  "id": "pm-7.1",
+  "family": "pm",
+  "title": "Offloading"
+ },
+ {
+  "id": "pm-8",
+  "family": "pm",
+  "title": "Critical Infrastructure Plan"
+ },
+ {
+  "id": "pm-9",
+  "family": "pm",
+  "title": "Risk Management Strategy"
+ },
+ {
+  "id": "pm-10",
+  "family": "pm",
+  "title": "Authorization Process"
+ },
+ {
+  "id": "pm-11",
+  "family": "pm",
+  "title": "Mission and Business Process Definition"
+ },
+ {
+  "id": "pm-12",
+  "family": "pm",
+  "title": "Insider Threat Program"
+ },
+ {
+  "id": "pm-13",
+  "family": "pm",
+  "title": "Security and Privacy Workforce"
+ },
+ {
+  "id": "pm-14",
+  "family": "pm",
+  "title": "Testing, Training, and Monitoring"
+ },
+ {
+  "id": "pm-15",
+  "family": "pm",
+  "title": "Security and Privacy Groups and Associations"
+ },
+ {
+  "id": "pm-16",
+  "family": "pm",
+  "title": "Threat Awareness Program"
+ },
+ {
+  "id": "pm-16.1",
+  "family": "pm",
+  "title": "Automated Means for Sharing Threat Intelligence"
+ },
+ {
+  "id": "pm-17",
+  "family": "pm",
+  "title": "Protecting Controlled Unclassified Information on External Systems"
+ },
+ {
+  "id": "pm-18",
+  "family": "pm",
+  "title": "Privacy Program Plan"
+ },
+ {
+  "id": "pm-19",
+  "family": "pm",
+  "title": "Privacy Program Leadership Role"
+ },
+ {
+  "id": "pm-20",
+  "family": "pm",
+  "title": "Dissemination of Privacy Program Information"
+ },
+ {
+  "id": "pm-20.1",
+  "family": "pm",
+  "title": "Privacy Policies on Websites, Applications, and Digital Services"
+ },
+ {
+  "id": "pm-21",
+  "family": "pm",
+  "title": "Accounting of Disclosures"
+ },
+ {
+  "id": "pm-22",
+  "family": "pm",
+  "title": "Personally Identifiable Information Quality Management"
+ },
+ {
+  "id": "pm-23",
+  "family": "pm",
+  "title": "Data Governance Body"
+ },
+ {
+  "id": "pm-24",
+  "family": "pm",
+  "title": "Data Integrity Board"
+ },
+ {
+  "id": "pm-25",
+  "family": "pm",
+  "title": "Minimization of Personally Identifiable Information Used in Testing, Training, and Research"
+ },
+ {
+  "id": "pm-26",
+  "family": "pm",
+  "title": "Complaint Management"
+ },
+ {
+  "id": "pm-27",
+  "family": "pm",
+  "title": "Privacy Reporting"
+ },
+ {
+  "id": "pm-28",
+  "family": "pm",
+  "title": "Risk Framing"
+ },
+ {
+  "id": "pm-29",
+  "family": "pm",
+  "title": "Risk Management Program Leadership Roles"
+ },
+ {
+  "id": "pm-30",
+  "family": "pm",
+  "title": "Supply Chain Risk Management Strategy"
+ },
+ {
+  "id": "pm-30.1",
+  "family": "pm",
+  "title": "Suppliers of Critical or Mission-essential Items"
+ },
+ {
+  "id": "pm-31",
+  "family": "pm",
+  "title": "Continuous Monitoring Strategy"
+ },
+ {
+  "id": "pm-32",
+  "family": "pm",
+  "title": "Purposing"
+ },
+ {
+  "id": "ps-1",
+  "family": "ps",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ps-2",
+  "family": "ps",
+  "title": "Position Risk Designation"
+ },
+ {
+  "id": "ps-3",
+  "family": "ps",
+  "title": "Personnel Screening"
+ },
+ {
+  "id": "ps-3.1",
+  "family": "ps",
+  "title": "Classified Information"
+ },
+ {
+  "id": "ps-3.2",
+  "family": "ps",
+  "title": "Formal Indoctrination"
+ },
+ {
+  "id": "ps-3.3",
+  "family": "ps",
+  "title": "Information Requiring Special Protective Measures"
+ },
+ {
+  "id": "ps-3.4",
+  "family": "ps",
+  "title": "Citizenship Requirements"
+ },
+ {
+  "id": "ps-4",
+  "family": "ps",
+  "title": "Personnel Termination"
+ },
+ {
+  "id": "ps-4.1",
+  "family": "ps",
+  "title": "Post-employment Requirements"
+ },
+ {
+  "id": "ps-4.2",
+  "family": "ps",
+  "title": "Automated Actions"
+ },
+ {
+  "id": "ps-5",
+  "family": "ps",
+  "title": "Personnel Transfer"
+ },
+ {
+  "id": "ps-6",
+  "family": "ps",
+  "title": "Access Agreements"
+ },
+ {
+  "id": "ps-6.1",
+  "family": "ps",
+  "title": "Information Requiring Special Protection"
+ },
+ {
+  "id": "ps-6.2",
+  "family": "ps",
+  "title": "Classified Information Requiring Special Protection"
+ },
+ {
+  "id": "ps-6.3",
+  "family": "ps",
+  "title": "Post-employment Requirements"
+ },
+ {
+  "id": "ps-7",
+  "family": "ps",
+  "title": "External Personnel Security"
+ },
+ {
+  "id": "ps-8",
+  "family": "ps",
+  "title": "Personnel Sanctions"
+ },
+ {
+  "id": "ps-9",
+  "family": "ps",
+  "title": "Position Descriptions"
+ },
+ {
+  "id": "pt-1",
+  "family": "pt",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "pt-2",
+  "family": "pt",
+  "title": "Authority to Process Personally Identifiable Information"
+ },
+ {
+  "id": "pt-2.1",
+  "family": "pt",
+  "title": "Data Tagging"
+ },
+ {
+  "id": "pt-2.2",
+  "family": "pt",
+  "title": "Automation"
+ },
+ {
+  "id": "pt-3",
+  "family": "pt",
+  "title": "Personally Identifiable Information Processing Purposes"
+ },
+ {
+  "id": "pt-3.1",
+  "family": "pt",
+  "title": "Data Tagging"
+ },
+ {
+  "id": "pt-3.2",
+  "family": "pt",
+  "title": "Automation"
+ },
+ {
+  "id": "pt-4",
+  "family": "pt",
+  "title": "Consent"
+ },
+ {
+  "id": "pt-4.1",
+  "family": "pt",
+  "title": "Tailored Consent"
+ },
+ {
+  "id": "pt-4.2",
+  "family": "pt",
+  "title": "Just-in-time Consent"
+ },
+ {
+  "id": "pt-4.3",
+  "family": "pt",
+  "title": "Revocation"
+ },
+ {
+  "id": "pt-5",
+  "family": "pt",
+  "title": "Privacy Notice"
+ },
+ {
+  "id": "pt-5.1",
+  "family": "pt",
+  "title": "Just-in-time Notice"
+ },
+ {
+  "id": "pt-5.2",
+  "family": "pt",
+  "title": "Privacy Act Statements"
+ },
+ {
+  "id": "pt-6",
+  "family": "pt",
+  "title": "System of Records Notice"
+ },
+ {
+  "id": "pt-6.1",
+  "family": "pt",
+  "title": "Routine Uses"
+ },
+ {
+  "id": "pt-6.2",
+  "family": "pt",
+  "title": "Exemption Rules"
+ },
+ {
+  "id": "pt-7",
+  "family": "pt",
+  "title": "Specific Categories of Personally Identifiable Information"
+ },
+ {
+  "id": "pt-7.1",
+  "family": "pt",
+  "title": "Social Security Numbers"
+ },
+ {
+  "id": "pt-7.2",
+  "family": "pt",
+  "title": "First Amendment Information"
+ },
+ {
+  "id": "pt-8",
+  "family": "pt",
+  "title": "Computer Matching Requirements"
+ },
+ {
+  "id": "ra-1",
+  "family": "ra",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "ra-2",
+  "family": "ra",
+  "title": "Security Categorization"
+ },
+ {
+  "id": "ra-2.1",
+  "family": "ra",
+  "title": "Impact-level Prioritization"
+ },
+ {
+  "id": "ra-3",
+  "family": "ra",
+  "title": "Risk Assessment"
+ },
+ {
+  "id": "ra-3.1",
+  "family": "ra",
+  "title": "Supply Chain Risk Assessment"
+ },
+ {
+  "id": "ra-3.2",
+  "family": "ra",
+  "title": "Use of All-source Intelligence"
+ },
+ {
+  "id": "ra-3.3",
+  "family": "ra",
+  "title": "Dynamic Threat Awareness"
+ },
+ {
+  "id": "ra-3.4",
+  "family": "ra",
+  "title": "Predictive Cyber Analytics"
+ },
+ {
+  "id": "ra-4",
+  "family": "ra",
+  "title": "Risk Assessment Update"
+ },
+ {
+  "id": "ra-5",
+  "family": "ra",
+  "title": "Vulnerability Monitoring and Scanning"
+ },
+ {
+  "id": "ra-5.1",
+  "family": "ra",
+  "title": "Update Tool Capability"
+ },
+ {
+  "id": "ra-5.2",
+  "family": "ra",
+  "title": "Update Vulnerabilities to Be Scanned"
+ },
+ {
+  "id": "ra-5.3",
+  "family": "ra",
+  "title": "Breadth and Depth of Coverage"
+ },
+ {
+  "id": "ra-5.4",
+  "family": "ra",
+  "title": "Discoverable Information"
+ },
+ {
+  "id": "ra-5.5",
+  "family": "ra",
+  "title": "Privileged Access"
+ },
+ {
+  "id": "ra-5.6",
+  "family": "ra",
+  "title": "Automated Trend Analyses"
+ },
+ {
+  "id": "ra-5.7",
+  "family": "ra",
+  "title": "Automated Detection and Notification of Unauthorized Components"
+ },
+ {
+  "id": "ra-5.8",
+  "family": "ra",
+  "title": "Review Historic Audit Logs"
+ },
+ {
+  "id": "ra-5.9",
+  "family": "ra",
+  "title": "Penetration Testing and Analyses"
+ },
+ {
+  "id": "ra-5.10",
+  "family": "ra",
+  "title": "Correlate Scanning Information"
+ },
+ {
+  "id": "ra-5.11",
+  "family": "ra",
+  "title": "Public Disclosure Program"
+ },
+ {
+  "id": "ra-6",
+  "family": "ra",
+  "title": "Technical Surveillance Countermeasures Survey"
+ },
+ {
+  "id": "ra-7",
+  "family": "ra",
+  "title": "Risk Response"
+ },
+ {
+  "id": "ra-8",
+  "family": "ra",
+  "title": "Privacy Impact Assessments"
+ },
+ {
+  "id": "ra-9",
+  "family": "ra",
+  "title": "Criticality Analysis"
+ },
+ {
+  "id": "ra-10",
+  "family": "ra",
+  "title": "Threat Hunting"
+ },
+ {
+  "id": "sa-1",
+  "family": "sa",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "sa-2",
+  "family": "sa",
+  "title": "Allocation of Resources"
+ },
+ {
+  "id": "sa-3",
+  "family": "sa",
+  "title": "System Development Life Cycle"
+ },
+ {
+  "id": "sa-3.1",
+  "family": "sa",
+  "title": "Manage Preproduction Environment"
+ },
+ {
+  "id": "sa-3.2",
+  "family": "sa",
+  "title": "Use of Live or Operational Data"
+ },
+ {
+  "id": "sa-3.3",
+  "family": "sa",
+  "title": "Technology Refresh"
+ },
+ {
+  "id": "sa-4",
+  "family": "sa",
+  "title": "Acquisition Process"
+ },
+ {
+  "id": "sa-4.1",
+  "family": "sa",
+  "title": "Functional Properties of Controls"
+ },
+ {
+  "id": "sa-4.2",
+  "family": "sa",
+  "title": "Design and Implementation Information for Controls"
+ },
+ {
+  "id": "sa-4.3",
+  "family": "sa",
+  "title": "Development Methods, Techniques, and Practices"
+ },
+ {
+  "id": "sa-4.4",
+  "family": "sa",
+  "title": "Assignment of Components to Systems"
+ },
+ {
+  "id": "sa-4.5",
+  "family": "sa",
+  "title": "System, Component, and Service Configurations"
+ },
+ {
+  "id": "sa-4.6",
+  "family": "sa",
+  "title": "Use of Information Assurance Products"
+ },
+ {
+  "id": "sa-4.7",
+  "family": "sa",
+  "title": "NIAP-approved Protection Profiles "
+ },
+ {
+  "id": "sa-4.8",
+  "family": "sa",
+  "title": "Continuous Monitoring Plan for Controls"
+ },
+ {
+  "id": "sa-4.9",
+  "family": "sa",
+  "title": "Functions, Ports, Protocols, and Services in Use"
+ },
+ {
+  "id": "sa-4.10",
+  "family": "sa",
+  "title": "Use of Approved PIV Products"
+ },
+ {
+  "id": "sa-4.11",
+  "family": "sa",
+  "title": "System of Records"
+ },
+ {
+  "id": "sa-4.12",
+  "family": "sa",
+  "title": "Data Ownership"
+ },
+ {
+  "id": "sa-5",
+  "family": "sa",
+  "title": "System Documentation"
+ },
+ {
+  "id": "sa-5.1",
+  "family": "sa",
+  "title": "Functional Properties of Security Controls"
+ },
+ {
+  "id": "sa-5.2",
+  "family": "sa",
+  "title": "Security-relevant External System Interfaces"
+ },
+ {
+  "id": "sa-5.3",
+  "family": "sa",
+  "title": "High-level Design"
+ },
+ {
+  "id": "sa-5.4",
+  "family": "sa",
+  "title": "Low-level Design"
+ },
+ {
+  "id": "sa-5.5",
+  "family": "sa",
+  "title": "Source Code"
+ },
+ {
+  "id": "sa-6",
+  "family": "sa",
+  "title": "Software Usage Restrictions"
+ },
+ {
+  "id": "sa-7",
+  "family": "sa",
+  "title": "User-installed Software"
+ },
+ {
+  "id": "sa-8",
+  "family": "sa",
+  "title": "Security and Privacy Engineering Principles"
+ },
+ {
+  "id": "sa-8.1",
+  "family": "sa",
+  "title": "Clear Abstractions"
+ },
+ {
+  "id": "sa-8.2",
+  "family": "sa",
+  "title": "Least Common Mechanism"
+ },
+ {
+  "id": "sa-8.3",
+  "family": "sa",
+  "title": "Modularity and Layering"
+ },
+ {
+  "id": "sa-8.4",
+  "family": "sa",
+  "title": "Partially Ordered Dependencies"
+ },
+ {
+  "id": "sa-8.5",
+  "family": "sa",
+  "title": "Efficiently Mediated Access"
+ },
+ {
+  "id": "sa-8.6",
+  "family": "sa",
+  "title": "Minimized Sharing"
+ },
+ {
+  "id": "sa-8.7",
+  "family": "sa",
+  "title": "Reduced Complexity"
+ },
+ {
+  "id": "sa-8.8",
+  "family": "sa",
+  "title": "Secure Evolvability"
+ },
+ {
+  "id": "sa-8.9",
+  "family": "sa",
+  "title": "Trusted Components"
+ },
+ {
+  "id": "sa-8.10",
+  "family": "sa",
+  "title": "Hierarchical Trust"
+ },
+ {
+  "id": "sa-8.11",
+  "family": "sa",
+  "title": "Inverse Modification Threshold"
+ },
+ {
+  "id": "sa-8.12",
+  "family": "sa",
+  "title": "Hierarchical Protection"
+ },
+ {
+  "id": "sa-8.13",
+  "family": "sa",
+  "title": "Minimized Security Elements"
+ },
+ {
+  "id": "sa-8.14",
+  "family": "sa",
+  "title": "Least Privilege"
+ },
+ {
+  "id": "sa-8.15",
+  "family": "sa",
+  "title": "Predicate Permission"
+ },
+ {
+  "id": "sa-8.16",
+  "family": "sa",
+  "title": "Self-reliant Trustworthiness"
+ },
+ {
+  "id": "sa-8.17",
+  "family": "sa",
+  "title": "Secure Distributed Composition"
+ },
+ {
+  "id": "sa-8.18",
+  "family": "sa",
+  "title": "Trusted Communications Channels"
+ },
+ {
+  "id": "sa-8.19",
+  "family": "sa",
+  "title": "Continuous Protection"
+ },
+ {
+  "id": "sa-8.20",
+  "family": "sa",
+  "title": "Secure Metadata Management"
+ },
+ {
+  "id": "sa-8.21",
+  "family": "sa",
+  "title": "Self-analysis"
+ },
+ {
+  "id": "sa-8.22",
+  "family": "sa",
+  "title": "Accountability and Traceability"
+ },
+ {
+  "id": "sa-8.23",
+  "family": "sa",
+  "title": "Secure Defaults"
+ },
+ {
+  "id": "sa-8.24",
+  "family": "sa",
+  "title": "Secure Failure and Recovery"
+ },
+ {
+  "id": "sa-8.25",
+  "family": "sa",
+  "title": "Economic Security"
+ },
+ {
+  "id": "sa-8.26",
+  "family": "sa",
+  "title": "Performance Security"
+ },
+ {
+  "id": "sa-8.27",
+  "family": "sa",
+  "title": "Human Factored Security"
+ },
+ {
+  "id": "sa-8.28",
+  "family": "sa",
+  "title": "Acceptable Security"
+ },
+ {
+  "id": "sa-8.29",
+  "family": "sa",
+  "title": "Repeatable and Documented Procedures"
+ },
+ {
+  "id": "sa-8.30",
+  "family": "sa",
+  "title": "Procedural Rigor"
+ },
+ {
+  "id": "sa-8.31",
+  "family": "sa",
+  "title": "Secure System Modification"
+ },
+ {
+  "id": "sa-8.32",
+  "family": "sa",
+  "title": "Sufficient Documentation"
+ },
+ {
+  "id": "sa-8.33",
+  "family": "sa",
+  "title": "Minimization"
+ },
+ {
+  "id": "sa-9",
+  "family": "sa",
+  "title": "External System Services"
+ },
+ {
+  "id": "sa-9.1",
+  "family": "sa",
+  "title": "Risk Assessments and Organizational Approvals"
+ },
+ {
+  "id": "sa-9.2",
+  "family": "sa",
+  "title": "Identification of Functions, Ports, Protocols, and Services"
+ },
+ {
+  "id": "sa-9.3",
+  "family": "sa",
+  "title": "Establish and Maintain Trust Relationship with Providers"
+ },
+ {
+  "id": "sa-9.4",
+  "family": "sa",
+  "title": "Consistent Interests of Consumers and Providers"
+ },
+ {
+  "id": "sa-9.5",
+  "family": "sa",
+  "title": "Processing, Storage, and Service Location"
+ },
+ {
+  "id": "sa-9.6",
+  "family": "sa",
+  "title": "Organization-controlled Cryptographic Keys"
+ },
+ {
+  "id": "sa-9.7",
+  "family": "sa",
+  "title": "Organization-controlled Integrity Checking"
+ },
+ {
+  "id": "sa-9.8",
+  "family": "sa",
+  "title": "Processing and Storage Location \u2014 U.S. Jurisdiction"
+ },
+ {
+  "id": "sa-10",
+  "family": "sa",
+  "title": "Developer Configuration Management"
+ },
+ {
+  "id": "sa-10.1",
+  "family": "sa",
+  "title": "Software and Firmware Integrity Verification"
+ },
+ {
+  "id": "sa-10.2",
+  "family": "sa",
+  "title": "Alternative Configuration Management Processes"
+ },
+ {
+  "id": "sa-10.3",
+  "family": "sa",
+  "title": "Hardware Integrity Verification"
+ },
+ {
+  "id": "sa-10.4",
+  "family": "sa",
+  "title": "Trusted Generation"
+ },
+ {
+  "id": "sa-10.5",
+  "family": "sa",
+  "title": "Mapping Integrity for Version Control"
+ },
+ {
+  "id": "sa-10.6",
+  "family": "sa",
+  "title": "Trusted Distribution"
+ },
+ {
+  "id": "sa-10.7",
+  "family": "sa",
+  "title": "Security and Privacy Representatives"
+ },
+ {
+  "id": "sa-11",
+  "family": "sa",
+  "title": "Developer Testing and Evaluation"
+ },
+ {
+  "id": "sa-11.1",
+  "family": "sa",
+  "title": "Static Code Analysis"
+ },
+ {
+  "id": "sa-11.2",
+  "family": "sa",
+  "title": "Threat Modeling and Vulnerability Analyses"
+ },
+ {
+  "id": "sa-11.3",
+  "family": "sa",
+  "title": "Independent Verification of Assessment Plans and Evidence"
+ },
+ {
+  "id": "sa-11.4",
+  "family": "sa",
+  "title": "Manual Code Reviews"
+ },
+ {
+  "id": "sa-11.5",
+  "family": "sa",
+  "title": "Penetration Testing"
+ },
+ {
+  "id": "sa-11.6",
+  "family": "sa",
+  "title": "Attack Surface Reviews"
+ },
+ {
+  "id": "sa-11.7",
+  "family": "sa",
+  "title": "Verify Scope of Testing and Evaluation"
+ },
+ {
+  "id": "sa-11.8",
+  "family": "sa",
+  "title": "Dynamic Code Analysis"
+ },
+ {
+  "id": "sa-11.9",
+  "family": "sa",
+  "title": "Interactive Application Security Testing"
+ },
+ {
+  "id": "sa-12",
+  "family": "sa",
+  "title": "Supply Chain Protection"
+ },
+ {
+  "id": "sa-12.1",
+  "family": "sa",
+  "title": "Acquisition Strategies / Tools / Methods"
+ },
+ {
+  "id": "sa-12.2",
+  "family": "sa",
+  "title": "Supplier Reviews"
+ },
+ {
+  "id": "sa-12.3",
+  "family": "sa",
+  "title": "Trusted Shipping and Warehousing"
+ },
+ {
+  "id": "sa-12.4",
+  "family": "sa",
+  "title": "Diversity of Suppliers"
+ },
+ {
+  "id": "sa-12.5",
+  "family": "sa",
+  "title": "Limitation of Harm"
+ },
+ {
+  "id": "sa-12.6",
+  "family": "sa",
+  "title": "Minimizing Procurement Time"
+ },
+ {
+  "id": "sa-12.7",
+  "family": "sa",
+  "title": "Assessments Prior to Selection / Acceptance / Update"
+ },
+ {
+  "id": "sa-12.8",
+  "family": "sa",
+  "title": "Use of All-source Intelligence"
+ },
+ {
+  "id": "sa-12.9",
+  "family": "sa",
+  "title": "Operations Security"
+ },
+ {
+  "id": "sa-12.10",
+  "family": "sa",
+  "title": "Validate as Genuine and Not Altered"
+ },
+ {
+  "id": "sa-12.11",
+  "family": "sa",
+  "title": "Penetration Testing / Analysis of Elements, Processes, and Actors"
+ },
+ {
+  "id": "sa-12.12",
+  "family": "sa",
+  "title": "Inter-organizational Agreements"
+ },
+ {
+  "id": "sa-12.13",
+  "family": "sa",
+  "title": "Critical Information System Components"
+ },
+ {
+  "id": "sa-12.14",
+  "family": "sa",
+  "title": "Identity and Traceability"
+ },
+ {
+  "id": "sa-12.15",
+  "family": "sa",
+  "title": "Processes to Address Weaknesses or Deficiencies"
+ },
+ {
+  "id": "sa-13",
+  "family": "sa",
+  "title": "Trustworthiness"
+ },
+ {
+  "id": "sa-14",
+  "family": "sa",
+  "title": "Criticality Analysis"
+ },
+ {
+  "id": "sa-14.1",
+  "family": "sa",
+  "title": "Critical Components with No Viable Alternative Sourcing"
+ },
+ {
+  "id": "sa-15",
+  "family": "sa",
+  "title": "Development Process, Standards, and Tools"
+ },
+ {
+  "id": "sa-15.1",
+  "family": "sa",
+  "title": "Quality Metrics"
+ },
+ {
+  "id": "sa-15.2",
+  "family": "sa",
+  "title": "Security and Privacy Tracking Tools"
+ },
+ {
+  "id": "sa-15.3",
+  "family": "sa",
+  "title": "Criticality Analysis"
+ },
+ {
+  "id": "sa-15.4",
+  "family": "sa",
+  "title": "Threat Modeling and Vulnerability Analysis"
+ },
+ {
+  "id": "sa-15.5",
+  "family": "sa",
+  "title": "Attack Surface Reduction"
+ },
+ {
+  "id": "sa-15.6",
+  "family": "sa",
+  "title": "Continuous Improvement"
+ },
+ {
+  "id": "sa-15.7",
+  "family": "sa",
+  "title": "Automated Vulnerability Analysis"
+ },
+ {
+  "id": "sa-15.8",
+  "family": "sa",
+  "title": "Reuse of Threat and Vulnerability Information"
+ },
+ {
+  "id": "sa-15.9",
+  "family": "sa",
+  "title": "Use of Live Data"
+ },
+ {
+  "id": "sa-15.10",
+  "family": "sa",
+  "title": "Incident Response Plan"
+ },
+ {
+  "id": "sa-15.11",
+  "family": "sa",
+  "title": "Archive System or Component"
+ },
+ {
+  "id": "sa-15.12",
+  "family": "sa",
+  "title": "Minimize Personally Identifiable Information"
+ },
+ {
+  "id": "sa-15.13",
+  "family": "sa",
+  "title": "Logging Syntax"
+ },
+ {
+  "id": "sa-16",
+  "family": "sa",
+  "title": "Developer-provided Training"
+ },
+ {
+  "id": "sa-17",
+  "family": "sa",
+  "title": "Developer Security and Privacy Architecture and Design"
+ },
+ {
+  "id": "sa-17.1",
+  "family": "sa",
+  "title": "Formal Policy Model"
+ },
+ {
+  "id": "sa-17.2",
+  "family": "sa",
+  "title": "Security-relevant Components"
+ },
+ {
+  "id": "sa-17.3",
+  "family": "sa",
+  "title": "Formal Correspondence"
+ },
+ {
+  "id": "sa-17.4",
+  "family": "sa",
+  "title": "Informal Correspondence"
+ },
+ {
+  "id": "sa-17.5",
+  "family": "sa",
+  "title": "Conceptually Simple Design"
+ },
+ {
+  "id": "sa-17.6",
+  "family": "sa",
+  "title": "Structure for Testing"
+ },
+ {
+  "id": "sa-17.7",
+  "family": "sa",
+  "title": "Structure for Least Privilege"
+ },
+ {
+  "id": "sa-17.8",
+  "family": "sa",
+  "title": "Orchestration"
+ },
+ {
+  "id": "sa-17.9",
+  "family": "sa",
+  "title": "Design Diversity"
+ },
+ {
+  "id": "sa-18",
+  "family": "sa",
+  "title": "Tamper Resistance and Detection"
+ },
+ {
+  "id": "sa-18.1",
+  "family": "sa",
+  "title": "Multiple Phases of System Development Life Cycle"
+ },
+ {
+  "id": "sa-18.2",
+  "family": "sa",
+  "title": "Inspection of Systems or Components"
+ },
+ {
+  "id": "sa-19",
+  "family": "sa",
+  "title": "Component Authenticity"
+ },
+ {
+  "id": "sa-19.1",
+  "family": "sa",
+  "title": "Anti-counterfeit Training"
+ },
+ {
+  "id": "sa-19.2",
+  "family": "sa",
+  "title": "Configuration Control for Component Service and Repair"
+ },
+ {
+  "id": "sa-19.3",
+  "family": "sa",
+  "title": "Component Disposal"
+ },
+ {
+  "id": "sa-19.4",
+  "family": "sa",
+  "title": "Anti-counterfeit Scanning"
+ },
+ {
+  "id": "sa-20",
+  "family": "sa",
+  "title": "Customized Development of Critical Components"
+ },
+ {
+  "id": "sa-21",
+  "family": "sa",
+  "title": "Developer Screening"
+ },
+ {
+  "id": "sa-21.1",
+  "family": "sa",
+  "title": "Validation of Screening"
+ },
+ {
+  "id": "sa-22",
+  "family": "sa",
+  "title": "Unsupported System Components"
+ },
+ {
+  "id": "sa-22.1",
+  "family": "sa",
+  "title": "Alternative Sources for Continued Support"
+ },
+ {
+  "id": "sa-23",
+  "family": "sa",
+  "title": "Specialization"
+ },
+ {
+  "id": "sa-24",
+  "family": "sa",
+  "title": "Design For Cyber Resiliency"
+ },
+ {
+  "id": "sc-1",
+  "family": "sc",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "sc-2",
+  "family": "sc",
+  "title": "Separation of System and User Functionality"
+ },
+ {
+  "id": "sc-2.1",
+  "family": "sc",
+  "title": "Interfaces for Non-privileged Users"
+ },
+ {
+  "id": "sc-2.2",
+  "family": "sc",
+  "title": "Disassociability"
+ },
+ {
+  "id": "sc-3",
+  "family": "sc",
+  "title": "Security Function Isolation"
+ },
+ {
+  "id": "sc-3.1",
+  "family": "sc",
+  "title": "Hardware Separation"
+ },
+ {
+  "id": "sc-3.2",
+  "family": "sc",
+  "title": "Access and Flow Control Functions"
+ },
+ {
+  "id": "sc-3.3",
+  "family": "sc",
+  "title": "Minimize Nonsecurity Functionality"
+ },
+ {
+  "id": "sc-3.4",
+  "family": "sc",
+  "title": "Module Coupling and Cohesiveness"
+ },
+ {
+  "id": "sc-3.5",
+  "family": "sc",
+  "title": "Layered Structures"
+ },
+ {
+  "id": "sc-4",
+  "family": "sc",
+  "title": "Information in Shared System Resources"
+ },
+ {
+  "id": "sc-4.1",
+  "family": "sc",
+  "title": "Security Levels"
+ },
+ {
+  "id": "sc-4.2",
+  "family": "sc",
+  "title": "Multilevel or Periods Processing"
+ },
+ {
+  "id": "sc-5",
+  "family": "sc",
+  "title": "Denial-of-service Protection"
+ },
+ {
+  "id": "sc-5.1",
+  "family": "sc",
+  "title": "Restrict Ability to Attack Other Systems"
+ },
+ {
+  "id": "sc-5.2",
+  "family": "sc",
+  "title": "Capacity, Bandwidth, and Redundancy"
+ },
+ {
+  "id": "sc-5.3",
+  "family": "sc",
+  "title": "Detection and Monitoring"
+ },
+ {
+  "id": "sc-6",
+  "family": "sc",
+  "title": "Resource Availability"
+ },
+ {
+  "id": "sc-7",
+  "family": "sc",
+  "title": "Boundary Protection"
+ },
+ {
+  "id": "sc-7.1",
+  "family": "sc",
+  "title": "Physically Separated Subnetworks"
+ },
+ {
+  "id": "sc-7.2",
+  "family": "sc",
+  "title": "Public Access"
+ },
+ {
+  "id": "sc-7.3",
+  "family": "sc",
+  "title": "Access Points"
+ },
+ {
+  "id": "sc-7.4",
+  "family": "sc",
+  "title": "External Telecommunications Services"
+ },
+ {
+  "id": "sc-7.5",
+  "family": "sc",
+  "title": "Deny by Default \u2014 Allow by Exception"
+ },
+ {
+  "id": "sc-7.6",
+  "family": "sc",
+  "title": "Response to Recognized Failures"
+ },
+ {
+  "id": "sc-7.7",
+  "family": "sc",
+  "title": "Split Tunneling for Remote Devices"
+ },
+ {
+  "id": "sc-7.8",
+  "family": "sc",
+  "title": "Route Traffic to Authenticated Proxy Servers"
+ },
+ {
+  "id": "sc-7.9",
+  "family": "sc",
+  "title": "Restrict Threatening Outgoing Communications Traffic"
+ },
+ {
+  "id": "sc-7.10",
+  "family": "sc",
+  "title": "Prevent Exfiltration"
+ },
+ {
+  "id": "sc-7.11",
+  "family": "sc",
+  "title": "Restrict Incoming Communications Traffic"
+ },
+ {
+  "id": "sc-7.12",
+  "family": "sc",
+  "title": "Host-based Protection"
+ },
+ {
+  "id": "sc-7.13",
+  "family": "sc",
+  "title": "Isolation of Security Tools, Mechanisms, and Support Components"
+ },
+ {
+  "id": "sc-7.14",
+  "family": "sc",
+  "title": "Protect Against Unauthorized Physical Connections"
+ },
+ {
+  "id": "sc-7.15",
+  "family": "sc",
+  "title": "Networked Privileged Accesses"
+ },
+ {
+  "id": "sc-7.16",
+  "family": "sc",
+  "title": "Prevent Discovery of System Components"
+ },
+ {
+  "id": "sc-7.17",
+  "family": "sc",
+  "title": "Automated Enforcement of Protocol Formats"
+ },
+ {
+  "id": "sc-7.18",
+  "family": "sc",
+  "title": "Fail Secure"
+ },
+ {
+  "id": "sc-7.19",
+  "family": "sc",
+  "title": "Block Communication from Non-organizationally Configured Hosts"
+ },
+ {
+  "id": "sc-7.20",
+  "family": "sc",
+  "title": "Dynamic Isolation and Segregation"
+ },
+ {
+  "id": "sc-7.21",
+  "family": "sc",
+  "title": "Isolation of System Components"
+ },
+ {
+  "id": "sc-7.22",
+  "family": "sc",
+  "title": "Separate Subnets for Connecting to Different Security Domains"
+ },
+ {
+  "id": "sc-7.23",
+  "family": "sc",
+  "title": "Disable Sender Feedback on Protocol Validation Failure"
+ },
+ {
+  "id": "sc-7.24",
+  "family": "sc",
+  "title": "Personally Identifiable Information"
+ },
+ {
+  "id": "sc-7.25",
+  "family": "sc",
+  "title": "Unclassified National Security System Connections"
+ },
+ {
+  "id": "sc-7.26",
+  "family": "sc",
+  "title": "Classified National Security System Connections"
+ },
+ {
+  "id": "sc-7.27",
+  "family": "sc",
+  "title": "Unclassified Non-national Security System Connections"
+ },
+ {
+  "id": "sc-7.28",
+  "family": "sc",
+  "title": "Connections to Public Networks"
+ },
+ {
+  "id": "sc-7.29",
+  "family": "sc",
+  "title": "Separate Subnets to Isolate Functions"
+ },
+ {
+  "id": "sc-8",
+  "family": "sc",
+  "title": "Transmission Confidentiality and Integrity"
+ },
+ {
+  "id": "sc-8.1",
+  "family": "sc",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "sc-8.2",
+  "family": "sc",
+  "title": "Pre- and Post-transmission Handling"
+ },
+ {
+  "id": "sc-8.3",
+  "family": "sc",
+  "title": "Cryptographic Protection for Message Externals"
+ },
+ {
+  "id": "sc-8.4",
+  "family": "sc",
+  "title": "Conceal or Randomize Communications"
+ },
+ {
+  "id": "sc-8.5",
+  "family": "sc",
+  "title": "Protected Distribution System"
+ },
+ {
+  "id": "sc-9",
+  "family": "sc",
+  "title": "Transmission Confidentiality"
+ },
+ {
+  "id": "sc-10",
+  "family": "sc",
+  "title": "Network Disconnect"
+ },
+ {
+  "id": "sc-11",
+  "family": "sc",
+  "title": "Trusted Path"
+ },
+ {
+  "id": "sc-11.1",
+  "family": "sc",
+  "title": "Irrefutable Communications Path"
+ },
+ {
+  "id": "sc-12",
+  "family": "sc",
+  "title": "Cryptographic Key Establishment and Management"
+ },
+ {
+  "id": "sc-12.1",
+  "family": "sc",
+  "title": "Availability"
+ },
+ {
+  "id": "sc-12.2",
+  "family": "sc",
+  "title": "Symmetric Keys"
+ },
+ {
+  "id": "sc-12.3",
+  "family": "sc",
+  "title": "Asymmetric Keys"
+ },
+ {
+  "id": "sc-12.4",
+  "family": "sc",
+  "title": "PKI Certificates"
+ },
+ {
+  "id": "sc-12.5",
+  "family": "sc",
+  "title": "PKI Certificates / Hardware Tokens"
+ },
+ {
+  "id": "sc-12.6",
+  "family": "sc",
+  "title": "Physical Control of Keys"
+ },
+ {
+  "id": "sc-13",
+  "family": "sc",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "sc-13.1",
+  "family": "sc",
+  "title": "FIPS-validated Cryptography"
+ },
+ {
+  "id": "sc-13.2",
+  "family": "sc",
+  "title": "NSA-approved Cryptography"
+ },
+ {
+  "id": "sc-13.3",
+  "family": "sc",
+  "title": "Individuals Without Formal Access Approvals"
+ },
+ {
+  "id": "sc-13.4",
+  "family": "sc",
+  "title": "Digital Signatures"
+ },
+ {
+  "id": "sc-14",
+  "family": "sc",
+  "title": "Public Access Protections"
+ },
+ {
+  "id": "sc-15",
+  "family": "sc",
+  "title": "Collaborative Computing Devices and Applications"
+ },
+ {
+  "id": "sc-15.1",
+  "family": "sc",
+  "title": "Physical or Logical Disconnect"
+ },
+ {
+  "id": "sc-15.2",
+  "family": "sc",
+  "title": "Blocking Inbound and Outbound Communications Traffic"
+ },
+ {
+  "id": "sc-15.3",
+  "family": "sc",
+  "title": "Disabling and Removal in Secure Work Areas"
+ },
+ {
+  "id": "sc-15.4",
+  "family": "sc",
+  "title": "Explicitly Indicate Current Participants"
+ },
+ {
+  "id": "sc-16",
+  "family": "sc",
+  "title": "Transmission of Security and Privacy Attributes"
+ },
+ {
+  "id": "sc-16.1",
+  "family": "sc",
+  "title": "Integrity Verification"
+ },
+ {
+  "id": "sc-16.2",
+  "family": "sc",
+  "title": "Anti-spoofing Mechanisms"
+ },
+ {
+  "id": "sc-16.3",
+  "family": "sc",
+  "title": "Cryptographic Binding"
+ },
+ {
+  "id": "sc-17",
+  "family": "sc",
+  "title": "Public Key Infrastructure Certificates"
+ },
+ {
+  "id": "sc-18",
+  "family": "sc",
+  "title": "Mobile Code"
+ },
+ {
+  "id": "sc-18.1",
+  "family": "sc",
+  "title": "Identify Unacceptable Code and Take Corrective Actions"
+ },
+ {
+  "id": "sc-18.2",
+  "family": "sc",
+  "title": "Acquisition, Development, and Use"
+ },
+ {
+  "id": "sc-18.3",
+  "family": "sc",
+  "title": "Prevent Downloading and Execution"
+ },
+ {
+  "id": "sc-18.4",
+  "family": "sc",
+  "title": "Prevent Automatic Execution"
+ },
+ {
+  "id": "sc-18.5",
+  "family": "sc",
+  "title": "Allow Execution Only in Confined Environments"
+ },
+ {
+  "id": "sc-19",
+  "family": "sc",
+  "title": "Voice Over Internet Protocol"
+ },
+ {
+  "id": "sc-20",
+  "family": "sc",
+  "title": "Secure Name/Address Resolution Service (Authoritative Source)"
+ },
+ {
+  "id": "sc-20.1",
+  "family": "sc",
+  "title": "Child Subspaces"
+ },
+ {
+  "id": "sc-20.2",
+  "family": "sc",
+  "title": "Data Origin and Integrity"
+ },
+ {
+  "id": "sc-21",
+  "family": "sc",
+  "title": "Secure Name/Address Resolution Service (Recursive or Caching Resolver)"
+ },
+ {
+  "id": "sc-21.1",
+  "family": "sc",
+  "title": "Data Origin and Integrity"
+ },
+ {
+  "id": "sc-22",
+  "family": "sc",
+  "title": "Architecture and Provisioning for Name/Address Resolution Service"
+ },
+ {
+  "id": "sc-23",
+  "family": "sc",
+  "title": "Session Authenticity"
+ },
+ {
+  "id": "sc-23.1",
+  "family": "sc",
+  "title": "Invalidate Session Identifiers at Logout"
+ },
+ {
+  "id": "sc-23.2",
+  "family": "sc",
+  "title": "User-initiated Logouts and Message Displays"
+ },
+ {
+  "id": "sc-23.3",
+  "family": "sc",
+  "title": "Unique System-generated Session Identifiers"
+ },
+ {
+  "id": "sc-23.4",
+  "family": "sc",
+  "title": "Unique Session Identifiers with Randomization"
+ },
+ {
+  "id": "sc-23.5",
+  "family": "sc",
+  "title": "Allowed Certificate Authorities"
+ },
+ {
+  "id": "sc-24",
+  "family": "sc",
+  "title": "Fail in Known State"
+ },
+ {
+  "id": "sc-25",
+  "family": "sc",
+  "title": "Thin Nodes"
+ },
+ {
+  "id": "sc-26",
+  "family": "sc",
+  "title": "Decoys"
+ },
+ {
+  "id": "sc-26.1",
+  "family": "sc",
+  "title": "Detection of Malicious Code"
+ },
+ {
+  "id": "sc-27",
+  "family": "sc",
+  "title": "Platform-independent Applications"
+ },
+ {
+  "id": "sc-28",
+  "family": "sc",
+  "title": "Protection of Information at Rest"
+ },
+ {
+  "id": "sc-28.1",
+  "family": "sc",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "sc-28.2",
+  "family": "sc",
+  "title": "Offline Storage"
+ },
+ {
+  "id": "sc-28.3",
+  "family": "sc",
+  "title": "Cryptographic Keys"
+ },
+ {
+  "id": "sc-29",
+  "family": "sc",
+  "title": "Heterogeneity"
+ },
+ {
+  "id": "sc-29.1",
+  "family": "sc",
+  "title": "Virtualization Techniques"
+ },
+ {
+  "id": "sc-30",
+  "family": "sc",
+  "title": "Concealment and Misdirection"
+ },
+ {
+  "id": "sc-30.1",
+  "family": "sc",
+  "title": "Virtualization Techniques"
+ },
+ {
+  "id": "sc-30.2",
+  "family": "sc",
+  "title": "Randomness"
+ },
+ {
+  "id": "sc-30.3",
+  "family": "sc",
+  "title": "Change Processing and Storage Locations"
+ },
+ {
+  "id": "sc-30.4",
+  "family": "sc",
+  "title": "Misleading Information"
+ },
+ {
+  "id": "sc-30.5",
+  "family": "sc",
+  "title": "Concealment of System Components"
+ },
+ {
+  "id": "sc-31",
+  "family": "sc",
+  "title": "Covert Channel Analysis"
+ },
+ {
+  "id": "sc-31.1",
+  "family": "sc",
+  "title": "Test Covert Channels for Exploitability"
+ },
+ {
+  "id": "sc-31.2",
+  "family": "sc",
+  "title": "Maximum Bandwidth"
+ },
+ {
+  "id": "sc-31.3",
+  "family": "sc",
+  "title": "Measure Bandwidth in Operational Environments"
+ },
+ {
+  "id": "sc-32",
+  "family": "sc",
+  "title": "System Partitioning"
+ },
+ {
+  "id": "sc-32.1",
+  "family": "sc",
+  "title": "Separate Physical Domains for Privileged Functions"
+ },
+ {
+  "id": "sc-33",
+  "family": "sc",
+  "title": "Transmission Preparation Integrity"
+ },
+ {
+  "id": "sc-34",
+  "family": "sc",
+  "title": "Non-modifiable Executable Programs"
+ },
+ {
+  "id": "sc-34.1",
+  "family": "sc",
+  "title": "No Writable Storage"
+ },
+ {
+  "id": "sc-34.2",
+  "family": "sc",
+  "title": "Integrity Protection on Read-only Media"
+ },
+ {
+  "id": "sc-34.3",
+  "family": "sc",
+  "title": "Hardware-based Protection"
+ },
+ {
+  "id": "sc-35",
+  "family": "sc",
+  "title": "External Malicious Code Identification"
+ },
+ {
+  "id": "sc-36",
+  "family": "sc",
+  "title": "Distributed Processing and Storage"
+ },
+ {
+  "id": "sc-36.1",
+  "family": "sc",
+  "title": "Polling Techniques"
+ },
+ {
+  "id": "sc-36.2",
+  "family": "sc",
+  "title": "Synchronization"
+ },
+ {
+  "id": "sc-37",
+  "family": "sc",
+  "title": "Out-of-band Channels"
+ },
+ {
+  "id": "sc-37.1",
+  "family": "sc",
+  "title": "Ensure Delivery and Transmission"
+ },
+ {
+  "id": "sc-38",
+  "family": "sc",
+  "title": "Operations Security"
+ },
+ {
+  "id": "sc-39",
+  "family": "sc",
+  "title": "Process Isolation"
+ },
+ {
+  "id": "sc-39.1",
+  "family": "sc",
+  "title": "Hardware Separation"
+ },
+ {
+  "id": "sc-39.2",
+  "family": "sc",
+  "title": "Separate Execution Domain Per Thread"
+ },
+ {
+  "id": "sc-40",
+  "family": "sc",
+  "title": "Wireless Link Protection"
+ },
+ {
+  "id": "sc-40.1",
+  "family": "sc",
+  "title": "Electromagnetic Interference"
+ },
+ {
+  "id": "sc-40.2",
+  "family": "sc",
+  "title": "Reduce Detection Potential"
+ },
+ {
+  "id": "sc-40.3",
+  "family": "sc",
+  "title": "Imitative or Manipulative Communications Deception"
+ },
+ {
+  "id": "sc-40.4",
+  "family": "sc",
+  "title": "Signal Parameter Identification"
+ },
+ {
+  "id": "sc-41",
+  "family": "sc",
+  "title": "Port and I/O Device Access"
+ },
+ {
+  "id": "sc-42",
+  "family": "sc",
+  "title": "Sensor Capability and Data"
+ },
+ {
+  "id": "sc-42.1",
+  "family": "sc",
+  "title": "Reporting to Authorized Individuals or Roles"
+ },
+ {
+  "id": "sc-42.2",
+  "family": "sc",
+  "title": "Authorized Use"
+ },
+ {
+  "id": "sc-42.3",
+  "family": "sc",
+  "title": "Prohibit Use of Devices"
+ },
+ {
+  "id": "sc-42.4",
+  "family": "sc",
+  "title": "Notice of Collection"
+ },
+ {
+  "id": "sc-42.5",
+  "family": "sc",
+  "title": "Collection Minimization"
+ },
+ {
+  "id": "sc-43",
+  "family": "sc",
+  "title": "Usage Restrictions"
+ },
+ {
+  "id": "sc-44",
+  "family": "sc",
+  "title": "Detonation Chambers"
+ },
+ {
+  "id": "sc-45",
+  "family": "sc",
+  "title": "System Time Synchronization"
+ },
+ {
+  "id": "sc-45.1",
+  "family": "sc",
+  "title": "Synchronization with Authoritative Time Source"
+ },
+ {
+  "id": "sc-45.2",
+  "family": "sc",
+  "title": "Secondary Authoritative Time Source"
+ },
+ {
+  "id": "sc-46",
+  "family": "sc",
+  "title": "Cross Domain Policy Enforcement"
+ },
+ {
+  "id": "sc-47",
+  "family": "sc",
+  "title": "Alternate Communications Paths"
+ },
+ {
+  "id": "sc-48",
+  "family": "sc",
+  "title": "Sensor Relocation"
+ },
+ {
+  "id": "sc-48.1",
+  "family": "sc",
+  "title": "Dynamic Relocation of Sensors or Monitoring Capabilities"
+ },
+ {
+  "id": "sc-49",
+  "family": "sc",
+  "title": "Hardware-enforced Separation and Policy Enforcement"
+ },
+ {
+  "id": "sc-50",
+  "family": "sc",
+  "title": "Software-enforced Separation and Policy Enforcement"
+ },
+ {
+  "id": "sc-51",
+  "family": "sc",
+  "title": "Hardware-based Protection"
+ },
+ {
+  "id": "si-1",
+  "family": "si",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "si-2",
+  "family": "si",
+  "title": "Flaw Remediation"
+ },
+ {
+  "id": "si-2.1",
+  "family": "si",
+  "title": "Central Management"
+ },
+ {
+  "id": "si-2.2",
+  "family": "si",
+  "title": "Automated Flaw Remediation Status"
+ },
+ {
+  "id": "si-2.3",
+  "family": "si",
+  "title": "Time to Remediate Flaws and Benchmarks for Corrective Actions"
+ },
+ {
+  "id": "si-2.4",
+  "family": "si",
+  "title": "Automated Patch Management Tools"
+ },
+ {
+  "id": "si-2.5",
+  "family": "si",
+  "title": "Automatic Software and Firmware Updates"
+ },
+ {
+  "id": "si-2.6",
+  "family": "si",
+  "title": "Removal of Previous Versions of Software and Firmware"
+ },
+ {
+  "id": "si-2.7",
+  "family": "si",
+  "title": "Root Cause Analysis"
+ },
+ {
+  "id": "si-3",
+  "family": "si",
+  "title": "Malicious Code Protection"
+ },
+ {
+  "id": "si-3.1",
+  "family": "si",
+  "title": "Central Management"
+ },
+ {
+  "id": "si-3.2",
+  "family": "si",
+  "title": "Automatic Updates"
+ },
+ {
+  "id": "si-3.3",
+  "family": "si",
+  "title": "Non-privileged Users"
+ },
+ {
+  "id": "si-3.4",
+  "family": "si",
+  "title": "Updates Only by Privileged Users"
+ },
+ {
+  "id": "si-3.5",
+  "family": "si",
+  "title": "Portable Storage Devices"
+ },
+ {
+  "id": "si-3.6",
+  "family": "si",
+  "title": "Testing and Verification"
+ },
+ {
+  "id": "si-3.7",
+  "family": "si",
+  "title": "Nonsignature-based Detection"
+ },
+ {
+  "id": "si-3.8",
+  "family": "si",
+  "title": "Detect Unauthorized Commands"
+ },
+ {
+  "id": "si-3.9",
+  "family": "si",
+  "title": "Authenticate Remote Commands"
+ },
+ {
+  "id": "si-3.10",
+  "family": "si",
+  "title": "Malicious Code Analysis"
+ },
+ {
+  "id": "si-4",
+  "family": "si",
+  "title": "System Monitoring"
+ },
+ {
+  "id": "si-4.1",
+  "family": "si",
+  "title": "System-wide Intrusion Detection System"
+ },
+ {
+  "id": "si-4.2",
+  "family": "si",
+  "title": "Automated Tools and Mechanisms for Real-time Analysis"
+ },
+ {
+  "id": "si-4.3",
+  "family": "si",
+  "title": "Automated Tool and Mechanism Integration"
+ },
+ {
+  "id": "si-4.4",
+  "family": "si",
+  "title": "Inbound and Outbound Communications Traffic"
+ },
+ {
+  "id": "si-4.5",
+  "family": "si",
+  "title": "System-generated Alerts"
+ },
+ {
+  "id": "si-4.6",
+  "family": "si",
+  "title": "Restrict Non-privileged Users"
+ },
+ {
+  "id": "si-4.7",
+  "family": "si",
+  "title": "Automated Response to Suspicious Events"
+ },
+ {
+  "id": "si-4.8",
+  "family": "si",
+  "title": "Protection of Monitoring Information"
+ },
+ {
+  "id": "si-4.9",
+  "family": "si",
+  "title": "Testing of Monitoring Tools and Mechanisms"
+ },
+ {
+  "id": "si-4.10",
+  "family": "si",
+  "title": "Visibility of Encrypted Communications"
+ },
+ {
+  "id": "si-4.11",
+  "family": "si",
+  "title": "Analyze Communications Traffic Anomalies"
+ },
+ {
+  "id": "si-4.12",
+  "family": "si",
+  "title": "Automated Organization-generated Alerts"
+ },
+ {
+  "id": "si-4.13",
+  "family": "si",
+  "title": "Analyze Traffic and Event Patterns"
+ },
+ {
+  "id": "si-4.14",
+  "family": "si",
+  "title": "Wireless Intrusion Detection"
+ },
+ {
+  "id": "si-4.15",
+  "family": "si",
+  "title": "Wireless to Wireline Communications"
+ },
+ {
+  "id": "si-4.16",
+  "family": "si",
+  "title": "Correlate Monitoring Information"
+ },
+ {
+  "id": "si-4.17",
+  "family": "si",
+  "title": "Integrated Situational Awareness"
+ },
+ {
+  "id": "si-4.18",
+  "family": "si",
+  "title": "Analyze Traffic and Covert Exfiltration"
+ },
+ {
+  "id": "si-4.19",
+  "family": "si",
+  "title": "Risk for Individuals"
+ },
+ {
+  "id": "si-4.20",
+  "family": "si",
+  "title": "Privileged Users"
+ },
+ {
+  "id": "si-4.21",
+  "family": "si",
+  "title": "Probationary Periods"
+ },
+ {
+  "id": "si-4.22",
+  "family": "si",
+  "title": "Unauthorized Network Services"
+ },
+ {
+  "id": "si-4.23",
+  "family": "si",
+  "title": "Host-based Devices"
+ },
+ {
+  "id": "si-4.24",
+  "family": "si",
+  "title": "Indicators of Compromise"
+ },
+ {
+  "id": "si-4.25",
+  "family": "si",
+  "title": "Optimize Network Traffic Analysis"
+ },
+ {
+  "id": "si-5",
+  "family": "si",
+  "title": "Security Alerts, Advisories, and Directives"
+ },
+ {
+  "id": "si-5.1",
+  "family": "si",
+  "title": "Automated Alerts and Advisories"
+ },
+ {
+  "id": "si-6",
+  "family": "si",
+  "title": "Security and Privacy Function Verification"
+ },
+ {
+  "id": "si-6.1",
+  "family": "si",
+  "title": "Notification of Failed Security Tests"
+ },
+ {
+  "id": "si-6.2",
+  "family": "si",
+  "title": "Automation Support for Distributed Testing"
+ },
+ {
+  "id": "si-6.3",
+  "family": "si",
+  "title": "Report Verification Results"
+ },
+ {
+  "id": "si-7",
+  "family": "si",
+  "title": "Software, Firmware, and Information Integrity"
+ },
+ {
+  "id": "si-7.1",
+  "family": "si",
+  "title": "Integrity Checks"
+ },
+ {
+  "id": "si-7.2",
+  "family": "si",
+  "title": "Automated Notifications of Integrity Violations"
+ },
+ {
+  "id": "si-7.3",
+  "family": "si",
+  "title": "Centrally Managed Integrity Tools"
+ },
+ {
+  "id": "si-7.4",
+  "family": "si",
+  "title": "Tamper-evident Packaging"
+ },
+ {
+  "id": "si-7.5",
+  "family": "si",
+  "title": "Automated Response to Integrity Violations"
+ },
+ {
+  "id": "si-7.6",
+  "family": "si",
+  "title": "Cryptographic Protection"
+ },
+ {
+  "id": "si-7.7",
+  "family": "si",
+  "title": "Integration of Detection and Response"
+ },
+ {
+  "id": "si-7.8",
+  "family": "si",
+  "title": "Auditing Capability for Significant Events"
+ },
+ {
+  "id": "si-7.9",
+  "family": "si",
+  "title": "Verify Boot Process"
+ },
+ {
+  "id": "si-7.10",
+  "family": "si",
+  "title": "Protection of Boot Firmware"
+ },
+ {
+  "id": "si-7.11",
+  "family": "si",
+  "title": "Confined Environments with Limited Privileges"
+ },
+ {
+  "id": "si-7.12",
+  "family": "si",
+  "title": "Integrity Verification"
+ },
+ {
+  "id": "si-7.13",
+  "family": "si",
+  "title": "Code Execution in Protected Environments"
+ },
+ {
+  "id": "si-7.14",
+  "family": "si",
+  "title": "Binary or Machine Executable Code"
+ },
+ {
+  "id": "si-7.15",
+  "family": "si",
+  "title": "Code Authentication"
+ },
+ {
+  "id": "si-7.16",
+  "family": "si",
+  "title": "Time Limit on Process Execution Without Supervision"
+ },
+ {
+  "id": "si-7.17",
+  "family": "si",
+  "title": "Runtime Application Self-protection"
+ },
+ {
+  "id": "si-8",
+  "family": "si",
+  "title": "Spam Protection"
+ },
+ {
+  "id": "si-8.1",
+  "family": "si",
+  "title": "Central Management"
+ },
+ {
+  "id": "si-8.2",
+  "family": "si",
+  "title": "Automatic Updates"
+ },
+ {
+  "id": "si-8.3",
+  "family": "si",
+  "title": "Continuous Learning Capability"
+ },
+ {
+  "id": "si-9",
+  "family": "si",
+  "title": "Information Input Restrictions"
+ },
+ {
+  "id": "si-10",
+  "family": "si",
+  "title": "Information Input Validation"
+ },
+ {
+  "id": "si-10.1",
+  "family": "si",
+  "title": "Manual Override Capability"
+ },
+ {
+  "id": "si-10.2",
+  "family": "si",
+  "title": "Review and Resolve Errors"
+ },
+ {
+  "id": "si-10.3",
+  "family": "si",
+  "title": "Predictable Behavior"
+ },
+ {
+  "id": "si-10.4",
+  "family": "si",
+  "title": "Timing Interactions"
+ },
+ {
+  "id": "si-10.5",
+  "family": "si",
+  "title": "Restrict Inputs to Trusted Sources and Approved Formats"
+ },
+ {
+  "id": "si-10.6",
+  "family": "si",
+  "title": "Injection Prevention"
+ },
+ {
+  "id": "si-11",
+  "family": "si",
+  "title": "Error Handling"
+ },
+ {
+  "id": "si-12",
+  "family": "si",
+  "title": "Information Management and Retention"
+ },
+ {
+  "id": "si-12.1",
+  "family": "si",
+  "title": "Limit Personally Identifiable Information Elements"
+ },
+ {
+  "id": "si-12.2",
+  "family": "si",
+  "title": "Minimize Personally Identifiable Information in Testing, Training, and Research"
+ },
+ {
+  "id": "si-12.3",
+  "family": "si",
+  "title": "Information Disposal"
+ },
+ {
+  "id": "si-13",
+  "family": "si",
+  "title": "Predictable Failure Prevention"
+ },
+ {
+  "id": "si-13.1",
+  "family": "si",
+  "title": "Transferring Component Responsibilities"
+ },
+ {
+  "id": "si-13.2",
+  "family": "si",
+  "title": "Time Limit on Process Execution Without Supervision"
+ },
+ {
+  "id": "si-13.3",
+  "family": "si",
+  "title": "Manual Transfer Between Components"
+ },
+ {
+  "id": "si-13.4",
+  "family": "si",
+  "title": "Standby Component Installation and Notification"
+ },
+ {
+  "id": "si-13.5",
+  "family": "si",
+  "title": "Failover Capability"
+ },
+ {
+  "id": "si-14",
+  "family": "si",
+  "title": "Non-persistence"
+ },
+ {
+  "id": "si-14.1",
+  "family": "si",
+  "title": "Refresh from Trusted Sources"
+ },
+ {
+  "id": "si-14.2",
+  "family": "si",
+  "title": "Non-persistent Information"
+ },
+ {
+  "id": "si-14.3",
+  "family": "si",
+  "title": "Non-persistent Connectivity"
+ },
+ {
+  "id": "si-15",
+  "family": "si",
+  "title": "Information Output Filtering"
+ },
+ {
+  "id": "si-16",
+  "family": "si",
+  "title": "Memory Protection"
+ },
+ {
+  "id": "si-17",
+  "family": "si",
+  "title": "Fail-safe Procedures"
+ },
+ {
+  "id": "si-18",
+  "family": "si",
+  "title": "Personally Identifiable Information Quality Operations"
+ },
+ {
+  "id": "si-18.1",
+  "family": "si",
+  "title": "Automation Support"
+ },
+ {
+  "id": "si-18.2",
+  "family": "si",
+  "title": "Data Tags"
+ },
+ {
+  "id": "si-18.3",
+  "family": "si",
+  "title": "Collection"
+ },
+ {
+  "id": "si-18.4",
+  "family": "si",
+  "title": "Individual Requests"
+ },
+ {
+  "id": "si-18.5",
+  "family": "si",
+  "title": "Notice of Correction or Deletion"
+ },
+ {
+  "id": "si-19",
+  "family": "si",
+  "title": "De-identification"
+ },
+ {
+  "id": "si-19.1",
+  "family": "si",
+  "title": "Collection"
+ },
+ {
+  "id": "si-19.2",
+  "family": "si",
+  "title": "Archiving"
+ },
+ {
+  "id": "si-19.3",
+  "family": "si",
+  "title": "Release"
+ },
+ {
+  "id": "si-19.4",
+  "family": "si",
+  "title": "Removal, Masking, Encryption, Hashing, or Replacement of Direct Identifiers"
+ },
+ {
+  "id": "si-19.5",
+  "family": "si",
+  "title": "Statistical Disclosure Control"
+ },
+ {
+  "id": "si-19.6",
+  "family": "si",
+  "title": "Differential Privacy"
+ },
+ {
+  "id": "si-19.7",
+  "family": "si",
+  "title": "Validated Algorithms and Software"
+ },
+ {
+  "id": "si-19.8",
+  "family": "si",
+  "title": "Motivated Intruder"
+ },
+ {
+  "id": "si-20",
+  "family": "si",
+  "title": "Tainting"
+ },
+ {
+  "id": "si-21",
+  "family": "si",
+  "title": "Information Refresh"
+ },
+ {
+  "id": "si-22",
+  "family": "si",
+  "title": "Information Diversity"
+ },
+ {
+  "id": "si-23",
+  "family": "si",
+  "title": "Information Fragmentation"
+ },
+ {
+  "id": "sr-1",
+  "family": "sr",
+  "title": "Policy and Procedures"
+ },
+ {
+  "id": "sr-2",
+  "family": "sr",
+  "title": "Supply Chain Risk Management Plan"
+ },
+ {
+  "id": "sr-2.1",
+  "family": "sr",
+  "title": "Establish SCRM Team"
+ },
+ {
+  "id": "sr-3",
+  "family": "sr",
+  "title": "Supply Chain Controls and Processes"
+ },
+ {
+  "id": "sr-3.1",
+  "family": "sr",
+  "title": "Diverse Supply Base"
+ },
+ {
+  "id": "sr-3.2",
+  "family": "sr",
+  "title": "Limitation of Harm"
+ },
+ {
+  "id": "sr-3.3",
+  "family": "sr",
+  "title": "Sub-tier Flow Down"
+ },
+ {
+  "id": "sr-4",
+  "family": "sr",
+  "title": "Provenance"
+ },
+ {
+  "id": "sr-4.1",
+  "family": "sr",
+  "title": "Identity"
+ },
+ {
+  "id": "sr-4.2",
+  "family": "sr",
+  "title": "Track and Trace"
+ },
+ {
+  "id": "sr-4.3",
+  "family": "sr",
+  "title": "Validate as Genuine and Not Altered"
+ },
+ {
+  "id": "sr-4.4",
+  "family": "sr",
+  "title": "Supply Chain Integrity \u2014 Pedigree"
+ },
+ {
+  "id": "sr-5",
+  "family": "sr",
+  "title": "Acquisition Strategies, Tools, and Methods"
+ },
+ {
+  "id": "sr-5.1",
+  "family": "sr",
+  "title": "Adequate Supply"
+ },
+ {
+  "id": "sr-5.2",
+  "family": "sr",
+  "title": "Assessments Prior to Selection, Acceptance, Modification, or Update"
+ },
+ {
+  "id": "sr-6",
+  "family": "sr",
+  "title": "Supplier Assessments and Reviews"
+ },
+ {
+  "id": "sr-6.1",
+  "family": "sr",
+  "title": "Testing and Analysis"
+ },
+ {
+  "id": "sr-7",
+  "family": "sr",
+  "title": "Supply Chain Operations Security"
+ },
+ {
+  "id": "sr-8",
+  "family": "sr",
+  "title": "Notification Agreements"
+ },
+ {
+  "id": "sr-9",
+  "family": "sr",
+  "title": "Tamper Resistance and Detection"
+ },
+ {
+  "id": "sr-9.1",
+  "family": "sr",
+  "title": "Multiple Stages of System Development Life Cycle"
+ },
+ {
+  "id": "sr-10",
+  "family": "sr",
+  "title": "Inspection of Systems or Components"
+ },
+ {
+  "id": "sr-11",
+  "family": "sr",
+  "title": "Component Authenticity"
+ },
+ {
+  "id": "sr-11.1",
+  "family": "sr",
+  "title": "Anti-counterfeit Training"
+ },
+ {
+  "id": "sr-11.2",
+  "family": "sr",
+  "title": "Configuration Control for Component Service and Repair"
+ },
+ {
+  "id": "sr-11.3",
+  "family": "sr",
+  "title": "Anti-counterfeit Scanning"
+ },
+ {
+  "id": "sr-12",
+  "family": "sr",
+  "title": "Component Disposal"
+ }
+]

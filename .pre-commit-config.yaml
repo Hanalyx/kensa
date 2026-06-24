@@ -16,8 +16,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      # catalog/sources holds VENDORED third-party data: DISA STIG XCCDF (shipped
+      # with CRLF + trailing whitespace) and generated CIS/NIST/CCI facts JSON.
+      # These are preserved as-vendored, not subjected to our whitespace/EOL
+      # rules (the .py derive scripts in the same tree stay enforced).
       - id: trailing-whitespace
+        exclude: ^catalog/sources/.*\.(xml|json)$
       - id: end-of-file-fixer
+        exclude: ^catalog/sources/.*\.(xml|json)$
       - id: check-yaml
       - id: check-merge-conflict
       - id: check-added-large-files
@@ -31,6 +37,7 @@ repos:
         exclude: ^(pkg/kensa/kensa_test\.go|cmd/kensa-keygen/main_test\.go)$
       - id: mixed-line-ending
         args: ["--fix=lf"]
+        exclude: ^catalog/sources/.*\.(xml|json)$
 
   # ─── Default stage: detect-secrets baseline scan ─────────────────────
   # Track S S-006. Matches the CI "Secret scan (detect-secrets)" job
