@@ -137,7 +137,7 @@ spec:
         - id: AC-06
           description: |
               LoadRuleSummaries(dir, paths, vars) loads the production corpus
-              via LoadRules and projects every rule: all 538 rules load and each
+              via LoadRules and projects every rule: all 535 rules load and each
               summary has a non-empty ID and at least one normalized framework
               ref.
           references_constraints: [C-01, C-02]

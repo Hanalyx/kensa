@@ -19,22 +19,33 @@ references:
       section: 5.3.1.3
       level: L1
       type: Automated
+  stig:
+    ubuntu24:
+      vuln_id: V-270661
+      stig_id: UBTU-24-100600
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260478
+      stig_id: UBTU-22-215010
+      severity: CAT II
   nist_800_53:
   - IA-5
   - CM-6
   - SI-2
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
 - when: apt
   check:
     method: package_state
-    name: libpwquality
+    name: libpam-pwquality
     state: present
   remediation:
     mechanism: apt_present
-    name: libpwquality
+    name: libpam-pwquality
 - default: true
   check:
     method: package_state

@@ -24,22 +24,32 @@ references:
     rhel8:
       vuln_id: V-230487
       severity: CAT I
+    ubuntu24:
+      vuln_id: V-270647
+      stig_id: UBTU-24-100030
+      severity: CAT I
+    ubuntu22:
+      vuln_id: V-260483
+      stig_id: UBTU-22-215035
+      severity: CAT I
   nist_800_53:
   - CM-7
   - SC-8
   - IA-5
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
 - when: apt
   check:
     method: package_state
-    name: telnet-server
+    name: telnetd
     state: absent
   remediation:
     mechanism: apt_absent
-    name: telnet-server
+    name: telnetd
 - default: true
   check:
     method: package_state

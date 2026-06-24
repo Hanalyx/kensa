@@ -19,21 +19,32 @@ references:
       section: 6.3.1.1
       level: L1
       type: Automated
+  stig:
+    ubuntu24:
+      vuln_id: V-270656
+      stig_id: UBTU-24-100400
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260590
+      stig_id: UBTU-22-653010
+      severity: CAT II
   nist_800_53:
   - AU-2
   - AU-12
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
 - when: apt
   check:
     method: package_state
-    name: audit
+    name: auditd
     state: present
   remediation:
     mechanism: apt_present
-    name: audit
+    name: auditd
 - default: true
   check:
     method: package_state

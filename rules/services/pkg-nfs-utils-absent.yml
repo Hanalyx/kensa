@@ -19,20 +19,30 @@ references:
       vuln_id: V-257828
       stig_id: RHEL-09-215025
       severity: CAT II
+    ubuntu24:
+      vuln_id: V-279938
+      stig_id: UBTU-24-100050
+      severity: CAT I
+    ubuntu22:
+      vuln_id: V-279937
+      stig_id: UBTU-22-215040
+      severity: CAT I
   nist_800_53:
   - CM-7
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
 - when: apt
   check:
     method: package_state
-    name: nfs-utils
+    name: nfs-kernel-server
     state: absent
   remediation:
     mechanism: apt_absent
-    name: nfs-utils
+    name: nfs-kernel-server
 - default: true
   check:
     method: package_state

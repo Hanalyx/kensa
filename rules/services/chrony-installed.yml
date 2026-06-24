@@ -25,9 +25,20 @@ references:
       section: 2.3.1
       level: L1
       type: Automated
+  stig:
+    ubuntu24:
+      vuln_id: V-270664
+      stig_id: UBTU-24-100700
+      severity: CAT III
+    ubuntu22:
+      vuln_id: V-260479
+      stig_id: UBTU-22-215015
+      severity: CAT III
   nist_800_53:
   - AU-8
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
