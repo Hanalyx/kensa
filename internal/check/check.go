@@ -751,61 +751,132 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return false, "", fmt.Errorf("check audit_rule_exists: transport error: %w", err)
 	}
-	loaded := res.Stdout
+	loaded := strings.Split(res.Stdout, "\n")
 
-	// Watch rules ("-w <path> -p <perms> -k <key>") are printed verbatim by
-	// auditctl -l, so require a full-rule match. Matching only on -k would let
-	// any other rule that shares the key satisfy this check — a false pass when
-	// several per-file watches share one key (e.g. the Ubuntu
-	// usergroup_modification cluster: /etc/passwd, /etc/group, /etc/shadow, ...
-	// all keyed usergroup_modification, where loading any one would otherwise
-	// pass all five).
-	if strings.HasPrefix(strings.TrimSpace(rule), "-w") {
+	// A rule may carry several lines — e.g. a syscall control's b32 + b64
+	// variants, or EPERM + EACCES pairs. Every line must be present.
+	for _, line := range strings.Split(rule, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if !auditLineLoaded(line, loaded) {
+			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s", normaliseAuditRule(line)), nil
+		}
+	}
+	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
+}
+
+// auditLineLoaded reports whether a single audit rule line is present in the
+// loaded ruleset (auditctl -l lines). It matches on the line's distinguishing
+// fields rather than a literal compare, because auditctl reorders/normalises
+// output: auid!=unset -> auid!=-1, "-k key" -> "-F key=key", and syscall lists
+// are re-sorted. Matching only on -k would be a false pass whenever several
+// rules share a key (the Ubuntu usergroup_modification / perm_chng / priv_cmd /
+// module_chng clusters all do).
+func auditLineLoaded(rule string, loaded []string) bool {
+	// Watch rules ("-w <path> -p <perms> -k <key>") print verbatim: full match.
+	if strings.HasPrefix(rule, "-w") {
 		norm := normaliseAuditRule(rule)
-		for _, line := range strings.Split(loaded, "\n") {
-			if normaliseAuditRule(line) == norm {
-				return true, "audit_rule_exists: watch rule found in loaded ruleset", nil
+		for _, l := range loaded {
+			if normaliseAuditRule(l) == norm {
+				return true
 			}
 		}
-		return false, fmt.Sprintf("audit_rule_exists: watch rule %q not loaded", norm), nil
+		return false
 	}
 
-	// Privileged-command exec rules carry "-F path=<binary>". The path is the
-	// distinguishing field and auditctl -l preserves the "-F path=" token
-	// verbatim, whereas the -k key is frequently shared across several commands
-	// (e.g. priv_cmd for sudo/sudoedit/chsh/newgrp, perm_chng for
-	// chcon/setfacl/...), so a key-only match would be a false pass. Match on
-	// the path token (plus perm when present).
-	if pathTok, ok := auditFToken(rule, "path"); ok {
-		permTok, hasPerm := auditFToken(rule, "perm")
-		for _, line := range strings.Split(loaded, "\n") {
-			if strings.Contains(line, pathTok) && (!hasPerm || strings.Contains(line, permTok)) {
-				return true, fmt.Sprintf("audit_rule_exists: %q found in loaded ruleset", pathTok), nil
-			}
-		}
-		return false, fmt.Sprintf("audit_rule_exists: %q not found in loaded ruleset", pathTok), nil
-	}
-
-	// Other syscall rules ("-a always,exit -S ...") can have their -F fields
-	// reordered by auditctl -l, so a literal line match is fragile; fall back to
-	// the -k key as a best-effort group-existence check.
+	// Syscall / exec rules: match on the distinguishing fields the rule carries.
+	archTok, hasArch := auditFToken(rule, "arch")
+	pathTok, hasPath := auditFToken(rule, "path")
+	permTok, hasPerm := auditFToken(rule, "perm")
+	exitTok, hasExit := auditFToken(rule, "exit")
 	key := extractAuditKey(rule)
-	if key != "" {
-		needle := "-k " + key
-		if strings.Contains(loaded, needle) {
-			return true, fmt.Sprintf("audit_rule_exists: key %q found in loaded ruleset", key), nil
-		}
-		return false, fmt.Sprintf("audit_rule_exists: key %q not found in loaded ruleset", key), nil
-	}
+	want := auditSyscallSet(rule)
+	hasDistinguisher := hasArch || hasPath || hasExit || len(want) > 0
 
-	// No -k field: normalise whitespace and look for a matching line.
-	norm := normaliseAuditRule(rule)
-	for _, line := range strings.Split(loaded, "\n") {
-		if normaliseAuditRule(line) == norm {
-			return true, "audit_rule_exists: rule found in loaded ruleset", nil
+	for _, l := range loaded {
+		if hasArch && !strings.Contains(l, archTok) {
+			continue
+		}
+		if hasPath && !strings.Contains(l, pathTok) {
+			continue
+		}
+		if hasPerm && !strings.Contains(l, permTok) {
+			continue
+		}
+		if hasExit && !strings.Contains(l, exitTok) {
+			continue
+		}
+		if key != "" && !strings.Contains(l, "-k "+key) && !strings.Contains(l, "key="+key) {
+			continue
+		}
+		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
+			continue
+		}
+		if !auidTokensPresent(rule, l) {
+			continue
+		}
+		// With no distinguishing field at all, fall back to a full-line compare
+		// so a bare keyed rule can't be satisfied by an unrelated line.
+		if !hasDistinguisher && normaliseAuditRule(l) != normaliseAuditRule(rule) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// auidTokensPresent reports whether every auid filter in the rule appears in
+// the loaded line. The auid filters (auid>=1000, auid=0, auid!=unset)
+// distinguish otherwise-identical syscall lines — e.g. the setxattr control's
+// auid>=1000 and auid=0 variants. auditctl -l prints auid!=unset as auid!=-1,
+// so normalise before comparing.
+func auidTokensPresent(rule string, loadedLine string) bool {
+	fields := strings.Fields(rule)
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] != "-F" || !strings.HasPrefix(fields[i+1], "auid") {
+			continue
+		}
+		tok := fields[i+1]
+		if tok == "auid!=unset" {
+			tok = "auid!=-1"
+		}
+		if !strings.Contains(loadedLine, tok) {
+			return false
 		}
 	}
-	return false, "audit_rule_exists: rule not found in loaded ruleset", nil
+	return true
+}
+
+// auditSyscallSet returns the set of syscalls named in a rule's "-S a,b,c"
+// tokens (auditctl -l re-sorts the list, so compare as a set, not a string).
+func auditSyscallSet(rule string) map[string]bool {
+	set := map[string]bool{}
+	fields := strings.Fields(rule)
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] == "-S" {
+			for _, sc := range strings.Split(fields[i+1], ",") {
+				if sc != "" {
+					set[sc] = true
+				}
+			}
+		}
+	}
+	return set
+}
+
+// sameStringSet reports whether two string sets are equal.
+func sameStringSet(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !b[k] {
+			return false
+		}
+	}
+	return true
 }
 
 // extractAuditKey returns the value following -k in an audit rule string,

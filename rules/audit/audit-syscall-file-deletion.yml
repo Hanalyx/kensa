@@ -1,0 +1,43 @@
+id: audit-syscall-file-deletion
+title: Audit file deletions and renames (Ubuntu)
+description: >
+  The system must generate an audit record for file deletions and renames so that the
+  responsible user can be identified.
+rationale: >
+  Auditing these system calls supports detection of unauthorized changes
+  and forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, syscall]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270809"
+      stig_id: "UBTU-24-900540"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260639"
+      stig_id: "UBTU-22-654185"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: |
+        -a always,exit -F arch=b32 -S unlink,unlinkat,rename,renameat,rmdir -F auid>=1000 -F auid!=unset -k delete
+        -a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat,rmdir -F auid>=1000 -F auid!=unset -k delete
+    remediation:
+      mechanism: audit_rule_set
+      rule: |
+        -a always,exit -F arch=b32 -S unlink,unlinkat,rename,renameat,rmdir -F auid>=1000 -F auid!=unset -k delete
+        -a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat,rmdir -F auid>=1000 -F auid!=unset -k delete
+      persist_file: "/etc/audit/rules.d/50-syscall-file-deletion.rules"

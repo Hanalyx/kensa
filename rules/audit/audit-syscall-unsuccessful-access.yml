@@ -1,0 +1,47 @@
+id: audit-syscall-unsuccessful-access
+title: Audit unsuccessful file-access attempts (Ubuntu)
+description: >
+  The system must generate an audit record for unsuccessful file-access attempts so that the
+  responsible user can be identified.
+rationale: >
+  Auditing these system calls supports detection of unauthorized changes
+  and forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, syscall]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270787"
+      stig_id: "UBTU-24-900160"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260635"
+      stig_id: "UBTU-22-654165"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: |
+        -a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=unset -k perm_access
+        -a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=unset -k perm_access
+        -a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=unset -k perm_access
+        -a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=unset -k perm_access
+    remediation:
+      mechanism: audit_rule_set
+      rule: |
+        -a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=unset -k perm_access
+        -a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=unset -k perm_access
+        -a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=unset -k perm_access
+        -a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=unset -k perm_access
+      persist_file: "/etc/audit/rules.d/50-syscall-unsuccessful-access.rules"
