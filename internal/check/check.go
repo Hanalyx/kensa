@@ -747,17 +747,34 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		return false, "", err
 	}
 
-	// Extract the -k <key> token for targeted lookup.
-	key := extractAuditKey(rule)
-
 	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
 	if err != nil {
 		return false, "", fmt.Errorf("check audit_rule_exists: transport error: %w", err)
 	}
-
 	loaded := res.Stdout
+
+	// Watch rules ("-w <path> -p <perms> -k <key>") are printed verbatim by
+	// auditctl -l, so require a full-rule match. Matching only on -k would let
+	// any other rule that shares the key satisfy this check — a false pass when
+	// several per-file watches share one key (e.g. the Ubuntu
+	// usergroup_modification cluster: /etc/passwd, /etc/group, /etc/shadow, ...
+	// all keyed usergroup_modification, where loading any one would otherwise
+	// pass all five).
+	if strings.HasPrefix(strings.TrimSpace(rule), "-w") {
+		norm := normaliseAuditRule(rule)
+		for _, line := range strings.Split(loaded, "\n") {
+			if normaliseAuditRule(line) == norm {
+				return true, "audit_rule_exists: watch rule found in loaded ruleset", nil
+			}
+		}
+		return false, fmt.Sprintf("audit_rule_exists: watch rule %q not loaded", norm), nil
+	}
+
+	// Syscall rules ("-a always,exit ...") can have their -F fields reordered by
+	// auditctl -l, so a literal line match is fragile; fall back to the -k key as
+	// a best-effort group-existence check.
+	key := extractAuditKey(rule)
 	if key != "" {
-		// Check that at least one loaded rule carries this key.
 		needle := "-k " + key
 		if strings.Contains(loaded, needle) {
 			return true, fmt.Sprintf("audit_rule_exists: key %q found in loaded ruleset", key), nil

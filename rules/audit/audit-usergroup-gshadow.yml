@@ -1,0 +1,39 @@
+id: audit-usergroup-gshadow
+title: Audit account modifications affecting /etc/gshadow (Ubuntu)
+description: >
+  All account creation, modification, disabling, and termination events
+  that affect /etc/gshadow must generate an audit record.
+rationale: >
+  Auditing changes to /etc/gshadow allows detection of unauthorized account or
+  group changes, supporting forensic investigation.
+severity: medium
+category: audit
+tags: [audit, auditd, accounts, usergroup]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270687"
+      stig_id: "UBTU-24-200310"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260629"
+      stig_id: "UBTU-22-654135"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/gshadow -p wa -k usergroup_modification"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/gshadow -p wa -k usergroup_modification"
+      persist_file: "/etc/audit/rules.d/50-usergroup-gshadow.rules"

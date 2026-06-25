@@ -1,0 +1,39 @@
+id: audit-usergroup-opasswd
+title: Audit account modifications affecting /etc/security/opasswd (Ubuntu)
+description: >
+  All account creation, modification, disabling, and termination events
+  that affect /etc/security/opasswd must generate an audit record.
+rationale: >
+  /etc/security/opasswd stores password history; auditing changes to it
+  allows detection of unauthorized tampering with password reuse controls.
+severity: medium
+category: audit
+tags: [audit, auditd, accounts, usergroup]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270688"
+      stig_id: "UBTU-24-200320"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260630"
+      stig_id: "UBTU-22-654140"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/security/opasswd -p wa -k usergroup_modification"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/security/opasswd -p wa -k usergroup_modification"
+      persist_file: "/etc/audit/rules.d/50-usergroup-opasswd.rules"

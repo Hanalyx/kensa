@@ -49,6 +49,39 @@ func result(exitCode int, stdout string) api.CommandResult {
 	return api.CommandResult{ExitCode: exitCode, Stdout: stdout, Duration: time.Millisecond}
 }
 
+// TestCheckAuditRuleExists_WatchFullMatch locks the fix for the key-only
+// false pass: a watch rule must match the full path+perms+key, not merely
+// the presence of its -k key. Several per-file watches can share one key
+// (the Ubuntu usergroup_modification cluster), so loading one must NOT
+// satisfy the checks for the others.
+func TestCheckAuditRuleExists_WatchFullMatch(t *testing.T) {
+	// Only /etc/group is loaded; its key usergroup_modification is present.
+	ft := &fakeTransport{
+		cmdResult: map[string]api.CommandResult{
+			"auditctl -l 2>/dev/null": result(0, "-w /etc/group -p wa -k usergroup_modification"),
+		},
+	}
+	watch := func(path string) api.Check {
+		return api.Check{Method: "audit_rule_exists", Params: api.Params{
+			"rule": "-w " + path + " -p wa -k usergroup_modification",
+		}}
+	}
+	// The loaded watch matches itself.
+	if passed, _, err := runForTest(context.Background(), ft, watch("/etc/group")); err != nil || !passed {
+		t.Fatalf("loaded /etc/group watch should pass; passed=%v err=%v", passed, err)
+	}
+	// A different file sharing the same key must NOT pass (the old bug).
+	for _, p := range []string{"/etc/passwd", "/etc/shadow", "/etc/gshadow", "/etc/security/opasswd"} {
+		passed, detail, err := runForTest(context.Background(), ft, watch(p))
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", p, err)
+		}
+		if passed {
+			t.Errorf("%s watch not loaded but check passed (key-only false pass): %s", p, detail)
+		}
+	}
+}
+
 // TestCheckConfigValue_Pass verifies that config_value passes when the
 // grep returns a matching key=value line.
 func TestCheckConfigValue_Pass(t *testing.T) {
