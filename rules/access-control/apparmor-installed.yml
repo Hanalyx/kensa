@@ -1,0 +1,43 @@
+id: apparmor-installed
+title: Ensure AppArmor is installed
+description: >
+  The apparmor package provides the AppArmor mandatory access control
+  framework, which confines programs to a limited set of resources on
+  Ubuntu systems.
+rationale: >
+  AppArmor enforces mandatory access control policies that limit the
+  damage a compromised process can do. Without it installed, application
+  confinement cannot be applied.
+severity: medium
+category: access-control
+tags:
+- apparmor
+- mandatory-access-control
+- access-control
+- packages
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270659
+      stig_id: UBTU-24-100500
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260556
+      stig_id: UBTU-22-431010
+      severity: CAT II
+  nist_800_53:
+  - AC-3(4)
+  - CM-7(2)
+  - CM-7(5)
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: package_state
+    name: apparmor
+    state: present
+  remediation:
+    mechanism: apt_present
+    name: apparmor
