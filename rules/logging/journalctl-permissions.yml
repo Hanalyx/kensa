@@ -1,0 +1,41 @@
+id: journalctl-permissions
+title: Restrict permissions on the journalctl command
+description: >
+  The /usr/bin/journalctl command must have a mode of 0740 so that only
+  root can execute it and read the systemd journal, which may contain
+  sensitive operational information.
+rationale: >
+  The systemd journal can expose sensitive system and security detail.
+  Restricting the journalctl binary to root-only execution prevents
+  unprivileged users from reading it.
+severity: medium
+category: logging
+tags:
+- journald
+- permissions
+- logging
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270758
+      stig_id: UBTU-24-700030
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260512
+      stig_id: UBTU-22-232140
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /usr/bin/journalctl
+    mode: "0740"
+  remediation:
+    mechanism: file_permissions
+    path: /usr/bin/journalctl
+    mode: "0740"

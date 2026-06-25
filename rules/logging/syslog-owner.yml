@@ -1,0 +1,40 @@
+id: syslog-owner
+title: Restrict ownership of /var/log/syslog
+description: >
+  The /var/log/syslog file must be owned by syslog so that only the logging
+  service and root can manage the system log.
+rationale: >
+  Correct ownership of the system log prevents unauthorized users from
+  modifying or deleting log records, preserving the integrity of the audit
+  trail.
+severity: medium
+category: logging
+tags:
+- syslog
+- ownership
+- logging
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270769
+      stig_id: UBTU-24-700140
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260510
+      stig_id: UBTU-22-232130
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /var/log/syslog
+    owner: syslog
+  remediation:
+    mechanism: file_permissions
+    path: /var/log/syslog
+    owner: syslog

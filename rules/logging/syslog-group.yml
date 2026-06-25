@@ -1,0 +1,39 @@
+id: syslog-group
+title: Restrict group ownership of /var/log/syslog
+description: >
+  The /var/log/syslog file must be group-owned by adm so that only the
+  logging service and authorized administrators can read the system log.
+rationale: >
+  Correct group ownership of the system log limits read access to authorized
+  administrators, preventing information leakage to unprivileged users.
+severity: medium
+category: logging
+tags:
+- syslog
+- ownership
+- logging
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270768
+      stig_id: UBTU-24-700130
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260511
+      stig_id: UBTU-22-232135
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /var/log/syslog
+    group: adm
+  remediation:
+    mechanism: file_permissions
+    path: /var/log/syslog
+    group: adm
