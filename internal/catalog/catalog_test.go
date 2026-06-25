@@ -320,3 +320,66 @@ func TestCrosswalk(t *testing.T) {
 		}
 	})
 }
+
+// TestConfigKeyTargets covers the config-directive crosswalk: a control whose check
+// targets a config KEY (pwquality "dcredit = -1", login.defs "PASS_MAX_DAYS 60",
+// sshd "X11UseLocalhost yes") matches a config_value / sshd_effective_config rule on
+// that key, so it is classified extend rather than net-new. Without this the crosswalk
+// under-counted reuse for every check-method rule that doesn't shell out to a command.
+//
+// @spec catalog-coverage-crosswalk
+// @ac AC-10
+func TestConfigKeyTargets(t *testing.T) {
+	t.Run("catalog-coverage-crosswalk/AC-10", func(t *testing.T) {
+		// Extraction: key=value anywhere; CamelCase only with an ssh_config anchor;
+		// UPPERCASE only with a login.defs anchor.
+		assign := ExtractCommandTargets("add the following line to /etc/security/pwquality.conf: dcredit = -1")
+		if !hasTarget(assign, "config", "dcredit") {
+			t.Errorf("expected (config,dcredit) from assignment, got %v", assign)
+		}
+		sshd := ExtractCommandTargets(`Edit the "/etc/ssh/sshd_config" file: X11UseLocalhost yes`)
+		if !hasTarget(sshd, "config", "x11uselocalhost") {
+			t.Errorf("expected (config,x11uselocalhost) from sshd directive, got %v", sshd)
+		}
+		ldefs := ExtractCommandTargets(`add or modify the following line in /etc/login.defs: PASS_MAX_DAYS 60`)
+		if !hasTarget(ldefs, "config", "pass_max_days") {
+			t.Errorf("expected (config,pass_max_days) from login.defs, got %v", ldefs)
+		}
+		// CamelCase must NOT fire without an ssh_config anchor (avoids prose false positives).
+		noAnchor := ExtractCommandTargets("Configure Ubuntu to set X11UseLocalhost yes somewhere")
+		if hasTarget(noAnchor, "config", "x11uselocalhost") {
+			t.Errorf("CamelCase fired without ssh_config anchor: %v", noAnchor)
+		}
+		// configStop kills the generic "audit" collision (grub "audit=1" is not faillock).
+		grub := ExtractCommandTargets(`add "audit=1" to the "GRUB_CMDLINE_LINUX" option`)
+		if hasTarget(grub, "config", "audit") {
+			t.Errorf("generic config key 'audit' should be stopped, got %v", grub)
+		}
+
+		// End-to-end: a login.defs control matches a config_value rule on the key.
+		s, ctx := newStore(t)
+		dir := t.TempDir()
+		xccdf := `<?xml version="1.0"?>
+<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1"><title>T</title>
+ <Group id="V-200"><Rule severity="medium"><version>Y-1</version><title>max age</title>
+   <check system="x"><check-content>Verify /etc/login.defs PASS_MAX_DAYS is 60</check-content></check>
+   <fixtext>add or modify the following line in /etc/login.defs: PASS_MAX_DAYS 60</fixtext></Rule></Group>
+</Benchmark>`
+		if _, err := s.IngestSTIG(ctx, "ubuntu24", "vT", writeFixture(t, dir, "y.xml", xccdf)); err != nil {
+			t.Fatal(err)
+		}
+		rulesDir := t.TempDir()
+		writeFixture(t, rulesDir, "c.yml",
+			"id: rule-maxage\nimplementations:\n  - default: true\n    check:\n      method: config_value\n      path: /etc/login.defs\n      key: PASS_MAX_DAYS\n")
+		if _, err := s.IngestCoverageFromRules(ctx, rulesDir); err != nil {
+			t.Fatal(err)
+		}
+		r, err := s.Crosswalk(ctx, "stig", "ubuntu24")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Extend != 1 || len(r.ExtendList) != 1 || r.ExtendList[0].Rule != "rule-maxage" {
+			t.Fatalf("config-key crosswalk = extend %d %+v; want 1 -> rule-maxage", r.Extend, r.ExtendList)
+		}
+	})
+}
