@@ -32,15 +32,22 @@ platforms:
 implementations:
   - default: true
     check:
+      # 0600 "or more restrictive": flag a file only if it carries any
+      # permission beyond owner read/write (-perm /0177), or is not root-owned.
+      # The exact "! -perm 600" form wrongly flagged auditd's rotated logs,
+      # which ship 0400 (more restrictive, hence compliant).
       method: command
-      run: "find /var/log/audit -type f \\( ! -perm 600 -o ! -user root -o ! -group root \\) 2>/dev/null | head -1"
+      run: "find /var/log/audit -type f \\( -perm /0177 -o ! -user root -o ! -group root \\) 2>/dev/null | head -1"
       expected_exit: 0
       expected_stdout: ""
     remediation:
+      # Scope to over-permissive files so remediation never LOOSENS a rotated
+      # log that is already more restrictive than 0600 (e.g. 0400).
       mechanism: file_permissions
       find_paths:
         - /var/log/audit
       find_type: f
+      find_args: "-perm /0177"
       owner: root
       group: root
       mode: "0600"

@@ -8,6 +8,7 @@ rationale: >
   System commands group-owned by non-system accounts could be modified by
   members of those groups. Root or system group ownership prevents this.
 severity: medium
+transactional: false
 category: filesystem
 tags: [file-permissions, system-commands, security]
 
@@ -35,16 +36,20 @@ platforms:
 implementations:
   - default: true
     check:
+      # The control requires system commands to be group-owned by root OR a
+      # system account. sgid helpers legitimately carry a system group (write
+      # -> tty, locate -> slocate, postdrop/postqueue -> postdrop), so only a
+      # USER group (gid >= 1000) is a finding — not any non-root group.
       method: command
-      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f ! -group root 2>/dev/null | xargs -r stat --format='%G %n' | grep -v '^bin ' | grep -v '^sys ' | head -1"
+      run: "find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f ! -group root 2>/dev/null | while IFS= read -r f; do g=$(stat -c %g \"$f\" 2>/dev/null); [ -n \"$g\" ] && [ \"$g\" -ge 1000 ] && printf '%s\\n' \"$f\"; done | head -1"
       expected_stdout: ""
     remediation:
-      mechanism: file_permissions
-      find_paths:
-        - /usr/bin
-        - /usr/sbin
-        - /usr/local/bin
-        - /usr/local/sbin
-      find_type: f
-      find_args: "! -group root"
-      group: root
+      # Not auto-remediated: the only safe flag set is "user-group-owned", which
+      # the file_permissions find_args cannot express — a blanket "! -group root"
+      # would also re-group the legitimate sgid system helpers. An operator fixes
+      # the offending files individually.
+      mechanism: manual
+      note: >
+        Change the group owner of any system command file group-owned by a
+        non-system (user) group to root: 'chgrp root <file>'. Leave sgid system
+        helpers (e.g. write:tty, locate:slocate, postdrop:postdrop) unchanged.
