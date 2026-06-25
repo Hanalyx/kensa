@@ -31,6 +31,10 @@ references:
       stig_id: "RHEL-09-255045"
       severity: "CAT II"
       cci: ["CCI-000770"]
+    rhel10:
+      vuln_id: "V-281265"
+      stig_id: "RHEL-10-700620"
+      severity: "CAT II"
   nist_800_53: ["AC-6(2)", "AC-17(2)", "IA-2(5)"]
   pci_dss_4: ["2.2.6", "8.6.1"]
   srg: ["SRG-OS-000109-GPOS-00056"]

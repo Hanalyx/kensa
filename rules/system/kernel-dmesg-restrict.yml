@@ -27,6 +27,10 @@ references:
       vuln_id: "V-260472"
       stig_id: "UBTU-22-213010"
       severity: "CAT III"
+    rhel10:
+      vuln_id: "V-281305"
+      stig_id: "RHEL-10-701030"
+      severity: "CAT II"
   nist_800_53: ["SI-11"]
 
 platforms:

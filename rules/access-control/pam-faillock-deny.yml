@@ -39,6 +39,10 @@ references:
       stig_id: "UBTU-22-411045"
       severity: "CAT III"
       cci: ["CCI-000044"]
+    rhel10:
+      vuln_id: "V-281194"
+      stig_id: "RHEL-10-600410"
+      severity: "CAT II"
   nist_800_53: ["AC-7(a)"]
   pci_dss_4: ["8.3.4"]
 

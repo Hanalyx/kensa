@@ -33,6 +33,10 @@ references:
       vuln_id: "V-260563"
       stig_id: "UBTU-22-611025"
       severity: "CAT II"
+    rhel10:
+      vuln_id: "V-281182"
+      stig_id: "RHEL-10-600230"
+      severity: "CAT II"
   nist_800_53: ["IA-5(1)(a)"]
 
 platforms:
