@@ -1,0 +1,43 @@
+id: audit-syscall-perm-mod-chmod
+title: Audit permission changes (Ubuntu)
+description: >
+  The system must generate an audit record for permission changes so that the
+  responsible user can be identified.
+rationale: >
+  Auditing these system calls supports detection of unauthorized changes
+  and forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, syscall]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270786"
+      stig_id: "UBTU-24-900150"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260633"
+      stig_id: "UBTU-22-654155"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: |
+        -a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_chng
+        -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_chng
+    remediation:
+      mechanism: audit_rule_set
+      rule: |
+        -a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_chng
+        -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_chng
+      persist_file: "/etc/audit/rules.d/50-syscall-perm-mod-chmod.rules"

@@ -215,7 +215,7 @@ func TestLoadRules(t *testing.T) {
 }
 
 // TestLoadRules_ProductionCorpus locks the headline guarantee: the
-// shipped 590-rule corpus — including its templated rules — loads
+// shipped 597-rule corpus — including its templated rules — loads
 // strictly with nil vars on built-in defaults alone, and every
 // template variable the corpus uses has a built-in default.
 //
@@ -232,8 +232,8 @@ func TestLoadRules_ProductionCorpus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("production corpus must load strictly on built-in defaults: %v", err)
 		}
-		if len(rules) != 590 {
-			t.Errorf("want 590 rules, got %d", len(rules))
+		if len(rules) != 597 {
+			t.Errorf("want 597 rules, got %d", len(rules))
 		}
 		rv, err := RuleVariables(corpus)
 		if err != nil {

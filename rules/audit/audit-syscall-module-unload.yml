@@ -1,0 +1,43 @@
+id: audit-syscall-module-unload
+title: Audit kernel module unloads (Ubuntu)
+description: >
+  The system must generate an audit record for kernel module unloads so that the
+  responsible user can be identified.
+rationale: >
+  Auditing these system calls supports detection of unauthorized changes
+  and forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, syscall]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270806"
+      stig_id: "UBTU-24-900350"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260636"
+      stig_id: "UBTU-22-654170"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: |
+        -a always,exit -F arch=b32 -S delete_module -F auid>=1000 -F auid!=unset -k module_chng
+        -a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=unset -k module_chng
+    remediation:
+      mechanism: audit_rule_set
+      rule: |
+        -a always,exit -F arch=b32 -S delete_module -F auid>=1000 -F auid!=unset -k module_chng
+        -a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=unset -k module_chng
+      persist_file: "/etc/audit/rules.d/50-syscall-module-unload.rules"

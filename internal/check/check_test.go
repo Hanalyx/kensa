@@ -3,6 +3,7 @@ package check
 import (
 	"context"
 	"io/fs"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,6 +106,42 @@ func TestCheckAuditRuleExists_ExecPathMatch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	} else if passed {
 		t.Errorf("/usr/bin/chsh not loaded but check passed (key-only false pass): %s", detail)
+	}
+}
+
+// TestCheckAuditRuleExists_SyscallSetMatch locks the syscall-set match:
+// chmod and chown rules share the key perm_chng and differ only by their -S
+// set, so a key-only match would false-pass. Also covers multi-line rules
+// (b32 + b64): every line must be loaded.
+func TestCheckAuditRuleExists_SyscallSetMatch(t *testing.T) {
+	// Only the chmod b64 + b32 rules are loaded (auditctl-style: -F key=, auid!=-1).
+	loaded := "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_chng\n" +
+		"-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_chng"
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l 2>/dev/null": result(0, loaded)}}
+	rule := func(arches []string, syscalls string) api.Check {
+		var lines []string
+		for _, a := range arches {
+			lines = append(lines, "-a always,exit -F arch="+a+" -S "+syscalls+" -F auid>=1000 -F auid!=unset -k perm_chng")
+		}
+		return api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": strings.Join(lines, "\n")}}
+	}
+	// chmod (both arches) loaded -> pass (set match despite auid!=unset vs -1).
+	if passed, d, err := runForTest(context.Background(), ft, rule([]string{"b32", "b64"}, "chmod,fchmod,fchmodat")); err != nil || !passed {
+		t.Fatalf("chmod rule should pass; passed=%v detail=%s err=%v", passed, d, err)
+	}
+	// chown shares key perm_chng but is NOT loaded -> must fail (set differs).
+	if passed, d, err := runForTest(context.Background(), ft, rule([]string{"b32", "b64"}, "chown,fchown,fchownat,lchown")); err != nil {
+		t.Fatalf("err: %v", err)
+	} else if passed {
+		t.Errorf("chown not loaded but passed (key-only false pass): %s", d)
+	}
+	// Multi-line completeness: chmod requiring an arch that isn't loaded fails.
+	loaded2 := "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_chng"
+	ft2 := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l 2>/dev/null": result(0, loaded2)}}
+	if passed, _, err := runForTest(context.Background(), ft2, rule([]string{"b32", "b64"}, "chmod,fchmod,fchmodat")); err != nil {
+		t.Fatalf("err: %v", err)
+	} else if passed {
+		t.Errorf("only b64 loaded but b32+b64 rule passed (missing-line not detected)")
 	}
 }
 
