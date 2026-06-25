@@ -11,14 +11,14 @@
    "framework": "stig",
    "os": "rhel8",
    "total": 366,
-   "covered": 265,
+   "covered": 268,
    "drifted": 1
   },
   {
    "framework": "stig",
    "os": "rhel9",
    "total": 446,
-   "covered": 240,
+   "covered": 252,
    "drifted": 1
   },
   {

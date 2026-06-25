@@ -28,6 +28,10 @@ references:
       vuln_id: V-260590
       stig_id: UBTU-22-653010
       severity: CAT II
+    rhel8:
+      vuln_id: "V-230411"
+      stig_id: "RHEL-08-030180"
+      severity: "CAT II"
   nist_800_53:
   - AU-2
   - AU-12
