@@ -1,0 +1,28 @@
+id: sysctl-net-ipv4-conf-default-secure-redirects
+title: Ensure net.ipv4.conf.default.secure_redirects is set to 0
+description: >
+  The kernel parameter net.ipv4.conf.default.secure_redirects must be set to 0 to enforce this
+  network/kernel security control.
+rationale: >
+  Improper network kernel parameters can allow network-based attacks including packet redirection, source routing, and denial of service.
+severity: medium
+category: network
+tags: [sysctl, networking, hardening]
+
+references:
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: sysctl_value
+      key: net.ipv4.conf.default.secure_redirects
+      expected: "0"
+    remediation:
+      mechanism: sysctl_set
+      key: net.ipv4.conf.default.secure_redirects
+      value: "0"

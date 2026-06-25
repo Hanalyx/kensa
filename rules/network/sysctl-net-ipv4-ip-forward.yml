@@ -1,0 +1,41 @@
+id: sysctl-net-ipv4-ip-forward
+title: Ensure net.ipv4.ip_forward is set to 0
+description: >
+  The kernel parameter net.ipv4.ip_forward must be set to 0 to enforce this
+  network/kernel security control.
+rationale: >
+  Improper network kernel parameters can allow network-based attacks including packet redirection, source routing, and denial of service.
+severity: medium
+category: network
+tags: [sysctl, networking, hardening]
+
+references:
+  cis:
+    rhel9:
+      section: 3.3.1
+      level: L1
+      type: Automated
+    rhel8:
+      section: 3.3.2.1
+      level: L1
+      type: Automated
+    rhel10:
+      section: 3.3.1
+      level: L1
+      type: Automated
+  nist_800_53:
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: sysctl_value
+      key: net.ipv4.ip_forward
+      expected: "0"
+    remediation:
+      mechanism: sysctl_set
+      key: net.ipv4.ip_forward
+      value: "0"

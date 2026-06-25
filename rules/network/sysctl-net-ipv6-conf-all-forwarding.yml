@@ -1,0 +1,40 @@
+id: sysctl-net-ipv6-conf-all-forwarding
+title: Ensure net.ipv6.conf.all.forwarding is set to 0
+description: >
+  The kernel parameter net.ipv6.conf.all.forwarding must be set to 0 to enforce this
+  network/kernel security control.
+rationale: >
+  Improper network kernel parameters can allow network-based attacks including packet redirection, source routing, and denial of service.
+severity: medium
+category: network
+tags: [sysctl, networking, hardening]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281357"
+      stig_id: "RHEL-10-800250"
+      severity: "CAT II"
+    rhel8:
+      vuln_id: "V-230540"
+      stig_id: "RHEL-08-040260"
+      severity: "CAT II"
+    rhel9:
+      vuln_id: "V-257974"
+      stig_id: "RHEL-09-254025"
+      severity: "CAT II"
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: sysctl_value
+      key: net.ipv6.conf.all.forwarding
+      expected: "0"
+    remediation:
+      mechanism: sysctl_set
+      key: net.ipv6.conf.all.forwarding
+      value: "0"
