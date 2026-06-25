@@ -183,6 +183,31 @@ func optionalStringParam(params api.Params, key, def string) string {
 	return def
 }
 
+// stringParamPresent returns the string value at key and whether the key was
+// present at all — distinct from present-but-empty, which optionalStringParam
+// folds into its default. A non-string value reports present with "".
+func stringParamPresent(params api.Params, key string) (string, bool) {
+	v, ok := params[key]
+	if !ok {
+		return "", false
+	}
+	s, _ := v.(string)
+	return s, true
+}
+
+// firstLine returns the first line of s, trimmed and length-capped, for use in
+// a failure detail message.
+func firstLine(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > 200 {
+		s = s[:200] + "..."
+	}
+	return s
+}
+
 // checkConfigValue reads a config file and checks that a key's value
 // matches the expected string. Params: path, key, expected, optionally
 // scan_pattern (glob suffix for directory scans) and delimiter
@@ -599,7 +624,10 @@ func checkServiceActive(ctx context.Context, transport api.Transport, params api
 //
 //	cmd / run           string  command to execute (required; "run" is the corpus alias)
 //	expected_output /
-//	  expected_stdout   string  optional substring that must appear in stdout
+//	  expected_stdout   string  optional output assertion: an empty value asserts
+//	                            the command produced no output (the "find ... |
+//	                            head -1" no-violations idiom); a non-empty value
+//	                            asserts that value appears as a substring of stdout
 //	expected_exit       int     optional expected exit code (default 0)
 func checkCommand(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
 	// Accept both "cmd" (internal) and "run" (corpus convention).
@@ -611,10 +639,13 @@ func checkCommand(ctx context.Context, transport api.Transport, params api.Param
 		return false, "", fmt.Errorf("check: missing required param \"cmd\"")
 	}
 
-	// Accept both "expected_output" and "expected_stdout".
-	expectedOutput := optionalStringParam(params, "expected_output", "")
-	if expectedOutput == "" {
-		expectedOutput = optionalStringParam(params, "expected_stdout", "")
+	// Accept both "expected_output" and "expected_stdout" (output wins when both
+	// keys are set). Key presence is read directly because an explicitly empty
+	// value is a real assertion ("produced no output") distinct from the key
+	// being absent — a distinction optionalStringParam cannot express.
+	expectedOutput, expectOutput := stringParamPresent(params, "expected_output")
+	if !expectOutput {
+		expectedOutput, expectOutput = stringParamPresent(params, "expected_stdout")
 	}
 
 	// Optional expected exit code (default 0).
@@ -635,8 +666,15 @@ func checkCommand(ctx context.Context, transport api.Transport, params api.Param
 	if res.ExitCode != expectedExit {
 		return false, fmt.Sprintf("command: %q exited with code %d (expected %d)", rawCmd, res.ExitCode, expectedExit), nil
 	}
-	if expectedOutput != "" && !strings.Contains(res.Stdout, expectedOutput) {
-		return false, fmt.Sprintf("command: output does not contain %q", expectedOutput), nil
+	if expectOutput {
+		if strings.TrimSpace(expectedOutput) == "" {
+			// Empty assertion: the command must have produced no output.
+			if strings.TrimSpace(res.Stdout) != "" {
+				return false, fmt.Sprintf("command: %q expected no output, got %q", rawCmd, firstLine(res.Stdout)), nil
+			}
+		} else if !strings.Contains(res.Stdout, expectedOutput) {
+			return false, fmt.Sprintf("command: output does not contain %q", expectedOutput), nil
+		}
 	}
 	return true, fmt.Sprintf("command: %q passed", rawCmd), nil
 }

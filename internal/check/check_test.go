@@ -50,6 +50,49 @@ func result(exitCode int, stdout string) api.CommandResult {
 	return api.CommandResult{ExitCode: exitCode, Stdout: stdout, Duration: time.Millisecond}
 }
 
+// TestCheckCommand_EmptyStdoutAsserts locks the fix for the empty-output false
+// pass: a command check with expected_stdout/expected_output set to "" asserts
+// the command produced NO output (the "find ... | head -1 → no violations"
+// idiom). Previously an empty value was treated as "no assertion", so such a
+// check passed on any exit-0 command regardless of output — the ~41-rule false
+// pass (incl. accounts-no-empty-passwords) this guards against.
+func TestCheckCommand_EmptyStdoutAsserts(t *testing.T) {
+	const cmd = "find /var/log/journal ! -user root -type f 2>/dev/null | head -1"
+	chk := func(key string) api.Check {
+		return api.Check{Method: "command", Params: api.Params{"run": cmd, key: ""}}
+	}
+	for _, key := range []string{"expected_stdout", "expected_output"} {
+		// Compliant host: command exits 0 with no output -> PASS.
+		clean := &fakeTransport{cmdResult: map[string]api.CommandResult{cmd: result(0, "")}}
+		if passed, detail, err := runForTest(context.Background(), clean, chk(key)); err != nil || !passed {
+			t.Fatalf("%s: empty output should pass; passed=%v detail=%q err=%v", key, passed, detail, err)
+		}
+		// Violation present: command exits 0 BUT prints an offending path -> FAIL.
+		dirty := &fakeTransport{cmdResult: map[string]api.CommandResult{
+			cmd: result(0, "/var/log/journal/abcd/system.journal\n"),
+		}}
+		passed, detail, err := runForTest(context.Background(), dirty, chk(key))
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", key, err)
+		}
+		if passed {
+			t.Errorf("%s: non-empty output must fail the empty assertion (false pass): %s", key, detail)
+		}
+	}
+}
+
+// TestCheckCommand_NoOutputAssertionExitOnly confirms a command check with
+// neither expected_stdout nor expected_output still checks only the exit code,
+// so the empty-assertion fix does not change exit-only command rules.
+func TestCheckCommand_NoOutputAssertionExitOnly(t *testing.T) {
+	const cmd = "systemctl is-enabled ufw"
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{cmd: result(0, "enabled\n")}}
+	chk := api.Check{Method: "command", Params: api.Params{"run": cmd}}
+	if passed, detail, err := runForTest(context.Background(), ft, chk); err != nil || !passed {
+		t.Fatalf("exit-only command with output should still pass; passed=%v detail=%q err=%v", passed, detail, err)
+	}
+}
+
 // TestCheckAuditRuleExists_WatchFullMatch locks the fix for the key-only
 // false pass: a watch rule must match the full path+perms+key, not merely
 // the presence of its -k key. Several per-file watches can share one key
