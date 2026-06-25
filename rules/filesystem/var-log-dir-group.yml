@@ -1,0 +1,41 @@
+id: var-log-dir-group
+title: Restrict group ownership of the /var/log directory
+description: >
+  The /var/log directory must be group-owned by syslog so that only the
+  logging service and authorized administrators can manage the system log
+  directory.
+rationale: >
+  Correct group ownership of /var/log limits access to the log directory
+  to the logging service, preventing unprivileged users from reading or
+  altering log records.
+severity: medium
+category: filesystem
+tags:
+- file-permissions
+- logging
+- security
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270765
+      stig_id: UBTU-24-700100
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260509
+      stig_id: UBTU-22-232125
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /var/log
+    group: syslog
+  remediation:
+    mechanism: file_permissions
+    path: /var/log
+    group: syslog
