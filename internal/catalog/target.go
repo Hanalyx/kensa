@@ -10,7 +10,7 @@ import (
 // (sysctl, kernel.dmesg_restrict). Matching controls to rules on Targets — the
 // argument to a command, not words in prose — is what makes the crosswalk precise.
 type Target struct {
-	Kind  string // package | sysctl | path | service | module
+	Kind  string // package | sysctl | path | service | module | config
 	Value string
 }
 
@@ -44,6 +44,31 @@ var (
 		"sudo": true, "grep": true, "the": true, "not": true, "installed": true,
 		"package": true, "following": true, "ii": true, "true": true, "false": true, "y": true,
 	}
+
+	// Config-directive extractors. A config control's subject is the directive KEY in
+	// a config file: "dcredit = -1" (pwquality.conf), "PASS_MAX_DAYS 60" (login.defs),
+	// "X11UseLocalhost yes" (sshd_config). These have no command to anchor on, so the
+	// extractors are looser than the command ones — that is safe because a control_target
+	// that matches no rule_target is simply never joined. The only real risk is a
+	// spurious key that collides with a genuine rule config-key, which configStop guards.
+	cfgAssignRE       = regexp.MustCompile(`\b([a-zA-Z][a-zA-Z0-9_]{2,})\s*=\s*\S`)                          // key = value
+	cfgSSHDirectiveRE = regexp.MustCompile(`\b([A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*)\s+(?:yes|no|\d|"|[a-z])`) // CamelCase directive
+	cfgLoginDefsRE    = regexp.MustCompile(`\b([A-Z][A-Z0-9_]{2,})\s+\S`)                                    // UPPERCASE_KEY value
+
+	// configStop excludes generic prose tokens that could collide with a real rule
+	// config-key. Spurious non-colliding keys are inert, so this need only cover the
+	// words that actually appear as config-key-shaped tokens in STIG fix prose.
+	configStop = map[string]bool{
+		"ubuntu": true, "lts": true, "dod": true, "ssh": true, "add": true, "set": true,
+		"edit": true, "the": true, "value": true, "line": true, "file": true, "following": true,
+		"configure": true, "modify": true, "ensure": true, "restart": true, "update": true,
+		"uncomment": true, "comment": true, "remove": true, "note": true, "default": true,
+		"system": true, "server": true, "client": true, "daemon": true, "mac": true, "use": true,
+		// "audit" is a real faillock.conf key but is hopelessly generic in STIG prose
+		// (grub "audit=1", the audit subsystem, "session audit"), so a control mentioning
+		// it almost never means the faillock directive — exclude to avoid the collision.
+		"audit": true,
+	}
 )
 
 // ExtractCommandTargets pulls structured subjects from a control's check/fix text.
@@ -54,6 +79,9 @@ func ExtractCommandTargets(text string) []Target {
 	add := func(kind, val string) {
 		val = strings.TrimSpace(val)
 		if val == "" || targetStop[strings.ToLower(val)] {
+			return
+		}
+		if kind == "config" && configStop[strings.ToLower(val)] {
 			return
 		}
 		t := Target{Kind: kind, Value: val}
@@ -90,6 +118,22 @@ func ExtractCommandTargets(text string) []Target {
 			add("module", strings.ToLower(m[1]))
 		}
 	}
+	// Config directives: key=value everywhere; CamelCase only in an ssh_config/sshd_config
+	// context; UPPERCASE_KEY only in a login.defs context — the file mention is the anchor
+	// that keeps the looser space-separated forms from firing on arbitrary prose.
+	for _, m := range cfgAssignRE.FindAllStringSubmatch(text, -1) {
+		add("config", strings.ToLower(m[1]))
+	}
+	if strings.Contains(text, "ssh_config") || strings.Contains(text, "sshd_config") {
+		for _, m := range cfgSSHDirectiveRE.FindAllStringSubmatch(text, -1) {
+			add("config", strings.ToLower(m[1]))
+		}
+	}
+	if strings.Contains(text, "login.defs") {
+		for _, m := range cfgLoginDefsRE.FindAllStringSubmatch(text, -1) {
+			add("config", strings.ToLower(m[1]))
+		}
+	}
 	out := make([]Target, 0, len(seen))
 	for t := range seen {
 		out = append(out, t)
@@ -111,6 +155,8 @@ func ruleTarget(method string, params map[string]string) (kind, value string) {
 		return "module", strings.ToLower(params["name"])
 	case "file_permission":
 		return "path", params["path"]
+	case "config_value", "sshd_effective_config":
+		return "config", strings.ToLower(params["key"])
 	}
 	return "", ""
 }
