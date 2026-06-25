@@ -29,12 +29,24 @@ references:
       stig_id: "RHEL-09-411075"
       severity: "CAT II"
       cci: ["CCI-000044"]
+    ubuntu24:
+      vuln_id: "V-270690"
+      stig_id: "UBTU-24-200610"
+      severity: "CAT III"
+      cci: ["CCI-000044"]
+    ubuntu22:
+      vuln_id: "V-260549"
+      stig_id: "UBTU-22-411045"
+      severity: "CAT III"
+      cci: ["CCI-000044"]
   nist_800_53: ["AC-7(a)"]
   pci_dss_4: ["8.3.4"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - when:
