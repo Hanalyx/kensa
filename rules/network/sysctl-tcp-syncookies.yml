@@ -32,7 +32,17 @@ references:
     rhel9:
       vuln_id: V-257957
       severity: CAT II
+    ubuntu24:
+      vuln_id: V-270753
+      stig_id: UBTU-24-600190
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260522
+      stig_id: UBTU-22-253010
+      severity: CAT II
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
