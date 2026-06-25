@@ -1,0 +1,39 @@
+id: audit-watch-faillog
+title: Audit access to /var/log/faillog (Ubuntu)
+description: >
+  Modifications to /var/log/faillog must generate an audit record so that failed login attempts
+  can be traced to an individual.
+rationale: >
+  Auditing this path supports detection of unauthorized changes and
+  forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, watch]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270796"
+      stig_id: "UBTU-24-900250"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260644"
+      stig_id: "UBTU-22-654210"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /var/log/faillog -p wa -k logins"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /var/log/faillog -p wa -k logins"
+      persist_file: "/etc/audit/rules.d/50-watch-faillog.rules"

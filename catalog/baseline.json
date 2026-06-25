@@ -25,14 +25,14 @@
    "framework": "stig",
    "os": "ubuntu22",
    "total": 188,
-   "covered": 87,
+   "covered": 99,
    "drifted": 0
   },
   {
    "framework": "stig",
    "os": "ubuntu24",
    "total": 194,
-   "covered": 88,
+   "covered": 100,
    "drifted": 0
   },
   {
