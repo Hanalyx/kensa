@@ -28,8 +28,8 @@ implementations:
   - when: gdm
     check:
       method: command
-      run: >
-        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+      run: |
+        if ! rpm -q gdm >/dev/null 2>&1; then exit 0; fi
         grep -rq 'lock-delay' /etc/dconf/db/local.d/locks/ 2>/dev/null ||
         grep -rq '/org/gnome/desktop/screensaver/lock-delay' /etc/dconf/db/local.d/locks/ 2>/dev/null
       expected_exit: 0

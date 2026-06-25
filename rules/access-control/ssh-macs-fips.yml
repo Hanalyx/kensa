@@ -33,7 +33,7 @@ implementations:
     check:
       method: command
       run: |
-        if ! command -v sshd &>/dev/null; then exit 0; fi
+        if ! command -v sshd >/dev/null 2>&1; then exit 0; fi
         macs=$(sshd -T 2>/dev/null | awk '/^macs /{print $2}')
         echo "$macs" | tr ',' '\n' | grep -qvE '^(hmac-sha2-256|hmac-sha2-512|hmac-sha2-256-etm@openssh\.com|hmac-sha2-512-etm@openssh\.com)$' && {
           echo "FAIL: non-FIPS MAC in effective config: $macs"

@@ -1,0 +1,77 @@
+spec:
+    id: rule-command-shell-validity
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: command-check-shell-syntax-gate
+        description: |
+            A rule whose check uses method "command" carries a shell
+            script in its `run:` parameter. Kensa executes that script
+            on the target host via the host's /bin/sh — which is dash on
+            Debian/Ubuntu and bash on RHEL. Two failure modes ship
+            silently because nothing validates the script at build time:
+
+              1. Hard syntax errors. A YAML folded scalar (`run: >`)
+                 collapses newlines to spaces, so a multi-statement
+                 script like `if ...; then exit 0; fi` followed by a
+                 newline + next command renders as `fi <command>` on one
+                 line — a shell syntax error. The check then exits 2 on
+                 every host of every platform and never produces a real
+                 verdict (it reports error, masquerading as "ran").
+
+              2. Bashisms under dash. `&>/dev/null`, `[[ =~ ]]`, and
+                 similar bash-only constructs parse differently (or fail)
+                 under dash, so a check that works on RHEL silently
+                 misbehaves — including false PASS — on Ubuntu.
+
+            Both classes were found in the shipped corpus (2026-06-25):
+            nine `run: >` fold bugs (gdm/tftp) and bashisms in the FIPS
+            cipher/MAC and crypto-policy rules. kensa-validate parsed the
+            YAML fine and the behavior harness didn't exercise these
+            scripts, so they reached main. This spec adds the missing
+            gate.
+
+    objective:
+        summary: |
+            A corpus test parses every rule and, for each command check
+            (including composed sub-checks), runs the `run:` script
+            through `sh -n` (POSIX no-exec syntax check). Any syntax
+            error fails the build. On the CI runner /bin/sh is dash, so
+            the gate enforces POSIX-sh validity — the safe baseline for a
+            script that may run under either dash or bash.
+        scope:
+            includes:
+                - Walk the in-repo rules/ corpus
+                - For every implementation check with Method == "command", extract Params["run"]
+                - Recurse into composed Check.Checks
+                - Validate each script with `sh -n`
+                - Skip gracefully when no POSIX sh is available
+            excludes:
+                - Semantic correctness of the script (does it check the right thing) — out of scope; this gate is syntax only
+                - Remediation command scripts (the command mechanism) — this gate covers check scripts; can extend later
+                - Running the scripts (no execution, only `-n` parse)
+
+    constraints:
+        - id: C-01
+          description: |
+              Every command-method check script in the corpus MUST pass
+              `sh -n` (POSIX shell syntax check). A script that fails is
+              a build error. This catches both the folded-scalar
+              `fi <command>` class and dash-incompatible bashisms, since
+              the CI shell is dash.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Every command-method check `run:` script in the production
+              corpus (and every composed sub-check) passes `sh -n`.
+              Locked by TestCorpusCommandChecksAreShellValid.
+          references_constraints: [C-01]
+          priority: critical
+
+    tags: [rule, command, shell, dash, posix, corpus-gate, tier-3]

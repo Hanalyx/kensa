@@ -29,8 +29,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: >
-        if ! rpm -q tftp-server &>/dev/null; then exit 0; fi
+      run: |
+        if ! rpm -q tftp-server >/dev/null 2>&1; then exit 0; fi
         grep -qE '^\s*server_args\s*=.*--secure|-s\s+/' \
           /etc/xinetd.d/tftp /usr/lib/systemd/system/tftp.service 2>/dev/null
       expected_exit: 0

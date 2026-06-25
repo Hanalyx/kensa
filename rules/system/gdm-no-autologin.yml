@@ -27,8 +27,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: >
-        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+      run: |
+        if ! rpm -q gdm >/dev/null 2>&1; then exit 0; fi
         val=$(grep -i '^\s*AutomaticLoginEnable\s*=' /etc/gdm/custom.conf 2>/dev/null |
               awk -F= '{print $2}' | tr -d ' ' | tr '[:upper:]' '[:lower:]')
         [ "$val" = "false" ] || [ -z "$val" ]

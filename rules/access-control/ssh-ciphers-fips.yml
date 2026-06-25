@@ -34,7 +34,7 @@ implementations:
     check:
       method: command
       run: |
-        if ! command -v sshd &>/dev/null; then exit 0; fi
+        if ! command -v sshd >/dev/null 2>&1; then exit 0; fi
         ciphers=$(sshd -T 2>/dev/null | awk '/^ciphers /{print $2}')
         echo "$ciphers" | tr ',' '\n' | grep -qvE '^(aes128-ctr|aes192-ctr|aes256-ctr|aes128-gcm@openssh\.com|aes256-gcm@openssh\.com)$' && {
           echo "FAIL: non-FIPS cipher in effective config: $ciphers"
