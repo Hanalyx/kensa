@@ -770,9 +770,25 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		return false, fmt.Sprintf("audit_rule_exists: watch rule %q not loaded", norm), nil
 	}
 
-	// Syscall rules ("-a always,exit ...") can have their -F fields reordered by
-	// auditctl -l, so a literal line match is fragile; fall back to the -k key as
-	// a best-effort group-existence check.
+	// Privileged-command exec rules carry "-F path=<binary>". The path is the
+	// distinguishing field and auditctl -l preserves the "-F path=" token
+	// verbatim, whereas the -k key is frequently shared across several commands
+	// (e.g. priv_cmd for sudo/sudoedit/chsh/newgrp, perm_chng for
+	// chcon/setfacl/...), so a key-only match would be a false pass. Match on
+	// the path token (plus perm when present).
+	if pathTok, ok := auditFToken(rule, "path"); ok {
+		permTok, hasPerm := auditFToken(rule, "perm")
+		for _, line := range strings.Split(loaded, "\n") {
+			if strings.Contains(line, pathTok) && (!hasPerm || strings.Contains(line, permTok)) {
+				return true, fmt.Sprintf("audit_rule_exists: %q found in loaded ruleset", pathTok), nil
+			}
+		}
+		return false, fmt.Sprintf("audit_rule_exists: %q not found in loaded ruleset", pathTok), nil
+	}
+
+	// Other syscall rules ("-a always,exit -S ...") can have their -F fields
+	// reordered by auditctl -l, so a literal line match is fragile; fall back to
+	// the -k key as a best-effort group-existence check.
 	key := extractAuditKey(rule)
 	if key != "" {
 		needle := "-k " + key
@@ -805,6 +821,20 @@ func extractAuditKey(rule string) string {
 		}
 	}
 	return ""
+}
+
+// auditFToken returns the "-F <field>=<value>" token for the named field in an
+// audit rule (e.g. auditFToken(rule, "path") -> `-F path=/usr/bin/sudo`, true),
+// or ("", false) if the field is absent. The token is matched verbatim against
+// auditctl -l output, which preserves "-F path=" / "-F perm=".
+func auditFToken(rule, field string) (string, bool) {
+	fields := strings.Fields(rule)
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] == "-F" && strings.HasPrefix(fields[i+1], field+"=") {
+			return "-F " + fields[i+1], true
+		}
+	}
+	return "", false
 }
 
 // normaliseAuditRule collapses whitespace in a rule string for comparison.

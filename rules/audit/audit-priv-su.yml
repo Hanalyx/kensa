@@ -1,0 +1,39 @@
+id: audit-priv-su
+title: Audit privileged execution of /bin/su (Ubuntu)
+description: >
+  All uses of the /bin/su command must generate an audit record so that
+  identity changes can be traced to an individual.
+rationale: >
+  Auditing execution of privileged commands allows detection of misuse
+  and supports forensic investigation of privilege escalation.
+severity: medium
+category: audit
+tags: [audit, auditd, privileged]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270778"
+      stig_id: "UBTU-24-900070"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260622"
+      stig_id: "UBTU-22-654100"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F path=/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged-priv_change"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F path=/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged-priv_change"
+      persist_file: "/etc/audit/rules.d/50-priv-su.rules"

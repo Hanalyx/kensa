@@ -1,0 +1,39 @@
+id: audit-priv-unix_update
+title: Audit privileged execution of /sbin/unix_update (Ubuntu)
+description: >
+  All uses of the /sbin/unix_update command must generate an audit record so that
+  password-hash updates can be traced to an individual.
+rationale: >
+  Auditing execution of privileged commands allows detection of misuse
+  and supports forensic investigation of privilege escalation.
+severity: medium
+category: audit
+tags: [audit, auditd, privileged]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270799"
+      stig_id: "UBTU-24-900280"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260626"
+      stig_id: "UBTU-22-654120"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F path=/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=unset -k privileged-unix-update"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F path=/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=unset -k privileged-unix-update"
+      persist_file: "/etc/audit/rules.d/50-priv-unix_update.rules"

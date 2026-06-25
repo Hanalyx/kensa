@@ -82,6 +82,32 @@ func TestCheckAuditRuleExists_WatchFullMatch(t *testing.T) {
 	}
 }
 
+// TestCheckAuditRuleExists_ExecPathMatch locks the path match for
+// privileged-command exec rules: several commands share a -k key (priv_cmd,
+// perm_chng, ...), so a key-only match would falsely pass every command once
+// one is loaded. The -F path= field distinguishes them.
+func TestCheckAuditRuleExists_ExecPathMatch(t *testing.T) {
+	// Only /usr/bin/sudo is loaded; its key priv_cmd is shared with chsh etc.
+	loaded := "-a always,exit -F arch=b64 -S execve -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd"
+	ft := &fakeTransport{
+		cmdResult: map[string]api.CommandResult{"auditctl -l 2>/dev/null": result(0, loaded)},
+	}
+	exec := func(path string) api.Check {
+		return api.Check{Method: "audit_rule_exists", Params: api.Params{
+			"rule": "-a always,exit -F path=" + path + " -F perm=x -F auid>=1000 -F auid!=unset -k priv_cmd",
+		}}
+	}
+	if passed, _, err := runForTest(context.Background(), ft, exec("/usr/bin/sudo")); err != nil || !passed {
+		t.Fatalf("loaded /usr/bin/sudo exec rule should pass; passed=%v err=%v", passed, err)
+	}
+	// Different command sharing the key priv_cmd must NOT pass.
+	if passed, detail, err := runForTest(context.Background(), ft, exec("/usr/bin/chsh")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	} else if passed {
+		t.Errorf("/usr/bin/chsh not loaded but check passed (key-only false pass): %s", detail)
+	}
+}
+
 // TestCheckConfigValue_Pass verifies that config_value passes when the
 // grep returns a matching key=value line.
 func TestCheckConfigValue_Pass(t *testing.T) {
