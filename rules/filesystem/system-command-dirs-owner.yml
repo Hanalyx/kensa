@@ -1,0 +1,47 @@
+id: system-command-dirs-owner
+title: Ensure directories containing system commands are owned by root
+description: >
+  The directories that contain system commands (/bin, /sbin, /usr/bin,
+  /usr/sbin, /usr/local/bin, /usr/local/sbin) must be owned by root.
+rationale: >
+  If a command directory is owned by a non-root account, that account can
+  add or replace executables run by other users. Root ownership prevents
+  unauthorized modification of the command set.
+severity: medium
+category: filesystem
+tags: [file-permissions, system-commands, security]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270825"
+      stig_id: "UBTU-24-901270"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260493"
+      stig_id: "UBTU-22-232040"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -user root -type d 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: file_permissions
+      find_paths:
+        - /bin
+        - /sbin
+        - /usr/bin
+        - /usr/sbin
+        - /usr/local/bin
+        - /usr/local/sbin
+      find_type: d
+      find_args: "! -user root"
+      owner: root

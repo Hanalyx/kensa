@@ -1,0 +1,47 @@
+id: system-command-dirs-group
+title: Ensure directories containing system commands are group-owned by root
+description: >
+  The directories that contain system commands (/bin, /sbin, /usr/bin,
+  /usr/sbin, /usr/local/bin, /usr/local/sbin) must be group-owned by root.
+rationale: >
+  If a command directory is group-owned by a non-privileged group, members
+  of that group can add or replace executables run by other users. Root
+  group ownership prevents unauthorized modification of the command set.
+severity: medium
+category: filesystem
+tags: [file-permissions, system-commands, security]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270826"
+      stig_id: "UBTU-24-901280"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260494"
+      stig_id: "UBTU-22-232045"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin ! -group root -type d 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: file_permissions
+      find_paths:
+        - /bin
+        - /sbin
+        - /usr/bin
+        - /usr/sbin
+        - /usr/local/bin
+        - /usr/local/sbin
+      find_type: d
+      find_args: "! -group root"
+      group: root
