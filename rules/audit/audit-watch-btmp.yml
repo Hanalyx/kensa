@@ -1,0 +1,39 @@
+id: audit-watch-btmp
+title: Audit access to /var/log/btmp (Ubuntu)
+description: >
+  Modifications to /var/log/btmp must generate an audit record so that failed login events
+  can be traced to an individual.
+rationale: >
+  Auditing this path supports detection of unauthorized changes and
+  forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, watch]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270812"
+      stig_id: "UBTU-24-900610"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260641"
+      stig_id: "UBTU-22-654195"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /var/log/btmp -p wa -k logins"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /var/log/btmp -p wa -k logins"
+      persist_file: "/etc/audit/rules.d/50-watch-btmp.rules"

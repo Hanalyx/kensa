@@ -1,0 +1,39 @@
+id: audit-watch-sudoers-d
+title: Audit access to /etc/sudoers.d (Ubuntu)
+description: >
+  Modifications to /etc/sudoers.d must generate an audit record so that changes to sudo privileges
+  can be traced to an individual.
+rationale: >
+  Auditing this path supports detection of unauthorized changes and
+  forensic reconstruction of events.
+severity: medium
+category: audit
+tags: [audit, auditd, watch]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270808"
+      stig_id: "UBTU-24-900520"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260647"
+      stig_id: "UBTU-22-654225"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/sudoers.d -p wa -k privilege_modification"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/sudoers.d -p wa -k privilege_modification"
+      persist_file: "/etc/audit/rules.d/50-watch-sudoers-d.rules"
