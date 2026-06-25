@@ -49,6 +49,7 @@
   {"rule_id": "pam-pwquality-retry",             "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), FAIL correct (retry not set). Extend (V-270705)."},
   {"rule_id": "pam-pwquality-difok",             "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), FAIL correct (difok not set). Extend (V-270729)."},
   {"rule_id": "default-umask",                   "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), FAIL correct (UMASK not set in login.defs; rule default 077 matches Ubuntu requirement). Extend (V-270716)."},
-  {"rule_id": "auditd-action-mail-acct",         "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), FAIL correct (auditd.conf absent on host; no auditd). Extend (V-270819, value root matches)."}
+  {"rule_id": "auditd-action-mail-acct",         "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), FAIL correct (auditd.conf absent on host; no auditd). Extend (V-270819, value root matches)."},
+  {"rule_id": "rsyslog-service-enabled",         "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (rsyslog enabled+active). Extend (V-270653 install+enable; the service-enabled aspect honestly covers 'preserve log records from failure events'). audispd-plugins V-270658 deferred with the audit cluster (needs audit subsystem, absent on 248)."}
  ]
 }
