@@ -1,0 +1,57 @@
+id: ssh-kex-fips-ubuntu
+title: Configure SSH to use FIPS-validated key exchange algorithms (Ubuntu)
+description: >
+  The SSH server must be configured to use only FIPS 140-3 validated key
+  exchange algorithms. Ubuntu's approved set is broader than RHEL's (it
+  adds the diffie-hellman-group16-sha512 and -group14-sha256 algorithms),
+  so this rule carries the Ubuntu-specific allowlist and remediation value.
+rationale: >
+  FIPS-validated key exchange algorithms protect the establishment of the
+  session key against cryptographic attack. Restricting the SSH server to
+  the approved set prevents negotiation of a weaker exchange.
+severity: medium
+category: access-control
+tags: [ssh, fips, kex, cryptography, stig]
+
+depends_on: [pkg-openssh-server-present]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270669
+      stig_id: UBTU-24-100840
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260533
+      stig_id: UBTU-22-255060
+      severity: CAT II
+  nist_800_53: ["SC-8", "SC-13"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        command -v sshd >/dev/null 2>&1 || exit 0
+        kex=$(sshd -T 2>/dev/null | awk '/^kexalgorithms /{print $2}')
+        if [ -z "$kex" ]; then
+          echo "FAIL: could not read effective key exchange algorithms (sshd -T needs root)"
+          exit 1
+        fi
+        if echo "$kex" | tr ',' '\n' | grep -qvE '^(ecdh-sha2-nistp256|ecdh-sha2-nistp384|ecdh-sha2-nistp521|diffie-hellman-group-exchange-sha256|diffie-hellman-group16-sha512|diffie-hellman-group14-sha256)$'; then
+          echo "FAIL: non-FIPS key exchange algorithm in effective config: $kex"
+          exit 1
+        fi
+        echo "OK: $kex"
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-fips-kex.conf"
+      key: "KexAlgorithms"
+      value: "ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group14-sha256"
+      restart: sshd

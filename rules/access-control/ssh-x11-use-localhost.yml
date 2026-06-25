@@ -25,11 +25,23 @@ references:
       stig_id: "RHEL-08-040341"
       severity: "CAT II"
       cci: ["CCI-000366"]
+    ubuntu24:
+      vuln_id: "V-270709"
+      stig_id: "UBTU-24-300023"
+      severity: "CAT II"
+      cci: ["CCI-000366"]
+    ubuntu22:
+      vuln_id: "V-260530"
+      stig_id: "UBTU-22-255045"
+      severity: "CAT II"
+      cci: ["CCI-000366"]
   nist_800_53: ["CM-6"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - when: sshd_config_d
