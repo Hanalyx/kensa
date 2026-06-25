@@ -30,11 +30,21 @@ references:
       vuln_id: V-258151
       stig_id: RHEL-09-653010
       severity: CAT II
+    ubuntu24:
+      vuln_id: V-270657
+      stig_id: UBTU-24-100410
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260591
+      stig_id: UBTU-22-653015
+      severity: CAT II
   nist_800_53:
   - AU-2
   - AU-3
   - AU-12
 platforms:
+- family: ubuntu
+  min_version: 22
 - family: rhel
   min_version: 8
 implementations:
