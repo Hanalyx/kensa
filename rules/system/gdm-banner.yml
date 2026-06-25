@@ -29,8 +29,8 @@ implementations:
   - when: gdm
     check:
       method: command
-      run: >
-        if ! rpm -q gdm &>/dev/null; then exit 0; fi
+      run: |
+        if ! rpm -q gdm >/dev/null 2>&1; then exit 0; fi
         val=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/banner-message-enable 2>/dev/null)
         [ "$val" = "true" ]
       expected_exit: 0

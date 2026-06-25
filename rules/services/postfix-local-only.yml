@@ -25,7 +25,7 @@ implementations:
     check:
       method: command
       run: |
-        if ! rpm -q postfix &>/dev/null; then exit 0; fi
+        if ! rpm -q postfix >/dev/null 2>&1; then exit 0; fi
         ifaces=$(postconf -h inet_interfaces 2>/dev/null)
         if [ -z "$ifaces" ]; then
           echo "FAIL: cannot query postfix effective config"

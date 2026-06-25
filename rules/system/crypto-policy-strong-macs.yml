@@ -26,10 +26,12 @@ implementations:
       method: command
       run: |
         policy=$(update-crypto-policies --show 2>/dev/null)
-        if [[ "$policy" =~ ^(FUTURE|FIPS) ]]; then
-          echo "OK: $policy"
-          exit 0
-        fi
+        case "$policy" in
+          FUTURE*|FIPS*)
+            echo "OK: $policy"
+            exit 0
+            ;;
+        esac
         # Check for weak MACs in SSH
         sshd -T 2>/dev/null | grep -i '^macs' | grep -qiE 'hmac-sha1|umac-64' && exit 1
         echo "OK: No weak MACs"
