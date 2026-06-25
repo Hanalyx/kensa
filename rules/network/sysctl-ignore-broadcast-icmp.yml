@@ -36,6 +36,10 @@ references:
       vuln_id: V-257966
       stig_id: RHEL-09-253025
       severity: CAT II
+    rhel10:
+      vuln_id: "V-281349"
+      stig_id: "RHEL-10-800170"
+      severity: "CAT II"
 platforms:
 - family: rhel
   min_version: 8

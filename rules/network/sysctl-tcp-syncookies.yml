@@ -40,6 +40,10 @@ references:
       vuln_id: V-260522
       stig_id: UBTU-22-253010
       severity: CAT II
+    rhel10:
+      vuln_id: "V-281340"
+      stig_id: "RHEL-10-800080"
+      severity: "CAT II"
 platforms:
 - family: ubuntu
   min_version: 22

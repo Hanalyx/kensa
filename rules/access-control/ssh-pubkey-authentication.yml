@@ -36,6 +36,10 @@ references:
       stig_id: "UBTU-22-612020"
       severity: "CAT II"
       cci: ["CCI-000765"]
+    rhel10:
+      vuln_id: "V-281263"
+      stig_id: "RHEL-10-700600"
+      severity: "CAT II"
   nist_800_53: ["IA-2(1)", "IA-5(2)"]
 
 platforms:

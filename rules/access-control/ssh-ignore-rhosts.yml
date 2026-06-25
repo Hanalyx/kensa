@@ -28,6 +28,10 @@ references:
       stig_id: "RHEL-09-255035"
       severity: "CAT II"
       cci: ["CCI-000366"]
+    rhel10:
+      vuln_id: "V-281256"
+      stig_id: "RHEL-10-700530"
+      severity: "CAT II"
   nist_800_53: ["CM-6", "AC-3"]
 
 platforms:

@@ -21,6 +21,10 @@ references:
     rhel8:
       vuln_id: "V-230497"
       severity: "CAT III"
+    rhel10:
+      vuln_id: "V-281314"
+      stig_id: "RHEL-10-701120"
+      severity: "CAT II"
   nist_800_53: ["CM-7"]
 
 platforms:
