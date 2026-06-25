@@ -414,3 +414,36 @@ func TestRuleTargetsOf_ComposedChecks(t *testing.T) {
 		}
 	})
 }
+
+// TestMountTargetExtraction locks per-(mount-point, option) matching for mount
+// controls: the control-side extractor and ruleTargetsOf must agree on
+// "mount:<path>:<option>" so a "/tmp with nosuid" control matches the
+// mount-tmp-nosuid rule and NOT mount-tmp-nodev.
+//
+// @spec catalog-coverage-crosswalk
+// @ac AC-01
+func TestMountTargetExtraction(t *testing.T) {
+	t.Run("catalog-coverage-crosswalk/AC-01", func(t *testing.T) {
+		ct := ExtractCommandTargets(`Verify "/tmp" is mounted with the "nosuid" option with the following command`)
+		if !hasTarget(ct, "mount", "/tmp:nosuid") {
+			t.Errorf("control extractor: want mount:/tmp:nosuid, got %v", ct)
+		}
+		if hasTarget(ct, "mount", "/tmp:nodev") {
+			t.Errorf("control extractor wrongly produced /tmp:nodev")
+		}
+		rr := ruleRefs{ID: "mount-tmp-nosuid"}
+		rr.Implementations = append(rr.Implementations, struct {
+			Check map[string]interface{} `yaml:"check"`
+		}{Check: map[string]interface{}{
+			"method": "mount_option", "mount_point": "/tmp",
+			"options": []interface{}{"nosuid"},
+		}})
+		got := map[string]bool{}
+		for _, tg := range ruleTargetsOf(rr) {
+			got[tg.Kind+":"+tg.Value] = true
+		}
+		if !got["mount:/tmp:nosuid"] {
+			t.Errorf("ruleTargetsOf: want mount:/tmp:nosuid, got %v", got)
+		}
+	})
+}

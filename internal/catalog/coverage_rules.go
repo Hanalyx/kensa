@@ -43,6 +43,20 @@ func ruleTargetsOf(rr ruleRefs) []Target {
 		if kind, value := ruleTarget(method, params); value != "" {
 			seen[Target{Kind: kind, Value: value}] = true
 		}
+		// mount_option checks carry mount_point + an options list; emit one
+		// target per (mount_point, option) so per-option mount controls
+		// ("/tmp with nosuid") match precisely rather than by path alone.
+		if method == "mount_option" {
+			if mp, ok := chk["mount_point"].(string); ok && mp != "" {
+				if opts, ok := chk["options"].([]interface{}); ok {
+					for _, o := range opts {
+						if os, ok := o.(string); ok && os != "" {
+							seen[Target{Kind: "mount", Value: mp + ":" + os}] = true
+						}
+					}
+				}
+			}
+		}
 		if subs, ok := chk["checks"].([]interface{}); ok {
 			for _, s := range subs {
 				if sm, ok := s.(map[string]interface{}); ok {
