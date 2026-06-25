@@ -1,0 +1,40 @@
+id: var-log-dir-owner
+title: Restrict ownership of the /var/log directory
+description: >
+  The /var/log directory must be owned by root so that only root can
+  manage the contents of the system log directory.
+rationale: >
+  Correct ownership of /var/log prevents unauthorized users from
+  manipulating the log directory and the records it holds, preserving
+  the integrity of the audit trail.
+severity: medium
+category: filesystem
+tags:
+- file-permissions
+- logging
+- security
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270766
+      stig_id: UBTU-24-700110
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260508
+      stig_id: UBTU-22-232120
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /var/log
+    owner: root
+  remediation:
+    mechanism: file_permissions
+    path: /var/log
+    owner: root

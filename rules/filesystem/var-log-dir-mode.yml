@@ -1,0 +1,41 @@
+id: var-log-dir-mode
+title: Restrict the mode of the /var/log directory
+description: >
+  The /var/log directory must have mode 0755 or less permissive so that
+  unprivileged users cannot create, rename, or remove files in the system
+  log directory.
+rationale: >
+  An overly permissive /var/log directory mode would allow unauthorized
+  users to tamper with log files, undermining the integrity of the audit
+  trail.
+severity: medium
+category: filesystem
+tags:
+- file-permissions
+- logging
+- security
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270767
+      stig_id: UBTU-24-700120
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260488
+      stig_id: UBTU-22-232025
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /var/log
+    mode: "0755"
+  remediation:
+    mechanism: file_permissions
+    path: /var/log
+    mode: "0755"
