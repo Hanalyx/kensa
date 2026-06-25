@@ -25,6 +25,8 @@ references:
       section: 6.1.2
       level: L1
       type: Automated
+    rhel10: { section: "6.1.2", level: "L1", type: "Automated" }
+    rhel8: { section: "6.1.2", level: "L1", type: "Automated" }
   nist_800_53:
   - SI-7
   - AU-2

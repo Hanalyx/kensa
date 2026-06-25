@@ -19,6 +19,8 @@ references:
       section: 5.2.1
       level: L1
       type: Automated
+    rhel10: { section: "5.2.1", level: "L1", type: "Automated" }
+    rhel8: { section: "5.2.1", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: V-258083

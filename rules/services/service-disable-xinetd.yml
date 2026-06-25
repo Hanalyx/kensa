@@ -11,6 +11,7 @@ tags: [service, attack-surface]
 references:
   cis:
     rhel9: { section: "2.1.19", level: "L1", type: "Automated" }
+    rhel8: { section: "2.1.20", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

@@ -15,6 +15,7 @@ references:
   cis:
     rhel8: { section: "6.2.2.3", level: "L1", type: "Automated" }
     rhel9: { section: "6.2.3.3", level: "L1", type: "Automated" }
+    rhel10: { section: "6.2.3.3", level: "L1", type: "Automated" }
   nist_800_53: ["AU-4", "AU-6"]
 
 platforms:

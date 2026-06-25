@@ -15,6 +15,8 @@ depends_on: [auditd-enabled]
 references:
   cis:
     rhel8:  { section: "6.3.3.6", level: "L2", type: "Automated" }
+    rhel10: { section: "6.3.3.10", level: "L2", type: "Automated" }
+    rhel9: { section: "6.3.3.6", level: "L2", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258217"

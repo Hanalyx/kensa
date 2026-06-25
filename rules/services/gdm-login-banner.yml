@@ -21,6 +21,8 @@ references:
       section: 1.8.2
       level: L1
       type: Automated
+    rhel10: { section: "1.8.1", level: "L1", type: "Automated" }
+    rhel8: { section: "1.8.1", level: "L1", type: "Automated" }
   nist_800_53:
   - AC-8
 platforms:

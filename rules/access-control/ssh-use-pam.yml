@@ -24,6 +24,8 @@ references:
     rhel10:  { section: "5.1.22", level: "L1", type: "Automated" }
     rhel8:  { section: "5.1.24", level: "L1", type: "Automated" }
     rhel9:  { section: "5.1.22", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.1.22", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.1.22", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-257986"

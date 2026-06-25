@@ -17,6 +17,8 @@ depends_on: [chrony-installed]
 references:
   cis:
     rhel9:  { section: "2.3.3", level: "L1", type: "Automated" }
+    rhel10: { section: "2.3.3", level: "L1", type: "Automated" }
+    rhel8: { section: "2.3.3", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6", "CM-6"]
 
 platforms:

@@ -31,6 +31,7 @@ references:
       section: 1.6.3
       level: L1
       type: Automated
+    rhel10: { section: "1.6.2", level: "L1", type: "Automated" }
   nist_800_53:
   - SC-13
   - SC-12

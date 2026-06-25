@@ -15,6 +15,7 @@ references:
   cis:
     rhel8:  { section: "6.2.2.7", level: "L1", type: "Automated" }
     rhel9:  { section: "6.2.3.7", level: "L1", type: "Automated" }
+    rhel10: { section: "6.2.3.7", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258143"

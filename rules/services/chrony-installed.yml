@@ -25,6 +25,7 @@ references:
       section: 2.3.1
       level: L1
       type: Automated
+    rhel10: { section: "2.3.1", level: "L1", type: "Automated" }
   stig:
     ubuntu24:
       vuln_id: V-270664

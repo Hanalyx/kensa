@@ -25,6 +25,7 @@ references:
       section: 2.2.4
       level: L1
       type: Automated
+    rhel10: { section: "2.2.3", level: "L1", type: "Automated" }
   nist_800_53:
   - CM-7
   - IA-5

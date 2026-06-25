@@ -22,6 +22,7 @@ references:
       section: 6.2.3.4
       level: L1
       type: Automated
+    rhel10: { section: "6.2.3.4", level: "L1", type: "Automated" }
   nist_800_53:
   - AU-9
   - AC-6
