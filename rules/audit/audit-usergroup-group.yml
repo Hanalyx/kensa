@@ -1,0 +1,39 @@
+id: audit-usergroup-group
+title: Audit account modifications affecting /etc/group (Ubuntu)
+description: >
+  All account creation, modification, disabling, and termination events
+  that affect /etc/group must generate an audit record.
+rationale: >
+  Auditing changes to /etc/group allows detection of unauthorized account or
+  group changes, supporting forensic investigation.
+severity: medium
+category: audit
+tags: [audit, auditd, accounts, usergroup]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270685"
+      stig_id: "UBTU-24-200290"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260628"
+      stig_id: "UBTU-22-654130"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-w /etc/group -p wa -k usergroup_modification"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-w /etc/group -p wa -k usergroup_modification"
+      persist_file: "/etc/audit/rules.d/50-usergroup-group.rules"
