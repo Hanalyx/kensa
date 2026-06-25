@@ -23,20 +23,36 @@ type ruleRefs struct {
 	} `yaml:"implementations"`
 }
 
-// ruleTargetsOf extracts the distinct structured targets of a rule's checks.
+// ruleTargetsOf extracts the distinct structured targets of a rule's checks,
+// recursing into composed checks (a check with a "checks:" list of sub-checks,
+// AND-combined). Without the recursion, every composed-check rule — e.g. the
+// network-hardening sysctl rules that check net.ipv4/ipv6 .all + .default keys
+// in one composed check — would yield no target and be invisible to the
+// crosswalk, so its controls would misclassify as net-new instead of extend.
 func ruleTargetsOf(rr ruleRefs) []Target {
 	seen := map[Target]bool{}
-	for _, impl := range rr.Implementations {
-		method, _ := impl.Check["method"].(string)
+	var walk func(chk map[string]interface{})
+	walk = func(chk map[string]interface{}) {
+		method, _ := chk["method"].(string)
 		params := map[string]string{}
 		for _, k := range []string{"name", "key", "path"} {
-			if v, ok := impl.Check[k].(string); ok {
+			if v, ok := chk[k].(string); ok {
 				params[k] = v
 			}
 		}
 		if kind, value := ruleTarget(method, params); value != "" {
 			seen[Target{Kind: kind, Value: value}] = true
 		}
+		if subs, ok := chk["checks"].([]interface{}); ok {
+			for _, s := range subs {
+				if sm, ok := s.(map[string]interface{}); ok {
+					walk(sm)
+				}
+			}
+		}
+	}
+	for _, impl := range rr.Implementations {
+		walk(impl.Check)
 	}
 	out := make([]Target, 0, len(seen))
 	for t := range seen {

@@ -383,3 +383,34 @@ func TestConfigKeyTargets(t *testing.T) {
 		}
 	})
 }
+
+// TestRuleTargetsOf_ComposedChecks locks the composed-check recursion: a rule
+// whose check is a "checks:" list (AND-combined sub-checks) must yield a target
+// for each sub-check. Without it, network-hardening sysctl rules (which check
+// several keys in one composed check) produced no target and the crosswalk
+// misclassified their controls as net-new instead of extend.
+//
+// @spec catalog-coverage-crosswalk
+// @ac AC-01
+func TestRuleTargetsOf_ComposedChecks(t *testing.T) {
+	t.Run("catalog-coverage-crosswalk/AC-01", func(t *testing.T) {
+		rr := ruleRefs{ID: "x"}
+		rr.Implementations = append(rr.Implementations, struct {
+			Check map[string]interface{} `yaml:"check"`
+		}{Check: map[string]interface{}{
+			"checks": []interface{}{
+				map[string]interface{}{"method": "sysctl_value", "key": "net.ipv4.conf.all.accept_redirects"},
+				map[string]interface{}{"method": "sysctl_value", "key": "net.ipv6.conf.default.accept_redirects"},
+			},
+		}})
+		got := map[string]bool{}
+		for _, tg := range ruleTargetsOf(rr) {
+			got[tg.Kind+":"+tg.Value] = true
+		}
+		for _, want := range []string{"sysctl:net.ipv4.conf.all.accept_redirects", "sysctl:net.ipv6.conf.default.accept_redirects"} {
+			if !got[want] {
+				t.Errorf("composed sub-check target %q not extracted; got %v", want, got)
+			}
+		}
+	})
+}
