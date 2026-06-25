@@ -45,6 +45,11 @@ var (
 		"package": true, "following": true, "ii": true, "true": true, "false": true, "y": true,
 	}
 
+	// Mount-option extractor: a mount control's subject is a (mount point, option)
+	// pair. The STIG check reads "<path>" is mounted with the "<option>" option,
+	// so capture both to match per-option mount rules precisely.
+	mountRE = regexp.MustCompile(`"(/[\w./-]+)"\s+is\s+mounted\s+with\s+the\s+"(\w+)"\s+option`)
+
 	// Config-directive extractors. A config control's subject is the directive KEY in
 	// a config file: "dcredit = -1" (pwquality.conf), "PASS_MAX_DAYS 60" (login.defs),
 	// "X11UseLocalhost yes" (sshd_config). These have no command to anchor on, so the
@@ -121,6 +126,9 @@ func ExtractCommandTargets(text string) []Target {
 	// Config directives: key=value everywhere; CamelCase only in an ssh_config/sshd_config
 	// context; UPPERCASE_KEY only in a login.defs context — the file mention is the anchor
 	// that keeps the looser space-separated forms from firing on arbitrary prose.
+	for _, m := range mountRE.FindAllStringSubmatch(text, -1) {
+		add("mount", m[1]+":"+strings.ToLower(m[2]))
+	}
 	for _, m := range cfgAssignRE.FindAllStringSubmatch(text, -1) {
 		add("config", strings.ToLower(m[1]))
 	}
