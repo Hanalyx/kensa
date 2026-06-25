@@ -1,0 +1,39 @@
+id: audit-priv-pam_timestamp_check
+title: Audit privileged execution of /usr/sbin/pam_timestamp_check (Ubuntu)
+description: >
+  All uses of the /usr/sbin/pam_timestamp_check command must generate an audit record so that
+  PAM timestamp checks can be traced to an individual.
+rationale: >
+  Auditing execution of privileged commands allows detection of misuse
+  and supports forensic investigation of privilege escalation.
+severity: medium
+category: audit
+tags: [audit, auditd, privileged]
+
+depends_on: [auditd-enabled]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270804"
+      stig_id: "UBTU-24-900330"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260617"
+      stig_id: "UBTU-22-654075"
+      severity: "CAT II"
+  nist_800_53: ["AU-2", "AU-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=unset -k privileged-pam_timestamp_check"
+    remediation:
+      mechanism: audit_rule_set
+      rule: "-a always,exit -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=unset -k privileged-pam_timestamp_check"
+      persist_file: "/etc/audit/rules.d/50-priv-pam_timestamp_check.rules"
