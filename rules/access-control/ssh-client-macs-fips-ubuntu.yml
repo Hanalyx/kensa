@@ -1,0 +1,48 @@
+id: ssh-client-macs-fips-ubuntu
+title: Configure the SSH client to use FIPS-approved MACs (Ubuntu)
+description: >
+  The SSH client (/etc/ssh/ssh_config) must be configured to use only
+  FIPS 140-3 approved MACs.
+rationale: >
+  Restricting the SSH client to FIPS-approved MACs prevents negotiation of
+  a weaker algorithm when this host initiates an SSH connection.
+severity: medium
+category: access-control
+tags: [ssh, client, fips, macs]
+
+depends_on: [pkg-openssh-server-present]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270671"
+      stig_id: "UBTU-24-100860"
+      severity: "CAT II"
+  nist_800_53: ["SC-8", "SC-13"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        val=$(grep -iE '^[[:space:]]*MACs ' /etc/ssh/ssh_config 2>/dev/null | awk '{print $2}' | tail -1)
+        if [ -z "$val" ]; then
+          echo "FAIL: MACs not set in /etc/ssh/ssh_config"
+          exit 1
+        fi
+        if echo "$val" | tr ',' '\n' | grep -qvE '^(hmac-sha2-256|hmac-sha2-512|hmac-sha2-256-etm@openssh\.com|hmac-sha2-512-etm@openssh\.com)$'; then
+          echo "FAIL: non-FIPS MACs in ssh_config: $val"
+          exit 1
+        fi
+        echo "OK: $val"
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: /etc/ssh/ssh_config
+      key: MACs
+      value: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
+      separator: " "
