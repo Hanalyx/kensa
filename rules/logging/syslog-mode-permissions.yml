@@ -1,0 +1,40 @@
+id: syslog-mode-permissions
+title: Restrict the mode of /var/log/syslog
+description: >
+  The /var/log/syslog file must have a mode of 0640 or less permissive so
+  that unprivileged users cannot read the system log.
+rationale: >
+  The system log records security-relevant events and may contain sensitive
+  information. Restricting the file mode prevents unauthorized users from
+  reading log contents.
+severity: medium
+category: logging
+tags:
+- syslog
+- permissions
+- logging
+references:
+  stig:
+    ubuntu24:
+      vuln_id: V-270770
+      stig_id: UBTU-24-700150
+      severity: CAT II
+    ubuntu22:
+      vuln_id: V-260491
+      stig_id: UBTU-22-232030
+      severity: CAT II
+  nist_800_53:
+  - SI-11
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- default: true
+  check:
+    method: file_permission
+    path: /var/log/syslog
+    mode: "0640"
+  remediation:
+    mechanism: file_permissions
+    path: /var/log/syslog
+    mode: "0640"
