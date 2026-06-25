@@ -1,0 +1,48 @@
+id: system-command-dirs-mode
+title: Ensure directories containing system commands have mode 0755 or less
+description: >
+  The directories that contain system commands (/bin, /sbin, /usr/bin,
+  /usr/sbin, /usr/local/bin, /usr/local/sbin) must have mode 0755 or less
+  permissive.
+rationale: >
+  A world-writable command directory lets an unprivileged user add or
+  replace executables that other users — including root — run.
+  Restrictive directory permissions prevent this.
+severity: medium
+category: filesystem
+tags: [file-permissions, system-commands, security]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270824"
+      stig_id: "UBTU-24-901260"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260485"
+      stig_id: "UBTU-22-232010"
+      severity: "CAT II"
+  nist_800_53: ["AC-6", "CM-5"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -perm /022 -type d 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: file_permissions
+      find_paths:
+        - /bin
+        - /sbin
+        - /usr/bin
+        - /usr/sbin
+        - /usr/local/bin
+        - /usr/local/sbin
+      find_type: d
+      find_args: "-perm /022"
+      mode: "go-w"

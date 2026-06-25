@@ -58,6 +58,9 @@
   {"rule_id": "library-dirs-group",              "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (lib dirs group root). Extend (V-270700)."},
   {"rule_id": "system-commands-mode",            "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (no command in /usr/bin etc. more permissive than 0755). Extend (V-270701); /bin /sbin covered via usrmerge symlinks to /usr/bin /usr/sbin (verified on 248)."},
   {"rule_id": "system-commands-owner",           "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (system commands owned root). Extend (V-270702)."},
-  {"rule_id": "system-commands-group",           "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (system commands group root). Extend (V-270703)."}
+  {"rule_id": "system-commands-group",           "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (system commands group root). Extend (V-270703)."},
+  {"rule_id": "system-command-dirs-mode",        "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (/usr/bin etc. are 0755). Net-new (V-270824); command directories, -type d. /bin /sbin are usrmerge symlinks (contribute nothing under find -P), so the scan covers /usr/bin /usr/sbin /usr/local/*."},
+  {"rule_id": "system-command-dirs-owner",       "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (command dirs owned root). Net-new (V-270825)."},
+  {"rule_id": "system-command-dirs-group",       "os": "ubuntu26", "scope": "check", "host": "fleet:192.168.1.248", "verified_at": "2026-06-25", "notes": "read-only check (--sudo), PASS (command dirs group root). Net-new (V-270826)."}
  ]
 }
