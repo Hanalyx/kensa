@@ -30,6 +30,10 @@ references:
       vuln_id: "V-281299"
       stig_id: "RHEL-10-700960"
       severity: "CAT I"
+    rhel8:
+      vuln_id: "V-230529"
+      stig_id: "RHEL-08-040170"
+      severity: "CAT I"
   nist_800_53: ["AC-6"]
 
 platforms:

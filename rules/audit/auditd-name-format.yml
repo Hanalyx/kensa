@@ -23,6 +23,10 @@ references:
       vuln_id: "V-281105"
       stig_id: "RHEL-10-500045"
       severity: "CAT II"
+    rhel9:
+      vuln_id: "V-258161"
+      stig_id: "RHEL-09-653060"
+      severity: "CAT II"
   nist_800_53: ["AU-3"]
 
 platforms:
