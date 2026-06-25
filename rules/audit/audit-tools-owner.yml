@@ -18,11 +18,21 @@ references:
     rhel8:
       vuln_id: "V-230473"
       severity: "CAT II"
+    ubuntu24:
+      vuln_id: "V-270822"
+      stig_id: "UBTU-24-901240"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260507"
+      stig_id: "UBTU-22-232110"
+      severity: "CAT II"
   nist_800_53: ["AU-9"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 implementations:
   - default: true
     check:
