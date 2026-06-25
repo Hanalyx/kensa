@@ -15,6 +15,8 @@ tags: [pam, pwquality, password-complexity, root]
 references:
   cis:
     rhel9: { section: "5.3.3.2.7", level: "L1", type: "Automated" }
+    rhel10: { section: "5.3.2.2.7", level: "L1", type: "Automated" }
+    rhel8: { section: "5.3.3.2.7", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258101"

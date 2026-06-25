@@ -27,6 +27,7 @@ references:
       section: 7.1.12
       level: L1
       type: Automated
+    rhel10: { section: "7.1.12", level: "L1", type: "Automated" }
   nist_800_53:
   - CM-8
 platforms:

@@ -16,6 +16,8 @@ tags: [mail, mta, network, postfix, sendmail]
 references:
   cis:
     rhel9:  { section: "2.1.21", level: "L1", type: "Automated" }
+    rhel10: { section: "2.1.21", level: "L1", type: "Automated" }
+    rhel8: { section: "2.1.23", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7", "SC-7"]
 
 platforms:

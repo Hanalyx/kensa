@@ -14,6 +14,8 @@ tags: [kernel-module, filesystem, attack-surface]
 references:
   cis:
     rhel9:  { section: "1.1.1.5", level: "L2", type: "Automated" }
+    rhel10: { section: "1.1.1.5", level: "L1", type: "Automated" }
+    rhel8: { section: "1.1.1.5", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:

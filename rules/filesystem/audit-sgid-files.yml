@@ -16,6 +16,8 @@ tags: [permissions, sgid, privilege-escalation, audit]
 references:
   cis:
     rhel8:  { section: "7.2.5", level: "L1", type: "Manual" }
+    rhel10: { section: "7.2.5", level: "L1", type: "Automated" }
+    rhel9: { section: "7.2.5", level: "L1", type: "Automated" }
   nist_800_53: ["AC-6", "CM-6"]
 
 platforms:

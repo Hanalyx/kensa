@@ -35,6 +35,8 @@ references:
       section: 6.3.3.10
       level: L1
       type: Automated
+    rhel10: { section: "6.3.3.21", level: "L2", type: "Automated" }
+    rhel8: { section: "6.3.3.10", level: "L2", type: "Automated" }
 platforms:
 - family: rhel
   min_version: 8

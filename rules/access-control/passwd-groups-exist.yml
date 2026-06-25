@@ -23,6 +23,7 @@ references:
       section: 7.2.3
       level: L1
       type: Automated
+    rhel10: { section: "7.2.3", level: "L1", type: "Automated" }
   nist_800_53:
   - AC-2
   - IA-2

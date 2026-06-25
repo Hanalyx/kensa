@@ -20,6 +20,7 @@ references:
       section: 6.3.3.13
       level: L1
       type: Automated
+    rhel8: { section: "6.3.3.13", level: "L2", type: "Automated" }
   stig:
     rhel9:
       vuln_id: V-257869

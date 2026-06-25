@@ -39,35 +39,35 @@
    "framework": "cis",
    "os": "rhel10",
    "total": 328,
-   "covered": 22,
+   "covered": 224,
    "drifted": 3
   },
   {
    "framework": "cis",
    "os": "rhel8",
    "total": 322,
-   "covered": 155,
+   "covered": 224,
    "drifted": 27
   },
   {
    "framework": "cis",
    "os": "rhel9",
    "total": 297,
-   "covered": 266,
+   "covered": 267,
    "drifted": 1
   },
   {
    "framework": "cis",
    "os": "ubuntu22",
    "total": 306,
-   "covered": 0,
+   "covered": 18,
    "drifted": 0
   },
   {
    "framework": "cis",
    "os": "ubuntu24",
    "total": 332,
-   "covered": 0,
+   "covered": 19,
    "drifted": 0
   }
  ]

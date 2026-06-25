@@ -19,6 +19,10 @@ references:
       section: 6.3.1.1
       level: L1
       type: Automated
+    rhel10: { section: "6.3.1.1", level: "L2", type: "Automated" }
+    ubuntu24: { section: "6.2.1.1", level: "L2", type: "Automated" }
+    ubuntu22: { section: "6.2.1.1", level: "L2", type: "Automated" }
+    rhel8: { section: "6.3.1.1", level: "L2", type: "Automated" }
   stig:
     ubuntu24:
       vuln_id: V-270656

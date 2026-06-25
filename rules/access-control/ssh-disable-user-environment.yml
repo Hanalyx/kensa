@@ -29,6 +29,8 @@ references:
       section: 5.1.23
       level: L1
       type: Automated
+    ubuntu24: { section: "5.1.21", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.1.21", level: "L1", type: "Automated" }
   nist_800_53:
   - AC-17
   - SC-8
