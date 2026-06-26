@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -74,6 +75,70 @@ func (s *Service) RemediateWithProgress(ctx context.Context, host api.HostConfig
 // closes when ctx is done.
 func (s *Service) Subscribe(ctx context.Context, filter api.EventFilter) (<-chan api.Event, error) {
 	return s.eventBus.Subscribe(ctx, filter)
+}
+
+// RecordRemediateSession groups the transactions a remediation just committed
+// under a new session, so the session-aware rollback workflow
+// (`kensa list sessions`, `kensa rollback --start SESSION`) can find them. The
+// engine persists each transaction with a NULL session_id during its commit
+// phase; without this grouping a remediation's committed transactions are
+// invisible to `list sessions` and reachable only by the legacy
+// `rollback --txn UUID` path.
+//
+// It attaches through the SAME store handle the engine wrote the transactions
+// with, so the just-committed rows are guaranteed visible (a second store
+// connection would not see them until the engine's WAL is checkpointed).
+// Sessions are a CLI-invocation grouping, so this is a CLI-driven step, not
+// part of Remediate itself — an API embedder (e.g. OpenWatch) does its own
+// run grouping.
+//
+// Best-effort by the caller's contract: the host is already changed, so the
+// CLI treats any error here as a warning. Returns the new session ID, or
+// uuid.Nil when there is no store (scan-only construction) or no transaction
+// to group. If some transactions fail to attach, the session still groups the
+// rest and an error names the count.
+func (s *Service) RecordRemediateSession(ctx context.Context, host string, result *api.RemediationResult) (uuid.UUID, error) {
+	if s.store == nil || result == nil || len(result.Transactions) == 0 {
+		return uuid.Nil, nil
+	}
+	startedAt := result.Transactions[0].StartedAt
+	for i := range result.Transactions {
+		if t := result.Transactions[i].StartedAt; !t.IsZero() && t.Before(startedAt) {
+			startedAt = t
+		}
+	}
+	if startedAt.IsZero() {
+		startedAt = time.Now().UTC()
+	}
+
+	sess := &store.Session{
+		ID:          uuid.New(),
+		StartedAt:   startedAt,
+		Hostname:    host,
+		Subcommand:  "remediate",
+		ArgsSummary: fmt.Sprintf("%d rule(s)", len(result.Transactions)),
+	}
+	if err := s.store.CreateSession(ctx, sess); err != nil {
+		return uuid.Nil, fmt.Errorf("create session: %w", err)
+	}
+	var failed int
+	for i := range result.Transactions {
+		txnID := result.Transactions[i].TransactionID
+		if txnID == uuid.Nil {
+			continue
+		}
+		if err := s.store.AttachTransaction(ctx, txnID, sess.ID); err != nil {
+			failed++
+			fmt.Fprintf(os.Stderr, "warn: attach %s to session: %v\n", txnID, err)
+		}
+	}
+	if err := s.store.FinishSession(ctx, sess.ID, time.Now().UTC()); err != nil {
+		return sess.ID, fmt.Errorf("finish session: %w", err)
+	}
+	if failed > 0 {
+		return sess.ID, fmt.Errorf("%d transaction(s) could not be attached to the rollback session", failed)
+	}
+	return sess.ID, nil
 }
 
 // Close releases owned resources. Safe to call multiple times.

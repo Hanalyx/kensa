@@ -73,6 +73,11 @@ import (
 // works locally without invoking make.
 var version = "dev"
 
+// defaultDBPath is the documented default SQLite transaction-log path, applied
+// when --db is unset. It must match the default kensa.Default uses internally so
+// the read/rollback commands open the same store the write commands wrote to.
+const defaultDBPath = ".kensa/results.db"
+
 func main() {
 	os.Exit(runCLI(os.Args[1:]))
 }
@@ -141,6 +146,17 @@ func runCLI(argv []string) int {
 	if topFlags.NArg() == 0 {
 		printUsage(os.Stderr)
 		return 2
+	}
+
+	// Resolve the documented default store path once, centrally, so every
+	// subcommand agrees. kensa.Default applies this same default internally
+	// for the write path (check/remediate), but the read/rollback commands
+	// open the store directly via store.OpenSQLite — without this an empty
+	// --db sent them to a different (empty) database than the one remediate
+	// wrote to, so `kensa rollback --list` / `list sessions` found nothing
+	// after a default-db remediation.
+	if dbPath == "" {
+		dbPath = defaultDBPath
 	}
 
 	cmd := topFlags.Arg(0)
@@ -1571,6 +1587,17 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		if err := writeOSCALFile(oscalOut, result); err != nil {
 			fmt.Fprintf(os.Stderr, "kensa remediate: OSCAL export: %v\n", err)
 		}
+	}
+
+	// Group the committed transactions under a session so the session-aware
+	// rollback workflow (`kensa list sessions`, `rollback --start`) can find
+	// them. The engine persisted each transaction with a NULL session_id;
+	// without this they are reachable only by `rollback --txn UUID`. Done
+	// through the service's own store handle so the just-committed rows are
+	// visible. Best-effort — the host is already changed, so a store error
+	// must not fail the command.
+	if _, err := svc.RecordRemediateSession(ctx, host, result); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: record rollback session: %v\n", err)
 	}
 	return nil
 }
