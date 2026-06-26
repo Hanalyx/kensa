@@ -468,16 +468,19 @@ func runCoverage(ctx context.Context, store *catalog.Store, args []string) {
 		fail(err)
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(w, "OS\tRELEASE\tTOTAL\tCOVERED\tMISSING\tDRIFT\tCOV%%\n")
+	fmt.Fprintf(w, "OS\tRELEASE\tTOTAL\tCOVERED\tMISSING\tDRIFT\tCOV%%\tVERIF\tVERIF%%\n")
 	for _, r := range rows {
-		pct := 0.0
+		pct, vpct := 0.0, 0.0
 		if r.Total > 0 {
 			pct = 100 * float64(r.Covered) / float64(r.Total)
+			vpct = 100 * float64(r.Verified) / float64(r.Total)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%d\t%.1f\n",
-			r.OS, r.Version, r.Total, r.Covered, r.Missing, r.Drifted, pct)
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%d\t%.1f\t%d\t%.1f\n",
+			r.OS, r.Version, r.Total, r.Covered, r.Missing, r.Drifted, pct, r.Verified, vpct)
 	}
 	_ = w.Flush()
+	fmt.Fprintln(os.Stderr, "COVERED = a rule cites the control (citation ceiling); "+
+		"VERIF = covered AND a covering rule is live-verified on that exact OS (trustworthy floor).")
 }
 
 func usage(w io.Writer) {
@@ -494,7 +497,7 @@ Build:
   kensa-catalog -db PATH build <sources-dir> <rules-dir>   rebuild from vendored sources + rules
 
 Query (view) the catalog:
-  kensa-catalog -db PATH coverage [framework]              covered/missing/drift per OS (stig|cis)
+  kensa-catalog -db PATH coverage [framework]              covered/missing/drift + verified-coverage per OS (stig|cis)
   kensa-catalog -db PATH nist                              derived 800-53 r5 surface, per family
   kensa-catalog -db PATH missing <framework> <os>          controls no rule covers (the backlog)
   kensa-catalog -db PATH drift   <framework> <os>          stale references (re-mapping list)

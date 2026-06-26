@@ -135,6 +135,50 @@ func TestCoverageMatrix_DriftIsDistinct(t *testing.T) {
 	})
 }
 
+// TestCoverageMatrix_VerifiedIsExactOS locks the verified-coverage floor: a
+// control counts as Verified only when its covering rule has a verification on
+// the SAME os as the benchmark. A rule proven on a sibling os (ubuntu26) does
+// not lift the ubuntu24 verified count, and an unverified-but-cited control
+// stays out of Verified while remaining in Covered.
+func TestCoverageMatrix_VerifiedIsExactOS(t *testing.T) {
+	t.Run("catalog-coverage-crosswalk/AC-03", func(t *testing.T) {
+		s, ctx := newStore(t)
+		dir := t.TempDir()
+		if _, err := s.IngestSTIG(ctx, "rhel9", "vT", writeFixture(t, dir, "x.xml", fixtureXCCDF)); err != nil {
+			t.Fatal(err)
+		}
+		// rule-a covers V-1 (a real control); rule-b/c cite the absent V-999.
+		if _, err := s.IngestCoverageFromCorpus(ctx, writeFixture(t, dir, "c.json", fixtureCorpus)); err != nil {
+			t.Fatal(err)
+		}
+		// rule-a is verified, but on ubuntu26 — the WRONG os for the rhel9
+		// benchmark. So V-1 is covered but NOT verified for rhel9.
+		vf := `{"verifications":[{"rule_id":"rule-a","os":"ubuntu26","scope":"check","host":"c","verified_at":"2026-06-24"}]}`
+		if _, err := s.IngestVerifications(ctx, writeFixture(t, dir, "v.json", vf)); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := s.CoverageMatrix(ctx, "stig")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rows[0].Covered != 1 || rows[0].Verified != 0 {
+			t.Fatalf("covered/verified = %d/%d, want 1/0 (sibling-os verification must not count)", rows[0].Covered, rows[0].Verified)
+		}
+		// Now add a rhel9 verification of rule-a -> V-1 becomes verified.
+		vf2 := `{"verifications":[{"rule_id":"rule-a","os":"rhel9","scope":"full","host":"c","verified_at":"2026-06-24"}]}`
+		if _, err := s.IngestVerifications(ctx, writeFixture(t, dir, "v2.json", vf2)); err != nil {
+			t.Fatal(err)
+		}
+		rows, err = s.CoverageMatrix(ctx, "stig")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rows[0].Verified != 1 {
+			t.Errorf("verified = %d, want 1 after exact-os (rhel9) verification", rows[0].Verified)
+		}
+	})
+}
+
 // @spec catalog-coverage-crosswalk
 // @ac AC-04
 func TestSplitVersionedFramework(t *testing.T) {
