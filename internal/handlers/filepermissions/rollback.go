@@ -21,6 +21,9 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	if pre == nil || pre.Data == nil {
 		return nil, fmt.Errorf("file_permissions: rollback called with nil pre-state")
 	}
+	if isFindBasedPreState(pre) {
+		return h.rollbackFindBased(ctx, transport, pre)
+	}
 
 	path, ok := pre.Data["path"].(string)
 	if !ok || path == "" {
