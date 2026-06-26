@@ -1,0 +1,43 @@
+id: journal-dirs-owner
+title: Ensure system journal directories are owned by root
+description: >
+  All directories under /run/log/journal and /var/log/journal must be owned
+  by root so that only the root account can manage the systemd journal store.
+rationale: >
+  Journal directories owned by a non-root account could let that account
+  remove or replace journal files, destroying or falsifying the operational
+  and security record the journal is meant to preserve.
+severity: medium
+category: logging
+tags: [journald, permissions, logging]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270763"
+      stig_id: "UBTU-24-700080"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260501"
+      stig_id: "UBTU-22-232080"
+      severity: "CAT II"
+  nist_800_53: ["SI-11", "AC-6"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /run/log/journal /var/log/journal ! -user root -type d 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: file_permissions
+      find_paths:
+        - /run/log/journal
+        - /var/log/journal
+      find_type: d
+      find_args: "! -user root"
+      owner: root

@@ -1,0 +1,40 @@
+id: journalctl-command-owner
+title: Ensure the journalctl command is owned by root
+description: >
+  The /usr/bin/journalctl command must be owned by root so that only the
+  root account can replace or tamper with the binary used to read the
+  systemd journal.
+rationale: >
+  A journalctl binary owned by a non-root account could be modified by that
+  account to hide or alter journal output, undermining the integrity of the
+  audit and operational record.
+severity: medium
+category: logging
+tags: [journald, permissions, logging]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270759"
+      stig_id: "UBTU-24-700040"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260505"
+      stig_id: "UBTU-22-232100"
+      severity: "CAT II"
+  nist_800_53: ["SI-11", "AC-6"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: file_permission
+      path: /usr/bin/journalctl
+      owner: root
+    remediation:
+      mechanism: file_permissions
+      path: /usr/bin/journalctl
+      owner: root

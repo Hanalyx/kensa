@@ -1,0 +1,44 @@
+id: journal-files-owner
+title: Ensure system journal files are owned by root
+description: >
+  All files under /run/log/journal and /var/log/journal must be owned by
+  root so that only the root account can alter or remove stored journal
+  records.
+rationale: >
+  Journal files owned by a non-root account could be edited or deleted by
+  that account, destroying or falsifying the operational and security
+  record the journal is meant to preserve.
+severity: medium
+category: logging
+tags: [journald, permissions, logging]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270764"
+      stig_id: "UBTU-24-700090"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260503"
+      stig_id: "UBTU-22-232090"
+      severity: "CAT II"
+  nist_800_53: ["SI-11", "AC-6"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find /run/log/journal /var/log/journal ! -user root -type f 2>/dev/null | head -1"
+      expected_stdout: ""
+    remediation:
+      mechanism: file_permissions
+      find_paths:
+        - /run/log/journal
+        - /var/log/journal
+      find_type: f
+      find_args: "! -user root"
+      owner: root

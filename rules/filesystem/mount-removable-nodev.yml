@@ -26,12 +26,12 @@ platforms:
 implementations:
   - default: true
     check:
+      # A removable-media mount (under /media, /mnt or /run/media) that lacks
+      # nodev. Scoping to the removable mount points instead of blocklisting
+      # fixed disks avoids flagging fixed LVM/root filesystems; a host with no
+      # removable media mounted vacuously passes.
       method: command
-      run: >
-        grep -E '\s(vfat|ext[234]|xfs|ntfs|iso9660)\s' /proc/mounts 2>/dev/null |
-        grep -vE '^(tmpfs|/dev/sd[a-z][1-9]* / |overlay|/dev/(nvme|vd|sda))' |
-        grep -v ' /boot' | grep -v ' /home' | grep -v ' /var' | grep -v ' /tmp' |
-        grep -v 'nodev' | head -1
+      run: "grep -E ' /(media|mnt|run/media)' /proc/mounts 2>/dev/null | grep -v nodev | head -1"
       expected_stdout: ""
     remediation:
       mechanism: manual
