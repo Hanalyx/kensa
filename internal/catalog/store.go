@@ -420,6 +420,11 @@ func sortFamilies(rows []NISTFamilyCount) {
 type CoverageRow struct {
 	Framework, OS, Version           string
 	Total, Covered, Missing, Drifted int
+	// Verified is the subset of Covered whose covering rule has a recorded
+	// functional verification on this exact OS — controls backed by a rule
+	// actually run on a live host of that OS, not merely cited. This is the
+	// trustworthy floor under the citation-based Covered count.
+	Verified int
 }
 
 // CoverageMatrix computes covered, missing, and drifted counts per benchmark for
@@ -471,6 +476,20 @@ func (s *Store) CoverageMatrix(ctx context.Context, framework string) ([]Coverag
                 SELECT 1 FROM control c JOIN benchmark b ON c.benchmark_id = b.id
                 WHERE b.framework = cov.framework AND b.os = cov.os AND c.control_id = cov.control_id)`,
 			framework, out[i].OS).Scan(&out[i].Drifted); err != nil {
+			return nil, err
+		}
+		// Verified-covered: benchmark controls covered by a rule that also has a
+		// functional-verification record on this exact OS. Exact-OS by design —
+		// a rule proven on Ubuntu 26.04 is not proof for the 24.04 benchmark.
+		if err := s.db.QueryRowContext(ctx, `
+            SELECT COUNT(DISTINCT c.control_id)
+            FROM control c
+            JOIN benchmark b ON c.benchmark_id = b.id
+            JOIN coverage cov ON cov.control_id = c.control_id
+                AND cov.framework = b.framework AND cov.os = b.os
+            JOIN verification v ON v.rule_id = cov.rule_id AND v.os = b.os
+            WHERE b.framework = ? AND b.os = ?`,
+			framework, out[i].OS).Scan(&out[i].Verified); err != nil {
 			return nil, err
 		}
 	}
