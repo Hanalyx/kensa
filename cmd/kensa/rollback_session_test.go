@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,40 @@ import (
 
 	"github.com/Hanalyx/kensa/internal/store"
 )
+
+// TestRunCLI_DefaultDBPath_ResolvesToDefaultStore locks the fix for the
+// empty---db divergence: the write path (remediate) resolves an unset --db to
+// .kensa/results.db via kensa.Default, but the read/rollback commands open the
+// store directly, so without a central default they looked at a different
+// (empty) database and `rollback --list` found nothing after a default-db
+// remediation. runCLI must apply the documented default for all subcommands.
+func TestRunCLI_DefaultDBPath_ResolvesToDefaultStore(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir) // so ".kensa/results.db" resolves under the temp dir
+	if err := os.MkdirAll(".kensa", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Seed a rollback-able remediate session at the default path. The
+	// RollbackableSessions query reads the denormalized sessions table, so the
+	// session row alone (TxnCommitted>0, subcommand=remediate) is enough.
+	s, err := store.OpenSQLite(context.Background(), filepath.Join(".kensa", "results.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSession(context.Background(), &store.Session{
+		ID: uuid.New(), StartedAt: time.Now().UTC().Add(-time.Hour),
+		Hostname: "host-a", Subcommand: "remediate",
+		TxnTotal: 1, TxnCommitted: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+
+	stdout, _ := captureRunCLI([]string{"rollback", "--list"}, t) // NO --db
+	if !strings.Contains(stdout, "1 rollback-able session(s)") {
+		t.Errorf("empty --db must resolve to .kensa/results.db so rollback --list finds the remediate session; got:\n%s", stdout)
+	}
+}
 
 // makeRollbackStore seeds a temp DB with one rollback-able
 // session (host-a, 2 committed txns) and one with no committed
