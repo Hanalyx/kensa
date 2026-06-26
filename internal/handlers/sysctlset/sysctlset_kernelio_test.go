@@ -3,6 +3,7 @@ package sysctlset_test
 import (
 	"context"
 	"errors"
+	"path"
 	"strings"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 
 // persistPathFor mirrors the handler's per-key default drop-in path. Each
 // sysctl key gets its own file so multiple rules never share (and clobber) one.
-func persistPathFor(key string) string { return "/etc/sysctl.d/99-kensa-" + key + ".conf" }
+func persistPathFor(key string) string { return "/etc/sysctl.d/99-kensa_" + key + ".conf" }
 
 // Kernel-IO Apply writes the runtime value to the proc layer and the
 // drop-in to the persist layer (no shell).
@@ -165,6 +166,31 @@ func TestDefaultPersistFile_PerKey_NoClobber(t *testing.T) {
 	}
 	if len(f.Files) != 2 {
 		t.Errorf("expected 2 distinct drop-in files (one per key), got %d: %v", len(f.Files), f.Files)
+	}
+}
+
+// TestPerKeyFile_SortsAfterLegacyShared locks the load-order guarantee: a
+// per-key drop-in must sort lexicographically AFTER the legacy shared
+// /etc/sysctl.d/99-kensa.conf so that, on a host the prior handler remediated,
+// the per-key file (read later by sysctl.d) overrides any stale key still in
+// the orphaned legacy file — for every key, including ones starting with a
+// letter below 'c' (e.g. abi.*).
+//
+// @spec kernelio-sysctl
+// @ac AC-05
+func TestPerKeyFile_SortsAfterLegacyShared(t *testing.T) {
+	t.Run("kernelio-sysctl/AC-05", func(t *testing.T) {})
+	const legacy = "99-kensa.conf"
+	for _, key := range []string{
+		"abi.vsyscall32",      // 'a' < 'c' — the adversarial case for a dot separator
+		"fs.suid_dumpable",    // 'f'
+		"net.ipv4.ip_forward", // 'n'
+		"kernel.randomize_va_space",
+	} {
+		base := path.Base(persistPathFor(key))
+		if base <= legacy {
+			t.Errorf("per-key file %q must sort AFTER legacy %q so it wins on a previously-remediated host", base, legacy)
+		}
 	}
 }
 

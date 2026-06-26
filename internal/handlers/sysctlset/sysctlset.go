@@ -43,8 +43,15 @@ const mechanism = "sysctl_set"
 // rolling one rule back never disturbs another's persisted value. Because a
 // file is owned by exactly one rule, capture/apply/rollback are byte-perfect
 // and order-independent. 99-* keeps CIS-style highest precedence.
+//
+// The "_" after "kensa" is load-bearing: sysctl.d applies files in
+// lexicographic order and the latest filename wins for a duplicate key. A host
+// remediated by the prior handler has a legacy shared /etc/sysctl.d/99-kensa.conf
+// this code never touches; "_" (0x5F) sorts AFTER "." (0x2E), so 99-kensa_<key>.conf
+// is read after — and overrides — any stale key still in 99-kensa.conf,
+// regardless of the key name.
 func defaultPersistFile(key string) string {
-	return "/etc/sysctl.d/99-kensa-" + sanitizeKeyForFilename(key) + ".conf"
+	return "/etc/sysctl.d/99-kensa_" + sanitizeKeyForFilename(key) + ".conf"
 }
 
 // sanitizeKeyForFilename maps a sysctl key to a safe filename component. Real

@@ -34,7 +34,7 @@ func TestApply_AC01_RuntimeAndPersistBothWritten(t *testing.T) {
 	if !strings.Contains(tp.Runs[0], "sysctl -w 'net.ipv4.ip_forward'='0'") {
 		t.Errorf("first run should be sysctl -w; got %q", tp.Runs[0])
 	}
-	if !strings.Contains(tp.Runs[1], "/etc/sysctl.d/99-kensa-net.ipv4.ip_forward.conf") {
+	if !strings.Contains(tp.Runs[1], "/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf") {
 		t.Errorf("second run should write to default persist file; got %q", tp.Runs[1])
 	}
 	if !strings.Contains(tp.Runs[1], "net.ipv4.ip_forward = 0") {
@@ -70,7 +70,7 @@ func TestCapture_AC03_RecordsRuntimeAndPersistContent(t *testing.T) {
 	// Program runtime probe.
 	tp.Results["sysctl -n 'net.ipv4.ip_forward'"] = &api.CommandResult{Stdout: "0\n"}
 	// Program persist-file existence + read.
-	tp.Results["test -e '/etc/sysctl.d/99-kensa-net.ipv4.ip_forward.conf' && cat '/etc/sysctl.d/99-kensa-net.ipv4.ip_forward.conf' || printf '__KENSA_ABSENT__'"] =
+	tp.Results["test -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' && cat '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' || printf '__KENSA_ABSENT__'"] =
 		&api.CommandResult{Stdout: "# old kensa\nnet.ipv4.ip_forward = 0\n"}
 
 	h := sysctlset.New()
@@ -102,7 +102,7 @@ func TestRollback_AC04_RestoresFileContent(t *testing.T) {
 	pre := &api.PreState{
 		Data: map[string]interface{}{
 			"key":                  "net.ipv4.ip_forward",
-			"persist_file":         "/etc/sysctl.d/99-kensa-net.ipv4.ip_forward.conf",
+			"persist_file":         "/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf",
 			"runtime_value":        "0",
 			"persist_file_content": "# original\nnet.ipv4.ip_forward = 0\n",
 			"persist_file_existed": true,
@@ -131,7 +131,7 @@ func TestRollback_AC05_RemovesFileWhenAbsent(t *testing.T) {
 	pre := &api.PreState{
 		Data: map[string]interface{}{
 			"key":                  "net.ipv4.ip_forward",
-			"persist_file":         "/etc/sysctl.d/99-kensa-net.ipv4.ip_forward.conf",
+			"persist_file":         "/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf",
 			"runtime_value":        "1",
 			"persist_file_content": "",
 			"persist_file_existed": false,
@@ -144,7 +144,7 @@ func TestRollback_AC05_RemovesFileWhenAbsent(t *testing.T) {
 	if !res.Success {
 		t.Fatalf("Success=false: %s", res.Detail)
 	}
-	if !strings.Contains(tp.Runs[0], "rm -f '/etc/sysctl.d/99-kensa-net.ipv4.ip_forward.conf'") {
+	if !strings.Contains(tp.Runs[0], "rm -f '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'") {
 		t.Errorf("expected rm -f for absent file; got %q", tp.Runs[0])
 	}
 }
