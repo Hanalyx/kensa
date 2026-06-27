@@ -1,0 +1,68 @@
+id: ssh-x11-forwarding
+title: Disable SSH X11 forwarding
+description: >
+  The SSH daemon must disable X11 forwarding. X11Forwarding controls whether
+  the server tunnels X11 traffic over the SSH session; when set to no, remote
+  X clients cannot be forwarded through the daemon.
+
+rationale: >
+  X11 forwarding exposes the local X server to clients on the remote host. A
+  compromised or malicious remote host with a forwarded X11 channel can capture
+  keystrokes and screen contents or inject input into the local session.
+  Disabling X11 forwarding removes that attack surface entirely.
+
+severity: medium
+category: access-control
+tags: [ssh, x11, forwarding]
+
+depends_on: [pkg-openssh-server-present]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230555"
+      stig_id: "RHEL-08-040340"
+      severity: "CAT II"
+      cci: ["CCI-000366"]
+    rhel9:
+      vuln_id: "V-258007"
+      stig_id: "RHEL-09-255155"
+      severity: "CAT II"
+      cci: ["CCI-000366"]
+    rhel10:
+      vuln_id: "V-281258"
+      stig_id: "RHEL-10-700550"
+      severity: "CAT II"
+      cci: ["CCI-002696"]
+  nist_800_53: ["CM-6", "CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: sshd_config_d
+    check:
+      method: sshd_effective_config
+      key: "x11forwarding"
+      expected: "no"
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-x11-forwarding.conf"
+      key: "X11Forwarding"
+      value: "no"
+      reload: "sshd"
+
+  - default: true
+    check:
+      method: sshd_effective_config
+      key: "x11forwarding"
+      expected: "no"
+    remediation:
+      mechanism: config_set
+      path: "/etc/ssh/sshd_config"
+      key: "X11Forwarding"
+      value: "no"
+      separator: " "
+      reload: "sshd"
