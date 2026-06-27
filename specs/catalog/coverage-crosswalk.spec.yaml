@@ -1,6 +1,6 @@
 spec:
     id: catalog-coverage-crosswalk
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 3
 
@@ -112,6 +112,16 @@ spec:
               the extend-vs-net-new split is precise rather than guesswork.
           type: business
           enforcement: error
+        - id: C-10
+          description: |
+              A rule's cited STIG stig_id MUST resolve to the same control as its
+              vuln_id in the vendored source XCCDF. vuln_id is the verdict-carrying
+              field (it flows to FrameworkRefs); an inconsistent (vuln_id, stig_id)
+              pair signals a mis-citation inherited from the archived corpus. A
+              ratcheting allowlist of known-deferred mismatches MAY be carried and
+              MUST only shrink — a new inconsistency fails CI.
+          type: business
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -183,6 +193,14 @@ spec:
               controls covered/extend/net-new and names the matching rule for each
               extend candidate. Locked by TestCrosswalk.
           references_constraints: [C-09]
+          priority: high
+        - id: AC-11
+          description: |
+              Every STIG citation in the production rule corpus has a stig_id that
+              matches its vuln_id's stig_id in the vendored XCCDF, except a
+              ratcheting allowlist of known-deferred mis-cites that may only shrink.
+              Locked by TestSTIGCitationConsistency_ProductionCorpus.
+          references_constraints: [C-10]
           priority: high
 
     tags: [catalog, crosswalk, coverage, dev-tool]
