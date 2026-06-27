@@ -232,8 +232,8 @@ func TestLoadRules_ProductionCorpus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("production corpus must load strictly on built-in defaults: %v", err)
 		}
-		if len(rules) != 618 {
-			t.Errorf("want 618 rules, got %d", len(rules))
+		if len(rules) != 619 {
+			t.Errorf("want 619 rules, got %d", len(rules))
 		}
 		rv, err := RuleVariables(corpus)
 		if err != nil {
