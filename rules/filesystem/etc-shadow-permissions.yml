@@ -30,10 +30,8 @@ references:
   - AC-3
   - MP-2
   stig:
-    rhel8:
-      vuln_id: V-230256
-      stig_id: RHEL-08-010150
-      severity: CAT II
+    # RHEL 8 STIG V2R7 has no /etc/shadow owner/group/mode control (V-230256 was
+    # not in the source — RHEL 9 introduced the granular file-permission controls).
     rhel9:                                                                   # grouped: one file_permissions rule, three STIG controls
       - { vuln_id: "V-257934", severity: "CAT II" }                          # mode 0000
       - { vuln_id: "V-257910", severity: "CAT II" }                          # owner root

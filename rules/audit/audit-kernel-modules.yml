@@ -18,10 +18,9 @@ references:
     rhel9:  { section: "6.3.3.19", level: "L1", type: "Automated" }
     rhel10: { section: "6.3.3.31", level: "L2", type: "Automated" }
   stig:
-    rhel9:
-      vuln_id: "V-257870"
-      stig_id: "RHEL-09-654040"
-      severity: "CAT II"
+    rhel9:                                                                   # audits init_module + finit_module + delete_module -> two STIG controls
+      - { vuln_id: "V-258189", stig_id: "RHEL-09-654075", severity: "CAT II" }   # delete_module
+      - { vuln_id: "V-258190", stig_id: "RHEL-09-654080", severity: "CAT II" }   # init_module + finit_module
     rhel8:
       vuln_id: "V-230438"
       severity: "CAT II"
