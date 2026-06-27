@@ -18,11 +18,9 @@ import (
 // vuln_id) is the intended direction; adding one is forbidden — a brand-new
 // inconsistency means a mis-citation slipped in and CI must fail.
 var deferredSTIGMiscites = map[string]bool{
-	"audit-time-change|rhel9|V-257849":        true, // cites a mount control; correct audit-time control unresolved
-	"audit-network-change|rhel9|V-257850":     true, // loose -k system-locale check; control unresolved
-	"audit-mount-operations|rhel9|V-257873":   true, // cites a mount control; correct audit-mount control unresolved
-	"audit-user-group-changes|rhel9|V-258217": true, // V-258217 is /etc/sudoers; rule watches the /etc/passwd family
-	"root-only-gid0|rhel9|V-257890":           true, // cites a home-dir-mode control
+	"audit-time-change|rhel9|V-257849":      true, // cites a mount control; correct audit-time control unresolved
+	"audit-network-change|rhel9|V-257850":   true, // loose -k system-locale check; control unresolved
+	"audit-mount-operations|rhel9|V-257873": true, // cites a mount control; correct audit-mount control unresolved
 }
 
 type manifestDoc struct {

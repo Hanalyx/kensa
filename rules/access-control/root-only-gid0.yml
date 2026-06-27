@@ -29,11 +29,8 @@ references:
     rhel10: { section: "5.4.2.2", level: "L1", type: "Automated" }
   nist_800_53:
   - AC-6
-  stig:
-    rhel9:
-      vuln_id: V-257890
-      stig_id: RHEL-09-411050
-      severity: CAT I
+  # No DISA STIG control for a root-only-GID-0 check: the "only account" control
+  # is V-258059 (UID 0), owned by root-only-uid0. This rule keeps its CIS cites.
 platforms:
 - family: rhel
   min_version: 8
