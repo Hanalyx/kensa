@@ -24,10 +24,6 @@ references:
     rhel10:  { section: "5.1.16", level: "L1", type: "Automated" }
     rhel8:  { section: "5.1.18", level: "L1", type: "Automated" }
     rhel9:  { section: "5.1.16", level: "L1", type: "Automated" }
-  stig:
-    rhel8:
-      vuln_id: "V-230253"
-      severity: "CAT III"
   nist_800_53: ["AC-7", "CM-6"]
 
 platforms:

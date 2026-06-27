@@ -21,7 +21,8 @@ depends_on:
 references:
   stig:
     rhel8:
-      vuln_id: V-230390
+      vuln_id: V-230388
+      stig_id: RHEL-08-030020
       severity: CAT II
     rhel9:
       vuln_id: V-258174
