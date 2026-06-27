@@ -13,11 +13,8 @@ category: system
 tags: [grub, kernel, memory, security, boot]
 
 references:
-  stig:
-    rhel9:
-      vuln_id: "V-257794"
-      stig_id: "RHEL-09-212045"
-      severity: "CAT II"
+  # slub_debug has no DISA STIG control (RHEL STIG covers page_poison,
+  # init_on_free, vsyscall — not slub_debug); this rule is defense-in-depth.
   nist_800_53: ["CM-6", "SC-4"]
 
 platforms:
