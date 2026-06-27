@@ -44,17 +44,19 @@ func RefsFromReferences(refs map[string]interface{}) []api.FrameworkRef {
 	for framework, value := range refs {
 		switch v := value.(type) {
 		case map[string]interface{}:
-			// Versioned-object framework: keys are OS-version identifiers.
+			// Versioned-object framework: keys are OS-version identifiers. The
+			// value under an OS key is EITHER a single reference object (the
+			// common case) OR a list of reference objects — one grouped rule
+			// declaring several co-satisfied control-ids on one OS (schema
+			// V1.1 §3.3). Each yields one FrameworkRef.
 			for osVersion, detail := range v {
 				frameworkID := fmt.Sprintf("%s_%s", framework, osVersion)
-				controlID := extractVersionedControlID(framework, detail)
-				if controlID == "" {
-					continue
+				for _, controlID := range extractVersionedControlIDs(framework, detail) {
+					out = append(out, api.FrameworkRef{
+						FrameworkID: frameworkID,
+						ControlID:   controlID,
+					})
 				}
-				out = append(out, api.FrameworkRef{
-					FrameworkID: frameworkID,
-					ControlID:   controlID,
-				})
 			}
 		case []interface{}:
 			// Flat-list framework: each element is a control-ID string.
@@ -71,6 +73,33 @@ func RefsFromReferences(refs map[string]interface{}) []api.FrameworkRef {
 		}
 	}
 	return out
+}
+
+// extractVersionedControlIDs returns the control identifier(s) under one OS key
+// of a versioned framework. Per schema V1.1 §3.3, the detail is EITHER a single
+// reference object (yielding one id) or a list of reference objects (yielding
+// one id each, de-duplicated). A non-object list entry, or a missing control-id
+// field, is skipped — consistent with the silently-skip-unknown-shapes policy.
+func extractVersionedControlIDs(framework string, detail interface{}) []string {
+	switch d := detail.(type) {
+	case map[string]interface{}:
+		if id := extractVersionedControlID(framework, d); id != "" {
+			return []string{id}
+		}
+	case []interface{}:
+		var ids []string
+		seen := map[string]bool{}
+		for _, entry := range d {
+			id := extractVersionedControlID(framework, entry)
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
 }
 
 // extractVersionedControlID extracts the primary control identifier from a
