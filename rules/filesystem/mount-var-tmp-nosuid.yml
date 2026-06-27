@@ -11,6 +11,16 @@ category: filesystem
 tags: [mount, var-tmp, hardening]
 
 references:
+  stig:
+    rhel8:
+      vuln_id: "V-230521"
+      severity: "CAT II"
+    rhel9:
+      vuln_id: "V-257878"
+      severity: "CAT II"
+    rhel10:
+      vuln_id: "V-281247"
+      severity: "CAT II"
   cis:
     rhel8:  { section: "1.1.2.5.3", level: "L1", type: "Automated" }
     rhel9:  { section: "1.1.2.5.3", level: "L1", type: "Automated" }
