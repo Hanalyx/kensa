@@ -24,11 +24,9 @@ references:
       section: 6.3.3.5
       level: L1
       type: Automated
-  stig:
-    rhel9:
-      vuln_id: V-257850
-      stig_id: RHEL-09-654020
-      severity: CAT II
+  # RHEL 9 STIG V2R8 has no audit control for the system-locale/sethostname
+  # network-environment changes; the prior rhel9 cite pointed at an unrelated
+  # mount control. Rule keeps its CIS cites + audits as defense-in-depth.
   nist_800_53:
   - AU-2
   - AU-12
