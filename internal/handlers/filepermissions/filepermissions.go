@@ -80,15 +80,18 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 func buildApplyCommands(p *Params) []string {
 	cmds := make([]string, 0, 3)
 	if p.Owner != "" || p.Group != "" {
-		// chown user:group path — colon syntax handles either or both.
+		// chown user:group path — colon syntax handles either or both. The
+		// spec is shell-quoted: owner/group come from rule content, which is
+		// untrusted on the apply path, so an unquoted spec like
+		// "root; rm -rf /" would inject a command running as root.
 		spec := p.Owner
 		if p.Group != "" {
 			spec += ":" + p.Group
 		}
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, shellQuote(p.Path)))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellQuote(spec), shellQuote(p.Path)))
 	}
 	if p.Mode != "" {
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", p.Mode, shellQuote(p.Path)))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellQuote(p.Mode), shellQuote(p.Path)))
 	}
 	if p.SELinuxContext != "" {
 		// Use --no-dereference so symlinks are labeled in place rather
