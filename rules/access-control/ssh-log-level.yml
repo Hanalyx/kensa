@@ -30,9 +30,8 @@ references:
       stig_id: "RHEL-09-255030"
       severity: "CAT II"
       cci: ["CCI-000067"]
-    rhel8:
-      vuln_id: "V-230228"
-      severity: "CAT II"
+  # RHEL 8 STIG has no sshd LogLevel control; V-230228 (rsyslog remote-access
+  # logging) is a different mechanism this rule does not satisfy.
   nist_800_53: ["AU-3", "AU-12"]
 
 platforms:
