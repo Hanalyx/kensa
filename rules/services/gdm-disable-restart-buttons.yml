@@ -21,7 +21,7 @@ references:
   stig:
     rhel9:
       vuln_id: V-258029
-      stig_id: RHEL-09-271080
+      stig_id: RHEL-09-271095
       severity: CAT II
   nist_800_53:
   - CM-6

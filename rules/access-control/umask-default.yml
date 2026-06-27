@@ -30,7 +30,7 @@ references:
   stig:
     rhel9:
       vuln_id: V-258044
-      stig_id: RHEL-09-412020
+      stig_id: RHEL-09-411025
       severity: CAT II
     rhel8:
       vuln_id: V-230383
