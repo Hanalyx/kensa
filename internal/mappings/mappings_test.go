@@ -55,6 +55,41 @@ func TestRefsFromReferences_STIG(t *testing.T) {
 	}
 }
 
+// TestRefsFromReferences_STIGList verifies schema V1.1 §3.3: an OS key may hold
+// a LIST of reference objects — one grouped rule satisfying several STIG
+// control-ids on one OS — each producing its own FrameworkRef. A single-form OS
+// key alongside still yields one ref, and duplicate vuln_ids are de-duplicated.
+func TestRefsFromReferences_STIGList(t *testing.T) {
+	refs := map[string]interface{}{
+		"stig": map[string]interface{}{
+			"rhel9": []interface{}{ // grouped: mode + owner + group + a dup of owner
+				map[string]interface{}{"vuln_id": "V-257895", "severity": "CAT II"},
+				map[string]interface{}{"vuln_id": "V-257906", "severity": "CAT II"},
+				map[string]interface{}{"vuln_id": "V-257907", "severity": "CAT II"},
+				map[string]interface{}{"vuln_id": "V-257906"}, // duplicate -> deduped
+			},
+			"rhel10": map[string]interface{}{"vuln_id": "V-281025"}, // single form still valid
+		},
+	}
+	got := mappings.RefsFromReferences(refs)
+	ids := map[string][]string{}
+	for _, r := range got {
+		ids[r.FrameworkID] = append(ids[r.FrameworkID], r.ControlID)
+	}
+	if len(ids["stig_rhel9"]) != 3 {
+		t.Errorf("stig_rhel9 refs=%v, want 3 distinct (V-257895/906/907, dup removed)", ids["stig_rhel9"])
+	}
+	want := map[string]bool{"V-257895": true, "V-257906": true, "V-257907": true}
+	for _, id := range ids["stig_rhel9"] {
+		if !want[id] {
+			t.Errorf("unexpected stig_rhel9 control-id %q", id)
+		}
+	}
+	if len(ids["stig_rhel10"]) != 1 || ids["stig_rhel10"][0] != "V-281025" {
+		t.Errorf("stig_rhel10=%v, want [V-281025] (single form alongside a list)", ids["stig_rhel10"])
+	}
+}
+
 // TestRefsFromReferences_FlatList verifies that flat-list frameworks produce
 // one FrameworkRef per control string.
 func TestRefsFromReferences_FlatList(t *testing.T) {
