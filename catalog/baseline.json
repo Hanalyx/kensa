@@ -4,21 +4,21 @@
    "framework": "stig",
    "os": "rhel10",
    "total": 434,
-   "covered": 98,
+   "covered": 102,
    "drifted": 1
   },
   {
    "framework": "stig",
    "os": "rhel8",
    "total": 366,
-   "covered": 276,
+   "covered": 279,
    "drifted": 1
   },
   {
    "framework": "stig",
    "os": "rhel9",
    "total": 446,
-   "covered": 266,
+   "covered": 270,
    "drifted": 1
   },
   {

@@ -11,6 +11,16 @@ category: filesystem
 tags: [mount, dev-shm, hardening]
 
 references:
+  stig:
+    rhel8:
+      vuln_id: "V-230509"
+      severity: "CAT II"
+    rhel9:
+      vuln_id: "V-257865"
+      severity: "CAT II"
+    rhel10:
+      vuln_id: "V-281237"
+      severity: "CAT II"
   cis:
     rhel8:  { section: "1.1.2.2.3", level: "L1", type: "Automated" }
     rhel9:  { section: "1.1.2.2.3", level: "L1", type: "Automated" }
