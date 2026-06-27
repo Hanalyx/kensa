@@ -15,9 +15,6 @@ tags:
 - remote-access
 references:
   stig:
-    rhel8:
-      vuln_id: V-230492
-      severity: CAT I
     ubuntu24:
       vuln_id: V-270648
       stig_id: UBTU-24-100040
