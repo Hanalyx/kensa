@@ -26,8 +26,8 @@ references:
       type: Automated
   stig:
     rhel9:
-      vuln_id: V-257852
-      stig_id: RHEL-09-654030
+      vuln_id: V-258177
+      stig_id: RHEL-09-654015
       severity: CAT II
   nist_800_53:
   - AU-2
