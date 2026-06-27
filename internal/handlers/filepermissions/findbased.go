@@ -85,15 +85,18 @@ func (h *Handler) applyFindBased(ctx context.Context, transport api.Transport, p
 	quoted := quoteAll(paths)
 	var cmds []string
 	if p.Owner != "" || p.Group != "" {
+		// spec is shell-quoted: owner/group come from rule content, untrusted
+		// on the apply path, so an unquoted "root; rm -rf /" would inject.
 		spec := p.Owner
 		if p.Group != "" {
 			spec += ":" + p.Group
 		}
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, quoted))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellQuote(spec), quoted))
 	}
 	if p.Mode != "" {
-		// Mode may be absolute octal or symbolic (e.g. "o-r"); chmod accepts both.
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", p.Mode, quoted))
+		// Mode may be absolute octal or symbolic (e.g. "o-r"); chmod accepts
+		// both. Quoted for the same injection reason as the spec.
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellQuote(p.Mode), quoted))
 	}
 	if len(cmds) == 0 {
 		return &api.StepResult{Success: true, Detail: "file_permissions: no owner/group/mode to set"}, nil
@@ -126,9 +129,10 @@ func (h *Handler) rollbackFindBased(ctx context.Context, transport api.Transport
 	var cmds []string
 	for _, f := range files {
 		// Owner/group always present from a stat capture; mode always present.
+		// spec/mode shell-quoted for injection-safety (symmetric with Apply).
 		spec := f.Owner + ":" + f.Group
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, shellQuote(f.Path)))
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", f.Mode, shellQuote(f.Path)))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellQuote(spec), shellQuote(f.Path)))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellQuote(f.Mode), shellQuote(f.Path)))
 	}
 	res, err := transport.Run(ctx, strings.Join(cmds, " && "))
 	if err != nil {

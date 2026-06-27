@@ -52,7 +52,7 @@ func TestFindBased_RoundTrip(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 	// Apply must chmod BOTH captured paths in one command (mode-only rule).
-	if !ranContaining(tp, "chmod o-r '/var/log/foo' '/var/log/bar'") {
+	if !ranContaining(tp, "chmod 'o-r' '/var/log/foo' '/var/log/bar'") {
 		t.Errorf("apply must chmod both captured paths; Runs=%v", tp.Runs)
 	}
 
@@ -61,8 +61,8 @@ func TestFindBased_RoundTrip(t *testing.T) {
 	}
 	// Rollback restores EACH file to its own prior mode + owner:group.
 	for _, want := range []string{
-		"chown root:root '/var/log/foo'", "chmod 0644 '/var/log/foo'",
-		"chown root:adm '/var/log/bar'", "chmod 0640 '/var/log/bar'", // 640 padded to 0640
+		"chown 'root:root' '/var/log/foo'", "chmod '0644' '/var/log/foo'",
+		"chown 'root:adm' '/var/log/bar'", "chmod '0640' '/var/log/bar'", // 640 padded to 0640
 	} {
 		if !ranContaining(tp, want) {
 			t.Errorf("rollback missing %q; Runs=%v", want, tp.Runs)
