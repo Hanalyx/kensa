@@ -20,8 +20,8 @@ references:
     ubuntu22: { section: "5.4.1.1", level: "L1", type: "Automated" }
   stig:
     rhel9:
-      vuln_id: "V-257954"
-      stig_id: "RHEL-09-411025"
+      vuln_id: "V-258041"
+      stig_id: "RHEL-09-411010"
       severity: "CAT II"
     rhel8:
       vuln_id: "V-230366"
