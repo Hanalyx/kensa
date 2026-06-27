@@ -12,17 +12,18 @@ tags: [file-permissions, logging, security]
 
 references:
   stig:
-    rhel8:
-      vuln_id: "V-230245"
-      severity: "CAT II"
+    rhel8:                                                                   # grouped: one file_permissions rule, three STIG controls
+      - { vuln_id: "V-230245", severity: "CAT II" }                          # mode 0640
+      - { vuln_id: "V-230246", severity: "CAT II" }                          # owner root
+      - { vuln_id: "V-230247", severity: "CAT II" }                          # group root
     rhel10:
-      vuln_id: "V-281035"
-      stig_id: "RHEL-10-400090"
-      severity: "CAT II"
+      - { vuln_id: "V-281035", stig_id: "RHEL-10-400090", severity: "CAT II" }  # owner root
+      - { vuln_id: "V-281036", severity: "CAT II" }                          # group root
+      - { vuln_id: "V-281062", severity: "CAT II" }                          # mode 0640
     rhel9:
-      vuln_id: "V-257886"
-      stig_id: "RHEL-09-232030"
-      severity: "CAT II"
+      - { vuln_id: "V-257886", stig_id: "RHEL-09-232030", severity: "CAT II" }  # mode 0640
+      - { vuln_id: "V-257916", severity: "CAT II" }                          # owner root
+      - { vuln_id: "V-257917", severity: "CAT II" }                          # group root
   nist_800_53: ["AU-9", "AC-6"]
 
 platforms:

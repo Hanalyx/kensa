@@ -27,6 +27,15 @@ references:
   - AC-3
   - MP-2
   - AC-6
+  stig:
+    rhel9:                                                                   # grouped: one file_permissions rule, three STIG controls
+      - { vuln_id: "V-257896", severity: "CAT II" }                          # mode 0644
+      - { vuln_id: "V-257908", severity: "CAT II" }                          # owner root
+      - { vuln_id: "V-257909", severity: "CAT II" }                          # group root
+    rhel10:
+      - { vuln_id: "V-281027", severity: "CAT II" }                          # owner root
+      - { vuln_id: "V-281028", severity: "CAT II" }                          # group root
+      - { vuln_id: "V-281071", severity: "CAT II" }                          # mode 0644
 platforms:
 - family: rhel
   min_version: 8

@@ -34,9 +34,14 @@ references:
       vuln_id: V-230256
       stig_id: RHEL-08-010150
       severity: CAT II
-    rhel9:
-      vuln_id: V-257934
-      severity: CAT II
+    rhel9:                                                                   # grouped: one file_permissions rule, three STIG controls
+      - { vuln_id: "V-257934", severity: "CAT II" }                          # mode 0000
+      - { vuln_id: "V-257910", severity: "CAT II" }                          # owner root
+      - { vuln_id: "V-257911", severity: "CAT II" }                          # group root
+    rhel10:
+      - { vuln_id: "V-281076", severity: "CAT II" }                          # mode 0000
+      - { vuln_id: "V-281029", severity: "CAT II" }                          # owner root
+      - { vuln_id: "V-281030", severity: "CAT II" }                          # group root
 platforms:
 - family: rhel
   min_version: 8
