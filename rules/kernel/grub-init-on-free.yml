@@ -1,0 +1,46 @@
+id: grub-init-on-free
+title: Enable init_on_free in GRUB kernel parameters
+description: >
+  The init_on_free=1 kernel parameter must be set so the kernel zeroes
+  memory pages when they are freed. This clears freed memory to detect and
+  prevent use-after-free attacks.
+rationale: >
+  Zeroing memory at free time removes stale sensitive data from freed pages
+  and causes use-after-free vulnerabilities to read zeroed memory instead of
+  attacker-controlled data, making kernel memory-corruption bugs harder to
+  exploit.
+severity: medium
+transactional: false
+category: kernel
+tags: [grub, kernel, memory, security, boot]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230279"
+      stig_id: "RHEL-08-010423"
+      severity: "CAT II"
+    rhel9:
+      vuln_id: "V-257794"
+      stig_id: "RHEL-09-212045"
+      severity: "CAT II"
+    rhel10:
+      vuln_id: "V-281303"
+      stig_id: "RHEL-10-701010"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "SC-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: grub_parameter
+      key: "init_on_free"
+      expected: "1"
+    remediation:
+      mechanism: grub_parameter_set
+      key: "init_on_free"
+      value: "1"
