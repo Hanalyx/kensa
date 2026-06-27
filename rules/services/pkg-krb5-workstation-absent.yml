@@ -15,10 +15,6 @@ tags:
 - attack-surface
 references:
   stig:
-    rhel9:
-      vuln_id: V-257831
-      stig_id: RHEL-09-215035
-      severity: CAT II
     rhel8:
       vuln_id: V-230239
       severity: CAT II
