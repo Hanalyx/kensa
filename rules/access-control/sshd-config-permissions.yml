@@ -36,7 +36,7 @@ references:
   stig:
     rhel9:
       vuln_id: V-257997
-      stig_id: RHEL-09-255115
+      stig_id: RHEL-09-255105
       severity: CAT II
       cci:
       - CCI-000366

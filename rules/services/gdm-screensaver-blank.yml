@@ -22,7 +22,7 @@ references:
   stig:
     rhel9:
       vuln_id: V-258027
-      stig_id: RHEL-09-271070
+      stig_id: RHEL-09-271085
       severity: CAT II
   nist_800_53:
   - AC-11(1)
