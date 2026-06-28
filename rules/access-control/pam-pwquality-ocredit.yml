@@ -16,7 +16,7 @@ depends_on: [package-libpwquality-installed]
 references:
   cis:
     rhel8:  { section: "5.4.1.5", level: "L1", type: "Automated" }
-    rhel9:  { section: "5.4.1",   level: "L1", type: "Automated" }
+    rhel9:  { section: "5.3.3.2.3", level: "L1", type: "Manual" }
     rhel10: { section: "5.4.1.5", level: "L1", type: "Automated" }
     ubuntu24: { section: "5.4.1.5", level: "L1", type: "Automated" }
     ubuntu22: { section: "5.4.1.5", level: "L1", type: "Automated" }
