@@ -1,0 +1,39 @@
+id: login-defs-pass-min-len
+title: Set minimum password length in login.defs
+description: >
+  /etc/login.defs must enforce a minimum password length (PASS_MIN_LEN)
+  of 15 characters for new user accounts.
+rationale: >
+  A longer minimum password length increases the work factor required
+  to guess or brute-force account credentials.
+severity: medium
+category: access-control
+tags: [password, login-defs, authentication]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230370"
+      stig_id: "RHEL-08-020231"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(1)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      delimiter: " "
+      path: "/etc/login.defs"
+      key: "PASS_MIN_LEN"
+      expected: "15"
+      comparator: ">="
+    remediation:
+      mechanism: config_set
+      path: "/etc/login.defs"
+      key: "PASS_MIN_LEN"
+      value: "15"
+      separator: " "

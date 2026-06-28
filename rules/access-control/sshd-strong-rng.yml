@@ -1,0 +1,42 @@
+id: sshd-strong-rng
+title: Configure the SSH server to use strong entropy
+description: >
+  The SSH server must draw from a strong entropy source by setting
+  SSH_USE_STRONG_RNG in /etc/sysconfig/sshd. A value of 32 or greater
+  seeds the random number generator from a high-quality source.
+rationale: >
+  Seeding the SSH RNG from a strong entropy source strengthens the
+  cryptographic operations that protect session confidentiality and
+  integrity.
+severity: low
+category: access-control
+tags: [ssh, entropy, crypto]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230253"
+      stig_id: "RHEL-08-010292"
+      severity: "CAT III"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: config_value
+      delimiter: "="
+      path: "/etc/sysconfig/sshd"
+      key: "SSH_USE_STRONG_RNG"
+      expected: "32"
+      comparator: ">="
+    remediation:
+      mechanism: config_set
+      path: "/etc/sysconfig/sshd"
+      key: "SSH_USE_STRONG_RNG"
+      value: "32"
+      separator: "="
+      restart: "sshd"

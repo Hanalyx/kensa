@@ -21,6 +21,9 @@ references:
     rhel9:                                                                   # watches /etc/group + /etc/gshadow (passwd/shadow/opasswd have dedicated audit-file-* rules)
       - { vuln_id: "V-258219", stig_id: "RHEL-09-654225", severity: "CAT II" }   # /etc/group
       - { vuln_id: "V-258220", stig_id: "RHEL-09-654230", severity: "CAT II" }   # /etc/gshadow
+    rhel8:                                                                   # /etc/group + /etc/gshadow (passwd/shadow/opasswd have dedicated audit-file-* rules)
+      - { vuln_id: "V-230408", stig_id: "RHEL-08-030170", severity: "CAT II" }   # /etc/group
+      - { vuln_id: "V-230407", stig_id: "RHEL-08-030160", severity: "CAT II" }   # /etc/gshadow
   nist_800_53: ["AU-2", "AU-12", "AC-2"]
 
 platforms:

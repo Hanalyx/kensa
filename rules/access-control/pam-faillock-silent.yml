@@ -15,9 +15,9 @@ tags: [pam, faillock, authentication, lockout, stig]
 
 references:
   stig:
-    rhel8:
-      vuln_id: "V-230340"
-      severity: "CAT II"
+    rhel8:                                                                   # this rule checks BOTH pam.d/{system,password}-auth and /etc/security/faillock.conf, so both forms are verified
+      - { vuln_id: "V-230340", severity: "CAT II" }                              # pam.d form
+      - { vuln_id: "V-230341", stig_id: "RHEL-08-020019", severity: "CAT II" }   # /etc/security/faillock.conf form
   nist_800_53: ["AC-7", "CM-6"]
 
 platforms:

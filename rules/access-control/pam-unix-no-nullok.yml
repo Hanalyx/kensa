@@ -14,11 +14,15 @@ references:
   cis:
     rhel9: { section: "5.3.3.4.1", level: "L1", type: "Automated" }
     rhel10: { section: "5.3.2.4.1", level: "L1", type: "Automated" }
+  stig:
+    rhel8:                                                                   # check greps both system-auth (V-268322) and password-auth (V-244541)
+      - { vuln_id: "V-268322", stig_id: "RHEL-08-020331", severity: "CAT I" }   # system-auth
+      - { vuln_id: "V-244541", stig_id: "RHEL-08-020332", severity: "CAT I" }   # password-auth
   nist_800_53: ["IA-5"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - when: authselect
