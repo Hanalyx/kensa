@@ -1553,6 +1553,7 @@
   {"rule_id": "login-defs-pass-min-len", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: new rule for STIG V-230370 (RHEL-08-020231); definite verdict PASS on rhel8 8.10"},
   {"rule_id": "pam-unix-no-nullok", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: rhel8 STIG cite V-268322/V-244541 (RHEL-08-020331/020332); rule lowered to min_version 8; definite verdict PASS on rhel8 8.10"},
   {"rule_id": "coredump-storage-disabled", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: rhel8 STIG cite V-230314 (RHEL-08-010674); definite verdict PASS on rhel8 8.10"},
-  {"rule_id": "coredump-backtrace-disabled", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: new rule for STIG V-230315 (RHEL-08-010675); definite verdict PASS on rhel8 8.10"}
+  {"rule_id": "coredump-backtrace-disabled", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: new rule for STIG V-230315 (RHEL-08-010675); definite verdict PASS on rhel8 8.10"},
+  {"rule_id": "rsyslog-remote-access-monitored", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: new rule for STIG V-230228 (RHEL-08-010070); definite verdict PASS on rhel8 8.10 (auth/authpriv/daemon all routed to /var/log/secure); check logic proven to FAIL on default/missing-facility/commented configs"}
 ]
 }

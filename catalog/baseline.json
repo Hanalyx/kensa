@@ -11,7 +11,7 @@
    "framework": "stig",
    "os": "rhel8",
    "total": 366,
-   "covered": 315,
+   "covered": 316,
    "drifted": 0
   },
   {
