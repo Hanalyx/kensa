@@ -1,0 +1,46 @@
+id: rsyslog-remote-access-monitored
+title: Monitor all remote access methods via rsyslog
+description: >
+  RHEL 8 must log all remote access methods. rsyslog must record the
+  auth, authpriv, and daemon facilities (for example to /var/log/secure)
+  so that remote login activity is captured.
+rationale: >
+  Logging remote access methods provides the audit trail needed to detect
+  and investigate unauthorized access attempts. Missing any of the auth,
+  authpriv, or daemon facilities leaves a gap in remote-access monitoring.
+severity: medium
+category: logging
+tags: [rsyslog, remote-access, logging, monitoring]
+
+depends_on: [rsyslog-installed]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230228"
+      stig_id: "RHEL-08-010070"
+      severity: "CAT II"
+  nist_800_53: ["AC-17(1)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf=$(grep -rhE '^[[:space:]]*[^#]' /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null)
+        printf '%s\n' "$conf" | grep -qE '(^|;|[[:space:]])auth\.\*' || exit 1
+        printf '%s\n' "$conf" | grep -qE '(^|;|[[:space:]])authpriv\.\*' || exit 1
+        printf '%s\n' "$conf" | grep -qE '(^|;|[[:space:]])daemon\.\*' || exit 1
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/rsyslog.d"
+      file: "00-kensa-remote-access.conf"
+      key: "auth.*;authpriv.*;daemon.*"
+      value: "/var/log/secure"
+      restart: "rsyslog"
