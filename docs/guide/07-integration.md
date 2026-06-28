@@ -1,6 +1,6 @@
 # Integration
 
-_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 This chapter is for programs that **embed** Kensa (notably OpenWatch) rather
 than run the CLI, consuming its `api`/`pkg/kensa` Go surfaces. The division of
@@ -48,7 +48,7 @@ Loading the rule corpus from a consuming program is public surface too
 
 Do not copy the rule files into a consuming repo and do not re-implement
 the loader: the corpus ships as the signed `kensa-rules` package, and 23
-of the 539 rules are `{{ var }}` templates that only parse through the
+of its rules are `{{ var }}` templates that only parse through the
 substitution chain above.
 
 Constructing a scanner with your own transport is public surface as well
@@ -82,8 +82,8 @@ shelling out to the CLI:
   (the audit-truth-of-record a transaction produces) as OSCAL. This path
   is anchored on the envelope's Ed25519 signature.
 
-The byte production lives in `internal/` and is conformance-gated against
-the vendored NIST OSCAL 1.0.6 schema; these are the importable entry
+The OSCAL byte production is conformance-gated against the vendored NIST
+OSCAL 1.0.6 schema; these `pkg/kensa` functions are the importable entry
 points to it.
 
 End-to-end, the whole consumer chain is public:
