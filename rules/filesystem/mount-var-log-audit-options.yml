@@ -18,17 +18,18 @@ references:
     rhel10: { section: "1.1.2.7.2", level: "L1", type: "Automated" }
     rhel8: { section: "1.1.2.7.2", level: "L1", type: "Automated" }
   stig:
-    rhel8:
-      vuln_id: "V-230517"
-      severity: "CAT II"
-    rhel10:
-      vuln_id: "V-281091"
-      stig_id: "RHEL-10-400400"
-      severity: "CAT II"
+    rhel8:                                                                   # one mount rule sets nodev+nosuid+noexec -> three STIG controls
+      - { vuln_id: "V-230517", stig_id: "RHEL-08-040129", severity: "CAT II" }   # nodev
+      - { vuln_id: "V-230518", stig_id: "RHEL-08-040130", severity: "CAT II" }   # nosuid
+      - { vuln_id: "V-230519", stig_id: "RHEL-08-040131", severity: "CAT II" }   # noexec
     rhel9:
-      vuln_id: "V-257874"
-      stig_id: "RHEL-09-231165"
-      severity: "CAT II"
+      - { vuln_id: "V-257873", stig_id: "RHEL-09-231160", severity: "CAT II" }   # nodev
+      - { vuln_id: "V-257874", stig_id: "RHEL-09-231165", severity: "CAT II" }   # noexec
+      - { vuln_id: "V-257875", stig_id: "RHEL-09-231170", severity: "CAT II" }   # nosuid
+    rhel10:
+      - { vuln_id: "V-281091", stig_id: "RHEL-10-400400", severity: "CAT II" }   # nodev
+      - { vuln_id: "V-281092", stig_id: "RHEL-10-400405", severity: "CAT II" }   # noexec
+      - { vuln_id: "V-281093", stig_id: "RHEL-10-400410", severity: "CAT II" }   # nosuid
   nist_800_53: ["AC-6", "CM-6"]
 
 platforms:
