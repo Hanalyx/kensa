@@ -15,7 +15,6 @@ depends_on: [package-libpwquality-installed]
 
 references:
   cis:
-    rhel8:  { section: "5.4.1.8", level: "L1", type: "Automated" }
     rhel9:  { section: "5.4.1",   level: "L1", type: "Automated" }
   stig:
     rhel9:

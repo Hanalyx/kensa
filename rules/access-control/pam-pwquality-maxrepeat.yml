@@ -19,10 +19,7 @@ depends_on:
 - package-libpwquality-installed
 references:
   cis:
-    rhel8:
-      section: 5.4.1.7
-      level: L1
-      type: Automated
+    rhel8:  { section: "5.3.3.2.4", level: "L1", type: "Automated" }
     rhel9:
       section: 5.4.1
       level: L1

@@ -19,10 +19,7 @@ references:
       section: 5.4.3.3
       level: L1
       type: Automated
-    rhel8:
-      section: 5.6.5
-      level: L1
-      type: Automated
+    rhel8:  { section: "5.4.3.3", level: "L1", type: "Automated" }
     rhel10: { section: "5.4.3.3", level: "L1", type: "Automated" }
   nist_800_53:
   - AC-3
