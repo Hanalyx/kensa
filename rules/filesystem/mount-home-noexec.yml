@@ -13,6 +13,10 @@ tags: [mount, home, hardening]
 
 references:
   stig:
+    rhel9:
+      vuln_id: "V-257852"
+      stig_id: "RHEL-09-231055"
+      severity: "CAT II"
     rhel8:
       vuln_id: "V-230302"
       severity: "CAT II"

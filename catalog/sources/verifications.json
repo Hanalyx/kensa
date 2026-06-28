@@ -1539,6 +1539,10 @@
   {"rule_id": "usbguard-block-unauthorized", "os": "rhel10", "scope": "check", "host": "fleet:192.168.1.247", "verified_at": "2026-06-28", "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict FAIL on rhel10 (cites rhel10 benchmark)"},
   {"rule_id": "var-log-dir-permissions", "os": "rhel10", "scope": "check", "host": "fleet:192.168.1.247", "verified_at": "2026-06-28", "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict PASS on rhel10 (cites rhel10 benchmark)"},
   {"rule_id": "var-log-messages-permissions", "os": "rhel10", "scope": "check", "host": "fleet:192.168.1.247", "verified_at": "2026-06-28", "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict FAIL on rhel10 (cites rhel10 benchmark)"},
-  {"rule_id": "xorg-removed", "os": "rhel10", "scope": "check", "host": "fleet:192.168.1.247", "verified_at": "2026-06-28", "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict PASS on rhel10 (cites rhel10 benchmark)"}
+  {"rule_id": "xorg-removed", "os": "rhel10", "scope": "check", "host": "fleet:192.168.1.247", "verified_at": "2026-06-28", "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict PASS on rhel10 (cites rhel10 benchmark)"},
+  {"rule_id": "mount-home-noexec", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict FAIL on rhel9 (re-homed/extended control now proven)"},
+  {"rule_id": "service-enable-firewalld", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"},
+  {"rule_id": "faillock-dir-configured", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"},
+  {"rule_id": "auditd-space-left-percent", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"}
 ]
 }

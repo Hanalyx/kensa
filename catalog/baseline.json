@@ -4,7 +4,7 @@
    "framework": "stig",
    "os": "rhel10",
    "total": 434,
-   "covered": 146,
+   "covered": 152,
    "drifted": 0
   },
   {
@@ -18,7 +18,7 @@
    "framework": "stig",
    "os": "rhel9",
    "total": 446,
-   "covered": 303,
+   "covered": 314,
    "drifted": 0
   },
   {
