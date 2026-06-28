@@ -18,9 +18,9 @@ references:
       vuln_id: "V-258070"
       stig_id: "RHEL-09-412045"
       severity: "CAT II"
-    rhel8:
-      vuln_id: "V-230342"
-      severity: "CAT II"
+    rhel8:                                                                   # this check verifies /etc/security/faillock.conf (V-230343); pam.d form (V-230342) pending the alternatives-vs-both-required call
+      - { vuln_id: "V-230342", severity: "CAT II" }                              # pam.d form (not verified by this faillock.conf check)
+      - { vuln_id: "V-230343", stig_id: "RHEL-08-020021", severity: "CAT II" }   # /etc/security/faillock.conf form
   nist_800_53: ["AU-2", "AC-7"]
 
 platforms:

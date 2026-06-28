@@ -22,9 +22,9 @@ references:
     rhel9:
       vuln_id: "V-258056"
       severity: "CAT II"
-    rhel8:
-      vuln_id: "V-230334"
-      severity: "CAT II"
+    rhel8:                                                                   # this check verifies /etc/security/faillock.conf (V-230335); the pam.d/{system,password}-auth form (V-230334) is left pending the alternatives-vs-both-required call
+      - { vuln_id: "V-230334", severity: "CAT II" }                              # pam.d form (not verified by this faillock.conf check)
+      - { vuln_id: "V-230335", stig_id: "RHEL-08-020013", severity: "CAT II" }   # /etc/security/faillock.conf form
     rhel10:
       vuln_id: "V-281196"
       stig_id: "RHEL-10-600420"
