@@ -13,7 +13,7 @@ tags: [packages, gpg, dnf, security]
 
 references:
   cis:
-    rhel8:  { section: "1.2.1", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.2.1.2", level: "L1", type: "Automated" }
     rhel9:  { section: "1.2.1.2", level: "L1", type: "Automated" }
   stig:
     rhel8:
