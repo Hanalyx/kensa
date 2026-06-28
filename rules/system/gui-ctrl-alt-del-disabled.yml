@@ -1,0 +1,53 @@
+id: gui-ctrl-alt-del-disabled
+title: Disable the Ctrl-Alt-Delete sequence in the graphical interface
+description: >
+  RHEL 8 must not reboot when Ctrl-Alt-Delete is pressed in the GNOME
+  graphical interface. The dconf logout media-key binding under
+  org/gnome/settings-daemon/plugins/media-keys must be set to an empty
+  value. This rule is capability-gated to hosts running GDM; headless
+  servers are not applicable.
+rationale: >
+  An unauthenticated user at a graphical console could otherwise trigger a
+  reboot with Ctrl-Alt-Delete, causing a denial of service.
+severity: high
+transactional: false
+category: system
+tags: [gdm, graphical, ctrl-alt-del, availability]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230530"
+      stig_id: "RHEL-08-040171"
+      severity: "CAT I"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: gdm
+    check:
+      method: command
+      run: |
+        if ! rpm -q gdm >/dev/null 2>&1; then exit 0; fi
+        val=$(grep -rhs "^[[:space:]]*logout[[:space:]]*=" \
+          /etc/dconf/db/local.d/ /etc/dconf/db/gdm.d/ 2>/dev/null |
+          tail -1 | sed "s/^[^=]*=[[:space:]]*//" | tr -d '[:space:]')
+        if [ -z "$val" ]; then
+          val=$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read \
+            /org/gnome/settings-daemon/plugins/media-keys/logout 2>/dev/null |
+            tr -d '[:space:]' || true)
+        fi
+        # the compliant value is an empty-string binding: '' (or "")
+        if [ "$val" = "''" ] || [ "$val" = '""' ]; then exit 0; fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: dconf_set
+      schema: org/gnome/settings-daemon/plugins/media-keys
+      key: logout
+      value: "''"
+      file: 00-disable-CAD
+      db: local

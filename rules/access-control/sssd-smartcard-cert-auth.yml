@@ -1,0 +1,43 @@
+id: sssd-smartcard-cert-auth
+title: Enable smart card certificate authentication in SSSD
+description: >
+  RHEL 8 must support multifactor (smart card / PIV) authentication for
+  local account access by setting "pam_cert_auth = True" in the [pam]
+  section of /etc/sssd/sssd.conf. This rule is capability-gated to hosts
+  running SSSD; where an approved alternate MFA method is used, the
+  operator treats it as not applicable.
+rationale: >
+  Smart card authentication provides a hardware-backed second factor that
+  resists credential theft and replay, strengthening local account access.
+severity: medium
+transactional: false
+category: access-control
+tags: [sssd, smartcard, mfa, pki, authentication]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230372"
+      stig_id: "RHEL-08-020250"
+      severity: "CAT II"
+  nist_800_53: ["IA-2(1)", "IA-2(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - when: sssd
+    check:
+      method: command
+      run: |
+        if [ ! -f /etc/sssd/sssd.conf ]; then exit 0; fi
+        grep -qiE '^[[:space:]]*pam_cert_auth[[:space:]]*=[[:space:]]*true' /etc/sssd/sssd.conf 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        In /etc/sssd/sssd.conf set "pam_cert_auth = True" under the [pam]
+        section and configure pam_sss.so for the relevant PAM services, then
+        restart sssd. Requires smart card / PIV infrastructure; verify against
+        your MFA deployment.
