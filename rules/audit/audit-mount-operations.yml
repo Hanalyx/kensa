@@ -20,10 +20,9 @@ depends_on:
 - auditd-enabled
 references:
   stig:
-    rhel9:
-      vuln_id: V-257873
-      stig_id: RHEL-09-654035
-      severity: CAT II
+    # RHEL 9 STIG V2R8 has no audit control for the mount() syscall (V-258210
+    # audits the /usr/bin/mount COMMAND, not the syscall this rule watches); the
+    # prior rhel9 cite pointed at an unrelated mount-option control.
     rhel8:
       vuln_id: V-230423
       severity: CAT II

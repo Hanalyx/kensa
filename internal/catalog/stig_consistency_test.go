@@ -17,11 +17,10 @@ import (
 // This list MUST ONLY SHRINK. Removing an entry (after fixing the rule's
 // vuln_id) is the intended direction; adding one is forbidden — a brand-new
 // inconsistency means a mis-citation slipped in and CI must fail.
-var deferredSTIGMiscites = map[string]bool{
-	"audit-time-change|rhel9|V-257849":      true, // cites a mount control; correct audit-time control unresolved
-	"audit-network-change|rhel9|V-257850":   true, // loose -k system-locale check; control unresolved
-	"audit-mount-operations|rhel9|V-257873": true, // cites a mount control; correct audit-mount control unresolved
-}
+//
+// The archive-inherited mis-citation campaign drained this to empty: every STIG
+// citation in the corpus now has a stig_id consistent with its vuln_id.
+var deferredSTIGMiscites = map[string]bool{}
 
 type manifestDoc struct {
 	Stig []struct {
