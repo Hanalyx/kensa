@@ -160,8 +160,8 @@ func TestLoadRuleSummaries_ProductionCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadRuleSummaries on production corpus: %v", err)
 	}
-	if len(sums) != 620 {
-		t.Errorf("expected 620 rule summaries, got %d", len(sums))
+	if len(sums) != 622 {
+		t.Errorf("expected 622 rule summaries, got %d", len(sums))
 	}
 	// Every summary has an ID and at least the NIST ref (corpus-wide).
 	for _, s := range sums {

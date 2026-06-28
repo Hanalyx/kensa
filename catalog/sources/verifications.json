@@ -1543,6 +1543,8 @@
   {"rule_id": "mount-home-noexec", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict FAIL on rhel9 (re-homed/extended control now proven)"},
   {"rule_id": "service-enable-firewalld", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"},
   {"rule_id": "faillock-dir-configured", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"},
-  {"rule_id": "auditd-space-left-percent", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"}
+  {"rule_id": "auditd-space-left-percent", "os": "rhel9", "scope": "check", "host": "fleet:192.168.1.211", "verified_at": "2026-06-28", "notes": "extend verify: read-only check (--sudo), definite verdict PASS on rhel9 (re-homed/extended control now proven)"},
+  {"rule_id": "pkg-mailx-present", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: new rule for STIG V-256974 (RHEL-08-010358); read-only check (--sudo), definite verdict PASS on rhel8 8.10"},
+  {"rule_id": "kmod-disable-uvcvideo", "os": "rhel8", "scope": "check", "host": "fleet:192.168.1.202", "verified_at": "2026-06-28", "notes": "missing-control authoring: new rule for STIG V-230493 (RHEL-08-040020); read-only check (--sudo), definite verdict PASS on rhel8 8.10"}
 ]
 }

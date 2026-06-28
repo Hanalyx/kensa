@@ -19,8 +19,11 @@ references:
       stig_id: RHEL-09-255010
       severity: CAT II
     rhel8:
-      vuln_id: V-230526
-      severity: CAT II
+      - vuln_id: V-230526
+        severity: CAT II
+      - vuln_id: V-244549
+        stig_id: RHEL-08-040159
+        severity: CAT II
     ubuntu24:
       vuln_id: V-270665
       stig_id: UBTU-24-100800
