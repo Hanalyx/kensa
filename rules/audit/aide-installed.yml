@@ -19,10 +19,9 @@ references:
     rhel9:  { section: "6.1.1",  level: "L1", type: "Automated" }
     rhel10:  { section: "6.1.1", level: "L1", type: "Automated" }
   stig:
-    rhel8:
-      vuln_id: "V-230263"
-      stig_id: "RHEL-08-010360"
-      severity: "CAT II"
+    rhel8:                                                                   # check verifies AIDE installed (V-230263) AND initialized — aide.db present (V-251710)
+      - { vuln_id: "V-230263", stig_id: "RHEL-08-010360", severity: "CAT II" }   # AIDE installed
+      - { vuln_id: "V-251710", stig_id: "RHEL-08-010359", severity: "CAT II" }   # AIDE installed + initialized
     rhel9:
       vuln_id: "V-258134"
       stig_id: "RHEL-09-651010"
