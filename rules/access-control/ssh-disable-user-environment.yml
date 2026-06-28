@@ -36,6 +36,10 @@ references:
   - SC-8
   - CM-6
   stig:
+    rhel10:
+      vuln_id: "V-281267"
+      stig_id: "RHEL-10-700640"
+      severity: "CAT I"
     rhel8:
       vuln_id: V-230330
       stig_id: RHEL-08-010830

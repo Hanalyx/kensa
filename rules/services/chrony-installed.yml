@@ -27,6 +27,10 @@ references:
       type: Automated
     rhel10: { section: "2.3.1", level: "L1", type: "Automated" }
   stig:
+    rhel9:
+      vuln_id: "V-257943"
+      stig_id: "RHEL-09-252010"
+      severity: "CAT II"
     ubuntu24:
       vuln_id: V-270664
       stig_id: UBTU-24-100700

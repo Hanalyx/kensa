@@ -35,6 +35,10 @@ references:
   - CM-6
   - AC-3
   stig:
+    rhel10:
+      vuln_id: "V-281266"
+      stig_id: "RHEL-10-700630"
+      severity: "CAT II"
     rhel9:
       vuln_id: V-257992
       stig_id: RHEL-09-255080

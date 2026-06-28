@@ -19,6 +19,11 @@ references:
     rhel9:  { section: "6.3.2.2", level: "L1", type: "Automated" }
     rhel10: { section: "6.3.2.2", level: "L2", type: "Automated" }
     rhel8: { section: "6.3.2.2", level: "L2", type: "Automated" }
+  stig:
+    rhel9:
+      vuln_id: "V-258160"
+      stig_id: "RHEL-09-653055"
+      severity: "CAT II"
   nist_800_53: ["AU-4", "AU-9"]
 
 platforms:
