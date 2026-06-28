@@ -1,6 +1,6 @@
 # 05 · Rollback and history
 
-_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 Every `kensa remediate` writes what it did to a durable transaction log
 (SQLite). That log is what makes a remediation reversible, what crash
@@ -64,7 +64,7 @@ kensa rollback --info <session-id> --detail
 
 Sessions come from `kensa check --store` (the scan-persistence path); a bare
 `kensa remediate` records individual transactions, not a session. So to roll
-back a remediation you just ran on the CLI, find its transaction UUID with
+back a remediation you ran on the CLI, find its transaction UUID with
 `kensa history` and use `rollback --txn` (below). The session modes
 (`--list` / `--info` / `--start`) apply once you have persisted sessions; find
 their UUIDs with `kensa list sessions` (the `session_id` column).
@@ -159,7 +159,7 @@ transactions.
 kensa history                                  # 50 most recent
 kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
 kensa history -T <txn-uuid>                    # one transaction by UUID
-kensa history -a by_host -S 7d                 # 7-day posture per host
+kensa history -a by_host -S 168h               # 7-day posture per host (168h)
 kensa history --stats                          # summary counts, then exit
 ```
 
@@ -167,7 +167,7 @@ kensa history --stats                          # summary counts, then exit
 |---|---|
 | `-H, --host` | Filter by host ID. |
 | `-R, --rule` | Filter by rule ID. |
-| `-S, --since` | Since a duration (`24h`) or an RFC3339 time. |
+| `-S, --since` | Since a duration or an RFC3339 time. The duration uses Go units (`s`, `m`, `h`); there is no day (`d`) unit, so write seven days as `168h`. |
 | `-n, --limit` | Max rows (default 50). |
 | `-T, --txn` | Fetch a single transaction by UUID. |
 | `-a, --aggregate` | Aggregate key: `by_host`, `by_rule`, or `by_framework_control`. |

@@ -12,7 +12,46 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-(no changes yet)
+Targets **v0.7.0**. This line corrects the compliance-verdict surface (the
+framework control-ids a scan reports), proves verified coverage and atomicity on
+real RHEL 8/9/10 hosts, and adds CI gates that hold both correct. The frozen
+`api/` surface is untouched.
+
+### Added
+
+- **rhel10 verified coverage** — a full read-only scan on a live RHEL 10.1 host
+  records functional verifications, so every covered RHEL 10 STIG control
+  (146/146) and CIS control (226/227) is now proven, not citation-only. RHEL 10
+  was previously at 0% verified.
+- **Grouped rules declare every control they satisfy** (schema v1.1 list form).
+  One atomic file-permission or mount-option rule now carries all the STIG
+  vuln-ids it satisfies on an OS (for example, owner, group, and mode of
+  `/etc/passwd` are three controls, one rule), adding 57 grouped plus 17
+  re-homed STIG controls across RHEL 8/9/10.
+- **Two new rules**: `grub-init-on-free` (the `init_on_free=1` kernel parameter)
+  and `ssh-x11-forwarding` (`X11Forwarding no`), closing coverage the citation
+  cleanup surfaced.
+- **CI consistency gate** — a test fails the build when any rule's cited STIG
+  `stig_id` and `vuln_id` resolve to different controls, so the corrected
+  citations cannot silently drift back.
+
+### Fixed
+
+- **Corrected about 40 wrong STIG citations** inherited from the archived rule
+  corpus. Affected rules cited an unrelated control (for example, the
+  password-complexity rules cited chrony controls), so a scan reported the wrong
+  framework control-id in `ScanResult.Outcomes[].FrameworkRefs`, in OSCAL export,
+  and to embedders. The cited control now matches what each rule checks, verified
+  against the vendored STIG source and live-run on RHEL 8/9/10.
+- **Re-mapped 31 stale CIS citations** on RHEL 8/9/10 that referenced an older
+  CIS benchmark's section numbers. Every cited CIS section now exists in the
+  vendored benchmark version. The catalog drift gate enforces zero drift going
+  forward.
+
+### Changed
+
+- The benchmark catalog now reports zero citation drift and zero
+  `vuln_id`/`stig_id` inconsistency across every RHEL STIG and CIS benchmark.
 
 ## v0.6.0 — 2026-06-23
 

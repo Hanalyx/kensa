@@ -1,6 +1,6 @@
 # 04 · Scan and remediate
 
-_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 Two commands do the work: `kensa check` reads a host and reports
 compliance without touching it, and `kensa remediate` applies the
@@ -143,10 +143,10 @@ threshold). You supply values two ways:
 | `-x, --var KEY=VALUE` | Override one variable. Repeatable. Wins over `--config-dir`/`defaults.yml`. |
 | `--config-dir DIR` | Directory holding `defaults.yml`, the variable-defaults source. |
 
-> **Security note.** A `--var` VALUE is spliced literally into the rule
+> **Security note.** A `--var` value is spliced literally into the rule
 > YAML and may flow into shell commands the handlers run on the target.
-> Pass only trusted input. (This is the documented `--var` trust limit in
-> `docs/test_docs/security.md`.)
+> Pass only trusted input. This is a known trust boundary: Kensa treats
+> `--var` values as operator-supplied and does not sanitize them.
 
 ---
 
@@ -177,7 +177,7 @@ askpass helper on the target, which the agentless model does not ship.
 # Passwordless sudo:
 kensa check -H 192.168.1.211 -u owadmin --sudo -r ./rules
 
-# Password sudo from the environment (CI-friendly — no value in argv):
+# Password sudo from the environment (CI-friendly, no value in argv):
 KENSA_SUDO_PASSWORD=… kensa remediate -H 192.168.1.211 -u owadmin --sudo -r ./rules
 
 # Password sudo with an interactive prompt:

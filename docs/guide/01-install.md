@@ -1,10 +1,12 @@
-# 01 · Install
+# Install
+
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 ## What you'll have when you're done
 
 `kensa` and `kensa-rules` installed from signed packages, the verification
-keys imported, and `kensa --version` printing `kensa 0.5.2`. From there,
-[02-quickstart](02-quickstart.md) is the next step.
+keys imported, and `kensa --version` printing the installed version. From
+there, [the quickstart](02-quickstart.md) is the next step.
 
 Target hosts (the machines you'll scan) need no kensa installation:
 only OpenSSH and, for non-root remediation, sudo.
@@ -56,27 +58,27 @@ sudo apt install kensa kensa-rules
 ### Air-gapped
 
 On a connected host, download the bundled tarball from
-[the v0.5.2 release](https://github.com/Hanalyx/kensa/releases/tag/v0.5.2):
+[the v0.7.0 release](https://github.com/Hanalyx/kensa/releases/tag/v0.7.0):
 
 ```
-kensa_0.5.2_linux_<arch>_with-rules.tar.gz   # binaries + rules + LICENSE + KEYS
-kensa_0.5.2_checksums.sha256                 # sha256 of every artifact
-kensa_0.5.2_checksums.sha256.sig             # cosign signature of the checksums
+kensa_0.7.0_linux_<arch>_with-rules.tar.gz   # binaries + rules + LICENSE + KEYS
+kensa_0.7.0_checksums.sha256                 # sha256 of every artifact
+kensa_0.7.0_checksums.sha256.sig             # cosign signature of the checksums
 ```
 
 Verify before transferring:
 
 ```bash
-sha256sum -c kensa_0.5.2_checksums.sha256   # one OK line per artifact you downloaded
+sha256sum -c kensa_0.7.0_checksums.sha256   # one OK line per artifact you downloaded
 cosign verify-blob --key cosign.pub \
-  --signature kensa_0.5.2_checksums.sha256.sig \
-  kensa_0.5.2_checksums.sha256
+  --signature kensa_0.7.0_checksums.sha256.sig \
+  kensa_0.7.0_checksums.sha256
 ```
 
 Then copy the tarball to the air-gapped host and:
 
 ```bash
-tar xzf kensa_0.5.2_linux_amd64_with-rules.tar.gz
+tar xzf kensa_0.7.0_linux_amd64_with-rules.tar.gz
 sudo install -m 0755 kensa kensa-validate kensa-keygen /usr/local/bin/
 sudo install -m 0755 kensa-systemd-helper /usr/libexec/
 sudo mkdir -p /usr/share/kensa && sudo cp -r rules /usr/share/kensa/
@@ -84,9 +86,7 @@ sudo mkdir -p /usr/share/kensa && sudo cp -r rules /usr/share/kensa/
 
 Both the connected `.rpm`/`.deb` paths and this air-gap path install the
 rules to `/usr/share/kensa/rules/`, which is where `kensa check` falls
-back when `--rules-dir` is unset (see
-[`rule-default-path-resolution`](../../specs/rule/default-path-resolution.spec.yaml)
-spec).
+back when `--rules-dir` is unset.
 
 ## Step 3: generate a signing key
 
@@ -125,10 +125,6 @@ kensa`, then write the one-line rule above to
 `/etc/sudoers.d/kensa-systemd-helper` mode `0440` root-owned and run
 `sudo visudo -c` to syntax-check.)
 
-The canonical definition is
-[`agent-systemd-helper`](../../specs/agent/systemd-helper.spec.yaml)
-AC-09 / C-06 and
-[`packaging-sudoers-helper`](../../specs/packaging/sudoers-helper.spec.yaml).
 Without the helper, only the service handlers fail; everything else
 (file permissions, sysctl, mount options, SELinux booleans, audit,
 cron, packages, PAM) works as-is.
@@ -155,10 +151,10 @@ tarball). The rules corpus lives at `rules/` in the repo; copy it to
 kensa --version
 ```
 
-You're done when this prints `kensa 0.5.2 (kensa)`. If it doesn't,
+You're done when this prints `kensa 0.7.0 (kensa)`. If it doesn't,
 the binary isn't on your `$PATH`; go back to **Step 2**.
 
 ## Next
 
-[02-quickstart](02-quickstart.md) runs your first scan and your first
+[The quickstart](02-quickstart.md) runs your first scan and your first
 remediation.

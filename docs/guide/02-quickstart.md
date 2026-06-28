@@ -1,6 +1,6 @@
 # Quickstart
 
-_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 This chapter takes one host from "never scanned" to "remediated and rolled
 back" in four commands: **detect** what the host can do, **check** its
@@ -9,7 +9,7 @@ want the host returned to where it started. Every command here is real and
 runs against the shipped binary.
 
 You'll need `kensa` and `kensa-rules` installed (see
-[01-install](01-install.md)) and SSH access to the target. The examples use
+[the install chapter](01-install.md)) and SSH access to the target. The examples use
 `-r rules/` to point at a local rules tree. If you installed `kensa-rules`,
 drop `-r` and Kensa finds `/usr/share/kensa/rules` automatically.
 
@@ -79,7 +79,7 @@ transaction (capture, apply, validate, then commit or roll back), so a rule
 whose change fails validation is reversed automatically before Kensa moves
 to the next rule. A transaction is Kensa's unit of atomic change: one rule's
 capture-apply-validate-commit-or-rollback cycle on one host. (The mental
-model is [03-concepts](03-concepts.md).)
+model is in [the concepts chapter](03-concepts.md).)
 
 ```bash
 kensa remediate -H 192.168.1.211 -u owadmin --sudo -r rules/
@@ -127,13 +127,13 @@ kensa rollback --start <SESSION_ID> -H 192.168.1.211 -u owadmin --sudo
 Rollback restores each transaction's captured pre-state. A mechanism Kensa
 can't reverse (a `transactional: false` rule) was never captured and is
 reported as skipped rather than silently "restored." See the reversal
-table in [10-mechanisms](10-mechanisms.md).
+table in [the mechanisms reference](10-mechanisms.md).
 
 ## Where to go next
 
-- [03-concepts](03-concepts.md): the four-phase transaction and why
+- [The concepts chapter](03-concepts.md): the four-phase transaction and why
   atomicity is the product.
-- [10-mechanisms](10-mechanisms.md): every mechanism, where it runs, and
+- [The mechanisms reference](10-mechanisms.md): every mechanism, where it runs, and
   what reversal you get.
 - `kensa history`: query past transactions; `kensa diff` compares two
   stored sessions for drift.

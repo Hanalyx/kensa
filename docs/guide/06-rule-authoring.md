@@ -1,6 +1,6 @@
 # Rule authoring
 
-_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 A *rule* is a single, framework-independent statement of desired system state.
 It carries its own check logic, its remediation, its framework cross-references,
@@ -12,9 +12,8 @@ Rules are *inputs to the transaction engine*. A rule declares *what* state it
 wants and *which mechanism* produces it; the engine provides the *how* and the
 atomicity *guarantee* (capture → apply → validate → commit-or-rollback). The
 rule YAML never expresses capture, validation, or rollback; those are engine
-concerns. The authoritative schema is
-[`CANONICAL_RULE_SCHEMA_V1.md`](../foundation_docs/CANONICAL_RULE_SCHEMA_V1.md);
-this chapter is the working subset.
+concerns. The canonical rule schema is the authoritative reference; this
+chapter is the working subset.
 
 ## A complete rule
 
@@ -89,8 +88,9 @@ never reused. `category` must match one of the directory names under `rules/`
 when every step in every implementation uses a *capturable* mechanism; the
 engine can then run the rule atomically and roll it back. You **must** set
 `transactional: false` when any step uses a non-capturable mechanism
-(`command_exec`, `manual`, `grub_parameter_set`, `grub_parameter_remove`); the
-validator rejects a `transactional: true` rule that contains one. See
+(`command_exec`, `manual`, `crypto_policy_subpolicy`, `grub_parameter_set`,
+`grub_parameter_remove`); the validator rejects a `transactional: true` rule
+that contains one. See
 [Mechanisms reference](10-mechanisms.md) for which mechanisms are capturable.
 
 ## `references`: framework mappings
@@ -134,8 +134,9 @@ Each implementation has a `check` and a `remediation`:
   `expected`, and takes an optional `comparator` (`==`, `!=`, `<`, `<=`, `>`,
   `>=`; use `<=`/`>=` for thresholds like `PASS_MAX_DAYS <= 365`) and
   `delimiter`. Set `delimiter: " "` for whitespace-separated files such as
-  `/etc/login.defs` (`KEY value`); the default delimiter is `=`. The full method
-  table is schema §3.5.3.
+  `/etc/login.defs` (`KEY value`); the default delimiter is `=`. Each method
+  declares its own required and optional fields; the canonical rule schema
+  holds the full method table.
 - **`remediation.mechanism`** names the action that produces the desired state,
   plus that mechanism's fields. See the [Mechanisms reference](10-mechanisms.md)
   for the complete catalog, where each mechanism runs, and what reversal you get.

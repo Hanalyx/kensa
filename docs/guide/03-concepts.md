@@ -1,14 +1,14 @@
 # Concepts
 
-_Applies to: Kensa v0.6.0 — last updated 2026-06-22._
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
 
 Kensa is a compliance engine, but its core is not the rules. It's the
 *transaction*: the four-phase Kensa operation (capture, apply, validate,
 commit or roll back). Every change Kensa makes to a host runs as a
 transaction, and that atomicity is the product. The compliance rules are
 the first application of it. This chapter is the mental model behind the
-commands in [02-quickstart](02-quickstart.md); the per-mechanism specifics
-live in [10-mechanisms](10-mechanisms.md).
+commands in [the quickstart](02-quickstart.md); the per-mechanism specifics
+live in [the mechanisms reference](10-mechanisms.md).
 
 ## The four-phase transaction
 
@@ -29,9 +29,9 @@ When `remediate` applies a rule, the engine runs four phases in order:
 
 There is no third outcome. A rule either lands completely or leaves the host
 in the state it was in before the rule began: no "partially applied," no
-"step 3 failed and steps 1–2 are stranded." That guarantee is the contract
-in `docs/TRANSACTION_CONTRACT_V1.md`, and it's what distinguishes Kensa from
-a remediation script.
+"step 3 failed and steps 1–2 are stranded." That guarantee is Kensa's
+atomicity contract, and it's what distinguishes Kensa from a remediation
+script.
 
 ## The per-rule transaction boundary
 
@@ -84,7 +84,7 @@ or `transactional: false`.
 
 The reversal level of each shipped mechanism (Atomic, Reversible,
 Best-effort, Staged, or None) is tabulated in
-[10-mechanisms](10-mechanisms.md). Boot-parameter changes are a special
+[the mechanisms reference](10-mechanisms.md). Boot-parameter changes are a special
 "Staged" case: Kensa never edits the saved boot default directly but stages
 the change through a one-shot trial boot, so a host that fails to boot
 reverts on its own.
@@ -118,7 +118,7 @@ Evidence is stored alongside the change in the transaction log, not in a
 separate silo that can drift out of sync, and it can be exported in Open
 Security Controls Assessment Language (OSCAL) 1.0.6 for regulatory
 submission. For a stable signer identity across runs,
-point `KENSA_SIGNING_KEY` at your private key (see [01-install](01-install.md));
+point `KENSA_SIGNING_KEY` at your private key (see [the install chapter](01-install.md));
 without it Kensa uses an ephemeral per-process key.
 
 ## Rollback completeness
@@ -137,15 +137,13 @@ refuses to mutate a captured resource that is immutable (`chattr +i`), because a
 rollback that can't rewrite it is impossible. The gate is opt-in per handler and
 covers the kernel-atomic (fsatomic-funnelled) filesystem writes on the agent
 path; for the direct-SSH shell fallback and for non-opted handlers, the
-mandatory human review every capture/rollback handler goes through
-(`CONTRIBUTING.md`) remains the backstop. Either way, the operator-facing
+mandatory human review every capture and rollback handler goes through
+remains the backstop. Either way, the operator-facing
 promise is the same: a rule that can't be fully restored does not get to claim a
 clean commit.
 
 ## Where this leads
 
-- [02-quickstart](02-quickstart.md): these concepts as four commands.
-- [10-mechanisms](10-mechanisms.md): every mechanism, where it runs, and its
+- [The quickstart](02-quickstart.md): these concepts as four commands.
+- [Mechanisms](10-mechanisms.md): every mechanism, where it runs, and its
   reversal level.
-- `docs/TRANSACTION_CONTRACT_V1.md`: the external-facing atomicity
-  commitment in full.

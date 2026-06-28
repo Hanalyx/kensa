@@ -1,5 +1,7 @@
 # Kensa guide for administrators and engineers
 
+_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
+
 The operator-facing manual for Kensa. Read in order if you are new to
 Kensa; jump in by topic otherwise.
 
@@ -27,12 +29,8 @@ makes, and what to do when something goes wrong.
 
 ## Status
 
-All ten chapters are written and validated against the `kensa` binary
-(v0.6.0-staging, last reviewed 2026-06-22). Each chapter carries an
-_"Applies to"_ line. The install chapter (01) tracks the latest **tagged**
-release (v0.5.2 today, since that is what is installable); the remaining
-chapters describe the current code on `main` (v0.6.0-staging) and are
-re-stamped when v0.6.0 is tagged.
+All ten chapters are written and validated against the `kensa` binary at
+v0.7.0. Each chapter carries an _"Applies to"_ line.
 
 ## How to read this guide
 
@@ -41,11 +39,11 @@ re-stamped when v0.6.0 is tagged.
 - Exit codes follow GNU/POSIX: `0` success, `1` runtime error, `2`
   usage error. Subcommand-specific exit codes are called out in each
   chapter.
-- Atomicity claims (capture, rollback, deadman) cite the spec
-  acceptance criterion that locks the test.
+- Atomicity claims (capture, rollback, deadman) describe tested,
+  released behavior.
 
 ## Versioning
 
-This guide is published with the binary it documents. The version on
-the cover (`docs/guide/README.md`) matches `VERSION` at the repo root.
-Breaking changes between versions are listed in `CHANGELOG.md`.
+This guide is published with the binary it documents. The version on the
+cover matches the release it ships with. Breaking changes between versions
+are listed in the release notes.
