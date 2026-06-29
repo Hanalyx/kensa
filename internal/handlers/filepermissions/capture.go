@@ -28,6 +28,9 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	if err != nil {
 		return nil, err
 	}
+	if p.FindBased() {
+		return h.captureFindBased(ctx, transport, p)
+	}
 
 	// `stat -c` format: mode_octal|user|uid|group|gid
 	// `ls -Z` provides SELinux context if present. We accept that

@@ -40,10 +40,13 @@ func (h *Handler) Capturable() bool { return true }
 // Per handler-file-permissions spec C-01 / AC-02, Apply is idempotent:
 // re-running with the same params is a no-op since chown/chmod/chcon
 // are themselves idempotent against the same target values.
-func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, _ *api.PreState) (*api.StepResult, error) {
+func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api.Params, pre *api.PreState) (*api.StepResult, error) {
 	p, err := decodeParams(params)
 	if err != nil {
 		return nil, err
+	}
+	if p.FindBased() {
+		return h.applyFindBased(ctx, transport, p, pre)
 	}
 
 	cmds := buildApplyCommands(p)
