@@ -36,10 +36,38 @@ func persistContent(key, value string) string {
 // mechanism is the canonical handler name.
 const mechanism = "sysctl_set"
 
-// defaultPersistFile is the default drop-in location when the rule
-// does not specify persist_file. CIS-style hardening conventionally
-// uses 99-* for highest precedence.
-const defaultPersistFile = "/etc/sysctl.d/99-kensa.conf"
+// defaultPersistFile returns the default drop-in path for one sysctl key.
+// Each key gets its OWN file so remediating several sysctl rules never
+// clobbers a shared file (the whole-file writer would otherwise leave only
+// the last key persisted — the rest set at runtime but lost on reboot) and
+// rolling one rule back never disturbs another's persisted value. Because a
+// file is owned by exactly one rule, capture/apply/rollback are byte-perfect
+// and order-independent. 99-* keeps CIS-style highest precedence.
+//
+// The "_" after "kensa" is load-bearing: sysctl.d applies files in
+// lexicographic order and the latest filename wins for a duplicate key. A host
+// remediated by the prior handler has a legacy shared /etc/sysctl.d/99-kensa.conf
+// this code never touches; "_" (0x5F) sorts AFTER "." (0x2E), so 99-kensa_<key>.conf
+// is read after — and overrides — any stale key still in 99-kensa.conf,
+// regardless of the key name.
+func defaultPersistFile(key string) string {
+	return "/etc/sysctl.d/99-kensa_" + sanitizeKeyForFilename(key) + ".conf"
+}
+
+// sanitizeKeyForFilename maps a sysctl key to a safe filename component. Real
+// sysctl keys are [a-z0-9._] (dot-separated), so this is a defensive no-op for
+// them; it only rewrites characters that could otherwise escape the path.
+func sanitizeKeyForFilename(key string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
+			r == '.', r == '_', r == '-':
+			return r
+		default:
+			return '_'
+		}
+	}, key)
+}
 
 // Params is the decoded parameter struct for the sysctl_set
 // mechanism.
@@ -49,8 +77,8 @@ type Params struct {
 	// Value is the desired runtime value as a string (sysctl values
 	// are string-typed at the syscall layer). Required.
 	Value string
-	// PersistFile is the drop-in path. Defaults to
-	// /etc/sysctl.d/99-kensa.conf when empty.
+	// PersistFile is the drop-in path. Defaults to a per-key file
+	// /etc/sysctl.d/99-kensa-<key>.conf when empty (see defaultPersistFile).
 	PersistFile string
 }
 
@@ -81,7 +109,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	if !ok {
 		return nil, fmt.Errorf("sysctl_set: 'value' must be a string, got %T", valRaw)
 	}
-	out := &Params{Key: key, Value: val, PersistFile: defaultPersistFile}
+	out := &Params{Key: key, Value: val, PersistFile: defaultPersistFile(key)}
 	if v, ok := p["persist_file"]; ok {
 		s, ok := v.(string)
 		if !ok || s == "" {

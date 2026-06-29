@@ -3,6 +3,7 @@ package sysctlset_test
 import (
 	"context"
 	"errors"
+	"path"
 	"strings"
 	"testing"
 
@@ -12,7 +13,9 @@ import (
 	"github.com/Hanalyx/kensa/internal/handlers/sysctlset"
 )
 
-const persistPath = "/etc/sysctl.d/99-kensa.conf"
+// persistPathFor mirrors the handler's per-key default drop-in path. Each
+// sysctl key gets its own file so multiple rules never share (and clobber) one.
+func persistPathFor(key string) string { return "/etc/sysctl.d/99-kensa_" + key + ".conf" }
 
 // Kernel-IO Apply writes the runtime value to the proc layer and the
 // drop-in to the persist layer (no shell).
@@ -30,7 +33,7 @@ func TestApply_Kernel(t *testing.T) {
 	if f.Runtime["net.ipv4.ip_forward"] != "0" {
 		t.Errorf("runtime = %q, want 0", f.Runtime["net.ipv4.ip_forward"])
 	}
-	if got := f.Files[persistPath]; !strings.Contains(got, "net.ipv4.ip_forward = 0") {
+	if got := f.Files[persistPathFor("net.ipv4.ip_forward")]; !strings.Contains(got, "net.ipv4.ip_forward = 0") {
 		t.Errorf("persist file = %q, want the canonical assignment", got)
 	}
 }
@@ -52,7 +55,7 @@ func TestApply_Kernel_RejectedValue(t *testing.T) {
 	if res.Success {
 		t.Error("want Success:false on kernel rejection")
 	}
-	if _, ok := f.Files[persistPath]; ok {
+	if _, ok := f.Files[persistPathFor("vm.bad")]; ok {
 		t.Error("persist file must not be written when runtime apply fails")
 	}
 }
@@ -66,7 +69,7 @@ func TestRoundTrip_Kernel_RewritesExistingPersist(t *testing.T) {
 	t.Run("kernelio-sysctl/AC-05", func(t *testing.T) {})
 	f := kernelio.NewFakeSysctl()
 	f.Runtime["net.ipv4.ip_forward"] = "1"
-	f.Files[persistPath] = "# prior\nnet.ipv4.ip_forward = 1\n"
+	f.Files[persistPathFor("net.ipv4.ip_forward")] = "# prior\nnet.ipv4.ip_forward = 1\n"
 	h := sysctlset.New()
 	params := api.Params{"key": "net.ipv4.ip_forward", "value": "0"}
 
@@ -90,8 +93,8 @@ func TestRoundTrip_Kernel_RewritesExistingPersist(t *testing.T) {
 	if f.Runtime["net.ipv4.ip_forward"] != "1" {
 		t.Errorf("rolled-back runtime = %q, want 1", f.Runtime["net.ipv4.ip_forward"])
 	}
-	if f.Files[persistPath] != "# prior\nnet.ipv4.ip_forward = 1\n" {
-		t.Errorf("rolled-back persist = %q, want prior content", f.Files[persistPath])
+	if f.Files[persistPathFor("net.ipv4.ip_forward")] != "# prior\nnet.ipv4.ip_forward = 1\n" {
+		t.Errorf("rolled-back persist = %q, want prior content", f.Files[persistPathFor("net.ipv4.ip_forward")])
 	}
 }
 
@@ -117,17 +120,77 @@ func TestRoundTrip_Kernel_RemovesAbsentPersist(t *testing.T) {
 	if _, err := h.Apply(context.Background(), f, params, nil); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if _, ok := f.Files[persistPath]; !ok {
+	if _, ok := f.Files[persistPathFor("kernel.randomize_va_space")]; !ok {
 		t.Fatal("apply should have created the persist file")
 	}
 	if _, err := h.Rollback(context.Background(), f, pre); err != nil {
 		t.Fatalf("Rollback: %v", err)
 	}
-	if _, ok := f.Files[persistPath]; ok {
+	if _, ok := f.Files[persistPathFor("kernel.randomize_va_space")]; ok {
 		t.Error("rollback should have removed the persist file that did not exist at capture")
 	}
 	if f.Runtime["kernel.randomize_va_space"] != "2" {
 		t.Errorf("rolled-back runtime = %q, want 2", f.Runtime["kernel.randomize_va_space"])
+	}
+}
+
+// TestDefaultPersistFile_PerKey_NoClobber locks the fix for the shared-persist-
+// file clobber: two different sysctl keys must resolve to DIFFERENT default
+// drop-in files, each containing only its own key. Before the fix all keys
+// shared /etc/sysctl.d/99-kensa.conf and each whole-file Apply overwrote the
+// previous — so remediating several sysctl rules persisted only the LAST key
+// (the others set at runtime but lost on reboot) and rollback was not
+// byte-perfect.
+//
+// @spec kernelio-sysctl
+// @ac AC-05
+func TestDefaultPersistFile_PerKey_NoClobber(t *testing.T) {
+	t.Run("kernelio-sysctl/AC-05", func(t *testing.T) {})
+	f := kernelio.NewFakeSysctl()
+	h := sysctlset.New()
+	for _, kv := range [][2]string{
+		{"fs.suid_dumpable", "0"},
+		{"net.ipv4.conf.all.secure_redirects", "0"},
+	} {
+		if _, err := h.Apply(context.Background(), f, api.Params{"key": kv[0], "value": kv[1]}, nil); err != nil {
+			t.Fatalf("Apply %s: %v", kv[0], err)
+		}
+	}
+	fa := f.Files[persistPathFor("fs.suid_dumpable")]
+	fb := f.Files[persistPathFor("net.ipv4.conf.all.secure_redirects")]
+	if fa == "" || fb == "" {
+		t.Fatalf("each key must own a drop-in file; got fa=%q fb=%q", fa, fb)
+	}
+	if strings.Contains(fa, "secure_redirects") || strings.Contains(fb, "suid_dumpable") {
+		t.Errorf("keys must not share a file (clobber class); fa=%q fb=%q", fa, fb)
+	}
+	if len(f.Files) != 2 {
+		t.Errorf("expected 2 distinct drop-in files (one per key), got %d: %v", len(f.Files), f.Files)
+	}
+}
+
+// TestPerKeyFile_SortsAfterLegacyShared locks the load-order guarantee: a
+// per-key drop-in must sort lexicographically AFTER the legacy shared
+// /etc/sysctl.d/99-kensa.conf so that, on a host the prior handler remediated,
+// the per-key file (read later by sysctl.d) overrides any stale key still in
+// the orphaned legacy file — for every key, including ones starting with a
+// letter below 'c' (e.g. abi.*).
+//
+// @spec kernelio-sysctl
+// @ac AC-05
+func TestPerKeyFile_SortsAfterLegacyShared(t *testing.T) {
+	t.Run("kernelio-sysctl/AC-05", func(t *testing.T) {})
+	const legacy = "99-kensa.conf"
+	for _, key := range []string{
+		"abi.vsyscall32",      // 'a' < 'c' — the adversarial case for a dot separator
+		"fs.suid_dumpable",    // 'f'
+		"net.ipv4.ip_forward", // 'n'
+		"kernel.randomize_va_space",
+	} {
+		base := path.Base(persistPathFor(key))
+		if base <= legacy {
+			t.Errorf("per-key file %q must sort AFTER legacy %q so it wins on a previously-remediated host", base, legacy)
+		}
 	}
 }
 
