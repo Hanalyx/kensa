@@ -10,14 +10,16 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
-## Unreleased
+## v0.7.0 — 2026-06-28
 
-Targets **v0.7.0** — the OpenWatch-GA line. It closes a root command-injection
-in the `file_permissions` handler, repairs a class of checks that could never
-fail, corrects the compliance-verdict surface (the framework control-ids a scan
+The OpenWatch-GA line. It closes a root command-injection in the
+`file_permissions` handler, repairs a class of checks that could never fail,
+corrects the compliance-verdict surface (the framework control-ids a scan
 reports), proves verified coverage and atomicity on real RHEL 8/9/10 hosts, and
 adds CI gates that hold all of it correct. The frozen `api/` surface is
-untouched.
+untouched. The root-RCE fix and the three rollback-handler changes (#182/#183/
+#184) were live-proven on RHEL 9.6 — byte-perfect remediate→rollback and, for
+the RCE, the injection confirmed inert against the vulnerable control.
 
 ### Security
 
