@@ -12,10 +12,22 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
-Targets **v0.7.0**. This line corrects the compliance-verdict surface (the
-framework control-ids a scan reports), proves verified coverage and atomicity on
-real RHEL 8/9/10 hosts, and adds CI gates that hold both correct. The frozen
-`api/` surface is untouched.
+Targets **v0.7.0** — the OpenWatch-GA line. It closes a root command-injection
+in the `file_permissions` handler, repairs a class of checks that could never
+fail, corrects the compliance-verdict surface (the framework control-ids a scan
+reports), proves verified coverage and atomicity on real RHEL 8/9/10 hosts, and
+adds CI gates that hold all of it correct. The frozen `api/` surface is
+untouched.
+
+### Security
+
+- **Root command injection in `file_permissions` fixed.** The handler spliced
+  the `owner`, `group`, and `mode` rule values into `chown`/`chmod` unquoted on
+  both the apply and rollback paths, so a crafted value in a rule could execute
+  arbitrary commands as root during remediation. All three values are now
+  shell-quoted, matching the already-quoted path and SELinux context — rule
+  content is treated as untrusted input. (Present in v0.6.0; the headline fix of
+  this line.)
 
 ### Added
 
@@ -35,7 +47,18 @@ real RHEL 8/9/10 hosts, and adds CI gates that hold both correct. The frozen
   `stig_id` and `vuln_id` resolve to different controls, so the corrected
   citations cannot silently drift back.
 
-### Fixed
+- **`command` checks with an empty `expected_stdout` now assert no output.**
+  Previously an explicitly-empty expected value skipped the output assertion
+  entirely, so a `find … || true` / `grep … || true` check asserted only its
+  (always-zero) exit code and could never FAIL — about 41 rules, including a HIGH
+  control for blank passwords, were affected. A present-but-empty `expected_stdout`
+  now requires the command to produce no output.
+- **`sysctl_set` no longer clobbers sibling settings.** Multiple sysctl rules
+  shared a single persist file and overwrote each other on apply; each key now
+  writes its own drop-in, sorted to apply after any legacy combined file.
+- **Find-based `file_permissions` rules now remediate.** 29 file-integrity rules
+  that select files via `find` (no fixed `path`) previously errored at capture;
+  they now apply and roll back atomically.
 
 - **Corrected about 40 wrong STIG citations** inherited from the archived rule
   corpus. Affected rules cited an unrelated control (for example, the
