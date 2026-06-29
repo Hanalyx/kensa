@@ -66,14 +66,17 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 func buildRollbackCommands(path, owner, group, mode, selinux string) []string {
 	cmds := make([]string, 0, 3)
 	if owner != "" || group != "" {
+		// spec is shell-quoted: although the captured owner/group come from a
+		// stat at capture, quoting keeps the construction injection-proof and
+		// symmetric with Apply (defense-in-depth on the root-privileged path).
 		spec := owner
 		if group != "" {
 			spec += ":" + group
 		}
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, shellQuote(path)))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellQuote(spec), shellQuote(path)))
 	}
 	if mode != "" {
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", mode, shellQuote(path)))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellQuote(mode), shellQuote(path)))
 	}
 	if selinux != "" {
 		cmds = append(cmds, fmt.Sprintf("chcon --no-dereference %s %s", shellQuote(selinux), shellQuote(path)))

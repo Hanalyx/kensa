@@ -32,6 +32,34 @@ func programCapture(t *testing.T, path string) *engine.FakeTransport {
 
 // @spec handler-file-permissions
 // @ac AC-01
+// TestApply_OwnerModeInjectionQuoted locks the fix for the command-injection
+// found in the security review: owner/group/mode come from rule content, which
+// is untrusted on the apply path. Before the fix they were spliced UNQUOTED, so
+// owner "owadmin; touch /tmp/PWNED" ran the touch as root. They must now be
+// shell-quoted so the malicious payload is an inert literal argument.
+func TestApply_OwnerModeInjectionQuoted(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	h := filepermissions.New()
+	if _, err := h.Apply(context.Background(), tp, api.Params{
+		"path":  "/etc/foo",
+		"owner": "root; touch /tmp/PWNED",
+		"mode":  "0644; rm -rf /",
+	}, nil); err != nil {
+		t.Fatalf("Apply err: %v", err)
+	}
+	cmd := tp.Runs[0]
+	// The whole malicious value must sit inside a single-quoted argument.
+	for _, want := range []string{"chown 'root; touch /tmp/PWNED'", "chmod '0644; rm -rf /'"} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("expected quoted (inert) argument %q; got: %s", want, cmd)
+		}
+	}
+	// And there must be no bare command separator that escapes a quote.
+	if strings.Contains(cmd, "; touch /tmp/PWNED '/etc/foo'") || strings.Contains(cmd, "; rm -rf / '/etc/foo'") {
+		t.Errorf("injection escaped quoting: %s", cmd)
+	}
+}
+
 func TestApply_AC01_SetsAllAttributes(t *testing.T) {
 	t.Log("// @spec handler-file-permissions")
 	t.Log("// @ac AC-01")
@@ -56,7 +84,7 @@ func TestApply_AC01_SetsAllAttributes(t *testing.T) {
 		t.Fatalf("got %d Run calls, want 1", len(tp.Runs))
 	}
 	cmd := tp.Runs[0]
-	for _, want := range []string{"chown root:root", "chmod 0000", "chcon --no-dereference"} {
+	for _, want := range []string{"chown 'root:root'", "chmod '0000'", "chcon --no-dereference"} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("apply pipeline missing %q\nfull cmd: %s", want, cmd)
 		}
@@ -85,7 +113,7 @@ func TestApply_AC02_IsIdempotent(t *testing.T) {
 		t.Errorf("got %d Run calls, want 3 (one per Apply)", len(tp.Runs))
 	}
 	for i, c := range tp.Runs {
-		if !strings.Contains(c, "chmod 0644") {
+		if !strings.Contains(c, "chmod '0644'") {
 			t.Errorf("invocation %d cmd missing chmod: %s", i+1, c)
 		}
 	}
@@ -174,7 +202,7 @@ func TestRollback_AC05_RestoresAllAttributes(t *testing.T) {
 		t.Fatalf("got %d Run calls, want 1", len(tp.Runs))
 	}
 	cmd := tp.Runs[0]
-	for _, want := range []string{"chown root:root", "chmod 0640", "chcon --no-dereference"} {
+	for _, want := range []string{"chown 'root:root'", "chmod '0640'", "chcon --no-dereference"} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("rollback pipeline missing %q\nfull cmd: %s", want, cmd)
 		}
@@ -215,7 +243,7 @@ func TestApply_AC07_FailsCleanlyOnPermissionError(t *testing.T) {
 	// Override default to return permission-denied for any chmod cmd.
 	// Our FakeTransport doesn't pattern-match; instead we set the
 	// programmed result via the exact command we know will be issued.
-	cmd := "chown root:root '/etc/secret' && chmod 0600 '/etc/secret'"
+	cmd := "chown 'root:root' '/etc/secret' && chmod '0600' '/etc/secret'"
 	tp.Results[cmd] = &api.CommandResult{ExitCode: 1, Stderr: "chown: changing ownership of '/etc/secret': Operation not permitted"}
 
 	h := filepermissions.New()
