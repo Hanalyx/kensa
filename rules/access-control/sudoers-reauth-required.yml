@@ -1,0 +1,46 @@
+id: sudoers-reauth-required
+title: Require reauthentication for privilege escalation
+description: >
+  RHEL 8 must require users to reauthenticate for privilege escalation.
+  The "!authenticate" option must not appear in /etc/sudoers or any file
+  under /etc/sudoers.d, since it disables the sudo password prompt.
+rationale: >
+  Disabling reauthentication via "!authenticate" lets a user who stepped
+  away from an authenticated session be impersonated for privileged
+  actions, defeating the purpose of requiring a password for sudo.
+severity: medium
+transactional: false
+category: access-control
+tags: [sudo, authentication, privilege-escalation]
+
+depends_on: [package-sudo-installed]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230272"
+      stig_id: "RHEL-08-010381"
+      severity: "CAT II"
+  nist_800_53: ["IA-11"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -rE '^[[:space:]]*[^#].*!authenticate' /etc/sudoers /etc/sudoers.d/ 2>/dev/null; then
+          exit 1
+        fi
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Using visudo, remove every occurrence of "!authenticate" from
+        /etc/sudoers and any file under /etc/sudoers.d so that sudo prompts
+        for a password. Edit with visudo only, to avoid syntax errors that
+        would lock out privilege escalation.

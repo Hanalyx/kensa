@@ -1,0 +1,39 @@
+id: rescue-mode-authentication
+title: Require authentication for rescue mode
+description: >
+  Booting into rescue (single-user) mode must require the root password.
+  The rescue.service ExecStart must invoke systemd-sulogin-shell so a
+  password is demanded before a rescue-mode root shell is granted.
+rationale: >
+  Without authentication on rescue mode, anyone with console or physical
+  access can reboot into a root shell and bypass every access control on
+  the system.
+severity: medium
+transactional: false
+category: access-control
+tags: [boot, rescue-mode, authentication, single-user]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230236"
+      stig_id: "RHEL-08-010151"
+      severity: "CAT II"
+  nist_800_53: ["AC-3"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "grep -qE '^ExecStart=-?/usr/lib/systemd/systemd-sulogin-shell rescue' /usr/lib/systemd/system/rescue.service 2>/dev/null"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Edit /usr/lib/systemd/system/rescue.service so the ExecStart line reads
+        "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue", which forces
+        a password prompt before granting a rescue-mode root shell.

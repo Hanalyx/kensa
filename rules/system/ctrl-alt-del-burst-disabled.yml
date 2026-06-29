@@ -1,0 +1,40 @@
+id: ctrl-alt-del-burst-disabled
+title: Disable the Ctrl-Alt-Delete burst key sequence
+description: >
+  RHEL 8 must disable the systemd CtrlAltDelBurstAction so that rapidly
+  pressing Ctrl-Alt-Delete cannot trigger an unplanned reboot.
+rationale: >
+  A user accidentally or maliciously triggering the Ctrl-Alt-Delete burst
+  sequence could reboot the system, causing a denial of service.
+severity: high
+category: system
+tags: [systemd, ctrl-alt-del, availability]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230531"
+      stig_id: "RHEL-08-040172"
+      severity: "CAT I"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        val=$(systemd-analyze cat-config systemd/system.conf 2>/dev/null |
+          grep -E '^CtrlAltDelBurstAction=' | tail -1)
+        [ "$val" = "CtrlAltDelBurstAction=none" ]
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/systemd/system.conf.d"
+      file: "00-kensa-cad-burst.conf"
+      key: "CtrlAltDelBurstAction"
+      value: "none"
+      section: "[Manager]"

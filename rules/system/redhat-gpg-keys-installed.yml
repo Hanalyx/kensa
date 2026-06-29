@@ -1,0 +1,41 @@
+id: redhat-gpg-keys-installed
+title: Ensure Red Hat package-signing keys are installed
+description: >
+  RHEL 8 must have the Red Hat GPG package-signing keys installed so that
+  the package manager can cryptographically verify vendor software before
+  installation.
+rationale: >
+  Verifying package signatures against the vendor keys ensures only
+  authentic, unmodified Red Hat packages are installed, protecting the
+  software supply chain.
+severity: medium
+transactional: false
+category: system
+tags: [gpg, package-signing, supply-chain, integrity]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-256973"
+      stig_id: "RHEL-08-010019"
+      severity: "CAT II"
+  nist_800_53: ["CM-5(3)", "SI-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        rpm -q --queryformat '%{SUMMARY}\n' gpg-pubkey 2>/dev/null |
+          grep -qi 'Red Hat.*release key'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Install the Red Hat package-signing keys from trusted media. Import
+        with: rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+        then verify the fingerprints match the published vendor values.
