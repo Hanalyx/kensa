@@ -10,6 +10,30 @@ import (
 	"github.com/Hanalyx/kensa/internal/varsub"
 )
 
+// countCorpusRuleFiles returns the number of *.yml files under dir. The
+// production-corpus tests assert LoadRules/LoadRuleSummaries return exactly this
+// many — which proves every rule file loads (no silent parse-drop) WITHOUT a
+// hardcoded count that has to be hand-bumped on every rules PR (a recurring
+// source of spurious test failures). An accidental rule deletion is caught by
+// the catalog drift gate, not here.
+func countCorpusRuleFiles(t *testing.T, dir string) int {
+	t.Helper()
+	n := 0
+	err := filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(p, ".yml") {
+			n++
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("count corpus rule files under %s: %v", dir, err)
+	}
+	return n
+}
+
 // writeRule writes a rule YAML under dir and returns its path.
 func writeRule(t *testing.T, dir, name, content string) string {
 	t.Helper()
@@ -232,8 +256,8 @@ func TestLoadRules_ProductionCorpus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("production corpus must load strictly on built-in defaults: %v", err)
 		}
-		if len(rules) != 630 {
-			t.Errorf("want 630 rules, got %d", len(rules))
+		if want := countCorpusRuleFiles(t, corpus); len(rules) != want {
+			t.Errorf("LoadRules must load every rule file: got %d rules, %d .yml files under %s", len(rules), want, corpus)
 		}
 		rv, err := RuleVariables(corpus)
 		if err != nil {
