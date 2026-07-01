@@ -131,6 +131,12 @@ Most commands take a subset of these.
 | `-q` | `--quiet` | | | Suppress default output (errors still go to stderr) |
 | `-v` | `--verbose` | | | (`check` only) Expand the compacted PASSED list; text format only |
 
+`FORMAT` for `-o/--output` is one of `json`, `jsonl`, `csv`, `pdf`,
+`evidence`, or `oscal`. `pdf` requires a `:PATH` destination (binary
+output has no stdout form). Which formats each of `check` and
+`remediate` accepts, and what each document contains, is covered in
+[04-scan-and-remediate](04-scan-and-remediate.md) § Formats by command.
+
 ---
 
 ## detect
@@ -627,6 +633,17 @@ via `--sudo`) to drive the kernel-IO primitives directly; you do not
 invoke it by hand. Run `kensa agent --help` on the target for its
 protocol flags. See [10-mechanisms](10-mechanisms.md) for which handlers
 use the agent path and `KENSA_NO_AGENT=1` to opt out.
+
+## Companion binaries
+
+The packages install three companion binaries alongside `kensa`. They
+are documented where they are used; this table is the index.
+
+| Binary | Purpose | Documented in |
+|---|---|---|
+| `kensa-validate` | Validate rule YAML files against the canonical schema (`kensa-validate --rules-dir DIR`); exit codes 0 (clean), 1 (errors), 2 (usage) | [06-rule-authoring](06-rule-authoring.md) |
+| `kensa-keygen` | Generate the Ed25519 keypair (`.priv`/`.pub`) used for evidence signing and `kensa verify` | [01-install](01-install.md) |
+| `kensa-systemd-helper` | Privileged D-Bus subprocess for the service handlers; installed to `/usr/libexec/`, invoked by kensa, never run by hand | [01-install](01-install.md) |
 
 ## Next
 
