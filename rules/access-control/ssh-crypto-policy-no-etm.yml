@@ -1,0 +1,41 @@
+id: ssh-crypto-policy-no-etm
+title: Ensure system-wide crypto policy disables EtM for ssh
+description: >
+  The effective SSH daemon MAC list must not include encrypt-then-MAC
+  (*-etm@openssh.com) algorithms, which the site crypto policy is expected
+  to disable.
+rationale: >
+  Disabling EtM MACs through the system-wide crypto policy enforces the
+  organization's approved MAC posture uniformly rather than relying on
+  per-service configuration.
+severity: medium
+transactional: false
+category: access-control
+tags: [ssh, crypto-policy, macs]
+
+references:
+  cis:
+    rhel9:  { section: "1.6.7", level: "L1", type: "Manual" }
+    rhel8:  { section: "1.6.6", level: "L1", type: "Manual" }
+  nist_800_53: ["SC-13", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if sshd -T 2>/dev/null | grep -i '^macs' | grep -q 'etm@'; then
+          echo "FAIL: EtM MAC(s) present in effective sshd macs"
+          exit 1
+        fi
+        echo "OK: no EtM MACs offered"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Adjust the system-wide crypto policy so the SSH MAC list excludes
+        the *-etm@openssh.com algorithms, then restart sshd.

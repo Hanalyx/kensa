@@ -1,0 +1,41 @@
+id: journald-file-access
+title: Ensure journald log file access is configured
+description: >
+  The persistent journal directory /var/log/journal and its files must not
+  be accessible beyond the systemd-journal group and root, so log contents
+  are not exposed to unprivileged users.
+rationale: >
+  System journals contain sensitive operational and security data. Loose
+  permissions let unprivileged users read log data that can aid
+  reconnaissance or expose secrets accidentally logged.
+severity: medium
+transactional: false
+category: logging
+tags: [journald, logging, permissions]
+
+references:
+  cis:
+    rhel9:  { section: "6.2.1.2", level: "L1", type: "Manual" }
+  nist_800_53: ["AU-9"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        d=/var/log/journal
+        if [ ! -d "$d" ]; then echo "FAIL: $d does not exist (persistent journal not configured)"; exit 1; fi
+        bad=$(find "$d" -type f \( -perm /0027 \) 2>/dev/null | head -1)
+        if [ -n "$bad" ]; then echo "FAIL: over-permissive journal file: $bad"; exit 1; fi
+        echo "OK: journal files restricted to group/owner"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Ensure /var/log/journal files are mode 0640 or stricter and owned
+        root:systemd-journal (systemd-tmpfiles restores the shipped
+        permissions).

@@ -1,0 +1,42 @@
+id: audit-config-on-disk-matches-running
+title: Ensure the running and on disk audit configuration is the same
+description: >
+  The audit rules loaded in the kernel must match the on-disk rules that
+  augenrules compiles, so a reboot does not silently change the audit
+  policy.
+rationale: >
+  If the running audit configuration diverges from what is on disk, a
+  reboot or reload will change auditing unexpectedly — either dropping
+  rules that were added at runtime or loading rules that were removed,
+  creating gaps in the audit trail.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, auditd, configuration-drift]
+
+references:
+  cis:
+    rhel9:  { section: "6.3.3.21", level: "L2", type: "Manual" }
+  nist_800_53: ["AU-2", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        out=$(augenrules --check 2>/dev/null)
+        if echo "$out" | grep -qi 'should be updated'; then
+          echo "FAIL: running audit rules differ from on-disk ($out)"; exit 1
+        fi
+        echo "OK: running and on-disk audit rules match"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Reconcile the difference: run `augenrules --load` to load the
+        on-disk rules, or persist any intended runtime rules into
+        /etc/audit/rules.d/ so the two match.

@@ -1,0 +1,46 @@
+id: unused-filesystems-unavailable
+title: Ensure unused filesystems kernel modules are not available
+description: >
+  Uncommon filesystem kernel modules (cramfs, freevxfs, hfs, hfsplus,
+  jffs2, squashfs, udf) should not be loadable, reducing the kernel's
+  attack surface for filesystems the system does not need.
+rationale: >
+  Every loadable filesystem driver is potential attack surface. Disabling
+  drivers the system does not use removes that surface and the risk of
+  automatic mounting of malicious media.
+severity: low
+transactional: false
+category: kernel
+tags: [kernel-module, filesystem, attack-surface]
+
+references:
+  cis:
+    rhel9:  { section: "1.1.1.9",  level: "L1", type: "Manual" }
+    rhel8:  { section: "1.1.1.11", level: "L1", type: "Manual" }
+    rhel10: { section: "1.1.1.11", level: "L1", type: "Manual" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        bad=""
+        for m in cramfs freevxfs hfs hfsplus jffs2 squashfs udf; do
+          loadable=$(modprobe -n -v "$m" 2>/dev/null | grep -vE 'install (/bin|/usr/bin)?/?(true|false)' | grep -c "$m")
+          loaded=$(lsmod 2>/dev/null | grep -c "^$m ")
+          if [ "$loadable" -ne 0 ] || [ "$loaded" -ne 0 ]; then bad="$bad $m"; fi
+        done
+        if [ -n "$bad" ]; then echo "FAIL: loadable/loaded unused fs modules:$bad"; exit 1; fi
+        echo "OK: all unused filesystem modules unavailable"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each reported module add `install <mod> /bin/false` and
+        `blacklist <mod>` under /etc/modprobe.d/, then unload it with
+        `modprobe -r <mod>`.

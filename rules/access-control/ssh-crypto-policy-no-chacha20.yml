@@ -1,0 +1,42 @@
+id: ssh-crypto-policy-no-chacha20
+title: Ensure system-wide crypto policy disables chacha20-poly1305 for ssh
+description: >
+  The effective SSH daemon cipher list must not include
+  chacha20-poly1305@openssh.com, which the site crypto policy is expected
+  to disable.
+rationale: >
+  Removing chacha20-poly1305 from the SSH cipher set enforces the
+  organization's approved cryptographic posture through the system-wide
+  crypto policy rather than per-service overrides.
+severity: medium
+transactional: false
+category: access-control
+tags: [ssh, crypto-policy, ciphers]
+
+references:
+  cis:
+    rhel9:  { section: "1.6.6", level: "L1", type: "Manual" }
+    rhel8:  { section: "1.6.5", level: "L1", type: "Manual" }
+  nist_800_53: ["SC-13", "SC-8"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if sshd -T 2>/dev/null | grep -i '^ciphers' | grep -q 'chacha20-poly1305'; then
+          echo "FAIL: chacha20-poly1305 present in effective sshd ciphers"
+          exit 1
+        fi
+        echo "OK: chacha20-poly1305 not offered"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Adjust the system-wide crypto policy (update-crypto-policies with a
+        custom subpolicy) so the SSH cipher list excludes
+        chacha20-poly1305@openssh.com, then restart sshd.

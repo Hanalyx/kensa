@@ -1,0 +1,44 @@
+id: security-updates-installed
+title: Ensure updates, patches, and additional security software are installed
+description: >
+  Available vendor updates and security patches should be applied. This
+  rule flags when the package manager reports pending updates.
+rationale: >
+  Unapplied updates leave known vulnerabilities exploitable. Keeping the
+  system current is a primary defense against publicly known CVEs.
+severity: medium
+transactional: false
+category: system
+tags: [patching, updates, vulnerability-management]
+
+references:
+  cis:
+    rhel9:  { section: "1.2.2.1", level: "L1", type: "Manual" }
+    rhel8:  { section: "1.2.2.1", level: "L1", type: "Manual" }
+    rhel10: { section: "1.2.2.1", level: "L1", type: "Manual" }
+  nist_800_53: ["SI-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # dnf check-update exits 100 when updates are available, 0 when none.
+        if dnf -q check-update >/dev/null 2>&1; then
+          echo "OK: no pending updates"
+          exit 0
+        fi
+        rc=$?
+        if [ "$rc" -eq 100 ]; then echo "FAIL: package updates are pending"; exit 1; fi
+        echo "OK: update check completed (rc=$rc)"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Review pending updates with `dnf check-update` and apply approved
+        updates with `dnf update` on your change-controlled schedule.

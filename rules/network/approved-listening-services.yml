@@ -1,0 +1,47 @@
+id: approved-listening-services
+title: Ensure only approved services are listening on a network interface
+description: >
+  No plaintext or legacy insecure service (telnet, rsh/rlogin, tftp, ftp,
+  finger) may be listening on a network interface. Full approval of the
+  remaining listeners is a site-policy review, but these known-insecure
+  listeners are never approved.
+rationale: >
+  Legacy plaintext services expose credentials and data in transit and are
+  a common initial-access vector. Their presence on a listening socket is
+  an unambiguous finding regardless of site policy.
+severity: medium
+transactional: false
+category: network
+tags: [network, services, attack-surface]
+
+references:
+  cis:
+    rhel9:  { section: "2.1.22", level: "L1", type: "Manual" }
+    rhel8:  { section: "2.1.24", level: "L1", type: "Manual" }
+    rhel10: { section: "2.1.22", level: "L1", type: "Manual" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Fail on any listener bound to a well-known insecure service port.
+        bad=$(ss -H -plntu 2>/dev/null | awk '{print $5}' | grep -oE '[0-9]+$' \
+          | grep -wE '21|23|69|79|512|513|514' | sort -u | tr '\n' ' ')
+        if [ -n "$bad" ]; then
+          echo "FAIL: insecure legacy service(s) listening on port(s): $bad"
+          exit 1
+        fi
+        echo "OK: no known-insecure legacy listeners (review remaining listeners against site policy)"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Enumerate listeners with `ss -plntu` and compare against the
+        approved-services baseline for this host role; disable or remove any
+        listener that is not required, and never expose telnet/rsh/tftp/ftp.
