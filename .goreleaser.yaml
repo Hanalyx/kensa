@@ -239,6 +239,26 @@ nfpms:
         key_file: '{{ index .Env "GPG_PRIVATE_KEY_PATH" }}'
         type: origin
 
+# CycloneDX SBOM of the whole project (Go module dependency graph),
+# generated once with syft. Emitted as a single kensa_<v>_sbom.cdx.json
+# and — because sbom artifacts are included in the checksum step below —
+# listed in the signed checksums file, so the cosign signature anchors
+# it transitively alongside the tarballs and packages. Required for
+# FedRAMP / CMMC submissions.
+sboms:
+  - id: kensa
+    artifacts: any
+    documents:
+      - "kensa_{{ .Version }}_sbom.cdx.json"
+    cmd: syft
+    args:
+      - scan
+      - dir:.
+      - --source-name=kensa
+      - --source-version={{ .Version }}
+      - --output
+      - cyclonedx-json=$document
+
 checksum:
   name_template: "kensa_{{ .Version }}_checksums.sha256"
   algorithm: sha256

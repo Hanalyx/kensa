@@ -437,6 +437,14 @@ jobs:
         run: |
           go install github.com/goreleaser/goreleaser/v2@v2.15.4
           goreleaser --version
+      - name: Install syft
+        # syft backs goreleaser's sboms block. Keep pinned in lockstep
+        # with SYFT_VERSION in .github/workflows/release.yml so the
+        # snapshot exercises the same SBOM generator the release uses.
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin v1.46.0
+          syft version
       - name: goreleaser check
         run: goreleaser check
       - name: goreleaser release --snapshot --skip=publish,sign
@@ -458,6 +466,27 @@ jobs:
             exit 1
           fi
           echo "✓ 11/11 expected artifacts present"
+      - name: Verify CycloneDX SBOM produced, non-empty, and in checksums
+        run: |
+          # The SBOM (kensa_<v>_sbom.cdx.json) is a CycloneDX document of
+          # the Go module graph. It is not counted in the 11 above (the
+          # glob matches tar.gz/rpm/deb/sha256 only). Assert it exists,
+          # parses as CycloneDX with components, carries the direct deps,
+          # and is listed in the signed checksums file.
+          set -euo pipefail
+          sbom=$(ls dist/*_sbom.cdx.json)
+          fmt=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('bomFormat',''))" "$sbom")
+          comps=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('components',[])))" "$sbom")
+          if [ "$fmt" != "CycloneDX" ] || [ "$comps" -lt 1 ]; then
+            echo "::error::SBOM is not a non-empty CycloneDX document (format=$fmt components=$comps)"
+            exit 1
+          fi
+          for dep in $(go list -m -f '{{if not .Indirect}}{{.Path}}{{end}}' all | grep -v '^github.com/Hanalyx/kensa$' | grep .); do
+            grep -q "$dep" "$sbom" || { echo "::error::direct dep $dep missing from SBOM"; exit 1; }
+          done
+          grep -q "$(basename "$sbom")" dist/kensa_*_checksums.sha256 || {
+            echo "::error::SBOM not listed in the checksums file"; exit 1; }
+          echo "✓ SBOM present ($comps components), all direct deps included, anchored in checksums"
       - name: Verify sudoers fragment ships 0440 root:root (rpm + deb)
         run: |
           # packaging-sudoers-helper C-02 / AC-08: the sudoers.d file must

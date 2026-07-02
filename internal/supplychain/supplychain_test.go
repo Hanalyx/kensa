@@ -181,3 +181,24 @@ func TestSupplyChain_CIGates(t *testing.T) {
 		}
 	})
 }
+
+// TestSupplyChain_SBOMConfigured verifies the goreleaser config declares
+// an sboms block producing a CycloneDX document.
+//
+// @spec system-supply-chain
+// @ac AC-06
+func TestSupplyChain_SBOMConfigured(t *testing.T) {
+	t.Log("// @spec system-supply-chain")
+	t.Log("// @ac AC-06")
+
+	cfg := readRepoFile(t, ".goreleaser.yaml")
+	if !regexp.MustCompile(`(?m)^sboms:`).MatchString(cfg) {
+		t.Fatal(".goreleaser.yaml has no sboms block")
+	}
+	if !strings.Contains(cfg, "cyclonedx-json") {
+		t.Error("sboms block does not produce a CycloneDX document")
+	}
+	if !strings.Contains(cfg, "sbom.cdx.json") {
+		t.Error("sboms block does not name a kensa_<v>_sbom.cdx.json document")
+	}
+}

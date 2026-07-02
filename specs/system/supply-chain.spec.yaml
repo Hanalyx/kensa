@@ -14,9 +14,9 @@ spec:
             gates that enforce supply-chain hygiene: a named allowlist with
             per-dep rationale, depguard enforcement of that allowlist, a
             read-only module mode so no CI step silently mutates go.mod, a
-            govulncheck gate that blocks known CVEs, and a go.mod-tidy drift
-            gate. The SBOM-on-release requirement (S-013) is tracked
-            separately and will add its own AC when it lands.
+            govulncheck gate that blocks known CVEs, a go.mod-tidy drift
+            gate, and a CycloneDX SBOM emitted on release and anchored in
+            the signed checksums file.
 
     objective:
         summary: |
@@ -30,8 +30,8 @@ spec:
                 - GOFLAGS=-mod=readonly in CI
                 - govulncheck CI gate
                 - go mod tidy no-op (drift) CI gate
+                - CycloneDX SBOM on release, anchored in checksums
             excludes:
-                - SBOM on release (S-013 — adds AC-06 when shipped)
                 - Indirect-dependency pinning (governed by direct deps)
                 - Runtime dependency loading (kensa has none)
 
@@ -89,6 +89,14 @@ spec:
               files match what tidy produces.
           type: security
           enforcement: error
+        - id: C-06
+          description: |
+              The release pipeline MUST emit a CycloneDX SBOM
+              (kensa_<version>_sbom.cdx.json) via the goreleaser sboms
+              block, and it MUST be included in the checksums file so the
+              cosign signature over the checksums anchors it transitively.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -120,4 +128,11 @@ spec:
           description: |
               The CI workflow runs a go-mod-tidy drift gate.
           references_constraints: [C-05]
+          priority: high
+        - id: AC-06
+          description: |
+              The goreleaser config declares an sboms block producing a
+              CycloneDX document, and sbom artifacts flow into the
+              checksums file.
+          references_constraints: [C-06]
           priority: high
