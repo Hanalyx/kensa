@@ -14,7 +14,11 @@ tags: [mount, logging, security]
 
 references:
   cis:
-    rhel9:  { section: "1.1.2.6.2", level: "L1", type: "Automated" }
+    # one rule sets nodev+nosuid+noexec -> three CIS sub-controls
+    rhel9:
+      - { section: "1.1.2.6.2", level: "L1", type: "Automated" }   # nodev
+      - { section: "1.1.2.6.3", level: "L1", type: "Automated" }   # nosuid
+      - { section: "1.1.2.6.4", level: "L1", type: "Automated" }   # noexec
     rhel10: { section: "1.1.2.6.2", level: "L1", type: "Automated" }
     rhel8: { section: "1.1.2.6.2", level: "L1", type: "Automated" }
   stig:
