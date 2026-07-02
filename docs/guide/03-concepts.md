@@ -1,6 +1,6 @@
 # Concepts
 
-_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.0 — last updated 2026-07-02._
 
 Kensa is a compliance engine, but its core is not the rules. It's the
 *transaction*: the four-phase Kensa operation (capture, apply, validate,
@@ -88,6 +88,53 @@ Best-effort, Staged, or None) is tabulated in
 "Staged" case: Kensa never edits the saved boot default directly but stages
 the change through a one-shot trial boot, so a host that fails to boot
 reverts on its own.
+
+## Rule status labels
+
+Every rule carries four status labels you'll see in the rule catalog and
+tooling. They are **derived** from the rule's own fields and its
+verification record — never hand-written on a rule — so they can't drift
+from what the rule actually does. Two describe what the rule *can do*
+(its atomicity class), and two describe what has been *observed*.
+
+**Atomicity class** — a rule is exactly one of these:
+
+- **rollback-safe** — the rule is `transactional: true`: it is backed by a
+  capturable mechanism, so the engine records the prior state before
+  applying and can restore it. This is a real, structural property — the
+  engine *will* roll back a rollback-safe rule on apply-time failure, or on
+  a later `kensa rollback`. **It is not a claim that this specific rule's
+  rollback has been exercised on a host** — that is what the verification
+  labels below tell you. (A rollback-safe rule inherits the atomicity its
+  handler was proven to have; whether *this rule's* remediation was itself
+  run and reverted is a separate fact.)
+- **detection-only** — the rule is `transactional: false`: it checks
+  compliance but runs no reversible remediation transaction. Kensa reports
+  the verdict and records it for audit, but there is nothing to roll back.
+
+**manual** — a sub-label of detection-only: the rule's remediation
+mechanism is `manual`, meaning the fix is documented for an operator to
+apply by hand rather than performed by Kensa. (Other detection-only rules
+may use a non-capturable escape hatch like `command_exec` instead.)
+
+**verified** — the rule's check has been run against a real host of a
+matching OS and produced a definite verdict, recorded in the verification
+ledger. This label carries a **scope**, and the distinction matters:
+
+- **verified (check)** — the read-only check was run and gave a definite
+  pass or fail on that OS. It confirms the *check* discriminates; it says
+  nothing about remediation.
+- **verified (rollback-proven)** — a full remediate → rollback cycle was
+  run for this rule and restored the host byte-for-byte. This is the only
+  label that demonstrates the rule's *reversal* end-to-end.
+
+The two axes are independent, and reading them together is the honest
+picture. A rule can be **rollback-safe** (the engine can revert it) yet
+only **verified (check)** — meaning its reversal is structurally sound but
+has not itself been demonstrated on a host. Conversely a **detection-only**
+rule is never rollback-safe and never rollback-proven, because it makes no
+reversible change; "verified (check)" is the strongest label it can hold,
+and that is complete for it.
 
 ## Platform gating
 
