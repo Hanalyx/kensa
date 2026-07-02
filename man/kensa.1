@@ -75,15 +75,16 @@ Usage: kensa detect [flags]
 Probe a host and print its capability set. Read\-only; no mutations.
 
 Target options:
-  \-H, \-\-host string                    target hostname (required)
-  \-u, \-\-user string                    SSH user (default: current user)
-  \-k, \-\-key string                     SSH private key path
-  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
-  \-P, \-\-port int                       SSH port (default 22)
-      \-\-sudo                           wrap commands in sudo
-      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
-  \-C, \-\-capability stringArray         override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
+  \-H, \-\-host string                         target hostname (required)
+  \-u, \-\-user string                         SSH user (default: current user)
+  \-k, \-\-key string                          SSH private key path
+  \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+  \-P, \-\-port int                            SSH port (default 22)
+      \-\-sudo                                wrap commands in sudo
+      \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
+      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+  \-C, \-\-capability stringArray              override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
 
 Output options:
       \-\-format string    output format: table or json (deprecated; use \-\-output) (default "table")
@@ -105,18 +106,19 @@ Usage: kensa check [flags] [rule.yml ...]
 Run read\-only compliance checks against one host or an inventory.
 
 Target options:
-  \-H, \-\-host string                    target hostname (required if no \-\-inventory)
-  \-u, \-\-user string                    SSH user (default: current user)
-  \-k, \-\-key string                     SSH private key path
-  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
-  \-P, \-\-port int                       SSH port (default 22)
-      \-\-sudo                           wrap commands in sudo
-      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
-  \-C, \-\-capability stringArray         override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
-  \-i, \-\-inventory string               Ansible\-style inventory.ini for multi\-host check
-  \-l, \-\-limit string                   limit inventory hosts to glob/group pattern (ansible \-\-limit semantics)
-  \-w, \-\-workers int                    concurrent SSH connections for \-\-inventory mode (1\-50; 1 = sequential) (default 1)
+  \-H, \-\-host string                         target hostname (required if no \-\-inventory)
+  \-u, \-\-user string                         SSH user (default: current user)
+  \-k, \-\-key string                          SSH private key path
+  \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+  \-P, \-\-port int                            SSH port (default 22)
+      \-\-sudo                                wrap commands in sudo
+      \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
+      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+  \-C, \-\-capability stringArray              override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
+  \-i, \-\-inventory string                    Ansible\-style inventory.ini for multi\-host check
+  \-l, \-\-limit string                        limit inventory hosts to glob/group pattern (ansible \-\-limit semantics)
+  \-w, \-\-workers int                         concurrent SSH connections for \-\-inventory mode (1\-50; 1 = sequential) (default 1)
 
 Rule options:
   \-r, \-\-rules\-dir string         directory to scan for *.yml rule files
@@ -159,15 +161,16 @@ atomic transaction; on validation failure, the engine rolls back
 to captured pre\-state.
 
 Target options:
-  \-H, \-\-host string                    target hostname (required)
-  \-u, \-\-user string                    SSH user (default: current user)
-  \-k, \-\-key string                     SSH private key path
-  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
-  \-P, \-\-port int                       SSH port (default 22)
-      \-\-sudo                           wrap commands in sudo
-      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
-  \-C, \-\-capability stringArray         override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
+  \-H, \-\-host string                         target hostname (required)
+  \-u, \-\-user string                         SSH user (default: current user)
+  \-k, \-\-key string                          SSH private key path
+  \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+  \-P, \-\-port int                            SSH port (default 22)
+      \-\-sudo                                wrap commands in sudo
+      \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
+      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+  \-C, \-\-capability stringArray              override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
 
 Rule options:
   \-r, \-\-rules\-dir string         directory to scan for *.yml rule files
@@ -223,13 +226,14 @@ Mode (pick one):
       \-\-detail         include per\-step breakdown (composes with \-\-list / \-\-info)
 
 Target options (required for \-\-start and \-\-txn):
-  \-H, \-\-host string           target hostname (required for \-\-start and \-\-txn)
-  \-u, \-\-user string           SSH user (default: current user)
-  \-k, \-\-key string            SSH private key path
-  \-P, \-\-port int              SSH port (default 22)
-      \-\-sudo                  wrap commands in sudo
-      \-\-strict\-host\-keys      verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys   trust on first use (default today; explicit form for future config\-file override)
+  \-H, \-\-host string                         target hostname (required for \-\-start and \-\-txn)
+  \-u, \-\-user string                         SSH user (default: current user)
+  \-k, \-\-key string                          SSH private key path
+  \-P, \-\-port int                            SSH port (default 22)
+      \-\-sudo                                wrap commands in sudo
+      \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
+      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
 
 Output options:
       \-\-format string   output format: text or json (default "text")
@@ -271,7 +275,7 @@ Examples:
   kensa history \-n 200 \-\-format jsonl | jq \-c .  # last 200 as JSON Lines (streamable to log aggregators)
   kensa history \-H 192.168.1.211 \-S 24h          # one host, last 24h
   kensa history \-T 8c3a1e2b\-...                  # one transaction by UUID
-  kensa history \-a by_host \-S 7d                 # 7\-day posture per host
+  kensa history \-a by_host \-S 168h               # 7\-day posture per host (Go durations have no day unit)
   kensa history \-\-prune 30                       # interactive prompt; deletes sessions older than 30 days
   kensa history \-\-prune 30 \-\-force               # non\-interactive (CI / cron); skips the prompt
 .fi
@@ -285,17 +289,18 @@ Plan with captured pre\-state, apply steps, validators, rollback plan,
 and warnings.
 
 Flags:
-  \-h, \-\-help                           show this help and exit
-  \-H, \-\-host string                    target hostname (required)
-  \-u, \-\-user string                    SSH user (default: current user)
-  \-P, \-\-port int                       SSH port (default 22)
-  \-k, \-\-key string                     SSH private key path
-  \-p, \-\-password string[="<prompt>"]   SSH password (omit value for TTY prompt; reserved literal: <prompt>)
-      \-\-strict\-host\-keys               verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys            trust on first use (default today; explicit form for future config\-file override)
-      \-\-sudo                           wrap commands in sudo
-      \-\-format string                  output format: text, markdown, json, plain (default "text")
-  \-q, \-\-quiet                          suppress default output (errors still go to stderr)
+  \-h, \-\-help                                show this help and exit
+  \-H, \-\-host string                         target hostname (required)
+  \-u, \-\-user string                         SSH user (default: current user)
+  \-P, \-\-port int                            SSH port (default 22)
+  \-k, \-\-key string                          SSH private key path
+  \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
+      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+      \-\-sudo                                wrap commands in sudo
+      \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
+      \-\-format string                       output format: text, markdown, json, plain (default "text")
+  \-q, \-\-quiet                               suppress default output (errors still go to stderr)
 
 Example:
   kensa plan \-H 192.168.1.211 \-u owadmin \-\-sudo \-\-format markdown rule.yml
