@@ -136,6 +136,68 @@ func TestPersistRollback_MarksStatusAndDropsSession(t *testing.T) {
 	}
 }
 
+// TestPersistRollback_RecomputesAllCounters proves that rolling back a
+// NON-committed transaction (reachable via the legacy `--txn` path, which
+// applies no status filter) refreshes all four session counters — in
+// particular txn_failed must decrement, not strand. With a committed→rolled
+// transition this is invisible; an errored→rolled transition exposes a
+// partial recompute.
+//
+// @spec cli-rollback-session-aware
+// @ac AC-15
+func TestPersistRollback_RecomputesAllCounters(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-15", func(t *testing.T) {})
+	t.Log("// @spec cli-rollback-session-aware")
+	t.Log("// @ac AC-15")
+
+	s := openTestStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	sess := &Session{ID: uuid.New(), StartedAt: now, Hostname: "h", Subcommand: "remediate"}
+	if err := s.CreateSession(ctx, sess); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	txnID := uuid.New()
+	res := &api.TransactionResult{
+		TransactionID: txnID, Status: api.StatusErrored,
+		StartedAt: now, FinishedAt: now.Add(time.Second),
+		Steps: []api.StepResult{{StepIndex: 0, Mechanism: "mount_option_set", Capturable: true, Success: true}},
+		Envelope: &api.EvidenceEnvelope{
+			SchemaVersion: "v1", TransactionID: txnID, RuleID: "r", HostID: "h",
+			StartedAt: now, FinishedAt: now.Add(time.Second),
+			Decision: api.StatusErrored, SigningKeyID: "noop", Signature: []byte{},
+		},
+	}
+	if err := s.PersistResult(ctx, res); err != nil {
+		t.Fatalf("PersistResult: %v", err)
+	}
+	if err := s.AttachTransaction(ctx, txnID, sess.ID); err != nil {
+		t.Fatalf("AttachTransaction: %v", err)
+	}
+	if err := s.FinishSession(ctx, sess.ID, now.Add(2*time.Second)); err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+	if got, _ := s.GetSession(ctx, sess.ID); got.TxnFailed != 1 || got.TxnTotal != 1 {
+		t.Fatalf("precondition: failed=%d total=%d, want 1 and 1", got.TxnFailed, got.TxnTotal)
+	}
+
+	if err := s.PersistRollback(ctx, txnID,
+		[]api.RollbackResult{{StepIndex: 0, Success: true, Source: "manual", ExecutedAt: now.Add(3 * time.Second)}},
+		now.Add(3*time.Second)); err != nil {
+		t.Fatalf("PersistRollback: %v", err)
+	}
+
+	got, err := s.GetSession(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.TxnTotal != 1 || got.TxnCommitted != 0 || got.TxnRolled != 1 || got.TxnFailed != 0 {
+		t.Errorf("counters after rolling back an errored txn: total=%d committed=%d rolled=%d failed=%d; want 1,0,1,0 (txn_failed must decrement)",
+			got.TxnTotal, got.TxnCommitted, got.TxnRolled, got.TxnFailed)
+	}
+}
+
 // TestPersistRollback_UnknownTxn errors rather than silently succeeding.
 //
 // @spec cli-rollback-session-aware

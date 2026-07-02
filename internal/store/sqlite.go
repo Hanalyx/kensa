@@ -285,10 +285,15 @@ func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results [
 	}
 
 	// Refresh the owning session's denormalized counters from the live
-	// transaction statuses (the same computation FinishSession uses), so
-	// committed→rolled_back is reflected and the session drops out of
-	// RollbackableSessions (txn_committed > 0). No-op when the transaction
-	// has no session (legacy / --txn path).
+	// transaction statuses. This MUST recompute ALL FOUR counters with the
+	// exact formula FinishSession uses (internal/store/sessions.go) — not just
+	// committed/rolled. The legacy `kensa rollback --txn` path applies no
+	// status filter (unlike --start, which is gated to committed txns), so it
+	// can roll back a `partially_applied`/`errored` transaction; that row was
+	// counted in txn_failed and must leave it. Recomputing only committed/
+	// rolled would strand txn_failed and make the session's denormalized
+	// counters internally inconsistent. No-op when the transaction has no
+	// session (legacy / --txn without a session).
 	var sessID sql.NullString
 	if err := tx.QueryRowContext(ctx,
 		`SELECT session_id FROM transactions WHERE id = ?`, txnID.String(),
@@ -298,10 +303,12 @@ func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results [
 	if sessID.Valid && sessID.String != "" {
 		if _, err := tx.ExecContext(ctx, `
             UPDATE sessions SET
+                txn_total     = (SELECT COUNT(*) FROM transactions WHERE session_id = ?),
                 txn_committed = (SELECT COALESCE(SUM(CASE WHEN status = 'committed'   THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?),
-                txn_rolled    = (SELECT COALESCE(SUM(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?)
+                txn_rolled    = (SELECT COALESCE(SUM(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?),
+                txn_failed    = (SELECT COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back') THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?)
             WHERE id = ?`,
-			sessID.String, sessID.String, sessID.String,
+			sessID.String, sessID.String, sessID.String, sessID.String, sessID.String,
 		); err != nil {
 			return fmt.Errorf("store: refresh session counters after rollback: %w", err)
 		}

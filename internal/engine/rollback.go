@@ -136,6 +136,22 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 	// a false negative. The gap is surfaced as a WARNING in the result
 	// detail (which callers carry into their own evidence), not propagated
 	// as an error.
+	// A rollback that reverted nothing (no capturable steps — e.g. a
+	// non-transactional transaction reached via the legacy `--txn` path,
+	// which unlike --start applies no status/capturable filter) must NOT be
+	// recorded as rolled-back: writing a rolled_back status with zero events
+	// for a no-op would misrepresent the host. Leaving the transaction as-is
+	// is the honest state.
+	if len(rbResults) == 0 {
+		return &api.RollbackResult{
+			StepIndex:  -1,
+			Success:    true,
+			Detail:     "no capturable steps to roll back; host unchanged, transaction status left as-is",
+			Source:     "manual",
+			ExecutedAt: rolledBackAt,
+		}, nil
+	}
+
 	detail := "all rollback steps succeeded"
 	if rs, ok := e.store.(RollbackStore); ok {
 		if err := rs.PersistRollback(ctx, record.ID, rbResults, rolledBackAt); err != nil {

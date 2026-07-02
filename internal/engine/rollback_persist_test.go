@@ -143,3 +143,42 @@ func TestRollbackTransaction_PersistFailureIsBestEffort(t *testing.T) {
 		t.Errorf("expected a warning about the failed audit write in the detail, got %q", res.Detail)
 	}
 }
+
+// TestRollbackTransaction_NoCapturableStepsNotPersisted proves a rollback that
+// reverted nothing (no capturable steps — the legacy --txn footgun reaching a
+// non-transactional txn) is NOT recorded as rolled-back: writing a rolled_back
+// status with zero events for a no-op would misrepresent the host.
+//
+// @spec cli-rollback-session-aware
+// @ac AC-15
+func TestRollbackTransaction_NoCapturableStepsNotPersisted(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-15", func(t *testing.T) {})
+	t.Log("// @spec cli-rollback-session-aware")
+	t.Log("// @ac AC-15")
+
+	r := handler.NewRegistry()
+	r.Register(&engine.FakeHandler{HandlerName: "fake_noncap", IsCapturable: false})
+	store := &recordingRollbackStore{}
+	e := engine.New(engine.WithRegistry(r), engine.WithStore(store))
+
+	record := &api.TransactionRecord{
+		ID:     uuid.New(),
+		RuleID: "non-transactional-rule",
+		Steps: []api.StepResult{
+			{StepIndex: 0, Mechanism: "fake_noncap", Capturable: false, Success: true},
+		},
+	}
+	res, err := e.RollbackTransaction(context.Background(), engine.NewFakeTransport(), record)
+	if err != nil {
+		t.Fatalf("RollbackTransaction: %v", err)
+	}
+	if res == nil || !res.Success {
+		t.Fatal("a no-op rollback should report success")
+	}
+	if _, ok := store.rolledBack[record.ID]; ok {
+		t.Error("a rollback that reverted nothing must NOT be persisted as rolled-back")
+	}
+	if !strings.Contains(res.Detail, "no capturable steps") {
+		t.Errorf("expected a no-op detail, got %q", res.Detail)
+	}
+}
