@@ -46,7 +46,7 @@ jobs:
     name: Spec Sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -122,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [spec-sync, unit]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -173,7 +173,7 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -204,7 +204,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -244,7 +244,7 @@ jobs:
     name: Comment lint (no planning labels in new comments)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v6
@@ -263,7 +263,7 @@ jobs:
     name: Pre-commit hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -281,7 +281,7 @@ jobs:
     name: Build & Static Linking Verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -331,7 +331,7 @@ jobs:
     name: Portability — glibc 2.28 (RHEL 8)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -368,7 +368,7 @@ jobs:
     name: CLI Smoke Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -391,7 +391,7 @@ jobs:
     name: Portability — Alpine (musl)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -422,7 +422,7 @@ jobs:
     name: Release snapshot (no publish, no sign)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # goreleaser needs full history for version templating
       - uses: actions/setup-go@v6
@@ -505,7 +505,7 @@ jobs:
     name: Vulnerability Scan (govulncheck)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -527,7 +527,7 @@ jobs:
     name: Module drift check (go mod tidy is a no-op)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -547,7 +547,7 @@ jobs:
     name: Catalog drift gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -563,7 +563,7 @@ jobs:
     name: Secret scan (detect-secrets)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.x'
