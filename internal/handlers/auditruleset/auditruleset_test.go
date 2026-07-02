@@ -10,6 +10,20 @@ import (
 	"github.com/Hanalyx/kensa/internal/handlers/auditruleset"
 )
 
+// lastAugenrulesCmd returns the most recent shell command that reloaded
+// augenrules — the merge model reads the file first, so the write/rm is no
+// longer Runs[0].
+func lastAugenrulesCmd(t *testing.T, runs []string) string {
+	t.Helper()
+	for i := len(runs) - 1; i >= 0; i-- {
+		if strings.Contains(runs[i], "augenrules --load") {
+			return runs[i]
+		}
+	}
+	t.Fatalf("no 'augenrules --load' command in runs: %v", runs)
+	return ""
+}
+
 // @spec handler-audit-rule-set
 // @ac AC-01
 func TestApply_WritesRuleAndLoads(t *testing.T) {
@@ -27,12 +41,12 @@ func TestApply_WritesRuleAndLoads(t *testing.T) {
 	if !res.Success {
 		t.Errorf("Success=false: %s", res.Detail)
 	}
-	cmd := tp.Runs[0]
-	if !strings.Contains(cmd, "augenrules --load") {
-		t.Errorf("expected augenrules --load; got %q", cmd)
-	}
+	cmd := lastAugenrulesCmd(t, tp.Runs)
 	if !strings.Contains(cmd, "kensa-watch-passwd.rules") {
 		t.Errorf("expected rule file path; got %q", cmd)
+	}
+	if !strings.Contains(cmd, "identity") {
+		t.Errorf("expected merged rule content in the write; got %q", cmd)
 	}
 }
 
@@ -59,11 +73,9 @@ func TestRollback_RemovesFileWhenAbsentAtCapture(t *testing.T) {
 	if !res.Success {
 		t.Errorf("Success=false: %s", res.Detail)
 	}
-	if !strings.Contains(tp.Runs[0], "rm -f") {
-		t.Errorf("expected rm -f; got %q", tp.Runs[0])
-	}
-	if !strings.Contains(tp.Runs[0], "augenrules --load") {
-		t.Errorf("expected augenrules --load after rm; got %q", tp.Runs[0])
+	cmd := lastAugenrulesCmd(t, tp.Runs)
+	if !strings.Contains(cmd, "rm -f") {
+		t.Errorf("expected rm -f (no managed rule left); got %q", cmd)
 	}
 }
 

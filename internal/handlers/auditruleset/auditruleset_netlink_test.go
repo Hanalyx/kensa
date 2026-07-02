@@ -35,6 +35,53 @@ func TestApply_Netlink(t *testing.T) {
 	}
 }
 
+// TestSharedFile_MergeAndRollback_PreservesSibling is the end-to-end proof of
+// the shared-file clobber fix: two rules written to the SAME CIS-grouped
+// drop-in (50-privileged.rules) must both persist, and rolling back one must
+// leave the other. Pre-fix, the second Apply overwrote the first.
+//
+// @spec auditnl-rule-set
+// @ac AC-03
+func TestSharedFile_MergeAndRollback_PreservesSibling(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-03", func(t *testing.T) {})
+	f := auditnl.NewFakeAudit()
+	h := auditruleset.New()
+	ctx := context.Background()
+	const shared = "/etc/audit/rules.d/50-privileged.rules"
+	ruleA := api.Params{"rule": "-a always,exit -F path=/usr/bin/sudo -F perm=x -k privileged", "persist_file": shared}
+	ruleB := api.Params{"rule": "-a always,exit -F path=/usr/bin/su -F perm=x -k privileged", "persist_file": shared}
+
+	if _, err := h.Apply(ctx, f, ruleA, nil); err != nil {
+		t.Fatalf("Apply A: %v", err)
+	}
+	// Capture B against the file that already holds A, then apply B.
+	preB, err := h.Capture(ctx, f, ruleB)
+	if err != nil {
+		t.Fatalf("Capture B: %v", err)
+	}
+	if _, err := h.Apply(ctx, f, ruleB, nil); err != nil {
+		t.Fatalf("Apply B: %v", err)
+	}
+
+	// Both rules persisted in the shared file (pre-fix: only B survived).
+	if got := f.Files[shared]; !strings.Contains(got, "/usr/bin/sudo") || !strings.Contains(got, "/usr/bin/su ") {
+		t.Fatalf("shared drop-in must hold BOTH rules after merge; got %q", got)
+	}
+
+	// Roll back B → A must survive, B must be gone.
+	rb, err := h.Rollback(ctx, f, preB)
+	if err != nil || !rb.Success {
+		t.Fatalf("Rollback B: err=%v success=%v detail=%q", err, rb.Success, rb.Detail)
+	}
+	got := f.Files[shared]
+	if !strings.Contains(got, "/usr/bin/sudo") {
+		t.Errorf("sibling rule A must survive B's rollback; got %q", got)
+	}
+	if strings.Contains(got, "/usr/bin/su ") {
+		t.Errorf("rolled-back rule B must be gone from the file; got %q", got)
+	}
+}
+
 // A malformed rule line is a failed step, not a Go error, and nothing is
 // loaded or persisted.
 //
