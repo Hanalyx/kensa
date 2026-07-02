@@ -3,6 +3,7 @@ package engine_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 // the engine records a rollback outcome after a successful revert.
 type recordingRollbackStore struct {
 	rolledBack map[uuid.UUID][]api.RollbackResult
+	persistErr error // when set, PersistRollback returns it (best-effort test)
 }
 
 func (r *recordingRollbackStore) PersistPreStates(context.Context, uuid.UUID, []api.PreState) error {
@@ -30,6 +32,9 @@ func (r *recordingRollbackStore) LoadPreStates(context.Context, uuid.UUID) ([]ap
 	return nil, nil
 }
 func (r *recordingRollbackStore) PersistRollback(_ context.Context, txnID uuid.UUID, results []api.RollbackResult, _ time.Time) error {
+	if r.persistErr != nil {
+		return r.persistErr
+	}
 	if r.rolledBack == nil {
 		r.rolledBack = map[uuid.UUID][]api.RollbackResult{}
 	}
@@ -105,5 +110,36 @@ func TestRollbackTransaction_PartialFailureNotPersisted(t *testing.T) {
 	}
 	if _, ok := store.rolledBack[record.ID]; ok {
 		t.Error("a partial rollback must NOT be persisted as rolled-back")
+	}
+}
+
+// TestRollbackTransaction_PersistFailureIsBestEffort proves that when the host
+// reverts successfully but the store write fails, the rollback is still
+// reported successful (host state is the source of truth) and the failure is
+// surfaced as a warning in the result detail — never as a failed rollback,
+// which a downstream orchestrator would act on as a false negative.
+//
+// @spec cli-rollback-session-aware
+// @ac AC-15
+func TestRollbackTransaction_PersistFailureIsBestEffort(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-15", func(t *testing.T) {})
+	t.Log("// @spec cli-rollback-session-aware")
+	t.Log("// @ac AC-15")
+
+	r := handler.NewRegistry()
+	r.Register(&engine.FakeHandler{HandlerName: "fake_cap", IsCapturable: true})
+	store := &recordingRollbackStore{persistErr: errors.New("disk full")}
+	e := engine.New(engine.WithRegistry(r), engine.WithStore(store))
+
+	record := capturableRollbackRecord()
+	res, err := e.RollbackTransaction(context.Background(), engine.NewFakeTransport(), record)
+	if err != nil {
+		t.Fatalf("a store-write failure must not error the rollback: %v", err)
+	}
+	if res == nil || !res.Success {
+		t.Fatal("host reverted — rollback must still report success when only the audit write failed")
+	}
+	if !strings.Contains(res.Detail, "WARNING") {
+		t.Errorf("expected a warning about the failed audit write in the detail, got %q", res.Detail)
 	}
 }

@@ -175,6 +175,14 @@ spec:
               reporting the transaction committed (so the
               session shows as rollback-able again and a
               double rollback is possible).
+
+              Recording is BEST-EFFORT: the host revert is
+              the source of truth, so a failure to write the
+              audit record MUST NOT report the rollback as
+              failed (a downstream orchestrator would act on
+              a false negative). The gap is surfaced as a
+              warning in the result detail, not propagated as
+              an error.
           type: security
           enforcement: error
 

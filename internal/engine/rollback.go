@@ -127,11 +127,19 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 	// the host is reverted but the store still reports the transaction
 	// committed (the pre-fix bug). Only stores that implement the optional
 	// capability persist; the host reversal above already succeeded either
-	// way. A persist failure is surfaced — an unrecorded rollback is the
-	// exact state this fix exists to prevent.
+	// way.
+	//
+	// Recording is best-effort: the host is already reverted, and that is
+	// the source of truth. A failure to write the audit record must NOT
+	// report the rollback as failed — a downstream orchestrator would
+	// otherwise mark a genuinely-reverted host as un-rolled-back and act on
+	// a false negative. The gap is surfaced as a WARNING in the result
+	// detail (which callers carry into their own evidence), not propagated
+	// as an error.
+	detail := "all rollback steps succeeded"
 	if rs, ok := e.store.(RollbackStore); ok {
 		if err := rs.PersistRollback(ctx, record.ID, rbResults, rolledBackAt); err != nil {
-			return nil, fmt.Errorf("rollback of %s reverted the host but failed to record the outcome: %w", record.ID, err)
+			detail = fmt.Sprintf("all rollback steps succeeded; WARNING: host reverted but recording the rollback outcome to the transaction log failed: %v", err)
 		}
 	}
 
@@ -139,7 +147,7 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 		StepIndex:  -1, // transaction-level result, not step-level
 		Mechanism:  "",
 		Success:    true,
-		Detail:     "all rollback steps succeeded",
+		Detail:     detail,
 		Source:     "manual",
 		ExecutedAt: rolledBackAt,
 	}, nil
