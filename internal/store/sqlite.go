@@ -242,6 +242,74 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 	return tx.Commit()
 }
 
+// PersistRollback records that txnID was deliberately rolled back at
+// rolledBackAt: it flips the transaction's status to rolled_back and sets
+// rolled_back_at, writes one rollback_events row per step result, and
+// refreshes the owning session's committed/rolled counters so the session
+// stops appearing in `rollback --list`. All in one transaction. It is the
+// write path that closes the gap where a rollback reverted the host but the
+// transaction log kept reporting the transaction committed.
+func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results []api.RollbackResult, rolledBackAt time.Time) error {
+	if txnID == uuid.Nil {
+		return errors.New("store: PersistRollback requires a non-nil transaction id")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	ts := rolledBackAt.UTC().Format(time.RFC3339Nano)
+
+	res, err := tx.ExecContext(ctx, `
+        UPDATE transactions SET status = 'rolled_back', rolled_back_at = ?
+        WHERE id = ?`, ts, txnID.String())
+	if err != nil {
+		return fmt.Errorf("store: mark transaction rolled back: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("store: PersistRollback: no transaction with id %s", txnID)
+	}
+
+	for _, r := range results {
+		if _, err := tx.ExecContext(ctx, `
+            INSERT INTO rollback_events
+                (transaction_id, step_index, source, executed_at, success, detail)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+			txnID.String(), r.StepIndex, r.Source,
+			r.ExecutedAt.UTC().Format(time.RFC3339Nano),
+			boolToInt(r.Success), r.Detail,
+		); err != nil {
+			return fmt.Errorf("store: insert rollback event (step %d): %w", r.StepIndex, err)
+		}
+	}
+
+	// Refresh the owning session's denormalized counters from the live
+	// transaction statuses (the same computation FinishSession uses), so
+	// committed→rolled_back is reflected and the session drops out of
+	// RollbackableSessions (txn_committed > 0). No-op when the transaction
+	// has no session (legacy / --txn path).
+	var sessID sql.NullString
+	if err := tx.QueryRowContext(ctx,
+		`SELECT session_id FROM transactions WHERE id = ?`, txnID.String(),
+	).Scan(&sessID); err != nil {
+		return fmt.Errorf("store: read session for rolled-back txn: %w", err)
+	}
+	if sessID.Valid && sessID.String != "" {
+		if _, err := tx.ExecContext(ctx, `
+            UPDATE sessions SET
+                txn_committed = (SELECT COALESCE(SUM(CASE WHEN status = 'committed'   THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?),
+                txn_rolled    = (SELECT COALESCE(SUM(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?)
+            WHERE id = ?`,
+			sessID.String, sessID.String, sessID.String,
+		); err != nil {
+			return fmt.Errorf("store: refresh session counters after rollback: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
 // LoadPreStates returns the pre-state bundle for txnID, ordered by
 // step_index ascending.
 func (s *SQLite) LoadPreStates(ctx context.Context, txnID uuid.UUID) ([]api.PreState, error) {

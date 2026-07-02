@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -51,6 +52,23 @@ type JournalStore interface {
 	LoadOpenJournalEntries(ctx context.Context) ([]api.JournalEntry, error)
 	// ClearJournalEntry removes an entry once its transaction is terminal.
 	ClearJournalEntry(ctx context.Context, txnID uuid.UUID) error
+}
+
+// RollbackStore is the OPTIONAL capability a [Store] may implement to
+// record the outcome of a deliberate rollback (`kensa rollback --start`)
+// back to durable storage — asserted by type, mirroring [JournalStore].
+// When the engine's store implements it, a successful RollbackTransaction
+// marks the transaction rolled-back (status + rolled_back_at), records the
+// per-step rollback events, and refreshes the owning session's counters so
+// it stops showing as rollback-able. A store that does not implement it
+// reverts the host but records nothing (the pre-fix behavior), so existing
+// stores keep working unchanged.
+type RollbackStore interface {
+	// PersistRollback records that txnID was rolled back at rolledBackAt,
+	// with one rollback event per step result. It must not be called for a
+	// partial rollback (a step that failed); the engine only calls it after
+	// every step succeeded.
+	PersistRollback(ctx context.Context, txnID uuid.UUID, results []api.RollbackResult, rolledBackAt time.Time) error
 }
 
 // Signer produces and verifies Ed25519 signatures over canonicalized

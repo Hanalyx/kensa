@@ -162,6 +162,21 @@ spec:
               (legacy single-txn surface).
           type: business
           enforcement: error
+        - id: C-09
+          description: |
+              A successful `--start` rollback MUST record
+              the outcome durably: the transaction flips
+              to status=rolled_back with rolled_back_at
+              set, one rollback_events row is written per
+              step, and the owning session's committed/
+              rolled counters refresh so the session stops
+              appearing in --list. Without this the host is
+              reverted but the transaction log keeps
+              reporting the transaction committed (so the
+              session shows as rollback-able again and a
+              double rollback is possible).
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -281,5 +296,18 @@ spec:
               TestRunRollback_StartJSONShape.
           references_constraints: [C-06]
           priority: high
+        - id: AC-15
+          description: |
+              PersistRollback flips the transaction to
+              rolled_back with rolled_back_at, writes a
+              rollback_events row per step, and refreshes
+              the session so it drops out of
+              RollbackableSessions. The engine calls it
+              after a successful RollbackTransaction (and
+              NOT on a partial rollback). Locked by
+              TestPersistRollback_MarksStatusAndDropsSession
+              and TestRollbackTransaction_PersistsOutcome.
+          references_constraints: [C-09]
+          priority: critical
 
     tags: [cli, rollback, session, store, phase-4, c-049]

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
@@ -109,10 +110,28 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 	rbResults := e.rollback(ctx, transport, applyResults, preStates, "manual")
 
 	// Aggregate: return the first failure if any steps failed, otherwise
-	// return a synthetic success result for the transaction.
+	// return a synthetic success result for the transaction. A partial
+	// rollback is NOT persisted as rolled-back — the host is in a mixed
+	// state and the transaction stays committed for the operator to inspect.
 	for i := range rbResults {
 		if !rbResults[i].Success {
 			return &rbResults[i], nil
+		}
+	}
+
+	rolledBackAt := time.Now().UTC()
+
+	// Record the rollback outcome durably so the transaction log reflects
+	// reality: the row is marked rolled-back, per-step events are written,
+	// and the owning session stops showing as rollback-able. Without this
+	// the host is reverted but the store still reports the transaction
+	// committed (the pre-fix bug). Only stores that implement the optional
+	// capability persist; the host reversal above already succeeded either
+	// way. A persist failure is surfaced — an unrecorded rollback is the
+	// exact state this fix exists to prevent.
+	if rs, ok := e.store.(RollbackStore); ok {
+		if err := rs.PersistRollback(ctx, record.ID, rbResults, rolledBackAt); err != nil {
+			return nil, fmt.Errorf("rollback of %s reverted the host but failed to record the outcome: %w", record.ID, err)
 		}
 	}
 
@@ -122,6 +141,6 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 		Success:    true,
 		Detail:     "all rollback steps succeeded",
 		Source:     "manual",
-		ExecutedAt: time.Now().UTC(),
+		ExecutedAt: rolledBackAt,
 	}, nil
 }
