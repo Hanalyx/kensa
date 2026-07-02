@@ -1,0 +1,37 @@
+id: mount-dev-shm-separate-fs
+title: Ensure /dev/shm is a separate partition
+description: >
+  The /dev/shm shared-memory directory must be mounted as its own
+  filesystem (a tmpfs entry), separate from the root filesystem, so that
+  restrictive mount options can be enforced on it independently.
+rationale: >
+  A dedicated /dev/shm mount lets nodev, nosuid, and noexec be applied to
+  shared memory, closing an execution and privilege-escalation vector.
+  Without a separate mount those options cannot be reliably enforced.
+severity: medium
+transactional: false
+category: filesystem
+tags: [mount, dev-shm, filesystem, hardening]
+
+references:
+  cis:
+    rhel9:  { section: "1.1.2.2.1", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-6", "SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "findmnt --kernel /dev/shm >/dev/null 2>&1"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Ensure /dev/shm is mounted as a dedicated tmpfs filesystem. On a
+        default RHEL install this is present; if absent, add
+        'tmpfs /dev/shm tmpfs defaults,nodev,nosuid,noexec 0 0' to
+        /etc/fstab and run 'mount -a'.
