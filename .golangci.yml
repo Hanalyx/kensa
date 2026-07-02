@@ -5,6 +5,7 @@ version: "2"
 linters:
   default: none
   enable:
+    - depguard
     - errcheck
     - gocritic
     - godot
@@ -15,6 +16,32 @@ linters:
     - staticcheck
     - unused
   settings:
+    depguard:
+      # Supply-chain governance: an import not on this allowlist fails the
+      # lint gate at PR time. The allowlist mirrors the named direct
+      # dependencies in specs/system/supply-chain.spec.yaml — keep the two
+      # in sync (a new direct dep updates both, plus the spec's rationale).
+      # Indirect deps are not listed: they are pulled in transitively and
+      # governed by their direct dep's entry, and our own code does not
+      # import them directly.
+      rules:
+        main:
+          list-mode: lax
+          allow:
+            - $gostd
+            - github.com/Hanalyx/kensa
+            - github.com/coreos/go-systemd/v22
+            - github.com/elastic/go-libaudit/v2
+            - github.com/godbus/dbus/v5
+            - github.com/google/uuid
+            - github.com/johnfercher/maroto/v2
+            - github.com/santhosh-tekuri/jsonschema/v6
+            - github.com/spf13/pflag
+            - golang.org/x/sys
+            - golang.org/x/term
+            - google.golang.org/protobuf
+            - gopkg.in/yaml.v3
+            - modernc.org/sqlite
     gocritic:
       enabled-checks:
         - commentFormatting

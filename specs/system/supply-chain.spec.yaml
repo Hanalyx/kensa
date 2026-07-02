@@ -1,0 +1,123 @@
+spec:
+    id: system-supply-chain
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: supply-chain-governance
+        description: |
+            Kensa's dependency surface is small and conservative, but until
+            now nothing governed how it changes. This spec is the single
+            source of truth for the direct-dependency allowlist and the CI
+            gates that enforce supply-chain hygiene: a named allowlist with
+            per-dep rationale, depguard enforcement of that allowlist, a
+            read-only module mode so no CI step silently mutates go.mod, a
+            govulncheck gate that blocks known CVEs, and a go.mod-tidy drift
+            gate. The SBOM-on-release requirement (S-013) is tracked
+            separately and will add its own AC when it lands.
+
+    objective:
+        summary: |
+            Every direct dependency is on a named, rationalized allowlist;
+            depguard enforces that allowlist at lint time; and CI cannot
+            silently change the module graph.
+        scope:
+            includes:
+                - Named direct-dependency allowlist (this spec)
+                - depguard enforcement in .golangci.yml
+                - GOFLAGS=-mod=readonly in CI
+                - govulncheck CI gate
+                - go mod tidy no-op (drift) CI gate
+            excludes:
+                - SBOM on release (S-013 — adds AC-06 when shipped)
+                - Indirect-dependency pinning (governed by direct deps)
+                - Runtime dependency loading (kensa has none)
+
+    # Named direct-dependency allowlist (audit trail). The machine-checked
+    # SSOT is the depguard `allow` list in .golangci.yml; the enforcement
+    # test asserts go.mod's direct deps equal that list. A new direct dep
+    # MUST be added to depguard WITH a rationale line here, and appear in
+    # go.mod. Rationale per dep:
+    #   github.com/coreos/go-systemd/v22    systemd D-Bus client for the service handlers (Phase 4).
+    #   github.com/elastic/go-libaudit/v2   AUDIT_NETLINK rule load/unload for audit_rule_set (Phase 5).
+    #   github.com/godbus/dbus/v5           D-Bus transport underlying go-systemd.
+    #   github.com/google/uuid              transaction and session identifiers.
+    #   github.com/johnfercher/maroto/v2    PDF report serializer (-o pdf:).
+    #   github.com/santhosh-tekuri/jsonschema/v6  evidence + OSCAL schema conformance validation.
+    #   github.com/spf13/pflag              GNU/POSIX CLI flag parsing across all three binaries.
+    #   golang.org/x/sys                    kernel-primitive syscalls (renameat2, O_TMPFILE, timerfd, pidfd, delete_module).
+    #   golang.org/x/term                   TTY password prompt (--password / --sudo-password).
+    #   google.golang.org/protobuf          agent wire-protocol framing (L-007 ratified).
+    #   gopkg.in/yaml.v3                    rule YAML + spec parsing.
+    #   modernc.org/sqlite                  pure-Go SQLite transaction log (no cgo — static-link discipline).
+
+    constraints:
+        - id: C-01
+          description: |
+              go.mod's direct (non-indirect) dependencies MUST equal this
+              spec's allowlist exactly — no direct dep absent from the
+              allowlist, no allowlist entry absent from go.mod. A new
+              direct dep MUST update both plus a rationale line.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              depguard MUST be enabled in .golangci.yml with a main rule
+              whose allow list contains every allowlist path (plus $gostd
+              and github.com/Hanalyx/kensa). An import not on the list
+              fails the lint gate.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              CI MUST export GOFLAGS=-mod=readonly so no step can silently
+              mutate go.mod / go.sum.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              CI MUST run govulncheck as a gate that blocks merge on a
+              known CVE in any dependency reachable from the binaries.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              CI MUST run a go-mod-tidy drift gate (go mod tidy then
+              git diff --exit-code go.mod go.sum) so committed module
+              files match what tidy produces.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              go.mod's direct (non-indirect) dependency set equals the
+              depguard allow list in .golangci.yml (excluding $gostd and
+              the Hanalyx module). Adding a direct dep without allowlisting
+              it, or allowlisting a dep no longer required, fails the gate.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              depguard is enabled in .golangci.yml with a main rule whose
+              allow list includes $gostd and github.com/Hanalyx/kensa.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              The CI workflow exports GOFLAGS=-mod=readonly at the
+              top-level env block.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-04
+          description: |
+              The CI workflow runs a govulncheck gate.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              The CI workflow runs a go-mod-tidy drift gate.
+          references_constraints: [C-05]
+          priority: high
