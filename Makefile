@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline hooks status clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline viewer hooks status clean
 
 help:
 	@echo "Kensa — common targets"
@@ -28,6 +28,7 @@ help:
 	@echo "  catalog         Rebuild the benchmark control catalog (dev tool) from catalog/sources/ + rules/"
 	@echo "  catalog-check   Gate on coverage regression / new reference drift vs catalog/baseline.json (CI gate)"
 	@echo "  catalog-baseline  Refresh catalog/baseline.json after an intended coverage change"
+	@echo "  viewer          Regenerate the rule-catalog viewer HTML from rules/ (run after rule changes)"
 	@echo ""
 	@echo "  hooks           Install git pre-commit hooks (conflict-marker/fmt/vet/lint/secret guards)"
 	@echo "  status          Print + write bin/STATUS.json — machine-readable current release/coverage state"
@@ -270,6 +271,18 @@ catalog-check: catalog
 catalog-baseline: catalog
 	./bin/kensa-catalog -db $(CATALOG_DB) baseline > catalog/baseline.json
 	@echo "re-baselined catalog/baseline.json"
+
+# Regenerate the rule-catalog viewer (Explorer / Crosswalk / Gallery /
+# Spec Sheet) from the current rules/ + catalog verifications. The
+# generator lives under docs/research/, which is gitignored — absent in
+# a fresh clone or air-gap checkout — so the target no-ops with a note
+# rather than failing when it is not present.
+viewer:
+	@if [ -f docs/research/viewer/generate.py ]; then \
+		python3 docs/research/viewer/generate.py; \
+	else \
+		echo "viewer generator not present (docs/research/ is gitignored) — nothing to regenerate"; \
+	fi
 
 clean:
 	rm -rf bin/ coverage.txt coverage.html dist/ man/kensa.1.regenerated
