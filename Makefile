@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline hooks status clean
 
 help:
 	@echo "Kensa — common targets"
@@ -29,7 +29,27 @@ help:
 	@echo "  catalog-check   Gate on coverage regression / new reference drift vs catalog/baseline.json (CI gate)"
 	@echo "  catalog-baseline  Refresh catalog/baseline.json after an intended coverage change"
 	@echo ""
+	@echo "  hooks           Install git pre-commit hooks (conflict-marker/fmt/vet/lint/secret guards)"
+	@echo "  status          Print + write bin/STATUS.json — machine-readable current release/coverage state"
+	@echo ""
 	@echo "  clean           Remove build artifacts"
+
+# Install the pre-commit framework hooks into .git/hooks so local commits run
+# the same guards CI runs (check-merge-conflict, go-fmt/vet, golangci-lint,
+# detect-secrets). Without this, `git commit` bypasses them — which is how a
+# stray conflict marker once reached a branch. Run once per clone.
+hooks:
+	@# pre-commit refuses to install while core.hooksPath is set; unset it
+	@# (git then uses the default .git/hooks, where pre-commit installs).
+	@git config --unset-all core.hooksPath 2>/dev/null || true
+	pre-commit install
+	@echo "hooks installed — 'git commit' now runs check-merge-conflict + fmt/vet/lint/secret guards."
+
+# Machine-readable current state, for humans and agents: version, latest tag,
+# commits-ahead delta, corpus size, and the per-framework coverage matrix.
+# Regenerated on demand (never committed) so it can never go stale.
+status:
+	@bash scripts/status.sh
 
 # VERSION drives all five binaries' --version output via -ldflags
 # injection (see VERSIONING_PLAN.md "Single Source of Truth"). The

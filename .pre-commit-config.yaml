@@ -93,6 +93,14 @@ repos:
   #      Spec Coverage (strict) jobs — those have specter installed.
   - repo: local
     hooks:
+      # Unconditional conflict-marker guard. Complements check-merge-conflict
+      # (which only fires mid-merge) by catching markers staged during a rebase
+      # or pasted by hand — the failure mode that once broke the catalog.
+      - id: no-conflict-markers
+        name: reject git conflict markers
+        entry: scripts/no-conflict-markers.sh
+        language: system
+        types: [text]
       - id: specter-sync
         name: specter sync
         entry: specter sync --strictness annotation
