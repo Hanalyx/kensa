@@ -1,6 +1,6 @@
 # Integration
 
-_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
 
 This chapter is for programs that **embed** Kensa (notably OpenWatch) rather
 than run the CLI, consuming its `api`/`pkg/kensa` Go surfaces. The division of

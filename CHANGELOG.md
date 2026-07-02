@@ -10,6 +10,64 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
+## v0.7.1 — 2026-07-02
+
+A security-hardening and coverage patch on the v0.7.0 line. The frozen `api/`
+surface is untouched — a drop-in version bump for consumers. The headline is
+credential redaction across the evidence and transaction-log surfaces; it also
+adds supply-chain governance (a depguard direct-dependency allowlist and a
+CycloneDX SBOM), takes CIS RHEL 9 coverage to 100%, and fixes a handful of
+verdict and citation bugs surfaced by live testing.
+
+The atomicity items originally scoped for this line — the `rollback --start`
+status-persistence fix, the `audit_rule_set` shared-file clobber, and the
+grub-value / newline input hardening — are deferred to v0.7.2, where they get
+the two-human review and real-host atomicity tests they require.
+
+### Security
+
+- **Credential values are redacted before they reach the audit surfaces.**
+  Fields whose names indicate a secret (`password`, `token`, `ssh_key`, `jwt`,
+  and similar) are scrubbed to `"<redacted>"` in the signed evidence envelope
+  and the transaction-log record. The signature is computed over the redacted
+  content, so stored evidence carries no credential and still verifies. The
+  rollback pre-state store is deliberately left intact — it is the restoration
+  source, not an audit surface — so rollback still restores real values.
+- **Supply-chain governance.** A `depguard` allowlist in `.golangci.yml`
+  enforces the direct-dependency set: an import that is not on the allowlist
+  fails the lint gate, and a test keeps the allowlist equal to `go.mod`'s direct
+  dependencies. A new Tier-1 `system-supply-chain` spec is the audit trail.
+- **CycloneDX SBOM on every release.** The pipeline emits
+  `kensa_<version>_sbom.cdx.json` and lists it in the signed checksums file, so
+  the existing cosign signature anchors it transitively.
+
+### Added
+
+- **CIS RHEL 9 coverage reaches 100%** (297/297 covered, 289 verified). The
+  filesystem mount-option and SELinux controls plus the manual-tier controls
+  (crypto policy, journald, rsyslog, services, audit config) were authored and
+  live-verified on a RHEL 9.6 host; every new check gives a discriminating
+  verdict. Cross-distro citations advanced CIS RHEL 8 and RHEL 10 in passing.
+- **`make viewer`, `make status`, `make hooks`** developer targets, and a
+  derived corpus count so adding a rule no longer requires editing hardcoded
+  test assertions.
+
+### Fixed
+
+- **Three rule citations/checks surfaced by live testing.**
+  `sudo-reauth-not-disabled` no longer false-FAILs on a compliant RHEL 8 host;
+  the `ClientAliveInterval` citation moves from `ssh-client-alive-count-max` to
+  `ssh-client-alive-interval`; and `auditd-enabled` gets its correct RHEL 8
+  control in place of a mis-slotted RHEL 9 id.
+- **`kensa history --help`** advertised `-S 7d`, a duration Go's parser
+  rejects; the example now uses `168h`.
+
+### Changed
+
+- The `--var` value trust boundary is documented at the code site, and the four
+  rule status labels (`manual`, `detection-only`, `rollback-safe`, `verified`
+  with its check-vs-rollback-proven scope) are defined in the operator guide.
+
 ## v0.7.0 — 2026-06-28
 
 The OpenWatch-GA line. It closes a root command-injection in the
