@@ -21,9 +21,11 @@ depends_on: [pkg-openssh-server-present]
 
 references:
   stig:
-    rhel8:                                                                   # this check verifies ClientAliveCountMax (V-244525/010201); V-230244/010200 (interval) retained pending review
+    rhel8:
+      # V-230244/RHEL-08-010200 checks ClientAliveCountMax per the DISA
+      # check text; V-244525/RHEL-08-010201 (ClientAliveInterval) lives
+      # on ssh-client-alive-interval.
       - { vuln_id: "V-230244", stig_id: "RHEL-08-010200", severity: "CAT II", cci: ["CCI-001133"] }
-      - { vuln_id: "V-244525", stig_id: "RHEL-08-010201", severity: "CAT II", cci: ["CCI-001133"] }
     ubuntu24:
       vuln_id: "V-270742"
       stig_id: "UBTU-24-600000"

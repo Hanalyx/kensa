@@ -45,19 +45,15 @@ implementations:
           echo "FAIL: !authenticate found in sudoers"
           fail=1
         fi
-        # Check PAM config for sudo re-authentication (V-251712)
-        if [ -f /etc/pam.d/sudo ]; then
-          if ! grep -qE 'pam_succeed_if|pam_unix' /etc/pam.d/sudo 2>/dev/null; then
-            echo "FAIL: /etc/pam.d/sudo missing authentication module"
-            fail=1
-          fi
-        fi
+        # PAM sudo configuration is verified by sudoers-reauth-required;
+        # standard RHEL uses "auth include system-auth" in /etc/pam.d/sudo,
+        # so grepping for direct module lines here false-fails compliant hosts.
         [ "$fail" -eq 0 ] && echo "OK: re-authentication not disabled"
         exit $fail
       expected_exit: 0
     remediation:
       mechanism: manual
       note: >
-        Remove negative timestamp_timeout values and !authenticate from sudoers.
-        Ensure /etc/pam.d/sudo includes proper authentication modules
-        (pam_unix.so or pam_succeed_if.so).
+        Remove negative timestamp_timeout values and !authenticate from
+        sudoers. PAM configuration for sudo is covered separately by
+        sudoers-reauth-required.

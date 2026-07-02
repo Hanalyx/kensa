@@ -26,6 +26,14 @@ references:
     rhel8:  { section: "5.1.9", level: "L1", type: "Automated" }
     rhel9:  { section: "5.1.9", level: "L1", type: "Automated" }
   stig:
+    rhel8:
+      # V-244525/RHEL-08-010201 checks ClientAliveInterval per the DISA
+      # check text (moved here from ssh-client-alive-count-max, which
+      # keeps V-230244/RHEL-08-010200, the ClientAliveCountMax control).
+      vuln_id: "V-244525"
+      stig_id: "RHEL-08-010201"
+      severity: "CAT II"
+      cci: ["CCI-001133"]
     rhel9:
       vuln_id: "V-257996"
       stig_id: "RHEL-09-255100"
