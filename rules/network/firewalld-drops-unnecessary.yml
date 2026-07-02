@@ -1,0 +1,47 @@
+id: firewalld-drops-unnecessary
+title: Ensure firewalld drops unnecessary services and ports
+description: >
+  When firewalld is the active firewall, the default zone must have a
+  restrictive target (DROP or REJECT) rather than ACCEPT, so traffic to
+  services and ports that are not explicitly allowed is denied.
+rationale: >
+  A default-accept zone permits any traffic not otherwise blocked,
+  inverting the deny-by-default posture. A DROP/REJECT default enforces an
+  allowlist model at the network layer.
+severity: medium
+transactional: false
+category: network
+tags: [firewall, firewalld, deny-by-default]
+
+references:
+  cis:
+    rhel9:  { section: "4.2.1", level: "L1", type: "Manual" }
+  nist_800_53: ["SC-7", "AC-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        state=$(firewall-cmd --state 2>/dev/null)
+        if [ "$state" != "running" ]; then
+          echo "FAIL: firewalld is not running"; exit 1
+        fi
+        zone=$(firewall-cmd --get-default-zone 2>/dev/null)
+        target=$(firewall-cmd --permanent --zone="$zone" --get-target 2>/dev/null)
+        case "$target" in
+          DROP|REJECT) echo "OK: default zone $zone target=$target"; exit 0 ;;
+          *) echo "FAIL: default zone $zone target=$target (expected DROP/REJECT)"; exit 1 ;;
+        esac
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Set the default firewalld zone target to DROP (or REJECT) with
+        `firewall-cmd --permanent --zone=<zone> --set-target=DROP` and
+        reload, after confirming required services/ports are explicitly
+        allowed.

@@ -1,0 +1,40 @@
+id: rsyslog-logrotate-configured
+title: Ensure rsyslog logrotate is configured
+description: >
+  A logrotate configuration for the rsyslog-managed log files
+  (/etc/logrotate.d/syslog or equivalent) must exist so system logs are
+  rotated rather than growing without bound.
+rationale: >
+  Without logrotate coverage, syslog files grow until they exhaust disk,
+  risking log loss and denial of service.
+severity: low
+transactional: false
+category: logging
+tags: [rsyslog, logrotate, logging]
+
+references:
+  cis:
+    rhel9:  { section: "6.2.3.8", level: "L1", type: "Manual" }
+  nist_800_53: ["AU-4"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ls /etc/logrotate.d/syslog >/dev/null 2>&1 && \
+           grep -qsE '/var/log/(messages|secure|maillog|cron|spooler|boot\.log)' /etc/logrotate.d/syslog; then
+          echo "OK: rsyslog logrotate configured"; exit 0
+        fi
+        echo "FAIL: /etc/logrotate.d/syslog missing or does not rotate the standard rsyslog files"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Provide /etc/logrotate.d/syslog covering the rsyslog-managed files
+        (/var/log/messages, secure, maillog, cron, spooler, boot.log) with
+        the site retention policy.

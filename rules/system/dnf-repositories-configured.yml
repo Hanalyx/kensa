@@ -1,0 +1,38 @@
+id: dnf-repositories-configured
+title: Ensure package manager repositories are configured
+description: >
+  At least one enabled package repository must be configured so the system
+  can receive vendor packages and security updates.
+rationale: >
+  Without a configured, enabled repository the system cannot obtain security
+  patches, leaving known vulnerabilities unremediated.
+severity: medium
+transactional: false
+category: system
+tags: [dnf, repositories, patching]
+
+references:
+  cis:
+    rhel9:  { section: "1.2.1.4", level: "L1", type: "Manual" }
+    rhel8:  { section: "1.2.1.4", level: "L1", type: "Manual" }
+    rhel10: { section: "1.2.1.4", level: "L1", type: "Manual" }
+  nist_800_53: ["SI-2"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        n=$(dnf -q repolist --enabled 2>/dev/null | grep -vc '^repo id')
+        if [ "${n:-0}" -lt 1 ]; then echo "FAIL: no enabled dnf repositories"; exit 1; fi
+        echo "OK: $n enabled repositories"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Review configured repositories under /etc/yum.repos.d/ and enable
+        the approved vendor/security repositories for this system.

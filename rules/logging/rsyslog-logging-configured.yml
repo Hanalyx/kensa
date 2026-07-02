@@ -1,0 +1,39 @@
+id: rsyslog-logging-configured
+title: Ensure rsyslog logging is configured
+description: >
+  When rsyslog is the system logger it must have active logging selectors
+  configured (in /etc/rsyslog.conf or /etc/rsyslog.d/*.conf) so that system
+  events are actually recorded.
+rationale: >
+  rsyslog installed but without logging rules records nothing. Explicit
+  selectors ensure security-relevant events reach persistent logs.
+severity: medium
+transactional: false
+category: logging
+tags: [rsyslog, logging]
+
+references:
+  cis:
+    rhel9:  { section: "6.2.3.5", level: "L1", type: "Manual" }
+  nist_800_53: ["AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q rsyslog >/dev/null 2>&1; then echo "FAIL: rsyslog not installed"; exit 1; fi
+        if grep -rhsE '^[^#]*\S+\.\S+\s+(/|-/|@|:)' /etc/rsyslog.conf /etc/rsyslog.d/ 2>/dev/null | grep -q .; then
+          echo "OK: rsyslog logging selectors present"; exit 0
+        fi
+        echo "FAIL: no active rsyslog logging selectors"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure logging selectors in /etc/rsyslog.conf or a file under
+        /etc/rsyslog.d/ per the site logging policy, then restart rsyslog.

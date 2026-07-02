@@ -1,0 +1,41 @@
+id: rsyslog-remote-forwarding
+title: Ensure rsyslog is configured to send logs to a remote log host
+description: >
+  rsyslog must be configured to forward logs to a central/remote log host
+  so that log data survives compromise or loss of the originating system.
+rationale: >
+  Local-only logs can be tampered with or destroyed by an attacker who
+  gains control of the host. Forwarding to a remote collector preserves an
+  independent copy for detection and forensics.
+severity: medium
+transactional: false
+category: logging
+tags: [rsyslog, logging, remote, forwarding]
+
+references:
+  cis:
+    rhel9:  { section: "6.2.3.6", level: "L1", type: "Manual" }
+  nist_800_53: ["AU-4(1)", "AU-9(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q rsyslog >/dev/null 2>&1; then echo "FAIL: rsyslog not installed"; exit 1; fi
+        if grep -rhsE '(^[^#]*@@?[A-Za-z0-9._:-]+|action\s*\(\s*type\s*=\s*"omfwd")' \
+             /etc/rsyslog.conf /etc/rsyslog.d/ 2>/dev/null | grep -q .; then
+          echo "OK: rsyslog remote forwarding configured"; exit 0
+        fi
+        echo "FAIL: no remote log forwarding configured in rsyslog"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Configure forwarding to the approved remote log host (for example an
+        omfwd action or `*.* @@loghost:514`) in /etc/rsyslog.d/, then
+        restart rsyslog.

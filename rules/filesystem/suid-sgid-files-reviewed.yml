@@ -1,0 +1,49 @@
+id: suid-sgid-files-reviewed
+title: Ensure SUID and SGID files are reviewed
+description: >
+  SUID/SGID files must be limited to a reviewed, legitimate set. No SUID or
+  SGID file may be world-writable or located in a user-writable directory
+  (/tmp, /var/tmp, /home, /dev/shm), which would be an unambiguous
+  privilege-escalation risk.
+rationale: >
+  SUID/SGID binaries run with elevated privileges. A world-writable one, or
+  one an unprivileged user can place in a writable directory, is a direct
+  local privilege-escalation vector. The full SUID/SGID inventory should be
+  reviewed against a known-good baseline.
+severity: medium
+transactional: false
+category: filesystem
+tags: [suid, sgid, privilege-escalation, review]
+
+references:
+  cis:
+    rhel9:  { section: "7.1.13", level: "L1", type: "Manual" }
+    rhel8:  { section: "7.1.13", level: "L1", type: "Manual" }
+    rhel10: { section: "7.1.13", level: "L1", type: "Manual" }
+  nist_800_53: ["AC-6", "CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Unambiguous findings: SUID/SGID files that are world-writable or
+        # sit in a user-writable directory. Full inventory review is manual.
+        risky=$(find / -xdev -type f \( -perm -4000 -o -perm -2000 \) \
+                  \( -perm -0002 -o -path '/tmp/*' -o -path '/var/tmp/*' \
+                     -o -path '/home/*' -o -path '/dev/shm/*' \) 2>/dev/null | head -5)
+        if [ -n "$risky" ]; then
+          echo "FAIL: SUID/SGID files world-writable or in user-writable paths:"; echo "$risky"; exit 1
+        fi
+        echo "OK: no world-writable or user-path SUID/SGID files (review full inventory against baseline)"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Enumerate all SUID/SGID files with `find / -xdev -type f \( -perm
+        -4000 -o -perm -2000 \)`, compare against the approved baseline, and
+        remove the SUID/SGID bit from any file that does not require it.

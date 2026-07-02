@@ -1,0 +1,45 @@
+id: ipv6-status-identified
+title: Ensure IPv6 status is identified
+description: >
+  The system's IPv6 posture must be an explicit, deliberate configuration:
+  the net.ipv6.conf.all.disable_ipv6 setting should be present in a sysctl
+  configuration file so IPv6 is knowingly enabled or disabled rather than
+  left at the kernel default.
+rationale: >
+  An unmanaged IPv6 stack can carry traffic that bypasses IPv4-only
+  controls. Recording an explicit decision ensures IPv6 exposure is
+  understood and governed.
+severity: low
+transactional: false
+category: network
+tags: [ipv6, network, sysctl]
+
+references:
+  cis:
+    rhel9:  { section: "3.1.1", level: "L1", type: "Manual" }
+    rhel8:  { section: "3.1.1", level: "L1", type: "Manual" }
+    rhel10: { section: "3.1.1", level: "L1", type: "Manual" }
+  nist_800_53: ["CM-7", "SC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -rqsE '^\s*net\.ipv6\.conf\.all\.disable_ipv6\s*=' /etc/sysctl.conf /etc/sysctl.d/ 2>/dev/null; then
+          echo "OK: IPv6 status is explicitly configured"
+          exit 0
+        fi
+        echo "FAIL: no explicit net.ipv6.conf.all.disable_ipv6 setting; IPv6 status not identified"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Decide whether IPv6 is required. Record the decision explicitly by
+        setting net.ipv6.conf.all.disable_ipv6 (0 to keep, 1 to disable) in
+        /etc/sysctl.d/ and applying with sysctl --system.
