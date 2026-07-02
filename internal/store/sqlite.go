@@ -15,6 +15,7 @@ import (
 	_ "modernc.org/sqlite" // pure-Go SQLite driver
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/redact"
 )
 
 // SQLite is the durable [Store] implementation backed by a SQLite
@@ -143,6 +144,19 @@ func (s *SQLite) PersistPreStates(ctx context.Context, txnID uuid.UUID, preState
 func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResult) error {
 	if result == nil || result.Envelope == nil {
 		return errors.New("store: PersistResult requires non-nil result and envelope")
+	}
+	// Scrub credential values from the envelope's captured-state bundles
+	// before it hits the log. Signed envelopes were already redacted (and
+	// signed) over the same content by evidence.Sign, so re-redaction is
+	// idempotent and leaves the signature valid; this call additionally
+	// covers the unsigned errored path, which persists an envelope without
+	// going through Sign. The separate pre_states table is left verbatim —
+	// it is the rollback restoration source, not an audit surface.
+	for i := range result.Envelope.PreStateBundle {
+		redact.Tree(result.Envelope.PreStateBundle[i].Data)
+	}
+	for i := range result.Envelope.PostStateBundle {
+		redact.Tree(result.Envelope.PostStateBundle[i].Data)
 	}
 	envJSON, err := json.Marshal(result.Envelope)
 	if err != nil {

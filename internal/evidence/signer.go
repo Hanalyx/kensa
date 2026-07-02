@@ -67,6 +67,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/redact"
 )
 
 // sigDomainTag is the fixed prefix prepended to canonical envelope
@@ -169,12 +170,19 @@ func signedBytes(envelope *api.EvidenceEnvelope) ([]byte, error) {
 // with the Ed25519 private key, and returns the 64-byte signature
 // and the key ID.
 //
+// Before canonicalizing, Sign scrubs credential values out of the
+// captured-state bundles in place (see redactEnvelope). Because the
+// signature is computed over the redacted envelope and the caller
+// persists that same object, the stored evidence never carries a
+// credential value and its signature still verifies.
+//
 // Failure modes:
 //   - verify-only signer (no private key) → typed error
 //   - canonicalize error (JSON marshaling failure) → wrapped error
 func (s *Signer) Sign(envelope *api.EvidenceEnvelope) ([]byte, string, error) {
 	// @spec evidence-envelope
 	// @ac AC-03
+	redactEnvelope(envelope)
 	if s.privateKey == nil {
 		return nil, "", errors.New("evidence: Sign: verify-only signer has no private key (load via LoadSigner, not LoadVerifier)")
 	}
@@ -184,6 +192,23 @@ func (s *Signer) Sign(envelope *api.EvidenceEnvelope) ([]byte, string, error) {
 	}
 	sig := ed25519.Sign(s.privateKey, bytes)
 	return sig, s.keyID, nil
+}
+
+// redactEnvelope scrubs credential values from the captured-state
+// bundles of envelope in place. The pre- and post-state Data maps are
+// the only credential-bearing surface in the evidence record; the
+// operational copies used for rollback live in the store's pre_states
+// table and are deliberately left untouched there.
+func redactEnvelope(envelope *api.EvidenceEnvelope) {
+	if envelope == nil {
+		return
+	}
+	for i := range envelope.PreStateBundle {
+		redact.Tree(envelope.PreStateBundle[i].Data)
+	}
+	for i := range envelope.PostStateBundle {
+		redact.Tree(envelope.PostStateBundle[i].Data)
+	}
 }
 
 // Verify canonicalizes envelope, tries the current public key, then the

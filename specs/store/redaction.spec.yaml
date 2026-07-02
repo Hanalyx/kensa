@@ -1,0 +1,124 @@
+spec:
+    id: store-redaction
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: audit-redaction
+        description: |
+            Rule variable values and captured host state can carry
+            credentials (a `--var password=…`, a hosts/<host>.yml with a
+            secret, a captured config map with an api_key field). Those
+            values must not land verbatim in durable evidence — the
+            signed evidence envelope or the transaction log's envelope
+            record. The redaction layer scrubs a value to "<redacted>"
+            when the FIELD NAME holding it denotes a credential, by
+            name, before the evidence is signed and before it is
+            written to the store.
+
+            The scrub is deliberately name-based, not a secret scanner:
+            it protects structured state whose keys signal sensitivity,
+            and it deliberately does NOT touch the operational pre-state
+            in the pre_states table, which must survive verbatim so
+            rollback restoration works.
+
+    objective:
+        summary: |
+            No credential value reaches the signed evidence envelope or
+            the transaction log's envelope record, while rollback
+            pre-state stays byte-exact.
+        scope:
+            includes:
+                - Name-based redaction primitive (exact + `_suffix` match, case-insensitive)
+                - Redaction of the envelope's pre/post-state bundles before signing
+                - Backstop redaction of the envelope record on the unsigned errored path
+                - Non-redaction of the pre_states rollback source
+            excludes:
+                - Value-based secret scanning (a secret under a neutral key)
+                - Free-text fields (step detail, validator evidence) where a name gives no signal
+                - Redaction of stderr disclosure (current emitters carry no field values)
+
+    constraints:
+        - id: C-01
+          description: |
+              A value MUST be redacted to "<redacted>" when its field
+              name equals a known credential name (case-insensitive) or
+              ends with `_<credentialname>`. A name that merely contains
+              a credential word as a prefix (e.g. password_policy_required)
+              MUST NOT be redacted.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Redaction MUST recurse into nested maps and into maps
+              inside slices, so a credential nested anywhere in a
+              captured-state tree is scrubbed.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The evidence envelope's pre/post-state bundles MUST be
+              redacted before the Ed25519 signature is computed, so the
+              persisted envelope carries no credential value AND still
+              verifies against its signature.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              The pre_states table (the rollback restoration source)
+              MUST NOT be redacted. Redacting it would make rollback
+              restore "<redacted>" instead of the captured value.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              A field named exactly a credential (password, token,
+              ssh_key, …) redacts to "<redacted>"; a `_<name>` suffix
+              (user_password) redacts; a prefix collision
+              (password_policy_required) is left unchanged.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Redaction is case-insensitive: PassWord, API_KEY, and
+              Secret all redact.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-03
+          description: |
+              A credential nested inside a sub-map and inside a map
+              within a slice is redacted (tree walk).
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-04
+          description: |
+              An evidence envelope whose pre-state bundle carries a
+              credential-named field is redacted by signing, and the
+              resulting signed envelope both (a) contains no credential
+              value and (b) verifies successfully.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-05
+          description: |
+              An unsigned errored envelope persisted through the store
+              has its captured-state bundles redacted in the stored
+              envelope record.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-06
+          description: |
+              Pre-state persisted for rollback is stored verbatim: a
+              credential-named field in a PreState round-trips through
+              the pre_states table unredacted.
+          references_constraints: [C-04]
+          priority: critical
+
+    depends_on:
+        - spec_id: evidence-envelope
+          relationship: requires
+
+    tags: [store, evidence, security, redaction, tier-2]
