@@ -11,6 +11,7 @@ rationale: >
   binary there to escalate privileges.
 severity: medium
 category: filesystem
+transactional: false
 tags: [mount, var, nosuid, security]
 
 references:
@@ -29,6 +30,9 @@ implementations:
       mount_point: "/var"
       options: ["nosuid"]
     remediation:
-      mechanism: mount_option_set
-      mount_point: "/var"
-      options: ["nosuid"]
+      mechanism: manual
+      note: >
+        Add the nosuid option to the /var entry in /etc/fstab and remount
+        (`mount -o remount /var`). Detection-only until the remount
+        remediation is exercised end-to-end (capture + apply + rollback)
+        on a host where /var can be safely remounted.
