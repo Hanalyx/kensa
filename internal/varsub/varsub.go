@@ -29,6 +29,19 @@
 // Operators get a clear "undefined variable" error citing the
 // rule file and the unknown name, matching the security stance
 // that silent silent-pass is unacceptable for compliance rules.
+//
+// Trust boundary: a variable VALUE is substituted into the rule
+// YAML verbatim, and that YAML then drives handlers that run
+// commands on the target as root (config_set writes files,
+// command_exec runs shell). VALUE is therefore trusted input on
+// par with the rule corpus itself — a value like `$(rm -rf /)`
+// reaches a shell. Only the KEY is validated (name syntax); VALUE
+// is deliberately unrestricted. Every value source (CLI --var and
+// every --config-dir tier) shares this boundary, so write access
+// to a config dir is write access to what other operators' runs
+// execute. Do not add value escaping here expecting it to be a
+// security control: the model is trusted-operator input. See
+// docs/test_docs/security.md limit #3.
 package varsub
 
 import (
