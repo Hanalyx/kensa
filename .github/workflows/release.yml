@@ -32,6 +32,7 @@ env:
   GORELEASER_VERSION: 'v2.15.4'
   NFPM_VERSION: 'v2.41.0'
   COSIGN_VERSION: 'v2.4.1'
+  SYFT_VERSION: 'v1.46.0'
 
 jobs:
   release:
@@ -84,6 +85,16 @@ jobs:
         run: |
           go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
           goreleaser --version
+
+      # syft generates the CycloneDX SBOM via goreleaser's sboms block.
+      # Pinned to match the version verified locally so the release SBOM
+      # is reproducible. Installed to /usr/local/bin (on PATH for
+      # goreleaser's sbom cmd).
+      - name: Install syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
+          syft version
 
       # nfpm signs rpm + deb at package-build time by reading the GPG key
       # from a file path (signature.key_file in .goreleaser.yaml). We
