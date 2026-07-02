@@ -1,6 +1,6 @@
 # Install
 
-_Applies to: Kensa v0.7.0 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.1 — last updated 2026-07-02._
 
 ## What you'll have when you're done
 
@@ -58,27 +58,27 @@ sudo apt install kensa kensa-rules
 ### Air-gapped
 
 On a connected host, download the bundled tarball from
-[the v0.7.0 release](https://github.com/Hanalyx/kensa/releases/tag/v0.7.0):
+[the v0.7.1 release](https://github.com/Hanalyx/kensa/releases/tag/v0.7.1):
 
 ```
-kensa_0.7.0_linux_<arch>_with-rules.tar.gz   # binaries + rules + LICENSE + KEYS
-kensa_0.7.0_checksums.sha256                 # sha256 of every artifact
-kensa_0.7.0_checksums.sha256.sig             # cosign signature of the checksums
+kensa_0.7.1_linux_<arch>_with-rules.tar.gz   # binaries + rules + LICENSE + KEYS
+kensa_0.7.1_checksums.sha256                 # sha256 of every artifact
+kensa_0.7.1_checksums.sha256.sig             # cosign signature of the checksums
 ```
 
 Verify before transferring:
 
 ```bash
-sha256sum -c kensa_0.7.0_checksums.sha256   # one OK line per artifact you downloaded
+sha256sum -c kensa_0.7.1_checksums.sha256   # one OK line per artifact you downloaded
 cosign verify-blob --key cosign.pub \
-  --signature kensa_0.7.0_checksums.sha256.sig \
-  kensa_0.7.0_checksums.sha256
+  --signature kensa_0.7.1_checksums.sha256.sig \
+  kensa_0.7.1_checksums.sha256
 ```
 
 Then copy the tarball to the air-gapped host and:
 
 ```bash
-tar xzf kensa_0.7.0_linux_amd64_with-rules.tar.gz
+tar xzf kensa_0.7.1_linux_amd64_with-rules.tar.gz
 sudo install -m 0755 kensa kensa-validate kensa-keygen /usr/local/bin/
 sudo install -m 0755 kensa-systemd-helper /usr/libexec/
 sudo mkdir -p /usr/share/kensa && sudo cp -r rules /usr/share/kensa/
@@ -151,7 +151,7 @@ tarball). The rules corpus lives at `rules/` in the repo; copy it to
 kensa --version
 ```
 
-You're done when this prints `kensa 0.7.0 (kensa)`. If it doesn't,
+You're done when this prints `kensa 0.7.1 (kensa)`. If it doesn't,
 the binary isn't on your `$PATH`; go back to **Step 2**.
 
 ## Next

@@ -1,6 +1,6 @@
 # Concepts
 
-_Applies to: Kensa v0.7.0 — last updated 2026-07-02._
+_Applies to: Kensa v0.7.1 — last updated 2026-07-02._
 
 Kensa is a compliance engine, but its core is not the rules. It's the
 *transaction*: the four-phase Kensa operation (capture, apply, validate,
