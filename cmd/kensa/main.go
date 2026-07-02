@@ -2085,7 +2085,7 @@ Examples:
   kensa history -n 200 --format jsonl | jq -c .  # last 200 as JSON Lines (streamable to log aggregators)
   kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
   kensa history -T 8c3a1e2b-...                  # one transaction by UUID
-  kensa history -a by_host -S 7d                 # 7-day posture per host
+  kensa history -a by_host -S 168h               # 7-day posture per host (Go durations have no day unit)
   kensa history --prune 30                       # interactive prompt; deletes sessions older than 30 days
   kensa history --prune 30 --force               # non-interactive (CI / cron); skips the prompt
 `, fs.FlagUsages())
