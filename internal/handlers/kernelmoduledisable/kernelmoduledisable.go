@@ -25,6 +25,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -64,6 +65,11 @@ func decodeParams(p api.Params) (*Params, error) {
 	v, ok := p["name"].(string)
 	if !ok || v == "" {
 		return nil, errMissingName
+	}
+	// The module name is written into blacklist/install lines in the
+	// modprobe.d drop-in; a newline injects extra directives (security.md #13b).
+	if err := valueguard.NoControlChars("kernel_module_disable module", v); err != nil {
+		return nil, err
 	}
 	return &Params{Module: v}, nil
 }

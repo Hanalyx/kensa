@@ -15,6 +15,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -108,6 +109,13 @@ func decodeParams(p api.Params) (*Params, error) {
 		path = cronPath(name)
 	}
 
+	// schedule/user/command are written into a "schedule user command" cron
+	// line; a newline in any injects extra cron entries (security.md #13 class).
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"cron_job schedule": schedule, "cron_job user": user, "cron_job command": command,
+	}); err != nil {
+		return nil, err
+	}
 	return &Params{Name: name, Schedule: schedule, User: user, Command: command, Path: path}, nil
 }
 

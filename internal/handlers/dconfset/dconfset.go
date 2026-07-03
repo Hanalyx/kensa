@@ -26,6 +26,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -147,6 +148,13 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, errMissingFile
 	}
 
+	// schema/key/value are written into the dconf keyfile snippet; a newline in
+	// any injects extra keyfile lines (security.md #13 class).
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"dconf_set schema": schema, "dconf_set key": key, "dconf_set value": value,
+	}); err != nil {
+		return nil, err
+	}
 	out := &Params{
 		Schema: schema,
 		Key:    key,

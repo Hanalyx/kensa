@@ -338,3 +338,22 @@ func TestRollback_AgentMode_RestoresPriorContent(t *testing.T) {
 		t.Errorf("content after rollback: got %q, want %q", got, "original-bytes")
 	}
 }
+
+// @spec security-value-hardening
+// @ac AC-02
+func TestApply_RejectsControlCharValue(t *testing.T) {
+	t.Run("security-value-hardening/AC-02", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// A newline in the value injects extra drop-in directives (security.md #13b,
+	// the swept sibling); reject at decode, host untouched.
+	_, err := configsetdropin.New().Apply(context.Background(), tp, api.Params{
+		"directory": "/etc/sysctl.d", "filename": "99-x.conf",
+		"key": "k", "value": "v\nextra=injected", "separator": " = ",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected an error for a newline in the config_set_dropin value")
+	}
+	if len(tp.Runs) != 0 {
+		t.Errorf("host must be untouched; got %d run(s)", len(tp.Runs))
+	}
+}
