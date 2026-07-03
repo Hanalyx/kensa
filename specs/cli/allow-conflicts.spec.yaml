@@ -1,0 +1,99 @@
+spec:
+    id: cli-allow-conflicts
+    version: 0.1.0
+    status: draft
+    tier: 3
+
+    context:
+        system: kensa
+        feature: cli-allow-conflicts
+        description: |
+            Rule conflicts (declared via conflicts_with, detected by
+            rule.Resolve) were previously advisory only: resolveAndPrintIssues
+            printed a "warning: conflict" line on stderr and the run proceeded,
+            applying both mutually-exclusive rules. Two conflicting rules cannot
+            both be satisfied — e.g. ssh-crypto-policy strips explicit SSH crypto
+            directives so sshd defers to the system-wide policy, while
+            ssh-ciphers-fips pins those exact directives; their remediations undo
+            each other, leaving the host in an order-dependent state.
+
+            `remediate` now REFUSES by default when the selected rule set
+            contains a conflict, and --allow-conflicts opts back into the old
+            run-anyway behaviour. check / check --inventory stay advisory: they
+            are read-only, so a conflict is informational and blocking a
+            diagnostic scan would be hostile.
+
+            Prerequisite (done): the corpus was audited so conflicts_with means
+            only genuine mutual exclusion — spurious declarations (gdm-banner ⇔
+            gdm-removed, audit-binary-permissions ⇔ the granular audit-tools
+            rules) were removed first, so strict mode does not false-positive.
+
+    objective:
+        summary: |
+            Add a --allow-conflicts bool flag to remediate. After the final
+            rule set is resolved (order + supersedes + conflict detection) and
+            BEFORE any host connection, refuse with a usage error listing each
+            conflicting pair when resolved.Conflicts is non-empty and
+            --allow-conflicts was not passed.
+        scope:
+            includes:
+                - "cmd/kensa: --allow-conflicts flag on remediate"
+                - "cmd/kensa: strict gate on resolved.Conflicts, before connect"
+                - "cmd/kensa: formatConflictRefusal message with both escape hatches"
+            excludes:
+                - "check / check --inventory: stay advisory (read-only), no gate"
+                - "Inferred resource-contention conflicts: out of scope; only declared conflicts_with"
+
+    constraints:
+        - id: C-01
+          description: |
+              remediate MUST refuse (usage error, exit 2) when
+              resolved.Conflicts is non-empty and --allow-conflicts
+              was not passed. The refusal MUST list each conflicting
+              (rule, conflicts_with) pair and name --allow-conflicts.
+          type: business
+          enforcement: error
+        - id: C-02
+          description: |
+              The gate MUST fire BEFORE any host connection (SSH /
+              agent bootstrap). A conflicting rule set is a host-
+              independent input problem; refusing only after a wasted
+              connection (or never, on an unreachable host) would be
+              wrong. Placed right after rule filtering, before the
+              transport is built.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              --allow-conflicts MUST opt back into run-anyway: the
+              gate does not fire and remediation proceeds. The stderr
+              "warning: conflict" line still emits (advisory), only the
+              hard refusal is suppressed.
+          type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              check and check --inventory MUST stay advisory — they
+              print the conflict warning but never refuse, since they
+              are read-only and do not mutate the host.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              remediate over a conflicting rule set exits 2 with a
+              "refusing to remediate" message listing both rule ids and
+              naming --allow-conflicts, before any connection. Locked by
+              TestRemediate_RefusesOnConflict and TestFormatConflictRefusal.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              remediate --allow-conflicts over the same set does NOT
+              refuse (proceeds past the gate to the connection). Locked
+              by TestRemediate_AllowConflictsBypasses.
+          references_constraints: [C-03]
+          priority: high
+
+    tags: [cli, remediate, conflicts, rules]

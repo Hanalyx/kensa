@@ -383,6 +383,21 @@ func resolveAndPrintIssues(rules []*api.Rule, quiet bool) *rule.ResolvedRules {
 	return resolved
 }
 
+// formatConflictRefusal renders the message shown when `remediate` refuses to
+// run because the selected rules declare conflicts_with each other. It lists
+// each conflicting pair and points at the two escape hatches: narrow the rule
+// selection, or pass --allow-conflicts.
+func formatConflictRefusal(conflicts []rule.ConflictPair) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "refusing to remediate: %d rule conflict(s) in the selected set:\n", len(conflicts))
+	for _, c := range conflicts {
+		fmt.Fprintf(&b, "  - %s conflicts with %s\n", c.RuleID, c.ConflictsWith)
+	}
+	b.WriteString("applying mutually-exclusive rules would leave the host in an order-dependent state.\n")
+	b.WriteString("narrow the selection (--framework, --tags, --category, --rule) or pass --allow-conflicts to override")
+	return b.String()
+}
+
 // bodyOut returns the io.Writer to which a subcommand's default
 // human-readable result body should be written. When the operator
 // passes --quiet (-q), returns io.Discard so no body bytes hit
@@ -1320,28 +1335,29 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp     bool
-		host         string
-		user         string
-		port         int
-		keyPath      string
-		password     string
-		sudo         bool
-		sudoPassword string
-		format       string
-		oscalOut     string
-		rulesDir     string
-		quiet        bool
-		outputs      []string
-		capabilities []string
-		severities   []string
-		tags         []string
-		category     string
-		framework    string
-		controls     []string
-		ruleFiles    []string
-		varOverrides []string
-		configDir    string
+		showHelp       bool
+		host           string
+		user           string
+		port           int
+		keyPath        string
+		password       string
+		sudo           bool
+		sudoPassword   string
+		format         string
+		oscalOut       string
+		rulesDir       string
+		quiet          bool
+		outputs        []string
+		capabilities   []string
+		severities     []string
+		tags           []string
+		category       string
+		framework      string
+		controls       []string
+		ruleFiles      []string
+		varOverrides   []string
+		configDir      string
+		allowConflicts bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVarP(&host, "host", ShortHost, "", "target hostname (required)")
@@ -1366,6 +1382,7 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory to scan for *.yml rule files")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
 	fs.StringSliceVarP(&outputs, "output", ShortOutput, nil, "output destination FORMAT[:PATH], repeatable")
+	fs.BoolVar(&allowConflicts, "allow-conflicts", false, "apply even when the selected rules declare conflicts_with each other (default: refuse)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -1462,6 +1479,23 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		return NewUsageError(fmt.Sprintf("--control %v: no rules matched (after upstream filters, %d rule(s) remained; none mapped any of these controls)", controls, preControlCount))
 	}
 
+	// Resolve the final rule set (order + supersedes + conflict/cycle
+	// detection) and apply the strict conflict gate BEFORE any host
+	// connection — a conflicting rule set is a host-independent input problem,
+	// so it must refuse immediately rather than after a wasted SSH/agent
+	// bootstrap. resolveAndPrintIssues already printed each conflict as a
+	// stderr warning; on the mutating path we additionally REFUSE by default.
+	// Two rules that declare conflicts_with are mutually exclusive (e.g.
+	// ssh-crypto-policy defers SSH crypto to the system-wide policy while
+	// ssh-ciphers-fips pins explicit directives — their remediations undo each
+	// other), so applying both would leave the host order-dependent.
+	// --allow-conflicts opts back into run-anyway; check / check --inventory
+	// stay advisory since they are read-only.
+	resolved := resolveAndPrintIssues(rules, quiet)
+	if len(resolved.Conflicts) > 0 && !allowConflicts {
+		return NewUsageError(formatConflictRefusal(resolved.Conflicts))
+	}
+
 	resolvedPwd, err := resolvePassword(password, os.Stdin, os.Stderr)
 	if err != nil {
 		return &UsageError{Cause: err}
@@ -1542,8 +1576,6 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 		return fmt.Errorf("open store: %w", err)
 	}
 	defer func() { _ = svc.Close() }()
-
-	resolved := resolveAndPrintIssues(rules, quiet)
 
 	// Default human path (text/table, no -o) streams result rows live —
 	// one row per rule as each remediation completes (PASS = already
