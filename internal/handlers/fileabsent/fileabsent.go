@@ -147,7 +147,13 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			p.Path, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
 	}
 
-	if strings.HasPrefix(res.Stdout, "ABSENT\n") {
+	// Match the trimmed sentinel: transports strip the trailing newline, so
+	// the absent marker arrives as "ABSENT" (not "ABSENT\n"). HasPrefix on the
+	// newline-terminated form mis-classified an absent file as EXISTS and
+	// errored — the same bug fixed in file_content's Capture. Reachable here
+	// via plan/dry-run, a race, or a forced re-apply against an already-gone
+	// file.
+	if strings.TrimSpace(res.Stdout) == "ABSENT" {
 		return &api.PreState{
 			Mechanism:  mechanism,
 			Capturable: true,
