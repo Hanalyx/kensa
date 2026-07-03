@@ -50,12 +50,10 @@ platforms:
 implementations:
 - default: true
   check:
-    method: file_permission
-    path: /etc/ssh/ssh_host_*_key
-    owner: root
-    group: ssh_keys
-    mode: '0640'
-    glob: ssh_host_*_key
+    method: command
+    run: "find /etc/ssh/ssh_host_*_key -type f \\( ! -perm 640 -o ! -user root -o ! -group ssh_keys \\) 2>/dev/null | head -1"
+    expected_exit: 0
+    expected_stdout: ""
   remediation:
     mechanism: file_permissions
     path: /etc/ssh/ssh_host_*_key

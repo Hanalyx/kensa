@@ -21,15 +21,12 @@ import (
 // entry here.
 var knownNonConformingCheckRules = map[string]string{
 	// The 19 'comparator' rules left this allowlist when the comparator engine
-	// landed (check.go compareValue + contract Optional + value-domain). They
-	// now conform.
-	//
-	// 'glob' declared on a file_permission check that never reads it.
-	"ssh-private-key-permissions": "file_permission declares unread 'glob'",
-	"ssh-public-key-permissions":  "file_permission declares unread 'glob'",
-	// typo / wrong-method params that the check silently ignores.
-	"coredump-socket-disabled":    "service_state declares unread 'expected_enabled' (should be enabled/active)",
-	"usbguard-block-unauthorized": "service_state declares unread 'state' (should be active:true)",
+	// landed (check.go compareValue + contract Optional + value-domain). The
+	// last four — two ssh-key-permission rules whose file_permission check
+	// silently ignored 'glob' AND stat'd a literal glob path (so the check
+	// could never pass; converted to a find-based command check), plus two
+	// service_state rules with dropped params (coredump masked check; usbguard
+	// state->active) — were drained. Empty: every corpus check now conforms.
 }
 
 // validateCheckParams is constraint (10): every check's params satisfy the

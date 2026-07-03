@@ -36,7 +36,7 @@ implementations:
     check:
       method: service_state
       name: "usbguard"
-      state: "running"
+      active: true
       enabled: true
     remediation:
       mechanism: service_enabled

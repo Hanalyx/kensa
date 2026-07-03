@@ -33,9 +33,9 @@ platforms:
 implementations:
   - default: true
     check:
-      method: service_state
-      name: "systemd-coredump.socket"
-      expected_enabled: "masked"
+      method: command
+      run: "systemctl is-enabled systemd-coredump.socket 2>/dev/null | grep -qx masked"
+      expected_exit: 0
     remediation:
       mechanism: service_masked
       name: systemd-coredump.socket
