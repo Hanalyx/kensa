@@ -35,8 +35,6 @@ implementations:
       key: "audit"
       expected: ""
     remediation:
-      mechanism: config_set
+      mechanism: config_append
       path: "/etc/security/faillock.conf"
-      key: "audit"
-      value: ""
-      separator: ""
+      line: "audit"

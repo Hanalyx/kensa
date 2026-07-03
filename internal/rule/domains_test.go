@@ -51,15 +51,19 @@ func TestValidateValueDomains(t *testing.T) {
 		t.Error("package_state state 'installed' must be flagged (not in {absent,present})")
 	}
 
-	// allowlisted rule is skipped (keys off the ID). pam-faillock-audit is
-	// still on the value-domain allowlist (the login.defs tab-separator rules
-	// were drained).
-	allowlisted := &api.Rule{ID: "pam-faillock-audit", Implementations: []api.Implementation{{
-		Remediation: api.Remediation{Mechanism: "config_set", Params: api.Params{
-			"path": "/etc/login.defs", "key": "K", "value": "1", "separator": "\t\t",
-		}},
-	}}}
-	if errs := ValueDomainErrors(allowlisted); len(errs) != 0 {
-		t.Errorf("allowlisted rule must be skipped; got %v", errs)
+	// If any rule is still allowlisted, it must be skipped despite a bad
+	// separator. (The value-domain allowlist is now empty — every corpus
+	// param value conforms — so this loop is vacuous; kept robust to future
+	// allowlist state. The badSep/badState assertions above already prove the
+	// enforcement side.)
+	for id := range KnownValueDomainViolators() {
+		skipped := &api.Rule{ID: id, Implementations: []api.Implementation{{
+			Remediation: api.Remediation{Mechanism: "config_set", Params: api.Params{
+				"path": "/etc/login.defs", "key": "K", "value": "1", "separator": "\t\t",
+			}},
+		}}}
+		if errs := ValueDomainErrors(skipped); len(errs) != 0 {
+			t.Errorf("allowlisted rule %s must be skipped; got %v", id, errs)
+		}
 	}
 }

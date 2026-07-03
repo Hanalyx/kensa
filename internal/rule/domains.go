@@ -39,13 +39,9 @@ var mechanismValueDomains = map[string]map[string][]string{
 // knownValueDomainViolators is the ratcheting allowlist of corpus rules whose
 // param VALUES are outside the engine's accepted domain — tracked debt found by
 // constraint (11). It ratchets exactly like the other allowlists.
-var knownValueDomainViolators = map[string]string{
-	// config_set separator '' (valueless flag) — the key alone enables the
-	// setting (faillock.conf / pwquality.conf), which config_set's key<sep>value
-	// shape can't express; convert to file_content.
-	"pam-faillock-audit":     "config_set separator '' (valueless flag — convert to file_content)",
-	"pwquality-root-enforce": "config_set separator '' (valueless flag — convert to file_content)",
-}
+// Empty: every corpus check/remediation param value is now within the engine's
+// accepted domain.
+var knownValueDomainViolators = map[string]string{}
 
 // validateValueDomains is constraint (11): every check/remediation param value
 // is within the engine's accepted domain. Rules in knownValueDomainViolators

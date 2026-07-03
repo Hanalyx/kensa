@@ -35,8 +35,6 @@ implementations:
       run: 'grep -qE "^\s*enforce_for_root" /etc/security/pwquality.conf'
       expected_exit: 0
     remediation:
-      mechanism: config_set
+      mechanism: config_append
       path: "/etc/security/pwquality.conf"
-      key: "enforce_for_root"
-      value: ""
-      separator: ""
+      line: "enforce_for_root"
