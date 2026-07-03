@@ -272,7 +272,15 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	}
 
 	stdout := res.Stdout
-	if strings.HasPrefix(stdout, "ABSENT\n") {
+	// The capture command prints "ABSENT\n" for a non-existent file, but
+	// transports trim the trailing newline from command output, so the
+	// sentinel arrives here as "ABSENT" (no newline). Match on the trimmed
+	// value — a bare HasPrefix(stdout, "ABSENT\n") mis-classified every absent
+	// file as EXISTS and errored "expected stat line", making file_content
+	// unable to CREATE a new file. TrimSpace equality also accepts the
+	// untrimmed form, so it is correct regardless of transport behavior. The
+	// EXISTS output starts with "EXISTS\n" and so never trims to "ABSENT".
+	if strings.TrimSpace(stdout) == "ABSENT" {
 		return &api.PreState{
 			Mechanism:  mechanism,
 			Capturable: true,
