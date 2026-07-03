@@ -40,4 +40,4 @@ implementations:
       path: "/etc/login.defs"
       key: "SHA_CRYPT_MIN_ROUNDS"
       value: "5000"
-      separator: "\t"
+      separator: " "

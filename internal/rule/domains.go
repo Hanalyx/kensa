@@ -40,14 +40,11 @@ var mechanismValueDomains = map[string]map[string][]string{
 // param VALUES are outside the engine's accepted domain — tracked debt found by
 // constraint (11). It ratchets exactly like the other allowlists.
 var knownValueDomainViolators = map[string]string{
-	// config_set separator not in {"=", " = ", " "} — errors at Capture today.
-	"default-umask":                 "config_set separator '\\t\\t'",
-	"pam-sha512-rounds-system-auth": "config_set separator '\\t'",
-	"password-hashing-algorithm":    "config_set separator '\\t'",
-	"password-min-age":              "config_set separator '\\t'",
-	"password-warn-age":             "config_set separator '\\t'",
-	"pam-faillock-audit":            "config_set separator '' (valueless flag — convert to file_content)",
-	"pwquality-root-enforce":        "config_set separator '' (valueless flag — convert to file_content)",
+	// config_set separator '' (valueless flag) — the key alone enables the
+	// setting (faillock.conf / pwquality.conf), which config_set's key<sep>value
+	// shape can't express; convert to file_content.
+	"pam-faillock-audit":     "config_set separator '' (valueless flag — convert to file_content)",
+	"pwquality-root-enforce": "config_set separator '' (valueless flag — convert to file_content)",
 }
 
 // validateValueDomains is constraint (11): every check/remediation param value

@@ -50,4 +50,4 @@ implementations:
       path: "/etc/login.defs"
       key: "UMASK"
       value: "{{ login_defs_umask }}"
-      separator: "\t\t"
+      separator: " "

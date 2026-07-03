@@ -51,8 +51,10 @@ func TestValidateValueDomains(t *testing.T) {
 		t.Error("package_state state 'installed' must be flagged (not in {absent,present})")
 	}
 
-	// allowlisted rule is skipped.
-	allowlisted := &api.Rule{ID: "default-umask", Implementations: []api.Implementation{{
+	// allowlisted rule is skipped (keys off the ID). pam-faillock-audit is
+	// still on the value-domain allowlist (the login.defs tab-separator rules
+	// were drained).
+	allowlisted := &api.Rule{ID: "pam-faillock-audit", Implementations: []api.Implementation{{
 		Remediation: api.Remediation{Mechanism: "config_set", Params: api.Params{
 			"path": "/etc/login.defs", "key": "K", "value": "1", "separator": "\t\t",
 		}},
