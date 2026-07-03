@@ -14,8 +14,6 @@ severity: medium
 category: system
 tags: [gdm, graphical, banner, dod-consent, stig]
 
-conflicts_with: [gdm-removed]
-
 references:
   cis:
     rhel8:  { section: "1.8.1", level: "L1", type: "Automated" }

@@ -26,7 +26,7 @@ references:
       vuln_id: "V-270823"
       stig_id: "UBTU-24-901250"
       severity: "CAT II"
-  nist_800_53: ["AU-9"]
+  nist_800_53: ["AU-9", "AC-6"]
 
 platforms:
   - family: rhel

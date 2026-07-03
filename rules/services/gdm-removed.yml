@@ -20,7 +20,7 @@ references:
   cis:
     rhel9:
       section: 1.8.1
-      level: L1
+      level: L2
       type: Automated
     rhel10: { section: "2.1.19", level: "L2", type: "Automated" }
     rhel8: { section: "2.1.21", level: "L2", type: "Automated" }
