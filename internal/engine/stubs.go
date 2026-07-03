@@ -16,17 +16,19 @@ import (
 // unnecessary fixture cost. Production code wires the SQLite store via
 // [Engine.WithStore].
 type inMemoryStore struct {
-	mu      sync.Mutex
-	pre     map[uuid.UUID][]api.PreState
-	results map[uuid.UUID]*api.TransactionResult
-	journal map[uuid.UUID]api.JournalEntry
+	mu        sync.Mutex
+	pre       map[uuid.UUID][]api.PreState
+	results   map[uuid.UUID]*api.TransactionResult
+	journal   map[uuid.UUID]api.JournalEntry
+	rollbacks map[uuid.UUID][]api.RollbackResult
 }
 
 func newInMemoryStore() *inMemoryStore {
 	return &inMemoryStore{
-		pre:     make(map[uuid.UUID][]api.PreState),
-		results: make(map[uuid.UUID]*api.TransactionResult),
-		journal: make(map[uuid.UUID]api.JournalEntry),
+		pre:       make(map[uuid.UUID][]api.PreState),
+		results:   make(map[uuid.UUID]*api.TransactionResult),
+		journal:   make(map[uuid.UUID]api.JournalEntry),
+		rollbacks: make(map[uuid.UUID][]api.RollbackResult),
 	}
 }
 
@@ -50,6 +52,22 @@ func (s *inMemoryStore) LoadPreStates(_ context.Context, txnID uuid.UUID) ([]api
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.pre[txnID], nil
+}
+
+// PersistRollback implements the optional RollbackStore so engine tests can
+// assert the engine records a rollback outcome after a successful revert.
+func (s *inMemoryStore) PersistRollback(_ context.Context, txnID uuid.UUID, results []api.RollbackResult, rolledBackAt time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := make([]api.RollbackResult, len(results))
+	copy(cp, results)
+	s.rollbacks[txnID] = cp
+	if r, ok := s.results[txnID]; ok {
+		r.Status = api.StatusRolledBack
+		t := rolledBackAt
+		r.RolledBackAt = &t
+	}
+	return nil
 }
 
 // inMemoryStore implements the optional JournalStore so engine tests
