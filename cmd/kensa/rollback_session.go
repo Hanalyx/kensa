@@ -233,17 +233,10 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	}
 	defer func() { _ = svc.Close() }()
 
-	// Parallel store handle for session-aware queries (the
-	// kensa.Default service exposes only the LogQuery
-	// interface, not GetSession / CommittedTxnIDs). modernc/
-	// sqlite's WAL mode handles read concurrency cleanly.
-	s, err := store.OpenSQLite(ctx, dbPath)
-	if err != nil {
-		return fmt.Errorf("open store for session lookup: %w", err)
-	}
-	defer func() { _ = s.Close() }()
-
-	sess, err := s.GetSession(ctx, sessID)
+	// Session-aware queries run through the service's own store handle
+	// (svc.GetSession / svc.CommittedTxnIDs) rather than a second SQLite handle
+	// on the same WAL database — the service now exposes them directly.
+	sess, err := svc.GetSession(ctx, sessID)
 	if err != nil {
 		return cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
 	}
@@ -276,7 +269,7 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			sess.Hostname, hostCfg.Hostname))
 	}
 
-	txnRefs, err := s.CommittedTxnIDs(ctx, sessID)
+	txnRefs, err := svc.CommittedTxnIDs(ctx, sessID)
 	if err != nil {
 		return err
 	}
