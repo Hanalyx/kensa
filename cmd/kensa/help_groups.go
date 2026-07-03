@@ -196,6 +196,7 @@ var remediateFlagGroups = []flagGroup{
 			"severity", "tag", "category",
 			"framework", "control",
 			"var", "config-dir",
+			"allow-conflicts",
 		},
 	},
 	{
