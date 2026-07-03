@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -135,7 +133,7 @@ func runRollbackInfo(ctx context.Context, dbPath string, sessID uuid.UUID, detai
 
 	sess, err := s.GetSession(ctx, sessID)
 	if err != nil {
-		return cleanRollbackSessionLookupError(sessID, err)
+		return cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
 	}
 	txns, err := s.TransactionsForSession(ctx, sessID)
 	if err != nil {
@@ -247,7 +245,7 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 
 	sess, err := s.GetSession(ctx, sessID)
 	if err != nil {
-		return cleanRollbackSessionLookupError(sessID, err)
+		return cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
 	}
 	// Defense-in-depth: peer review caught that
 	// `kensa check --store` sessions write committed for
@@ -343,14 +341,4 @@ func writeRollbackStartText(w io.Writer, r *rollbackStartResult) {
 			}
 		}
 	}
-}
-
-// cleanRollbackSessionLookupError mirrors the C-048
-// cleanSessionLookupError fix: replace SQL-leaky errors with
-// an actionable message pointing at the discovery command.
-func cleanRollbackSessionLookupError(id uuid.UUID, err error) error {
-	if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "no rows") {
-		return fmt.Errorf("session %s not found in store (try 'kensa rollback --list' or 'kensa list sessions')", id)
-	}
-	return fmt.Errorf("session %s: %w", id, err)
 }
