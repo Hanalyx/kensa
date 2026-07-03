@@ -19,9 +19,6 @@ import (
 //   - shell-timeout / sudo-timeout: use a content-form config_set_dropin
 //     (directory/filename/content); convert to file_content (the mechanism that
 //     writes whole-file content).
-//   - interactive-boot-disabled: grub_parameter_remove uses 'name'; rename to 'key'.
-//   - coredump-core-pattern: sysctl_set uses 'file'; rename to 'persist_file'
-//     (the handler reads persist_file, so the custom path is currently ignored).
 var knownNonConformingRules = map[string]string{
 	"shell-timeout": "config_set_dropin content-form; convert to file_content",
 	"sudo-timeout":  "config_set_dropin content-form; convert to file_content",
