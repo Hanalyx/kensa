@@ -40,7 +40,7 @@ implementations:
   check:
     method: package_state
     name: authselect
-    state: installed
+    state: present
   remediation:
     mechanism: package_present
     name: authselect
