@@ -41,4 +41,4 @@ implementations:
       mechanism: sysctl_set
       key: "kernel.core_pattern"
       value: "|/bin/false"
-      file: "/etc/sysctl.d/50-coredump.conf"
+      persist_file: "/etc/sysctl.d/50-coredump.conf"
