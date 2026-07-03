@@ -100,3 +100,22 @@ func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = pammoduleconfigure.New()
 }
+
+// @spec security-value-hardening
+// @ac AC-02
+func TestApply_RejectsControlCharValue(t *testing.T) {
+	t.Run("security-value-hardening/AC-02", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// A newline in args injects a second PAM directive into the auth stack
+	// (security.md #13, sibling of pam_module_arg); reject at decode, host untouched.
+	_, err := pammoduleconfigure.New().Apply(context.Background(), tp, api.Params{
+		"service": "sshd", "type": "auth", "control": "required",
+		"module": "pam_faillock.so", "args": "preauth\nauth requisite pam_deny.so",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected an error for a newline in pam_module_configure args")
+	}
+	if len(tp.Runs) != 0 {
+		t.Errorf("host must be untouched; got %d run(s)", len(tp.Runs))
+	}
+}

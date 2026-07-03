@@ -43,7 +43,7 @@ spec:
             includes:
                 - "internal/valueguard: the shared boundary guards"
                 - "grub_parameter_set: GrubParamValue on the value"
-                - "sysctl_set / kernel_module_disable / config_set / config_set_dropin / config_append / cron_job / pam_module_arg / dconf_set: NoControlChars on config-line-bound values"
+                - "sysctl_set / kernel_module_disable / config_set / config_set_dropin / config_append / cron_job / pam_module_arg / pam_module_configure / mount_option_set / dconf_set: NoControlChars on config-line-bound values"
             excludes:
                 - "audit_rule_set: multi-line rule bodies are legitimate; NOT guarded"
                 - "shell/command escaping (already handled by shellEscape/sedEscape for their respective specials)"
@@ -60,7 +60,8 @@ spec:
           description: |
               Handlers that write a value into a single config-file line
               (sysctl_set, kernel_module_disable, config_set, config_set_dropin,
-              config_append, cron_job, pam_module_arg, dconf_set) MUST reject a
+              config_append, cron_job, pam_module_arg, pam_module_configure, mount_option_set,
+              dconf_set) MUST reject a
               value containing a control character (newline etc.) at decode — a
               newline injects extra directives into the persisted file (#13b).
           type: security
