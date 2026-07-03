@@ -141,6 +141,27 @@ func (s *Service) RecordRemediateSession(ctx context.Context, host string, resul
 	return sess.ID, nil
 }
 
+// GetSession returns the recorded session by ID. Exposed so session-aware CLI
+// paths (notably `kensa rollback --start`) can read session metadata through
+// the same store handle the service already owns, instead of opening a second
+// SQLite handle on the same WAL database.
+func (s *Service) GetSession(ctx context.Context, sessID uuid.UUID) (*store.Session, error) {
+	if s.store == nil {
+		return nil, fmt.Errorf("kensa: service has no store")
+	}
+	return s.store.GetSession(ctx, sessID)
+}
+
+// CommittedTxnIDs returns the committed transaction refs for a session,
+// earliest-first — the set `rollback --start` reverts. Shares the service's
+// store handle (see [Service.GetSession]).
+func (s *Service) CommittedTxnIDs(ctx context.Context, sessID uuid.UUID) ([]store.TxnRef, error) {
+	if s.store == nil {
+		return nil, fmt.Errorf("kensa: service has no store")
+	}
+	return s.store.CommittedTxnIDs(ctx, sessID)
+}
+
 // Close releases owned resources. Safe to call multiple times.
 func (s *Service) Close() error {
 	if s.store != nil {

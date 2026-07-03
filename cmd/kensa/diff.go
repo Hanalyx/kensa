@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -87,11 +85,11 @@ func runDiff(ctx context.Context, dbPath string, args []string) error {
 
 	sess1, err := s.GetSession(ctx, id1)
 	if err != nil {
-		return cleanSessionLookupError(id1, err)
+		return cleanSessionLookupError(id1, err, "try 'kensa list sessions' to find candidate IDs")
 	}
 	sess2, err := s.GetSession(ctx, id2)
 	if err != nil {
-		return cleanSessionLookupError(id2, err)
+		return cleanSessionLookupError(id2, err, "try 'kensa list sessions' to find candidate IDs")
 	}
 
 	txns1, err := s.TransactionsForSession(ctx, id1)
@@ -195,23 +193,6 @@ func writeDiffText(w io.Writer, r *diff.SessionDiff, showUnchanged bool) {
 			fmt.Fprintf(w, "    %s    %s\n", c.RuleID, c.FromStatus)
 		}
 	}
-}
-
-// cleanSessionLookupError replaces the noisy GetSession-via-
-// sql.ErrNoRows wrap with an operator-actionable message
-// pointing at `kensa list sessions`. Peer review caught the
-// leak: the raw error reads "store: GetSession: sql: no rows
-// in result set" — internals an operator shouldn't have to
-// parse to know "I typed a session ID that isn't in the
-// store".
-func cleanSessionLookupError(id uuid.UUID, err error) error {
-	// store.GetSession wraps sql.ErrNoRows; either match works
-	// today, but errors.Is(err, sql.ErrNoRows) is the durable
-	// invariant.
-	if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "no rows") {
-		return fmt.Errorf("session %s not found in store (try 'kensa list sessions' to find candidate IDs)", id)
-	}
-	return fmt.Errorf("session %s: %w", id, err)
 }
 
 // hostOrUnknown returns the hostname or "(unknown)" when
