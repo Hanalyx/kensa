@@ -57,7 +57,9 @@ func TestRemediationParamErrors_AcceptsConforming(t *testing.T) {
 func TestRemediationParamErrors_SkipsAllowlistedRule(t *testing.T) {
 	t.Run("rule-param-contract/AC-03", func(t *testing.T) {})
 	// An allowlisted rule with deliberately-wrong params must produce no error.
-	r := ruleWith("coredump-core-pattern", api.Remediation{
+	// shell-timeout is still on the ratchet allowlist (the param-rename
+	// entries were drained); the skip keys off the ID, not the params.
+	r := ruleWith("shell-timeout", api.Remediation{
 		Mechanism: "sysctl_set",
 		Params:    api.Params{"key": "k", "value": "v", "file": "/etc/sysctl.d/x.conf"},
 	})

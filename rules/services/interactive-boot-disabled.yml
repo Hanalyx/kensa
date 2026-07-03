@@ -31,4 +31,4 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: grub_parameter_remove
-      name: "systemd.confirm_spawn"
+      key: "systemd.confirm_spawn"
