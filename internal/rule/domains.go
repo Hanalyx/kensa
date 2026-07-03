@@ -48,9 +48,6 @@ var knownValueDomainViolators = map[string]string{
 	"password-warn-age":             "config_set separator '\\t'",
 	"pam-faillock-audit":            "config_set separator '' (valueless flag — convert to file_content)",
 	"pwquality-root-enforce":        "config_set separator '' (valueless flag — convert to file_content)",
-	// package_state.state 'installed' not in {absent,present} — never matches.
-	"package-authselect-installed": "package_state state 'installed' (should be 'present')",
-	"package-pam-installed":        "package_state state 'installed' (should be 'present')",
 }
 
 // validateValueDomains is constraint (11): every check/remediation param value

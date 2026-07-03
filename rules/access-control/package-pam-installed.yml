@@ -39,7 +39,7 @@ implementations:
   check:
     method: package_state
     name: pam
-    state: installed
+    state: present
   remediation:
     mechanism: package_present
     name: pam
