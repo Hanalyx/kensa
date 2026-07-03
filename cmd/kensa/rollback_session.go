@@ -213,6 +213,9 @@ type rollbackStartTxnEntry struct {
 	RuleID  string `json:"rule_id"`
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
+	// Warning carries a best-effort-recording notice: the host was reverted
+	// but the rollback outcome could not be written to the transaction log.
+	Warning string `json:"warning,omitempty"`
 }
 
 // runRollbackStart implements `kensa rollback --start
@@ -283,7 +286,8 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	result := rollbackStartResult{SessionID: sessID.String()}
 	for _, ref := range txnRefs {
 		result.Attempted++
-		if _, err := svc.Rollback(ctx, hostCfg, ref.TxnID); err != nil {
+		res, err := svc.Rollback(ctx, hostCfg, ref.TxnID)
+		if err != nil {
 			result.Failed++
 			result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
 				RuleID: ref.RuleID, Success: false, Error: err.Error(),
@@ -292,9 +296,17 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			continue
 		}
 		result.Succeeded++
-		result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
-			RuleID: ref.RuleID, Success: true,
-		})
+		entry := rollbackStartTxnEntry{RuleID: ref.RuleID, Success: true}
+		// Recording the rollback is best-effort: the host was reverted, but
+		// if the engine could not write the outcome to the transaction log it
+		// flags a WARNING in the result detail. Surface it so the operator
+		// knows the log may still show this transaction committed (rather than
+		// letting a silent "succeeded" hide the inconsistency).
+		if res != nil && strings.Contains(res.Detail, "WARNING") {
+			entry.Warning = res.Detail
+			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s: %s\n", ref.RuleID, res.Detail)
+		}
+		result.PerTxn = append(result.PerTxn, entry)
 	}
 
 	out := bodyOut(quiet)
@@ -318,6 +330,11 @@ func writeRollbackStartText(w io.Writer, r *rollbackStartResult) {
 	fmt.Fprintf(w, "  attempted:  %d\n", r.Attempted)
 	fmt.Fprintf(w, "  succeeded:  %d\n", r.Succeeded)
 	fmt.Fprintf(w, "  failed:     %d\n", r.Failed)
+	for _, e := range r.PerTxn {
+		if e.Warning != "" {
+			fmt.Fprintf(w, "  warning:    %s: %s\n", e.RuleID, e.Warning)
+		}
+	}
 	if r.Failed > 0 {
 		fmt.Fprintln(w, "\n  failures:")
 		for _, e := range r.PerTxn {

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
@@ -109,10 +110,52 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 	rbResults := e.rollback(ctx, transport, applyResults, preStates, "manual")
 
 	// Aggregate: return the first failure if any steps failed, otherwise
-	// return a synthetic success result for the transaction.
+	// return a synthetic success result for the transaction. A partial
+	// rollback is NOT persisted as rolled-back — the host is in a mixed
+	// state and the transaction stays committed for the operator to inspect.
 	for i := range rbResults {
 		if !rbResults[i].Success {
 			return &rbResults[i], nil
+		}
+	}
+
+	rolledBackAt := time.Now().UTC()
+
+	// Record the rollback outcome durably so the transaction log reflects
+	// reality: the row is marked rolled-back, per-step events are written,
+	// and the owning session stops showing as rollback-able. Without this
+	// the host is reverted but the store still reports the transaction
+	// committed (the pre-fix bug). Only stores that implement the optional
+	// capability persist; the host reversal above already succeeded either
+	// way.
+	//
+	// Recording is best-effort: the host is already reverted, and that is
+	// the source of truth. A failure to write the audit record must NOT
+	// report the rollback as failed — a downstream orchestrator would
+	// otherwise mark a genuinely-reverted host as un-rolled-back and act on
+	// a false negative. The gap is surfaced as a WARNING in the result
+	// detail (which callers carry into their own evidence), not propagated
+	// as an error.
+	// A rollback that reverted nothing (no capturable steps — e.g. a
+	// non-transactional transaction reached via the legacy `--txn` path,
+	// which unlike --start applies no status/capturable filter) must NOT be
+	// recorded as rolled-back: writing a rolled_back status with zero events
+	// for a no-op would misrepresent the host. Leaving the transaction as-is
+	// is the honest state.
+	if len(rbResults) == 0 {
+		return &api.RollbackResult{
+			StepIndex:  -1,
+			Success:    true,
+			Detail:     "no capturable steps to roll back; host unchanged, transaction status left as-is",
+			Source:     "manual",
+			ExecutedAt: rolledBackAt,
+		}, nil
+	}
+
+	detail := "all rollback steps succeeded"
+	if rs, ok := e.store.(RollbackStore); ok {
+		if err := rs.PersistRollback(ctx, record.ID, rbResults, rolledBackAt); err != nil {
+			detail = fmt.Sprintf("all rollback steps succeeded; WARNING: host reverted but recording the rollback outcome to the transaction log failed: %v", err)
 		}
 	}
 
@@ -120,8 +163,8 @@ func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transpor
 		StepIndex:  -1, // transaction-level result, not step-level
 		Mechanism:  "",
 		Success:    true,
-		Detail:     "all rollback steps succeeded",
+		Detail:     detail,
 		Source:     "manual",
-		ExecutedAt: time.Now().UTC(),
+		ExecutedAt: rolledBackAt,
 	}, nil
 }

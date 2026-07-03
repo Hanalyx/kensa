@@ -480,6 +480,38 @@ func TestRunRollback_LegacyTxnFlow(t *testing.T) {
 // committed txns so the runner returns Attempted=0 + empty
 // PerTxn without invoking svc.Rollback (which would need a
 // live host). The struct shape is what we're locking.
+// TestWriteRollbackStartText_SurfacesWarning proves the best-effort-recording
+// warning (host reverted but the outcome could not be written to the log)
+// reaches the operator on the success path, rather than being hidden behind a
+// silent "succeeded".
+//
+// @spec cli-rollback-session-aware
+// @ac AC-15
+func TestWriteRollbackStartText_SurfacesWarning(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-15", func(t *testing.T) {})
+	t.Log("// @spec cli-rollback-session-aware")
+	t.Log("// @ac AC-15")
+
+	r := &rollbackStartResult{
+		SessionID: uuid.NewString(),
+		Attempted: 1, Succeeded: 1, Failed: 0,
+		PerTxn: []rollbackStartTxnEntry{{
+			RuleID:  "mount-var-nosuid",
+			Success: true,
+			Warning: "all rollback steps succeeded; WARNING: host reverted but recording the rollback outcome to the transaction log failed: disk full",
+		}},
+	}
+	var b strings.Builder
+	writeRollbackStartText(&b, r)
+	out := b.String()
+	if !strings.Contains(out, "warning:") || !strings.Contains(out, "WARNING") {
+		t.Errorf("expected the recording warning surfaced in the text output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "mount-var-nosuid") {
+		t.Errorf("expected the rule id alongside the warning, got:\n%s", out)
+	}
+}
+
 func TestRunRollback_StartJSONShape(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "start-json.db")
 	s, err := store.OpenSQLite(context.Background(), path)
