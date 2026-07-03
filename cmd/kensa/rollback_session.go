@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -135,7 +133,7 @@ func runRollbackInfo(ctx context.Context, dbPath string, sessID uuid.UUID, detai
 
 	sess, err := s.GetSession(ctx, sessID)
 	if err != nil {
-		return cleanRollbackSessionLookupError(sessID, err)
+		return cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
 	}
 	txns, err := s.TransactionsForSession(ctx, sessID)
 	if err != nil {
@@ -235,19 +233,12 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	}
 	defer func() { _ = svc.Close() }()
 
-	// Parallel store handle for session-aware queries (the
-	// kensa.Default service exposes only the LogQuery
-	// interface, not GetSession / CommittedTxnIDs). modernc/
-	// sqlite's WAL mode handles read concurrency cleanly.
-	s, err := store.OpenSQLite(ctx, dbPath)
+	// Session-aware queries run through the service's own store handle
+	// (svc.GetSession / svc.CommittedTxnIDs) rather than a second SQLite handle
+	// on the same WAL database — the service now exposes them directly.
+	sess, err := svc.GetSession(ctx, sessID)
 	if err != nil {
-		return fmt.Errorf("open store for session lookup: %w", err)
-	}
-	defer func() { _ = s.Close() }()
-
-	sess, err := s.GetSession(ctx, sessID)
-	if err != nil {
-		return cleanRollbackSessionLookupError(sessID, err)
+		return cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
 	}
 	// Defense-in-depth: peer review caught that
 	// `kensa check --store` sessions write committed for
@@ -278,7 +269,7 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			sess.Hostname, hostCfg.Hostname))
 	}
 
-	txnRefs, err := s.CommittedTxnIDs(ctx, sessID)
+	txnRefs, err := svc.CommittedTxnIDs(ctx, sessID)
 	if err != nil {
 		return err
 	}
@@ -343,14 +334,4 @@ func writeRollbackStartText(w io.Writer, r *rollbackStartResult) {
 			}
 		}
 	}
-}
-
-// cleanRollbackSessionLookupError mirrors the C-048
-// cleanSessionLookupError fix: replace SQL-leaky errors with
-// an actionable message pointing at the discovery command.
-func cleanRollbackSessionLookupError(id uuid.UUID, err error) error {
-	if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "no rows") {
-		return fmt.Errorf("session %s not found in store (try 'kensa rollback --list' or 'kensa list sessions')", id)
-	}
-	return fmt.Errorf("session %s: %w", id, err)
 }
