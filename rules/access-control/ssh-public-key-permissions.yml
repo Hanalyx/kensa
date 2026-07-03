@@ -55,12 +55,10 @@ platforms:
 implementations:
 - default: true
   check:
-    method: file_permission
-    path: /etc/ssh/ssh_host_*_key.pub
-    owner: root
-    group: root
-    mode: '0644'
-    glob: ssh_host_*_key.pub
+    method: command
+    run: "find /etc/ssh/ssh_host_*_key.pub -type f \\( ! -perm 644 -o ! -user root -o ! -group root \\) 2>/dev/null | head -1"
+    expected_exit: 0
+    expected_stdout: ""
   remediation:
     mechanism: file_permissions
     path: /etc/ssh/ssh_host_*_key.pub
