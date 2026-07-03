@@ -86,6 +86,29 @@ func TestRemediate_AllowConflictsBypasses(t *testing.T) {
 	}
 }
 
+// TestCheck_DoesNotRefuseOnConflict proves the strict gate is remediate-only:
+// check over a conflicting rule set never refuses (it is read-only, so a
+// conflict is advisory). The gate marker "refusing to remediate" must not
+// appear.
+//
+// @spec cli-allow-conflicts
+// @ac AC-03
+func TestCheck_DoesNotRefuseOnConflict(t *testing.T) {
+	t.Run("cli-allow-conflicts/AC-03", func(t *testing.T) {})
+	t.Log("// @spec cli-allow-conflicts")
+	t.Log("// @ac AC-03")
+
+	a, b := writeConflictingRulePair(t)
+	db := filepath.Join(t.TempDir(), "c.db")
+	argv := []string{"--db", db, "check", "--rule", a, "--rule", b,
+		"--host", "127.0.0.1", "--port", "1"}
+
+	_, stderr := captureRunCLI(argv, t)
+	if strings.Contains(stderr, "refusing") {
+		t.Errorf("check must stay advisory (never refuse) on a conflict; got:\n%s", stderr)
+	}
+}
+
 // TestFormatConflictRefusal renders every pair and both escape hatches.
 //
 // @spec cli-allow-conflicts

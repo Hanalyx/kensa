@@ -95,5 +95,12 @@ spec:
               by TestRemediate_AllowConflictsBypasses.
           references_constraints: [C-03]
           priority: high
+        - id: AC-03
+          description: |
+              check over a conflicting rule set does NOT refuse — the
+              strict gate is remediate-only; check stays advisory
+              (read-only). Locked by TestCheck_DoesNotRefuseOnConflict.
+          references_constraints: [C-04]
+          priority: high
 
     tags: [cli, remediate, conflicts, rules]
