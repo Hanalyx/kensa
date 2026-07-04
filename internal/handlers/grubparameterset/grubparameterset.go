@@ -25,6 +25,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/bootguard"
 	"github.com/Hanalyx/kensa/internal/handler"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 const mechanism = "grub_parameter_set"
@@ -126,6 +127,13 @@ func decodeParams(params api.Params) (key, value string, err error) {
 	value, ok = vv.(string)
 	if !ok {
 		return "", "", errors.New("grub_parameter_set: param 'value' must be a string")
+	}
+	// The value is spliced into the root-run bootloader edit (grub sed /
+	// grubby). The key is already allowlisted (bootguard); harden the value
+	// too so a regex/sed-special or newline value is rejected cleanly rather
+	// than corrupting the edit (security.md #13a).
+	if err := valueguard.GrubParamValue(value); err != nil {
+		return "", "", err
 	}
 	return key, value, nil
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -73,6 +74,13 @@ func decodeParams(p api.Params) (*Params, error) {
 		if s != "" {
 			sep = s
 		}
+	}
+	// Key and value are written into a "key<sep>value" line in the drop-in; a
+	// newline in either injects extra directives (security.md #13b).
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"config_set_dropin key": key, "config_set_dropin value": value,
+	}); err != nil {
+		return nil, err
 	}
 	return &Params{Path: filepath.Join(dir, file), Key: key, Value: value, Separator: sep}, nil
 }

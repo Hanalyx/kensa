@@ -15,6 +15,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -92,6 +93,15 @@ func decodeParams(p api.Params) (*Params, error) {
 			return nil, fmt.Errorf("config_set: 'separator' must be one of %q, %q, %q; got %q", "=", " = ", " ", s)
 		}
 		sep = s
+	}
+	// Key and value are written into a "key<sep>value" line and spliced into a
+	// root-run sed on the shell path (sedEscape does not neutralize newlines).
+	// Reject control characters so neither can inject a line or break the sed
+	// (security.md #13, sedEscape-newline-gap sibling).
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"config_set key": key, "config_set value": value,
+	}); err != nil {
+		return nil, err
 	}
 	return &Params{File: file, Key: key, Value: value, Separator: sep}, nil
 }

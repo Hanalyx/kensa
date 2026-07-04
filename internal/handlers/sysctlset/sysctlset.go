@@ -22,6 +22,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // persistMode is the drop-in file mode (root-readable config).
@@ -108,6 +109,14 @@ func decodeParams(p api.Params) (*Params, error) {
 	val, ok := valRaw.(string)
 	if !ok {
 		return nil, fmt.Errorf("sysctl_set: 'value' must be a string, got %T", valRaw)
+	}
+	// Both key and value are written into a "key = value" line in the persist
+	// drop-in; a newline in either injects extra sysctl directives (security.md
+	// #13b). Reject control characters at the boundary.
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"sysctl_set key": key, "sysctl_set value": val,
+	}); err != nil {
+		return nil, err
 	}
 	out := &Params{Key: key, Value: val, PersistFile: defaultPersistFile(key)}
 	if v, ok := p["persist_file"]; ok {

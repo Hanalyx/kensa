@@ -219,3 +219,20 @@ func TestRegistration_Available(t *testing.T) {
 		t.Skip()
 	}
 }
+
+// @spec security-value-hardening
+// @ac AC-02
+func TestApply_RejectsControlCharValue(t *testing.T) {
+	t.Run("security-value-hardening/AC-02", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// A newline in the value would inject extra sysctl directives (security.md
+	// #13b); reject at decode, host untouched.
+	_, err := sysctlset.New().Apply(context.Background(), tp,
+		api.Params{"key": "kernel.dmesg_restrict", "value": "1\nkernel.evil = 1"}, nil)
+	if err == nil {
+		t.Fatal("expected an error for a newline in the sysctl value")
+	}
+	if len(tp.Runs) != 0 {
+		t.Errorf("host must be untouched; got %d run(s)", len(tp.Runs))
+	}
+}

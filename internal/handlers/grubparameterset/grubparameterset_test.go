@@ -159,3 +159,20 @@ func TestHandler_NonCapturable(t *testing.T) {
 		t.Error("non-capturable handler must not satisfy CombinedHandler")
 	}
 }
+
+// @spec security-value-hardening
+// @ac AC-01
+func TestApply_RejectsUnsafeValue(t *testing.T) {
+	t.Run("security-value-hardening/AC-01", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// A sed/shell-special value is spliced into the root-run grub edit; it must
+	// be rejected at decode with the host untouched (security.md #13a).
+	_, err := grubparameterset.New().Apply(context.Background(), tp,
+		api.Params{"key": "systemd.confirm_spawn", "value": "1|rm -rf /"}, nil)
+	if err == nil {
+		t.Fatal("expected an error for a sed/shell-special grub value")
+	}
+	if len(tp.Runs) != 0 {
+		t.Errorf("host must be untouched when the value is rejected; got %d run(s)", len(tp.Runs))
+	}
+}

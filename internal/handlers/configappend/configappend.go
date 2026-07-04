@@ -15,6 +15,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // configFileMode is the fallback mode for a config file config_append must
@@ -91,6 +92,12 @@ func decodeParams(p api.Params) (*Params, error) {
 	line, ok := lineRaw.(string)
 	if !ok {
 		return nil, errMissingLine
+	}
+	// The line is appended verbatim; an embedded newline makes it multiple
+	// lines — line injection (security.md #13 class). config_append is a
+	// single-line primitive, so reject control characters.
+	if err := valueguard.NoControlChars("config_append line", line); err != nil {
+		return nil, err
 	}
 	return &Params{Path: path, Line: line}, nil
 }

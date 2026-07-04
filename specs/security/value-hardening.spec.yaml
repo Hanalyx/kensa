@@ -1,0 +1,98 @@
+spec:
+    id: security-value-hardening
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: security-value-hardening
+        description: |
+            Rule YAML and every --var tier are root-trusted input
+            (docs/test_docs/security.md limit #3). Limit #13 found that rule/
+            variable VALUES reached root-run writes with incomplete hardening:
+            (a) grub_parameter_set spliced the parameter value into a root-run
+            sed / grubby edit with no charset check, so a regex/sed-special
+            value corrupted the edit; (b) config-line-writing handlers spliced
+            a value into a "key value" style line with no control-character
+            check, so a newline injected extra directives (extra keys) into the
+            persisted file.
+
+            internal/valueguard centralizes two boundary guards so every
+            affected handler validates identically and cannot drift:
+              - GrubParamValue: restricts a kernel-parameter value to
+                [A-Za-z0-9._,:=/+-].
+              - NoControlChars / NoControlCharsIn: rejects control characters
+                (newline etc.) in a value bound for a single config line.
+
+            Applied at decodeParams so a dangerous value is a clean validation
+            error with the host untouched — never a root-level config
+            corruption or content injection. Handlers whose content is
+            legitimately multi-line (audit_rule_set) are intentionally NOT
+            passed through the control-char guard.
+
+    objective:
+        summary: |
+            Add internal/valueguard (GrubParamValue + NoControlChars/
+            NoControlCharsIn) and call it at decodeParams in grub_parameter_set
+            (value charset) and the config-line-writing handlers (control-char
+            rejection), so a dangerous rule/variable value is a clean validation
+            error with the host untouched instead of a root-run config
+            corruption or content injection.
+        scope:
+            includes:
+                - "internal/valueguard: the shared boundary guards"
+                - "grub_parameter_set: GrubParamValue on the value"
+                - "sysctl_set / kernel_module_disable / config_set / config_set_dropin / config_append / cron_job / pam_module_arg / pam_module_configure / mount_option_set / dconf_set: NoControlChars on config-line-bound values"
+            excludes:
+                - "audit_rule_set: multi-line rule bodies are legitimate; NOT guarded"
+                - "shell/command escaping (already handled by shellEscape/sedEscape for their respective specials)"
+
+    constraints:
+        - id: C-01
+          description: |
+              grub_parameter_set MUST reject a value outside
+              [A-Za-z0-9._,:=/+-] at decode, before any host mutation — the
+              value is spliced into the root-run bootloader edit (#13a).
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Handlers that write a value into a single config-file line
+              (sysctl_set, kernel_module_disable, config_set, config_set_dropin,
+              config_append, cron_job, pam_module_arg, pam_module_configure, mount_option_set,
+              dconf_set) MUST reject a
+              value containing a control character (newline etc.) at decode — a
+              newline injects extra directives into the persisted file (#13b).
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The guards MUST NOT reject legitimate values: real corpus values
+              (numbers, on/off, device paths, package names) pass, and the full
+              corpus validates with zero errors after the guards are applied.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              GrubParamValue passes real kernel-param values (numbers, on/off,
+              device paths — the C-03 "don't reject legitimate values" side) and
+              rejects sed/shell specials + newlines; grub_parameter_set.Apply
+              rejects an unsafe value with the host untouched. Locked by
+              TestGrubParamValue and TestApply_RejectsUnsafeValue.
+          references_constraints: [C-01, C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              NoControlChars rejects newline/control-char values and passes
+              clean config values (the C-03 legitimate-value side); the
+              config-line-writing handlers reject a newline value at decode with
+              the host untouched. Locked by TestNoControlChars and the
+              per-handler TestApply_RejectsControlCharValue tests. The corpus
+              validates with zero errors after the guards land (validation gate).
+          references_constraints: [C-02, C-03]
+          priority: critical
+
+    tags: [security, valueguard, input-hardening, handlers]

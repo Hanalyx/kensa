@@ -24,6 +24,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -80,7 +81,17 @@ func decodeParams(p api.Params) (*Params, error) {
 	if err != nil || len(opts) == 0 {
 		return nil, errMissingOption
 	}
-	return &Params{MountPoint: mp, Option: strings.Join(opts, ",")}, nil
+	joined := strings.Join(opts, ",")
+	// The option string is appended to field 4 of the matching /etc/fstab line;
+	// a newline in an option (splitCSV splits only on ',') injects an entire new
+	// fstab entry — an attacker-chosen mount (security.md #13 class). The mount
+	// point selects the line; guard both.
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"mount_option_set mount_point": mp, "mount_option_set options": joined,
+	}); err != nil {
+		return nil, err
+	}
+	return &Params{MountPoint: mp, Option: joined}, nil
 }
 
 // optionList normalises the "options" parameter into a slice of option

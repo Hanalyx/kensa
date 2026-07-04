@@ -130,3 +130,22 @@ func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = mountoptionset.New()
 }
+
+// @spec security-value-hardening
+// @ac AC-02
+func TestApply_RejectsControlCharValue(t *testing.T) {
+	t.Run("security-value-hardening/AC-02", func(t *testing.T) {})
+	tp := engine.NewFakeTransport()
+	// A newline in an option injects an entire new /etc/fstab entry — an
+	// attacker-chosen mount (security.md #13); reject at decode, host untouched.
+	_, err := mountoptionset.New().Apply(context.Background(), tp, api.Params{
+		"mount_point": "/tmp",
+		"options":     []interface{}{"nodev\nUUID=x /mnt ext4 defaults 0 0"},
+	}, nil)
+	if err == nil {
+		t.Fatal("expected an error for a newline in a mount option")
+	}
+	if len(tp.Runs) != 0 {
+		t.Errorf("host must be untouched; got %d run(s)", len(tp.Runs))
+	}
+}

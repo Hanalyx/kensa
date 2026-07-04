@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -127,6 +128,13 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, errMissingFiles
 	}
 
+	// module and arg are written into a PAM config line; a newline in either
+	// injects extra PAM directives (security.md #13 class).
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"pam_module_arg module": module, "pam_module_arg arg": arg,
+	}); err != nil {
+		return nil, err
+	}
 	out := &Params{
 		Action: action,
 		Module: module,

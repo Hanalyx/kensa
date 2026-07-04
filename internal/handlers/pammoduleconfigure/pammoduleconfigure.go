@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
 // mechanism is the canonical handler name.
@@ -72,6 +73,17 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, errMissingModule
 	}
 	options, _ := p["args"].(string)
+	// service/type/control/module/args are spliced into a PAM directive line
+	// written to /etc/pam.d/<service> (sed/echo); a newline in any injects an
+	// extra PAM directive into the auth stack (security.md #13 class — sibling
+	// of pam_module_arg).
+	if err := valueguard.NoControlCharsIn(map[string]string{
+		"pam_module_configure service": service, "pam_module_configure type": modType,
+		"pam_module_configure control": control, "pam_module_configure module": module,
+		"pam_module_configure args": options,
+	}); err != nil {
+		return nil, err
+	}
 	return &Params{
 		Service: service, ModuleType: modType,
 		Control: control, Module: module, Options: options,
