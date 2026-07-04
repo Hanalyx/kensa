@@ -72,8 +72,11 @@ spec:
         - id: C-03
           description: |
               The apply cursor MUST be advanced write-ahead of the mutation it
-              guards (recorded before the step mutates), so recovery never
-              skips undoing the last step a crash may have begun.
+              guards (recorded before the step mutates). The cursor is forensic:
+              recovery compensates every captured pre-state regardless of the
+              cursor (it is cursor-independent), so the write-ahead ordering is
+              maintained for forensic fidelity and to permit a future
+              cursor-bounded recovery — NOT because current recovery reads it.
           type: technical
           enforcement: error
 
@@ -105,6 +108,15 @@ spec:
               open entry), and ClearJournalEntry removes the entry from the
               store.
           references_constraints: [C-03, C-02]
+          priority: high
+        - id: AC-05
+          description: |
+              A full engine Run advances the journal cursor write-ahead of each
+              apply step: for every step N the cursor is recorded (cursor := N)
+              BEFORE step N's mutation runs, in step order. The advance is
+              engine-driven during APPLY and gated on the optional JournalStore
+              capability; a store without it is unaffected.
+          references_constraints: [C-03]
           priority: high
 
     depends_on:
