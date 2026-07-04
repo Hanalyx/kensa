@@ -23,7 +23,6 @@ conflicts_with: [ssh-ciphers-fips, ssh-macs-fips, ssh-kex-fips]
 
 references:
   cis:
-    rhel10: { section: "1.6.4", level: "L1", type: "Automated" }
     rhel8:  { section: "5.1.1", level: "L1", type: "Automated" }
     rhel9:  { section: "1.6.2", level: "L1", type: "Automated" }
   nist_800_53: ["SC-13", "AC-17(2)"]
