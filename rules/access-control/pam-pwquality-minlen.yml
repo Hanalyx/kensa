@@ -21,7 +21,7 @@ depends_on:
 references:
   cis:
     rhel8:
-      section: 5.4.1.1
+      section: 5.3.3.2.2
       level: L1
       type: Automated
     rhel9:  { section: "5.3.3.2.2", level: "L1", type: "Automated" }
