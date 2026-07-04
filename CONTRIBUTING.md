@@ -3,110 +3,123 @@
 Kensa modifies production Linux systems. A bug here can break customer
 infrastructure at 3 AM. The discipline below is not optional.
 
+## Building and testing
+
+```sh
+go build ./...        # build everything
+go test ./...         # unit tests (live-host tests skip without the env vars below)
+golangci-lint run     # lint (CI pins the version)
+make spec-sync        # spec + coverage gate (see "Spec before code")
+```
+
+Every PR must pass all of these in CI — unit tests, lint, spec coverage, the
+build, and the codegen and portability gates — before it can merge. Branch off
+`main`, keep the branch up to date before merging (CI re-runs on update), and
+open a PR.
+
 ## Developer prerequisites
 
-Beyond Go itself (toolchain version pinned in `go.mod`), kensa's
-build expects:
+Beyond Go itself (toolchain version pinned in `go.mod`), the build expects:
 
-- **`protoc`** (Protocol Buffers compiler). Required by `make proto`
-  for regenerating `internal/agent/wirev1/wire.pb.go` from
-  `wire.proto`. Install the matching version from the
+- **`protoc`** (Protocol Buffers compiler). Required by `make proto` for
+  regenerating `internal/agent/wirev1/wire.pb.go` from `wire.proto`. Install a
+  matching version from the
   [protocolbuffers/protobuf releases](https://github.com/protocolbuffers/protobuf/releases)
-  page (CI uses v25.3; aim for the same or newer). Place the binary
-  on `PATH`.
+  page (CI uses v25.3; aim for the same or newer) and place the binary on `PATH`.
 - **`protoc-gen-go`** (Go bindings plugin). Install with
-  `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`.
-  The version is pinned via `tools.go` so all developers regenerate
-  byte-identical output. `go install` puts the binary in
-  `$(go env GOPATH)/bin`; make sure that's on `PATH`.
+  `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`. The version
+  is pinned via `tools.go` so everyone regenerates byte-identical output.
+  `go install` puts the binary in `$(go env GOPATH)/bin` — make sure that's on
+  `PATH`.
 
-The codegen-drift gate (`make proto-check` + `TestCodegenSync`)
-fails the build if checked-in `wire.pb.go` differs from what
-`protoc` would produce today. Run `make proto` after editing
-`wire.proto`, commit both files together.
+The codegen-drift gate (`make proto-check` + `TestCodegenSync`) fails the build
+if the checked-in `wire.pb.go` differs from what `protoc` would produce today.
+Run `make proto` after editing `wire.proto`, and commit both files together.
 
-Without `protoc` installed locally, `go test ./...` will skip
-`TestCodegenSync` (with a clear message). CI installs protoc and
-fails hard if it can't run the gate — so a missing-locally /
-passing-in-CI workflow is fine for everyday development.
+Without `protoc` installed locally, `go test ./...` skips `TestCodegenSync` (with
+a clear message). CI installs `protoc` and fails hard if it can't run the gate,
+so a missing-locally / passing-in-CI workflow is fine for everyday development.
 
 ### Live-host test env vars
 
-Some tests run against a real SSH-able host. They skip by
-default; set the env vars below to opt in.
+Some tests run against a real SSH-able host. They skip by default; set the env
+vars below to opt in.
 
-- **`KENSA_TEST_SSH_HOST`** — host (or `host:port`) for SSH
-  integration tests. When unset, SSH-dependent tests under
-  `internal/transport/ssh/` skip.
+- **`KENSA_TEST_SSH_HOST`** — host (or `host:port`) for SSH integration tests.
+  When unset, SSH-dependent tests under `internal/transport/ssh/` skip.
+- **`KENSA_TEST_AGENT_MODE=1`** — opt in to the agent-mode live-host parity test
+  (`cmd/kensa.TestLiveAgentMode_FilePermissionsParity`). Requires
+  `KENSA_TEST_SSH_HOST`, and the SSH user must be able to write
+  `~/.cache/kensa/agent-<sha>` on the target. The test creates a temp file under
+  the SSH user's `$HOME`, runs `file_permissions` remediate via both the
+  direct-SSH and agent-mode paths, and asserts the results match (modulo
+  timestamps and transaction IDs).
 
-- **`KENSA_TEST_AGENT_MODE=1`** — opt-in for the L-014c
-  agent-mode live-host parity test
-  (`cmd/kensa.TestLiveAgentMode_FilePermissionsParity`).
-  Requires `KENSA_TEST_SSH_HOST` AND the SSH user must be
-  able to write `~/.cache/kensa/agent-<sha>` on the target.
-  The test creates a temp file under the SSH user's `$HOME`,
-  runs file_permissions remediate via both direct-SSH and
-  agent-mode paths, and asserts the RemediationResult
-  matches (modulo timestamps and transaction IDs).
+Without these, `go test ./...` passes cleanly with the live tests shown as `SKIP`
+in `-v` output.
 
-Without these, `go test ./...` passes cleanly with the
-live tests showing as `SKIP` in `-v` output.
+## How changes are reviewed
 
-## Authorship Model
+Every change is reviewed before it merges — review is not optional, because a bug
+here breaks production. A reviewer walks through the change, the spec it
+satisfies, and the test that exercises its failure path before approving.
 
-The Kensa AI team and collaborator write all of the application code. The
-founders conduct rigorous tests and review every change. Human review of
-the code is non-negotiable.
+The bar scales with blast radius. An ordinary change needs a green CI run and a
+reviewer's approval. A change to the transaction engine, a handler's capture or
+rollback path, the public `api/` surface, or anything security-sensitive carries
+the additional discipline below — a failure-mode analysis, two-reviewer approval
+for rollback handlers, a real-host atomicity test, and a capture-sufficiency
+analysis for transactional rules. None of it is skippable.
 
-This means: PR authorship is typically AI; PR approval is always human.
-Every section below assumes that split.
-
-## Spec Before Code
+## Spec before code
 
 Every component has a `.spec.yaml` in `specs/` with constraints and acceptance
-criteria. Every AC maps to at least one test in `tests/`. The spec is the
-contract; the tests enforce the contract; the code satisfies the tests.
+criteria (ACs). Every AC maps to at least one test, annotated with its
+`@spec`/`@ac` so the coverage gate can find it. Tests are co-located with the
+code they cover (`*_test.go` next to the source). The spec is the contract; the
+tests enforce it; the code satisfies the tests.
 
-**Never adjust a test to match code output.** The spec is the source of truth.
-If the code diverges from the spec, fix the code. If the spec is wrong, update
-the spec first (and it needs approval before implementation changes).
+**Never adjust a test to match code output.** The spec is the source of truth. If
+the code diverges from the spec, fix the code. If the spec is wrong, update the
+spec first — and that needs approval before the implementation changes.
 
-Run `make spec-sync` before every PR. A PR that reduces spec coverage below the
-tier threshold blocks at CI.
+Run `make spec-sync` before every PR. A PR that reduces spec coverage below its
+tier threshold blocks at CI. A new test must carry its `@spec`/`@ac` annotations,
+or the coverage gate fails.
 
-## Failure-Mode Analysis (engine, capture, rollback PRs)
+## Failure-mode analysis (engine, capture, rollback PRs)
 
 Every PR that touches `internal/engine/`, `internal/handlers/*/capture.go`, or
 `internal/handlers/*/rollback.go` includes a failure-mode analysis in the PR
 description, answering:
 
 1. What could this change do wrong in production?
-2. What state is captured before the change, and is it sufficient to restore
-   the system if the change or its validation fails?
-3. What real-world edge case is this change *not* safe for, and is that edge
-   case documented and gated?
+2. What state is captured before the change, and is it sufficient to restore the
+   system if the change or its validation fails?
+3. What real-world edge case is this change *not* safe for, and is that edge case
+   documented and gated?
 
-AI may draft the analysis. The reviewing founder is the final reasoner: they
-walk through the change, the spec it satisfies, and the integration test
-that exercises the failure path before approving the PR. Their approval is
-the human signature `TRANSACTION_CONTRACT_V1.md` §3.2 claims is in the git
-history.
+The reviewer is the final reasoner: they walk through the change, the spec it
+satisfies, and the integration test that exercises the failure path before
+approving. That approval is the human signature the atomicity commitment depends
+on.
 
-## Two-Human Review for Rollback Handlers
+## Two-reviewer review for rollback handlers
 
 Every rollback handler (`internal/handlers/*/rollback.go`) requires:
 
-- Spec-derived integration test that induces a real failure on a real RHEL
-  host and verifies the rollback restores the exact pre-state
-- Two-human review by different engineers
-- Atomicity verification via `cmd/kensa-fuzz` against all supported OS versions
+- A spec-derived integration test that induces a real failure on a real host and
+  verifies the rollback restores the exact pre-state.
+- Review by two people (different engineers).
+- Atomicity verification via `cmd/kensa-fuzz` against all supported OS versions.
 
-Rollback handlers are where the atomicity moat lives. Ceremony is proportional.
+Rollback handlers are where the atomicity guarantee lives. The ceremony is
+proportional.
 
-## Per-Rule Capture Sufficiency (rule PRs)
+## Per-rule capture sufficiency (rule PRs)
 
-Every rule PR with `transactional: true` includes a capture-sufficiency
-analysis in the PR description:
+Every rule PR with `transactional: true` includes a capture-sufficiency analysis
+in the PR description:
 
 ```
 ## Capture Sufficiency Analysis
@@ -120,26 +133,26 @@ For each step in the remediation:
 
 Merge is blocked if this section is missing for a `transactional: true` rule.
 
-## Dual-Language Fixtures During Coexistence
+## Dual-language fixtures during coexistence
 
 Fixtures in `fixtures/handlers/*/` are shared with the Python Kensa reference
-implementation. Changes to a fixture must pass both the Go and Python test
-suites before the fixture change merges. If the Python and Go implementations
-diverge against the same fixture, the spec arbitrates — fix whichever
-implementation is wrong, not the fixture.
+implementation. A fixture change must pass both the Go and Python test suites
+before it merges. If the Python and Go implementations diverge against the same
+fixture, the spec arbitrates — fix whichever implementation is wrong, not the
+fixture.
 
 ## Style
 
 - `go fmt` on save; `golangci-lint run` before push.
 - `make spec-sync` before push.
-- Tests go in `tests/` mirroring the source path (not co-located with source).
-  This matches the Specter coverage layout.
+- Tests are co-located with the source (`foo_test.go` next to `foo.go`) and carry
+  `@spec`/`@ac` annotations that the coverage gate ingests.
 
 ## Comments
 
-Comments explain the **intent and invariants** of the code, in terms a reader
-who has *only the code* can understand — no design docs, no PR history, no
-memory of the meeting.
+Comments explain the **intent and invariants** of the code, in terms a reader who
+has *only the code* can understand — no design docs, no PR history, no memory of
+the meeting.
 
 **Self-check:** *delete every design doc and forget every meeting — does this
 comment still teach me why the code is this way?* If not, rewrite it.
@@ -147,20 +160,18 @@ comment still teach me why the code is this way?* If not, rewrite it.
 Do **not** write:
 
 - **Planning labels** — `Phase 3`, `Option B`, `Stage 2`, `Milestone 1`,
-  `Stream A`, `increment 2`, task codes like `P-004` / `M-012`. They point into
-  plans and conversations the reader can't reach. Write the *mechanism* instead:
-  not "implements Option B" but "stages the change on a one-shot trial entry and
-  leaves the saved default as the fallback."
-  (A `Phase N:` heading that names a step of an *algorithm in this file* — e.g.
-  the engine's `Phase 2: CAPTURE` — is fine: it's self-contained and describes
-  the code, not a roadmap.)
+  `Stream A`, `increment 2`, or task codes like `P-004`. They point into plans a
+  reader can't reach. Write the *mechanism* instead: not "implements Option B"
+  but "stages the change on a one-shot trial entry and leaves the saved default
+  as the fallback." (A `Phase N:` heading naming a step of an *algorithm in this
+  file* — e.g. the engine's `Phase 2: CAPTURE` — is fine: it describes the code.)
 - **Incident provenance / error codes** — `203/EXEC`, "caught by the reboot test
-  on RHEL 9.6". Write the cause→effect: "under SELinux a file below `/var/lib`
-  is `var_lib_t`, which the service domain may not execute."
-- **Chronology** — `founder-ratified 2026-05-27`, "so far", "separate
-  increment", "as of this commit". It rots on the next change; it lives in git
-  history and the changelog.
-- **References into gitignored docs** — `§7.1b`, `see docs/roadmap/…`. A fresh
+  on RHEL 9.6". Write cause→effect: "under SELinux a file below `/var/lib` is
+  `var_lib_t`, which the service domain may not execute."
+- **Chronology** — `approved 2026-05-27`, "so far", "separate increment", "as of
+  this commit". It rots on the next change; it lives in git history and the
+  changelog.
+- **References into untracked docs** — `§7.1b`, `see docs/roadmap/…`. A fresh
   clone doesn't contain `docs/`, so the pointer can't be followed. Inline the
   constraint. (Referencing a *tracked* file like `CONTRIBUTING.md` is fine.)
 
@@ -172,8 +183,8 @@ A `make comment-lint` check (and a CI job) enforces the planning-label rule on
 changed code. A comment that genuinely needs an exempt label can carry the
 `planlint:allow` directive.
 
-## What Gets Merged Without This Discipline
+## What gets merged without this discipline
 
 Nothing. A PR that skips the failure-mode analysis, skips the rollback
-integration test, or tries to adjust a test to match broken code is not
-merged. This is the only way the atomicity commitment remains honest.
+integration test, or tries to adjust a test to match broken code is not merged.
+This is the only way the atomicity commitment stays honest.
