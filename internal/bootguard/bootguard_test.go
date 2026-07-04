@@ -2,6 +2,7 @@ package bootguard_test
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestCapture_RecordsDefaultGrubAndCfgPath(t *testing.T) {
 	t.Run("bootguard-capture/AC-03", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results[`test -d '/boot/loader/entries'`] = &api.CommandResult{ExitCode: 1} // legacy
-	tp.Results[`cat '/etc/default/grub'`] = &api.CommandResult{Stdout: "GRUB_CMDLINE_LINUX=\"quiet\"\n"}
+	tp.Results[`base64 '/etc/default/grub'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("GRUB_CMDLINE_LINUX=\"quiet\"\n"))}
 	tp.Results[`test -f '/boot/grub2/grub.cfg'`] = &api.CommandResult{ExitCode: 1}
 	tp.Results[`test -f '/boot/grub/grub.cfg'`] = &api.CommandResult{ExitCode: 0}
 	snap, err := bootguard.Capture(context.Background(), tp)
@@ -74,13 +75,13 @@ func TestCapture_BLS_RecordsEntries(t *testing.T) {
 	t.Run("bootguard-capture/AC-04", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results[`test -d '/boot/loader/entries'`] = &api.CommandResult{ExitCode: 0} // BLS
-	tp.Results[`cat '/etc/default/grub'`] = &api.CommandResult{Stdout: "GRUB_CMDLINE_LINUX=\"quiet\"\n"}
+	tp.Results[`base64 '/etc/default/grub'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("GRUB_CMDLINE_LINUX=\"quiet\"\n"))}
 	// /boot/grub2/grub.cfg defaults to exit 0 (BLS/RHEL convention).
 	tp.Results[`ls -1 /boot/loader/entries/*.conf 2>/dev/null || true`] = &api.CommandResult{
 		Stdout: "/boot/loader/entries/abc-5.14.0.conf\n/boot/loader/entries/abc-5.14.0-rescue.conf\n",
 	}
-	tp.Results[`cat '/boot/loader/entries/abc-5.14.0.conf'`] = &api.CommandResult{Stdout: "options root=/dev/vda1 ro quiet\n"}
-	tp.Results[`cat '/boot/loader/entries/abc-5.14.0-rescue.conf'`] = &api.CommandResult{Stdout: "options root=/dev/vda1 ro\n"}
+	tp.Results[`base64 '/boot/loader/entries/abc-5.14.0.conf'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("options root=/dev/vda1 ro quiet\n"))}
+	tp.Results[`base64 '/boot/loader/entries/abc-5.14.0-rescue.conf'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("options root=/dev/vda1 ro\n"))}
 	snap, err := bootguard.Capture(context.Background(), tp)
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
@@ -102,11 +103,11 @@ func TestCapture_IsReadOnly(t *testing.T) {
 	t.Run("bootguard-capture/AC-05", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results[`test -d '/boot/loader/entries'`] = &api.CommandResult{ExitCode: 0} // BLS — exercises the most commands
-	tp.Results[`cat '/etc/default/grub'`] = &api.CommandResult{Stdout: "GRUB_CMDLINE_LINUX=\"quiet\"\n"}
+	tp.Results[`base64 '/etc/default/grub'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("GRUB_CMDLINE_LINUX=\"quiet\"\n"))}
 	tp.Results[`ls -1 /boot/loader/entries/*.conf 2>/dev/null || true`] = &api.CommandResult{
 		Stdout: "/boot/loader/entries/abc.conf\n",
 	}
-	tp.Results[`cat '/boot/loader/entries/abc.conf'`] = &api.CommandResult{Stdout: "options ro\n"}
+	tp.Results[`base64 '/boot/loader/entries/abc.conf'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("options ro\n"))}
 	if _, err := bootguard.Capture(context.Background(), tp); err != nil {
 		t.Fatalf("Capture: %v", err)
 	}
@@ -129,7 +130,7 @@ func TestCapture_ErrorWhenDefaultGrubUnreadable(t *testing.T) {
 	t.Run("bootguard-capture/AC-06", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results[`test -d '/boot/loader/entries'`] = &api.CommandResult{ExitCode: 1}
-	tp.Results[`cat '/etc/default/grub'`] = &api.CommandResult{
+	tp.Results[`base64 '/etc/default/grub'`] = &api.CommandResult{
 		ExitCode: 1,
 		Stderr:   "cat: /etc/default/grub: No such file or directory",
 	}
@@ -144,7 +145,7 @@ func TestCapture_BLS_FailsClosedOnNoEntries(t *testing.T) {
 	t.Run("bootguard-capture/AC-07", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	tp.Results[`test -d '/boot/loader/entries'`] = &api.CommandResult{ExitCode: 0} // BLS
-	tp.Results[`cat '/etc/default/grub'`] = &api.CommandResult{Stdout: "GRUB_CMDLINE_LINUX=\"quiet\"\n"}
+	tp.Results[`base64 '/etc/default/grub'`] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("GRUB_CMDLINE_LINUX=\"quiet\"\n"))}
 	// No readable entries (e.g. unprivileged transport on a 0700 boot dir).
 	tp.Results[`ls -1 /boot/loader/entries/*.conf 2>/dev/null || true`] = &api.CommandResult{Stdout: ""}
 	if _, err := bootguard.Capture(context.Background(), tp); err == nil {

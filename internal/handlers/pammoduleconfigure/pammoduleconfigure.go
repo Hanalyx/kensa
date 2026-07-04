@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -170,13 +171,20 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	}
 	path := pamPath(p.Service)
 	// PAM files must exist — a missing service file is a capture failure.
-	res, err := transport.Run(ctx, fmt.Sprintf("cat %s", shellEscape(path)))
+	// base64 (not cat): the transport trims stdout's trailing newline, which
+	// dropped the PAM file's final \n and rewrote a security-critical
+	// /etc/pam.d/* auth file one byte short on rollback (#247).
+	res, err := transport.Run(ctx, fmt.Sprintf("base64 %s", shellEscape(path)))
 	if err != nil {
 		return nil, fmt.Errorf("pam_module_configure: capture transport error: %w", err)
 	}
 	if !res.OK() {
 		return nil, fmt.Errorf("pam_module_configure: capture failed for %s: %w (stderr: %s)",
 			path, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
+	}
+	priorContent, decErr := shellcapture.DecodeContent(res.Stdout)
+	if decErr != nil {
+		return nil, fmt.Errorf("pam_module_configure: capture decode failed for %s: %w", path, decErr)
 	}
 	return &api.PreState{
 		Mechanism:  mechanism,
@@ -185,7 +193,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		Data: map[string]interface{}{
 			"service":       p.Service,
 			"path":          path,
-			"prior_content": res.Stdout,
+			"prior_content": priorContent,
 		},
 	}, nil
 }

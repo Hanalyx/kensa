@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -400,7 +401,7 @@ func (h *Handler) readFile(ctx context.Context, transport api.Transport, file st
 		}
 		return c, existed, nil
 	}
-	cmd := fmt.Sprintf("test -e %[1]s && cat %[1]s || printf '%[2]s'", shellEscape(file), absentSentinel)
+	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(file), absentSentinel)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return "", false, fmt.Errorf("pam_module_arg: capture transport error for %s: %w", file, err)
@@ -411,7 +412,11 @@ func (h *Handler) readFile(ctx context.Context, transport api.Transport, file st
 	if res.Stdout == absentSentinel {
 		return "", false, nil
 	}
-	return res.Stdout, true, nil
+	content, derr := shellcapture.DecodeContent(res.Stdout)
+	if derr != nil {
+		return "", false, fmt.Errorf("pam_module_arg: capture decode failed for %s: %w", file, derr)
+	}
+	return content, true, nil
 }
 
 // Rollback restores each PAM file to its captured pre-Apply state. For

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
 // mechanism is the canonical handler name.
@@ -134,7 +135,9 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			`printf 'EXISTS\n'; `+
 			`stat -c '%%a|%%U|%%G' %[1]s; `+
 			`ls -Zd %[1]s 2>/dev/null | awk '{print $1}'; `+
-			`cat %[1]s; `+
+			`base64 %[1]s; `+ // base64 (not cat): the transport trims stdout's
+			// trailing newline, dropping a file's final \n and restoring it one
+			// byte short on rollback (#247). base64 round-trips the exact bytes.
 			`else printf 'ABSENT\n'; fi`,
 		shellEscape(p.Path),
 	)
@@ -174,6 +177,12 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 	mode, owner, group, selinux, content, parseErr := parseCaptureOutput(rest)
 	if parseErr != nil {
 		return nil, fmt.Errorf("file_absent: capture parse failed for %s: %w", p.Path, parseErr)
+	}
+	// The content portion is base64 (see the capture command): decode to the
+	// file's EXACT bytes so rollback re-creates it byte-perfect (#247).
+	content, decErr := shellcapture.DecodeContent(content)
+	if decErr != nil {
+		return nil, fmt.Errorf("file_absent: capture decode failed for %s: %w", p.Path, decErr)
 	}
 	return &api.PreState{
 		Mechanism:  mechanism,

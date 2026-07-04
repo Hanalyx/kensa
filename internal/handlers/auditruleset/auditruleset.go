@@ -28,6 +28,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
 // mechanism is the canonical handler name.
@@ -210,10 +211,7 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 // readFileShell returns the current content of path over the shell transport,
 // or "" if the file does not exist.
 func (h *Handler) readFileShell(ctx context.Context, transport api.Transport, path string) (string, error) {
-	cmd := fmt.Sprintf(
-		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
-		shellEscape(path),
-	)
+	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(path), "__KENSA_ABSENT__")
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return "", fmt.Errorf("audit_rule_set: read %s: %w", path, err)
@@ -224,7 +222,13 @@ func (h *Handler) readFileShell(ctx context.Context, transport api.Transport, pa
 	if res.Stdout == "__KENSA_ABSENT__" {
 		return "", nil
 	}
-	return res.Stdout, nil
+	// base64-decode to exact bytes so the shell rollback path (which re-reads and
+	// removeRuleLines-rewrites this file) is byte-perfect (#247).
+	content, decErr := shellcapture.DecodeContent(res.Stdout)
+	if decErr != nil {
+		return "", fmt.Errorf("audit_rule_set: decode %s: %w", path, decErr)
+	}
+	return content, nil
 }
 
 // Capture records whether the rule file existed and its prior content,
@@ -283,10 +287,7 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 // captureShell records whether the rule file existed and its content.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params) (*api.PreState, error) {
 	path := p.RuleFile
-	cmd := fmt.Sprintf(
-		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
-		shellEscape(path),
-	)
+	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(path), "__KENSA_ABSENT__")
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("audit_rule_set: capture transport error: %w", err)
@@ -298,7 +299,12 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 	fileExisted := res.Stdout != "__KENSA_ABSENT__"
 	priorContent := ""
 	if fileExisted {
-		priorContent = res.Stdout
+		// base64-decode to exact bytes (#247): keeps prior_content byte-identical
+		// to the netlink path and byte-perfect for the shell rollback rewrite.
+		priorContent, err = shellcapture.DecodeContent(res.Stdout)
+		if err != nil {
+			return nil, fmt.Errorf("audit_rule_set: capture decode failed for %s: %w", path, err)
+		}
 	}
 	_, fileAdded := mergeRuleLines(priorContent, auditnl.RuleLines(p.Rule))
 	return h.preState(p, fileExisted, priorContent, nil, fileAdded), nil

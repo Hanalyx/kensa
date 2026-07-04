@@ -2,6 +2,7 @@ package filecontent_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,9 +15,15 @@ import (
 	"github.com/Hanalyx/kensa/internal/handlers/filecontent"
 )
 
-// captureOutput returns the fake capture stdout for an existing file.
+// existingFileCapture returns the fake capture stdout for an existing file,
+// MODELING THE REAL TRANSPORT: the content is base64 (the capture command uses
+// `base64 <path>`), and the transport trims stdout's trailing newline. The old
+// fake returned raw content WITH its trailing newline — which is exactly why the
+// #247 byte-perfect drop escaped. base64 with no trailing newline reproduces
+// what the real shell transport delivers.
 func existingFileCapture(mode, owner, group, selinux, content string) string {
-	return "EXISTS\n" + mode + "|" + owner + "|" + group + "\n" + selinux + "\n" + content
+	b64 := base64.StdEncoding.EncodeToString([]byte(content))
+	return "EXISTS\n" + mode + "|" + owner + "|" + group + "\n" + selinux + "\n" + b64
 }
 
 // @spec handler-file-content
@@ -451,7 +458,49 @@ func TestRollback_AgentMode_RestoresContent(t *testing.T) {
 func captureCmd(path string) string {
 	q := "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
 	return fmt.Sprintf(
-		`if [ -e %[1]s ]; then printf 'EXISTS\n'; stat -c '%%a|%%U|%%G' %[1]s; ls -Zd %[1]s 2>/dev/null | awk '{print $1}'; cat %[1]s; else printf 'ABSENT\n'; fi`,
+		`if [ -e %[1]s ]; then printf 'EXISTS\n'; stat -c '%%a|%%U|%%G' %[1]s; ls -Zd %[1]s 2>/dev/null | awk '{print $1}'; base64 %[1]s; else printf 'ABSENT\n'; fi`,
 		q,
 	)
+}
+
+// TestCaptureRollback_BytePerfect_TrailingNewline is the #247 regression test:
+// a real Capture->Rollback round-trip over the local transport (which trims the
+// trailing newline exactly like SSH) must restore a newline-terminated file
+// BYTE-FOR-BYTE. Before the base64 capture fix this dropped the final '\n'.
+func TestCaptureRollback_BytePerfect_TrailingNewline(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "pristine.conf")
+	// Content that ENDS IN A NEWLINE — the byte the old raw-cat capture lost.
+	const original = "ORIGINAL_PRISTINE_CONTENT\nsecond line\n"
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := local.New()
+	h := filecontent.New()
+
+	pre, err := h.Capture(context.Background(), tr, api.Params{"path": target, "content": "x"})
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if got, _ := pre.Data["content"].(string); got != original {
+		t.Fatalf("capture is not byte-exact:\n got  %q\n want %q", got, original)
+	}
+
+	// Mutate the file, then roll back to the captured pre-state.
+	if err := os.WriteFile(target, []byte("MUTATED"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.Rollback(context.Background(), tr, pre); err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+
+	restored, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(restored) != original {
+		t.Errorf("rollback NOT byte-perfect:\n got  %q (%d bytes)\n want %q (%d bytes)",
+			restored, len(restored), original, len(original))
+	}
 }

@@ -48,7 +48,7 @@ func TestCapture_ReturnsErrCaptureIncompleteForMissingFile(t *testing.T) {
 	t.Run("handler-pam-module-configure/AC-02", func(t *testing.T) {})
 	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
-	tp.Results["cat '/etc/pam.d/nonexistent'"] = &api.CommandResult{
+	tp.Results["base64 '/etc/pam.d/nonexistent'"] = &api.CommandResult{
 		ExitCode: 1,
 		Stderr:   "cat: /etc/pam.d/nonexistent: No such file or directory",
 	}

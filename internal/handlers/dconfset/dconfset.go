@@ -26,6 +26,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -438,16 +439,27 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 // captureFileShell reads a file's content and existence over a shell
 // transport, using a sentinel for the absent case.
 func captureFileShell(ctx context.Context, transport api.Transport, path string) (string, bool, error) {
-	cmd := fmt.Sprintf("test -f %s && cat %s || printf '__KENSA_ABSENT__'",
-		shellEscape(path), shellEscape(path))
+	cmd := shellcapture.ExistenceReadCmd("-f", shellEscape(path), "__KENSA_ABSENT__")
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return "", false, fmt.Errorf("dconf_set: capture transport error: %w", err)
 	}
+	// MUST check OK before trusting stdout: the if-form propagates a base64 read
+	// failure as a non-zero exit; without this guard an existing file whose base64
+	// failed would be recorded existed=true/content="" and rollback would rewrite
+	// it EMPTY (destructive) — the shellcapture.ExistenceReadCmd safety contract.
+	if !res.OK() {
+		return "", false, fmt.Errorf("dconf_set: capture failed for %s: %w (stderr: %s)",
+			path, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
+	}
 	if res.Stdout == "__KENSA_ABSENT__" {
 		return "", false, nil
 	}
-	return res.Stdout, true, nil
+	content, derr := shellcapture.DecodeContent(res.Stdout)
+	if derr != nil {
+		return "", false, fmt.Errorf("dconf_set: capture decode failed for %s: %w", path, derr)
+	}
+	return content, true, nil
 }
 
 // preState builds the canonical PreState shape used by both capture paths,
