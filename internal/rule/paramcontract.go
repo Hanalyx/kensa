@@ -15,14 +15,11 @@ import (
 // TestKnownNonConformingRulesStillViolate asserts every entry still violates —
 // so a fixed rule forces removal of its entry.
 //
-// Fix and remove each:
-//   - shell-timeout / sudo-timeout: use a content-form config_set_dropin
-//     (directory/filename/content); convert to file_content (the mechanism that
-//     writes whole-file content).
-var knownNonConformingRules = map[string]string{
-	"shell-timeout": "config_set_dropin content-form; convert to file_content",
-	"sudo-timeout":  "config_set_dropin content-form; convert to file_content",
-}
+// EMPTY: fully drained — every corpus rule's remediation params satisfy the
+// mechanism contract. shell-timeout and sudo-timeout (the last two) were
+// converted from content-form config_set_dropin to file_content. Add an entry
+// only as a temporary, test-guarded escape hatch for a genuinely-blocked rule.
+var knownNonConformingRules = map[string]string{}
 
 // validateRemediationParams checks every remediation (single and multi-step)
 // against the mechanism parameter contract. It is constraint (9) of Validate.
