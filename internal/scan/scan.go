@@ -307,9 +307,11 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		if runErr != nil {
 			// A recover holds the store's exclusive lock — every remaining Run
 			// would fail identically, so abort the whole remediate with the
-			// transient error rather than erroring each rule in turn.
+			// transient error rather than erroring each rule in turn. Return the
+			// partial result so the caller can still see the rules that committed
+			// before the abort (they are durably persisted regardless).
 			if errors.Is(runErr, api.ErrRecoverActive) {
-				return nil, runErr
+				return result, runErr
 			}
 			result.Transactions = append(result.Transactions, erroredResult(rl, runErr))
 			r.emit(progress.Update{

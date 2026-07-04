@@ -17,14 +17,11 @@ var ErrRecoverLocked = errors.New("store: recover lock held by another process")
 // `kensa recover` runs. The lock file sits beside the store db. Recover takes
 // it EXCLUSIVE (non-blocking, fails fast if held).
 //
-// The SHARED mode (exclusive=false) is the designed live-engine side of the
-// fence — a live remediate/rollback would hold it SHARED so an exclusive
-// recover waits for live work to drain rather than racing it. NOTE: that side
-// is NOT yet wired — the live engine path does not currently take this lock,
-// so today the lock fences recover against other recover runs only. Until the
-// live path takes the shared lock, an operator MUST NOT run `kensa recover`
-// against a host that has a live engine acting on the same store. Tracked in
-// docs/roadmap/STATUS.md.
+// The SHARED mode (exclusive=false) is the live-engine side of the fence: a
+// live remediate/rollback holds it SHARED for the duration of a mutation — the
+// engine takes it via engine.WithRecoverLock, wired by the pkg/kensa Default*
+// constructors — so an exclusive recover fails fast (ErrRecoverLocked) instead
+// of racing an in-flight transaction. Both sides are wired (security.md #14).
 //
 // flock is advisory and per-open-file-description, released automatically if
 // the holding process dies (so a crash never leaves a permanent lock).
