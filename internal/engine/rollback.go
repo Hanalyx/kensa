@@ -101,6 +101,15 @@ func (e *Engine) rollback(ctx context.Context, transport api.Transport, applyRes
 // pre-state bundle. Both are available from [api.LogQuery.Get] with
 // the default options.
 func (e *Engine) RollbackTransaction(ctx context.Context, transport api.Transport, record *api.TransactionRecord) (*api.RollbackResult, error) {
+	// Cross-process fence: a rollback mutates the host too, so hold the store's
+	// recover lock SHARED so a concurrent `kensa recover` can't fight it (#14).
+	// No-op on a bare engine; api.ErrRecoverActive if a recover holds exclusive.
+	recRelease, rerr := e.acquireRecoverShared()
+	if rerr != nil {
+		return nil, rerr
+	}
+	defer recRelease()
+
 	// Build a slice of StepResult from the record's step outcomes.
 	applyResults := make([]api.StepResult, len(record.Steps))
 	copy(applyResults, record.Steps)

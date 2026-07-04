@@ -109,6 +109,16 @@ spec:
               two shared holders may coexist.
           references_constraints: [C-04]
           priority: critical
+        - id: AC-05
+          description: |
+              The live-engine side of the fence: an engine constructed
+              WithRecoverLock holds the recover lock SHARED for the duration of
+              a mutation. Run and RollbackTransaction return api.ErrRecoverActive
+              (transient) when a recover holds the exclusive lock, and proceed
+              once it is released — so a recovery cannot compensate a
+              transaction the engine is mid-flight on.
+          references_constraints: [C-04]
+          priority: critical
 
     depends_on:
         - spec_id: recovery-journal

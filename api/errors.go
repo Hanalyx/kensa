@@ -20,6 +20,15 @@ var ErrNotYetImplemented = errors.New("kensa: not yet implemented")
 // for the mutex.
 var ErrHostBusy = errors.New("kensa: host has an in-flight transaction")
 
+// ErrRecoverActive signals that a live mutation could not proceed because a
+// `kensa recover` holds the exclusive recover lock on the same store. Like
+// [ErrHostBusy] it is TRANSIENT — retry once the recovery finishes. Returned by
+// the engine only when it was constructed with the recover-lock fence (the
+// Default* constructors wire it); a bare engine has no store path to fence on.
+// The fence stops a recover from compensating a transaction the engine is
+// mid-flight on (docs/test_docs/security.md #14).
+var ErrRecoverActive = errors.New("kensa: store is being recovered by another process")
+
 // ErrSchedulerUnavailable signals that the engine refused to execute a
 // control-channel-sensitive transaction because the target host has
 // neither at(1) nor systemd-run(1) available to arm a deadman timer.

@@ -36,6 +36,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/evidence"
 	"github.com/Hanalyx/kensa/internal/handler"
+	"github.com/Hanalyx/kensa/internal/store"
 )
 
 // Engine is the transaction coordinator. Construct one with [New], then
@@ -49,6 +50,13 @@ type Engine struct {
 	locks             *hostLocks
 	validators        []Validator
 	forceValidateFail bool
+
+	// recoverLockPath, when non-empty, is the path of the store's recover
+	// lock file. Run and RollbackTransaction take its SHARED side for the
+	// duration of a mutation so a concurrent `kensa recover` (which takes it
+	// EXCLUSIVE) cannot compensate an in-flight transaction. Set via
+	// WithRecoverLock; empty on a bare engine (no fence).
+	recoverLockPath string
 
 	// postApplyRecheck enables the mandatory post-apply desired-state
 	// re-check in the VALIDATE phase: the rule's own check is re-run
@@ -155,6 +163,33 @@ func WithRegistry(r *handler.Registry) Option {
 
 // WithStore overrides the persistence backend.
 func WithStore(s Store) Option { return func(e *Engine) { e.store = s } }
+
+// WithRecoverLock fences this engine's mutations against `kensa recover`. path
+// is the store's recover-lock file (store.RecoverLockPath(dbPath)); Run and
+// RollbackTransaction then take its SHARED side while they work, so a recover
+// (EXCLUSIVE) cannot race an in-flight transaction (security.md #14). The
+// Default* constructors wire this automatically. An empty path disables the
+// fence (a bare engine has no store path to key on).
+func WithRecoverLock(path string) Option { return func(e *Engine) { e.recoverLockPath = path } }
+
+// acquireRecoverShared takes the SHARED side of the store's recover lock. It is
+// a no-op (returns a no-op release) unless the engine was built WithRecoverLock.
+// Returns [api.ErrRecoverActive] — transient, mirroring api.ErrHostBusy — when a
+// `kensa recover` holds the exclusive lock. The returned release MUST be called
+// (via defer) so the lock is dropped when the mutation finishes.
+func (e *Engine) acquireRecoverShared() (release func(), err error) {
+	if e.recoverLockPath == "" {
+		return func() {}, nil
+	}
+	lock, aerr := store.AcquireRecoverLock(e.recoverLockPath, false) // shared
+	if aerr != nil {
+		if errors.Is(aerr, store.ErrRecoverLocked) {
+			return nil, api.ErrRecoverActive
+		}
+		return nil, fmt.Errorf("engine: acquire recover-shared lock: %w", aerr)
+	}
+	return func() { _ = lock.Release() }, nil
+}
 
 // WithSigner overrides the evidence signer.
 func WithSigner(s Signer) Option { return func(e *Engine) { e.signer = s } }
@@ -280,6 +315,17 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 		return nil, err
 	}
 	defer release()
+
+	// Cross-process fence: hold the store's recover lock SHARED for the whole
+	// transaction (covering the journal-open window, PREPARE→clear) so a
+	// concurrent `kensa recover` cannot compensate it mid-flight (#14). No-op
+	// on a bare engine; returns api.ErrRecoverActive if a recover holds the
+	// exclusive lock.
+	recRelease, err := e.acquireRecoverShared()
+	if err != nil {
+		return nil, err
+	}
+	defer recRelease()
 
 	e.publishStarted(ctx, txn)
 	e.emitter.EmitPhase(txn.ID.String(), "started", true)

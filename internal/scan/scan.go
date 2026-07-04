@@ -305,6 +305,12 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		txn := implToTransaction(rl, impl, caps, hostID)
 		txr, runErr := r.engine.Run(ctx, transport, txn, false)
 		if runErr != nil {
+			// A recover holds the store's exclusive lock — every remaining Run
+			// would fail identically, so abort the whole remediate with the
+			// transient error rather than erroring each rule in turn.
+			if errors.Is(runErr, api.ErrRecoverActive) {
+				return nil, runErr
+			}
 			result.Transactions = append(result.Transactions, erroredResult(rl, runErr))
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
