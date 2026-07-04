@@ -39,7 +39,7 @@ implementations:
       run: "grep -rPh '^\\s*Defaults\\s+.*timestamp_timeout=' /etc/sudoers /etc/sudoers.d/ 2>/dev/null | grep -E 'timestamp_timeout=([0-5]|0)([^0-9]|$)'"
       expected_exit: 0
     remediation:
-      mechanism: config_set_dropin
-      directory: "/etc/sudoers.d"
-      filename: "00-kensa-timeout"
-      content: "Defaults timestamp_timeout=5"
+      mechanism: file_content
+      path: "/etc/sudoers.d/00-kensa-timeout"
+      content: "Defaults timestamp_timeout=5\n"
+      mode: "0440"

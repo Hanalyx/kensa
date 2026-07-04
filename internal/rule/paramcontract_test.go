@@ -56,15 +56,31 @@ func TestRemediationParamErrors_AcceptsConforming(t *testing.T) {
 // @ac AC-03
 func TestRemediationParamErrors_SkipsAllowlistedRule(t *testing.T) {
 	t.Run("rule-param-contract/AC-03", func(t *testing.T) {})
-	// An allowlisted rule with deliberately-wrong params must produce no error.
-	// shell-timeout is still on the ratchet allowlist (the param-rename
-	// entries were drained); the skip keys off the ID, not the params.
-	r := ruleWith("shell-timeout", api.Remediation{
+	// The skip keys off the rule ID being in knownNonConformingRules. The
+	// allowlist ratchets toward empty; this test stays valid in both states.
+	badRem := api.Remediation{
 		Mechanism: "sysctl_set",
 		Params:    api.Params{"key": "k", "value": "v", "file": "/etc/sysctl.d/x.conf"},
-	})
+	}
+	allow := KnownNonConforming()
+	if len(allow) == 0 {
+		// Drained: with an empty allowlist there is no silent skip — a rule with
+		// deliberately-wrong params MUST produce errors.
+		r := ruleWith("not-allowlisted-rule", badRem)
+		if errs := RemediationParamErrors(r); len(errs) == 0 {
+			t.Error("empty allowlist: wrong params must produce errors (no silent skip)")
+		}
+		return
+	}
+	// Still-allowlisted: that rule with wrong params must be skipped.
+	var id string
+	for k := range allow {
+		id = k
+		break
+	}
+	r := ruleWith(id, badRem)
 	if errs := RemediationParamErrors(r); len(errs) != 0 {
-		t.Errorf("allowlisted rule should be skipped, got %v", errs)
+		t.Errorf("allowlisted rule %s should be skipped, got %v", id, errs)
 	}
 }
 
