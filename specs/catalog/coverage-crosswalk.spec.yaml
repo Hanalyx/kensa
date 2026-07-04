@@ -140,6 +140,21 @@ spec:
               new duplicate fails CI.
           type: business
           enforcement: error
+        - id: C-12
+          description: |
+              A rule's own check SHOULD read the same subject its cited STIG
+              control's check/fix text is about. When both the rule's check and the
+              control's command-extracted targets yield a structured subject and
+              those subjects are DISJOINT, the citation is a candidate check-vs-cite
+              mismatch (the class behind sudo-reauth-not-disabled and
+              ssh-client-alive-count-max). This is a HEURISTIC (STIG-only: CIS
+              carries no check prose) and precision-first (an unextractable check or
+              control is not judged), so a flag MAY be a real mis-cite or an
+              extractor false positive. A ratcheting allowlist of known-deferred
+              flags MAY be carried and MUST only shrink; a new disjoint pair fails
+              CI, ratcheting the signal toward clean for a later promotion.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -229,6 +244,14 @@ spec:
               rule overlapping a standalone rule's cite is flagged. Locked by
               TestCrossRuleDuplicateCitations and TestCrossRuleDuplicateCitations_GroupedForm.
           references_constraints: [C-11]
+          priority: high
+        - id: AC-13
+          description: |
+              No STIG-cited rule in the production corpus has a check target
+              disjoint from its cited control's command-extracted target (both
+              non-empty), except a ratcheting allowlist of known-deferred flags
+              that may only shrink. Locked by TestCheckVsCiteHeuristic.
+          references_constraints: [C-12]
           priority: high
 
     tags: [catalog, crosswalk, coverage, dev-tool]
