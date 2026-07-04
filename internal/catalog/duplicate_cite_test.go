@@ -87,9 +87,14 @@ type dupRuleRefsDoc struct {
 }
 
 // controlKeyField names the per-OS control-identity field for each framework
-// whose controls are meant to be satisfied by exactly one rule. NIST 800-53 is
-// deliberately excluded: it is a flat many-to-many mapping (many rules legitimately
-// cite AC-3, CM-7, ...), so duplicate 800-53 cites are expected, not a bug.
+// whose controls are meant to be satisfied by exactly one rule. Only these
+// frameworks are gated. Every other framework in the corpus is deliberately out
+// of scope, on principle: a control is not one-rule-per-control there. That
+// covers the flat many-to-many mappings (nist_800_53 — many rules legitimately
+// cite AC-3, CM-7, ... so duplicate 800-53 cites are expected, not a bug) and
+// the sparse cross-reference labels (pci_dss_4, srg) that are metadata tags, not
+// a per-OS benchmark control identity. Adding a framework here opts it into the
+// duplicate gate.
 var controlKeyField = map[string]string{
 	"stig": "vuln_id",
 	"cis":  "section",

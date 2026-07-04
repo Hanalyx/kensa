@@ -129,8 +129,11 @@ spec:
               by more than one rule. A duplicate cite is a cross-rule defect: two
               rules both claim the control, so coverage double-counts and a scan
               reports it covered twice (the failure mode behind the banner-rule
-              dedup and the faillock pairing). NIST 800-53 is excluded — it is a
-              many-to-many mapping by design. A single grouped rule (schema v1.1
+              dedup and the faillock pairing). Only frameworks with a per-OS
+              single-rule-per-control model are gated (STIG, CIS); flat
+              many-to-many mappings (NIST 800-53) and sparse cross-reference
+              labels (pci_dss_4, srg) are excluded by design. A single grouped
+              rule (schema v1.1
               list form) citing many controls is NOT a duplicate; a grouped rule
               overlapping a standalone rule's cite IS. A ratcheting allowlist of
               known-deferred duplicates MAY be carried and MUST only shrink — a
