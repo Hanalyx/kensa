@@ -93,16 +93,21 @@ func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
 func TestCapture_AC04_AbsentFileReturnsFileExistedFalse(t *testing.T) {
 	t.Log("// @spec handler-file-absent")
 	t.Log("// @ac AC-04")
-	tp := engine.NewFakeTransport()
-	path := "/etc/gone"
-	tp.Results[captureCmd(path)] = &api.CommandResult{Stdout: "ABSENT\n"}
-	h := fileabsent.New()
-	pre, err := h.Capture(context.Background(), tp, api.Params{"path": path})
-	if err != nil {
-		t.Fatalf("Capture returned unexpected error: %v", err)
-	}
-	if pre.Data["file_existed"] != false {
-		t.Errorf("file_existed=%v, want false", pre.Data["file_existed"])
+	// Real transports trim the trailing newline, so the sentinel arrives as
+	// "ABSENT"; the untrimmed "ABSENT\n" must also work. The trimmed case fails
+	// on the pre-fix HasPrefix(stdout, "ABSENT\n").
+	for _, out := range []string{"ABSENT", "ABSENT\n"} {
+		tp := engine.NewFakeTransport()
+		path := "/etc/gone"
+		tp.Results[captureCmd(path)] = &api.CommandResult{Stdout: out}
+		h := fileabsent.New()
+		pre, err := h.Capture(context.Background(), tp, api.Params{"path": path})
+		if err != nil {
+			t.Fatalf("Capture returned unexpected error (stdout=%q): %v", out, err)
+		}
+		if pre.Data["file_existed"] != false {
+			t.Errorf("stdout=%q: file_existed=%v, want false", out, pre.Data["file_existed"])
+		}
 	}
 }
 

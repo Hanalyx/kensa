@@ -100,19 +100,24 @@ func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
 func TestCapture_AC04_AbsentFileIsNotAnError(t *testing.T) {
 	t.Log("// @spec handler-file-content")
 	t.Log("// @ac AC-04")
-	tp := engine.NewFakeTransport()
-	path := "/etc/nonexistent"
-	tp.Results[captureCmd(path)] = &api.CommandResult{
-		Stdout: "ABSENT\n",
-	}
+	// Real SSH/agent transports TRIM the trailing newline from command output,
+	// so the absent sentinel arrives as "ABSENT" (not "ABSENT\n"). The prior
+	// fake returned the untrimmed form, masking a bug where the trimmed
+	// "ABSENT" was mis-classified as EXISTS and errored — file_content could
+	// not create a new file. Both forms must map to file_existed:false.
+	for _, out := range []string{"ABSENT", "ABSENT\n"} {
+		tp := engine.NewFakeTransport()
+		path := "/etc/nonexistent"
+		tp.Results[captureCmd(path)] = &api.CommandResult{Stdout: out}
 
-	h := filecontent.New()
-	pre, err := h.Capture(context.Background(), tp, api.Params{"path": path, "content": "x"})
-	if err != nil {
-		t.Fatalf("Capture returned unexpected error for absent file: %v", err)
-	}
-	if pre.Data["file_existed"] != false {
-		t.Errorf("file_existed=%v, want false", pre.Data["file_existed"])
+		h := filecontent.New()
+		pre, err := h.Capture(context.Background(), tp, api.Params{"path": path, "content": "x"})
+		if err != nil {
+			t.Fatalf("Capture returned unexpected error for absent file (stdout=%q): %v", out, err)
+		}
+		if pre.Data["file_existed"] != false {
+			t.Errorf("stdout=%q: file_existed=%v, want false", out, pre.Data["file_existed"])
+		}
 	}
 }
 
