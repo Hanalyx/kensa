@@ -267,6 +267,10 @@ func defaultService(ctx context.Context, storePath string, tf api.TransportFacto
 	// WithAgentClient) the standard set.
 	stdOpts := []engine.Option{
 		engine.WithStore(storeAdapter{s}),
+		// Fence live mutations against `kensa recover` on the same store: the
+		// engine takes this lock SHARED while a recover takes it EXCLUSIVE
+		// (security.md #14). Keyed on the store path this service just opened.
+		engine.WithRecoverLock(store.RecoverLockPath(storePath)),
 		engine.WithDeadman(deadman.New(0, nil)),
 		engine.WithSigner(signer),
 		engine.WithEvents(bus),

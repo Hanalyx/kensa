@@ -22,10 +22,13 @@ import (
 // recovered transaction.
 //
 // Concurrency: the recover CLI takes the recover.lock EXCLUSIVE, which fences
-// concurrent recover runs. It does NOT currently fence against a LIVE engine —
-// the live remediate/rollback path does not yet take the lock SHARED (see
-// store.RecoverLock and docs/roadmap/STATUS.md). Until it does, the operator
-// MUST NOT run recover against a host with a live engine on the same store.
+// concurrent recover runs AND a live engine on the same store — the live
+// remediate/rollback path holds the lock SHARED (via engine.WithRecoverLock,
+// wired by the Default* constructors), so an exclusive recover fails fast with
+// ErrRecoverLocked rather than racing an in-flight transaction (security.md
+// #14). Recover itself never calls Run/RollbackTransaction (it drives each
+// handler's Rollback directly), so it does not self-fence against its own
+// exclusive lock.
 func (e *Engine) Recover(ctx context.Context, transport api.Transport, hostID string) ([]*api.TransactionResult, error) {
 	js, ok := e.store.(JournalStore)
 	if !ok {
