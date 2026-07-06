@@ -10,6 +10,32 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
+## v0.7.4 — 2026-07-06
+
+An atomicity + verdict-correctness patch. Two founder-gated fixes, each
+adversarial-panel-reviewed and live-verified on the fleet. Frozen `api/`
+untouched — a drop-in bump for consumers. (v0.7.3 was not tagged: its planned
+cross-rule-invariant-gate content shipped in v0.7.2.)
+
+### Fixed
+
+- **Byte-perfect rollback of newline-terminated files (#247).** Whole-file
+  content captured over the shell transport was read as raw `cat` stdout, which
+  the transport trims of its final newline — so a newline-terminated file was
+  restored one byte short on rollback (a non-byte-perfect rollback). Fixed as a
+  full class (11 handlers + bootguard) via a shared base64 capture + byte-exact
+  decode, a fail-closed existence probe (a missing `base64` aborts capture rather
+  than deleting the file), and a `printf '%s'` restore so content containing `%`
+  or `\` restores verbatim. Six adversarial-panel rounds; live-proven byte-perfect
+  on RHEL 9.6 and a `kensa-fuzz` real-host atomicity pass. (#264)
+- **`service_state` / `service_enabled` false-FAIL on static units (Finding D).**
+  A "must be enabled" control false-FAILed on socket/dependency-activated units
+  with no `[Install]` section (e.g. `systemd-journald`, which reports `static` on
+  RHEL) because the check matched the literal substring "enabled". Now `static`
+  and `generated` satisfy an enabled requirement; `indirect`/`alias` correctly do
+  not (they are not `[Install]`-enabled); the disabled direction is unchanged.
+  Live-verified on RHEL 9.6. (#267)
+
 ## v0.7.2 — 2026-07-06
 
 The atomicity and cross-rule-integrity patch on the v0.7.1 line. It closes the
