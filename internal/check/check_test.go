@@ -623,6 +623,79 @@ func TestCheckServiceEnabled_Fail(t *testing.T) {
 	}
 }
 
+// --- Finding D: static/socket-activated units must not false-FAIL ---
+
+// TestCheckServiceEnabled_StaticCountsAsEnabled: a `static` unit (no [Install],
+// socket/dependency-activated, e.g. systemd-journald on RHEL) satisfies a
+// "must be enabled" control. Previously false-FAILed via Contains(out,"enabled").
+func TestCheckServiceEnabled_StaticCountsAsEnabled(t *testing.T) {
+	// On-by-design states that satisfy "must be enabled".
+	for _, status := range []string{"static", "generated", "enabled-runtime"} {
+		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+			"systemctl is-enabled 'systemd-journald'": result(0, status+"\n"),
+		}}
+		chk := api.Check{Method: "service_enabled", Params: api.Params{"name": "systemd-journald"}}
+		passed, _, err := runForTest(context.Background(), ft, chk)
+		if err != nil {
+			t.Fatalf("%s: %v", status, err)
+		}
+		if !passed {
+			t.Errorf("status %q must count as enabled (Finding D)", status)
+		}
+	}
+	// indirect/alias must NOT count as enabled: per systemd the queried unit
+	// itself is not [Install]-enabled, so counting them PASS would be a false
+	// PASS masking non-compliance (panel finding).
+	for _, status := range []string{"indirect", "alias", "disabled", "masked"} {
+		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+			"systemctl is-enabled 'svc'": result(0, status+"\n"),
+		}}
+		chk := api.Check{Method: "service_enabled", Params: api.Params{"name": "svc"}}
+		passed, _, err := runForTest(context.Background(), ft, chk)
+		if err != nil {
+			t.Fatalf("%s: %v", status, err)
+		}
+		if passed {
+			t.Errorf("status %q must NOT count as enabled (false-PASS risk)", status)
+		}
+	}
+}
+
+// TestCheckServiceState_EnabledDirection covers the service_state enabled param:
+// static passes want=enabled; masked/disabled fail it; and the want=disabled
+// direction is unchanged (only [Install]-enabled units fail).
+func TestCheckServiceState_EnabledDirection(t *testing.T) {
+	cases := []struct {
+		status string
+		want   bool // desired enabled state
+		pass   bool
+	}{
+		{"static", true, true},    // Finding D: static satisfies want=enabled
+		{"generated", true, true}, // on-by-design (generator-created)
+		{"indirect", true, false}, // NOT [Install]-enabled -> fail want=enabled (no false PASS)
+		{"enabled", true, true},   // explicit
+		{"disabled", true, false}, // genuinely off -> fail want=enabled
+		{"masked", true, false},   // masked is not enabled
+		{"enabled", false, false}, // want=disabled but explicitly enabled -> fail (no regression)
+		{"enabled-runtime", false, false},
+		{"static", false, true},   // want=disabled: static isn't [Install]-enabled -> pass (no regression)
+		{"disabled", false, true}, // genuinely off -> pass want=disabled
+	}
+	for _, c := range cases {
+		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+			"systemctl is-enabled 'svc'": result(0, c.status+"\n"),
+		}}
+		chk := api.Check{Method: "service_state", Params: api.Params{"name": "svc", "enabled": c.want}}
+		passed, _, err := runForTest(context.Background(), ft, chk)
+		if err != nil {
+			t.Fatalf("status=%s want=%v: %v", c.status, c.want, err)
+		}
+		if passed != c.pass {
+			t.Errorf("status=%q want-enabled=%v: got pass=%v, want pass=%v", c.status, c.want, passed, c.pass)
+		}
+	}
+}
+
 // TestCheckServiceActive_Pass verifies that service_active passes when
 // systemctl is-active exits 0.
 func TestCheckServiceActive_Pass(t *testing.T) {
