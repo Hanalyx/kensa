@@ -80,7 +80,7 @@ func wrap76(s string) string {
 // destructive regression). The if-form propagates base64's non-zero exit instead.
 func TestExistenceReadCmd_FailSafeIfForm(t *testing.T) {
 	got := ExistenceReadCmd("-e", "'/etc/x'", "__KENSA_ABSENT__")
-	want := "if [ -e '/etc/x' ]; then base64 '/etc/x'; else printf '__KENSA_ABSENT__'; fi"
+	want := "if [ -e '/etc/x' ]; then base64 '/etc/x'; else printf '%s' '__KENSA_ABSENT__'; fi"
 	if got != want {
 		t.Errorf("ExistenceReadCmd = %q, want %q", got, want)
 	}
@@ -90,7 +90,7 @@ func TestExistenceReadCmd_FailSafeIfForm(t *testing.T) {
 			"ABSENT → destructive rollback delete): %q", got)
 	}
 	// The -f flag variant (dconf_set) must also be the if-form.
-	if f := ExistenceReadCmd("-f", "'/p'", "S"); f != "if [ -f '/p' ]; then base64 '/p'; else printf 'S'; fi" {
+	if f := ExistenceReadCmd("-f", "'/p'", "S"); f != "if [ -f '/p' ]; then base64 '/p'; else printf '%s' 'S'; fi" {
 		t.Errorf("-f variant = %q", f)
 	}
 }

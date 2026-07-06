@@ -71,7 +71,7 @@ func TestCapture_AC03_RecordsRuntimeAndPersistContent(t *testing.T) {
 	// Program runtime probe.
 	tp.Results["sysctl -n 'net.ipv4.ip_forward'"] = &api.CommandResult{Stdout: "0\n"}
 	// Program persist-file existence + read.
-	tp.Results["if [ -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' ]; then base64 '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'; else printf '__KENSA_ABSENT__'; fi"] =
+	tp.Results["if [ -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' ]; then base64 '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'; else printf '%s' '__KENSA_ABSENT__'; fi"] =
 		&api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("# old kensa\nnet.ipv4.ip_forward = 0\n"))}
 
 	h := sysctlset.New()
@@ -247,7 +247,7 @@ func TestCapture_Base64Failure_AbortsNoDestructiveEmpty(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	tp.Results["sysctl -n 'net.ipv4.ip_forward'"] = &api.CommandResult{Stdout: "0\n"}
 	// base64 failed on an existing file: non-zero exit, empty stdout.
-	tp.Results["if [ -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' ]; then base64 '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'; else printf '__KENSA_ABSENT__'; fi"] =
+	tp.Results["if [ -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' ]; then base64 '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'; else printf '%s' '__KENSA_ABSENT__'; fi"] =
 		&api.CommandResult{ExitCode: 127, Stderr: "base64: command not found"}
 
 	h := sysctlset.New()

@@ -112,7 +112,7 @@ func TestCapture_RecordsAffectedLines(t *testing.T) {
 	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	const prior = "auth required pam_unix.so\naccount required pam_unix.so\n"
-	captureCmd := `if [ -e '/etc/pam.d/system-auth' ]; then base64 '/etc/pam.d/system-auth'; else printf '__KENSA_ABSENT__'; fi`
+	captureCmd := `if [ -e '/etc/pam.d/system-auth' ]; then base64 '/etc/pam.d/system-auth'; else printf '%s' '__KENSA_ABSENT__'; fi`
 	tp.Results[captureCmd] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte(prior))}
 	h := pammodulearg.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{

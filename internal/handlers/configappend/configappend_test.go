@@ -91,7 +91,7 @@ func TestCapture_RecordsWasPresent(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	// Capture reads the file content (test -e && cat); program it to return
 	// content already containing the exact line → was_present=true.
-	catCmd := "if [ -e '" + testPath + "' ]; then base64 '" + testPath + "'; else printf '__KENSA_ABSENT__'; fi"
+	catCmd := "if [ -e '" + testPath + "' ]; then base64 '" + testPath + "'; else printf '%s' '__KENSA_ABSENT__'; fi"
 	tp.Results[catCmd] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("# header\n" + testLine + "\n"))}
 	h := configappend.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
