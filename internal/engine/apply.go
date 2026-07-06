@@ -15,6 +15,22 @@ import (
 // handler-interface spec AC-06.
 func (e *Engine) apply(ctx context.Context, transport api.Transport, txn *api.Transaction, preStates []api.PreState) (results []api.StepResult, allOK bool) {
 	results = make([]api.StepResult, 0, len(txn.Steps))
+	// When the store supports crash-recovery journaling, advance the durable
+	// cursor write-ahead of each step's mutation (recovery-journal spec C-03):
+	// the cursor records the highest step index whose mutation may have begun.
+	//
+	// The cursor is forensic, not load-bearing for recovery correctness:
+	// recoverRollback compensates EVERY captured pre-state in reverse order
+	// regardless of the cursor, and the PREPARE barrier already made the full
+	// intent + pre-state durable before this phase. So the advance is
+	// best-effort — a failed cursor write cannot cause recovery to skip a step,
+	// and aborting a would-be-successful apply on a forensic-write error would
+	// add an availability failure mode with no atomicity benefit. (If recovery
+	// is ever made cursor-bounded, this failure handling MUST be revisited: a
+	// dropped advance could then let recovery skip the in-flight step.) On the
+	// plan path (PersistPreStates, no journal entry) the UPDATE matches no row
+	// and is a harmless no-op.
+	js, journaling := e.store.(JournalStore)
 	for i, step := range txn.Steps {
 		h := e.mustLookupHandler(step.Mechanism)
 
@@ -22,6 +38,10 @@ func (e *Engine) apply(ctx context.Context, transport api.Transport, txn *api.Tr
 		if h.Capturable() && i < len(preStates) {
 			p := preStates[i]
 			pre = &p
+		}
+
+		if journaling {
+			_ = js.AdvanceJournalCursor(ctx, txn.ID, step.Index)
 		}
 
 		sr, err := h.Apply(ctx, transport, step.Params, pre)
