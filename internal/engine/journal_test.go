@@ -144,18 +144,18 @@ func (h *orderingHandler) Rollback(_ context.Context, _ api.Transport, _ *api.Pr
 func TestEngine_RecoveryJournal_AC05_CursorAdvancesWriteAhead(t *testing.T) {
 	t.Log("// @spec recovery-journal")
 	t.Log("// @ac AC-05")
-	var (
-		events []string
-		mu     sync.Mutex
-	)
+	var events []string
 	js := newJournalRecorderStore()
 	js.events = &events
 
+	// The handlers and the store's AdvanceJournalCursor both append to the shared
+	// `events` slice; guard both with the SAME mutex (the store's) so the ordering
+	// assertion proves real synchronization, not just single-goroutine apply.
 	handlers := make([]api.Handler, 3)
 	steps := make([]api.Step, 3)
 	for i := 0; i < 3; i++ {
 		name := "wa_step" + strconv.Itoa(i)
-		handlers[i] = &orderingHandler{name: name, idx: i, events: &events, mu: &mu}
+		handlers[i] = &orderingHandler{name: name, idx: i, events: &events, mu: &js.mu}
 		steps[i] = api.Step{Index: i, Mechanism: name}
 	}
 	e := durabilityEngine(t, js, nil, handlers...)
