@@ -10,7 +10,7 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
-## v0.7.2 — UNRELEASED (stamped at tag time)
+## v0.7.2 — 2026-07-06
 
 The atomicity and cross-rule-integrity patch on the v0.7.1 line. It closes the
 two-human-review atomicity items deferred from v0.7.1 — `rollback --start`
