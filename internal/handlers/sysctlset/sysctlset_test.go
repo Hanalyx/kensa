@@ -2,6 +2,7 @@ package sysctlset_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -70,8 +71,8 @@ func TestCapture_AC03_RecordsRuntimeAndPersistContent(t *testing.T) {
 	// Program runtime probe.
 	tp.Results["sysctl -n 'net.ipv4.ip_forward'"] = &api.CommandResult{Stdout: "0\n"}
 	// Program persist-file existence + read.
-	tp.Results["test -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' && cat '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' || printf '__KENSA_ABSENT__'"] =
-		&api.CommandResult{Stdout: "# old kensa\nnet.ipv4.ip_forward = 0\n"}
+	tp.Results["if [ -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' ]; then base64 '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'; else printf '%s' '__KENSA_ABSENT__'; fi"] =
+		&api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("# old kensa\nnet.ipv4.ip_forward = 0\n"))}
 
 	h := sysctlset.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
@@ -234,5 +235,26 @@ func TestApply_RejectsControlCharValue(t *testing.T) {
 	}
 	if len(tp.Runs) != 0 {
 		t.Errorf("host must be untouched; got %d run(s)", len(tp.Runs))
+	}
+}
+
+// TestCapture_Base64Failure_AbortsNoDestructiveEmpty is the round-3 panel
+// regression: if base64 FAILS on an EXISTING persist file (missing applet /
+// EACCES), the if-form returns a non-zero exit with empty stdout. Capture MUST
+// return an error (aborting the transaction before any mutation), NOT record
+// existed=true/content="" — which would rewrite the file EMPTY on rollback.
+func TestCapture_Base64Failure_AbortsNoDestructiveEmpty(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	tp.Results["sysctl -n 'net.ipv4.ip_forward'"] = &api.CommandResult{Stdout: "0\n"}
+	// base64 failed on an existing file: non-zero exit, empty stdout.
+	tp.Results["if [ -e '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf' ]; then base64 '/etc/sysctl.d/99-kensa_net.ipv4.ip_forward.conf'; else printf '%s' '__KENSA_ABSENT__'; fi"] =
+		&api.CommandResult{ExitCode: 127, Stderr: "base64: command not found"}
+
+	h := sysctlset.New()
+	_, err := h.Capture(context.Background(), tp, api.Params{
+		"key": "net.ipv4.ip_forward", "value": "1",
+	})
+	if err == nil {
+		t.Fatal("Capture must ERROR when base64 fails on an existing file — a nil error would let rollback rewrite the file EMPTY (destructive)")
 	}
 }

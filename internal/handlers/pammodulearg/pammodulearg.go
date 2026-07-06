@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -360,7 +361,7 @@ func buildRemoveCmd(file, typeFilter, modulePattern, arg string, isRegex bool) s
 // before Apply edits it, keyed by file path. Rollback restores the captured
 // content verbatim (byte-perfect), which is robust across the agent and shell
 // transports and immune to the line-number drift the prior grep-snapshot model
-// risked. The read is dual-path: kernel-IO on the agent, shell cat otherwise.
+// risked. The read is dual-path: kernel-IO on the agent, shell base64 otherwise.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
@@ -391,7 +392,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 }
 
 // readFile returns a file's content and existence via the kernel-IO read
-// (agent) or a shell cat with an absent sentinel.
+// (agent) or a shell base64 read (exact bytes) with an absent sentinel.
 func (h *Handler) readFile(ctx context.Context, transport api.Transport, file string) (string, bool, error) {
 	if ft, ok := transport.(kernelio.FileTransport); ok {
 		c, existed, err := ft.ReadFileIfExists(file)
@@ -400,7 +401,7 @@ func (h *Handler) readFile(ctx context.Context, transport api.Transport, file st
 		}
 		return c, existed, nil
 	}
-	cmd := fmt.Sprintf("test -e %[1]s && cat %[1]s || printf '%[2]s'", shellEscape(file), absentSentinel)
+	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(file), absentSentinel)
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return "", false, fmt.Errorf("pam_module_arg: capture transport error for %s: %w", file, err)
@@ -411,7 +412,11 @@ func (h *Handler) readFile(ctx context.Context, transport api.Transport, file st
 	if res.Stdout == absentSentinel {
 		return "", false, nil
 	}
-	return res.Stdout, true, nil
+	content, derr := shellcapture.DecodeContent(res.Stdout)
+	if derr != nil {
+		return "", false, fmt.Errorf("pam_module_arg: capture decode failed for %s: %w", file, derr)
+	}
+	return content, true, nil
 }
 
 // Rollback restores each PAM file to its captured pre-Apply state. For

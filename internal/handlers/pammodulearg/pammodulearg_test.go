@@ -2,6 +2,7 @@ package pammodulearg_test
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -111,8 +112,8 @@ func TestCapture_RecordsAffectedLines(t *testing.T) {
 	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	const prior = "auth required pam_unix.so\naccount required pam_unix.so\n"
-	captureCmd := `test -e '/etc/pam.d/system-auth' && cat '/etc/pam.d/system-auth' || printf '__KENSA_ABSENT__'`
-	tp.Results[captureCmd] = &api.CommandResult{Stdout: prior}
+	captureCmd := `if [ -e '/etc/pam.d/system-auth' ]; then base64 '/etc/pam.d/system-auth'; else printf '%s' '__KENSA_ABSENT__'; fi`
+	tp.Results[captureCmd] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte(prior))}
 	h := pammodulearg.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
 		"action": "ensure",

@@ -2,6 +2,7 @@ package dconfset_test
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -121,8 +122,8 @@ func TestCapture_RecordsPriorContent(t *testing.T) {
 	t.Run("handler-dconf-set/AC-04", func(t *testing.T) {})
 	t.Run("handler-interface/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
-	checkCmd := `test -f '/etc/dconf/db/local.d/00-security' && cat '/etc/dconf/db/local.d/00-security' || printf '__KENSA_ABSENT__'`
-	tp.Results[checkCmd] = &api.CommandResult{Stdout: "[org/gnome/desktop/screensaver]\nlock-enabled=false\n"}
+	checkCmd := `if [ -f '/etc/dconf/db/local.d/00-security' ]; then base64 '/etc/dconf/db/local.d/00-security'; else printf '%s' '__KENSA_ABSENT__'; fi`
+	tp.Results[checkCmd] = &api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("[org/gnome/desktop/screensaver]\nlock-enabled=false\n"))}
 	h := dconfset.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
 		"schema": "org/gnome/desktop/screensaver",
@@ -149,7 +150,7 @@ func TestCapture_RecordsPriorContent(t *testing.T) {
 func TestCapture_RecordsAbsent(t *testing.T) {
 	t.Run("handler-dconf-set/AC-05", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
-	checkCmd := `test -f '/etc/dconf/db/local.d/00-security' && cat '/etc/dconf/db/local.d/00-security' || printf '__KENSA_ABSENT__'`
+	checkCmd := `if [ -f '/etc/dconf/db/local.d/00-security' ]; then base64 '/etc/dconf/db/local.d/00-security'; else printf '%s' '__KENSA_ABSENT__'; fi`
 	tp.Results[checkCmd] = &api.CommandResult{Stdout: "__KENSA_ABSENT__"}
 	h := dconfset.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{

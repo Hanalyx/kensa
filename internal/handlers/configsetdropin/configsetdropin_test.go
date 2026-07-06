@@ -2,6 +2,7 @@ package configsetdropin_test
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,8 +74,8 @@ func TestCapture_AC03_RecordsExistingDropin(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	path := "/etc/systemd/system/sshd.service.d/kensa.conf"
 	qPath := "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
-	tp.Results["test -e "+qPath+" && cat "+qPath+" || printf '__KENSA_ABSENT__'"] =
-		&api.CommandResult{Stdout: "# Managed by Kensa.\nLimitNOFILE=65536\n"}
+	tp.Results["if [ -e "+qPath+" ]; then base64 "+qPath+"; else printf '%s' '__KENSA_ABSENT__'; fi"] =
+		&api.CommandResult{Stdout: base64.StdEncoding.EncodeToString([]byte("# Managed by Kensa.\nLimitNOFILE=65536\n"))}
 
 	h := configsetdropin.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{
@@ -99,7 +100,7 @@ func TestCapture_AC04_AbsentDropinRecordsFileExistedFalse(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	path := "/etc/systemd/system/sshd.service.d/kensa.conf"
 	qPath := "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
-	tp.Results["test -e "+qPath+" && cat "+qPath+" || printf '__KENSA_ABSENT__'"] =
+	tp.Results["if [ -e "+qPath+" ]; then base64 "+qPath+"; else printf '%s' '__KENSA_ABSENT__'; fi"] =
 		&api.CommandResult{Stdout: "__KENSA_ABSENT__"}
 
 	h := configsetdropin.New()

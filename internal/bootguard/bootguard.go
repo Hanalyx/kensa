@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
 // Flavor identifies the bootloader configuration model.
@@ -87,7 +88,10 @@ func Capture(ctx context.Context, t api.Transport) (*Snapshot, error) {
 		return nil, err
 	}
 
-	dg, err := t.Run(ctx, fmt.Sprintf("cat %s", shellQuote(defaultGrubPath)))
+	// base64 (not cat): the transport trims stdout's trailing newline, which
+	// dropped /etc/default/grub's final \n so Restore rewrote it one byte short
+	// (#247). base64 round-trips the exact bytes. Restore already writes via base64.
+	dg, err := t.Run(ctx, fmt.Sprintf("base64 %s", shellQuote(defaultGrubPath)))
 	if err != nil {
 		return nil, fmt.Errorf("bootguard: reading %s: transport error: %w", defaultGrubPath, err)
 	}
@@ -95,10 +99,14 @@ func Capture(ctx context.Context, t api.Transport) (*Snapshot, error) {
 		return nil, fmt.Errorf("bootguard: cannot read %s (exit %d): %s",
 			defaultGrubPath, dg.ExitCode, strings.TrimSpace(dg.Stderr))
 	}
+	defaultGrubContent, decErr := shellcapture.DecodeContent(dg.Stdout)
+	if decErr != nil {
+		return nil, fmt.Errorf("bootguard: decoding %s: %w", defaultGrubPath, decErr)
+	}
 
 	snap := &Snapshot{
 		Flavor:      flavor,
-		DefaultGrub: dg.Stdout,
+		DefaultGrub: defaultGrubContent,
 		GrubCfgPath: detectGrubCfgPath(ctx, t),
 	}
 
@@ -136,12 +144,17 @@ func captureBLSEntries(ctx context.Context, t api.Transport) (map[string]string,
 	}
 	entries := make(map[string]string)
 	for _, path := range strings.Fields(listing.Stdout) {
-		res, err := t.Run(ctx, fmt.Sprintf("cat %s", shellQuote(path)))
+		// base64 (not cat) so Restore rewrites each BLS entry byte-perfect (#247).
+		res, err := t.Run(ctx, fmt.Sprintf("base64 %s", shellQuote(path)))
 		if err != nil {
 			return nil, fmt.Errorf("bootguard: reading BLS entry %s: transport error: %w", path, err)
 		}
 		if res.OK() {
-			entries[path] = res.Stdout
+			content, decErr := shellcapture.DecodeContent(res.Stdout)
+			if decErr != nil {
+				return nil, fmt.Errorf("bootguard: decoding BLS entry %s: %w", path, decErr)
+			}
+			entries[path] = content
 		}
 	}
 	return entries, nil

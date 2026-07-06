@@ -2,6 +2,7 @@ package fileabsent_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ import (
 func captureCmd(path string) string {
 	q := "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
 	return fmt.Sprintf(
-		`if [ -e %[1]s ]; then printf 'EXISTS\n'; stat -c '%%a|%%U|%%G' %[1]s; ls -Zd %[1]s 2>/dev/null | awk '{print $1}'; cat %[1]s; else printf 'ABSENT\n'; fi`,
+		`if [ -e %[1]s ]; then printf 'EXISTS\n'; stat -c '%%a|%%U|%%G' %[1]s; ls -Zd %[1]s 2>/dev/null | awk '{print $1}'; base64 %[1]s; else printf 'ABSENT\n'; fi`,
 		q,
 	)
 }
@@ -70,7 +71,7 @@ func TestCapture_AC03_RecordsExistingFile(t *testing.T) {
 	tp := engine.NewFakeTransport()
 	path := "/etc/resolv.conf.bak"
 	tp.Results[captureCmd(path)] = &api.CommandResult{
-		Stdout: "EXISTS\n0600|root|root\nsystem_u:object_r:net_conf_t:s0\nnameserver 1.1.1.1\n",
+		Stdout: "EXISTS\n0600|root|root\nsystem_u:object_r:net_conf_t:s0\n" + base64.StdEncoding.EncodeToString([]byte("nameserver 1.1.1.1\n")),
 	}
 	h := fileabsent.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{"path": path})
@@ -333,5 +334,48 @@ func TestRollback_AgentMode_RefusesMissingCapturedMode(t *testing.T) {
 	// File must not have been created with a defaulted mode.
 	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
 		t.Errorf("file should not be created when rollback refuses; stat: %v", statErr)
+	}
+}
+
+// TestCaptureRollback_BytePerfect_TrailingNewline is the #247 regression for
+// file_absent: Capture->Apply(remove)->Rollback must RE-CREATE a removed,
+// newline-terminated file BYTE-FOR-BYTE over the local transport (which trims
+// the trailing newline exactly like SSH). Before the base64 capture fix this
+// restored the file one byte short — and file_absent's Capture is unconditional
+// shell, so it broke in default agent mode too.
+func TestCaptureRollback_BytePerfect_TrailingNewline(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "config.conf")
+	const original = "KEY=value\nsecond=line\n" // ends in a newline
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := local.New()
+	h := fileabsent.New()
+
+	pre, err := h.Capture(context.Background(), tr, api.Params{"path": target})
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if got, _ := pre.Data["content"].(string); got != original {
+		t.Fatalf("capture not byte-exact:\n got  %q\n want %q", got, original)
+	}
+	if _, err := h.Apply(context.Background(), tr, api.Params{"path": target}, nil); err != nil {
+		t.Fatalf("Apply(remove): %v", err)
+	}
+	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+		t.Fatalf("Apply should have removed the file")
+	}
+	if _, err := h.Rollback(context.Background(), tr, pre); err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	restored, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("file not restored: %v", err)
+	}
+	if string(restored) != original {
+		t.Errorf("rollback NOT byte-perfect:\n got  %q (%d bytes)\n want %q (%d bytes)",
+			restored, len(restored), original, len(original))
 	}
 }

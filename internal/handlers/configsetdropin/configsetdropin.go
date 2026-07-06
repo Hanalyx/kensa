@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -205,10 +206,9 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		return nil, err
 	}
 
-	cmd := fmt.Sprintf(
-		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
-		shellEscape(p.Path),
-	)
+	// base64 (not cat): the transport trims stdout's trailing newline, which
+	// dropped a file's final \n and made rollback non-byte-perfect (#247).
+	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(p.Path), "__KENSA_ABSENT__")
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("config_set_dropin: capture transport error: %w", err)
@@ -244,6 +244,10 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			},
 		}, nil
 	}
+	priorContent, decErr := shellcapture.DecodeContent(stdout)
+	if decErr != nil {
+		return nil, fmt.Errorf("config_set_dropin: capture decode failed for %s: %w", p.Path, decErr)
+	}
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
@@ -251,7 +255,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 		Data: map[string]interface{}{
 			"path":          p.Path,
 			"file_existed":  true,
-			"prior_content": stdout,
+			"prior_content": priorContent,
 			"created_dirs":  createdDirs,
 		},
 	}, nil

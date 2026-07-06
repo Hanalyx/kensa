@@ -22,6 +22,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -202,7 +203,7 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 	// Persist. Atomically overwrite the file with a single canonical
 	// "key = value\n" line, plus a header so future reviewers know
 	// who wrote it.
-	persistCmd := fmt.Sprintf("printf %s > %s", shellEscape(persistContent(p.Key, p.Value)), shellEscape(p.PersistFile))
+	persistCmd := fmt.Sprintf("printf '%%s' %s > %s", shellEscape(persistContent(p.Key, p.Value)), shellEscape(p.PersistFile))
 	res, err = transport.Run(ctx, persistCmd)
 	if err != nil {
 		return nil, fmt.Errorf("sysctl_set: persist write transport error: %w", err)
@@ -267,16 +268,26 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 
 	// Persist-file content: read with cat; check existence with test
 	// -e first so we can distinguish absent-vs-empty.
-	checkCmd := fmt.Sprintf("test -e %s && cat %s || printf '__KENSA_ABSENT__'", shellEscape(p.PersistFile), shellEscape(p.PersistFile))
+	checkCmd := shellcapture.ExistenceReadCmd("-e", shellEscape(p.PersistFile), "__KENSA_ABSENT__")
 	persistRes, err := transport.Run(ctx, checkCmd)
 	if err != nil {
 		return nil, fmt.Errorf("sysctl_set: capture persist transport error: %w", err)
 	}
-	content := persistRes.Stdout
-	existed := true
-	if content == "__KENSA_ABSENT__" {
-		content = ""
-		existed = false
+	// MUST check OK before trusting stdout: the if-form propagates a base64 read
+	// failure as a non-zero exit; without this guard an existing file whose base64
+	// failed would be recorded existed=true/content="" and rollback would rewrite
+	// it EMPTY (destructive). This is the safety contract shellcapture.ExistenceReadCmd documents.
+	if !persistRes.OK() {
+		return nil, fmt.Errorf("sysctl_set: capture persist failed for %s: %w (stderr: %s)",
+			p.PersistFile, api.ErrCaptureIncomplete, strings.TrimSpace(persistRes.Stderr))
+	}
+	content := ""
+	existed := persistRes.Stdout != "__KENSA_ABSENT__"
+	if existed {
+		content, err = shellcapture.DecodeContent(persistRes.Stdout)
+		if err != nil {
+			return nil, fmt.Errorf("sysctl_set: capture decode failed for %s: %w", p.PersistFile, err)
+		}
 	}
 	return h.preState(p, strings.TrimSpace(runtimeRes.Stdout), content, existed), nil
 }
@@ -360,7 +371,7 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, ke
 	// if the file used a different value than runtime at capture time).
 	var persistCmd string
 	if persistFileExisted {
-		persistCmd = fmt.Sprintf("printf %s > %s", shellEscape(persistFileContent), shellEscape(persistFile))
+		persistCmd = fmt.Sprintf("printf '%%s' %s > %s", shellEscape(persistFileContent), shellEscape(persistFile))
 	} else {
 		persistCmd = fmt.Sprintf("rm -f %s", shellEscape(persistFile))
 	}

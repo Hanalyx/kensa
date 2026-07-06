@@ -25,6 +25,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -175,13 +176,10 @@ func (h *Handler) captureKernel(mt kernelio.ModuleTransport, p *Params, wasLoade
 	return h.preState(p, path, existed, wasLoaded, content), nil
 }
 
-// captureShell reads the blacklist file via cat + an absent sentinel.
+// captureShell reads the blacklist file via base64 (exact bytes) + an absent sentinel.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params, wasLoaded bool) (*api.PreState, error) {
 	path := blacklistPath(p.Module)
-	cmd := fmt.Sprintf(
-		"test -e %[1]s && cat %[1]s || printf '__KENSA_ABSENT__'",
-		shellEscape(path),
-	)
+	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(path), "__KENSA_ABSENT__")
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("kernel_module_disable: capture transport error: %w", err)
@@ -193,7 +191,10 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 	existed := res.Stdout != "__KENSA_ABSENT__"
 	content := ""
 	if existed {
-		content = res.Stdout
+		content, err = shellcapture.DecodeContent(res.Stdout)
+		if err != nil {
+			return nil, fmt.Errorf("kernel_module_disable: capture decode failed for %s: %w", path, err)
+		}
 	}
 	return h.preState(p, path, existed, wasLoaded, content), nil
 }
