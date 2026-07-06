@@ -203,7 +203,7 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 	// Persist. Atomically overwrite the file with a single canonical
 	// "key = value\n" line, plus a header so future reviewers know
 	// who wrote it.
-	persistCmd := fmt.Sprintf("printf %s > %s", shellEscape(persistContent(p.Key, p.Value)), shellEscape(p.PersistFile))
+	persistCmd := fmt.Sprintf("printf '%%s' %s > %s", shellEscape(persistContent(p.Key, p.Value)), shellEscape(p.PersistFile))
 	res, err = transport.Run(ctx, persistCmd)
 	if err != nil {
 		return nil, fmt.Errorf("sysctl_set: persist write transport error: %w", err)
@@ -371,7 +371,7 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, ke
 	// if the file used a different value than runtime at capture time).
 	var persistCmd string
 	if persistFileExisted {
-		persistCmd = fmt.Sprintf("printf %s > %s", shellEscape(persistFileContent), shellEscape(persistFile))
+		persistCmd = fmt.Sprintf("printf '%%s' %s > %s", shellEscape(persistFileContent), shellEscape(persistFile))
 	} else {
 		persistCmd = fmt.Sprintf("rm -f %s", shellEscape(persistFile))
 	}

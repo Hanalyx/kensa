@@ -361,7 +361,7 @@ func buildRemoveCmd(file, typeFilter, modulePattern, arg string, isRegex bool) s
 // before Apply edits it, keyed by file path. Rollback restores the captured
 // content verbatim (byte-perfect), which is robust across the agent and shell
 // transports and immune to the line-number drift the prior grep-snapshot model
-// risked. The read is dual-path: kernel-IO on the agent, shell cat otherwise.
+// risked. The read is dual-path: kernel-IO on the agent, shell base64 otherwise.
 func (h *Handler) Capture(ctx context.Context, transport api.Transport, params api.Params) (*api.PreState, error) {
 	p, err := decodeParams(params)
 	if err != nil {
@@ -392,7 +392,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 }
 
 // readFile returns a file's content and existence via the kernel-IO read
-// (agent) or a shell cat with an absent sentinel.
+// (agent) or a shell base64 read (exact bytes) with an absent sentinel.
 func (h *Handler) readFile(ctx context.Context, transport api.Transport, file string) (string, bool, error) {
 	if ft, ok := transport.(kernelio.FileTransport); ok {
 		c, existed, err := ft.ReadFileIfExists(file)

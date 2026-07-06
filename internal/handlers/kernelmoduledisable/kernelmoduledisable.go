@@ -176,7 +176,7 @@ func (h *Handler) captureKernel(mt kernelio.ModuleTransport, p *Params, wasLoade
 	return h.preState(p, path, existed, wasLoaded, content), nil
 }
 
-// captureShell reads the blacklist file via cat + an absent sentinel.
+// captureShell reads the blacklist file via base64 (exact bytes) + an absent sentinel.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *Params, wasLoaded bool) (*api.PreState, error) {
 	path := blacklistPath(p.Module)
 	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(path), "__KENSA_ABSENT__")

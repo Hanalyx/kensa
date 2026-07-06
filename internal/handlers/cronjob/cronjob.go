@@ -301,7 +301,7 @@ func (h *Handler) rollbackKernel(ctx context.Context, ft kernelio.FileTransport,
 }
 
 // readFile returns path's content and existence, via the kernel-IO read
-// (agent) or a shell cat with an absent sentinel.
+// (agent) or a shell base64 read (exact bytes) with an absent sentinel.
 func (h *Handler) readFile(ctx context.Context, transport api.Transport, path string) (string, bool, error) {
 	if ft, ok := transport.(kernelio.FileTransport); ok {
 		c, existed, err := ft.ReadFileIfExists(path)

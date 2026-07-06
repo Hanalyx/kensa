@@ -282,7 +282,7 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 
 	// 1. Ensure the profile file exists.
 	createProfileCmd := fmt.Sprintf(
-		"test -f %s || printf %s > %s",
+		"test -f %s || printf '%%s' %s > %s",
 		shellEscape(profilePath),
 		shellEscape(fmt.Sprintf("user\nsystem-db:%s\n", p.DB)),
 		shellEscape(profilePath),
@@ -316,7 +316,7 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 		valueStr = fmt.Sprintf("%s(%s)", p.ValueType, p.Value)
 	}
 	snippetContent := fmt.Sprintf("[%s]\n%s=%s\n", p.Schema, p.Key, valueStr)
-	writeSnippetCmd := fmt.Sprintf("printf %s > %s", shellEscape(snippetContent), shellEscape(snippetPath))
+	writeSnippetCmd := fmt.Sprintf("printf '%%s' %s > %s", shellEscape(snippetContent), shellEscape(snippetPath))
 	if res, err := transport.Run(ctx, writeSnippetCmd); err != nil {
 		return nil, fmt.Errorf("dconf_set: snippet write transport error: %w", err)
 	} else if !res.OK() {
@@ -339,7 +339,7 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 		}
 
 		lockContent := fmt.Sprintf("/%s/%s\n", p.Schema, p.Key)
-		writeLockCmd := fmt.Sprintf("printf %s > %s", shellEscape(lockContent), shellEscape(lockPath))
+		writeLockCmd := fmt.Sprintf("printf '%%s' %s > %s", shellEscape(lockContent), shellEscape(lockPath))
 		if res, err := transport.Run(ctx, writeLockCmd); err != nil {
 			return nil, fmt.Errorf("dconf_set: lock write transport error: %w", err)
 		} else if !res.OK() {
@@ -600,7 +600,7 @@ func cleanupCreatedState(ctx context.Context, transport api.Transport, pre *api.
 // captured prior state: rewrite the content if it existed, else remove it.
 func restoreFileShellCmd(path, content string, existed bool) string {
 	if existed {
-		return fmt.Sprintf("printf %s > %s", shellEscape(content), shellEscape(path))
+		return fmt.Sprintf("printf '%%s' %s > %s", shellEscape(content), shellEscape(path))
 	}
 	return fmt.Sprintf("rm -f %s", shellEscape(path))
 }
