@@ -22,7 +22,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'grep -qE ''^\s*remember\s*=\s*[0-9]+'' /etc/security/pwhistory.conf 2>/dev/null || grep -qE ''pam_pwhistory\.so.*remember='' /etc/pam.d/system-auth'
+      run: 'grep -qE ''^\s*remember\s*=\s*([5-9]|[1-9][0-9]+)'' /etc/security/pwhistory.conf 2>/dev/null || grep -qE ''pam_pwhistory\.so.*remember=([5-9]|[1-9][0-9]+)'' /etc/pam.d/system-auth'
       expected_exit: 0
     remediation:
       mechanism: config_set

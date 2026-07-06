@@ -17,7 +17,7 @@ depends_on:
 references:
   cis:
     rhel8:
-      section: 6.3.3.10
+      section: 6.3.3.12
       level: L2
       type: Automated
     rhel9:

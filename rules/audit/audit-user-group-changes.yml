@@ -13,10 +13,6 @@ tags: [audit, auditd, identity]
 depends_on: [auditd-enabled]
 
 references:
-  cis:
-    rhel8:  { section: "6.3.3.6", level: "L2", type: "Automated" }
-    rhel10: { section: "6.3.3.10", level: "L2", type: "Automated" }
-    rhel9: { section: "6.3.3.6", level: "L2", type: "Automated" }
   stig:
     rhel9:                                                                   # watches /etc/group + /etc/gshadow (passwd/shadow/opasswd have dedicated audit-file-* rules)
       - { vuln_id: "V-258219", stig_id: "RHEL-09-654225", severity: "CAT II" }   # /etc/group

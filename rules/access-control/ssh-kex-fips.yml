@@ -15,10 +15,6 @@ depends_on: [pkg-openssh-server-present]
 conflicts_with: [ssh-crypto-policy]
 
 references:
-  cis:
-    rhel8:  { section: "5.1.8", level: "L1", type: "Automated" }
-    rhel10: { section: "5.1.6", level: "L1", type: "Automated" }
-    rhel9: { section: "5.1.4", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258006"
