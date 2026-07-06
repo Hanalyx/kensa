@@ -582,6 +582,41 @@ func checkFileContentMatch(ctx context.Context, transport api.Transport, params 
 	return true, fmt.Sprintf("file_content_match: pattern %q found in %s", pattern, path), nil
 }
 
+// serviceCountsAsEnabled classifies `systemctl is-enabled` output for a
+// "must be enabled" control. A unit with no [Install] section cannot be
+// `enabled`, yet these states are on-by-design and satisfy the requirement:
+//
+//	static    — socket/bus/dependency-activated (e.g. systemd-journald on RHEL)
+//	generated — created by a systemd generator (e.g. an fstab-derived mount)
+//
+// A naive strings.Contains(out,"enabled") FALSE-FAILs both — the
+// journald-service-enabled false-FAIL on compliant RHEL hosts.
+//
+// `indirect` and `alias` are deliberately NOT here: per systemd, `indirect`
+// means the queried unit itself is NOT [Install]-enabled (it merely has a
+// non-empty Also=), and `alias` does not guarantee the target is enabled —
+// counting either as enabled would turn a genuine "not enabled" FAIL into a
+// false PASS. disabled, masked, and linked do NOT count as enabled.
+func serviceCountsAsEnabled(status string) bool {
+	switch strings.TrimSpace(status) {
+	case "enabled", "enabled-runtime", "static", "generated":
+		return true
+	}
+	return false
+}
+
+// serviceExplicitlyEnabled reports whether a unit is enabled VIA an [Install]
+// section — the only states a "must be disabled" control may FAIL on. A static
+// or indirect unit cannot be disabled and is not explicitly enabled, so it must
+// NOT trip a "should not be enabled" assertion.
+func serviceExplicitlyEnabled(status string) bool {
+	switch strings.TrimSpace(status) {
+	case "enabled", "enabled-runtime":
+		return true
+	}
+	return false
+}
+
 // checkServiceEnabled checks whether a systemd service is enabled.
 // Params: name.
 func checkServiceEnabled(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
@@ -595,7 +630,7 @@ func checkServiceEnabled(ctx context.Context, transport api.Transport, params ap
 		return false, "", fmt.Errorf("check service_enabled: transport error: %w", err)
 	}
 	out := strings.TrimSpace(res.Stdout)
-	if !strings.Contains(out, "enabled") {
+	if !serviceCountsAsEnabled(out) {
 		return false, fmt.Sprintf("service_enabled: %s is not enabled (status: %q)", name, out), nil
 	}
 	return true, fmt.Sprintf("service_enabled: %s is enabled", name), nil
@@ -735,11 +770,14 @@ func checkServiceState(ctx context.Context, transport api.Transport, params api.
 			return false, "", fmt.Errorf("check service_state: transport error: %w", err)
 		}
 		out := strings.TrimSpace(res.Stdout)
-		isEnabled := strings.Contains(out, "enabled")
-		if want && !isEnabled {
+		// want=enabled is satisfied by static/generated units (on-by-design, no
+		// [Install]); indirect/alias are NOT (the queried unit isn't itself
+		// enabled). want=disabled fails only on units enabled via an [Install]
+		// section. See serviceCountsAsEnabled / serviceExplicitlyEnabled.
+		if want && !serviceCountsAsEnabled(out) {
 			return false, fmt.Sprintf("service_state: %s is not enabled (status: %q)", name, out), nil
 		}
-		if !want && isEnabled {
+		if !want && serviceExplicitlyEnabled(out) {
 			return false, fmt.Sprintf("service_state: %s is enabled but should not be (status: %q)", name, out), nil
 		}
 		enabled := "enabled"

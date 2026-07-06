@@ -44,8 +44,9 @@ type JournalStore interface {
 	// PrepareTransaction writes the journal entry and the pre-states in ONE
 	// atomic, synchronous commit (the write-ahead barrier).
 	PrepareTransaction(ctx context.Context, entry api.JournalEntry, preStates []api.PreState) error
-	// AdvanceJournalCursor durably records, write-ahead, the step about to
-	// mutate.
+	// AdvanceJournalCursor records, write-ahead, the step about to mutate
+	// (durability follows the store's synchronous pragma; forensic — nothing
+	// reads the cursor for a recovery decision).
 	AdvanceJournalCursor(ctx context.Context, txnID uuid.UUID, cursor int) error
 	// LoadOpenJournalEntries returns entries whose transaction never reached
 	// a terminal status — the recovery targets.

@@ -10,6 +10,68 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
+## v0.7.2 — 2026-07-06
+
+The atomicity and cross-rule-integrity patch on the v0.7.1 line. It closes the
+two-human-review atomicity items deferred from v0.7.1 — `rollback --start`
+status persistence, the `audit_rule_set` shared-file clobber, and root-write
+input hardening — adds a cross-rule duplicate-citation CI gate, and drains the
+corpus ratchet allowlists to zero. The frozen `api/` surface is untouched: a
+drop-in version bump for consumers.
+
+### Added
+
+- **Cross-rule duplicate-citation gate.** A catalog CI gate fails when one
+  framework control is cited by more than one rule (grouped list-form rules are
+  exempt by design), governed by a ratcheting allowlist that may only shrink. A
+  companion check-vs-cite heuristic linter flags a rule whose citation subject
+  domain never appears in what its check actually reads. Closes the between-rules
+  blind spot behind the banner-rule dup and the cite/check bugs. (#249, #250)
+- **`--allow-conflicts` strict mode.** Rule-conflict detection can now be made a
+  hard error unless `--allow-conflicts` is passed; previously it warned on stderr
+  and ran anyway. (#234)
+
+### Changed
+
+- **`audit_rule_set` merges into shared drop-ins instead of overwriting them.**
+  Apply reads the shared persist file and merges this rule's lines in; Rollback
+  removes only its own lines (deleting the file only when no managed lines
+  remain). This fixes reboot-persistence loss when multiple audit rules share a
+  CIS-convention drop-in (`50-privileged.rules`, `50-identity.rules`, …) — the
+  whole-file overwrite previously left only the last writer on disk. (#232)
+- **Write-ahead journal cursor.** The engine journals per-step progress
+  write-ahead of each mutation, adding step-level crash-recovery forensics. The
+  cursor is forensic only — recovery stays cursor-independent (it compensates
+  every captured pre-state in reverse regardless of the cursor). (#248)
+
+### Fixed
+
+- **`rollback --start` now persists rolled-back status.** A completed
+  out-of-band rollback marks the transaction rolled-back (`status` +
+  `rolled_back_at`), records a rollback event per step, and refreshes the owning
+  session's counters so it stops showing as rollback-able — closing a
+  double-rollback risk and a log that previously lied. (#231)
+- **Corpus ratchet allowlists drained to zero.** The check-param, value-domain,
+  and mechanism-param deferral lists are now empty — the underlying rule defects
+  (broken checks, out-of-domain values, wrong param names) are fixed at the
+  source rather than deferred. (#235–#239, #244)
+
+### Security
+
+- **Root-write input hardening.** `grub_parameter_set` values are allowlisted
+  before reaching a root `sed`; the agent atomic-write paths reject newlines in a
+  module name or sysctl value (config-file line injection). Both are root-write
+  paths carrying a founder failure-mode analysis. (#241)
+- **`kensa recover` shared-lock.** `recover` takes the shared side of the engine
+  recover lock so out-of-band recovery cannot race a live `remediate`. (#245)
+
+### Known limits
+
+- The `audit_rule_set` netlink rule-LOAD success path is unit-covered but not
+  yet live-proven — the test fleet has no mutable-audit host (RHEL is
+  `enabled=2` immutable; the Ubuntu fleet has no auditd). Tracked as a v0.7.2
+  live-validation residual.
+
 ## v0.7.1 — 2026-07-02
 
 A security-hardening and coverage patch on the v0.7.0 line. The frozen `api/`

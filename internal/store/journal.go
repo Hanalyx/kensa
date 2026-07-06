@@ -59,9 +59,14 @@ func (s *SQLite) PrepareTransaction(ctx context.Context, entry api.JournalEntry,
 	return tx.Commit()
 }
 
-// AdvanceJournalCursor durably records that the engine is about to mutate (or
-// has begun mutating) the step at cursor — written WRITE-AHEAD of the
-// mutation it guards, so recovery never skips undoing the last step.
+// AdvanceJournalCursor records, WRITE-AHEAD of the step it guards, the highest
+// step index whose mutation may have begun (durability follows the store's
+// `synchronous` pragma — do not assume an fsync barrier here). The cursor is FORENSIC:
+// recovery (engine.recoverRollback) compensates every captured pre-state in
+// reverse order regardless of the cursor, so a stale or missing cursor cannot
+// make recovery skip a step. The write-ahead ordering is maintained for
+// forensic fidelity and so a future cursor-bounded recovery could rely on it;
+// until then nothing reads the cursor to make a recovery decision.
 func (s *SQLite) AdvanceJournalCursor(ctx context.Context, txnID uuid.UUID, cursor int) error {
 	if _, err := s.db.ExecContext(ctx,
 		`UPDATE recover_journal SET cursor = ?, phase = 'applying' WHERE txn_id = ?`,
