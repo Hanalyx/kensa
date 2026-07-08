@@ -1,0 +1,42 @@
+id: firewalld-loopback-source
+title: Ensure firewalld drops spoofed loopback source traffic
+description: >
+  firewalld must drop packets that claim a loopback source address
+  (127.0.0.0/8, ::1) but arrive on a non-loopback interface, preventing loopback
+  spoofing.
+rationale: >
+  Traffic from another host forging a 127.0.0.0/8 or ::1 source can bypass
+  access controls that trust loopback; it must be dropped on real interfaces.
+severity: medium
+transactional: false
+category: network
+tags: [firewalld, loopback, spoofing, cis]
+references:
+  cis:
+    rhel8: { section: "4.1.6", level: "L1", type: "Automated" }
+  nist_800_53: ["SC-7", "AC-4"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        command -v firewall-cmd >/dev/null 2>&1 || { echo "NOT APPLICABLE: firewalld not present"; exit 0; }
+        # A rich/direct rule must drop 127.0.0.0/8 (and ::1) arriving off-lo.
+        v4=$(firewall-cmd --permanent --zone=trusted --list-rich-rules 2>/dev/null; firewall-cmd --direct --get-all-rules 2>/dev/null)
+        if printf '%s' "$v4" | grep -qE '127\.0\.0\.0/8' && printf '%s' "$v4" | grep -qiE 'drop|reject'; then
+          echo "OK: spoofed loopback source traffic is dropped"
+          exit 0
+        fi
+        echo "FAIL: no firewalld rule drops spoofed 127.0.0.0/8 loopback source traffic"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add drop rules for loopback source addresses arriving off lo, e.g.:
+          firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=127.0.0.0/8 drop'
+          firewall-cmd --permanent --add-rich-rule='rule family=ipv6 source address=::1 drop'
+        then firewall-cmd --reload (ensure lo itself remains in the trusted zone).

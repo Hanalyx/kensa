@@ -23,7 +23,7 @@ references:
       level: L1
       type: Automated
     rhel8:
-      section: 2.4.1.8
+      section: 2.4.1.9
       level: L1
       type: Automated
     rhel10: { section: "2.4.1.8", level: "L1", type: "Automated" }

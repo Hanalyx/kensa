@@ -1,12 +1,11 @@
 id: gdm-automount-disabled
 title: Ensure GDM automatic mounting of removable media is disabled
-description: 'If GNOME Display Manager is in use, automatic mounting of removable media should be disabled.
-
-  '
-rationale: 'Automatic mounting of removable media can allow unauthorized data transfer or execution of malicious code. Disabling
-  it improves security.
-
-  '
+description: >
+  If GNOME Display Manager is in use, automatic mounting of removable media must
+  be disabled — both the automount and automount-open dconf keys set to false.
+rationale: >
+  Automatic mounting of removable media can allow unauthorized data transfer or
+  execution of malicious code. Disabling it improves security.
 severity: medium
 category: services
 tags:
@@ -22,6 +21,10 @@ references:
       section: 1.8.6
       level: L1
       type: Automated
+    rhel8:
+      section: 1.8.4
+      level: L1
+      type: Automated
   nist_800_53:
   - CM-7
 platforms:
@@ -31,8 +34,15 @@ implementations:
 - when: gdm
   check:
     method: command
-    run: "# Check if automount is disabled\nif grep -qr \"automount=false\" /etc/dconf/db/local.d/ 2>/dev/null; then\n  echo\
-      \ \"OK: GDM automount is disabled\"\n  exit 0\nfi\necho \"FAIL: GDM automount is not disabled\"\nexit 1\n"
+    run: |
+      # CIS requires BOTH automount=false AND automount-open=false.
+      if grep -qr 'automount=false' /etc/dconf/db/local.d/ 2>/dev/null \
+         && grep -qr 'automount-open=false' /etc/dconf/db/local.d/ 2>/dev/null; then
+        echo "OK: GDM automount and automount-open are disabled"
+        exit 0
+      fi
+      echo "FAIL: GDM automount / automount-open not both disabled"
+      exit 1
     expected_exit: 0
   remediation:
     mechanism: dconf_set

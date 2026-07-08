@@ -14,11 +14,12 @@ tags: [banner, motd, login, security]
 references:
   cis:
     rhel9: { section: "1.7.1", level: "L1", type: "Automated" }
+    rhel8: { section: "1.7.1", level: "L1", type: "Automated" }
   nist_800_53: ["AC-8"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true

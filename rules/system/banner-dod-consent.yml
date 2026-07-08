@@ -18,7 +18,7 @@ tags: [banner, compliance, login]
 references:
   cis:
     rhel9: { section: "1.7.2", level: "L1", type: "Automated" }
-    rhel8:  { section: "1.7.1", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.7.2", level: "L1", type: "Automated" }
     rhel10: { section: "1.7.1", level: "L1", type: "Automated" }
   stig:
     rhel9:
