@@ -14,6 +14,7 @@ tags: [dnf, packages, weak-deps, attack-surface, cis]
 references:
   cis:
     rhel8: { section: "1.2.1.5", level: "L2", type: "Automated" }
+    rhel10: { section: "1.2.1.5", level: "L2", type: "Automated" }
   nist_800_53: ["CM-7"]
 platforms:
   - family: rhel

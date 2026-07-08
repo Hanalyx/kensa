@@ -1,0 +1,30 @@
+id: audit-file-deletion-unlink-rhel10
+title: Audit unlink/unlinkat file-deletion syscalls (RHEL 10)
+description: >
+  On RHEL 10 record file-deletion via the unlink and unlinkat syscalls by
+  interactive users (both ABIs), keyed 'delete'.
+rationale: >
+  Auditing deletions supports forensic reconstruction and detection of
+  tampering or anti-forensic activity.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, delete, unlink, cis]
+references:
+  cis:
+    rhel10: { section: "6.3.3.24", level: "L2", type: "Automated" }
+  nist_800_53: ["AU-12"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      checks:
+        - method: audit_rule_exists
+          rule: "-a always,exit -F arch=b64 -S unlink,unlinkat -F auid>=1000 -F auid!=unset -k delete"
+        - method: audit_rule_exists
+          rule: "-a always,exit -F arch=b32 -S unlink,unlinkat -F auid>=1000 -F auid!=unset -k delete"
+    remediation:
+      mechanism: manual
+      note: "Add -S unlink,unlinkat (b64+b32, auid>=1000, -k delete) audit rules to /etc/audit/rules.d/ and augenrules --load."

@@ -1,0 +1,27 @@
+id: audit-nsswitch-rhel10
+title: Audit modification of /etc/nsswitch.conf (RHEL 10)
+description: >
+  On RHEL 10 record write/attribute changes to /etc/nsswitch.conf via the
+  syscall audit form (-S all -F path=/etc/nsswitch.conf -F perm=wa).
+rationale: >
+  nsswitch.conf controls name-service resolution order; tampering can redirect
+  authentication or name lookups. Auditing provides attribution.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, identity, nsswitch, cis]
+references:
+  cis:
+    rhel10: { section: "6.3.3.16", level: "L2", type: "Automated" }
+  nist_800_53: ["AU-12"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F arch=b64 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity"
+    remediation:
+      mechanism: manual
+      note: "Add -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity to /etc/audit/rules.d/ and augenrules --load."

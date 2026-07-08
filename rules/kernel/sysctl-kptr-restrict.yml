@@ -16,6 +16,7 @@ tags: [kernel, sysctl, kaslr, security, information-disclosure]
 references:
   cis:
     rhel8: { section: "1.5.6", level: "L1", type: "Automated" }
+    rhel10: { section: "1.5.6", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230547"

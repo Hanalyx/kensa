@@ -16,6 +16,7 @@ tags: [firewall, firewalld, default-deny, network]
 references:
   cis:
     rhel8: { section: "4.1.4", level: "L1", type: "Automated" }
+    rhel10: { section: "4.1.4", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230504"

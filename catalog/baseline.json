@@ -39,7 +39,7 @@
    "framework": "cis",
    "os": "rhel10",
    "total": 328,
-   "covered": 242,
+   "covered": 317,
    "drifted": 0
   },
   {

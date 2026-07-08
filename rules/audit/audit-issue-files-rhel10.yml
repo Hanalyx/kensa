@@ -1,0 +1,30 @@
+id: audit-issue-files-rhel10
+title: Audit modification of /etc/issue and /etc/issue.net (RHEL 10)
+description: >
+  On RHEL 10 these file-modification audit controls use the syscall form
+  (-S all -F path=... -F perm=wa). Record write/attribute changes to /etc/issue and /etc/issue.net.
+rationale: >
+  Unauthorized modification of these files can alter system identity or trust;
+  auditing provides attribution.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, system-locale, cis]
+references:
+  cis:
+    rhel10: { section: "6.3.3.6", level: "L2", type: "Automated" }
+  nist_800_53: ["AU-12"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      checks:
+        - method: audit_rule_exists
+          rule: "-a always,exit -F arch=b64 -S all -F path=/etc/issue -F perm=wa -F key=system-locale"
+        - method: audit_rule_exists
+          rule: "-a always,exit -F arch=b64 -S all -F path=/etc/issue.net -F perm=wa -F key=system-locale"
+    remediation:
+      mechanism: manual
+      note: "Add -S all -F path=/etc/issue and path=/etc/issue.net (-F perm=wa -F key=system-locale) audit rules to /etc/audit/rules.d/ and augenrules --load."

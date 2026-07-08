@@ -14,6 +14,7 @@ tags: [firewalld, loopback, spoofing, cis]
 references:
   cis:
     rhel8: { section: "4.1.6", level: "L1", type: "Automated" }
+    rhel10: { section: "4.1.6", level: "L1", type: "Manual" }
   nist_800_53: ["SC-7", "AC-4"]
 platforms:
   - family: rhel
