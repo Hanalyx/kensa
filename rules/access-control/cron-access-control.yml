@@ -37,14 +37,22 @@ platforms:
 implementations:
 - default: true
   check:
-    checks:
-    - method: file_exists
-      path: /etc/cron.allow
-    - method: file_permission
-      path: /etc/cron.allow
-      mode: '0600'
-      owner: root
-      group: root
+    method: command
+    run: |
+      # CIS: /etc/cron.allow must exist and be mode 0640 or MORE restrictive,
+      # owner root, group root or crontab; /etc/cron.deny (if present) likewise.
+      [ -e /etc/cron.allow ] || { echo "FAIL: /etc/cron.allow does not exist"; exit 1; }
+      fail=0
+      for f in /etc/cron.allow /etc/cron.deny; do
+        [ -e "$f" ] || continue
+        mode=$(stat -c '%a' "$f" 2>/dev/null); own=$(stat -c '%U' "$f" 2>/dev/null); grp=$(stat -c '%G' "$f" 2>/dev/null)
+        [ "$(( 0$mode & 037 ))" -eq 0 ] || { echo "FAIL: $f mode $mode (want 0640 or more restrictive)"; fail=1; }
+        [ "$own" = "root" ] || { echo "FAIL: $f owner $own (want root)"; fail=1; }
+        case "$grp" in root|crontab) : ;; *) echo "FAIL: $f group $grp (want root or crontab)"; fail=1 ;; esac
+      done
+      [ "$fail" -eq 0 ] && { echo "OK: crontab access is configured"; exit 0; }
+      exit 1
+    expected_exit: 0
   remediation:
     steps:
     - mechanism: file_content
