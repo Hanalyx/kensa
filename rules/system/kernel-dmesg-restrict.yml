@@ -12,6 +12,8 @@ category: system
 tags: [sysctl, dmesg, kernel, privacy, stig]
 
 references:
+  cis:
+    rhel8: { section: "1.5.5", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230269"

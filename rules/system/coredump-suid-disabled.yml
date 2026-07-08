@@ -13,7 +13,7 @@ tags: [coredump, suid, security, sysctl]
 
 references:
   cis:
-    rhel8:  { section: "1.5.2", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.5.4", level: "L1", type: "Automated" }
     rhel9:  { section: "1.5.2", level: "L1", type: "Automated" }
     rhel10: { section: "1.5.2", level: "L1", type: "Automated" }
   nist_800_53: ["SC-7"]

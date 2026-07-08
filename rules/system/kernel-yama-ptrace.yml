@@ -12,6 +12,8 @@ category: system
 tags: [sysctl, ptrace, yama, security, stig]
 
 references:
+  cis:
+    rhel8: { section: "1.5.7", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230546"
