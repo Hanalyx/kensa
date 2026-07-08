@@ -1,0 +1,28 @@
+id: journald-service-active
+title: Ensure the systemd-journald service is active
+description: >
+  The systemd-journald service must be active so the system captures and retains
+  log data.
+rationale: >
+  Without journald running, security-relevant events are not recorded, defeating
+  detection, incident response, and audit.
+severity: medium
+transactional: false
+category: logging
+tags: [journald, logging, systemd, cis]
+references:
+  cis:
+    rhel8: { section: "6.2.1.1.1", level: "L1", type: "Automated" }
+  nist_800_53: ["AU-12"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "systemctl is-active systemd-journald 2>/dev/null | grep -q '^active$'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "systemctl unmask systemd-journald && systemctl start systemd-journald"

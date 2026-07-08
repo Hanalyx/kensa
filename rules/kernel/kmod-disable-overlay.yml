@@ -1,0 +1,30 @@
+id: kmod-disable-overlay
+title: Ensure the overlay kernel module is not available
+description: >
+  The overlay (overlayfs) kernel module must be disabled unless it is required
+  (e.g. by a container runtime), reducing the kernel attack surface.
+rationale: >
+  Every loadable filesystem module is additional attack surface. If overlayfs is
+  not needed, disabling it removes a potential exploitation vector.
+severity: low
+category: kernel
+tags: [kernel-module, overlay, attack-surface, cis]
+
+references:
+  cis:
+    rhel8: { section: "1.1.1.6", level: "L2", type: "Automated" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: kernel_module_state
+      name: "overlay"
+      state: "disabled"
+    remediation:
+      mechanism: kernel_module_disable
+      name: "overlay"

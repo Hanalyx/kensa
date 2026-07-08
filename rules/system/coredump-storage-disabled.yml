@@ -15,6 +15,7 @@ tags: [coredump, security, memory, privacy]
 references:
   cis:
     rhel9: { section: "1.5.4", level: "L1", type: "Automated" }
+    rhel8: { section: "1.5.10", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230314"

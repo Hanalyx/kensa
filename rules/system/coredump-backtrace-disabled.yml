@@ -11,6 +11,8 @@ category: system
 tags: [coredump, memory, information-disclosure]
 
 references:
+  cis:
+    rhel8: { section: "1.5.9", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230315"

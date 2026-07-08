@@ -1,0 +1,32 @@
+id: sysctl-net-ipv6-conf-default-forwarding
+title: Ensure net.ipv6.conf.default.forwarding is set to 0
+description: >
+  The kernel parameter net.ipv6.conf.default.forwarding must be 0 on hosts that
+  are not routers, so new interfaces do not forward ipv6 packets by default.
+rationale: >
+  Packet forwarding on a non-router host can bridge networks, bypass segmentation,
+  or relay attack traffic. The per-interface default must be disabled unless the
+  system is an authorized router.
+severity: medium
+category: network
+tags: [sysctl, networking, forwarding, hardening, cis]
+
+references:
+  cis:
+    rhel8: { section: "3.3.2.2", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: sysctl_value
+      key: net.ipv6.conf.default.forwarding
+      expected: "0"
+    remediation:
+      mechanism: sysctl_set
+      key: net.ipv6.conf.default.forwarding
+      value: "0"
