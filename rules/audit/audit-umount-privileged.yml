@@ -1,0 +1,45 @@
+id: audit-umount-privileged
+title: Audit privileged use of the umount command
+description: >
+  The audit system must record execution of the /usr/bin/umount command by
+  interactive users, so unmount operations are attributable.
+rationale: >
+  Unmounting a filesystem can be used to evade file integrity controls or hide
+  activity. Auditing execution of the umount binary preserves a record of who
+  performed it.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, umount, privileged, mount, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230424"
+      stig_id: "RHEL-08-030301"
+      severity: "CAT II"
+  nist_800_53: ["AU-12"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    # Key-agnostic; matches both the -S all exec form and a bare path/perm rule.
+    check:
+      method: command
+      run: |
+        if auditctl -l 2>/dev/null | grep -Eq -- 'path=/usr/bin/umount.*perm=x'; then
+          echo "OK: privileged use of /usr/bin/umount is audited"
+          exit 0
+        fi
+        echo "FAIL: no audit rule for '-F path=/usr/bin/umount -F perm=x'"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to a file under /etc/audit/rules.d/ then 'augenrules --load'
+        (reboot if auditd is immutable):
+          -a always,exit -F path=/usr/bin/umount -F perm=x -F auid>=1000 -F auid!=unset -k privileged-mount

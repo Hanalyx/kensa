@@ -1,0 +1,45 @@
+id: audit-sudoers-d-rhel8
+title: Audit changes to /etc/sudoers.d
+description: >
+  The audit system must record write and attribute changes to the /etc/sudoers.d
+  directory so that modifications to drop-in sudo policy files are attributable.
+rationale: >
+  Drop-in files under /etc/sudoers.d carry the same privilege weight as
+  /etc/sudoers; an unaudited change there can silently grant root-equivalent
+  access. Watching the directory preserves accountability.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, sudoers, identity, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230410"
+      stig_id: "RHEL-08-030172"
+      severity: "CAT II"
+  nist_800_53: ["AU-12", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    # Key-agnostic; auditctl normalises the trailing slash, so match either form.
+    check:
+      method: command
+      run: |
+        if auditctl -l 2>/dev/null | grep -Eq -- '-w[[:space:]]+/etc/sudoers\.d/?[[:space:]]+-p[[:space:]]+wa'; then
+          echo "OK: /etc/sudoers.d is watched for write/attribute changes"
+          exit 0
+        fi
+        echo "FAIL: no '-w /etc/sudoers.d -p wa' audit watch loaded"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to a file under /etc/audit/rules.d/ then 'augenrules --load'
+        (reboot if auditd is immutable):
+          -w /etc/sudoers.d -p wa -k identity
