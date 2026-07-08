@@ -13,6 +13,7 @@ tags: [firewalld, services, ports, manual, cis]
 references:
   cis:
     rhel8: { section: "4.1.7", level: "L1", type: "Manual" }
+    rhel10: { section: "4.1.7", level: "L1", type: "Manual" }
   nist_800_53: ["CM-7"]
 platforms:
   - family: rhel

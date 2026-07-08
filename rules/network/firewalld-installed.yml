@@ -13,6 +13,7 @@ tags: [firewalld, firewall, package, cis]
 references:
   cis:
     rhel8: { section: "4.1.1", level: "L1", type: "Automated" }
+    rhel10: { section: "4.1.1", level: "L1", type: "Automated" }
   nist_800_53: ["SC-7"]
 platforms:
   - family: rhel

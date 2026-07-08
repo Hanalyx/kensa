@@ -1,0 +1,27 @@
+id: audit-module-load-rhel10
+title: Audit kernel-module init/finit load (RHEL 10)
+description: >
+  On RHEL 10 the kernel-module audit controls are split per syscall and keyed
+  'kernel_modules'. Record use of the init_module,finit_module syscall(s) by interactive users.
+rationale: >
+  Loading, unloading, or querying kernel modules can alter kernel behavior or
+  attack surface; auditing provides attribution.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, kernel-modules, cis]
+references:
+  cis:
+    rhel10: { section: "6.3.3.32", level: "L2", type: "Automated" }
+  nist_800_53: ["AU-12"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F arch=b64 -S init_module,finit_module -F auid>=1000 -F auid!=unset -k kernel_modules"
+    remediation:
+      mechanism: manual
+      note: "Add -S init_module,finit_module (b64, auid>=1000, -k kernel_modules) audit rule to /etc/audit/rules.d/ and augenrules --load."

@@ -16,6 +16,8 @@ tags: [sudo, authentication, privilege-escalation]
 depends_on: [package-sudo-installed]
 
 references:
+  cis:
+    rhel10: { section: "5.2.5", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230272"

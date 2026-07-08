@@ -1,0 +1,30 @@
+id: audit-hostname-change-rhel10
+title: Audit sethostname/setdomainname (RHEL 10 syscall form)
+description: >
+  On RHEL 10 the system-locale audit controls use syscall rules. Record use of
+  the sethostname and setdomainname syscalls (both ABIs).
+rationale: >
+  Changes to the host/domain name affect system identity and network trust;
+  auditing the syscalls provides attribution.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, system-locale, hostname, cis]
+references:
+  cis:
+    rhel10: { section: "6.3.3.5", level: "L2", type: "Automated" }
+  nist_800_53: ["AU-12"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      checks:
+        - method: audit_rule_exists
+          rule: "-a always,exit -F arch=b64 -S sethostname,setdomainname -F key=system-locale"
+        - method: audit_rule_exists
+          rule: "-a always,exit -F arch=b32 -S sethostname,setdomainname -F key=system-locale"
+    remediation:
+      mechanism: manual
+      note: "Add the two sethostname/setdomainname audit rules (b64+b32, -k system-locale) to /etc/audit/rules.d/ and augenrules --load."
