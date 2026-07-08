@@ -20,8 +20,11 @@ references:
       vuln_id: V-258126
       severity: CAT II
     rhel8:
-      vuln_id: V-230273
-      severity: CAT II
+      - vuln_id: V-230273
+        severity: CAT II
+      - vuln_id: V-230275
+        stig_id: RHEL-08-010410
+        severity: CAT II
   nist_800_53:
   - IA-2(1)
   - IA-2(2)

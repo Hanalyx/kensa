@@ -1,0 +1,45 @@
+id: ipsec-crypto-policy
+title: Ensure Libreswan IPsec uses the system crypto policy
+description: >
+  If Libreswan (IPsec) is installed, /etc/ipsec.conf (or an included file) must
+  include /etc/crypto-policies/back-ends/libreswan.config so IPsec tunnels use
+  FIPS-approved algorithms.
+rationale: >
+  IPsec that does not inherit the system crypto policy may negotiate weak,
+  non-FIPS algorithms, undermining tunnel confidentiality and integrity.
+severity: high
+transactional: false
+category: system
+tags: [ipsec, libreswan, crypto-policy, fips, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-279930"
+      stig_id: "RHEL-08-010280"
+      severity: "CAT I"
+  nist_800_53: ["AC-17(2)"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q libreswan >/dev/null 2>&1 && [ ! -f /etc/ipsec.conf ]; then
+          echo "NOT APPLICABLE: Libreswan/IPsec not installed"
+          exit 0
+        fi
+        if grep -rhqE '^\s*include\s+/etc/crypto-policies/back-ends/libreswan\.config' \
+             /etc/ipsec.conf /etc/ipsec.d/*.conf 2>/dev/null; then
+          echo "OK: IPsec includes the system crypto policy back-end"
+          exit 0
+        fi
+        echo "FAIL: /etc/crypto-policies/back-ends/libreswan.config not included"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to /etc/ipsec.conf:
+          include /etc/crypto-policies/back-ends/libreswan.config

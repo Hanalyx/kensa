@@ -1,0 +1,48 @@
+id: faillock-selinux-context-legacy
+title: Ensure the faillock directory has the faillog_t SELinux context (RHEL 8.0-8.1)
+description: >
+  On RHEL 8.0-8.1, when a non-default pam_faillock tally directory is used it
+  must carry the faillog_t SELinux type. On RHEL 8.2+ this is superseded and the
+  control is not applicable.
+rationale: >
+  An incorrect SELinux label on the tally directory can prevent faillock from
+  recording failed attempts, defeating account lockout.
+severity: medium
+transactional: false
+category: access-control
+tags: [faillock, selinux, faillog_t, legacy, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-250316"
+      stig_id: "RHEL-08-020028"
+      severity: "CAT II"
+  nist_800_53: ["AC-7"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        minor=$(. /etc/os-release 2>/dev/null; echo "${VERSION_ID#*.}")
+        case "$minor" in
+          ''|*[!0-9]*) minor=99 ;;
+        esac
+        if [ "$minor" -ge 2 ] 2>/dev/null; then
+          echo "NOT APPLICABLE: RHEL 8.$minor (see faillock-selinux-context)"
+          exit 0
+        fi
+        command -v getenforce >/dev/null 2>&1 && [ "$(getenforce 2>/dev/null)" != "Disabled" ] || { echo "NOT APPLICABLE: SELinux disabled"; exit 0; }
+        dir=$(grep -hoE 'dir=[^ ]+' /etc/pam.d/password-auth 2>/dev/null | head -1 | cut -d= -f2)
+        dir=${dir:-/var/log/faillock}
+        ctx=$(ls -Zd "$dir" 2>/dev/null | grep -oE 'faillog_t')
+        if [ -n "$ctx" ]; then echo "OK: $dir has faillog_t context"; exit 0; fi
+        echo "FAIL: $dir does not have the faillog_t SELinux type"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        semanage fcontext -a -t faillog_t "<dir>(/.*)?" && restorecon -R -v <dir>

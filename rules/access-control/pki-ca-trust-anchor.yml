@@ -1,0 +1,48 @@
+id: pki-ca-trust-anchor
+title: Ensure a DoD PKI trust anchor is configured for certificate validation
+description: >
+  When PKI-based authentication is used, certificates must be validated to a DoD
+  root CA trust anchor (e.g. /etc/sssd/pki/sssd_auth_ca_db.pem for SSSD smart
+  card auth).
+rationale: >
+  Without a trusted CA anchor, certificate validation cannot establish that a
+  presented certificate was issued by an authorized authority.
+severity: medium
+transactional: false
+category: access-control
+tags: [pki, ca, trust-anchor, sssd, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230229"
+      stig_id: "RHEL-08-010090"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(2)"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Applies only where SSSD PKI/smart-card auth is configured.
+        if ! grep -rhqsE '^\s*(pam_cert_auth|certificate_verification)\s*=' \
+             /etc/sssd/sssd.conf /etc/sssd/conf.d/*.conf 2>/dev/null; then
+          echo "NOT APPLICABLE: SSSD PKI/smart-card authentication not configured"
+          exit 0
+        fi
+        ca=$(grep -rhsE '^\s*(pam_cert_db_path|ca_db)\s*=' /etc/sssd/sssd.conf /etc/sssd/conf.d/*.conf 2>/dev/null | sed -E 's/.*=\s*//' | head -1)
+        ca=${ca:-/etc/sssd/pki/sssd_auth_ca_db.pem}
+        if [ -s "$ca" ]; then
+          echo "OK: PKI trust anchor present at $ca"
+          exit 0
+        fi
+        echo "FAIL: PKI trust anchor $ca missing or empty"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Install the DoD root CA bundle at the SSSD ca_db path (default
+        /etc/sssd/pki/sssd_auth_ca_db.pem) and restart sssd.
