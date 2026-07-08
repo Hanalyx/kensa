@@ -1,0 +1,44 @@
+id: sssd-certmap
+title: Ensure SSSD maps certificates to user accounts (certmap)
+description: >
+  When certificate/PIV authentication is used via SSSD, a [certmap/...] section
+  must map the authenticated certificate identity to a user or group account.
+rationale: >
+  Without an identity mapping, a valid certificate cannot be tied to a specific
+  account, breaking accountability for PKI-based logon.
+severity: medium
+transactional: false
+category: access-control
+tags: [sssd, pki, certmap, identity, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230355"
+      stig_id: "RHEL-08-020090"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(2)"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf=$(ls /etc/sssd/sssd.conf /etc/sssd/conf.d/*.conf 2>/dev/null)
+        if [ -z "$conf" ]; then
+          echo "NOT APPLICABLE: SSSD not configured (no alternate MFA in use here)"
+          exit 0
+        fi
+        if grep -hqE '^\s*\[certmap/' $conf 2>/dev/null; then
+          echo "OK: SSSD certmap section present"
+          exit 0
+        fi
+        echo "FAIL: no [certmap/...] section in SSSD configuration"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add a [certmap/<domain>/<name>] section with matchrule/maprule to
+        /etc/sssd/sssd.conf, then restart sssd.

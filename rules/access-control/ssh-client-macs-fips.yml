@@ -1,0 +1,56 @@
+id: ssh-client-macs-fips
+title: Ensure the SSH client uses only FIPS-approved MACs
+description: >
+  The SSH client MACs in /etc/crypto-policies/back-ends/openssh.config must be
+  exactly the DoD/FIPS 140-3 approved set — the SHA-2 HMAC algorithms and their
+  ETM variants — with no weaker algorithm (e.g. hmac-sha1) present.
+rationale: >
+  A weak or non-approved MAC lets an attacker who can position themselves on the
+  network tamper with or forge SSH message integrity. Restricting the client to
+  FIPS-approved SHA-2 HMACs closes that avenue.
+severity: high
+transactional: false
+category: access-control
+tags: [ssh, client, macs, fips, crypto-policy, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-272482"
+      stig_id: "RHEL-08-010296"
+      severity: "CAT I"
+  nist_800_53: ["AC-17", "SC-13"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        cfg=/etc/crypto-policies/back-ends/openssh.config
+        approved="hmac-sha2-256,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-512-etm@openssh.com"
+        line=$(grep -iE '^[[:space:]]*MACs[[:space:]]' "$cfg" 2>/dev/null | awk '{print $2}' | tail -1)
+        if [ -z "$line" ]; then
+          echo "FAIL: no MACs line in $cfg"
+          exit 1
+        fi
+        got=$(printf '%s' "$line" | tr ',' '\n' | sort | paste -sd, -)
+        if [ "$got" = "$approved" ]; then
+          echo "OK: SSH client MACs are exactly the FIPS-approved set"
+          exit 0
+        fi
+        echo "FAIL: SSH client MACs are '$line' (expected only the FIPS-approved SHA-2 set)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        The client MACs are derived from the system crypto policy. Set the FIPS
+        policy and reinstall crypto-policies so the openssh back-end is
+        regenerated:
+          update-crypto-policies --set FIPS
+          dnf -y reinstall crypto-policies
+        (See rule crypto-policy-fips for the system-wide policy.)

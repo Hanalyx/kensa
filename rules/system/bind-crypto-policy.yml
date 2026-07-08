@@ -1,0 +1,45 @@
+id: bind-crypto-policy
+title: Ensure BIND uses the system crypto policy
+description: >
+  If the BIND name server is installed, /etc/named.conf must include
+  /etc/crypto-policies/back-ends/bind.config so DNSSEC and TLS use FIPS-approved
+  algorithms.
+rationale: >
+  A BIND server that does not inherit the system crypto policy may use weak,
+  non-FIPS algorithms for DNSSEC signing or transport.
+severity: high
+transactional: false
+category: system
+tags: [bind, named, dns, crypto-policy, fips, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-279931"
+      stig_id: "RHEL-08-010275"
+      severity: "CAT I"
+  nist_800_53: ["SC-8"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! rpm -q bind >/dev/null 2>&1 && [ ! -f /etc/named.conf ]; then
+          echo "NOT APPLICABLE: BIND (named) not installed"
+          exit 0
+        fi
+        if grep -hqE '^\s*include\s+"?/etc/crypto-policies/back-ends/bind\.config"?' \
+             /etc/named.conf 2>/dev/null; then
+          echo "OK: named.conf includes the system crypto policy back-end"
+          exit 0
+        fi
+        echo "FAIL: /etc/crypto-policies/back-ends/bind.config not included in named.conf"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to the options section of /etc/named.conf:
+          include "/etc/crypto-policies/back-ends/bind.config";

@@ -1,0 +1,54 @@
+id: cert-private-key-passphrase
+title: Ensure SSH/certificate private keys are protected by a passphrase
+description: >
+  Private keys used for authentication must be encrypted with a passphrase so a
+  stolen key file cannot be used on its own. This checks SSH private keys in the
+  standard locations for the unencrypted state.
+rationale: >
+  An unencrypted private key file, if exfiltrated, grants an attacker the
+  identity it certifies with no further barrier.
+severity: medium
+transactional: false
+category: access-control
+tags: [pki, private-key, passphrase, ssh, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230230"
+      stig_id: "RHEL-08-010100"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(2)"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        command -v ssh-keygen >/dev/null 2>&1 || { echo "NOT APPLICABLE: ssh-keygen unavailable"; exit 0; }
+        fail=0
+        # Candidate private-key files in the standard locations.
+        for k in /root/.ssh/id_* /home/*/.ssh/id_*; do
+          [ -f "$k" ] || continue
+          case "$k" in *.pub) continue ;; esac
+          # -P '' supplies an empty passphrase: succeeds (exit 0) ONLY if the key
+          # is unencrypted; an encrypted key rejects the empty passphrase (no prompt).
+          if ssh-keygen -y -P '' -f "$k" >/dev/null 2>&1; then
+            echo "FAIL: $k is an unencrypted private key"
+            fail=1
+          fi
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: no unencrypted private keys found in standard locations"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add a passphrase to each unencrypted key: ssh-keygen -p -f <keyfile>.
+        Note: SSH host keys (/etc/ssh/ssh_host_*_key) are intentionally
+        passphrase-less; scope enforcement to user/authentication keys per site
+        policy.

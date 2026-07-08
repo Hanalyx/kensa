@@ -1,0 +1,46 @@
+id: sssd-ocsp-cert-check
+title: Ensure SSSD performs OCSP certificate status checking for MFA
+description: >
+  When smart-card / certificate authentication is used via SSSD, certificate
+  status must be validated with OCSP (certificate_verification = ocsp_dgst=sha1
+  in the [sssd] section).
+rationale: >
+  Without revocation checking, a revoked or compromised certificate would still
+  be accepted for authentication.
+severity: medium
+transactional: false
+category: access-control
+tags: [sssd, pki, ocsp, mfa, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230274"
+      stig_id: "RHEL-08-010400"
+      severity: "CAT II"
+  nist_800_53: ["IA-2(6)"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf=$(ls /etc/sssd/sssd.conf /etc/sssd/conf.d/*.conf 2>/dev/null)
+        if [ -z "$conf" ]; then
+          echo "NOT APPLICABLE: SSSD not configured (no alternate MFA in use here)"
+          exit 0
+        fi
+        # Tolerate arbitrary whitespace around both '=' (e.g. 'ocsp_dgst = sha1').
+        if grep -hqE '^[[:space:]]*certificate_verification[[:space:]]*=.*ocsp_dgst[[:space:]]*=' $conf 2>/dev/null; then
+          echo "OK: SSSD OCSP certificate_verification configured"
+          exit 0
+        fi
+        echo "FAIL: certificate_verification with ocsp_dgst not set in [sssd]"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to the [sssd] section of /etc/sssd/sssd.conf then restart sssd:
+          certificate_verification = ocsp_dgst=sha1

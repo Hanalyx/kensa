@@ -1,0 +1,67 @@
+id: home-dir-files-group-membership
+title: Ensure home directory files are group-owned by a group of the home owner
+description: >
+  Every file and directory within a local interactive user's home directory must
+  be group-owned by a group that the home directory's owner is a member of
+  (primary or supplementary). Files group-owned by an unrelated group are a
+  finding unless documented.
+rationale: >
+  A home-directory file group-owned by a group the user does not belong to can
+  expose that file to an unintended set of accounts, or signal a misconfiguration
+  that breaks per-user isolation.
+severity: medium
+transactional: false
+category: access-control
+tags: [permissions, ownership, group, home-directory, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-244532"
+      stig_id: "RHEL-08-010741"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        tab=$(printf '\t')
+        while IFS=: read -r user _ uid _ _ home shell; do
+          [ "$uid" -ge 1000 ] 2>/dev/null || continue
+          [ "$uid" -lt 65534 ] 2>/dev/null || continue   # exclude nobody (home=/)
+          case "$shell" in */nologin|*/false|"") continue ;; esac
+          [ -d "$home" ] || continue
+          usergids=" $(id -G "$user" 2>/dev/null) "
+          # %G is the NUMERIC gid (matches id -G); %g would be the group NAME.
+          bad=$(find "$home" -xdev \( -type f -o -type d \) -printf "%G${tab}%p\n" 2>/dev/null \
+                | while IFS="$tab" read -r g p; do
+                    case "$usergids" in
+                      *" $g "*) : ;;
+                      *) echo "$p (gid $g)" ;;
+                    esac
+                  done | head -5)
+          if [ -n "$bad" ]; then
+            echo "FAIL: $home has files group-owned by a group $user is not in:"
+            echo "$bad"
+            fail=1
+          fi
+        done < /etc/passwd
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: home directory files are group-owned by a group of their owner"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        For each flagged file, set the group to one the home owner is a member of
+        (typically the user's primary group), or document the exception:
+          chgrp <group-user-is-member-of> <file>

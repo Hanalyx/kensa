@@ -1,0 +1,63 @@
+id: user-init-files-mode-0740
+title: Ensure local interactive user init files have mode 0740 or less permissive
+description: >
+  All local interactive user initialization files (.bashrc, .bash_profile,
+  .bash_logout, .profile, .cshrc, .tcshrc, .login, .kshrc) must have mode 0740 or
+  more restrictive — no group write/execute and no access for others.
+rationale: >
+  A user initialization file that is group- or world-writable (or executable by
+  others) can be altered to run attacker-controlled commands when the owner logs
+  in, enabling privilege escalation or persistence.
+severity: medium
+transactional: false
+category: access-control
+tags: [permissions, user-accounts, initialization-files, hardening, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230325"
+      stig_id: "RHEL-08-010770"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        while IFS=: read -r user _ uid _ _ home shell; do
+          [ "$uid" -ge 1000 ] 2>/dev/null || continue
+          [ "$uid" -lt 65534 ] 2>/dev/null || continue   # exclude nobody (home=/)
+          case "$shell" in */nologin|*/false|"") continue ;; esac
+          [ -d "$home" ] || continue
+          for f in "$home"/.bashrc "$home"/.bash_profile "$home"/.bash_logout \
+                   "$home"/.profile "$home"/.cshrc "$home"/.tcshrc \
+                   "$home"/.login "$home"/.kshrc; do
+            [ -f "$f" ] || continue
+            mode=$(stat -c '%a' "$f" 2>/dev/null)
+            [ -n "$mode" ] || continue
+            # More permissive than 0740 == any of group-w/x or any other bit set.
+            if [ "$(( 0$mode & 037 ))" -ne 0 ]; then
+              echo "FAIL: $f has mode $mode (must be 0740 or less permissive)"
+              fail=1
+            fi
+          done
+        done < /etc/passwd
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: all user init files are mode 0740 or more restrictive"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: file_permissions
+      find_paths: ["/home"]
+      find_type: "f"
+      find_args: "-maxdepth 2 \\( -name '.bashrc' -o -name '.bash_profile' -o -name '.bash_logout' -o -name '.profile' -o -name '.cshrc' -o -name '.tcshrc' -o -name '.login' -o -name '.kshrc' \\) -perm /037"
+      mode: "0740"

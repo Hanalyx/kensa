@@ -1,0 +1,58 @@
+id: home-dir-files-mode-0750
+title: Ensure files in interactive user home directories are mode 0750 or less permissive
+description: >
+  All non-hidden files and directories within local interactive user home
+  directories must have mode 0750 or more restrictive — no group write and no
+  access for others. (Hidden initialization files are covered by
+  user-init-files-mode-0740.)
+rationale: >
+  Group-writable or other-accessible files in a user's home can expose the user's
+  data to, or allow tampering by, other local accounts, undermining per-user
+  isolation.
+severity: medium
+transactional: false
+category: access-control
+tags: [permissions, user-accounts, home-directory, hardening, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-244531"
+      stig_id: "RHEL-08-010731"
+      severity: "CAT II"
+  nist_800_53: ["CM-6", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        while IFS=: read -r user _ uid _ _ home shell; do
+          [ "$uid" -ge 1000 ] 2>/dev/null || continue
+          [ "$uid" -lt 65534 ] 2>/dev/null || continue   # exclude nobody (home=/)
+          case "$shell" in */nologin|*/false|"") continue ;; esac
+          [ -d "$home" ] || continue
+          bad=$(find "$home" -xdev \( -type f -o -type d \) ! -name '.*' -perm /027 2>/dev/null | head -5)
+          if [ -n "$bad" ]; then
+            echo "FAIL: files more permissive than 0750 under $home:"
+            echo "$bad"
+            fail=1
+          fi
+        done < /etc/passwd
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: home directory files are mode 0750 or more restrictive"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: file_permissions
+      find_paths: ["/home"]
+      find_type: "f"
+      find_args: "-mindepth 2 ! -name '.*' -perm /027"
+      mode: "g-w,o-rwx"

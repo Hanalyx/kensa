@@ -1,0 +1,46 @@
+id: selinux-user-mapping
+title: Ensure non-privileged users are confined by SELinux user mapping
+description: >
+  Linux accounts must map to appropriate SELinux users (administrators to
+  staff_u/sysadm_u, non-administrators to user_u) so non-privileged users are
+  confined and cannot execute privileged functions.
+rationale: >
+  A regular account mapped to unconfined_u is not restricted by SELinux and can
+  perform privileged actions, defeating mandatory access control.
+severity: medium
+transactional: false
+category: access-control
+tags: [selinux, user-mapping, semanage, confinement, stig]
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-254520"
+      stig_id: "RHEL-08-040400"
+      severity: "CAT II"
+  nist_800_53: ["AC-6(10)"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        command -v semanage >/dev/null 2>&1 || { echo "NOT APPLICABLE: semanage not available"; exit 0; }
+        # The default __default__ login must not map ordinary users to unconfined_u.
+        def=$(semanage login -l 2>/dev/null | awk '$1=="__default__"{print $2}')
+        if [ -n "$def" ] && [ "$def" = "unconfined_u" ]; then
+          echo "FAIL: __default__ login maps to unconfined_u (non-privileged users unconfined)"
+          exit 1
+        fi
+        echo "OK: __default__ SELinux login is $def (review individual mappings against the authorized-user list)"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Map users to appropriate SELinux users, e.g.:
+          semanage login -a -s user_u <username>
+        and set a confined default if required:
+          semanage login -m -s user_u __default__
+        The authorized administrator list is site-defined.

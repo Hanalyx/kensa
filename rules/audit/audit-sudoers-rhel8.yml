@@ -1,0 +1,45 @@
+id: audit-sudoers-rhel8
+title: Audit changes to /etc/sudoers
+description: >
+  The audit system must record write and attribute changes to /etc/sudoers so
+  that modifications to the sudo privilege policy are attributable.
+rationale: >
+  /etc/sudoers grants elevated privilege; an unaudited change to it can silently
+  widen who can act as root. Watching it for write/attribute changes preserves
+  accountability.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, sudoers, identity, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230409"
+      stig_id: "RHEL-08-030171"
+      severity: "CAT II"
+  nist_800_53: ["AU-12", "AC-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    # Key-agnostic (the -k label is host-chosen; STIG requires the watch, not a key).
+    check:
+      method: command
+      run: |
+        if auditctl -l 2>/dev/null | grep -Eq -- '-w[[:space:]]+/etc/sudoers[[:space:]]+-p[[:space:]]+wa'; then
+          echo "OK: /etc/sudoers is watched for write/attribute changes"
+          exit 0
+        fi
+        echo "FAIL: no '-w /etc/sudoers -p wa' audit watch loaded"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add to a file under /etc/audit/rules.d/ then 'augenrules --load'
+        (reboot if auditd is immutable):
+          -w /etc/sudoers -p wa -k identity
