@@ -15,6 +15,7 @@ tags: [wireless, wifi, network, security]
 references:
   cis:
     rhel9:  { section: "3.1.2", level: "L1", type: "Automated" }
+    rhel8: { section: "3.1.2", level: "L1", type: "Automated" }
   stig:
     rhel8:
       vuln_id: "V-230506"
@@ -29,10 +30,22 @@ implementations:
   - default: true
     check:
       method: command
-      run: "nmcli radio wifi 2>/dev/null || echo 'disabled'"
+      run: |
+        # CIS: wireless interfaces must not be AVAILABLE. No wireless interface
+        # present == compliant (a radio toggle being "enabled" with no hardware
+        # is not a finding). If an interface exists, the radio must be disabled.
+        if [ -z "$(find /sys/class/net/*/wireless -maxdepth 0 2>/dev/null)" ]; then
+          echo "OK: no wireless interfaces present"
+          exit 0
+        fi
+        if [ "$(nmcli radio wifi 2>/dev/null)" = "disabled" ]; then
+          echo "OK: wireless interface present but radio disabled"
+          exit 0
+        fi
+        echo "FAIL: a wireless interface is present and its radio is enabled"
+        exit 1
       expected_exit: 0
-      expected_stdout: "disabled"
     remediation:
       mechanism: command_exec
       run: "nmcli radio all off"
-      unless: "nmcli radio wifi 2>/dev/null | grep -q disabled"
+      unless: "[ -z \"$(find /sys/class/net/*/wireless -maxdepth 0 2>/dev/null)\" ] || nmcli radio wifi 2>/dev/null | grep -q disabled"

@@ -20,7 +20,10 @@ references:
       - { section: "1.1.2.6.3", level: "L1", type: "Automated" }   # nosuid
       - { section: "1.1.2.6.4", level: "L1", type: "Automated" }   # noexec
     rhel10: { section: "1.1.2.6.2", level: "L1", type: "Automated" }
-    rhel8: { section: "1.1.2.6.2", level: "L1", type: "Automated" }
+    rhel8:
+      - { section: "1.1.2.6.2", level: "L1", type: "Automated" }   # nodev
+      - { section: "1.1.2.6.3", level: "L1", type: "Automated" }   # nosuid
+      - { section: "1.1.2.6.4", level: "L1", type: "Automated" }   # noexec
   stig:
     rhel8:                                                                   # one mount rule sets nodev+nosuid+noexec -> three STIG controls
       - { vuln_id: "V-230514", stig_id: "RHEL-08-040126", severity: "CAT II" }   # nodev
