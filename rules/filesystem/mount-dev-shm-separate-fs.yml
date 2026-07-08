@@ -16,6 +16,7 @@ tags: [mount, dev-shm, filesystem, hardening]
 references:
   cis:
     rhel9:  { section: "1.1.2.2.1", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.1.2.2.1", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "SC-5"]
 
 platforms:
@@ -26,7 +27,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: "findmnt --kernel /dev/shm >/dev/null 2>&1"
+      run: "findmnt --kernel /dev/shm -n -o FSTYPE 2>/dev/null | grep -qx tmpfs"
       expected_exit: 0
     remediation:
       mechanism: manual

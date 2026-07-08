@@ -1,0 +1,36 @@
+id: firewalld-services-ports-reviewed
+title: Ensure firewalld services and ports are configured per policy
+description: >
+  The services and ports allowed by firewalld must match the organization's
+  approved list — only required services/ports are open.
+rationale: >
+  Every open service or port is attack surface; unreviewed openings may expose
+  unauthorized or vulnerable services.
+severity: medium
+transactional: false
+category: network
+tags: [firewalld, services, ports, manual, cis]
+references:
+  cis:
+    rhel8: { section: "4.1.7", level: "L1", type: "Manual" }
+  nist_800_53: ["CM-7"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        command -v firewall-cmd >/dev/null 2>&1 || { echo "NOT APPLICABLE: firewalld not present"; exit 0; }
+        echo "MANUAL: review the allowed services/ports against the approved list:"
+        firewall-cmd --list-all-zones 2>/dev/null | grep -E 'services:|ports:' | head
+        # Detection-only surfacing; disposition requires the site's approved list.
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Compare firewall-cmd --list-services / --list-ports for each active zone
+        against the organization's approved services/ports list; remove any that
+        are not required.

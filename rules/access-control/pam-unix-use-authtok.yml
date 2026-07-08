@@ -14,11 +14,12 @@ references:
   cis:
     rhel9: { section: "5.3.3.4.4", level: "L1", type: "Automated" }
     rhel10: { section: "5.3.2.4.4", level: "L1", type: "Automated" }
+    rhel8: { section: "5.3.3.4.4", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
 
 platforms:
   - family: rhel
-    min_version: 9
+    min_version: 8
 
 implementations:
   - default: true

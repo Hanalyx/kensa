@@ -1,0 +1,41 @@
+id: gdm-xwayland-disabled
+title: Ensure GDM Xorg/Xwayland is configured
+description: >
+  If GNOME Display Manager is in use, X11/Xwayland forwarding and legacy X should
+  be constrained per site policy (WaylandEnable managed in
+  /etc/gdm/custom.conf). On a host without GDM the control is not applicable.
+rationale: >
+  Legacy X11/Xwayland exposes a broad, historically vulnerable display protocol;
+  where a graphical login is present it must be deliberately configured.
+severity: low
+transactional: false
+category: services
+tags: [gdm, gnome, xwayland, wayland, cis]
+references:
+  cis:
+    rhel8: { section: "1.8.7", level: "L2", type: "Automated" }
+  nist_800_53: ["CM-7"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # NA where GDM is not installed (headless server).
+        if ! rpm -q gdm >/dev/null 2>&1 && [ ! -f /etc/gdm/custom.conf ]; then
+          echo "NOT APPLICABLE: GDM not installed"
+          exit 0
+        fi
+        # WaylandEnable must not be forced false (which drops to Xorg) unless intended.
+        if grep -qiE '^\s*WaylandEnable\s*=\s*false' /etc/gdm/custom.conf 2>/dev/null; then
+          echo "FAIL: WaylandEnable=false forces legacy Xorg in /etc/gdm/custom.conf"
+          exit 1
+        fi
+        echo "OK: GDM does not force legacy Xorg (Wayland default retained)"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Remove or set WaylandEnable=true in /etc/gdm/custom.conf per site policy."

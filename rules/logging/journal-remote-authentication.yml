@@ -1,0 +1,44 @@
+id: journal-remote-authentication
+title: Ensure systemd-journal-remote authentication is configured
+description: >
+  If systemd-journal-remote is used to receive logs over the network, it must be
+  configured with TLS server key/certificate/trust-anchor so remote log sources
+  are authenticated. Not applicable where journal-remote is not installed.
+rationale: >
+  Unauthenticated remote log ingestion allows spoofed or tampered log data to
+  enter the journal, undermining the integrity of the audit trail.
+severity: medium
+transactional: false
+category: logging
+tags: [journald, journal-remote, tls, authentication, cis]
+references:
+  cis:
+    rhel8: { section: "6.2.1.2.2", level: "L1", type: "Manual" }
+  nist_800_53: ["AU-9", "SC-8"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf=/etc/systemd/journal-remote.conf
+        if ! rpm -q systemd-journal-remote >/dev/null 2>&1 && [ ! -f "$conf" ]; then
+          echo "NOT APPLICABLE: systemd-journal-remote not installed"
+          exit 0
+        fi
+        if grep -qE '^\s*ServerKeyFile\s*=' "$conf" 2>/dev/null \
+           && grep -qE '^\s*ServerCertificateFile\s*=' "$conf" 2>/dev/null \
+           && grep -qE '^\s*TrustedCertificateFile\s*=' "$conf" 2>/dev/null; then
+          echo "OK: journal-remote TLS key/cert/trust-anchor configured"
+          exit 0
+        fi
+        echo "FAIL: journal-remote TLS authentication (ServerKeyFile/ServerCertificateFile/TrustedCertificateFile) not fully configured"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Set ServerKeyFile, ServerCertificateFile, and TrustedCertificateFile in
+        /etc/systemd/journal-remote.conf and restart systemd-journal-remote.
