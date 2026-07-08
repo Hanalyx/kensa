@@ -1,0 +1,56 @@
+id: ssh-client-ciphers-fips
+title: Ensure the SSH client uses only FIPS-approved ciphers
+description: >
+  The SSH client Ciphers in /etc/crypto-policies/back-ends/openssh.config must be
+  exactly the DoD/FIPS 140-3 approved set — the AES-GCM and AES-CTR algorithms —
+  with no weaker cipher (e.g. any *-cbc) present.
+rationale: >
+  CBC-mode and other non-approved ciphers are vulnerable to known attacks against
+  SSH confidentiality. Restricting the client to FIPS-approved AES-GCM/CTR
+  ciphers ensures session data stays protected.
+severity: high
+transactional: false
+category: access-control
+tags: [ssh, client, ciphers, fips, crypto-policy, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-272483"
+      stig_id: "RHEL-08-010297"
+      severity: "CAT I"
+  nist_800_53: ["AC-17", "SC-13"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        cfg=/etc/crypto-policies/back-ends/openssh.config
+        approved="aes128-ctr,aes128-gcm@openssh.com,aes256-ctr,aes256-gcm@openssh.com"
+        line=$(grep -iE '^[[:space:]]*Ciphers[[:space:]]' "$cfg" 2>/dev/null | awk '{print $2}' | tail -1)
+        if [ -z "$line" ]; then
+          echo "FAIL: no Ciphers line in $cfg"
+          exit 1
+        fi
+        got=$(printf '%s' "$line" | tr ',' '\n' | sort | paste -sd, -)
+        if [ "$got" = "$approved" ]; then
+          echo "OK: SSH client Ciphers are exactly the FIPS-approved set"
+          exit 0
+        fi
+        echo "FAIL: SSH client Ciphers are '$line' (expected only the FIPS-approved AES-GCM/CTR set)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        The client Ciphers are derived from the system crypto policy. Set the
+        FIPS policy and reinstall crypto-policies so the openssh back-end is
+        regenerated:
+          update-crypto-policies --set FIPS
+          dnf -y reinstall crypto-policies
+        (See rule crypto-policy-fips for the system-wide policy.)
