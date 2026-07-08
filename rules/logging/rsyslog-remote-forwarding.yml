@@ -15,6 +15,7 @@ tags: [rsyslog, logging, remote, forwarding]
 references:
   cis:
     rhel9:  { section: "6.2.3.6", level: "L1", type: "Manual" }
+    rhel8: { section: "6.2.2.6", level: "L1", type: "Manual" }
   nist_800_53: ["AU-4(1)", "AU-9(2)"]
 
 platforms:
