@@ -17,6 +17,7 @@ tags: [audit, auditd, configuration-drift]
 references:
   cis:
     rhel9:  { section: "6.3.3.21", level: "L2", type: "Manual" }
+    rhel8: { section: "6.3.3.22", level: "L2", type: "Manual" }
   nist_800_53: ["AU-2", "CM-6"]
 
 platforms:

@@ -14,7 +14,7 @@ tags: [aslr, security, memory, sysctl]
 
 references:
   cis:
-    rhel8:  { section: "1.5.3", level: "L1", type: "Automated" }
+    rhel8:  { section: "1.5.8", level: "L1", type: "Automated" }
     rhel9:  { section: "1.5.3", level: "L1", type: "Automated" }
     rhel10: { section: "1.5.3", level: "L2", type: "Automated" }
     ubuntu24: { section: "1.5.2", level: "L2", type: "Automated" }
