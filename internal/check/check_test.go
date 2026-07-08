@@ -899,3 +899,52 @@ func TestCheckMulti_AllFail(t *testing.T) {
 		t.Error("expected multi-check to fail when all children fail")
 	}
 }
+
+// TestCheckKernelModuleState_DisabledFormsAndNotFound locks the fix for the
+// disabled-module false-FAIL: the check must accept BOTH `install /bin/true`
+// and the CIS-standard `install /bin/false` no-op overrides, and must treat a
+// module that is absent from the kernel tree ("... not found ...") as "not
+// available" (compliant). Only a genuinely loadable module (insmod lines) fails.
+func TestCheckKernelModuleState_DisabledFormsAndNotFound(t *testing.T) {
+	mod := "atm"
+	lsmod := "lsmod 2>/dev/null | grep -qw '" + mod + "'" // exit!=0 => not loaded
+	depends := "modprobe -n --show-depends '" + mod + "' 2>&1"
+	chk := api.Check{Method: "kernel_module_state", Params: api.Params{"name": mod, "state": "disabled"}}
+
+	cases := []struct {
+		name   string
+		stdout string
+		want   bool
+	}{
+		{"install-bin-true", "install /bin/true", true},
+		{"install-bin-false", "install /bin/false", true}, // CIS-standard form; was a false-FAIL
+		{"module-not-found", "modprobe: FATAL: Module atm not found in directory /lib/modules/x", true},
+		{"loadable", "insmod /lib/modules/x/kernel/net/atm/atm.ko.xz", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+				lsmod:   result(1, ""), // not currently loaded
+				depends: result(0, c.stdout),
+			}}
+			passed, detail, err := runForTest(context.Background(), ft, chk)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if passed != c.want {
+				t.Errorf("%s: passed=%v want=%v (detail: %s)", c.name, passed, c.want, detail)
+			}
+		})
+	}
+
+	// A loaded module always fails regardless of modprobe output.
+	t.Run("loaded", func(t *testing.T) {
+		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+			lsmod:   result(0, mod), // currently loaded
+			depends: result(0, "install /bin/false"),
+		}}
+		if passed, _, _ := runForTest(context.Background(), ft, chk); passed {
+			t.Errorf("a currently-loaded module must fail the disabled check")
+		}
+	})
+}

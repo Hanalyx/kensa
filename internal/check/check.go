@@ -1099,16 +1099,29 @@ func checkKernelModuleState(ctx context.Context, transport api.Transport, params
 		}
 		return true, fmt.Sprintf("kernel_module_state: %s is blacklisted and not loaded", name), nil
 	default: // "disabled"
-		// modprobe --dry-run exits 0 and prints "install /bin/true" when disabled.
-		cmd := fmt.Sprintf("modprobe -n --show-depends %s 2>&1 | grep -q 'install /bin/true'", shellQuote(name))
+		// A module is effectively "not available" when modprobe would not load
+		// it. `modprobe -n --show-depends <mod>` prints either:
+		//   - `install /bin/true` or `install /bin/false` — an install override
+		//     redirects the load to a no-op (both forms are used by CIS/STIG
+		//     hardening; this check must accept EITHER), or
+		//   - a "... not found ..." error — the module is absent from the kernel
+		//     tree and cannot be loaded at all, which satisfies "not available",
+		//   - `insmod /lib/modules/.../<mod>.ko` lines — the module IS loadable.
+		// Match in Go (not a shell `grep`) so both no-op forms and the not-found
+		// case are recognized and the logic is unit-testable.
+		cmd := fmt.Sprintf("modprobe -n --show-depends %s 2>&1", shellQuote(name))
 		res, err := transport.Run(ctx, cmd)
 		if err != nil {
 			return false, "", fmt.Errorf("check kernel_module_state: transport error: %w", err)
 		}
-		if res.ExitCode != 0 {
-			return false, fmt.Sprintf("kernel_module_state: module %s is not disabled (no install /bin/true in modprobe.d)", name), nil
+		out := res.Stdout
+		if strings.Contains(out, "install /bin/true") || strings.Contains(out, "install /bin/false") {
+			return true, fmt.Sprintf("kernel_module_state: %s is disabled (install no-op) and not loaded", name), nil
 		}
-		return true, fmt.Sprintf("kernel_module_state: %s is disabled and not loaded", name), nil
+		if strings.Contains(out, "not found") {
+			return true, fmt.Sprintf("kernel_module_state: %s is not available (module not present) and not loaded", name), nil
+		}
+		return false, fmt.Sprintf("kernel_module_state: module %s is loadable (no install /bin/true|/bin/false override)", name), nil
 	}
 }
 
