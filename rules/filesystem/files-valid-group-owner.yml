@@ -1,0 +1,42 @@
+id: files-valid-group-owner
+title: Ensure all local files and directories have a valid group owner
+description: >
+  All local files and directories must be group-owned by a group present in
+  /etc/group. Files with no valid group owner may be left behind by deleted
+  groups or improperly installed software and should be investigated.
+rationale: >
+  A file without a valid group owner (an orphaned GID) can be inadvertently
+  granted to a newly created group that reuses the GID, exposing its contents
+  to an unintended set of users.
+severity: medium
+transactional: false
+category: filesystem
+tags: [permissions, ownership, group, audit, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230327"
+      stig_id: "RHEL-08-010790"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "find / -xdev -nogroup 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Review files and directories without a valid group owner and assign an
+        appropriate group, or remove them if no longer needed:
+          find / -xdev -nogroup
+        For each result, either set a valid group:
+          chgrp <group> <file>
+        or delete the orphaned file after confirming it is not required.

@@ -1,0 +1,64 @@
+id: user-init-umask-077
+title: Ensure local interactive user init files set umask 077 or more restrictive
+description: >
+  No local interactive user initialization file (.bashrc, .bash_profile,
+  .profile, .cshrc, .tcshrc, .login, .kshrc) may set a umask value less
+  restrictive than 077. The compliant state relies on the system-wide 077
+  default rather than a weaker per-user override.
+rationale: >
+  A user init file that sets a permissive umask causes newly created files to be
+  group- or world-readable/writable, undermining the system default and exposing
+  user data to other local accounts.
+severity: medium
+transactional: false
+category: access-control
+tags: [umask, user-accounts, initialization-files, hardening, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230384"
+      stig_id: "RHEL-08-020352"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        files=$(find /home -maxdepth 2 -type f \( -name '.bashrc' -o -name '.bash_profile' \
+                  -o -name '.profile' -o -name '.cshrc' -o -name '.tcshrc' \
+                  -o -name '.login' -o -name '.kshrc' \) 2>/dev/null)
+        for hf in $files; do
+          val=$(grep -iE '^[[:space:]]*umask[[:space:]]+' "$hf" 2>/dev/null | awk '{print $2}' | tail -1)
+          [ -n "$val" ] || continue
+          case "$val" in
+            *[!0-7]*) echo "FAIL: $hf sets non-numeric umask '$val' (review)"; fail=1; continue ;;
+          esac
+          # The group+other digits are the last two octal positions; both must be
+          # 7 (fully masked) to be 077-or-more-restrictive. Portable string test —
+          # no base-N arithmetic (dash lacks $((8#..))).
+          last2=$(printf '%s' "$val" | sed 's/.*\(..\)$/\1/')
+          if [ "$last2" != "77" ]; then
+            echo "FAIL: $hf sets umask $val (less restrictive than 077)"
+            fail=1
+          fi
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: no user init file sets a umask less restrictive than 077"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Remove the umask line from the offending user initialization file so the
+        system-wide 077 default applies, or set it to 077 explicitly:
+          umask 077

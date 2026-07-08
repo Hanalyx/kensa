@@ -12,6 +12,11 @@ category: filesystem
 tags: [permissions, sticky-bit, world-writable, security]
 
 references:
+  stig:
+    rhel8:
+      vuln_id: "V-230243"
+      stig_id: "RHEL-08-010190"
+      severity: "CAT II"
   nist_800_53: ["AC-6", "CM-6"]
 
 platforms:

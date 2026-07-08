@@ -28,7 +28,6 @@ var deferredCheckCiteMismatches = map[string]string{
 	"audit-config-dir-group|rhel8|V-230401":        "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"audit-config-dir-owner|rhel8|V-230400":        "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"audit-log-dir-permissions|rhel8|V-230399":     "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
-	"coredump-restricted|rhel9|V-257812":           "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"ctrl-alt-del-disabled|rhel9|V-257784":         "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"gdm-dconf-database-current|rhel9|V-258028":    "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"gdm-removed|rhel8|V-230553":                   "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",

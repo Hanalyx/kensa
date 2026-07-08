@@ -1,0 +1,39 @@
+id: firewalld-nftables-backend
+title: Ensure firewalld uses the nftables backend
+description: >
+  The firewalld FirewallBackend must be set to nftables so the firewall can
+  apply connection rate-limiting and other protections against denial-of-service
+  floods.
+rationale: >
+  The nftables backend supports the rate-limiting primitives firewalld relies on
+  to limit the effects of a denial-of-service attack. The legacy iptables backend
+  does not provide equivalent protection.
+severity: medium
+category: network
+tags: [firewalld, nftables, dos, hardening, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230525"
+      stig_id: "RHEL-08-040150"
+      severity: "CAT II"
+  nist_800_53: ["SC-5"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "grep -qiE '^\\s*FirewallBackend\\s*=\\s*nftables' /etc/firewalld/firewalld.conf"
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/firewalld/firewalld.conf"
+      key: "FirewallBackend"
+      value: "nftables"
+      separator: "="
+      restart: "firewalld"
