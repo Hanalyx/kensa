@@ -1,0 +1,67 @@
+id: user-init-path-safe
+title: Ensure executable search paths in user init files resolve to system or home
+description: >
+  Executable search-path (PATH) statements in local interactive user
+  initialization files must reference only the system default directories or the
+  user's own home directory. A current-directory element, an empty element, or an
+  absolute directory outside the standard system prefixes and the home directory
+  is a finding.
+rationale: >
+  A PATH that includes the current directory, an empty element (equivalent to the
+  current directory), or an attacker-writable directory lets a malicious binary be
+  executed in place of a trusted command when the user runs it, enabling
+  privilege escalation.
+severity: medium
+transactional: false
+category: access-control
+tags: [path, user-accounts, initialization-files, hardening, stig]
+
+references:
+  stig:
+    rhel8:
+      vuln_id: "V-230317"
+      stig_id: "RHEL-08-010690"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        files=$(find /home -maxdepth 2 -type f -name '.*' 2>/dev/null)
+        for hf in $files; do
+          # PATH assignments (PATH=... or export PATH=...), value only.
+          vals=$(grep -iE '(^|[[:space:]])PATH=' "$hf" 2>/dev/null \
+                 | sed -E 's/.*[Pp][Aa][Tt][Hh]=//; s/["'"'"']//g')
+          [ -n "$vals" ] || continue
+          printf '%s\n' "$vals" | tr ':' '\n' | while IFS= read -r elem; do
+            case "$elem" in
+              ''|'.'|'./'*) echo "FAIL: $hf PATH has current-dir/empty element"; exit 3 ;;
+              '$PATH'|'${PATH}'|'$HOME'*|'${HOME}'*|'~'*) : ;;   # safe references
+              /usr/*|/bin*|/sbin*|/opt/*|/usr/local/*) : ;;      # system defaults
+              /home/*) : ;;                                       # a home directory
+              '$'*) : ;;                                          # other variable ref — defer to review
+              /*) echo "FAIL: $hf PATH references non-standard dir '$elem'"; exit 3 ;;
+            esac
+          done || fail=1
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: user init PATH statements resolve to system defaults or home"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Edit the offending user initialization file so PATH appends only the
+        user's home directory and the system defaults, e.g.:
+          PATH="$HOME/bin:$PATH"
+        Remove any current-directory ('.' or empty) element or absolute path
+        outside the standard system directories.

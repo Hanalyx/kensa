@@ -11,7 +11,7 @@
    "framework": "stig",
    "os": "rhel8",
    "total": 366,
-   "covered": 325,
+   "covered": 339,
    "drifted": 0
   },
   {
@@ -39,14 +39,14 @@
    "framework": "cis",
    "os": "rhel10",
    "total": 328,
-   "covered": 235,
+   "covered": 242,
    "drifted": 0
   },
   {
    "framework": "cis",
    "os": "rhel8",
    "total": 322,
-   "covered": 248,
+   "covered": 254,
    "drifted": 0
   },
   {
@@ -60,14 +60,14 @@
    "framework": "cis",
    "os": "ubuntu22",
    "total": 306,
-   "covered": 18,
+   "covered": 20,
    "drifted": 0
   },
   {
    "framework": "cis",
    "os": "ubuntu24",
    "total": 332,
-   "covered": 19,
+   "covered": 21,
    "drifted": 0
   }
  ]

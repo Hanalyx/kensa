@@ -28,6 +28,11 @@ references:
       level: L1
       type: Automated
     rhel10: { section: "7.1.12", level: "L1", type: "Automated" }
+  stig:
+    rhel8:
+      vuln_id: "V-230326"
+      stig_id: "RHEL-08-010780"
+      severity: "CAT II"
   nist_800_53:
   - CM-8
 platforms:
