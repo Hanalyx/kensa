@@ -26,17 +26,25 @@ implementations:
     check:
       method: command
       run: |
-        policy=$(update-crypto-policies --show 2>/dev/null)
-        case "$policy" in
-          FUTURE*|FIPS*)
-            echo "OK: $policy"
-            exit 0
-            ;;
+        # CIS: the system-wide crypto policy's MAC list must contain no 64-bit
+        # truncated MAC (e.g. UMAC-64). Audit the effective policy directly, not
+        # an sshd proxy (sshd can be hardened while the policy still allows a
+        # weak MAC).
+        pol=/etc/crypto-policies/state/CURRENT.pol
+        if [ -f "$pol" ]; then
+          if grep -iE '^[[:space:]]*mac[[:space:]]*=' "$pol" | grep -qiE '\-64([^0-9]|$)'; then
+            echo "FAIL: a 64-bit MAC is enabled in the system crypto policy ($pol)"
+            exit 1
+          fi
+          echo "OK: no 64-bit MACs in the system crypto policy"
+          exit 0
+        fi
+        # No CURRENT.pol: fall back to the named policy (FIPS/FUTURE carry no -64 MAC).
+        case "$(update-crypto-policies --show 2>/dev/null)" in
+          FUTURE*|FIPS*) echo "OK: named policy has no 64-bit MACs"; exit 0 ;;
         esac
-        # Check for weak MACs in SSH
-        sshd -T 2>/dev/null | grep -i '^macs' | grep -qiE 'hmac-sha1|umac-64' && exit 1
-        echo "OK: No weak MACs"
-        exit 0
+        echo "FAIL: cannot verify the system crypto policy MAC list"
+        exit 1
       expected_exit: 0
     remediation:
       mechanism: crypto_policy_subpolicy

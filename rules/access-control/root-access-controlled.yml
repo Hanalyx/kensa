@@ -27,20 +27,25 @@ implementations:
     check:
       method: command
       run: |
-        # Check that root login is restricted
-        # 1. SSH root login should be disabled
-        ssh_root=$(sshd -T 2>/dev/null | grep -i '^permitrootlogin' | awk '{print $2}')
-        if [ "$ssh_root" = "yes" ]; then
-          echo "FAIL: SSH permits root login"
-          exit 1
-        fi
-
-        # 2. Console root login should require securetty or be restricted
-        # On RHEL 9, pam_securetty is typically used
-
-        echo "OK: Root access is controlled (SSH root login: $ssh_root)"
-        exit 0
+        # CIS 5.4.2.4: the root account must have a usable password (P) or be
+        # locked (L) per `passwd -S root` — an account with no password (NP) is
+        # a finding. (SSH root-login restriction is a separate sshd control.)
+        status=$(passwd -S root 2>/dev/null | awk '{print $2}')
+        case "$status" in
+          P|L|LK|PS)
+            echo "OK: root account access controlled (passwd -S: $status)"
+            exit 0
+            ;;
+          "")
+            echo "FAIL: could not determine root account status (passwd -S root)"
+            exit 1
+            ;;
+          *)
+            echo "FAIL: root account status '$status' (must be P/password-set or L/locked, not NP)"
+            exit 1
+            ;;
+        esac
       expected_exit: 0
     remediation:
       mechanism: manual
-      note: "Disable SSH root login and configure pam_securetty for console access"
+      note: "Set a password for root (passwd root) or lock the account (passwd -l root) per site policy; an account with no password (NP) is a finding."
