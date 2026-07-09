@@ -1,0 +1,53 @@
+id: execshield-nx-enabled
+title: Ensure ExecShield (NX/no-execute memory protection) is enabled
+description: >
+  RHEL 10 must enable ExecShield so that no-execute (NX) memory protection is
+  active on every processor and is not disabled by a "noexec" kernel argument.
+rationale: >
+  NX marks memory regions such as the stack and heap non-executable, preventing
+  a broad class of buffer-overflow and code-injection attacks from executing
+  attacker-controlled data as code. A "noexec" kernel argument that disables NX,
+  or a processor without the nx flag, removes this protection.
+severity: medium
+transactional: false
+category: kernel
+tags: [kernel, execshield, nx, memory-protection, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281321"
+      stig_id: "RHEL-10-701190"
+      severity: "CAT II"
+  nist_800_53: ["SC-39", "SI-16"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # A processor without the nx flag → ExecShield unavailable.
+        if grep '^flags' /proc/cpuinfo 2>/dev/null | grep -qvE '([^[:alnum:]])nx([^[:alnum:]]|$)'; then
+          echo "FAIL: one or more processors do not expose the nx (ExecShield) flag"
+          exit 1
+        fi
+        # A noexec kernel argument disables NX.
+        if grubby --info=ALL 2>/dev/null | grep '^args' | grep -qE '([^[:alnum:]])noexec([^[:alnum:]]|$)'; then
+          echo "FAIL: a 'noexec' kernel argument is disabling NX/ExecShield"
+          exit 1
+        fi
+        echo "OK: ExecShield/NX is enabled on all processors and not disabled by a kernel argument"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        ExecShield/NX is enabled by default on RHEL 10. If a processor lacks the
+        nx flag, enable "Execute Disable Bit" / "NX" in the system firmware
+        (BIOS/UEFI). If a "noexec" kernel argument is present, remove it from the
+        boot loader configuration (e.g. via grubby --update-kernel=ALL
+        --remove-args="noexec") and reboot.
