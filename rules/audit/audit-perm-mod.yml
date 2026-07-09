@@ -25,6 +25,7 @@ references:
       level: L1
       type: Automated
   stig:
+    rhel10: { vuln_id: "V-281163", stig_id: "RHEL-10-500780", severity: "CAT II" }
     rhel9:
       vuln_id: V-258177
       stig_id: RHEL-09-654015
@@ -39,8 +40,9 @@ platforms:
 implementations:
 - default: true
   check:
-    method: audit_rule_exists
-    rule: -k perm_mod
+    method: command
+    run: "auditctl -l 2>/dev/null | grep -E '(-k|key=)perm_mod([[:space:]]|$)' | grep -q -- '-S [a-z0-9,]*chmod'"
+    expected_exit: 0
   remediation:
     mechanism: audit_rule_set
     rule: -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset
