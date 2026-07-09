@@ -13,6 +13,7 @@ tags: [user-accounts, home-directory, useradd]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281171", stig_id: "RHEL-10-600120", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258043"
       stig_id: "RHEL-09-411020"

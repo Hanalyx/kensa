@@ -16,6 +16,7 @@ tags: [users, uid, accountability, access-control]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281172", stig_id: "RHEL-10-600130", severity: "CAT II" }
     rhel9: { vuln_id: "V-258045", stig_id: "RHEL-09-411030", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230371"
