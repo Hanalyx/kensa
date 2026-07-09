@@ -12,6 +12,7 @@ category: audit
 tags: [audit, kernel-modules, cis]
 references:
   stig:
+    rhel10: { vuln_id: "V-281126", stig_id: "RHEL-10-500400", severity: "CAT II" }
   cis:
     rhel10: { section: "6.3.3.33", level: "L2", type: "Automated" }
   nist_800_53: ["AU-12"]
@@ -22,7 +23,7 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=unset -k kernel_modules"
+      rule: "-a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=unset"
     remediation:
       mechanism: manual
       note: "Add -S delete_module (b64, auid>=1000, -k kernel_modules) audit rule to /etc/audit/rules.d/ and augenrules --load."
