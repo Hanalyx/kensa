@@ -11,6 +11,7 @@ transactional: false
 category: audit
 tags: [audit, kernel-modules, cis]
 references:
+  stig:
   cis:
     rhel10: { section: "6.3.3.32", level: "L2", type: "Automated" }
   nist_800_53: ["AU-12"]

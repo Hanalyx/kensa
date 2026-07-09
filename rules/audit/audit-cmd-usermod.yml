@@ -18,6 +18,7 @@ references:
     rhel9: { section: "6.3.3.18", level: "L1", type: "Automated" }
     rhel10: { section: "6.3.3.30", level: "L2", type: "Automated" }
   stig:
+    rhel10: { vuln_id: "V-281146", stig_id: "RHEL-10-500600", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258209"
       stig_id: "RHEL-09-654175"
