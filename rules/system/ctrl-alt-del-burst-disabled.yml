@@ -12,6 +12,7 @@ tags: [systemd, ctrl-alt-del, availability]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281298", stig_id: "RHEL-10-700950", severity: "CAT I" }
     rhel8:
       vuln_id: "V-230531"
       stig_id: "RHEL-08-040172"
