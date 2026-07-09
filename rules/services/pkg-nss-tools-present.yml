@@ -14,6 +14,7 @@ tags:
 - nss
 references:
   stig:
+    rhel10: { vuln_id: "V-280953", stig_id: "RHEL-10-200510", severity: "CAT II" }
     rhel9:
       vuln_id: V-257840
       stig_id: RHEL-09-215085
