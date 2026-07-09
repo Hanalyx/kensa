@@ -36,12 +36,29 @@ platforms:
 implementations:
 - when: gdm
   check:
-    method: command
-    run: "# Check if smart card removal action is locked\nfound=0\nfor lockfile in /etc/dconf/db/local.d/locks/*; do\n  if\
-      \ [ -f \"$lockfile\" ] && grep -q \"/org/gnome/settings-daemon/peripherals/smartcard/removal-action\" \"$lockfile\"\
-      \ 2>/dev/null; then\n    found=1\n    break\n  fi\ndone\nif [ \"$found\" -eq 1 ]; then\n  echo \"OK: GDM smart card\
-      \ removal action is locked\"\n  exit 0\nfi\necho \"FAIL: GDM smart card removal action can be overridden\"\nexit 1\n"
-    expected_exit: 0
+    checks:
+    # V-258019: the removal-action VALUE must be 'lock-screen' (in a dconf db keyfile).
+    - method: command
+      run: |
+        if grep -rqE "^[[:space:]]*removal-action[[:space:]]*=[[:space:]]*'lock-screen'" /etc/dconf/db/*.d/ 2>/dev/null; then
+          echo "OK: removal-action set to 'lock-screen'"
+          exit 0
+        fi
+        echo "FAIL: removal-action not set to 'lock-screen'"
+        exit 1
+      expected_exit: 0
+    # V-258020: the setting must be LOCKED so users cannot override it.
+    - method: command
+      run: |
+        for lockfile in /etc/dconf/db/*.d/locks/*; do
+          if [ -f "$lockfile" ] && grep -q "/org/gnome/settings-daemon/peripherals/smartcard/removal-action" "$lockfile" 2>/dev/null; then
+            echo "OK: GDM smart card removal action is locked"
+            exit 0
+          fi
+        done
+        echo "FAIL: GDM smart card removal action can be overridden"
+        exit 1
+      expected_exit: 0
   remediation:
     mechanism: dconf_set
     schema: org/gnome/settings-daemon/peripherals/smartcard

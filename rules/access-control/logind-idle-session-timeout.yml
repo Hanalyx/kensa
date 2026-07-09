@@ -1,0 +1,47 @@
+id: logind-idle-session-timeout
+title: Ensure systemd-logind logs out idle sessions
+description: >
+  systemd-logind must terminate idle login sessions after 10 minutes or less
+  via StopIdleSessionSec in logind.conf. This is the logind-enforced timeout,
+  distinct from the TMOUT shell variable (see shell-timeout).
+rationale: >
+  A logind-enforced idle timeout terminates unattended sessions regardless of
+  the login shell, closing the gap left by shell-only TMOUT on non-interactive
+  or non-bash sessions.
+severity: medium
+transactional: false
+category: access-control
+tags: [logind, session, timeout, stig]
+
+references:
+  stig:
+    rhel9:
+      - { vuln_id: "V-258077", stig_id: "RHEL-09-412080", severity: "CAT II" }
+  nist_800_53: ["AC-11", "AC-12"]
+
+platforms:
+  - family: rhel
+    min_version: 9
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        val=$(systemd-analyze cat-config systemd/logind.conf 2>/dev/null |
+          grep -E '^[[:space:]]*StopIdleSessionSec[[:space:]]*=' | tail -1 |
+          sed 's/^[^=]*=[[:space:]]*//')
+        if [ -z "$val" ] || [ "$val" = "infinity" ]; then
+          echo "FAIL: StopIdleSessionSec not configured"
+          exit 1
+        fi
+        if [ "$val" -gt 0 ] 2>/dev/null && [ "$val" -le 600 ] 2>/dev/null; then
+          echo "OK: StopIdleSessionSec=$val"
+          exit 0
+        fi
+        echo "FAIL: StopIdleSessionSec=$val (must be 1..600)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Set StopIdleSessionSec=600 under [Login] in /etc/systemd/logind.conf (or a drop-in), then: systemctl restart systemd-logind."
