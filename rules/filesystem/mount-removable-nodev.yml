@@ -14,6 +14,7 @@ tags: [mount, removable-media, nodev, hardening]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257858", stig_id: "RHEL-09-231085", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230303"
       severity: "CAT II"

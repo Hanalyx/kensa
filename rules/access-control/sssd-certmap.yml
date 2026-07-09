@@ -12,6 +12,7 @@ category: access-control
 tags: [sssd, pki, certmap, identity, stig]
 references:
   stig:
+    rhel9: { vuln_id: "V-258132", stig_id: "RHEL-09-631015", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230355"
       stig_id: "RHEL-08-020090"

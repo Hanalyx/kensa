@@ -1,0 +1,26 @@
+id: sshd-service-active
+title: Ensure the SSH daemon is enabled and active
+description: >
+  The sshd service must be enabled so remote administrative access via SSH is
+  available and managed.
+rationale: >
+  If sshd is not running, secure remote administration is unavailable; the STIG
+  requires it active on a managed server.
+severity: medium
+transactional: false
+category: services
+tags: [ssh, sshd, service, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-257979", stig_id: "RHEL-09-255015", severity: "CAT II" }
+  nist_800_53: ["AC-17"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "systemctl is-active sshd 2>/dev/null | grep -q '^active$'"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "systemctl enable --now sshd"

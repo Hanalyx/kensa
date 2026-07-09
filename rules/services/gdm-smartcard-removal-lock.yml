@@ -21,9 +21,8 @@ conflicts_with:
 references:
   stig:
     rhel9:
-      vuln_id: V-258020
-      stig_id: RHEL-09-271050
-      severity: CAT II
+      - { vuln_id: "V-258020", stig_id: "RHEL-09-271050", severity: "CAT II" }
+      - { vuln_id: "V-258019", stig_id: "RHEL-09-271045", severity: "CAT II" }
     rhel8:
       vuln_id: V-230351
       stig_id: RHEL-08-020050

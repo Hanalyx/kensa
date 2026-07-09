@@ -35,6 +35,7 @@ references:
       level: L1
       type: Automated
   stig:
+    rhel9: { vuln_id: "V-258000", stig_id: "RHEL-09-255120", severity: "CAT II" }
     rhel8:
       vuln_id: V-230287
       stig_id: RHEL-08-010490

@@ -13,6 +13,7 @@ category: access-control
 tags: [pki, ca, trust-anchor, sssd, stig]
 references:
   stig:
+    rhel9: { vuln_id: "V-258131", stig_id: "RHEL-09-631010", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230229"
       stig_id: "RHEL-08-010090"

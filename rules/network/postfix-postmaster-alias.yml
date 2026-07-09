@@ -1,0 +1,26 @@
+id: postfix-postmaster-alias
+title: Ensure the postmaster alias is aliased to root
+description: >
+  /etc/aliases must alias postmaster to root so system/administrative mail
+  reaches the administrator.
+rationale: >
+  If postmaster mail is discarded or misrouted, security-relevant notifications
+  (cron failures, MTA bounces) may be missed.
+severity: medium
+transactional: false
+category: network
+tags: [postfix, aliases, mail, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-257953", stig_id: "RHEL-09-252060", severity: "CAT II" }
+  nist_800_53: ["AU-5", "SI-4"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "grep -qiE '^[[:space:]]*postmaster[[:space:]]*:[[:space:]]*root\\b' /etc/aliases 2>/dev/null"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Add 'postmaster: root' to /etc/aliases, then run newaliases."

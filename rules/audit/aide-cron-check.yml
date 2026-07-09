@@ -20,6 +20,8 @@ tags:
 depends_on:
 - aide-installed
 references:
+  stig:
+    rhel9: { vuln_id: "V-258135", stig_id: "RHEL-09-651015", severity: "CAT II" }
   cis:
     rhel9:
       section: 6.1.2

@@ -18,6 +18,8 @@ depends_on:
 conflicts_with:
 - gdm-removed
 references:
+  stig:
+    rhel9: { vuln_id: "V-258017", stig_id: "RHEL-09-271035", severity: "CAT II" }
   cis:
     rhel9:
       section: 1.8.9

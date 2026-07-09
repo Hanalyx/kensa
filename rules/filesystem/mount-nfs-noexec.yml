@@ -15,6 +15,7 @@ tags: [mount, nfs, noexec, network, security]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257855", stig_id: "RHEL-09-231070", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230306"
       severity: "CAT II"

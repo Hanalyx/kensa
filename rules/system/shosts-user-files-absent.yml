@@ -15,6 +15,7 @@ tags: [authentication, rsh, trust, attack-surface]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257956", stig_id: "RHEL-09-252075", severity: "CAT I" }
     rhel8:
       vuln_id: "V-230284"
       severity: "CAT I"

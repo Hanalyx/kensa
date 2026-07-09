@@ -13,6 +13,8 @@ category: services
 tags: [service, logging, journald, systemd]
 
 references:
+  stig:
+    rhel9: { vuln_id: "V-257783", stig_id: "RHEL-09-211040", severity: "CAT II" }
   cis:
     rhel9:  { section: "6.2.1.1", level: "L1", type: "Automated" }
   nist_800_53: ["AU-2", "AU-3", "AU-12"]

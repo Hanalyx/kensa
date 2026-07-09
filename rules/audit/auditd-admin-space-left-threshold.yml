@@ -1,0 +1,37 @@
+id: auditd-admin-space-left-threshold
+title: Ensure auditd admin_space_left threshold is configured
+description: >
+  /etc/audit/auditd.conf must set admin_space_left to at least 5% (or an absolute
+  value per policy) so the admin_space_left_action triggers with headroom.
+rationale: >
+  Without an adequate admin_space_left threshold, the audit partition can fill
+  before the configured action fires, risking loss of audit data.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, auditd, disk-space, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-258158", stig_id: "RHEL-09-653045", severity: "CAT II" }
+  nist_800_53: ["AU-5"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        v=$(grep -iE '^[[:space:]]*admin_space_left[[:space:]]*=' /etc/audit/auditd.conf 2>/dev/null | tail -1 | sed -E 's/.*=[[:space:]]*//; s/%.*//; s/[[:space:]]//g')
+        [ -n "$v" ] || { echo "FAIL: admin_space_left not set"; exit 1; }
+        # Percentage form: must be >=5. Absolute (large) values are accepted.
+        case "$v" in
+          *[!0-9]*) echo "FAIL: admin_space_left '$v' not numeric"; exit 1 ;;
+        esac
+        if [ "$v" -ge 5 ]; then echo "OK: admin_space_left=$v"; exit 0; fi
+        echo "FAIL: admin_space_left=$v (must be >=5%)"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/audit/auditd.conf"
+      key: "admin_space_left"
+      value: "5%"
+      separator: " = "

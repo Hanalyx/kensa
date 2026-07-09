@@ -1,0 +1,36 @@
+id: rpm-file-hash-verify
+title: Ensure cryptographic hashes of system files match vendor values
+description: >
+  System files installed by RPM must have cryptographic hashes matching the
+  vendor database (rpm -Va shows no unexpected '5' hash-mismatch on binaries).
+rationale: >
+  A changed hash on a packaged binary or library can indicate tampering or a
+  trojaned system file.
+severity: medium
+transactional: false
+category: system
+tags: [rpm, integrity, hash, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-257823", stig_id: "RHEL-09-214030", severity: "CAT II" }
+  nist_800_53: ["SI-7", "CM-6"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # rpm -Va flags file changes; '5' in col-3 = hash mismatch. Ignore config (c)
+        # and documentation, and missing files. Any hash-mismatch on a non-config
+        # file is a finding.
+        bad=$(rpm -Va --nomtime --nosize --nolinkto 2>/dev/null | awk '$1 ~ /^..5/ && $2 != "c" {print}' | head -5)
+        if [ -n "$bad" ]; then
+          echo "FAIL: system files with hash mismatch:"; echo "$bad"
+          exit 1
+        fi
+        echo "OK: no unexpected file-hash mismatches"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Investigate each rpm -Va hash mismatch; reinstall the affected package (dnf reinstall <pkg>) after confirming it is not an authorized change."

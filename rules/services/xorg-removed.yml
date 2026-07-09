@@ -17,6 +17,8 @@ tags:
 - attack-surface
 - server
 references:
+  stig:
+    rhel9: { vuln_id: "V-257837", stig_id: "RHEL-09-215070", severity: "CAT II" }
   cis:
     rhel9:
       section: 2.1.20

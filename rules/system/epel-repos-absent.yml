@@ -15,6 +15,7 @@ tags: [repository, package, supply-chain, attack-surface]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257830", stig_id: "RHEL-09-215035", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230492"
       stig_id: "RHEL-08-040010"
@@ -24,7 +25,6 @@ references:
 platforms:
   - family: rhel
     min_version: 8
-    max_version: 8
 
 implementations:
   - default: true

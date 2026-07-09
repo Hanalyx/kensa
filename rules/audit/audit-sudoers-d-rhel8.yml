@@ -14,6 +14,7 @@ tags: [audit, sudoers, identity, stig]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-258218", stig_id: "RHEL-09-654220", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230410"
       stig_id: "RHEL-08-030172"

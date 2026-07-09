@@ -15,6 +15,7 @@ tags: [vendor-support, patching, lifecycle]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257777", stig_id: "RHEL-09-211010", severity: "CAT I" }
     rhel8:
       vuln_id: "V-230221"
       severity: "CAT I"
@@ -23,7 +24,6 @@ references:
 platforms:
   - family: rhel
     min_version: 8
-    max_version: 8
 
 implementations:
   - default: true

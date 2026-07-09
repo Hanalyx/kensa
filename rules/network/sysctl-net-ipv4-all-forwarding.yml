@@ -21,6 +21,10 @@ references:
       vuln_id: "V-250317"
       stig_id: "RHEL-08-040259"
       severity: "CAT II"
+    rhel9:
+      vuln_id: "V-257970"
+      stig_id: "RHEL-09-253075"
+      severity: "CAT II"
   nist_800_53: ["CM-6"]
 
 platforms:

@@ -15,8 +15,8 @@ references:
   cis:
   stig:
     rhel9:
-      vuln_id: "V-257784"
-      severity: "CAT I"
+      - { vuln_id: "V-257784", stig_id: "", severity: "CAT I" }
+      - { vuln_id: "V-257785", stig_id: "RHEL-09-211050", severity: "CAT I" }
     ubuntu24:
       vuln_id: "V-270712"
       stig_id: "UBTU-24-300026"

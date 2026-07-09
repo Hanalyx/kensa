@@ -1,0 +1,31 @@
+id: mount-boot-nodev
+title: Ensure the nodev option is set on the /boot partition
+description: >
+  If /boot is a separate partition it must be mounted with nodev so device files
+  cannot be created there.
+rationale: >
+  Device files on /boot could be used to access block devices directly, bypassing
+  filesystem controls.
+severity: medium
+transactional: false
+category: filesystem
+tags: [mount, boot, nodev, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-257860", stig_id: "RHEL-09-231095", severity: "CAT II" }
+  nist_800_53: ["CM-6", "AC-6"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        findmnt --kernel /boot >/dev/null 2>&1 || { echo "NOT APPLICABLE: /boot not a separate mount"; exit 0; }
+        opts=$(findmnt --kernel -n -o OPTIONS /boot 2>/dev/null)
+        case ",$opts," in *,nodev,*) echo "OK: /boot has nodev"; exit 0 ;; esac
+        echo "FAIL: /boot missing nodev (opts: $opts)"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: mount_option_set
+      mount_point: "/boot"
+      options: ["nodev"]

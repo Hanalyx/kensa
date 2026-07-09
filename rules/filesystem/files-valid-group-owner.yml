@@ -15,6 +15,7 @@ tags: [permissions, ownership, group, audit, stig]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257930", stig_id: "RHEL-09-232250", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230327"
       stig_id: "RHEL-08-010790"

@@ -1,0 +1,33 @@
+id: gpgcheck-per-repo
+title: Ensure gpgcheck is enabled for all configured repositories
+description: >
+  Every repository defined under /etc/yum.repos.d/ must have gpgcheck=1 so
+  packages from each repo have their signatures verified.
+rationale: >
+  A repo with gpgcheck disabled can serve unsigned or tampered packages,
+  bypassing the supply-chain trust the global setting provides.
+severity: high
+transactional: false
+category: system
+tags: [dnf, gpg, repositories, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-257822", stig_id: "RHEL-09-214025", severity: "CAT I" }
+  nist_800_53: ["CM-5", "SI-7"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Any repo file with gpgcheck disabled (0/false/no) is a finding.
+        if grep -rniE '^[[:space:]]*gpgcheck[[:space:]]*=[[:space:]]*(0|false|no)\b' /etc/yum.repos.d/ 2>/dev/null; then
+          echo "FAIL: a repository disables gpgcheck"
+          exit 1
+        fi
+        echo "OK: no repository disables gpgcheck"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Set gpgcheck=1 in each /etc/yum.repos.d/*.repo stanza that has it disabled."
