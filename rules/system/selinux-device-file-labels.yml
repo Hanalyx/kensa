@@ -16,6 +16,7 @@ tags: [selinux, device-files, labels, mandatory-access-control]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281046", stig_id: "RHEL-10-400145", severity: "CAT II" }
     rhel9:
       vuln_id: "V-257932"
       stig_id: "RHEL-09-232260"
@@ -31,13 +32,20 @@ implementations:
     check:
       method: command
       run: |
-        # Check for unlabeled device files
-        unlabeled=$(find /dev -context "*unlabeled_t*" -type b -o -type c 2>/dev/null | head -5)
-        if [ -z "$unlabeled" ]; then
-          echo "OK: No unlabeled device files found"
+        # Mislabeled device files are those typed unlabeled_t or device_t.
+        # NOTE: the find type/context clauses MUST be grouped with \( \) — an
+        # ungrouped "-type b -o -type c -context X" binds as "(b) OR (c AND X)",
+        # matching every char device unconditionally.
+        # /dev/vmci legitimately requires device_t on VMware guests — the STIG
+        # explicitly excludes it, so it is not a finding.
+        bad=$(find /dev \( -type b -o -type c \) \
+                \( -context '*:unlabeled_t:*' -o -context '*:device_t:*' \) \
+                ! -name vmci 2>/dev/null | head -5)
+        if [ -z "$bad" ]; then
+          echo "OK: no mislabeled device files"
           exit 0
         fi
-        echo "FAIL: Unlabeled device files found: $unlabeled"
+        echo "FAIL: mislabeled device files: $bad"
         exit 1
       expected_exit: 0
     remediation:
