@@ -15,6 +15,7 @@ tags: [audit, mount, syscall, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281147", stig_id: "RHEL-10-500610", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230425"
       stig_id: "RHEL-08-030302"
