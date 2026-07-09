@@ -1,0 +1,43 @@
+id: chrony-maxpoll-configured
+title: Ensure chrony maxpoll is configured to 16 or less
+description: >
+  Each chrony time source must set maxpoll to 16 or less so the system compares
+  its clock against the authoritative source at least that often.
+rationale: >
+  A large maxpoll lets the local clock drift far from the authoritative time
+  source, undermining the accuracy of security-relevant timestamps.
+severity: medium
+transactional: false
+category: system
+tags: [chrony, time, ntp, stig]
+references:
+  stig:
+    rhel10: { vuln_id: "V-281336", stig_id: "RHEL-10-800040", severity: "CAT II" }
+  nist_800_53: ["AU-8"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Every 'server'/'pool' line must carry maxpoll <=16; a missing/large maxpoll is a finding.
+        conf=/etc/chrony.conf
+        [ -f "$conf" ] || { echo "FAIL: no chrony.conf"; exit 1; }
+        bad=0
+        while read -r mp; do
+          [ -n "$mp" ] && [ "$mp" -gt 16 ] 2>/dev/null && bad=1
+        done <<EOT
+        $(grep -E '^\s*(server|pool)\s' "$conf" 2>/dev/null | grep -oE 'maxpoll[[:space:]]+[0-9]+' | grep -oE '[0-9]+')
+        EOT
+        # also fail if any server/pool line lacks maxpoll
+        srv=$(grep -cE '^\s*(server|pool)\s' "$conf" 2>/dev/null)
+        mpc=$(grep -E '^\s*(server|pool)\s' "$conf" 2>/dev/null | grep -c 'maxpoll')
+        if [ "$bad" -eq 1 ] || [ "$srv" -ne "$mpc" ]; then echo "FAIL: a chrony source has maxpoll>16 or missing"; exit 1; fi
+        [ "$srv" -gt 0 ] && { echo "OK: all chrony sources have maxpoll<=16"; exit 0; }
+        echo "FAIL: no chrony sources configured"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Add 'maxpoll 16' (or less) to each server/pool line in /etc/chrony.conf and restart chronyd."
