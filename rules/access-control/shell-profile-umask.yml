@@ -30,10 +30,10 @@ implementations:
     check:
       method: command
       run: |
-        if grep -qE '^\s*umask\s+0?0?7[57]' /etc/profile 2>/dev/null; then
+        if grep -qE '^\s*umask\s+0?0?77' /etc/profile 2>/dev/null; then
           exit 0
         fi
-        if grep -rqE '^\s*umask\s+0?0?7[57]' /etc/profile.d/ 2>/dev/null; then
+        if grep -rqE '^\s*umask\s+0?0?77' /etc/profile.d/ 2>/dev/null; then
           exit 0
         fi
         exit 1

@@ -13,6 +13,7 @@ tags: [shell, bash, umask, permissions]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281080", stig_id: "RHEL-10-400315", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258072"
       stig_id: "RHEL-09-412055"
@@ -29,10 +30,10 @@ implementations:
       method: command
       run: |
         # Check /etc/bashrc and /etc/profile.d/*.sh for umask
-        if grep -qE '^\s*umask\s+0?0?7[57]' /etc/bashrc 2>/dev/null; then
+        if grep -qE '^\s*umask\s+0?0?77' /etc/bashrc 2>/dev/null; then
           exit 0
         fi
-        if grep -rqE '^\s*umask\s+0?0?7[57]' /etc/profile.d/ 2>/dev/null; then
+        if grep -rqE '^\s*umask\s+0?0?77' /etc/profile.d/ 2>/dev/null; then
           exit 0
         fi
         exit 1

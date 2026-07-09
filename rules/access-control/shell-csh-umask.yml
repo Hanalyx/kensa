@@ -29,10 +29,10 @@ implementations:
       method: command
       run: |
         # Check /etc/csh.cshrc and /etc/csh.login for umask
-        if grep -qE '^\s*umask\s+0?0?7[57]' /etc/csh.cshrc 2>/dev/null; then
+        if grep -qE '^\s*umask\s+0?0?77' /etc/csh.cshrc 2>/dev/null; then
           exit 0
         fi
-        if grep -qE '^\s*umask\s+0?0?7[57]' /etc/csh.login 2>/dev/null; then
+        if grep -qE '^\s*umask\s+0?0?77' /etc/csh.login 2>/dev/null; then
           exit 0
         fi
         exit 1
