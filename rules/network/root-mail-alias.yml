@@ -1,0 +1,55 @@
+id: root-mail-alias
+title: Ensure a mail alias is configured for the root account
+description: >
+  The root account must have a mail alias that redirects its mail to a
+  monitored interactive account, so that audit-processing-failure and other
+  system notifications sent to root reach a person.
+rationale: >
+  Many system and audit notifications are delivered to the local root mailbox,
+  which is rarely read directly. Without a root alias forwarding to a monitored
+  account, an audit processing failure or other critical alert can go unnoticed.
+severity: medium
+transactional: false
+category: network
+tags: [postfix, mail, alias, notification, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-280998"
+      stig_id: "RHEL-10-200691"
+      severity: "CAT II"
+  nist_800_53: ["AU-5"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Prefer the compiled alias database (what Postfix actually resolves).
+        if command -v postmap >/dev/null 2>&1 && [ -f /etc/aliases.db ]; then
+          if [ -n "$(postmap -q root hash:/etc/aliases 2>/dev/null)" ]; then
+            echo "OK: root is aliased to a monitored account"
+            exit 0
+          fi
+          echo "FAIL: no root alias in the compiled alias database (postmap -q root returned nothing)"
+          exit 1
+        fi
+        # Fall back to the source aliases file.
+        if [ -f /etc/aliases ] && grep -qiE '^[[:space:]]*root[[:space:]]*:[[:space:]]*[^[:space:]]' /etc/aliases; then
+          echo "OK: /etc/aliases defines a root mail alias"
+          exit 0
+        fi
+        echo "FAIL: no root mail alias configured (notifications to root will not reach a monitored account)"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add a root alias to /etc/aliases pointing at a monitored account, e.g.
+        "root: sysadmin@example.com" or a local ISSO account, then rebuild the
+        alias database with "newaliases".
