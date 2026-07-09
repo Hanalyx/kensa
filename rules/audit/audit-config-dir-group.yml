@@ -15,6 +15,7 @@ depends_on: [auditd-enabled]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281057", stig_id: "RHEL-10-400200", severity: "CAT II" }
     rhel9:
       vuln_id: "V-270176"
       severity: "CAT II"
