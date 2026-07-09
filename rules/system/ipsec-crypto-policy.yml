@@ -13,6 +13,7 @@ category: system
 tags: [ipsec, libreswan, crypto-policy, fips, stig]
 references:
   stig:
+    rhel10: { vuln_id: "V-281014", stig_id: "RHEL-10-300070", severity: "CAT I" }
     rhel9: { vuln_id: "V-258232", stig_id: "RHEL-09-671020", severity: "CAT I" }
     rhel8:
       vuln_id: "V-279930"
