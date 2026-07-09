@@ -1,0 +1,28 @@
+id: pkg-pkcs11-provider-present
+title: Ensure the pkcs11-provider package is installed
+description: >
+  The pkcs11-provider package must be installed to enable PKCS#11-based
+  cryptographic tokens (smart cards) for authentication.
+rationale: >
+  Smart-card (CAC/PIV) authentication relies on the PKCS#11 provider; without
+  it, multifactor authentication via hardware tokens cannot function.
+severity: medium
+transactional: false
+category: system
+tags: [package, smartcard, pkcs11, stig]
+references:
+  stig:
+    rhel10: { vuln_id: "V-281005", stig_id: "RHEL-10-200730", severity: "CAT II" }
+  nist_800_53: ["IA-2", "IA-5"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: pkcs11-provider
+      state: present
+    remediation:
+      mechanism: package_present
+      name: pkcs11-provider
