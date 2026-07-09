@@ -1,0 +1,54 @@
+id: cron-config-ownership
+title: Ensure cron configuration files are owned and group-owned by root
+description: >
+  All cron configuration files and directories under /etc (crontab and the
+  cron.d, cron.daily, cron.hourly, cron.weekly, cron.monthly, cron.deny, and
+  cron.allow entries) must be owned by root and group-owned by root.
+rationale: >
+  Cron runs its jobs as root. If a cron configuration file or directory is owned
+  or group-owned by a non-root account, that account could modify scheduled jobs
+  to execute arbitrary commands with root privileges.
+severity: medium
+transactional: false
+category: filesystem
+tags: [cron, permissions, ownership, stig]
+
+references:
+  stig:
+    rhel10:
+      - vuln_id: "V-281043"
+        stig_id: "RHEL-10-400130"
+        severity: "CAT II"
+      - vuln_id: "V-281044"
+        stig_id: "RHEL-10-400135"
+        severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        fail=0
+        for f in /etc/cron*; do
+          [ -e "$f" ] || continue
+          owner=$(stat -c '%U' "$f" 2>/dev/null)
+          group=$(stat -c '%G' "$f" 2>/dev/null)
+          if [ "$owner" != "root" ] || [ "$group" != "root" ]; then
+            echo "FAIL: $f is owned $owner:$group (must be root:root)"
+            fail=1
+          fi
+        done
+        if [ "$fail" -eq 0 ]; then
+          echo "OK: all /etc/cron* files are owned and group-owned by root"
+          exit 0
+        fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: chown root:root /etc/cron* 2>/dev/null || true
