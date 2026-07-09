@@ -16,6 +16,7 @@ conflicts_with: [ssh-crypto-policy]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281011", stig_id: "RHEL-10-300040", severity: "CAT I" }
     rhel9:
       vuln_id: "V-257989"
       stig_id: "RHEL-09-255065"
