@@ -16,6 +16,7 @@ tags: [tftp, service, security, hardening, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281363", stig_id: "RHEL-10-800310", severity: "CAT II" }
     rhel9: { vuln_id: "V-257835", stig_id: "RHEL-09-215060", severity: "CAT I" }
     rhel8:
       vuln_id: "V-230557"
