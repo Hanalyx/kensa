@@ -2,11 +2,11 @@ id: pam-sha512-rounds-system-auth
 title: Configure sufficient SHA-512 hashing rounds in system-auth
 description: >
   The pam_unix module in /etc/pam.d/system-auth must be configured
-  to use a sufficient number of SHA-512 hashing rounds (at least 5000)
+  to use a sufficient number of SHA-512 hashing rounds (at least 100000)
   to increase the computational cost of password cracking.
 rationale: >
   Using a low number of hashing rounds makes it easier for attackers to
-  crack password hashes offline. Configuring 5000 or more rounds
+  crack password hashes offline. Configuring 100000 or more rounds
   significantly increases the time required for brute-force attacks.
 severity: medium
 category: access-control
@@ -14,6 +14,7 @@ tags: [pam, password, sha512, hashing, system-auth]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281218", stig_id: "RHEL-10-600700", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258100"
       stig_id: "RHEL-09-611055"
@@ -30,10 +31,7 @@ implementations:
       method: command
       run: |
         rounds=$(grep -Po '(?<=rounds=)[0-9]+' /etc/pam.d/system-auth 2>/dev/null | head -1)
-        if [ -z "$rounds" ]; then
-          rounds=$(grep -Po '(?<=SHA_CRYPT_MIN_ROUNDS\s)[0-9]+' /etc/login.defs 2>/dev/null | head -1)
-        fi
-        [ -n "$rounds" ] && [ "$rounds" -ge 5000 ]
+        [ -n "$rounds" ] && [ "$rounds" -ge {{ shadow_crypt_min_rounds }} ]
       expected_exit: 0
     remediation:
       mechanism: config_set
