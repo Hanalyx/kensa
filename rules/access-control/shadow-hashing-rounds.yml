@@ -6,7 +6,7 @@ description: >
   the computational cost of password cracking.
 rationale: >
   A higher number of hashing rounds makes offline password cracking more
-  computationally expensive. Using fewer rounds than 5000 provides weaker
+  computationally expensive. Using fewer rounds than 100000 provides weaker
   protection against brute-force attacks on stolen password hashes.
 severity: medium
 category: access-control

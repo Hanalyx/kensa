@@ -113,8 +113,8 @@ func TestResolveTiers_OperatorOverridesEmbedded(t *testing.T) {
 	if got["pam_faillock_deny"] != "99" {
 		t.Errorf("CLI should win over embedded; got %q", got["pam_faillock_deny"])
 	}
-	// Untouched embedded keys still present.
-	if got["ssh_client_alive_interval"] != "900" {
-		t.Errorf("embedded ssh_client_alive_interval=900 should pass through; got %q", got["ssh_client_alive_interval"])
+	// Untouched embedded keys still present (STIG-leaning default is 600).
+	if got["ssh_client_alive_interval"] != "600" {
+		t.Errorf("embedded ssh_client_alive_interval=600 should pass through; got %q", got["ssh_client_alive_interval"])
 	}
 }

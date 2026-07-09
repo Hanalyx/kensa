@@ -43,9 +43,10 @@ variables:
   pam_faillock_unlock_time: 0
   login_defs_pass_max_days: 60
   login_defs_pass_min_days: 1
+  account_inactive_days: 35              # STIG (V-281175); CIS override to 45
   login_defs_pass_warn_age: 7
   login_defs_umask: "077"
-  shadow_crypt_min_rounds: 5000
+  shadow_crypt_min_rounds: 100000        # STIG rhel10 (V-281218/220); CIS/rhel8 override to 5000
   password_remember: 5
 
   # Login banner — displayed before authentication via /etc/issue and /etc/issue.net
@@ -60,7 +61,7 @@ variables:
   chrony_ntp_pool: "2.rhel.pool.ntp.org iburst"
 
   # SSH settings
-  ssh_client_alive_interval: 900
+  ssh_client_alive_interval: 600         # STIG (V-281296); CIS override to 900
   ssh_client_alive_count_max: 1
   ssh_max_auth_tries: 4
   ssh_max_sessions: 10
