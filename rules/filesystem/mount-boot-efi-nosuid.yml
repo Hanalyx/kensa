@@ -13,6 +13,7 @@ tags: [mount, boot-efi, nosuid, hardening]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281234", stig_id: "RHEL-10-700130", severity: "CAT II" }
     rhel9: { vuln_id: "V-257862", stig_id: "RHEL-09-231105", severity: "CAT II" }
     rhel8:
       vuln_id: "V-244530"
@@ -26,9 +27,14 @@ platforms:
 implementations:
   - default: true
     check:
-      method: mount_option
-      mount_point: "/boot/efi"
-      options: ["nosuid"]
+      method: command
+      run: |
+        [ -d /sys/firmware/efi ] || { echo "NOT APPLICABLE: system is BIOS (no EFI)"; exit 0; }
+        findmnt --kernel /boot/efi >/dev/null 2>&1 || { echo "NOT APPLICABLE: /boot/efi not mounted"; exit 0; }
+        opts=$(findmnt --kernel -n -o OPTIONS /boot/efi 2>/dev/null)
+        case ",$opts," in *,nosuid,*) echo "OK: /boot/efi has nosuid"; exit 0 ;; esac
+        echo "FAIL: /boot/efi missing nosuid (opts: $opts)"; exit 1
+      expected_exit: 0
     remediation:
       mechanism: mount_option_set
       mount_point: "/boot/efi"

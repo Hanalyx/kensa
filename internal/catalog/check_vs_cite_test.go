@@ -32,8 +32,6 @@ var deferredCheckCiteMismatches = map[string]string{
 	"gdm-dconf-database-current|rhel9|V-258028":    "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"gdm-removed|rhel8|V-230553":                   "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"gpgcheck-enabled|rhel9|V-257819":              "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
-	"mount-boot-efi-nosuid|rhel8|V-244530":         "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
-	"mount-boot-efi-nosuid|rhel9|V-257862":         "HEURISTIC FALSE-POSITIVE (triaged W5): V-257862 = \"prevent setuid/setgid execution on /boot/efi\"; the rule's `nosuid` mount_option on /boot/efi is exactly the enforcing mechanism. Same control+title as the allowlisted rhel8 V-244530; the heuristic doesn't equate nosuid with no-setuid/setgid.",
 	"mount-home-noexec|rhel8|V-230302":             "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"mount-home-nosuid|rhel8|V-230299":             "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"pam-faillock-audit|rhel8|V-230342":            "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
