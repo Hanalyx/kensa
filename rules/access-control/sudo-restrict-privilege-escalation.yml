@@ -16,6 +16,7 @@ depends_on: [package-sudo-installed]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281207", stig_id: "RHEL-10-600520", severity: "CAT II" }
     rhel8:
       vuln_id: "V-237641"
       severity: "CAT II"
@@ -31,7 +32,7 @@ implementations:
       method: command
       run: |
         # Check for overly broad sudo rules granting ALL=(ALL) ALL
-        result=$(grep -rE '^\s*[^#%].*ALL\s*=\s*\(ALL\)\s*ALL' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || true)
+        result=$(grep -rE '^\s*[^#%].*ALL\s*=\s*\(ALL(:ALL)?\)\s*ALL' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || true)
         if [ -n "$result" ]; then
           echo "FAIL: Overly broad sudo rules found:"
           echo "$result"

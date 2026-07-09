@@ -11,6 +11,8 @@ transactional: false
 category: logging
 tags: [journald, logging, systemd, cis]
 references:
+  stig:
+    rhel10: { vuln_id: "V-281096", stig_id: "RHEL-10-500000", severity: "CAT II" }
   cis:
     rhel8: { section: "6.2.1.1.1", level: "L1", type: "Automated" }
     rhel10: { section: "6.2.1.1", level: "L1", type: "Automated" }

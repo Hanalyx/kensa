@@ -29,6 +29,7 @@ references:
       type: Automated
     rhel10: { section: "7.1.12", level: "L1", type: "Automated" }
   stig:
+    rhel10: { vuln_id: "V-281075", stig_id: "RHEL-10-400290", severity: "CAT II" }
     rhel9: { vuln_id: "V-257931", stig_id: "RHEL-09-232255", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230326"
@@ -43,8 +44,7 @@ implementations:
 - default: true
   check:
     method: command
-    run: find / -xdev -nouser 2>/dev/null | head -1 | grep -q . && exit 1 || exit
-      0
+    run: "df --local -P 2>/dev/null | awk 'NR!=1{print $6}' | xargs -I{} find {} -xdev -nouser 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
     expected_exit: 0
   remediation:
     mechanism: manual
