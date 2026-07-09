@@ -13,6 +13,7 @@ tags: [fapolicyd, allow-by-exception, application-control]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-270180", stig_id: "RHEL-09-433016", severity: "CAT II" }
     rhel8:
       vuln_id: "V-244546"
       severity: "CAT II"

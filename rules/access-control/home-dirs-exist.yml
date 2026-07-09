@@ -16,6 +16,7 @@ tags: [home-directory, users, filesystem, account-management]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-258052", stig_id: "RHEL-09-411065", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230323"
       severity: "CAT II"

@@ -16,6 +16,7 @@ tags: [systemd, target, gui, attack-surface]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257781", stig_id: "RHEL-09-211030", severity: "CAT II" }
     rhel8:
       vuln_id: "V-251718"
       severity: "CAT II"

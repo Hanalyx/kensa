@@ -16,6 +16,7 @@ depends_on: [rsyslog-installed]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-258144", stig_id: "RHEL-09-652030", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230228"
       stig_id: "RHEL-08-010070"

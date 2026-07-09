@@ -33,6 +33,7 @@ var deferredCheckCiteMismatches = map[string]string{
 	"gdm-removed|rhel8|V-230553":                   "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"gpgcheck-enabled|rhel9|V-257819":              "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"mount-boot-efi-nosuid|rhel8|V-244530":         "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
+	"mount-boot-efi-nosuid|rhel9|V-257862":         "HEURISTIC FALSE-POSITIVE (triaged W5): V-257862 = \"prevent setuid/setgid execution on /boot/efi\"; the rule's `nosuid` mount_option on /boot/efi is exactly the enforcing mechanism. Same control+title as the allowlisted rhel8 V-244530; the heuristic doesn't equate nosuid with no-setuid/setgid.",
 	"mount-home-noexec|rhel8|V-230302":             "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"mount-home-nosuid|rhel8|V-230299":             "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"pam-faillock-audit|rhel8|V-230342":            "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
@@ -50,6 +51,8 @@ var deferredCheckCiteMismatches = map[string]string{
 	"pkg-usbguard-present|rhel8|V-244547":          "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"ssh-log-level|rhel9|V-257982":                 "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
 	"sshd-config-permissions|rhel9|V-257997":       "v0.7.3 item-4 heuristic seed: rule check target disjoint from cited control target; pending triage (real mis-cite or extractor false-positive)",
+	"sshd-config-permissions|rhel9|V-257998":       "HEURISTIC FALSE-POSITIVE (triaged W5): V-257998 = sshd config OWNED by root; the rule asserts owner=root (+group+mode) on sshd_config — same rule/check as the already-allowlisted V-257997 (255105 perms), grouped 255110.",
+	"xorg-removed|rhel9|V-257837":                  "HEURISTIC FALSE-POSITIVE (triaged W5): V-257837 (215070) STIG check is literally `dnf list --installed xorg-x11-server-common`; the rule's package_state xorg-x11-server* absent is exactly that. The heuristic doesn't equate the xorg package with the 'graphical display manager' title.",
 }
 
 // TestCheckVsCiteHeuristic enforces the check-vs-cite invariant for STIG-cited

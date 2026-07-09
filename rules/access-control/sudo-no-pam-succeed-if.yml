@@ -1,0 +1,30 @@
+id: sudo-no-pam-succeed-if
+title: Ensure pam_succeed_if is not used in the sudo PAM stack
+description: >
+  /etc/pam.d/sudo must not include pam_succeed_if, which can be used to bypass
+  the intended authentication for privilege escalation.
+rationale: >
+  A pam_succeed_if line in the sudo stack can silently grant sudo without the
+  expected checks, weakening privilege-escalation control.
+severity: medium
+transactional: false
+category: access-control
+tags: [sudo, pam, privilege-escalation, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-258118", stig_id: "RHEL-09-611145", severity: "CAT II" }
+  nist_800_53: ["AC-6"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if grep -qE '^[[:space:]]*[^#].*pam_succeed_if' /etc/pam.d/sudo 2>/dev/null; then
+          echo "FAIL: pam_succeed_if present in /etc/pam.d/sudo"; exit 1
+        fi
+        echo "OK: no pam_succeed_if in the sudo PAM stack"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Remove any pam_succeed_if line from /etc/pam.d/sudo."

@@ -13,6 +13,7 @@ tags: [grub, bootloader, authentication, physical-security]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257789", stig_id: "RHEL-09-212020", severity: "CAT I" }
     rhel8:
       - vuln_id: "V-244521"
         severity: "CAT II"

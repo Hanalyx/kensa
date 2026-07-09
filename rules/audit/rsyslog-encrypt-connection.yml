@@ -16,6 +16,9 @@ tags: [audit, rsyslog, encryption, tls, stig]
 
 references:
   stig:
+    rhel9:
+      - { vuln_id: "V-258147", stig_id: "RHEL-09-652045", severity: "CAT II" }
+      - { vuln_id: "V-258148", stig_id: "RHEL-09-652050", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230481"
       severity: "CAT II"

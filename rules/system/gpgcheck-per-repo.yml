@@ -1,0 +1,42 @@
+id: gpgcheck-per-repo
+title: Ensure gpgcheck is enabled for all configured repositories
+description: >
+  Every repository defined under /etc/yum.repos.d/ must have gpgcheck=1 so
+  packages from each repo have their signatures verified.
+rationale: >
+  A repo with gpgcheck disabled can serve unsigned or tampered packages,
+  bypassing the supply-chain trust the global setting provides.
+severity: high
+transactional: false
+category: system
+tags: [dnf, gpg, repositories, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-257822", stig_id: "RHEL-09-214025", severity: "CAT I" }
+  nist_800_53: ["CM-5", "SI-7"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # STIG V-257822: EVERY repo stanza must set gpgcheck=1. A stanza that
+        # sets it to 0/false/no OR omits it entirely is a finding (not just an
+        # explicit disable).
+        fail=0
+        for f in /etc/yum.repos.d/*.repo; do
+          [ -f "$f" ] || continue
+          out=$(awk '
+            function chk() { if (sect != "" && gc != 1) { print "  " file " [" sect "] gpgcheck not =1"; bad=1 } }
+            /^[[:space:]]*\[/ { chk(); sect=$0; gsub(/[][]/,"",sect); gc=0; next }
+            /^[[:space:]]*gpgcheck[[:space:]]*=[[:space:]]*1([[:space:]]|$)/ { gc=1 }
+            /^[[:space:]]*gpgcheck[[:space:]]*=[[:space:]]*(0|false|no)([[:space:]]|$)/ { gc=0 }
+            END { chk(); exit bad }
+          ' file="$f" "$f") || { echo "FAIL: repo stanzas missing gpgcheck=1:"; echo "$out"; fail=1; }
+        done
+        if [ "$fail" -eq 0 ]; then echo "OK: every repository stanza sets gpgcheck=1"; exit 0; fi
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Set gpgcheck=1 in each /etc/yum.repos.d/*.repo stanza that has it disabled."

@@ -1,0 +1,31 @@
+id: libuser-sha512
+title: Ensure libuser uses the SHA-512 crypt style
+description: >
+  /etc/libuser.conf must set crypt_style = sha512 so accounts created via the
+  libuser tooling store SHA-512 password hashes.
+rationale: >
+  A weaker libuser crypt_style would let some account-management paths write
+  non-FIPS password hashes.
+severity: medium
+transactional: false
+category: access-control
+tags: [libuser, hashing, sha512, stig]
+references:
+  stig:
+    rhel9: { vuln_id: "V-258116", stig_id: "RHEL-09-611135", severity: "CAT II" }
+  nist_800_53: ["IA-5(1)"]
+platforms: [{ family: rhel, min_version: 8 }]
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        [ -f /etc/libuser.conf ] || { echo "NOT APPLICABLE: libuser not installed"; exit 0; }
+        grep -qiE '^[[:space:]]*crypt_style[[:space:]]*=[[:space:]]*sha512' /etc/libuser.conf
+      expected_exit: 0
+    remediation:
+      mechanism: config_set
+      path: "/etc/libuser.conf"
+      key: "crypt_style"
+      value: "sha512"
+      separator: " = "

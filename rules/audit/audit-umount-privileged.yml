@@ -14,6 +14,7 @@ tags: [audit, umount, privileged, mount, stig]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-258180", stig_id: "RHEL-09-654030", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230424"
       stig_id: "RHEL-08-030301"

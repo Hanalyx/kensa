@@ -12,6 +12,7 @@ tags: [file-permissions, library-files, security]
 
 references:
   stig:
+    rhel9: { vuln_id: "V-257920", stig_id: "RHEL-09-232200", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230261"
       severity: "CAT II"
