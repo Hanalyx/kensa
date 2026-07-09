@@ -1,0 +1,27 @@
+id: audit-sudoers-write-rhel10
+title: Audit write/attribute changes to /etc/sudoers (RHEL 10)
+description: >
+  On RHEL 10, record write and attribute changes to /etc/sudoers via the syscall-form
+  audit rule (RHEL 10 deprecated the legacy -w watch form).
+rationale: >
+  Auditing changes to sudo privilege files supports detection of unauthorized
+  modification and forensic reconstruction.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, sudoers, stig]
+references:
+  stig:
+    rhel10: { vuln_id: "V-281154", stig_id: "RHEL-10-500680", severity: "CAT II" }
+  nist_800_53: ["AU-12", "AC-6"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: audit_rule_exists
+      rule: "-a always,exit -F path=/etc/sudoers -F perm=wa"
+    remediation:
+      mechanism: manual
+      note: "Add `-a always,exit -F arch=b64 -F path=/etc/sudoers -F perm=wa -k logins` (and the b32 form) to /etc/audit/rules.d/ and augenrules --load."
