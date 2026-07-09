@@ -12,6 +12,7 @@ tags: [filesystem, permissions, world-writable, ownership]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281045", stig_id: "RHEL-10-400140", severity: "CAT II" }
     rhel9: { vuln_id: "V-257928", stig_id: "RHEL-09-232240", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230318"

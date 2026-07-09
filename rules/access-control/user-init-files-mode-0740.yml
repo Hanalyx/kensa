@@ -15,6 +15,7 @@ tags: [permissions, user-accounts, initialization-files, hardening, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281064", stig_id: "RHEL-10-400235", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230325"
       stig_id: "RHEL-08-010770"
