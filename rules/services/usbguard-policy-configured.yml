@@ -1,0 +1,59 @@
+id: usbguard-policy-configured
+title: Ensure USBGuard has a rule policy configured
+description: >
+  USBGuard must have an active rule policy loaded so that unauthorized
+  USB peripherals are blocked before they can connect. A running daemon
+  with no configured rules provides no protection.
+rationale: >
+  USBGuard enforces protection only when a policy is present. An enabled
+  and active service that has no rules loaded ("usbguard list-rules"
+  returns nothing) blocks nothing, leaving the system exposed to BadUSB
+  and data-exfiltration attacks via unauthorized peripherals.
+severity: medium
+transactional: false
+category: services
+tags: [usbguard, usb, peripherals, policy, security]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-280964"
+      stig_id: "RHEL-10-200562"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "SI-3"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if command -v usbguard >/dev/null 2>&1; then
+          if usbguard list-rules 2>/dev/null | grep -qE '[^[:space:]]'; then
+            echo "OK: USBGuard has a rule policy configured"
+            exit 0
+          fi
+          echo "FAIL: USBGuard is installed but no rules are configured (usbguard list-rules is empty)"
+          exit 1
+        fi
+        # usbguard absent. The STIG exempts only a virtual machine with no USB
+        # peripherals attached; a physical host with no USB blocking is a finding.
+        if systemd-detect-virt -q 2>/dev/null; then
+          echo "NOT APPLICABLE: virtual machine without USBGuard (exempt unless USB peripherals are passed through)"
+          exit 0
+        fi
+        echo "FAIL: USBGuard is not installed; unauthorized USB peripherals are not being blocked"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Generate an initial USBGuard policy from the currently connected,
+        authorized devices and load it:
+          usbguard generate-policy > /etc/usbguard/rules.conf
+          chmod 0600 /etc/usbguard/rules.conf
+          systemctl restart usbguard
+        Review the generated rules before deploying to production.

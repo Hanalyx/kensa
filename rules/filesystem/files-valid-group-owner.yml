@@ -15,6 +15,7 @@ tags: [permissions, ownership, group, audit, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281074", stig_id: "RHEL-10-400285", severity: "CAT II" }
     rhel9: { vuln_id: "V-257930", stig_id: "RHEL-09-232250", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230327"
@@ -30,7 +31,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: "find / -xdev -nogroup 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
+      run: "df --local -P 2>/dev/null | awk 'NR!=1{print $6}' | xargs -I{} find {} -xdev -nogroup 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
       expected_exit: 0
     remediation:
       mechanism: manual
