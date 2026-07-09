@@ -16,6 +16,7 @@ tags: [umask, user-accounts, initialization-files, hardening, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281079", stig_id: "RHEL-10-400310", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230384"
       stig_id: "RHEL-08-020352"
@@ -32,9 +33,7 @@ implementations:
       method: command
       run: |
         fail=0
-        files=$(find /home -maxdepth 2 -type f \( -name '.bashrc' -o -name '.bash_profile' \
-                  -o -name '.profile' -o -name '.cshrc' -o -name '.tcshrc' \
-                  -o -name '.login' -o -name '.kshrc' \) 2>/dev/null)
+        files=$(find /home -maxdepth 2 -type f -name '.[^.]*' ! -name '.bash_history' 2>/dev/null)
         for hf in $files; do
           val=$(grep -iE '^[[:space:]]*umask[[:space:]]+' "$hf" 2>/dev/null | awk '{print $2}' | tail -1)
           [ -n "$val" ] || continue
