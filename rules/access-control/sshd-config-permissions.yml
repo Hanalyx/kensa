@@ -34,6 +34,10 @@ references:
   - MP-2
   - AC-6
   stig:
+    rhel10:
+      - { vuln_id: "V-281048", stig_id: "RHEL-10-400155", severity: "CAT II" }
+      - { vuln_id: "V-281047", stig_id: "RHEL-10-400150", severity: "CAT II" }
+      - { vuln_id: "V-281262", stig_id: "RHEL-10-700590", severity: "CAT II" }
     rhel9:
       - { vuln_id: "V-257997", stig_id: "RHEL-09-255105", severity: "CAT II" }
       - { vuln_id: "V-257998", stig_id: "RHEL-09-255110", severity: "CAT II" }

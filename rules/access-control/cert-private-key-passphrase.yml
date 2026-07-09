@@ -13,6 +13,7 @@ category: access-control
 tags: [pki, private-key, passphrase, ssh, stig]
 references:
   stig:
+    rhel10: { vuln_id: "V-281326", stig_id: "RHEL-10-701240", severity: "CAT II" }
     rhel9: { vuln_id: "V-258127", stig_id: "RHEL-09-611190", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230230"

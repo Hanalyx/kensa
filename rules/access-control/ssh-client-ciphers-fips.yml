@@ -15,6 +15,7 @@ tags: [ssh, client, ciphers, fips, crypto-policy, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281010", stig_id: "RHEL-10-300030", severity: "CAT I" }
     rhel9: { vuln_id: "V-270177", stig_id: "RHEL-09-255064", severity: "CAT I" }
     rhel8:
       vuln_id: "V-272483"

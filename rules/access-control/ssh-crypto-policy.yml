@@ -22,6 +22,8 @@ depends_on: [pkg-openssh-server-present]
 conflicts_with: [ssh-ciphers-fips, ssh-macs-fips, ssh-kex-fips]
 
 references:
+  stig:
+    rhel10: { vuln_id: "V-281016", stig_id: "RHEL-10-300090", severity: "CAT I" }
   cis:
     rhel8:  { section: "5.1.1", level: "L1", type: "Automated" }
     rhel9:  { section: "1.6.2", level: "L1", type: "Automated" }

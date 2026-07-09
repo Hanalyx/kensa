@@ -12,6 +12,7 @@ category: services
 tags: [ssh, sshd, service, stig]
 references:
   stig:
+    rhel10: { vuln_id: "V-281002", stig_id: "RHEL-10-200721", severity: "CAT II" }
     rhel9: { vuln_id: "V-257979", stig_id: "RHEL-09-255015", severity: "CAT II" }
   nist_800_53: ["AC-17"]
 platforms: [{ family: rhel, min_version: 8 }]
