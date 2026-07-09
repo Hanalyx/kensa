@@ -34,8 +34,13 @@ implementations:
 - default: true
   check:
     method: command
-    run: 'awk -F: ''{print $4}'' /etc/passwd | sort -u | while read gid; do getent
-      group "$gid" >/dev/null || exit 1; done; exit 0'
+    run: |
+      bad=""
+      for gid in $(awk -F: '{print $4}' /etc/passwd | sort -u); do
+        getent group "$gid" >/dev/null 2>&1 || bad="$bad $gid"
+      done
+      if [ -n "$bad" ]; then echo "FAIL: GIDs with no group:$bad"; exit 1; fi
+      echo "OK: all passwd primary GIDs resolve to a group"; exit 0
     expected_exit: 0
   remediation:
     mechanism: manual

@@ -15,6 +15,7 @@ tags: [mount, nfs, noexec, network, security]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281229", stig_id: "RHEL-10-700105", severity: "CAT II" }
     rhel9: { vuln_id: "V-257855", stig_id: "RHEL-09-231070", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230306"
@@ -30,13 +31,9 @@ implementations:
     check:
       method: command
       run: >
-        findmnt -t nfs,nfs4 -o TARGET,OPTIONS -n 2>/dev/null |
-        while read line; do
-          mp=$(echo "$line" | awk '{print $1}')
-          opts=$(echo "$line" | awk '{print $2}')
-          echo "$opts" | grep -q 'noexec' || { echo "FAIL: $mp missing noexec"; exit 1; }
-        done; exit 0
-      expected_exit: 0
+        grep -E '\snfs[0-9]?\s' /proc/mounts 2>/dev/null |
+        grep -v 'noexec' | head -1
+      expected_stdout: ""
     remediation:
       mechanism: manual
       note: >
