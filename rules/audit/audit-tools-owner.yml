@@ -19,6 +19,7 @@ references:
     ubuntu22: { section: "6.2.4.9", level: "L2", type: "Automated" }
     rhel8: { section: "6.3.4.9", level: "L2", type: "Automated" }
   stig:
+    rhel10: { vuln_id: "V-281077", stig_id: "RHEL-10-400300", severity: "CAT II" }
     rhel9: { vuln_id: "V-257924", stig_id: "RHEL-09-232220", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230473"
@@ -42,9 +43,9 @@ implementations:
   - default: true
     check:
       method: command
-      run: "find /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules -type f ! -user root 2>/dev/null | head -1"
+      run: "find /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/rsyslogd /sbin/augenrules -type f ! -user root 2>/dev/null | head -1"
       expected_exit: 0
       expected_stdout: ""
     remediation:
       mechanism: command_exec
-      run: "chown root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules"
+      run: "chown root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/rsyslogd /sbin/augenrules"
