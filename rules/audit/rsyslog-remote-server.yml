@@ -15,6 +15,7 @@ tags: [audit, rsyslog, remote, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-280985", stig_id: "RHEL-10-200642", severity: "CAT II" }
     rhel9: { vuln_id: "V-258149", stig_id: "RHEL-09-652055", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230479"

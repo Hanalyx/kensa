@@ -14,6 +14,7 @@ tags: [usbguard, audit, usb, security]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-280965", stig_id: "RHEL-10-200563", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258037"
       stig_id: "RHEL-09-291025"
