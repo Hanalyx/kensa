@@ -15,7 +15,6 @@ tags: [authentication, single-user, rescue, physical-security]
 references:
   cis:
   stig:
-    rhel10: { vuln_id: "V-281327", stig_id: "RHEL-10-701250", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258128"
       severity: "CAT II"

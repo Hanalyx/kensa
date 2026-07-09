@@ -16,7 +16,6 @@ tags: [selinux, device-files, labels, mandatory-access-control]
 
 references:
   stig:
-    rhel10: { vuln_id: "V-281046", stig_id: "RHEL-10-400145", severity: "CAT II" }
     rhel9:
       vuln_id: "V-257932"
       stig_id: "RHEL-09-232260"
