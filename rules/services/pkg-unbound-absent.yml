@@ -1,0 +1,25 @@
+id: pkg-unbound-absent
+title: Ensure the unbound package is not installed
+description: >
+  The unbound DNS resolver package must not be installed unless the system is operationally required to be a DNS server.
+rationale: >
+  An unnecessary DNS resolver daemon increases the attack surface and may serve unvalidated responses.
+severity: medium
+category: services
+tags: [package, dns]
+references:
+  stig:
+    rhel10: { vuln_id: "V-280948", stig_id: "RHEL-10-200060", severity: "CAT II" }
+  nist_800_53: ["CM-7"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: unbound
+      state: absent
+    remediation:
+      mechanism: package_absent
+      name: unbound

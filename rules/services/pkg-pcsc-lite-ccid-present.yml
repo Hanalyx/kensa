@@ -1,0 +1,25 @@
+id: pkg-pcsc-lite-ccid-present
+title: Ensure the pcsc-lite-ccid package is installed
+description: >
+  The pcsc-lite-ccid package must be installed to support CCID smart card readers used for multifactor authentication.
+rationale: >
+  Smart card (CAC/PIV) authentication requires the CCID driver; without it MFA via smart card cannot function.
+severity: medium
+category: services
+tags: [package, smartcard]
+references:
+  stig:
+    rhel10: { vuln_id: "V-280974", stig_id: "RHEL-10-200612", severity: "CAT II" }
+  nist_800_53: ["CM-7"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: pcsc-lite-ccid
+      state: present
+    remediation:
+      mechanism: package_present
+      name: pcsc-lite-ccid

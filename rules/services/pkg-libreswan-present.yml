@@ -1,0 +1,25 @@
+id: pkg-libreswan-present
+title: Ensure the libreswan package is installed
+description: >
+  The libreswan package must be installed to provide IPsec VPN capability for protecting data in transit.
+rationale: >
+  IPsec via libreswan provides the cryptographic tunnel required to protect the confidentiality and integrity of remote connections.
+severity: medium
+category: services
+tags: [package, ipsec]
+references:
+  stig:
+    rhel10: { vuln_id: "V-280996", stig_id: "RHEL-10-200680", severity: "CAT II" }
+  nist_800_53: ["CM-7"]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: package_state
+      name: libreswan
+      state: present
+    remediation:
+      mechanism: package_present
+      name: libreswan
