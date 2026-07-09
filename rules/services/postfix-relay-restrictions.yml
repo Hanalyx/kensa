@@ -15,6 +15,7 @@ tags: [postfix, mail, relay, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-280999", stig_id: "RHEL-10-200692", severity: "CAT II" }
     rhel9: { vuln_id: "V-257951", stig_id: "RHEL-09-252050", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230550"

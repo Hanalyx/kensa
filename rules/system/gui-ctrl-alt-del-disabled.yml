@@ -16,6 +16,7 @@ tags: [gdm, graphical, ctrl-alt-del, availability]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281286", stig_id: "RHEL-10-700830", severity: "CAT II" }
     rhel9: { vuln_id: "V-258031", stig_id: "RHEL-09-271105", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230530"

@@ -15,6 +15,7 @@ tags: [vendor-support, patching, lifecycle]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-282965", stig_id: "RHEL-10-001000", severity: "CAT I" }
     rhel9: { vuln_id: "V-257777", stig_id: "RHEL-09-211010", severity: "CAT I" }
     rhel8:
       vuln_id: "V-230221"

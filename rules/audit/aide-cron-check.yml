@@ -21,6 +21,7 @@ depends_on:
 - aide-installed
 references:
   stig:
+    rhel10: { vuln_id: "V-280980", stig_id: "RHEL-10-200633", severity: "CAT II" }
     rhel9: { vuln_id: "V-258135", stig_id: "RHEL-09-651015", severity: "CAT II" }
   cis:
     rhel9:

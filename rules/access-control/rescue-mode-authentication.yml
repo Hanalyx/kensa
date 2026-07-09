@@ -15,6 +15,7 @@ tags: [boot, rescue-mode, authentication, single-user]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281328", stig_id: "RHEL-10-701260", severity: "CAT II" }
     rhel9: { vuln_id: "V-258129", stig_id: "RHEL-09-611200", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230236"

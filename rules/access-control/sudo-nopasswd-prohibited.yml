@@ -16,6 +16,7 @@ tags: [sudo, authentication, privilege, nopasswd]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281211", stig_id: "RHEL-10-600560", severity: "CAT I" }
     rhel9: { vuln_id: "V-258106", stig_id: "RHEL-09-611085", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230271"

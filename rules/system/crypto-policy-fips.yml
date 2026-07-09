@@ -15,6 +15,7 @@ depends_on: [fips-mode-enabled]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281008", stig_id: "RHEL-10-300010", severity: "CAT I" }
     rhel9:
       - { vuln_id: "V-257994", stig_id: "", severity: "CAT I" }
       - { vuln_id: "V-258241", stig_id: "RHEL-09-215105", severity: "CAT I" }

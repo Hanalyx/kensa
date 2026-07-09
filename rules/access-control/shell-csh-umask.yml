@@ -12,6 +12,7 @@ tags: [shell, csh, umask, permissions]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281081", stig_id: "RHEL-10-400320", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258073"
       stig_id: "RHEL-09-412060"

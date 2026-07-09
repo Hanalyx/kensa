@@ -15,6 +15,7 @@ tags: [chrony, ntp, server, time]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-280960", stig_id: "RHEL-10-200542", severity: "CAT II" }
     rhel9: { vuln_id: "V-257946", stig_id: "RHEL-09-252025", severity: "CAT III" }
     rhel8:
       vuln_id: "V-230485"
