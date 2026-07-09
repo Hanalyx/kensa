@@ -15,6 +15,7 @@ tags: [network, promiscuous, eavesdropping, security]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281334", stig_id: "RHEL-10-800020", severity: "CAT II" }
     rhel9:
       vuln_id: "V-257941"
       stig_id: "RHEL-09-251040"
