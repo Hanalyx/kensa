@@ -16,6 +16,7 @@ tags: [dns, nameserver, redundancy, resolv.conf, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281338", stig_id: "RHEL-10-800060", severity: "CAT II" }
     rhel9: { vuln_id: "V-257948", stig_id: "RHEL-09-252035", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230316"

@@ -15,6 +15,7 @@ tags: [authentication, rsh, trust, attack-surface]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281272", stig_id: "RHEL-10-700690", severity: "CAT II" }
     rhel9: { vuln_id: "V-257956", stig_id: "RHEL-09-252075", severity: "CAT I" }
     rhel8:
       vuln_id: "V-230284"
@@ -29,8 +30,8 @@ implementations:
   - default: true
     check:
       method: command
-      run: "find /home /root -name .shosts 2>/dev/null | head -1"
+      run: "find / -name .shosts 2>/dev/null | head -1"
       expected_stdout: ""
     remediation:
       mechanism: command_exec
-      run: "find /home /root -name .shosts 2>/dev/null -exec rm -f {} +"
+      run: "find / -name .shosts 2>/dev/null -exec rm -f {} +"
