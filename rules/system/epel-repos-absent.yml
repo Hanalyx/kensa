@@ -2,7 +2,7 @@ id: epel-repos-absent
 title: Ensure EPEL repository is not configured
 description: >
   Extra Packages for Enterprise Linux (EPEL) repositories must not be
-  enabled on RHEL 8 systems. Only DoD-approved repositories should
+  configured (enabled OR disabled) on RHEL systems. Only DoD-approved repositories should
   be configured.
 rationale: >
   EPEL packages are community-maintained and not covered by Red Hat's
@@ -30,8 +30,16 @@ implementations:
   - default: true
     check:
       method: command
-      run: "dnf repolist enabled 2>/dev/null | grep -i epel || true"
-      expected_stdout: ""
+      run: |
+        # Any configured EPEL repo — enabled OR disabled — is a finding.
+        if dnf repolist --all 2>/dev/null | grep -qi epel; then
+          echo "FAIL: an EPEL repository is configured (repolist)"; exit 1
+        fi
+        if grep -riqE '(^\\[|baseurl|metalink).*epel' /etc/yum.repos.d/ 2>/dev/null; then
+          echo "FAIL: an EPEL repository is present in /etc/yum.repos.d/"; exit 1
+        fi
+        echo "OK: no EPEL repository configured"; exit 0
+      expected_exit: 0
     remediation:
       mechanism: command_exec
       run: "dnf config-manager --disable epel 2>/dev/null || true; find /etc/yum.repos.d/ -name '*epel*' -exec rm -f {} +"
