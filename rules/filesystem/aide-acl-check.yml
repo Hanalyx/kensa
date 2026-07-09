@@ -15,6 +15,7 @@ tags: [aide, file-integrity, acl, security]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-280981", stig_id: "RHEL-10-200634", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258138"
       stig_id: "RHEL-09-651030"

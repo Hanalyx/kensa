@@ -16,6 +16,7 @@ tags: [sssd, authentication, credentials, caching, security]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281331", stig_id: "RHEL-10-701290", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258133"
       stig_id: "RHEL-09-631020"

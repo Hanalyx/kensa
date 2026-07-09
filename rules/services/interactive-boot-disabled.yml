@@ -13,6 +13,7 @@ tags: [boot, systemd, security]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281300", stig_id: "RHEL-10-700980", severity: "CAT II" }
     rhel9:
       vuln_id: "V-257788"
       stig_id: "RHEL-09-212015"

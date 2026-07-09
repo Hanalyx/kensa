@@ -14,6 +14,7 @@ category: access-control
 tags: [pam, su, wheel, privilege-escalation, stig]
 references:
   stig:
+    rhel10: { vuln_id: "V-281205", stig_id: "RHEL-10-600500", severity: "CAT II" }
     rhel9: { vuln_id: "V-258088", stig_id: "RHEL-09-432035", severity: "CAT II" }
   nist_800_53: ["AC-6"]
 platforms:

@@ -12,6 +12,7 @@ category: access-control
 tags: [libuser, hashing, sha512, stig]
 references:
   stig:
+    rhel10: { vuln_id: "V-281223", stig_id: "RHEL-10-600750", severity: "CAT I" }
     rhel9: { vuln_id: "V-258116", stig_id: "RHEL-09-611135", severity: "CAT II" }
   nist_800_53: ["IA-5(1)"]
 platforms: [{ family: rhel, min_version: 8 }]

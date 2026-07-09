@@ -15,6 +15,7 @@ tags: [user-accounts, temporary, expiry, account-management]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-281173", stig_id: "RHEL-10-600140", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258047"
       stig_id: "RHEL-09-411040"
