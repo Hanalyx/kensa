@@ -1,0 +1,35 @@
+id: aide-sha512-hashing
+title: Ensure AIDE uses only SHA-512 hashing
+description: >
+  The AIDE file integrity tool must use SHA-512 (and no weaker algorithm such as
+  md5/sha1/tiger/whirlpool) for its checksums.
+rationale: >
+  Weak hash algorithms in the integrity baseline allow undetected tampering via
+  hash collisions.
+severity: medium
+transactional: false
+category: system
+tags: [aide, integrity, crypto, stig]
+references:
+  stig:
+    rhel10: { vuln_id: "V-280979", stig_id: "RHEL-10-200632", severity: "CAT II" }
+  nist_800_53: ["CM-6", "SI-7"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf=/etc/aide.conf
+        [ -f "$conf" ] || { echo "FAIL: no /etc/aide.conf"; exit 1; }
+        if grep -iE '^[^#]*\b(md5|sha1|sha224|sha256|sha384|rmd160|tiger|whirlpool|haval|crc32|gost)\b' "$conf" >/dev/null 2>&1; then
+          echo "FAIL: AIDE config references a non-SHA-512 hash"; exit 1
+        fi
+        if ! grep -iE '^[^#]*\bsha512\b' "$conf" >/dev/null 2>&1; then echo "FAIL: AIDE does not use sha512"; exit 1; fi
+        echo "OK: AIDE uses sha512 only"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Configure AIDE rules in /etc/aide.conf to use sha512 and remove md5/sha1/other weak hashes."

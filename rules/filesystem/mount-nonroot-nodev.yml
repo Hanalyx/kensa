@@ -1,0 +1,28 @@
+id: mount-nonroot-nodev
+title: Ensure nonroot local partitions are mounted with nodev
+description: >
+  All nonroot local partitions must be mounted with the "nodev" option so device
+  files cannot be interpreted from those filesystems.
+rationale: >
+  Device files on a data partition could be used to access system devices
+  outside normal controls.
+severity: medium
+transactional: false
+category: filesystem
+tags: [mount, nodev, stig]
+references:
+  stig:
+    rhel10: { vuln_id: "V-281248", stig_id: "RHEL-10-700200", severity: "CAT II" }
+  nist_800_53: ["CM-6", "AC-6"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "mount 2>/dev/null | grep -E '^/dev/\\S+ on /\\S' | grep -v ' on / ' | grep -v 'nodev' | head -1 | grep -q . && exit 1 || exit 0"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Add the nodev option to each nonroot local partition in /etc/fstab and remount."

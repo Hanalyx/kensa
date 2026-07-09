@@ -1,0 +1,28 @@
+id: wireless-adapters-disabled
+title: Ensure wireless network adapters are disabled
+description: >
+  Wireless network adapters must be disabled unless the interface is documented
+  and approved, to reduce the network attack surface.
+rationale: >
+  Unmanaged wireless interfaces provide an uncontrolled network path that can
+  bypass perimeter defences.
+severity: medium
+transactional: false
+category: network
+tags: [wireless, network, attack-surface, stig]
+references:
+  stig:
+    rhel10: { vuln_id: "V-281290", stig_id: "RHEL-10-700870", severity: "CAT II" }
+  nist_800_53: ["AC-18", "CM-7"]
+platforms:
+  - family: rhel
+    min_version: 10
+implementations:
+  - default: true
+    check:
+      method: command
+      run: 'nmcli -t -f TYPE,STATE device status 2>/dev/null | grep -E "^(wifi|wwan):" | grep -vE ":(unavailable|unmanaged)\$" | head -1 | grep -q . && exit 1 || exit 0'
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: "Disable/blacklist wireless adapters: nmcli radio all off; and blacklist the driver in /etc/modprobe.d/."
