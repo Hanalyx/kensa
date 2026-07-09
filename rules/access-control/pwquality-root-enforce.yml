@@ -18,6 +18,7 @@ references:
     rhel10: { section: "5.3.2.2.7", level: "L1", type: "Automated" }
     rhel8: { section: "5.3.3.2.7", level: "L1", type: "Automated" }
   stig:
+    rhel10: { vuln_id: "V-281193", stig_id: "RHEL-10-600405", severity: "CAT II" }
     rhel9:
       vuln_id: "V-258101"
       stig_id: "RHEL-09-611060"
@@ -32,7 +33,7 @@ implementations:
   - default: true
     check:
       method: command
-      run: 'grep -qE "^\s*enforce_for_root" /etc/security/pwquality.conf'
+      run: 'grep -rqsE "^\s*enforce_for_root" /etc/security/pwquality.conf /etc/security/pwquality.conf.d/ 2>/dev/null'
       expected_exit: 0
     remediation:
       mechanism: config_append
