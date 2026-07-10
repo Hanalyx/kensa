@@ -4,6 +4,51 @@ Items are ordered roughly by priority within each section. No commitment to sche
 
 ---
 
+## Code-quality & security review (2026-07-10)
+
+From a full stale/dead/unused/security audit at v0.7.4 (`go vet` + `staticcheck`
+incl. U1000 both 0 findings; `govulncheck` 0 reachable vulns).
+
+- **[SECURITY — HIGH, Red-class, FOUNDER-GATED] `file_content` and `file_absent`
+  interpolate owner/group/mode UNQUOTED into `chown`/`chmod` — same RCE class as
+  the #184 file_permissions fix.** `internal/handlers/filecontent/filecontent.go`
+  (Apply chown/chmod ~184/215/222; Rollback ~450/506/513) and
+  `internal/handlers/fileabsent/fileabsent.go` (~317/346/353) splice `spec`
+  (owner:group) and `mode` raw while only Path/SELinux go through `shellEscape`;
+  `decodeParams` applies no `valueguard`/quote. The sibling `filepermissions.go`
+  quotes them (`shellQuote(spec)`/`shellQuote(p.Mode)`) after #184 — these two
+  were missed by that sweep. On the default agent remediate path; reachable via a
+  rule or `--var` value in owner/group/mode. Shipped-corpus reachability is low
+  (only `issue-net-configured.yml`, static values). **Fix = mirror
+  filepermissions' shellQuote at every site in both handlers + a regression test
+  like `TestApply_OwnerModeInjectionQuoted`.** Touches handler Apply+Rollback and
+  is security-classified → founder FMA + two-human rollback review + real-host
+  atomicity test before merge. Corrects [[file-permissions-owner-injection]].
+- **[SECURITY — MED, gated] `config_append` legacy-sed rollback breakout.**
+  `configappend.go:330` wraps the sed program in literal single quotes and
+  `line` passes only `sedEscape` (does not escape `'`); a `'`-bearing line →
+  root exec. Gated: `rollbackLegacySed` only fires on a pre-state written by an
+  older binary (current Capture always writes prior_content). Fix: `shellEscape`
+  the whole program like every sibling handler.
+- **[DEAD code] `internal/bootguard` Snapshot/Capture/Restore path** is
+  production-dead (grub handlers restore via `ArmOneshot`/`ArmOneshotRemove`,
+  never Capture/Restore) — delete or wire. Plus the engine
+  `ServiceHealthValidator`/`ConfigSyntaxValidator` (`internal/engine/validators.go`)
+  and a cluster of unreferenced internal helpers (`redact.Value`, `varsub.Names`,
+  `shellcapture.ContentReadCmd`, the streaming-CSV writers, `text_scan.RenderScanResult`).
+- **[UNUSED feature] engine validator injection (`WithValidators`)** is wired
+  into `e.validate` but no production path constructs it — a post-apply
+  independent-validator capability that does nothing in shipped use. Decide:
+  expose (CLI/rule surface — this is the "post-apply rule validation" architecture
+  item already in the backlog) or remove.
+- **[STALE] `cmd/kensa/flags.go:118-125`** comment claims `ShortRule` "has no
+  active binding" but it IS bound (`main.go:1915`, history `--rule` filter).
+  Several `t.Skip` reasons reference hooks that now exist (`engine.WithValidators`,
+  the output `Writer` interface) — restate or enable. `helper.go:320` "phase-4"
+  label trips the no-planning-labels comment-lint rule.
+
+---
+
 ## Compliance coverage (W6 RHEL 10 STIG campaign, 2026-07-10)
 
 stig-rhel10 reached **97.2% (422/434)**. The residue is scoped, not arbitrary:
