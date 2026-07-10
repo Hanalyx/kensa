@@ -1,0 +1,44 @@
+id: user-init-no-world-writable
+title: Ensure local initialization files are not world-writable
+description: >
+  Local interactive user initialization files (the dotfiles under home
+  directories, e.g. .bashrc, .bash_profile) must not be world-writable, so that
+  they cannot be modified by other users to execute code as the file's owner.
+rationale: >
+  A world-writable initialization file can be edited by any user to insert
+  commands that run with the privileges of the account whose shell sources it —
+  a straightforward local privilege-escalation path.
+severity: medium
+transactional: false
+category: filesystem
+tags: [filesystem, init-files, world-writable, permissions, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281095"
+      stig_id: "RHEL-10-400500"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        hits=$(find /home -type f -name '.[^.]*' -perm -0002 2>/dev/null)
+        if [ -n "$hits" ]; then
+          echo "FAIL: world-writable local initialization file(s) found:"
+          printf '%s\n' "$hits" | sed 's/^/  /'
+          exit 1
+        fi
+        echo "OK: no world-writable local initialization files"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: find /home -type f -name '.[^.]*' -perm -0002 -exec chmod o-w {} + 2>/dev/null || true

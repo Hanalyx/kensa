@@ -1,0 +1,62 @@
+id: rootfiles-tmpfiles-mode
+title: Ensure systemd-tmpfiles enforces mode 0600 on root initialization files
+description: >
+  RHEL 10 must enforce that the local initialization files provisioned from
+  /usr/share/rootfiles/ via systemd-tmpfiles (the /root dotfiles) have a mode of
+  "0600" or less permissive. The corresponding /etc/tmpfiles.d entries must exist
+  and specify a compliant mode.
+rationale: >
+  systemd-tmpfiles re-applies the mode of these files on boot. If the tmpfiles
+  entries are missing or specify a permissive mode, root's initialization files
+  can be left readable or writable by others.
+severity: medium
+transactional: false
+category: filesystem
+tags: [filesystem, tmpfiles, rootfiles, init-files, permissions, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281084"
+      stig_id: "RHEL-10-400335"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # tmpfiles.d C-entries: "C /root/.bashrc 600 root root - /usr/share/rootfiles/.bashrc"
+        # (type=$1, path=$2, mode=$3). The vendor default (/usr/lib/tmpfiles.d)
+        # ships these at 644; the STIG requires an admin OVERRIDE in
+        # /etc/tmpfiles.d (which wins by precedence) setting <=0600, and a missing
+        # override is itself a finding. So check only /etc/tmpfiles.d, matching the
+        # STIG check-content (grepping /usr/lib too would false-FAIL a host whose
+        # /etc override already corrects the vendor mode).
+        lines=$(grep -rhE '/usr/share/rootfiles/' /etc/tmpfiles.d/*.conf 2>/dev/null \
+                  | grep -v '^[[:space:]]*#')
+        if [ -z "$lines" ]; then
+          echo "FAIL: no /etc/tmpfiles.d override enforces mode 0600 on /usr/share/rootfiles/ init files (vendor default is 0644)"
+          exit 1
+        fi
+        bad=$(printf '%s\n' "$lines" | awk '$3 !~ /^0?[0-6]00$/ {print}')
+        if [ -n "$bad" ]; then
+          echo "FAIL: tmpfiles.d rootfiles entries specify a mode more permissive than 0600:"
+          printf '%s\n' "$bad" | sed 's/^/  /'
+          exit 1
+        fi
+        echo "OK: all tmpfiles.d rootfiles entries enforce mode 0600 or less permissive"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Ensure /etc/tmpfiles.d contains C-entries copying each /usr/share/rootfiles/
+        file to /root with mode 600, e.g.
+        "C /root/.bashrc 600 root root - /usr/share/rootfiles/.bashrc", then run
+        systemd-tmpfiles --create.
