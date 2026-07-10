@@ -52,9 +52,39 @@ implementations:
 - default: true
   check:
     method: command
-    run: "find /etc/ssh/ssh_host_*_key -type f \\( ! -perm 640 -o ! -user root -o ! -group ssh_keys \\) 2>/dev/null | head -1"
+    run: |
+      # STIG (rhel8/9) requires mode 0640-or-less-permissive; CIS accepts either
+      # root:ssh_keys with mode <=0640 or root:root with mode <=0600. Enforce the
+      # coupled ownership/mode logic that satisfies both (no other access; owner
+      # root with no execute; group read only permitted for the ssh_keys group).
+      fail=0
+      for k in /etc/ssh/ssh_host_*_key; do
+        [ -e "$k" ] || continue
+        owner=$(stat -c '%U' "$k" 2>/dev/null)
+        group=$(stat -c '%G' "$k" 2>/dev/null)
+        perm=$(stat -c '%a' "$k" 2>/dev/null)
+        # Take the last three octal digits (owner/group/other), ignoring any
+        # setuid/setgid/sticky high bit. Prepend zeros then trim — never run the
+        # value through printf %d, which would reinterpret e.g. "040" as octal.
+        m=$(printf '00%s' "$perm" | sed 's/.*\(...\)$/\1/')
+        o=$(printf '%s' "$m" | cut -c1); g=$(printf '%s' "$m" | cut -c2); t=$(printf '%s' "$m" | cut -c3)
+        if [ "$owner" != "root" ]; then echo "FAIL: $k owner=$owner (must be root)"; fail=1; continue; fi
+        if [ "$t" != "0" ]; then echo "FAIL: $k is accessible by others (mode $perm)"; fail=1; continue; fi
+        case "$o" in 0|4|6) ;; *) echo "FAIL: $k owner has execute (mode $perm)"; fail=1; continue ;; esac
+        if [ "$group" = "ssh_keys" ]; then
+          case "$g" in 0|4) ;; *) echo "FAIL: $k group ssh_keys but mode $perm > 0640"; fail=1 ;; esac
+        elif [ "$group" = "root" ]; then
+          case "$g" in 0) ;; *) echo "FAIL: $k group root but mode $perm > 0600"; fail=1 ;; esac
+        else
+          echo "FAIL: $k group=$group (must be root or ssh_keys)"; fail=1
+        fi
+      done
+      if [ "$fail" -eq 0 ]; then
+        echo "OK: all SSH private host keys have compliant ownership and mode"
+        exit 0
+      fi
+      exit 1
     expected_exit: 0
-    expected_stdout: ""
   remediation:
     mechanism: file_permissions
     path: /etc/ssh/ssh_host_*_key

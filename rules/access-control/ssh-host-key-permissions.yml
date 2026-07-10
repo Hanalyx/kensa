@@ -1,0 +1,50 @@
+id: ssh-host-key-permissions
+title: Ensure SSH private host keys are mode 0600 or less permissive (RHEL 10 STIG)
+description: >
+  On RHEL 10, the STIG requires every SSH private host key under /etc/ssh
+  (ssh_host_*_key) to have a file mode of "0600" or less permissive — stricter
+  than the 0640 root:ssh_keys form the CIS benchmark and earlier STIGs accept.
+rationale: >
+  SSH private host keys authenticate the server to connecting clients. A key
+  readable by any account other than the owner can be copied and used to
+  impersonate the host in a man-in-the-middle attack. The RHEL 10 STIG tightens
+  the requirement to 0600 (owner-only). This rule is the STIG-strict companion
+  to ssh-private-key-permissions, which enforces the more permissive CIS form;
+  a key at 0600 satisfies both.
+severity: medium
+transactional: false
+category: access-control
+tags: [ssh, host-key, permissions, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281085"
+      stig_id: "RHEL-10-400340"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # -perm /0177 matches any key with owner-execute, or any group/other
+        # bit set — i.e. more permissive than 0600.
+        if find /etc/ssh/ssh_host_*_key -type f -perm /0177 2>/dev/null | grep -q .; then
+          echo "FAIL: an SSH private host key is more permissive than 0600"
+          find /etc/ssh/ssh_host_*_key -type f -perm /0177 2>/dev/null | while read -r k; do
+            echo "  $(stat -c '%a %n' "$k" 2>/dev/null)"
+          done
+          exit 1
+        fi
+        echo "OK: all SSH private host keys are 0600 or less permissive"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: find /etc/ssh/ssh_host_*_key -type f -exec chmod 0600 {} + 2>/dev/null || true
