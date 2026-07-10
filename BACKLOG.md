@@ -4,6 +4,36 @@ Items are ordered roughly by priority within each section. No commitment to sche
 
 ---
 
+## Compliance coverage (W6 RHEL 10 STIG campaign, 2026-07-10)
+
+stig-rhel10 reached **97.2% (422/434)**. The residue is scoped, not arbitrary:
+
+- **12 GDM/graphical controls uncovered — need a graphical test host.**
+  V-281225/226 (login banner + banner-override), V-281275 (autologin),
+  V-281278/280/282 (session lock / idle / conceal), V-281283 (dconf-policy),
+  V-281285 (Ctrl-Alt-Del override), V-281287 (user list), V-281291/292
+  (automount/autorun), V-281297 (default display manager). All are
+  dconf/gsettings lock-state controls; the fleet is headless so `when:gdm`
+  rules SKIP there and can't be fail-observed. Blocked on a GUI test box.
+  (Compounds the pre-existing `gdm`-probe + destructive-fallback items under
+  "Rule corpus review findings" below — worth fixing together.)
+- **Shared-rule CIS-vs-STIG threshold conflicts — audit for more.** The
+  campaign found rules serving both a lenient CIS cite and a strict STIG cite
+  on one check (password-hashing yescrypt-vs-SHA512; ssh host-key 0640-vs-0600).
+  The fix pattern is a STIG-strict companion rule beside the CIS rule (see
+  `password-encrypt-method-sha512.yml`, `ssh-host-key-permissions.yml`). Other
+  hashing/permission/audit rules likely carry the same latent mis-serve; a
+  sweep for "rule cites both CIS and STIG with a single value assertion" would
+  surface them.
+- **Rule-faithfulness sweep.** The founder-gated batch (#311) fixed four checks
+  that were unfaithful to their cited control (exact-match vs `>=`, `num_logs`
+  proxy vs `df`, OR-mask vs both-stacks). These were found reactively; a
+  proactive pass comparing each `method: command` rule's assertion to its
+  XCCDF finding-condition would catch the rest. (Overlaps the existing
+  "Reduce and test arbitrary command checks" item.)
+
+---
+
 ## Capability Detection
 
 ### Ubuntu/Debian probe support — COMPLETE (2026-04-15)
@@ -142,6 +172,10 @@ These three remain, all LOW priority (none corrupt, none block recovery):
 
 ## CLI / UX
 
+- **`kensa recover` is missing from the top-level `kensa --help` command list.**
+  (Found 2026-07-10 during the guide-verification pass.) `recover --help` works
+  and every flag is correct, but a user reading `kensa --help` can't discover
+  the command. Add it to the top-level command listing in `cmd/kensa`.
 - `--inventory` flag for `check`, `detect`, `remediate` — parse Ansible-style `inventory.ini` and fan out across hosts.
 - Machine-readable scan output suitable for OpenWatch ingestion (JSON Lines per host).
 

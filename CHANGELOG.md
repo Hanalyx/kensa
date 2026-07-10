@@ -10,6 +10,48 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
+## Unreleased
+
+The RHEL 10 STIG coverage campaign (wave W6) and the rule-correctness fixes
+it surfaced. Corpus/rules only — the engine and the frozen `api/` are
+untouched, so this is a drop-in bump for consumers. Every change was
+adversarial-panel-reviewed and live-verified on the fleet.
+
+### Added
+- **RHEL 10 STIG (V1R1) coverage 35.0% → 97.2%** (152 → 422 of 434 controls).
+  The remaining 12 uncovered controls are all GDM/graphical (dconf/gsettings),
+  which need a graphical test host to verify. Delivered across panel-verified
+  tranches (PRs #269–#311): package/mount/pam/sshd/audit cite-adds, plus
+  net-new rules for execshield/NX, cron config ownership, NFS `sec=krb5`,
+  the USBGuard rule policy, the root mail alias, TCP `omfwd` TLS encryption,
+  fapolicyd deny-all enforcement, and the manual/judgment controls (disk
+  encryption, CAC driver, PPSM, unauthorized accounts, IP tunnels).
+
+### Fixed
+- **`ssh-private-key-permissions` false-FAIL on hardened hosts.** The check
+  required exactly `0640 root:ssh_keys` and wrongly failed a stricter, valid
+  `0600 root:root` key (which both CIS and the STIG accept). Rewritten to the
+  CIS coupled ownership/mode logic; provably leniency-only.
+- **`auditd-log-storage-week` false-PASS proxy.** Replaced a `num_logs>=5`
+  heuristic (decoupled from partition capacity) with the STIG's `df` check on
+  the audit-log partition; a sub-10 GB partition is flagged for review rather
+  than passed.
+- **`auditd-audit-backlog-limit` over-strict match.** An exact match on `8192`
+  wrongly failed a compliant larger value; now reads `/proc/cmdline` and
+  requires `>= 8192`.
+- **`pam-password-sha512` OR-mask.** A single multi-file grep passed when only
+  one of system-auth/password-auth configured `sha512`; now requires both
+  stacks (substack-aware).
+- **`file_content` / whole-file rollback** and several corpus check-content
+  correctness fixes (world-writable init files, tmpfiles rootfiles mode, audit
+  failure action) surfaced and fixed during the campaign.
+
+### Notes
+- New `ENCRYPT_METHOD=SHA512` STIG rule is kept separate from the CIS
+  `password-hashing-algorithm` rule (which accepts YESCRYPT), so a yescrypt
+  host correctly passes CIS and fails the STIG — an intentional framework
+  divergence, not a contradiction.
+
 ## v0.7.4 — 2026-07-06
 
 An atomicity + verdict-correctness patch. Two founder-gated fixes, each

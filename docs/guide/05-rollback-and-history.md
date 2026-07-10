@@ -1,6 +1,6 @@
 # 05 · Rollback and history
 
-_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 Every `kensa remediate` writes what it did to a durable transaction log
 (SQLite). That log is what makes a remediation reversible, what crash
@@ -62,21 +62,21 @@ kensa rollback --info <session-id> --detail
 | `--info SESSION_ID` | Show a session's detail (its transactions and their statuses). |
 | `--detail` | Modifier: add a per-step breakdown. Composes with `--list` and `--info` (not with `--start`/`--txn`). |
 
-Sessions come from `kensa check --store` (the scan-persistence path); a bare
-`kensa remediate` records individual transactions, not a session. So to roll
-back a remediation you ran on the CLI, find its transaction UUID with
-`kensa history` and use `rollback --txn` (below). The session modes
-(`--list` / `--info` / `--start`) apply once you have persisted sessions; find
-their UUIDs with `kensa list sessions` (the `session_id` column).
+Both `kensa remediate` and `kensa check --store` group their transactions into
+a rollback-able session. To roll back a remediation you ran on the CLI, find
+its session ID with `kensa list sessions` (the `session_id` column) and use
+`rollback --start` (below); `rollback --list` shows the sessions that have
+committed transactions to reverse. The per-transaction mode `--txn` remains as
+a fallback for reversing a single transaction by UUID (from `kensa history`).
 
 ### Executing a rollback (host required)
 
 ```bash
 # Reverse every committed transaction in a session:
-kensa rollback --start <session-id> -H 192.168.1.211 -u owadmin --sudo
+kensa rollback --start <session-id> -H rhel9-host.example.com -u admin --sudo
 
 # Legacy: reverse a single transaction by UUID:
-kensa rollback --txn <txn-uuid> -H 192.168.1.211 -u owadmin --sudo
+kensa rollback --txn <txn-uuid> -H rhel9-host.example.com -u admin --sudo
 ```
 
 | Flag | Meaning |
@@ -84,11 +84,12 @@ kensa rollback --txn <txn-uuid> -H 192.168.1.211 -u owadmin --sudo
 | `--start SESSION_ID` | Execute rollback for **every** committed transaction in the session. Needs `--host`. |
 | `-T, --txn TXN_UUID` | Legacy: roll back a single transaction by UUID. Needs `--host`. |
 
-`--start` reverses a whole **session**; the binary's help labels `--txn` as
-*legacy* because the session model is the intended primary path. On the
-standalone CLI, though, `--txn` is what you use after a `kensa remediate`
-(which records transactions, not sessions): take the UUID from `kensa history`
-and roll it back. Both connect to the host, so they take the
+`--start` reverses a whole **session** and is the primary path — including for
+a `kensa remediate` you ran on the CLI, which records a session you can find
+with `kensa list sessions`. The binary's help labels `--txn` as *legacy*: it
+reverses a single transaction by UUID (from `kensa history`), a fallback for
+undoing one transaction rather than the whole session. Both connect to the host,
+so they take the
 same target flags as `check`/`remediate`: `-H/--host` (required here),
 `-u/--user`, `-k/--key`, `-P/--port`, `--sudo`, `--sudo-password`
 (and `KENSA_SUDO_PASSWORD`), `--strict-host-keys`/`--no-strict-host-keys`.
@@ -114,7 +115,7 @@ crash-recovery journal: each is rolled back from its captured pre-state
 and recorded as `recovered`.
 
 ```bash
-kensa recover -H 192.168.1.211 -u owadmin --sudo
+kensa recover -H rhel9-host.example.com -u admin --sudo
 ```
 
 | Flag | Meaning |
@@ -157,7 +158,7 @@ transactions.
 
 ```bash
 kensa history                                  # 50 most recent
-kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
+kensa history -H rhel9-host.example.com -S 24h          # one host, last 24h
 kensa history -T <txn-uuid>                    # one transaction by UUID
 kensa history -a by_host -S 168h               # 7-day posture per host (168h)
 kensa history --stats                          # summary counts, then exit
@@ -226,7 +227,7 @@ Most of these commands key off a session UUID. List them with:
 
 ```bash
 kensa list sessions                          # 20 most recent
-kensa list sessions -H 192.168.1.211         # one hostname
+kensa list sessions -H rhel9-host.example.com         # one hostname
 kensa list sessions --format json -n 5       # last 5 as JSON
 ```
 

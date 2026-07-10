@@ -1,6 +1,6 @@
 # Quickstart
 
-_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 This chapter takes one host from "never scanned" to "remediated and rolled
 back" in four commands: **detect** what the host can do, **check** its
@@ -35,13 +35,13 @@ nothing; it's the safe way to confirm Kensa can reach the host and to see
 which subsystems (systemd, SELinux, apt, auditd, …) it found.
 
 ```bash
-kensa detect -H 192.168.1.211 -u owadmin --sudo
+kensa detect -H rhel9-host.example.com -u admin --sudo
 ```
 
 Add `--sudo-password` if the host needs one:
 
 ```bash
-kensa detect -H 192.168.1.211 -u owadmin --sudo --sudo-password
+kensa detect -H rhel9-host.example.com -u admin --sudo --sudo-password
 ```
 
 If detect can't connect, fix that before going further. Every other
@@ -55,17 +55,17 @@ apply to this host's platform, and ends with a tally. Rows stream as each
 rule completes.
 
 ```bash
-kensa check -H 192.168.1.211 -u owadmin --sudo -r rules/
+kensa check -H rhel9-host.example.com -u admin --sudo -r rules/
 ```
 
 Narrow the run with filters, by severity, framework, or category:
 
 ```bash
 # Only critical and high-severity rules
-kensa check -H 192.168.1.211 -u owadmin --sudo -r rules/ -s critical -s high
+kensa check -H rhel9-host.example.com -u admin --sudo -r rules/ -s critical -s high
 
 # Only rules mapping a CIS RHEL 9 control
-kensa check -H 192.168.1.211 -u owadmin --sudo -r rules/ -f cis-rhel9
+kensa check -H rhel9-host.example.com -u admin --sudo -r rules/ -f cis-rhel9
 ```
 
 `check` is read-only and does **not** write to the transaction log by
@@ -82,7 +82,7 @@ capture-apply-validate-commit-or-rollback cycle on one host. (The mental
 model is in [the concepts chapter](03-concepts.md).)
 
 ```bash
-kensa remediate -H 192.168.1.211 -u owadmin --sudo -r rules/
+kensa remediate -H rhel9-host.example.com -u admin --sudo -r rules/
 ```
 
 The output adds a `FIXED` status to the check statuses. As with `check`, you
@@ -90,7 +90,7 @@ can scope the run, remediating only what you mean to change:
 
 ```bash
 # Apply only critical PCI-tagged rules
-kensa remediate -H 192.168.1.211 -u owadmin --sudo -r rules/ -s critical -t pci
+kensa remediate -H rhel9-host.example.com -u admin --sudo -r rules/ -s critical -t pci
 ```
 
 Every committed transaction is written to the transaction log with a signed
@@ -121,7 +121,7 @@ This phase touches the host, so it needs the same target flags as
 remediate:
 
 ```bash
-kensa rollback --start <SESSION_ID> -H 192.168.1.211 -u owadmin --sudo
+kensa rollback --start <SESSION_ID> -H rhel9-host.example.com -u admin --sudo
 ```
 
 Rollback restores each transaction's captured pre-state. A mechanism Kensa

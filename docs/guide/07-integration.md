@@ -1,6 +1,6 @@
 # Integration
 
-_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 This chapter is for programs that **embed** Kensa (notably OpenWatch) rather
 than run the CLI, consuming its `api`/`pkg/kensa` Go surfaces. The division of
@@ -47,7 +47,7 @@ Loading the rule corpus from a consuming program is public surface too
   for showing operators what an override affects.
 
 Do not copy the rule files into a consuming repo and do not re-implement
-the loader: the corpus ships as the signed `kensa-rules` package, and 23
+the loader: the corpus ships as the signed `kensa-rules` package, and 25
 of its rules are `{{ var }}` templates that only parse through the
 substitution chain above.
 
