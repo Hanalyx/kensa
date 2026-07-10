@@ -1,0 +1,54 @@
+id: cron-config-os-defaults
+title: Ensure cron configuration files match operating system defaults
+description: >
+  The owner, group, and mode of the cron configuration files and directories
+  provided by the cronie and crontabs packages must match the operating system
+  defaults recorded in the RPM database.
+rationale: >
+  Cron executes its jobs as root. If the ownership or permissions of a cron
+  configuration file or directory have been loosened from the packaged defaults,
+  a non-root account may be able to alter scheduled jobs and gain root
+  privileges. Verifying against the RPM manifest detects such drift.
+severity: medium
+transactional: false
+category: filesystem
+tags: [cron, permissions, ownership, rpm, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281063"
+      stig_id: "RHEL-10-400230"
+      severity: "CAT II"
+  nist_800_53: ["CM-6"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # rpm --verify emits a line per deviating file: a 9-char flag string
+        # (S M 5 D L U G T P) then the attr marker then the path. Config files
+        # (marker "c") are allowed to differ in size/checksum/mtime (positions
+        # 1,3,8) but must match on mode/owner/group (positions 2,6,7); any other
+        # deviation is a finding.
+        out=$(rpm --verify cronie crontabs 2>/dev/null \
+                | awk '! ($2 == "c" && $1 ~ /^.\..\.\.\.\..\./) {print $0}')
+        if [ -n "$out" ]; then
+          echo "FAIL: cron configuration files deviate from packaged defaults:"
+          echo "$out"
+          exit 1
+        fi
+        echo "OK: cron configuration files match the operating system defaults"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      # Reinstall restores any missing/replaced packaged file (best-effort, may
+      # be unavailable air-gapped); setugids/setperms then reset owner/group/mode
+      # drift to the packaged defaults — the dominant finding case.
+      run: dnf reinstall -y cronie crontabs >/dev/null 2>&1; rpm --setugids cronie crontabs 2>/dev/null; rpm --setperms cronie crontabs 2>/dev/null; true
