@@ -1,0 +1,48 @@
+id: pki-certificate-validation
+title: Ensure PKI-based authentication validates certificates to a trust anchor
+description: >
+  For PKI-based authentication, RHEL 10 must validate certificates by
+  constructing a certification path (with status information) to an accepted
+  trust anchor (e.g. the DOD root CA). This requires manual verification of the
+  installed CA and trust path, and is not applicable when an approved alternate
+  multifactor authentication method is used.
+rationale: >
+  Without a validated certification path to a trusted root, a forged or revoked
+  certificate could be accepted, defeating PKI-based authentication.
+severity: medium
+transactional: false
+category: access-control
+tags: [authentication, pki, certificate, trust-anchor, stig, manual]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281329"
+      stig_id: "RHEL-10-701270"
+      severity: "CAT II"
+  nist_800_53: ["IA-5(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        CA=/etc/sssd/pki/sssd_auth_ca_db.pem
+        if [ -f "$CA" ]; then
+          echo "MANUAL REVIEW REQUIRED: an SSSD PKI CA database is present ($CA). Verify it contains a valid DOD root CA and that a complete certification path to an accepted trust anchor can be constructed (openssl x509 -text -in $CA). Not applicable if an approved alternate MFA method is in use."
+        else
+          echo "MANUAL REVIEW REQUIRED: no SSSD PKI CA database was found ($CA). For PKI/CAC-based authentication, install the DOD root CA and configure a certification path to an accepted trust anchor. Not applicable if an approved alternate MFA method is in use."
+        fi
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Install the DOD root CA into the SSSD CA database
+        (/etc/sssd/pki/sssd_auth_ca_db.pem) and configure certificate
+        verification (including OCSP/CRL status checking) so a full path to the
+        trust anchor is validated.

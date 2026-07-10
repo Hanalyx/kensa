@@ -1,0 +1,48 @@
+id: firewall-remote-access-ppsm
+title: Ensure remote access methods match the PPSM CLSA
+description: >
+  RHEL 10 must control remote access methods so that the enabled firewall ports,
+  protocols, and services match the site or program Ports, Protocols, and
+  Services Management (PPSM) Component Local Service Assessment (CLSA). Because
+  the PPSM CLSA is an external program document, this requires manual
+  verification: the check emits the current firewall configuration for
+  comparison.
+rationale: >
+  Ports, protocols, and services not covered by the PPSM CLSA — or ones the CLSA
+  prohibits — represent uncontrolled remote-access paths into the system.
+severity: medium
+transactional: false
+category: network
+tags: [firewall, remote-access, ppsm, stig, manual]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281332"
+      stig_id: "RHEL-10-800000"
+      severity: "CAT II"
+  nist_800_53: ["AC-17", "CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        echo "MANUAL REVIEW REQUIRED: compare the enabled firewall ports/services below against the site/program PPSM CLSA. Any port, protocol, or service not in the CLSA, or one the CLSA prohibits, is a finding."
+        if command -v firewall-cmd >/dev/null 2>&1; then
+          firewall-cmd --list-all 2>/dev/null || echo "  (firewalld is not running)"
+        else
+          echo "  (firewall-cmd is not present)"
+        fi
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Reconcile the firewall configuration with the PPSM CLSA: remove any
+        port/protocol/service not authorized by the CLSA and add controls for any
+        the CLSA requires.
