@@ -1,0 +1,50 @@
+id: cac-smartcard-driver
+title: Ensure the CAC smart card driver is configured
+description: >
+  RHEL 10 must load the common access card (CAC) smart card driver so that
+  CAC/PIV-based multifactor authentication functions. When the opensc tooling is
+  present this is verified automatically; when it is absent, manual confirmation
+  is required of whether CAC is required in this environment.
+rationale: >
+  CAC/PIV smart cards provide DOD multifactor authentication. Without the "cac"
+  card driver, the operating system cannot interpret the card, defeating the
+  multifactor requirement.
+severity: medium
+transactional: false
+category: access-control
+tags: [authentication, smartcard, cac, opensc, stig, manual]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-280976"
+      stig_id: "RHEL-10-200621"
+      severity: "CAT II"
+  nist_800_53: ["IA-2(1)", "IA-2(2)"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! command -v opensc-tool >/dev/null 2>&1; then
+          echo "MANUAL REVIEW REQUIRED: opensc (smart card tooling) is not installed, so the CAC driver cannot be verified. If this system uses CAC/PIV authentication, install opensc and configure the 'cac' card driver; otherwise confirm CAC is not required here."
+          exit 0
+        fi
+        drivers=$(opensc-tool --get-conf-entry app:default:card_drivers 2>/dev/null)
+        if printf '%s' "$drivers" | grep -qiw cac; then
+          echo "OK: the CAC card driver is configured (card_drivers includes 'cac')"
+          exit 0
+        fi
+        echo "FAIL: the 'cac' card driver is not listed in card_drivers"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add "cac" to the card_drivers list in /etc/opensc.conf under
+        app default { card_drivers = cac, ...; } so the CAC driver is loaded.

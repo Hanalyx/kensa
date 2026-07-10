@@ -1,0 +1,48 @@
+id: firewall-ppsm-cal
+title: Ensure functions, ports, protocols, and services match the PPSM CAL
+description: >
+  RHEL 10 must be configured to prohibit or restrict the use of functions, ports,
+  protocols, and/or services as defined in the PPSM Component Approved List (CAL)
+  and vulnerability assessments. Because the PPSM CAL is an external program
+  document, this requires manual verification: the check emits the active
+  firewall zones/services for comparison.
+rationale: >
+  Unnecessary or prohibited functions, ports, protocols, and services expand the
+  attack surface. The PPSM CAL defines what is permitted; anything beyond it must
+  be removed or restricted.
+severity: medium
+transactional: false
+category: network
+tags: [firewall, ppsm, ports-protocols-services, stig, manual]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281333"
+      stig_id: "RHEL-10-800010"
+      severity: "CAT II"
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        echo "MANUAL REVIEW REQUIRED: compare the active firewall zones/services below against the PPSM CAL. Any function, port, protocol, or service that is unnecessary or prohibited by the CAL is a finding."
+        if command -v firewall-cmd >/dev/null 2>&1; then
+          firewall-cmd --list-all-zones 2>/dev/null || echo "  (firewalld is not running)"
+        else
+          echo "  (firewall-cmd is not present)"
+        fi
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Restrict the firewall and running services to only those authorized by
+        the PPSM CAL; disable or remove any unnecessary or prohibited function,
+        port, protocol, or service.

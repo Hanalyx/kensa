@@ -1,0 +1,53 @@
+id: ipsec-tunnels-authorized
+title: Ensure no unauthorized IP tunnels are configured
+description: >
+  RHEL 10 must not have unauthorized IPsec/IP tunnels configured. When the IPsec
+  service is inactive with no configured connections there are no tunnels; when
+  tunnels are configured, each must be documented and approved by the ISSO
+  (manual verification).
+rationale: >
+  Unauthorized IP tunnels can bypass network boundary protections and exfiltrate
+  data or provide covert command-and-control channels. Every configured tunnel
+  must be reviewed against the approved architecture.
+severity: medium
+transactional: false
+category: network
+tags: [network, ipsec, tunnel, stig, manual]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281339"
+      stig_id: "RHEL-10-800070"
+      severity: "CAT II"
+  nist_800_53: ["CM-7", "SC-7"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! systemctl is-active ipsec >/dev/null 2>&1; then
+          echo "OK: the IPsec service is inactive; no IP tunnels are configured"
+          exit 0
+        fi
+        conns=$(grep -rIniE '^[[:space:]]*conn[[:space:]]' /etc/ipsec.conf /etc/ipsec.d/ 2>/dev/null \
+                  | grep -viE 'conn[[:space:]]+%default')
+        if [ -z "$conns" ]; then
+          echo "OK: IPsec is active but no tunnel connections are configured"
+          exit 0
+        fi
+        echo "MANUAL REVIEW REQUIRED: IPsec tunnel connections are configured — verify each is documented and approved by the ISSO. Any active, unapproved tunnel is a finding:"
+        echo "$conns"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Remove any undocumented or unapproved IPsec connection from
+        /etc/ipsec.conf and /etc/ipsec.d/*.conf, or document and obtain ISSO
+        approval for each required tunnel.
