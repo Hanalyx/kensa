@@ -1,0 +1,55 @@
+id: auditd-failure-action
+title: Ensure auditd takes action on a critical audit processing failure
+description: >
+  The audit rules must set the failure flag ("-f") to "2" so that RHEL 10 panics
+  when a critical audit processing failure occurs. A value of "1" (printk) is
+  acceptable only when availability is documented as an overriding concern.
+rationale: >
+  If auditd silently continues after it can no longer record events, actions go
+  unaudited. Failing to a panic (or at least a logged printk) ensures a critical
+  audit failure is not ignored.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, auditd, failure-action, stig, manual]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-281103"
+      stig_id: "RHEL-10-500035"
+      severity: "CAT II"
+  nist_800_53: ["AU-5"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Read the loaded rules artifact (/etc/audit/audit.rules), exactly as the
+        # STIG does — not the staged rules.d fragments, which may differ from the
+        # running config until augenrules --load is run.
+        f=$(grep -hE '^[[:space:]]*-f[[:space:]]+[0-9]' /etc/audit/audit.rules 2>/dev/null \
+              | awk '{print $2}' | tail -1)
+        case "$f" in
+          2)
+            echo "OK: audit failure flag is -f 2 (panic on critical audit failure)"
+            exit 0 ;;
+          1)
+            echo "MANUAL REVIEW REQUIRED: audit failure flag is -f 1 (printk). This is a finding UNLESS availability is documented as an overriding concern; otherwise set -f 2."
+            exit 0 ;;
+          *)
+            echo "FAIL: audit failure flag -f is '${f:-unset}' (must be 2, or 1 with documented availability concern)"
+            exit 1 ;;
+        esac
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Set the audit failure flag to panic by adding "-f 2" to
+        /etc/audit/rules.d/audit.rules (or "-f 1" if availability is a documented
+        overriding concern), then regenerate the rules with augenrules --load.
