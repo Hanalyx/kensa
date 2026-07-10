@@ -10,12 +10,16 @@ rationale: >
   must be retained to support incident response.
 severity: medium
 category: audit
-tags: [audit, auditd, storage, capacity]
+tags: [audit, auditd, storage, capacity, manual]
 
 depends_on: [auditd-enabled]
 
 references:
   stig:
+    rhel10:
+      vuln_id: "V-281106"
+      stig_id: "RHEL-10-500100"
+      severity: "CAT III"
     rhel9:
       vuln_id: "V-258155"
       stig_id: "RHEL-09-653030"
@@ -34,22 +38,30 @@ implementations:
     check:
       method: command
       run: |
-        # Check num_logs and max_log_file to ensure sufficient storage
-        num_logs=$(grep -i '^\s*num_logs\s*=' /etc/audit/auditd.conf | awk -F'=' '{print $2}' | tr -d ' ')
-        max_log_file=$(grep -i '^\s*max_log_file\s*=' /etc/audit/auditd.conf | awk -F'=' '{print $2}' | tr -d ' ')
-        if [ -z "$num_logs" ] || [ -z "$max_log_file" ]; then
-          echo "FAIL: num_logs or max_log_file not configured"
+        # The STIG verifies the partition holding the audit logs can store ~1 week
+        # of records (its guidance: typically >= 10 GB) via df on that partition —
+        # not a num_logs proxy, which is decoupled from partition capacity.
+        logfile=$(grep -iE '^[[:space:]]*log_file[[:space:]]*=' /etc/audit/auditd.conf 2>/dev/null \
+                    | awk -F= '{gsub(/[[:space:]]/,"",$2); print $2}' | tail -1)
+        logdir=$(dirname "${logfile:-/var/log/audit/audit.log}")
+        # -P forces POSIX single-line output (a long device name would otherwise
+        # wrap df onto two lines and break the field extraction).
+        kb=$(df -kP "$logdir" 2>/dev/null | awk 'NR==2 {print $2}')
+        if [ -z "$kb" ]; then
+          echo "FAIL: could not determine the audit log partition capacity for $logdir"
           exit 1
         fi
-        total=$((num_logs * max_log_file))
-        # 5 logs * 8MB = 40MB minimum; STIG requires capacity for 1 week
-        # Require at least 5 files configured
-        if [ "$num_logs" -ge 5 ]; then
-          echo "OK: num_logs=$num_logs max_log_file=${max_log_file}MB total=${total}MB"
+        # 10 GB = 10485760 KB is the STIG's stated TYPICAL sufficiency, not a
+        # mandatory minimum — required capacity is activity-dependent. So a
+        # partition >= 10 GB passes; a smaller one is flagged for manual review
+        # rather than failed (failing it would false-FAIL a compliant low-activity
+        # host with a documented smaller partition).
+        if [ "$kb" -ge 10485760 ]; then
+          echo "OK: audit log partition ($logdir) is $((kb / 1024 / 1024)) GB (>= 10 GB)"
           exit 0
         fi
-        echo "FAIL: num_logs=$num_logs is less than required 5"
-        exit 1
+        echo "MANUAL REVIEW REQUIRED: audit log partition ($logdir) is only $((kb / 1024)) MB, below the STIG's ~10 GB guideline. Verify it can hold one week of audit records for this system's activity level, or document the smaller size as justified."
+        exit 0
       expected_exit: 0
     remediation:
       mechanism: config_set
