@@ -15,6 +15,10 @@ tags: [audit, grub, boot, configuration]
 
 references:
   stig:
+    rhel10:
+      vuln_id: "V-281102"
+      stig_id: "RHEL-10-500030"
+      severity: "CAT II"
     rhel9:
       vuln_id: "V-258173"
       severity: "CAT III"
@@ -28,9 +32,24 @@ implementations:
   - default: true
     check:
       method: command
-      run: "grubby --info=ALL | grep -o 'audit_backlog_limit=[0-9]*' | head -1 | cut -d= -f2"
+      run: |
+        # Read the running kernel command line (as the STIG does) rather than the
+        # persistent grub config, and require the value to be at least 8192 — the
+        # old exact-match on "8192" over-FAILed a compliant larger value (e.g.
+        # 16384). Per the STIG check-content the finding fires only when the
+        # value is PRESENT and < 8192; an absent value is not a finding.
+        val=$(grep -oE 'audit_backlog_limit=[0-9]+' /proc/cmdline 2>/dev/null | head -1 | cut -d= -f2)
+        if [ -z "$val" ]; then
+          echo "OK: audit_backlog_limit is not set on the kernel command line (not a finding per the STIG check)"
+          exit 0
+        fi
+        if [ "$val" -ge 8192 ]; then
+          echo "OK: audit_backlog_limit=$val (>= 8192)"
+          exit 0
+        fi
+        echo "FAIL: audit_backlog_limit=$val (must be >= 8192)"
+        exit 1
       expected_exit: 0
-      expected_stdout: "8192"
     remediation:
       mechanism: command_exec
       run: "grubby --update-kernel=ALL --args='audit_backlog_limit=8192'"
