@@ -1,0 +1,52 @@
+id: rsyslog-omfwd-tls-encryption
+title: Ensure the modern rsyslog omfwd forwarder encrypts with TLS
+description: >
+  When RHEL 10 off-loads log/audit records to a remote server using the modern
+  rsyslog "omfwd" action over TCP, that forwarder must enable TLS (tls="on" or
+  StreamDriver.Mode="1"). Not applicable when no TCP omfwd forwarder is
+  configured (the legacy global-directive path is covered separately by
+  rsyslog-encrypt-connection / V-280989).
+rationale: >
+  Audit records off-loaded in cleartext can be intercepted or altered in transit.
+  A TCP omfwd forwarder without TLS transmits log data unprotected.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, rsyslog, omfwd, tls, encryption, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-280988"
+      stig_id: "RHEL-10-200645"
+      severity: "CAT II"
+  nist_800_53: ["AU-9(3)", "SC-8", "SC-8(1)"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        has() { grep -rhsE "$1" /etc/rsyslog.conf /etc/rsyslog.d/ 2>/dev/null | grep -qv '^[[:space:]]*#'; }
+        # Not applicable unless a modern TCP-based omfwd forwarder exists.
+        if ! has 'type[[:space:]]*=[[:space:]]*"omfwd"' || ! has 'protocol[[:space:]]*=[[:space:]]*"tcp"'; then
+          echo "OK: no modern TCP-based omfwd forwarding action configured (not applicable)"
+          exit 0
+        fi
+        if has 'tls[[:space:]]*=[[:space:]]*"on"' || has 'StreamDriver\.Mode[[:space:]]*=[[:space:]]*"1"'; then
+          echo "OK: the modern TCP omfwd forwarder enables TLS"
+          exit 0
+        fi
+        echo "FAIL: a modern TCP omfwd forwarding action exists but does not enable TLS (tls=\"on\" or StreamDriver.Mode=\"1\")"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add tls="on" (and streamdriver.mode="1") to the omfwd action block that
+        forwards logs over TCP, together with the CA/cert configuration, then
+        restart rsyslog.

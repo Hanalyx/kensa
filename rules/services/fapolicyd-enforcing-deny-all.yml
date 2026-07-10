@@ -1,0 +1,53 @@
+id: fapolicyd-enforcing-deny-all
+title: Ensure fapolicyd enforces a deny-all, permit-by-exception policy
+description: >
+  RHEL 10 must employ a deny-all, permit-by-exception application allowlisting
+  policy with fapolicyd. This requires both that fapolicyd runs in enforcement
+  mode (permissive = 0) and that a deny-all rule terminates the policy.
+rationale: >
+  In permissive mode fapolicyd logs but does not block, so an allowlist provides
+  no protection; and without a terminating deny-all rule, unlisted applications
+  are permitted by default. Both conditions are required for permit-by-exception
+  enforcement.
+severity: medium
+transactional: false
+category: services
+tags: [fapolicyd, allowlisting, deny-all, enforcement, stig]
+
+references:
+  stig:
+    rhel10:
+      vuln_id: "V-280971"
+      stig_id: "RHEL-10-200602"
+      severity: "CAT II"
+  nist_800_53: ["CM-7(2)", "CM-7(5)"]
+
+platforms:
+  - family: rhel
+    min_version: 10
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        if ! grep -qE '^[[:space:]]*permissive[[:space:]]*=[[:space:]]*0([[:space:]]|$)' \
+             /etc/fapolicyd/fapolicyd.conf 2>/dev/null; then
+          echo "FAIL: fapolicyd is not in enforcement mode (permissive must be 0)"
+          exit 1
+        fi
+        if grep -qE '^[[:space:]]*deny(_audit|_log|_syslog)?[[:space:]]+perm=any[[:space:]]+all[[:space:]]*:[[:space:]]*all' \
+             /etc/fapolicyd/fapolicyd.rules /etc/fapolicyd/rules.d/*.rules \
+             /etc/fapolicyd/compiled.rules 2>/dev/null; then
+          echo "OK: fapolicyd is enforcing (permissive=0) and employs a deny-all policy"
+          exit 0
+        fi
+        echo "FAIL: fapolicyd does not employ a terminating deny-all (permit-by-exception) rule"
+        exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Set "permissive = 0" in /etc/fapolicyd/fapolicyd.conf and ensure the
+        policy ends with a deny-all rule (e.g. "deny_audit perm=any all : all"),
+        then restart fapolicyd.
