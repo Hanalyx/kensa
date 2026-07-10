@@ -14,6 +14,7 @@ tags: [audit, rsyslog, authentication, tls, stig]
 
 references:
   stig:
+    rhel10: { vuln_id: "V-280987", stig_id: "RHEL-10-200644", severity: "CAT II" }
     rhel9: { vuln_id: "V-258146", stig_id: "RHEL-09-652040", severity: "CAT II" }
     rhel8:
       vuln_id: "V-230482"
@@ -28,9 +29,21 @@ implementations:
   - default: true
     check:
       method: command
-      run: >
-        grep -qE '^\s*\$ActionSendStreamDriverAuthMode\s+x509/name'
-        /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null
+      run: |
+        # Accept either rsyslog dialect setting authmode to x509/name:
+        #   legacy global directive $ActionSendStreamDriverAuthMode x509/name, or
+        #   modern omfwd action-object streamdriver.authmode/tls.authmode="x509/name".
+        # has() drops full-line comments so a commented example is not a false PASS
+        # (XCCDF: a commented-out authmode line is a finding). The modern
+        # module-block-vs-omfwd-block placement nuance remains a manual check.
+        has() { grep -rhsE "$1" /etc/rsyslog.conf /etc/rsyslog.d/ 2>/dev/null | grep -qv '^[[:space:]]*#'; }
+        if has '^[[:space:]]*\$ActionSendStreamDriverAuthMode[[:space:]]+x509/name' \
+           || has '(streamdriver\.authmode|tls\.authmode)[[:space:]]*=[[:space:]]*"?x509/name"?'; then
+          echo "OK: rsyslog authenticates the remote logging server (authmode x509/name)"
+          exit 0
+        fi
+        echo "FAIL: rsyslog does not set authmode to x509/name (legacy or modern syntax)"
+        exit 1
       expected_exit: 0
     remediation:
       mechanism: config_set_dropin
