@@ -115,14 +115,13 @@ const (
 
 	// Filter / query options (used by history, info, rollback list).
 
-	// ShortRule is `-R` (filter by rule ID, future deliverable).
-	// Capital R because lowercase `-r` is reserved for `--rules-dir`.
-	// NOTE: post-C-037, the long form `--rule` is bound to the
-	// file-loading semantic (load this single rule YAML file). When
-	// the filter-by-ID feature lands, it must pick a different long
-	// name (e.g. `--rule-id` or `--filter-id`); the `-R` short can
-	// stay reserved for that flag. Until then, this constant has no
-	// active binding.
+	// ShortRule is `-R`, the short form of `history --rule` (filter the
+	// transaction log by rule ID). Capital R because lowercase `-r` is
+	// reserved for `--rules-dir`. Note the `--rule` long form is
+	// overloaded across commands: on `history` it filters by rule ID
+	// (this binding); on `check`/`remediate` it loads a single rule YAML
+	// file. A future unification could split those names, but both are
+	// live today.
 	ShortRule = "R"
 
 	// ShortSince is `--since` (history filter). Capital S because

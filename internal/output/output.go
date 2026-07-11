@@ -192,9 +192,9 @@ func KnownFormats() []string {
 // generation that wants to indicate "this format needs a
 // destination."
 //
-// TODO(C-012): once the Writer interface lands, the path-required
-// property should move onto the writer registration so adding a new
-// format doesn't require editing this switch.
+// TODO: the Writer interface has landed (internal/output/writer.go); the
+// path-required property should move onto the writer registration so adding a
+// new format doesn't require editing this switch.
 func FormatRequiresPath(format string) bool {
 	return strings.ToLower(format) == "pdf"
 }

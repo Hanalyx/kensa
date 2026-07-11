@@ -492,7 +492,8 @@ Commands:
   detect      Probe a host and print its capability set
   check       Run read-only compliance checks (no apply)
   remediate   Apply failing rules to a host
-  rollback    Roll back a past transaction by ID
+  rollback    Roll back a past session (or a single transaction) by ID
+  recover     Compensate transactions interrupted before a terminal status
   history     Query the transaction log
   plan        Preview a rule transaction without executing
   mechanisms  List registered handler mechanisms
