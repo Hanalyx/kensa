@@ -1,6 +1,6 @@
 # 09 · Command reference
 
-_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 This chapter documents every `kensa` command and flag. It is the
 exhaustive counterpart to the task-focused chapters: for *how* to scan
@@ -25,7 +25,7 @@ kensa [global flags] <command> [flags]
 | `detect` | Probe a host and print its capability set |
 | `check` | Run read-only compliance checks (no apply) |
 | `remediate` | Apply failing rules to a host |
-| `rollback` | Roll back a past transaction by ID |
+| `rollback` | Roll back a past session (or a single transaction) by ID |
 | `recover` | Compensate transactions interrupted before a terminal status |
 | `history` | Query the transaction log |
 | `plan` | Preview a rule transaction without executing |
@@ -137,6 +137,12 @@ output has no stdout form). Which formats each of `check` and
 `remediate` accepts, and what each document contains, is covered in
 [04-scan-and-remediate](04-scan-and-remediate.md) § Formats by command.
 
+### remediate-specific options
+
+| Long | Meaning |
+|---|---|
+| `--allow-conflicts` | Apply even when the selected rules declare `conflicts_with` each other. The default is to refuse: a conflicting selection fails fast rather than applying contradictory changes. |
+
 ---
 
 ## detect
@@ -158,8 +164,8 @@ Carries the full [target options](#target-options) group (`-H` required).
 | `-q, --quiet` | | | Suppress default output |
 
 ```bash
-kensa detect -H 192.168.1.211 -u owadmin --sudo
-kensa detect --host web-01 --user admin --format json
+kensa detect -H rhel9-host.example.com -u admin --sudo
+kensa detect --host rhel9-host.example.com --user admin --format json
 ```
 
 ## check
@@ -199,11 +205,11 @@ unless `--inventory` is given) plus the inventory flags below, the full
 | `--store` | off | Persist the scan as a session + transactions record in the SQLite store (`check` is read-only by default) |
 
 ```bash
-kensa check -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
+kensa check -H rhel9-host.example.com -u admin --sudo -r /path/to/rules
 kensa check --inventory hosts.ini -w 10 --sudo -r /path/to/rules
-kensa check -H 192.168.1.211 -s critical -s high -r /path/to/rules
-kensa check -H 192.168.1.211 -f cis-rhel9 --control cis_rhel9:5.1.12 -r /path/to/rules
-kensa check -H web-01 -u admin --sudo -o jsonl rule1.yml rule2.yml
+kensa check -H rhel9-host.example.com -s critical -s high -r /path/to/rules
+kensa check -H rhel9-host.example.com -f cis-rhel9 --control cis_rhel9:5.1.12 -r /path/to/rules
+kensa check -H rhel9-host.example.com -u admin --sudo -o jsonl rule1.yml rule2.yml
 ```
 
 ## remediate
@@ -234,10 +240,10 @@ shell-best-effort for the kernel-atomic file handlers. Set
 `KENSA_SIGNING_KEY` for a stable evidence-signer identity.
 
 ```bash
-kensa remediate -H 192.168.1.211 -u owadmin --sudo -r /path/to/rules
-kensa remediate -H 192.168.1.211 -s critical -t pci -r /path/to/rules
-kensa remediate -H 192.168.1.211 -f cis-rhel9 --control cis_rhel9:5.1.12 -r /path/to/rules
-kensa remediate -H web-01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.json
+kensa remediate -H rhel9-host.example.com -u admin --sudo -r /path/to/rules
+kensa remediate -H rhel9-host.example.com -s critical -t pci -r /path/to/rules
+kensa remediate -H rhel9-host.example.com -f cis-rhel9 --control cis_rhel9:5.1.12 -r /path/to/rules
+kensa remediate -H rhel9-host.example.com -u admin --sudo -o json -o oscal:/tmp/results.oscal.json
 ```
 
 ## rollback
@@ -277,8 +283,8 @@ or `-C/--capability`.
 ```bash
 kensa rollback --list
 kensa rollback --info 8c3a1e2b-... --detail
-kensa rollback --start 8c3a1e2b-... -H 192.168.1.211 -u owadmin --sudo
-kensa rollback --txn 9d4b... -H 192.168.1.211 -u owadmin --sudo   # legacy
+kensa rollback --start 8c3a1e2b-... -H rhel9-host.example.com -u admin --sudo
+kensa rollback --txn 9d4b... -H rhel9-host.example.com -u admin --sudo   # legacy
 ```
 
 ## recover
@@ -334,8 +340,8 @@ kensa history [flags]
 ```bash
 kensa history                                  # 50 most recent
 kensa history -n 200 --format jsonl | jq -c .  # streamable JSON Lines
-kensa history -H 192.168.1.211 -S 24h          # one host, last 24h
-kensa history -a by_host -S 7d                 # 7-day posture per host
+kensa history -H rhel9-host.example.com -S 24h          # one host, last 24h
+kensa history -a by_host -S 168h               # 7-day posture per host (Go durations use hours)
 kensa history --prune 30 --force               # non-interactive prune
 ```
 
@@ -365,7 +371,7 @@ kensa plan [flags] rule.yml
 | `-q` | `--quiet` | | | Suppress default output |
 
 ```bash
-kensa plan -H 192.168.1.211 -u owadmin --sudo --format markdown rule.yml
+kensa plan -H rhel9-host.example.com -u admin --sudo --format markdown rule.yml
 ```
 
 ## mechanisms

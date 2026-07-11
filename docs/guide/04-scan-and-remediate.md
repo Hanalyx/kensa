@@ -1,6 +1,6 @@
 # 04 · Scan and remediate
 
-_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 Two commands do the work: `kensa check` reads a host and reports
 compliance without touching it, and `kensa remediate` applies the
@@ -24,7 +24,7 @@ both; the differences are called out where they matter.
 ## `check`: read-only compliance
 
 ```bash
-kensa check -H 192.168.1.211 -u owadmin --sudo -r ./rules
+kensa check -H rhel9-host.example.com -u admin --sudo -r ./rules
 ```
 
 `check` evaluates each rule's check method against the host and prints a
@@ -39,7 +39,7 @@ multi-host runs (see [Choosing a target](#choosing-a-target)).
 ## `remediate`: apply failing rules
 
 ```bash
-kensa remediate -H 192.168.1.211 -u owadmin --sudo -r ./rules
+kensa remediate -H rhel9-host.example.com -u admin --sudo -r ./rules
 ```
 
 `remediate` runs each rule that is failing as a four-phase atomic
@@ -127,10 +127,10 @@ repeatable ones.
 
 ```bash
 # Critical + high only:
-kensa check -H 192.168.1.211 -s critical -s high -r ./rules
+kensa check -H rhel9-host.example.com -s critical -s high -r ./rules
 
 # One framework, one control:
-kensa check -H 192.168.1.211 -f cis-rhel9 --control cis_rhel9:5.1.12 -r ./rules
+kensa check -H rhel9-host.example.com -f cis-rhel9 --control cis_rhel9:5.1.12 -r ./rules
 ```
 
 ### Rule variables
@@ -175,13 +175,13 @@ askpass helper on the target, which the agentless model does not ship.
 
 ```bash
 # Passwordless sudo:
-kensa check -H 192.168.1.211 -u owadmin --sudo -r ./rules
+kensa check -H rhel9-host.example.com -u admin --sudo -r ./rules
 
 # Password sudo from the environment (CI-friendly, no value in argv):
-KENSA_SUDO_PASSWORD=… kensa remediate -H 192.168.1.211 -u owadmin --sudo -r ./rules
+KENSA_SUDO_PASSWORD=… kensa remediate -H rhel9-host.example.com -u admin --sudo -r ./rules
 
 # Password sudo with an interactive prompt:
-kensa check -H 192.168.1.211 -u owadmin --sudo --sudo-password -r ./rules
+kensa check -H rhel9-host.example.com -u admin --sudo --sudo-password -r ./rules
 ```
 
 ---
@@ -195,7 +195,7 @@ buffered report. There is no `--progress` flag and no separate progress
 channel; the rows *are* the text result, on stdout.
 
 ```
-───────────────────── Host: 192.168.1.211 ──────────────────────
+───────────────────── Host: rhel9-host.example.com ──────────────────────
   Platform: RHEL 9.6
   PASS   MED   cron-logging                 Ensure cron logging is enabled
   FAIL   LOW   journald-compress            Configure journald to compress logs  config_value: key "Compress" not found in /etc/systemd/journald.conf
@@ -291,13 +291,13 @@ destination selector. Prefer `-o`.
 
 ```bash
 # JSON to a file:
-kensa check -H web01 --sudo -o json:result.json -r ./rules
+kensa check -H rhel9-host.example.com --sudo -o json:result.json -r ./rules
 
 # Two artifacts at once: JSONL on stdout + OSCAL to a file:
-kensa check -H web01 --sudo -o jsonl -o oscal:assessment.json -r ./rules
+kensa check -H rhel9-host.example.com --sudo -o jsonl -o oscal:assessment.json -r ./rules
 
 # Remediation, JSON on stdout + OSCAL to a file:
-kensa remediate -H web01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.json -r ./rules
+kensa remediate -H rhel9-host.example.com -u admin --sudo -o json -o oscal:/tmp/results.oscal.json -r ./rules
 ```
 
 ### Formats by command
@@ -315,7 +315,7 @@ kensa remediate -H web01 -u admin --sudo -o json -o oscal:/tmp/results.oscal.jso
 ### `-o evidence:` Kensa-native evidence
 
 ```bash
-kensa check -H web01 --sudo -o evidence:scan-evidence.json -r ./rules
+kensa check -H rhel9-host.example.com --sudo -o evidence:scan-evidence.json -r ./rules
 ```
 
 Reproducible per-check proof behind each verdict: session and host
@@ -327,7 +327,7 @@ exclusive to the remediation evidence-envelope path.
 ### `-o oscal:` OSCAL 1.0.6
 
 ```bash
-kensa check -H web01 --sudo -o oscal:assessment.json -r ./rules
+kensa check -H rhel9-host.example.com --sudo -o oscal:assessment.json -r ./rules
 ```
 
 A NIST OSCAL 1.0.6 Assessment Results document: one finding and one

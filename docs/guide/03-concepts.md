@@ -1,6 +1,6 @@
 # Concepts
 
-_Applies to: Kensa v0.7.1 — last updated 2026-07-02._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 Kensa is a compliance engine, but its core is not the rules. It's the
 *transaction*: the four-phase Kensa operation (capture, apply, validate,
@@ -91,11 +91,13 @@ reverts on its own.
 
 ## Rule status labels
 
-Every rule carries four status labels you'll see in the rule catalog and
-tooling. They are **derived** from the rule's own fields and its
-verification record — never hand-written on a rule — so they can't drift
-from what the rule actually does. Two describe what the rule *can do*
-(its atomicity class), and two describe what has been *observed*.
+Every rule carries a derived status classification — four labels computed
+from the rule's own fields and its verification record, never hand-written,
+so they can't drift from what the rule actually does. Two describe what the
+rule *can do* (its atomicity class), and two describe what has been
+*observed*. (These classifications drive the corpus catalog and coverage
+reporting; `kensa check` itself reports the per-rule pass/fail verdict, not
+these labels.)
 
 **Atomicity class** — a rule is exactly one of these:
 

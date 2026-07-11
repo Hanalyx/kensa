@@ -1,6 +1,6 @@
 # Troubleshooting
 
-_Applies to: Kensa v0.7.1 — last updated 2026-06-28._
+_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
 
 Common failure modes, what they look like, and how to clear them. Each section
 names the condition first so you can match it to what you are seeing, then the
@@ -96,7 +96,7 @@ defines them.
 - `kensa plan -H <host> <rule.yml>`—previews a rule's transaction (Kensa's
   four-phase change operation: capture, apply, validate, then commit or roll
   back) without executing it.
-- `kensa history` and `kensa rollback <id>`—inspect and reverse a past
+- `kensa history` and `kensa rollback --start <session-id>`—inspect and reverse a past
   transaction (see [05-rollback-and-history](05-rollback-and-history.md)).
 - A non-zero exit code distinguishes a runtime error (`1`) from a usage error
   (`2`, bad flag / missing argument).
