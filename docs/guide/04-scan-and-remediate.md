@@ -1,6 +1,6 @@
 # 04 · Scan and remediate
 
-_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
+_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
 
 Two commands do the work: `kensa check` reads a host and reports
 compliance without touching it, and `kensa remediate` applies the

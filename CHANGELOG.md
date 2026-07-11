@@ -10,12 +10,24 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
-## Unreleased
+## v0.7.6 — 2026-07-10
 
-The RHEL 10 STIG coverage campaign (wave W6) and the rule-correctness fixes
-it surfaced. Corpus/rules only — the engine and the frozen `api/` are
-untouched, so this is a drop-in bump for consumers. Every change was
-adversarial-panel-reviewed and live-verified on the fleet.
+A security + coverage patch: a root-command-injection fix in the
+`file_content` / `file_absent` handlers, the RHEL 10 STIG coverage campaign
+(wave W6), and the rule-correctness fixes it surfaced. The frozen `api/` is
+untouched — a drop-in bump for consumers. Every change was adversarial-panel-
+reviewed and live-verified on the fleet.
+
+### Security
+- **Root command injection in the `file_content` and `file_absent` handlers
+  (CVE-class, same as the v0.7.0 #184 `file_permissions` fix).** The
+  `owner`/`group`/`mode` values were interpolated into `chown`/`chmod`
+  unquoted on both the Apply and Rollback paths, so a rule or `--var` value
+  such as `owner: "root; touch /tmp/x"` executed as root on the default agent
+  remediate path. All nine sites now shell-quote the value (mirroring
+  `file_permissions`); regression tests cover the shell and agent paths, and
+  the fix was live-proven inert on a fleet host. Also hardens the
+  `config_append` legacy-sed rollback path against a single-quote breakout.
 
 ### Added
 - **RHEL 10 STIG (V1R1) coverage 35.0% → 97.2%** (152 → 422 of 434 controls).

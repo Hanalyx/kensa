@@ -1,6 +1,6 @@
 # Rule authoring
 
-_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
+_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
 
 A *rule* is a single, framework-independent statement of desired system state.
 It carries its own check logic, its remediation, its framework cross-references,
