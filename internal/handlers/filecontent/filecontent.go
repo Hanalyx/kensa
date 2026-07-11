@@ -181,7 +181,7 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 			if p.Group != "" {
 				spec += ":" + p.Group
 			}
-			chownCmd := fmt.Sprintf("chown %s %s", spec, shellEscape(p.Path))
+			chownCmd := fmt.Sprintf("chown %s %s", shellEscape(spec), shellEscape(p.Path))
 			res, runErr := transport.Run(ctx, chownCmd)
 			if runErr != nil {
 				return nil, fmt.Errorf("file_content: apply chown transport error: %w", runErr)
@@ -212,14 +212,14 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	cmds := []string{writeCmd}
 
 	if p.Mode != "" {
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", p.Mode, shellEscape(p.Path)))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellEscape(p.Mode), shellEscape(p.Path)))
 	}
 	if p.Owner != "" || p.Group != "" {
 		spec := p.Owner
 		if p.Group != "" {
 			spec += ":" + p.Group
 		}
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, shellEscape(p.Path)))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellEscape(spec), shellEscape(p.Path)))
 	}
 
 	res, err := transport.Run(ctx, strings.Join(cmds, " && "))
@@ -447,7 +447,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			if group != "" {
 				spec += ":" + group
 			}
-			attrCmds = append(attrCmds, fmt.Sprintf("chown %s %s", spec, shellEscape(path)))
+			attrCmds = append(attrCmds, fmt.Sprintf("chown %s %s", shellEscape(spec), shellEscape(path)))
 		}
 		if selinux != "" {
 			attrCmds = append(attrCmds, fmt.Sprintf("chcon --no-dereference %s %s", shellEscape(selinux), shellEscape(path)))
@@ -503,14 +503,14 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 
 	cmds := []string{fmt.Sprintf("printf '%%s' %s > %s", shellEscape(content), shellEscape(path))}
 	if mode != "" {
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", mode, shellEscape(path)))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellEscape(mode), shellEscape(path)))
 	}
 	if owner != "" || group != "" {
 		spec := owner
 		if group != "" {
 			spec += ":" + group
 		}
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, shellEscape(path)))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellEscape(spec), shellEscape(path)))
 	}
 	if selinux != "" {
 		cmds = append(cmds, fmt.Sprintf("chcon --no-dereference %s %s", shellEscape(selinux), shellEscape(path)))

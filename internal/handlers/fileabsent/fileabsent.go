@@ -314,7 +314,7 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 			if group != "" {
 				spec += ":" + group
 			}
-			attrCmds = append(attrCmds, fmt.Sprintf("chown %s %s", spec, shellEscape(path)))
+			attrCmds = append(attrCmds, fmt.Sprintf("chown %s %s", shellEscape(spec), shellEscape(path)))
 		}
 		if selinux != "" {
 			attrCmds = append(attrCmds, fmt.Sprintf("chcon --no-dereference %s %s", shellEscape(selinux), shellEscape(path)))
@@ -343,14 +343,14 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	// Direct-SSH fallback: shell pipeline.
 	cmds := []string{fmt.Sprintf("printf '%%s' %s > %s", shellEscape(content), shellEscape(path))}
 	if mode != "" {
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", mode, shellEscape(path)))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellEscape(mode), shellEscape(path)))
 	}
 	if owner != "" || group != "" {
 		spec := owner
 		if group != "" {
 			spec += ":" + group
 		}
-		cmds = append(cmds, fmt.Sprintf("chown %s %s", spec, shellEscape(path)))
+		cmds = append(cmds, fmt.Sprintf("chown %s %s", shellEscape(spec), shellEscape(path)))
 	}
 	if selinux != "" {
 		cmds = append(cmds, fmt.Sprintf("chcon --no-dereference %s %s", shellEscape(selinux), shellEscape(path)))

@@ -144,8 +144,8 @@ func TestRollback_AC05_RecreatesFileWithAttrs(t *testing.T) {
 	if !strings.Contains(cmd, "printf") {
 		t.Errorf("expected printf write; got %q", cmd)
 	}
-	if !strings.Contains(cmd, "chmod 0644") {
-		t.Errorf("expected chmod; got %q", cmd)
+	if !strings.Contains(cmd, "chmod '0644'") {
+		t.Errorf("expected quoted chmod; got %q", cmd)
 	}
 }
 

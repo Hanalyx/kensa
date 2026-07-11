@@ -372,11 +372,11 @@ func TestEngine_AC03_RolledBackWhenValidatorFails(t *testing.T) {
 	t.Log("// @spec engine-transaction")
 	t.Log("// @ac AC-03")
 	// AC-03: all apply steps succeed but a validator fails → Status=RolledBack.
-	// Requires injecting a failing validator via engine.WithValidators or
-	// attaching a validator to the api.Transaction. Neither hook is exposed
-	// in the current test surface; add engine.WithFakeValidator(failingFn) to
-	// enable this test.
-	t.Skip("TODO: no fake-validator injection hook; add engine.WithFakeValidator or api.Transaction.Validators field")
+	// engine.WithValidators (internal/engine/validators.go) now provides the
+	// injection hook this test needs; enabling it just requires a small
+	// failing-Validator fixture wired via engine.New(engine.WithValidators(...))
+	// asserting Status=RolledBack. Tracked in BACKLOG under the spec-coverage gaps.
+	t.Skip("pending: wire a failing-Validator fixture via engine.WithValidators to assert rollback-on-validator-failure")
 }
 
 // @spec engine-transaction
