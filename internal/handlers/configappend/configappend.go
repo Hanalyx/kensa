@@ -327,7 +327,12 @@ func (h *Handler) rollbackShellRestore(ctx context.Context, transport api.Transp
 // pre-migration behavior, used only for pre-states that predate prior_content
 // capture.
 func (h *Handler) rollbackLegacySed(ctx context.Context, transport api.Transport, path, line string) (*api.RollbackResult, error) {
-	removeCmd := fmt.Sprintf("sed -i '/^%s$/d' %s", sedEscape(line), shellEscape(path))
+	// sedEscape neutralizes regex metacharacters so the line matches literally;
+	// shellEscape then wraps the whole sed program so a value containing a single
+	// quote cannot break out of the shell quoting (a sed program in bare literal
+	// single quotes was a shell-injection surface).
+	sedProg := fmt.Sprintf("/^%s$/d", sedEscape(line))
+	removeCmd := fmt.Sprintf("sed -i %s %s", shellEscape(sedProg), shellEscape(path))
 	res, err := transport.Run(ctx, removeCmd)
 	if err != nil {
 		return nil, fmt.Errorf("config_append: rollback transport error: %w", err)

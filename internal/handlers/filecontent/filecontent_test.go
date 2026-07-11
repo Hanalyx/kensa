@@ -160,11 +160,11 @@ func TestRollback_AC05_RestoresPriorContent(t *testing.T) {
 	if !strings.Contains(cmd, "printf") {
 		t.Errorf("expected printf restore; got %q", cmd)
 	}
-	if !strings.Contains(cmd, "chmod 0644") {
-		t.Errorf("expected chmod in restore pipeline; got %q", cmd)
+	if !strings.Contains(cmd, "chmod '0644'") {
+		t.Errorf("expected quoted chmod in restore pipeline; got %q", cmd)
 	}
-	if !strings.Contains(cmd, "chown root:root") {
-		t.Errorf("expected chown in restore pipeline; got %q", cmd)
+	if !strings.Contains(cmd, "chown 'root:root'") {
+		t.Errorf("expected quoted chown in restore pipeline; got %q", cmd)
 	}
 	if !strings.Contains(cmd, "chcon") {
 		t.Errorf("expected chcon in restore pipeline; got %q", cmd)
@@ -502,5 +502,89 @@ func TestCaptureRollback_BytePerfect_TrailingNewline(t *testing.T) {
 	if string(restored) != original {
 		t.Errorf("rollback NOT byte-perfect:\n got  %q (%d bytes)\n want %q (%d bytes)",
 			restored, len(restored), original, len(original))
+	}
+}
+
+// TestApply_OwnerModeInjectionQuoted and TestRollback_OwnerModeInjectionQuoted
+// lock the fix for the command injection found in the 2026-07-10 security review
+// — the same root-RCE class as the #184 file_permissions fix. owner/group/mode
+// are rule content (untrusted on the apply path) and captured host state (on the
+// rollback path); before the fix they were spliced UNQUOTED into chown/chmod, so
+// a value like "root; touch /tmp/PWNED" executed as root. They must now be
+// shell-quoted so a malicious value is an inert literal argument.
+func TestApply_OwnerModeInjectionQuoted(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	h := filecontent.New()
+	if _, err := h.Apply(context.Background(), tp, api.Params{
+		"path":    "/etc/foo",
+		"content": "x\n",
+		"owner":   "root; touch /tmp/PWNED",
+		"mode":    "0644; rm -rf /",
+	}, nil); err != nil {
+		t.Fatalf("Apply err: %v", err)
+	}
+	cmd := strings.Join(tp.Runs, "\n")
+	for _, want := range []string{"chown 'root; touch /tmp/PWNED'", "chmod '0644; rm -rf /'"} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("expected quoted (inert) argument %q; got: %s", want, cmd)
+		}
+	}
+	if strings.Contains(cmd, "; touch /tmp/PWNED '/etc/foo'") || strings.Contains(cmd, "; rm -rf / '/etc/foo'") {
+		t.Errorf("injection escaped quoting: %s", cmd)
+	}
+}
+
+func TestRollback_OwnerModeInjectionQuoted(t *testing.T) {
+	tp := engine.NewFakeTransport()
+	h := filecontent.New()
+	pre := &api.PreState{
+		Data: map[string]interface{}{
+			"path":         "/etc/foo",
+			"file_existed": true,
+			"content":      "original\n",
+			"mode":         "0644; rm -rf /",
+			"owner":        "root; touch /tmp/PWNED",
+			"group":        "root",
+			"selinux":      "",
+		},
+	}
+	if _, err := h.Rollback(context.Background(), tp, pre); err != nil {
+		t.Fatalf("Rollback err: %v", err)
+	}
+	cmd := strings.Join(tp.Runs, "\n")
+	for _, want := range []string{"chown 'root; touch /tmp/PWNED", "chmod '0644; rm -rf /'"} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("expected quoted (inert) argument %q; got: %s", want, cmd)
+		}
+	}
+	if strings.Contains(cmd, "; touch /tmp/PWNED '/etc/foo'") || strings.Contains(cmd, "; rm -rf / '/etc/foo'") {
+		t.Errorf("injection escaped quoting: %s", cmd)
+	}
+}
+
+// TestApply_AgentMode_OwnerInjectionInert covers the AGENT path chown
+// (filecontent.go:184) — the default on `remediate` — which the FakeTransport
+// shell-fallback tests above do not exercise. It uses the real local fsatomic
+// transport: the file is written atomically, then chown runs via the shell with
+// an injection payload in the owner value. The chown itself fails (can't chown
+// to a bogus user, and to root as non-root), but the payload must be an inert
+// quoted argument — the marker file must never be created.
+func TestApply_AgentMode_OwnerInjectionInert(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.conf")
+	marker := filepath.Join(dir, "PWNED_AGENT")
+	tr := local.New()
+	h := filecontent.New()
+	_, _ = h.Apply(context.Background(), tr, api.Params{
+		"path":    target,
+		"content": "x\n",
+		"owner":   "root; touch " + marker,
+		"mode":    "0640",
+	}, nil)
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatalf("injection executed on the agent path: marker %s was created (owner value broke out of chown quoting)", marker)
+	}
+	if _, err := os.Stat(target); err != nil {
+		t.Errorf("expected the file to be written atomically on the agent path; got: %v", err)
 	}
 }
