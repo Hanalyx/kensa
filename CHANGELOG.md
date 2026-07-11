@@ -10,7 +10,7 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
-## v0.7.6 — 2026-07-10
+## v0.7.6 — 2026-07-11
 
 A security + coverage patch: a root-command-injection fix in the
 `file_content` / `file_absent` handlers, the RHEL 10 STIG coverage campaign
