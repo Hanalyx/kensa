@@ -1,6 +1,6 @@
 # Mechanisms reference
 
-_Applies to: Kensa v0.7.4 — last updated 2026-07-10._
+_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
 
 A *mechanism* is the named action a rule's remediation runs to change a host,
 such as `sysctl_set`, `service_enabled`, or `file_content`. You set it in a
