@@ -1282,6 +1282,46 @@
       "notes": "W7 stig-ubuntu22 (V-260547 UBTU-22-411035): definite FAIL on 250 (INACTIVE not configured, faithful)."
     },
     {
+      "rule_id": "audit-execve-privileged",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270689 UBTU-24-200580): privileged-execve audit (uid!=euid euid=0, gid!=egid egid=0, b32+b64). auditd installed on 249. Definite FAIL (default auditd doesn't load execpriv rules = genuine non-compliance, faithful). auditd purged, byte-perfect (f45f45eb)."
+    },
+    {
+      "rule_id": "audit-execve-privileged",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260648 UBTU-22-654230): definite FAIL on 250 (execpriv rules not loaded, faithful). Byte-perfect (69ce4f6)."
+    },
+    {
+      "rule_id": "auditd-log-storage-week",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270816 UBTU-24-900920): audit partition >= ~1 week capacity (df). auditd on 249, PASS. Byte-perfect (f45f45eb)."
+    },
+    {
+      "rule_id": "auditd-log-storage-week",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260595 UBTU-22-653035): auditd on 250, PASS. Byte-perfect (69ce4f6)."
+    },
+    {
+      "rule_id": "audit-rules-immutable",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270832 UBTU-24-909000): -e 2 in rules.d + auditctl enabled=2. auditd on 249. Definite FAIL (fresh auditd is enabled=1, not immutable = genuine non-compliance, faithful). u22 equivalent deferred (phrases differently)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
