@@ -1074,6 +1074,54 @@
       "notes": "W7 stig-ubuntu22 (V-260475 UBTU-22-213025): cpuinfo nx-flag check. PASS on 250."
     },
     {
+      "rule_id": "audit-config-owner",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270776 UBTU-24-900050): auditd installed on 249. Fail-observed ✓✓: PASS -> chown auditd.conf to non-root FAIL -> chown root PASS. auditd purged, host byte-perfect (f45f45eb)."
+    },
+    {
+      "rule_id": "audit-config-owner",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260602 UBTU-22-653070): auditd installed on 250, PASS. Purged, byte-perfect (69ce4f6)."
+    },
+    {
+      "rule_id": "audit-config-group",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270777 UBTU-24-900060): auditd on 249, PASS (files root-group)."
+    },
+    {
+      "rule_id": "audit-config-group",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260603 UBTU-22-653075): auditd on 250, PASS."
+    },
+    {
+      "rule_id": "audit-log-owner",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270828 UBTU-24-901310): auditd on 249, PASS (log files root-owned)."
+    },
+    {
+      "rule_id": "audit-log-owner",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260598 UBTU-22-653050): auditd on 250, PASS."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
