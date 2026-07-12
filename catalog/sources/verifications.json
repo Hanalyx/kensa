@@ -1042,6 +1042,38 @@
       "notes": "W7 stig-ubuntu24 (V-270750 UBTU-24-600150): extend of portable find-based rule. Fail-observed: baseline PASS -> created world-writable dir /kensa-ww-test (0777, no sticky) FAIL -> removed PASS. Also fail-observed identically on 250 (rule runs on ubuntu22, though ubuntu22 STIG V2R8 has no sticky-bit control to cite). Host clean."
     },
     {
+      "rule_id": "wireless-disabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270755 UBTU-24-600230): portable check (no wireless radios = compliant). PASS on 249 (no wireless hardware, faithful)."
+    },
+    {
+      "rule_id": "wireless-disabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260541 UBTU-22-291015): PASS on 250 (no wireless hardware, faithful)."
+    },
+    {
+      "rule_id": "execshield-nx-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270771 UBTU-24-700300): cpuinfo nx-flag check (uptime-independent, unlike the STIG's dmesg method which rotated out on 249). PASS on 249; NX confirmed active."
+    },
+    {
+      "rule_id": "execshield-nx-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260475 UBTU-22-213025): cpuinfo nx-flag check. PASS on 250."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
