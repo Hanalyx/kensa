@@ -11994,6 +11994,22 @@
       "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict FAIL on rhel10 (cites rhel10 benchmark)"
     },
     {
+      "rule_id": "ssh-x11-forwarding",
+      "os": "ubuntu24",
+      "scope": "full",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 extend (V-270708 UBTU-24-300022): natural FAIL (host X11Forwarding yes) -> remediate FIXED (00-kensa drop-in, effective no) -> rollback byte-perfect (sshd_config + 50-cloud-init hashes unchanged, drop-in absent)"
+    },
+    {
+      "rule_id": "ssh-x11-forwarding",
+      "os": "ubuntu22",
+      "scope": "full",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 extend (V-260529 UBTU-22-255040): natural FAIL (host X11Forwarding yes) -> remediate FIXED -> rollback byte-perfect (sshd_config + 50-cloud-init hashes unchanged, drop-in absent)"
+    },
+    {
       "rule_id": "ssh-x11-use-localhost",
       "os": "rhel10",
       "scope": "check",
