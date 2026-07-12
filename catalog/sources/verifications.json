@@ -1210,6 +1210,22 @@
       "notes": "W7 stig-ubuntu22 (V-260571 UBTU-22-611065, CAT I): PASS on 250 (no empty passwords)."
     },
     {
+      "rule_id": "no-duplicate-uids",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270720 UBTU-24-400000): duplicate-UID check (uniq -d on /etc/passwd field 3, matches STIG awk list[$3]++). PASS on 249."
+    },
+    {
+      "rule_id": "no-duplicate-uids",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260543 UBTU-22-411015): PASS on 250."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
