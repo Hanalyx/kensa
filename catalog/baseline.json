@@ -25,7 +25,7 @@
    "framework": "stig",
    "os": "ubuntu22",
    "total": 188,
-   "covered": 120,
+   "covered": 121,
    "drifted": 0
   },
   {

@@ -1039,7 +1039,15 @@
       "scope": "check",
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-12",
-      "notes": "W7 stig-ubuntu24 (V-270750 UBTU-24-600150): extend of portable find-based rule. Fail-observed: baseline PASS -> created world-writable dir /kensa-ww-test (0777, no sticky) FAIL -> removed PASS. Also fail-observed identically on 250 (rule runs on ubuntu22, though ubuntu22 STIG V2R8 has no sticky-bit control to cite). Host clean."
+      "notes": "W7 stig-ubuntu24 (V-270750 UBTU-24-600150): extend of portable find-based rule. Fail-observed: baseline PASS -> created world-writable dir /kensa-ww-test (0777, no sticky) FAIL -> removed PASS. Host clean."
+    },
+    {
+      "rule_id": "sticky-bit-world-writable",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260513 UBTU-22-232145, byte-identical find check; found by ground-truth-skeptic after an initial extraction miss). Fail-observed on 250: baseline PASS -> world-writable no-sticky dir FAIL -> removed PASS. Host clean."
     },
     {
       "rule_id": "wireless-disabled",

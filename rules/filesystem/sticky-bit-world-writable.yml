@@ -19,9 +19,14 @@ references:
       vuln_id: "V-230243"
       stig_id: "RHEL-08-010190"
       severity: "CAT II"
-    ubuntu24:                                                                # ubuntu22 STIG V2R8 has NO sticky-bit control — do not cite one
+    ubuntu24:
       vuln_id: "V-270750"
       stig_id: "UBTU-24-600150"
+      severity: "CAT II"
+      cci: ["CCI-001090"]
+    ubuntu22:
+      vuln_id: "V-260513"
+      stig_id: "UBTU-22-232145"
       severity: "CAT II"
       cci: ["CCI-001090"]
   nist_800_53: ["AC-6", "CM-6"]
