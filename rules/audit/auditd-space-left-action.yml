@@ -51,10 +51,11 @@ platforms:
 implementations:
 - default: true
   check:
-    method: config_value
-    path: /etc/audit/auditd.conf
-    key: space_left_action
-    expected: email
+    # STIG accepts either "email" (notify) or "exec" (run a notifying script);
+    # asserting email-only would false-FAIL a compliant exec-configured host.
+    method: command
+    run: "grep -qiE '^[[:space:]]*space_left_action[[:space:]]*=[[:space:]]*(email|exec)\\b' /etc/audit/auditd.conf"
+    expected_exit: 0
   remediation:
     mechanism: config_set
     path: /etc/audit/auditd.conf
