@@ -1242,6 +1242,22 @@
       "notes": "W7 stig-ubuntu22 (V-260552 UBTU-22-412020): definite FAIL on 250 (no maxlogins configured, faithful)."
     },
     {
+      "rule_id": "apparmor-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270660 UBTU-24-100510): net-new. service_state apparmor active. PASS on 249 (apparmor active; pass-on-compliant, not stopping apparmor on the live fleet host)."
+    },
+    {
+      "rule_id": "apparmor-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260557 UBTU-22-431015): apparmor active on 250 = PASS."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
