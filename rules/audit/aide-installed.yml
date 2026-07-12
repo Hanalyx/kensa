@@ -30,13 +30,33 @@ references:
       vuln_id: "V-280977"
       stig_id: "RHEL-10-200630"
       severity: "CAT II"
+    ubuntu24:                                                                # Ubuntu impl verifies AIDE INSTALLED (V-270649). Init/config (V-270650) is a separate control → separate rule (aide-db-initialized), since aideinit belongs in its own transaction.
+      vuln_id: "V-270649"
+      stig_id: "UBTU-24-100100"
+      severity: "CAT II"
+      cci: ["CCI-002696"]
+    ubuntu22:
+      vuln_id: "V-260582"
+      stig_id: "UBTU-22-651010"
+      severity: "CAT II"
+      cci: ["CCI-002696"]
   nist_800_53: ["SC-28", "SI-7"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  - when: apt                                                              # Debian/Ubuntu: aide-common package (V-270649 install). Init (aide.db) lives in aide-db-initialized.
+    check:
+      method: package_state
+      name: "aide"
+      state: "present"
+    remediation:
+      mechanism: apt_present
+      name: "aide"
   - default: true
     check:
       checks:

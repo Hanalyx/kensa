@@ -15,11 +15,24 @@ references:
     rhel9: { section: "6.3.4.6", level: "L1", type: "Automated" }
     rhel10: { section: "6.3.4.6", level: "L2", type: "Automated" }
     rhel8: { section: "6.3.4.6", level: "L2", type: "Automated" }
+  stig:
+    ubuntu24:
+      vuln_id: "V-270776"
+      stig_id: "UBTU-24-900050"
+      severity: "CAT II"
+      cci: ["CCI-000171"]
+    ubuntu22:
+      vuln_id: "V-260602"
+      stig_id: "UBTU-22-653070"
+      severity: "CAT II"
+      cci: ["CCI-000171"]
   nist_800_53: ["AU-9"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 implementations:
   - default: true
     check:

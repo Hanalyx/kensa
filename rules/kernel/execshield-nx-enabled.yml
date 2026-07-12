@@ -19,11 +19,23 @@ references:
       vuln_id: "V-281321"
       stig_id: "RHEL-10-701190"
       severity: "CAT II"
+    ubuntu24:                                                                # cpuinfo nx-flag check (uptime-independent); the STIG's dmesg method rotates out of the ring buffer on long-uptime hosts
+      vuln_id: "V-270771"
+      stig_id: "UBTU-24-700300"
+      severity: "CAT II"
+      cci: ["CCI-002824"]
+    ubuntu22:
+      vuln_id: "V-260475"
+      stig_id: "UBTU-22-213025"
+      severity: "CAT II"
+      cci: ["CCI-002824"]
   nist_800_53: ["SC-39", "SI-16"]
 
 platforms:
   - family: rhel
     min_version: 10
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - default: true

@@ -1018,6 +1018,118 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict PASS on rhel8 (cites rhel8 benchmark)"
     },
     {
+      "rule_id": "aide-installed",
+      "os": "ubuntu24",
+      "scope": "full",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270649 UBTU-24-100100, install): when:apt impl. FAIL (aide absent) -> remediate apt_present COMMITTED (validate post-apply-recheck PASS) -> check PASS. Host restored byte-perfect (dpkg f45f45eb). Ubuntu impl is install-only; aide.db init (V-270650) is a separate rule."
+    },
+    {
+      "rule_id": "aide-installed",
+      "os": "ubuntu22",
+      "scope": "full",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260582 UBTU-22-651010, install): when:apt impl. FAIL (aide absent) -> remediate apt_present COMMITTED -> check PASS. Host restored byte-perfect (dpkg 69ce4f6)."
+    },
+    {
+      "rule_id": "sticky-bit-world-writable",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270750 UBTU-24-600150): extend of portable find-based rule. Fail-observed: baseline PASS -> created world-writable dir /kensa-ww-test (0777, no sticky) FAIL -> removed PASS. Host clean."
+    },
+    {
+      "rule_id": "sticky-bit-world-writable",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260513 UBTU-22-232145, byte-identical find check; found by ground-truth-skeptic after an initial extraction miss). Fail-observed on 250: baseline PASS -> world-writable no-sticky dir FAIL -> removed PASS. Host clean."
+    },
+    {
+      "rule_id": "wireless-disabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270755 UBTU-24-600230): portable check (no wireless radios = compliant). PASS on 249 (no wireless hardware, faithful)."
+    },
+    {
+      "rule_id": "wireless-disabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260541 UBTU-22-291015): PASS on 250 (no wireless hardware, faithful)."
+    },
+    {
+      "rule_id": "execshield-nx-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270771 UBTU-24-700300): cpuinfo nx-flag check (uptime-independent, unlike the STIG's dmesg method which rotated out on 249). PASS on 249; NX confirmed active."
+    },
+    {
+      "rule_id": "execshield-nx-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260475 UBTU-22-213025): cpuinfo nx-flag check. PASS on 250."
+    },
+    {
+      "rule_id": "audit-config-owner",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270776 UBTU-24-900050): auditd installed on 249. Fail-observed ✓✓: PASS -> chown auditd.conf to non-root FAIL -> chown root PASS. auditd purged, host byte-perfect (f45f45eb)."
+    },
+    {
+      "rule_id": "audit-config-owner",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260602 UBTU-22-653070): auditd installed on 250, PASS. Purged, byte-perfect (69ce4f6)."
+    },
+    {
+      "rule_id": "audit-config-group",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270777 UBTU-24-900060): auditd on 249, PASS (files root-group)."
+    },
+    {
+      "rule_id": "audit-config-group",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260603 UBTU-22-653075): auditd on 250, PASS."
+    },
+    {
+      "rule_id": "audit-log-owner",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270828 UBTU-24-901310): auditd on 249, PASS (log files root-owned)."
+    },
+    {
+      "rule_id": "audit-log-owner",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260598 UBTU-22-653050): auditd on 250, PASS."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
@@ -11992,6 +12104,22 @@
       "host": "fleet:192.168.1.247",
       "verified_at": "2026-06-28",
       "notes": "fleet backfill: read-only check (--sudo) on RHEL 10.1, definite verdict FAIL on rhel10 (cites rhel10 benchmark)"
+    },
+    {
+      "rule_id": "ssh-x11-forwarding",
+      "os": "ubuntu24",
+      "scope": "full",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 extend (V-270708 UBTU-24-300022): natural FAIL (host X11Forwarding yes) -> remediate FIXED (00-kensa drop-in, effective no) -> rollback byte-perfect (sshd_config + 50-cloud-init hashes unchanged, drop-in absent)"
+    },
+    {
+      "rule_id": "ssh-x11-forwarding",
+      "os": "ubuntu22",
+      "scope": "full",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 extend (V-260529 UBTU-22-255040): natural FAIL (host X11Forwarding yes) -> remediate FIXED -> rollback byte-perfect (sshd_config + 50-cloud-init hashes unchanged, drop-in absent)"
     },
     {
       "rule_id": "ssh-x11-use-localhost",
