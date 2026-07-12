@@ -1322,6 +1322,22 @@
       "notes": "W7 stig-ubuntu24 (V-270832 UBTU-24-909000): -e 2 in rules.d + auditctl enabled=2. auditd on 249. Definite FAIL (fresh auditd is enabled=1, not immutable = genuine non-compliance, faithful). u22 equivalent deferred (phrases differently)."
     },
     {
+      "rule_id": "grub-audit-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270676 UBTU-24-102010): grub audit=1 kernel param. Definite FAIL on 249 (audit not in /proc/cmdline = genuine non-compliance, faithful)."
+    },
+    {
+      "rule_id": "grub-audit-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260471 UBTU-22-212015): definite FAIL on 250 (audit=1 not set, faithful)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
