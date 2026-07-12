@@ -1226,6 +1226,22 @@
       "notes": "W7 stig-ubuntu22 (V-260543 UBTU-22-411015): PASS on 250."
     },
     {
+      "rule_id": "pam-maxlogins",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270677 UBTU-24-200000, CAT III): maxlogins<=10 in limits.conf. Definite FAIL on 249 (no maxlogins configured = genuine STIG non-compliance, faithfully detected)."
+    },
+    {
+      "rule_id": "pam-maxlogins",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260552 UBTU-22-412020): definite FAIL on 250 (no maxlogins configured, faithful)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
