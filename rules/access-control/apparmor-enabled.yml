@@ -1,0 +1,42 @@
+id: apparmor-enabled
+title: Ensure AppArmor is active
+description: >
+  The AppArmor service must be active so that its loaded mandatory access
+  control profiles are enforced, confining programs to a limited set of
+  resources.
+rationale: >
+  AppArmor provides mandatory access control that confines applications to
+  the resources they legitimately need, limiting the damage a compromised
+  process can cause. If the AppArmor service is not active, its profiles are
+  not enforced and that confinement is absent.
+severity: medium
+category: access-control
+tags: [apparmor, mac, mandatory-access-control]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270660"
+      stig_id: "UBTU-24-100510"
+      severity: "CAT II"
+      cci: ["CCI-001764", "CCI-001774", "CCI-002235"]
+    ubuntu22:
+      vuln_id: "V-260557"
+      stig_id: "UBTU-22-431015"
+      severity: "CAT II"
+      cci: ["CCI-001764", "CCI-001774", "CCI-002235"]
+  nist_800_53: ["AC-3", "AC-6", "SC-7"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: service_state
+      name: apparmor
+      active: true
+    remediation:
+      mechanism: service_enabled
+      name: apparmor

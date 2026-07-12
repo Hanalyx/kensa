@@ -1242,6 +1242,46 @@
       "notes": "W7 stig-ubuntu22 (V-260552 UBTU-22-412020): definite FAIL on 250 (no maxlogins configured, faithful)."
     },
     {
+      "rule_id": "apparmor-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270660 UBTU-24-100510): net-new. service_state apparmor active. PASS on 249 (apparmor active; pass-on-compliant, not stopping apparmor on the live fleet host)."
+    },
+    {
+      "rule_id": "apparmor-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260557 UBTU-22-431015): apparmor active on 250 = PASS."
+    },
+    {
+      "rule_id": "sudo-reauth-not-disabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270707 UBTU-24-300021): rule checks no !authenticate in sudoers (+ non-negative timestamp_timeout). PASS on 249 (no !authenticate). u22 (V-260558) deferred — appears combined with NOPASSWD, needs disambiguation."
+    },
+    {
+      "rule_id": "password-inactive",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270683 UBTU-24-200260): useradd -D INACTIVE in 1..35 (account_inactive_days var = 35). Definite FAIL on 249 (INACTIVE not set to 1-35 = genuine non-compliance, faithful)."
+    },
+    {
+      "rule_id": "password-inactive",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260547 UBTU-22-411035): definite FAIL on 250 (INACTIVE not configured, faithful)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
