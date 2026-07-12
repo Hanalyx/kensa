@@ -1,0 +1,44 @@
+id: timezone-utc
+title: Configure the system time zone to UTC or GMT
+description: >
+  Audit record timestamps must be mapped to Coordinated Universal Time (UTC)
+  or Greenwich Mean Time (GMT). The system time zone must therefore be set to
+  UTC or GMT.
+rationale: >
+  Audit timestamps recorded in a single universal time zone (UTC/GMT) can be
+  correlated across systems and geographic locations during incident analysis.
+  Local time zones complicate cross-system correlation and can obscure the true
+  ordering of events across a fleet.
+severity: low
+transactional: false
+category: audit
+tags: [audit, timezone, utc, timestamps, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270820"
+      stig_id: "UBTU-24-901220"
+      severity: "CAT III"
+      cci: ["CCI-001890"]
+    ubuntu22:
+      vuln_id: "V-260521"
+      stig_id: "UBTU-22-252020"
+      severity: "CAT III"
+      cci: ["CCI-001095", "CCI-001890"]
+  nist_800_53: ["AU-8"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "timedatectl status 2>/dev/null | grep -i 'time zone' | grep -qiE '(UTC|GMT)'"
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "timedatectl set-timezone UTC"
+      unless: "timedatectl status 2>/dev/null | grep -i 'time zone' | grep -qiE '(UTC|GMT)'"

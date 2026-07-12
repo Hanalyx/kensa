@@ -1338,6 +1338,22 @@
       "notes": "W7 stig-ubuntu22 (V-260471 UBTU-22-212015): definite FAIL on 250 (audit=1 not set, faithful)."
     },
     {
+      "rule_id": "timezone-utc",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270820 UBTU-24-901220): net-new. timedatectl time zone UTC/GMT. PASS on 249 (Etc/UTC)."
+    },
+    {
+      "rule_id": "timezone-utc",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260521 UBTU-22-252020): PASS on 250 (Etc/UTC)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
