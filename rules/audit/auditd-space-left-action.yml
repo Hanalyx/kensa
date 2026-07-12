@@ -36,11 +36,18 @@ references:
       vuln_id: "V-281113"
       stig_id: "RHEL-10-500205"
       severity: "CAT II"
+    ubuntu24:                                                                # u22 equivalent phrases differently; deferred
+      vuln_id: "V-270818"
+      stig_id: "UBTU-24-900960"
+      severity: "CAT III"
+      cci: ["CCI-001855"]
   nist_800_53:
   - AU-5
 platforms:
 - family: rhel
   min_version: 8
+- family: ubuntu
+  min_version: 22
 implementations:
 - default: true
   check:
