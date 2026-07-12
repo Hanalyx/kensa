@@ -32,7 +32,7 @@
    "framework": "stig",
    "os": "ubuntu24",
    "total": 194,
-   "covered": 118,
+   "covered": 119,
    "drifted": 0
   },
   {

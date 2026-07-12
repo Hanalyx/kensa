@@ -1034,6 +1034,14 @@
       "notes": "W7 stig-ubuntu22 (V-260582 UBTU-22-651010, install): when:apt impl. FAIL (aide absent) -> remediate apt_present COMMITTED -> check PASS. Host restored byte-perfect (dpkg 69ce4f6)."
     },
     {
+      "rule_id": "sticky-bit-world-writable",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270750 UBTU-24-600150): extend of portable find-based rule. Fail-observed: baseline PASS -> created world-writable dir /kensa-ww-test (0777, no sticky) FAIL -> removed PASS. Also fail-observed identically on 250 (rule runs on ubuntu22, though ubuntu22 STIG V2R8 has no sticky-bit control to cite). Host clean."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
