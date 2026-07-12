@@ -27,13 +27,34 @@ references:
       vuln_id: "V-281322"
       stig_id: "RHEL-10-701200"
       severity: "CAT II"
+    ubuntu24:
+      vuln_id: "V-270746"
+      stig_id: "UBTU-24-600070"
+      severity: "CAT II"
+      cci: ["CCI-001190"]
+    ubuntu22:
+      vuln_id: "V-260473"
+      stig_id: "UBTU-22-213015"
+      severity: "CAT II"
+      cci: ["CCI-001190"]
   nist_800_53:
   - CM-7
   - SC-7
 platforms:
 - family: rhel
   min_version: 8
+- family: ubuntu
+  min_version: 22
 implementations:
+- when: apt                                                                # Debian/Ubuntu crash-dump unit is kdump-tools (absent = compliant; no crash dumps)
+  check:
+    method: service_state
+    name: kdump-tools
+    active: false
+    enabled: false
+  remediation:
+    mechanism: service_masked
+    name: kdump-tools
 - default: true
   check:
     method: service_state

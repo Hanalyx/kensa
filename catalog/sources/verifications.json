@@ -1130,6 +1130,70 @@
       "notes": "W7 stig-ubuntu22 (V-260598 UBTU-22-653050): auditd on 250, PASS."
     },
     {
+      "rule_id": "kdump-disabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270746 UBTU-24-600070): when:apt impl targets kdump-tools (Ubuntu crash-dump unit). PASS on 249 (kdump-tools absent = compliant, faithful; service_state treats missing unit as inactive/disabled, no Finding-D false-FAIL)."
+    },
+    {
+      "rule_id": "kdump-disabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260473 UBTU-22-213015): kdump-tools absent = compliant. PASS on 250."
+    },
+    {
+      "rule_id": "audit-config-permissions",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270775 UBTU-24-900040, 0640): auditd on 249. ✓✓ baseline PASS -> chmod auditd.conf 0644 FAIL -> chmod 0640 PASS. Purged, byte-perfect (f45f45eb)."
+    },
+    {
+      "rule_id": "audit-config-permissions",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260601 UBTU-22-653065): auditd on 250, PASS (config files 0640). Byte-perfect (69ce4f6)."
+    },
+    {
+      "rule_id": "audit-log-permissions",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270827 UBTU-24-901300, 0600): auditd on 249. Definite FAIL verdict (Ubuntu auditd ships audit.log at 0640, genuinely non-compliant with the STIG's 0600 'or less permissive' - the check faithfully flags it). Purged, byte-perfect."
+    },
+    {
+      "rule_id": "audit-log-permissions",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260597 UBTU-22-653045): auditd on 250, definite FAIL (audit.log 0640 default, non-compliant with 0600 - faithful). Byte-perfect."
+    },
+    {
+      "rule_id": "root-account-locked",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270724 UBTU-24-400110): net-new. passwd -S root = L (locked) on 249 = PASS (pass-on-compliant; not unlocking root on the fleet to force a FAIL)."
+    },
+    {
+      "rule_id": "root-account-locked",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260542 UBTU-22-411010): passwd -S root = L on 250 = PASS."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",

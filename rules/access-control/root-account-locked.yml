@@ -1,0 +1,45 @@
+id: root-account-locked
+title: Lock the root account password
+description: >
+  The root account password must be locked to prevent direct password
+  authentication as root. Administrative access is obtained by authenticating
+  as an individual user and escalating privileges via sudo.
+rationale: >
+  A locked root password removes the highest-privilege account as a direct
+  authentication target and enforces individual accountability: administrators
+  must log in as themselves and escalate via sudo, so every privileged action
+  is attributable. A password-authenticable root account is a single high-value
+  credential exposed to brute force and shared use.
+severity: medium
+transactional: false
+category: access-control
+tags: [root, authentication, account-lock, privileged-access]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270724"
+      stig_id: "UBTU-24-400110"
+      severity: "CAT II"
+      cci: ["CCI-004045"]
+    ubuntu22:
+      vuln_id: "V-260542"
+      stig_id: "UBTU-22-411010"
+      severity: "CAT II"
+      cci: ["CCI-000770", "CCI-004045"]
+  nist_800_53: ["AC-6", "IA-2"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "passwd -S root 2>/dev/null | grep -q '^root L'"
+      expected_exit: 0
+    remediation:
+      mechanism: command_exec
+      run: "passwd -l root"
+      unless: "passwd -S root 2>/dev/null | grep -q '^root L'"
