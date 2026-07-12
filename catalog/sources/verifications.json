@@ -1194,6 +1194,22 @@
       "notes": "W7 stig-ubuntu22 (V-260542 UBTU-22-411010): passwd -S root = L on 250 = PASS."
     },
     {
+      "rule_id": "accounts-no-empty-passwords",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270713 UBTU-24-300027, CAT I): /etc/shadow empty-password-field check (matches STIG awk -F: '!$2'). PASS on 249 (no empty passwords)."
+    },
+    {
+      "rule_id": "accounts-no-empty-passwords",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260571 UBTU-22-611065, CAT I): PASS on 250 (no empty passwords)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
