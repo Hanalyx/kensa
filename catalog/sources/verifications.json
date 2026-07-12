@@ -1178,6 +1178,22 @@
       "notes": "W7 stig-ubuntu22 (V-260597 UBTU-22-653045): auditd on 250, definite FAIL (audit.log 0640 default, non-compliant with 0600 - faithful). Byte-perfect."
     },
     {
+      "rule_id": "root-account-locked",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270724 UBTU-24-400110): net-new. passwd -S root = L (locked) on 249 = PASS (pass-on-compliant; not unlocking root on the fleet to force a FAIL)."
+    },
+    {
+      "rule_id": "root-account-locked",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260542 UBTU-22-411010): passwd -S root = L on 250 = PASS."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
