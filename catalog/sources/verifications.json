@@ -1130,6 +1130,22 @@
       "notes": "W7 stig-ubuntu22 (V-260598 UBTU-22-653050): auditd on 250, PASS."
     },
     {
+      "rule_id": "kdump-disabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270746 UBTU-24-600070): when:apt impl targets kdump-tools (Ubuntu crash-dump unit). PASS on 249 (kdump-tools absent = compliant, faithful; service_state treats missing unit as inactive/disabled, no Finding-D false-FAIL)."
+    },
+    {
+      "rule_id": "kdump-disabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260473 UBTU-22-213015): kdump-tools absent = compliant. PASS on 250."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
