@@ -1018,6 +1018,22 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict PASS on rhel8 (cites rhel8 benchmark)"
     },
     {
+      "rule_id": "aide-installed",
+      "os": "ubuntu24",
+      "scope": "full",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270649 UBTU-24-100100, install): when:apt impl. FAIL (aide absent) -> remediate apt_present COMMITTED (validate post-apply-recheck PASS) -> check PASS. Host restored byte-perfect (dpkg f45f45eb). Ubuntu impl is install-only; aide.db init (V-270650) is a separate rule."
+    },
+    {
+      "rule_id": "aide-installed",
+      "os": "ubuntu22",
+      "scope": "full",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu22 (V-260582 UBTU-22-651010, install): when:apt impl. FAIL (aide absent) -> remediate apt_present COMMITTED -> check PASS. Host restored byte-perfect (dpkg 69ce4f6)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
