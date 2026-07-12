@@ -1354,6 +1354,14 @@
       "notes": "W7 stig-ubuntu22 (V-260521 UBTU-22-252020): PASS on 250 (Etc/UTC)."
     },
     {
+      "rule_id": "auditd-space-left-action",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-12",
+      "notes": "W7 stig-ubuntu24 (V-270818 UBTU-24-900960): space_left_action notify at 75% (accepts email OR exec per STIG). auditd on 249, fail-observed ✓✓: default SYSLOG -> FAIL, space_left_action=exec -> PASS. u22 deferred (phrases differently). Byte-perfect (f45f45eb)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
