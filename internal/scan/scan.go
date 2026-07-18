@@ -322,8 +322,11 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		}
 		result.Transactions = append(result.Transactions, *txr)
 		fixed := txr.Status == api.StatusCommitted
+		staged := txr.Status == api.StatusStaged
 		detail := ""
-		if !fixed {
+		if staged {
+			detail = "reboot required to load"
+		} else if !fixed {
 			detail = string(txr.Status)
 			if txr.Error != nil {
 				detail = txr.Error.Error()
@@ -331,7 +334,7 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		}
 		r.emit(progress.Update{
 			Kind: progress.RuleChecked, RuleID: rl.ID,
-			Index: i + 1, Total: total, OK: fixed, Fixed: fixed, Detail: detail,
+			Index: i + 1, Total: total, OK: fixed, Fixed: fixed, Staged: staged, Detail: detail,
 		})
 	}
 	return result, nil

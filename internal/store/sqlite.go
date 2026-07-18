@@ -306,7 +306,7 @@ func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results [
                 txn_total     = (SELECT COUNT(*) FROM transactions WHERE session_id = ?),
                 txn_committed = (SELECT COALESCE(SUM(CASE WHEN status = 'committed'   THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?),
                 txn_rolled    = (SELECT COALESCE(SUM(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?),
-                txn_failed    = (SELECT COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back') THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?)
+                txn_failed    = (SELECT COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back','staged') THEN 1 ELSE 0 END), 0) FROM transactions WHERE session_id = ?)
             WHERE id = ?`,
 			sessID.String, sessID.String, sessID.String, sessID.String, sessID.String,
 		); err != nil {

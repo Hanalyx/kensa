@@ -94,7 +94,9 @@ func (s *SQLite) FinishSession(ctx context.Context, sessID uuid.UUID, finishedAt
             COUNT(*),
             COALESCE(SUM(CASE WHEN status = 'committed'   THEN 1 ELSE 0 END), 0),
             COALESCE(SUM(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END), 0),
-            COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back') THEN 1 ELSE 0 END), 0)
+            -- 'staged' is a successful reboot-deferred outcome, NOT a failure:
+            -- exclude it so a staged remediation is never reported as failed.
+            COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back','staged') THEN 1 ELSE 0 END), 0)
         FROM transactions WHERE session_id = ?`,
 		sessID.String(),
 	).Scan(&total, &committed, &rolled, &failed); err != nil {

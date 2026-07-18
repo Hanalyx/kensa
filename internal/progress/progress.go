@@ -79,6 +79,12 @@ type Update struct {
 	// renders as FIXED; OK=true && !Fixed renders as PASS (already
 	// compliant). Only meaningful for the remediate path.
 	Fixed bool
+	// Staged marks a remediation that wrote a reboot-deferred change it could
+	// not converge at runtime (audit_rule_set on an immutable audit config).
+	// The persist layer is written but the host is NOT yet in desired state, so
+	// OK=false; Staged renders as STAGED (distinct from FAIL — a reboot loads
+	// the change). Only meaningful for the remediate path.
+	Staged bool
 	// Detail is an optional human-readable note (a refusal reason, a probe
 	// name, an error summary).
 	Detail string

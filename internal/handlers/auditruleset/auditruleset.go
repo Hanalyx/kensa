@@ -323,13 +323,24 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 	if err != nil {
 		return nil, fmt.Errorf("audit_rule_set: capture list rules: %w (%v)", api.ErrCaptureIncomplete, err)
 	}
+	// When the audit config is immutable (enabled 2), Apply will STAGE the rule
+	// (write the drop-in, load nothing) — so Rollback has nothing to unload.
+	// Recording added_rules from "not currently loaded" here would make Rollback
+	// call DeleteRule on a rule that was never loaded; an immutable kernel
+	// rejects that unload with EPERM (only ENOENT is tolerated), falsely
+	// reporting a partial restore of a host that is byte-perfect. Record an
+	// empty unload set and mark the pre-state staged.
+	immutableStaged := false
+	if enabled, serr := c.GetStatus(); serr == nil && enabled == 2 {
+		immutableStaged = true
+	}
 	var added []string
 	for _, line := range auditnl.RuleLines(p.Rule) {
 		wire, berr := auditnl.BuildRule(line)
 		if berr != nil {
 			return nil, fmt.Errorf("audit_rule_set: capture %w: %v", api.ErrCaptureIncomplete, berr)
 		}
-		if !containsWire(loaded, wire) {
+		if !immutableStaged && !containsWire(loaded, wire) {
 			added = append(added, line) // we will add it → rollback unloads it
 		}
 	}
@@ -341,7 +352,7 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 	// Which of this rule's lines are NOT already in the drop-in — the lines
 	// Apply will add and Rollback must remove (leaving any sibling's lines).
 	_, fileAdded := mergeRuleLines(content, auditnl.RuleLines(p.Rule))
-	return h.preState(p, existed, content, added, fileAdded), nil
+	return h.preState(p, existed, content, added, fileAdded, immutableStaged), nil
 }
 
 // captureShell records whether the rule file existed and its content.
@@ -367,7 +378,10 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 		}
 	}
 	_, fileAdded := mergeRuleLines(priorContent, auditnl.RuleLines(p.Rule))
-	return h.preState(p, fileExisted, priorContent, nil, fileAdded), nil
+	// Immutable (enabled 2) → Apply stages, nothing is loaded, so Rollback must
+	// not report a partial restore just because the runtime is locked. Mark it.
+	immutableStaged := auditImmutableShell(ctx, transport)
+	return h.preState(p, fileExisted, priorContent, nil, fileAdded, immutableStaged), nil
 }
 
 // preState builds the canonical PreState. added is the netlink-path set of
@@ -376,7 +390,7 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 // drop-in at capture — the lines rollback removes from the (possibly shared)
 // file, so a sibling rule's line survives. prior_content / file_existed are
 // retained as evidence; the file restore is line-based via fileAdded.
-func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, added, fileAdded []string) *api.PreState {
+func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, added, fileAdded []string, immutableStaged bool) *api.PreState {
 	data := map[string]interface{}{
 		"path":          p.RuleFile,
 		"file_existed":  fileExisted,
@@ -387,6 +401,12 @@ func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, add
 	}
 	if len(fileAdded) > 0 {
 		data["file_added_lines"] = fileAdded
+	}
+	if immutableStaged {
+		// The rule was staged (never loaded into the kernel) because the audit
+		// config is immutable. Rollback removes the drop-in only — there is no
+		// runtime rule to unload, so it must not report a partial restore.
+		data["immutable_staged"] = true
 	}
 	return &api.PreState{
 		Mechanism:  mechanism,
@@ -452,22 +472,26 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 	added := addedRules(pre.Data["added_rules"])
 	fileAdded := addedRules(pre.Data["file_added_lines"])
+	// A staged transaction (immutable at capture) never loaded a runtime rule,
+	// so its rollback removes the drop-in only and reports success — never a
+	// partial restore over an unreconcilable-runtime claim.
+	immutableStaged, _ := pre.Data["immutable_staged"].(bool)
 
 	if at, ok := transport.(auditnl.AuditTransport); ok {
-		res, err := h.rollbackNetlink(ctx, at, path, added, fileAdded)
+		res, err := h.rollbackNetlink(ctx, at, path, added, fileAdded, immutableStaged)
 		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
 			return res, err
 		}
 		// Netlink unavailable → shell rollback.
 	}
-	return h.rollbackShell(ctx, transport, path, fileAdded)
+	return h.rollbackShell(ctx, transport, path, fileAdded, immutableStaged)
 }
 
 // rollbackNetlink restores the drop-in by removing exactly the lines Apply
 // added to the file (fileAdded) — leaving any sibling rule's lines in a shared
 // drop-in intact — and unloads exactly the rule lines Apply added to the kernel
 // (added), never a rule another drop-in owns.
-func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport, path string, added, fileAdded []string) (*api.RollbackResult, error) {
+func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport, path string, added, fileAdded []string, immutableStaged bool) (*api.RollbackResult, error) {
 	// Restore persist layer first: strip only this rule's lines from the
 	// current file. If no managed rule line remains, remove the file;
 	// otherwise write the reduced content (preserving siblings).
@@ -481,6 +505,18 @@ func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport
 		}
 	} else if err := kernelio.RemoveFile(ctx, at, path); err != nil {
 		return nil, fmt.Errorf("audit_rule_set: rollback persist remove: %w", err)
+	}
+
+	// Staged transaction: nothing was ever loaded into the kernel (immutable at
+	// capture), so removing the drop-in is a complete, byte-perfect restore.
+	// Attempting an unload here would call DeleteRule on a never-loaded rule,
+	// which an immutable kernel rejects with EPERM — a false partial restore.
+	if immutableStaged {
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed %d staged line(s)); no runtime rule was loaded (netlink)", path, len(fileAdded)),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
 	}
 
 	c, err := at.AuditClient()
@@ -541,7 +577,7 @@ func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport
 // rollbackShell removes only this rule's lines from the drop-in (preserving
 // siblings in a shared file), deleting the file if no managed rule remains,
 // then reloads augenrules.
-func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string) (*api.RollbackResult, error) {
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string, immutableStaged bool) (*api.RollbackResult, error) {
 	current, rerr := h.readFileShell(ctx, transport, path)
 	if rerr != nil {
 		return nil, rerr
@@ -567,10 +603,20 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
+	// A staged transaction never loaded a runtime rule (immutable at capture),
+	// so removing the drop-in is a complete, byte-perfect restore — report
+	// success, not a partial, even though the config is still immutable.
+	if immutableStaged {
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed staged drop-in); no runtime rule was loaded", path),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	// augenrules --load exited cleanly, but on an immutable audit config
-	// (enabled 2) the kernel silently refuses live rule changes — the file
-	// is restored yet the running ruleset cannot be reconciled until reboot.
-	// Report that honestly instead of a clean success.
+	// (enabled 2) the kernel silently refuses live rule changes — a rule that
+	// WAS committed (loaded) cannot be unloaded until reboot, so the file is
+	// restored yet the running ruleset cannot be reconciled. Report honestly.
 	if auditImmutableShell(ctx, transport) {
 		return &api.RollbackResult{
 			Success:        false,

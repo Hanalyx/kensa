@@ -2,6 +2,7 @@ package auditruleset_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -68,6 +69,44 @@ func TestRoundTrip_Netlink_StagedRollback(t *testing.T) {
 	}
 	if _, ok := f.Files[auditPath]; ok {
 		t.Error("rollback should have removed the staged drop-in absent at capture")
+	}
+}
+
+// Regression (adversarial-panel BLOCKER): a REALISTIC immutable kernel rejects
+// the unload of a never-loaded rule with EPERM. A staged rollback must NOT
+// attempt that unload — Capture records no unload set on immutable, so Rollback
+// removes the drop-in only and reports success. Pre-fix, Capture recorded
+// added_rules (rules "not currently loaded") and Rollback called DeleteRule →
+// EPERM → false Success=false/PartialRestore=true on a byte-perfect host. The
+// earlier test masked it because the fake's DeleteRule succeeded at Enabled==2.
+//
+// @spec auditnl-rule-set
+// @ac AC-07
+func TestRollback_Netlink_StagedNoFalseUnloadFailure(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-07", func(t *testing.T) {})
+	f := auditnl.NewFakeAudit()
+	f.Enabled = 2                                       // immutable
+	f.DeleteErr = errors.New("operation not permitted") // immutable kernel rejects unload
+	h := auditruleset.New()
+	params := api.Params{"rule": ruleLine}
+
+	pre, err := h.Capture(context.Background(), f, params)
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if _, err := h.Apply(context.Background(), f, params, nil); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	rb, err := h.Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !rb.Success || rb.PartialRestore {
+		t.Errorf("staged rollback on an immutable kernel must succeed without an unload; got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+	if _, ok := f.Files[auditPath]; ok {
+		t.Error("staged rollback should have removed the drop-in")
 	}
 }
 
