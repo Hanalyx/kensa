@@ -181,6 +181,7 @@ message WireStepResult {
   bool success = 4;
   string detail = 5;
   bool stranded = 6;
+  bool staged = 7;
 }
 
 // WirePreState mirrors api.PreState. The `data` field carries
