@@ -203,6 +203,7 @@ type rollbackStartResult struct {
 	SessionID string                  `json:"session_id"`
 	Attempted int                     `json:"attempted"`
 	Succeeded int                     `json:"succeeded"`
+	Partial   int                     `json:"partial"`
 	Failed    int                     `json:"failed"`
 	PerTxn    []rollbackStartTxnEntry `json:"per_txn"`
 }
@@ -210,9 +211,15 @@ type rollbackStartResult struct {
 type rollbackStartTxnEntry struct {
 	RuleID  string `json:"rule_id"`
 	Success bool   `json:"success"`
+	// Partial marks a rollback that ran without error but did NOT fully revert
+	// the host (RollbackResult.PartialRestore) — e.g. a staged audit rule the
+	// host loaded after a reboot cannot be unloaded until the next reboot. The
+	// on-disk change is reverted; the running state is not yet.
+	Partial bool   `json:"partial,omitempty"`
 	Error   string `json:"error,omitempty"`
 	// Warning carries a best-effort-recording notice: the host was reverted
-	// but the rollback outcome could not be written to the transaction log.
+	// but the rollback outcome could not be written to the transaction log; or,
+	// for a partial restore, the reason the revert is incomplete.
 	Warning string `json:"warning,omitempty"`
 }
 
@@ -286,6 +293,19 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s rollback failed: %v\n", ref.RuleID, err)
 			continue
 		}
+		// A PartialRestore (no error, but Success=false) means the host was NOT
+		// fully reverted — e.g. a staged audit rule the host loaded after a
+		// reboot cannot be unloaded until the next reboot. Count and surface it
+		// distinctly; folding it into "succeeded" would misreport an incomplete
+		// revert as clean.
+		if res != nil && res.PartialRestore {
+			result.Partial++
+			result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
+				RuleID: ref.RuleID, Success: false, Partial: true, Warning: res.Detail,
+			})
+			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s partial restore: %s\n", ref.RuleID, res.Detail)
+			continue
+		}
 		result.Succeeded++
 		entry := rollbackStartTxnEntry{RuleID: ref.RuleID, Success: true}
 		// Recording the rollback is best-effort: the host was reverted, but
@@ -320,6 +340,9 @@ func writeRollbackStartText(w io.Writer, r *rollbackStartResult) {
 	fmt.Fprintf(w, "kensa rollback --start %s\n", r.SessionID)
 	fmt.Fprintf(w, "  attempted:  %d\n", r.Attempted)
 	fmt.Fprintf(w, "  succeeded:  %d\n", r.Succeeded)
+	if r.Partial > 0 {
+		fmt.Fprintf(w, "  partial:    %d (disk reverted; running state clears on reboot)\n", r.Partial)
+	}
 	fmt.Fprintf(w, "  failed:     %d\n", r.Failed)
 	for _, e := range r.PerTxn {
 		if e.Warning != "" {

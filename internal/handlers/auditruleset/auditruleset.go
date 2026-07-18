@@ -507,23 +507,42 @@ func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport
 		return nil, fmt.Errorf("audit_rule_set: rollback persist remove: %w", err)
 	}
 
-	// Staged transaction: nothing was ever loaded into the kernel (immutable at
-	// capture), so removing the drop-in is a complete, byte-perfect restore.
-	// Attempting an unload here would call DeleteRule on a never-loaded rule,
-	// which an immutable kernel rejects with EPERM — a false partial restore.
-	if immutableStaged {
-		return &api.RollbackResult{
-			Success:    true,
-			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed %d staged line(s)); no runtime rule was loaded (netlink)", path, len(fileAdded)),
-			ExecutedAt: time.Now().UTC(),
-		}, nil
-	}
-
 	c, err := at.AuditClient()
 	if err != nil {
 		return nil, err
 	}
 	defer c.Close()
+
+	// Staged transaction: the drop-in is now removed, so the rule will NOT
+	// reload at the next reboot (eventual convergence is guaranteed). Nothing
+	// was loaded AT CAPTURE — but the host may have rebooted before this
+	// rollback, in which case auditd loaded the persisted rule into the running
+	// kernel and re-locked immutable, and we cannot unload it now. Decide the
+	// verdict from LIVE state (GetRules), NOT the stale capture-time flag: a
+	// rule still loaded is an honest PartialRestore (runtime clears next reboot),
+	// mirroring the committed-immutable path; not loaded is a clean restore. We
+	// never DeleteRule here (an immutable kernel would EPERM on it).
+	if immutableStaged {
+		if loaded, gerr := c.GetRules(); gerr == nil {
+			for _, line := range fileAdded {
+				wire, berr := auditnl.BuildRule(line)
+				if berr == nil && containsWire(loaded, wire) {
+					return &api.RollbackResult{
+						Success:        false,
+						PartialRestore: true,
+						Detail:         fmt.Sprintf("audit_rule_set: removed staged drop-in %s but the rule is loaded in the running kernel (host rebooted before rollback) and the audit config is immutable; runtime clears on next reboot", path),
+						ExecutedAt:     time.Now().UTC(),
+					}, nil
+				}
+			}
+		}
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed %d staged line(s)); no runtime rule loaded (netlink)", path, len(fileAdded)),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
+
 	for _, line := range added {
 		wire, berr := auditnl.BuildRule(line)
 		if berr != nil {
@@ -612,13 +631,23 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
-	// A staged transaction never loaded a runtime rule (immutable at capture),
-	// so removing the drop-in is a complete, byte-perfect restore — report
-	// success, not a partial, even though the config is still immutable.
+	// Staged transaction: the drop-in is removed (won't reload next reboot). If
+	// the host rebooted before this rollback, auditd loaded the rule into the
+	// running kernel and re-locked immutable — decide the verdict from LIVE
+	// state, not the stale capture-time flag. Still loaded ⇒ honest
+	// PartialRestore (clears next reboot); not loaded ⇒ clean restore.
 	if immutableStaged {
+		if auditRuleLoadedShell(ctx, transport, fileAdded) {
+			return &api.RollbackResult{
+				Success:        false,
+				PartialRestore: true,
+				Detail:         fmt.Sprintf("audit_rule_set: removed staged drop-in %s but the rule is loaded in the running kernel (host rebooted before rollback) and the audit config is immutable; runtime clears on next reboot", path),
+				ExecutedAt:     time.Now().UTC(),
+			}, nil
+		}
 		return &api.RollbackResult{
 			Success:    true,
-			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed staged drop-in); no runtime rule was loaded", path),
+			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed staged drop-in); no runtime rule loaded", path),
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
@@ -639,6 +668,33 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 		Detail:     fmt.Sprintf("audit_rule_set: restored %s and reloaded audit rules", path),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// auditRuleLoadedShell reports whether any of lines is present in the live
+// kernel ruleset (`auditctl -l`) over the shell transport. The staged rollback
+// path uses it to report its verdict honestly after a possible reboot: a rule
+// auditd loaded at boot is still enforced (and, immutable, cannot be unloaded)
+// even after the drop-in is removed. Watch rules print verbatim under
+// `auditctl -l`, so a whitespace-normalised full-line compare matches; a read
+// error returns false so a rollback never over-claims a partial restore.
+func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []string) bool {
+	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
+	if err != nil || !res.OK() {
+		return false
+	}
+	loaded := strings.Split(res.Stdout, "\n")
+	for _, line := range lines {
+		want := strings.Join(strings.Fields(line), " ")
+		if want == "" {
+			continue
+		}
+		for _, l := range loaded {
+			if strings.Join(strings.Fields(l), " ") == want {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.

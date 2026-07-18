@@ -110,6 +110,50 @@ func TestRollback_Netlink_StagedNoFalseUnloadFailure(t *testing.T) {
 	}
 }
 
+// Regression (adversarial-panel pass-3, live-confirmed on RHEL 8.10): rolling
+// back a staged transaction AFTER a reboot must report an honest PartialRestore,
+// not a clean success. Post-reboot auditd has loaded the staged rule into the
+// running kernel and re-locked immutable; the drop-in is removed (so it won't
+// reload) but the runtime still enforces the rule until the next reboot. The
+// verdict is decided from LIVE state (GetRules), not the stale capture-time
+// immutable_staged flag. Pre-fix this reported "succeeded, no runtime rule
+// loaded" while auditctl -l still showed the rule.
+//
+// @spec auditnl-rule-set
+// @ac AC-07
+func TestRollback_Netlink_StagedPostRebootReportsPartial(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-07", func(t *testing.T) {})
+	f := auditnl.NewFakeAudit()
+	f.Enabled = 2 // immutable at capture → staged
+	h := auditruleset.New()
+	params := api.Params{"rule": ruleLine}
+
+	pre, err := h.Capture(context.Background(), f, params)
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if _, err := h.Apply(context.Background(), f, params, nil); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	// Simulate a reboot: auditd loads the persisted rule into the running kernel.
+	c, _ := f.AuditClient()
+	wire, _ := auditnl.BuildRule(ruleLine)
+	_ = c.AddRule(wire)
+	_ = c.Close()
+
+	rb, err := h.Rollback(context.Background(), f, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("post-reboot staged rollback must report PartialRestore (rule still loaded, immutable); got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+	if _, ok := f.Files[auditPath]; ok {
+		t.Error("rollback should still have removed the drop-in")
+	}
+}
+
 // Shell path: an immutable audit config (auditctl -s reports enabled 2) stages
 // the drop-in and returns Success:true, Staged:true.
 //
