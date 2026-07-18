@@ -582,14 +582,23 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 	if rerr != nil {
 		return nil, rerr
 	}
+	// For a staged rollback the drop-in removal IS the complete restore (nothing
+	// was loaded), and augenrules --load fails on the immutable kernel — so
+	// tolerate the load failure exactly as the staged apply path (applyShell)
+	// does, keeping res.OK() a verdict on the file operation alone. A committed
+	// rollback keeps the bare `&&` so a genuine reload failure still surfaces.
+	augenrules := "augenrules --load"
+	if immutableStaged {
+		augenrules = "{ augenrules --load >/dev/null 2>&1 || true; }"
+	}
 	var cmd string
 	if reduced, remaining := removeRuleLines(current, fileAdded); remaining {
 		cmd = fmt.Sprintf(
-			"printf '%%s' %s > %s && augenrules --load",
-			shellEscape(reduced), shellEscape(path),
+			"printf '%%s' %s > %s && %s",
+			shellEscape(reduced), shellEscape(path), augenrules,
 		)
 	} else {
-		cmd = fmt.Sprintf("rm -f %s && augenrules --load", shellEscape(path))
+		cmd = fmt.Sprintf("rm -f %s && %s", shellEscape(path), augenrules)
 	}
 
 	res, err := transport.Run(ctx, cmd)

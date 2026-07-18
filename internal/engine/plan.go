@@ -167,6 +167,21 @@ func (e *Engine) ExecutePlan(ctx context.Context, transport api.Transport, plan 
 
 	applyResults, applyOK := e.apply(ctx, transport, txn, plan.PreStates)
 
+	// Reboot-deferred (staged) apply: mirror Run — the persist layer is written
+	// but the runtime is intentionally NOT converged (immutable audit config).
+	// Skip the runtime re-check (it would fail) and do NOT roll back; terminal
+	// status is StatusStaged. This is the second apply→terminal path (the public
+	// ExecutePlan API OpenWatch drives) and must honor staged exactly as Run does.
+	if applyOK && anyStaged(applyResults) {
+		if armed {
+			if err := e.deadman.Cancel(ctx, transport, txn.ID); err != nil {
+				rb := e.rollback(ctx, transport, applyResults, plan.PreStates, "deadman")
+				return e.finalize(ctx, transport, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, plan.PreStates, nil, rb), nil
+			}
+		}
+		return e.finalize(ctx, transport, txn, startedAt, api.StatusStaged, applyResults, plan.PreStates, nil, nil), nil
+	}
+
 	var validators []api.ValidatorResult
 	validateOK := applyOK
 	if applyOK {

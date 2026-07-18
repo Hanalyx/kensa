@@ -273,6 +273,43 @@ func TestExecutePlan_SuccessAfterPlan(t *testing.T) {
 	}
 }
 
+// TestExecutePlan_Staged checks that the ExecutePlan apply→terminal path
+// honors a Staged apply step exactly as Run does: terminal StatusStaged, no
+// rollback. (Adversarial-panel sweep: ExecutePlan is the second apply path,
+// consumed by OpenWatch, and originally lacked the staged intercept.)
+//
+// @spec engine-transaction
+// @ac AC-25
+func TestExecutePlan_Staged(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-25")
+	h := &engine.FakeHandler{
+		HandlerName:  "exec_staged",
+		IsCapturable: true,
+		ApplyResult: &api.StepResult{
+			StepIndex: 0, Mechanism: "exec_staged", Success: true, Staged: true,
+			Detail: "immutable; staged, reboot required",
+		},
+	}
+	e := newPlanTestEngine(t, h)
+	tr := engine.NewFakeTransport()
+
+	plan, err := e.PlanTransaction(context.Background(), tr, basicRule("exec_staged", true))
+	if err != nil {
+		t.Fatalf("PlanTransaction: %v", err)
+	}
+	result, err := e.ExecutePlan(context.Background(), tr, plan)
+	if err != nil {
+		t.Fatalf("ExecutePlan: %v", err)
+	}
+	if result.Status != api.StatusStaged {
+		t.Errorf("Status=%s, want staged", result.Status)
+	}
+	if h.RollbackCalls != 0 {
+		t.Errorf("staged ExecutePlan must not roll back; RollbackCalls=%d", h.RollbackCalls)
+	}
+}
+
 // TestExecutePlan_StaleDetected checks that ExecutePlan returns
 // PlanStaleError when the host's pre-state changes between plan and
 // execute.

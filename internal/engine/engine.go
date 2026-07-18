@@ -443,6 +443,14 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 // anyStaged reports whether any apply step deferred its change to reboot
 // (StepResult.Staged) — the signal that drives a StatusStaged terminal outcome
 // instead of the runtime-recheck-driven commit-or-rollback.
+//
+// It short-circuits the WHOLE transaction (skips validate + rollback). That is
+// safe because every corpus rule is single-mechanism: a transaction's steps all
+// share one handler, so if one stages they all stage. A future MIXED
+// transaction (a staged audit_rule_set step beside a committed file_content step
+// on an immutable host) would leave the sibling step applied-to-disk,
+// unvalidated, and un-rolled-back on fault — no such rule exists today; tighten
+// this to a per-step verdict before authoring one. (Adversarial-panel MINOR.)
 func anyStaged(rs []api.StepResult) bool {
 	for i := range rs {
 		if rs[i].Staged {
