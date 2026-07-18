@@ -246,6 +246,9 @@ func runCLI(argv []string) int {
 		err = runMigrate(ctx, dbPath, args)
 	case "version":
 		err = runVersion(args)
+	case "completion":
+		// Emit a shell completion script (bash|zsh|fish) for all commands.
+		err = runCompletion(os.Stdout, args)
 	default:
 		fmt.Fprintf(os.Stderr, "kensa: unknown command %q\n\n", cmd)
 		printUsage(os.Stderr)
@@ -506,6 +509,7 @@ Commands:
   verify      Validate the Ed25519 signature on an evidence-envelope JSON file
   migrate     Apply pending schema migrations and backfill legacy sessions
   version     Print version and exit
+  completion  Emit a shell completion script (bash|zsh|fish)
 
 Global flags:
   -h, --help        Show this help and exit
