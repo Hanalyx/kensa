@@ -154,6 +154,44 @@ func TestRollback_Netlink_StagedPostRebootReportsPartial(t *testing.T) {
 	}
 }
 
+// Regression (adversarial-panel pass-4): the shell staged-rollback loaded-rule
+// matcher must handle SYSCALL rules, which `auditctl -l` NORMALISES (-k → -F
+// key=, fields reordered) — unlike watch rules, which print verbatim. The old
+// full-line string compare missed a genuinely-loaded syscall rule and
+// over-reported a clean restore; the matcher now delegates to
+// check.AuditLineLoaded. Here a staged SYSCALL rule is loaded post-reboot in
+// normalised form, so the shell rollback must report an honest PartialRestore.
+//
+// @spec auditnl-rule-set
+// @ac AC-07
+func TestRollback_Shell_StagedSyscallPostRebootReportsPartial(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-07", func(t *testing.T) {})
+	const syscallRule = "-a always,exit -F arch=b64 -S execve -k exec"
+	tp := engine.NewFakeTransport()
+	// auditctl -l prints the loaded syscall rule NORMALISED (-k → -F key=).
+	tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{
+		Stdout: "-a always,exit -F arch=b64 -S execve -F key=exec\n",
+	}
+	pre := &api.PreState{
+		Mechanism: "audit_rule_set",
+		Data: map[string]interface{}{
+			"path":             auditPath,
+			"file_existed":     false,
+			"prior_content":    "",
+			"file_added_lines": []string{syscallRule},
+			"immutable_staged": true,
+		},
+	}
+	rb, err := auditruleset.New().Rollback(context.Background(), tp, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rb.Success || !rb.PartialRestore {
+		t.Errorf("a staged syscall rule still loaded post-reboot must report PartialRestore (normalised auditctl -l); got Success=%v Partial=%v detail=%q",
+			rb.Success, rb.PartialRestore, rb.Detail)
+	}
+}
+
 // Shell path: an immutable audit config (auditctl -s reports enabled 2) stages
 // the drop-in and returns Success:true, Staged:true.
 //

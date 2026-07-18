@@ -836,21 +836,25 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if !auditLineLoaded(line, loaded) {
+		if !AuditLineLoaded(line, loaded) {
 			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s", normaliseAuditRule(line)), nil
 		}
 	}
 	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
 }
 
-// auditLineLoaded reports whether a single audit rule line is present in the
+// AuditLineLoaded reports whether a single audit rule line is present in the
 // loaded ruleset (auditctl -l lines). It matches on the line's distinguishing
 // fields rather than a literal compare, because auditctl reorders/normalises
 // output: auid!=unset -> auid!=-1, "-k key" -> "-F key=key", and syscall lists
 // are re-sorted. Matching only on -k would be a false pass whenever several
 // rules share a key (the Ubuntu usergroup_modification / perm_chng / priv_cmd /
 // module_chng clusters all do).
-func auditLineLoaded(rule string, loaded []string) bool {
+//
+// Exported so the audit_rule_set handler's shell-transport rollback can reuse
+// the exact same matcher for its post-reboot honesty verdict — a full-line
+// string compare there wrongly missed normalised syscall rules.
+func AuditLineLoaded(rule string, loaded []string) bool {
 	// Watch rules ("-w <path> -p <perms> -k <key>") print verbatim: full match.
 	if strings.HasPrefix(rule, "-w") {
 		norm := normaliseAuditRule(rule)

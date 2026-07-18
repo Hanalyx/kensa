@@ -28,6 +28,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/check"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
@@ -674,9 +675,14 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 // kernel ruleset (`auditctl -l`) over the shell transport. The staged rollback
 // path uses it to report its verdict honestly after a possible reboot: a rule
 // auditd loaded at boot is still enforced (and, immutable, cannot be unloaded)
-// even after the drop-in is removed. Watch rules print verbatim under
-// `auditctl -l`, so a whitespace-normalised full-line compare matches; a read
-// error returns false so a rollback never over-claims a partial restore.
+// even after the drop-in is removed.
+//
+// It delegates to check.AuditLineLoaded — the same matcher the audit_rule_exists
+// check uses — because `auditctl -l` prints WATCH rules verbatim but
+// reorders/normalises SYSCALL rules (auid!=unset→auid!=-1, -k→-F key=, syscall
+// lists re-sorted); a naive full-line compare missed genuinely-loaded syscall
+// rules and over-reported a clean restore. A read error returns false so a
+// rollback never over-claims a partial restore.
 func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []string) bool {
 	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
 	if err != nil || !res.OK() {
@@ -684,14 +690,11 @@ func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []
 	}
 	loaded := strings.Split(res.Stdout, "\n")
 	for _, line := range lines {
-		want := strings.Join(strings.Fields(line), " ")
-		if want == "" {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		for _, l := range loaded {
-			if strings.Join(strings.Fields(l), " ") == want {
-				return true
-			}
+		if check.AuditLineLoaded(line, loaded) {
+			return true
 		}
 	}
 	return false
