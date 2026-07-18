@@ -703,7 +703,7 @@ func TestTextRemediationWriter(t *testing.T) {
 		t.Fatalf("WriteRemediationResult: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "1 applied, 1 already-compliant, 1 rolled_back, 1 errors, 1 skipped") {
+	if !strings.Contains(out, "1 applied, 1 already-compliant, 0 staged (reboot required), 1 rolled_back, 1 errors, 1 skipped") {
 		t.Errorf("expected 1/1/1/1/1 tally with split applied/already-compliant:\n%s", out)
 	}
 	if !strings.Contains(out, "errored: boom") {

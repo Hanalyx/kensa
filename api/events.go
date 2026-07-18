@@ -38,6 +38,13 @@ const (
 	// path executed (inline, deadman, or manual).
 	RolledBack EventKind = "rolled_back"
 
+	// Staged fires when a transaction reaches [StatusStaged]: the persist
+	// layer was written but the runtime could not converge (immutable audit
+	// config) and the change is deferred to reboot. [Event.Data] is a
+	// [StagedData]. A consumer must render this distinctly from Committed —
+	// the host is NOT yet in the target runtime state.
+	Staged EventKind = "staged"
+
 	// DriftDetected is an OpenWatch-owned signal: Kensa has no scheduler
 	// and never emits it. OpenWatch computes drift over the transaction
 	// log. Defined here only as shared vocabulary; slated to move to
@@ -159,6 +166,16 @@ type RolledBackData struct {
 	// RuleID is the canonical rule the transaction implements, so a
 	// streaming consumer can label the rollback per rule.
 	RuleID string
+}
+
+// StagedData is the [Event.Data] payload for a [Staged] event.
+type StagedData struct {
+	// RuleID is the canonical rule the transaction implements, so a
+	// streaming consumer can label the staged change per rule.
+	RuleID string
+	// Detail is a human-readable summary of why the change was staged
+	// (e.g. "audit config immutable; reboot required to load").
+	Detail string
 }
 
 // DeadmanTimerData is the [Event.Data] payload for both

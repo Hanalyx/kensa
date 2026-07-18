@@ -147,6 +147,16 @@ func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p
 	}
 	defer c.Close()
 
+	// Immutable audit config (enabled 2): the kernel refuses all runtime rule
+	// loads until reboot. Positively detect it BEFORE attempting AddRule (which
+	// would EPERM), stage the persist layer, and defer convergence to reboot.
+	// The drop-in is fully captured, so rollback stays byte-perfect. A status
+	// read error is non-fatal here: fall through to the normal load path, whose
+	// AddRule failure is surfaced as a non-compliant StepResult.
+	if enabled, serr := c.GetStatus(); serr == nil && enabled == 2 {
+		return h.stagePersistNetlink(ctx, at, p)
+	}
+
 	for _, line := range auditnl.RuleLines(p.Rule) {
 		wire, berr := auditnl.BuildRule(line)
 		if berr != nil {
@@ -176,6 +186,28 @@ func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p
 	}, nil
 }
 
+// stagePersistNetlink merges the rule into the (possibly shared) drop-in and
+// returns a Staged step result WITHOUT loading into the kernel — used when the
+// audit config is immutable (enabled 2). The engine terminates such a
+// transaction StatusStaged: the persist change takes effect on reboot, and the
+// runtime ruleset is intentionally left unchanged (it cannot be changed until
+// reboot anyway). Rollback removes exactly these lines from captured pre-state.
+func (h *Handler) stagePersistNetlink(ctx context.Context, at auditnl.AuditTransport, p *Params) (*api.StepResult, error) {
+	existing, _, rerr := at.ReadFileIfExists(p.RuleFile)
+	if rerr != nil {
+		return nil, fmt.Errorf("audit_rule_set: read %s for staged merge: %w", p.RuleFile, rerr)
+	}
+	merged, _ := mergeRuleLines(existing, auditnl.RuleLines(p.Rule))
+	if werr := kernelio.WriteFile(ctx, at, p.RuleFile, auditFileMode, []byte(merged)); werr != nil {
+		return nil, fmt.Errorf("audit_rule_set: staged persist write: %w", werr)
+	}
+	return &api.StepResult{
+		Success: true,
+		Staged:  true,
+		Detail:  fmt.Sprintf("audit_rule_set: audit config immutable (enabled 2); staged into %s, PENDING reboot to load (netlink)", p.RuleFile),
+	}, nil
+}
+
 // applyShell merges the rule into the drop-in and reloads via augenrules. It
 // reads the current file first so a rule sharing a CIS-grouped file (e.g.
 // 50-privileged.rules) merges in rather than overwriting its siblings.
@@ -187,6 +219,34 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 		return nil, rerr
 	}
 	merged, _ := mergeRuleLines(existing, auditnl.RuleLines(p.Rule))
+
+	// Immutable audit config (enabled 2): the kernel refuses runtime loads
+	// until reboot, so stage the persist layer and defer convergence. The file
+	// write is gated with && so a write failure still surfaces; augenrules
+	// --load is run (to regenerate the compiled /etc/audit/audit.rules for a
+	// consistent reboot) but its exit is tolerated, because on an immutable
+	// host the load sub-step is expected to no-op.
+	if auditImmutableShell(ctx, transport) {
+		cmd := fmt.Sprintf(
+			"printf '%%s' %s > %s && { augenrules --load >/dev/null 2>&1 || true; }",
+			shellEscape(merged), shellEscape(path),
+		)
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return nil, fmt.Errorf("audit_rule_set: staged apply transport error: %w", err)
+		}
+		if !res.OK() {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("audit_rule_set: staged persist write failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
+			}, nil
+		}
+		return &api.StepResult{
+			Success: true,
+			Staged:  true,
+			Detail:  fmt.Sprintf("audit_rule_set: audit config immutable (enabled 2); staged into %s, PENDING reboot to load (shell)", path),
+		}, nil
+	}
 
 	cmd := fmt.Sprintf(
 		"printf '%%s' %s > %s && augenrules --load",

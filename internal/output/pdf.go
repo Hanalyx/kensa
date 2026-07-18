@@ -168,11 +168,11 @@ func (p pdfRemediationWriter) WriteRemediationResult(w io.Writer, hostID string,
 }
 
 func addRemediationReportContent(m core.Maroto, hostID string, rules []*api.Rule, result *api.RemediationResult) error {
-	committed, rolledBack, partial, errs := remediationCounts(result)
+	committed, rolledBack, partial, errs, staged := remediationCounts(result)
 	m.AddRows(
 		titleRow("kensa remediation report"),
-		summaryRow(fmt.Sprintf("Host: %s — %d committed, %d rolled_back, %d partially_applied, %d errors  (generated %s)",
-			hostID, committed, rolledBack, partial, errs, time.Now().UTC().Format(time.RFC3339))),
+		summaryRow(fmt.Sprintf("Host: %s — %d committed, %d staged, %d rolled_back, %d partially_applied, %d errors  (generated %s)",
+			hostID, committed, staged, rolledBack, partial, errs, time.Now().UTC().Format(time.RFC3339))),
 	)
 	m.AddRow(pdfHeaderHeight, headerCols("RULE", "STATUS", "DETAIL")...)
 	for i, txr := range result.Transactions {
@@ -196,7 +196,7 @@ func addRemediationReportContent(m core.Maroto, hostID string, rules []*api.Rule
 	return nil
 }
 
-func remediationCounts(result *api.RemediationResult) (committed, rolledBack, partial, errs int) {
+func remediationCounts(result *api.RemediationResult) (committed, rolledBack, partial, errs, staged int) {
 	for _, txr := range result.Transactions {
 		switch txr.Status {
 		case api.StatusCommitted:
@@ -207,6 +207,8 @@ func remediationCounts(result *api.RemediationResult) (committed, rolledBack, pa
 			errs++
 		case api.StatusPartiallyApplied:
 			partial++
+		case api.StatusStaged:
+			staged++
 		}
 	}
 	return

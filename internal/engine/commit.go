@@ -142,7 +142,7 @@ func (e *Engine) finalize(
 	// caller never observes an unrecorded success. "Evidence written to the
 	// transaction log" must be a fact, not a claim.
 	if perr := e.store.PersistResult(ctx, result); perr != nil {
-		if result.Status == api.StatusCommitted || result.Status == api.StatusRolledBack {
+		if result.Status == api.StatusCommitted || result.Status == api.StatusRolledBack || result.Status == api.StatusStaged {
 			result.Status = api.StatusErrored
 			result.CommittedAt = nil
 			result.RolledBackAt = nil
@@ -183,6 +183,14 @@ func (e *Engine) finalize(
 			HostID:    txn.HostID,
 			Timestamp: now,
 			Data:      api.RolledBackData{Source: source, RuleID: txn.RuleID},
+		})
+	case api.StatusStaged:
+		e.publish(ctx, api.Event{
+			Kind:      api.Staged,
+			TxnID:     &txn.ID,
+			HostID:    txn.HostID,
+			Timestamp: now,
+			Data:      api.StagedData{RuleID: txn.RuleID, Detail: "reboot required to load"},
 		})
 	case api.StatusErrored:
 		e.publish(ctx, api.Event{

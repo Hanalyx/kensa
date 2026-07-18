@@ -27,6 +27,14 @@ type FakeAuditTransport struct {
 	// DeleteErr, when set, is returned by DeleteRule — modeling a kernel
 	// that rejects the unload (e.g. EPERM on an immutable config).
 	DeleteErr error
+	// Enabled models `auditctl -s` enabled: 0=disabled, 1=enabled(mutable),
+	// 2=immutable. GetStatus() returns it. Set 2 to exercise the staged
+	// (reboot-deferred) path where the handler must NOT attempt a load.
+	Enabled int
+	// AddErr, when set, is returned by AddRule — modeling a kernel that
+	// rejects the load (e.g. EPERM on an immutable config that a caller
+	// reached without a GetStatus pre-check).
+	AddErr error
 }
 
 // NewFakeAudit returns a FakeAuditTransport with initialized state.
@@ -54,6 +62,9 @@ type fakeAuditClient struct{ t *FakeAuditTransport }
 func key(wire []byte) string { return hex.EncodeToString(wire) }
 
 func (c *fakeAuditClient) AddRule(wire []byte) error {
+	if c.t.AddErr != nil {
+		return c.t.AddErr // kernel rejected the load (e.g. EPERM on immutable)
+	}
 	c.t.Loaded[key(wire)] = append([]byte(nil), wire...)
 	return nil
 }
@@ -76,6 +87,8 @@ func (c *fakeAuditClient) GetRules() ([][]byte, error) {
 	}
 	return out, nil
 }
+
+func (c *fakeAuditClient) GetStatus() (int, error) { return c.t.Enabled, nil }
 
 func (c *fakeAuditClient) Close() error { return nil }
 

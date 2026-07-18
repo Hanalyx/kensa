@@ -140,7 +140,7 @@ func TestPDFRemediationWriter_PreservesRawStatus(t *testing.T) {
 	for _, want := range []string{
 		"kensa remediation report",
 		"committed", "rolled_back", "errored", "partially_applied",
-		"1 committed, 1 rolled_back, 1 partially_applied, 1 errors",
+		"1 committed, 0 staged, 1 rolled_back, 1 partially_applied, 1 errors",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("remediation PDF missing %q", want)
