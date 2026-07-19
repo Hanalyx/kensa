@@ -37,13 +37,14 @@ implementations:
   - default: true
     check:
       # STIG check: any file under /var/log more permissive than 0640 (excess
-      # bits 0137), excluding the *[bw]tmp and *lastlog accounting files.
+      # bits 0137). Per the STIG Note, the login-accounting files (*[bw]tmp,
+      # *lastlog) and *.history / eipp.log.xz are excluded from the finding.
       method: command
-      run: "find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog' -type f 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
+      run: "find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog' ! -name '*.history' ! -name 'eipp.log.xz' -type f 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
       expected_exit: 0
     remediation:
       mechanism: manual
       note: >
         Set each offending file to 0640 or less permissive, e.g.:
-        find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog' -type f
-        -exec chmod 640 {} \;
+        find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog'
+        ! -name '*.history' ! -name 'eipp.log.xz' -type f -exec chmod 640 {} \;
