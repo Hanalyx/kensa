@@ -1,0 +1,50 @@
+id: apt-remove-unused-dependencies
+title: Remove unused dependencies and kernels after APT updates
+description: >
+  The APT unattended-upgrades configuration must remove unused dependencies and
+  unused kernel packages after updated versions are installed, so superseded
+  software components do not remain on the system.
+rationale: >
+  Leaving superseded or unused software installed after an update expands the
+  attack surface: old libraries and kernels can carry known vulnerabilities that
+  remain exploitable even though the running version is patched. Removing them
+  keeps the installed set minimal and current.
+severity: medium
+transactional: false
+category: system
+tags: [apt, unattended-upgrades, patching, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270773"
+      stig_id: "UBTU-24-700320"
+      severity: "CAT II"
+      cci: ["CCI-002617"]
+    ubuntu22:
+      vuln_id: "V-260477"
+      stig_id: "UBTU-22-214015"
+      severity: "CAT II"
+      cci: ["CCI-002617"]
+  nist_800_53: ["SI-2", "CM-6"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        conf=/etc/apt/apt.conf.d/50unattended-upgrades
+        grep -Eq '^[[:space:]]*Unattended-Upgrade::Remove-Unused-Dependencies[[:space:]]+"true"' "$conf" 2>/dev/null || exit 1
+        grep -Eq '^[[:space:]]*Unattended-Upgrade::Remove-Unused-Kernel-Packages[[:space:]]+"true"' "$conf" 2>/dev/null || exit 1
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        In /etc/apt/apt.conf.d/50unattended-upgrades set (uncommented):
+        Unattended-Upgrade::Remove-Unused-Dependencies "true"; and
+        Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";

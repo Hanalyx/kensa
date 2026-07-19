@@ -1,0 +1,50 @@
+id: var-log-files-permissions
+title: Restrict permissions on system log files under /var/log
+description: >
+  All system log files under /var/log must have a mode of 0640 or less
+  permissive so that unauthorized users cannot read or modify recorded
+  security-relevant events. The btmp, wtmp, and lastlog login-accounting files
+  are excluded, as they legitimately carry group access for accounting.
+rationale: >
+  System log files contain security-relevant information that can reveal attack
+  vectors, user activity, and system state. Overly permissive log files let
+  unauthorized users read sensitive operational detail or tamper with the audit
+  trail, undermining accountability.
+severity: medium
+transactional: false
+category: filesystem
+tags: [logging, permissions, var-log, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270756"
+      stig_id: "UBTU-24-700010"
+      severity: "CAT II"
+      cci: ["CCI-001312"]
+    ubuntu22:
+      vuln_id: "V-260489"
+      stig_id: "UBTU-22-232026"
+      severity: "CAT II"
+      cci: ["CCI-001312"]
+  nist_800_53: ["SI-11", "AC-6"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      # STIG check: any file under /var/log more permissive than 0640 (excess
+      # bits 0137). Per the STIG Note, the login-accounting files (*[bw]tmp,
+      # *lastlog) and *.history / eipp.log.xz are excluded from the finding.
+      method: command
+      run: "find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog' ! -name '*.history' ! -name 'eipp.log.xz' -type f 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0"
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Set each offending file to 0640 or less permissive, e.g.:
+        find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog'
+        ! -name '*.history' ! -name 'eipp.log.xz' -type f -exec chmod 640 {} \;
