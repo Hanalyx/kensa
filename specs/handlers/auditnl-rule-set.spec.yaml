@@ -110,6 +110,21 @@ spec:
               MUST remain byte-perfect reversible from captured pre-state.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              Apply MUST NOT write a drop-in for a rule whose audit action is
+              already present on the host from a different source. The kernel
+              deduplicates on the action (watch path+perms; syscall signature),
+              NOT the -k key, so a second drop-in with the same action collides
+              at load ("Rule exists") and aborts the whole ruleset load —
+              observed to drop a host out of immutable state at the next reboot.
+              Detection is key-agnostic and best-effort (an unreadable live
+              ruleset never blocks a legitimate apply); a re-apply of the rule's
+              own drop-in is idempotent, not a conflict. On conflict Apply
+              returns Success:false with a detail naming the existing rule, and
+              leaves resolution (accept-as-satisfied / relabel) to the operator.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -161,6 +176,18 @@ spec:
               kernel (LoadedCount stays 0 on the netlink path); the staged
               change is byte-perfect reversible on rollback.
           references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: |
+              When a rule's audit ACTION (a watch's path+perms, or a syscall
+              signature) is already present in the live ruleset but NOT in this
+              rule's own drop-in, Apply refuses with Success:false and does NOT
+              write the drop-in — writing a second file for the same action
+              would collide at load and abort the ruleset (dropping immutability
+              at reboot). Detection is key-agnostic (check.AuditActionLoaded).
+              An absent action, or a re-apply of the rule's own drop-in, is not
+              a conflict and proceeds.
+          references_constraints: [C-07]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]

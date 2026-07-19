@@ -129,6 +129,16 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	// Conflict guard: refuse to write a rule whose audit action is already
+	// present on the host from a DIFFERENT drop-in. A second file watching the
+	// same path+perms (or a duplicate syscall signature, even under the same
+	// key) collides at load ("Rule exists") and aborts the audit ruleset load —
+	// which drops immutability at the next reboot (observed on a live host). Per
+	// the detect-the-conflict-don't-silently-apply contract, surface it and stop;
+	// reconciling the existing rule is the operator's decision, not Kensa's.
+	if res := h.guardConflict(ctx, transport, p); res != nil {
+		return res, nil
+	}
 	if at, ok := transport.(auditnl.AuditTransport); ok {
 		res, err := h.applyNetlink(ctx, at, p)
 		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
@@ -137,6 +147,41 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 		// Netlink unavailable (no privilege / immutable audit) → shell.
 	}
 	return h.applyShell(ctx, transport, p)
+}
+
+// guardConflict returns a non-nil, Success=false StepResult when applying this
+// rule would introduce a cross-file duplicate audit rule — the rule's action is
+// already present in the live ruleset but NOT yet in this rule's own drop-in
+// (so it must come from another file). Writing it would create the reboot-time
+// "Rule exists" collision that aborts the load and drops immutability. Returns
+// nil when there is no conflict, or when the host state cannot be read (best-
+// effort: never block a legitimate apply on an unreadable ruleset).
+func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p *Params) *api.StepResult {
+	existing, err := h.readFileShell(ctx, transport, p.RuleFile)
+	if err != nil {
+		return nil // cannot read the target drop-in → best-effort skip
+	}
+	// Only lines NOT already in this drop-in can introduce a NEW duplicate;
+	// re-applying our own file is idempotent, not a conflict.
+	_, fileAdded := mergeRuleLines(existing, auditnl.RuleLines(p.Rule))
+	if len(fileAdded) == 0 {
+		return nil
+	}
+	res, rerr := transport.Run(ctx, "auditctl -l 2>/dev/null")
+	if rerr != nil || !res.OK() {
+		return nil // cannot read the live ruleset → best-effort skip
+	}
+	loaded := strings.Split(res.Stdout, "\n")
+	for _, line := range fileAdded {
+		if conflict := check.AuditActionLoaded(line, loaded); conflict != "" {
+			return &api.StepResult{
+				Success: false,
+				Detail: fmt.Sprintf("audit_rule_set: conflict — action already audited as %q; writing to %s would duplicate it and abort the audit load at reboot. Not applied (reconcile the existing rule or accept it as satisfying the control).",
+					conflict, p.RuleFile),
+			}
+		}
+	}
+	return nil
 }
 
 // applyNetlink loads each rule line into the kernel via AUDIT_ADD_RULE and

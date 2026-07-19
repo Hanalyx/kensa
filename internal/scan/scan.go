@@ -331,6 +331,15 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 			if txr.Error != nil {
 				detail = txr.Error.Error()
 			}
+			// Surface a handler's refusal reason (e.g. an audit_rule_set
+			// cross-file conflict) so the operator sees WHY, not just the bare
+			// terminal status.
+			for _, s := range txr.Steps {
+				if !s.Success && s.Detail != "" {
+					detail = s.Detail
+					break
+				}
+			}
 		}
 		r.emit(progress.Update{
 			Kind: progress.RuleChecked, RuleID: rl.ID,

@@ -907,6 +907,84 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 	return false
 }
 
+// AuditActionLoaded reports a loaded rule line whose audit ACTION matches rule
+// while IGNORING the -k key label (empty string if none matches). The kernel
+// deduplicates audit rules on the action — a watch's path+perms, or a syscall
+// rule's arch/syscalls/filters — NOT on the key, so two rules with the same
+// action under different keys collide ("Rule exists") when both load. The
+// audit_rule_set handler uses this to detect that a rule's action is already
+// present on the host before it writes a second drop-in for it, which would
+// otherwise create a duplicate that aborts the audit ruleset load (and drops
+// immutability) at the next reboot. Distinct from AuditLineLoaded, which is
+// key-STRICT (it answers "is this exact rule, key included, loaded?").
+func AuditActionLoaded(rule string, loaded []string) string {
+	if strings.HasPrefix(strings.TrimSpace(rule), "-w") {
+		wp := watchPathPerm(rule)
+		if wp == "" {
+			return ""
+		}
+		for _, l := range loaded {
+			if strings.HasPrefix(strings.TrimSpace(l), "-w") && watchPathPerm(l) == wp {
+				return strings.TrimSpace(l)
+			}
+		}
+		return ""
+	}
+
+	archTok, hasArch := auditFToken(rule, "arch")
+	pathTok, hasPath := auditFToken(rule, "path")
+	permTok, hasPerm := auditFToken(rule, "perm")
+	exitTok, hasExit := auditFToken(rule, "exit")
+	want := auditSyscallSet(rule)
+	// Require at least one distinguishing field so we never claim an unrelated
+	// rule as a conflict.
+	if !(hasArch || hasPath || hasExit || len(want) > 0) {
+		return ""
+	}
+	for _, l := range loaded {
+		if hasArch && !strings.Contains(l, archTok) {
+			continue
+		}
+		if hasPath && !strings.Contains(l, pathTok) {
+			continue
+		}
+		if hasPerm && !strings.Contains(l, permTok) {
+			continue
+		}
+		if hasExit && !strings.Contains(l, exitTok) {
+			continue
+		}
+		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
+			continue
+		}
+		if !auidTokensPresent(rule, l) {
+			continue
+		}
+		return strings.TrimSpace(l)
+	}
+	return ""
+}
+
+// watchPathPerm returns "PATH -p PERM" for a watch rule ("-w PATH -p PERM ..."),
+// dropping the -k key — the action the kernel deduplicates on. Empty if the
+// line has no -w path.
+func watchPathPerm(rule string) string {
+	fields := strings.Fields(rule)
+	var path, perm string
+	for i := 0; i+1 < len(fields); i++ {
+		switch fields[i] {
+		case "-w":
+			path = fields[i+1]
+		case "-p":
+			perm = fields[i+1]
+		}
+	}
+	if path == "" {
+		return ""
+	}
+	return path + " -p " + perm
+}
+
 // auidTokensPresent reports whether every auid filter in the rule appears in
 // the loaded line. The auid filters (auid>=1000, auid=0, auid!=unset)
 // distinguish otherwise-identical syscall lines — e.g. the setxattr control's

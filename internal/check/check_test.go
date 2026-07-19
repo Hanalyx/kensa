@@ -948,3 +948,34 @@ func TestCheckKernelModuleState_DisabledFormsAndNotFound(t *testing.T) {
 		}
 	})
 }
+
+// TestAuditActionLoaded covers the key-agnostic duplicate-action matcher that
+// audit_rule_set uses to refuse writing a rule whose action is already audited
+// under a different key (the /etc/shadow identity-vs-usergroup collision that
+// broke a live host's immutability).
+func TestAuditActionLoaded(t *testing.T) {
+	loaded := []string{
+		"-w /etc/shadow -p wa -k audit_rules_usergroup_modification",
+		"-a always,exit -F arch=b64 -S chown,fchown,lchown,fchownat -F auid>=1000 -F auid!=-1 -F key=perm_mod",
+	}
+	cases := []struct {
+		name  string
+		rule  string
+		match bool
+	}{
+		{"watch same path+perm, different key", "-w /etc/shadow -p wa -k identity", true},
+		{"watch same path+perm, same key", "-w /etc/shadow -p wa -k audit_rules_usergroup_modification", true},
+		{"watch different path", "-w /etc/gshadow -p wa -k identity", false},
+		{"watch different perm", "-w /etc/shadow -p r -k identity", false},
+		{"syscall same action, different key", "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k other", true},
+		{"syscall different arch", "-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := AuditActionLoaded(tc.rule, loaded) != ""
+			if got != tc.match {
+				t.Errorf("AuditActionLoaded(%q) present=%v, want %v", tc.rule, got, tc.match)
+			}
+		})
+	}
+}
