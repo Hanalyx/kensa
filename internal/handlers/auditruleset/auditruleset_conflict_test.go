@@ -10,6 +10,10 @@ import (
 	"github.com/Hanalyx/kensa/internal/handlers/auditruleset"
 )
 
+// scanCmd is the rules.d scan the conflict guard runs (must match
+// auditRulesScanCmd in the handler).
+const scanCmd = "grep -rhsE '^[[:space:]]*-(w|a|A)[[:space:]]' /etc/audit/rules.d/ 2>/dev/null"
+
 // The exact 211 scenario: /etc/shadow is already watched under a different key
 // (audit_rules_usergroup_modification). Applying the identity-keyed watch would
 // create a cross-file duplicate that aborts the audit load and drops
@@ -22,7 +26,7 @@ func TestApply_RefusesCrossFileDuplicate(t *testing.T) {
 	t.Run("auditnl-rule-set/AC-08", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	// The host already audits /etc/shadow (a different drop-in, different key).
-	tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{
+	tp.Results[scanCmd] = &api.CommandResult{
 		Stdout: "-w /etc/shadow -p wa -k audit_rules_usergroup_modification\n",
 	}
 	res, err := auditruleset.New().Apply(context.Background(), tp,
@@ -55,7 +59,7 @@ func TestApply_RefusesCrossFileDuplicate(t *testing.T) {
 func TestApply_RefusesDuplicateSyscallDifferentKey(t *testing.T) {
 	t.Run("auditnl-rule-set/AC-08", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
-	tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{
+	tp.Results[scanCmd] = &api.CommandResult{
 		Stdout: "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -F key=perm_mod\n",
 	}
 	res, err := auditruleset.New().Apply(context.Background(), tp,
@@ -76,7 +80,7 @@ func TestApply_NoConflictWhenActionAbsent(t *testing.T) {
 	t.Run("auditnl-rule-set/AC-08", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	// Live ruleset watches something else — no overlap with our rule.
-	tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{
+	tp.Results[scanCmd] = &api.CommandResult{
 		Stdout: "-w /etc/passwd -p wa -k identity\n",
 	}
 	res, err := auditruleset.New().Apply(context.Background(), tp,

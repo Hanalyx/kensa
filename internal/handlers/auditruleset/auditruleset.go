@@ -53,6 +53,14 @@ const defaultPersistFile = defaultRulesDir + "/99-kensa.rules"
 // silent success.
 const auditStatusCmd = "auditctl -s 2>/dev/null"
 
+// auditRulesScanCmd emits every watch/syscall rule LINE across all drop-ins in
+// /etc/audit/rules.d — the set augenrules compiles and loads at reboot. The
+// conflict guard matches a to-be-written rule's action against these (not just
+// the live ruleset) so it also catches an unloaded pre-existing duplicate and a
+// sibling staged to another file earlier in the same run. Needs root to read
+// the (mode-0700) directory; a non-root/failed read degrades to no scan.
+const auditRulesScanCmd = "grep -rhsE '^[[:space:]]*-(w|a|A)[[:space:]]' " + defaultRulesDir + "/ 2>/dev/null"
+
 // auditImmutableShell reports whether the live audit configuration is
 // immutable (auditctl -s prints "enabled 2"). A read-back error or an
 // unparseable status is treated as not-immutable (best-effort): the goal is
@@ -167,13 +175,19 @@ func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p 
 	if len(fileAdded) == 0 {
 		return nil
 	}
-	res, rerr := transport.Run(ctx, "auditctl -l 2>/dev/null")
-	if rerr != nil || !res.OK() {
-		return nil // cannot read the live ruleset → best-effort skip
+	// Scan the on-disk rules.d files — what augenrules actually loads at the
+	// next reboot — NOT just the live ruleset. This catches (a) a pre-existing
+	// duplicate that is not currently loaded (e.g. on a host whose load already
+	// aborted), and (b) a sibling rule staged to another drop-in EARLIER in the
+	// same remediate run (which is on disk but not yet loaded on an immutable
+	// host). grep exit 1 (no rule lines found) is not an error → empty scan.
+	res, rerr := transport.Run(ctx, auditRulesScanCmd)
+	if rerr != nil {
+		return nil // cannot read rules.d → best-effort skip
 	}
-	loaded := strings.Split(res.Stdout, "\n")
+	onDisk := strings.Split(res.Stdout, "\n")
 	for _, line := range fileAdded {
-		if conflict := check.AuditActionLoaded(line, loaded); conflict != "" {
+		if conflict := check.AuditActionLoaded(line, onDisk); conflict != "" {
 			return &api.StepResult{
 				Success: false,
 				Detail: fmt.Sprintf("audit_rule_set: conflict — action already audited as %q; writing to %s would duplicate it and abort the audit load at reboot. Not applied (reconcile the existing rule or accept it as satisfying the control).",
