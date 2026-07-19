@@ -1394,6 +1394,22 @@
       "notes": "W7 stig-ubuntu22 (V-260477 UBTU-22-214015): definite FAIL on 250 (params not set to true, faithful). Read-only."
     },
     {
+      "rule_id": "shell-idle-timeout-tmout",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270680 UBTU-24-200060): net-new. Positive TMOUT set in a shell startup file (not 0/unset/commented). Definite FAIL on 249 (no TMOUT configured = genuine non-compliance, faithful). Read-only."
+    },
+    {
+      "rule_id": "shell-idle-timeout-tmout",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260554 UBTU-22-412030): definite FAIL on 250 (no TMOUT, faithful). Read-only."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",

@@ -1,0 +1,48 @@
+id: shell-idle-timeout-tmout
+title: Terminate idle shell sessions with a TMOUT timeout
+description: >
+  Interactive shell sessions must automatically terminate after a period of
+  inactivity by setting a positive TMOUT value in the shell startup files
+  (/etc/bash.bashrc, /etc/profile, or /etc/profile.d/). A value of 0, an unset
+  TMOUT, or a commented-out entry does not enforce a timeout.
+rationale: >
+  An unattended interactive session left logged in is an open door for anyone
+  with physical or hijacked access to the terminal. Automatically terminating
+  idle shells bounds that exposure window and enforces re-authentication.
+severity: medium
+transactional: false
+category: access-control
+tags: [session, timeout, tmout, shell, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270680"
+      stig_id: "UBTU-24-200060"
+      severity: "CAT II"
+      cci: ["CCI-002361"]
+    ubuntu22:
+      vuln_id: "V-260554"
+      stig_id: "UBTU-22-412030"
+      severity: "CAT II"
+      cci: ["CCI-000366", "CCI-002361"]
+  nist_800_53: ["AC-11", "AC-12"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      # Compliant when an uncommented TMOUT is set to a positive integer in a
+      # shell startup file. TMOUT=0 (disabled), unset, or commented = finding.
+      method: command
+      run: "grep -rhE '^[[:space:]]*(export[[:space:]]+|readonly[[:space:]]+)?TMOUT=[1-9][0-9]*([[:space:]]|;|$)' /etc/bash.bashrc /etc/profile /etc/profile.d/ 2>/dev/null | grep -q ."
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Create /etc/profile.d/99-terminal_tmout.sh containing a positive timeout,
+        e.g.  TMOUT=600  (10 minutes), and ensure it is not overridden or
+        commented out.
