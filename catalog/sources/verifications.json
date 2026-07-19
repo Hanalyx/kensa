@@ -1378,6 +1378,22 @@
       "notes": "W7 stig-ubuntu22 (V-260489 UBTU-22-232026): definite FAIL on 250 (>640 logs present, faithful). Read-only."
     },
     {
+      "rule_id": "apt-remove-unused-dependencies",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270773 UBTU-24-700320): net-new. Remove-Unused-Dependencies + Remove-Unused-Kernel-Packages both 'true' in 50unattended-upgrades. Definite FAIL on 249 (both commented/false = genuine non-compliance, faithful). Read-only."
+    },
+    {
+      "rule_id": "apt-remove-unused-dependencies",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260477 UBTU-22-214015): definite FAIL on 250 (params not set to true, faithful). Read-only."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
