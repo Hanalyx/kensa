@@ -1,0 +1,52 @@
+id: audit-offload-audispd-remote
+title: Ensure the audit event multiplexor offloads records to a remote system
+description: >
+  The audispd-plugins package must be installed and the au-remote plugin must
+  be active so that audit records are offloaded to a different system or
+  storage medium from the one being audited.
+rationale: >
+  Offloading audit records to a separate system protects the audit trail from
+  tampering or loss if the audited host is compromised, and helps ensure audit
+  storage capacity is not exhausted locally.
+severity: low
+transactional: false
+category: audit
+tags: [audit, audispd, remote-offload, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270658"
+      stig_id: "UBTU-24-100450"
+      severity: "CAT III"
+      cci: ["CCI-001851"]
+    ubuntu22:
+      vuln_id: "V-260592"
+      stig_id: "UBTU-22-653020"
+      severity: "CAT III"
+      cci: ["CCI-001851"]
+  nist_800_53: ["AU-4(1)"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        dpkg -l 2>/dev/null | grep -qE '^ii[[:space:]]+audispd-plugins([[:space:]]|:)' || {
+          echo "FAIL: audispd-plugins package is not installed"; exit 1; }
+        conf=/etc/audit/plugins.d/au-remote.conf
+        [ -f "$conf" ] || conf=/etc/audisp/plugins.d/au-remote.conf
+        grep -iqE '^[[:space:]]*active[[:space:]]*=[[:space:]]*yes' "$conf" 2>/dev/null || {
+          echo "FAIL: au-remote plugin is not active"; exit 1; }
+        echo "OK: audispd-plugins installed and au-remote active"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Install audispd-plugins, set 'active = yes' in the au-remote plugin
+        config, and set 'remote_server' in audisp-remote.conf to the log host,
+        then restart auditd.

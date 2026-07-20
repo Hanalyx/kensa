@@ -13216,6 +13216,54 @@
       "host": "fleet:192.168.1.250",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu22 V-260528 (UBTU-22-255035) extend; definite verdict FAIL (sshd -T clientaliveinterval=0) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sssd-service-enabled-active",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270663 (UBTU-24-100660) net-new; definite verdict FAIL (sssd.service not installed/enabled) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sssd-service-enabled-active",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274866 (UBTU-22-254015) net-new; definite verdict FAIL (sssd.service not installed/enabled) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-log-group-root",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270829 (UBTU-24-901350) net-new; definite verdict FAIL (log_group=adm, not root) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-log-group-root",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260599 (UBTU-22-653055) net-new; definite verdict FAIL (log_group=adm, not root) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-offload-audispd-remote",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270658 (UBTU-24-100450) net-new; definite verdict FAIL (audispd-plugins not installed) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-offload-audispd-remote",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260592 (UBTU-22-653020) net-new; definite verdict FAIL (audispd-plugins not installed) on Ubuntu 22.04"
     }
   ]
 }
