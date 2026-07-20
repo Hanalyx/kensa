@@ -1,5 +1,5 @@
 id: audit-usergroup-passwd
-title: Audit account modifications affecting /etc/passwd (Ubuntu)
+title: Audit account modifications affecting /etc/passwd
 description: >
   All account creation, modification, disabling, and termination events
   that affect /etc/passwd must generate an audit record.

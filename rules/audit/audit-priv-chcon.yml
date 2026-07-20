@@ -1,5 +1,5 @@
 id: audit-priv-chcon
-title: Audit privileged execution of /usr/bin/chcon (Ubuntu)
+title: Audit privileged execution of /usr/bin/chcon
 description: >
   All uses of the /usr/bin/chcon command must generate an audit record so that
   security-context changes can be traced to an individual.

@@ -1,5 +1,5 @@
 id: audit-priv-chage
-title: Audit privileged execution of /usr/bin/chage (Ubuntu)
+title: Audit privileged execution of /usr/bin/chage
 description: >
   All uses of the /usr/bin/chage command must generate an audit record so that
   password-aging changes can be traced to an individual.

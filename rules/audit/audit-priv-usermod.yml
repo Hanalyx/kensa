@@ -1,5 +1,5 @@
 id: audit-priv-usermod
-title: Audit privileged execution of /usr/sbin/usermod (Ubuntu)
+title: Audit privileged execution of /usr/sbin/usermod
 description: >
   All uses of the /usr/sbin/usermod command must generate an audit record so that
   account modifications can be traced to an individual.

@@ -1,5 +1,5 @@
 id: audit-watch-faillog
-title: Audit access to /var/log/faillog (Ubuntu)
+title: Audit access to /var/log/faillog
 description: >
   Modifications to /var/log/faillog must generate an audit record so that failed login attempts
   can be traced to an individual.

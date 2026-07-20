@@ -1,5 +1,5 @@
 id: audit-syscall-module-load
-title: Audit kernel module loads (Ubuntu)
+title: Audit kernel module loads
 description: >
   The system must generate an audit record for kernel module loads so that the
   responsible user can be identified.

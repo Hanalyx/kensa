@@ -1,5 +1,5 @@
 id: audit-usergroup-gshadow
-title: Audit account modifications affecting /etc/gshadow (Ubuntu)
+title: Audit account modifications affecting /etc/gshadow
 description: >
   All account creation, modification, disabling, and termination events
   that affect /etc/gshadow must generate an audit record.

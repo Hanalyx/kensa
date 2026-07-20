@@ -1,5 +1,5 @@
 id: audit-priv-umount
-title: Audit privileged execution of /usr/bin/umount (Ubuntu)
+title: Audit privileged execution of /usr/bin/umount
 description: >
   All uses of the /usr/bin/umount command must generate an audit record so that
   filesystem unmounts can be traced to an individual.

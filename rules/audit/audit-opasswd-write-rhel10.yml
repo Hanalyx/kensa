@@ -1,5 +1,5 @@
 id: audit-opasswd-write-rhel10
-title: Audit write/attribute changes to /etc/security/opasswd (RHEL 10)
+title: Audit write/attribute changes to /etc/security/opasswd (syscall form)
 description: >
   On RHEL 10, record write and attribute changes to /etc/security/opasswd via the syscall-form
   audit rule (RHEL 10 deprecated the legacy -w watch form).

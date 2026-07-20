@@ -1,5 +1,5 @@
 id: faillock-selinux-context-legacy
-title: Ensure the faillock directory has the faillog_t SELinux context (RHEL 8.0-8.1)
+title: Ensure the faillock directory has the faillog_t SELinux context (legacy faillock context)
 description: >
   On RHEL 8.0-8.1, when a non-default pam_faillock tally directory is used it
   must carry the faillog_t SELinux type. On RHEL 8.2+ this is superseded and the

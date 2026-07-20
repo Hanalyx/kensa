@@ -1,5 +1,5 @@
 id: audit-priv-chsh
-title: Audit privileged execution of /usr/bin/chsh (Ubuntu)
+title: Audit privileged execution of /usr/bin/chsh
 description: >
   All uses of the /usr/bin/chsh command must generate an audit record so that
   login-shell changes can be traced to an individual.

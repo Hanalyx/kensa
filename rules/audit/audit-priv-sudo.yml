@@ -1,5 +1,5 @@
 id: audit-priv-sudo
-title: Audit privileged execution of /usr/bin/sudo (Ubuntu)
+title: Audit privileged execution of /usr/bin/sudo
 description: >
   All uses of the /usr/bin/sudo command must generate an audit record so that
   privileged command execution can be traced to an individual.

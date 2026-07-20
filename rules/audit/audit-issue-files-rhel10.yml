@@ -1,5 +1,5 @@
 id: audit-issue-files-rhel10
-title: Audit modification of /etc/issue and /etc/issue.net (RHEL 10)
+title: Audit modification of /etc/issue and /etc/issue.net (syscall form)
 description: >
   On RHEL 10 these file-modification audit controls use the syscall form
   (-S all -F path=... -F perm=wa). Record write/attribute changes to /etc/issue and /etc/issue.net.

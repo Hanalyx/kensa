@@ -1,5 +1,5 @@
 id: audit-syscall-file-deletion
-title: Audit file deletions and renames (Ubuntu)
+title: Audit file deletions and renames
 description: >
   The system must generate an audit record for file deletions and renames so that the
   responsible user can be identified.

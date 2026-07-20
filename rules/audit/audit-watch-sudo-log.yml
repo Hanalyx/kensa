@@ -1,5 +1,5 @@
 id: audit-watch-sudo-log
-title: Audit access to /var/log/sudo.log (Ubuntu)
+title: Audit access to /var/log/sudo.log
 description: >
   Modifications to /var/log/sudo.log must generate an audit record so that administrative (sudo) actions
   can be traced to an individual.

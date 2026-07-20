@@ -1,5 +1,5 @@
 id: audit-priv-sudoedit
-title: Audit privileged execution of /usr/bin/sudoedit (Ubuntu)
+title: Audit privileged execution of /usr/bin/sudoedit
 description: >
   All uses of the /usr/bin/sudoedit command must generate an audit record so that
   privileged file edits can be traced to an individual.
