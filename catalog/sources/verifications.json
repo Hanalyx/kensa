@@ -13120,6 +13120,70 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu24 V-274869 (UBTU-24-300019) extend (when:apt user-ALL wildcard); definite verdict PASS (no 'ALL ALL=(ALL) ALL' entry) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-null-passwords-prohibited-common",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270714 (UBTU-24-300028) net-new; definite verdict FAIL (pam_unix.so nullok present in common-auth) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-null-passwords-prohibited-common",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260570 (UBTU-22-611060) net-new; definite verdict FAIL (pam_unix.so nullok present in common-auth) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "pam-password-sha512-common",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270725 (UBTU-24-400220) net-new; definite verdict FAIL (common-password uses yescrypt, sha512 missing) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-password-sha512-common",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260569 (UBTU-22-611055) net-new; definite verdict FAIL (common-password uses yescrypt, sha512 missing) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "ufw-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270655 (UBTU-24-100310) net-new; definite verdict FAIL (ufw not active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "ufw-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260515 (UBTU-22-251015) net-new; definite verdict FAIL (ufw not active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "ssh-service-enabled-active",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270666 (UBTU-24-100810) net-new; definite verdict PASS (ssh.socket enabled + ssh.service active; socket-activation accepted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "ssh-service-enabled-active",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260524 (UBTU-22-255015) net-new; definite verdict PASS (ssh.service enabled + active) on Ubuntu 22.04"
     }
   ]
 }

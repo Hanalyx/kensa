@@ -1,0 +1,50 @@
+id: ufw-enabled
+title: Ensure the Uncomplicated Firewall (ufw) is active
+description: >
+  The Uncomplicated Firewall (ufw) must report 'Status: active' so that the
+  host application firewall is enforcing its ruleset.
+rationale: >
+  An installed but inactive host firewall provides no protection. ufw must be
+  active for its default-deny and per-service rules to take effect and control
+  inbound and outbound connections.
+severity: medium
+transactional: false
+category: network
+tags: [ufw, firewall, network, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270655"
+      stig_id: "UBTU-24-100310"
+      severity: "CAT II"
+      cci: ["CCI-002314"]
+    ubuntu22:
+      vuln_id: "V-260515"
+      stig_id: "UBTU-22-251015"
+      severity: "CAT II"
+      cci: ["CCI-002314"]
+  nist_800_53: ["AC-17(1)", "CA-3(5)"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # 'ufw status' requires root; run under --sudo. If ufw is absent the
+        # command is unavailable and the firewall is not active -> finding
+        # (an assessor may clear this manually if a different firewall is active).
+        if ufw status 2>/dev/null | grep -qE '^Status:[[:space:]]+active'; then
+          echo "OK: ufw is active"; exit 0
+        fi
+        echo "FAIL: ufw is not active"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Enable the firewall with 'ufw enable'. Note: enabling ufw can disrupt
+        active SSH sessions; ensure an allow rule for SSH exists first.
