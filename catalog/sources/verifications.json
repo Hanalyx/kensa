@@ -1431,15 +1431,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-19",
-      "notes": "W7 stig-ubuntu24 (V-270662 UBTU-24-100650): net-new. libpam-sss installed (MFA/smart-card). Definite FAIL on 249 (libpam-sss absent = genuine non-compliance, faithful). Read-only."
-    },
-    {
-      "rule_id": "sssd-mfa-packages-installed",
-      "os": "ubuntu22",
-      "scope": "check",
-      "host": "fleet:192.168.1.250",
-      "verified_at": "2026-07-19",
-      "notes": "W7 stig-ubuntu22 (V-260573 UBTU-22-612010): definite FAIL on 250 (libpam-sss absent, faithful). Read-only."
+      "notes": "W7 stig-ubuntu24 (V-270662 UBTU-24-100650, u24 only): net-new. libpam-sss installed (SSSD MFA). Definite FAIL on 249 (libpam-sss absent, faithful). Read-only. NOTE: u22 V-260573 requires libpam-pkcs11 (different package/control) — not cited here (Skeptic-caught)."
     },
     {
       "rule_id": "aide-cron-check",
