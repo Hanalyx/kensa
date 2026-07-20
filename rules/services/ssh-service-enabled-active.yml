@@ -1,0 +1,50 @@
+id: ssh-service-enabled-active
+title: Ensure the SSH server service is enabled and active
+description: >
+  The ssh service must be both enabled (starts on boot) and active (currently
+  running) so that remote access is protected by SSH.
+rationale: >
+  SSH provides the confidentiality and integrity protections required for
+  remote administrative access. If the ssh service is not enabled and running,
+  the system cannot offer protected remote sessions.
+severity: high
+transactional: false
+category: services
+tags: [ssh, service, remote-access, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270666"
+      stig_id: "UBTU-24-100810"
+      severity: "CAT I"
+      cci: ["CCI-002418", "CCI-002420", "CCI-002422"]
+    ubuntu22:
+      vuln_id: "V-260524"
+      stig_id: "UBTU-22-255015"
+      severity: "CAT I"
+      cci: ["CCI-002418", "CCI-002420", "CCI-002422"]
+  nist_800_53: ["AC-17(2)", "SC-8"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Ubuntu 24.04 defaults to socket activation: ssh.socket is enabled and
+        # ssh.service is started on demand, so 'is-enabled ssh' reports the
+        # socket, not the service. Accept enablement/activity via either unit.
+        { systemctl is-enabled ssh.service 2>/dev/null; systemctl is-enabled ssh.socket 2>/dev/null; } | grep -qx enabled || {
+          echo "FAIL: neither ssh.service nor ssh.socket is enabled"; exit 1; }
+        { systemctl is-active ssh.service 2>/dev/null; systemctl is-active ssh.socket 2>/dev/null; } | grep -qx active || {
+          echo "FAIL: ssh is not active (neither ssh.service nor ssh.socket)"; exit 1; }
+        echo "OK: ssh is enabled and active (service or socket)"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Enable and start the ssh service: systemctl enable --now ssh.service
