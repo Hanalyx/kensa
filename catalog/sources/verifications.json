@@ -1426,6 +1426,30 @@
       "notes": "W7 stig-ubuntu22 (V-260650 UBTU-22-671010, CAT I): definite FAIL on 250 (non-FIPS, faithful). Read-only."
     },
     {
+      "rule_id": "pam-pkcs11-installed",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270673 UBTU-24-100910): net-new. libpam-pkcs11 (PKCS#11 smart-card PAM module) installed. Definite FAIL on 249 (absent, faithful). Read-only."
+    },
+    {
+      "rule_id": "pam-pkcs11-installed",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260573 UBTU-22-612010): libpam-pkcs11 package (recovered from the sssd-mfa split — this is the correct pkcs11 rule for the u22 control). Definite FAIL on 250 (absent, faithful). Read-only."
+    },
+    {
+      "rule_id": "pam-pkcs11-configured",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270721 UBTU-24-400020, u24 only): net-new. pam_pkcs11.so enabled in common-auth. Definite FAIL on 249 (not configured, faithful). Read-only. u22 equiv V-260575 is compound (pam_pkcs11 + PubkeyAuth) already cited by ssh-pubkey-authentication — not duplicated (dup-cite caught)."
+    },
+    {
       "rule_id": "sssd-mfa-packages-installed",
       "os": "ubuntu24",
       "scope": "check",
