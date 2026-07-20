@@ -18,6 +18,16 @@ references:
     rhel9:
       vuln_id: "V-258230"
       severity: "CAT I"
+    ubuntu24:
+      vuln_id: "V-270744"
+      stig_id: "UBTU-24-600030"
+      severity: "CAT I"
+      cci: ["CCI-002450"]
+    ubuntu22:
+      vuln_id: "V-260650"
+      stig_id: "UBTU-22-671010"
+      severity: "CAT I"
+      cci: ["CCI-002450"]
     # NOTE: no rhel8 cite — rhel8 has no /proc/sys/crypto/fips_enabled control;
     # its FIPS control is the crypto-policy one (V-230223, RHEL-08-010020),
     # which belongs on the crypto-policy-fips rule, not this /proc-flag rule.
@@ -27,6 +37,8 @@ references:
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - default: true

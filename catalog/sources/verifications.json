@@ -1410,6 +1410,30 @@
       "notes": "W7 stig-ubuntu22 (V-260554 UBTU-22-412030): definite FAIL on 250 (no TMOUT, faithful). Read-only."
     },
     {
+      "rule_id": "fips-mode-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270744 UBTU-24-600030, CAT I): extend of the portable /proc/sys/crypto/fips_enabled=1 rule. Definite FAIL on 249 (fips_enabled absent = non-FIPS host, faithful). Read-only."
+    },
+    {
+      "rule_id": "fips-mode-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260650 UBTU-22-671010, CAT I): definite FAIL on 250 (non-FIPS, faithful). Read-only."
+    },
+    {
+      "rule_id": "sssd-mfa-packages-installed",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270662 UBTU-24-100650, u24 only): net-new. libpam-sss installed (SSSD MFA). Definite FAIL on 249 (libpam-sss absent, faithful). Read-only. NOTE: u22 V-260573 requires libpam-pkcs11 (different package/control) — not cited here (Skeptic-caught)."
+    },
+    {
       "rule_id": "aide-cron-check",
       "os": "rhel8",
       "scope": "check",
