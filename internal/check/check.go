@@ -876,19 +876,19 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 	hasDistinguisher := hasArch || hasPath || hasExit || len(want) > 0
 
 	for _, l := range loaded {
-		if hasArch && !strings.Contains(l, archTok) {
+		if hasArch && !auditFieldEqual(l, "arch", archTok) {
 			continue
 		}
-		if hasPath && !strings.Contains(l, pathTok) {
+		if hasPath && !auditFieldEqual(l, "path", pathTok) {
 			continue
 		}
-		if hasPerm && !strings.Contains(l, permTok) {
+		if hasPerm && !auditFieldEqual(l, "perm", permTok) {
 			continue
 		}
-		if hasExit && !strings.Contains(l, exitTok) {
+		if hasExit && !auditFieldEqual(l, "exit", exitTok) {
 			continue
 		}
-		if key != "" && !strings.Contains(l, "-k "+key) && !strings.Contains(l, "key="+key) {
+		if key != "" && extractAuditKey(l) != key {
 			continue
 		}
 		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
@@ -942,16 +942,16 @@ func AuditActionLoaded(rule string, loaded []string) string {
 		return ""
 	}
 	for _, l := range loaded {
-		if hasArch && !strings.Contains(l, archTok) {
+		if hasArch && !auditFieldEqual(l, "arch", archTok) {
 			continue
 		}
-		if hasPath && !strings.Contains(l, pathTok) {
+		if hasPath && !auditFieldEqual(l, "path", pathTok) {
 			continue
 		}
-		if hasPerm && !strings.Contains(l, permTok) {
+		if hasPerm && !auditFieldEqual(l, "perm", permTok) {
 			continue
 		}
-		if hasExit && !strings.Contains(l, exitTok) {
+		if hasExit && !auditFieldEqual(l, "exit", exitTok) {
 			continue
 		}
 		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
@@ -1000,7 +1000,7 @@ func auidTokensPresent(rule string, loadedLine string) bool {
 		if tok == "auid!=unset" {
 			tok = "auid!=-1"
 		}
-		if !strings.Contains(loadedLine, tok) {
+		if !auditFieldPresent(loadedLine, tok) {
 			return false
 		}
 	}
@@ -1048,8 +1048,34 @@ func extractAuditKey(rule string) string {
 		if strings.HasPrefix(f, "-k") && len(f) > 2 {
 			return f[2:]
 		}
+		// auditctl -l normalises "-k key" to "-F key=key"; accept that form too
+		// so the key can be compared exactly against a loaded line.
+		if strings.HasPrefix(f, "key=") {
+			return f[len("key="):]
+		}
 	}
 	return ""
+}
+
+// auditFieldEqual reports whether line carries the exact "-F <field>=<value>"
+// token wantTok — a WHOLE-VALUE match, NOT a substring. This is what stops
+// "-F path=/usr/bin/su" from matching a loaded "-F path=/usr/bin/sudo" (su is a
+// prefix of sudo); the substring form silently conflated distinct rules.
+func auditFieldEqual(line, field, wantTok string) bool {
+	got, ok := auditFToken(line, field)
+	return ok && got == wantTok
+}
+
+// auditFieldPresent reports whether tok is a complete whitespace-delimited
+// field of line (not a substring — so "auid>=1000" does not match a loaded
+// "auid>=10000").
+func auditFieldPresent(line, tok string) bool {
+	for _, f := range strings.Fields(line) {
+		if f == tok {
+			return true
+		}
+	}
+	return false
 }
 
 // auditFToken returns the "-F <field>=<value>" token for the named field in an
