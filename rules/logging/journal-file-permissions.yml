@@ -1,0 +1,49 @@
+id: journal-file-permissions
+title: Ensure systemd journal files and directories are not more permissive than 0640
+description: >
+  All directories and files under /run/log/journal and /var/log/journal must
+  have permissions no more permissive than 0640.
+rationale: >
+  The systemd journal can contain security-relevant and sensitive event data.
+  Restricting journal file and directory permissions prevents unauthorized
+  users from reading the audit and system event history.
+severity: medium
+transactional: false
+category: logging
+tags: [journald, log-permissions, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270757"
+      stig_id: "UBTU-24-700020"
+      severity: "CAT II"
+      cci: ["CCI-001312"]
+  nist_800_53: ["SI-11"]
+
+platforms:
+  - family: ubuntu
+    min_version: 24
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Fail if any journal dir/file carries permission bits beyond 0640
+        # (rw-r-----). The low three octal digits are tested; the setgid/sticky
+        # bit is ignored for the permissiveness comparison.
+        bad=$(find /run/log/journal /var/log/journal \( -type d -o -type f \) 2>/dev/null | while IFS= read -r p; do
+          m=$(stat -c '%a' "$p" 2>/dev/null)
+          perm=$(printf '%s' "$m" | tail -c 3)
+          if [ $(( 0$perm & ~0640 & 0777 )) -ne 0 ]; then printf '%s %s\n' "$p" "$m"; fi
+        done)
+        [ -z "$bad" ] || { echo "FAIL: journal paths more permissive than 0640:"; printf '%s\n' "$bad"; exit 1; }
+        echo "OK: journal files/dirs are 0640 or less permissive"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Tighten permissions to 0640 via a /etc/tmpfiles.d drop-in for
+        /run/log/journal and /var/log/journal (and their contents), then run
+        systemd-tmpfiles --create.

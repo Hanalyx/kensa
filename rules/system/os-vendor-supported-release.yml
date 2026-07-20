@@ -1,0 +1,52 @@
+id: os-vendor-supported-release
+title: Ensure the operating system is a vendor-supported release
+description: >
+  The installed Ubuntu release must be a version that is still supported by
+  the vendor (a current LTS release within its support window), so that it
+  continues to receive security updates.
+rationale: >
+  Operating system releases that are past end of life no longer receive
+  vendor security patches, leaving known vulnerabilities permanently
+  unaddressed. Only vendor-supported releases can be kept current.
+severity: high
+transactional: false
+category: system
+tags: [os-support, lifecycle, patching, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-278917"
+      stig_id: "UBTU-24-700400"
+      severity: "CAT I"
+      cci: ["CCI-000366"]
+    ubuntu22:
+      vuln_id: "V-278951"
+      stig_id: "UBTU-22-211000"
+      severity: "CAT I"
+      cci: ["CCI-000366"]
+  nist_800_53: ["SA-22"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        # Currently vendor-supported Ubuntu LTS releases. Update this list as
+        # releases reach end of standard support.
+        . /etc/os-release 2>/dev/null
+        case "$VERSION_ID" in
+          20.04|22.04|24.04|26.04)
+            echo "OK: vendor-supported Ubuntu LTS ${VERSION_ID}"; exit 0 ;;
+        esac
+        echo "FAIL: Ubuntu ${VERSION_ID:-unknown} is not a currently vendor-supported LTS"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Upgrade to a vendor-supported Ubuntu LTS release and, where applicable,
+        confirm subscription/support status with 'pro status'.

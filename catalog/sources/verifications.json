@@ -13264,6 +13264,46 @@
       "host": "fleet:192.168.1.250",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu22 V-260592 (UBTU-22-653020) net-new; definite verdict FAIL (audispd-plugins not installed) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "apt-no-unauthenticated",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270695 (UBTU-24-300001) net-new; definite verdict PASS (no AllowUnauthenticated=true) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "apt-no-unauthenticated",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260476 (UBTU-22-214010) net-new; definite verdict PASS (no AllowUnauthenticated=true) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "os-vendor-supported-release",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-278917 (UBTU-24-700400) net-new; definite verdict PASS (24.04 is a supported LTS) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "os-vendor-supported-release",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-278951 (UBTU-22-211000) net-new; definite verdict PASS (22.04 is a supported LTS) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "journal-file-permissions",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270757 (UBTU-24-700020) net-new; definite verdict FAIL (journal dirs 2755, >0640) on Ubuntu 24.04. u24-only: u22 V-260490 uses a different 2750 threshold"
     }
   ]
 }
