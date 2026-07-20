@@ -22,13 +22,44 @@ references:
       vuln_id: "V-230228"
       stig_id: "RHEL-08-010070"
       severity: "CAT II"
+    ubuntu24:
+      vuln_id: "V-270681"
+      stig_id: "UBTU-24-200090"
+      severity: "CAT II"
+      cci: ["CCI-000067"]
+    ubuntu22:
+      vuln_id: "V-260589"
+      stig_id: "UBTU-22-652015"
+      severity: "CAT II"
+      cci: ["CCI-000067"]
   nist_800_53: ["AC-17(1)"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  # Ubuntu ships the remote-access facilities in the combined comma form
+  # (auth,authpriv.* or auth.*,authpriv.*) in /etc/rsyslog.d/50-default.conf,
+  # which the RHEL default (requiring three separate selectors) would reject.
+  - when: apt
+    check:
+      method: command
+      run: |
+        c=$(grep -rhE '^[[:space:]]*[^#]' /etc/rsyslog.conf /etc/rsyslog.d/ 2>/dev/null)
+        printf '%s\n' "$c" | grep -qE '^[[:space:]]*(auth,authpriv\.\*|auth\.\*,authpriv\.\*|auth\.\*|authpriv\.\*|daemon\.\*)' && {
+          echo "OK: auth/authpriv/daemon remote-access facilities are logged"; exit 0; }
+        echo "FAIL: rsyslog does not log auth/authpriv/daemon remote-access methods"; exit 1
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/rsyslog.d"
+      file: "00-kensa-remote-access.conf"
+      key: "auth,authpriv.*"
+      value: "/var/log/auth.log"
+      restart: "rsyslog"
   - default: true
     check:
       method: command

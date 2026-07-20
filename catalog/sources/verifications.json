@@ -13304,6 +13304,38 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu24 V-270757 (UBTU-24-700020) net-new; definite verdict FAIL (journal dirs 2755, >0640) on Ubuntu 24.04. u24-only: u22 V-260490 uses a different 2750 threshold"
+    },
+    {
+      "rule_id": "rsyslog-remote-access-monitored",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270681 (UBTU-24-200090) extend (when:apt comma-form selector); definite verdict PASS (auth,authpriv.* logged) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "rsyslog-remote-access-monitored",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260589 (UBTU-22-652015) extend (when:apt comma-form selector); definite verdict PASS (auth,authpriv.* logged) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-cron-scripts",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-274870 (UBTU-24-200270) extend (when:apt cron.d + spool/cron watches); definite verdict FAIL (no cron audit watches loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-cron-scripts",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274862 (UBTU-22-654041) extend (when:apt cron.d + spool/cron watches); definite verdict FAIL (no cron audit watches loaded) on Ubuntu 22.04"
     }
   ]
 }
