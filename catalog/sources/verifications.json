@@ -13184,6 +13184,38 @@
       "host": "fleet:192.168.1.250",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu22 V-260524 (UBTU-22-255015) net-new; definite verdict PASS (ssh.service enabled + active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "grub-single-user-password",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270675 (UBTU-24-102000) net-new; definite verdict FAIL (no password_pbkdf2 root in /boot/grub/grub.cfg) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "grub-single-user-password",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260470 (UBTU-22-212010) net-new; definite verdict FAIL (no password_pbkdf2 root in /boot/grub/grub.cfg) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "ssh-client-alive-interval",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270743 (UBTU-24-600010) extend; definite verdict FAIL (sshd -T clientaliveinterval=0) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "ssh-client-alive-interval",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260528 (UBTU-22-255035) extend; definite verdict FAIL (sshd -T clientaliveinterval=0) on Ubuntu 22.04"
     }
   ]
 }
