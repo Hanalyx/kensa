@@ -25,6 +25,11 @@ references:
       stig_id: "UBTU-24-300019"
       severity: "CAT II"
       cci: ["CCI-002038", "CCI-004895"]
+    ubuntu22:                                                                # same literal user-ALL wildcard check as u24 V-274869; the when:apt impl already implements it.
+      vuln_id: "V-274861"
+      stig_id: "UBTU-22-654224"
+      severity: "CAT II"
+      cci: ["CCI-002038", "CCI-004895"]
   nist_800_53: ["AC-6", "AC-6(5)"]
 
 platforms:

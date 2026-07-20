@@ -13336,6 +13336,22 @@
       "host": "fleet:192.168.1.250",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu22 V-274862 (UBTU-22-654041) extend (when:apt cron.d + spool/cron watches); definite verdict FAIL (no cron audit watches loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sudo-reauth-not-disabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260558 (UBTU-22-432010) cite-add (!authenticate control); definite verdict PASS (no !authenticate in sudoers) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sudo-restrict-privilege-escalation",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274861 (UBTU-22-654224) cite-add (same literal user-ALL check as u24 V-274869); definite verdict PASS (no ALL ALL=(ALL) ALL entry) on Ubuntu 22.04"
     }
   ]
 }
