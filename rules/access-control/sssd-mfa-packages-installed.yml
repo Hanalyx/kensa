@@ -1,0 +1,42 @@
+id: sssd-mfa-packages-installed
+title: Install the packages required for multifactor authentication
+description: >
+  The packages that provide SSSD-based multifactor and smart-card authentication
+  (in particular the PAM SSS module, libpam-sss) must be installed so that
+  PIV/CAC and other multifactor methods can be enforced through PAM and NSS.
+rationale: >
+  Multifactor authentication cannot be enforced without the software that
+  integrates smart-card / SSSD credentials into the authentication stack. If the
+  required packages are absent, the system falls back to single-factor password
+  authentication, weakening access control for privileged and remote logons.
+severity: medium
+category: access-control
+tags: [sssd, mfa, smart-card, pam, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270662"
+      stig_id: "UBTU-24-100650"
+      severity: "CAT II"
+      cci: ["CCI-000765", "CCI-000766", "CCI-004046", "CCI-004047"]
+    ubuntu22:
+      vuln_id: "V-260573"
+      stig_id: "UBTU-22-612010"
+      severity: "CAT II"
+      cci: ["CCI-000765", "CCI-000766", "CCI-000767", "CCI-000768", "CCI-001948", "CCI-004046", "CCI-004047"]
+  nist_800_53: ["IA-2(1)", "IA-2(2)", "IA-8"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "dpkg -l 2>/dev/null | grep -qE '^ii[[:space:]]+libpam-sss([[:space:]]|:)'"
+      expected_exit: 0
+    remediation:
+      mechanism: apt_present
+      name: libpam-sss
