@@ -13048,6 +13048,78 @@
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
       "notes": "missing-control authoring: new/extended rule for CIS rhel9 1.2.1.1; definite verdict PASS (cis rhel9 GPG keys configured) on rhel9 9.6"
+    },
+    {
+      "rule_id": "sudo-nopasswd-prohibited",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-274868 (UBTU-24-300020) extend; definite verdict FAIL (host has %sudo NOPASSWD: ALL) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sudo-nopasswd-prohibited",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274860 (UBTU-22-432011) extend; definite verdict FAIL (host has %sudo NOPASSWD: ALL) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "pam-faildelay-common-auth",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270706 (UBTU-24-300017) net-new; definite verdict FAIL (pam_faildelay not in common-auth) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-faildelay-common-auth",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260550 (UBTU-22-412010) net-new; definite verdict FAIL (pam_faildelay not in common-auth) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "chrony-makestep-configured",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270752 (UBTU-24-600180) net-new; definite verdict FAIL (makestep not '1 -1') on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "chrony-makestep-configured",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260520 (UBTU-22-252015) net-new; definite verdict FAIL (makestep not '1 -1') on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "chrony-maxpoll-configured",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270751 (UBTU-24-600160) extend (when:apt /etc/chrony/chrony.conf); definite verdict FAIL (source lacks maxpoll<=16) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "chrony-maxpoll-configured",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260519 (UBTU-22-252010) extend (when:apt /etc/chrony/chrony.conf); definite verdict FAIL (source lacks maxpoll<=16) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sudo-restrict-privilege-escalation",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-274869 (UBTU-24-300019) extend (when:apt user-ALL wildcard); definite verdict PASS (no 'ALL ALL=(ALL) ALL' entry) on Ubuntu 24.04"
     }
   ]
 }

@@ -20,13 +20,38 @@ references:
     rhel8:
       vuln_id: "V-237641"
       severity: "CAT II"
+    ubuntu24:
+      vuln_id: "V-274869"
+      stig_id: "UBTU-24-300019"
+      severity: "CAT II"
+      cci: ["CCI-002038", "CCI-004895"]
   nist_800_53: ["AC-6", "AC-6(5)"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  # Ubuntu STIG flags ONLY the literal user-"ALL" wildcard grant
+  # ('ALL ALL=(ALL) ALL' / '(ALL:ALL)'), not any specific user's ALL= grant,
+  # so the Debian/Ubuntu check is scoped tighter than the RHEL default below.
+  - when: apt
+    check:
+      method: command
+      run: |
+        bad=$(grep -rhE '^[[:space:]]*ALL[[:space:]]+ALL[[:space:]]*=[[:space:]]*\(ALL(:ALL)?\)[[:space:]]+ALL' /etc/sudoers /etc/sudoers.d/ 2>/dev/null | grep -v '^[[:space:]]*#')
+        if [ -n "$bad" ]; then
+          echo "FAIL: unrestricted 'ALL ALL=(ALL) ALL' sudo entry present:"; echo "$bad"; exit 1
+        fi
+        echo "OK: no unrestricted user-ALL sudo entry"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Remove any 'ALL ALL=(ALL) ALL' or 'ALL ALL=(ALL:ALL) ALL' entry from
+        /etc/sudoers and files under /etc/sudoers.d/ (edit with visudo).
   - default: true
     check:
       method: command
