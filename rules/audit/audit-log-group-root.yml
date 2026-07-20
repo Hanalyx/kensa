@@ -1,0 +1,52 @@
+id: audit-log-group-root
+title: Ensure audit logs are group-owned by root
+description: >
+  The auditd configuration must set log_group to root so that newly created
+  audit logs are group-owned by root, and existing audit log files must be
+  group-owned by root.
+rationale: >
+  Restricting group ownership of audit logs to root prevents unauthorized
+  users from reading or altering the audit trail, preserving the integrity
+  and confidentiality of security-relevant records.
+severity: medium
+transactional: false
+category: audit
+tags: [audit, auditd, log-permissions, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270829"
+      stig_id: "UBTU-24-901350"
+      severity: "CAT II"
+      cci: ["CCI-000162", "CCI-000163", "CCI-000164"]
+    ubuntu22:
+      vuln_id: "V-260599"
+      stig_id: "UBTU-22-653055"
+      severity: "CAT II"
+      cci: ["CCI-000162", "CCI-000163", "CCI-000164"]
+  nist_800_53: ["AU-9"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        lg=$(grep -iE '^[[:space:]]*log_group[[:space:]]*=' /etc/audit/auditd.conf 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '[:space:]')
+        [ "$lg" = "root" ] || { echo "FAIL: log_group is '${lg:-unset}', expected root"; exit 1; }
+        # ubuntu24 additionally requires existing audit log files be root-group-owned.
+        lf=$(grep -iE '^[[:space:]]*log_file[[:space:]]*=' /etc/audit/auditd.conf 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '[:space:]')
+        d=$(dirname "${lf:-/var/log/audit/audit.log}")
+        bad=$(find "$d" -maxdepth 1 -type f ! -group root 2>/dev/null)
+        [ -z "$bad" ] || { echo "FAIL: audit log files not group-owned by root:"; printf '%s\n' "$bad"; exit 1; }
+        echo "OK: log_group=root and audit logs are root-group-owned"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Set 'log_group = root' in /etc/audit/auditd.conf, then reload auditd
+        (systemctl kill auditd -s SIGHUP) so existing files are re-grouped.
