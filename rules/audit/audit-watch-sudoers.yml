@@ -1,5 +1,5 @@
 id: audit-watch-sudoers
-title: Audit access to /etc/sudoers (Ubuntu)
+title: Audit access to /etc/sudoers
 description: >
   Modifications to /etc/sudoers must generate an audit record so that changes to sudo privileges
   can be traced to an individual.

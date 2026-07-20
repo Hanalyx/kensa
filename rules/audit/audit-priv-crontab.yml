@@ -1,5 +1,5 @@
 id: audit-priv-crontab
-title: Audit privileged execution of /usr/bin/crontab (Ubuntu)
+title: Audit privileged execution of /usr/bin/crontab
 description: >
   All uses of the /usr/bin/crontab command must generate an audit record so that
   cron-job changes can be traced to an individual.

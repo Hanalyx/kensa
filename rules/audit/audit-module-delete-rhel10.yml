@@ -1,5 +1,5 @@
 id: audit-module-delete-rhel10
-title: Audit kernel-module delete_module unload (RHEL 10)
+title: Audit kernel-module delete_module unload (syscall form)
 description: >
   On RHEL 10 the kernel-module audit controls are split per syscall and keyed
   'kernel_modules'. Record use of the delete_module syscall(s) by interactive users.

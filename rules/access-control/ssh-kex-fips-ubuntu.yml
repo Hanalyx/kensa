@@ -1,5 +1,5 @@
 id: ssh-kex-fips-ubuntu
-title: Configure SSH to use FIPS-validated key exchange algorithms (Ubuntu)
+title: Configure SSH to use FIPS-validated key exchange algorithms
 description: >
   The SSH server must be configured to use only FIPS 140-3 validated key
   exchange algorithms. Ubuntu's approved set is broader than RHEL's (it

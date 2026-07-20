@@ -1,5 +1,5 @@
 id: ssh-client-macs-fips-ubuntu
-title: Configure the SSH client to use FIPS-approved MACs (Ubuntu)
+title: Configure the SSH client to use FIPS-approved MACs
 description: >
   The SSH client (/etc/ssh/ssh_config) must be configured to use only
   FIPS 140-3 approved MACs.

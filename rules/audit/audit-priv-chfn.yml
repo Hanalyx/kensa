@@ -1,5 +1,5 @@
 id: audit-priv-chfn
-title: Audit privileged execution of /usr/bin/chfn (Ubuntu)
+title: Audit privileged execution of /usr/bin/chfn
 description: >
   All uses of the /usr/bin/chfn command must generate an audit record so that
   finger-information changes can be traced to an individual.

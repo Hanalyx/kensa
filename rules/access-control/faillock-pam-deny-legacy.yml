@@ -1,5 +1,5 @@
 id: faillock-pam-deny-legacy
-title: Ensure account lockout after 3 failed logons (RHEL 8.0-8.1 pam.d form)
+title: Ensure account lockout after 3 failed logons (pam.d form)
 description: >
   On RHEL 8.0-8.1, pam_faillock must be configured directly in
   /etc/pam.d/system-auth and /etc/pam.d/password-auth with deny=3. On RHEL 8.2+
