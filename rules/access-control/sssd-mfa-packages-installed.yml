@@ -15,7 +15,7 @@ tags: [sssd, mfa, smart-card, pam, stig]
 
 references:
   stig:
-    ubuntu24:                                                                # ubuntu22 V-260573 requires libpam-pkcs11 (PKCS#11 smart-card), a DIFFERENT package/control — do NOT cite it here (separate rule).
+    ubuntu24:                                                                # ubuntu22's MFA-package control requires libpam-pkcs11 (PKCS#11 smart-card), a different package/control — cited by a separate rule, not here.
       vuln_id: "V-270662"
       stig_id: "UBTU-24-100650"
       severity: "CAT II"
