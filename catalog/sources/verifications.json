@@ -218,7 +218,7 @@
       "notes": "read-only check, FAIL correct (/var/log is 775, rule wants 0755; host not hardened). Confirms file_permission evaluates the right path+mode on Ubuntu."
     },
     {
-      "rule_id": "ssh-ciphers-fips-ubuntu",
+      "rule_id": "ssh-ciphers-fips",
       "os": "ubuntu26",
       "scope": "check",
       "host": "fleet:192.168.1.248",
@@ -226,7 +226,7 @@
       "notes": "read-only check (--sudo), FAIL correct (effective ciphers include chacha20-poly1305 + aes192-ctr, non-FIPS for Ubuntu). Live run CAUGHT a false-PASS bug: the command check used the bashism '&>/dev/null', which dash (Ubuntu /bin/sh) mis-parses as background+redirect -> check exited 0 regardless; rewritten POSIX-clean. PASS branch proven against the compliant Ubuntu cipher set under dash."
     },
     {
-      "rule_id": "ssh-macs-fips-ubuntu",
+      "rule_id": "ssh-macs-fips",
       "os": "ubuntu26",
       "scope": "check",
       "host": "fleet:192.168.1.248",
@@ -834,7 +834,7 @@
       "notes": "FULL: remediate FIXED -> selective rollback unloaded ONLY chown's b32+b64 (chmod, same perm_chng key, stayed). Proves -a -S syscall rollback + per-rule tracking under a shared key."
     },
     {
-      "rule_id": "audit-syscall-perm-mod-setxattr",
+      "rule_id": "audit-xattr-changes",
       "os": "ubuntu24",
       "scope": "remediate",
       "host": "fleet:192.168.1.249 (auditd installed for test, purged after)",
@@ -8714,7 +8714,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu22 (cites ubuntu22 benchmark)"
     },
     {
-      "rule_id": "audit-syscall-perm-mod-setxattr",
+      "rule_id": "audit-xattr-changes",
       "os": "ubuntu22",
       "scope": "check",
       "host": "fleet:192.168.1.250",
@@ -9178,7 +9178,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict PASS on ubuntu22 (cites ubuntu22 benchmark)"
     },
     {
-      "rule_id": "ssh-ciphers-fips-ubuntu",
+      "rule_id": "ssh-ciphers-fips",
       "os": "ubuntu22",
       "scope": "check",
       "host": "fleet:192.168.1.250",
@@ -9218,7 +9218,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu22 (cites ubuntu22 benchmark)"
     },
     {
-      "rule_id": "ssh-macs-fips-ubuntu",
+      "rule_id": "ssh-macs-fips",
       "os": "ubuntu22",
       "scope": "check",
       "host": "fleet:192.168.1.250",
@@ -9626,7 +9626,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu24 (cites ubuntu24 benchmark)"
     },
     {
-      "rule_id": "audit-syscall-perm-mod-setxattr",
+      "rule_id": "audit-xattr-changes",
       "os": "ubuntu24",
       "scope": "check",
       "host": "fleet:192.168.1.249",
@@ -10002,7 +10002,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict PASS on ubuntu24 (cites ubuntu24 benchmark)"
     },
     {
-      "rule_id": "ssh-ciphers-fips-ubuntu",
+      "rule_id": "ssh-ciphers-fips",
       "os": "ubuntu24",
       "scope": "check",
       "host": "fleet:192.168.1.249",
@@ -10050,7 +10050,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu24 (cites ubuntu24 benchmark)"
     },
     {
-      "rule_id": "ssh-macs-fips-ubuntu",
+      "rule_id": "ssh-macs-fips",
       "os": "ubuntu24",
       "scope": "check",
       "host": "fleet:192.168.1.249",
