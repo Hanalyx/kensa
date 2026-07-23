@@ -24,6 +24,8 @@ references:
     rhel10:  { section: "5.1.5", level: "L1", type: "Automated" }
     rhel8:  { section: "5.1.7", level: "L1", type: "Automated" }
     rhel9:  { section: "5.1.8", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.1.5", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.1.5", level: "L1", type: "Automated" }
   stig:
     rhel10: { vuln_id: "V-281224", stig_id: "RHEL-10-700010", severity: "CAT II" }
     rhel9:
@@ -41,6 +43,8 @@ references:
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - when: sshd_config_d

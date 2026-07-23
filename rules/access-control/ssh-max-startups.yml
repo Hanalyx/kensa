@@ -24,11 +24,15 @@ references:
     rhel10:  { section: "5.1.17", level: "L1", type: "Automated" }
     rhel8:  { section: "5.1.20", level: "L1", type: "Automated" }
     rhel9:  { section: "5.1.17", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.1.18", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.1.17", level: "L1", type: "Automated" }
   nist_800_53: ["CM-6", "SC-5"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - when: sshd_config_d
