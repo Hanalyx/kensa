@@ -13680,6 +13680,438 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 1.1.2.7.1 mount cluster; definite verdict FAIL (/var/log/audit not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-dccp",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-dccp",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-rds",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-rds",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-sctp",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-sctp",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-tipc",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-tipc",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-all-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.2 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-all-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.8 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.8 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.14 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.14 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-log-martians",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.16 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-log-martians",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.16 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-rp-filter",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.12 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-rp-filter",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.12 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-secure-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.10 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-secure-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.10 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-send-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.4 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-send-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.4 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.9 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.9 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.15 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.15 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.3 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.3 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-log-martians",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.17 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-log-martians",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.17 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-rp-filter",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.13 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-rp-filter",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.13 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-secure-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.11 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-secure-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.11 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-send-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.5 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-send-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.5 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-ip-forward",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.1 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-ip-forward",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.1 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-ra",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.7 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-ra",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.7 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.5 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.5 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-ra",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.8 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-ra",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.8 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.6 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.6 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
     }
   ]
 }
