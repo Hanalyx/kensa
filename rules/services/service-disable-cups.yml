@@ -15,11 +15,15 @@ references:
     rhel8:  { section: "2.1.11", level: "L1", type: "Automated" }
     rhel9:  { section: "2.1.11", level: "L1", type: "Automated" }
     rhel10: { section: "2.1.10", level: "L1", type: "Automated" }
+    ubuntu22: { section: "2.1.11", level: "L1", type: "Automated" }
+    ubuntu24: { section: "2.1.11", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - default: true
