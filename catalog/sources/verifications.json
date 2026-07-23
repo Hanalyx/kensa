@@ -1,5 +1,5 @@
 {
-  "_comment": "Functional verifications: a rule's check/remediate/rollback proven to work on a live OS, independent of any framework benchmark. Scope: check | remediate | rollback | full. This is recorded fact, not inference \u2014 each entry corresponds to an actual live run.",
+  "_comment": "Functional verifications: a rule's check/remediate/rollback proven to work on a live OS, independent of any framework benchmark. Scope: check | remediate | rollback | full. This is recorded fact, not inference — each entry corresponds to an actual live run.",
   "verifications": [
     {
       "rule_id": "chrony-installed",
@@ -207,7 +207,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.248",
       "verified_at": "2026-06-24",
-      "notes": "read-only check, PASS (/var/log group syslog \u2014 Ubuntu-specific; RHEL var-log-dir-permissions uses group root)"
+      "notes": "read-only check, PASS (/var/log group syslog — Ubuntu-specific; RHEL var-log-dir-permissions uses group root)"
     },
     {
       "rule_id": "var-log-dir-mode",
@@ -311,7 +311,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.248",
       "verified_at": "2026-06-25",
-      "notes": "read-only check (--sudo), PASS (PubkeyAuthentication=yes). Extend (V-270722, Ubuntu smart-card MFA control sets PubkeyAuthentication yes \u2014 same value)."
+      "notes": "read-only check (--sudo), PASS (PubkeyAuthentication=yes). Extend (V-270722, Ubuntu smart-card MFA control sets PubkeyAuthentication yes — same value)."
     },
     {
       "rule_id": "ssh-use-pam",
@@ -4847,7 +4847,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-06-27",
-      "notes": "read-only check (--sudo), PASS on rhel9.6; grouped multi-vuln_id (mode+owner+group) confirmed \u2014 V-257885/914/915 surface as stig_rhel9 refs"
+      "notes": "read-only check (--sudo), PASS on rhel9.6; grouped multi-vuln_id (mode+owner+group) confirmed — V-257885/914/915 surface as stig_rhel9 refs"
     },
     {
       "rule_id": "var-log-messages-permissions",
@@ -12887,7 +12887,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new rule for CIS rhel9 1.1.2.4.3 (nosuid on /var); definite verdict FAIL on rhel9 9.6 (host /var lacks nosuid) \u2014 honest fail-observed"
+      "notes": "missing-control authoring: new rule for CIS rhel9 1.1.2.4.3 (nosuid on /var); definite verdict FAIL on rhel9 9.6 (host /var lacks nosuid) — honest fail-observed"
     },
     {
       "rule_id": "mount-dev-shm-separate-fs",
@@ -12927,7 +12927,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 1.6.7; definite verdict FAIL (EtM MACs enabled on 211 \u2014 honest non-compliance) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 1.6.7; definite verdict FAIL (EtM MACs enabled on 211 — honest non-compliance) on rhel9 9.6"
     },
     {
       "rule_id": "unused-filesystems-unavailable",
@@ -12959,7 +12959,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 3.1.1; definite verdict FAIL (no explicit disable_ipv6 config on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 3.1.1; definite verdict FAIL (no explicit disable_ipv6 config on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "approved-listening-services",
@@ -12975,7 +12975,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 4.2.1; definite verdict FAIL (default zone target not DROP/REJECT on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 4.2.1; definite verdict FAIL (default zone target not DROP/REJECT on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "nftables-established-connections",
@@ -12991,7 +12991,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.2; definite verdict FAIL (/var/log/journal absent on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.2; definite verdict FAIL (/var/log/journal absent on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "journald-log-rotation",
@@ -12999,7 +12999,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.3; definite verdict FAIL (no rotation limit on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.3; definite verdict FAIL (no rotation limit on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "rsyslog-logging-configured",
@@ -13023,7 +13023,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.3.8; definite verdict FAIL (/etc/logrotate.d/syslog missing on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.3.8; definite verdict FAIL (/etc/logrotate.d/syslog missing on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "audit-config-on-disk-matches-running",
@@ -13031,7 +13031,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.3.3.21; definite verdict FAIL (augenrules --check reports drift on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.3.3.21; definite verdict FAIL (augenrules --check reports drift on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "suid-sgid-files-reviewed",
@@ -14384,6 +14384,38 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 2.1.13 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "auditd-max-log-file",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.2.1 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict PASS (max_log_file configured) on Ubuntu 22.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "auditd-max-log-file",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.2.1 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict PASS (max_log_file configured) on Ubuntu 24.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "auditd-max-log-file-action",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.2.2 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict FAIL (max_log_file_action=ROTATE, want keep_logs) on Ubuntu 22.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "auditd-max-log-file-action",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.2.2 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict FAIL (max_log_file_action=ROTATE, want keep_logs) on Ubuntu 24.04 (auditd present on host)"
     }
   ]
 }
