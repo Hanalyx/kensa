@@ -1,5 +1,5 @@
 id: ssh-host-key-permissions
-title: Ensure SSH private host keys are mode 0600 or less permissive (RHEL 10 STIG)
+title: Ensure SSH private host keys are mode 0600 or less permissive
 description: >
   On RHEL 10, the STIG requires every SSH private host key under /etc/ssh
   (ssh_host_*_key) to have a file mode of "0600" or less permissive — stricter

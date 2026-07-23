@@ -23,13 +23,46 @@ references:
     rhel8:
       vuln_id: "V-274877"
       severity: "CAT II"
+    ubuntu24:
+      vuln_id: "V-274870"
+      stig_id: "UBTU-24-200270"
+      severity: "CAT II"
+      cci: ["CCI-000172"]
+    ubuntu22:
+      vuln_id: "V-274862"
+      stig_id: "UBTU-22-654041"
+      severity: "CAT II"
+      cci: ["CCI-000172"]
   nist_800_53: ["AU-2", "AU-12"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  # The Ubuntu STIG scopes this control to /etc/cron.d and /var/spool/cron only
+  # (not the cron.daily/hourly/monthly/weekly set the RHEL default requires).
+  - when: apt
+    check:
+      method: command
+      run: |
+        l=$(auditctl -l 2>/dev/null)
+        printf '%s\n' "$l" | grep -qE '^-w /etc/cron\.d/? +-p [a-z]*w[a-z]*' || {
+          echo "FAIL: no audit watch on /etc/cron.d"; exit 1; }
+        printf '%s\n' "$l" | grep -qE '^-w /var/spool/cron/? +-p [a-z]*w[a-z]*' || {
+          echo "FAIL: no audit watch on /var/spool/cron"; exit 1; }
+        echo "OK: /etc/cron.d and /var/spool/cron are audited"; exit 0
+      expected_exit: 0
+    remediation:
+      steps:
+        - mechanism: audit_rule_set
+          rule: "-w /etc/cron.d -p wa -k cronjobs"
+          persist_file: "/etc/audit/rules.d/50-cron.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /var/spool/cron -p wa -k cronjobs"
+          persist_file: "/etc/audit/rules.d/50-cron.rules"
   - default: true
     check:
       method: command

@@ -1,5 +1,5 @@
 id: audit-watch-journal
-title: Audit access to /var/log/journal (Ubuntu)
+title: Audit access to /var/log/journal
 description: >
   Modifications to /var/log/journal must generate an audit record so that access to the systemd journal
   can be traced to an individual.

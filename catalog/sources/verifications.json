@@ -218,7 +218,7 @@
       "notes": "read-only check, FAIL correct (/var/log is 775, rule wants 0755; host not hardened). Confirms file_permission evaluates the right path+mode on Ubuntu."
     },
     {
-      "rule_id": "ssh-ciphers-fips-ubuntu",
+      "rule_id": "ssh-ciphers-fips",
       "os": "ubuntu26",
       "scope": "check",
       "host": "fleet:192.168.1.248",
@@ -226,7 +226,7 @@
       "notes": "read-only check (--sudo), FAIL correct (effective ciphers include chacha20-poly1305 + aes192-ctr, non-FIPS for Ubuntu). Live run CAUGHT a false-PASS bug: the command check used the bashism '&>/dev/null', which dash (Ubuntu /bin/sh) mis-parses as background+redirect -> check exited 0 regardless; rewritten POSIX-clean. PASS branch proven against the compliant Ubuntu cipher set under dash."
     },
     {
-      "rule_id": "ssh-macs-fips-ubuntu",
+      "rule_id": "ssh-macs-fips",
       "os": "ubuntu26",
       "scope": "check",
       "host": "fleet:192.168.1.248",
@@ -834,7 +834,7 @@
       "notes": "FULL: remediate FIXED -> selective rollback unloaded ONLY chown's b32+b64 (chmod, same perm_chng key, stayed). Proves -a -S syscall rollback + per-rule tracking under a shared key."
     },
     {
-      "rule_id": "audit-syscall-perm-mod-setxattr",
+      "rule_id": "audit-xattr-changes",
       "os": "ubuntu24",
       "scope": "remediate",
       "host": "fleet:192.168.1.249 (auditd installed for test, purged after)",
@@ -1360,6 +1360,102 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-12",
       "notes": "W7 stig-ubuntu24 (V-270818 UBTU-24-900960): space_left_action notify at 75% (accepts email OR exec per STIG). auditd on 249, fail-observed ✓✓: default SYSLOG -> FAIL, space_left_action=exec -> PASS. u22 deferred (phrases differently). Byte-perfect (f45f45eb)."
+    },
+    {
+      "rule_id": "var-log-files-permissions",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270756 UBTU-24-700010): net-new. STIG find /var/log -perm /137 ! -name '*[bw]tmp' ! -name '*lastlog'. Definite FAIL on 249 (default Ubuntu ships some >640 logs = genuine non-compliance, faithful). Read-only check, host unchanged."
+    },
+    {
+      "rule_id": "var-log-files-permissions",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260489 UBTU-22-232026): definite FAIL on 250 (>640 logs present, faithful). Read-only."
+    },
+    {
+      "rule_id": "apt-remove-unused-dependencies",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270773 UBTU-24-700320): net-new. Remove-Unused-Dependencies + Remove-Unused-Kernel-Packages both 'true' in 50unattended-upgrades. Definite FAIL on 249 (both commented/false = genuine non-compliance, faithful). Read-only."
+    },
+    {
+      "rule_id": "apt-remove-unused-dependencies",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260477 UBTU-22-214015): definite FAIL on 250 (params not set to true, faithful). Read-only."
+    },
+    {
+      "rule_id": "shell-idle-timeout-tmout",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270680 UBTU-24-200060): net-new. Positive TMOUT set in a shell startup file (not 0/unset/commented). Definite FAIL on 249 (no TMOUT configured = genuine non-compliance, faithful). Read-only."
+    },
+    {
+      "rule_id": "shell-idle-timeout-tmout",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260554 UBTU-22-412030): definite FAIL on 250 (no TMOUT, faithful). Read-only."
+    },
+    {
+      "rule_id": "fips-mode-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270744 UBTU-24-600030, CAT I): extend of the portable /proc/sys/crypto/fips_enabled=1 rule. Definite FAIL on 249 (fips_enabled absent = non-FIPS host, faithful). Read-only."
+    },
+    {
+      "rule_id": "fips-mode-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260650 UBTU-22-671010, CAT I): definite FAIL on 250 (non-FIPS, faithful). Read-only."
+    },
+    {
+      "rule_id": "pam-pkcs11-installed",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270673 UBTU-24-100910): net-new. libpam-pkcs11 (PKCS#11 smart-card PAM module) installed. Definite FAIL on 249 (absent, faithful). Read-only."
+    },
+    {
+      "rule_id": "pam-pkcs11-installed",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu22 (V-260573 UBTU-22-612010): libpam-pkcs11 package (recovered from the sssd-mfa split — this is the correct pkcs11 rule for the u22 control). Definite FAIL on 250 (absent, faithful). Read-only."
+    },
+    {
+      "rule_id": "pam-pkcs11-configured",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270721 UBTU-24-400020, u24 only): net-new. pam_pkcs11.so enabled in common-auth. Definite FAIL on 249 (not configured, faithful). Read-only. u22 equiv V-260575 is compound (pam_pkcs11 + PubkeyAuth) already cited by ssh-pubkey-authentication — not duplicated (dup-cite caught)."
+    },
+    {
+      "rule_id": "sssd-mfa-packages-installed",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-19",
+      "notes": "W7 stig-ubuntu24 (V-270662 UBTU-24-100650, u24 only): net-new. libpam-sss installed (SSSD MFA). Definite FAIL on 249 (libpam-sss absent, faithful). Read-only. NOTE: u22 V-260573 requires libpam-pkcs11 (different package/control) — not cited here (Skeptic-caught)."
     },
     {
       "rule_id": "aide-cron-check",
@@ -8618,7 +8714,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu22 (cites ubuntu22 benchmark)"
     },
     {
-      "rule_id": "audit-syscall-perm-mod-setxattr",
+      "rule_id": "audit-xattr-changes",
       "os": "ubuntu22",
       "scope": "check",
       "host": "fleet:192.168.1.250",
@@ -9082,7 +9178,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict PASS on ubuntu22 (cites ubuntu22 benchmark)"
     },
     {
-      "rule_id": "ssh-ciphers-fips-ubuntu",
+      "rule_id": "ssh-ciphers-fips",
       "os": "ubuntu22",
       "scope": "check",
       "host": "fleet:192.168.1.250",
@@ -9122,7 +9218,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu22 (cites ubuntu22 benchmark)"
     },
     {
-      "rule_id": "ssh-macs-fips-ubuntu",
+      "rule_id": "ssh-macs-fips",
       "os": "ubuntu22",
       "scope": "check",
       "host": "fleet:192.168.1.250",
@@ -9530,7 +9626,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu24 (cites ubuntu24 benchmark)"
     },
     {
-      "rule_id": "audit-syscall-perm-mod-setxattr",
+      "rule_id": "audit-xattr-changes",
       "os": "ubuntu24",
       "scope": "check",
       "host": "fleet:192.168.1.249",
@@ -9906,7 +10002,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict PASS on ubuntu24 (cites ubuntu24 benchmark)"
     },
     {
-      "rule_id": "ssh-ciphers-fips-ubuntu",
+      "rule_id": "ssh-ciphers-fips",
       "os": "ubuntu24",
       "scope": "check",
       "host": "fleet:192.168.1.249",
@@ -9954,7 +10050,7 @@
       "notes": "fleet backfill: read-only check (--sudo), definite verdict FAIL on ubuntu24 (cites ubuntu24 benchmark)"
     },
     {
-      "rule_id": "ssh-macs-fips-ubuntu",
+      "rule_id": "ssh-macs-fips",
       "os": "ubuntu24",
       "scope": "check",
       "host": "fleet:192.168.1.249",
@@ -12952,6 +13048,310 @@
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
       "notes": "missing-control authoring: new/extended rule for CIS rhel9 1.2.1.1; definite verdict PASS (cis rhel9 GPG keys configured) on rhel9 9.6"
+    },
+    {
+      "rule_id": "sudo-nopasswd-prohibited",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-274868 (UBTU-24-300020) extend; definite verdict FAIL (host has %sudo NOPASSWD: ALL) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sudo-nopasswd-prohibited",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274860 (UBTU-22-432011) extend; definite verdict FAIL (host has %sudo NOPASSWD: ALL) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "pam-faildelay-common-auth",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270706 (UBTU-24-300017) net-new; definite verdict FAIL (pam_faildelay not in common-auth) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-faildelay-common-auth",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260550 (UBTU-22-412010) net-new; definite verdict FAIL (pam_faildelay not in common-auth) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "chrony-makestep-configured",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270752 (UBTU-24-600180) net-new; definite verdict FAIL (makestep not '1 -1') on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "chrony-makestep-configured",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260520 (UBTU-22-252015) net-new; definite verdict FAIL (makestep not '1 -1') on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "chrony-maxpoll-configured",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270751 (UBTU-24-600160) extend (when:apt /etc/chrony/chrony.conf); definite verdict FAIL (source lacks maxpoll<=16) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "chrony-maxpoll-configured",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260519 (UBTU-22-252010) extend (when:apt /etc/chrony/chrony.conf); definite verdict FAIL (source lacks maxpoll<=16) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sudo-restrict-privilege-escalation",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-274869 (UBTU-24-300019) extend (when:apt user-ALL wildcard); definite verdict PASS (no 'ALL ALL=(ALL) ALL' entry) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-null-passwords-prohibited-common",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270714 (UBTU-24-300028) net-new; definite verdict FAIL (pam_unix.so nullok present in common-auth) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-null-passwords-prohibited-common",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260570 (UBTU-22-611060) net-new; definite verdict FAIL (pam_unix.so nullok present in common-auth) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "pam-password-sha512-common",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270725 (UBTU-24-400220) net-new; definite verdict FAIL (common-password uses yescrypt, sha512 missing) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "pam-password-sha512-common",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260569 (UBTU-22-611055) net-new; definite verdict FAIL (common-password uses yescrypt, sha512 missing) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "ufw-enabled",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270655 (UBTU-24-100310) net-new; definite verdict FAIL (ufw not active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "ufw-enabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260515 (UBTU-22-251015) net-new; definite verdict FAIL (ufw not active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "ssh-service-enabled-active",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270666 (UBTU-24-100810) net-new; definite verdict PASS (ssh.socket enabled + ssh.service active; socket-activation accepted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "ssh-service-enabled-active",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260524 (UBTU-22-255015) net-new; definite verdict PASS (ssh.service enabled + active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "grub-single-user-password",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270675 (UBTU-24-102000) net-new; definite verdict FAIL (no password_pbkdf2 root in /boot/grub/grub.cfg) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "grub-single-user-password",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260470 (UBTU-22-212010) net-new; definite verdict FAIL (no password_pbkdf2 root in /boot/grub/grub.cfg) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "ssh-client-alive-interval",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270743 (UBTU-24-600010) extend; definite verdict FAIL (sshd -T clientaliveinterval=0) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "ssh-client-alive-interval",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260528 (UBTU-22-255035) extend; definite verdict FAIL (sshd -T clientaliveinterval=0) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sssd-service-enabled-active",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270663 (UBTU-24-100660) net-new; definite verdict FAIL (sssd.service not installed/enabled) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sssd-service-enabled-active",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274866 (UBTU-22-254015) net-new; definite verdict FAIL (sssd.service not installed/enabled) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-log-group-root",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270829 (UBTU-24-901350) net-new; definite verdict FAIL (log_group=adm, not root) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-log-group-root",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260599 (UBTU-22-653055) net-new; definite verdict FAIL (log_group=adm, not root) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-offload-audispd-remote",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270658 (UBTU-24-100450) net-new; definite verdict FAIL (audispd-plugins not installed) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-offload-audispd-remote",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260592 (UBTU-22-653020) net-new; definite verdict FAIL (audispd-plugins not installed) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "apt-no-unauthenticated",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270695 (UBTU-24-300001) net-new; definite verdict PASS (no AllowUnauthenticated=true) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "apt-no-unauthenticated",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260476 (UBTU-22-214010) net-new; definite verdict PASS (no AllowUnauthenticated=true) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "os-vendor-supported-release",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-278917 (UBTU-24-700400) net-new; definite verdict PASS (24.04 is a supported LTS) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "os-vendor-supported-release",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-278951 (UBTU-22-211000) net-new; definite verdict PASS (22.04 is a supported LTS) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "journal-file-permissions",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270757 (UBTU-24-700020) net-new; definite verdict FAIL (journal dirs 2755, >0640) on Ubuntu 24.04. u24-only: u22 V-260490 uses a different 2750 threshold"
+    },
+    {
+      "rule_id": "rsyslog-remote-access-monitored",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-270681 (UBTU-24-200090) extend (when:apt comma-form selector); definite verdict PASS (auth,authpriv.* logged) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "rsyslog-remote-access-monitored",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260589 (UBTU-22-652015) extend (when:apt comma-form selector); definite verdict PASS (auth,authpriv.* logged) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-cron-scripts",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu24 V-274870 (UBTU-24-200270) extend (when:apt cron.d + spool/cron watches); definite verdict FAIL (no cron audit watches loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-cron-scripts",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274862 (UBTU-22-654041) extend (when:apt cron.d + spool/cron watches); definite verdict FAIL (no cron audit watches loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sudo-reauth-not-disabled",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-260558 (UBTU-22-432010) cite-add (!authenticate control); definite verdict PASS (no !authenticate in sudoers) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sudo-restrict-privilege-escalation",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-20",
+      "notes": "STIG ubuntu22 V-274861 (UBTU-22-654224) cite-add (same literal user-ALL check as u24 V-274869); definite verdict PASS (no ALL ALL=(ALL) ALL entry) on Ubuntu 22.04"
     }
   ]
 }

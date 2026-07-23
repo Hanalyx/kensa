@@ -1,5 +1,5 @@
 id: audit-faillock-write-rhel10
-title: Audit write/attribute changes to /var/log/faillock (RHEL 10)
+title: Audit write/attribute changes to /var/log/faillock (syscall form)
 description: >
   On RHEL 10, record write and attribute changes to /var/log/faillock via the syscall-form
   audit rule (RHEL 10 deprecated the legacy -w watch form).

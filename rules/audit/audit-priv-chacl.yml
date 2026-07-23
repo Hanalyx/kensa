@@ -1,5 +1,5 @@
 id: audit-priv-chacl
-title: Audit privileged execution of /usr/bin/chacl (Ubuntu)
+title: Audit privileged execution of /usr/bin/chacl
 description: >
   All uses of the /usr/bin/chacl command must generate an audit record so that
   ACL changes can be traced to an individual.

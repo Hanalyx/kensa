@@ -1,5 +1,5 @@
 id: audit-priv-ssh-agent
-title: Audit privileged execution of /usr/bin/ssh-agent (Ubuntu)
+title: Audit privileged execution of /usr/bin/ssh-agent
 description: >
   All uses of the /usr/bin/ssh-agent command must generate an audit record so that
   ssh-agent use can be traced to an individual.

@@ -1,5 +1,5 @@
 id: audit-hostname-change-rhel10
-title: Audit sethostname/setdomainname (RHEL 10 syscall form)
+title: Audit sethostname/setdomainname (syscall form)
 description: >
   On RHEL 10 the system-locale audit controls use syscall rules. Record use of
   the sethostname and setdomainname syscalls (both ABIs).

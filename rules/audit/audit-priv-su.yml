@@ -1,5 +1,5 @@
 id: audit-priv-su
-title: Audit privileged execution of /bin/su (Ubuntu)
+title: Audit privileged execution of /bin/su
 description: >
   All uses of the /bin/su command must generate an audit record so that
   identity changes can be traced to an individual.

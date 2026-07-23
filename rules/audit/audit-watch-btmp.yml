@@ -1,5 +1,5 @@
 id: audit-watch-btmp
-title: Audit access to /var/log/btmp (Ubuntu)
+title: Audit access to /var/log/btmp
 description: >
   Modifications to /var/log/btmp must generate an audit record so that failed login events
   can be traced to an individual.

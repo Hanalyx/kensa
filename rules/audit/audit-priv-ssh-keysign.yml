@@ -1,5 +1,5 @@
 id: audit-priv-ssh-keysign
-title: Audit privileged execution of /usr/lib/openssh/ssh-keysign (Ubuntu)
+title: Audit privileged execution of /usr/lib/openssh/ssh-keysign
 description: >
   All uses of the /usr/lib/openssh/ssh-keysign command must generate an audit record so that
   ssh-keysign use can be traced to an individual.

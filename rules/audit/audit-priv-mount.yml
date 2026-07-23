@@ -1,5 +1,5 @@
 id: audit-priv-mount
-title: Audit privileged execution of /usr/bin/mount (Ubuntu)
+title: Audit privileged execution of /usr/bin/mount
 description: >
   All uses of the /usr/bin/mount command must generate an audit record so that
   filesystem mounts can be traced to an individual.

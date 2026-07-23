@@ -1,5 +1,5 @@
 id: audit-usergroup-opasswd
-title: Audit account modifications affecting /etc/security/opasswd (Ubuntu)
+title: Audit account modifications affecting /etc/security/opasswd
 description: >
   All account creation, modification, disabling, and termination events
   that affect /etc/security/opasswd must generate an audit record.

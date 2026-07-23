@@ -1,5 +1,5 @@
 id: audit-priv-newgrp
-title: Audit privileged execution of /usr/bin/newgrp (Ubuntu)
+title: Audit privileged execution of /usr/bin/newgrp
 description: >
   All uses of the /usr/bin/newgrp command must generate an audit record so that
   group-id changes can be traced to an individual.

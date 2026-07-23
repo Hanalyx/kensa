@@ -1,5 +1,5 @@
 id: audit-syscall-perm-mod-chown
-title: Audit ownership changes (Ubuntu)
+title: Audit ownership changes
 description: >
   The system must generate an audit record for ownership changes so that the
   responsible user can be identified.

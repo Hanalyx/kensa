@@ -1,5 +1,5 @@
 id: audit-file-deletion-unlink-rhel10
-title: Audit unlink/unlinkat file-deletion syscalls (RHEL 10)
+title: Audit unlink/unlinkat file-deletion syscalls (syscall form)
 description: >
   On RHEL 10 record file-deletion via the unlink and unlinkat syscalls by
   interactive users (both ABIs), keyed 'delete'.

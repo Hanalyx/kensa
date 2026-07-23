@@ -1,5 +1,5 @@
 id: audit-watch-kmod
-title: Audit access to /bin/kmod (Ubuntu)
+title: Audit access to /bin/kmod
 description: >
   Modifications to /bin/kmod must generate an audit record so that kernel module operations
   can be traced to an individual.

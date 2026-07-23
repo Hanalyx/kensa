@@ -1,5 +1,5 @@
 id: audit-priv-unix_update
-title: Audit privileged execution of /sbin/unix_update (Ubuntu)
+title: Audit privileged execution of /sbin/unix_update
 description: >
   All uses of the /sbin/unix_update command must generate an audit record so that
   password-hash updates can be traced to an individual.
