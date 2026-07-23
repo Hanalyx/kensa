@@ -20,11 +20,16 @@ references:
       vuln_id: "V-230425"
       stig_id: "RHEL-08-030302"
       severity: "CAT II"
+  cis:
+    ubuntu22: { section: "6.2.3.10", level: "L2", type: "Automated" }
+    ubuntu24: { section: "6.2.3.19", level: "L2", type: "Automated" }
   nist_800_53: ["AU-12"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - default: true
