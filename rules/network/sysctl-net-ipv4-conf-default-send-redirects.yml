@@ -13,6 +13,8 @@ references:
   cis:
     rhel8: { section: "3.3.1.5", level: "L1", type: "Automated" }
     rhel10: { section: "3.3.1.5", level: "L1", type: "Automated" }
+    ubuntu22: { section: "3.3.1.5", level: "L1", type: "Automated" }
+    ubuntu24: { section: "3.3.1.5", level: "L1", type: "Automated" }
   stig:
     rhel10:
       vuln_id: "V-281352"
@@ -31,6 +33,8 @@ platforms:
   - family: rhel
     min_version: 8
 
+  - family: ubuntu
+    min_version: 22
 implementations:
   - default: true
     check:
