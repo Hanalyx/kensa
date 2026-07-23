@@ -14464,6 +14464,86 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 6.2.3.19 file-system-mounts audit-rule (command-method both-ABI auditctl -l; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (mount syscall rule not loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-cmd-chcon",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.15 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-cmd-chcon",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.24 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-cmd-setfacl",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.16 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-cmd-setfacl",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.25 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-cmd-chacl",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.17 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-cmd-chacl",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.26 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-cmd-usermod",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.18 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-cmd-usermod",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.27 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-perm-mod",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.9 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-perm-mod",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.18 audit-rule (command-method, matcher-independent; u22/u24 sections diverge, verified per-OS); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
     }
   ]
 }
