@@ -18,8 +18,8 @@ references:
     rhel8:  { section: "5.3.3.2.3", level: "L1", type: "Automated" }
     rhel9:  { section: "5.3.3.2.3", level: "L1", type: "Manual" }
     rhel10: { section: "5.3.2.2.3", level: "L1", type: "Automated" }
-    ubuntu24: { section: "5.4.1.4", level: "L1", type: "Automated" }
-    ubuntu22: { section: "5.4.1.4", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.3.3.2.3", level: "L1", type: "Manual" }
+    ubuntu22: { section: "5.3.3.2.3", level: "L1", type: "Manual" }
   stig:
     rhel9:
       vuln_id: "V-258102"
