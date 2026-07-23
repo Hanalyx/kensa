@@ -14752,6 +14752,16 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 5.1.4 sshd config (sshd -T effective-config check, matcher-independent); definite verdict on Ubuntu 24.04"
-    }
+    },
+    {"rule_id": "package-sudo-installed", "os": "ubuntu22", "scope": "check", "host": "fleet:192.168.1.250", "verified_at": "2026-07-23", "notes": "CIS ubuntu22 5.2.1 sudo config (command check, path-identical on Ubuntu); definite PASS verdict on Ubuntu 22.04"},
+    {"rule_id": "package-sudo-installed", "os": "ubuntu24", "scope": "check", "host": "fleet:192.168.1.249", "verified_at": "2026-07-23", "notes": "CIS ubuntu24 5.2.1 sudo config (command check, path-identical on Ubuntu); definite PASS verdict on Ubuntu 24.04"},
+    {"rule_id": "sudo-use-pty", "os": "ubuntu22", "scope": "check", "host": "fleet:192.168.1.250", "verified_at": "2026-07-23", "notes": "CIS ubuntu22 5.2.2 sudo config (command check, path-identical on Ubuntu); definite PASS verdict on Ubuntu 22.04"},
+    {"rule_id": "sudo-use-pty", "os": "ubuntu24", "scope": "check", "host": "fleet:192.168.1.249", "verified_at": "2026-07-23", "notes": "CIS ubuntu24 5.2.2 sudo config (command check, path-identical on Ubuntu); definite PASS verdict on Ubuntu 24.04"},
+    {"rule_id": "sudo-logfile", "os": "ubuntu22", "scope": "check", "host": "fleet:192.168.1.250", "verified_at": "2026-07-23", "notes": "CIS ubuntu22 5.2.3 sudo config (command check, path-identical on Ubuntu); definite FAIL verdict on Ubuntu 22.04"},
+    {"rule_id": "sudo-logfile", "os": "ubuntu24", "scope": "check", "host": "fleet:192.168.1.249", "verified_at": "2026-07-23", "notes": "CIS ubuntu24 5.2.3 sudo config (command check, path-identical on Ubuntu); definite FAIL verdict on Ubuntu 24.04"},
+    {"rule_id": "sudo-require-password", "os": "ubuntu22", "scope": "check", "host": "fleet:192.168.1.250", "verified_at": "2026-07-23", "notes": "CIS ubuntu22 5.2.4 sudo config (command check, path-identical on Ubuntu); definite FAIL verdict on Ubuntu 22.04"},
+    {"rule_id": "sudo-require-password", "os": "ubuntu24", "scope": "check", "host": "fleet:192.168.1.249", "verified_at": "2026-07-23", "notes": "CIS ubuntu24 5.2.4 sudo config (command check, path-identical on Ubuntu); definite FAIL verdict on Ubuntu 24.04"},
+    {"rule_id": "sudo-reauth-not-disabled", "os": "ubuntu22", "scope": "check", "host": "fleet:192.168.1.250", "verified_at": "2026-07-23", "notes": "CIS ubuntu22 5.2.5 sudo config (command check, path-identical on Ubuntu); definite PASS verdict on Ubuntu 22.04"},
+    {"rule_id": "sudo-reauth-not-disabled", "os": "ubuntu24", "scope": "check", "host": "fleet:192.168.1.249", "verified_at": "2026-07-23", "notes": "CIS ubuntu24 5.2.5 sudo config (command check, path-identical on Ubuntu); definite PASS verdict on Ubuntu 24.04"}
   ]
 }
