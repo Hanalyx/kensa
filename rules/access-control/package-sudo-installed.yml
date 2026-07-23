@@ -21,6 +21,8 @@ references:
       type: Automated
     rhel10: { section: "5.2.1", level: "L1", type: "Automated" }
     rhel8: { section: "5.2.1", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.2.1", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.2.1", level: "L1", type: "Automated" }
   stig:
     rhel10: { vuln_id: "V-280968", stig_id: "RHEL-10-200590", severity: "CAT II" }
     rhel9:
@@ -33,6 +35,8 @@ references:
 platforms:
 - family: rhel
   min_version: 8
+- family: ubuntu
+  min_version: 22
 implementations:
 - when: apt
   check:
