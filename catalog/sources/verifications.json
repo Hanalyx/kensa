@@ -14112,6 +14112,150 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 3.3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-autofs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.1 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-autofs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.1 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-avahi",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.2 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-avahi",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.2 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-dnsmasq",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.5 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-dnsmasq",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.5 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-dovecot",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.8 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-dovecot",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.8 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-cups",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.11 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-cups",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.11 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-rpcbind",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.12 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-rpcbind",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.12 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-snmpd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.15 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-snmpd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.15 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-squid",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.17 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-squid",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.17 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-xinetd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.19 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-xinetd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.19 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
     }
   ]
 }
