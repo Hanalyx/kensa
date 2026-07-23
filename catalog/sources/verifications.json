@@ -1,5 +1,5 @@
 {
-  "_comment": "Functional verifications: a rule's check/remediate/rollback proven to work on a live OS, independent of any framework benchmark. Scope: check | remediate | rollback | full. This is recorded fact, not inference \u2014 each entry corresponds to an actual live run.",
+  "_comment": "Functional verifications: a rule's check/remediate/rollback proven to work on a live OS, independent of any framework benchmark. Scope: check | remediate | rollback | full. This is recorded fact, not inference — each entry corresponds to an actual live run.",
   "verifications": [
     {
       "rule_id": "chrony-installed",
@@ -207,7 +207,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.248",
       "verified_at": "2026-06-24",
-      "notes": "read-only check, PASS (/var/log group syslog \u2014 Ubuntu-specific; RHEL var-log-dir-permissions uses group root)"
+      "notes": "read-only check, PASS (/var/log group syslog — Ubuntu-specific; RHEL var-log-dir-permissions uses group root)"
     },
     {
       "rule_id": "var-log-dir-mode",
@@ -311,7 +311,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.248",
       "verified_at": "2026-06-25",
-      "notes": "read-only check (--sudo), PASS (PubkeyAuthentication=yes). Extend (V-270722, Ubuntu smart-card MFA control sets PubkeyAuthentication yes \u2014 same value)."
+      "notes": "read-only check (--sudo), PASS (PubkeyAuthentication=yes). Extend (V-270722, Ubuntu smart-card MFA control sets PubkeyAuthentication yes — same value)."
     },
     {
       "rule_id": "ssh-use-pam",
@@ -4847,7 +4847,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-06-27",
-      "notes": "read-only check (--sudo), PASS on rhel9.6; grouped multi-vuln_id (mode+owner+group) confirmed \u2014 V-257885/914/915 surface as stig_rhel9 refs"
+      "notes": "read-only check (--sudo), PASS on rhel9.6; grouped multi-vuln_id (mode+owner+group) confirmed — V-257885/914/915 surface as stig_rhel9 refs"
     },
     {
       "rule_id": "var-log-messages-permissions",
@@ -12887,7 +12887,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new rule for CIS rhel9 1.1.2.4.3 (nosuid on /var); definite verdict FAIL on rhel9 9.6 (host /var lacks nosuid) \u2014 honest fail-observed"
+      "notes": "missing-control authoring: new rule for CIS rhel9 1.1.2.4.3 (nosuid on /var); definite verdict FAIL on rhel9 9.6 (host /var lacks nosuid) — honest fail-observed"
     },
     {
       "rule_id": "mount-dev-shm-separate-fs",
@@ -12927,7 +12927,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 1.6.7; definite verdict FAIL (EtM MACs enabled on 211 \u2014 honest non-compliance) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 1.6.7; definite verdict FAIL (EtM MACs enabled on 211 — honest non-compliance) on rhel9 9.6"
     },
     {
       "rule_id": "unused-filesystems-unavailable",
@@ -12959,7 +12959,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 3.1.1; definite verdict FAIL (no explicit disable_ipv6 config on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 3.1.1; definite verdict FAIL (no explicit disable_ipv6 config on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "approved-listening-services",
@@ -12975,7 +12975,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 4.2.1; definite verdict FAIL (default zone target not DROP/REJECT on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 4.2.1; definite verdict FAIL (default zone target not DROP/REJECT on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "nftables-established-connections",
@@ -12991,7 +12991,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.2; definite verdict FAIL (/var/log/journal absent on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.2; definite verdict FAIL (/var/log/journal absent on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "journald-log-rotation",
@@ -12999,7 +12999,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.3; definite verdict FAIL (no rotation limit on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.1.3; definite verdict FAIL (no rotation limit on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "rsyslog-logging-configured",
@@ -13023,7 +13023,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.3.8; definite verdict FAIL (/etc/logrotate.d/syslog missing on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.2.3.8; definite verdict FAIL (/etc/logrotate.d/syslog missing on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "audit-config-on-disk-matches-running",
@@ -13031,7 +13031,7 @@
       "scope": "check",
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-02",
-      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.3.3.21; definite verdict FAIL (augenrules --check reports drift on 211 \u2014 honest) on rhel9 9.6"
+      "notes": "missing-control authoring: new/extended rule for CIS rhel9 6.3.3.21; definite verdict FAIL (augenrules --check reports drift on 211 — honest) on rhel9 9.6"
     },
     {
       "rule_id": "suid-sgid-files-reviewed",
@@ -13352,6 +13352,1070 @@
       "host": "fleet:192.168.1.250",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu22 V-274861 (UBTU-22-654224) cite-add (same literal user-ALL check as u24 V-274869); definite verdict PASS (no ALL ALL=(ALL) ALL entry) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-cramfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.1 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-cramfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.1 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-freevxfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.2 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-freevxfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.2 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-jffs2",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.5 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-jffs2",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.5 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-squashfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.7 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-squashfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.7 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-udf",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.8 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-udf",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.8 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.3 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.3 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfsplus",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.4 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfsplus",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.4 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-overlay",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.6 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-overlay",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.6 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-firewire-core",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.11 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-firewire-core",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.9 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfs",
+      "os": "rhel9",
+      "scope": "check",
+      "host": "fleet:192.168.1.211",
+      "verified_at": "2026-07-23",
+      "notes": "CIS rhel9 1.1.1.3 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
+    },
+    {
+      "rule_id": "kmod-disable-hfsplus",
+      "os": "rhel9",
+      "scope": "check",
+      "host": "fleet:192.168.1.211",
+      "verified_at": "2026-07-23",
+      "notes": "CIS rhel9 1.1.1.4 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
+    },
+    {
+      "rule_id": "kmod-disable-overlay",
+      "os": "rhel9",
+      "scope": "check",
+      "host": "fleet:192.168.1.211",
+      "verified_at": "2026-07-23",
+      "notes": "CIS rhel9 1.1.1.6 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
+    },
+    {
+      "rule_id": "mount-tmp-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.1.1 mount cluster; definite verdict FAIL (/tmp not a separate partition) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-tmp-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.1.1 mount cluster; definite verdict FAIL (/tmp not a separate partition) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.1 mount cluster; definite verdict PASS (/dev/shm is tmpfs) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.1 mount cluster; definite verdict PASS (/dev/shm is tmpfs) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nodev",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.2 mount cluster; definite verdict PASS (nodev set) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nodev",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.2 mount cluster; definite verdict PASS (nodev set) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nosuid",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.3 mount cluster; definite verdict PASS (nosuid set) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nosuid",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.3 mount cluster; definite verdict PASS (nosuid set) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-noexec",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.4 mount cluster; definite verdict FAIL (noexec missing) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-noexec",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.4 mount cluster; definite verdict FAIL (noexec missing) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-home-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.3.1 mount cluster; definite verdict FAIL (/home not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-home-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.3.1 mount cluster; definite verdict FAIL (/home not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.4.1 mount cluster; definite verdict FAIL (/var not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.4.1 mount cluster; definite verdict FAIL (/var not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-tmp-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.5.1 mount cluster; definite verdict FAIL (/var/tmp not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-tmp-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.5.1 mount cluster; definite verdict FAIL (/var/tmp not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-log-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.6.1 mount cluster; definite verdict FAIL (/var/log not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-log-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.6.1 mount cluster; definite verdict FAIL (/var/log not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-log-audit-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.7.1 mount cluster; definite verdict FAIL (/var/log/audit not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-log-audit-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.7.1 mount cluster; definite verdict FAIL (/var/log/audit not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-dccp",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-dccp",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-rds",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-rds",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-sctp",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-sctp",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-tipc",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-tipc",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-all-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.2 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-all-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.8 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.8 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.14 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.14 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-log-martians",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.16 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-log-martians",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.16 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-rp-filter",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.12 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-rp-filter",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.12 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-secure-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.10 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-secure-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.10 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-send-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.4 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-all-send-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.4 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.9 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.9 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.15 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.15 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.3 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.3 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-log-martians",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.17 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-log-martians",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.17 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-rp-filter",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.13 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-rp-filter",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.13 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-secure-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.11 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-secure-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.11 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-send-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.5 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-conf-default-send-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.5 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-ip-forward",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.1.1 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv4-ip-forward",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.1.1 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-ra",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.7 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-ra",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.7 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.3 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.5 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.5 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-all-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.1 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-ra",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.8 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-ra",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.8 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-redirects",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-redirects",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.4 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-source-route",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.6 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-accept-source-route",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.6 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-forwarding",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 3.3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "sysctl-net-ipv6-conf-default-forwarding",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 3.3.2.2 network kmod/sysctl cluster; definite verdict on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-autofs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.1 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-autofs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.1 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-avahi",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.2 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-avahi",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.2 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-dnsmasq",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.5 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-dnsmasq",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.5 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-dovecot",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.8 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-dovecot",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.8 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-cups",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.11 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-cups",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.11 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-rpcbind",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.12 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-rpcbind",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.12 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-snmpd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.15 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-snmpd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.15 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-squid",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.17 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-squid",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.17 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-xinetd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.19 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-xinetd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.19 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-nfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.9 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-nfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.9 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-named",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.4 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-named",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.4 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-vsftpd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.6 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-vsftpd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.6 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-ypserv",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.10 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-ypserv",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.10 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-dhcpd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.3 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-dhcpd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.3 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-smb",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.14 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-smb",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.14 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-tftp",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.16 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-tftp",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.16 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-rsyncd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.13 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-rsyncd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.13 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "auditd-max-log-file",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.2.1 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict PASS (max_log_file configured) on Ubuntu 22.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "auditd-max-log-file",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.2.1 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict PASS (max_log_file configured) on Ubuntu 24.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "auditd-max-log-file-action",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.2.2 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict FAIL (max_log_file_action=ROTATE, want keep_logs) on Ubuntu 22.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "auditd-max-log-file-action",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.2.2 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict FAIL (max_log_file_action=ROTATE, want keep_logs) on Ubuntu 24.04 (auditd present on host)"
     }
   ]
 }

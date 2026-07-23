@@ -1,0 +1,29 @@
+id: kmod-disable-firewire-core
+title: Disable firewire-core kernel module
+description: >
+  The firewire-core module provides IEEE 1394 (FireWire) support. FireWire allows direct memory access from attached devices and is rarely needed on servers.
+rationale: >
+  FireWire's direct-memory-access capability is a physical attack vector. Where FireWire is not required, the module should not be loadable.
+severity: low
+category: kernel
+tags: [kernel-module, attack-surface, cis]
+
+references:
+  cis:
+    ubuntu22: { section: "1.1.1.11", level: "L1", type: "Automated" }
+    ubuntu24: { section: "1.1.1.9", level: "L1", type: "Automated" }
+  nist_800_53: ["CM-7"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: kernel_module_state
+      name: "firewire-core"
+      state: "blacklisted"
+    remediation:
+      mechanism: kernel_module_disable
+      name: "firewire-core"

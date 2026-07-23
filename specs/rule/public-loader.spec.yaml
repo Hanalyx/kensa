@@ -103,7 +103,11 @@ spec:
               extracting names from the raw YAML (before substitution) using
               the same template vocabulary as Substitute. Rules with no
               templates MUST be omitted; a file whose id cannot be decoded
-              falls back to its base filename.
+              falls back to its base filename. RuleVariables MUST resolve its
+              dir through the SAME path-resolution policy as LoadRules (C-01):
+              an empty dir falls back to the kensa-rules default install path,
+              and a missing corpus yields the same actionable, path-naming
+              error — never a raw directory-walk error.
           type: technical
           enforcement: error
 
@@ -127,6 +131,10 @@ spec:
         - id: AC-05
           description: RuleVariables on a dir with templated and untemplated rules returns variable → sorted rule IDs for exactly the templated ones.
           references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: RuleVariables, LoadRules, and LoadRuleSummaries agree on empty-dir resolution — all resolve the same effective dir, so with no default install path RuleVariables("") returns the same actionable path-naming error as LoadRules(""), never a raw directory-walk error.
+          references_constraints: [C-01, C-05]
           priority: critical
 
     depends_on:
