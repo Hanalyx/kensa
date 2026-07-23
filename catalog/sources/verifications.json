@@ -13520,6 +13520,166 @@
       "host": "fleet:192.168.1.211",
       "verified_at": "2026-07-23",
       "notes": "CIS rhel9 1.1.1.6 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
+    },
+    {
+      "rule_id": "mount-tmp-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.1.1 mount cluster; definite verdict FAIL (/tmp not a separate partition) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-tmp-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.1.1 mount cluster; definite verdict FAIL (/tmp not a separate partition) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.1 mount cluster; definite verdict PASS (/dev/shm is tmpfs) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.1 mount cluster; definite verdict PASS (/dev/shm is tmpfs) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nodev",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.2 mount cluster; definite verdict PASS (nodev set) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nodev",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.2 mount cluster; definite verdict PASS (nodev set) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nosuid",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.3 mount cluster; definite verdict PASS (nosuid set) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-nosuid",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.3 mount cluster; definite verdict PASS (nosuid set) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-noexec",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.2.4 mount cluster; definite verdict FAIL (noexec missing) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-dev-shm-noexec",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.2.4 mount cluster; definite verdict FAIL (noexec missing) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-home-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.3.1 mount cluster; definite verdict FAIL (/home not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-home-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.3.1 mount cluster; definite verdict FAIL (/home not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.4.1 mount cluster; definite verdict FAIL (/var not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.4.1 mount cluster; definite verdict FAIL (/var not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-tmp-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.5.1 mount cluster; definite verdict FAIL (/var/tmp not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-tmp-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.5.1 mount cluster; definite verdict FAIL (/var/tmp not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-log-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.6.1 mount cluster; definite verdict FAIL (/var/log not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-log-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.6.1 mount cluster; definite verdict FAIL (/var/log not separate) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "mount-var-log-audit-separate-fs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.2.7.1 mount cluster; definite verdict FAIL (/var/log/audit not separate) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "mount-var-log-audit-separate-fs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.2.7.1 mount cluster; definite verdict FAIL (/var/log/audit not separate) on Ubuntu 24.04"
     }
   ]
 }
