@@ -27,6 +27,8 @@ references:
       type: Automated
     rhel10: { section: "6.3.3.36", level: "L2", type: "Automated" }
     rhel8: { section: "6.3.3.21", level: "L2", type: "Automated" }
+    ubuntu22: { section: "6.2.3.20", level: "L2", type: "Automated" }
+    ubuntu24: { section: "6.2.3.29", level: "L2", type: "Automated" }
   stig:
     rhel10: { vuln_id: "V-281365", stig_id: "RHEL-10-900100", severity: "CAT II" }
     rhel8:
