@@ -120,7 +120,14 @@ func BuiltInVars() (map[string]string, error) {
 // a file whose id cannot be decoded falls back to its base filename
 // without the .yml suffix. Files with no templates are omitted.
 func RuleVariables(dir string) (map[string][]string, error) {
-	files, err := walkRuleFiles(dir)
+	// Resolve the effective rules dir exactly as LoadRules does, so an empty
+	// dir falls back to the packaged default corpus (/usr/share/kensa/rules)
+	// and a missing corpus yields the same actionable, path-naming error.
+	resolved, err := rulespath.Resolve(dir, nil, os.Stat)
+	if err != nil {
+		return nil, err
+	}
+	files, err := walkRuleFiles(resolved)
 	if err != nil {
 		return nil, err
 	}

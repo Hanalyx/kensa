@@ -274,3 +274,41 @@ func TestLoadRules_ProductionCorpus(t *testing.T) {
 		}
 	})
 }
+
+// TestPublicLoaders_EmptyDirResolution locks the contract that all three
+// public corpus loaders resolve an empty dir identically (via
+// internal/rules.Resolve). Regression for the OpenWatch-reported bug where
+// RuleVariables("") walked "" and returned a raw "walk : lstat :" error while
+// LoadRules("") / LoadRuleSummaries("") resolved the packaged default path.
+//
+// Environment-robust: with the default corpus present all three succeed; with
+// it absent all three return the SAME actionable, path-naming error — never a
+// raw directory-walk error.
+//
+// @spec rule-public-loader
+func TestPublicLoaders_EmptyDirResolution(t *testing.T) {
+	t.Run("rule-public-loader/AC-06", func(t *testing.T) {
+		// @spec rule-public-loader
+		// @ac AC-06
+		_, rvErr := RuleVariables("")
+		_, lrErr := LoadRules("", nil, nil)
+		_, lsErr := LoadRuleSummaries("", nil, nil)
+
+		// All three must agree on success vs failure (same resolution).
+		if (rvErr == nil) != (lrErr == nil) || (rvErr == nil) != (lsErr == nil) {
+			t.Fatalf("public loaders disagree on empty-dir resolution:\n RuleVariables=%v\n LoadRules=%v\n LoadRuleSummaries=%v", rvErr, lrErr, lsErr)
+		}
+
+		if rvErr != nil {
+			// Regression guard: RuleVariables must route through the resolver,
+			// not walk "" directly.
+			if strings.Contains(rvErr.Error(), "walk ") {
+				t.Errorf("RuleVariables(\"\") bypassed path resolution (raw walk error): %v", rvErr)
+			}
+			// It must produce the same resolver error as LoadRules.
+			if rvErr.Error() != lrErr.Error() {
+				t.Errorf("RuleVariables(\"\") should return the same error as LoadRules(\"\"):\n RuleVariables=%q\n LoadRules=%q", rvErr, lrErr)
+			}
+		}
+	})
+}
