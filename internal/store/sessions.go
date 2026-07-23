@@ -94,7 +94,9 @@ func (s *SQLite) FinishSession(ctx context.Context, sessID uuid.UUID, finishedAt
             COUNT(*),
             COALESCE(SUM(CASE WHEN status = 'committed'   THEN 1 ELSE 0 END), 0),
             COALESCE(SUM(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END), 0),
-            COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back') THEN 1 ELSE 0 END), 0)
+            -- 'staged' is a successful reboot-deferred outcome, NOT a failure:
+            -- exclude it so a staged remediation is never reported as failed.
+            COALESCE(SUM(CASE WHEN status NOT IN ('committed','rolled_back','staged') THEN 1 ELSE 0 END), 0)
         FROM transactions WHERE session_id = ?`,
 		sessID.String(),
 	).Scan(&total, &committed, &rolled, &failed); err != nil {
@@ -217,11 +219,17 @@ func (s *SQLite) ListSessions(ctx context.Context, hostname string, limit int) (
 // Ordered by started_at descending (newest first) so the
 // most-recent runs surface at the top of the listing.
 func (s *SQLite) RollbackableSessions(ctx context.Context, limit int) ([]*Session, error) {
+	// A staged transaction (reboot-deferred, e.g. audit_rule_set on an
+	// immutable host) wrote a real persist change with captured pre-state, so
+	// it is rollback-able too. It does not increment txn_committed (it is not
+	// committed), so the listing must also admit sessions holding a staged
+	// transaction — checked against the transactions table directly.
 	q := `
         SELECT id, started_at, finished_at, hostname, subcommand, args_summary,
                txn_total, txn_committed, txn_rolled, txn_failed
         FROM sessions
-        WHERE txn_committed > 0
+        WHERE (txn_committed > 0
+               OR id IN (SELECT session_id FROM transactions WHERE status = 'staged'))
           AND subcommand IN ('remediate')
         ORDER BY started_at DESC`
 	args := []any{}
@@ -245,20 +253,22 @@ func (s *SQLite) RollbackableSessions(ctx context.Context, limit int) ([]*Sessio
 	return out, rows.Err()
 }
 
-// CommittedTxnIDs returns the UUIDs of transactions in
-// sessID whose status is "committed", ordered by started_at
-// ASC (earliest first). Used by `kensa rollback --start`
+// CommittedTxnIDs returns the UUIDs of transactions in sessID that carry
+// revertible pre-state — status "committed" OR "staged" — ordered by
+// started_at ASC (earliest first). Used by `kensa rollback --start`
 // (C-049) to drive the per-txn rollback iteration.
 //
-// "committed" means the apply-then-commit path completed;
-// these are the only transactions with viable pre-state to
-// revert. Sessions with rolled_back / errored / partial
-// transactions return them in TransactionsForSession but
-// not here — they have no pre-state worth re-applying.
+// "committed" means the apply-then-commit path completed. "staged" means a
+// reboot-deferred persist change was written (e.g. audit_rule_set on an
+// immutable host): it has captured pre-state and a real on-disk change, so it
+// is revertible too (the reversal removes the staged file). Both are the only
+// statuses with viable pre-state to revert. Sessions with rolled_back /
+// errored / partial transactions return them in TransactionsForSession but not
+// here — they have no pre-state worth re-applying.
 func (s *SQLite) CommittedTxnIDs(ctx context.Context, sessID uuid.UUID) ([]TxnRef, error) {
 	rows, err := s.db.QueryContext(ctx, `
         SELECT id, rule_id FROM transactions
-        WHERE session_id = ? AND status = 'committed'
+        WHERE session_id = ? AND status IN ('committed', 'staged')
         ORDER BY started_at ASC`,
 		sessID.String(),
 	)

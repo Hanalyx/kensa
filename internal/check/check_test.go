@@ -948,3 +948,60 @@ func TestCheckKernelModuleState_DisabledFormsAndNotFound(t *testing.T) {
 		}
 	})
 }
+
+// TestAuditActionLoaded covers the key-agnostic duplicate-action matcher that
+// audit_rule_set uses to refuse writing a rule whose action is already audited
+// under a different key (the /etc/shadow identity-vs-usergroup collision that
+// broke a live host's immutability).
+func TestAuditActionLoaded(t *testing.T) {
+	loaded := []string{
+		"-w /etc/shadow -p wa -k audit_rules_usergroup_modification",
+		"-a always,exit -F arch=b64 -S chown,fchown,lchown,fchownat -F auid>=1000 -F auid!=-1 -F key=perm_mod",
+	}
+	cases := []struct {
+		name  string
+		rule  string
+		match bool
+	}{
+		{"watch same path+perm, different key", "-w /etc/shadow -p wa -k identity", true},
+		{"watch same path+perm, same key", "-w /etc/shadow -p wa -k audit_rules_usergroup_modification", true},
+		{"watch different path", "-w /etc/gshadow -p wa -k identity", false},
+		{"watch different perm", "-w /etc/shadow -p r -k identity", false},
+		{"syscall same action, different key", "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k other", true},
+		{"syscall different arch", "-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := AuditActionLoaded(tc.rule, loaded) != ""
+			if got != tc.match {
+				t.Errorf("AuditActionLoaded(%q) present=%v, want %v", tc.rule, got, tc.match)
+			}
+		})
+	}
+}
+
+// TestAuditMatch_NoPrefixPathFalseMatch is the regression for the panel-found
+// substring bug: "-F path=/usr/bin/su" must NOT match a loaded
+// "-F path=/usr/bin/sudo" (su ⊂ sudo). Guards BOTH the compliance check
+// (AuditLineLoaded — a false match is a false-PASS) and the conflict guard
+// (AuditActionLoaded — a false match is a wrongly-refused legitimate rule).
+func TestAuditMatch_NoPrefixPathFalseMatch(t *testing.T) {
+	loadedSudo := []string{"-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"}
+	su := "-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged"
+	if AuditLineLoaded(su, loadedSudo) {
+		t.Error("AuditLineLoaded: /usr/bin/su false-matched /usr/bin/sudo (false-PASS)")
+	}
+	if AuditActionLoaded(su, loadedSudo) != "" {
+		t.Error("AuditActionLoaded: /usr/bin/su false-matched /usr/bin/sudo (false conflict)")
+	}
+	// Sanity: an EXACT path still matches (fix didn't over-tighten).
+	loadedSu := []string{"-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"}
+	if !AuditLineLoaded(su, loadedSu) {
+		t.Error("AuditLineLoaded: exact /usr/bin/su should still match")
+	}
+	// auid prefix must not substring-match either.
+	loadedAuid := []string{"-a always,exit -S execve -F auid>=10000 -F key=exec"}
+	if AuditLineLoaded("-a always,exit -S execve -F auid>=1000 -k exec", loadedAuid) {
+		t.Error("AuditLineLoaded: auid>=1000 false-matched auid>=10000")
+	}
+}

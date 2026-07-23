@@ -10,6 +10,52 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
+## Unreleased
+
+### Added
+- **`audit_rule_set` now stages reboot-deferred on immutable-audit hosts
+  instead of failing.** On a STIG-hardened host (`auditctl -s` reports
+  `enabled 2`) the kernel refuses all runtime audit-rule loads until reboot, so
+  the previous behaviour was: write the drop-in, fail the post-apply re-check,
+  roll back to nothing — all 104 `audit_rule_set` rules were unremediable on
+  exactly the hosts under assessment. The handler now detects immutability
+  (netlink `GetStatus` / shell `auditctl -s`), writes the persist layer, and
+  reports a new terminal outcome **`staged`** (reboot loads the change). The
+  scan verdict stays honest (`fail` until reboot); the remediation streams a
+  distinct `STAGED (reboot required)` row, never a green success. Staged
+  transactions are rollback-able (`kensa rollback` removes the staged drop-in
+  byte-perfect). Live-verified: immutable stage→rollback (RHEL 9.6/8.10),
+  mutable commit→rollback (RHEL 9.8), and stage→reboot→converged (RHEL 8.10).
+- **`api/` (frozen contract) additions — additive, no breaking change:**
+  `TransactionStatus` gains `staged`; `StepResult` gains a `Staged` field;
+  a `Staged` `EventKind` + `StagedData` payload. **OpenWatch must map the new
+  `staged` `TransactionStatus`** in `host_rule_state` before the next `go.mod`
+  bump — an unmapped value hits its `switch` default. (Wire protocol
+  `WireStepResult` carries the new field; codegen-drift gate green.)
+
+### Fixed
+- **`audit_rule_set` no longer silently writes a duplicate audit rule that
+  breaks the audit ruleset load.** A rule whose audit *action* (a watch's
+  path+perms, or a syscall signature) is already audited on the host from a
+  different `rules.d` drop-in is now detected and refused (Success:false, with a
+  detail naming the existing rule) rather than written. Writing a second drop-in
+  for the same action collides at load ("Rule exists"), aborts the whole ruleset
+  load, and drops the host out of immutable state at the next reboot — observed
+  and fixed on a live RHEL 9.6 host. Detection scans the `rules.d` files (the
+  reboot source) key-agnostically, because the kernel deduplicates on the action,
+  not the `-k` key; reconciling the existing rule (accept-as-satisfied / relabel)
+  is left to the operator.
+- **Exact audit-rule matching — path/key/auid prefixes no longer false-match.**
+  The audit matcher compared field tokens by substring, so `-F path=/usr/bin/su`
+  matched a loaded `-F path=/usr/bin/sudo` (`su` is a prefix of `sudo`):
+  `kensa check` would **false-PASS** the `su` control on a host that only audits
+  `sudo`, and the new conflict guard would wrongly refuse the distinct `su` rule.
+  It now compares whole `-F field=value` tokens, the `-k`/`key=` value, and
+  `auid` tokens exactly (`auid>=1000` ≠ `auid>=10000`).
+
+### Security
+- Bumped `golang.org/x/text` to v0.39.0 (GO-2026-5970).
+
 ## v0.7.6 — 2026-07-11
 
 A security + coverage patch: a root-command-injection fix in the

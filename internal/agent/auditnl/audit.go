@@ -34,11 +34,31 @@ type AuditClient interface {
 	DeleteRule(rule []byte) error
 	// GetRules returns the currently-loaded rules in kernel wire format.
 	GetRules() ([][]byte, error)
+	// GetStatus returns the audit subsystem's enabled flag: 0=disabled,
+	// 1=enabled (mutable), 2=immutable. The audit_rule_set handler reads it
+	// to positively detect an immutable config BEFORE attempting a runtime
+	// load that the kernel would refuse with EPERM until reboot.
+	GetStatus() (enabled int, err error)
 	// Close releases the netlink socket.
 	Close() error
 }
 
-var _ AuditClient = (*libaudit.AuditClient)(nil)
+// realClient adapts *libaudit.AuditClient to AuditClient. AddRule/DeleteRule/
+// GetRules/Close are satisfied by the embedded client directly; only GetStatus
+// needs an adapter because libaudit returns a *AuditStatus struct where the
+// interface returns the enabled flag as an int.
+type realClient struct{ *libaudit.AuditClient }
+
+// GetStatus returns the kernel's audit enabled flag (0/1/2).
+func (c realClient) GetStatus() (int, error) {
+	st, err := c.AuditClient.GetStatus()
+	if err != nil {
+		return 0, err
+	}
+	return int(st.Enabled), nil
+}
+
+var _ AuditClient = realClient{}
 
 // Open opens a real AUDIT netlink client. A failure to open (the common
 // non-root / no-audit case) is wrapped as ErrAuditUnavailable so callers
@@ -48,7 +68,7 @@ func Open() (AuditClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
 	}
-	return c, nil
+	return realClient{c}, nil
 }
 
 // BuildRule parses one auditctl-syntax rule line (e.g.

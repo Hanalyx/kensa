@@ -386,6 +386,24 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 	e.publishPhaseCompleted(ctx, txn, api.PhaseApply, applyOK, time.Since(startedAt))
 	e.emitter.EmitPhase(txn.ID.String(), "apply", applyOK)
 
+	// Reboot-deferred (staged) apply: the persist layer is written but the
+	// runtime is intentionally NOT converged (e.g. immutable audit config,
+	// enabled 2). Do NOT run the post-apply runtime re-check (it would fail on
+	// a change that only takes effect at reboot) and do NOT roll back — the
+	// change is staged. Terminal status is StatusStaged. Cancel any armed
+	// deadman first so it does not fire and reverse the staged change (no
+	// current staged-producing handler is control-channel-sensitive, so this
+	// is defensive).
+	if applyOK && anyStaged(applyResults) {
+		if armed {
+			if err := e.deadman.Cancel(ctx, transport, txn.ID); err != nil {
+				rb := e.rollback(ctx, transport, applyResults, preStates, "deadman")
+				return e.finalize(ctx, transport, txn, startedAt, rollbackStatus(rb, txn, applyResults), applyResults, preStates, nil, rb), nil
+			}
+		}
+		return e.finalize(ctx, transport, txn, startedAt, api.StatusStaged, applyResults, preStates, nil, nil), nil
+	}
+
 	// Phase 4: VALIDATE (only if APPLY succeeded).
 	var validators []api.ValidatorResult
 	validateOK := applyOK
@@ -420,6 +438,26 @@ func (e *Engine) Run(ctx context.Context, transport api.Transport, txn *api.Tran
 
 	status := rollbackStatus(rb, txn, applyResults)
 	return e.finalize(ctx, transport, txn, startedAt, status, applyResults, preStates, validators, rb), nil
+}
+
+// anyStaged reports whether any apply step deferred its change to reboot
+// (StepResult.Staged) — the signal that drives a StatusStaged terminal outcome
+// instead of the runtime-recheck-driven commit-or-rollback.
+//
+// It short-circuits the WHOLE transaction (skips validate + rollback). That is
+// safe because every corpus rule is single-mechanism: a transaction's steps all
+// share one handler, so if one stages they all stage. A future MIXED
+// transaction (a staged audit_rule_set step beside a committed file_content step
+// on an immutable host) would leave the sibling step applied-to-disk,
+// unvalidated, and un-rolled-back on fault — no such rule exists today; tighten
+// this to a per-step verdict before authoring one. (Adversarial-panel MINOR.)
+func anyStaged(rs []api.StepResult) bool {
+	for i := range rs {
+		if rs[i].Staged {
+			return true
+		}
+	}
+	return false
 }
 
 // rollbackStatus computes the terminal status after a rollback ran, as a

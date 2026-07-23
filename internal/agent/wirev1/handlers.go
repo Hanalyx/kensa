@@ -85,6 +85,7 @@ func APIStepResultToWire(r api.StepResult) *WireStepResult {
 		Success:    r.Success,
 		Detail:     r.Detail,
 		Stranded:   r.Stranded,
+		Staged:     r.Staged,
 	}
 }
 
@@ -102,6 +103,7 @@ func WireStepResultToAPI(w *WireStepResult) api.StepResult {
 		Success:    w.GetSuccess(),
 		Detail:     w.GetDetail(),
 		Stranded:   w.GetStranded(),
+		Staged:     w.GetStaged(),
 	}
 }
 

@@ -64,7 +64,7 @@ func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, 
 	// did real work or just verified state. The 2026-05-13
 	// live test on 192.168.1.211 surfaced this: a 433-rule
 	// "committed" summary against a 36-row history table.
-	applied, alreadyCompliant, rolledBack, skipped, errs := 0, 0, 0, 0, 0
+	applied, alreadyCompliant, rolledBack, skipped, errs, staged := 0, 0, 0, 0, 0, 0
 	if _, err := fmt.Fprintf(w, "Remediation results for %s:\n\n", hostID); err != nil {
 		return err
 	}
@@ -91,6 +91,9 @@ func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, 
 			}
 		case api.StatusRolledBack:
 			rolledBack++
+		case api.StatusStaged:
+			staged++
+			status = "staged (reboot required)"
 		case api.StatusErrored:
 			errs++
 			if txr.Error != nil {
@@ -103,8 +106,8 @@ func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, 
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(w, "\n  %d applied, %d already-compliant, %d rolled_back, %d errors, %d skipped\n",
-		applied, alreadyCompliant, rolledBack, errs, skipped)
+	_, err := fmt.Fprintf(w, "\n  %d applied, %d already-compliant, %d staged (reboot required), %d rolled_back, %d errors, %d skipped\n",
+		applied, alreadyCompliant, staged, rolledBack, errs, skipped)
 	return err
 }
 

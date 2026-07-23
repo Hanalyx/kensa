@@ -991,6 +991,7 @@ type WireStepResult struct {
 	Success       bool                   `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`
 	Detail        string                 `protobuf:"bytes,5,opt,name=detail,proto3" json:"detail,omitempty"`
 	Stranded      bool                   `protobuf:"varint,6,opt,name=stranded,proto3" json:"stranded,omitempty"`
+	Staged        bool                   `protobuf:"varint,7,opt,name=staged,proto3" json:"staged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1063,6 +1064,13 @@ func (x *WireStepResult) GetDetail() string {
 func (x *WireStepResult) GetStranded() bool {
 	if x != nil {
 		return x.Stranded
+	}
+	return false
+}
+
+func (x *WireStepResult) GetStaged() bool {
+	if x != nil {
+		return x.Staged
 	}
 	return false
 }
@@ -1668,7 +1676,7 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"\x10sent_unix_micros\x18\x02 \x01(\x03R\x0esentUnixMicros\"V\n" +
 	"\fHeartbeatAck\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\x04R\x05token\x120\n" +
-	"\x14received_unix_micros\x18\x02 \x01(\x03R\x12receivedUnixMicros\"\xbb\x01\n" +
+	"\x14received_unix_micros\x18\x02 \x01(\x03R\x12receivedUnixMicros\"\xd3\x01\n" +
 	"\x0eWireStepResult\x12\x1d\n" +
 	"\n" +
 	"step_index\x18\x01 \x01(\x05R\tstepIndex\x12\x1c\n" +
@@ -1678,7 +1686,8 @@ const file_internal_agent_wirev1_wire_proto_rawDesc = "" +
 	"capturable\x12\x18\n" +
 	"\asuccess\x18\x04 \x01(\bR\asuccess\x12\x16\n" +
 	"\x06detail\x18\x05 \x01(\tR\x06detail\x12\x1a\n" +
-	"\bstranded\x18\x06 \x01(\bR\bstranded\"\xd5\x01\n" +
+	"\bstranded\x18\x06 \x01(\bR\bstranded\x12\x16\n" +
+	"\x06staged\x18\a \x01(\bR\x06staged\"\xd5\x01\n" +
 	"\fWirePreState\x12\x1d\n" +
 	"\n" +
 	"step_index\x18\x01 \x01(\x05R\tstepIndex\x12\x1c\n" +

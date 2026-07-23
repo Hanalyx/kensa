@@ -836,21 +836,25 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if !auditLineLoaded(line, loaded) {
+		if !AuditLineLoaded(line, loaded) {
 			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s", normaliseAuditRule(line)), nil
 		}
 	}
 	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
 }
 
-// auditLineLoaded reports whether a single audit rule line is present in the
+// AuditLineLoaded reports whether a single audit rule line is present in the
 // loaded ruleset (auditctl -l lines). It matches on the line's distinguishing
 // fields rather than a literal compare, because auditctl reorders/normalises
 // output: auid!=unset -> auid!=-1, "-k key" -> "-F key=key", and syscall lists
 // are re-sorted. Matching only on -k would be a false pass whenever several
 // rules share a key (the Ubuntu usergroup_modification / perm_chng / priv_cmd /
 // module_chng clusters all do).
-func auditLineLoaded(rule string, loaded []string) bool {
+//
+// Exported so the audit_rule_set handler's shell-transport rollback can reuse
+// the exact same matcher for its post-reboot honesty verdict — a full-line
+// string compare there wrongly missed normalised syscall rules.
+func AuditLineLoaded(rule string, loaded []string) bool {
 	// Watch rules ("-w <path> -p <perms> -k <key>") print verbatim: full match.
 	if strings.HasPrefix(rule, "-w") {
 		norm := normaliseAuditRule(rule)
@@ -872,19 +876,19 @@ func auditLineLoaded(rule string, loaded []string) bool {
 	hasDistinguisher := hasArch || hasPath || hasExit || len(want) > 0
 
 	for _, l := range loaded {
-		if hasArch && !strings.Contains(l, archTok) {
+		if hasArch && !auditFieldEqual(l, "arch", archTok) {
 			continue
 		}
-		if hasPath && !strings.Contains(l, pathTok) {
+		if hasPath && !auditFieldEqual(l, "path", pathTok) {
 			continue
 		}
-		if hasPerm && !strings.Contains(l, permTok) {
+		if hasPerm && !auditFieldEqual(l, "perm", permTok) {
 			continue
 		}
-		if hasExit && !strings.Contains(l, exitTok) {
+		if hasExit && !auditFieldEqual(l, "exit", exitTok) {
 			continue
 		}
-		if key != "" && !strings.Contains(l, "-k "+key) && !strings.Contains(l, "key="+key) {
+		if key != "" && extractAuditKey(l) != key {
 			continue
 		}
 		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
@@ -903,6 +907,84 @@ func auditLineLoaded(rule string, loaded []string) bool {
 	return false
 }
 
+// AuditActionLoaded reports a loaded rule line whose audit ACTION matches rule
+// while IGNORING the -k key label (empty string if none matches). The kernel
+// deduplicates audit rules on the action — a watch's path+perms, or a syscall
+// rule's arch/syscalls/filters — NOT on the key, so two rules with the same
+// action under different keys collide ("Rule exists") when both load. The
+// audit_rule_set handler uses this to detect that a rule's action is already
+// present on the host before it writes a second drop-in for it, which would
+// otherwise create a duplicate that aborts the audit ruleset load (and drops
+// immutability) at the next reboot. Distinct from AuditLineLoaded, which is
+// key-STRICT (it answers "is this exact rule, key included, loaded?").
+func AuditActionLoaded(rule string, loaded []string) string {
+	if strings.HasPrefix(strings.TrimSpace(rule), "-w") {
+		wp := watchPathPerm(rule)
+		if wp == "" {
+			return ""
+		}
+		for _, l := range loaded {
+			if strings.HasPrefix(strings.TrimSpace(l), "-w") && watchPathPerm(l) == wp {
+				return strings.TrimSpace(l)
+			}
+		}
+		return ""
+	}
+
+	archTok, hasArch := auditFToken(rule, "arch")
+	pathTok, hasPath := auditFToken(rule, "path")
+	permTok, hasPerm := auditFToken(rule, "perm")
+	exitTok, hasExit := auditFToken(rule, "exit")
+	want := auditSyscallSet(rule)
+	// Require at least one distinguishing field so we never claim an unrelated
+	// rule as a conflict.
+	if !(hasArch || hasPath || hasExit || len(want) > 0) {
+		return ""
+	}
+	for _, l := range loaded {
+		if hasArch && !auditFieldEqual(l, "arch", archTok) {
+			continue
+		}
+		if hasPath && !auditFieldEqual(l, "path", pathTok) {
+			continue
+		}
+		if hasPerm && !auditFieldEqual(l, "perm", permTok) {
+			continue
+		}
+		if hasExit && !auditFieldEqual(l, "exit", exitTok) {
+			continue
+		}
+		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
+			continue
+		}
+		if !auidTokensPresent(rule, l) {
+			continue
+		}
+		return strings.TrimSpace(l)
+	}
+	return ""
+}
+
+// watchPathPerm returns "PATH -p PERM" for a watch rule ("-w PATH -p PERM ..."),
+// dropping the -k key — the action the kernel deduplicates on. Empty if the
+// line has no -w path.
+func watchPathPerm(rule string) string {
+	fields := strings.Fields(rule)
+	var path, perm string
+	for i := 0; i+1 < len(fields); i++ {
+		switch fields[i] {
+		case "-w":
+			path = fields[i+1]
+		case "-p":
+			perm = fields[i+1]
+		}
+	}
+	if path == "" {
+		return ""
+	}
+	return path + " -p " + perm
+}
+
 // auidTokensPresent reports whether every auid filter in the rule appears in
 // the loaded line. The auid filters (auid>=1000, auid=0, auid!=unset)
 // distinguish otherwise-identical syscall lines — e.g. the setxattr control's
@@ -918,7 +1000,7 @@ func auidTokensPresent(rule string, loadedLine string) bool {
 		if tok == "auid!=unset" {
 			tok = "auid!=-1"
 		}
-		if !strings.Contains(loadedLine, tok) {
+		if !auditFieldPresent(loadedLine, tok) {
 			return false
 		}
 	}
@@ -966,8 +1048,34 @@ func extractAuditKey(rule string) string {
 		if strings.HasPrefix(f, "-k") && len(f) > 2 {
 			return f[2:]
 		}
+		// auditctl -l normalises "-k key" to "-F key=key"; accept that form too
+		// so the key can be compared exactly against a loaded line.
+		if strings.HasPrefix(f, "key=") {
+			return f[len("key="):]
+		}
 	}
 	return ""
+}
+
+// auditFieldEqual reports whether line carries the exact "-F <field>=<value>"
+// token wantTok — a WHOLE-VALUE match, NOT a substring. This is what stops
+// "-F path=/usr/bin/su" from matching a loaded "-F path=/usr/bin/sudo" (su is a
+// prefix of sudo); the substring form silently conflated distinct rules.
+func auditFieldEqual(line, field, wantTok string) bool {
+	got, ok := auditFToken(line, field)
+	return ok && got == wantTok
+}
+
+// auditFieldPresent reports whether tok is a complete whitespace-delimited
+// field of line (not a substring — so "auid>=1000" does not match a loaded
+// "auid>=10000").
+func auditFieldPresent(line, tok string) bool {
+	for _, f := range strings.Fields(line) {
+		if f == tok {
+			return true
+		}
+	}
+	return false
 }
 
 // auditFToken returns the "-F <field>=<value>" token for the named field in an

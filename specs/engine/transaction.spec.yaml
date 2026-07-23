@@ -195,6 +195,22 @@ spec:
               (transactional:false) is PartiallyApplied.
           type: security
           enforcement: error
+        - id: C-14
+          description: |
+              When an apply step reports Staged (StepResult.Staged == true) —
+              the mechanism wrote a reboot-deferred persist change it could not
+              converge at runtime, e.g. audit_rule_set on an immutable audit
+              config — the engine MUST terminate the transaction StatusStaged
+              WITHOUT running the post-apply runtime re-check (which would fail
+              on a change that only loads at reboot) and WITHOUT rolling back.
+              A staged terminal result MUST be signed and durably persisted like
+              a committed one (a persist failure demotes it to Errored), MUST
+              set neither CommittedAt nor RolledBackAt, and MUST report
+              HostUnchanged == false (the persist layer was written). The staged
+              change remains reversible via `kensa rollback` from captured
+              pre-state.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -383,6 +399,14 @@ spec:
               the transaction) and that step's PostStateBundle entry is marked
               unobserved.
           references_constraints: [C-13]
+          priority: critical
+        - id: AC-25
+          description: |
+              An apply step reporting Staged (Staged == true) terminates the
+              transaction StatusStaged: no rollback is invoked, CommittedAt and
+              RolledBackAt are both nil, HostUnchanged is false, and the signed
+              evidence envelope records Decision == staged.
+          references_constraints: [C-14]
           priority: critical
 
     depends_on:

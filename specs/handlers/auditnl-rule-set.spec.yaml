@@ -65,7 +65,7 @@ spec:
           description: |
               audit_rule_set MUST select the netlink path iff the transport
               implements auditnl.AuditTransport AND AuditClient() opens; an
-              ErrAuditUnavailable (no privilege / immutable audit) MUST send
+              ErrAuditUnavailable (no privilege / no netlink socket) MUST send
               the handler to the augenrules shell path. A malformed rule
               line on the netlink path is a Success:false StepResult (and
               nothing is loaded or persisted), not a returned error.
@@ -95,6 +95,34 @@ spec:
               accepted DeleteRule without removing it), or a read-back that
               fails, MUST be reported as a verified-partial restore
               (Success=false, PartialRestore=true), never a silent success.
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              When the audit config is immutable (GetStatus reports enabled 2
+              on the netlink path, or `auditctl -s` reports "enabled 2" on the
+              shell path) the handler MUST NOT attempt a runtime rule load
+              (the kernel would refuse it with EPERM until reboot). It MUST
+              instead stage the persist layer (merge the rule into the drop-in)
+              and return a Success:true StepResult with Staged:true, so the
+              engine terminates the transaction StatusStaged rather than
+              running the runtime re-check and rolling back. The staged change
+              MUST remain byte-perfect reversible from captured pre-state.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              Apply MUST NOT write a drop-in for a rule whose audit action is
+              already present on the host from a different source. The kernel
+              deduplicates on the action (watch path+perms; syscall signature),
+              NOT the -k key, so a second drop-in with the same action collides
+              at load ("Rule exists") and aborts the whole ruleset load —
+              observed to drop a host out of immutable state at the next reboot.
+              Detection is key-agnostic and best-effort (an unreadable live
+              ruleset never blocks a legitimate apply); a re-apply of the rule's
+              own drop-in is idempotent, not a conflict. On conflict Apply
+              returns Success:false with a detail naming the existing rule, and
+              leaves resolution (accept-as-satisfied / relabel) to the operator.
           type: security
           enforcement: error
 
@@ -139,6 +167,27 @@ spec:
               verified-partial restore when a rule it added is still loaded
               after the unload attempt.
           references_constraints: [C-05]
+          priority: critical
+        - id: AC-07
+          description: |
+              On an immutable audit config (netlink GetStatus enabled 2, or
+              shell `auditctl -s` enabled 2) Apply stages the drop-in and
+              returns Success:true, Staged:true WITHOUT loading into the
+              kernel (LoadedCount stays 0 on the netlink path); the staged
+              change is byte-perfect reversible on rollback.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-08
+          description: |
+              When a rule's audit ACTION (a watch's path+perms, or a syscall
+              signature) is already present in the live ruleset but NOT in this
+              rule's own drop-in, Apply refuses with Success:false and does NOT
+              write the drop-in — writing a second file for the same action
+              would collide at load and abort the ruleset (dropping immutability
+              at reboot). Detection is key-agnostic (check.AuditActionLoaded).
+              An absent action, or a re-apply of the rule's own drop-in, is not
+              a conflict and proceeds.
+          references_constraints: [C-07]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]

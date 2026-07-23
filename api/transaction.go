@@ -53,6 +53,22 @@ const (
 	// written) was reversed by the out-of-band recovery replay using the
 	// durable journal. Produced by `kensa recover` (Engine.Recover).
 	StatusRecovered TransactionStatus = "recovered"
+
+	// StatusStaged indicates apply wrote the reboot-deferred persist layer
+	// but could NOT converge the runtime, so the change takes effect only on
+	// the next reboot. The sole producer is an apply step whose mechanism
+	// cannot mutate live kernel state under the host's current configuration —
+	// today, audit_rule_set on a host with an immutable audit config
+	// (`auditctl -s` reports `enabled 2`), where the kernel refuses all
+	// runtime rule loads until reboot. The host IS mutated (the persist file
+	// is written and captured), but the runtime is NOT yet in the target
+	// state, so a re-scan still reports the rule non-compliant until reboot.
+	// The engine does NOT run the post-apply runtime re-check for a staged
+	// step (it would fail) and does NOT roll back; `kensa rollback` still
+	// reverses it byte-perfect from captured pre-state. Distinct from
+	// StatusCommitted (runtime converged) and StatusPartiallyApplied
+	// (stranded non-capturable steps after a FAILURE).
+	StatusStaged TransactionStatus = "staged"
 )
 
 // Phase identifies one of the four transaction phases from the V1
@@ -227,6 +243,13 @@ type StepResult struct {
 	// a later failure left the rule [StatusPartiallyApplied]. Such
 	// steps are not reversed by rollback.
 	Stranded bool
+	// Staged is true when the mechanism could not converge live state and
+	// instead wrote a reboot-deferred persist change (audit_rule_set on an
+	// immutable audit config, `enabled 2`). The engine terminates a
+	// transaction with any Staged apply step as [StatusStaged], skipping the
+	// runtime-recheck-driven rollback. The step is still capturable, so
+	// [TransactionResult.PreStates] restores it byte-perfect on rollback.
+	Staged bool
 }
 
 // PreState is the captured pre-change state for one step. The shape of

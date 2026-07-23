@@ -51,6 +51,17 @@ func TestBridge_StepResultRoundtrip(t *testing.T) {
 				Stranded:   true,
 			},
 		},
+		{
+			"staged",
+			api.StepResult{
+				StepIndex:  0,
+				Mechanism:  "audit_rule_set",
+				Capturable: true,
+				Success:    true,
+				Detail:     "audit config immutable (enabled 2); staged, reboot required",
+				Staged:     true,
+			},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -28,6 +28,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/check"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
@@ -51,6 +52,14 @@ const defaultPersistFile = defaultRulesDir + "/99-kensa.rules"
 // the file-only restore is reported as a verified-partial rather than a
 // silent success.
 const auditStatusCmd = "auditctl -s 2>/dev/null"
+
+// auditRulesScanCmd emits every watch/syscall rule LINE across all drop-ins in
+// /etc/audit/rules.d — the set augenrules compiles and loads at reboot. The
+// conflict guard matches a to-be-written rule's action against these (not just
+// the live ruleset) so it also catches an unloaded pre-existing duplicate and a
+// sibling staged to another file earlier in the same run. Needs root to read
+// the (mode-0700) directory; a non-root/failed read degrades to no scan.
+const auditRulesScanCmd = "grep -rhsE '^[[:space:]]*-(w|a|A)[[:space:]]' " + defaultRulesDir + "/ 2>/dev/null"
 
 // auditImmutableShell reports whether the live audit configuration is
 // immutable (auditctl -s prints "enabled 2"). A read-back error or an
@@ -128,6 +137,16 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
+	// Conflict guard: refuse to write a rule whose audit action is already
+	// present on the host from a DIFFERENT drop-in. A second file watching the
+	// same path+perms (or a duplicate syscall signature, even under the same
+	// key) collides at load ("Rule exists") and aborts the audit ruleset load —
+	// which drops immutability at the next reboot (observed on a live host). Per
+	// the detect-the-conflict-don't-silently-apply contract, surface it and stop;
+	// reconciling the existing rule is the operator's decision, not Kensa's.
+	if res := h.guardConflict(ctx, transport, p); res != nil {
+		return res, nil
+	}
 	if at, ok := transport.(auditnl.AuditTransport); ok {
 		res, err := h.applyNetlink(ctx, at, p)
 		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
@@ -138,6 +157,47 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	return h.applyShell(ctx, transport, p)
 }
 
+// guardConflict returns a non-nil, Success=false StepResult when applying this
+// rule would introduce a cross-file duplicate audit rule — the rule's action is
+// already present in the live ruleset but NOT yet in this rule's own drop-in
+// (so it must come from another file). Writing it would create the reboot-time
+// "Rule exists" collision that aborts the load and drops immutability. Returns
+// nil when there is no conflict, or when the host state cannot be read (best-
+// effort: never block a legitimate apply on an unreadable ruleset).
+func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p *Params) *api.StepResult {
+	existing, err := h.readFileShell(ctx, transport, p.RuleFile)
+	if err != nil {
+		return nil // cannot read the target drop-in → best-effort skip
+	}
+	// Only lines NOT already in this drop-in can introduce a NEW duplicate;
+	// re-applying our own file is idempotent, not a conflict.
+	_, fileAdded := mergeRuleLines(existing, auditnl.RuleLines(p.Rule))
+	if len(fileAdded) == 0 {
+		return nil
+	}
+	// Scan the on-disk rules.d files — what augenrules actually loads at the
+	// next reboot — NOT just the live ruleset. This catches (a) a pre-existing
+	// duplicate that is not currently loaded (e.g. on a host whose load already
+	// aborted), and (b) a sibling rule staged to another drop-in EARLIER in the
+	// same remediate run (which is on disk but not yet loaded on an immutable
+	// host). grep exit 1 (no rule lines found) is not an error → empty scan.
+	res, rerr := transport.Run(ctx, auditRulesScanCmd)
+	if rerr != nil {
+		return nil // cannot read rules.d → best-effort skip
+	}
+	onDisk := strings.Split(res.Stdout, "\n")
+	for _, line := range fileAdded {
+		if conflict := check.AuditActionLoaded(line, onDisk); conflict != "" {
+			return &api.StepResult{
+				Success: false,
+				Detail: fmt.Sprintf("audit_rule_set: conflict — action already audited as %q; writing to %s would duplicate it and abort the audit load at reboot. Not applied (reconcile the existing rule or accept it as satisfying the control).",
+					conflict, p.RuleFile),
+			}
+		}
+	}
+	return nil
+}
+
 // applyNetlink loads each rule line into the kernel via AUDIT_ADD_RULE and
 // writes the drop-in atomically.
 func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p *Params) (*api.StepResult, error) {
@@ -146,6 +206,16 @@ func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p
 		return nil, err // ErrAuditUnavailable propagates for fallback
 	}
 	defer c.Close()
+
+	// Immutable audit config (enabled 2): the kernel refuses all runtime rule
+	// loads until reboot. Positively detect it BEFORE attempting AddRule (which
+	// would EPERM), stage the persist layer, and defer convergence to reboot.
+	// The drop-in is fully captured, so rollback stays byte-perfect. A status
+	// read error is non-fatal here: fall through to the normal load path, whose
+	// AddRule failure is surfaced as a non-compliant StepResult.
+	if enabled, serr := c.GetStatus(); serr == nil && enabled == 2 {
+		return h.stagePersistNetlink(ctx, at, p)
+	}
 
 	for _, line := range auditnl.RuleLines(p.Rule) {
 		wire, berr := auditnl.BuildRule(line)
@@ -176,6 +246,28 @@ func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p
 	}, nil
 }
 
+// stagePersistNetlink merges the rule into the (possibly shared) drop-in and
+// returns a Staged step result WITHOUT loading into the kernel — used when the
+// audit config is immutable (enabled 2). The engine terminates such a
+// transaction StatusStaged: the persist change takes effect on reboot, and the
+// runtime ruleset is intentionally left unchanged (it cannot be changed until
+// reboot anyway). Rollback removes exactly these lines from captured pre-state.
+func (h *Handler) stagePersistNetlink(ctx context.Context, at auditnl.AuditTransport, p *Params) (*api.StepResult, error) {
+	existing, _, rerr := at.ReadFileIfExists(p.RuleFile)
+	if rerr != nil {
+		return nil, fmt.Errorf("audit_rule_set: read %s for staged merge: %w", p.RuleFile, rerr)
+	}
+	merged, _ := mergeRuleLines(existing, auditnl.RuleLines(p.Rule))
+	if werr := kernelio.WriteFile(ctx, at, p.RuleFile, auditFileMode, []byte(merged)); werr != nil {
+		return nil, fmt.Errorf("audit_rule_set: staged persist write: %w", werr)
+	}
+	return &api.StepResult{
+		Success: true,
+		Staged:  true,
+		Detail:  fmt.Sprintf("audit_rule_set: audit config immutable (enabled 2); staged into %s, PENDING reboot to load (netlink)", p.RuleFile),
+	}, nil
+}
+
 // applyShell merges the rule into the drop-in and reloads via augenrules. It
 // reads the current file first so a rule sharing a CIS-grouped file (e.g.
 // 50-privileged.rules) merges in rather than overwriting its siblings.
@@ -187,6 +279,34 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 		return nil, rerr
 	}
 	merged, _ := mergeRuleLines(existing, auditnl.RuleLines(p.Rule))
+
+	// Immutable audit config (enabled 2): the kernel refuses runtime loads
+	// until reboot, so stage the persist layer and defer convergence. The file
+	// write is gated with && so a write failure still surfaces; augenrules
+	// --load is run (to regenerate the compiled /etc/audit/audit.rules for a
+	// consistent reboot) but its exit is tolerated, because on an immutable
+	// host the load sub-step is expected to no-op.
+	if auditImmutableShell(ctx, transport) {
+		cmd := fmt.Sprintf(
+			"printf '%%s' %s > %s && { augenrules --load >/dev/null 2>&1 || true; }",
+			shellEscape(merged), shellEscape(path),
+		)
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return nil, fmt.Errorf("audit_rule_set: staged apply transport error: %w", err)
+		}
+		if !res.OK() {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("audit_rule_set: staged persist write failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
+			}, nil
+		}
+		return &api.StepResult{
+			Success: true,
+			Staged:  true,
+			Detail:  fmt.Sprintf("audit_rule_set: audit config immutable (enabled 2); staged into %s, PENDING reboot to load (shell)", path),
+		}, nil
+	}
 
 	cmd := fmt.Sprintf(
 		"printf '%%s' %s > %s && augenrules --load",
@@ -263,13 +383,24 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 	if err != nil {
 		return nil, fmt.Errorf("audit_rule_set: capture list rules: %w (%v)", api.ErrCaptureIncomplete, err)
 	}
+	// When the audit config is immutable (enabled 2), Apply will STAGE the rule
+	// (write the drop-in, load nothing) — so Rollback has nothing to unload.
+	// Recording added_rules from "not currently loaded" here would make Rollback
+	// call DeleteRule on a rule that was never loaded; an immutable kernel
+	// rejects that unload with EPERM (only ENOENT is tolerated), falsely
+	// reporting a partial restore of a host that is byte-perfect. Record an
+	// empty unload set and mark the pre-state staged.
+	immutableStaged := false
+	if enabled, serr := c.GetStatus(); serr == nil && enabled == 2 {
+		immutableStaged = true
+	}
 	var added []string
 	for _, line := range auditnl.RuleLines(p.Rule) {
 		wire, berr := auditnl.BuildRule(line)
 		if berr != nil {
 			return nil, fmt.Errorf("audit_rule_set: capture %w: %v", api.ErrCaptureIncomplete, berr)
 		}
-		if !containsWire(loaded, wire) {
+		if !immutableStaged && !containsWire(loaded, wire) {
 			added = append(added, line) // we will add it → rollback unloads it
 		}
 	}
@@ -281,7 +412,7 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 	// Which of this rule's lines are NOT already in the drop-in — the lines
 	// Apply will add and Rollback must remove (leaving any sibling's lines).
 	_, fileAdded := mergeRuleLines(content, auditnl.RuleLines(p.Rule))
-	return h.preState(p, existed, content, added, fileAdded), nil
+	return h.preState(p, existed, content, added, fileAdded, immutableStaged), nil
 }
 
 // captureShell records whether the rule file existed and its content.
@@ -307,7 +438,10 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 		}
 	}
 	_, fileAdded := mergeRuleLines(priorContent, auditnl.RuleLines(p.Rule))
-	return h.preState(p, fileExisted, priorContent, nil, fileAdded), nil
+	// Immutable (enabled 2) → Apply stages, nothing is loaded, so Rollback must
+	// not report a partial restore just because the runtime is locked. Mark it.
+	immutableStaged := auditImmutableShell(ctx, transport)
+	return h.preState(p, fileExisted, priorContent, nil, fileAdded, immutableStaged), nil
 }
 
 // preState builds the canonical PreState. added is the netlink-path set of
@@ -316,7 +450,7 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 // drop-in at capture — the lines rollback removes from the (possibly shared)
 // file, so a sibling rule's line survives. prior_content / file_existed are
 // retained as evidence; the file restore is line-based via fileAdded.
-func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, added, fileAdded []string) *api.PreState {
+func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, added, fileAdded []string, immutableStaged bool) *api.PreState {
 	data := map[string]interface{}{
 		"path":          p.RuleFile,
 		"file_existed":  fileExisted,
@@ -327,6 +461,12 @@ func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, add
 	}
 	if len(fileAdded) > 0 {
 		data["file_added_lines"] = fileAdded
+	}
+	if immutableStaged {
+		// The rule was staged (never loaded into the kernel) because the audit
+		// config is immutable. Rollback removes the drop-in only — there is no
+		// runtime rule to unload, so it must not report a partial restore.
+		data["immutable_staged"] = true
 	}
 	return &api.PreState{
 		Mechanism:  mechanism,
@@ -392,22 +532,26 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	}
 	added := addedRules(pre.Data["added_rules"])
 	fileAdded := addedRules(pre.Data["file_added_lines"])
+	// A staged transaction (immutable at capture) never loaded a runtime rule,
+	// so its rollback removes the drop-in only and reports success — never a
+	// partial restore over an unreconcilable-runtime claim.
+	immutableStaged, _ := pre.Data["immutable_staged"].(bool)
 
 	if at, ok := transport.(auditnl.AuditTransport); ok {
-		res, err := h.rollbackNetlink(ctx, at, path, added, fileAdded)
+		res, err := h.rollbackNetlink(ctx, at, path, added, fileAdded, immutableStaged)
 		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
 			return res, err
 		}
 		// Netlink unavailable → shell rollback.
 	}
-	return h.rollbackShell(ctx, transport, path, fileAdded)
+	return h.rollbackShell(ctx, transport, path, fileAdded, immutableStaged)
 }
 
 // rollbackNetlink restores the drop-in by removing exactly the lines Apply
 // added to the file (fileAdded) — leaving any sibling rule's lines in a shared
 // drop-in intact — and unloads exactly the rule lines Apply added to the kernel
 // (added), never a rule another drop-in owns.
-func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport, path string, added, fileAdded []string) (*api.RollbackResult, error) {
+func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport, path string, added, fileAdded []string, immutableStaged bool) (*api.RollbackResult, error) {
 	// Restore persist layer first: strip only this rule's lines from the
 	// current file. If no managed rule line remains, remove the file;
 	// otherwise write the reduced content (preserving siblings).
@@ -428,6 +572,37 @@ func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport
 		return nil, err
 	}
 	defer c.Close()
+
+	// Staged transaction: the drop-in is now removed, so the rule will NOT
+	// reload at the next reboot (eventual convergence is guaranteed). Nothing
+	// was loaded AT CAPTURE — but the host may have rebooted before this
+	// rollback, in which case auditd loaded the persisted rule into the running
+	// kernel and re-locked immutable, and we cannot unload it now. Decide the
+	// verdict from LIVE state (GetRules), NOT the stale capture-time flag: a
+	// rule still loaded is an honest PartialRestore (runtime clears next reboot),
+	// mirroring the committed-immutable path; not loaded is a clean restore. We
+	// never DeleteRule here (an immutable kernel would EPERM on it).
+	if immutableStaged {
+		if loaded, gerr := c.GetRules(); gerr == nil {
+			for _, line := range fileAdded {
+				wire, berr := auditnl.BuildRule(line)
+				if berr == nil && containsWire(loaded, wire) {
+					return &api.RollbackResult{
+						Success:        false,
+						PartialRestore: true,
+						Detail:         fmt.Sprintf("audit_rule_set: removed staged drop-in %s but the rule is loaded in the running kernel (host rebooted before rollback) and the audit config is immutable; runtime clears on next reboot", path),
+						ExecutedAt:     time.Now().UTC(),
+					}, nil
+				}
+			}
+		}
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed %d staged line(s)); no runtime rule loaded (netlink)", path, len(fileAdded)),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
+
 	for _, line := range added {
 		wire, berr := auditnl.BuildRule(line)
 		if berr != nil {
@@ -481,19 +656,28 @@ func (h *Handler) rollbackNetlink(ctx context.Context, at auditnl.AuditTransport
 // rollbackShell removes only this rule's lines from the drop-in (preserving
 // siblings in a shared file), deleting the file if no managed rule remains,
 // then reloads augenrules.
-func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string) (*api.RollbackResult, error) {
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string, immutableStaged bool) (*api.RollbackResult, error) {
 	current, rerr := h.readFileShell(ctx, transport, path)
 	if rerr != nil {
 		return nil, rerr
 	}
+	// For a staged rollback the drop-in removal IS the complete restore (nothing
+	// was loaded), and augenrules --load fails on the immutable kernel — so
+	// tolerate the load failure exactly as the staged apply path (applyShell)
+	// does, keeping res.OK() a verdict on the file operation alone. A committed
+	// rollback keeps the bare `&&` so a genuine reload failure still surfaces.
+	augenrules := "augenrules --load"
+	if immutableStaged {
+		augenrules = "{ augenrules --load >/dev/null 2>&1 || true; }"
+	}
 	var cmd string
 	if reduced, remaining := removeRuleLines(current, fileAdded); remaining {
 		cmd = fmt.Sprintf(
-			"printf '%%s' %s > %s && augenrules --load",
-			shellEscape(reduced), shellEscape(path),
+			"printf '%%s' %s > %s && %s",
+			shellEscape(reduced), shellEscape(path), augenrules,
 		)
 	} else {
-		cmd = fmt.Sprintf("rm -f %s && augenrules --load", shellEscape(path))
+		cmd = fmt.Sprintf("rm -f %s && %s", shellEscape(path), augenrules)
 	}
 
 	res, err := transport.Run(ctx, cmd)
@@ -507,10 +691,30 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
+	// Staged transaction: the drop-in is removed (won't reload next reboot). If
+	// the host rebooted before this rollback, auditd loaded the rule into the
+	// running kernel and re-locked immutable — decide the verdict from LIVE
+	// state, not the stale capture-time flag. Still loaded ⇒ honest
+	// PartialRestore (clears next reboot); not loaded ⇒ clean restore.
+	if immutableStaged {
+		if auditRuleLoadedShell(ctx, transport, fileAdded) {
+			return &api.RollbackResult{
+				Success:        false,
+				PartialRestore: true,
+				Detail:         fmt.Sprintf("audit_rule_set: removed staged drop-in %s but the rule is loaded in the running kernel (host rebooted before rollback) and the audit config is immutable; runtime clears on next reboot", path),
+				ExecutedAt:     time.Now().UTC(),
+			}, nil
+		}
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("audit_rule_set: restored %s (removed staged drop-in); no runtime rule loaded", path),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	// augenrules --load exited cleanly, but on an immutable audit config
-	// (enabled 2) the kernel silently refuses live rule changes — the file
-	// is restored yet the running ruleset cannot be reconciled until reboot.
-	// Report that honestly instead of a clean success.
+	// (enabled 2) the kernel silently refuses live rule changes — a rule that
+	// WAS committed (loaded) cannot be unloaded until reboot, so the file is
+	// restored yet the running ruleset cannot be reconciled. Report honestly.
 	if auditImmutableShell(ctx, transport) {
 		return &api.RollbackResult{
 			Success:        false,
@@ -524,6 +728,35 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 		Detail:     fmt.Sprintf("audit_rule_set: restored %s and reloaded audit rules", path),
 		ExecutedAt: time.Now().UTC(),
 	}, nil
+}
+
+// auditRuleLoadedShell reports whether any of lines is present in the live
+// kernel ruleset (`auditctl -l`) over the shell transport. The staged rollback
+// path uses it to report its verdict honestly after a possible reboot: a rule
+// auditd loaded at boot is still enforced (and, immutable, cannot be unloaded)
+// even after the drop-in is removed.
+//
+// It delegates to check.AuditLineLoaded — the same matcher the audit_rule_exists
+// check uses — because `auditctl -l` prints WATCH rules verbatim but
+// reorders/normalises SYSCALL rules (auid!=unset→auid!=-1, -k→-F key=, syscall
+// lists re-sorted); a naive full-line compare missed genuinely-loaded syscall
+// rules and over-reported a clean restore. A read error returns false so a
+// rollback never over-claims a partial restore.
+func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []string) bool {
+	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
+	if err != nil || !res.OK() {
+		return false
+	}
+	loaded := strings.Split(res.Stdout, "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if check.AuditLineLoaded(line, loaded) {
+			return true
+		}
+	}
+	return false
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.

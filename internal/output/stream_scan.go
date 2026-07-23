@@ -39,6 +39,7 @@ type StreamScanWriter struct {
 
 	pass    int
 	fixed   int
+	staged  int
 	fail    int
 	errored int
 	skipped int
@@ -103,6 +104,9 @@ func (s *StreamScanWriter) Update(u progress.Update) {
 	case u.Fixed:
 		s.fixed++
 		statusCell = s.status("FIXED", sgrGreen)
+	case u.Staged:
+		s.staged++
+		statusCell = s.status("STAGED", sgrYellow)
 	case u.OK:
 		s.pass++
 		statusCell = s.status("PASS", sgrGreen)
@@ -123,10 +127,13 @@ func (s *StreamScanWriter) Update(u progress.Update) {
 
 // Summary prints the trailing tally line after all rows.
 func (s *StreamScanWriter) Summary() {
-	total := s.pass + s.fixed + s.fail + s.errored + s.skipped
+	total := s.pass + s.fixed + s.staged + s.fail + s.errored + s.skipped
 	fmt.Fprintf(s.w, "\n  %s passed", s.paint(sgrGreen, fmt.Sprintf("%d", s.pass)))
 	if s.fixed > 0 {
 		fmt.Fprintf(s.w, ", %s fixed", s.paint(sgrGreen, fmt.Sprintf("%d", s.fixed)))
+	}
+	if s.staged > 0 {
+		fmt.Fprintf(s.w, ", %s staged (reboot required)", s.paint(sgrYellow, fmt.Sprintf("%d", s.staged)))
 	}
 	fmt.Fprintf(s.w, ", %s failed", s.failCount())
 	if s.errored > 0 {

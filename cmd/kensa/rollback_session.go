@@ -51,11 +51,14 @@ func runRollbackList(ctx context.Context, dbPath string, detail bool, format str
 // listSessionRow is the JSON shape for `--list`. When detail
 // is set, Transactions is populated; otherwise it's omitted.
 type listSessionRow struct {
-	ID           string              `json:"id"`
-	StartedAt    string              `json:"started_at"`
-	Hostname     string              `json:"hostname"`
-	Subcommand   string              `json:"subcommand"`
-	TxnCommitted int                 `json:"txn_committed"`
+	ID           string `json:"id"`
+	StartedAt    string `json:"started_at"`
+	Hostname     string `json:"hostname"`
+	Subcommand   string `json:"subcommand"`
+	TxnCommitted int    `json:"txn_committed"`
+	// TxnStaged is the count of reboot-pending staged transactions — NOT in
+	// txn_committed but still rollback-able (rollback --start reverts them).
+	TxnStaged    int                 `json:"txn_staged"`
 	TxnTotal     int                 `json:"txn_total"`
 	Transactions []listSessionRowTxn `json:"transactions,omitempty"`
 }
@@ -74,6 +77,7 @@ func toListSessionRows(ctx context.Context, s *store.SQLite, sessions []*store.S
 			Hostname:     sess.Hostname,
 			Subcommand:   sess.Subcommand,
 			TxnCommitted: sess.TxnCommitted,
+			TxnStaged:    sess.TxnTotal - sess.TxnCommitted - sess.TxnRolled - sess.TxnFailed,
 			TxnTotal:     sess.TxnTotal,
 		}
 		if detail {
@@ -99,16 +103,19 @@ func writeRollbackListText(ctx context.Context, s *store.SQLite, w io.Writer, se
 		return
 	}
 	fmt.Fprintf(w, "  %d rollback-able session(s)\n\n", len(sessions))
-	fmt.Fprintln(w, "  started_at            hostname           committed  session_id")
-	fmt.Fprintln(w, "  --------------------  -----------------  ---------  ------------------------------------")
+	fmt.Fprintln(w, "  started_at            hostname           committed  staged  session_id")
+	fmt.Fprintln(w, "  --------------------  -----------------  ---------  ------  ------------------------------------")
 	for _, sess := range sessions {
 		host := sess.Hostname
 		if host == "" {
 			host = "(unknown)"
 		}
-		fmt.Fprintf(w, "  %-20s  %-17s  %9d  %s\n",
+		// staged transactions are rollback-able but not in the committed count;
+		// show them so a staged-only session is not read as "committed: 0".
+		staged := sess.TxnTotal - sess.TxnCommitted - sess.TxnRolled - sess.TxnFailed
+		fmt.Fprintf(w, "  %-20s  %-17s  %9d  %6d  %s\n",
 			sess.StartedAt.UTC().Format("2006-01-02 15:04:05"),
-			host, sess.TxnCommitted, sess.ID.String())
+			host, sess.TxnCommitted, staged, sess.ID.String())
 		if detail {
 			txns, err := s.TransactionsForSession(ctx, sess.ID)
 			if err != nil {
@@ -153,6 +160,7 @@ func runRollbackInfo(ctx context.Context, dbPath string, sessID uuid.UUID, detai
 				Hostname:     sess.Hostname,
 				Subcommand:   sess.Subcommand,
 				TxnCommitted: sess.TxnCommitted,
+				TxnStaged:    sess.TxnTotal - sess.TxnCommitted - sess.TxnRolled - sess.TxnFailed,
 				TxnTotal:     sess.TxnTotal,
 			},
 		}
@@ -180,6 +188,14 @@ func writeRollbackInfoText(w io.Writer, sess *store.Session, txns []store.Sessio
 		fmt.Fprintf(w, "  finished_at:   %s\n", sess.FinishedAt.UTC().Format(time.RFC3339))
 	}
 	fmt.Fprintf(w, "  committed:     %d / %d total\n", sess.TxnCommitted, sess.TxnTotal)
+	// Staged transactions are rollback-able (rollback --start reverts them) but
+	// are NOT counted in committed/rolled/failed, so surface them explicitly —
+	// otherwise a staged-only session reads as "committed: 0, nothing to roll
+	// back" even though `rollback --start` will process it. staged is the only
+	// status excluded from all three counters, so it is total minus the rest.
+	if staged := sess.TxnTotal - sess.TxnCommitted - sess.TxnRolled - sess.TxnFailed; staged > 0 {
+		fmt.Fprintf(w, "  staged:        %d (reboot-pending; rollback-able)\n", staged)
+	}
 	fmt.Fprintf(w, "  rolled_back:   %d\n", sess.TxnRolled)
 	if sess.TxnFailed > 0 {
 		fmt.Fprintf(w, "  failed:        %d\n", sess.TxnFailed)
@@ -203,6 +219,7 @@ type rollbackStartResult struct {
 	SessionID string                  `json:"session_id"`
 	Attempted int                     `json:"attempted"`
 	Succeeded int                     `json:"succeeded"`
+	Partial   int                     `json:"partial"`
 	Failed    int                     `json:"failed"`
 	PerTxn    []rollbackStartTxnEntry `json:"per_txn"`
 }
@@ -210,9 +227,15 @@ type rollbackStartResult struct {
 type rollbackStartTxnEntry struct {
 	RuleID  string `json:"rule_id"`
 	Success bool   `json:"success"`
+	// Partial marks a rollback that ran without error but did NOT fully revert
+	// the host (RollbackResult.PartialRestore) — e.g. a staged audit rule the
+	// host loaded after a reboot cannot be unloaded until the next reboot. The
+	// on-disk change is reverted; the running state is not yet.
+	Partial bool   `json:"partial,omitempty"`
 	Error   string `json:"error,omitempty"`
 	// Warning carries a best-effort-recording notice: the host was reverted
-	// but the rollback outcome could not be written to the transaction log.
+	// but the rollback outcome could not be written to the transaction log; or,
+	// for a partial restore, the reason the revert is incomplete.
 	Warning string `json:"warning,omitempty"`
 }
 
@@ -286,6 +309,19 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s rollback failed: %v\n", ref.RuleID, err)
 			continue
 		}
+		// A PartialRestore (no error, but Success=false) means the host was NOT
+		// fully reverted — e.g. a staged audit rule the host loaded after a
+		// reboot cannot be unloaded until the next reboot. Count and surface it
+		// distinctly; folding it into "succeeded" would misreport an incomplete
+		// revert as clean.
+		if res != nil && res.PartialRestore {
+			result.Partial++
+			result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
+				RuleID: ref.RuleID, Success: false, Partial: true, Warning: res.Detail,
+			})
+			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s partial restore: %s\n", ref.RuleID, res.Detail)
+			continue
+		}
 		result.Succeeded++
 		entry := rollbackStartTxnEntry{RuleID: ref.RuleID, Success: true}
 		// Recording the rollback is best-effort: the host was reverted, but
@@ -320,6 +356,9 @@ func writeRollbackStartText(w io.Writer, r *rollbackStartResult) {
 	fmt.Fprintf(w, "kensa rollback --start %s\n", r.SessionID)
 	fmt.Fprintf(w, "  attempted:  %d\n", r.Attempted)
 	fmt.Fprintf(w, "  succeeded:  %d\n", r.Succeeded)
+	if r.Partial > 0 {
+		fmt.Fprintf(w, "  partial:    %d (disk reverted; running state clears on reboot)\n", r.Partial)
+	}
 	fmt.Fprintf(w, "  failed:     %d\n", r.Failed)
 	for _, e := range r.PerTxn {
 		if e.Warning != "" {
