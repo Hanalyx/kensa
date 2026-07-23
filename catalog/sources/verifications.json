@@ -13352,6 +13352,174 @@
       "host": "fleet:192.168.1.250",
       "verified_at": "2026-07-20",
       "notes": "STIG ubuntu22 V-274861 (UBTU-22-654224) cite-add (same literal user-ALL check as u24 V-274869); definite verdict PASS (no ALL ALL=(ALL) ALL entry) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-cramfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.1 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-cramfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.1 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-freevxfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.2 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-freevxfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.2 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-jffs2",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.5 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-jffs2",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.5 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-squashfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.7 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-squashfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.7 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-udf",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.8 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-udf",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.8 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.3 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.3 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfsplus",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.4 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfsplus",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.4 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-overlay",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.6 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-overlay",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.6 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-firewire-core",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 1.1.1.11 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "kmod-disable-firewire-core",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 1.1.1.9 kmod cluster; definite verdict FAIL (module not blacklisted) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "kmod-disable-hfs",
+      "os": "rhel9",
+      "scope": "check",
+      "host": "fleet:192.168.1.211",
+      "verified_at": "2026-07-23",
+      "notes": "CIS rhel9 1.1.1.3 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
+    },
+    {
+      "rule_id": "kmod-disable-hfsplus",
+      "os": "rhel9",
+      "scope": "check",
+      "host": "fleet:192.168.1.211",
+      "verified_at": "2026-07-23",
+      "notes": "CIS rhel9 1.1.1.4 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
+    },
+    {
+      "rule_id": "kmod-disable-overlay",
+      "os": "rhel9",
+      "scope": "check",
+      "host": "fleet:192.168.1.211",
+      "verified_at": "2026-07-23",
+      "notes": "CIS rhel9 1.1.1.6 (cross-platform kmod, added with ubuntu cites); definite verdict FAIL (module not blacklisted) on RHEL 9.6"
     }
   ]
 }
