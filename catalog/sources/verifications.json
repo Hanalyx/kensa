@@ -14256,6 +14256,134 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 2.1.19 service-not-in-use (canonical same-unit-name); definite verdict PASS (service not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-nfs",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.9 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-nfs",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.9 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-named",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.4 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-named",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.4 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-vsftpd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.6 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-vsftpd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.6 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-ypserv",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.10 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-ypserv",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.10 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-dhcpd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.3 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-dhcpd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.3 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-smb",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.14 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-smb",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.14 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-tftp",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.16 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-tftp",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.16 service-not-in-use (when:apt ubuntu unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "service-disable-rsyncd",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 2.1.13 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "service-disable-rsyncd",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 2.1.13 service-not-in-use (same-unit); definite verdict PASS (not installed/active) on Ubuntu 24.04"
     }
   ]
 }
