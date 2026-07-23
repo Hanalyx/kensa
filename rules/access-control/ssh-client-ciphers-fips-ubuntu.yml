@@ -1,5 +1,5 @@
 id: ssh-client-ciphers-fips-ubuntu
-title: Configure the SSH client to use FIPS-approved ciphers (Ubuntu)
+title: Configure the SSH client to use FIPS-approved ciphers
 description: >
   The SSH client (/etc/ssh/ssh_config) must be configured to use only
   FIPS 140-3 approved ciphers.

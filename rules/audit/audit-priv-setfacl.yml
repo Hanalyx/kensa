@@ -1,5 +1,5 @@
 id: audit-priv-setfacl
-title: Audit privileged execution of /usr/bin/setfacl (Ubuntu)
+title: Audit privileged execution of /usr/bin/setfacl
 description: >
   All uses of the /usr/bin/setfacl command must generate an audit record so that
   ACL changes can be traced to an individual.

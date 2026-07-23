@@ -1,5 +1,5 @@
 id: audit-usergroup-group
-title: Audit account modifications affecting /etc/group (Ubuntu)
+title: Audit account modifications affecting /etc/group
 description: >
   All account creation, modification, disabling, and termination events
   that affect /etc/group must generate an audit record.

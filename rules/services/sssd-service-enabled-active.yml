@@ -1,0 +1,49 @@
+id: sssd-service-enabled-active
+title: Ensure the SSSD service is enabled and active
+description: >
+  The System Security Services Daemon (sssd) must be both enabled (starts on
+  boot) and active (currently running) so it can broker multifactor and
+  smart-card authentication.
+rationale: >
+  SSSD integrates smart-card / PKI credentials and centralized identity into
+  the authentication stack. If the sssd service is not enabled and running,
+  multifactor authentication cannot be enforced.
+severity: medium
+transactional: false
+category: services
+tags: [sssd, service, mfa, authentication, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270663"
+      stig_id: "UBTU-24-100660"
+      severity: "CAT II"
+      cci: ["CCI-000765", "CCI-000766", "CCI-004046", "CCI-004047"]
+    ubuntu22:
+      vuln_id: "V-274866"
+      stig_id: "UBTU-22-254015"
+      severity: "CAT II"
+      cci: ["CCI-000765", "CCI-000766", "CCI-004046", "CCI-004047"]
+  nist_800_53: ["IA-2(1)", "IA-2(2)"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        systemctl is-enabled sssd 2>/dev/null | grep -qx enabled || {
+          echo "FAIL: sssd service is not enabled"; exit 1; }
+        systemctl is-active sssd 2>/dev/null | grep -qx active || {
+          echo "FAIL: sssd service is not active"; exit 1; }
+        echo "OK: sssd service is enabled and active"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Enable and start SSSD: systemctl enable --now sssd.service (SSSD must
+        first be configured for the site's identity/MFA provider).

@@ -1,5 +1,5 @@
 id: audit-group-write-rhel10
-title: Audit write/attribute changes to /etc/group (RHEL 10)
+title: Audit write/attribute changes to /etc/group (syscall form)
 description: >
   On RHEL 10, record write and attribute changes to /etc/group via the syscall-form
   audit rule (RHEL 10 deprecated the legacy -w watch form).

@@ -1,5 +1,5 @@
 id: audit-watch-sudoers-d
-title: Audit access to /etc/sudoers.d (Ubuntu)
+title: Audit access to /etc/sudoers.d
 description: >
   Modifications to /etc/sudoers.d must generate an audit record so that changes to sudo privileges
   can be traced to an individual.

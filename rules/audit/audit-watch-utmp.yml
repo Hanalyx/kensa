@@ -1,5 +1,5 @@
 id: audit-watch-utmp
-title: Audit access to /var/run/utmp (Ubuntu)
+title: Audit access to /var/run/utmp
 description: >
   Modifications to /var/run/utmp must generate an audit record so that current login sessions
   can be traced to an individual.

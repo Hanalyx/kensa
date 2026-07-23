@@ -13,11 +13,43 @@ tags: [chrony, time, ntp, stig]
 references:
   stig:
     rhel10: { vuln_id: "V-281336", stig_id: "RHEL-10-800040", severity: "CAT II" }
+    ubuntu24:
+      vuln_id: "V-270751"
+      stig_id: "UBTU-24-600160"
+      severity: "CAT III"
+      cci: ["CCI-004922", "CCI-004923"]
+    ubuntu22:
+      vuln_id: "V-260519"
+      stig_id: "UBTU-22-252010"
+      severity: "CAT III"
+      cci: ["CCI-001891", "CCI-004923"]
   nist_800_53: ["AU-8"]
 platforms:
   - family: rhel
     min_version: 10
+  - family: ubuntu
+    min_version: 22
 implementations:
+  # Debian/Ubuntu ship chrony config at /etc/chrony/chrony.conf (+ conf.d),
+  # not /etc/chrony.conf as on RHEL.
+  - when: apt
+    check:
+      method: command
+      run: |
+        srv=$(grep -rhE '^[[:space:]]*(server|pool)[[:space:]]' /etc/chrony.conf /etc/chrony/ 2>/dev/null)
+        [ -n "$srv" ] || { echo "FAIL: no chrony time source configured"; exit 1; }
+        nsrv=$(printf '%s\n' "$srv" | grep -c .)
+        nmp=$(printf '%s\n' "$srv" | grep -c 'maxpoll')
+        [ "$nsrv" -eq "$nmp" ] || { echo "FAIL: a chrony source has no maxpoll"; exit 1; }
+        bad=$(printf '%s\n' "$srv" | grep -oE 'maxpoll[[:space:]]+[0-9]+' | grep -oE '[0-9]+$' | awk '$1>16{print}')
+        [ -z "$bad" ] || { echo "FAIL: a chrony source has maxpoll>16"; exit 1; }
+        echo "OK: all chrony sources have maxpoll<=16"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add 'maxpoll 16' (or less) to each server/pool line in
+        /etc/chrony/chrony.conf and restart chrony: systemctl restart chrony.service
   - default: true
     check:
       method: command

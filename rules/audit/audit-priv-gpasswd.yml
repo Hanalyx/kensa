@@ -1,5 +1,5 @@
 id: audit-priv-gpasswd
-title: Audit privileged execution of /usr/bin/gpasswd (Ubuntu)
+title: Audit privileged execution of /usr/bin/gpasswd
 description: >
   All uses of the /usr/bin/gpasswd command must generate an audit record so that
   group-password changes can be traced to an individual.

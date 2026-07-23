@@ -1,0 +1,42 @@
+id: pam-pkcs11-installed
+title: Install the PAM PKCS#11 smart-card module
+description: >
+  The libpam-pkcs11 package (the PAM module for PKCS#11 smart cards) must be
+  installed so that PIV/CAC smart-card credentials can be used for multifactor
+  authentication through PAM.
+rationale: >
+  PIV/CAC-based multifactor authentication depends on the PKCS#11 PAM module to
+  bridge smart-card credentials into the authentication stack. Without it, the
+  system cannot accept smart-card logons and falls back to single-factor
+  password authentication for privileged and remote access.
+severity: medium
+category: access-control
+tags: [pkcs11, smartcard, pam, mfa, piv, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270673"
+      stig_id: "UBTU-24-100910"
+      severity: "CAT II"
+      cci: ["CCI-001953"]
+    ubuntu22:
+      vuln_id: "V-260573"
+      stig_id: "UBTU-22-612010"
+      severity: "CAT II"
+      cci: ["CCI-000765", "CCI-000766", "CCI-000767", "CCI-000768", "CCI-001948", "CCI-004046", "CCI-004047"]
+  nist_800_53: ["IA-2(1)", "IA-2(2)", "IA-8"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "dpkg -l 2>/dev/null | grep -qE '^ii[[:space:]]+libpam-pkcs11([[:space:]]|:)'"
+      expected_exit: 0
+    remediation:
+      mechanism: apt_present
+      name: libpam-pkcs11

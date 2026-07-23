@@ -21,11 +21,16 @@ references:
     rhel8:
       vuln_id: "V-251712"
       severity: "CAT II"
-    ubuntu24:                                                                # rule checks 'no !authenticate' (+ non-negative timestamp_timeout); V-270707 is the !authenticate control. u22 equivalent deferred: V-260558 appears combined with NOPASSWD (V-274868 territory) and needs disambiguation.
+    ubuntu24:                                                                # rule checks 'no !authenticate' (+ non-negative timestamp_timeout); V-270707 is the !authenticate control.
       vuln_id: "V-270707"
       stig_id: "UBTU-24-300021"
       severity: "CAT II"
       cci: ["CCI-000366"]
+    ubuntu22:                                                                # V-260558's check is 'egrep -iR !authenticate' — the same !authenticate control this rule verifies (its title also names NOPASSWD, but the check is !authenticate only).
+      vuln_id: "V-260558"
+      stig_id: "UBTU-22-432010"
+      severity: "CAT II"
+      cci: ["CCI-002038", "CCI-004895"]
   nist_800_53: ["IA-11", "AC-6"]
 
 platforms:

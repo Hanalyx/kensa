@@ -1,5 +1,5 @@
 id: audit-priv-apparmor_parser
-title: Audit privileged execution of /sbin/apparmor_parser (Ubuntu)
+title: Audit privileged execution of /sbin/apparmor_parser
 description: >
   All uses of the /sbin/apparmor_parser command must generate an audit record so that
   AppArmor policy changes can be traced to an individual.

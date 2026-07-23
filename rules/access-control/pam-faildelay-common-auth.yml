@@ -1,0 +1,53 @@
+id: pam-faildelay-common-auth
+title: Enforce a PAM-based delay after a failed logon attempt
+description: >
+  On systems that enforce the failed-logon delay through the PAM stack, the
+  pam_faildelay.so module must be enabled in /etc/pam.d/common-auth with a
+  delay of at least 4000000 microseconds (4 seconds).
+rationale: >
+  Inserting a delay after a failed logon attempt limits the rate of
+  brute-force attacks. Debian-family systems configure this delay in the PAM
+  authentication stack (common-auth) in microseconds rather than through
+  login.defs, so the delay must be asserted where the platform actually
+  enforces it.
+severity: medium
+transactional: false
+category: access-control
+tags: [pam, authentication, faildelay, brute-force, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270706"
+      stig_id: "UBTU-24-300017"
+      severity: "CAT II"
+      cci: ["CCI-000366"]
+    ubuntu22:
+      vuln_id: "V-260550"
+      stig_id: "UBTU-22-412010"
+      severity: "CAT II"
+      cci: ["CCI-000366"]
+  nist_800_53: ["AC-7"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        line=$(grep -E '^[[:space:]]*auth[[:space:]].*pam_faildelay\.so' /etc/pam.d/common-auth 2>/dev/null)
+        [ -n "$line" ] || { echo "FAIL: pam_faildelay not enabled in common-auth"; exit 1; }
+        delay=$(printf '%s\n' "$line" | grep -oE 'delay=[0-9]+' | grep -oE '[0-9]+' | head -1)
+        [ -n "$delay" ] && [ "$delay" -ge 4000000 ] 2>/dev/null || {
+          echo "FAIL: pam_faildelay delay is below 4000000 microseconds"; exit 1; }
+        echo "OK: pam_faildelay delay=$delay"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Add or correct the pam_faildelay line in /etc/pam.d/common-auth so the
+        delay is at least 4000000 microseconds (4 seconds), e.g.
+        'auth required pam_faildelay.so delay=4000000'.

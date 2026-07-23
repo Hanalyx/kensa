@@ -1,5 +1,5 @@
 id: audit-watch-fdisk
-title: Audit access to /usr/sbin/fdisk (Ubuntu)
+title: Audit access to /usr/sbin/fdisk
 description: >
   Modifications to /usr/sbin/fdisk must generate an audit record so that partition-table changes
   can be traced to an individual.

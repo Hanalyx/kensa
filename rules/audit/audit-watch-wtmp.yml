@@ -1,5 +1,5 @@
 id: audit-watch-wtmp
-title: Audit access to /var/log/wtmp (Ubuntu)
+title: Audit access to /var/log/wtmp
 description: >
   Modifications to /var/log/wtmp must generate an audit record so that login/logout events
   can be traced to an individual.

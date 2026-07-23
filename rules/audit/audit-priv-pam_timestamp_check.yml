@@ -1,5 +1,5 @@
 id: audit-priv-pam_timestamp_check
-title: Audit privileged execution of /usr/sbin/pam_timestamp_check (Ubuntu)
+title: Audit privileged execution of /usr/sbin/pam_timestamp_check
 description: >
   All uses of the /usr/sbin/pam_timestamp_check command must generate an audit record so that
   PAM timestamp checks can be traced to an individual.

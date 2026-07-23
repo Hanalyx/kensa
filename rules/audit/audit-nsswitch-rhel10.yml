@@ -1,5 +1,5 @@
 id: audit-nsswitch-rhel10
-title: Audit modification of /etc/nsswitch.conf (RHEL 10)
+title: Audit modification of /etc/nsswitch.conf (syscall form)
 description: >
   On RHEL 10 record write/attribute changes to /etc/nsswitch.conf via the
   syscall audit form (-S all -F path=/etc/nsswitch.conf -F perm=wa).

@@ -1,0 +1,41 @@
+id: pam-pkcs11-configured
+title: Configure the PAM PKCS#11 module for smart-card authentication
+description: >
+  The pam_pkcs11.so module must be enabled in /etc/pam.d/common-auth so that
+  PKCS#11 smart-card (PIV/CAC) credentials are accepted during authentication.
+rationale: >
+  Installing the PKCS#11 PAM module is not sufficient; it must be wired into the
+  authentication stack (common-auth) for smart-card multifactor authentication
+  to actually take effect. An absent or commented pam_pkcs11.so line means the
+  system silently falls back to single-factor password authentication.
+severity: medium
+transactional: false
+category: access-control
+tags: [pkcs11, smartcard, pam, mfa, piv, stig]
+
+references:
+  stig:
+    ubuntu24:                                                                # u22's equivalent (UBTU-22-612020) is a COMPOUND control (pam_pkcs11.so AND sshd PubkeyAuthentication) already cited by ssh-pubkey-authentication — not duplicated here.
+      vuln_id: "V-270721"
+      stig_id: "UBTU-24-400020"
+      severity: "CAT II"
+      cci: ["CCI-000765", "CCI-000766"]
+  nist_800_53: ["IA-2(1)", "IA-2(2)"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        grep -qE '^[[:space:]]*auth[[:space:]].*pam_pkcs11\.so' /etc/pam.d/common-auth 2>/dev/null
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Enable pam_pkcs11 in the authentication stack, e.g. add
+        'auth [success=2 default=ignore] pam_pkcs11.so' to /etc/pam.d/common-auth
+        (managed via pam-auth-update).

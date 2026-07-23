@@ -1,5 +1,5 @@
 id: audit-priv-passwd
-title: Audit privileged execution of /usr/bin/passwd (Ubuntu)
+title: Audit privileged execution of /usr/bin/passwd
 description: >
   All uses of the /usr/bin/passwd command must generate an audit record so that
   password changes can be traced to an individual.

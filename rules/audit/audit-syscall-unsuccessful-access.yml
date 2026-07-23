@@ -1,5 +1,5 @@
 id: audit-syscall-unsuccessful-access
-title: Audit unsuccessful file-access attempts (Ubuntu)
+title: Audit unsuccessful file-access attempts
 description: >
   The system must generate an audit record for unsuccessful file-access attempts so that the
   responsible user can be identified.

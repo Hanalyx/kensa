@@ -1,7 +1,7 @@
 id: ssh-macs-fips
 title: Configure SSH to use FIPS-approved MACs
 description: >
-  The SSH daemon must be configured to use only FIPS 140-2 validated
+  The SSH daemon must be configured to use only FIPS 140 validated
   Message Authentication Codes (MACs).
 rationale: >
   FIPS-approved MACs ensure data integrity for SSH sessions. Using
@@ -23,13 +23,48 @@ references:
     rhel8:
       vuln_id: "V-230251"
       severity: "CAT II"
-  nist_800_53: ["SC-12", "SC-13"]
+    ubuntu24:
+      vuln_id: "V-270668"
+      stig_id: "UBTU-24-100830"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260532"
+      stig_id: "UBTU-22-255055"
+      severity: "CAT II"
+  nist_800_53: ["SC-8", "SC-12", "SC-13"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  # Debian/Ubuntu: same FIPS MAC set; the remediation drop-in orders the
+  # etm variants first per the Ubuntu STIG example.
+  - when: apt
+    check:
+      method: command
+      run: |
+        command -v sshd >/dev/null 2>&1 || exit 0
+        macs=$(sshd -T 2>/dev/null | awk '/^macs /{print $2}')
+        if [ -z "$macs" ]; then
+          echo "FAIL: could not read effective MACs (sshd -T needs root)"
+          exit 1
+        fi
+        if echo "$macs" | tr ',' '\n' | grep -qvE '^(hmac-sha2-256|hmac-sha2-512|hmac-sha2-256-etm@openssh\.com|hmac-sha2-512-etm@openssh\.com)$'; then
+          echo "FAIL: non-FIPS MAC in effective config: $macs"
+          exit 1
+        fi
+        echo "OK: $macs"
+      expected_exit: 0
+    remediation:
+      mechanism: config_set_dropin
+      dir: "/etc/ssh/sshd_config.d"
+      file: "00-kensa-fips-macs.conf"
+      key: "MACs"
+      value: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
+      restart: sshd
   - default: true
     check:
       method: command

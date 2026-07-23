@@ -1,0 +1,46 @@
+id: apt-no-unauthenticated
+title: Ensure APT does not allow unauthenticated packages
+description: >
+  APT must not be configured with AllowUnauthenticated set to true, so that
+  packages without a valid digital signature cannot be installed.
+rationale: >
+  Installing unsigned or unverifiable packages allows malicious or tampered
+  software onto the system. Requiring authenticated packages ensures only
+  content signed by a trusted key is installed.
+severity: low
+transactional: false
+category: system
+tags: [apt, package-verification, supply-chain, stig]
+
+references:
+  stig:
+    ubuntu24:
+      vuln_id: "V-270695"
+      stig_id: "UBTU-24-300001"
+      severity: "CAT III"
+      cci: ["CCI-003992"]
+    ubuntu22:
+      vuln_id: "V-260476"
+      stig_id: "UBTU-22-214010"
+      severity: "CAT III"
+      cci: ["CCI-001749", "CCI-003992"]
+  nist_800_53: ["CM-5(3)", "SI-7(15)"]
+
+platforms:
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: command
+      run: |
+        bad=$(grep -riE 'AllowUnauthenticated[[:space:]]*"?true"?' /etc/apt/apt.conf.d/ 2>/dev/null)
+        [ -z "$bad" ] || { echo "FAIL: APT AllowUnauthenticated is true:"; printf '%s\n' "$bad"; exit 1; }
+        echo "OK: no APT AllowUnauthenticated=true"; exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Remove any 'AllowUnauthenticated "true"' entry from files under
+        /etc/apt/apt.conf.d/, or set it to "false".

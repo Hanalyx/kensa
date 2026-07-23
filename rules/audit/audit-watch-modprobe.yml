@@ -1,5 +1,5 @@
 id: audit-watch-modprobe
-title: Audit access to /sbin/modprobe (Ubuntu)
+title: Audit access to /sbin/modprobe
 description: >
   Modifications to /sbin/modprobe must generate an audit record so that kernel module loads
   can be traced to an individual.

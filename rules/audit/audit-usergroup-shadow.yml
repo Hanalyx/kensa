@@ -1,5 +1,5 @@
 id: audit-usergroup-shadow
-title: Audit account modifications affecting /etc/shadow (Ubuntu)
+title: Audit account modifications affecting /etc/shadow
 description: >
   All account creation, modification, disabling, and termination events
   that affect /etc/shadow must generate an audit record.

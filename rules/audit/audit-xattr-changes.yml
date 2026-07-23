@@ -27,13 +27,41 @@ references:
     rhel8:
       vuln_id: "V-230413"
       severity: "CAT II"
+    ubuntu24:
+      vuln_id: "V-270784"
+      stig_id: "UBTU-24-900130"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260638"
+      stig_id: "UBTU-22-654180"
+      severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  # Ubuntu STIG requires the four-line form: both b32 and b64 arches, each
+  # for unprivileged (auid>=1000) and root (auid=0) actors.
+  - when: apt
+    check:
+      method: audit_rule_exists
+      rule: |
+        -a always,exit -F arch=b32 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid>=1000 -F auid!=unset -k perm_mod
+        -a always,exit -F arch=b32 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid=0 -k perm_mod
+        -a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid>=1000 -F auid!=unset -k perm_mod
+        -a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid=0 -k perm_mod
+    remediation:
+      mechanism: audit_rule_set
+      rule: |
+        -a always,exit -F arch=b32 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid>=1000 -F auid!=unset -k perm_mod
+        -a always,exit -F arch=b32 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid=0 -k perm_mod
+        -a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid>=1000 -F auid!=unset -k perm_mod
+        -a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid=0 -k perm_mod
+      persist_file: "/etc/audit/rules.d/50-syscall-perm-mod-setxattr.rules"
   - default: true
     check:
       method: audit_rule_exists
