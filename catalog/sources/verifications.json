@@ -14416,6 +14416,38 @@
       "host": "fleet:192.168.1.249",
       "verified_at": "2026-07-23",
       "notes": "CIS ubuntu24 6.2.2.2 auditd data-retention (RHEL section is 6.3.2.x - Ubuntu is 6.2.x); definite verdict FAIL (max_log_file_action=ROTATE, want keep_logs) on Ubuntu 24.04 (auditd present on host)"
+    },
+    {
+      "rule_id": "audit-time-change",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.4 audit-rule (command-method auditctl -l, matcher-independent); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-time-change",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.4 audit-rule (command-method auditctl -l, matcher-independent); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
+    },
+    {
+      "rule_id": "audit-delete",
+      "os": "ubuntu22",
+      "scope": "check",
+      "host": "fleet:192.168.1.250",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu22 6.2.3.13 audit-rule (command-method auditctl -l, matcher-independent); definite verdict FAIL (rule not loaded) on Ubuntu 22.04"
+    },
+    {
+      "rule_id": "audit-delete",
+      "os": "ubuntu24",
+      "scope": "check",
+      "host": "fleet:192.168.1.249",
+      "verified_at": "2026-07-23",
+      "notes": "CIS ubuntu24 6.2.3.22 audit-rule (command-method auditctl -l, matcher-independent); definite verdict FAIL (rule not loaded) on Ubuntu 24.04"
     }
   ]
 }
