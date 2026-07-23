@@ -17,6 +17,8 @@ references:
     rhel8:  { section: "6.3.3.4", level: "L2", type: "Automated" }
     rhel9:  { section: "6.3.3.4", level: "L1", type: "Automated" }
     rhel10: { section: "6.3.3.4", level: "L2", type: "Automated" }
+    ubuntu22: { section: "6.2.3.4", level: "L2", type: "Automated" }
+    ubuntu24: { section: "6.2.3.4", level: "L2", type: "Automated" }
   # RHEL 9 STIG V2R8 has no audit control for the time-change syscalls
   # (adjtimex/settimeofday/clock_settime); the prior rhel9 cite pointed at an
   # unrelated mount control. Rule keeps its CIS cites + audits as defense-in-depth.
@@ -25,6 +27,8 @@ references:
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
   - default: true
