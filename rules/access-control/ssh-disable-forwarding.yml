@@ -24,8 +24,8 @@ references:
     rhel10:  { section: "5.1.8", level: "L2", type: "Automated" }
     rhel8:  { section: "5.1.10", level: "L2", type: "Automated" }
     rhel9:  { section: "5.1.10", level: "L2", type: "Automated" }
-    ubuntu22: { section: "5.1.8", level: "L1", type: "Automated" }
-    ubuntu24: { section: "5.1.8", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.1.8", level: "L2", type: "Automated" }
+    ubuntu24: { section: "5.1.8", level: "L2", type: "Automated" }
   # V-230555 (X11Forwarding=no) is owned by ssh-x11-forwarding — this rule sets
   # DisableForwarding=yes, a different directive the STIG check does not grep.
   nist_800_53: ["CM-6", "CM-7"]
