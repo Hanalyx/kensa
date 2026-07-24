@@ -31,6 +31,7 @@ variables:
   pam_pwquality_minclass: 4
   pam_pwquality_difok: 8
   pam_pwquality_maxrepeat: 3
+  pam_pwquality_maxsequence: 3
   pam_pwquality_maxclassrepeat: 4
   pam_pwquality_dcredit: -1
   pam_pwquality_ucredit: -1

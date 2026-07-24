@@ -42,7 +42,7 @@ var Contracts = map[string]Contract{
 	"command_exec":              {Required: []string{"run"}, Optional: []string{"unless"}},
 	"config_append":             {Required: []string{"path", "line"}},
 	"config_set":                {Required: []string{"path", "key", "value"}, Optional: []string{"separator"}},
-	"config_set_dropin":         {Required: []string{"dir", "file", "key", "value"}, Optional: []string{"section", "content"}},
+	"config_set_dropin":         {Required: []string{"dir", "file", "key", "value"}, Optional: []string{"section", "content", "separator"}},
 	"cron_job":                  {Required: []string{"schedule", "command", "user"}, Optional: []string{"name", "file"}},
 	"crypto_policy_set":         {Required: []string{"policy"}},
 	"crypto_policy_subpolicy":   {Required: []string{"subpolicy"}, Optional: []string{"unless"}},

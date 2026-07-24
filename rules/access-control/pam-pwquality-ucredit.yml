@@ -56,9 +56,11 @@ implementations:
       key: "ucredit"
       expected: "-1"
       comparator: "<="
+      dropin_dir: "/etc/security/pwquality.conf.d"
     remediation:
-      mechanism: config_set
-      path: "/etc/security/pwquality.conf"
+      mechanism: config_set_dropin
+      dir: "/etc/security/pwquality.conf.d"
+      file: "50-kensa-ucredit.conf"
       key: "ucredit"
       value: "-1"
       separator: " = "

@@ -44,7 +44,7 @@ type CheckContract struct {
 // contract. 24 functional methods; file_permission is an alias of
 // file_permissions sharing one contract.
 var CheckContracts = map[string]CheckContract{
-	"config_value":          {Required: []string{"path", "key", "expected"}, Optional: []string{"delimiter", "scan_pattern", "comparator"}},
+	"config_value":          {Required: []string{"path", "key", "expected"}, Optional: []string{"delimiter", "scan_pattern", "comparator", "dropin_dir"}},
 	"sysctl_value":          {Required: []string{"key", "expected"}, Optional: []string{"comparator"}},
 	"package_installed":     {Required: []string{"name"}},
 	"package_absent":        {Required: []string{"name"}},
