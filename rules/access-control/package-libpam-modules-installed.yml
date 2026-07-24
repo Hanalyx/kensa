@@ -1,0 +1,43 @@
+id: package-libpam-modules-installed
+title: Ensure latest version of libpam-modules is installed
+description: >
+  The libpam-modules package provides the core set of PAM modules (pam_unix,
+  pam_pwquality integration points, etc.) used across the authentication stack.
+rationale: >
+  Older versions of libpam-modules may lack security fixes and features the
+  hardened PAM configuration relies on. Keeping it installed and current ensures
+  the modules the CIS profile configures are present.
+severity: medium
+category: access-control
+tags:
+- pam
+- authentication
+- security
+references:
+  cis:
+    ubuntu22: { section: "5.3.1.2", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.3.1.2", level: "L1", type: "Automated" }
+  nist_800_53:
+  - IA-5
+  - CM-6
+  - SI-2
+platforms:
+- family: ubuntu
+  min_version: 22
+implementations:
+- when: apt
+  check:
+    method: package_state
+    name: libpam-modules
+    state: present
+  remediation:
+    mechanism: apt_present
+    name: libpam-modules
+- default: true
+  check:
+    method: package_state
+    name: libpam-modules
+    state: present
+  remediation:
+    mechanism: apt_present
+    name: libpam-modules
