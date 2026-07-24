@@ -1,6 +1,6 @@
 # Quickstart
 
-_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
+_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
 
 This chapter takes one host from "never scanned" to "remediated and rolled
 back" in four commands: **detect** what the host can do, **check** its

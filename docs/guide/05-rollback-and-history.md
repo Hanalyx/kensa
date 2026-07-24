@@ -1,6 +1,6 @@
 # 05 · Rollback and history
 
-_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
+_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
 
 Every `kensa remediate` writes what it did to a durable transaction log
 (SQLite). That log is what makes a remediation reversible, what crash
