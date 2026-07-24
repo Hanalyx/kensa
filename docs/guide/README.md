@@ -1,6 +1,6 @@
 # Kensa guide for administrators and engineers
 
-_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
+_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
 
 The operator-facing manual for Kensa. Read in order if you are new to
 Kensa; jump in by topic otherwise.
@@ -30,7 +30,7 @@ makes, and what to do when something goes wrong.
 ## Status
 
 All ten chapters are written and validated against the `kensa` binary at
-v0.7.6. Each chapter carries an _"Applies to"_ line.
+v0.8.0. Each chapter carries an _"Applies to"_ line.
 
 ## How to read this guide
 

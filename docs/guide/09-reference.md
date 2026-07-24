@@ -1,6 +1,6 @@
 # 09 · Command reference
 
-_Applies to: Kensa v0.7.6 — last updated 2026-07-10._
+_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
 
 This chapter documents every `kensa` command and flag. It is the
 exhaustive counterpart to the task-focused chapters: for *how* to scan
