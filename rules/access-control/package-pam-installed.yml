@@ -19,6 +19,8 @@ references:
       level: L1
       type: Automated
     rhel8: { section: "5.3.1.1", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.3.1.1", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.3.1.1", level: "L1", type: "Automated" }
   nist_800_53:
   - IA-5
   - CM-6
@@ -26,15 +28,19 @@ references:
 platforms:
 - family: rhel
   min_version: 8
+- family: ubuntu
+  min_version: 22
 implementations:
+# On Debian/Ubuntu the PAM runtime ships as libpam-runtime (there is no "pam"
+# apt package); CIS Ubuntu 5.3.1.1 audits dpkg-query -s libpam-runtime.
 - when: apt
   check:
     method: package_state
-    name: pam
+    name: libpam-runtime
     state: present
   remediation:
     mechanism: apt_present
-    name: pam
+    name: libpam-runtime
 - default: true
   check:
     method: package_state
