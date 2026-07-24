@@ -93,8 +93,8 @@ Out of scope:
 ## Supported versions
 
 Kensa is pre-1.0. Security fixes land in a new patch release on the current
-minor line, and we support only the most recent release (`v0.4.3` as of this
-writing).
+minor line, and we support only the most recent tagged release (see
+[the releases page](https://github.com/Hanalyx/kensa/releases/latest)).
 
 | Version | Security fixes |
 |---|---|

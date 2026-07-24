@@ -10,9 +10,21 @@ unreleased changes under `## Unreleased` and stamp them at tag time.
 The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
+Compare any two releases at
+<https://github.com/Hanalyx/kensa/compare/v0.7.6...v0.8.0> (swap the tags for
+any pair).
+
 ## Unreleased
 
-_Nothing yet — the next patch/minor work lands here._
+### Added
+- **Docs-consistency gate — `make docs-check` (CI job "Docs consistency").**
+  Keeps the front-door docs present and in sync: required files exist, the
+  CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the
+  newest stamped release, the README states the current version, and
+  `SECURITY.md` is linked from README + CONTRIBUTING. README gains
+  CI/release/license/security badges and a Security section; CONTRIBUTING gains
+  bug-reporting, commit-message, and vulnerability-disclosure guidance. Conventions
+  are documented for contributors in `CONTRIBUTING.md`.
 
 ## v0.8.0 — 2026-07-24
 

@@ -3,6 +3,18 @@
 Kensa modifies production Linux systems. A bug here can break customer
 infrastructure at 3 AM. The discipline below is not optional.
 
+## Reporting a bug or requesting a change
+
+Open a GitHub issue. For a bug, include: the `kensa` version (`kensa --version`),
+the target OS and version, the exact command, the observed behaviour, and what
+you expected — plus the relevant output (`--format json` where it helps). A
+minimal reproduction on a disposable host is worth more than a description.
+
+**Do not report a security vulnerability in a public issue.** Kensa makes
+privileged changes to production hosts; follow [`SECURITY.md`](SECURITY.md) for
+private disclosure (`security@hanalyx.com` or GitHub private vulnerability
+reporting) and the safe-harbor terms.
+
 ## Building and testing
 
 ```sh
@@ -141,6 +153,19 @@ before it merges. If the Python and Go implementations diverge against the same
 fixture, the spec arbitrates — fix whichever implementation is wrong, not the
 fixture.
 
+## Commit messages
+
+- **Imperative, present tense** in the subject (`fix(check): reject empty stdout`,
+  not `fixed` / `fixes`). Keep the first line short; wrap the body.
+- The body explains the **mechanism and the why** — the same standard as code
+  comments (see below): no planning labels, no chronology, no pointers into
+  untracked docs.
+- Engine, capture, or rollback commits carry the **failure-mode analysis** in the
+  body (see above). Reference the PR/issue.
+- AI-authored commits end with a `Co-Authored-By:` trailer naming the model, and
+  PR bodies note they were generated with assistance — the authorship model is
+  transparent, not hidden.
+
 ## Style
 
 - `go fmt` on save; `golangci-lint run` before push.
@@ -182,6 +207,26 @@ drop every entry for that kernel including the default."
 A `make comment-lint` check (and a CI job) enforces the planning-label rule on
 changed code. A comment that genuinely needs an exempt label can carry the
 `planlint:allow` directive.
+
+## Documentation
+
+The front-door docs — `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`,
+`SECURITY.md` — are kept consistent by `make docs-check` (CI job **Docs
+consistency**). Run it after touching any of them or `VERSION`.
+
+- **Every user-visible change adds a `## Unreleased` CHANGELOG entry in the same
+  PR** — a new flag, a changed default, a fixed verdict. Use the Keep a Changelog
+  categories (Added / Changed / Deprecated / Removed / Fixed / Security). Never
+  delete the `## Unreleased` heading; stamp it to `## vX.Y.Z — YYYY-MM-DD` at
+  release and open a fresh empty one.
+- `VERSION` matches the newest stamped CHANGELOG version, and the README states
+  the current version — bump both and refresh the README Status in the release
+  PR. Front-door docs carry no stale version string (mark a deliberate historical
+  reference with a `docs-check:allow-version` comment on that line).
+- Report a security issue via [`SECURITY.md`](SECURITY.md), never a public issue.
+
+The full checklist for AI sessions lives in the tracked `doc-consistency` skill
+(`.claude/skills/`).
 
 ## What gets merged without this discipline
 

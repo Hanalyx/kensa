@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline viewer hooks status clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline docs-check viewer hooks status clean
 
 help:
 	@echo "Kensa — common targets"
@@ -125,6 +125,9 @@ lint:
 BASE ?= origin/main
 comment-lint:
 	go run ./cmd/comment-lint -base $(BASE)
+
+docs-check: ## verify front-door docs (README/CONTRIBUTING/CHANGELOG/SECURITY) present, well-formed, and version-consistent
+	bash scripts/docs_check.sh
 
 # comment-lint-all scans every tracked .go comment (for an opt-in legacy sweep).
 comment-lint-all:
