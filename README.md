@@ -1,5 +1,10 @@
 # Kensa
 
+[![CI](https://github.com/Hanalyx/kensa/actions/workflows/ci.yml/badge.svg)](https://github.com/Hanalyx/kensa/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Hanalyx/kensa?sort=semver)](https://github.com/Hanalyx/kensa/releases/latest)
+[![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue)](LICENSE)
+[![Security policy](https://img.shields.io/badge/security-policy-informational)](SECURITY.md)
+
 Atomic compliance remediation for Linux. Every change runs as a four-phase
 transaction (`Capture → Apply → Validate → Commit/Rollback`) with signed
 evidence and verified rollback on failure.
@@ -90,7 +95,7 @@ Requires Go 1.26+ and make.
 git clone git@github.com:Hanalyx/kensa.git
 cd kensa
 make build                # builds all five binaries into bin/
-./bin/kensa --version     # → kensa 0.6.0 (kensa)
+./bin/kensa --version     # → kensa 0.8.0 (kensa)
 ```
 
 The five binaries:
@@ -112,20 +117,19 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.6.0`, released and signed. The 0.x line is the pre-1.0 development phase. The
+`v0.8.0`, released and signed. The 0.x line is the pre-1.0 development phase. The
 `api/` Go package is frozen under v1 semver for OpenWatch's consumption; the rest
 of the surface (CLI flags, rule schema additions, output formats) may change
 between MINOR versions with one release of deprecation warning. All 29 handlers
 carry passing spec-driven tests.
 
-What shipped is in [`CHANGELOG.md`](CHANGELOG.md); v0.6.0 is the atomicity engine
-(crash-recovery journal, post-apply re-validation, the pre-commit footprint gate,
-and agent-mode kernel-IO for the runtime and file handlers). See
+What shipped in each release is in [`CHANGELOG.md`](CHANGELOG.md); see
 [`VERSION`](VERSION) for the current string and
 [`VERSIONING_PLAN.md`](VERSIONING_PLAN.md) for the release contract.
 
-Open before v1.0: RHEL 8 `$kernelopts` capture in the boot guard, standalone
-Ubuntu corpus coverage, and live proof of the systemd D-Bus service path.
+Open before v1.0: RHEL 8 `$kernelopts` capture in the boot guard, broader
+standalone Ubuntu corpus coverage, and live proof of the systemd D-Bus service
+path.
 
 ## Quality discipline
 
@@ -139,6 +143,13 @@ tier-specific thresholds:
 
 A divergence between spec and code in Tier 1 is an atomicity violation. Run
 `make spec-sync` for the full pipeline.
+
+## Security
+
+Kensa makes privileged changes to production hosts, so we want your reports.
+Do **not** open a public issue for a vulnerability — see [`SECURITY.md`](SECURITY.md)
+for private disclosure (email `security@hanalyx.com` or GitHub private
+vulnerability reporting), our response process, and the safe-harbor terms.
 
 ## License
 

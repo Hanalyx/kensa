@@ -255,6 +255,20 @@ jobs:
       - name: comment-lint (added lines vs origin/main)
         run: make comment-lint
 
+  docs-consistency:
+    # Keeps the front-door docs present, well-formed, and in sync with the
+    # release version: required files exist, CHANGELOG keeps an ## Unreleased
+    # section with ISO-dated version headings, VERSION matches the newest stamped
+    # CHANGELOG entry, the README states the current version, and SECURITY.md is
+    # linked from README + CONTRIBUTING. See scripts/docs_check.sh and
+    # CONTRIBUTING.md.
+    name: Docs consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: docs-check
+        run: make docs-check
+
   pre-commit:
     # Mirror the pre-commit framework checks contributors run locally.
     # Default-stage hooks in .pre-commit-config.yaml are file hygiene
