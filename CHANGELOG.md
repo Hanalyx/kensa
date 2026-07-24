@@ -12,7 +12,25 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 ## Unreleased
 
+_Nothing yet — the next patch/minor work lands here._
+
+## v0.8.0 — 2026-07-24
+
 ### Added
+- **`config_value` gains an opt-in `dropin_dir` param** — it reads a base
+  config file **plus** its `*.conf.d/` drop-in directory together, with the last
+  match winning (the conventional drop-in override precedence), and tolerates
+  `grep`'s exit-2 on an unmatched glob. Base-file-only checks silently missed a
+  value set in a drop-in — the location CIS/STIG remediation writes to — and
+  **false-FAILed a correctly-hardened host**. Additive: config_value rules that
+  do not set `dropin_dir` are byte-identical to before. First applied to the
+  pwquality family (see Fixed).
+- **STIG Ubuntu coverage campaign (W7).** `stig-ubuntu22` → **84.0%** and
+  `stig-ubuntu24` → **85.6%** (from ~6%), corpus-only, frozen `api/` untouched,
+  every tranche adversarial-panel-reviewed + fleet-verified.
+- **CIS Ubuntu coverage campaign (W8), in progress.** `cis-ubuntu22` → **41.8%**
+  and `cis-ubuntu24` → **38.9%**, including Section 5.3 PAM (pwquality module
+  args, PAM software packages, `pam_faillock` unlock_time / even_deny_root).
 - **`audit_rule_set` now stages reboot-deferred on immutable-audit hosts
   instead of failing.** On a STIG-hardened host (`auditctl -s` reports
   `enabled 2`) the kernel refuses all runtime audit-rule loads until reboot, so
@@ -34,6 +52,20 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
   `WireStepResult` carries the new field; codegen-drift gate green.)
 
 ### Fixed
+- **pwquality checks are now faithful to the CIS/STIG audits (base + `.conf.d/`,
+  correct value semantics).** The whole `config_value` pwquality family
+  (difok, the credit/minlen/minclass/maxclassrepeat/retry rules, dictcheck) read
+  only the base `/etc/security/pwquality.conf` and **false-FAILed a host hardened
+  via `pwquality.conf.d/`**; they now read both (last-wins) via `dropin_dir`.
+  `maxrepeat`/`maxsequence` now correctly **FAIL** an explicit `=0` (which
+  disables the check — previously a false-PASS) via a range check. pwquality
+  remediation now works on Ubuntu (`config_set_dropin` creates the drop-in;
+  plain `config_set` cannot create a new file, and the base file is absent on
+  Ubuntu). **These change shipped RHEL cis/stig verdicts — strictly more
+  correct** (only the `=0` / drop-in-hardened edges move).
+- **`package-pam-installed` checked a non-existent `pam` apt package on Ubuntu.**
+  The `when: apt` path now checks `libpam-runtime` (what CIS Ubuntu 5.3.1.1
+  audits); the default (RHEL) path keeps `pam`.
 - **`audit_rule_set` no longer silently writes a duplicate audit rule that
   breaks the audit ruleset load.** A rule whose audit *action* (a watch's
   path+perms, or a syscall signature) is already audited on the host from a
@@ -52,6 +84,15 @@ the canonical names; short forms are listed in `cmd/kensa/flags.go`.
   `sudo`, and the new conflict guard would wrongly refuse the distinct `su` rule.
   It now compares whole `-F field=value` tokens, the `-k`/`key=` value, and
   `auid` tokens exactly (`auid>=1000` ≠ `auid>=10000`).
+
+### Changed
+- **Framework-divergent thresholds default to the stricter requirement; the
+  operator loosens via `--var`.** Where CIS and STIG disagree on a shared rule's
+  required value (e.g. pwquality `difok` — CIS ≥ 2 vs STIG ≥ 8; `unlock_time` —
+  CIS `0` or ≥ 900 vs STIG exactly `0`), the shipped default is the stricter
+  value, so a scan never false-PASSes either framework; a CIS operator running a
+  looser value passes `--var` (e.g. `--var pam_pwquality_difok=2`). No
+  per-framework branching lives in the rule — the variable is the knob.
 
 ### Security
 - Bumped `golang.org/x/text` to v0.39.0 (GO-2026-5970).
