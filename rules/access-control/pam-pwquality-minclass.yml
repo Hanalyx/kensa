@@ -45,9 +45,11 @@ implementations:
       key: "minclass"
       expected: "{{ pam_pwquality_minclass }}"
       comparator: ">="
+      dropin_dir: "/etc/security/pwquality.conf.d"
     remediation:
-      mechanism: config_set
-      path: "/etc/security/pwquality.conf"
+      mechanism: config_set_dropin
+      dir: "/etc/security/pwquality.conf.d"
+      file: "50-kensa-minclass.conf"
       key: "minclass"
       value: "{{ pam_pwquality_minclass }}"
       separator: " = "

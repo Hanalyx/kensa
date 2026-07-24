@@ -18,6 +18,8 @@ references:
     rhel8:  { section: "5.3.3.2.6", level: "L1", type: "Automated" }
     rhel9:  { section: "5.3.3.2.6", level: "L1", type: "Automated" }
     rhel10: { section: "5.3.2.2.6", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.3.3.2.6", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.3.3.2.6", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: "V-258110"
@@ -49,13 +51,20 @@ platforms:
 implementations:
   - default: true
     check:
+      # Effective dictcheck (base + .conf.d/ drop-ins, last wins) must be
+      # explicitly 1 — the STIG requirement (V-258110/V-230377/V-281191/
+      # V-260564/V-270704 treat absent/commented as a finding); also satisfies
+      # CIS 5.3.3.2.6 (!= 0). Absent -> FAIL (the invisible libpwquality default
+      # is not an enforced control on a hardened baseline).
       method: config_value
       path: "/etc/security/pwquality.conf"
       key: "dictcheck"
       expected: "1"
+      dropin_dir: "/etc/security/pwquality.conf.d"
     remediation:
-      mechanism: config_set
-      path: "/etc/security/pwquality.conf"
+      mechanism: config_set_dropin
+      dir: "/etc/security/pwquality.conf.d"
+      file: "50-kensa-dictcheck.conf"
       key: "dictcheck"
       value: "1"
       separator: " = "

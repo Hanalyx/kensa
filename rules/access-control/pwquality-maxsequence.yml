@@ -13,22 +13,35 @@ references:
     rhel9: { section: "5.3.3.2.5", level: "L1", type: "Automated" }
     rhel10: { section: "5.3.2.2.5", level: "L1", type: "Automated" }
     rhel8: { section: "5.3.3.2.5", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.3.3.2.5", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.3.3.2.5", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 implementations:
   - default: true
     check:
-      method: config_value
-      path: "/etc/security/pwquality.conf"
-      key: "maxsequence"
-      expected: "3"
-      comparator: "<="
+      # Reads base file + pwquality.conf.d/ drop-ins (last wins). CIS 5.3.3.2.5
+      # requires 1..3 — 0 DISABLES the check, so 0 (and absent, the default) is
+      # non-compliant. Upper bound is the variable (default 3).
+      method: command
+      run: |
+        val=$(grep -hE '^[[:space:]]*maxsequence[[:space:]]*=' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf 2>/dev/null | tail -n1 | sed 's/^[^=]*=[[:space:]]*//; s/[[:space:]].*$//')
+        [ -n "$val" ] || { echo "maxsequence not set"; exit 1; }
+        if [ "$val" -ge 1 ] 2>/dev/null && [ "$val" -le {{ pam_pwquality_maxsequence }} ] 2>/dev/null; then
+          echo "maxsequence=$val (1..{{ pam_pwquality_maxsequence }})"; exit 0
+        fi
+        echo "maxsequence=$val (not in 1..{{ pam_pwquality_maxsequence }}; 0 disables the check)"; exit 1
+      expected_exit: 0
     remediation:
-      mechanism: config_set
-      path: "/etc/security/pwquality.conf"
+      # Write to a drop-in so the value wins the check's last-wins read.
+      mechanism: config_set_dropin
+      dir: "/etc/security/pwquality.conf.d"
+      file: "50-kensa-maxsequence.conf"
       key: "maxsequence"
-      value: "3"
+      value: "{{ pam_pwquality_maxsequence }}"
       separator: " = "

@@ -23,6 +23,8 @@ references:
     rhel8:  { section: "5.3.3.2.1", level: "L1", type: "Automated" }
     rhel9:  { section: "5.3.3.2.1", level: "L1", type: "Automated" }
     rhel10: { section: "5.3.2.2.1", level: "L1", type: "Automated" }
+    ubuntu22: { section: "5.3.3.2.1", level: "L1", type: "Automated" }
+    ubuntu24: { section: "5.3.3.2.1", level: "L1", type: "Automated" }
   stig:
     rhel9:
       vuln_id: V-258112
@@ -54,14 +56,21 @@ platforms:
 implementations:
 - default: true
   check:
+    # Effective difok (base + pwquality.conf.d/ drop-ins, last wins) must be >=
+    # the threshold var: default 8 (STIG DoD); a CIS operator sets --var
+    # pam_pwquality_difok=2 (CIS 5.3.3.2.1 requires only >= 2). Absent -> FAIL.
     method: config_value
     path: /etc/security/pwquality.conf
     key: difok
     expected: '{{ pam_pwquality_difok }}'
     comparator: '>='
+    dropin_dir: /etc/security/pwquality.conf.d
   remediation:
-    mechanism: config_set
-    path: /etc/security/pwquality.conf
+    # Write to a drop-in so the value wins the last-wins read (matches CIS
+    # remediation guidance; keeps check + remediate on the same effective value).
+    mechanism: config_set_dropin
+    dir: /etc/security/pwquality.conf.d
+    file: 50-kensa-difok.conf
     key: difok
     value: '{{ pam_pwquality_difok }}'
     separator: ' = '

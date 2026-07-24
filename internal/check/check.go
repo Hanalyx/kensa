@@ -212,6 +212,23 @@ func firstLine(s string) string {
 // matches the expected string. Params: path, key, expected, optionally
 // scan_pattern (glob suffix for directory scans) and delimiter
 // (default "=").
+// selectMatchLine returns one line from grep stdout: the last non-empty line
+// when last is true (drop-in override precedence — later files win), else the
+// first. Returns "" when there is no match.
+func selectMatchLine(stdout string, last bool) string {
+	var chosen string
+	for _, ln := range strings.Split(stdout, "\n") {
+		if strings.TrimSpace(ln) == "" {
+			continue
+		}
+		if !last {
+			return ln
+		}
+		chosen = ln
+	}
+	return chosen
+}
+
 func checkConfigValue(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
 	path, err := stringParam(params, "path")
 	if err != nil {
@@ -230,6 +247,12 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 	expected, _ := expectedRaw.(string)
 	delimiter := optionalStringParam(params, "delimiter", "=")
 	scanPattern := optionalStringParam(params, "scan_pattern", "")
+	// dropin_dir reads the base file AND a *.conf.d/ drop-in directory together,
+	// with the LAST match winning (the conventional drop-in override precedence,
+	// e.g. /etc/security/pwquality.conf + pwquality.conf.d/). Without it a value
+	// set only in a drop-in — the location CIS/STIG remediation writes to — is
+	// missed and the host is FALSE-FAILED.
+	dropinDir := optionalStringParam(params, "dropin_dir", "")
 
 	// Escape the key before splicing it into the grep -E pattern: config
 	// keys legitimately contain regex metacharacters (e.g. rsyslog's
@@ -273,10 +296,20 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 		pattern = fmt.Sprintf(`^\s*%s\s*[%s:]\s*`, keyPat, delimiter)
 	}
 	var cmd string
-	if scanPattern != "" {
+	tolerateExit := false
+	lastWins := false
+	switch {
+	case dropinDir != "":
+		// Read the base file AND its drop-in directory. An unmatched glob (empty
+		// or absent dir) makes grep exit non-zero even when the base file
+		// matched, so select by stdout content, not exit code.
+		cmd = fmt.Sprintf("grep -E %s %s %s/*.conf 2>/dev/null", shellQuote(pattern), shellQuote(path), shellQuote(dropinDir))
+		tolerateExit = true
+		lastWins = true
+	case scanPattern != "":
 		// Directory scan: grep recursively using the scan pattern as a file glob suffix.
 		cmd = fmt.Sprintf("grep -rE %s %s/*.%s 2>/dev/null", shellQuote(pattern), shellQuote(path), shellQuote(scanPattern))
-	} else {
+	default:
 		cmd = fmt.Sprintf("grep -E %s %s 2>/dev/null", shellQuote(pattern), shellQuote(path))
 	}
 
@@ -284,12 +317,16 @@ func checkConfigValue(ctx context.Context, transport api.Transport, params api.P
 	if err != nil {
 		return false, "", fmt.Errorf("check config_value: transport error: %w", err)
 	}
-	if res.ExitCode != 0 {
+	if !tolerateExit && res.ExitCode != 0 {
 		return false, fmt.Sprintf("config_value: key %q not found in %s", key, path), nil
 	}
 
-	// Take the first matching line and extract the value portion.
-	line := strings.SplitN(res.Stdout, "\n", 2)[0]
+	// Select the effective matching line: last-wins under drop-in precedence,
+	// otherwise the first match.
+	line := selectMatchLine(res.Stdout, lastWins)
+	if line == "" {
+		return false, fmt.Sprintf("config_value: key %q not found in %s", key, path), nil
+	}
 	// Strip a leading "filename:" prefix produced by grep -r.
 	if idx := strings.Index(line, ":"); idx >= 0 {
 		// Only strip if the part before the colon looks like a path
