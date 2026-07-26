@@ -7,7 +7,7 @@ infrastructure at 3 AM. The discipline below is not optional.
 
 Open a GitHub issue. For a bug, include: the `kensa` version (`kensa --version`),
 the target OS and version, the exact command, the observed behaviour, and what
-you expected — plus the relevant output (`--format json` where it helps). A
+you expected, plus the relevant output (`--format json` where it helps). A
 minimal reproduction on a disposable host is worth more than a description.
 
 **Do not report a security vulnerability in a public issue.** Kensa makes
@@ -24,8 +24,8 @@ golangci-lint run     # lint (CI pins the version)
 make spec-sync        # spec + coverage gate (see "Spec before code")
 ```
 
-Every PR must pass all of these in CI — unit tests, lint, spec coverage, the
-build, and the codegen and portability gates — before it can merge. Branch off
+Every PR must pass all of these in CI (unit tests, lint, spec coverage, the
+build, and the codegen and portability gates) before it can merge. Branch off
 `main`, keep the branch up to date before merging (CI re-runs on update), and
 open a PR.
 
@@ -41,7 +41,7 @@ Beyond Go itself (toolchain version pinned in `go.mod`), the build expects:
 - **`protoc-gen-go`** (Go bindings plugin). Install with
   `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`. The version
   is pinned via `tools.go` so everyone regenerates byte-identical output.
-  `go install` puts the binary in `$(go env GOPATH)/bin` — make sure that's on
+  `go install` puts the binary in `$(go env GOPATH)/bin`. Make sure that's on
   `PATH`.
 
 The codegen-drift gate (`make proto-check` + `TestCodegenSync`) fails the build
@@ -57,9 +57,9 @@ so a missing-locally / passing-in-CI workflow is fine for everyday development.
 Some tests run against a real SSH-able host. They skip by default; set the env
 vars below to opt in.
 
-- **`KENSA_TEST_SSH_HOST`** — host (or `host:port`) for SSH integration tests.
+- **`KENSA_TEST_SSH_HOST`**: host (or `host:port`) for SSH integration tests.
   When unset, SSH-dependent tests under `internal/transport/ssh/` skip.
-- **`KENSA_TEST_AGENT_MODE=1`** — opt in to the agent-mode live-host parity test
+- **`KENSA_TEST_AGENT_MODE=1`**: opt in to the agent-mode live-host parity test
   (`cmd/kensa.TestLiveAgentMode_FilePermissionsParity`). Requires
   `KENSA_TEST_SSH_HOST`, and the SSH user must be able to write
   `~/.cache/kensa/agent-<sha>` on the target. The test creates a temp file under
@@ -72,14 +72,14 @@ in `-v` output.
 
 ## How changes are reviewed
 
-Every change is reviewed before it merges — review is not optional, because a bug
+Every change is reviewed before it merges. Review is not optional, because a bug
 here breaks production. A reviewer walks through the change, the spec it
 satisfies, and the test that exercises its failure path before approving.
 
 The bar scales with blast radius. An ordinary change needs a green CI run and a
 reviewer's approval. A change to the transaction engine, a handler's capture or
 rollback path, the public `api/` surface, or anything security-sensitive carries
-the additional discipline below — a failure-mode analysis, two-reviewer approval
+the additional discipline below: a failure-mode analysis, two-reviewer approval
 for rollback handlers, a real-host atomicity test, and a capture-sufficiency
 analysis for transactional rules. None of it is skippable.
 
@@ -93,7 +93,7 @@ tests enforce it; the code satisfies the tests.
 
 **Never adjust a test to match code output.** The spec is the source of truth. If
 the code diverges from the spec, fix the code. If the spec is wrong, update the
-spec first — and that needs approval before the implementation changes.
+spec first, and that needs approval before the implementation changes.
 
 Run `make spec-sync` before every PR. A PR that reduces spec coverage below its
 tier threshold blocks at CI. A new test must carry its `@spec`/`@ac` annotations,
@@ -150,21 +150,34 @@ Merge is blocked if this section is missing for a `transactional: true` rule.
 Fixtures in `fixtures/handlers/*/` are shared with the Python Kensa reference
 implementation. A fixture change must pass both the Go and Python test suites
 before it merges. If the Python and Go implementations diverge against the same
-fixture, the spec arbitrates — fix whichever implementation is wrong, not the
+fixture, the spec arbitrates. Fix whichever implementation is wrong, not the
 fixture.
 
 ## Commit messages
 
+Hanalyx's git and GitHub conventions are defined once for every product repo, and
+this section states how they apply here. Where the two differ, the shared
+standard wins.
+
 - **Imperative, present tense** in the subject (`fix(check): reject empty stdout`,
   not `fixed` / `fixes`). Keep the first line short; wrap the body.
-- The body explains the **mechanism and the why** — the same standard as code
+- The body explains the **mechanism and the why**, the same standard as code
   comments (see below): no planning labels, no chronology, no pointers into
   untracked docs.
 - Engine, capture, or rollback commits carry the **failure-mode analysis** in the
   body (see above). Reference the PR/issue.
-- AI-authored commits end with a `Co-Authored-By:` trailer naming the model, and
-  PR bodies note they were generated with assistance — the authorship model is
-  transparent, not hidden.
+- **Never attribute a commit to an AI tool or agent.** No `Co-Authored-By:`
+  naming an assistant, no "generated with" footer, no agent name in the author or
+  committer field. Whoever opens the pull request owns the change and answers for
+  it. A `Co-Authored-By:` trailer for a human collaborator is still welcome.
+  Authorship stays transparent through the failure-mode analysis above, which a
+  human writes and signs, rather than through a trailer a tool appends.
+- **No planning labels in a branch name, a commit subject, or an issue title.**
+  `phase`, `wave`, `w8`, `tranche`, and any sprint, milestone, or step code mean
+  nothing to a reader a year from now. Name the change for what it does
+  (`fix/login-rate-limit`, not `fix/phase-4-auth`). Campaign context belongs in
+  the PR body, where it is prose rather than an identifier. A permanent,
+  resolvable reference is fine: a PR number, an issue number, a CVE.
 
 ## Style
 
@@ -176,31 +189,31 @@ fixture.
 ## Comments
 
 Comments explain the **intent and invariants** of the code, in terms a reader who
-has *only the code* can understand — no design docs, no PR history, no memory of
+has *only the code* can understand: no design docs, no PR history, no memory of
 the meeting.
 
-**Self-check:** *delete every design doc and forget every meeting — does this
+**Self-check:** *delete every design doc and forget every meeting. Does this
 comment still teach me why the code is this way?* If not, rewrite it.
 
 Do **not** write:
 
-- **Planning labels** — `Phase 3`, `Option B`, `Stage 2`, `Milestone 1`,
+- **Planning labels**: `Phase 3`, `Option B`, `Stage 2`, `Milestone 1`,
   `Stream A`, `increment 2`, or task codes like `P-004`. They point into plans a
   reader can't reach. Write the *mechanism* instead: not "implements Option B"
   but "stages the change on a one-shot trial entry and leaves the saved default
   as the fallback." (A `Phase N:` heading naming a step of an *algorithm in this
-  file* — e.g. the engine's `Phase 2: CAPTURE` — is fine: it describes the code.)
-- **Incident provenance / error codes** — `203/EXEC`, "caught by the reboot test
+  file*, for example the engine's `Phase 2: CAPTURE`, is fine: it describes the code.)
+- **Incident provenance / error codes**: `203/EXEC`, "caught by the reboot test
   on RHEL 9.6". Write cause→effect: "under SELinux a file below `/var/lib` is
   `var_lib_t`, which the service domain may not execute."
-- **Chronology** — `approved 2026-05-27`, "so far", "separate increment", "as of
+- **Chronology**: `approved 2026-05-27`, "so far", "separate increment", "as of
   this commit". It rots on the next change; it lives in git history and the
   changelog.
-- **References into untracked docs** — `§7.1b`, `see docs/roadmap/…`. A fresh
+- **References into untracked docs**: `§7.1b`, `see docs/roadmap/…`. A fresh
   clone doesn't contain `docs/`, so the pointer can't be followed. Inline the
   constraint. (Referencing a *tracked* file like `CONTRIBUTING.md` is fine.)
 
-Do write the high-value comment: **why this and not the obvious alternative** —
+Do write the high-value comment: **why this and not the obvious alternative**,
 e.g. "delete the specific entry file, NOT `grubby --remove-kernel`, which would
 drop every entry for that kernel including the default."
 
@@ -210,20 +223,30 @@ changed code. A comment that genuinely needs an exempt label can carry the
 
 ## Documentation
 
-The front-door docs — `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`,
-`SECURITY.md` — are kept consistent by `make docs-check` (CI job **Docs
+The front-door docs (`README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`,
+`SECURITY.md`) are kept consistent by `make docs-check` (CI job **Docs
 consistency**). Run it after touching any of them or `VERSION`.
 
 - **Every user-visible change adds a `## Unreleased` CHANGELOG entry in the same
-  PR** — a new flag, a changed default, a fixed verdict. Use the Keep a Changelog
+  PR**: a new flag, a changed default, a fixed verdict. Use the Keep a Changelog
   categories (Added / Changed / Deprecated / Removed / Fixed / Security). Never
-  delete the `## Unreleased` heading; stamp it to `## vX.Y.Z — YYYY-MM-DD` at
-  release and open a fresh empty one.
+  delete the `## Unreleased` heading; stamp it to `## vX.Y.Z (YYYY-MM-DD)` at
+  release and open a fresh empty one. Kensa uses parentheses rather than a dash
+  here, because the **Doc style** check rejects the em dash; the shared Hanalyx
+  standard leaves the heading format to each project. Headings stamped before
+  2026-07-25 keep the older separator until the CHANGELOG is swept.
 - `VERSION` matches the newest stamped CHANGELOG version, and the README states
-  the current version — bump both and refresh the README Status in the release
+  the current version. Bump both and refresh the README Status in the release
   PR. Front-door docs carry no stale version string (mark a deliberate historical
   reference with a `docs-check:allow-version` comment on that line).
 - Report a security issue via [`SECURITY.md`](SECURITY.md), never a public issue.
+
+Markdown is also checked for writing style by `make docs-style` (CI job **Doc
+style**), which fails on em dashes, emojis, and AI-speak filler and hype. It scans
+only the Markdown a pull request changes, and it scans those files whole rather
+than line by line, so touching a file means clearing anything already there. Fix
+the prose rather than suppress the finding. Where a term is genuinely unavoidable
+and a maintainer agrees, mark that line with `<!-- doc-style: allow -->`.
 
 The full checklist for AI sessions lives in the tracked `doc-consistency` skill
 (`.claude/skills/`).
