@@ -269,6 +269,25 @@ jobs:
       - name: docs-check
         run: make docs-check
 
+  doc-style:
+    # Enforces the Hanalyx developer documentation style guide (canonical copy:
+    # Context Plane dev/DEVELOPER_DOCUMENTATION_STYLE_GUIDE): no em dashes, no
+    # emojis, no AI-speak filler or hype. Scans only Markdown changed against
+    # origin/main, so the pre-existing backlog does not block unrelated work.
+    # Fenced and inline code are exempt; a maintainer-cleared line may carry
+    # <!-- doc-style: allow -->. Shared tool, owned by hanalyx-platform-agent;
+    # see scripts/check-doc-style.py and CONTRIBUTING.md.
+    name: Doc style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: doc-style
+        run: |
+          git fetch origin main --depth=1 2>/dev/null || true
+          make docs-style
+
   pre-commit:
     # Mirror the pre-commit framework checks contributors run locally.
     # Default-stage hooks in .pre-commit-config.yaml are file hygiene
