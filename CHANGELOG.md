@@ -17,7 +17,7 @@ any pair).
 ## Unreleased
 
 ### Added
-- **Docs-consistency gate — `make docs-check` (CI job "Docs consistency").**
+- **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the
   CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the
   newest stamped release, the README states the current version, and
@@ -26,14 +26,14 @@ any pair).
   bug-reporting, commit-message, and vulnerability-disclosure guidance. Conventions
   are documented for contributors in `CONTRIBUTING.md`.
 
-## v0.8.0 — 2026-07-24
+## v0.8.0 (2026-07-24)
 
 ### Added
-- **`config_value` gains an opt-in `dropin_dir` param** — it reads a base
+- **`config_value` gains an opt-in `dropin_dir` param**: it reads a base
   config file **plus** its `*.conf.d/` drop-in directory together, with the last
   match winning (the conventional drop-in override precedence), and tolerates
   `grep`'s exit-2 on an unmatched glob. Base-file-only checks silently missed a
-  value set in a drop-in — the location CIS/STIG remediation writes to — and
+  value set in a drop-in (the location CIS/STIG remediation writes to) and
   **false-FAILed a correctly-hardened host**. Additive: config_value rules that
   do not set `dropin_dir` are byte-identical to before. First applied to the
   pwquality family (see Fixed).
@@ -47,7 +47,7 @@ any pair).
   instead of failing.** On a STIG-hardened host (`auditctl -s` reports
   `enabled 2`) the kernel refuses all runtime audit-rule loads until reboot, so
   the previous behaviour was: write the drop-in, fail the post-apply re-check,
-  roll back to nothing — all 104 `audit_rule_set` rules were unremediable on
+  roll back to nothing, all 104 `audit_rule_set` rules were unremediable on
   exactly the hosts under assessment. The handler now detects immutability
   (netlink `GetStatus` / shell `auditctl -s`), writes the persist layer, and
   reports a new terminal outcome **`staged`** (reboot loads the change). The
@@ -56,11 +56,11 @@ any pair).
   transactions are rollback-able (`kensa rollback` removes the staged drop-in
   byte-perfect). Live-verified: immutable stage→rollback (RHEL 9.6/8.10),
   mutable commit→rollback (RHEL 9.8), and stage→reboot→converged (RHEL 8.10).
-- **`api/` (frozen contract) additions — additive, no breaking change:**
+- **`api/` (frozen contract) additions, additive, no breaking change:**
   `TransactionStatus` gains `staged`; `StepResult` gains a `Staged` field;
   a `Staged` `EventKind` + `StagedData` payload. **OpenWatch must map the new
   `staged` `TransactionStatus`** in `host_rule_state` before the next `go.mod`
-  bump — an unmapped value hits its `switch` default. (Wire protocol
+  bump, an unmapped value hits its `switch` default. (Wire protocol
   `WireStepResult` carries the new field; codegen-drift gate green.)
 
 ### Fixed
@@ -70,10 +70,10 @@ any pair).
   only the base `/etc/security/pwquality.conf` and **false-FAILed a host hardened
   via `pwquality.conf.d/`**; they now read both (last-wins) via `dropin_dir`.
   `maxrepeat`/`maxsequence` now correctly **FAIL** an explicit `=0` (which
-  disables the check — previously a false-PASS) via a range check. pwquality
+  disables the check, previously a false-PASS) via a range check. pwquality
   remediation now works on Ubuntu (`config_set_dropin` creates the drop-in;
   plain `config_set` cannot create a new file, and the base file is absent on
-  Ubuntu). **These change shipped RHEL cis/stig verdicts — strictly more
+  Ubuntu). **These change shipped RHEL cis/stig verdicts, strictly more
   correct** (only the `=0` / drop-in-hardened edges move).
 - **`package-pam-installed` checked a non-existent `pam` apt package on Ubuntu.**
   The `when: apt` path now checks `libpam-runtime` (what CIS Ubuntu 5.3.1.1
@@ -84,12 +84,12 @@ any pair).
   different `rules.d` drop-in is now detected and refused (Success:false, with a
   detail naming the existing rule) rather than written. Writing a second drop-in
   for the same action collides at load ("Rule exists"), aborts the whole ruleset
-  load, and drops the host out of immutable state at the next reboot — observed
+  load, and drops the host out of immutable state at the next reboot, observed
   and fixed on a live RHEL 9.6 host. Detection scans the `rules.d` files (the
   reboot source) key-agnostically, because the kernel deduplicates on the action,
   not the `-k` key; reconciling the existing rule (accept-as-satisfied / relabel)
   is left to the operator.
-- **Exact audit-rule matching — path/key/auid prefixes no longer false-match.**
+- **Exact audit-rule matching, path/key/auid prefixes no longer false-match.**
   The audit matcher compared field tokens by substring, so `-F path=/usr/bin/su`
   matched a loaded `-F path=/usr/bin/sudo` (`su` is a prefix of `sudo`):
   `kensa check` would **false-PASS** the `su` control on a host that only audits
@@ -100,21 +100,21 @@ any pair).
 ### Changed
 - **Framework-divergent thresholds default to the stricter requirement; the
   operator loosens via `--var`.** Where CIS and STIG disagree on a shared rule's
-  required value (e.g. pwquality `difok` — CIS ≥ 2 vs STIG ≥ 8; `unlock_time` —
+  required value (e.g. pwquality `difok`: CIS ≥ 2 vs STIG ≥ 8; `unlock_time`:
   CIS `0` or ≥ 900 vs STIG exactly `0`), the shipped default is the stricter
   value, so a scan never false-PASSes either framework; a CIS operator running a
   looser value passes `--var` (e.g. `--var pam_pwquality_difok=2`). No
-  per-framework branching lives in the rule — the variable is the knob.
+  per-framework branching lives in the rule; the variable is the knob.
 
 ### Security
 - Bumped `golang.org/x/text` to v0.39.0 (GO-2026-5970).
 
-## v0.7.6 — 2026-07-11
+## v0.7.6 (2026-07-11)
 
 A security + coverage patch: a root-command-injection fix in the
 `file_content` / `file_absent` handlers, the RHEL 10 STIG coverage campaign
 (wave W6), and the rule-correctness fixes it surfaced. The frozen `api/` is
-untouched — a drop-in bump for consumers. Every change was adversarial-panel-
+untouched, a drop-in bump for consumers. Every change was adversarial-panel-
 reviewed and live-verified on the fleet.
 
 ### Security
@@ -160,21 +160,21 @@ reviewed and live-verified on the fleet.
 ### Notes
 - New `ENCRYPT_METHOD=SHA512` STIG rule is kept separate from the CIS
   `password-hashing-algorithm` rule (which accepts YESCRYPT), so a yescrypt
-  host correctly passes CIS and fails the STIG — an intentional framework
+  host correctly passes CIS and fails the STIG, an intentional framework
   divergence, not a contradiction.
 
-## v0.7.4 — 2026-07-06
+## v0.7.4 (2026-07-06)
 
 An atomicity + verdict-correctness patch. Two founder-gated fixes, each
 adversarial-panel-reviewed and live-verified on the fleet. Frozen `api/`
-untouched — a drop-in bump for consumers. (v0.7.3 was not tagged: its planned
+untouched, a drop-in bump for consumers. (v0.7.3 was not tagged: its planned
 cross-rule-invariant-gate content shipped in v0.7.2.)
 
 ### Fixed
 
 - **Byte-perfect rollback of newline-terminated files (#247).** Whole-file
   content captured over the shell transport was read as raw `cat` stdout, which
-  the transport trims of its final newline — so a newline-terminated file was
+  the transport trims of its final newline, so a newline-terminated file was
   restored one byte short on rollback (a non-byte-perfect rollback). Fixed as a
   full class (11 handlers + bootguard) via a shared base64 capture + byte-exact
   decode, a fail-closed existence probe (a missing `base64` aborts capture rather
@@ -189,12 +189,12 @@ cross-rule-invariant-gate content shipped in v0.7.2.)
   not (they are not `[Install]`-enabled); the disabled direction is unchanged.
   Live-verified on RHEL 9.6. (#267)
 
-## v0.7.2 — 2026-07-06
+## v0.7.2 (2026-07-06)
 
 The atomicity and cross-rule-integrity patch on the v0.7.1 line. It closes the
-two-human-review atomicity items deferred from v0.7.1 — `rollback --start`
+two-human-review atomicity items deferred from v0.7.1, `rollback --start`
 status persistence, the `audit_rule_set` shared-file clobber, and root-write
-input hardening — adds a cross-rule duplicate-citation CI gate, and drains the
+input hardening, adds a cross-rule duplicate-citation CI gate, and drains the
 corpus ratchet allowlists to zero. The frozen `api/` surface is untouched: a
 drop-in version bump for consumers.
 
@@ -216,11 +216,11 @@ drop-in version bump for consumers.
   Apply reads the shared persist file and merges this rule's lines in; Rollback
   removes only its own lines (deleting the file only when no managed lines
   remain). This fixes reboot-persistence loss when multiple audit rules share a
-  CIS-convention drop-in (`50-privileged.rules`, `50-identity.rules`, …) — the
+  CIS-convention drop-in (`50-privileged.rules`, `50-identity.rules`, …), the
   whole-file overwrite previously left only the last writer on disk. (#232)
 - **Write-ahead journal cursor.** The engine journals per-step progress
   write-ahead of each mutation, adding step-level crash-recovery forensics. The
-  cursor is forensic only — recovery stays cursor-independent (it compensates
+  cursor is forensic only, recovery stays cursor-independent (it compensates
   every captured pre-state in reverse regardless of the cursor). (#248)
 
 ### Fixed
@@ -228,10 +228,10 @@ drop-in version bump for consumers.
 - **`rollback --start` now persists rolled-back status.** A completed
   out-of-band rollback marks the transaction rolled-back (`status` +
   `rolled_back_at`), records a rollback event per step, and refreshes the owning
-  session's counters so it stops showing as rollback-able — closing a
+  session's counters so it stops showing as rollback-able, closing a
   double-rollback risk and a log that previously lied. (#231)
 - **Corpus ratchet allowlists drained to zero.** The check-param, value-domain,
-  and mechanism-param deferral lists are now empty — the underlying rule defects
+  and mechanism-param deferral lists are now empty, the underlying rule defects
   (broken checks, out-of-domain values, wrong param names) are fixed at the
   source rather than deferred. (#235–#239, #244)
 
@@ -247,22 +247,22 @@ drop-in version bump for consumers.
 ### Known limits
 
 - The `audit_rule_set` netlink rule-LOAD success path is unit-covered but not
-  yet live-proven — the test fleet has no mutable-audit host (RHEL is
+  yet live-proven, the test fleet has no mutable-audit host (RHEL is
   `enabled=2` immutable; the Ubuntu fleet has no auditd). Tracked as a v0.7.2
   live-validation residual.
 
-## v0.7.1 — 2026-07-02
+## v0.7.1 (2026-07-02)
 
 A security-hardening and coverage patch on the v0.7.0 line. The frozen `api/`
-surface is untouched — a drop-in version bump for consumers. The headline is
+surface is untouched, a drop-in version bump for consumers. The headline is
 credential redaction across the evidence and transaction-log surfaces; it also
 adds supply-chain governance (a depguard direct-dependency allowlist and a
 CycloneDX SBOM), takes CIS RHEL 9 coverage to 100%, and fixes a handful of
 verdict and citation bugs surfaced by live testing.
 
-The atomicity items originally scoped for this line — the `rollback --start`
+The atomicity items originally scoped for this line, the `rollback --start`
 status-persistence fix, the `audit_rule_set` shared-file clobber, and the
-grub-value / newline input hardening — are deferred to v0.7.2, where they get
+grub-value / newline input hardening, are deferred to v0.7.2, where they get
 the two-human review and real-host atomicity tests they require.
 
 ### Security
@@ -272,8 +272,8 @@ the two-human review and real-host atomicity tests they require.
   and similar) are scrubbed to `"<redacted>"` in the signed evidence envelope
   and the transaction-log record. The signature is computed over the redacted
   content, so stored evidence carries no credential and still verifies. The
-  rollback pre-state store is deliberately left intact — it is the restoration
-  source, not an audit surface — so rollback still restores real values.
+  rollback pre-state store is deliberately left intact; it is the restoration
+  source, not an audit surface, so rollback still restores real values.
 - **Supply-chain governance.** A `depguard` allowlist in `.golangci.yml`
   enforces the direct-dependency set: an import that is not on the allowlist
   fails the lint gate, and a test keeps the allowlist equal to `go.mod`'s direct
@@ -309,7 +309,7 @@ the two-human review and real-host atomicity tests they require.
   rule status labels (`manual`, `detection-only`, `rollback-safe`, `verified`
   with its check-vs-rollback-proven scope) are defined in the operator guide.
 
-## v0.7.0 — 2026-06-28
+## v0.7.0 (2026-06-28)
 
 The OpenWatch-GA line. It closes a root command-injection in the
 `file_permissions` handler, repairs a class of checks that could never fail,
@@ -317,7 +317,7 @@ corrects the compliance-verdict surface (the framework control-ids a scan
 reports), proves verified coverage and atomicity on real RHEL 8/9/10 hosts, and
 adds CI gates that hold all of it correct. The frozen `api/` surface is
 untouched. The root-RCE fix and the three rollback-handler changes (#182/#183/
-#184) were live-proven on RHEL 9.6 — byte-perfect remediate→rollback and, for
+#184) were live-proven on RHEL 9.6, byte-perfect remediate→rollback and, for
 the RCE, the injection confirmed inert against the vulnerable control.
 
 ### Security
@@ -326,13 +326,13 @@ the RCE, the injection confirmed inert against the vulnerable control.
   the `owner`, `group`, and `mode` rule values into `chown`/`chmod` unquoted on
   both the apply and rollback paths, so a crafted value in a rule could execute
   arbitrary commands as root during remediation. All three values are now
-  shell-quoted, matching the already-quoted path and SELinux context — rule
+  shell-quoted, matching the already-quoted path and SELinux context, rule
   content is treated as untrusted input. (Present in v0.6.0; the headline fix of
   this line.)
 
 ### Added
 
-- **rhel10 verified coverage** — a full read-only scan on a live RHEL 10.1 host
+- **rhel10 verified coverage**: a full read-only scan on a live RHEL 10.1 host
   records functional verifications, so every covered RHEL 10 STIG control
   (146/146) and CIS control (226/227) is now proven, not citation-only. RHEL 10
   was previously at 0% verified.
@@ -344,14 +344,14 @@ the RCE, the injection confirmed inert against the vulnerable control.
 - **Two new rules**: `grub-init-on-free` (the `init_on_free=1` kernel parameter)
   and `ssh-x11-forwarding` (`X11Forwarding no`), closing coverage the citation
   cleanup surfaced.
-- **CI consistency gate** — a test fails the build when any rule's cited STIG
+- **CI consistency gate**: a test fails the build when any rule's cited STIG
   `stig_id` and `vuln_id` resolve to different controls, so the corrected
   citations cannot silently drift back.
 
 - **`command` checks with an empty `expected_stdout` now assert no output.**
   Previously an explicitly-empty expected value skipped the output assertion
   entirely, so a `find … || true` / `grep … || true` check asserted only its
-  (always-zero) exit code and could never FAIL — about 41 rules, including a HIGH
+  (always-zero) exit code and could never FAIL, about 41 rules, including a HIGH
   control for blank passwords, were affected. A present-but-empty `expected_stdout`
   now requires the command to produce no output.
 - **`sysctl_set` no longer clobbers sibling settings.** Multiple sysctl rules
@@ -377,12 +377,12 @@ the RCE, the injection confirmed inert against the vulnerable control.
 - The benchmark catalog now reports zero citation drift and zero
   `vuln_id`/`stig_id` inconsistency across every RHEL STIG and CIS benchmark.
 
-## v0.6.0 — 2026-06-23
+## v0.6.0 (2026-06-23)
 
-MINOR — the frozen `api/` surface gains additive crash-recovery types
+MINOR, the frozen `api/` surface gains additive crash-recovery types
 (verified no breaking change). This line ships the **atomicity engine**: a
 remediation is now a verified transaction that is durably journaled, re-measured
-after apply, reversed on crash, and — on the agent path — funnelled through
+after apply, reversed on crash, and (on the agent path) funnelled through
 kernel-atomic primitives behind a pre-commit rollback-completeness gate.
 
 ### Added
@@ -396,7 +396,7 @@ kernel-atomic primitives behind a pre-commit rollback-completeness gate.
   rollback status** (#121): the engine re-reads the host after apply and labels
   `committed` only on machine-verified success, `rolled_back` only on verified
   restoration.
-- **Post-state recapture into the signed evidence envelope** (#125) — the
+- **Post-state recapture into the signed evidence envelope** (#125), the
   envelope carries a re-measured `PostStateBundle`.
 - **Footprint pre-commit gate** (#133–#137): in agent mode the engine records
   every filesystem mutation an apply funnels and asserts `observed ⊆ captured`
@@ -443,18 +443,18 @@ kernel-atomic primitives behind a pre-commit rollback-completeness gate.
 ### Security
 
 - **Shell single-quote breakout** in the `sed` programs of `pam_module_arg` /
-  `config_append` shell paths (pre-existing; SSH/agentless path only) fixed —
+  `config_append` shell paths (pre-existing; SSH/agentless path only) fixed:
   the sed program is now `shellEscape`-wrapped.
 - `mount_option_set` shell capture now `regexp.QuoteMeta`s the mount point
   (prevents wrong-fstab-line capture/rollback).
 - Pre-apply restorability probe refuses to apply when a captured resource is
-  immutable — a transaction whose rollback is impossible is refused, not
+  immutable, a transaction whose rollback is impossible is refused, not
   committed unrollbackable.
 
 > Known follow-ups tracked in `docs/roadmap/STATUS.md` (recover-vs-live-engine
 > shared lock not yet wired; journal `cursor` write-ahead unwired).
 
-## v0.5.2 — 2026-06-19
+## v0.5.2 (2026-06-19)
 
 Closes a class of *silent* rule-engine drift: the rule schema, the
 corpus, the check/remediation engine, and the validator could disagree
@@ -462,7 +462,7 @@ and a rule would still load and emit a confident-but-wrong compliance
 verdict. This release converts each axis into a code-enforced gate that
 fails CI on regression, fixes the one live-caught false verdict the new
 gates exposed, and corrects a CLI-output mislabel. PATCH bump: all
-changes are in `internal/`, `cmd/`, `specs/`, and `rules/` — the frozen
+changes are in `internal/`, `cmd/`, `specs/`, and `rules/`, the frozen
 `api/` surface is untouched.
 
 ### Added
@@ -475,9 +475,9 @@ changes are in `internal/`, `cmd/`, `specs/`, and `rules/` — the frozen
   ratcheting allowlist tracks the remaining known-non-conforming corpus
   rules and may only shrink (#97).
 - **Value-domain validation.** Param *values* are checked against their
-  domain at rule load — comparator ∈ {`==`,`!=`,`<`,`<=`,`>`,`>=`},
+  domain at rule load, comparator ∈ {`==`,`!=`,`<`,`<=`,`>`,`>=`},
   enum-valued params (apparmor/kernel_module/package state), and
-  `config_set.separator` — rejecting out-of-domain values that previously
+  `config_set.separator`, rejecting out-of-domain values that previously
   loaded and misbehaved. Ratcheting allowlist (#98).
 - **Comparator + first-class delimiter engine for value checks.**
   `config_value` and `sysctl_value` now accept an optional `comparator`
@@ -486,8 +486,9 @@ changes are in `internal/`, `cmd/`, `specs/`, and `rules/` — the frozen
   `config_value` accepts a first-class `delimiter` param. Both are now
   documented in `CANONICAL_RULE_SCHEMA_V1.md` §3.5.3 (regenerated from the
   contracts) with new §3.5.3.1 (comparator) and §3.5.3.2 (delimiter) (#100).
-- **Full-spectrum behavior harness + schema/engine parity gate.** A
-  fixture-driven harness exercises each check against real temp files for
+- **Full-spectrum check-behavior suite + schema/engine parity gate.** A
+  fixture-driven suite (`rule_behavior_harness_test.go`) exercises each check
+  against real temp files for
   pass/fail/edge cases (#101); a parity test parses the check dispatch
   switch from source and asserts it matches `CheckContracts` in both
   directions, so the contract can never silently drift from the
@@ -498,7 +499,7 @@ changes are in `internal/`, `cmd/`, `specs/`, and `rules/` — the frozen
 - **`config_value` with `delimiter: " "` now matches whitespace, not only
   a literal space.** RHEL `login.defs` is TAB-delimited (`PASS_WARN_AGE⇥7`),
   so the space-only match silently returned "not found" and produced a
-  false FAIL on the login.defs class of rules — exactly the wrong-verdict
+  false FAIL on the login.defs class of rules, exactly the wrong-verdict
   failure these gates exist to catch (found by the live-fleet review, not
   static analysis). Extraction is now whitespace-aware for the `" "`
   delimiter, with TAB regression coverage (#103).
@@ -518,7 +519,7 @@ changes are in `internal/`, `cmd/`, `specs/`, and `rules/` — the frozen
   byte-stability guarantee for the jsonl writer only (all other formats
   remain byte-identical) (#104).
 
-## v0.5.1 — 2026-06-18
+## v0.5.1 (2026-06-18)
 
 Fixes a packaging gap that blocked external consumers (e.g. OpenWatch)
 from running remediation through the public `pkg/kensa` API (issue #94).
@@ -530,7 +531,7 @@ untouched.
 - **`pkg/kensa.Default*().Remediate` / `.Rollback` now work for external
   importers.** The apply-mechanism handlers (`file_permissions`,
   `config_set`, `service_enabled`, …) self-register via `init()` and were
-  pulled into a binary only by blank imports of `internal/handlers/*` —
+  pulled into a binary only by blank imports of `internal/handlers/*`,
   which an external module cannot import. So a consumer building a service
   via `DefaultWithTransportFactory` hit `preflight: mechanism
   "file_permissions" is not registered` before any host change. The
@@ -540,32 +541,32 @@ untouched.
 
 ### Added
 
-- **`pkg/kensa/handlers`** — a public, blank-importable bundle that
+- **`pkg/kensa/handlers`**: a public, blank-importable bundle that
   registers the standard apply handlers, for consumers composing a Kensa
   via `api.New{…}` directly: `import _ "github.com/Hanalyx/kensa/pkg/kensa/handlers"`.
 
 ### Changed
 
 - The kensa CLI now sources its handler set from the same
-  `pkg/kensa/handlers` bundle instead of its own import list — a single
+  `pkg/kensa/handlers` bundle instead of its own import list, a single
   source of truth, so the CLI and external-consumer handler sets cannot
   diverge. A CI completeness test fails if any `internal/handlers/*`
   package is missing from the bundle, so this class of gap cannot recur
   for a future handler.
 
-## v0.5.0 — 2026-06-15
+## v0.5.0 (2026-06-15)
 
 Sudo-with-password support across the scan/remediate lifecycle. Reverses
 the earlier "`sudo -n` only, no password fallback" design so Kensa serves
 organizations running **either** passwordless sudo **or** sudo-with-password
-seamlessly — the latter common where "no NOPASSWD sudoers" is itself an
+seamlessly, the latter common where "no NOPASSWD sudoers" is itself an
 enforced CIS/STIG control. MINOR bump: additive `api/` field
 (`HostConfig.SudoPassword`); the rest of the frozen `api/` surface is
 untouched.
 
 ### Added
 
-- **`api.HostConfig.SudoPassword`** — the password supplied to `sudo -S`
+- **`api.HostConfig.SudoPassword`**: the password supplied to `sudo -S`
   for hosts whose sudoers policy is not NOPASSWD. Additive, backward-
   compatible: empty keeps the existing non-interactive `sudo -n` behavior.
   Held in memory only; fed to the target over the SSH session's stdin,
@@ -587,22 +588,22 @@ untouched.
   `sudo -n sh -c '…'` otherwise. The `remediate` agent is spawned the same
   way; on a NOPASSWD host the password is dropped via a `sudo -n true`
   probe so it cannot corrupt the agent wire protocol. `SUDO_ASKPASS`/`-A`
-  was deliberately not used — it requires an askpass helper on the target,
+  was deliberately not used, it requires an askpass helper on the target,
   incompatible with the agentless model.
 
 ### Security
 
 - The sudo password is held in operator memory and transmitted only over
-  the already-encrypted SSH session's stdin — never in argv (`/proc`-safe)
+  the already-encrypted SSH session's stdin, never in argv (`/proc`-safe)
   and never in the recorded stdout/stderr that back `CheckEvidence`/OSCAL.
   `-p ''` keeps sudo's prompt off captured stderr. On a wrong password,
   sudo's auth-failure *text* (never the password) may appear in a check's
   stderr; the connect-time probe maps it to a clean error. See
   `docs/test_docs/security.md` limit #12.
 
-## v0.4.3 — 2026-06-14
+## v0.4.3 (2026-06-14)
 
-Public rule read model for catalog consumers — tranche 1 of the
+Public rule read model for catalog consumers, tranche 1 of the
 OpenWatch read-model ask, scoped by the Kensa/OpenWatch ownership test
 (publish the normalization Kensa owns; carry facts, not policy). PATCH
 bump: the addition lives on `pkg/kensa`; the frozen `api/` surface is
@@ -610,22 +611,22 @@ untouched.
 
 ### Added
 
-- **Public rule read model on `pkg/kensa`** — the normalized catalog
+- **Public rule read model on `pkg/kensa`**: the normalized catalog
   projection an `api` consumer needs to render a rule browser without
   re-parsing the heterogeneous raw `references` map or loading the full
   `[]*api.Rule`:
-  - `RuleFrameworkRefs(*api.Rule) []api.FrameworkRef` — the rule's
+  - `RuleFrameworkRefs(*api.Rule) []api.FrameworkRef`, the rule's
     framework references in the same normalized form the scanner puts on
     `ScanResult.Outcomes`, delegating to the existing
     `internal/mappings` normalization (no re-implementation, no drift
     from the canonical framework-id scheme).
-  - `Framework` + `FrameworkFromID(id)` + `Frameworks(rules)` — a
+  - `Framework` + `FrameworkFromID(id)` + `Frameworks(rules)`, a
     framework registry so consumers render labels/families consistently
     (`cis_rhel9` → `{Family:"cis", Version:"rhel9", Label:"CIS (RHEL 9)"}`)
     instead of hardcoding prefix strings; unknown frameworks degrade
     gracefully.
   - `RuleSummary` + `RuleToSummary` + `LoadRuleSummaries(dir, paths, vars)`
-    — a lightweight catalog row (id/title/description/rationale/severity/
+   , a lightweight catalog row (id/title/description/rationale/severity/
     category/tags/platforms/transactional + normalized framework refs +
     remediation summary), loaded via the existing `LoadRules` path.
   - `RemediationSummary` carries derivable **facts only**: `Available`,
@@ -636,7 +637,7 @@ untouched.
     cases). Spec `rule-read-model` (Tier 2). The frozen `api/` surface is
     untouched.
 
-## v0.4.2 — 2026-06-14
+## v0.4.2 (2026-06-14)
 
 Per-rule OSCAL export + an unmapped-rule conformance fix, prompted by the
 OpenWatch team's per-rule-expansion question. PATCH bump: the addition
@@ -645,7 +646,7 @@ lives on `pkg/kensa` and the fix is in `internal/evidence`; the frozen
 
 ### Added
 
-- **Per-rule OSCAL export on `pkg/kensa`** — `ExportOSCALOutcome` /
+- **Per-rule OSCAL export on `pkg/kensa`**: `ExportOSCALOutcome` /
   `WriteOSCALOutcome` render a single `api.RuleOutcome` as its own valid
   one-finding OSCAL 1.0.6 AR document, preserving the parent scan's host
   context (HostID/Capabilities/Platform). The per-rule counterpart of
@@ -659,12 +660,12 @@ lives on `pkg/kensa` and the fix is in `internal/evidence`; the frozen
   OSCAL 1.0.6 schema rejects (`reviewed-controls` is required and a
   control-selection must select `include-all` or a non-empty
   `include-controls`). A whole-host scan never hit this (some rule is
-  always mapped), but a single-rule document for an unmapped rule — the
-  per-rule UI expansion — did. The exporter now falls back to OSCAL
+  always mapped), but a single-rule document for an unmapped rule, the
+  per-rule UI expansion, did. The exporter now falls back to OSCAL
   `include-all` when there are no control refs, on both the scan
   (`ExportOSCALScan`) and remediation (`ExportOSCAL`) paths.
 
-## v0.4.1 — 2026-06-14
+## v0.4.1 (2026-06-14)
 
 Public OSCAL export for `api` consumers. PATCH bump: the addition lives
 on `pkg/kensa` (the public-but-not-frozen assembly layer); the frozen
@@ -675,7 +676,7 @@ entirely public for embedders (OpenWatch).
 
 ### Added
 
-- **Public OSCAL export on `pkg/kensa`** — `ExportOSCALScan` /
+- **Public OSCAL export on `pkg/kensa`**: `ExportOSCALScan` /
   `WriteOSCALScan` (an `api.ScanResult` → OSCAL 1.0.6 Assessment
   Results) and `ExportOSCAL` / `WriteOSCAL` (a signed
   `api.EvidenceEnvelope` → OSCAL 1.0.6 AR). v0.4.0 shipped OSCAL export
@@ -689,11 +690,11 @@ entirely public for embedders (OpenWatch).
   remains exclusive to the envelope path. Spec `oscal-public-export`
   (Tier 2).
 
-## v0.4.0 — 2026-06-13
+## v0.4.0 (2026-06-13)
 
 Native-evidence parity and OSCAL enrichment: a compliance **scan** now
-produces reproducible, structured evidence — per-check command/output
-proof — in two surfaces: a Kensa-native JSON document and a
+produces reproducible, structured evidence, per-check command/output
+proof, in two surfaces: a Kensa-native JSON document and a
 standards-conformant OSCAL 1.0.6 Assessment Results document. MINOR
 bump: the `api/` surface gains additive fields only; nothing is removed
 or changed. Both schemas are vendored and validated in CI, and the
@@ -703,7 +704,7 @@ output was validated end-to-end against the live test fleet (RHEL
 ### Added
 
 - **Structured per-check observation evidence on the scan path.**
-  `api.RuleOutcome` gains `Evidence []api.CheckEvidence` — one
+  `api.RuleOutcome` gains `Evidence []api.CheckEvidence`, one
   `CheckEvidence` per command a rule's check executed, carrying the
   exact `Method`, `Command`, captured `Stdout`/`Stderr`, `ExitCode`, and
   the `Expected` value. This is the reproducible proof behind a verdict:
@@ -711,24 +712,24 @@ output was validated end-to-end against the live test fleet (RHEL
   scan. Captured via a recording transport that wraps the check
   transport, so none of the 24 check functions changed. Oversized output
   is truncated at a 64 KiB per-field cap and flagged (`Truncated`). (#74)
-- **`-o evidence:PATH` on `kensa check`** — emits the Kensa-native
+- **`-o evidence:PATH` on `kensa check`**: emits the Kensa-native
   evidence document (`schemas/kensa-evidence-v1.schema.json`): session +
   host context (hostname, detected platform, capabilities, effective
   variables) and one result per rule with its embedded `CheckEvidence`
   and framework refs, plus a pass/fail/skip summary. Full-file parity
   with the prior Python Kensa evidence shape. (#75)
-- **`-o oscal:PATH` on `kensa check`** — renders the scan as an OSCAL
+- **`-o oscal:PATH` on `kensa check`**: renders the scan as an OSCAL
   1.0.6 Assessment Results document: one finding + observation per rule,
   the check evidence embedded as namespaced `relevant-evidence` props
   with the verbatim command in `remarks`, raw stdout carried as base64
   back-matter referenced by href, and framework refs as deduplicated
   control-id tokens. Unsigned by design (the signature guarantee remains
   exclusive to the remediation evidence-envelope path). (#77)
-- **Host context on `api.ScanResult`** — `Capabilities CapabilitySet`
+- **Host context on `api.ScanResult`**: `Capabilities CapabilitySet`
   and `Platform DetectedPlatform` (new `DetectedPlatform{Family,
   Version}` type), so a consumer records the exact capability/OS context
   a verdict was computed under without re-probing. (#75)
-- **Vendored schemas + conformance gate** — the official NIST OSCAL
+- **Vendored schemas + conformance gate**: the official NIST OSCAL
   1.0.6 Assessment Results schema and the `kensa-evidence-v1` schema are
   vendored, and a hard test gate validates every emitted document
   against OSCAL 1.0.6 (using a pure-Go validator that handles the
@@ -744,7 +745,7 @@ output was validated end-to-end against the live test fleet (RHEL
   control-id token, now coerced to the dot-enhancement form (`AU-5.2`)
   on both the scan and remediation export paths. (#78)
 
-## v0.3.2 — 2026-06-12
+## v0.3.2 (2026-06-12)
 
 Public scanner construction with a caller-supplied transport. PATCH
 bump: additions live on `pkg/kensa`; the frozen `api/` surface is
@@ -754,20 +755,20 @@ chain: `LoadRules` → construct → `Scan` → `Outcomes`.
 ### Added
 
 - **Public construction with a caller-supplied `TransportFactory`**
-  (`pkg/kensa`) — for embedders whose credential model the bundled
+  (`pkg/kensa`), for embedders whose credential model the bundled
   on-disk-key ssh factory cannot serve (e.g. an orchestrator holding
   SSH credentials in memory only):
-  - `kensa.NewScanner()` — the standard `api.ScannerBackend`, for
+  - `kensa.NewScanner()`, the standard `api.ScannerBackend`, for
     scan-only composition via `api.New(Config{Scanner, TransportFactory})`;
     no engine, store, or signer is constructed. Stateless and safe for
     concurrent `Scan` calls sharing one instance. `Remediate` on such a
     construction errors (engine not wired), by design.
   - `kensa.DefaultWithTransportFactory(ctx, storePath, tf, engineOpts...)`
-    — `Default`'s full wiring with the transport swapped for the
+   , `Default`'s full wiring with the transport swapped for the
     caller's factory (nil rejected at construction). `Default` and
     `DefaultWithEngineOptions` are unchanged.
 
-## v0.3.1 — 2026-06-11
+## v0.3.1 (2026-06-11)
 
 Public rule loader for programs that import the `api` package. PATCH
 bump: additions live on `pkg/kensa` (the public-but-not-frozen assembly
@@ -775,29 +776,29 @@ layer); the frozen `api/` surface is untouched.
 
 ### Added
 
-- **`pkg/kensa` public rule-loader surface** — external consumers (e.g.
+- **`pkg/kensa` public rule-loader surface**: external consumers (e.g.
   OpenWatch) can now load the shipped corpus without copying rule files
   or re-implementing the loader:
-  - `kensa.LoadRules(dir, paths, vars)` — corpus → `[]*api.Rule` ready
+  - `kensa.LoadRules(dir, paths, vars)`, corpus → `[]*api.Rule` ready
     for `Scan`/`Remediate`. Follows the CLI's path-resolution policy
     (explicit dir → explicit files → the `kensa-rules` package's
     installed corpus at `/usr/share/kensa/rules`), and substitutes
     `{{ name }}` rule templates against kensa's embedded defaults merged
-    with the caller's `vars` (caller wins) — the hook for
+    with the caller's `vars` (caller wins), the hook for
     operator-configured values. **Strict** by design: any unparseable
     file or undefined variable fails the load naming the file; nothing
     is skipped silently (deliberate divergence from the CLI's
     warn-and-skip directory walk).
-  - `kensa.BuiltInVars()` — the embedded variable defaults (29 vars,
+  - `kensa.BuiltInVars()`, the embedded variable defaults (29 vars,
     STIG-strict), for rendering an operator configuration UI. The
     `rsyslog_remote_server`, `chrony_ntp_pool`, and `banner_text`
     defaults are organization-specific placeholders operators should
     always review.
-  - `kensa.RuleVariables(dir)` — template variable → rule IDs using it,
+  - `kensa.RuleVariables(dir)`, template variable → rule IDs using it,
     so operators can see what an override affects.
 
   Locked by spec `rule-public-loader`, including a production-corpus
-  test: all 539 rules — the 23 `{{ var }}` templates included — load
+  test: all 539 rules (the 23 `{{ var }}` templates included) load
   strictly with nil vars on built-in defaults alone.
 
 ### Documentation
@@ -809,7 +810,7 @@ layer); the frozen `api/` surface is untouched.
   `kensa.LoadRules`; do not copy the rule files or re-implement the
   loader.
 
-## v0.3.0 — 2026-06-11
+## v0.3.0 (2026-06-11)
 
 Compliance-verdict API on `Scan`, platform gating for the standalone CLI,
 and the param-contract fix that restores ~201 corpus rules whose handlers
@@ -819,7 +820,7 @@ changed signature or semantics).
 
 ### Added
 
-- **`api`: compliance-verdict surface on `Scan`** — `ScanResult` gains
+- **`api`: compliance-verdict surface on `Scan`**: `ScanResult` gains
   `Outcomes []RuleOutcome`, one per scanned rule in input order, each with
   a `ComplianceStatus` of `pass` / `fail` / `skipped` / `error`, the rule's
   severity, a human-readable detail, the error cause (iff `error`), and the
@@ -829,21 +830,21 @@ changed signature or semantics).
   the check-only `Transactions` entries (whose `committed` / `rolled_back`
   statuses double as compliant / non-compliant) are retained unchanged for
   backward compatibility. (#62, #63)
-- **Platform gating for `check` and `remediate`** — kensa now detects the
+- **Platform gating for `check` and `remediate`**: kensa now detects the
   host OS (`/etc/os-release`) and compares each rule's `platforms:` block
   (family + `min_version` / `max_version`) against it. A rule that does not
-  apply to the host — e.g. a `rhel >= 9` control on a RHEL 8 host — is
+  apply to the host (e.g. a `rhel >= 9` control on a RHEL 8 host) is
   reported `SKIP` (with a "not applicable: host RHEL 8.10, rule targets
   rhel >=9" detail) instead of a misleading pass/fail, and on `remediate`
   its remediation is **never applied**. Rules with no `platforms:` block
   run everywhere; an undetectable host OS gates nothing. The live row
   stream renders a dim `SKIP` status and a `N skipped` tally entry. (#64)
-- **Param-contract gate** — `internal/mechanism` is now the single source
+- **Param-contract gate**: `internal/mechanism` is now the single source
   of truth for each mechanism's parameter contract
   (CANONICAL_RULE_SCHEMA_V1.md §3.5.4). The rule validator rejects
   remediation params that violate the contract (`kensa-validate` + CI),
   and an integration test decodes every corpus rule's params through its
-  real handler with a ratcheting divergence ledger — now empty. (#50)
+  real handler with a ratcheting divergence ledger, now empty. (#50)
 
 ### Fixed
 
@@ -865,7 +866,7 @@ changed signature or semantics).
 
 - **Scanning a host whose OS no rule targets now reports `SKIP` per rule**
   (e.g. the RHEL corpus against a non-RHEL host renders all-SKIP) rather
-  than a wall of misleading FAIL/ERROR rows. This is the honest result —
+  than a wall of misleading FAIL/ERROR rows. This is the honest result:
   those rules do not apply to that host.
 - Dependency refresh: `godbus/dbus` v5.2.2, `golang.org/x/sys` v0.46,
   `golang.org/x/term` v0.44, `modernc.org/sqlite` v1.52 (pure-Go SQLite,
@@ -880,7 +881,7 @@ changed signature or semantics).
   staticcheck `S*`/`ST*`/`QF*` tiers are now enforced. Specter pinned at
   v0.13.2 in CI with annotation-strictness sync. (#49, #59, #60, #61)
 
-## v0.2.3 — 2026-06-08
+## v0.2.3 (2026-06-08)
 
 Live result-row streaming for the default human output, plus engine and
 agent/transport fixes surfaced while building it. No machine-format or
@@ -888,14 +889,14 @@ agent/transport fixes surfaced while building it. No machine-format or
 
 ### Added
 
-- **Live result-row streaming for `kensa check` and `kensa remediate`** —
+- **Live result-row streaming for `kensa check` and `kensa remediate`**:
   the default text output now renders one aligned row per rule **as each
   rule completes**, in scan order, directly on stdout:
   `STATUS  SEVERITY  RULE-ID  DESCRIPTION [detail]`, under a `── Host ──`
   banner, ending with a tally. `check` shows `PASS` / `FAIL` / `ERROR`;
   `remediate` shows `PASS` (already compliant) / `FIXED` / `FAIL` /
   `ERROR`. Status and severity are colored when stdout is a terminal.
-  Machine formats (`--format json`, `-o FILE`) are unchanged — still
+  Machine formats (`--format json`, `-o FILE`) are unchanged, still
   buffered and structured, never interleaved with rows.
 
 ### Changed
@@ -913,18 +914,18 @@ agent/transport fixes surfaced while building it. No machine-format or
 
 ### Fixed
 
-- **Engine event-bus panic** — `InMemoryEventBus.Publish` could send on a
+- **Engine event-bus panic**: `InMemoryEventBus.Publish` could send on a
   closed channel when a subscription's context was canceled concurrently,
   panicking a live transaction. Delivery and channel-close are now mutually
   exclusive (Tier-1 spec `engine-event-bus` with a regression test).
-- **Server login banner leaking into agent-mode output** — `remediate` /
+- **Server login banner leaking into agent-mode output**: `remediate` /
   `rollback` (agent mode) re-authenticate over a fresh ssh session whose
   stderr is forwarded to the operator; a server consent/login banner (e.g.
   a USG banner) leaked there. The agent ssh now passes `-o LogLevel=ERROR`
   to suppress the banner while preserving real ssh errors, matching
   `kensa check`.
 
-## v0.2.2 — 2026-06-05
+## v0.2.2 (2026-06-05)
 
 Supply-chain and service-handler hardening on top of v0.2.1. The
 headline operator-facing change is that the package now provisions the
@@ -934,7 +935,7 @@ forcing two toolchain CVE bumps) and a new capability probe.
 
 ### Added
 
-- **Sudoers fragment + `kensa` group, shipped by the package** — the
+- **Sudoers fragment + `kensa` group, shipped by the package**: the
   rpm and deb now install `/etc/sudoers.d/kensa-systemd-helper` (mode
   `0440`, root-owned, registered as a config file) granting
   `%kensa ALL=(root) NOPASSWD: /usr/libexec/kensa-systemd-helper`, and
@@ -943,10 +944,10 @@ forcing two toolchain CVE bumps) and a new capability probe.
   manual sudoers step; the operator's remaining action shrinks to
   `usermod -aG kensa <user>`. The empty group means a fresh install
   grants the escalation to nobody. Spec `packaging-sudoers-helper`.
-- **`pam_tally2` capability probe** — detects the legacy account-lockout
+- **`pam_tally2` capability probe**: detects the legacy account-lockout
   module present on older Debian/Ubuntu (≤18.04) and RHEL 7, where
   `pam_faillock` is absent, so rules can gate a fallback.
-- **Supply-chain CI gates** — a `govulncheck` vulnerability scan, a
+- **Supply-chain CI gates**: a `govulncheck` vulnerability scan, a
   `go mod tidy` drift check, top-level `GOFLAGS=-mod=readonly`, a
   `detect-secrets` baseline + pre-commit hook, and Dependabot for the
   `gomod` and `github-actions` ecosystems.
@@ -955,8 +956,8 @@ forcing two toolchain CVE bumps) and a new capability probe.
 
 - **Go toolchain pinned to 1.26.4** via the `go.mod` `go` directive;
   building from source now requires Go 1.26.4+.
-- **CI actions moved to their Node 24 majors** — `actions/checkout@v5`,
-  `actions/setup-go@v6`, `actions/setup-python@v6` — ahead of GitHub's
+- **CI actions moved to their Node 24 majors**: `actions/checkout@v5`,
+  `actions/setup-go@v6`, `actions/setup-python@v6`, ahead of GitHub's
   Node 20 removal. `setup-go` now installs the exact toolchain from
   `go.mod` (`go-version-file`).
 - **Install guide** rewritten for the now-automatic service-handler
@@ -968,7 +969,7 @@ forcing two toolchain CVE bumps) and a new capability probe.
   is created empty, and the post-install guard checks `/etc/group`
   directly rather than via `getent`, so a same-named directory
   (LDAP/NIS/SSSD) group cannot silently inherit the grant. The residual
-  limit — `sudo`'s own `%kensa` resolution still consults nsswitch — is
+  limit (`sudo`'s own `%kensa` resolution still consults nsswitch) is
   documented as an explicit install-time precondition.
 - **Eight standard-library CVEs cleared.** The new govulncheck gate
   surfaced six stdlib advisories (fixed by the 1.26.3 bump) and then
@@ -981,35 +982,35 @@ forcing two toolchain CVE bumps) and a new capability probe.
 ### Fixed
 
 - The secret-scan CI job no longer false-fails on `detect-secrets`
-  baseline metadata churn — it uses the non-mutating `detect-secrets-hook`
+  baseline metadata churn, it uses the non-mutating `detect-secrets-hook`
   entrypoint, the same code path as the pre-commit hook.
 - Removed a stray committed gitlink (`.claude/worktrees/...`) that made
   every `git checkout` emit a submodule warning.
 
-## v0.2.1 — 2026-05-28
+## v0.2.1 (2026-05-28)
 
 Packaging-UX hardening on top of v0.2.0's first signed packages. No
-binary-behaviour change — every difference here is in the package
+binary-behaviour change, every difference here is in the package
 metadata, install scripts, archive variants, and operator docs.
 
 ### Added
 
-- **`KEYS` at repo root** — single canonical file holding both
+- **`KEYS` at repo root**: single canonical file holding both
   verification keys (Hanalyx LLC GPG public + Kensa cosign public) with
   inline `rpm --import` / `apt`-add / `cosign verify-blob` instructions
   as a fallback if the install guide is unreachable. Operators can
   point `rpm --import` straight at the raw GitHub URL.
-- **`kensa_<v>_linux_<arch>_with-rules.tar.gz`** — second per-arch
+- **`kensa_<v>_linux_<arch>_with-rules.tar.gz`**: second per-arch
   tarball variant carrying the full 539-rule corpus next to the
   binaries + LICENSE + KEYS. Single-download air-gap path called out
   in CLAUDE.md's packaging plan. Topic-dir layout preserved
   (`rules/<topic>/<rule>.yml`) so it matches the `kensa-rules`
   package's installed tree.
-- **`packaging/postinst.sh`** — POSIX `/bin/sh` script wired into the
+- **`packaging/postinst.sh`**: POSIX `/bin/sh` script wired into the
   `kensa` rpm and deb. Surfaces a warning when `/usr/share/kensa/rules`
   is empty after install with explicit next-step commands (install
   `kensa-rules` or pass `--rules-dir`). No network access, no signature
-  re-verification — Fedora packaging guidelines forbid the former and
+  re-verification. Fedora packaging guidelines forbid the former and
   the latter belongs to dnf/apt's existing trust chain.
 - **`docs/guide/01-install.md` rewritten** for the packaged-release
   reality: signed-key import is Step 1, three install paths (dnf, apt,
@@ -1019,7 +1020,7 @@ metadata, install scripts, archive variants, and operator docs.
 
 ### Changed
 
-- **`kensa` rpm + deb now `Recommends: kensa-rules`** — `dnf install
+- **`kensa` rpm + deb now `Recommends: kensa-rules`**: `dnf install
   kensa` / `apt install kensa` alone pulls the corpus by default.
   Operator can opt out with `--setopt=install_weak_deps=False` (rpm)
   or `--no-install-recommends` (apt) if they bring their own corpus
@@ -1027,7 +1028,7 @@ metadata, install scripts, archive variants, and operator docs.
 
 ### Internal
 
-- Goreleaser bumped one notch on the second `archives:` entry —
+- Goreleaser bumped one notch on the second `archives:` entry:
   the `kensa-with-rules` ID adds `KEYS` to the bundled file list.
 - The release-snapshot CI smoke job now produces 11 artifacts (was 9):
   the two `with-rules` tarballs added a binary-tarball variant per arch.
@@ -1051,12 +1052,12 @@ metadata, install scripts, archive variants, and operator docs.
   (`%files /etc/sudoers.d/kensa-systemd-helper`) so the manual step
   in `docs/guide/01-install.md` § "Service handlers" disappears.
 
-## v0.2.0 — 2026-05-28
+## v0.2.0 (2026-05-28)
 
 First "real" packaged release. Operators can now install kensa via
 `dnf install kensa kensa-rules` (rpm) or
 `apt install ./kensa_0.2.0_linux_amd64.deb ./kensa-rules_0.2.0_noarch.deb`
-(deb) and run `kensa check <host>` with no flags — the default-path
+(deb) and run `kensa check <host>` with no flags, the default-path
 fallback (this release) picks up the corpus from
 `/usr/share/kensa/rules` automatically.
 
@@ -1067,35 +1068,35 @@ it, the first operator-guide chapter, and the supporting plumbing.
 ### Added
 
 #### Packaging
-- `LICENSE` at repo root — Business Source License 1.1 (→ Apache 2.0 on
+- `LICENSE` at repo root: Business Source License 1.1 (→ Apache 2.0 on
   2029-01-01); same terms as the archived Python kensa. Required by
   rpm/deb metadata.
-- `kensa` rpm + deb (amd64, arm64) — installs `/usr/bin/{kensa,
+- `kensa` rpm + deb (amd64, arm64), installs `/usr/bin/{kensa,
   kensa-validate, kensa-keygen}` + `/usr/libexec/kensa-systemd-helper`
   + `/usr/share/doc/kensa/{LICENSE,README,CHANGELOG}`. Signed with the
   Hanalyx GPG key.
-- `kensa-rules` noarch rpm + deb — installs the 539-rule corpus to
+- `kensa-rules` noarch rpm + deb, installs the 539-rule corpus to
   `/usr/share/kensa/rules`. Updates independent of the binary release.
   Signed with the Hanalyx GPG key.
-- `kensa_<version>_linux_<arch>.tar.gz` — air-gapped install bundle for
+- `kensa_<version>_linux_<arch>.tar.gz`, air-gapped install bundle for
   amd64 + arm64 (all 4 binaries + LICENSE + docs).
-- `kensa_<version>_checksums.sha256` — sha256 over the full artifact
+- `kensa_<version>_checksums.sha256`, sha256 over the full artifact
   set. cosign-signed.
-- `.goreleaser.yaml` + tag-triggered `.github/workflows/release.yml` —
+- `.goreleaser.yaml` + tag-triggered `.github/workflows/release.yml`:
   hard-fails if any of GPG_PRIVATE_KEY, GPG_PASSPHRASE,
   COSIGN_PRIVATE_KEY, COSIGN_PASSWORD secrets is missing (no silent
   unsigned ship). Snapshot smoke job in `ci.yml` exercises the same
   pipeline on every PR.
 
 #### Rules
-- `rules/` — vendored the 539 SCAP-derived rules from the archived
+- `rules/`, vendored the 539 SCAP-derived rules from the archived
   Python kensa (`/home/rracine/hanalyx/kensa.archive/rules`),
   byte-identical to source. Eight topic dirs (`access-control` 129,
   `audit` 101, `filesystem` 73, `kernel` 22, `logging` 14, `network`
   23, `services` 107, `system` 70). 2.2 MB. The archive is frozen;
   rule edits land via PR here going forward. `rules/README.md`
   documents layout, validate workflow, and provenance.
-- `internal/rules.Resolve` — default-path resolution for `--rules-dir`.
+- `internal/rules.Resolve`, default-path resolution for `--rules-dir`.
   Explicit `--rules-dir` still wins; positional rule YAML paths alone
   skip the walk; when neither is given the CLI falls back to
   `/usr/share/kensa/rules` (where `kensa-rules` installs); when that
@@ -1104,39 +1105,39 @@ it, the first operator-guide chapter, and the supporting plumbing.
   `cli-rule-flag` bumped to v0.2.0.
 
 #### Grub deadman guard
-- `internal/bootguard/` (PR #15) — Option-B one-shot trial entry +
+- `internal/bootguard/` (PR #15): Option-B one-shot trial entry +
   saved-default auto-fallback for grub parameter changes. RHEL/BLS
   via `grubby --copy-default`; Ubuntu legacy via `/etc/grub.d/11_kensa_bootguard`
   + `update-grub`. Confirm unit installed at arm time; healthy boot
   promotes onto the default, failed boot auto-reverts. Specs:
   `bootguard-{capture,arm-gate,allowlist,oneshot,confirm}`.
-- `internal/handlers/grubparameterset` — replaces direct
+- `internal/handlers/grubparameterset`, replaces direct
   `GRUB_CMDLINE_LINUX` editing with `bootguard.ArmOneshot`. Refuses
   off-allowlist keys + non-armable hosts. PENDING until reboot.
-- `internal/handlers/grubparameterremove` (PR #21) — same flow for
+- `internal/handlers/grubparameterremove` (PR #21), same flow for
   REMOVAL via `bootguard.ArmOneshotRemove`. `bootguard-oneshot` bumped
   to v0.4.0 (C-07/C-08, AC-08..AC-11); `bootguard-confirm` v0.5.0.
 - Verified end-to-end on real RHEL 9.7 (.213) and Ubuntu 24.04 (.249)
   with the destructive reboot matrix.
 
 #### Docs
-- `docs/guide/01-install.md` (PR #12) — first real operator-guide
+- `docs/guide/01-install.md` (PR #12), first real operator-guide
   chapter.
 
 ### Changed
-- `cli-rule-flag` C-04 + AC-04 — now acknowledge the default-path
+- `cli-rule-flag` C-04 + AC-04, now acknowledge the default-path
   fallback layer and the three-fix-paths error wording.
 
 ### Internal
-- `.golangci.yml` — extended the existing `internal/` godot exclusion
+- `.golangci.yml`, extended the existing `internal/` godot exclusion
   to `cmd/` (same rationale: Go's identifier-first convention conflicts
   with `capital: true`).
 
-## v0.1.1 — 2026-05-27
+## v0.1.1 (2026-05-27)
 
 First tag carrying the ratified Kensa/OpenWatch boundary, so OpenWatch can
 pin a kensa with the agreed `api/` surface. No `api/` contract change since
-v0.1.0 — the public Go API is identical; this is a documentation +
+v0.1.0, the public Go API is identical; this is a documentation +
 internal-quality release.
 
 ### Changed
@@ -1145,7 +1146,7 @@ internal-quality release.
   Kensa/OpenWatch boundary: OpenWatch owns liveness / heartbeat / drift;
   Kensa emits the shared event vocabulary (`transaction_started`,
   `committed`, `rolled_back`, `drift_detected`, `heartbeat_pulse`,
-  `deadman_timer_armed` / `_fired`). Godoc only — the types are unchanged.
+  `deadman_timer_armed` / `_fired`). Godoc only; the types are unchanged.
 
 ### Internal
 
@@ -1154,7 +1155,7 @@ internal-quality release.
   names) per the new "Comments" section of `CONTRIBUTING.md`; a
   `make comment-lint` check guards new comments.
 
-## v0.1.0 — 2026-05-14 (Sentinel)
+## v0.1.0 (2026-05-14) (Sentinel)
 
 First versioned release on the renamed repository (formerly
 `Hanalyx/kensa-go`, now `Hanalyx/kensa` after the Python kensa was
@@ -1206,9 +1207,9 @@ contract.
 
 - **Kernel-primitive deadman timer for control-channel-
   sensitive remediation (Phase 3 P-011/D-001..D-006).** The
-  deadman timer — the safety net that rolls back a
+  deadman timer, the safety net that rolls back a
   half-applied rule if the controller-target SSH connection
-  drops mid-Apply — now uses kernel primitives instead of
+  drops mid-Apply, now uses kernel primitives instead of
   `at(1)`/`systemd-run` scheduled shell scripts when running
   in agent mode. The new architecture:
   - `timerfd(CLOCK_BOOTTIME)`: counts elapsed seconds INCLUDING
@@ -1217,7 +1218,7 @@ contract.
     fired late or not at all because wall-clock-based
     scheduling missed the suspended interval).
   - `pidfd_open(getppid(), 0)`: race-free SSH-parent-death
-    detection in <200ms. The old path had no equivalent —
+    detection in <200ms. The old path had no equivalent:
     it relied on the scheduler firing on its own deadline,
     with second-granularity latency.
   - `signalfd` for SIGTERM (via `signal.Notify` + self-pipe
@@ -1227,7 +1228,7 @@ contract.
 
   RHEL 8 kernels (<5.3) lack `pidfd_open`; the agent probes
   at startup and falls back to
-  `prctl(PR_SET_PDEATHSIG, SIGKILL)` — the kernel SIGKILLs
+  `prctl(PR_SET_PDEATHSIG, SIGKILL)`, the kernel SIGKILLs
   the agent on parent death (rollback doesn't fire under
   SIGKILL, accepted risk per Q3.a; the agent at least
   doesn't linger orphaned).
@@ -1235,18 +1236,18 @@ contract.
   **Direct-SSH mode retains the shell-based path** (opt-in via
   `KENSA_NO_AGENT=1`) for environments where agent bootstrap
   isn't viable. It does NOT gain suspend-resistance or
-  clock-jump-immunity — those properties require the
+  clock-jump-immunity, those properties require the
   in-process agent-side primitives.
 
 - **Kernel-atomic file operations under agent mode (Phase 2,
   fix/phase-2-rework drop + P-011 default flip).** For the
-  file-touching capturable handlers — `file_content`,
-  `file_absent`, `config_set`, `config_set_dropin` — kensa now
+  file-touching capturable handlers, `file_content`,
+  `file_absent`, `config_set`, `config_set_dropin`, kensa now
   delivers literal kernel-primitive atomicity when remediation
   runs in agent mode (the default; opt-out via
   `KENSA_NO_AGENT=1`). The primitives:
   - `AtomicWrite` (new files): `O_TMPFILE` + `linkat` via
-    `/proc/self/fd/<N>` — partially-written bytes are never
+    `/proc/self/fd/<N>`, partially-written bytes are never
     visible as a half-named file in the directory.
   - `AtomicReplace` (existing files): `renameat2(RENAME_EXCHANGE)`
     for symmetric old↔new swap, with `renameat` rename-into-
@@ -1258,12 +1259,12 @@ contract.
 
   **Direct-SSH mode is preserved as an explicit opt-out.**
   Operators who set `KENSA_NO_AGENT=1` get the shell-pipeline
-  best-effort semantics for these mechanisms — intended for
+  best-effort semantics for these mechanisms, intended for
   environments where agent bootstrap is not viable (noexec
   /tmp, locked-down SSH user, etc.). The `kensa remediate` CLI
   prints a one-line stderr disclosure on every run
-  ("agent mode (default) — kernel-atomic primitives" or
-  "direct-SSH mode (KENSA_NO_AGENT=1) — shell-pipeline
+  ("agent mode (default), kernel-atomic primitives" or
+  "direct-SSH mode (KENSA_NO_AGENT=1), shell-pipeline
   best-effort; unset KENSA_NO_AGENT for kernel-atomic") so
   audit reviewers see the basis without reading the source.
 
@@ -1317,7 +1318,7 @@ contract.
 
 - **`config_set` regex char-class divergence on CRLF files.**
   The Go `[[:space:]]` class matches `\t\n\v\f\r ` but `sed
-  -E` with `LC_ALL=C` matches only `\t ` — divergence on
+  -E` with `LC_ALL=C` matches only `\t `, divergence on
   CRLF-line-ending files. The regex now spells the class as
   `[\t ]`, byte-equivalent to sed.
 
@@ -1352,7 +1353,7 @@ contract.
   2026-05-12): kensa is pre-production; the kernel-atomic
   path is the safer default. Direct-SSH stays available for
   hosts where agent bootstrap is not viable. No deprecation
-  period — kensa is pre-1.0.
+  period, kensa is pre-1.0.
 
 - **CLI Phase 3 short-letter table reconciliation (C-024).** Four
   short letters are reassigned to align with `Python kensa` parity.
@@ -1370,7 +1371,7 @@ contract.
   Phase 3 deliverables: `--password` (C-026), `--severity` (C-030),
   `--tag` (C-031), `--framework` (C-033). Operators using the old
   short forms after upgrade get pflag's "unknown shorthand" error
-  (exit code 2). No deprecation period — kensa is pre-1.0 and
+  (exit code 2). No deprecation period, kensa is pre-1.0 and
   the migration doc explicitly notes Python kensa has no production
   users to migrate.
 
@@ -1386,7 +1387,7 @@ contract.
   ```
   Supported formats: `text`, `json`, `jsonl`, `csv`, `pdf`,
   `evidence`, `oscal`, `markdown`. Not every format applies to
-  every payload type — `oscal`/`evidence` are remediation-only;
+  every payload type, `oscal`/`evidence` are remediation-only;
   `pdf`/`text`/`csv` apply to scan and remediation;
   `jsonl` is scan-only. Specifying an unsupported format
   returns exit code 2 (usage error) with a clear message.
@@ -1403,7 +1404,7 @@ contract.
 
 - PDF serializer (C-015) using `maroto v2` (MIT, pure Go, no
   cgo). Registered for scan and remediation; produces operator
-  triage / handoff PDFs (NOT audit-grade evidence — that's the
+  triage / handoff PDFs (NOT audit-grade evidence, that's the
   signed envelope output from `--output evidence:PATH`).
 
 - OSCAL Assessment Results serializer wired through `-o`
@@ -1420,43 +1421,43 @@ contract.
   table that groups transactions from one CLI invocation.
   Twelve new operator-facing surfaces:
 
-  - `kensa migrate` (C-040) — applies pending schema
+  - `kensa migrate` (C-040), applies pending schema
     migrations; backfills synthetic sessions for pre-Phase-4
     transactions. Idempotent.
-  - `kensa check --store` (C-041) — persists a check run as a
+  - `kensa check --store` (C-041), persists a check run as a
     session + transactions in the SQLite log. Default off
     (check is read-only by convention).
-  - `kensa history --stats` (C-042) — aggregate counts by
+  - `kensa history --stats` (C-042), aggregate counts by
     session / transaction / status / severity / host. Works
     with `--host` and `--since` filters.
-  - `kensa history --prune DAYS` (C-043) — destructive
+  - `kensa history --prune DAYS` (C-043), destructive
     cleanup. Deletes sessions older than N days plus the
     cascade (transactions, steps, pre_states, framework_refs,
     rollback_events). Requires `--force` for non-interactive
     runs; otherwise prompts on TTY.
-  - `kensa mechanisms` (C-044) — canonical name for the
+  - `kensa mechanisms` (C-044), canonical name for the
     handler-mechanism listing. `kensa coverage` is a
     deprecated alias (see Changed section below).
   - `kensa coverage --framework FRAMEWORK --rules-dir DIR`
-    (C-045) — framework control coverage report. Numerator
+    (C-045), framework control coverage report. Numerator
     only (controls referenced); denominator (controls in
     framework) is a future deliverable.
-  - `kensa list frameworks` (C-046) — list framework_ids in
+  - `kensa list frameworks` (C-046), list framework_ids in
     the loaded corpus with control + rule counts.
-  - `kensa list sessions` (C-048) — surface session UUIDs
+  - `kensa list sessions` (C-048), surface session UUIDs
     from the transaction store for use with `kensa diff` and
     `kensa rollback --start`.
-  - `kensa info` (C-047) — multi-criteria rule/control
+  - `kensa info` (C-047), multi-criteria rule/control
     lookup. Four modes: `--rule R`, `--control FRAMEWORK:ID`,
     `--list-controls/-L FRAMEWORK`, positional `QUERY`. All
     pairwise mutually exclusive. Filters: `--cis` / `--stig`
     / `--nist` / `--rhel`.
-  - `kensa diff SESSION1 SESSION2` (C-048) — per-rule drift
+  - `kensa diff SESSION1 SESSION2` (C-048), per-rule drift
     report between two stored sessions. SESSION1 is "before";
     SESSION2 is "after" (git-diff convention). `--show-
     unchanged` includes the unchanged section in text output.
   - `kensa rollback --list / --info SESSION_ID / --start
-    SESSION_ID / --detail` (C-049) — session-aware rollback.
+    SESSION_ID / --detail` (C-049), session-aware rollback.
     `--list` and `--info` are read-only; `--start` executes
     bulk rollback with a hostname guard. Legacy `--txn UUID`
     form preserved for surgical single-txn rollback. Only
@@ -1466,12 +1467,12 @@ contract.
 - **Phase 5a operator surfaces (C-051 .. C-056).**
   - `--format jsonl` on `kensa history` (C-051), `kensa list
     sessions` (C-052), and `kensa info QUERY` (C-052). One
-    compact JSON object per line — natural for piping into
+    compact JSON object per line, natural for piping into
     Splunk / ELK / Loki. Document-shaped modes (history's
     --aggregate / --stats / --txn; info's --rule / --control
     / --list-controls) reject `--format jsonl` with usage
     error pointing at `--format json`.
-  - `kensa agent --stdio` placeholder (C-054) — reserves the
+  - `kensa agent --stdio` placeholder (C-054), reserves the
     subcommand name in v1.0. Exits 1 with "planned for v1.1
     with the kernel-primitive migration (Track L Phase 1)";
     `kensa agent --help` discloses the planned wire-protocol
@@ -1494,12 +1495,12 @@ contract.
   `kensa mechanisms`. The `coverage` name remains a working
   alias today and emits a stderr warning explaining the
   upcoming v0.2 repurpose. **The `coverage` name is NOT being
-  removed — it is being repurposed in v0.2 to report framework
+  removed; it is being repurposed in v0.2 to report framework
   control coverage** (a different feature). Migrate scripts to
   `mechanisms` to preserve current output across the upgrade.
   Suppress the warning in pre-migrated CI with
   `KENSA_NO_REPURPOSE_WARNINGS=1` (a SEPARATE knob from the
-  `KENSA_NO_DEPRECATION_WARNINGS` flag-rename switch — the
+  `KENSA_NO_DEPRECATION_WARNINGS` flag-rename switch, the
   semantic-flip warning is categorically louder).
 
 ### Deprecated
@@ -1531,7 +1532,7 @@ contract.
   immediately can silence the warnings with the env var
   `KENSA_NO_DEPRECATION_WARNINGS=1` (exact match on "1"). Use
   `2>/dev/null` would silence real errors too; the env var is
-  the targeted opt-out. NOT a substitute for migrating — the
+  the targeted opt-out. NOT a substitute for migrating, the
   flags will still be removed in v0.2 regardless of whether
   the warning was visible.
 
