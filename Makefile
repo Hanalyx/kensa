@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline docs-check docs-style docs-style-all viewer hooks status clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline docs-check docs-style docs-style-all docs-style-sync parity-containers parity-containers-quick viewer hooks status clean
 
 help:
 	@echo "Kensa — common targets"
@@ -29,6 +29,11 @@ help:
 	@echo "  catalog-check   Gate on coverage regression / new reference drift vs catalog/baseline.json (CI gate)"
 	@echo "  catalog-baseline  Refresh catalog/baseline.json after an intended coverage change"
 	@echo "  viewer          Regenerate the rule-catalog viewer HTML from rules/ (run after rule changes)"
+	@echo ""
+	@echo "  docs-style-sync    Check the surface hanalyx.com syncs verbatim (docs/guide + CHANGELOG)"
+	@echo ""
+	@echo "  parity-containers  Quick tier: scan ubi9/Rocky/AlmaLinux containers, diff verdicts (needs docker)"
+	@echo "  parity-containers-quick  Same, one rule subtree, for a fast loop"
 	@echo ""
 	@echo "  hooks           Install git pre-commit hooks (conflict-marker/fmt/vet/lint/secret guards)"
 	@echo "  status          Print + write bin/STATUS.json — machine-readable current release/coverage state"
@@ -134,6 +139,19 @@ docs-style: ## check changed Markdown against the Hanalyx doc style guide (no em
 
 docs-style-all: ## same check over every tracked Markdown file (for the one-time backlog sweep)
 	python3 scripts/check-doc-style.py --all
+
+# docs/guide/ and CHANGELOG.md are synced verbatim to hanalyx.com, which re-runs
+# this same check on the result. A finding there blocks a site publish even when
+# the current branch never touched the file, so this surface is gated
+# unconditionally rather than only when changed (bugs/KN-HP-016).
+docs-style-sync: ## check the surface the website syncs verbatim (docs/guide + CHANGELOG)
+	python3 scripts/check-doc-style.py docs/guide/*.md CHANGELOG.md
+
+parity-containers: ## quick tier: scan version-matched ubi9/Rocky/AlmaLinux containers and diff verdicts (needs docker)
+	bash scripts/container-parity.sh
+
+parity-containers-quick: ## same, one rule subtree, for a fast loop
+	bash scripts/container-parity.sh rules/logging
 
 # comment-lint-all scans every tracked .go comment (for an opt-in legacy sweep).
 comment-lint-all:

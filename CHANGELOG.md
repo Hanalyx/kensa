@@ -558,8 +558,8 @@ untouched.
 
 Sudo-with-password support across the scan/remediate lifecycle. Reverses
 the earlier "`sudo -n` only, no password fallback" design so Kensa serves
-organizations running **either** passwordless sudo **or** sudo-with-password
-seamlessly, the latter common where "no NOPASSWD sudoers" is itself an
+organizations running **either** passwordless sudo **or** sudo-with-password,
+the latter common where "no NOPASSWD sudoers" is itself an
 enforced CIS/STIG control. MINOR bump: additive `api/` field
 (`HostConfig.SudoPassword`); the rest of the frozen `api/` surface is
 untouched.

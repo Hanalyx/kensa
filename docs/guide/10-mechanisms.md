@@ -1,6 +1,6 @@
 # Mechanisms reference
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 A *mechanism* is the named action a rule's remediation runs to change a host,
 such as `sysctl_set`, `service_enabled`, or `file_content`. You set it in a
@@ -13,7 +13,7 @@ change, validate it, then commit or roll back. Two handler roles matter here:
 - A *capture handler* records the host's exact prior state before the change.
 - A *rollback handler* restores that prior state if the transaction fails.
 
-A mechanism that has both is *capturable*—Kensa can reverse it. A mechanism
+A mechanism that has both is *capturable*: Kensa can reverse it. A mechanism
 without them is *non-capturable*: Kensa applies and audits the change but can't
 roll it back, so you mark its rule `transactional: false`.
 
@@ -30,12 +30,12 @@ capability the host does not meet, so a mechanism never runs where its backing
 tool is missing. The **Runs on** column below names where each mechanism's
 backing tool exists:
 
-- **Any Linux**—kernel or core-filesystem features present on every supported
+- **Any Linux**: kernel or core-filesystem features present on every supported
   distribution.
-- **RHEL 8–10**—the tool ships with Red Hat Enterprise Linux 8, 9, and 10
+- **RHEL 8–10**: the tool ships with Red Hat Enterprise Linux 8, 9, and 10
   (and compatible rebuilds and Fedora).
-- **Debian, Ubuntu**—the tool is `apt`-family.
-- A named subsystem (systemd, SELinux, GRUB, GNOME)—the host must run it.
+- **Debian, Ubuntu**: the tool is `apt`-family.
+- A named subsystem (systemd, SELinux, GRUB, GNOME): the host must run it.
 
 Kensa is tested on RHEL 8, 9, and 10 and on Ubuntu. The shipped rule corpus
 currently targets RHEL; running it against Ubuntu skips the RHEL-only rules.

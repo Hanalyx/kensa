@@ -1,6 +1,6 @@
 # Kensa guide for administrators and engineers
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 The operator-facing manual for Kensa. Read in order if you are new to
 Kensa; jump in by topic otherwise.

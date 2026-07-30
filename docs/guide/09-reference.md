@@ -1,6 +1,6 @@
 # 09 · Command reference
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 This chapter documents every `kensa` command and flag. It is the
 exhaustive counterpart to the task-focused chapters: for *how* to scan
@@ -32,7 +32,7 @@ kensa [global flags] <command> [flags]
 | `mechanisms` | List registered handler mechanisms |
 | `coverage` | Alias for `mechanisms` today; reports framework control coverage with `--framework` |
 | `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`) |
-| `info` | Rule/control lookup—multi-criteria search over the corpus |
+| `info` | Rule/control lookup: multi-criteria search over the corpus |
 | `diff` | Compare two stored sessions and emit per-rule drift |
 | `verify` | Validate the Ed25519 signature on an evidence-envelope JSON file |
 | `migrate` | Apply pending schema migrations and backfill legacy sessions |
@@ -106,7 +106,7 @@ For commands that load and filter the rule corpus (`check`, `remediate`).
 | Short | Long | Argument | Meaning |
 |---|---|---|---|
 | `-r` | `--rules-dir` | `string` | Directory to scan for `*.yml` rule files |
-| | `--rule` | `stringArray` | Load a single rule YAML file (strict—parse errors fail the command); long-only, repeatable, additive with `--rules-dir` and positional `*.yml` args |
+| | `--rule` | `stringArray` | Load a single rule YAML file (strict: parse errors fail the command); long-only, repeatable, additive with `--rules-dir` and positional `*.yml` args |
 | `-s` | `--severity` | `stringArray` | Filter by severity, repeatable (`-s critical -s high`); choices: `critical\|high\|medium\|low` |
 | `-t` | `--tag` | `stringArray` | Filter by tag, repeatable; matches rules whose `tags:` array contains any value |
 | `-c` | `--category` | `string` | Filter by category (`-c access-control`); single value, NOT repeatable (later `-c` overrides earlier) |

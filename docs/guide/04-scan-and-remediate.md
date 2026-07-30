@@ -1,6 +1,6 @@
 # 04 · Scan and remediate
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 Two commands do the work: `kensa check` reads a host and reports
 compliance without touching it, and `kensa remediate` applies the
@@ -306,7 +306,7 @@ kensa remediate -H rhel9-host.example.com -u admin --sudo -o json -o oscal:/tmp/
 |---|---|---|---|
 | `text`/`table` | yes | yes | Default; the live row stream. |
 | `json` | yes | yes | The canonical result struct. |
-| `jsonl` | yes | — | One JSON object per line (NDJSON); maps from `Outcomes`, with a first-class `skipped` count. |
+| `jsonl` | yes | no | One JSON object per line (NDJSON); maps from `Outcomes`, with a first-class `skipped` count. |
 | `csv` | yes | yes | Row-per-rule for spreadsheets. |
 | `pdf` | yes | yes | Binary report (path required). |
 | `evidence` | yes | yes | Kensa-native evidence document. |

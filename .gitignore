@@ -50,3 +50,6 @@ results/
 
 # kensa-catalog default db path (when -db is not given)
 catalog.db
+
+# Local Python venv for SOT extraction tooling (openpyxl, pdfplumber)
+.venv-tools/
