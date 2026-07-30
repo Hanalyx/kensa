@@ -1,6 +1,6 @@
 # Integration
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 This chapter is for programs that **embed** Kensa (notably OpenWatch) rather
 than run the CLI, consuming its `api`/`pkg/kensa` Go surfaces. The division of
@@ -31,7 +31,7 @@ The doc comments in `api/scan.go` are the authoritative reference.
 Loading the rule corpus from a consuming program is public surface too
 (package `github.com/Hanalyx/kensa/pkg/kensa`, since v0.3.1):
 
-- `kensa.LoadRules(dir, paths, vars)`—corpus → `[]*api.Rule` ready for
+- `kensa.LoadRules(dir, paths, vars)`: corpus → `[]*api.Rule` ready for
   `Scan`/`Remediate`. Uses the CLI's path-resolution policy (explicit
   dir → explicit files → the `kensa-rules` package's installed corpus at
   `/usr/share/kensa/rules`), and substitutes `{{ name }}` rule templates
@@ -39,11 +39,11 @@ Loading the rule corpus from a consuming program is public surface too
   (caller wins). That `vars` map is where an orchestrator injects
   operator-configured values. Strict: a bad file or undefined variable
   fails the load with the file named; nothing is skipped silently.
-- `kensa.BuiltInVars()`—the embedded variable defaults (name → value),
+- `kensa.BuiltInVars()`: the embedded variable defaults (name → value),
   for rendering an operator configuration UI. Review
   `rsyslog_remote_server`, `chrony_ntp_pool`, and `banner_text`: their
   defaults are organisation-specific placeholders.
-- `kensa.RuleVariables(dir)`—template variable → rule IDs using it,
+- `kensa.RuleVariables(dir)`: template variable → rule IDs using it,
   for showing operators what an override affects.
 
 Do not copy the rule files into a consuming repo and do not re-implement
@@ -61,7 +61,7 @@ supply their own `api.TransportFactory`:
   The backend is stateless: one shared instance is safe for concurrent
   `Scan` calls. `Remediate` on this construction errors by design.
 - Full service (remediate, history, transaction log, where a transaction is
-  Kensa's four-phase change operation—capture, apply, validate, then commit
+  Kensa's four-phase change operation: capture, apply, validate, then commit
   or roll back):
   `kensa.DefaultWithTransportFactory(ctx, storePath, yours, engineOpts...)`.
 
@@ -77,7 +77,7 @@ shelling out to the CLI:
   embedded as relevant-evidence, framework refs as control-ids. The scan
   document is **unsigned** by design; it is derived from the read-only
   `ScanResult`.
-- `kensa.ExportOSCAL(envelope)` / `kensa.WriteOSCAL(w, envelope)`—the
+- `kensa.ExportOSCAL(envelope)` / `kensa.WriteOSCAL(w, envelope)`: the
   remediation counterpart, rendering a signed `api.EvidenceEnvelope`
   (the audit-truth-of-record a transaction produces) as OSCAL. This path
   is anchored on the envelope's Ed25519 signature.

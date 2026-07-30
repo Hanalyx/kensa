@@ -283,10 +283,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: doc-style
+      - name: doc-style selftest
+        run: python3 scripts/check-doc-style.py --selftest
+      - name: doc-style (changed files)
         run: |
           git fetch origin main --depth=1 2>/dev/null || true
           make docs-style
+      # The website syncs docs/guide/ and CHANGELOG.md verbatim and re-runs this
+      # same check on the result, so a finding in either blocks a site publish
+      # even when the file was not touched by the current branch. Gate that
+      # surface unconditionally rather than only on change.
+      - name: doc-style (website-synced surface)
+        run: make docs-style-sync
 
   pre-commit:
     # Mirror the pre-commit framework checks contributors run locally.
@@ -333,10 +341,10 @@ jobs:
             file_out=$(file "$bin")
             if echo "$ldd_out" | grep -q "not a dynamic executable" \
                || echo "$file_out" | grep -q "statically linked"; then
-              echo "  ✓ $bin: statically linked"
+              echo "  OK $bin: statically linked"
               ok=$((ok+1))
             else
-              echo "  ✗ $bin: dynamically linked — regression!"
+              echo "  FAIL $bin: dynamically linked, regression"
               echo "    ldd:  $ldd_out"
               echo "    file: $file_out"
               fail=$((fail+1))
@@ -387,7 +395,7 @@ jobs:
             /kensa-bin/kensa version 2>&1)
           echo "Output: $out"
           if echo "$out" | grep -q "kensa "; then
-            echo "  ✓ kensa version succeeded on glibc 2.28"
+            echo "  OK kensa version succeeded on glibc 2.28"
           else
             echo "::error::Binary failed to run on glibc 2.28 — L-001/L-002 regression. Output: $out"
             exit 1
@@ -437,7 +445,7 @@ jobs:
             /kensa-bin/kensa version 2>&1)
           echo "Output: $out"
           if echo "$out" | grep -q "kensa "; then
-            echo "  ✓ kensa version succeeded on Alpine (musl)"
+            echo "  OK kensa version succeeded on Alpine (musl)"
           else
             echo "::error::Binary failed to run on Alpine musl — L-001/L-002 regression. The binary may have a glibc-specific symbol or the static-link discipline broke. Output: $out"
             exit 1
@@ -498,7 +506,7 @@ jobs:
             ls -lh dist/
             exit 1
           fi
-          echo "✓ 11/11 expected artifacts present"
+          echo "OK 11/11 expected artifacts present"
       - name: Verify CycloneDX SBOM produced, non-empty, and in checksums
         run: |
           # The SBOM (kensa_<v>_sbom.cdx.json) is a CycloneDX document of
@@ -531,7 +539,7 @@ jobs:
           done
           grep -q "$(basename "$sbom")" dist/kensa_*_checksums.sha256 || {
             echo "::error::SBOM not listed in the checksums file"; exit 1; }
-          echo "✓ SBOM present ($comps components), $shipped shipping direct deps included, anchored in checksums"
+          echo "OK SBOM present ($comps components), $shipped shipping direct deps included, anchored in checksums"
       - name: Verify sudoers fragment ships 0440 root:root (rpm + deb)
         run: |
           # packaging-sudoers-helper C-02 / AC-08: the sudoers.d file must
@@ -564,7 +572,7 @@ jobs:
             || { echo "::error::rpm: sudoers fragment not flagged as config"; fail=1; }
 
           if [ "$fail" = "0" ]; then
-            echo "✓ sudoers fragment is 0440 root:root + config in rpm and deb"
+            echo "OK sudoers fragment is 0440 root:root + config in rpm and deb"
           fi
           exit "$fail"
 
@@ -662,7 +670,7 @@ jobs:
           # baseline file itself.
           git ls-files -z -- . ':!:KEYS' ':!:rules/**' ':!:.secrets.baseline' \
             | xargs -0 detect-secrets-hook --baseline .secrets.baseline
-          echo "✓ no new secret findings vs baseline"
+          echo "OK no new secret findings vs baseline"
 
   # Future jobs (land as the codebase grows):
   #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)

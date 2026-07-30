@@ -1,6 +1,6 @@
 # 05 · Rollback and history
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 Every `kensa remediate` writes what it did to a durable transaction log
 (SQLite). That log is what makes a remediation reversible, what crash
@@ -84,7 +84,7 @@ kensa rollback --txn <txn-uuid> -H rhel9-host.example.com -u admin --sudo
 | `--start SESSION_ID` | Execute rollback for **every** committed transaction in the session. Needs `--host`. |
 | `-T, --txn TXN_UUID` | Legacy: roll back a single transaction by UUID. Needs `--host`. |
 
-`--start` reverses a whole **session** and is the primary path — including for
+`--start` reverses a whole **session** and is the primary path, including for
 a `kensa remediate` you ran on the CLI, which records a session you can find
 with `kensa list sessions`. The binary's help labels `--txn` as *legacy*: it
 reverses a single transaction by UUID (from `kensa history`), a fallback for

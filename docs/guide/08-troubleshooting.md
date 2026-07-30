@@ -1,6 +1,6 @@
 # Troubleshooting
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 Common failure modes, what they look like, and how to clear them. Each section
 names the condition first so you can match it to what you are seeing, then the
@@ -88,15 +88,15 @@ defines them.
 
 ## Getting more detail
 
-- `kensa detect -H <host> --sudo`—the detected OS and capability set behind
+- `kensa detect -H <host> --sudo`: the detected OS and capability set behind
   platform/`when` skips.
-- `kensa check ... -v`—expands the compacted PASS list in text output.
-- `kensa check ... -o json` or `-o jsonl`—structured per-rule outcomes
+- `kensa check ... -v`: expands the compacted PASS list in text output.
+- `kensa check ... -o json` or `-o jsonl`: structured per-rule outcomes
   (`pass` / `fail` / `skipped` / `error`) for scripting.
-- `kensa plan -H <host> <rule.yml>`—previews a rule's transaction (Kensa's
+- `kensa plan -H <host> <rule.yml>`: previews a rule's transaction (Kensa's
   four-phase change operation: capture, apply, validate, then commit or roll
   back) without executing it.
-- `kensa history` and `kensa rollback --start <session-id>`—inspect and reverse a past
+- `kensa history` and `kensa rollback --start <session-id>`: inspect and reverse a past
   transaction (see [05-rollback-and-history](05-rollback-and-history.md)).
 - A non-zero exit code distinguishes a runtime error (`1`) from a usage error
   (`2`, bad flag / missing argument).

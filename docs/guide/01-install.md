@@ -1,6 +1,6 @@
 # Install
 
-_Applies to: Kensa v0.8.0 — last updated 2026-07-24._
+_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
 
 ## What you'll have when you're done
 
