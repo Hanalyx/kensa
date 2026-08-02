@@ -17,15 +17,24 @@ any pair).
 ## Unreleased
 
 ### Fixed
+- **The deadman rollback could leave a service disabled and stopped that had
+  been enabled and running.** Kensa reads a unit's state with `systemctl show
+  -p UnitFileState -p ActiveState --value`, which prints the properties in
+  systemd's own order rather than the requested one. The service handlers read
+  the two lines by position, so every captured value landed in the wrong
+  field. The rollback built from it was not merely incomplete: for
+  `service_enabled` the transposed values fall through to the disable branch,
+  so restoring a unit that had been enabled and active emitted `systemctl
+  disable && systemctl stop`. Observed end to end on a real host, with the
+  out-of-band timer firing: a unit that was enabled and active before the
+  change came back enabled and INACTIVE. Properties are now read by name.
+
 - **`remediate` aborted before applying anything on hosts with `at` installed,
   in direct-SSH mode.** Arming the deadman timer emitted `at now + <N>
   seconds`, and `at` accepts no unit smaller than a minute on any
   implementation, so the arm failed and the engine refused to apply. The
   failure was safe, the host was never touched, but the affected remediations
-  could not run. This covers the six control-channel-sensitive mechanisms (the
-  three service handlers, `pam_module_configure`, `package_absent` and
-  `command_exec`) reached over direct SSH, including library callers with no
-  agent client. Agent mode arms through a different path and was unaffected.
+  could not run. Agent mode arms through a different path and was unaffected.
 
   Kensa now also refuses to apply when `at` accepted the job but cannot run
   it. `at` writes to a spool and the `atd` daemon executes it; with `atd`
@@ -36,33 +45,44 @@ any pair).
   in that state until it reboots. The queued job is removed when Kensa
   refuses.
 
-  **Timing, for Go callers embedding the engine:** the deadman window is not
-  operator-configurable, and the default is unchanged at 120 seconds. On the
-  `at` path that default now fires between 121 and 180 seconds, because `at`
-  accepts no unit below a minute and truncates to the minute boundary before
-  adding the offset, so the count must be large enough that truncation cannot
-  cut the window short. A caller passing a non-whole-minute window can see up
-  to 119 seconds more than requested. Firing late is the safe direction: a
-  deadline that fired early would revert a change still being applied.
-  `systemd-run`, used where `at` is absent, takes the window in seconds but
-  does not honour it as a deadline. Two measured limitations apply to that
-  path and are being addressed separately: systemd's default timer accuracy is
-  one minute, so a 120-second window can fire at 180 seconds; and a relative
-  window is reset to a full fresh window by any `systemctl daemon-reload`,
-  which `systemctl enable`, `disable` and `mask` all perform, so the timer can
-  be pushed back by the very change it is guarding. Both are present in
-  released versions, not introduced here.
-
 - **The deadman could arm over a rollback script that restored nothing.** When
   a transaction's capturable steps produced no rollback commands, Kensa built
-  an empty script, scheduled it, and reported the change as protected, and the
-  engine treats a successful arm as permission to apply. Kensa now refuses
-  to arm, and therefore refuses to apply, when capturable steps yield no way to
-  undo them. A transaction with nothing capturable is a different case and is
-  unaffected: there is nothing to roll back, which is what a rule that declares
-  itself non-transactional already says, so nothing is scheduled and the change
-  proceeds.
+  an empty script, scheduled it, and applied the change behind it. Kensa now
+  refuses to arm, and so refuses to apply, in that case. A transaction with
+  nothing capturable is a different case and is unaffected: there is nothing to
+  roll back, which is what a rule that declares itself non-transactional
+  already says.
 
+- **The deadman timer did not hold the window it promised.** Four measured
+  faults, all on the direct-SSH path:
+
+  - A relative `systemd-run --on-active` countdown is reset to a full fresh
+    window by any `systemctl daemon-reload`, and `systemctl enable`, `disable`
+    and `mask` each perform one. The timer was pushed back by the very change
+    it was guarding, without bound: a 120-second window was measured firing at
+    225 seconds, and on another host not firing at all. Kensa now schedules an
+    absolute deadline computed on the target host.
+  - systemd's default timer accuracy is one minute, so the window could
+    overrun by that much. Kensa now pins it to one second.
+  - The rollback script was staged in `/tmp`, which Debian-family hosts clear
+    at boot before `atd` starts, so an `at` job could survive a reboot and find
+    its script deleted. It is staged under `/var/lib/kensa` now.
+  - Where both schedulers are armed, both could run the rollback concurrently.
+    The script now takes an atomic lock and the losing copy exits without
+    acting.
+
+  Cancelling the timer now removes every job that was armed and reports a
+  failure if any survives, distinguishes a timer that had already fired from
+  one that was cancelled, and never stops the unit that would be running the
+  rollback.
+
+  **Timing, for Go callers embedding the engine:** the deadman window is not
+  operator-configurable, and the default is unchanged at 120 seconds. On the
+  `at` path that default fires between 121 and 180 seconds, because `at`
+  accepts no unit below a minute and truncates to the minute boundary before
+  adding the offset. A caller passing a non-whole-minute window can see up to
+  119 seconds more than requested. Firing late is the safe direction: a
+  deadline that fired early would revert a change still being applied.
 
 ### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**

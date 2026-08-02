@@ -56,8 +56,11 @@ func TestCapture_AC03_RecordsEnabledAndActive(t *testing.T) {
 	t.Log("// @spec handler-service-enabled")
 	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
-	tp.Results["systemctl show -p UnitFileState -p ActiveState --value 'auditd'"] =
-		&api.CommandResult{Stdout: "enabled\nactive\n"}
+	tp.Results["systemctl show -p UnitFileState -p ActiveState 'auditd'"] =
+		// REAL systemd output: ActiveState prints first, in key=value form.
+		// A fixture in the requested order hid an inverted capture for three
+		// releases — see servicedbus.ParseUnitState.
+		&api.CommandResult{Stdout: "ActiveState=active\nUnitFileState=enabled\n"}
 
 	h := serviceenabled.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{"name": "auditd"})
@@ -186,4 +189,63 @@ func TestRollback_StaticUnit_OnlyHandlesActiveLayer(t *testing.T) {
 
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = serviceenabled.New()
+}
+
+// TestRollbackDoesNotDisableAHealthyUnit is the end-to-end regression for
+// the inverted shell-path capture, and it fails against the previous
+// implementation.
+//
+// Real `systemctl show` output puts ActiveState first. The old positional
+// parser therefore recorded prior_enabled="active" and prior_active=
+// "enabled" for a unit that was enabled and running. On rollback,
+// "active" matched no known enable state and fell through to the disable
+// branch, and "enabled" was not "active" so the stop branch fired too:
+// rolling back a no-op remediation ran `systemctl disable && systemctl
+// stop` against a healthy unit and reported Success. On sshd that is a
+// remote lockout; on auditd or firewalld it is a silent security
+// regression.
+//
+// The assertion is on the COMMANDS actually issued, not on the pre-state
+// keys, so it stays honest if the capture shape changes again.
+//
+// @spec service-unit-state-parse
+// @ac AC-04
+func TestRollbackDoesNotDisableAHealthyUnit(t *testing.T) {
+	t.Run("service-unit-state-parse/AC-04", func(t *testing.T) {})
+
+	tp := engine.NewFakeTransport()
+	// Real systemd output for an enabled, running unit.
+	tp.Results["systemctl show -p UnitFileState -p ActiveState 'auditd'"] =
+		&api.CommandResult{Stdout: "ActiveState=active\nUnitFileState=enabled\n"}
+
+	h := serviceenabled.New()
+	pre, err := h.Capture(context.Background(), tp, api.Params{"name": "auditd"})
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if got := pre.Data["prior_enabled"]; got != "enabled" {
+		t.Errorf("prior_enabled = %v, want enabled (values read positionally?)", got)
+	}
+	if got := pre.Data["prior_active"]; got != "active" {
+		t.Errorf("prior_active = %v, want active (values read positionally?)", got)
+	}
+
+	before := len(tp.Runs)
+	res, err := h.Rollback(context.Background(), tp, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Rollback reported failure: %s", res.Detail)
+	}
+	// Restoring an enabled+active unit may legitimately enable, start, or
+	// unmask it. It must never disable, stop, or mask it — those are the
+	// commands the inverted capture produced.
+	for _, cmd := range tp.Runs[before:] {
+		for _, destructive := range []string{"systemctl disable", "systemctl stop", "systemctl mask"} {
+			if strings.Contains(cmd, destructive) {
+				t.Errorf("rollback of an enabled+active unit ran %q: %q", destructive, cmd)
+			}
+		}
+	}
 }

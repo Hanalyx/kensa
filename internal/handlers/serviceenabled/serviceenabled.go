@@ -138,8 +138,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 
 // captureShell reads UnitFileState + ActiveState via `systemctl show`.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, name string) (*api.PreState, error) {
-	cmd := fmt.Sprintf("systemctl show -p UnitFileState -p ActiveState --value %s", shellEscape(name))
-	res, err := transport.Run(ctx, cmd)
+	res, err := transport.Run(ctx, servicedbus.ShowUnitStateCmd(name))
 	if err != nil {
 		return nil, fmt.Errorf("service_enabled: capture transport error: %w", err)
 	}
@@ -147,21 +146,8 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, nam
 		return nil, fmt.Errorf("service_enabled: capture failed for %s: %w (stderr: %s)",
 			name, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
 	}
-	enabled, active := parseShowOutput(res.Stdout)
+	enabled, active := servicedbus.ParseUnitState(res.Stdout)
 	return servicedbus.PreState(mechanism, name, enabled, active), nil
-}
-
-// parseShowOutput extracts enabled and active from the two-line
-// `systemctl show -p UnitFileState -p ActiveState --value` output.
-func parseShowOutput(stdout string) (enabled, active string) {
-	lines := strings.Split(strings.TrimSpace(stdout), "\n")
-	if len(lines) >= 1 {
-		enabled = strings.TrimSpace(lines[0])
-	}
-	if len(lines) >= 2 {
-		active = strings.TrimSpace(lines[1])
-	}
-	return enabled, active
 }
 
 // Rollback restores the prior enabled and active states.
@@ -184,6 +170,18 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	name, _ := pre.Data["name"].(string)
 	priorEnabled, _ := pre.Data["prior_enabled"].(string)
 	priorActive, _ := pre.Data["prior_active"].(string)
+
+	// A pre-state written by a release that read the two systemd properties
+	// positionally has them transposed. Acting on it would drive the unit
+	// toward a state the host was never in, so fail closed and tell the
+	// operator how to establish the real state.
+	if err := servicedbus.CheckPreStateOrientation(priorEnabled, priorActive); err != nil {
+		return &api.RollbackResult{
+			Success:    false,
+			Detail:     fmt.Sprintf("service_enabled: %v", err),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	if name == "" {
 		return nil, fmt.Errorf("service_enabled: pre-state missing 'name'")
 	}
