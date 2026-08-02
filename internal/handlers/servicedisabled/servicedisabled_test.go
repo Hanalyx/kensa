@@ -154,9 +154,23 @@ func TestApply_AC06_FailsCleanlyOnNonexistentUnit(t *testing.T) {
 	}
 }
 
-// Rollback with prior_enabled=enabled but prior_active=inactive should
-// enable without the --now start path issuing a separate start.
+// Rollback of a unit that was enabled but NOT running must re-enable it and
+// leave it stopped.
+//
+// The test previously asserted `enable --now` here, with a comment
+// explaining that --now "starts as well; no separate start command needed" —
+// which is exactly the defect: --now starts a unit whose captured state was
+// inactive, so rolling back a disable left a daemon running that the host
+// was not running, while the RollbackResult reported active=inactive. The
+// test asserted the implementation's assumption rather than the restoration
+// contract, so it passed while the handler over-restored.
+//
+// @spec handler-service-disabled
+// @ac AC-05
 func TestRollback_EnabledButInactive_OnlyEnables(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-05")
+
 	tp := engine.NewFakeTransport()
 	h := servicedisabled.New()
 	pre := &api.PreState{
@@ -173,12 +187,16 @@ func TestRollback_EnabledButInactive_OnlyEnables(t *testing.T) {
 	if !res.Success {
 		t.Errorf("Success=false: %s", res.Detail)
 	}
-	// enable --now starts as well; no separate start command needed.
 	if len(tp.Runs) != 1 {
-		t.Fatalf("got %d Run calls, want 1", len(tp.Runs))
+		t.Fatalf("got %d Run calls, want 1: %v", len(tp.Runs), tp.Runs)
 	}
-	if !strings.Contains(tp.Runs[0], "enable --now") {
-		t.Errorf("expected enable --now; got %q", tp.Runs[0])
+	if !strings.Contains(tp.Runs[0], "systemctl enable ") {
+		t.Errorf("expected a plain enable; got %q", tp.Runs[0])
+	}
+	// The unit was not running when Kensa captured it. Starting it would
+	// restore a state the host was never in.
+	if strings.Contains(tp.Runs[0], "--now") || strings.Contains(tp.Runs[0], "start") {
+		t.Errorf("rollback started a unit captured as inactive: %q", tp.Runs[0])
 	}
 }
 

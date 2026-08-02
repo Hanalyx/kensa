@@ -65,7 +65,7 @@ func TestNoHandlerParsesUnitStatePositionally(t *testing.T) {
 
 // TestUnitStateFixturesUseRealSystemdForm holds the fixture-fidelity line.
 //
-// The inverted capture survived three releases because the fixtures
+// The inverted capture survived 23 tagged releases because the fixtures
 // asserting it returned "enabled\nactive\n" — the order the code asked
 // for, which systemd never emits. Offline gates cannot catch a defect their
 // own fixtures encode, so the fixture shape itself has to be the assertion.

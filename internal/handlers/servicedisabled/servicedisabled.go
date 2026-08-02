@@ -176,25 +176,20 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	return h.rollbackShell(ctx, transport, name, priorEnabled, priorActive)
 }
 
-// rollbackDBus restores the enable + active layers via the D-Bus helper,
-// mirroring the shell path's `enable --now` semantics for an
-// enabled/enabled-runtime prior state.
+// rollbackDBus restores the enable and active layers via the D-Bus helper.
+// The two layers are decided independently, exactly as on the shell path:
+// a unit captured enabled but NOT running is re-enabled and left stopped.
+// The previous unconditional Start after Enable started it, which restored
+// a state the host was never in.
 func (h *Handler) rollbackDBus(ctx context.Context, sd systemd.Transport, name, priorEnabled, priorActive string) (*api.RollbackResult, error) {
-	switch priorEnabled {
-	case "enabled", "enabled-runtime":
+	if priorEnabled == "enabled" || priorEnabled == "enabled-runtime" {
 		if step, err := servicedbus.Step(mechanism, name, "enable", func() (*systemd.Response, error) { return sd.Enable(ctx, name) }); err != nil || step != nil {
 			return servicedbus.RollbackFrom(step, err)
 		}
-		// `enable --now` starts the unit; mirror with an explicit start.
+	}
+	if priorActive == "active" {
 		if step, err := servicedbus.Step(mechanism, name, "start", func() (*systemd.Response, error) { return sd.Start(ctx, name) }); err != nil || step != nil {
 			return servicedbus.RollbackFrom(step, err)
-		}
-	default:
-		// No enable-layer change. Restore the active layer on its own.
-		if priorActive == "active" {
-			if step, err := servicedbus.Step(mechanism, name, "start", func() (*systemd.Response, error) { return sd.Start(ctx, name) }); err != nil || step != nil {
-				return servicedbus.RollbackFrom(step, err)
-			}
 		}
 	}
 	return &api.RollbackResult{
@@ -206,21 +201,12 @@ func (h *Handler) rollbackDBus(ctx context.Context, sd systemd.Transport, name, 
 
 // rollbackShell restores via systemctl shell-out.
 func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, name, priorEnabled, priorActive string) (*api.RollbackResult, error) {
-	enableCmd := enableRollbackCommand(name, priorEnabled)
-	activeCmd := activeRollbackCommand(name, priorActive, enableCmd)
-
-	var pipeline string
-	switch {
-	case enableCmd != "" && activeCmd != "":
-		pipeline = enableCmd + " && " + activeCmd
-	case enableCmd != "":
-		pipeline = enableCmd
-	case activeCmd != "":
-		pipeline = activeCmd
-	default:
+	pipeline := rollbackPipeline(name, priorEnabled, priorActive)
+	if pipeline == "" {
 		return &api.RollbackResult{
-			Success:    true,
-			Detail:     fmt.Sprintf("service_disabled: nothing to rollback for %s (prior was already disabled+inactive)", name),
+			Success: true,
+			Detail: fmt.Sprintf("service_disabled: nothing to rollback for %s (prior was enabled=%s, active=%s)",
+				name, priorEnabled, priorActive),
 			ExecutedAt: time.Now().UTC(),
 		}, nil
 	}
@@ -243,34 +229,39 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, na
 	}, nil
 }
 
-// enableRollbackCommand returns the systemctl command to restore the
-// captured enable-layer state, or "" when no command is needed.
-func enableRollbackCommand(name, priorEnabled string) string {
-	switch priorEnabled {
-	case "enabled", "enabled-runtime":
-		// The --now flag also starts the unit, which satisfies the
-		// active layer at the same time; activeRollbackCommand skips
-		// the separate start in that case.
-		return fmt.Sprintf("systemctl enable --now %s", shellEscape(name))
-	default:
-		// disabled, static, masked, indirect, alias, generated, "":
-		// no enable-layer change required.
-		return ""
-	}
-}
+// rollbackPipeline builds the systemctl command restoring both captured
+// layers, or "" when the prior state needs no command.
+//
+// The enable layer and the active layer are INDEPENDENT and are decided
+// independently. Collapsing them into `enable --now` whenever the unit was
+// enabled is wrong for the enabled-but-not-running case, which is ordinary:
+// a unit can be enabled at boot and deliberately stopped, or enabled and
+// not yet started. `--now` would start it, so rolling back a disable would
+// leave a daemon RUNNING that was not running when Kensa captured the host
+// (rsyncd, nfs-server, avahi-daemon are all in the corpus), while the
+// RollbackResult reported "active=inactive". Restoring more than was taken
+// away is still a failure to restore.
+//
+// --now is used only when both layers genuinely call for it, purely as a
+// shorthand for enable + start. This mirrors service_masked, which has
+// always branched the two layers separately.
+func rollbackPipeline(name, priorEnabled, priorActive string) string {
+	needsEnable := priorEnabled == "enabled" || priorEnabled == "enabled-runtime"
+	needsStart := priorActive == "active"
 
-// activeRollbackCommand returns the systemctl start command when the
-// prior active state was "active" AND the enable command has not
-// already issued --now (which starts implicitly).
-func activeRollbackCommand(name, priorActive, enableCmd string) string {
-	if priorActive != "active" {
+	switch {
+	case needsEnable && needsStart:
+		return fmt.Sprintf("systemctl enable --now %s", shellEscape(name))
+	case needsEnable:
+		return fmt.Sprintf("systemctl enable %s", shellEscape(name))
+	case needsStart:
+		return fmt.Sprintf("systemctl start %s", shellEscape(name))
+	default:
+		// prior_enabled of disabled / static / masked / indirect / alias /
+		// generated / "" needs no enable-layer change, and an inactive
+		// prior needs no start.
 		return ""
 	}
-	// If enableCmd already included --now, the start is covered.
-	if strings.Contains(enableCmd, "--now") {
-		return ""
-	}
-	return fmt.Sprintf("systemctl start %s", shellEscape(name))
 }
 
 // shellEscape wraps s in single quotes for safe shell inclusion.

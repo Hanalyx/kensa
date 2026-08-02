@@ -25,15 +25,23 @@ spec:
             log.
 
             Rollback then consumed the inverted pre-state as though it were
-            correct. For a unit that was disabled and inactive, rollback
-            matched no branch and silently restored nothing while reporting
-            Success. For service_enabled on a unit that was enabled and
+            correct. For service_enabled on a unit that was enabled and
             active, "active" fell through the enable switch to the disable
             branch and "enabled" was not "active" so the stop branch fired
             too: rolling back a no-op remediation issued `systemctl disable
             && systemctl stop` against a healthy unit and reported success.
             On sshd that is a remote lockout; on auditd or firewalld it is a
-            silent security regression.
+            silent security regression. For service_disabled and
+            service_masked on a unit that was enabled and active, the
+            inverted values matched no branch, so rollback issued nothing,
+            reported Success, and left the unit disabled and stopped while
+            claiming restoration.
+
+            The inverse case, a unit genuinely disabled and inactive, is
+            benign under all three handlers: the swapped values happen to
+            produce either the correct commands or none. An earlier draft of
+            this spec named that case as the harmful one, which is backwards
+            and would have misdirected the failure-mode analysis.
 
             The defect survived because the fixtures asserting this behavior
             returned "enabled\nactive\n" — the order the code requested,
