@@ -330,9 +330,9 @@ func TestAtJobVerificationIsAnchored(t *testing.T) {
 // Arming only the "better" scheduler silently drops one of those guarantees.
 //
 // @spec deadman-timer
-// @ac AC-14
+// @ac AC-15
 func TestBothSchedulersAreArmedWhenBothPresent(t *testing.T) {
-	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
 
 	tp := bothSchedulersTP()
 	cmd := armAndFindCommand(t, tp, 120*time.Second, "systemd-run --unit=")
@@ -373,9 +373,9 @@ func TestBothSchedulersAreArmedWhenBothPresent(t *testing.T) {
 // working one sits beside it.
 //
 // @spec deadman-timer
-// @ac AC-14
+// @ac AC-15
 func TestFallsThroughToAtWhenSystemdRunRefuses(t *testing.T) {
-	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
 
 	tp := bothSchedulersTP()
 	tp.SystemdRunRefuses = "Failed to start transient timer unit: Interactive authentication required."
@@ -409,9 +409,9 @@ func TestFallsThroughToAtWhenSystemdRunRefuses(t *testing.T) {
 // only when there is nothing else to try.
 //
 // @spec deadman-timer
-// @ac AC-14
+// @ac AC-15
 func TestFallsThroughToSystemdRunWhenAtdIsDead(t *testing.T) {
-	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
 
 	tp := bothSchedulersTP()
 	tp.AtdStopped = true
@@ -439,9 +439,9 @@ func TestFallsThroughToSystemdRunWhenAtdIsDead(t *testing.T) {
 // part of the fix.
 //
 // @spec deadman-timer
-// @ac AC-14
+// @ac AC-15
 func TestFailedSystemdRunScheduleLeavesNoTimer(t *testing.T) {
-	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
 
 	tp := bothSchedulersTP()
 	tp.Results["LoadState"] = api.CommandResult{Stdout: "not-found"} // verification fails
@@ -475,9 +475,9 @@ func TestFailedSystemdRunScheduleLeavesNoTimer(t *testing.T) {
 // committed, with no event and no store record.
 //
 // @spec deadman-timer
-// @ac AC-14
+// @ac AC-15
 func TestSystemdRunTransportErrorLeavesNoTimer(t *testing.T) {
-	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
 
 	tp := bothSchedulersTP()
 	tp.SystemdRunTransportErr = "ssh: connection reset by peer"
@@ -638,15 +638,49 @@ func TestRollbackScriptTakesAnAtomicLock(t *testing.T) {
 	if !strings.Contains(script, "/var/lib/kensa/deadman") {
 		t.Errorf("script or lock staged outside the durable directory: %q", script)
 	}
+
+	// The script must record that it ran, and the marker must survive its own
+	// cleanup. Nothing else can answer "did the deadman fire?": a systemd-run
+	// transient timer is garbage-collected within a second of elapsing and then
+	// reads identically to one that was canceled, and at(1) leaves no trace at
+	// all. Written before the rollback commands, because a rollback that
+	// started and then failed has still begun reverting the host.
+	if !strings.Contains(script, "$FIRED") {
+		t.Error("the rollback script records nothing when it runs, so Cancel cannot " +
+			"tell a fired timer from a canceled one and the engine would record " +
+			"COMMITTED for a reverted host")
+	}
+	fired := strings.Index(script, `> "$FIRED"`)
+	if fired < 0 {
+		fired = strings.Index(script, "$FIRED\" 2>/dev/null")
+	}
+	firstCmd := strings.Index(script, "rollback step 1")
+	if fired >= 0 && firstCmd >= 0 && fired > firstCmd {
+		t.Error("the fired marker is written after the rollback commands; a rollback " +
+			"that starts and fails would be reported as never having run")
+	}
+	if strings.Contains(script, `rm -rf "$LOCK"; rm -f "$0"; rm -f "$FIRED"`) {
+		t.Error("cleanup removes the fired marker, which is the one thing that must outlive the run")
+	}
 }
 
 // TestCancelReportsATimerThatAlreadyFired is the difference between "the change
-// stands" and "the host has been reverted".
+// stands" and "this host has already been reverted".
 //
-// An elapsed one-shot transient timer is not `active`, so an ActiveState check
-// alone passes and the cancel reads as successful. The engine then writes
-// StatusCommitted for a host the deadman has already rolled back — the record
-// and the machine disagree, with nothing to reconcile them.
+// The previous version asserted the guarantee against a fixture no real host
+// produces -- `LastTriggerUSecMonotonic=1226614056435` on a unit that had
+// fired. Measured on RHEL 9.6: a systemd-run transient timer carries
+// RemainAfterElapse=no, so within about a second of elapsing the unit is
+// garbage-collected and the properties read
+//
+//	fired:     ActiveState=inactive LastTriggerUSecMonotonic=0 LoadState=not-found
+//	canceled: ActiveState=inactive LastTriggerUSecMonotonic=0 LoadState=not-found
+//
+// byte for byte the same. The check was inert and the test certified it anyway,
+// which is the fake-disagrees-with-the-host failure this repo has been bitten
+// by before. The signal now comes from a marker the rollback script writes
+// before touching anything, which outlives both schedulers and the script's own
+// self-deletion.
 //
 // @spec deadman-timer
 // @ac AC-19
@@ -660,12 +694,10 @@ func TestCancelReportsATimerThatAlreadyFired(t *testing.T) {
 		t.Fatalf("Arm: %v", err)
 	}
 
+	// The script ran: its marker is on disk.
 	tp.Hook = func(cmd string) (*api.CommandResult, bool) {
-		if strings.Contains(cmd, "ActiveState") {
-			// Fired and finished: inactive, but with a non-zero trigger stamp.
-			return &api.CommandResult{
-				Stdout: "ActiveState=inactive\nLastTriggerUSecMonotonic=1226614056435",
-			}, true
+		if strings.Contains(cmd, ".fired") && strings.Contains(cmd, "test -e") {
+			return &api.CommandResult{Stdout: "__FIRED__"}, true
 		}
 		return nil, false
 	}
@@ -677,6 +709,42 @@ func TestCancelReportsATimerThatAlreadyFired(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "FIRED") {
 		t.Errorf("error does not distinguish a fired timer from a canceled one: %v", err)
+	}
+}
+
+// TestCancelChecksTheFiredMarkerBeforeDestroyingIt: both the systemctl stop and
+// the script rm destroy evidence, so the question has to be asked first.
+//
+// @spec deadman-timer
+// @ac AC-19
+func TestCancelChecksTheFiredMarkerBeforeDestroyingIt(t *testing.T) {
+	t.Run("deadman-timer/AC-19", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	a := deadman.New(120*time.Second, handler.Default())
+	txn := uuid.New()
+	if _, _, err := a.Arm(context.Background(), tp, txn, realPreStates()); err != nil {
+		t.Fatalf("Arm: %v", err)
+	}
+	before := len(tp.Runs)
+	_ = a.Cancel(context.Background(), tp, txn)
+
+	markerIdx, destroyIdx := -1, -1
+	for i, ran := range tp.Runs[before:] {
+		if markerIdx < 0 && strings.Contains(ran, ".fired") && strings.Contains(ran, "test -e") {
+			markerIdx = i
+		}
+		if destroyIdx < 0 && (strings.Contains(ran, "systemctl stop") || strings.Contains(ran, "atrm") ||
+			strings.HasPrefix(ran, "rm -f")) {
+			destroyIdx = i
+		}
+	}
+	if markerIdx < 0 {
+		t.Fatal("Cancel never checked whether the deadman had fired")
+	}
+	if destroyIdx >= 0 && destroyIdx < markerIdx {
+		t.Errorf("Cancel destroyed evidence (run %d) before reading the fired marker (run %d); "+
+			"the stop and the rm both erase the answer", destroyIdx, markerIdx)
 	}
 }
 

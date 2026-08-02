@@ -158,7 +158,7 @@ func New(window time.Duration, registry *handler.Registry) *Armer {
 //
 // It probes for a scheduler, dry-runs each capturable step's rollback
 // handler to collect shell commands, generates a POSIX shell script,
-// uploads it to /tmp/kensa-rollback-<txn-id>.sh, schedules it, and
+// uploads it to <scriptDir>/kensa-rollback-<txn-id>.sh, schedules it, and
 // verifies the job appears in the scheduler's queue.
 //
 // Failure modes:
@@ -374,6 +374,22 @@ func (a *Armer) Cancel(ctx context.Context, transport api.Transport, txnID uuid.
 		return nil
 	}
 
+	// Ask whether the deadman already fired BEFORE canceling anything. Both
+	// the stop below and the rm further down destroy evidence, and the answer
+	// changes the transaction's verdict: a fired timer means this host has
+	// already been reverted, so recording StatusCommitted would leave the log
+	// and the machine disagreeing with nothing to reconcile them.
+	if deadmanAlreadyFired(ctx, transport, txnID) {
+		_, _ = transport.Run(ctx, fmt.Sprintf("rm -f %s %s",
+			shellQuote(firedMarkerPath(txnID)), shellQuote(job.scriptPath)))
+		_ = cancelJob(ctx, transport, job) // tear down the other leg regardless
+		a.mu.Lock()
+		delete(a.jobs, txnID)
+		a.mu.Unlock()
+		return fmt.Errorf("deadman: the rollback timer for %s had already FIRED before "+
+			"cancel; the change did not survive and must not be recorded as committed", txnID)
+	}
+
 	// @ac AC-05 — cancel scheduled job and verify.
 	if err := cancelJob(ctx, transport, job); err != nil {
 		return err
@@ -511,9 +527,26 @@ func buildScript(txnID uuid.UUID, cmds []string) string {
 	// from where it stands, and a non-zero exit would only produce noise in the
 	// scheduler's mail.
 	fmt.Fprintf(&b, "LOCK=%s/kensa-rollback-%s.lock\n", scriptDir, txnID)
+	fmt.Fprintf(&b, "FIRED=%s\n", firedMarkerPath(txnID))
 	b.WriteString("if ! mkdir \"$LOCK\" 2>/dev/null; then\n")
 	b.WriteString("    exit 0   # the other scheduler's copy already holds it\n")
 	b.WriteString("fi\n")
+	// The marker is written BEFORE any rollback command and is NOT removed on
+	// exit. Cancel reads it to tell "the timer was canceled" from "the timer
+	// fired and this host has been reverted" -- opposite outcomes that the
+	// scheduler's own state cannot distinguish.
+	//
+	// systemd was the obvious place to ask and it cannot answer. A transient
+	// timer carries RemainAfterElapse=no, so within about a second of elapsing
+	// the unit is garbage-collected: `systemctl show -p ActiveState -p
+	// LastTriggerUSecMonotonic` then returns inactive/0/not-found, BYTE
+	// IDENTICAL to a timer that was canceled before it ever ran. Measured on
+	// RHEL 9.6, both cases side by side. Reading those properties was inert.
+	//
+	// Written before the commands rather than after, because a rollback that
+	// started and then failed has still begun reverting the host; reporting
+	// that as a clean cancel would be the more dangerous error.
+	b.WriteString("echo \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" > \"$FIRED\" 2>/dev/null || true\n")
 	b.WriteString("cleanup() { rm -rf \"$LOCK\"; rm -f \"$0\"; }\n")
 	b.WriteString("trap cleanup EXIT\n")
 	b.WriteString("\n")
@@ -523,6 +556,22 @@ func buildScript(txnID uuid.UUID, cmds []string) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// firedMarkerPath is where the rollback script records that it ran. It
+// deliberately outlives both the script and the lock, which the script removes
+// on exit, and it is scheduler-agnostic: at(1) and systemd-run leave no
+// comparable trace, and systemd's own is garbage-collected within a second.
+func firedMarkerPath(txnID uuid.UUID) string {
+	return fmt.Sprintf("%s/kensa-rollback-%s.fired", scriptDir, txnID)
+}
+
+// deadmanAlreadyFired reports whether the rollback script ran for this
+// transaction, reading the marker the script writes before touching anything.
+func deadmanAlreadyFired(ctx context.Context, transport api.Transport, txnID uuid.UUID) bool {
+	marker := firedMarkerPath(txnID)
+	res, err := transport.Run(ctx, fmt.Sprintf("test -e %s && echo __FIRED__ || true", shellQuote(marker)))
+	return err == nil && strings.Contains(res.Stdout, "__FIRED__")
 }
 
 // uploadScript writes content to remotePath on the host with mode 0700.
@@ -886,18 +935,14 @@ func verifySystemdUnitGone(ctx context.Context, transport api.Transport, unitNam
 		return fmt.Errorf("deadman: unit %s.timer still active after cancel", unitName)
 	}
 
-	// An elapsed one-shot timer is not "active" either, so an ActiveState
-	// check alone cannot tell "canceled before it fired" from "already fired
-	// and the rollback ran". Those are opposite outcomes: the first means the
-	// change stands, the second means the host has been reverted while the
-	// engine is about to record it as committed. LastTriggerUSecMonotonic is
-	// zero until the timer fires.
-	if trig := props["LastTriggerUSecMonotonic"]; trig != "" && trig != "0" {
-		return fmt.Errorf("deadman: unit %s.timer had already FIRED when cancel ran "+
-			"(LastTriggerUSecMonotonic=%s); the rollback has run or is running, so "+
-			"the change did not survive and must not be recorded as committed",
-			unitName, trig)
-	}
+	// Whether the timer FIRED cannot be answered from here. A transient timer
+	// carries RemainAfterElapse=no, so within about a second of elapsing the
+	// unit is garbage-collected and these same properties read
+	// inactive/0/not-found -- byte identical to a timer canceled before it
+	// ever ran. Measured on RHEL 9.6 with both cases side by side. That
+	// question is answered by the marker the rollback script writes; see
+	// deadmanAlreadyFired, which Cancel consults before reaching this point.
+
 	return nil
 }
 

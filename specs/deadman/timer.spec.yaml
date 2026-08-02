@@ -31,7 +31,7 @@ spec:
             includes:
                 - Pre-flight detection of scheduler availability (at or systemd-run)
                 - Rollback script generation from captured PreStates (POSIX sh)
-                - Script upload to /tmp/kensa-rollback-<txn-id>.sh
+                - Script upload to /var/lib/kensa/deadman/kensa-rollback-<txn-id>.sh
                 - Schedule via at or systemd-run with configurable window
                 - Cancel path via atrm / systemctl stop transient unit
                 - Post-cancel verification of script removal
@@ -78,7 +78,7 @@ spec:
           description: |
               The rollback script MUST self-delete after execution (rm -f
               "$0") OR after successful cancel (engine removes the script
-              file). Residual /tmp/kensa-rollback-*.sh files are a
+              file). Residual kensa-rollback-*.sh files are a
               hygiene failure, not atomicity failure, but are still
               reported to the operator.
           type: technical
@@ -289,7 +289,7 @@ spec:
           priority: critical
         - id: AC-03
           description: |
-              Script is uploaded to /tmp/kensa-rollback-<txn-id>.sh with
+              Script is uploaded to /var/lib/kensa/deadman/kensa-rollback-<txn-id>.sh with
               mode 0700. Upload failure (disk full, permissions) aborts
               the transaction before apply.
           references_constraints: [C-02]
@@ -297,7 +297,7 @@ spec:
         - id: AC-04
           description: |
               Scheduled via `at now + <ceil((window+60)/60)> minutes` or
-              `systemd-run --on-active=<window-seconds>`. Post-schedule
+              `systemd-run --on-calendar=<absolute-deadline>`. Post-schedule
               verification confirms the job appears in atq or systemctl
               list-timers.
 
@@ -317,7 +317,7 @@ spec:
           priority: critical
         - id: AC-08
           description: |
-              Script cleanup removes /tmp/kensa-rollback-<txn-id>.sh on
+              Script cleanup removes /var/lib/kensa/deadman/kensa-rollback-<txn-id>.sh on
               successful cancel. Residual files are detected by a
               post-cancel scan and reported to the operator without
               failing the transaction.

@@ -36,22 +36,25 @@ any pair).
   failure was safe, the host was never touched, but the affected remediations
   could not run. Agent mode arms through a different path and was unaffected.
 
-  Kensa now also refuses to apply when `at` accepted the job but cannot run
-  it. `at` writes to a spool and the `atd` daemon executes it; with `atd`
-  stopped, `at` still exits zero, still prints a job number, and `atq` still
-  lists the job, so every signal said the safety net was armed while nothing
-  would ever fire. This is reachable on an ordinary host: installing the `at`
-  package enables `atd` without starting it, so a freshly installed machine is
-  in that state until it reboots. The queued job is removed when Kensa
-  refuses.
+  Kensa also no longer counts an `at` job that cannot run. `at` writes to a
+  spool and the `atd` daemon executes it; with `atd` stopped, `at` still exits
+  zero, still prints a job number, and `atq` still lists the job, so every
+  signal said the safety net was armed while nothing would ever fire. This is
+  reachable on an ordinary host: installing the `at` package enables `atd`
+  without starting it, so a freshly installed machine is in that state until it
+  reboots. The queued job is now removed and that scheduler is treated as
+  having refused. Where another scheduler is available Kensa uses it and the
+  change proceeds; only when every scheduler on the host refuses does Kensa
+  decline to apply.
 
-- **The deadman could arm over a rollback script that restored nothing.** When
-  a transaction's capturable steps produced no rollback commands, Kensa built
-  an empty script, scheduled it, and applied the change behind it. Kensa now
-  refuses to arm, and so refuses to apply, in that case. A transaction with
-  nothing capturable is a different case and is unaffected: there is nothing to
-  roll back, which is what a rule that declares itself non-transactional
-  already says.
+- **The deadman could arm a timer over a rollback script that did nothing.**
+  When a transaction produced no rollback commands, Kensa built an empty
+  script, scheduled it, and reported a safety net over it. Kensa now schedules
+  nothing in that case: no timer, no script on disk. The change still applies,
+  because an empty rollback means there is nothing to undo -- several
+  mechanisms report success with no work when the system already matches the
+  captured state. A capture whose values are wrong is a different problem and
+  is refused at capture time, above.
 
 - **The deadman timer did not hold the window it promised.** Four measured
   faults, all on the direct-SSH path:
