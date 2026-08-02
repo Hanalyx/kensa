@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,10 @@ import (
 // Results keys by substring, making tests insensitive to UUID-stamped
 // command strings. Unmatched commands return exit 0 with empty output.
 type substringFakeTransport struct {
+	// Hook, when non-nil, is consulted before Results and may model a real
+	// program's argument parsing. Returning handled=false falls through.
+	Hook func(cmd string) (*api.CommandResult, bool)
+
 	Runs    []string
 	Results map[string]api.CommandResult // substring key → result
 }
@@ -33,6 +38,14 @@ func newSubTP() *substringFakeTransport {
 
 func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
 	f.Runs = append(f.Runs, cmd)
+	// Hook first: Results is a map, so two matching substrings would resolve
+	// in random order. A fake that models a real program's argument parsing
+	// needs deterministic precedence.
+	if f.Hook != nil {
+		if r, handled := f.Hook(cmd); handled {
+			return r, nil
+		}
+	}
 	for k, v := range f.Results {
 		if strings.Contains(cmd, k) {
 			r := v
@@ -52,9 +65,9 @@ func atHostTP() *substringFakeTransport {
 	tp := newSubTP()
 	// Scheduler detection: "command -v at" probe.
 	tp.Results["__AT_FOUND__"] = api.CommandResult{Stdout: "__AT_FOUND__"}
-	// at scheduling: "echo sh ... | at now + N seconds 2>&1"
-	// at(1) prints "job N at <date>" to stderr/stdout.
-	tp.Results["| at now +"] = api.CommandResult{Stdout: "job 42 at Thu Apr 15 12:00:00 2026"}
+	// at scheduling: the hook parses the time spec the way at(1) does, so a
+	// spec at(1) would reject fails here too.
+	tp.Hook = realAtParser
 	// atq verification: job 42 appears in queue.
 	tp.Results["atq"] = api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}
 	return tp
@@ -449,4 +462,31 @@ func (nilTransport) Close() error                             { return nil }
 // assertion directly.
 func TestDeadman_D005_InterfaceSatisfaction(t *testing.T) {
 	var _ engine.AgentAwareDeadmanArmer = (*deadman.Armer)(nil)
+}
+
+// atTimeSpecRe matches the time spec in `at now + N <unit>`.
+var atTimeSpecRe = regexp.MustCompile(`\| at now \+ (\d+) ([a-z]+)`)
+
+// realAtParser models at(1)'s actual time-spec parsing, which accepts no unit
+// smaller than a minute.
+//
+// The previous fake returned a job line for ANY spec, so `at now + 120
+// seconds` passed every offline gate while failing on every real host with
+// exit 1 and "Garbled time". A fixture that accepts what the real program
+// rejects cannot catch the bug it exists to guard. The strings below are
+// verbatim from at-3.1.23 on RHEL 9.
+func realAtParser(cmd string) (*api.CommandResult, bool) {
+	m := atTimeSpecRe.FindStringSubmatch(cmd)
+	if m == nil {
+		return nil, false
+	}
+	switch m[2] {
+	case "minutes", "minute", "hours", "hour", "days", "day", "weeks", "week":
+		return &api.CommandResult{Stdout: "job 42 at Thu Apr 15 12:00:00 2026"}, true
+	default:
+		return &api.CommandResult{
+			ExitCode: 1,
+			Stderr:   "syntax error. Last token seen: s\nGarbled time\n",
+		}, true
+	}
 }

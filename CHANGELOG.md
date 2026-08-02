@@ -16,6 +16,26 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **`remediate` aborted before applying anything on hosts with `at` installed,
+  in direct-SSH mode.** Arming the deadman timer emitted `at now + <N>
+  seconds`, and `at` accepts no unit smaller than a minute on any
+  implementation, so the arm failed and the engine refused to apply. The
+  failure was safe, the host was never touched, but the affected remediations
+  could not run. This covers the six control-channel-sensitive mechanisms (the
+  three service handlers, `pam_module_configure`, `package_absent` and
+  `command_exec`) reached over direct SSH, including library callers with no
+  agent client. Agent mode arms through a different path and was unaffected.
+
+  **If you set a custom deadman window:** the `at` path now waits up to a
+  minute longer than requested. `at` truncates to the minute boundary before
+  adding the offset, so a whole-minute count is the only spec it accepts and
+  the count has to be large enough that the truncation cannot cut the window
+  short. Waiting longer is the safe direction: a deadline that fired early
+  would revert a change still being applied. `systemd-run`, used where `at` is
+  absent, continues to take the window in seconds.
+
+
 ### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the

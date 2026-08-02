@@ -402,12 +402,45 @@ func schedule(ctx context.Context, transport api.Transport, sched schedulerKind,
 	return "", fmt.Errorf("deadman: unknown scheduler %q", sched)
 }
 
+// atWindowMinutes converts a window in seconds to the whole minutes at(1)
+// accepts, choosing the smallest count that cannot fire EARLY.
+//
+// Two facts drive this, and the second is easy to miss.
+//
+// at(1) has no sub-minute unit. `at now + 120 seconds` is a parse error
+// ("syntax error. Last token seen: s", "Garbled time", exit 1) on every
+// implementation, not a distro quirk. Kensa emitted exactly that from its
+// first release.
+//
+// at(1) also TRUNCATES its base time to the whole minute before adding the
+// offset, so `now + N minutes` fires at the start of the Nth minute from now,
+// not N minutes from now. Measured on RHEL 9 (at-3.1.23): a 2-minute spec
+// submitted at :03, :10 and :17 past the minute scheduled 117s, 110s and 103s
+// out. The delivered window is ((N-1)*60, N*60], always SHORTER than N
+// minutes and never longer.
+//
+// A naive ceil(window/60) is therefore wrong in a way that reads as right: it
+// looks like rounding up and behaves like rounding down. A 120-second window
+// would become a 2-minute spec delivering 61 to 120 seconds, so the deadman
+// could fire mid-apply and revert a transaction still legitimately in flight.
+//
+// Guaranteeing delivered >= window needs (N-1)*60 >= window, so
+// N = ceil((window+60)/60). The cost is up to one extra minute of exposure
+// for an uncommitted change: bounded, recoverable, and the right direction to
+// err.
+func atWindowMinutes(windowSec int) int {
+	if windowSec < 0 {
+		windowSec = 0
+	}
+	return (windowSec + 119) / 60
+}
+
 // scheduleAt submits the script to at(1) and verifies the job appears in atq.
 func scheduleAt(ctx context.Context, transport api.Transport, scriptPath string, windowSec int) (string, error) {
 	// at(1) reads the command from stdin. We use a shell one-liner to
 	// avoid multi-line stdin over the transport.
-	cmd := fmt.Sprintf("echo sh %s | at now + %d seconds 2>&1",
-		shellQuote(scriptPath), windowSec)
+	cmd := fmt.Sprintf("echo sh %s | at now + %d minutes 2>&1",
+		shellQuote(scriptPath), atWindowMinutes(windowSec))
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return "", err

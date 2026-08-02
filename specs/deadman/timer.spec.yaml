@@ -1,6 +1,6 @@
 spec:
     id: deadman-timer
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -83,6 +83,43 @@ spec:
               reported to the operator.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              The at(1) time spec MUST be one at(1) can parse, and MUST NOT
+              deliver a window shorter than the one requested.
+
+              at(1) has no sub-minute unit: `at now + 120 seconds` is a parse
+              error ("Garbled time", exit 1) on every implementation. Kensa
+              emitted exactly that from its first release, so on any host
+              carrying at(1) the deadman could not be armed, and because
+              arming precedes apply the engine refused to proceed. The failure
+              is fail-safe (the host is untouched) but it makes
+              control-channel-sensitive remediations unusable on those hosts
+              in direct-SSH mode. It went unnoticed because agent mode arms
+              through an RPC that never reaches this code, and because at(1)
+              is absent from a default minimal install.
+
+              at(1) also truncates its base time to the whole minute before
+              adding the offset, so `now + N minutes` delivers ((N-1)*60,
+              N*60], always shorter than N minutes. Measured on RHEL 9: a
+              2-minute spec submitted at :03, :10 and :17 past the minute
+              scheduled 117, 110 and 103 seconds out.
+
+              A naive ceil(window/60) therefore reads as rounding up and
+              behaves as rounding down: the 120-second default would deliver
+              61 to 120 seconds, and a deadman that fires mid-apply reverts a
+              transaction still legitimately in flight. The spec MUST require
+              ceil((window+60)/60), the smallest count whose lower bound
+              (N-1)*60 is at least the requested window. This does not relax
+              C-03: the delivered window is always at least the requested one.
+
+              Fixtures for this path MUST model at(1)'s time-spec parsing. The
+              fake that guarded it returned a job line for ANY spec, so it
+              agreed with the code and the spec while all three disagreed with
+              every real host.
+          type: security
+          enforcement: error
+
         # Constraint C-06 (keep-alive Extend()) deferred alongside
         # AC-07 — see "Deferred ACs" block below. Will be
         # re-introduced when the keep-alive feature lands.
@@ -111,10 +148,16 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              Scheduled via `at now + 120 seconds` or `systemd-run
-              --on-active=120`. Post-schedule verification confirms the
-              job appears in atq or systemctl list-timers.
-          references_constraints: [C-03]
+              Scheduled via `at now + <ceil((window+60)/60)> minutes` or
+              `systemd-run --on-active=<window-seconds>`. Post-schedule
+              verification confirms the job appears in atq or systemctl
+              list-timers.
+
+              This AC previously read `at now + 120 seconds`, a syntax at(1)
+              cannot parse. The spec, the implementation and the test fixture
+              all agreed on it, and none had been run against a real at(1).
+              See C-07 for why the +60 is load-bearing.
+          references_constraints: [C-03, C-07]
           priority: critical
         - id: AC-05
           description: |
@@ -139,6 +182,21 @@ spec:
               script. Returns ErrNoActiveDeadman if no timer is armed.
           references_constraints: [C-04]
           priority: high
+
+        - id: AC-12
+          description: |
+              The at(1) path emits whole minutes and never a spec that could
+              fire before the requested window: for every window the emitted
+              count N satisfies (N-1)*60 >= window, so the 120-second default
+              emits 3 minutes, not 2. The command contains no "seconds" unit.
+
+              The assertion is on the delivered lower bound rather than a
+              literal command string, because the lower bound is the safety
+              property. Locked by TestAtSchedulingNeverFiresEarly, with
+              TestAtSchedulingUsesWholeMinutes anchoring the encoding, both
+              against a fake that rejects the specs at(1) rejects.
+          references_constraints: [C-07]
+          priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in
     # backlog for future deliverables. The spec keeps the AC IDs
