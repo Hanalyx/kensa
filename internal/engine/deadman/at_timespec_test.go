@@ -21,8 +21,8 @@ var atMinutesRe = regexp.MustCompile(`\| at now \+ (\d+) minutes`)
 // driving the real public path rather than reaching into unexported helpers.
 func armAndFindCommand(t *testing.T, tp *substringFakeTransport, window time.Duration, match string) string {
 	t.Helper()
-	a := deadman.New(window, handler.NewRegistry())
-	if _, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{}); err != nil {
+	a := deadman.New(window, handler.Default())
+	if _, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates()); err != nil {
 		t.Fatalf("Arm (window %s): %v", window, err)
 	}
 	for _, cmd := range tp.Runs {
@@ -134,8 +134,8 @@ func TestAtArmRefusedWhenAtdIsNotRunning(t *testing.T) {
 	tp := atHostTP()
 	tp.AtdStopped = true
 
-	a := deadman.New(120*time.Second, handler.NewRegistry())
-	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	a := deadman.New(120*time.Second, handler.Default())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
 	if err == nil {
 		t.Fatal("Arm reported success on a host where atd is not running; " +
 			"the engine would apply behind a timer that cannot fire")
@@ -177,8 +177,137 @@ func TestAtArmRefusedWhenAtExitsNonZero(t *testing.T) {
 		return nil, false
 	}
 
-	a := deadman.New(120*time.Second, handler.NewRegistry())
-	if _, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{}); err == nil {
+	a := deadman.New(120*time.Second, handler.Default())
+	if _, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates()); err == nil {
 		t.Fatal("Arm succeeded although at(1) exited non-zero")
+	}
+}
+
+// silentRollbackHandler is capturable and its Rollback SUCCEEDS while issuing
+// no command. That is not a contrived shape: it is what the service_* handlers
+// do today. `systemctl show -p UnitFileState -p ActiveState --value` emits
+// ActiveState first and the handlers parse the two lines positionally, so every
+// captured value lands in the wrong field; the rollback builders then match
+// nothing and return cleanly having emitted nothing.
+type silentRollbackHandler struct{}
+
+func (silentRollbackHandler) Name() string     { return "kensa_test_silent_rollback" }
+func (silentRollbackHandler) Capturable() bool { return true }
+func (silentRollbackHandler) Apply(context.Context, api.Transport, api.Params, *api.PreState) (*api.StepResult, error) {
+	return &api.StepResult{Success: true}, nil
+}
+func (silentRollbackHandler) Rollback(context.Context, api.Transport, *api.PreState) (*api.RollbackResult, error) {
+	return &api.RollbackResult{Success: true}, nil
+}
+
+func silentRollbackRegistry(t *testing.T) *handler.Registry {
+	t.Helper()
+	r := handler.NewRegistry()
+	r.Register(silentRollbackHandler{})
+	return r
+}
+
+// TestArmRefusedWhenCaptureYieldsNoRollback is the guard for a timer armed
+// over a script that restores nothing.
+//
+// The engine treats a successful arm as permission to apply, so an empty
+// rollback script does not merely fail to help — it converts a loud fail-safe
+// abort into a silent apply that the transaction log records as protected.
+//
+// The trigger is real rather than theoretical. `systemctl show -p
+// UnitFileState -p ActiveState --value` emits ActiveState FIRST, and the
+// service handlers parse those two lines positionally, so every captured value
+// lands in the wrong field. Driving the real service_disabled rollback with the
+// values systemd actually returns yields ZERO commands, where the values it
+// expects yield `systemctl enable --now`.
+//
+// @spec deadman-timer
+// @ac AC-17
+func TestArmRefusedWhenCaptureYieldsNoRollback(t *testing.T) {
+	t.Run("deadman-timer/AC-17", func(t *testing.T) {})
+
+	// Capturable, and its rollback returns success having emitted nothing.
+	preStates := []api.PreState{{
+		StepIndex:  0,
+		Mechanism:  "kensa_test_silent_rollback",
+		Capturable: true,
+	}}
+
+	a := deadman.New(120*time.Second, silentRollbackRegistry(t))
+	_, _, err := a.Arm(context.Background(), atHostTP(), uuid.New(), preStates)
+	if err == nil {
+		t.Fatal("Arm reported success for a capture that yields no rollback commands; " +
+			"the engine would apply behind a script that restores nothing")
+	}
+	if !strings.Contains(err.Error(), "restores nothing") {
+		t.Errorf("error does not explain why the arm was refused: %v", err)
+	}
+}
+
+// TestNothingCapturableArmsNothing separates the other cause of an empty
+// command list. A transaction with no capturable step has nothing to roll
+// back, which is the honest state for a mechanism the rule declares
+// non-transactional — command_exec is control-channel sensitive AND
+// non-capturable, so it lands here. Arming is pointless, but refusing to apply
+// would be wrong: the rule already declared it is not transactional.
+//
+// Cancel must still resolve, because the engine holds armed=true for any
+// successful Arm and reads a Cancel error as "the deadman will fire".
+//
+// @spec deadman-timer
+// @ac AC-17
+func TestNothingCapturableArmsNothing(t *testing.T) {
+	t.Run("deadman-timer/AC-17", func(t *testing.T) {})
+
+	tp := atHostTP()
+	a := deadman.New(120*time.Second, handler.Default())
+	txn := uuid.New()
+
+	preStates := []api.PreState{{StepIndex: 0, Mechanism: "command_exec", Capturable: false}}
+	if _, _, err := a.Arm(context.Background(), tp, txn, preStates); err != nil {
+		t.Fatalf("Arm should succeed with nothing to protect: %v", err)
+	}
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "| at now +") || strings.Contains(ran, "kensa-rollback") {
+			t.Errorf("scheduled a timer with nothing to roll back: %q", ran)
+		}
+	}
+	if err := a.Cancel(context.Background(), tp, txn); err != nil {
+		t.Errorf("Cancel of an inert arm must resolve cleanly, got %v; the engine "+
+			"reads a Cancel error as 'the deadman will fire' and rolls back", err)
+	}
+}
+
+// TestAtJobVerificationIsAnchored: atq lines are "<id>\t<date>...", and the
+// date column is full of digits. A bare substring test for job "4" therefore
+// matches a queue holding only job 42 — so the last gate before the engine
+// applies would pass on somebody else's timer, or on a job that was never
+// really queued. verifyAtJobGone already anchors on the tab and carries a
+// comment naming this hazard; its sibling did not, and this branch adds new
+// reliance on it via the atrm-on-refusal path.
+//
+// @spec deadman-timer
+// @ac AC-04
+func TestAtJobVerificationIsAnchored(t *testing.T) {
+	t.Run("deadman-timer/AC-04", func(t *testing.T) {})
+
+	tp := atHostTP() // atq reports job 42
+	inner := tp.Hook
+	tp.Hook = func(cmd string) (*api.CommandResult, bool) {
+		if strings.Contains(cmd, "| at now +") {
+			// at reports job 4; the spool holds only the unrelated job 42.
+			return &api.CommandResult{Stdout: "job 4 at Thu Apr 15 12:00:00 2026"}, true
+		}
+		if inner != nil {
+			return inner(cmd)
+		}
+		return nil, false
+	}
+
+	a := deadman.New(120*time.Second, handler.Default())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
+	if err == nil {
+		t.Fatal("Arm succeeded although job 4 is absent from atq; a substring " +
+			"match against job 42 passed the last gate before apply")
 	}
 }

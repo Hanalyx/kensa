@@ -20,6 +20,26 @@ import (
 	_ "github.com/Hanalyx/kensa/internal/handlers/sysctlset"
 )
 
+// realPreStates is a pre-state that produces at least one rollback command,
+// using the sysctlset handler registered above.
+//
+// Tests previously armed with []api.PreState{} throughout, which produces an
+// EMPTY command list -- so they exercised a script that restores nothing and
+// asserted the scheduling around it. Use handler.Default() as the registry
+// with these, not handler.NewRegistry(), or the mechanism is unknown.
+func realPreStates() []api.PreState {
+	return []api.PreState{{
+		StepIndex:  0,
+		Mechanism:  "sysctl_set",
+		Capturable: true,
+		Data: map[string]interface{}{
+			"runtime_value": "0",
+			"persist_file":  "/etc/sysctl.d/99-kensa.conf",
+			"key":           "kernel.dmesg_restrict",
+		},
+	}}
+}
+
 // substringFakeTransport is a test fake for api.Transport that matches
 // Results keys by substring, making tests insensitive to UUID-stamped
 // command strings. Unmatched commands return exit 0 with empty output.
@@ -105,8 +125,8 @@ func TestDetectScheduler_At(t *testing.T) {
 	t.Log("// @spec deadman-timer")
 	t.Log("// @ac AC-01")
 	tp := atHostTP()
-	a := deadman.New(0, handler.NewRegistry())
-	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	a := deadman.New(0, handler.Default())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
 	if err != nil {
 		t.Fatalf("Arm with at-capable host: %v", err)
 	}
@@ -118,8 +138,8 @@ func TestDetectScheduler_SystemdRun(t *testing.T) {
 	t.Log("// @spec deadman-timer")
 	t.Log("// @ac AC-01")
 	tp := sdrHostTP()
-	a := deadman.New(0, handler.NewRegistry())
-	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	a := deadman.New(0, handler.Default())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
 	if err != nil {
 		t.Fatalf("Arm with systemd-run-capable host: %v", err)
 	}
@@ -132,8 +152,8 @@ func TestDetectScheduler_NoScheduler(t *testing.T) {
 	t.Log("// @ac AC-01")
 	// Transport returns nothing recognizable for scheduler probes.
 	tp := newSubTP()
-	a := deadman.New(0, handler.NewRegistry())
-	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	a := deadman.New(0, handler.Default())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
 	if err != api.ErrSchedulerUnavailable {
 		t.Fatalf("expected ErrSchedulerUnavailable, got %v", err)
 	}
@@ -149,10 +169,10 @@ func TestArm_UploadAndSchedule(t *testing.T) {
 	t.Run("deadman-timer/AC-03", func(t *testing.T) {})
 	t.Run("deadman-timer/AC-04", func(t *testing.T) {})
 	tp := atHostTP()
-	a := deadman.New(0, handler.NewRegistry())
+	a := deadman.New(0, handler.Default())
 
 	txnID := uuid.New()
-	scriptPath, firesAt, err := a.Arm(context.Background(), tp, txnID, []api.PreState{})
+	scriptPath, firesAt, err := a.Arm(context.Background(), tp, txnID, realPreStates())
 	if err != nil {
 		t.Fatalf("Arm: %v", err)
 	}
@@ -235,7 +255,7 @@ func TestCancel_ErrNoActiveDeadman(t *testing.T) {
 	t.Run("deadman-timer/AC-05", func(t *testing.T) {})
 	t.Run("deadman-timer/AC-09", func(t *testing.T) {})
 	tp := newSubTP()
-	a := deadman.New(0, handler.NewRegistry())
+	a := deadman.New(0, handler.Default())
 	err := a.Cancel(context.Background(), tp, uuid.New())
 	if err != api.ErrNoActiveDeadman {
 		t.Fatalf("expected ErrNoActiveDeadman, got %v", err)
@@ -255,11 +275,11 @@ func TestCancel_RemovesJobAndScript(t *testing.T) {
 	// We need a two-phase transport: before cancel atq has job 42, after cancel it's gone.
 	// Simplest: run Arm with tp, then swap the atq response.
 
-	a := deadman.New(0, handler.NewRegistry())
+	a := deadman.New(0, handler.Default())
 	txnID := uuid.New()
 
 	// Arm successfully.
-	_, _, err := a.Arm(context.Background(), tp, txnID, []api.PreState{})
+	_, _, err := a.Arm(context.Background(), tp, txnID, realPreStates())
 	if err != nil {
 		t.Fatalf("Arm: %v", err)
 	}
@@ -319,8 +339,8 @@ func TestArm_DefaultWindowIsAtLeast120s(t *testing.T) {
 	t.Log("// @spec deadman-timer")
 	t.Log("// @ac AC-03")
 	tp := atHostTP()
-	a := deadman.New(0, handler.NewRegistry()) // 0 → use default 120s
-	_, firesAt, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	a := deadman.New(0, handler.Default()) // 0 → use default 120s
+	_, firesAt, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
 	if err != nil {
 		t.Fatalf("Arm: %v", err)
 	}
@@ -373,7 +393,7 @@ func TestDeadman_D005_AgentDispatch_ArmRoutesThroughRPC(t *testing.T) {
 	fake := &fakeAgentDeadmanClient{
 		armFiresAt: time.Now().Add(120 * time.Second).Unix(),
 	}
-	a := deadman.New(0, handler.NewRegistry())
+	a := deadman.New(0, handler.Default())
 	a.UseAgentClient(fake)
 
 	// Use a transport that would FAIL if the shell path were
@@ -382,7 +402,7 @@ func TestDeadman_D005_AgentDispatch_ArmRoutesThroughRPC(t *testing.T) {
 	tp := nilTransport{}
 	txnID := uuid.New()
 
-	scriptPath, firesAt, err := a.Arm(context.Background(), tp, txnID, []api.PreState{})
+	scriptPath, firesAt, err := a.Arm(context.Background(), tp, txnID, realPreStates())
 	if err != nil {
 		t.Fatalf("Arm via agent: %v", err)
 	}
@@ -409,12 +429,12 @@ func TestDeadman_D005_AgentDispatch_CancelRoutesThroughRPC(t *testing.T) {
 		armFiresAt:   time.Now().Add(120 * time.Second).Unix(),
 		cancelActive: true,
 	}
-	a := deadman.New(0, handler.NewRegistry())
+	a := deadman.New(0, handler.Default())
 	a.UseAgentClient(fake)
 	tp := nilTransport{}
 	txnID := uuid.New()
 
-	if _, _, err := a.Arm(context.Background(), tp, txnID, []api.PreState{}); err != nil {
+	if _, _, err := a.Arm(context.Background(), tp, txnID, realPreStates()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -436,11 +456,11 @@ func TestDeadman_D005_AgentDispatch_RPCFailureSurfacesError(t *testing.T) {
 	fake := &fakeAgentDeadmanClient{
 		armErr: errors.New("simulated agent RPC failure"),
 	}
-	a := deadman.New(0, handler.NewRegistry())
+	a := deadman.New(0, handler.Default())
 	a.UseAgentClient(fake)
 	tp := nilTransport{}
 
-	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
 	if err == nil {
 		t.Fatal("expected error when agent RPC fails; got nil")
 	}

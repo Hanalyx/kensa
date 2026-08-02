@@ -61,7 +61,11 @@ type armedJob struct {
 	// shell-based at(1)/systemd-run arms (false). Set by
 	// armViaAgent / armViaShell respectively. Replaces the
 	// empty-scriptPath sentinel pattern (P2-1 fix).
-	agentMode  bool
+	agentMode bool
+	// inert marks an arm for a transaction with nothing to roll back, so
+	// nothing was scheduled. Cancel must still resolve it: the engine holds
+	// armed=true and reads a Cancel error as "the deadman will fire".
+	inert      bool
 	scheduler  schedulerKind
 	jobID      string // at: numeric job ID; systemd-run: unit name
 	scriptPath string
@@ -169,6 +173,13 @@ func (a *Armer) armViaAgent(ctx context.Context, agentClient engine.DeadmanAgent
 	if err != nil {
 		return "", 0, fmt.Errorf("deadman: build rollback commands: %w", err)
 	}
+	armable, err := checkRollbackCommands(cmds, preStates)
+	if err != nil {
+		return "", 0, err
+	}
+	if !armable {
+		return "", a.recordInert(txnID), nil
+	}
 	windowSec := int64(a.window.Seconds())
 	firesAt, err := agentClient.ArmDeadman(ctx, txnID.String(), windowSec, cmds)
 	if err != nil {
@@ -199,6 +210,13 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 	cmds, err := a.collectRollbackCommands(preStates)
 	if err != nil {
 		return "", 0, fmt.Errorf("deadman: build rollback commands: %w", err)
+	}
+	armable, err := checkRollbackCommands(cmds, preStates)
+	if err != nil {
+		return "", 0, err
+	}
+	if !armable {
+		return "", a.recordInert(txnID), nil
 	}
 
 	scriptPath := fmt.Sprintf("/tmp/kensa-rollback-%s.sh", txnID)
@@ -231,6 +249,17 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 	return scriptPath, firesAt, nil
 }
 
+// recordInert registers an arm that scheduled nothing, so Cancel resolves
+// cleanly. The engine sets armed=true on any successful Arm and reads a Cancel
+// error as "the deadman will fire", which would trigger a needless rollback.
+func (a *Armer) recordInert(txnID uuid.UUID) int64 {
+	firesAt := time.Now().Add(a.window).Unix()
+	a.mu.Lock()
+	a.jobs[txnID] = &armedJob{inert: true, firesAt: firesAt}
+	a.mu.Unlock()
+	return firesAt
+}
+
 // Cancel implements engine.DeadmanArmer.
 //
 // It removes the scheduled job, removes the script file, and verifies
@@ -257,6 +286,13 @@ func (a *Armer) Cancel(ctx context.Context, transport api.Transport, txnID uuid.
 	// operator can inspect via a future status RPC).
 	agentClient := a.agentClient
 	a.mu.Unlock()
+
+	if job.inert {
+		a.mu.Lock()
+		delete(a.jobs, txnID)
+		a.mu.Unlock()
+		return nil
+	}
 
 	// D-005 dispatch: agent-mode jobs are tagged
 	// `agentMode=true` (set by armViaAgent); shell-mode jobs
@@ -316,6 +352,51 @@ func detectScheduler(ctx context.Context, transport api.Transport) (schedulerKin
 		return schedulerSystemdRun, nil
 	}
 	return "", errors.New("deadman: no scheduler found")
+}
+
+// checkRollbackCommands classifies what the dry-run produced, and is called by
+// BOTH arm paths so neither can acquire the guard without the other.
+//
+// An empty command list has two very different causes.
+//
+// Nothing capturable in the transaction means there is nothing to roll back,
+// so there is nothing to protect. That is the honest state for a mechanism the
+// rule itself declares non-transactional (command_exec is control-channel
+// sensitive AND non-capturable, so it lands here). Arming a script with no
+// commands would report a safety net that reverts nothing.
+//
+// Capturable steps that yield NO commands is a different thing entirely: the
+// capture is broken. It is not hypothetical. `systemctl show -p UnitFileState
+// -p ActiveState --value` emits ActiveState FIRST, and the service handlers
+// parse those two lines positionally, so every captured value is transposed.
+// Driving the real service_disabled rollback with the values systemd actually
+// returns yields ZERO commands, where the values it expects yield
+// `systemctl enable --now`. Its siblings degrade less loudly -- masked and
+// enabled still emit part of their rollback and silently drop the rest -- so
+// this guard catches the empty case, not the incomplete one.
+//
+// The engine treats a successful arm as permission to apply, so that case must
+// fail the arm rather than produce a hollow script. Refusing costs an
+// unremediated rule; proceeding costs a mutated host behind a rollback that
+// restores nothing, reported as protected.
+func checkRollbackCommands(cmds []string, preStates []api.PreState) (armable bool, err error) {
+	if len(cmds) > 0 {
+		return true, nil
+	}
+	var capturable int
+	for i := range preStates {
+		if preStates[i].Capturable {
+			capturable++
+		}
+	}
+	if capturable > 0 {
+		return false, fmt.Errorf(
+			"deadman: %d capturable step(s) produced no rollback commands, so the "+
+				"timer would run a script that restores nothing; refusing to arm "+
+				"rather than apply behind a rollback that cannot undo the change",
+			capturable)
+	}
+	return false, nil
 }
 
 // collectRollbackCommands dry-runs each capturable step's rollback handler
@@ -570,7 +651,11 @@ func verifyAtJobPresent(ctx context.Context, transport api.Transport, jobID stri
 	if err != nil {
 		return fmt.Errorf("deadman: atq check: %w", err)
 	}
-	if !strings.Contains(res.Stdout, jobID) {
+	// Anchor on the tab as verifyAtJobGone does. atq's line is
+	// "<id>\t<date>...", and a bare substring test against a line full of
+	// digits lets a single-digit job ID match ANY queued job -- so the last
+	// gate before the engine applies would pass on somebody else's timer.
+	if !strings.Contains(res.Stdout, jobID+"\t") {
 		return fmt.Errorf("deadman: job %s not found in atq after scheduling", jobID)
 	}
 	return nil

@@ -44,7 +44,24 @@ any pair).
   cut the window short. A caller passing a non-whole-minute window can see up
   to 119 seconds more than requested. Firing late is the safe direction: a
   deadline that fired early would revert a change still being applied.
-  `systemd-run`, used where `at` is absent, takes the window in seconds.
+  `systemd-run`, used where `at` is absent, takes the window in seconds but
+  does not honour it as a deadline. Two measured limitations apply to that
+  path and are being addressed separately: systemd's default timer accuracy is
+  one minute, so a 120-second window can fire at 180 seconds; and a relative
+  window is reset to a full fresh window by any `systemctl daemon-reload`,
+  which `systemctl enable`, `disable` and `mask` all perform, so the timer can
+  be pushed back by the very change it is guarding. Both are present in
+  released versions, not introduced here.
+
+- **The deadman could arm over a rollback script that restored nothing.** When
+  a transaction's capturable steps produced no rollback commands, Kensa built
+  an empty script, scheduled it, and reported the change as protected, and the
+  engine treats a successful arm as permission to apply. Kensa now refuses
+  to arm, and therefore refuses to apply, when capturable steps yield no way to
+  undo them. A transaction with nothing capturable is a different case and is
+  unaffected: there is nothing to roll back, which is what a rule that declares
+  itself non-transactional already says, so nothing is scheduled and the change
+  proceeds.
 
 
 ### Added
