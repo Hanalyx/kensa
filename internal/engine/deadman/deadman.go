@@ -30,7 +30,6 @@ package deadman
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -190,8 +189,8 @@ func (a *Armer) armViaAgent(ctx context.Context, agentClient engine.DeadmanAgent
 func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID uuid.UUID, preStates []api.PreState) (string, int64, error) {
 	// @spec deadman-timer
 	// @ac AC-01 — detect scheduler availability.
-	sched, err := detectScheduler(ctx, transport)
-	if err != nil {
+	scheds := availableSchedulers(ctx, transport)
+	if len(scheds) == 0 {
 		return "", 0, api.ErrSchedulerUnavailable
 	}
 
@@ -210,12 +209,30 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 	}
 
 	// @ac AC-04 — schedule via at or systemd-run and verify.
+	//
+	// Every available scheduler is tried in order. A scheduler that is
+	// installed can still refuse the job (systemd-run without privilege), and
+	// failing the arm while a working scheduler sits unused would abort a
+	// transaction that could have proceeded safely.
 	firesAt := time.Now().Add(a.window).Unix()
-	jobID, err := schedule(ctx, transport, sched, txnID, scriptPath, a.window)
-	if err != nil {
+	var (
+		jobID    string
+		sched    schedulerKind
+		attempts []string
+	)
+	for _, candidate := range scheds {
+		id, serr := schedule(ctx, transport, candidate, txnID, scriptPath, a.window)
+		if serr == nil {
+			jobID, sched = id, candidate
+			break
+		}
+		attempts = append(attempts, fmt.Sprintf("%s: %v", candidate, serr))
+	}
+	if sched == "" {
 		// Clean up the orphaned script file before returning.
 		_, _ = transport.Run(ctx, "rm -f "+shellQuote(scriptPath))
-		return "", 0, fmt.Errorf("deadman: schedule: %w", err)
+		return "", 0, fmt.Errorf("deadman: schedule: every available scheduler refused the job (%s)",
+			strings.Join(attempts, "; "))
 	}
 
 	a.mu.Lock()
@@ -300,22 +317,33 @@ func (a *Armer) cancelViaAgent(ctx context.Context, agentClient engine.DeadmanAg
 	return nil
 }
 
-// detectScheduler probes the target host for at(1) or systemd-run.
-// Returns [schedulerAt] or [schedulerSystemdRun] on success.
-// Returns a non-nil error (which [Arm] converts to [api.ErrSchedulerUnavailable])
-// when neither is found.
-func detectScheduler(ctx context.Context, transport api.Transport) (schedulerKind, error) {
-	// Prefer at(1): universally available on RHEL via the at/cronie package.
-	res, err := transport.Run(ctx, "command -v at 2>/dev/null && echo __AT_FOUND__ || true")
-	if err == nil && strings.Contains(res.Stdout, "__AT_FOUND__") {
-		return schedulerAt, nil
+// availableSchedulers returns every scheduler present on the host, in
+// preference order.
+//
+// A LIST rather than a choice, because presence does not imply usability.
+// systemd-run needs privilege it cannot always get: as an unprivileged user
+// it answers "Failed to start transient timer unit: Interactive
+// authentication required" and exits non-zero, while at(1) on the same host
+// schedules fine. Committing to one scheduler at probe time leaves the
+// working one unreachable in exactly the case where it would rescue the arm.
+// The caller tries each in turn and only fails when all of them do.
+//
+// systemd-run leads because it is the only one that expresses the window
+// exactly: at(1) parses no unit below a minute AND truncates its base to the
+// minute, so the at path always over-waits (see atWindowMinutes). systemd-run
+// is present on every host Kensa targets, since the service handlers already
+// require systemctl.
+func availableSchedulers(ctx context.Context, transport api.Transport) []schedulerKind {
+	var out []schedulerKind
+	probe := func(cmd, marker string, kind schedulerKind) {
+		res, err := transport.Run(ctx, cmd)
+		if err == nil && strings.Contains(res.Stdout, marker) {
+			out = append(out, kind)
+		}
 	}
-	// Fall back to systemd-run (RHEL 7+).
-	res, err = transport.Run(ctx, "command -v systemd-run 2>/dev/null && echo __SDR_FOUND__ || true")
-	if err == nil && strings.Contains(res.Stdout, "__SDR_FOUND__") {
-		return schedulerSystemdRun, nil
-	}
-	return "", errors.New("deadman: no scheduler found")
+	probe("command -v systemd-run 2>/dev/null && echo __SDR_FOUND__ || true", "__SDR_FOUND__", schedulerSystemdRun)
+	probe("command -v at 2>/dev/null && echo __AT_FOUND__ || true", "__AT_FOUND__", schedulerAt)
+	return out
 }
 
 // collectRollbackCommands dry-runs each capturable step's rollback handler
@@ -402,12 +430,46 @@ func schedule(ctx context.Context, transport api.Transport, sched schedulerKind,
 	return "", fmt.Errorf("deadman: unknown scheduler %q", sched)
 }
 
+// atWindowMinutes converts a window in seconds to the whole minutes at(1)
+// accepts, choosing the smallest count that cannot fire EARLY.
+//
+// Two facts drive the arithmetic, and the second is easy to miss.
+//
+// at(1) has no sub-minute unit: `at now + 30 seconds` is a parse error
+// ("Garbled time", exit 1) on every implementation, not a distro quirk.
+//
+// at(1) also TRUNCATES its base time to the whole minute before adding the
+// offset, so `now + N minutes` fires at the start of the Nth minute from now,
+// not N minutes from now. Measured on RHEL 9 (at-3.1.23): a 2-minute spec
+// submitted at :03, :10 and :17 past the minute scheduled 117s, 110s and 103s
+// out. The delivered window is therefore ((N-1)*60, N*60], always SHORTER
+// than N minutes and never longer.
+//
+// A naive ceil(window/60) is wrong for exactly that reason: it looks like
+// rounding up and behaves like rounding down. A 120-second window became a
+// 2-minute spec that delivered 61 to 120 seconds, so the deadman could fire
+// mid-apply and revert a transaction still legitimately in flight, which is
+// the harm the rounding was supposed to prevent.
+//
+// Guaranteeing delivered >= window needs (N-1)*60 >= window, so
+// N = ceil((window+60)/60). The cost is up to two extra minutes during which
+// an uncommitted change sits on the host: bounded, recoverable, and the right
+// direction to err. A caller that needs the window honored precisely wants
+// systemd-run, which takes seconds natively.
+func atWindowMinutes(windowSec int) int {
+	if windowSec < 0 {
+		windowSec = 0
+	}
+	// (window + 60) rounded up to whole minutes, i.e. ceil((window+60)/60).
+	return (windowSec + 119) / 60
+}
+
 // scheduleAt submits the script to at(1) and verifies the job appears in atq.
 func scheduleAt(ctx context.Context, transport api.Transport, scriptPath string, windowSec int) (string, error) {
 	// at(1) reads the command from stdin. We use a shell one-liner to
 	// avoid multi-line stdin over the transport.
-	cmd := fmt.Sprintf("echo sh %s | at now + %d seconds 2>&1",
-		shellQuote(scriptPath), windowSec)
+	cmd := fmt.Sprintf("echo sh %s | at now + %d minutes 2>&1",
+		shellQuote(scriptPath), atWindowMinutes(windowSec))
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
 		return "", err

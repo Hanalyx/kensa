@@ -3,7 +3,9 @@ package deadman_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,15 @@ import (
 // Results keys by substring, making tests insensitive to UUID-stamped
 // command strings. Unmatched commands return exit 0 with empty output.
 type substringFakeTransport struct {
+	// Hook, when non-nil, is consulted before Results and may model a real
+	// program's argument parsing. Returning handled=false falls through.
+	Hook func(cmd string) (*api.CommandResult, bool)
+	// SystemdRunRefuses, when non-empty, makes a systemd-run INVOCATION fail
+	// with that stderr while the `command -v systemd-run` probe still
+	// succeeds. That is the real shape of an unprivileged host: the binary
+	// is present, and using it is refused.
+	SystemdRunRefuses string
+
 	Runs    []string
 	Results map[string]api.CommandResult // substring key → result
 }
@@ -31,8 +42,46 @@ func newSubTP() *substringFakeTransport {
 	return &substringFakeTransport{Results: make(map[string]api.CommandResult)}
 }
 
+// atTimeSpecRe matches the time spec in `at now + N <unit>`.
+var atTimeSpecRe = regexp.MustCompile(`\| at now \+ (\d+) ([a-z]+)`)
+
+// realAtParser models at(1)'s actual time-spec parsing, which accepts no
+// unit smaller than a minute. The previous fake returned a job line for ANY
+// spec, so `at now + 120 seconds` passed every offline test while failing on
+// every real host with exit 1 and "Garbled time". Fixtures that accept what
+// the real program rejects cannot catch the bug they are meant to guard.
+func realAtParser(cmd string) (*api.CommandResult, bool) {
+	m := atTimeSpecRe.FindStringSubmatch(cmd)
+	if m == nil {
+		return nil, false
+	}
+	switch m[2] {
+	case "minutes", "minute", "hours", "hour", "days", "day", "weeks", "week":
+		return &api.CommandResult{
+			Stdout: "job 42 at Thu Apr 15 12:00:00 2026",
+		}, true
+	default:
+		// Verbatim from at(1) on RHEL 9 (systemd 252 host, exit 1).
+		return &api.CommandResult{
+			ExitCode: 1,
+			Stderr:   "syntax error. Last token seen: s\nGarbled time\n",
+		}, true
+	}
+}
+
 func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
 	f.Runs = append(f.Runs, cmd)
+	// Hook first: Results is a map, so two matching substrings would resolve
+	// in random order. A fake that models a real program's argument parsing
+	// needs deterministic precedence.
+	if f.Hook != nil {
+		if r, handled := f.Hook(cmd); handled {
+			return r, nil
+		}
+	}
+	if r, handled := f.systemdRun(cmd); handled {
+		return r, nil
+	}
 	for k, v := range f.Results {
 		if strings.Contains(cmd, k) {
 			r := v
@@ -52,9 +101,9 @@ func atHostTP() *substringFakeTransport {
 	tp := newSubTP()
 	// Scheduler detection: "command -v at" probe.
 	tp.Results["__AT_FOUND__"] = api.CommandResult{Stdout: "__AT_FOUND__"}
-	// at scheduling: "echo sh ... | at now + N seconds 2>&1"
-	// at(1) prints "job N at <date>" to stderr/stdout.
-	tp.Results["| at now +"] = api.CommandResult{Stdout: "job 42 at Thu Apr 15 12:00:00 2026"}
+	// at scheduling: the hook parses the time spec the way at(1) does, so a
+	// spec at(1) would reject fails here too.
+	tp.Hook = realAtParser
 	// atq verification: job 42 appears in queue.
 	tp.Results["atq"] = api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}
 	return tp
@@ -449,4 +498,55 @@ func (nilTransport) Close() error                             { return nil }
 // assertion directly.
 func TestDeadman_D005_InterfaceSatisfaction(t *testing.T) {
 	var _ engine.AgentAwareDeadmanArmer = (*deadman.Armer)(nil)
+}
+
+// systemdRunFlagRe matches a flag in a systemd-run invocation.
+var systemdRunFlagRe = regexp.MustCompile(`--[a-z-]+`)
+
+// systemdRunKnownFlags are the options this fake accepts, matching what
+// systemd-run itself accepts among the ones Kensa uses.
+var systemdRunKnownFlags = map[string]bool{"--unit": true, "--on-active": true}
+
+// systemdRun models systemd-run's argument handling.
+//
+// The previous fake had none: sdrHostTP returned exit 0 with empty output for
+// any unmatched command, so the systemd-run branch was guarded by nothing at
+// all. An adversarial review demonstrated it by overlaying a deliberately
+// invalid invocation (`--on-active=%d seconds --nonexistent-flag`) that real
+// systemd-run rejects, and the whole suite stayed green, including the test
+// asserting systemd-run is preferred. That is the same fixture-fidelity
+// failure this branch exists to fix, left open on the path the change
+// promotes to primary.
+//
+// Modeled rather than recorded, deliberately: recording a real systemd-run
+// invocation would create a transient timer unit, and the transcript manifest
+// is reads only. The messages and behaviors below are copied from an actual
+// RHEL 9 host.
+func (f *substringFakeTransport) systemdRun(cmd string) (*api.CommandResult, bool) {
+	if !strings.Contains(cmd, "systemd-run ") {
+		return nil, false
+	}
+	// `command -v systemd-run` is a probe for the binary, not an invocation.
+	if strings.Contains(cmd, "command -v") {
+		return nil, false
+	}
+
+	for _, flag := range systemdRunFlagRe.FindAllString(cmd, -1) {
+		if !systemdRunKnownFlags[flag] {
+			return &api.CommandResult{
+				ExitCode: 1,
+				Stderr:   fmt.Sprintf("systemd-run: unrecognized option '%s'", flag),
+			}, true
+		}
+	}
+	if !strings.Contains(cmd, "--unit=") || !strings.Contains(cmd, "--on-active=") {
+		return &api.CommandResult{
+			ExitCode: 1,
+			Stderr:   "systemd-run: --unit and --on-active are required by the deadman caller",
+		}, true
+	}
+	if f.SystemdRunRefuses != "" {
+		return &api.CommandResult{ExitCode: 1, Stderr: f.SystemdRunRefuses}, true
+	}
+	return &api.CommandResult{Stdout: "Running timer as unit: kensa-rollback.timer"}, true
 }

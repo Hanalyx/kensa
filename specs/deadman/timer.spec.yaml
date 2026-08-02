@@ -83,6 +83,55 @@ spec:
               reported to the operator.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              The scheduler MUST emit a time spec the chosen scheduler can
+              actually parse, and MUST prefer systemd-run over at(1).
+
+              at(1) has no sub-minute unit. `at now + 120 seconds` is a parse
+              error on every implementation ("syntax error. Last token seen:
+              s", "Garbled time", exit 1), not a distro quirk. Kensa emitted
+              exactly that from its first release, so on any host where at was
+              installed the deadman could not be armed and every
+              control-channel-sensitive remediation aborted before apply in
+              DIRECT-SSH mode. The failure is fail-safe (the host is untouched)
+              but it makes those remediations unusable on such hosts. It went
+              unnoticed because agent mode routes arming through an RPC that
+              never reaches this code, and because at is absent from a default
+              minimal install, so the broken path was reached only by
+              direct-SSH callers on hosts carrying at.
+
+              at(1) ALSO truncates its base time to the whole minute before
+              adding the offset, so `now + N minutes` delivers ((N-1)*60,
+              N*60], always shorter than N minutes. Measured on RHEL 9: a
+              2-minute spec submitted at :03, :10 and :17 past the minute
+              scheduled 117, 110 and 103 seconds out.
+
+              A naive ceil(window/60) therefore reads as rounding up and
+              behaves as rounding down: the 120-second default became a
+              2-minute spec delivering 61 to 120 seconds, so the deadman could
+              fire mid-apply and revert a transaction still legitimately in
+              flight. That is a worse failure than firing late, and the one the
+              rounding was meant to prevent.
+
+              The at path MUST emit ceil((window+60)/60) minutes, the smallest
+              count whose lower bound (N-1)*60 is at least the requested
+              window. The cost is up to two extra minutes of exposure for an
+              uncommitted change: bounded, recoverable, and the right direction
+              to err. systemd-run takes seconds natively and is preferred for
+              that reason.
+
+              This does not relax C-03: the delivered window is always at least
+              the requested one, so the 120-second default stays at least 120
+              seconds on both paths.
+
+              Fixtures for either path MUST model the real scheduler's
+              argument parsing. The fake that guarded this returned a job line
+              for ANY time spec, so it agreed with the code and the spec while
+              all three disagreed with every real host.
+          type: security
+          enforcement: error
+
         # Constraint C-06 (keep-alive Extend()) deferred alongside
         # AC-07 — see "Deferred ACs" block below. Will be
         # re-introduced when the keep-alive feature lands.
@@ -111,10 +160,16 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              Scheduled via `at now + 120 seconds` or `systemd-run
-              --on-active=120`. Post-schedule verification confirms the
-              job appears in atq or systemctl list-timers.
-          references_constraints: [C-03]
+              Scheduled via `systemd-run --on-active=<window-seconds>` when
+              systemd-run is present, else `at now + <ceil(window/60)>
+              minutes`. Post-schedule verification confirms the job appears in
+              atq or systemctl list-timers.
+
+              This AC previously read `at now + 120 seconds`, which at(1)
+              cannot parse. The spec, the implementation and the test fixture
+              all agreed on a syntax no real host accepts, which is how the
+              defect shipped.
+          references_constraints: [C-03, C-07]
           priority: critical
         - id: AC-05
           description: |
@@ -139,6 +194,43 @@ spec:
               script. Returns ErrNoActiveDeadman if no timer is armed.
           references_constraints: [C-04]
           priority: high
+
+        - id: AC-11
+          description: |
+              Scheduler selection prefers systemd-run when both are present,
+              uses at(1) when only at is present, and FALLS THROUGH to the next
+              available scheduler when the preferred one refuses the job rather
+              than only when it is absent. Arm fails only when every available
+              scheduler refuses, and the error names each attempt.
+
+              Presence is not usability: systemd-run is installed on every
+              fleet host but answers "Failed to start transient timer unit:
+              Interactive authentication required" without privilege, while
+              at(1) on the same host schedules fine. Committing to a scheduler
+              at probe time aborts the transaction with a working scheduler
+              sitting idle.
+
+              Locked by TestSchedulerPrefersSystemdRunWhenBothPresent,
+              TestSchedulerFallsThroughWhenSystemdRunRefuses,
+              TestArmFailsWhenEverySchedulerRefuses and
+              TestAtRemainsTheFallback.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-12
+          description: |
+              The at(1) path emits whole minutes and never a spec that could
+              fire before the requested window: for every window the emitted
+              count N satisfies (N-1)*60 >= window, so the 120-second default
+              emits 3 minutes, not 2. The command contains no "seconds" unit,
+              which at(1) cannot parse at all.
+
+              The assertion is on the delivered lower bound rather than a
+              literal command string, because the lower bound is the safety
+              property. Locked by TestAtSchedulingNeverFiresEarly, with
+              TestAtSchedulingUsesWholeMinutes anchoring the encoding, both
+              against a fake that rejects the time specs at(1) rejects.
+          references_constraints: [C-07]
+          priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in
     # backlog for future deliverables. The spec keeps the AC IDs
