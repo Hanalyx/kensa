@@ -1,0 +1,123 @@
+spec:
+    id: engine-plan-field-population
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: engine-plan-field-population
+        description: |
+            Every exported field on api.Plan is a promise to a consumer, and
+            its doc comment states that promise in the affirmative. Nothing
+            connected a field's existence to the code that fills it, so a
+            field could be declared, documented, and never populated, and no
+            gate would notice.
+
+            Three were. api/planner.go declares HostID as "identifies the
+            target host", Capabilities as "the host's detected CapabilitySet
+            at planning time", and Validators as "the post-apply validators
+            that would run". internal/engine/plan.go assigns "",
+            CapabilitySet{}, and nil to them respectively, unconditionally,
+            for every rule on every host.
+
+            The cost is not cosmetic. OpenWatch built a plan-preview panel
+            that renders a plan before an operator approves a fix, gave
+            Validators a section headed "How it will be checked", and
+            therefore told operators that nothing verifies the fix, for every
+            rule, directly beside the button that applies it (KN-OW-017).
+            Kensa's validate phase does re-run the rule's check and does
+            restore the capture on failure, so the panel was not merely empty:
+            it was false, on the screen whose purpose is to be trusted before
+            a host changes.
+
+            A consumer reading an empty field cannot distinguish "no
+            validators for this rule" from "this is not implemented". The type
+            carries no way to tell them apart, so the distinction has to be
+            declared and enforced.
+
+            This spec applies the pattern CANONICAL_RULE_SCHEMA_V1 §3.2 already
+            uses for `transactional`: the author declares intent, the engine
+            derives the same fact independently from a different source, and
+            divergence is a hard error.
+
+    objective:
+        summary: |
+            Make the population state of every api.Plan field explicit and
+            mechanically checked, so a declared-but-empty field cannot reach a
+            consumer.
+        scope:
+            includes:
+                - a reserved-field declaration listing every deliberately unpopulated field with its reason
+                - an independent check that derives population from a real PlanTransaction call
+                - doc comments that state reserved status where it applies
+            excludes:
+                - populating HostID or Validators (a behavior change; rides the major position)
+                - api.ScanResult and other contract types (same pattern, later)
+                - a real duration estimator
+
+    constraints:
+        - id: C-01
+          description: |
+              Every exported api.Plan field MUST either be populated by a real
+              PlanTransaction call or be named in the reserved-field
+              declaration with a reason. A field in neither state is a defect:
+              it promises a value in its doc comment and delivers the zero
+              value to every consumer.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              Population MUST be derived from an actual PlanTransaction
+              result, not asserted in a second list. A hand-maintained list of
+              "fields we populate" is a third copy of the same belief and
+              drifts exactly like the doc comment did.
+
+              Population MUST be measured across several representative plans,
+              because one plan cannot distinguish a bool that is legitimately
+              false from a bool nobody assigns.
+
+              A field carrying an empty collection MUST count as unpopulated.
+              reflect.Value.IsZero alone is insufficient: the planner assigns
+              CapabilitySet{}, an empty non-nil map, which IsZero reports as
+              populated and an operator would read as empty.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A reserved field's doc comment in api/ MUST state that it is
+              reserved. The comment is what a consumer reads; a field listed
+              as reserved in a test while its godoc still promises a value has
+              moved the defect rather than fixed it.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Every exported api.Plan field is either populated by
+              PlanTransaction across the representative plans, or listed in
+              reservedPlanFields with a reason. Adding a field that is neither
+              fails the build, with a message naming the field and both
+              remedies. Locked by TestPlanPopulatesEveryDeclaredField,
+              verified to fail against a deliberately added unpopulated field.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: |
+              Each field named in reservedPlanFields has a doc comment in
+              api/planner.go stating that it is reserved. Locked by
+              TestReservedPlanFieldsAreDocumented, which reads the comment
+              from source rather than from a copy.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              A field holding an empty collection counts as unpopulated:
+              Plan.Capabilities, assigned CapabilitySet{}, is reported
+              unpopulated rather than populated. Locked by the isPopulated
+              helper exercised through TestPlanPopulatesEveryDeclaredField.
+          references_constraints: [C-02]
+          priority: high
+
+    tags: [engine, api, contract, drift-guard, openwatch, tier-2]

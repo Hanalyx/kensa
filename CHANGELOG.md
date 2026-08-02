@@ -16,6 +16,24 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **`api.Plan` documented three fields it never fills.** `HostID`,
+  `Capabilities` and `Validators` carry their zero value for every rule on
+  every host, while their doc comments promised the target host, the detected
+  capability set, and the post-apply validators. A consumer could not tell "no
+  validators for this rule" from "not implemented", and at least one plan
+  preview rendered the empty field as a statement that nothing verifies the
+  fix.
+
+  The three comments now say the fields are reserved, and `EstimatedDuration`
+  now says what it is: two seconds per apply step, not a measurement. No field
+  was added or removed and no value changed, so nothing recompiles differently.
+
+  **If you render `Plan`:** treat these three as unavailable rather than empty,
+  and read capabilities from `ScanResult`. An empty `Validators` does not mean
+  the change goes unverified; the validate phase re-runs the rule's own check
+  either way.
+
 ### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the

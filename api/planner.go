@@ -44,12 +44,20 @@ type Plan struct {
 	// RuleID is the rule the plan implements.
 	RuleID string
 	// HostID identifies the target host.
+	//
+	// RESERVED: the planner does not receive the host identity, so this is
+	// always empty today. The caller knows which host it planned against.
+	// Do not render it as the plan's target.
 	HostID string
 	// SelectedImpl is the capability-gated [Implementation] chosen by
 	// the planner for this host.
 	SelectedImpl *Implementation
 	// Capabilities is the host's detected [CapabilitySet] at planning
 	// time.
+	//
+	// RESERVED: capability detection runs on the scan path, not the plan
+	// path, so this is always empty today. Read the capabilities from
+	// [ScanResult] instead.
 	Capabilities CapabilitySet
 	// Transactional mirrors the rule YAML's `transactional` field.
 	Transactional bool
@@ -64,13 +72,22 @@ type Plan struct {
 	// ApplySteps describes what apply would do, in order.
 	ApplySteps []StepPreview
 	// Validators describes the post-apply validators that would run.
+	//
+	// RESERVED: always empty today. The validate phase re-runs the rule's
+	// own check rather than a separately enumerated validator set, so there
+	// is nothing to enumerate here. An empty slice does NOT mean the change
+	// goes unverified: it means this preview cannot name the check. Render
+	// it only when non-empty.
 	Validators []ValidatorPreview
 	// RollbackPlan describes how each applied capturable step would
 	// be reversed if validate or apply fails. In execution order:
 	// element zero corresponds to the first apply step, but rollback
 	// runs the slice in reverse.
 	RollbackPlan []RollbackStepPreview
-	// EstimatedDuration is the planner's wall-clock estimate.
+	// EstimatedDuration is a coarse upper bound, not a measurement: two
+	// seconds per apply step, independent of mechanism or host. It does not
+	// narrow with experience and should not be shown to an operator as a
+	// prediction.
 	EstimatedDuration time.Duration
 	// Warnings are operator-facing notices, such as
 	// "rule is transactional:false".
