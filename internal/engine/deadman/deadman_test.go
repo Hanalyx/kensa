@@ -3,6 +3,7 @@ package deadman_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"regexp"
 	"strings"
@@ -48,9 +49,29 @@ type substringFakeTransport struct {
 	// running: at exits 0, queues the job, and warns. Verbatim from RHEL 9.7.
 	AtdStopped bool
 
+	// SystemdRunRefuses, when non-empty, makes a systemd-run INVOCATION fail
+	// with that stderr while `command -v systemd-run` still succeeds. That is
+	// the real shape of an unprivileged host: the binary is present and using
+	// it is refused.
+	SystemdRunRefuses string
+
+	// SystemdRunTransportErr, when non-empty, models the reply being LOST
+	// after the command already ran: systemd-run created the unit on the host
+	// and the caller sees only a transport error.
+	SystemdRunTransportErr string
+
+	// ErrorOn, when non-empty, makes Run return a transport error for any
+	// command containing it, modeling a lost reply rather than a refusal.
+	ErrorOn string
+
 	// Hook, when non-nil, is consulted before Results and may model a real
 	// program's argument parsing. Returning handled=false falls through.
 	Hook func(cmd string) (*api.CommandResult, bool)
+
+	// atQueued/atRemoved track spool state so atq answers what a real host
+	// would after an at submission and an atrm.
+	atQueued  bool
+	atRemoved bool
 
 	Runs    []string
 	Results map[string]api.CommandResult // substring key → result
@@ -62,6 +83,20 @@ func newSubTP() *substringFakeTransport {
 
 func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
 	f.Runs = append(f.Runs, cmd)
+	if f.ErrorOn != "" && strings.Contains(cmd, f.ErrorOn) {
+		return nil, errors.New("transport: connection reset")
+	}
+	if strings.Contains(cmd, "| at now +") {
+		// at(1) writes the spool entry regardless of whether atd is
+		// reachable; that separation is the whole AtdStopped case.
+		f.atQueued = true
+	}
+	if f.SystemdRunTransportErr != "" && strings.Contains(cmd, "systemd-run --unit=") {
+		return nil, errors.New(f.SystemdRunTransportErr)
+	}
+	if r, handled := f.systemdRun(cmd); handled {
+		return r, nil
+	}
 	// Hook first: Results is a map, so two matching substrings would resolve
 	// in random order. A fake that models a real program's argument parsing
 	// needs deterministic precedence.
@@ -77,6 +112,11 @@ func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.Comman
 	}
 	if f.Hook != nil {
 		if r, handled := f.Hook(cmd); handled {
+			return r, nil
+		}
+	}
+	if _, pinned := f.Results["atq"]; !pinned {
+		if r, handled := f.atSpool(cmd); handled {
 			return r, nil
 		}
 	}
@@ -102,8 +142,9 @@ func atHostTP() *substringFakeTransport {
 	// at scheduling: the hook parses the time spec the way at(1) does, so a
 	// spec at(1) would reject fails here too.
 	tp.Hook = realAtParser
-	// atq verification: job 42 appears in queue.
-	tp.Results["atq"] = api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}
+	// atq is answered by the spool model (see atSpool), so atrm actually
+	// empties the queue as on a real host. A pinned static response made
+	// verifyAtJobGone unfalsifiable.
 	return tp
 }
 
@@ -526,4 +567,73 @@ func realAtParser(cmd string) (*api.CommandResult, bool) {
 			Stderr:   "syntax error. Last token seen: s\nGarbled time\n",
 		}, true
 	}
+}
+
+// systemdRun models systemd-run's argument handling and its unprivileged
+// refusal.
+//
+// The previous fake had none: any unmatched command returned exit 0 with empty
+// output, so the systemd-run branch was guarded by nothing at all. An
+// adversarial review proved it by overlaying a deliberately invalid invocation
+// that real systemd-run rejects; the suite stayed green. That gap matters more
+// now that this branch makes systemd-run the default on every systemd host.
+//
+// Modeled rather than recorded, deliberately: recording a real invocation
+// would create a transient timer unit, and the transcript manifest is reads
+// only. The strings are copied from a live RHEL 9 host.
+// atSpool models at(1)'s spool: atrm removes the job, and atq reflects that.
+// A static atq response makes verifyAtJobGone unfalsifiable -- it would report
+// the job still queued after a successful atrm, or (worse, in the other
+// direction) let a no-op atrm look like a real cancel.
+func (f *substringFakeTransport) atSpool(cmd string) (*api.CommandResult, bool) {
+	switch {
+	case strings.HasPrefix(cmd, "atrm"):
+		f.atRemoved = true
+		return &api.CommandResult{}, true
+	case strings.HasPrefix(cmd, "atq"):
+		if f.atRemoved || !f.atQueued {
+			return &api.CommandResult{Stdout: ""}, true
+		}
+		return &api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}, true
+	}
+	return nil, false
+}
+
+func (f *substringFakeTransport) systemdRun(cmd string) (*api.CommandResult, bool) {
+	if !strings.Contains(cmd, "systemd-run ") || strings.Contains(cmd, "command -v") {
+		return nil, false
+	}
+	for _, flag := range systemdRunFlagRe.FindAllString(cmd, -1) {
+		if !systemdRunKnownFlags[flag] {
+			return &api.CommandResult{
+				ExitCode: 1,
+				Stderr:   fmt.Sprintf("systemd-run: unrecognized option '%s'", flag),
+			}, true
+		}
+	}
+	if !strings.Contains(cmd, "--unit=") || !(strings.Contains(cmd, "--on-active=") || strings.Contains(cmd, "--on-calendar=")) {
+		return &api.CommandResult{
+			ExitCode: 1,
+			Stderr:   "systemd-run: --unit and a time spec are required by the deadman caller",
+		}, true
+	}
+	if f.SystemdRunRefuses != "" {
+		return &api.CommandResult{ExitCode: 1, Stderr: f.SystemdRunRefuses}, true
+	}
+	return &api.CommandResult{Stdout: "Running timer as unit: kensa-rollback.timer"}, true
+}
+
+// bothSchedulersTP models the common fleet host: at(1) installed and working,
+// systemd-run present. Every RHEL 8 and RHEL 9 host on the fleet is this.
+var systemdRunFlagRe = regexp.MustCompile(`--[a-z-]+`)
+
+// Verified present on the oldest fleet target: systemd 239 (RHEL 8.10),
+// 252 (RHEL 9.6) and 257 (RHEL 10.1) all accept --timer-property.
+var systemdRunKnownFlags = map[string]bool{"--unit": true, "--on-active": true, "--on-calendar": true, "--timer-property": true}
+
+func bothSchedulersTP() *substringFakeTransport {
+	tp := atHostTP()
+	tp.Results["__SDR_FOUND__"] = api.CommandResult{Stdout: "__SDR_FOUND__"}
+	tp.Results["LoadState"] = api.CommandResult{Stdout: "loaded"}
+	return tp
 }

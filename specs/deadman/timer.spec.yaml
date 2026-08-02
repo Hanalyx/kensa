@@ -193,6 +193,97 @@ spec:
               because the engine holds armed=true for any successful arm and
               reads a Cancel error as "the deadman will fire".
 
+        - id: C-10
+          description: |
+              The shell path MUST arm EVERY usable scheduler, and MUST schedule
+              against an ABSOLUTE deadline rather than a relative window.
+
+              systemd-run is the timer that fires: its executor is PID 1, so
+              there is no state where the job is accepted and nothing runs it,
+              which at(1) has whenever atd is down. at(1) is the backstop
+              across a reboot: a transient unit lives in tmpfs and a power
+              cycle erases it, while at's spool is on disk and atd runs overdue
+              jobs at start. A refusal advances to the next candidate; the arm
+              fails only when every scheduler refuses, wrapping
+              api.ErrSchedulerUnavailable.
+
+              The deadline must be absolute because a relative
+              `--on-active` window is RESET TO A FULL FRESH WINDOW by any
+              `systemctl daemon-reload`, and enable/disable/mask each perform
+              one -- so the timer was pushed back by the very apply it guards,
+              without bound. Measured: a 120-second window fired at 225s on
+              Ubuntu 22.04 and never fired at all on RHEL 9.6. The timestamp
+              MUST be computed on the TARGET, since the calendar spec is read
+              against the target's clock and timezone.
+
+              systemd-run's AccuracySec MUST be pinned: the default is one
+              minute, not one second.
+
+              The rollback script MUST be staged outside /tmp. Debian-family
+              hosts clear /tmp at boot -- not via tmpfs but via
+              `systemd-tmpfiles --boot` acting on `D /tmp`, which runs before
+              atd -- so an at(1) job would survive the reboot and find its
+              script deleted, voiding the one case that leg exists for.
+
+              Because both legs run the same script, the script MUST take an
+              ATOMIC lock before doing anything. Self-deletion is not
+              exclusion: it removes the file when the first copy finishes, and
+              two copies launched 50ms apart both ran to completion.
+
+        - id: C-11
+          description: |
+              Cancel MUST remove every armed timer, attempt all of them even
+              after one fails, and MUST distinguish "cancelled" from "already
+              fired" and from "could not verify".
+
+              A partial cancel is the most dangerous state this package can
+              produce: Cancel runs on the COMMIT path, so a survivor fires a
+              full rollback against a transaction that already succeeded.
+              Returning early on the first failure would guarantee the
+              untracked survivor.
+
+              An elapsed one-shot timer is not `active`, so an ActiveState
+              check alone cannot tell a cancelled timer from a fired one --
+              opposite outcomes, since the second means the host has already
+              been reverted while the engine is about to record it committed.
+              LastTriggerUSecMonotonic is zero until the timer fires and MUST
+              be consulted. Properties MUST be read BY NAME: `systemctl show
+              --value` prints in systemd's order, not the requested order, and
+              reading it positionally is the live defect in the service
+              handlers.
+
+              An unverifiable cancel is NOT a successful cancel. The engine
+              answers a cancel error with an in-band rollback, so a false
+              failure costs a redundant restore while a false success leaves a
+              live timer reported as gone.
+
+              Cancel MUST stop only the .timer unit, never the bare unit name,
+              which resolves to the .service -- and once the timer has elapsed
+              that service IS the rollback. Stopping it mid-flight leaves the
+              host partially reverted.
+
+        - id: C-12
+          description: |
+              GATE. The reboot-scoped guarantee in C-10 rests on at(1) being
+              present. A host carrying only systemd-run has an IN-SESSION net
+              only: it covers Apply through Commit, and a reboot erases it.
+
+              That is acceptable only while no mechanism whose effect requires
+              a reboot is treated as control-channel-sensitive. The deadman is
+              a time-window instrument and does not fit reboot-deferred change:
+              the window expires long before the operator reboots, and the
+              engine already cancels it for staged applies for that reason.
+              Reboot-scoped safety belongs to internal/bootguard, keyed to the
+              boot rather than to a clock.
+
+              So if any mechanism requiring a reboot to take effect is ever set
+              true in controlChannelMechanisms
+              (internal/engine/preflight.go), this scheduler choice MUST be
+              revisited before that lands, and the at(1)-absent case MUST be
+              closed rather than documented.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -291,6 +382,61 @@ spec:
               Rollback SUCCEEDS while emitting nothing, which is what the
               transposed service_* capture does today -- not an error path.
           references_constraints: [C-09]
+          priority: critical
+
+        - id: AC-15
+          description: |
+              Both schedulers are armed when both are usable, systemd-run
+              against an absolute deadline with AccuracySec pinned. The arm
+              advances when one refuses and fails naming every attempt when all
+              refuse. A systemd-run attempt that fails after the command
+              reached the host stops the unit it may have created.
+
+              Locked by TestBothSchedulersAreArmedWhenBothPresent,
+              TestFallsThroughToAtWhenSystemdRunRefuses,
+              TestFallsThroughToSystemdRunWhenAtdIsDead,
+              TestFailedSystemdRunScheduleLeavesNoTimer and
+              TestSystemdRunTransportErrorLeavesNoTimer.
+          references_constraints: [C-10]
+          priority: critical
+
+        - id: AC-18
+          description: |
+              The rollback script takes an atomic lock before running any
+              command, a losing copy exits zero, and both script and lock live
+              in the durable directory rather than /tmp.
+
+              Locked by TestRollbackScriptTakesAnAtomicLock.
+          references_constraints: [C-10]
+          priority: critical
+
+        - id: AC-19
+          description: |
+              Cancel removes every armed timer and attempts all of them even
+              after one fails; a timer that had already fired is reported as
+              fired rather than cancelled; an unverifiable cancel fails; and no
+              cancel command stops a bare unit name.
+
+              Locked by TestCancelRemovesEveryArmedTimer,
+              TestPartialCancelFailsTheCancel (which fails the FIRST scheduler,
+              so "was the other still attempted" is actually discriminating),
+              TestCancelReportsATimerThatAlreadyFired,
+              TestUnverifiableCancelIsNotSuccess and
+              TestCancelNeverStopsTheBareUnit.
+          references_constraints: [C-11]
+          priority: critical
+
+        - id: AC-20
+          description: |
+              No mechanism whose effect requires a reboot is marked
+              control-channel-sensitive, so the deadman is never armed for a
+              change it cannot guard.
+
+              Enforced rather than documented: the gate is a review condition
+              with no runtime behavior to exercise, so it is checked directly
+              against controlChannelMechanisms by
+              TestDeadmanIsNotUsedForRebootRequiredChanges.
+          references_constraints: [C-12]
           priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in
