@@ -22,22 +22,30 @@ any pair).
   and `at` accepts no unit smaller than a minute on any implementation, so the
   arm failed and the engine refused to apply. The failure was safe, the host
   was never touched, but the affected remediations could not run. This applies
-  to control-channel-sensitive mechanisms (the service handlers,
-  `pam_module_configure`, `package_absent`) reached over direct SSH, including
-  library callers with no agent client. Agent mode arms through a different
-  path and was unaffected, which is why the defect went unnoticed.
+  to the six control-channel-sensitive mechanisms (the three service handlers,
+  `pam_module_configure`, `package_absent` and `command_exec`) reached over
+  direct SSH, including library callers with no agent client. Agent mode arms
+  through a different path and was unaffected, which is why the defect went
+  unnoticed.
 
-  Scheduling now uses `systemd-run` where it works and `at` otherwise, and
-  falls through to the next available scheduler when one refuses rather than
-  only when one is absent: `systemd-run` is installed everywhere but needs
-  privilege it does not always have, and `at` on the same host schedules fine.
+  Scheduling now emits whole minutes, uses `systemd-run` where it works and
+  `at` otherwise, and moves to the next available scheduler when one refuses
+  rather than only when one is absent: `systemd-run` is installed everywhere
+  but needs privilege it does not always have, and `at` on the same host
+  schedules fine.
 
-  **If you use a custom deadman window:** the `at` path now schedules up to two
-  minutes later than requested, where it previously scheduled up to a minute
-  EARLY. `at` truncates to the minute boundary before adding the offset, so the
-  old arithmetic delivered 61 to 120 seconds for a 120-second window and could
-  fire while a change was still being applied. Waiting longer is the safe
-  direction; `systemd-run` still delivers the window exactly.
+  Kensa also now refuses to arm rather than arming something that cannot
+  protect: a timer whose rollback script has no steps for a transaction that
+  captured restorable state, or an `at` job on a host where `atd` is not
+  running. Both previously would have reported a protected transaction that
+  was not protected. A refusal aborts before the host is touched.
+
+  **If you set a custom deadman window:** the `at` path now schedules between
+  one and two minutes later than requested. `at` truncates to the minute
+  boundary before adding the offset, so a whole-minute count is the only
+  spec it accepts and the count has to be large enough that the truncation
+  cannot cut the window short. `systemd-run` continues to take the window in
+  seconds.
 
 ### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**

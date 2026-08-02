@@ -2,6 +2,7 @@ package deadman_test
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -205,4 +206,163 @@ func TestAtRemainsTheFallback(t *testing.T) {
 	if !strings.Contains(cmd, "at now + 3 minutes") {
 		t.Errorf("fallback at command = %q", cmd)
 	}
+}
+
+// TestArmRefusesAnEmptyRollbackScript is the guard for the regression this
+// change introduced before the guard existed.
+//
+// The rollback script is built by dry-running each handler's Rollback against
+// the captured pre-state. When that Rollback is inert for the captured values
+// the script has no steps, and the engine records a transaction as protected
+// by a timer that fires and restores nothing.
+//
+// That is worse than the defect this branch fixes. Arming precedes apply, so
+// refusing aborts with the host untouched; proceeding under an empty script
+// mutates the host with no protection at all. A live run on RHEL 9 produced
+// exactly that: the uploaded script ended at `trap cleanup EXIT` with zero
+// steps, for the service mechanisms that are precisely the ones that trigger
+// arming.
+//
+// @spec deadman-timer
+// @ac AC-13
+func TestArmRefusesAnEmptyRollbackScript(t *testing.T) {
+	t.Run("deadman-timer/AC-13", func(t *testing.T) {})
+
+	// A capturable step whose handler contributes no rollback commands.
+	inert := &inertRollbackHandler{name: "inert_capturable"}
+	r := handler.NewRegistry()
+	r.Register(inert)
+
+	tp := atHostTP()
+	a := deadman.New(120*time.Second, r)
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{{
+		StepIndex: 0, Mechanism: "inert_capturable", Capturable: true,
+		Data: map[string]interface{}{"name": "auditd"},
+	}})
+
+	if err == nil {
+		t.Fatal("Arm reported success with a rollback script containing no steps")
+	}
+	if !errors.Is(err, deadman.ErrEmptyRollbackScript) {
+		t.Errorf("error = %v, want ErrEmptyRollbackScript", err)
+	}
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "| at now +") || strings.Contains(ran, "systemd-run --unit=") {
+			t.Errorf("refused the arm but still scheduled a timer: %q", ran)
+		}
+	}
+}
+
+// TestArmAllowsAnEmptyScriptForNonCapturableOnly: command_exec is
+// control-channel-sensitive AND non-capturable, so it arms the deadman and
+// legitimately produces no rollback steps. The guard must not fire there, or
+// it would refuse every command_exec transaction.
+//
+// @spec deadman-timer
+// @ac AC-13
+func TestArmAllowsAnEmptyScriptForNonCapturableOnly(t *testing.T) {
+	t.Run("deadman-timer/AC-13", func(t *testing.T) {})
+
+	r := handler.NewRegistry()
+	r.Register(&inertRollbackHandler{name: "command_exec", nonCapturable: true})
+
+	a := deadman.New(120*time.Second, r)
+	if _, _, err := a.Arm(context.Background(), atHostTP(), uuid.New(), []api.PreState{{
+		StepIndex: 0, Mechanism: "command_exec", Capturable: false,
+	}}); err != nil {
+		t.Fatalf("Arm refused a non-capturable-only transaction: %v", err)
+	}
+}
+
+// TestAtArmRefusedWhenAtdIsNotRunning: at(1) queues, atd(8) runs. A host with
+// at installed and atd masked is a normal hardening outcome, and there a
+// queued job is inert. Accepting the arm would report protection that cannot
+// fire, so it is a refusal and the caller moves on.
+//
+// @spec deadman-timer
+// @ac AC-11
+func TestAtArmRefusedWhenAtdIsNotRunning(t *testing.T) {
+	t.Run("deadman-timer/AC-11", func(t *testing.T) {})
+
+	tp := atHostTP()
+	tp.Results["is-active atd"] = api.CommandResult{Stdout: "inactive"}
+
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	if err == nil {
+		t.Fatal("Arm succeeded with atd not running; the queued job could never fire")
+	}
+	if !strings.Contains(err.Error(), "atd is not active") {
+		t.Errorf("error does not explain the refusal: %v", err)
+	}
+	// The queue entry must not be left behind.
+	var removed bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "atrm") {
+			removed = true
+		}
+	}
+	if !removed {
+		t.Error("refused the arm but left the job queued")
+	}
+}
+
+// TestFailedSystemdRunScheduleLeavesNoTimer covers the orphan the
+// fall-through created. systemd-run exits 0 once the unit is queued, so a
+// failed verification can leave a live timer; the caller then advances to the
+// next scheduler and records only the winner, so nothing would ever cancel
+// it.
+//
+// @spec deadman-timer
+// @ac AC-11
+func TestFailedSystemdRunScheduleLeavesNoTimer(t *testing.T) {
+	t.Run("deadman-timer/AC-11", func(t *testing.T) {})
+
+	tp := atHostTP()
+	tp.Results["__SDR_FOUND__"] = api.CommandResult{Stdout: "__SDR_FOUND__"}
+	// systemd-run itself succeeds; the presence probe then does not confirm it.
+	tp.Results["LoadState"] = api.CommandResult{Stdout: "not-found"}
+
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	if _, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{}); err != nil {
+		t.Fatalf("Arm should have fallen through to at: %v", err)
+	}
+
+	var scheduled, stopped bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "systemd-run --unit=") {
+			scheduled = true
+		}
+		if strings.Contains(ran, "systemctl stop") {
+			stopped = true
+		}
+	}
+	if !scheduled {
+		t.Fatal("systemd-run was never attempted; the test does not cover the orphan case")
+	}
+	if !stopped {
+		t.Error("a systemd-run schedule failed after creating a unit and nothing stopped it; " +
+			"the caller records only the winning scheduler, so this timer would never be canceled")
+	}
+}
+
+// inertRollbackHandler is capturable but contributes no rollback commands,
+// modeling a handler whose Rollback is a no-op for the captured values.
+type inertRollbackHandler struct {
+	name          string
+	nonCapturable bool
+}
+
+func (h *inertRollbackHandler) Name() string     { return h.name }
+func (h *inertRollbackHandler) Capturable() bool { return !h.nonCapturable }
+func (h *inertRollbackHandler) Apply(context.Context, api.Transport, api.Params, *api.PreState) (*api.StepResult, error) {
+	return &api.StepResult{Success: true}, nil
+}
+func (h *inertRollbackHandler) Capture(context.Context, api.Transport, api.Params) (*api.PreState, error) {
+	return &api.PreState{Mechanism: h.name, Capturable: !h.nonCapturable}, nil
+}
+func (h *inertRollbackHandler) Rollback(context.Context, api.Transport, *api.PreState) (*api.RollbackResult, error) {
+	// Issues nothing: the shape of a handler whose rollback is inert for the
+	// captured values.
+	return &api.RollbackResult{Success: true, Detail: "nothing to do"}, nil
 }

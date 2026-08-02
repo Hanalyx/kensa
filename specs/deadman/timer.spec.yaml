@@ -1,6 +1,6 @@
 spec:
     id: deadman-timer
-    version: 0.1.0
+    version: 0.3.0
     status: draft
     tier: 1
 
@@ -136,6 +136,36 @@ spec:
         # AC-07 — see "Deferred ACs" block below. Will be
         # re-introduced when the keep-alive feature lands.
 
+        - id: C-08
+          description: |
+              An arm MUST NOT report success when the generated rollback
+              script contains no steps and the transaction captured
+              restorable state.
+
+              The script is built by dry-running each handler's Rollback
+              against the captured pre-state. A Rollback that is inert for
+              those values contributes nothing, and the engine then records a
+              transaction as protected by a timer that fires and restores
+              nothing. Arming precedes apply, so refusing aborts with the host
+              untouched, which is the posture the deadman exists to provide;
+              proceeding under an empty script mutates the host with no
+              protection at all.
+
+              This is not hypothetical. A live run produced a script ending at
+              `trap cleanup EXIT` with zero steps for the service mechanisms,
+              which are among the ones that trigger arming.
+
+              A transaction with no capturable steps is the separate,
+              legitimate case: command_exec is control-channel-sensitive and
+              non-capturable, so an empty script is correct there and the
+              guard MUST NOT fire.
+
+              More generally, a scheduler that is installed but cannot fire
+              (at present with atd inactive) MUST be treated as a refusal
+              rather than a successful arm, for the same reason.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -160,10 +190,19 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              Scheduled via `systemd-run --on-active=<window-seconds>` when
-              systemd-run is present, else `at now + <ceil(window/60)>
-              minutes`. Post-schedule verification confirms the job appears in
-              atq or systemctl list-timers.
+              Scheduled via `systemd-run --on-active=<window-seconds>` where
+              systemd-run works, else `at now + <ceil((window+60)/60)>
+              minutes` (see C-07 for why the +60 is load-bearing). Selection
+              is by refusal, not presence, so which scheduler is used is
+              decided by AC-11 rather than by this AC. Post-schedule
+              verification confirms the job appears in atq or systemctl
+              list-timers.
+
+              An earlier revision of this AC specified `at now + 120 seconds`,
+              which at(1) cannot parse, and a later one specified
+              ceil(window/60), which C-07 in this same file condemns. Both are
+              recorded because a spec that quietly acquires the wrong formula
+              twice is evidence about the process, not just the code.
 
               This AC previously read `at now + 120 seconds`, which at(1)
               cannot parse. The spec, the implementation and the test fixture
@@ -230,6 +269,24 @@ spec:
               TestAtSchedulingUsesWholeMinutes anchoring the encoding, both
               against a fake that rejects the time specs at(1) rejects.
           references_constraints: [C-07]
+          priority: critical
+
+        - id: AC-13
+          description: |
+              Arm refuses, with ErrEmptyRollbackScript and without scheduling
+              anything, when the rollback script has no steps and any captured
+              step is capturable. It still arms when no step is capturable
+              (command_exec). A queued at job is removed when the arm is
+              refused because atd is not running, and a systemd-run unit that
+              was created before its verification failed is stopped before the
+              next scheduler is tried, so a failed candidate leaves nothing
+              behind for a Cancel that will never reference it.
+
+              Locked by TestArmRefusesAnEmptyRollbackScript,
+              TestArmAllowsAnEmptyScriptForNonCapturableOnly,
+              TestAtArmRefusedWhenAtdIsNotRunning and
+              TestFailedSystemdRunScheduleLeavesNoTimer.
+          references_constraints: [C-08]
           priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in

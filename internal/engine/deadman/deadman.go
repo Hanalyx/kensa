@@ -30,6 +30,7 @@ package deadman
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -42,6 +43,23 @@ import (
 	"github.com/Hanalyx/kensa/internal/engine"
 	"github.com/Hanalyx/kensa/internal/handler"
 )
+
+// ErrEmptyRollbackScript is returned when the generated rollback script has
+// no steps for a transaction that captured restorable state. Arming such a
+// timer would report protection that does not exist.
+var ErrEmptyRollbackScript = errors.New("deadman: rollback script has no steps")
+
+// hasCapturableStep reports whether any captured step can be rolled back.
+// Only those transactions need a non-empty rollback script; a
+// non-capturable-only transaction (command_exec) legitimately produces none.
+func hasCapturableStep(preStates []api.PreState) bool {
+	for _, ps := range preStates {
+		if ps.Capturable {
+			return true
+		}
+	}
+	return false
+}
 
 // defaultWindow is the minimum timer window per deadman-timer spec C-03.
 const defaultWindow = 120 * time.Second
@@ -200,6 +218,27 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 		return "", 0, fmt.Errorf("deadman: build rollback commands: %w", err)
 	}
 
+	// @ac AC-13 — refuse to arm a deadman that would protect nothing.
+	//
+	// The script is built by dry-running each handler's Rollback against the
+	// captured pre-state. A handler whose Rollback is inert for that
+	// pre-state contributes no steps, and the result is a timer that fires
+	// and does nothing while the engine records the transaction as protected.
+	//
+	// That is strictly worse than refusing. Arming precedes apply, so a
+	// refusal aborts the transaction with the host untouched, which is the
+	// posture the deadman exists to provide. Proceeding under an empty script
+	// converts a fail-safe abort into an unprotected mutation.
+	//
+	// A transaction with no capturable steps is a different case: command_exec
+	// is control-channel-sensitive and non-capturable, so an empty script is
+	// the correct and expected result there, and the guard must not fire.
+	if len(cmds) == 0 && hasCapturableStep(preStates) {
+		return "", 0, fmt.Errorf("%w: the captured pre-state yields no rollback steps, so the "+
+			"timer would fire and restore nothing; refusing to report the transaction protected",
+			ErrEmptyRollbackScript)
+	}
+
 	scriptPath := fmt.Sprintf("/tmp/kensa-rollback-%s.sh", txnID)
 	scriptContent := buildScript(txnID, cmds)
 
@@ -214,7 +253,6 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 	// installed can still refuse the job (systemd-run without privilege), and
 	// failing the arm while a working scheduler sits unused would abort a
 	// transaction that could have proceeded safely.
-	firesAt := time.Now().Add(a.window).Unix()
 	var (
 		jobID    string
 		sched    schedulerKind
@@ -234,6 +272,14 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 		return "", 0, fmt.Errorf("deadman: schedule: every available scheduler refused the job (%s)",
 			strings.Join(attempts, "; "))
 	}
+
+	// firesAt is the EARLIEST the job can fire, computed from the scheduler
+	// that actually won rather than from the requested window. at(1)
+	// truncates to the minute boundary, so its earliest is (N-1) whole
+	// minutes; systemd-run takes the window in seconds. Reporting the
+	// requested window regardless, as this did before, told a consumer a fire
+	// time neither scheduler honors.
+	firesAt := time.Now().Add(earliestFire(sched, a.window)).Unix()
 
 	a.mu.Lock()
 	a.jobs[txnID] = &armedJob{
@@ -482,9 +528,35 @@ func scheduleAt(ctx context.Context, transport api.Transport, scriptPath string,
 	}
 	// @ac AC-04 — post-schedule verification.
 	if err := verifyAtJobPresent(ctx, transport, jobID); err != nil {
+		// The job may exist despite failing verification. Leaving it queued
+		// would let a timer fire for a transaction that was never armed.
+		_, _ = transport.Run(ctx, "atrm "+shellQuote(jobID))
+		return "", err
+	}
+	// at(1) queues the job; atd(8) runs it. A host with at installed and atd
+	// masked or stopped is a normal hardening outcome, and there the queue
+	// entry is inert: the timer can never fire. Accepting that arm would
+	// report protection that does not exist, so treat it as a refusal and let
+	// the caller try the next scheduler.
+	if err := verifyAtdRunning(ctx, transport); err != nil {
+		_, _ = transport.Run(ctx, "atrm "+shellQuote(jobID))
 		return "", err
 	}
 	return jobID, nil
+}
+
+// verifyAtdRunning confirms the at daemon is active, so a queued job will
+// actually run.
+func verifyAtdRunning(ctx context.Context, transport api.Transport) error {
+	res, err := transport.Run(ctx, "systemctl is-active atd 2>/dev/null || systemctl is-active at 2>/dev/null || true")
+	if err != nil {
+		return fmt.Errorf("deadman: could not check whether atd is running: %w", err)
+	}
+	if strings.TrimSpace(res.Stdout) != "active" {
+		return fmt.Errorf("deadman: at(1) is installed but atd is not active (%q), so a queued job would never fire",
+			strings.TrimSpace(res.Stdout))
+	}
+	return nil
 }
 
 // scheduleSystemdRun submits the script via systemd-run and verifies
@@ -502,6 +574,13 @@ func scheduleSystemdRun(ctx context.Context, transport api.Transport, txnID uuid
 	}
 	// @ac AC-04 — post-schedule verification.
 	if err := verifySystemdUnitPresent(ctx, transport, unitName); err != nil {
+		// systemd-run exits 0 once the unit is queued, so a verification
+		// failure can leave a live transient timer behind. The caller moves on
+		// to the next scheduler and records only the winner, so nothing would
+		// ever cancel this one.
+		_, _ = transport.Run(ctx, fmt.Sprintf(
+			"systemctl stop %s.timer 2>/dev/null; systemctl stop %s 2>/dev/null; systemctl reset-failed %s 2>/dev/null; true",
+			shellQuote(unitName), shellQuote(unitName), shellQuote(unitName)))
 		return "", err
 	}
 	return unitName, nil
@@ -522,11 +601,14 @@ func cancelJob(ctx context.Context, transport api.Transport, job *armedJob) erro
 		return verifyAtJobGone(ctx, transport, job.jobID)
 
 	case schedulerSystemdRun:
-		// Try both .timer and bare unit name; ignore errors (unit may have
-		// already fired or the name variant differs).
+		// Both .timer and the bare unit name are stopped: the unit may have
+		// already fired, and the name variant differs by systemd version. A
+		// non-zero exit from either is not itself a failure for that reason,
+		// which is why the result is verified below rather than trusted.
 		stopCmd := fmt.Sprintf(
-			"systemctl stop %s.timer 2>/dev/null; systemctl stop %s 2>/dev/null; true",
-			shellQuote(job.jobID), shellQuote(job.jobID),
+			"systemctl stop %s.timer 2>/dev/null; systemctl stop %s 2>/dev/null; "+
+				"systemctl reset-failed %s 2>/dev/null; true",
+			shellQuote(job.jobID), shellQuote(job.jobID), shellQuote(job.jobID),
 		)
 		if _, err := transport.Run(ctx, stopCmd); err != nil {
 			return fmt.Errorf("deadman: systemctl stop: %w", err)
@@ -584,8 +666,13 @@ func verifySystemdUnitGone(ctx context.Context, transport api.Transport, unitNam
 		shellQuote(unitName),
 	))
 	if err != nil {
-		// Transport error — can't verify. Don't fail the cancel.
-		return nil
+		// A transport error means cancellation is UNVERIFIED, not verified.
+		// The at path has always reported this as a failure; the systemd path
+		// swallowed it, and promoting systemd-run to primary would move the
+		// whole dual-capable fleet onto the lenient reading. An uncanceled
+		// timer reverts a committed transaction while the store says
+		// committed, so silence here is the expensive kind.
+		return fmt.Errorf("deadman: could not verify %s.timer was canceled: %w", unitName, err)
 	}
 	if strings.TrimSpace(res.Stdout) == "active" {
 		return fmt.Errorf("deadman: unit %s.timer still active after cancel", unitName)
@@ -640,3 +727,16 @@ var _ interface {
 	Arm(context.Context, api.Transport, uuid.UUID, []api.PreState) (string, int64, error)
 	Cancel(context.Context, api.Transport, uuid.UUID) error
 } = (*Armer)(nil)
+
+// earliestFire returns the soonest the scheduled job can run under sched.
+//
+// It is a lower bound, not a prediction: both schedulers may fire later
+// (systemd-run's transient timers default to AccuracySec=1min, and at rounds
+// up to the minute boundary). A consumer deciding how long to wait before
+// assuming the deadman has fired wants the lower bound.
+func earliestFire(sched schedulerKind, window time.Duration) time.Duration {
+	if sched == schedulerAt {
+		return time.Duration(atWindowMinutes(int(window.Seconds()))-1) * time.Minute
+	}
+	return window
+}

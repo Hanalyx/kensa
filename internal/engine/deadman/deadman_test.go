@@ -106,6 +106,10 @@ func atHostTP() *substringFakeTransport {
 	tp.Hook = realAtParser
 	// atq verification: job 42 appears in queue.
 	tp.Results["atq"] = api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}
+	// atd running: at(1) only queues, atd(8) runs. A host that can actually
+	// fire a queued job has it active, and the fake has to say so now that
+	// the code asks.
+	tp.Results["is-active atd"] = api.CommandResult{Stdout: "active"}
 	return tp
 }
 
