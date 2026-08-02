@@ -119,3 +119,38 @@ func TestRollbackRestoresBothLayersIndependently(t *testing.T) {
 		})
 	}
 }
+
+// TestRollbackRefusesTransposedPreState covers the records already sitting in
+// operators' transaction logs.
+//
+// Capture is fixed, but every service transaction recorded before that fix
+// holds prior_enabled and prior_active transposed, and rollback cannot tell
+// them apart by shape: both are non-empty strings. Acting on one drives the
+// unit toward a state the host was never in and reports success. Fail closed
+// instead, and issue no command at all.
+//
+// @spec service-unit-state-parse
+// @ac AC-08
+func TestRollbackRefusesTransposedPreState(t *testing.T) {
+	t.Run("service-unit-state-parse/AC-08", func(t *testing.T) {})
+
+	tp := engine.NewFakeTransport()
+	// The exact shape a pre-fix capture of an enabled, running unit wrote.
+	res, err := servicedisabled.New().Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"name": "rsyncd", "prior_enabled": "active", "prior_active": "enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback returned an error; want a failed result: %v", err)
+	}
+	if res.Success {
+		t.Errorf("rollback acted on a transposed pre-state and reported success: %s", res.Detail)
+	}
+	if len(tp.Runs) != 0 {
+		t.Errorf("rollback issued commands against a transposed pre-state: %v", tp.Runs)
+	}
+	if !strings.Contains(res.Detail, "kensa check") {
+		t.Errorf("detail does not tell the operator what to do instead: %q", res.Detail)
+	}
+}

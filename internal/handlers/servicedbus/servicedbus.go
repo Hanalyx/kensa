@@ -96,8 +96,7 @@ func Capture(ctx context.Context, sd systemd.Transport, mech, name string) (*api
 // read a unit's enable and active state. It deliberately does NOT pass
 // --value: with --value systemd prints bare values in ITS OWN property
 // order, not the order they were requested, so a positional reader silently
-// swaps them. The key=value form names each value, which is order-immune
-// and also works on systemd older than 230 (which has no --value at all).
+// swaps them. The key=value form names each value, which is order-immune.
 //
 // A unit that does not exist is not an error here: systemd exits 0 and
 // prints an empty UnitFileState, which [ParseUnitState] reports as an empty

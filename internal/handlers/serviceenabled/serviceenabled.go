@@ -170,6 +170,18 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	name, _ := pre.Data["name"].(string)
 	priorEnabled, _ := pre.Data["prior_enabled"].(string)
 	priorActive, _ := pre.Data["prior_active"].(string)
+
+	// A pre-state written by a release that read the two systemd properties
+	// positionally has them transposed. Acting on it would drive the unit
+	// toward a state the host was never in, so fail closed and tell the
+	// operator how to establish the real state.
+	if err := servicedbus.CheckPreStateOrientation(priorEnabled, priorActive); err != nil {
+		return &api.RollbackResult{
+			Success:    false,
+			Detail:     fmt.Sprintf("service_enabled: %v", err),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	if name == "" {
 		return nil, fmt.Errorf("service_enabled: pre-state missing 'name'")
 	}

@@ -17,62 +17,25 @@ any pair).
 ## Unreleased
 
 ### Fixed
-- **`service_disabled` rollback started units that were not running.** The
-  enable and active layers are captured independently, but rollback collapsed
-  them: a unit recorded as enabled restored with `systemctl enable --now`
-  regardless of whether it had been running, and the D-Bus path issued an
-  unconditional start after enable. A unit that was enabled at boot and
-  deliberately stopped came back RUNNING, while the rollback result reported
-  `active=inactive`. For `rsyncd`, `nfs-server` or `avahi-daemon`, all of
-  which the corpus disables, that means rolling back a disable left a
-  listening network daemon running on a host that had it stopped, and
-  reported success. Restoring more than was taken away is a failure to
-  restore.
+- **`service_disabled` rollback no longer starts a unit that was stopped.** A
+  unit recorded as enabled but not running came back running after a rollback,
+  while the rollback result reported it as stopped. Rolling back a disable of
+  `rsyncd`, `nfs-server` or `avahi-daemon` left a listening network daemon
+  running on a host that had it stopped.
 
-  Both layers are now decided independently on both paths, matching
-  `service_masked`, which has always done so. The four prior states
-  (enabled/disabled by running/stopped) are covered by a test matrix on both
-  paths, and the same matrix now guards `service_enabled` and
-  `service_masked`, which were checked and do not share the defect.
+- **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
+  transaction now restores the state the host was actually in.** Earlier
+  releases recorded a unit's enable state and running state under each other's
+  keys whenever capture ran over the shell path. A rollback could disable and
+  stop a healthy unit, or report success while restoring nothing.
 
-  This was reachable only after the capture fix below: the inverted pre-state
-  previously sent the enabled cases down a branch that issued nothing.
-
-- **`service_enabled` / `service_disabled` / `service_masked` recorded the
-  wrong pre-state on the shell path, and rollback acted on it.** Capture ran
-  `systemctl show -p UnitFileState -p ActiveState --value` and read the two
-  values by line position. systemd prints properties in its own order, and
-  ActiveState comes first (verified on systemd 249, 252 and 257), so every
-  shell-path capture stored `prior_enabled` and `prior_active` swapped and
-  persisted that to the transaction log. Rollback then consumed those values
-  as though they were correct. For `service_enabled` on a unit that was
-  already enabled and running, it issued `systemctl disable` followed by
-  `systemctl stop` against a healthy unit and reported success: on sshd a
-  remote lockout, on auditd or firewalld a silent loss of hardening. For
-  `service_disabled` or `service_masked` on a unit that was enabled and
-  running, rollback issued no command at all and reported success, leaving
-  the unit disabled and stopped while claiming it had been restored. The
-  shell path is the one agentless SSH scanning takes, which is the default.
-
-  Capture now reads properties by name (the `--value` flag is gone, which
-  also restores compatibility with systemd older than 230), and all three
-  handlers share one parser instead of carrying a copy each. The parser was
-  copied into each handler, so one misreading became three identical defects;
-  a test now fails the build if a handler grows its own reader.
-
-  **Operators: pre-existing transaction logs are affected.** The defect dates
-  to the introduction of these handlers in April 2026 and has been present in
-  every release since. Any transaction recorded against these three
-  mechanisms whose capture went through the shell path holds an inverted
-  pre-state, and rolling it back now will act on those inverted values. Treat
-  rollback of any pre-fix service transaction as unsafe: re-run `kensa check`
-  against the host to establish the current state instead.
-
-  Agent mode is not a blanket exemption. A D-Bus capture reads named
-  properties and is correct, but capture falls back to the shell path
-  whenever the privileged helper cannot be invoked, so an agent-mode
-  transaction recorded on a host where the helper was unavailable is affected
-  too. The other 21 capturable mechanisms are unaffected.
+  **What you need to do.** Transactions recorded before this release hold the
+  two values transposed and cannot be rolled back safely. Kensa now refuses
+  such a record with a failed rollback result and issues no command to the
+  host. Re-run `kensa check` against the host to establish its current state.
+  This affects transactions whose capture used the SSH transport, and
+  agent-mode transactions on hosts where the privileged helper could not be
+  invoked. The other 21 capturable mechanisms are unaffected.
 
 ### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**

@@ -7,9 +7,32 @@ import (
 	"testing"
 )
 
-// serviceHandlerPackages are the three handlers whose shell capture must go
+// serviceHandlerPackages are the handler packages whose shell capture must go
 // through the shared unit-state command and parser.
-var serviceHandlerPackages = []string{"servicedisabled", "serviceenabled", "servicemasked"}
+//
+// The list is DISCOVERED, not written down. A hardcoded list is a guard that
+// protects the handlers someone remembered, which is the same failure mode as
+// the copy-pasted parser it exists to prevent: a fourth service handler would
+// be created, would grow its own reader, and the guard would pass.
+func serviceHandlerPackages(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir("..")
+	if err != nil {
+		t.Fatalf("read handler packages: %v", err)
+	}
+	var pkgs []string
+	for _, e := range entries {
+		// servicedbus is this package (the shared helper), not a handler.
+		if e.IsDir() && strings.HasPrefix(e.Name(), "service") && e.Name() != "servicedbus" {
+			pkgs = append(pkgs, e.Name())
+		}
+	}
+	if len(pkgs) < 3 {
+		t.Fatalf("discovered %d service handler packages (%v); expected at least the three shipped ones — "+
+			"has the layout changed in a way this guard no longer sees?", len(pkgs), pkgs)
+	}
+	return pkgs
+}
 
 // TestNoHandlerParsesUnitStatePositionally is a source-level drift guard.
 //
@@ -29,7 +52,7 @@ var serviceHandlerPackages = []string{"servicedisabled", "serviceenabled", "serv
 func TestNoHandlerParsesUnitStatePositionally(t *testing.T) {
 	t.Run("service-unit-state-parse/AC-05", func(t *testing.T) {})
 
-	for _, pkg := range serviceHandlerPackages {
+	for _, pkg := range serviceHandlerPackages(t) {
 		dir := filepath.Join("..", pkg)
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -75,7 +98,7 @@ func TestNoHandlerParsesUnitStatePositionally(t *testing.T) {
 func TestUnitStateFixturesUseRealSystemdForm(t *testing.T) {
 	t.Run("service-unit-state-parse/AC-06", func(t *testing.T) {})
 
-	for _, pkg := range serviceHandlerPackages {
+	for _, pkg := range serviceHandlerPackages(t) {
 		dir := filepath.Join("..", pkg)
 		entries, err := os.ReadDir(dir)
 		if err != nil {
