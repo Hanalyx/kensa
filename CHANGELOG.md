@@ -17,6 +17,16 @@ any pair).
 ## Unreleased
 
 ### Added
+- **`kensa-transcript`, a development tool that records real command output
+  for tests to replay.** Handler tests have asserted against fixtures written
+  by hand, which encode what the author expected a command to print. Three
+  shipped defects came from a fixture that agreed with the code and disagreed
+  with every real host. Recordings from RHEL 9, RHEL 10 and Ubuntu 24 are
+  checked in, and a replay fails the test on any command it has not recorded
+  rather than returning success. Not shipped in packages; it mutates nothing.
+
+
+### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the
   CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the

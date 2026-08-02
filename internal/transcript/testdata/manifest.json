@@ -1,0 +1,50 @@
+[
+  {
+    "command": "stat -c '%a|%U|%u|%G|%g' '/etc/shadow' && ls -Zd '/etc/shadow' 2>/dev/null | awk '{print $1}'",
+    "note": "file_permissions capture, single target. The exact command internal/handlers/filepermissions/capture.go builds. SELinux context is present on RHEL and absent on Ubuntu, which is the divergence a hand-written fixture is least likely to get right."
+  },
+  {
+    "command": "stat -c '%a|%U|%u|%G|%g' '/etc/passwd' && ls -Zd '/etc/passwd' 2>/dev/null | awk '{print $1}'",
+    "note": "file_permissions capture of a world-readable file, so the recording covers a mode other than 0000."
+  },
+  {
+    "command": "stat -c '%a|%U|%u|%G|%g' '/nonexistent/kensa-transcript-probe' && ls -Zd '/nonexistent/kensa-transcript-probe' 2>/dev/null | awk '{print $1}'",
+    "note": "file_permissions capture of a missing target: non-zero exit, and the exact stderr the handler reports as ErrCaptureIncomplete."
+  },
+  {
+    "command": "systemctl show -p UnitFileState -p ActiveState 'auditd'",
+    "note": "Service unit-state capture, property-named form. Recorded to pin systemd's own property ORDER, which is not the requested order."
+  },
+  {
+    "command": "systemctl show -p UnitFileState -p ActiveState --value 'auditd'",
+    "note": "The same read with --value: bare values, no names, in systemd's order. This is the form that stored the two properties under each other's keys for 23 releases. Recorded so the defect is reproducible from a real recording rather than described in prose."
+  },
+  {
+    "command": "systemctl show -p UnitFileState -p ActiveState 'kensa-no-such-unit'",
+    "note": "Unknown unit: systemd exits 0 with an empty UnitFileState. The handler must not read that as a transposition."
+  },
+  {
+    "command": "echo /bin/true | at now + 120 seconds",
+    "note": "The deadman time spec Kensa emitted from its first release. at(1) has no sub-minute unit, so this is a parse error on every implementation and creates no job, which is why recording it mutates nothing. Recorded so the exact stderr and exit code are a fact in the tree rather than a claim in a commit message. The corrected form is not recorded here because scheduling a real job would make this manifest a mutation.",
+    "only_on": [
+      "rhel8",
+      "rhel9"
+    ]
+  },
+  {
+    "command": "atq",
+    "note": "Queue listing, for the deadman's post-schedule verification path.",
+    "only_on": [
+      "rhel8",
+      "rhel9"
+    ]
+  },
+  {
+    "command": "command -v systemd-run 2>/dev/null && echo __SDR_FOUND__ || true",
+    "note": "Scheduler detection probe for systemd-run."
+  },
+  {
+    "command": "command -v at 2>/dev/null && echo __AT_FOUND__ || true",
+    "note": "Scheduler detection probe for at(1). Answers differently across the fleet, which is why the deadman defect was invisible on some hosts."
+  }
+]

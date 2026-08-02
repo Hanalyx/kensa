@@ -1,0 +1,78 @@
+{
+  "os": "rhel9",
+  "os_release": "Red Hat Enterprise Linux 9.6 (Plow)",
+  "systemd": "systemd 252 (252-51.el9)",
+  "captured_at": "2026-08-02",
+  "entries": [
+    {
+      "command": "atq",
+      "stdout": "",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "Queue listing, for the deadman's post-schedule verification path."
+    },
+    {
+      "command": "command -v at 2\u003e/dev/null \u0026\u0026 echo __AT_FOUND__ || true",
+      "stdout": "/bin/at\n__AT_FOUND__",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "Scheduler detection probe for at(1). Answers differently across the fleet, which is why the deadman defect was invisible on some hosts."
+    },
+    {
+      "command": "command -v systemd-run 2\u003e/dev/null \u0026\u0026 echo __SDR_FOUND__ || true",
+      "stdout": "/bin/systemd-run\n__SDR_FOUND__",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "Scheduler detection probe for systemd-run."
+    },
+    {
+      "command": "echo /bin/true | at now + 120 seconds",
+      "stdout": "",
+      "stderr": "syntax error. Last token seen: s\nGarbled time",
+      "exit_code": 1,
+      "note": "The deadman time spec Kensa emitted from its first release. at(1) has no sub-minute unit, so this is a parse error on every implementation and creates no job, which is why recording it mutates nothing. Recorded so the exact stderr and exit code are a fact in the tree rather than a claim in a commit message. The corrected form is not recorded here because scheduling a real job would make this manifest a mutation."
+    },
+    {
+      "command": "stat -c '%a|%U|%u|%G|%g' '/etc/passwd' \u0026\u0026 ls -Zd '/etc/passwd' 2\u003e/dev/null | awk '{print $1}'",
+      "stdout": "644|root|0|root|0\nsystem_u:object_r:passwd_file_t:s0",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "file_permissions capture of a world-readable file, so the recording covers a mode other than 0000."
+    },
+    {
+      "command": "stat -c '%a|%U|%u|%G|%g' '/etc/shadow' \u0026\u0026 ls -Zd '/etc/shadow' 2\u003e/dev/null | awk '{print $1}'",
+      "stdout": "0|root|0|root|0\nsystem_u:object_r:shadow_t:s0",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "file_permissions capture, single target. The exact command internal/handlers/filepermissions/capture.go builds. SELinux context is present on RHEL and absent on Ubuntu, which is the divergence a hand-written fixture is least likely to get right."
+    },
+    {
+      "command": "stat -c '%a|%U|%u|%G|%g' '/nonexistent/kensa-transcript-probe' \u0026\u0026 ls -Zd '/nonexistent/kensa-transcript-probe' 2\u003e/dev/null | awk '{print $1}'",
+      "stdout": "",
+      "stderr": "stat: cannot statx '/nonexistent/kensa-transcript-probe': No such file or directory",
+      "exit_code": 1,
+      "note": "file_permissions capture of a missing target: non-zero exit, and the exact stderr the handler reports as ErrCaptureIncomplete."
+    },
+    {
+      "command": "systemctl show -p UnitFileState -p ActiveState 'auditd'",
+      "stdout": "ActiveState=active\nUnitFileState=enabled",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "Service unit-state capture, property-named form. Recorded to pin systemd's own property ORDER, which is not the requested order."
+    },
+    {
+      "command": "systemctl show -p UnitFileState -p ActiveState 'kensa-no-such-unit'",
+      "stdout": "ActiveState=inactive\nUnitFileState=",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "Unknown unit: systemd exits 0 with an empty UnitFileState. The handler must not read that as a transposition."
+    },
+    {
+      "command": "systemctl show -p UnitFileState -p ActiveState --value 'auditd'",
+      "stdout": "active\nenabled",
+      "stderr": "",
+      "exit_code": 0,
+      "note": "The same read with --value: bare values, no names, in systemd's order. This is the form that stored the two properties under each other's keys for 23 releases. Recorded so the defect is reproducible from a real recording rather than described in prose."
+    }
+  ]
+}

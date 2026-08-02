@@ -1,0 +1,137 @@
+spec:
+    id: test-recorded-transcripts
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: test-recorded-transcripts
+        description: |
+            A test fixture encodes what its author believed a command prints.
+            When the belief is wrong the fixture agrees with the code, every
+            gate passes, and the defect ships. Three did.
+
+            The service handlers read `systemctl show -p UnitFileState -p
+            ActiveState --value` positionally. systemd prints ActiveState
+            first, on every version checked (252, 255, 257). The fixture
+            returned "enabled\nactive\n", the order the code requested, so
+            capture stored the two properties under each other's keys for 23
+            releases while every test passed. Rollback then acted on the
+            transposed values: it disabled and stopped healthy units, or
+            reported success while restoring nothing.
+
+            The deadman scheduler emitted `at now + N seconds`, which at(1)
+            cannot parse. The fake returned a job line for any time spec, so
+            the spec, the implementation and the fixture agreed on syntax no
+            host accepts, and remediation aborted before apply on every host
+            carrying at.
+
+            A rollback test asserted `enable --now` for a unit captured as
+            stopped, encoding an over-restore as the expected result.
+
+            The common cause is structural. A fixture and the code it checks
+            come from one understanding, so the fixture cannot contradict the
+            code. A recording can, because it comes from the system.
+
+            Two behaviours make a recording trustworthy. It must be verbatim,
+            including trailing newlines, since a trimmed recording
+            reintroduces the divergence it exists to remove. And replay must
+            FAIL on a command it has not recorded, because a permissive
+            transport is what let a fixture drift away from the code while the
+            test kept passing: engine.FakeTransport answers exit 0 with empty
+            output for any unrecognised command, across 290 call sites.
+
+    objective:
+        summary: |
+            Replay command output recorded from real hosts, strictly, so tests
+            assert against what the system does rather than what the author
+            expected.
+        scope:
+            includes:
+                - a transcript format carrying command, stdout, stderr, exit code and provenance
+                - a strict replay transport that fails on an unrecorded command
+                - a recorder (cmd/kensa-transcript) driven by a reviewable manifest
+                - drift guards keeping the manifest and the recordings in step
+            excludes:
+                - migrating all 290 engine.FakeTransport call sites (incremental, as tests are touched)
+                - recording commands that mutate a host; the manifest is reads only
+                - replacing live-host verification, which remains the deeper tier
+
+    constraints:
+        - id: C-01
+          description: |
+              Replay MUST fail the test on a command the transcript does not
+              contain, and the failure MUST name both the command issued and
+              the commands recorded. Returning success for an unrecorded
+              command is the defect this spec exists to remove, not a
+              convenience.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              A recording MUST be verbatim: stdout, stderr and exit code as
+              the transport delivered them, including trailing newlines.
+              Normalising a recording makes it a fixture again.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A transcript MUST carry its provenance: the OS key, the host's
+              PRETTY_NAME, and the capture date. A recording that cannot say
+              which system produced it cannot be judged stale, and a reader
+              deciding whether to re-record has nothing to go on.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The command manifest and the checked-in recordings MUST stay in
+              step: every manifest command applicable to a recorded OS is
+              present in that OS's transcript. Manifest entries MUST NOT
+              mutate the host.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Replaying an unrecorded command fails the test and names the
+              issued command, the recorded commands, and the remedy. Locked by
+              TestTransportFailsOnUnrecordedCommand.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Replay returns the recorded stdout, stderr and exit code
+              verbatim, and a save/load round trip preserves them, trailing
+              newlines included. Locked by TestTransportReplaysVerbatim and
+              TestSaveLoadRoundTrip.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Every manifest command applicable to a recorded OS is present in
+              that OS's transcript, and the failure names the recorder
+              invocation that fixes it. Locked by
+              TestRecordedTranscriptsCoverTheManifest.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-04
+          description: |
+              Every checked-in transcript records its OS release and capture
+              date and contains at least one entry. Locked by
+              TestTranscriptsCarryTheirProvenance.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-05
+          description: |
+              A handler parses recorded output from more than one platform and
+              agrees with an independent reading of the same bytes, and the
+              recordings genuinely diverge across platforms rather than being
+              one host copied. Locked by TestCaptureAgainstRecordedOutput and
+              TestRecordedOutputDivergesAcrossPlatforms in
+              internal/handlers/filepermissions.
+          references_constraints: [C-02]
+          priority: critical
+
+    tags: [test-infrastructure, fixtures, drift-guard, tier-2]
