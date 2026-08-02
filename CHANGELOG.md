@@ -16,6 +16,35 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **`service_enabled` / `service_disabled` / `service_masked` recorded the
+  wrong pre-state on the shell path, and rollback acted on it.** Capture ran
+  `systemctl show -p UnitFileState -p ActiveState --value` and read the two
+  values by line position. systemd prints properties in its own order, and
+  ActiveState comes first (verified on systemd 249, 252 and 257), so every
+  shell-path capture stored `prior_enabled` and `prior_active` swapped and
+  persisted that to the transaction log. Rolling back such a transaction
+  either restored nothing while reporting success, or, for `service_enabled`
+  on a unit that was already enabled and running, issued `systemctl disable`
+  followed by `systemctl stop` against a healthy unit and still reported
+  success. On sshd that is a remote lockout; on auditd or firewalld it is a
+  silent loss of hardening. The shell path is the one taken by agentless SSH
+  scanning, which is the default.
+
+  Capture now reads properties by name (the `--value` flag is gone, which
+  also restores compatibility with systemd older than 230), and all three
+  handlers share one parser instead of carrying a copy each. Verified live
+  on RHEL 10: a unit captured as `enabled` + `inactive`, disabled by apply,
+  and restored by rollback to `enabled` + `inactive` byte for byte.
+
+  **Operators: pre-existing transaction logs are affected.** Any transaction
+  recorded by an earlier version against these three mechanisms over the SSH
+  transport holds an inverted pre-state, and rolling it back now will act on
+  those inverted values. Treat rollback of a pre-fix service transaction as
+  unsafe: re-run `kensa check` against the host to establish the current
+  state instead. Transactions captured in agent mode over D-Bus are not
+  affected, and neither are the other 21 capturable mechanisms.
+
 ### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the

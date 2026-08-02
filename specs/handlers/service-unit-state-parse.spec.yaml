@@ -1,0 +1,159 @@
+spec:
+    id: service-unit-state-parse
+    version: 0.1.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: service-unit-state-parse
+        description: |
+            How the three systemd service handlers (service_enabled,
+            service_disabled, service_masked) read a unit's enable and active
+            state on the SHELL path — the path taken whenever the transport
+            is plain SSH or the privileged helper is unavailable, which is
+            the default for agentless scanning.
+
+            This exists because the read was wrong in a way every offline
+            gate passed. Each handler carried its own copy of a parser that
+            read `systemctl show -p UnitFileState -p ActiveState --value`
+            positionally: line 0 as UnitFileState, line 1 as ActiveState.
+            systemd prints properties in ITS OWN order, and ActiveState comes
+            first — verified on systemd 249, 252 and 257. So every shell-path
+            capture recorded prior_enabled and prior_active swapped, in all
+            three handlers identically, and persisted that to the transaction
+            log.
+
+            Rollback then consumed the inverted pre-state as though it were
+            correct. For a unit that was disabled and inactive, rollback
+            matched no branch and silently restored nothing while reporting
+            Success. For service_enabled on a unit that was enabled and
+            active, "active" fell through the enable switch to the disable
+            branch and "enabled" was not "active" so the stop branch fired
+            too: rolling back a no-op remediation issued `systemctl disable
+            && systemctl stop` against a healthy unit and reported success.
+            On sshd that is a remote lockout; on auditd or firewalld it is a
+            silent security regression.
+
+            The defect survived because the fixtures asserting this behavior
+            returned "enabled\nactive\n" — the order the code requested,
+            never the order systemd emits. A fake that disagrees with the
+            real transport is the failure mode the project's Definition of
+            Done names explicitly, and this is a worked example of it.
+        related_specs:
+            - handler-service-enabled
+            - handler-service-disabled
+            - handler-service-masked
+            - service-dbus-consumption
+
+    objective:
+        summary: |
+            One shared, order-immune unit-state read for the shell path:
+            properties matched by name, the command shape that makes that
+            possible, and fixtures that reproduce real systemd output.
+        scope:
+            includes:
+                - the shell unit-state command shape (servicedbus.ShowUnitStateCmd)
+                - name-keyed parsing of its output (servicedbus.ParseUnitState)
+                - one shared implementation for all three handlers
+                - end-to-end proof that rollback does not damage a healthy unit
+                - fixtures reproducing real systemd property order
+            excludes:
+                - the D-Bus capture path (service-dbus-consumption)
+                - each handler's apply/rollback branching (the per-handler specs)
+
+    constraints:
+        - id: C-01
+          description: |
+              The shell capture path MUST read systemd unit properties by
+              NAME, never by line position. The command MUST NOT pass
+              --value: --value prints bare values in systemd's own property
+              order, which makes the output positional and unnamed. Matching
+              `UnitFileState=` / `ActiveState=` is order-immune and
+              additionally works on systemd older than 230, which has no
+              --value flag at all.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The three handlers MUST share ONE parser rather than each
+              carrying a copy. Three copies is how one misreading became
+              three identical defects, and how fixing one would have left two
+              shipped.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A property missing from the output MUST yield an empty string,
+              never a neighboring property's value, and unknown properties
+              MUST be ignored so the command can gain a property later
+              without shifting anything. A unit that does not exist is not an
+              error: systemd exits 0 with an empty UnitFileState.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Fixtures for this path MUST reproduce real systemd output,
+              including its property order and its key=value form. A fixture
+              in the requested order asserts the code's assumption rather
+              than the system's behavior, which is what hid this defect.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              servicedbus.ParseUnitState assigns each value by property name:
+              real systemd output (ActiveState first) yields
+              prior_enabled=UnitFileState and prior_active=ActiveState, and
+              the reverse order reads identically. Locked by
+              TestParseUnitStateReadsByPropertyName.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              A property absent from the output yields an empty string rather
+              than a neighboring value; unknown properties are ignored; empty
+              output yields two empty strings. Locked by
+              TestParseUnitStateToleratesMissingProperties.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-03
+          description: |
+              servicedbus.ShowUnitStateCmd emits the property-named form with
+              no --value flag, and shell-escapes the unit name. Pinning the
+              command matters independently of the parser: re-adding --value
+              would reintroduce the swap while the parser's own tests still
+              passed. Locked by TestShowUnitStateCmdOmitsValueFlag.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-04
+          description: |
+              End to end over the shell path with real systemd output, a
+              capture of an enabled+active unit followed by Rollback issues
+              no `systemctl disable`, no `systemctl stop` and no `systemctl
+              mask`. This is the harm case the positional parser produced,
+              and it fails against the previous implementation. Locked by
+              TestRollbackDoesNotDisableAHealthyUnit in all three handler
+              packages.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-05
+          description: |
+              All three handlers route their shell capture through the shared
+              command and parser; no handler carries its own positional
+              reader. Locked by TestNoHandlerParsesUnitStatePositionally.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              No handler test programs a unit-state read with a bare-value
+              fixture: any fixture for that command is in systemd's key=value
+              form. The bare-value fixture is what asserted the code's
+              assumption instead of the system's behavior and hid the
+              inverted capture. Locked by the fixture-shape check in
+              TestNoHandlerParsesUnitStatePositionally.
+          references_constraints: [C-04]
+          priority: high
+
+    tags: [handler, systemd, shell, rollback, tier-1]

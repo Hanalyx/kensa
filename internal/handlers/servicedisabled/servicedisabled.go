@@ -133,8 +133,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 
 // captureShell reads UnitFileState + ActiveState via `systemctl show`.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, name string) (*api.PreState, error) {
-	cmd := fmt.Sprintf("systemctl show -p UnitFileState -p ActiveState --value %s", shellEscape(name))
-	res, err := transport.Run(ctx, cmd)
+	res, err := transport.Run(ctx, servicedbus.ShowUnitStateCmd(name))
 	if err != nil {
 		return nil, fmt.Errorf("service_disabled: capture transport error: %w", err)
 	}
@@ -142,21 +141,8 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, nam
 		return nil, fmt.Errorf("service_disabled: capture failed for %s: %w (stderr: %s)",
 			name, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
 	}
-	enabled, active := parseShowOutput(res.Stdout)
+	enabled, active := servicedbus.ParseUnitState(res.Stdout)
 	return servicedbus.PreState(mechanism, name, enabled, active), nil
-}
-
-// parseShowOutput extracts enabled and active from the two-line output
-// of `systemctl show -p UnitFileState -p ActiveState --value`.
-func parseShowOutput(stdout string) (enabled, active string) {
-	lines := strings.Split(strings.TrimSpace(stdout), "\n")
-	if len(lines) >= 1 {
-		enabled = strings.TrimSpace(lines[0])
-	}
-	if len(lines) >= 2 {
-		active = strings.TrimSpace(lines[1])
-	}
-	return enabled, active
 }
 
 // Rollback restores the prior enabled and active states per spec C-03.
