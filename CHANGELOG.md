@@ -27,13 +27,24 @@ any pair).
   `command_exec`) reached over direct SSH, including library callers with no
   agent client. Agent mode arms through a different path and was unaffected.
 
-  **If you set a custom deadman window:** the `at` path now waits up to a
-  minute longer than requested. `at` truncates to the minute boundary before
-  adding the offset, so a whole-minute count is the only spec it accepts and
-  the count has to be large enough that the truncation cannot cut the window
-  short. Waiting longer is the safe direction: a deadline that fired early
-  would revert a change still being applied. `systemd-run`, used where `at` is
-  absent, continues to take the window in seconds.
+  Kensa now also refuses to apply when `at` accepted the job but cannot run
+  it. `at` writes to a spool and the `atd` daemon executes it; with `atd`
+  stopped, `at` still exits zero, still prints a job number, and `atq` still
+  lists the job, so every signal said the safety net was armed while nothing
+  would ever fire. This is reachable on an ordinary host: installing the `at`
+  package enables `atd` without starting it, so a freshly installed machine is
+  in that state until it reboots. The queued job is removed when Kensa
+  refuses.
+
+  **Timing, for Go callers embedding the engine:** the deadman window is not
+  operator-configurable, and the default is unchanged at 120 seconds. On the
+  `at` path that default now fires between 121 and 180 seconds, because `at`
+  accepts no unit below a minute and truncates to the minute boundary before
+  adding the offset, so the count must be large enough that truncation cannot
+  cut the window short. A caller passing a non-whole-minute window can see up
+  to 119 seconds more than requested. Firing late is the safe direction: a
+  deadline that fired early would revert a change still being applied.
+  `systemd-run`, used where `at` is absent, takes the window in seconds.
 
 
 ### Added

@@ -24,6 +24,10 @@ import (
 // Results keys by substring, making tests insensitive to UUID-stamped
 // command strings. Unmatched commands return exit 0 with empty output.
 type substringFakeTransport struct {
+	// AtdStopped models a host where at(1) is installed and atd(8) is not
+	// running: at exits 0, queues the job, and warns. Verbatim from RHEL 9.7.
+	AtdStopped bool
+
 	// Hook, when non-nil, is consulted before Results and may model a real
 	// program's argument parsing. Returning handled=false falls through.
 	Hook func(cmd string) (*api.CommandResult, bool)
@@ -41,6 +45,16 @@ func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.Comman
 	// Hook first: Results is a map, so two matching substrings would resolve
 	// in random order. A fake that models a real program's argument parsing
 	// needs deterministic precedence.
+	if f.AtdStopped && strings.Contains(cmd, "| at now +") {
+		// at exits ZERO, prints a normal job line, AND warns. All three at
+		// once is what makes this case indistinguishable from success to a
+		// caller that only greps for the job ID.
+		return &api.CommandResult{
+			Stdout: "warning: commands will be executed using /bin/sh\n" +
+				"job 42 at Thu Apr 15 12:00:00 2026\n" +
+				"Can't open /var/run/atd.pid to signal atd. No atd running?",
+		}, nil
+	}
 	if f.Hook != nil {
 		if r, handled := f.Hook(cmd); handled {
 			return r, nil
@@ -483,6 +497,9 @@ func realAtParser(cmd string) (*api.CommandResult, bool) {
 	switch m[2] {
 	case "minutes", "minute", "hours", "hour", "days", "day", "weeks", "week":
 		return &api.CommandResult{Stdout: "job 42 at Thu Apr 15 12:00:00 2026"}, true
+	case "__atd_stopped__":
+		// Unreachable: the marker is handled before this parser runs.
+		return nil, false
 	default:
 		return &api.CommandResult{
 			ExitCode: 1,

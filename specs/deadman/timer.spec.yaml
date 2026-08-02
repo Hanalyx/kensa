@@ -124,6 +124,41 @@ spec:
         # AC-07 — see "Deferred ACs" block below. Will be
         # re-introduced when the keep-alive feature lands.
 
+        - id: C-08
+          description: |
+              An arm MUST NOT be reported as successful when the scheduler
+              accepted the job but cannot run it.
+
+              at(1) writes to a spool; atd(8) executes what is in it. They are
+              separate and either can be present without the other. With atd
+              stopped, at exits ZERO, prints a normal "job N at <time>" line,
+              and queues the job; atq then lists it, because atq reads the
+              spool as well. Every signal a caller checks says armed while
+              nothing will fire. Verified on RHEL 9.7.
+
+              The arm is what the engine treats as permission to apply, so
+              reporting success here mutates a host behind a timer that cannot
+              fire. That is worse than the parse failure it replaced, which at
+              least aborted loudly with the host untouched. It is reachable on
+              an ordinary machine: the RHEL `at` package enables atd without
+              starting it, so a freshly installed host is in this state until
+              it reboots.
+
+              The at path MUST therefore check at(1)'s exit status AND its own
+              diagnostic, and MUST remove the queued job when it refuses, so
+              starting atd later cannot fire a rollback for a transaction that
+              was never armed.
+
+              Detection reads at(1)'s diagnostic rather than probing
+              `systemctl is-active atd`, because the at path exists to serve
+              hosts where systemd-run is unavailable, which includes hosts
+              with no systemd at all. It also does not depend on the unit
+              being named atd rather than at. The limitation is that an
+              implementation which queued silently without warning would still
+              pass; this narrows the window rather than closing it.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -196,6 +231,18 @@ spec:
               TestAtSchedulingUsesWholeMinutes anchoring the encoding, both
               against a fake that rejects the specs at(1) rejects.
           references_constraints: [C-07]
+          priority: critical
+
+        - id: AC-13
+          description: |
+              Arm refuses, and removes the queued job, when at(1) reports that
+              it could not signal atd, and when at(1) exits non-zero, in both
+              cases despite a parseable job ID being present in the output.
+              Locked by TestAtArmRefusedWhenAtdIsNotRunning and
+              TestAtArmRefusedWhenAtExitsNonZero, against a fake that
+              reproduces at(1)'s real behaviour on an atd-stopped host: exit
+              zero, a normal job line, and the warning, all at once.
+          references_constraints: [C-08]
           priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in

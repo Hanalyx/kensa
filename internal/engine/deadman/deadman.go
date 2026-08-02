@@ -451,11 +451,68 @@ func scheduleAt(ctx context.Context, transport api.Transport, scriptPath string,
 	if jobID == "" {
 		return "", fmt.Errorf("deadman: could not parse at job ID from output: %q", combined)
 	}
+
+	// @ac AC-13 — a queued job is not a scheduled job.
+	//
+	// at(1) writes to a spool; atd(8) runs what is in it. They are separate,
+	// and either can be present without the other. With atd stopped, at exits
+	// ZERO, prints a normal "job N at <time>" line, and queues the job. Only
+	// one line distinguishes the two cases, and it lands in the same combined
+	// stream the job ID was parsed from:
+	//
+	//   job 4 at Sun Aug  2 12:55:00 2026
+	//   Can't open /var/run/atd.pid to signal atd. No atd running?
+	//
+	// atq then lists the job, because atq reads the spool too. So every signal
+	// the caller checks says "armed" while nothing will ever fire. Verified on
+	// RHEL 9.7. This matters on ordinary hosts: the RHEL `at` package's %post
+	// enables atd without starting it, so a freshly installed host sits in
+	// exactly this state until it reboots.
+	//
+	// Reading at(1)'s own diagnostic is deliberate, rather than probing
+	// `systemctl is-active atd`. The at path exists to serve hosts where
+	// systemd-run is unavailable, which includes hosts with no systemd at all,
+	// and a systemctl probe answers nothing useful there. It also does not
+	// depend on the unit being named atd rather than at.
+	if !res.OK() || atdNotRunning(combined) {
+		// at accepted the job, so it is sitting in the spool. Remove it: if
+		// atd is started later, an orphaned job would fire a rollback for a
+		// transaction that was never armed.
+		_, _ = transport.Run(ctx, "atrm "+shellQuote(jobID))
+		return "", fmt.Errorf("deadman: at(1) queued job %s but it will not run (exit %d): %s",
+			jobID, res.ExitCode, strings.TrimSpace(combined))
+	}
+
 	// @ac AC-04 — post-schedule verification.
 	if err := verifyAtJobPresent(ctx, transport, jobID); err != nil {
+		// Same reasoning: do not leave a job behind that nothing will cancel.
+		_, _ = transport.Run(ctx, "atrm "+shellQuote(jobID))
 		return "", err
 	}
 	return jobID, nil
+}
+
+// atdDiagnostics are the strings at(1) emits when it has queued a job but
+// could not signal the daemon that runs it. Taken verbatim from at-3.1.23;
+// both are matched because the wording varies by version and the pid path
+// differs across distributions.
+var atdDiagnostics = []string{"no atd running", "atd.pid"}
+
+// atdNotRunning reports whether at(1)'s output says the job was queued but
+// the daemon was not reachable.
+//
+// Limitation worth stating: this detects the case at(1) warns about. An
+// implementation that queued silently without warning would still pass, so
+// this narrows the window rather than closing it. The systemd-run path has no
+// equivalent gap, because the process that would run the timer is PID 1.
+func atdNotRunning(output string) bool {
+	lower := strings.ToLower(output)
+	for _, d := range atdDiagnostics {
+		if strings.Contains(lower, d) {
+			return true
+		}
+	}
+	return false
 }
 
 // scheduleSystemdRun submits the script via systemd-run and verifies

@@ -111,3 +111,74 @@ func TestAtSchedulingUsesWholeMinutes(t *testing.T) {
 			"(2 minutes would deliver as little as 61s)", cmd)
 	}
 }
+
+// TestAtArmRefusedWhenAtdIsNotRunning is the guard for a queued job that
+// nothing will run.
+//
+// at(1) writes to a spool; atd(8) executes it. They are separate, and with atd
+// stopped at exits ZERO, prints a normal "job N at <time>" line, queues the
+// job, and warns on the same stream. atq then lists it, because atq reads the
+// spool as well. Every signal the caller checks says armed.
+//
+// This matters because the arm is what the engine treats as permission to
+// apply. Reporting success here mutates a host behind a timer that can never
+// fire, and it is reachable on an ordinary machine: the RHEL `at` package
+// enables atd without starting it, so a freshly installed host is in exactly
+// this state until reboot. Reproduced on RHEL 9.7 (192.168.1.213).
+//
+// @spec deadman-timer
+// @ac AC-13
+func TestAtArmRefusedWhenAtdIsNotRunning(t *testing.T) {
+	t.Run("deadman-timer/AC-13", func(t *testing.T) {})
+
+	tp := atHostTP()
+	tp.AtdStopped = true
+
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	if err == nil {
+		t.Fatal("Arm reported success on a host where atd is not running; " +
+			"the engine would apply behind a timer that cannot fire")
+	}
+	if !strings.Contains(err.Error(), "will not run") {
+		t.Errorf("error does not explain why the arm was refused: %v", err)
+	}
+
+	// The job is in the spool. Left there, it would fire a rollback for a
+	// transaction that was never armed if atd is started later.
+	var removed bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "atrm") {
+			removed = true
+		}
+	}
+	if !removed {
+		t.Error("refused the arm but left the job queued; starting atd later would fire it")
+	}
+}
+
+// TestAtArmRefusedWhenAtExitsNonZero: the previous code never looked at the
+// exit status at all, taking a parsed job ID as proof of scheduling.
+//
+// @spec deadman-timer
+// @ac AC-13
+func TestAtArmRefusedWhenAtExitsNonZero(t *testing.T) {
+	t.Run("deadman-timer/AC-13", func(t *testing.T) {})
+
+	tp := atHostTP()
+	tp.Hook = func(cmd string) (*api.CommandResult, bool) {
+		if strings.Contains(cmd, "| at now +") {
+			return &api.CommandResult{
+				ExitCode: 1,
+				Stdout:   "job 42 at Thu Apr 15 12:00:00 2026",
+				Stderr:   "at: cannot write to spool",
+			}, true
+		}
+		return nil, false
+	}
+
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	if _, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{}); err == nil {
+		t.Fatal("Arm succeeded although at(1) exited non-zero")
+	}
+}
