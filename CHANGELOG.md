@@ -27,8 +27,16 @@ any pair).
   `command_exec`) reached over direct SSH, including library callers with no
   agent client. Agent mode arms through a different path and was unaffected.
 
-  Kensa now also refuses to apply when `at` accepted the job but cannot run
-  it. `at` writes to a spool and the `atd` daemon executes it; with `atd`
+  Kensa now schedules the deadman with `systemd-run` wherever it is available,
+  and uses `at` only where it is not. `at` is two programs: one queues the job,
+  a separate daemon runs it, and either can be present without the other, so
+  `at` can accept a job on a host where nothing will ever run it. `systemd-run`
+  has no equivalent state, because the process that would run its timer is the
+  init system itself. If the preferred scheduler refuses the job, Kensa tries
+  the next one rather than giving up, and only fails when every scheduler on
+  the host refuses.
+
+  Kensa also refuses to apply when `at` accepted the job but cannot run it. `at` writes to a spool and the `atd` daemon executes it; with `atd`
   stopped, `at` still exits zero, still prints a job number, and `atq` still
   lists the job, so every signal said the safety net was armed while nothing
   would ever fire. This is reachable on an ordinary host: installing the `at`

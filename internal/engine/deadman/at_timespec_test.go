@@ -182,3 +182,121 @@ func TestAtArmRefusedWhenAtExitsNonZero(t *testing.T) {
 		t.Fatal("Arm succeeded although at(1) exited non-zero")
 	}
 }
+
+// TestSystemdRunIsPreferredWhenBothPresent locks the preference flip.
+//
+// The two schedulers differ in kind, not quality. at(1) is two programs: `at`
+// queues, atd(8) runs, and either can exist without the other, so at can
+// accept a job on a host where nothing will run it. systemd-run's executor is
+// PID 1, so it has no equivalent state. Every RHEL 8 and RHEL 9 fleet host
+// carries both and was taking the at path.
+//
+// @spec deadman-timer
+// @ac AC-14
+func TestSystemdRunIsPreferredWhenBothPresent(t *testing.T) {
+	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	cmd := armAndFindCommand(t, tp, 120*time.Second, "systemd-run --unit=")
+	if !strings.Contains(cmd, "--on-active=120") {
+		t.Errorf("systemd-run command = %q, want the window in seconds", cmd)
+	}
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "| at now +") {
+			t.Errorf("used at(1) despite systemd-run being available: %q", ran)
+		}
+	}
+}
+
+// TestFallsThroughToAtWhenSystemdRunRefuses covers presence without
+// usability, in the direction the preference flip creates.
+//
+// systemd-run needs privilege it cannot always get and answers "Interactive
+// authentication required" without it, while at(1) on the same host schedules
+// fine. A scheduler that is installed but refuses must not end the arm while a
+// working one sits beside it.
+//
+// @spec deadman-timer
+// @ac AC-14
+func TestFallsThroughToAtWhenSystemdRunRefuses(t *testing.T) {
+	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	tp.SystemdRunRefuses = "Failed to start transient timer unit: Interactive authentication required."
+
+	cmd := armAndFindCommand(t, tp, 120*time.Second, "| at now +")
+	if !strings.Contains(cmd, "at now + 3 minutes") {
+		t.Errorf("fell through to at(1) but emitted %q", cmd)
+	}
+}
+
+// TestFallsThroughToSystemdRunWhenAtdIsDead is the case that motivated the
+// flip, in the other direction: at(1) is present and its daemon is not, and
+// the host has a working systemd-run.
+//
+// Before the fall-through this was a terminal refusal, so a host with a
+// perfectly good scheduler aborted the transaction. Refusing to arm is right
+// only when there is nothing else to try.
+//
+// @spec deadman-timer
+// @ac AC-14
+func TestFallsThroughToSystemdRunWhenAtdIsDead(t *testing.T) {
+	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	tp.AtdStopped = true
+
+	// systemd-run is tried first and succeeds, so at is never reached. Force
+	// the ordering question by making systemd-run refuse as well, and confirm
+	// the arm then fails rather than accepting the dead at.
+	tp.SystemdRunRefuses = "Failed to start transient timer unit: Interactive authentication required."
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	if err == nil {
+		t.Fatal("Arm succeeded with systemd-run refusing and atd dead")
+	}
+	for _, want := range []string{"systemd-run", "at"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not report the %s attempt: %v", want, err)
+		}
+	}
+}
+
+// TestFailedSystemdRunScheduleLeavesNoTimer: systemd-run exits 0 once the unit
+// is queued, so a failed verification can orphan a live timer. The caller then
+// advances to at(1) and records only the winner, leaving nothing able to
+// cancel it. Sibling of the atrm cleanup on the at path; the class sweep is
+// part of the fix.
+//
+// @spec deadman-timer
+// @ac AC-14
+func TestFailedSystemdRunScheduleLeavesNoTimer(t *testing.T) {
+	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	tp.Results["LoadState"] = api.CommandResult{Stdout: "not-found"} // verification fails
+
+	if _, _, err := a2(t).Arm(context.Background(), tp, uuid.New(), []api.PreState{}); err != nil {
+		t.Fatalf("Arm should have fallen through to at: %v", err)
+	}
+	var scheduled, stopped bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "systemd-run --unit=") {
+			scheduled = true
+		}
+		if strings.Contains(ran, "systemctl stop") {
+			stopped = true
+		}
+	}
+	if !scheduled {
+		t.Fatal("systemd-run was never attempted; the test does not cover the orphan case")
+	}
+	if !stopped {
+		t.Error("a systemd-run schedule failed after creating a unit and nothing stopped it")
+	}
+}
+
+func a2(t *testing.T) *deadman.Armer {
+	t.Helper()
+	return deadman.New(120*time.Second, handler.NewRegistry())
+}

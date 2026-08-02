@@ -30,7 +30,6 @@ package deadman
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -190,8 +189,8 @@ func (a *Armer) armViaAgent(ctx context.Context, agentClient engine.DeadmanAgent
 func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID uuid.UUID, preStates []api.PreState) (string, int64, error) {
 	// @spec deadman-timer
 	// @ac AC-01 — detect scheduler availability.
-	sched, err := detectScheduler(ctx, transport)
-	if err != nil {
+	scheds := availableSchedulers(ctx, transport)
+	if len(scheds) == 0 {
 		return "", 0, api.ErrSchedulerUnavailable
 	}
 
@@ -211,11 +210,32 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 
 	// @ac AC-04 — schedule via at or systemd-run and verify.
 	firesAt := time.Now().Add(a.window).Unix()
-	jobID, err := schedule(ctx, transport, sched, txnID, scriptPath, a.window)
-	if err != nil {
+
+	// Every available scheduler is tried in order. A scheduler that is
+	// installed can still refuse the job: systemd-run without privilege,
+	// at(1) with its daemon stopped. Failing the arm while another usable
+	// scheduler sits on the same host would abort a transaction that could
+	// have proceeded safely, so a refusal advances rather than terminates.
+	// Each scheduler is responsible for leaving nothing behind when it
+	// refuses (see scheduleAt and scheduleSystemdRun).
+	var (
+		jobID    string
+		sched    schedulerKind
+		attempts []string
+	)
+	for _, candidate := range scheds {
+		id, serr := schedule(ctx, transport, candidate, txnID, scriptPath, a.window)
+		if serr == nil {
+			jobID, sched = id, candidate
+			break
+		}
+		attempts = append(attempts, fmt.Sprintf("%s: %v", candidate, serr))
+	}
+	if sched == "" {
 		// Clean up the orphaned script file before returning.
 		_, _ = transport.Run(ctx, "rm -f "+shellQuote(scriptPath))
-		return "", 0, fmt.Errorf("deadman: schedule: %w", err)
+		return "", 0, fmt.Errorf("deadman: no scheduler could arm the timer (%s)",
+			strings.Join(attempts, "; "))
 	}
 
 	a.mu.Lock()
@@ -300,22 +320,43 @@ func (a *Armer) cancelViaAgent(ctx context.Context, agentClient engine.DeadmanAg
 	return nil
 }
 
-// detectScheduler probes the target host for at(1) or systemd-run.
-// Returns [schedulerAt] or [schedulerSystemdRun] on success.
-// Returns a non-nil error (which [Arm] converts to [api.ErrSchedulerUnavailable])
-// when neither is found.
-func detectScheduler(ctx context.Context, transport api.Transport) (schedulerKind, error) {
-	// Prefer at(1): universally available on RHEL via the at/cronie package.
-	res, err := transport.Run(ctx, "command -v at 2>/dev/null && echo __AT_FOUND__ || true")
-	if err == nil && strings.Contains(res.Stdout, "__AT_FOUND__") {
-		return schedulerAt, nil
+// availableSchedulers returns the schedulers present on the host, in
+// preference order.
+//
+// systemd-run leads, and the reason is a difference in kind rather than in
+// quality. at(1) is two programs: `at` writes a job into a spool, and atd(8)
+// executes it. Either can exist without the other, so at can accept a job,
+// exit zero, and print a job number on a host where nothing will ever run it.
+// Kensa's arm is what the engine treats as permission to apply, so that state
+// reports a safety net that does not exist. systemd-run has no equivalent: the
+// process that would run its transient timer is PID 1, and a host where PID 1
+// is absent is not running.
+//
+// The secondary reasons point the same way. systemd-run ships with systemd and
+// needs no package; at(1) must be installed, and on RHEL its %post enables atd
+// without starting it, so a freshly installed host is in the inert state until
+// it reboots. systemd-run takes the window in seconds; at(1) accepts no unit
+// below a minute and truncates to the minute boundary, so the at path always
+// over-waits. Cancellation is verifiable against real unit state rather than
+// against a spool listing that reports queued jobs no daemon will run.
+//
+// Returning a LIST rather than a choice matters as much as the order.
+// Presence is not usability: systemd-run needs privilege it cannot always get
+// and refuses with "Interactive authentication required" as an unprivileged
+// user, where at(1) on the same host schedules fine. Committing to one
+// scheduler at probe time aborts the transaction with a working scheduler
+// sitting idle. The caller tries each in turn.
+func availableSchedulers(ctx context.Context, transport api.Transport) []schedulerKind {
+	var out []schedulerKind
+	probe := func(cmd, marker string, kind schedulerKind) {
+		res, err := transport.Run(ctx, cmd)
+		if err == nil && strings.Contains(res.Stdout, marker) {
+			out = append(out, kind)
+		}
 	}
-	// Fall back to systemd-run (RHEL 7+).
-	res, err = transport.Run(ctx, "command -v systemd-run 2>/dev/null && echo __SDR_FOUND__ || true")
-	if err == nil && strings.Contains(res.Stdout, "__SDR_FOUND__") {
-		return schedulerSystemdRun, nil
-	}
-	return "", errors.New("deadman: no scheduler found")
+	probe("command -v systemd-run 2>/dev/null && echo __SDR_FOUND__ || true", "__SDR_FOUND__", schedulerSystemdRun)
+	probe("command -v at 2>/dev/null && echo __AT_FOUND__ || true", "__AT_FOUND__", schedulerAt)
+	return out
 }
 
 // collectRollbackCommands dry-runs each capturable step's rollback handler
@@ -530,6 +571,14 @@ func scheduleSystemdRun(ctx context.Context, transport api.Transport, txnID uuid
 	}
 	// @ac AC-04 — post-schedule verification.
 	if err := verifySystemdUnitPresent(ctx, transport, unitName); err != nil {
+		// systemd-run exits 0 once the unit is queued, so a verification
+		// failure can leave a live transient timer behind. The caller moves on
+		// to the next scheduler and records only the winner, so nothing would
+		// ever cancel this one. Sibling of the atrm cleanup on the at path.
+		_, _ = transport.Run(ctx, fmt.Sprintf(
+			"systemctl stop %s.timer 2>/dev/null; systemctl stop %s 2>/dev/null; "+
+				"systemctl reset-failed %s 2>/dev/null; true",
+			shellQuote(unitName), shellQuote(unitName), shellQuote(unitName)))
 		return "", err
 	}
 	return unitName, nil

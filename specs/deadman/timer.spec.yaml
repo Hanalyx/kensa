@@ -159,6 +159,46 @@ spec:
           type: security
           enforcement: error
 
+        - id: C-09
+          description: |
+              Scheduler selection MUST prefer systemd-run where it is present,
+              and MUST advance to the next available scheduler when one
+              REFUSES the job, not only when one is absent. The arm fails only
+              when every available scheduler refuses, and the error names each
+              attempt.
+
+              The preference rests on a difference in kind. at(1) is two
+              programs: `at` writes a job to a spool and atd(8) executes it,
+              and either can exist without the other, so at can accept a job,
+              exit zero and print a job number on a host where nothing will run
+              it. Kensa treats a successful arm as permission to apply, so that
+              state reports a safety net that does not exist, and detecting it
+              means inferring a daemon's liveness from another program's error
+              prose, a surface nobody has bounded. systemd-run has no
+              equivalent state: the process that would run its transient timer
+              is PID 1.
+
+              Secondary reasons agree. systemd-run ships with systemd;
+              at(1) must be installed, and on RHEL its %post enables atd
+              without starting it. systemd-run takes the window in seconds;
+              at(1) accepts no unit below a minute and truncates, so the at
+              path always over-waits. Cancellation is verifiable against unit
+              state rather than a spool listing.
+
+              The fall-through matters as much as the order: presence is not
+              usability. systemd-run refuses without privilege where at(1) on
+              the same host schedules fine, and at(1) refuses when its daemon
+              is dead where systemd-run works. Committing to one scheduler at
+              probe time aborts a transaction that a working scheduler beside
+              it could have carried.
+
+              A scheduler that refuses MUST leave nothing behind: at(1) removes
+              the queued job, systemd-run stops the unit it created. The caller
+              records only the winning scheduler, so anything an earlier
+              candidate left would never be cancelled.
+          type: security
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -243,6 +283,23 @@ spec:
               reproduces at(1)'s real behaviour on an atd-stopped host: exit
               zero, a normal job line, and the warning, all at once.
           references_constraints: [C-08]
+          priority: critical
+
+        - id: AC-14
+          description: |
+              systemd-run is chosen when both schedulers are present. The arm
+              advances to at(1) when systemd-run refuses, and reports failure
+              naming both attempts when every scheduler refuses. A systemd-run
+              attempt that fails after creating its unit stops that unit before
+              the next candidate is tried.
+
+              Locked by TestSystemdRunIsPreferredWhenBothPresent,
+              TestFallsThroughToAtWhenSystemdRunRefuses,
+              TestFallsThroughToSystemdRunWhenAtdIsDead and
+              TestFailedSystemdRunScheduleLeavesNoTimer, the last three against
+              a fake that models systemd-run's argument handling and its
+              unprivileged refusal rather than accepting any input.
+          references_constraints: [C-09]
           priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in

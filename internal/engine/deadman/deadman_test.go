@@ -3,6 +3,7 @@ package deadman_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"regexp"
 	"strings"
@@ -27,6 +28,11 @@ type substringFakeTransport struct {
 	// AtdStopped models a host where at(1) is installed and atd(8) is not
 	// running: at exits 0, queues the job, and warns. Verbatim from RHEL 9.7.
 	AtdStopped bool
+	// SystemdRunRefuses, when non-empty, makes a systemd-run INVOCATION fail
+	// with that stderr while `command -v systemd-run` still succeeds. That is
+	// the real shape of an unprivileged host: the binary is present and using
+	// it is refused.
+	SystemdRunRefuses string
 
 	// Hook, when non-nil, is consulted before Results and may model a real
 	// program's argument parsing. Returning handled=false falls through.
@@ -54,6 +60,9 @@ func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.Comman
 				"job 42 at Thu Apr 15 12:00:00 2026\n" +
 				"Can't open /var/run/atd.pid to signal atd. No atd running?",
 		}, nil
+	}
+	if r, handled := f.systemdRun(cmd); handled {
+		return r, nil
 	}
 	if f.Hook != nil {
 		if r, handled := f.Hook(cmd); handled {
@@ -506,4 +515,56 @@ func realAtParser(cmd string) (*api.CommandResult, bool) {
 			Stderr:   "syntax error. Last token seen: s\nGarbled time\n",
 		}, true
 	}
+}
+
+// systemdRunFlagRe matches a flag in a systemd-run invocation.
+var systemdRunFlagRe = regexp.MustCompile(`--[a-z-]+`)
+
+// systemdRunKnownFlags are the options systemd-run accepts among those Kensa
+// uses. An unknown flag is rejected, as the real program does.
+var systemdRunKnownFlags = map[string]bool{"--unit": true, "--on-active": true}
+
+// systemdRun models systemd-run's argument handling and its unprivileged
+// refusal.
+//
+// The previous fake had none: any unmatched command returned exit 0 with empty
+// output, so the systemd-run branch was guarded by nothing at all. An
+// adversarial review proved it by overlaying a deliberately invalid invocation
+// that real systemd-run rejects; the suite stayed green. That gap matters more
+// now that this branch makes systemd-run the default on every systemd host.
+//
+// Modeled rather than recorded, deliberately: recording a real invocation
+// would create a transient timer unit, and the transcript manifest is reads
+// only. The strings are copied from a live RHEL 9 host.
+func (f *substringFakeTransport) systemdRun(cmd string) (*api.CommandResult, bool) {
+	if !strings.Contains(cmd, "systemd-run ") || strings.Contains(cmd, "command -v") {
+		return nil, false
+	}
+	for _, flag := range systemdRunFlagRe.FindAllString(cmd, -1) {
+		if !systemdRunKnownFlags[flag] {
+			return &api.CommandResult{
+				ExitCode: 1,
+				Stderr:   fmt.Sprintf("systemd-run: unrecognized option '%s'", flag),
+			}, true
+		}
+	}
+	if !strings.Contains(cmd, "--unit=") || !strings.Contains(cmd, "--on-active=") {
+		return &api.CommandResult{
+			ExitCode: 1,
+			Stderr:   "systemd-run: --unit and --on-active are required by the deadman caller",
+		}, true
+	}
+	if f.SystemdRunRefuses != "" {
+		return &api.CommandResult{ExitCode: 1, Stderr: f.SystemdRunRefuses}, true
+	}
+	return &api.CommandResult{Stdout: "Running timer as unit: kensa-rollback.timer"}, true
+}
+
+// bothSchedulersTP models the common fleet host: at(1) installed and working,
+// systemd-run present. Every RHEL 8 and RHEL 9 host on the fleet is this.
+func bothSchedulersTP() *substringFakeTransport {
+	tp := atHostTP()
+	tp.Results["__SDR_FOUND__"] = api.CommandResult{Stdout: "__SDR_FOUND__"}
+	tp.Results["LoadState"] = api.CommandResult{Stdout: "loaded"}
+	return tp
 }
