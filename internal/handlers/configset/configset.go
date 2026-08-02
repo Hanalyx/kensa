@@ -15,6 +15,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -356,6 +357,38 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			},
 		}, nil
 	}
+}
+
+// DescribePreState renders the captured setting as one line: the prior
+// config line when the key was set, and which file was searched when it was
+// not. The prior line is the value an operator is actually asking for
+// ("PASS_MAX_DAYS 99999"), so it is rendered — through [prestate.Text],
+// which elides it if a rule ever points this mechanism at something
+// file-shaped.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	file := prestate.Field(pre.Data, "file", "")
+	key := prestate.Field(pre.Data, "key", "key")
+	existed, known := prestate.Bool(pre.Data, "line_existed")
+	if !known {
+		return prestate.Join(key, "prior state not captured", inFile(file))
+	}
+	if !existed {
+		return prestate.Join(key+" not set", inFile(file))
+	}
+	line := prestate.Field(pre.Data, "prior_line", "")
+	if line == "" {
+		return prestate.Join(key+" set (prior line not captured)", inFile(file))
+	}
+	return prestate.Join(line, inFile(file))
+}
+
+// inFile renders the "in /etc/login.defs" tail, or nothing when the capture
+// did not record a file.
+func inFile(file string) string {
+	if file == "" {
+		return ""
+	}
+	return "in " + file
 }
 
 // Rollback restores the prior line state per spec C-03.

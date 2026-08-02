@@ -22,6 +22,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -306,6 +307,39 @@ func (h *Handler) preState(p *Params, runtimeValue, persistFileContent string, p
 			"persist_file_content": persistFileContent,
 			"persist_file_existed": persistFileExisted,
 		},
+	}
+}
+
+// DescribePreState renders both halves of what this mechanism captures: the
+// live kernel value and the state of the file that persists it across
+// reboots. Operators read the runtime value; rollback needs both.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	key := prestate.Field(pre.Data, "key", "sysctl")
+	runtime := "runtime value not captured"
+	if v, ok := prestate.String(pre.Data, "runtime_value"); ok {
+		if strings.TrimSpace(v) == "" {
+			runtime = "unset at runtime"
+		} else {
+			runtime = "= " + prestate.Text(strings.TrimSpace(v))
+		}
+	}
+	return prestate.Join(key+" "+runtime, persistFile(pre))
+}
+
+// persistFile renders the drop-in that persists the key, which rollback
+// restores separately from the runtime value.
+func persistFile(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "persist_file", "")
+	if path == "" {
+		return ""
+	}
+	switch existed, known := prestate.Bool(pre.Data, "persist_file_existed"); {
+	case !known:
+		return path
+	case existed:
+		return prestate.Join(path+" present", prestate.Size(pre.Data, "persist_file_content"))
+	default:
+		return path + " absent"
 	}
 }
 

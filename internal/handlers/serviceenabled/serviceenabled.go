@@ -151,6 +151,12 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, nam
 	return servicedbus.PreState(mechanism, name, enabled, active), nil
 }
 
+// DescribePreState renders the captured unit state. The three service
+// handlers share one PreState shape, so they share one rendering.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	return servicedbus.Describe(pre)
+}
+
 // parseShowOutput extracts enabled and active from the two-line
 // `systemctl show -p UnitFileState -p ActiveState --value` output.
 func parseShowOutput(stdout string) (enabled, active string) {

@@ -1,0 +1,182 @@
+spec:
+    id: pkg-prestate-describe
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: pkg-prestate-describe
+        description: |
+            A consumer that renders a remediation (a fleet UI, a plan
+            preview) can show THAT a step captured pre-state but not WHAT it
+            captured. api.PreState.Data is mechanism-specific: each
+            capturable handler defines its own key layout, with no schema
+            and no rendering helper. The operator-facing line an approval
+            flow needs — "before: PASS_MAX_DAYS 99999" — cannot be produced
+            without knowing what a given mechanism's keys mean.
+
+            A consumer decoding Data itself would have to carry a decoder
+            per capturable handler and track every layout change; those
+            layouts do churn between releases. Worse, the decode breaks
+            SILENTLY: Data reaches a consumer through three paths that
+            disagree on Go types (a live capture, the agent wire format
+            where integers widen to int64, and a JSON round-trip through the
+            transaction log where numbers arrive as float64), so a type
+            assertion that is correct on one path is wrong on another with
+            no compile-time signal.
+
+            Fix: the handler that captured the state renders it, since only
+            it knows what its own keys mean. An optional interface in
+            internal/handler (NOT api/, which must not carry knowledge of 24
+            private layouts and must not churn), implemented by each
+            capturable handler next to its Capture so a key change and its
+            summary land in the same diff. Exposed to consumers as
+            pkg/kensa.DescribePreState, derived on read so it applies to
+            pre-state captured by earlier versions of Kensa.
+
+            Rejected: a Summary field on api.PreState. PreState is inside
+            EvidenceEnvelope.PreStateBundle and the signer canonicalizes by
+            marshaling the struct to JSON, and api.PreState carries no json
+            tags — a new field changes the canonical bytes of every
+            historical envelope and breaks signatures that were valid.
+
+            Disclosure: captured pre-state is kept verbatim so rollback can
+            restore it and internal/redact deliberately does not scrub it.
+            A summary is MORE exposed than Data, being short enough to
+            render inline in a list or a notification where a collapsed JSON
+            blob would not be. So elision is structural, not a per-handler
+            discipline: the shared renderers replace any multi-line or long
+            value with a size marker and redact by field name, and the
+            generic fallback for a mechanism with no describer is
+            value-eliding rather than a raw dump.
+
+    objective:
+        summary: |
+            Render any api.PreState as one safe, operator-readable line via
+            pkg/kensa.DescribePreState, sourced from the capturing handler,
+            with a value-eliding fallback, total accessors, and a
+            completeness guard over every capturable handler.
+        scope:
+            includes:
+                - internal/prestate (total accessors, eliding renderers, generic fallback)
+                - internal/handler PreStateDescriber optional interface + registry lookup
+                - a describer on every capturable handler
+                - pkg/kensa.DescribePreState public entry point
+                - completeness guard (every capturable handler has a describer)
+            excludes:
+                - "api/ changes — none; PreState, the wire format, and the evidence envelope are untouched"
+                - "A stability guarantee on the rendered text — explicitly none; it is a projection, not a contract"
+                - "A per-mechanism machine-readable schema — larger surface, not needed for a display line"
+                - "Redaction of PreState.Data itself — rollback needs it verbatim"
+
+    constraints:
+        - id: C-01
+          description: |
+              No describer and no fallback may emit a captured file body, at
+              any length. Multi-line or long string values MUST render as a
+              size marker, and field names denoting credentials MUST redact
+              by name.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Rendering MUST be total. Data may be nil, empty, carry
+              unexpected types (wire-widened int64, JSON float64), or come
+              from an older Kensa that recorded different keys. No input may
+              panic, and every capturable pre-state MUST produce a non-empty
+              line.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              Every capturable registered handler MUST implement
+              PreStateDescriber, so a new capturable mechanism cannot ship
+              with a generic-only display through drift.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              api/ MUST NOT change. The projection lives in internal/ and is
+              exposed from pkg/kensa, so no consumer absorbs a contract
+              change and no evidence signature is affected.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Every handler registered as capturable implements
+              PreStateDescriber. Locked by
+              TestEveryCapturableHandlerDescribesPreState.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-02
+          description: |
+              For every registered capturable mechanism, a pre-state whose
+              every string key holds a multi-line file body renders with no
+              line of that body present in the output. Locked by
+              TestDescribePreStateNeverEmitsFileBodies.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              For every registered capturable mechanism, rendering nil Data,
+              empty Data, wrong-typed values, and wire-widened numeric types
+              returns a non-empty line and does not panic. Locked by
+              TestDescribePreStateIsTotal.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: |
+              A value held under a credential-denoting field name renders as
+              the redaction placeholder, in the generic fallback and in the
+              shared value renderer. Locked by TestValueRedactsByFieldName
+              and TestGenericRedactsSensitiveFields.
+          references_constraints: [C-01]
+          priority: high
+        - id: AC-05
+          description: |
+              DescribePreState uses the handler's own describer when one is
+              registered, and falls back to the generic rendering when the
+              mechanism is unregistered, has no describer, returns an empty
+              string, or panics. Locked by TestDescribePreStateFallbacks.
+          references_constraints: [C-02]
+          priority: high
+        - id: AC-06
+          description: |
+              A non-capturable pre-state renders a fixed marker rather than
+              an empty string, so a consumer can distinguish "this mechanism
+              cannot capture" from "no summary available". Locked by
+              TestDescribePreStateNonCapturable.
+          references_constraints: [C-02]
+          priority: medium
+        - id: AC-07
+          description: |
+              Realistic capture data for each capturable mechanism renders
+              the expected operator-readable line. Locked by
+              TestDescribePreStatePerMechanism.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-08
+          description: |
+              Long and multi-line strings render as a size marker, control
+              characters are stripped, and integers are read from every
+              numeric encoding Data can carry. Locked by
+              TestTextElidesFileShapedValues, TestTextStripsControlChars and
+              TestIntAcceptsWidenedTypes.
+          references_constraints: [C-01, C-02]
+          priority: high
+
+        - id: AC-09
+          description: |
+              api.PreState carries exactly its established field set — the
+              projection added none. A new field on PreState changes the
+              canonical bytes the evidence signer produces (PreState sits
+              inside EvidenceEnvelope.PreStateBundle and the type has no
+              json tags), so it would invalidate signatures over already
+              written envelopes. Locked by TestPreStateFieldsUnchanged.
+          references_constraints: [C-04]
+          priority: critical
+
+    tags: [pkg-kensa, prestate, openwatch, display, tier-2]

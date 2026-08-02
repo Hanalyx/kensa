@@ -15,6 +15,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/systemd"
+	"github.com/Hanalyx/kensa/internal/prestate"
 )
 
 // Step runs one D-Bus op and maps the outcome onto the handlers' inline
@@ -98,4 +99,21 @@ func PreState(mech, name, enabled, active string) *api.PreState {
 			"prior_active":  active,
 		},
 	}
+}
+
+// Describe renders the captured unit state as one line. The three service
+// handlers share it because they share [PreState]'s shape; a change to
+// those keys is a change to this rendering.
+func Describe(pre *api.PreState) string {
+	name := prestate.Field(pre.Data, "name", "unit")
+	_, hasEnabled := prestate.String(pre.Data, "prior_enabled")
+	_, hasActive := prestate.String(pre.Data, "prior_active")
+	if !hasEnabled && !hasActive {
+		return name + ", unit state not captured"
+	}
+	// systemd reports an unknown unit-file state as the empty string; say so
+	// rather than rendering a bare comma.
+	enabled := prestate.Field(pre.Data, "prior_enabled", "unit file state unknown")
+	active := prestate.Field(pre.Data, "prior_active", "active state unknown")
+	return prestate.Join(name, enabled, active)
 }

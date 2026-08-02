@@ -14,6 +14,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
@@ -198,6 +199,33 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"selinux":      selinux,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured file as one line. The capture holds
+// the file's whole prior content under "content" — that is what rollback
+// re-creates the file from — so it is reported as a size and never
+// rendered.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "file")
+	existed, known := prestate.Bool(pre.Data, "file_existed")
+	switch {
+	case !known:
+		return path + ", existence not captured"
+	case !existed:
+		return path + " already absent"
+	}
+	mode := prestate.Field(pre.Data, "mode", "")
+	owner := prestate.Field(pre.Data, "owner", "")
+	group := prestate.Field(pre.Data, "group", "")
+	who := owner
+	if group != "" {
+		who = owner + ":" + group
+	}
+	return prestate.Join(
+		path+" present",
+		strings.TrimSpace(mode+" "+who),
+		prestate.Size(pre.Data, "content"),
+	)
 }
 
 // parseCaptureOutput parses: stat-line, SELinux-line, then file content.

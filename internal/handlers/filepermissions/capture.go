@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/prestate"
 )
 
 // Capture records owner (name+uid), group (name+gid), mode (octal),
@@ -69,6 +70,34 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"selinux_context": selinux,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured ownership and mode. This mechanism
+// has two capture shapes and they describe differently: a single target
+// records one file's mode and owner, while a find-based rule records a list
+// of every matched file, which is summarized as a count because the list can
+// run to hundreds of entries.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	if findBased, _ := prestate.Bool(pre.Data, "find_based"); findBased {
+		n, ok := prestate.Count(pre.Data, "files")
+		if !ok {
+			return "find-based selection, matched files not captured"
+		}
+		return fmt.Sprintf("%d file(s) matched, owner/group/mode captured", n)
+	}
+
+	path := prestate.Field(pre.Data, "path", "path")
+	mode := prestate.Field(pre.Data, "mode", "")
+	owner := prestate.Field(pre.Data, "owner", "")
+	group := prestate.Field(pre.Data, "group", "")
+	if mode == "" && owner == "" && group == "" {
+		return path + ", ownership not captured"
+	}
+	who := owner
+	if group != "" {
+		who = owner + ":" + group
+	}
+	return prestate.Join(path, strings.TrimSpace(mode+" "+who))
 }
 
 // parseCaptureOutput parses the two-line output of the capture

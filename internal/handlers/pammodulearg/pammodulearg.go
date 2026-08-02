@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -389,6 +390,26 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"files_existed": filesExisted,
 		},
 	}, nil
+}
+
+// DescribePreState renders the module and how many PAM files were captured.
+// The captured contents are whole authentication stacks, keyed by path, and
+// are never rendered — only counted.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	module := prestate.Field(pre.Data, "module", "PAM module")
+	total, ok := prestate.Count(pre.Data, "files_content")
+	if !ok {
+		return module + ", captured files not recorded"
+	}
+	present := 0
+	if existed, isMap := pre.Data["files_existed"].(map[string]interface{}); isMap {
+		for _, v := range existed {
+			if b, isBool := v.(bool); isBool && b {
+				present++
+			}
+		}
+	}
+	return module + fmt.Sprintf(" across %d PAM file(s), %d present", total, present)
 }
 
 // readFile returns a file's content and existence via the kernel-IO read

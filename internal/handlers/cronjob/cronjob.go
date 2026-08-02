@@ -15,6 +15,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -240,6 +241,20 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"prior_content": priorContent,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured cron file as one line. The file's
+// prior content is reported as a size, never rendered.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "cron file")
+	existed, known := prestate.Bool(pre.Data, "file_existed")
+	switch {
+	case !known:
+		return path + ", existence not captured"
+	case !existed:
+		return path + " absent"
+	}
+	return prestate.Join(path+" present", prestate.Size(pre.Data, "prior_content"))
 }
 
 // Rollback restores the prior cron file state.

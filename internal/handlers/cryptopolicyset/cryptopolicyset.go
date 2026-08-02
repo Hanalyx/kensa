@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/prestate"
 )
 
 // mechanism is the canonical handler name.
@@ -124,6 +125,16 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"prior_policy": priorPolicy,
 		},
 	}, nil
+}
+
+// DescribePreState renders the system-wide crypto policy in force before
+// the change.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	policy := prestate.Field(pre.Data, "prior_policy", "")
+	if policy == "" {
+		return "crypto policy not captured"
+	}
+	return "crypto policy " + policy
 }
 
 // Rollback restores the prior crypto policy and verifies the live policy

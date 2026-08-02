@@ -15,6 +15,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -209,6 +210,27 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"file_existed":  existed,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured file and whether the line this rule
+// appends was already there. The file's whole prior content is captured for
+// rollback and is reported as a size only.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "file")
+	existed, known := prestate.Bool(pre.Data, "file_existed")
+	if known && !existed {
+		return path + " absent"
+	}
+	var line string
+	switch present, ok := prestate.Bool(pre.Data, "was_present"); {
+	case !ok:
+		line = "line state not captured"
+	case present:
+		line = "line already present"
+	default:
+		line = "line not present"
+	}
+	return prestate.Join(path, line, prestate.Size(pre.Data, "prior_content"))
 }
 
 // readFile returns path's content and existence, via the kernel-IO read

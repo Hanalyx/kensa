@@ -25,6 +25,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -213,6 +214,39 @@ func (h *Handler) preState(p *Params, path string, fileExisted, wasLoaded bool, 
 			"prior_content": priorContent,
 			"was_loaded":    wasLoaded,
 		},
+	}
+}
+
+// DescribePreState renders both halves of what this mechanism captures: the
+// module's runtime load state and the modprobe drop-in that disables it
+// persistently. Both matter to rollback, and the runtime half is the one an
+// operator cannot see from the file alone.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	module := prestate.Field(pre.Data, "module", "module")
+	loaded := "load state not captured"
+	if was, ok := prestate.Bool(pre.Data, "was_loaded"); ok {
+		if was {
+			loaded = "loaded"
+		} else {
+			loaded = "not loaded"
+		}
+	}
+	return prestate.Join(module+" "+loaded, modprobeFile(pre))
+}
+
+// modprobeFile renders the drop-in holding the persistent disable.
+func modprobeFile(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "")
+	if path == "" {
+		return ""
+	}
+	switch existed, known := prestate.Bool(pre.Data, "file_existed"); {
+	case !known:
+		return path
+	case existed:
+		return prestate.Join(path+" present", prestate.Size(pre.Data, "prior_content"))
+	default:
+		return path + " absent"
 	}
 }
 

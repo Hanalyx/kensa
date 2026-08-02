@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/prestate"
 )
 
 // mechanism is the canonical handler name.
@@ -109,6 +110,24 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"prior_version": version,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured package state as one line. The
+// capture holds a name, an installed flag, and a version string, so there
+// is no file body to elide here.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	name := prestate.Field(pre.Data, "name", "package")
+	installed, known := prestate.Bool(pre.Data, "pkg_installed")
+	switch {
+	case !known:
+		return name + ", install state not captured"
+	case !installed:
+		return name + " not installed"
+	}
+	if version := prestate.Field(pre.Data, "prior_version", ""); version != "" {
+		return name + " installed (" + version + ")"
+	}
+	return name + " installed"
 }
 
 // Rollback removes the package when it was absent at capture time

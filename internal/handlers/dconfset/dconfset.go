@@ -26,6 +26,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -482,6 +483,39 @@ func preState(paths dconfPaths, snippetContent string, snippetExisted bool, lock
 			"db_dir":          paths.dbDir,
 			"created_dirs":    createdDirs,
 		},
+	}
+}
+
+// DescribePreState renders the three files this mechanism captures — the
+// keyfile snippet, the lock that prevents a user overriding it, and the
+// profile that binds the database — because rollback restores all three and
+// a summary naming only the snippet would understate what is reversible.
+// Snippet and lock contents are reported as sizes.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "file_path", "dconf snippet")
+	var snippet string
+	switch existed, known := prestate.Bool(pre.Data, "file_existed"); {
+	case !known:
+		snippet = path
+	case existed:
+		snippet = prestate.Join(path+" present", prestate.Size(pre.Data, "prior_content"))
+	default:
+		snippet = path + " absent"
+	}
+	return prestate.Join(snippet, presence(pre, "lock", "lock_existed"), presence(pre, "profile", "profile_existed"))
+}
+
+// presence renders a companion file's captured existence ("lock present"),
+// or nothing when the capture did not record it.
+func presence(pre *api.PreState, label, key string) string {
+	existed, known := prestate.Bool(pre.Data, key)
+	switch {
+	case !known:
+		return ""
+	case existed:
+		return label + " present"
+	default:
+		return label + " absent"
 	}
 }
 

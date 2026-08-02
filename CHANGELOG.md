@@ -17,6 +17,25 @@ any pair).
 ## Unreleased
 
 ### Added
+- **`kensa.DescribePreState(pre)` renders a captured pre-state as one
+  operator-readable line** (`pkg/kensa`), so a consumer can show what a
+  transaction found on the host before it changed anything —
+  `PASS_MAX_DAYS 99999 in /etc/login.defs`, `auditd, enabled, active`,
+  `/etc/shadow, 0000 root:root`. `api.PreState.Data` is mechanism-specific
+  with no schema, so this was previously undisplayable without a decoder per
+  capturable mechanism, which would break silently as layouts change and as
+  values widen across the agent wire. The line now comes from the handler
+  that captured the state: every one of the 24 capturable mechanisms
+  implements it, guarded by a test that fails if a new capturable mechanism
+  ships without one. Works on a pre-state from a `TransactionResult`, a
+  `TransactionRecord` read back out of the log, or a `Plan` preview, and is
+  derived on read, so it applies to state captured by earlier versions of
+  Kensa. `api/` is unchanged: no new field, no wire change, and no effect on
+  evidence signatures. The rendered text is a projection, not a contract —
+  it carries no stability guarantee, and `PreState.Data` remains the
+  authoritative capture. A summary never contains a captured file body:
+  credential-named fields redact and multi-line or long values render as a
+  size marker.
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the
   CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the

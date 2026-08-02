@@ -86,6 +86,39 @@ The OSCAL byte production is conformance-gated against the vendored NIST
 OSCAL 1.0.6 schema; these `pkg/kensa` functions are the importable entry
 points to it.
 
+Showing an operator what a transaction found on the host before it changed
+anything is public surface as well:
+
+- `kensa.DescribePreState(pre)` → one operator-readable line for an
+  `api.PreState`, such as `PASS_MAX_DAYS 99999 in /etc/login.defs` or
+  `auditd, enabled, active`. It accepts a pre-state from a
+  `TransactionResult`, from a `TransactionRecord` read back out of the
+  transaction log, or from a `Plan` in a preview flow.
+
+The line comes from the handler that captured the state, because
+`PreState.Data` is mechanism-specific: each capturable mechanism records its
+own keys, and only the handler knows what they mean. Handlers register by
+importing `pkg/kensa`, so nothing further is wired up. A mechanism that is
+not capturable renders a fixed marker rather than an empty string, so a
+consumer can tell "this mechanism cannot capture" apart from "no summary
+available".
+
+Two properties to build on:
+
+- **The summary is a projection, not evidence.** `PreState.Data` stays the
+  authoritative capture and the thing an auditor reads. The rendered text is
+  not semver-frozen, not parseable, and may change in any release including
+  a patch. Deriving it on read costs nothing and always matches the
+  installed version; a consumer that persists it instead should record the
+  Kensa version alongside, so a corrected description can be re-run over the
+  rows it affects.
+- **A summary never contains a captured file body.** Captured state is kept
+  verbatim so rollback can restore it, and is not scrubbed — but a summary
+  is shown inline where the raw capture usually is not. Values under field
+  names denoting credentials are redacted, and multi-line or long values are
+  replaced by a size marker (`/etc/pam.d/sshd, 1.4 KiB`). Render
+  `PreState.Data` itself only where you would show the full capture.
+
 End-to-end, the whole consumer chain is public:
 `kensa.LoadRules(…, operatorVars)` → construct (either form above) →
 `Scan` → `ScanResult.Outcomes` → `kensa.ExportOSCALScan(…)`.
