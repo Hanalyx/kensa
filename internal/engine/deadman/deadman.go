@@ -428,49 +428,32 @@ func availableSchedulers(ctx context.Context, transport api.Transport) []schedul
 	return out
 }
 
-// checkRollbackCommands classifies what the dry-run produced, and is called by
-// BOTH arm paths so neither can acquire the guard without the other.
+// checkRollbackCommands reports whether there is anything for a timer to run.
 //
-// An empty command list has two very different causes.
+// An empty command list means nothing to roll back, and the arm is skipped:
+// nothing is scheduled, no script is uploaded, and Cancel still resolves. That
+// is the honest state, and it is reachable for good reasons -- roughly ten
+// shipped handlers return Success with no command by design when the system
+// already matched the captured state (package_absent "was absent at capture",
+// service_enabled on a unit that was already enabled and running, file_absent,
+// config_append, and others).
 //
-// Nothing capturable in the transaction means there is nothing to roll back,
-// so there is nothing to protect. That is the honest state for a mechanism the
-// rule itself declares non-transactional (command_exec is control-channel
-// sensitive AND non-capturable, so it lands here). Arming a script with no
-// commands would report a safety net that reverts nothing.
+// An earlier version of this treated "capturable steps yielded no commands" as
+// proof of a broken capture and failed the arm. That premise does not hold: an
+// empty rollback follows whenever Apply itself is a no-op, which is exactly
+// when those handlers report success with nothing to do. It would have
+// misdiagnosed a correct capture as broken, and the message would have sent
+// the reader hunting a defect that was not there.
 //
-// Capturable steps that yield NO commands is a different thing entirely: the
-// capture is broken. It is not hypothetical. `systemctl show -p UnitFileState
-// -p ActiveState --value` emits ActiveState FIRST, and the service handlers
-// parse those two lines positionally, so every captured value is transposed.
-// Driving the real service_disabled rollback with the values systemd actually
-// returns yields ZERO commands, where the values it expects yield
-// `systemctl enable --now`. Its siblings degrade less loudly -- masked and
-// enabled still emit part of their rollback and silently drop the rest -- so
-// this guard catches the empty case, not the incomplete one.
-//
-// The engine treats a successful arm as permission to apply, so that case must
-// fail the arm rather than produce a hollow script. Refusing costs an
-// unremediated rule; proceeding costs a mutated host behind a rollback that
-// restores nothing, reported as protected.
-func checkRollbackCommands(cmds []string, preStates []api.PreState) (armable bool, err error) {
-	if len(cmds) > 0 {
-		return true, nil
-	}
-	var capturable int
-	for i := range preStates {
-		if preStates[i].Capturable {
-			capturable++
-		}
-	}
-	if capturable > 0 {
-		return false, fmt.Errorf(
-			"deadman: %d capturable step(s) produced no rollback commands, so the "+
-				"timer would run a script that restores nothing; refusing to arm "+
-				"rather than apply behind a rollback that cannot undo the change",
-			capturable)
-	}
-	return false, nil
+// The case that premise was aimed at -- a capture whose values are wrong, so
+// the rollback builders silently match nothing -- is caught where it can
+// actually be proven, at capture time in the handler:
+// servicedbus.CheckPreStateOrientation refuses a pre-state whose two fields
+// hold each other's values, and the transaction aborts before Apply. A command
+// count cannot tell that case from a legitimate no-op, and guessing from here
+// was the wrong layer.
+func checkRollbackCommands(cmds []string, _ []api.PreState) (armable bool, err error) {
+	return len(cmds) > 0, nil
 }
 
 // collectRollbackCommands dry-runs each capturable step's rollback handler
@@ -816,17 +799,35 @@ func cancelOne(ctx context.Context, transport api.Transport, sj scheduledJob) er
 	return fmt.Errorf("unknown scheduler %q", sj.scheduler)
 }
 
+// atqListsJob reports whether atq output lists exactly this job.
+//
+// The match is anchored at BOTH ends of the ID: line start and the tab that
+// follows it. Real atq output is "73\tSun Aug  2 18:25:00 2026 a root", so a
+// bare substring test for "3" matches job 73, and a tab-suffixed test for "3\t"
+// still does -- the tab fixes the prefix collision (4 against 42) and leaves
+// the suffix one (3 against 73) wide open. Both ends are needed.
+//
+// This is the last gate before the engine applies, and its sibling on the
+// cancel path fails in the more dangerous direction: a false "still present"
+// makes Cancel fail, and the engine answers that by rolling back a healthy
+// transaction.
+func atqListsJob(stdout, jobID string) bool {
+	for _, line := range strings.Split(stdout, "\n") {
+		id, _, ok := strings.Cut(strings.TrimLeft(line, " \t"), "\t")
+		if ok && id == jobID {
+			return true
+		}
+	}
+	return false
+}
+
 // verifyAtJobPresent confirms jobID appears in atq output.
 func verifyAtJobPresent(ctx context.Context, transport api.Transport, jobID string) error {
 	res, err := transport.Run(ctx, "atq 2>/dev/null")
 	if err != nil {
 		return fmt.Errorf("deadman: atq check: %w", err)
 	}
-	// Anchor on the tab as verifyAtJobGone does. atq's line is
-	// "<id>\t<date>...", and a bare substring test against a line full of
-	// digits lets a single-digit job ID match ANY queued job -- so the last
-	// gate before the engine applies would pass on somebody else's timer.
-	if !strings.Contains(res.Stdout, jobID+"\t") {
+	if !atqListsJob(res.Stdout, jobID) {
 		return fmt.Errorf("deadman: job %s not found in atq after scheduling", jobID)
 	}
 	return nil
@@ -838,8 +839,7 @@ func verifyAtJobGone(ctx context.Context, transport api.Transport, jobID string)
 	if err != nil {
 		return fmt.Errorf("deadman: atq check after cancel: %w", err)
 	}
-	// Match "7\t" (tab-delimited atq format) to avoid prefix-matching job 70.
-	if strings.Contains(res.Stdout, jobID+"\t") {
+	if atqListsJob(res.Stdout, jobID) {
 		return fmt.Errorf("deadman: job %s still present in atq after cancel", jobID)
 	}
 	return nil

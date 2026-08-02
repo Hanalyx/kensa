@@ -161,37 +161,25 @@ spec:
 
         - id: C-09
           description: |
-              The arm MUST be refused when the transaction's capturable steps
-              produce NO rollback commands, and both arm paths MUST share the
-              check so neither can acquire it without the other.
+              An arm with NO rollback commands MUST schedule nothing: no timer,
+              no script on disk, and Cancel still resolves cleanly. There is
+              nothing for a timer to run, and arming one would report a safety
+              net over an empty script.
 
-              The engine treats a successful arm as permission to apply, so an
-              empty rollback script does not merely fail to help: it converts a
-              loud fail-safe abort into a silent apply that the transaction log
-              records as protected. Refusing costs an unremediated rule;
-              proceeding costs a mutated host behind a rollback that restores
-              nothing.
+              An empty command list MUST NOT be treated as a broken capture.
+              Roughly ten shipped handlers return Success with no command by
+              design when the system already matched the captured state
+              (package_absent "was absent at capture", service_enabled on a
+              unit already enabled and running, file_absent, config_append and
+              others), and an empty rollback follows whenever Apply itself is a
+              no-op. Failing the arm there misdiagnoses correct behavior.
 
-              The trigger is live, not hypothetical. `systemctl show -p
-              UnitFileState -p ActiveState --value` emits ActiveState FIRST,
-              and the service handlers parse those two lines positionally, so
-              every captured value lands in the wrong field. Driving the real
-              service_disabled rollback with the values systemd actually
-              returns yields ZERO commands, where the values it expects yield
-              `systemctl enable --now`. Its siblings degrade less loudly:
-              service_masked and service_enabled still emit part of their
-              rollback and silently drop the rest, which this guard does NOT
-              catch. It bounds the empty case only; the incomplete case is the
-              capture fix's to close.
-
-              An empty list with NOTHING capturable is a different state and
-              MUST NOT fail the arm. There is nothing to roll back, which is
-              the honest position for a mechanism the rule itself declares
-              non-transactional -- command_exec is control-channel sensitive
-              and non-capturable, so it lands here. Nothing is scheduled and no
-              script is uploaded, but Cancel MUST still resolve cleanly,
-              because the engine holds armed=true for any successful arm and
-              reads a Cancel error as "the deadman will fire".
+              The case that DOES need refusing -- a capture whose values are
+              wrong, so the rollback builders silently match nothing, or worse
+              emit the inverse of the correct restore -- is caught where it can
+              be proven: at capture time, by the handler, via
+              servicedbus.CheckPreStateOrientation. A command count cannot
+              distinguish it from a legitimate no-op.
 
         - id: C-10
           description: |
@@ -372,15 +360,14 @@ spec:
 
         - id: AC-17
           description: |
-              A capture that yields no rollback commands fails the arm with an
-              error naming the cause, and the host is not applied to. A
-              transaction with nothing capturable schedules nothing, uploads no
-              script, and still cancels cleanly.
+              A capturable step whose rollback has nothing to do schedules no
+              timer, uploads no script, and cancels cleanly, rather than
+              failing the arm.
 
-              Locked by TestArmRefusedWhenCaptureYieldsNoRollback and
+              Locked by TestNoRollbackCommandsArmsNothing and
               TestNothingCapturableArmsNothing. The first uses a handler whose
-              Rollback SUCCEEDS while emitting nothing, which is what the
-              transposed service_* capture does today -- not an error path.
+              Rollback SUCCEEDS while emitting nothing, which is what a
+              legitimate no-op looks like.
           references_constraints: [C-09]
           priority: critical
 

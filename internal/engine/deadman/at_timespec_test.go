@@ -207,23 +207,22 @@ func silentRollbackRegistry(t *testing.T) *handler.Registry {
 	return r
 }
 
-// TestArmRefusedWhenCaptureYieldsNoRollback is the guard for a timer armed
-// over a script that restores nothing.
+// TestNoRollbackCommandsArmsNothing: a capturable step whose rollback has
+// nothing to do is NOT a broken capture, and must not fail the arm.
 //
-// The engine treats a successful arm as permission to apply, so an empty
-// rollback script does not merely fail to help — it converts a loud fail-safe
-// abort into a silent apply that the transaction log records as protected.
+// Roughly ten shipped handlers return Success with no command by design when
+// the system already matched the captured state, and an empty rollback follows
+// whenever Apply itself is a no-op. An earlier version of this guard read that
+// as proof of a broken capture and refused, which would have misdiagnosed
+// correct behavior and sent the reader hunting a defect that was not there.
 //
-// The trigger is real rather than theoretical. `systemctl show -p
-// UnitFileState -p ActiveState --value` emits ActiveState FIRST, and the
-// service handlers parse those two lines positionally, so every captured value
-// lands in the wrong field. Driving the real service_disabled rollback with the
-// values systemd actually returns yields ZERO commands, where the values it
-// expects yield `systemctl enable --now`.
+// The case it was aimed at -- a capture whose values are wrong so the rollback
+// builders silently match nothing -- is caught at capture time by
+// servicedbus.CheckPreStateOrientation, which can actually prove it.
 //
 // @spec deadman-timer
 // @ac AC-17
-func TestArmRefusedWhenCaptureYieldsNoRollback(t *testing.T) {
+func TestNoRollbackCommandsArmsNothing(t *testing.T) {
 	t.Run("deadman-timer/AC-17", func(t *testing.T) {})
 
 	// Capturable, and its rollback returns success having emitted nothing.
@@ -233,14 +232,19 @@ func TestArmRefusedWhenCaptureYieldsNoRollback(t *testing.T) {
 		Capturable: true,
 	}}
 
+	tp := atHostTP()
 	a := deadman.New(120*time.Second, silentRollbackRegistry(t))
-	_, _, err := a.Arm(context.Background(), atHostTP(), uuid.New(), preStates)
-	if err == nil {
-		t.Fatal("Arm reported success for a capture that yields no rollback commands; " +
-			"the engine would apply behind a script that restores nothing")
+	txn := uuid.New()
+	if _, _, err := a.Arm(context.Background(), tp, txn, preStates); err != nil {
+		t.Fatalf("Arm must not fail when there is simply nothing to roll back: %v", err)
 	}
-	if !strings.Contains(err.Error(), "restores nothing") {
-		t.Errorf("error does not explain why the arm was refused: %v", err)
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "| at now +") || strings.Contains(ran, "systemd-run --unit=") {
+			t.Errorf("scheduled a timer with nothing to roll back: %q", ran)
+		}
+	}
+	if err := a.Cancel(context.Background(), tp, txn); err != nil {
+		t.Errorf("Cancel of an inert arm must resolve cleanly, got %v", err)
 	}
 }
 
@@ -738,5 +742,38 @@ func TestCancelNeverStopsTheBareUnit(t *testing.T) {
 					".service and would kill a rollback in flight: %q", field)
 			}
 		}
+	}
+}
+
+// TestAtJobMatchIsAnchoredAtBothEnds: real atq output is
+// "73\tSun Aug  2 18:25:00 2026 a root". A bare substring test for "3" matches
+// job 73; a tab-suffixed test for "3\t" still does. The tab closes the prefix
+// collision (4 against 42) and leaves the suffix one wide open, so the ID must
+// be anchored at the line start as well.
+//
+// @spec deadman-timer
+// @ac AC-04
+func TestAtJobMatchIsAnchoredAtBothEnds(t *testing.T) {
+	t.Run("deadman-timer/AC-04", func(t *testing.T) {})
+
+	// atq reports job 42 only; at claims to have queued job 2. The suffix
+	// collision (2 inside 42) is what a tab-only anchor misses.
+	tp := atHostTP()
+	inner := tp.Hook
+	tp.Hook = func(cmd string) (*api.CommandResult, bool) {
+		if strings.Contains(cmd, "| at now +") {
+			return &api.CommandResult{Stdout: "job 2 at Thu Apr 15 12:00:00 2026"}, true
+		}
+		if inner != nil {
+			return inner(cmd)
+		}
+		return nil, false
+	}
+
+	a := deadman.New(120*time.Second, handler.Default())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), realPreStates())
+	if err == nil {
+		t.Fatal("Arm succeeded although job 2 is absent from atq; job 42 in the " +
+			"queue satisfied a suffix-unanchored match, passing the last gate before apply")
 	}
 }
