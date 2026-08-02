@@ -183,17 +183,22 @@ func TestAtArmRefusedWhenAtExitsNonZero(t *testing.T) {
 	}
 }
 
-// TestSystemdRunIsPreferredWhenBothPresent locks the preference flip.
+// TestBothSchedulersAreArmedWhenBothPresent locks the two-net design.
 //
-// The two schedulers differ in kind, not quality. at(1) is two programs: `at`
-// queues, atd(8) runs, and either can exist without the other, so at can
-// accept a job on a host where nothing will run it. systemd-run's executor is
-// PID 1, so it has no equivalent state. Every RHEL 8 and RHEL 9 fleet host
-// carries both and was taking the at path.
+// The schedulers cover different failures and neither covers both. systemd-run
+// is the timer that fires: its executor is PID 1, so there is no state where
+// the job is accepted and nothing runs it, which at(1) has whenever atd is
+// down. at(1) is the backstop across a REBOOT: a systemd-run transient unit
+// lives in tmpfs and a power cycle erases it, while at's spool is on disk and
+// atd runs overdue jobs at start. The exposed case is the deadman's own reason
+// for existing -- the operator power-cycles a host they can no longer reach,
+// and the reboot does not undo an on-disk change.
+//
+// Arming only the "better" scheduler silently drops one of those guarantees.
 //
 // @spec deadman-timer
 // @ac AC-14
-func TestSystemdRunIsPreferredWhenBothPresent(t *testing.T) {
+func TestBothSchedulersAreArmedWhenBothPresent(t *testing.T) {
 	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
 
 	tp := bothSchedulersTP()
@@ -201,10 +206,23 @@ func TestSystemdRunIsPreferredWhenBothPresent(t *testing.T) {
 	if !strings.Contains(cmd, "--on-active=120") {
 		t.Errorf("systemd-run command = %q, want the window in seconds", cmd)
 	}
+	// systemd's default timer accuracy is ONE MINUTE, so an unpinned
+	// --on-active=120 can fire at 180s. Measured on RHEL 9.6 and Ubuntu 22.04.
+	if !strings.Contains(cmd, "--timer-property=AccuracySec=1s") {
+		t.Errorf("systemd-run command = %q, want AccuracySec pinned; systemd's "+
+			"default AccuracyUSec=1min lets the deadman fire up to a minute late", cmd)
+	}
+
+	var armedAt bool
 	for _, ran := range tp.Runs {
 		if strings.Contains(ran, "| at now +") {
-			t.Errorf("used at(1) despite systemd-run being available: %q", ran)
+			armedAt = true
 		}
+	}
+	if !armedAt {
+		t.Error("only systemd-run was armed; a reboot erases a transient timer, " +
+			"so the at(1) backstop is what survives the power cycle the operator " +
+			"reaches for when the control channel is gone")
 	}
 }
 
@@ -227,6 +245,20 @@ func TestFallsThroughToAtWhenSystemdRunRefuses(t *testing.T) {
 	cmd := armAndFindCommand(t, tp, 120*time.Second, "| at now +")
 	if !strings.Contains(cmd, "at now + 3 minutes") {
 		t.Errorf("fell through to at(1) but emitted %q", cmd)
+	}
+
+	// A non-zero exit does not tell us whether a unit was created — polkit
+	// refuses before creating one, but other failures do not. The caller
+	// cannot distinguish them and moves on to at(1), so the unit is stopped
+	// blind rather than left to fire against a committed transaction.
+	var stopped bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "systemctl stop") {
+			stopped = true
+		}
+	}
+	if !stopped {
+		t.Error("systemd-run exited non-zero and nothing stopped the unit it may have created")
 	}
 }
 
@@ -299,4 +331,153 @@ func TestFailedSystemdRunScheduleLeavesNoTimer(t *testing.T) {
 func a2(t *testing.T) *deadman.Armer {
 	t.Helper()
 	return deadman.New(120*time.Second, handler.NewRegistry())
+}
+
+// TestCancelRemovesEveryArmedTimer is the obligation arming two schedulers
+// creates. Cancel runs on the COMMIT path, so a timer left behind fires a full
+// rollback against a transaction that already succeeded — unprompted, with no
+// operator watching and no store record to explain it.
+//
+// @spec deadman-timer
+// @ac AC-15
+func TestCancelRemovesEveryArmedTimer(t *testing.T) {
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	txn := uuid.New()
+	if _, _, err := a.Arm(context.Background(), tp, txn, []api.PreState{}); err != nil {
+		t.Fatalf("Arm: %v", err)
+	}
+	if err := a.Cancel(context.Background(), tp, txn); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+
+	var atrm, stopped bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "atrm") {
+			atrm = true
+		}
+		if strings.Contains(ran, "systemctl stop") {
+			stopped = true
+		}
+	}
+	if !atrm {
+		t.Error("the at(1) job was never removed; it fires after commit and rolls back a committed transaction")
+	}
+	if !stopped {
+		t.Error("the systemd-run timer was never stopped; it fires after commit")
+	}
+}
+
+// TestPartialCancelFailsTheCancel: with two timers armed, one cancel can fail
+// while the other succeeds. Reporting success there is the worst outcome in
+// this package — the engine records COMMITTED and a live timer contradicts it
+// minutes later. The engine treats a Cancel error as "the deadman will fire"
+// and rolls back in-band, which is the honest verdict.
+//
+// @spec deadman-timer
+// @ac AC-15
+func TestPartialCancelFailsTheCancel(t *testing.T) {
+	t.Run("deadman-timer/AC-15", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	txn := uuid.New()
+	if _, _, err := a.Arm(context.Background(), tp, txn, []api.PreState{}); err != nil {
+		t.Fatalf("Arm: %v", err)
+	}
+
+	// atrm fails; the systemd-run cancel still succeeds.
+	tp.Hook = func(cmd string) (*api.CommandResult, bool) {
+		if strings.HasPrefix(cmd, "atrm") {
+			return &api.CommandResult{ExitCode: 1, Stderr: "atrm: cannot remove job"}, true
+		}
+		return nil, false
+	}
+
+	err := a.Cancel(context.Background(), tp, txn)
+	if err == nil {
+		t.Fatal("Cancel reported success with one timer still armed; the engine " +
+			"would record COMMITTED and the survivor would roll it back")
+	}
+	if !strings.Contains(err.Error(), "1 of 2") {
+		t.Errorf("error does not say how many timers survived: %v", err)
+	}
+
+	// The failure must not short-circuit the other cancel: returning early
+	// would guarantee the untracked survivor this test exists to prevent.
+	var stopped bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "systemctl stop") {
+			stopped = true
+		}
+	}
+	if !stopped {
+		t.Error("a failed atrm skipped the systemd-run cancel; every armed timer must be attempted")
+	}
+}
+
+// TestAtJobVerificationIsAnchored: atq lines are "<id>\t<date>...", and the
+// date column is full of digits. A bare substring test for job "4" therefore
+// matches a queue containing only job 42 — so the last gate before the engine
+// applies would pass on somebody else's timer, or on a job that was never
+// really queued. verifyAtJobGone already anchors on the tab and carries a
+// comment naming this hazard; its sibling did not.
+//
+// @spec deadman-timer
+// @ac AC-04
+func TestAtJobVerificationIsAnchored(t *testing.T) {
+	t.Run("deadman-timer/AC-04", func(t *testing.T) {})
+
+	tp := atHostTP()
+	inner := tp.Hook
+	tp.Hook = func(cmd string) (*api.CommandResult, bool) {
+		if strings.Contains(cmd, "| at now +") {
+			// at reports job 4; the spool holds only the unrelated job 42.
+			return &api.CommandResult{Stdout: "job 4 at Thu Apr 15 12:00:00 2026"}, true
+		}
+		return inner(cmd)
+	}
+
+	a := deadman.New(120*time.Second, handler.NewRegistry())
+	_, _, err := a.Arm(context.Background(), tp, uuid.New(), []api.PreState{})
+	if err == nil {
+		t.Fatal("Arm succeeded although job 4 is absent from atq; a substring " +
+			"match against job 42 passed the last gate before apply")
+	}
+}
+
+// TestSystemdRunTransportErrorLeavesNoTimer: a transport error does NOT prove
+// the command did not run — it may have executed on the host and the reply
+// been lost. systemd-run exits 0 once the unit is queued, so the timer can be
+// live while the caller believes the attempt failed. The caller then arms the
+// next scheduler and records only that one, leaving a timer nothing can
+// cancel: it fires a full rollback against a transaction that has since
+// committed, with no event and no store record.
+//
+// @spec deadman-timer
+// @ac AC-14
+func TestSystemdRunTransportErrorLeavesNoTimer(t *testing.T) {
+	t.Run("deadman-timer/AC-14", func(t *testing.T) {})
+
+	tp := bothSchedulersTP()
+	tp.SystemdRunTransportErr = "ssh: connection reset by peer"
+
+	// at still arms, so the transaction proceeds — which is exactly why the
+	// orphaned systemd-run unit would go unnoticed.
+	if _, _, err := deadman.New(120*time.Second, handler.NewRegistry()).
+		Arm(context.Background(), tp, uuid.New(), []api.PreState{}); err != nil {
+		t.Fatalf("Arm should have fallen through to at: %v", err)
+	}
+	var stopped bool
+	for _, ran := range tp.Runs {
+		if strings.Contains(ran, "systemctl stop") {
+			stopped = true
+		}
+	}
+	if !stopped {
+		t.Error("a lost systemd-run reply left the unit unstopped and untracked; " +
+			"it fires a rollback against a committed transaction")
+	}
 }

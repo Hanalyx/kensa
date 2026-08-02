@@ -60,11 +60,20 @@ type armedJob struct {
 	// shell-based at(1)/systemd-run arms (false). Set by
 	// armViaAgent / armViaShell respectively. Replaces the
 	// empty-scriptPath sentinel pattern (P2-1 fix).
-	agentMode  bool
-	scheduler  schedulerKind
-	jobID      string // at: numeric job ID; systemd-run: unit name
+	agentMode bool
+	// scheduled holds every scheduler that accepted the job. Shell-mode
+	// arms BOTH where both are usable: see armViaShell for why, and Cancel
+	// for the obligation that creates.
+	scheduled  []scheduledJob
 	scriptPath string
 	firesAt    int64
+}
+
+// scheduledJob is one accepted timer. jobID is at(1)'s numeric job ID or
+// systemd-run's unit name.
+type scheduledJob struct {
+	scheduler schedulerKind
+	jobID     string
 }
 
 // Armer is the production DeadmanArmer. Construct with [New].
@@ -208,41 +217,68 @@ func (a *Armer) armViaShell(ctx context.Context, transport api.Transport, txnID 
 		return "", 0, fmt.Errorf("deadman: upload rollback script: %w", err)
 	}
 
-	// @ac AC-04 — schedule via at or systemd-run and verify.
-	firesAt := time.Now().Add(a.window).Unix()
+	// @ac AC-04 — schedule via at or systemd-run and verify. firesAt is set
+	// below from the EARLIEST offset a scheduler actually delivers, which is
+	// not the requested window: at(1) rounds up to a whole minute.
+	var firesAt int64
 
-	// Every available scheduler is tried in order. A scheduler that is
-	// installed can still refuse the job: systemd-run without privilege,
-	// at(1) with its daemon stopped. Failing the arm while another usable
-	// scheduler sits on the same host would abort a transaction that could
-	// have proceeded safely, so a refusal advances rather than terminates.
-	// Each scheduler is responsible for leaving nothing behind when it
-	// refuses (see scheduleAt and scheduleSystemdRun).
+	// EVERY usable scheduler is armed, not the first one that accepts,
+	// because the two cover different failures and neither covers both.
+	//
+	// systemd-run is the timer that fires. Its executor is PID 1, so there is
+	// no state where the job is accepted and nothing runs it, and with
+	// AccuracySec pinned it lands on the window rather than up to a minute
+	// past it.
+	//
+	// at(1) is the backstop across a REBOOT. A systemd-run transient unit
+	// lives in /run/systemd/transient, which is tmpfs, so a power cycle erases
+	// it silently; at(1)'s job is a file in /var/spool/at, and atd runs
+	// overdue jobs when it starts. The case that needs this is the one the
+	// deadman exists for: a change costs Kensa the control channel before
+	// commit, the operator power-cycles the host to recover, and the reboot
+	// does not undo an on-disk change. With systemd-run alone the net is gone
+	// at exactly that moment.
+	//
+	// Both run the same script, and the script deletes itself on exit, so
+	// whichever fires first makes the other a no-op rather than a second
+	// rollback. Ordering is not relied on for correctness, only for latency.
+	//
+	// A scheduler that is installed can still refuse: systemd-run without
+	// privilege, at(1) with its daemon stopped. A refusal advances to the next
+	// candidate rather than failing the arm, since aborting a transaction with
+	// a usable scheduler on the same host helps nobody. Each scheduler leaves
+	// nothing behind when it refuses (see scheduleAt and scheduleSystemdRun).
 	var (
-		jobID    string
-		sched    schedulerKind
-		attempts []string
+		scheduled []scheduledJob
+		earliest  time.Duration
+		attempts  []string
 	)
 	for _, candidate := range scheds {
-		id, serr := schedule(ctx, transport, candidate, txnID, scriptPath, a.window)
-		if serr == nil {
-			jobID, sched = id, candidate
-			break
+		id, fires, serr := schedule(ctx, transport, candidate, txnID, scriptPath, a.window)
+		if serr != nil {
+			attempts = append(attempts, fmt.Sprintf("%s: %v", candidate, serr))
+			continue
 		}
-		attempts = append(attempts, fmt.Sprintf("%s: %v", candidate, serr))
+		scheduled = append(scheduled, scheduledJob{scheduler: candidate, jobID: id})
+		if earliest == 0 || fires < earliest {
+			earliest = fires
+		}
 	}
-	if sched == "" {
+	if len(scheduled) == 0 {
 		// Clean up the orphaned script file before returning.
 		_, _ = transport.Run(ctx, "rm -f "+shellQuote(scriptPath))
-		return "", 0, fmt.Errorf("deadman: no scheduler could arm the timer (%s)",
-			strings.Join(attempts, "; "))
+		// Wrap the sentinel: "installed but every one refused" is the same
+		// outcome for a caller as "none installed", and api.ErrSchedulerUnavailable
+		// is the frozen public name for it.
+		return "", 0, fmt.Errorf("deadman: no scheduler could arm the timer (%s): %w",
+			strings.Join(attempts, "; "), api.ErrSchedulerUnavailable)
 	}
+	firesAt = time.Now().Add(earliest).Unix()
 
 	a.mu.Lock()
 	a.jobs[txnID] = &armedJob{
 		agentMode:  false,
-		scheduler:  sched,
-		jobID:      jobID,
+		scheduled:  scheduled,
 		scriptPath: scriptPath,
 		firesAt:    firesAt,
 	}
@@ -430,17 +466,23 @@ func uploadScript(ctx context.Context, transport api.Transport, content, remoteP
 	return nil
 }
 
-// schedule submits the rollback script for deferred execution. Returns the
-// job ID (at numeric ID or systemd-run unit name) for cancellation.
-func schedule(ctx context.Context, transport api.Transport, sched schedulerKind, txnID uuid.UUID, scriptPath string, window time.Duration) (string, error) {
+// schedule submits the rollback script for deferred execution. It returns the
+// job ID (at numeric ID or systemd-run unit name) for cancellation, and the
+// SOONEST the job can fire, which is not the requested window: at(1) rounds up
+// to a whole minute and truncates its base, so its floor is (N-1) minutes.
+// Callers report the earliest across armed schedulers, because that is when a
+// rollback can first land.
+func schedule(ctx context.Context, transport api.Transport, sched schedulerKind, txnID uuid.UUID, scriptPath string, window time.Duration) (string, time.Duration, error) {
 	windowSec := int(window.Seconds())
 	switch sched {
 	case schedulerAt:
-		return scheduleAt(ctx, transport, scriptPath, windowSec)
+		id, err := scheduleAt(ctx, transport, scriptPath, windowSec)
+		return id, time.Duration(atWindowMinutes(windowSec)-1) * time.Minute, err
 	case schedulerSystemdRun:
-		return scheduleSystemdRun(ctx, transport, txnID, scriptPath, windowSec)
+		id, err := scheduleSystemdRun(ctx, transport, txnID, scriptPath, windowSec)
+		return id, window, err
 	}
-	return "", fmt.Errorf("deadman: unknown scheduler %q", sched)
+	return "", 0, fmt.Errorf("deadman: unknown scheduler %q", sched)
 }
 
 // atWindowMinutes converts a window in seconds to the whole minutes at(1)
@@ -560,57 +602,105 @@ func atdNotRunning(output string) bool {
 // the transient timer unit appears in systemctl list-timers.
 func scheduleSystemdRun(ctx context.Context, transport api.Transport, txnID uuid.UUID, scriptPath string, windowSec int) (string, error) {
 	unitName := fmt.Sprintf("kensa-rollback-%s", txnID)
-	cmd := fmt.Sprintf("systemd-run --unit=%s --on-active=%d -- sh %s",
+
+	// AccuracySec is pinned because systemd's DEFAULT IS ONE MINUTE, not one
+	// second. A stock transient timer carries AccuracyUSec=1min so systemd can
+	// coalesce wakeups, and it will happily fire a --on-active=120 job at 180s.
+	// Measured on RHEL 9.6 and Ubuntu 22.04: five 20-second timers armed three
+	// seconds apart all fired at one instant, 58-70s late. Without this the
+	// deadman's window is the requested value plus up to a minute, which is the
+	// same imprecision the at(1) path was criticized for.
+	//
+	// Present since systemd v236; verified on the oldest fleet target
+	// (systemd 239, RHEL 8.10) as well as 252 and 257.
+	cmd := fmt.Sprintf("systemd-run --unit=%s --on-active=%d --timer-property=AccuracySec=1s -- sh %s",
 		shellQuote(unitName), windowSec, shellQuote(scriptPath))
 	res, err := transport.Run(ctx, cmd)
-	if err != nil {
-		return "", err
-	}
-	if !res.OK() {
-		return "", fmt.Errorf("deadman: systemd-run failed (exit %d): %s", res.ExitCode, res.Stderr)
-	}
-	// @ac AC-04 — post-schedule verification.
-	if err := verifySystemdUnitPresent(ctx, transport, unitName); err != nil {
-		// systemd-run exits 0 once the unit is queued, so a verification
-		// failure can leave a live transient timer behind. The caller moves on
-		// to the next scheduler and records only the winner, so nothing would
-		// ever cancel this one. Sibling of the atrm cleanup on the at path.
+
+	// systemd-run exits 0 once the unit is queued, so any failure AFTER the
+	// command reached the host can leave a live transient timer behind. The
+	// caller then arms the next scheduler and records only what succeeded, so
+	// nothing would ever cancel this one: an untracked timer that fires a full
+	// rollback against a transaction that has since committed. Every exit path
+	// below the Run therefore stops the unit first. Sibling of the atrm cleanup
+	// on the at path.
+	stopOrphan := func() {
 		_, _ = transport.Run(ctx, fmt.Sprintf(
 			"systemctl stop %s.timer 2>/dev/null; systemctl stop %s 2>/dev/null; "+
 				"systemctl reset-failed %s 2>/dev/null; true",
 			shellQuote(unitName), shellQuote(unitName), shellQuote(unitName)))
+	}
+
+	if err != nil {
+		// A transport error does not prove the command did not run: it may
+		// have executed and the reply been lost. Stop the unit blind.
+		stopOrphan()
+		return "", err
+	}
+	if !res.OK() {
+		stopOrphan()
+		return "", fmt.Errorf("deadman: systemd-run failed (exit %d): %s", res.ExitCode, res.Stderr)
+	}
+	// @ac AC-04 — post-schedule verification.
+	if err := verifySystemdUnitPresent(ctx, transport, unitName); err != nil {
+		stopOrphan()
 		return "", err
 	}
 	return unitName, nil
 }
 
-// cancelJob removes the scheduled job via atrm or systemctl stop and
-// verifies the job is gone (deadman-timer spec AC-05).
+// cancelJob removes EVERY scheduled job for the transaction and verifies each
+// is gone (deadman-timer spec AC-05, C-10).
+//
+// Arming two schedulers means a partial cancel is possible, and a partial
+// cancel is the most dangerous state this package can produce: the surviving
+// timer fires a full rollback against a transaction that has already
+// committed, unprompted, with no operator watching. So every job is attempted
+// even after one fails -- returning early would guarantee the untracked
+// survivor -- and ANY failure fails the cancel. The engine reads that as "the
+// deadman will fire", rolls back in-band and reports it, which is the correct
+// verdict: the host is going to end up rolled back either way, and saying so
+// beats a committed status that a timer is about to contradict.
 func cancelJob(ctx context.Context, transport api.Transport, job *armedJob) error {
-	switch job.scheduler {
+	var failures []string
+	for _, sj := range job.scheduled {
+		if err := cancelOne(ctx, transport, sj); err != nil {
+			failures = append(failures, err.Error())
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("deadman: cancel failed for %d of %d armed timers: %s",
+			len(failures), len(job.scheduled), strings.Join(failures, "; "))
+	}
+	return nil
+}
+
+// cancelOne removes a single scheduled job and verifies it is gone.
+func cancelOne(ctx context.Context, transport api.Transport, sj scheduledJob) error {
+	switch sj.scheduler {
 	case schedulerAt:
-		res, err := transport.Run(ctx, "atrm "+shellQuote(job.jobID))
+		res, err := transport.Run(ctx, "atrm "+shellQuote(sj.jobID))
 		if err != nil {
-			return fmt.Errorf("deadman: atrm: %w", err)
+			return fmt.Errorf("atrm: %w", err)
 		}
 		if !res.OK() {
-			return fmt.Errorf("deadman: atrm failed (exit %d): %s", res.ExitCode, res.Stderr)
+			return fmt.Errorf("atrm failed (exit %d): %s", res.ExitCode, res.Stderr)
 		}
-		return verifyAtJobGone(ctx, transport, job.jobID)
+		return verifyAtJobGone(ctx, transport, sj.jobID)
 
 	case schedulerSystemdRun:
 		// Try both .timer and bare unit name; ignore errors (unit may have
 		// already fired or the name variant differs).
 		stopCmd := fmt.Sprintf(
 			"systemctl stop %s.timer 2>/dev/null; systemctl stop %s 2>/dev/null; true",
-			shellQuote(job.jobID), shellQuote(job.jobID),
+			shellQuote(sj.jobID), shellQuote(sj.jobID),
 		)
 		if _, err := transport.Run(ctx, stopCmd); err != nil {
-			return fmt.Errorf("deadman: systemctl stop: %w", err)
+			return fmt.Errorf("systemctl stop: %w", err)
 		}
-		return verifySystemdUnitGone(ctx, transport, job.jobID)
+		return verifySystemdUnitGone(ctx, transport, sj.jobID)
 	}
-	return fmt.Errorf("deadman: unknown scheduler %q", job.scheduler)
+	return fmt.Errorf("unknown scheduler %q", sj.scheduler)
 }
 
 // verifyAtJobPresent confirms jobID appears in atq output.
@@ -619,7 +709,11 @@ func verifyAtJobPresent(ctx context.Context, transport api.Transport, jobID stri
 	if err != nil {
 		return fmt.Errorf("deadman: atq check: %w", err)
 	}
-	if !strings.Contains(res.Stdout, jobID) {
+	// Anchor on the tab as verifyAtJobGone does. atq's line is
+	// "<id>\t<date>...", and a bare substring test against a line full of
+	// digits lets a single-digit job ID match ANY queued job -- so the last
+	// gate before the engine applies would pass on someone else's timer.
+	if !strings.Contains(res.Stdout, jobID+"\t") {
 		return fmt.Errorf("deadman: job %s not found in atq after scheduling", jobID)
 	}
 	return nil

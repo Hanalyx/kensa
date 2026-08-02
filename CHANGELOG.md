@@ -27,14 +27,20 @@ any pair).
   `command_exec`) reached over direct SSH, including library callers with no
   agent client. Agent mode arms through a different path and was unaffected.
 
-  Kensa now schedules the deadman with `systemd-run` wherever it is available,
-  and uses `at` only where it is not. `at` is two programs: one queues the job,
-  a separate daemon runs it, and either can be present without the other, so
-  `at` can accept a job on a host where nothing will ever run it. `systemd-run`
-  has no equivalent state, because the process that would run its timer is the
-  init system itself. If the preferred scheduler refuses the job, Kensa tries
-  the next one rather than giving up, and only fails when every scheduler on
-  the host refuses.
+  Kensa now arms the out-of-band rollback timer with BOTH `systemd-run` and
+  `at`, where both are usable, because they fail in different ways.
+  `systemd-run` is the timer that fires: `at` is two programs, one that queues
+  the job and a separate daemon that runs it, so `at` can accept a job on a
+  host where nothing will ever run it. `at` is the backstop across a reboot:
+  a `systemd-run` timer lives in memory and a power cycle erases it, while an
+  `at` job is on disk and runs when its daemon next starts. That matters
+  because power-cycling is what an operator does when a change has cost them
+  access to the host. If one scheduler refuses the job, Kensa uses the other,
+  and only fails when every scheduler on the host refuses.
+
+  Cancelling now removes every timer that was armed, and reports a failure if
+  any of them survives, so a timer can no longer fire against a change that
+  already succeeded.
 
   Kensa also refuses to apply when `at` accepted the job but cannot run it. `at` writes to a spool and the `atd` daemon executes it; with `atd`
   stopped, `at` still exits zero, still prints a job number, and `atq` still

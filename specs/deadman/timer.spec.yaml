@@ -161,41 +161,92 @@ spec:
 
         - id: C-09
           description: |
-              Scheduler selection MUST prefer systemd-run where it is present,
-              and MUST advance to the next available scheduler when one
-              REFUSES the job, not only when one is absent. The arm fails only
-              when every available scheduler refuses, and the error names each
-              attempt.
+              The shell path MUST arm EVERY usable scheduler, not the first one
+              that accepts, because the two cover different failures and
+              neither covers both.
 
-              The preference rests on a difference in kind. at(1) is two
-              programs: `at` writes a job to a spool and atd(8) executes it,
-              and either can exist without the other, so at can accept a job,
-              exit zero and print a job number on a host where nothing will run
-              it. Kensa treats a successful arm as permission to apply, so that
-              state reports a safety net that does not exist, and detecting it
-              means inferring a daemon's liveness from another program's error
-              prose, a surface nobody has bounded. systemd-run has no
-              equivalent state: the process that would run its transient timer
-              is PID 1.
+              systemd-run is the timer that fires. at(1) is two programs: `at`
+              writes a job to a spool and atd(8) executes it, and either can
+              exist without the other, so at can accept a job, exit zero and
+              print a job number on a host where nothing will run it. Kensa
+              treats a successful arm as permission to apply, so that state
+              reports a safety net that does not exist. systemd-run has no
+              equivalent, because the process that would run its transient
+              timer is PID 1. It also ships with systemd rather than needing a
+              package, and takes the window in seconds.
 
-              Secondary reasons agree. systemd-run ships with systemd;
-              at(1) must be installed, and on RHEL its %post enables atd
-              without starting it. systemd-run takes the window in seconds;
-              at(1) accepts no unit below a minute and truncates, so the at
-              path always over-waits. Cancellation is verifiable against unit
-              state rather than a spool listing.
+              at(1) is the backstop across a REBOOT. A systemd-run transient
+              unit lives in /run/systemd/transient, which is tmpfs, so a power
+              cycle erases it silently; at(1)'s job is a file in /var/spool/at
+              and atd runs overdue jobs when it starts. The exposed case is the
+              deadman's own reason for existing: a change costs Kensa the
+              control channel before commit, the operator power-cycles the host
+              to recover, and the reboot does not undo an on-disk change. With
+              systemd-run alone the net is gone at exactly that moment.
 
-              The fall-through matters as much as the order: presence is not
-              usability. systemd-run refuses without privilege where at(1) on
-              the same host schedules fine, and at(1) refuses when its daemon
-              is dead where systemd-run works. Committing to one scheduler at
-              probe time aborts a transaction that a working scheduler beside
-              it could have carried.
+              Both schedulers run the same script, and the script deletes
+              itself on exit, so whichever fires first makes the other a no-op
+              rather than a second rollback. Ordering is not relied on for
+              correctness.
 
-              A scheduler that refuses MUST leave nothing behind: at(1) removes
-              the queued job, systemd-run stops the unit it created. The caller
-              records only the winning scheduler, so anything an earlier
-              candidate left would never be cancelled.
+              A scheduler that is installed can still refuse -- systemd-run
+              without privilege, at(1) with its daemon stopped -- so a refusal
+              MUST advance to the next candidate rather than fail the arm. The
+              arm fails only when every available scheduler refuses, and the
+              error MUST wrap api.ErrSchedulerUnavailable: "installed but all
+              refused" is the same outcome for a caller as "none installed",
+              and that sentinel is the frozen public name for it.
+
+              A scheduler that refuses MUST leave nothing behind. at(1) removes
+              the queued job; systemd-run stops the unit it may have created on
+              EVERY failure path, including a lost reply, since a transport
+              error does not prove the command did not run. An untracked timer
+              fires a full rollback against a transaction that has since
+              committed, with no event and no store record.
+
+              systemd-run's timer accuracy MUST be pinned. The systemd default
+              is AccuracyUSec=1min, not one second, so a stock --on-active=120
+              unit can fire at 180s; the window is a safety bound, not a hint.
+
+        - id: C-10
+          description: |
+              Cancel MUST remove EVERY armed timer and MUST attempt all of them
+              even after one fails. Any failure fails the cancel.
+
+              Arming two schedulers makes a partial cancel possible, and a
+              partial cancel is the most dangerous state this package can
+              produce: Cancel runs on the COMMIT path, so a surviving timer
+              fires a full rollback against a transaction that already
+              succeeded, unprompted and with no operator watching. Returning
+              early on the first failure would guarantee the untracked
+              survivor. Failing the cancel is correct rather than pessimistic:
+              the engine reads it as "the deadman will fire", rolls back
+              in-band and reports that, which beats a committed status a timer
+              is about to contradict.
+
+        - id: C-11
+          description: |
+              GATE. The reboot-scoped guarantee in C-09 rests on at(1) being
+              present. A host carrying only systemd-run has an IN-SESSION net
+              only: it covers Apply through Commit, and a reboot erases it.
+
+              That is acceptable only while no mechanism whose effect requires
+              a reboot is treated as control-channel-sensitive. The deadman is
+              a time-window instrument and does not fit reboot-deferred change:
+              the window would expire long before the operator reboots, and the
+              engine already cancels it for staged applies for exactly that
+              reason. Reboot-scoped safety belongs to internal/bootguard, whose
+              one-shot trial entry and saved-default fallback are keyed to the
+              boot rather than to a clock.
+
+              So: if any mechanism requiring a reboot to take effect is ever
+              set true in controlChannelMechanisms
+              (internal/engine/preflight.go), this scheduler choice MUST be
+              revisited before that lands, and the at(1)-absent case MUST be
+              closed rather than documented. Today nothing occupies that cell;
+              the staged-apply path in the engine notes that no staged-producing
+              handler is control-channel-sensitive, which is an assumption a
+              future change can break silently.
           type: security
           enforcement: error
 
@@ -287,19 +338,50 @@ spec:
 
         - id: AC-14
           description: |
-              systemd-run is chosen when both schedulers are present. The arm
-              advances to at(1) when systemd-run refuses, and reports failure
-              naming both attempts when every scheduler refuses. A systemd-run
-              attempt that fails after creating its unit stops that unit before
-              the next candidate is tried.
+              Both schedulers are armed when both are usable, with systemd-run
+              carrying an explicit AccuracySec so it fires on the window rather
+              than up to a minute late. The arm advances to the next candidate
+              when one refuses, and reports failure naming every attempt when
+              all refuse. A systemd-run attempt that fails after the command
+              reached the host -- non-zero exit, lost reply, or failed
+              verification -- stops the unit it may have created before the
+              next candidate is tried.
 
-              Locked by TestSystemdRunIsPreferredWhenBothPresent,
+              Locked by TestBothSchedulersAreArmedWhenBothPresent,
               TestFallsThroughToAtWhenSystemdRunRefuses,
-              TestFallsThroughToSystemdRunWhenAtdIsDead and
-              TestFailedSystemdRunScheduleLeavesNoTimer, the last three against
-              a fake that models systemd-run's argument handling and its
-              unprivileged refusal rather than accepting any input.
+              TestFallsThroughToSystemdRunWhenAtdIsDead,
+              TestFailedSystemdRunScheduleLeavesNoTimer and
+              TestSystemdRunTransportErrorLeavesNoTimer, against a fake that
+              models systemd-run's argument handling, its unprivileged refusal,
+              and at(1)'s spool -- so atrm actually empties the queue rather
+              than leaving verification unfalsifiable.
           references_constraints: [C-09]
+          priority: critical
+
+        - id: AC-15
+          description: |
+              Cancel removes every armed timer. With two armed and one cancel
+              failing, Cancel returns an error naming how many survived, and
+              the other cancel is still attempted rather than skipped.
+
+              Locked by TestCancelRemovesEveryArmedTimer and
+              TestPartialCancelFailsTheCancel.
+          references_constraints: [C-10]
+          priority: critical
+
+        - id: AC-16
+          description: |
+              No mechanism whose effect requires a reboot is marked
+              control-channel-sensitive, so the deadman is never armed for a
+              change it cannot guard.
+
+              Enforced rather than documented: the gate is a review condition
+              with no runtime behaviour to exercise, so it is checked directly
+              against controlChannelMechanisms by
+              TestDeadmanIsNotUsedForRebootRequiredChanges. Flipping any
+              reboot-required mechanism true fails the build with a pointer to
+              C-11.
+          references_constraints: [C-11]
           priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in

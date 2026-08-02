@@ -38,6 +38,17 @@ type substringFakeTransport struct {
 	// program's argument parsing. Returning handled=false falls through.
 	Hook func(cmd string) (*api.CommandResult, bool)
 
+	// SystemdRunTransportErr, when non-empty, models the reply being LOST
+	// after the command already ran: systemd-run created the unit on the host
+	// and the caller sees only a transport error. Distinct from
+	// SystemdRunRefuses, where the host really did decline.
+	SystemdRunTransportErr string
+
+	// atQueued/atRemoved track spool state so atq answers what a real host
+	// would after an at submission and an atrm. Set by the transport itself.
+	atQueued  bool
+	atRemoved bool
+
 	Runs    []string
 	Results map[string]api.CommandResult // substring key → result
 }
@@ -48,6 +59,12 @@ func newSubTP() *substringFakeTransport {
 
 func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
 	f.Runs = append(f.Runs, cmd)
+	if strings.Contains(cmd, "| at now +") {
+		// at(1) writes the spool entry regardless of whether atd is reachable;
+		// that separation is the whole AtdStopped case. Recorded before the
+		// hooks so a hook modeling at's parser cannot skip it.
+		f.atQueued = true
+	}
 	// Hook first: Results is a map, so two matching substrings would resolve
 	// in random order. A fake that models a real program's argument parsing
 	// needs deterministic precedence.
@@ -61,11 +78,21 @@ func (f *substringFakeTransport) Run(_ context.Context, cmd string) (*api.Comman
 				"Can't open /var/run/atd.pid to signal atd. No atd running?",
 		}, nil
 	}
+	if f.SystemdRunTransportErr != "" && strings.Contains(cmd, "systemd-run --unit=") {
+		return nil, errors.New(f.SystemdRunTransportErr)
+	}
 	if r, handled := f.systemdRun(cmd); handled {
 		return r, nil
 	}
 	if f.Hook != nil {
 		if r, handled := f.Hook(cmd); handled {
+			return r, nil
+		}
+	}
+	// Only model the spool for tests that did not pin an explicit atq result;
+	// the older cases drive the two-phase queue by hand.
+	if _, pinned := f.Results["atq"]; !pinned {
+		if r, handled := f.atSpool(cmd); handled {
 			return r, nil
 		}
 	}
@@ -91,8 +118,9 @@ func atHostTP() *substringFakeTransport {
 	// at scheduling: the hook parses the time spec the way at(1) does, so a
 	// spec at(1) would reject fails here too.
 	tp.Hook = realAtParser
-	// atq verification: job 42 appears in queue.
-	tp.Results["atq"] = api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}
+	// atq is answered by the spool model (see atSpool), so atrm actually
+	// empties the queue as on a real host. Pinning a static atq response here
+	// made verifyAtJobGone unfalsifiable.
 	return tp
 }
 
@@ -522,7 +550,9 @@ var systemdRunFlagRe = regexp.MustCompile(`--[a-z-]+`)
 
 // systemdRunKnownFlags are the options systemd-run accepts among those Kensa
 // uses. An unknown flag is rejected, as the real program does.
-var systemdRunKnownFlags = map[string]bool{"--unit": true, "--on-active": true}
+// Verified present on the oldest fleet target: systemd 239 (RHEL 8.10),
+// 252 (RHEL 9.6) and 257 (RHEL 10.1) all accept --timer-property.
+var systemdRunKnownFlags = map[string]bool{"--unit": true, "--on-active": true, "--timer-property": true}
 
 // systemdRun models systemd-run's argument handling and its unprivileged
 // refusal.
@@ -536,6 +566,24 @@ var systemdRunKnownFlags = map[string]bool{"--unit": true, "--on-active": true}
 // Modeled rather than recorded, deliberately: recording a real invocation
 // would create a transient timer unit, and the transcript manifest is reads
 // only. The strings are copied from a live RHEL 9 host.
+// atSpool models at(1)'s spool: atrm removes the job, and atq reflects that.
+// A static atq response makes verifyAtJobGone unfalsifiable -- it would report
+// the job still queued after a successful atrm, or (worse, in the other
+// direction) let a no-op atrm look like a real cancel.
+func (f *substringFakeTransport) atSpool(cmd string) (*api.CommandResult, bool) {
+	switch {
+	case strings.HasPrefix(cmd, "atrm"):
+		f.atRemoved = true
+		return &api.CommandResult{}, true
+	case strings.HasPrefix(cmd, "atq"):
+		if f.atRemoved || !f.atQueued {
+			return &api.CommandResult{Stdout: ""}, true
+		}
+		return &api.CommandResult{Stdout: "42\t Thu Apr 15 12:00:00 2026 a root"}, true
+	}
+	return nil, false
+}
+
 func (f *substringFakeTransport) systemdRun(cmd string) (*api.CommandResult, bool) {
 	if !strings.Contains(cmd, "systemd-run ") || strings.Contains(cmd, "command -v") {
 		return nil, false
