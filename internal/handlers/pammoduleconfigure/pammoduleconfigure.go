@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -196,6 +197,18 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"prior_content": priorContent,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured PAM stack as one line. A PAM file's
+// content is authentication policy: it is reported as a size and never
+// rendered into a summary.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "PAM file")
+	head := path
+	if service := prestate.Field(pre.Data, "service", ""); service != "" {
+		head = service + " stack " + path
+	}
+	return prestate.Join(head, prestate.Size(pre.Data, "prior_content"))
 }
 
 // Rollback restores the full prior PAM file content verbatim.

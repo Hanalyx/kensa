@@ -17,6 +17,39 @@ any pair).
 ## Unreleased
 
 ### Fixed
+- **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
+  transaction now restores the state the host was actually in.** Earlier
+  releases recorded a unit's enable state and running state under each other's
+  keys whenever capture ran over the shell path, because `systemctl show`
+  returns those two properties in its own order rather than the requested one.
+  A rollback built from such a record could act on the wrong layer or issue
+  nothing at all while reporting success.
+
+  In the shipped rule corpus this reaches 25 `service_masked` rules and 14
+  `service_enabled` rules, covering units such as `avahi-daemon`, `cups`,
+  `dnsmasq` and `dovecot`. There are no `service_disabled` rules today, so that
+  mechanism is affected only for callers driving it directly. The observed
+  outcome was under-restoration: a unit left stopped and disabled that the
+  rollback reported as restored, rather than a service being started.
+
+- **`service_disabled` rollback no longer starts a unit that was stopped.** A
+  unit recorded as enabled but not running came back running after a rollback,
+  because both layers were collapsed onto a single `enable --now`. The enable
+  and active layers are now restored independently. No shipped rule uses this
+  mechanism; it affects callers using it directly.
+
+  **What you need to do.** Many transactions recorded before this release hold
+  the two values transposed and cannot be rolled back safely. Kensa refuses a
+  record it can PROVE is transposed, meaning each value is unmistakably the
+  other field's, with a failed rollback result, and issues no command to the
+  host. That proof is not always available: when one of the two values is
+  empty, which systemd reports for a unit it does not know, the record cannot
+  be distinguished from a valid one and is acted on. Re-run `kensa check`
+  against the host to establish its current state rather than relying on the
+  refusal. This affects transactions whose capture used the SSH transport, and
+  agent-mode transactions on hosts where the privileged helper could not be
+  invoked. The other 21 capturable mechanisms are unaffected.
+
 - **`api.Plan` documented three fields it never fills.** `HostID`,
   `Capabilities` and `Validators` carry their zero value for every rule on
   every host, while their doc comments promised the target host, the detected
@@ -35,6 +68,26 @@ any pair).
   either way.
 
 ### Added
+- **`kensa.DescribePreState(pre)` renders a captured pre-state as one
+  operator-readable line** (`pkg/kensa`), so a consumer can show what a
+  transaction found on the host before it changed anything:
+  `PASS_MAX_DAYS 99999 in /etc/login.defs`, `auditd, enabled, active`,
+  `/etc/shadow, 0000 root:root`. `api.PreState.Data` is mechanism-specific
+  with no schema, so this was previously undisplayable without a decoder per
+  capturable mechanism, which would break silently as layouts change and as
+  values widen across the agent wire. The line now comes from the handler
+  that captured the state: every one of the 24 capturable mechanisms
+  implements it, guarded by a test that fails if a new capturable mechanism
+  ships without one. Works on a pre-state from a `TransactionResult`, a
+  `TransactionRecord` read back out of the log, or a `Plan` preview, and is
+  derived on read, so it applies to state captured by earlier versions of
+  Kensa. `api/` is unchanged: no new field, no wire change, and no effect on
+  evidence signatures. The rendered text is a projection, not a contract:
+  it carries no stability guarantee, and `PreState.Data` remains the
+  authoritative capture. A summary never contains a captured file body:
+  credential-named fields redact and multi-line or long values render as a
+  size marker.
+
 - **`TransactionResult.AlreadyCompliant`** distinguishes a rule that was
   already in the desired state from one Kensa actually changed. Both report a
   committed transaction, so a consumer reading the status alone could not tell

@@ -85,8 +85,13 @@ spec:
           priority: critical
         - id: AC-04
           description: |
-              Rollback with prior_enabled=enabled runs
-              `systemctl enable --now <name>` restoring the service.
+              Rollback with prior_enabled=enabled AND prior_active=active runs
+              `systemctl enable --now <name>`, restoring both layers with one
+              command.
+
+              The prior_active qualifier is load-bearing and was missing from
+              this AC while the handler still collapsed both layers onto
+              `enable --now`. See AC-07 for the case that separates them.
           references_constraints: [C-03]
           priority: critical
         - id: AC-05
@@ -103,6 +108,21 @@ spec:
           references_constraints: [C-01]
           priority: high
 
+        - id: AC-07
+          description: |
+              Rollback with prior_enabled=enabled and prior_active=INACTIVE
+              runs `systemctl enable` and does NOT start the unit. The unit was
+              configured to start at boot but was not running when it was
+              captured, so starting it would leave the host in a state it was
+              never in.
+
+              This is the case that requires the two layers to be restored
+              independently rather than collapsed onto `enable --now`, which is
+              what C-03 has always required and what the handler did not do.
+
+              Locked by TestRollback_AC07_EnabledButInactiveIsNotStarted.
+          references_constraints: [C-03]
+          priority: critical
     depends_on:
         - spec_id: handler-interface
           relationship: requires

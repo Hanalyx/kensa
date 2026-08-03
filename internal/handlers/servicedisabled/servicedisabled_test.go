@@ -56,8 +56,11 @@ func TestCapture_AC03_RecordsBothFields(t *testing.T) {
 	t.Log("// @spec handler-service-disabled")
 	t.Log("// @ac AC-03")
 	tp := engine.NewFakeTransport()
-	tp.Results["systemctl show -p UnitFileState -p ActiveState --value 'bluetooth'"] =
-		&api.CommandResult{Stdout: "enabled\nactive\n"}
+	tp.Results["systemctl show -p UnitFileState -p ActiveState 'bluetooth'"] =
+		// REAL systemd output: ActiveState prints first, in key=value form.
+		// A fixture in the requested order hid an inverted capture for three
+		// releases — see servicedbus.ParseUnitState.
+		&api.CommandResult{Stdout: "ActiveState=active\nUnitFileState=enabled\n"}
 
 	h := servicedisabled.New()
 	pre, err := h.Capture(context.Background(), tp, api.Params{"name": "bluetooth"})
@@ -151,9 +154,23 @@ func TestApply_AC06_FailsCleanlyOnNonexistentUnit(t *testing.T) {
 	}
 }
 
-// Rollback with prior_enabled=enabled but prior_active=inactive should
-// enable without the --now start path issuing a separate start.
+// Rollback of a unit that was enabled but NOT running must re-enable it and
+// leave it stopped.
+//
+// The test previously asserted `enable --now` here, with a comment
+// explaining that --now "starts as well; no separate start command needed" —
+// which is exactly the defect: --now starts a unit whose captured state was
+// inactive, so rolling back a disable left a daemon running that the host
+// was not running, while the RollbackResult reported active=inactive. The
+// test asserted the implementation's assumption rather than the restoration
+// contract, so it passed while the handler over-restored.
+//
+// @spec handler-service-disabled
+// @ac AC-05
 func TestRollback_EnabledButInactive_OnlyEnables(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-05")
+
 	tp := engine.NewFakeTransport()
 	h := servicedisabled.New()
 	pre := &api.PreState{
@@ -170,12 +187,16 @@ func TestRollback_EnabledButInactive_OnlyEnables(t *testing.T) {
 	if !res.Success {
 		t.Errorf("Success=false: %s", res.Detail)
 	}
-	// enable --now starts as well; no separate start command needed.
 	if len(tp.Runs) != 1 {
-		t.Fatalf("got %d Run calls, want 1", len(tp.Runs))
+		t.Fatalf("got %d Run calls, want 1: %v", len(tp.Runs), tp.Runs)
 	}
-	if !strings.Contains(tp.Runs[0], "enable --now") {
-		t.Errorf("expected enable --now; got %q", tp.Runs[0])
+	if !strings.Contains(tp.Runs[0], "systemctl enable ") {
+		t.Errorf("expected a plain enable; got %q", tp.Runs[0])
+	}
+	// The unit was not running when Kensa captured it. Starting it would
+	// restore a state the host was never in.
+	if strings.Contains(tp.Runs[0], "--now") || strings.Contains(tp.Runs[0], "start") {
+		t.Errorf("rollback started a unit captured as inactive: %q", tp.Runs[0])
 	}
 }
 
@@ -211,4 +232,100 @@ func TestRollback_StaticUnit_StartsIfWasActive(t *testing.T) {
 
 func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	var _ api.CombinedHandler = servicedisabled.New()
+}
+
+// TestRollbackDoesNotDisableAHealthyUnit is the end-to-end regression for
+// the inverted shell-path capture, and it fails against the previous
+// implementation.
+//
+// Real `systemctl show` output puts ActiveState first. The old positional
+// parser therefore recorded prior_enabled="active" and prior_active=
+// "enabled" for a unit that was enabled and running. On rollback,
+// "active" matched no known enable state and fell through to the disable
+// branch, and "enabled" was not "active" so the stop branch fired too:
+// rolling back a no-op remediation ran `systemctl disable && systemctl
+// stop` against a healthy unit and reported Success. On sshd that is a
+// remote lockout; on auditd or firewalld it is a silent security
+// regression.
+//
+// The assertion is on the COMMANDS actually issued, not on the pre-state
+// keys, so it stays honest if the capture shape changes again.
+//
+// @spec service-unit-state-parse
+// @ac AC-04
+func TestRollbackDoesNotDisableAHealthyUnit(t *testing.T) {
+	t.Run("service-unit-state-parse/AC-04", func(t *testing.T) {})
+
+	tp := engine.NewFakeTransport()
+	// Real systemd output for an enabled, running unit.
+	tp.Results["systemctl show -p UnitFileState -p ActiveState 'bluetooth'"] =
+		&api.CommandResult{Stdout: "ActiveState=active\nUnitFileState=enabled\n"}
+
+	h := servicedisabled.New()
+	pre, err := h.Capture(context.Background(), tp, api.Params{"name": "bluetooth"})
+	if err != nil {
+		t.Fatalf("Capture: %v", err)
+	}
+	if got := pre.Data["prior_enabled"]; got != "enabled" {
+		t.Errorf("prior_enabled = %v, want enabled (values read positionally?)", got)
+	}
+	if got := pre.Data["prior_active"]; got != "active" {
+		t.Errorf("prior_active = %v, want active (values read positionally?)", got)
+	}
+
+	before := len(tp.Runs)
+	res, err := h.Rollback(context.Background(), tp, pre)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Rollback reported failure: %s", res.Detail)
+	}
+	// Restoring an enabled+active unit may legitimately enable, start, or
+	// unmask it. It must never disable, stop, or mask it — those are the
+	// commands the inverted capture produced.
+	for _, cmd := range tp.Runs[before:] {
+		for _, destructive := range []string{"systemctl disable", "systemctl stop", "systemctl mask"} {
+			if strings.Contains(cmd, destructive) {
+				t.Errorf("rollback of an enabled+active unit ran %q: %q", destructive, cmd)
+			}
+		}
+	}
+}
+
+// TestRollback_AC07_EnabledButInactiveIsNotStarted is the case that requires
+// the enable and active layers to be restored independently.
+//
+// A unit recorded as enabled but NOT running must come back enabled and still
+// stopped. Collapsing both layers onto `systemctl enable --now` — which the
+// handler did, and which AC-04 asserted unqualified — starts a service the host
+// had stopped, and reports it as restored.
+//
+// @spec handler-service-disabled
+// @ac AC-07
+func TestRollback_AC07_EnabledButInactiveIsNotStarted(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-07")
+	tp := engine.NewFakeTransport()
+	h := servicedisabled.New()
+	res, err := h.Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"name":          "cups",
+			"prior_enabled": "enabled",
+			"prior_active":  "inactive",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Success=false: %s", res.Detail)
+	}
+	joined := strings.Join(tp.Runs, " ; ")
+	if !strings.Contains(joined, "enable") {
+		t.Errorf("the enable layer was not restored: %q", joined)
+	}
+	if strings.Contains(joined, "--now") || strings.Contains(joined, "start") {
+		t.Errorf("started a unit that was captured as stopped: %q", joined)
+	}
 }

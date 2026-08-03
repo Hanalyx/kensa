@@ -29,6 +29,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
 	"github.com/Hanalyx/kensa/internal/check"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
@@ -474,6 +475,37 @@ func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, add
 		CapturedAt: time.Now().UTC(),
 		Data:       data,
 	}
+}
+
+// DescribePreState renders the drop-in's state plus the two things that
+// distinguish this mechanism: how many of the rule's lines were not already
+// in the (possibly shared) file, and whether the host's audit config was
+// immutable, in which case Apply staged the change for the next boot rather
+// than loading it. "added_rules" and "file_added_lines" are absent from Data
+// when empty, so their absence reads as zero.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "audit rule file")
+	var file string
+	switch existed, known := prestate.Bool(pre.Data, "file_existed"); {
+	case !known:
+		file = path
+	case existed:
+		file = prestate.Join(path+" present", prestate.Size(pre.Data, "prior_content"))
+	default:
+		file = path + " absent"
+	}
+
+	var pending, unloaded, staged string
+	if n, ok := prestate.Count(pre.Data, "file_added_lines"); ok && n > 0 {
+		pending = fmt.Sprintf("%d rule line(s) not yet in the file", n)
+	}
+	if n, ok := prestate.Count(pre.Data, "added_rules"); ok && n > 0 {
+		unloaded = fmt.Sprintf("%d rule(s) not loaded in the kernel", n)
+	}
+	if immutable, _ := prestate.Bool(pre.Data, "immutable_staged"); immutable {
+		staged = "audit config immutable, change staged for reboot"
+	}
+	return prestate.Join(file, pending, unloaded, staged)
 }
 
 // containsWire reports whether want appears in the set of wire-format rules.
