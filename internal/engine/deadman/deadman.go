@@ -75,7 +75,6 @@
 // (the `remediate` default), Arm/Cancel route ArmDeadman/CancelDeadman RPCs
 // instead and the agent uses in-process timerfd/pidfd/signalfd. KENSA_NO_AGENT=1
 // selects the shell path. cmd/kensa-fuzz exercises only the agent RPC.
-
 package deadman
 
 import (
