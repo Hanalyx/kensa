@@ -16,6 +16,27 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **`service_disabled` rollback no longer starts a unit that was stopped.** A
+  unit recorded as enabled but not running came back running after a rollback,
+  while the rollback result reported it as stopped. Rolling back a disable of
+  `rsyncd`, `nfs-server` or `avahi-daemon` left a listening network daemon
+  running on a host that had it stopped.
+
+- **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
+  transaction now restores the state the host was actually in.** Earlier
+  releases recorded a unit's enable state and running state under each other's
+  keys whenever capture ran over the shell path. A rollback could disable and
+  stop a healthy unit, or report success while restoring nothing.
+
+  **What you need to do.** Transactions recorded before this release hold the
+  two values transposed and cannot be rolled back safely. Kensa now refuses
+  such a record with a failed rollback result and issues no command to the
+  host. Re-run `kensa check` against the host to establish its current state.
+  This affects transactions whose capture used the SSH transport, and
+  agent-mode transactions on hosts where the privileged helper could not be
+  invoked. The other 21 capturable mechanisms are unaffected.
+
 ### Added
 - **`kensa.DescribePreState(pre)` renders a captured pre-state as one
   operator-readable line** (`pkg/kensa`), so a consumer can show what a

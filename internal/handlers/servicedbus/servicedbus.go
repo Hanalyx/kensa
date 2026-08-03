@@ -1,16 +1,24 @@
 // Package servicedbus holds the small set of helpers the three systemd
 // service handlers (service_enabled, service_disabled, service_masked)
-// share for their D-Bus path: the per-op error mapping, the Capture
-// projection, and the standard PreState shape. Centralizing these keeps
-// the D-Bus/shell fallback contract identical across the three handlers
-// — a divergence here would mean one handler silently behaving
-// differently from its siblings.
+// share: the per-op D-Bus error mapping, the D-Bus Capture projection, the
+// standard PreState shape, and the shell path's unit-state command and
+// parser. Centralizing these keeps the D-Bus/shell fallback contract
+// identical across the three handlers — a divergence here would mean one
+// handler silently behaving differently from its siblings.
+//
+// The shell-side helpers live here, despite the package name, because the
+// alternative was proven wrong the expensive way: the same positional
+// parser was copy-pasted into all three handlers, misread systemd's
+// property order identically in all three, and inverted every shell-path
+// pre-state. One shared parser is one place to be wrong, and one place to
+// fix.
 package servicedbus
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
@@ -83,6 +91,53 @@ func Capture(ctx context.Context, sd systemd.Transport, mech, name string) (*api
 			mech, name, api.ErrCaptureIncomplete)
 	}
 	return PreState(mech, name, resp.UnitState.UnitFileState, resp.UnitState.ActiveState), nil
+}
+
+// ShowUnitStateCmd is the shell command the three service handlers run to
+// read a unit's enable and active state. It deliberately does NOT pass
+// --value: with --value systemd prints bare values in ITS OWN property
+// order, not the order they were requested, so a positional reader silently
+// swaps them. The key=value form names each value, which is order-immune.
+//
+// A unit that does not exist is not an error here: systemd exits 0 and
+// prints an empty UnitFileState, which [ParseUnitState] reports as an empty
+// string and the handlers' rollback treats as "no enable state to restore".
+func ShowUnitStateCmd(name string) string {
+	return fmt.Sprintf("systemctl show -p UnitFileState -p ActiveState %s", shellEscape(name))
+}
+
+// ParseUnitState extracts UnitFileState and ActiveState from
+// [ShowUnitStateCmd] output by property NAME.
+//
+// Reading these positionally is the bug this function exists to prevent:
+// `systemctl show -p UnitFileState -p ActiveState --value` prints
+// ActiveState first regardless of the requested order, so line-indexed
+// parsing recorded each value under the other's key. The pre-state then
+// round-tripped through the transaction log inverted, and rollback either
+// restored nothing or drove the unit the wrong way while reporting success.
+//
+// Unknown properties are ignored, so adding one to the command later cannot
+// break this, and a missing property yields an empty string rather than a
+// neighboring property's value.
+func ParseUnitState(stdout string) (enabled, active string) {
+	for _, line := range strings.Split(stdout, "\n") {
+		name, value, found := strings.Cut(strings.TrimSpace(line), "=")
+		if !found {
+			continue
+		}
+		switch name {
+		case "UnitFileState":
+			enabled = strings.TrimSpace(value)
+		case "ActiveState":
+			active = strings.TrimSpace(value)
+		}
+	}
+	return enabled, active
+}
+
+// shellEscape single-quotes a unit name for the shell.
+func shellEscape(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // PreState builds the canonical service-handler PreState. Both the D-Bus
