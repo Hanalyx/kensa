@@ -6,11 +6,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Hanalyx/kensa/api"
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -567,5 +570,48 @@ func TestRunRollback_EmptyStoreList(t *testing.T) {
 	stdout, _ := captureRunCLI([]string{"--db", path, "rollback", "--list"}, t)
 	if !strings.Contains(stdout, "no rollback-able sessions") {
 		t.Errorf("empty store should show 'no rollback-able sessions'; got:\n%s", stdout)
+	}
+}
+
+// TestClassifyRollbackOutcome covers the third way a rollback can fail to
+// revert the host, which the summary previously counted as success.
+//
+// Two were handled: a transport/engine error, and a PartialRestore. The third
+// is a handler that declines WITHOUT an error and without a partial — it
+// returns Success=false having issued nothing. The transposed-pre-state refusal
+// has exactly that shape, and so does a restoration command that exits
+// non-zero. Both were reported to the operator as "succeeded: 1", exit 0, for a
+// host that was never reverted; and because the session stays rollback-able
+// with nothing recorded as refused, the operator's next move is to run --start
+// again, indefinitely.
+func TestClassifyRollbackOutcome(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		res     *api.RollbackResult
+		err     error
+		want    rollbackOutcome
+		wantErr bool
+	}{
+		{"transport or engine error", nil, errors.New("ssh: connection reset"), rollbackFailed, true},
+		{"no result at all", nil, nil, rollbackFailed, true},
+		{"partial restore", &api.RollbackResult{PartialRestore: true, Detail: "reboot required"}, nil, rollbackPartial, false},
+		{"refused, no error, nothing issued",
+			&api.RollbackResult{Success: false, Detail: "pre-state is transposed; refusing to act"}, nil, rollbackFailed, true},
+		{"restore command exited non-zero",
+			&api.RollbackResult{Success: false, Detail: "rollback failed (exit 1)"}, nil, rollbackFailed, true},
+		{"genuine success", &api.RollbackResult{Success: true, Detail: "restored"}, nil, rollbackSucceeded, false},
+		{"success with a persistence warning",
+			&api.RollbackResult{Success: true, Detail: "restored WARNING: log not updated"}, nil, rollbackSucceeded, false},
+	} {
+		got, entry := classifyRollbackOutcome("rule-x", tc.res, tc.err)
+		if got != tc.want {
+			t.Errorf("%s: outcome = %v, want %v", tc.name, got, tc.want)
+		}
+		if tc.wantErr && entry.Error == "" {
+			t.Errorf("%s: operator was given no reason for the failure", tc.name)
+		}
+		if got == rollbackSucceeded && !entry.Success {
+			t.Errorf("%s: counted as succeeded but the entry says otherwise", tc.name)
+		}
 	}
 }
