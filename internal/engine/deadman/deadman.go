@@ -552,7 +552,7 @@ func buildScript(txnID uuid.UUID, cmds []string) string {
 	// kill -9 skips the EXIT trap, so a rollback killed mid-flight leaves the
 	// lock behind; the backstop leg would then find it and revert nothing --
 	// exactly when reverting matters most. `kill -0` tests for the process
-	// without signalling it.
+	// without signaling it.
 	b.WriteString("    if [ -r \"$LOCK/pid\" ] && kill -0 \"$(cat \"$LOCK/pid\")\" 2>/dev/null; then\n")
 	b.WriteString("        exit 0   # the other scheduler's copy is running it now\n")
 	b.WriteString("    fi\n")
