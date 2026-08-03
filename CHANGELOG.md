@@ -17,23 +17,36 @@ any pair).
 ## Unreleased
 
 ### Fixed
-- **`service_disabled` rollback no longer starts a unit that was stopped.** A
-  unit recorded as enabled but not running came back running after a rollback,
-  while the rollback result reported it as stopped. Rolling back a disable of
-  `rsyncd`, `nfs-server` or `avahi-daemon` left a listening network daemon
-  running on a host that had it stopped.
-
 - **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
   transaction now restores the state the host was actually in.** Earlier
   releases recorded a unit's enable state and running state under each other's
-  keys whenever capture ran over the shell path. A rollback could disable and
-  stop a healthy unit, or report success while restoring nothing.
+  keys whenever capture ran over the shell path, because `systemctl show`
+  returns those two properties in its own order rather than the requested one.
+  A rollback built from such a record could act on the wrong layer or issue
+  nothing at all while reporting success.
 
-  **What you need to do.** Transactions recorded before this release hold the
-  two values transposed and cannot be rolled back safely. Kensa now refuses
-  such a record with a failed rollback result and issues no command to the
-  host. Re-run `kensa check` against the host to establish its current state.
-  This affects transactions whose capture used the SSH transport, and
+  In the shipped rule corpus this reaches 25 `service_masked` rules and 14
+  `service_enabled` rules, covering units such as `avahi-daemon`, `cups`,
+  `dnsmasq` and `dovecot`. There are no `service_disabled` rules today, so that
+  mechanism is affected only for callers driving it directly. The observed
+  outcome was under-restoration: a unit left stopped and disabled that the
+  rollback reported as restored, rather than a service being started.
+
+- **`service_disabled` rollback no longer starts a unit that was stopped.** A
+  unit recorded as enabled but not running came back running after a rollback,
+  because both layers were collapsed onto a single `enable --now`. The enable
+  and active layers are now restored independently. No shipped rule uses this
+  mechanism; it affects callers using it directly.
+
+  **What you need to do.** Many transactions recorded before this release hold
+  the two values transposed and cannot be rolled back safely. Kensa refuses a
+  record it can PROVE is transposed, meaning each value is unmistakably the
+  other field's, with a failed rollback result, and issues no command to the
+  host. That proof is not always available: when one of the two values is
+  empty, which systemd reports for a unit it does not know, the record cannot
+  be distinguished from a valid one and is acted on. Re-run `kensa check`
+  against the host to establish its current state rather than relying on the
+  refusal. This affects transactions whose capture used the SSH transport, and
   agent-mode transactions on hosts where the privileged helper could not be
   invoked. The other 21 capturable mechanisms are unaffected.
 

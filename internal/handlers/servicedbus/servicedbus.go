@@ -170,5 +170,15 @@ func Describe(pre *api.PreState) string {
 	// rather than rendering a bare comma.
 	enabled := prestate.Field(pre.Data, "prior_enabled", "unit file state unknown")
 	active := prestate.Field(pre.Data, "prior_active", "active state unknown")
+
+	// The same transposition Rollback refuses must not be rendered as fact.
+	// This is the FOURTH consumer of these two keys and the guard was swept to
+	// the other three; without it the two surfaces disagree about the same
+	// record — Rollback declines to act while the display shows a confident,
+	// plausible line like "sshd, inactive, enabled". The display is the surface
+	// this projection exists to provide, so it is the worse place to be wrong.
+	if err := CheckPreStateOrientation(enabled, active); err != nil {
+		return prestate.Join(name, "captured unit state is transposed and cannot be read")
+	}
 	return prestate.Join(name, enabled, active)
 }

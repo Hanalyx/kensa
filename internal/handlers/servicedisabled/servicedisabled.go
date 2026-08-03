@@ -151,17 +151,25 @@ func (h *Handler) DescribePreState(pre *api.PreState) string {
 	return servicedbus.Describe(pre)
 }
 
-// parseShowOutput extracts enabled and active from the two-line output
-// Rollback restores the prior enabled and active states per spec C-03.
+// Rollback restores the prior enabled and active states per spec C-03,
+// branching the two layers SEPARATELY:
 //
-// Enable layer:
-//   - prior_enabled="enabled" or "enabled-runtime" → enable + start
-//     (the `enable --now` equivalent; the start also satisfies the
-//     active layer).
-//   - prior_enabled="static" / "disabled" / "" → skip.
+//   - enabled + active    → `enable --now` (one command covers both layers)
+//   - enabled + inactive  → `enable` only. NOT `enable --now`: the unit was
+//     configured to start at boot but was not running when we captured it, and
+//     starting it here would leave the host in a state it was never in.
+//   - disabled + active   → `start` only.
+//   - anything else       → nothing. "static", "masked", "indirect", "alias",
+//     "generated" and "" need no enable-layer change, and an inactive prior
+//     needs no start.
 //
-// Active layer (only when the enable layer issued no start):
-//   - prior_active="active" → start.
+// The enabled+inactive case is why the layers are branched rather than
+// collapsed onto `enable --now`: an earlier version issued `enable --now`
+// whenever the unit had been enabled, so rolling back a disable STARTED a unit
+// that had been stopped.
+//
+// A pre-state whose two values are transposed is refused rather than acted on;
+// see CheckPreStateOrientation below.
 func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *api.PreState) (*api.RollbackResult, error) {
 	if pre == nil || pre.Data == nil {
 		return nil, errors.New("service_disabled: rollback called with nil pre-state")

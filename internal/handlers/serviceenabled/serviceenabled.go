@@ -156,7 +156,6 @@ func (h *Handler) DescribePreState(pre *api.PreState) string {
 	return servicedbus.Describe(pre)
 }
 
-// parseShowOutput extracts enabled and active from the two-line
 // Rollback restores the prior enabled and active states.
 //
 // Per handler-service-enabled spec C-03, the enable-layer restoration

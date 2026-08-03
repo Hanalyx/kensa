@@ -336,3 +336,48 @@ func TestGenericSanitizesKeysAndMechanism(t *testing.T) {
 		t.Errorf("control characters or newlines survived into the rendered line: %q", got)
 	}
 }
+
+// TestGenericNeverEmitsAFileBodyAtAnyLength closes the gap between what the
+// public artifacts promise and what the fallback did.
+//
+// The godoc, spec C-01 and the operator guide all state that no describer and
+// no fallback emits a captured file body AT ANY LENGTH. Length elision alone
+// did not deliver that: a short, single-line body is under the inline limit, so
+// Generic rendered it verbatim. The existing multi-line poison value proved
+// only half the claim.
+//
+// The fallback is reached in exactly the case the package advertises — a
+// mechanism absent from the reading binary's registry, such as an older
+// consumer reading a newer record — so it is the path least able to rely on
+// handler discipline.
+//
+// @spec pkg-prestate-describe
+// @ac AC-02
+func TestGenericNeverEmitsAFileBodyAtAnyLength(t *testing.T) {
+	t.Log("// @spec pkg-prestate-describe")
+	t.Log("// @ac AC-02")
+
+	// Short enough that length elision does not fire.
+	body := "backup:x:34:34:backup:/var/backups:/usr/sbin/nologin"
+
+	for _, key := range []string{"content", "prior_content", "files_content", "files_snapshot"} {
+		got := Generic(&api.PreState{
+			Mechanism: "file_content",
+			Data:      map[string]interface{}{key: body},
+		})
+		if strings.Contains(got, body) {
+			t.Errorf("key %q leaked a captured file body into the fallback: %q", key, got)
+		}
+		if !strings.Contains(got, key+"=<") {
+			t.Errorf("key %q should render a size marker, got %q", key, got)
+		}
+	}
+
+	// A key that does NOT name content still renders, or the fallback would be
+	// useless.
+	got := Generic(&api.PreState{Mechanism: "file_content",
+		Data: map[string]interface{}{"path": "/etc/login.defs"}})
+	if !strings.Contains(got, "/etc/login.defs") {
+		t.Errorf("over-elided a non-content key: %q", got)
+	}
+}

@@ -155,7 +155,6 @@ func (h *Handler) DescribePreState(pre *api.PreState) string {
 	return servicedbus.Describe(pre)
 }
 
-// parseShowOutput extracts enabled and active from the two-line output
 // Rollback unmasks the unit and restores prior enabled and active
 // states per spec C-03:
 //

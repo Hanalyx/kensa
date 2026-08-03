@@ -342,7 +342,38 @@ func Value(key string, v interface{}) string {
 	if redact.IsSensitive(key) {
 		return redact.Placeholder
 	}
+	if isContentKey(key) {
+		// A key that names captured FILE CONTENT elides by name, not by
+		// length. Length elision alone left the guarantee false: a short,
+		// single-line body such as
+		//
+		//	content=backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+		//
+		// is under the inline limit, so Generic rendered it verbatim while
+		// the package doc, the spec and the operator guide all promised that
+		// no describer and no fallback emits a captured file body at any
+		// length. The fallback is reached in exactly the advertised case — a
+		// mechanism absent from the reading binary's registry — so this is
+		// the path least able to rely on handler discipline.
+		return "<" + ByteSize(len(renderValue(v))) + ">"
+	}
 	return renderValue(v)
+}
+
+// contentKeys name captured file bodies. Matched on the final component so
+// prior_content, files_content and files_snapshot all resolve.
+var contentKeys = map[string]struct{}{
+	"content": {}, "snapshot": {}, "body": {}, "contents": {},
+}
+
+// isContentKey reports whether a Data key holds captured file content.
+func isContentKey(k string) bool {
+	parts := splitComponents(strings.TrimSpace(k))
+	if len(parts) == 0 {
+		return false
+	}
+	_, ok := contentKeys[strings.ToLower(parts[len(parts)-1])]
+	return ok
 }
 
 func renderValue(v interface{}) string {

@@ -292,3 +292,40 @@ func TestRollbackDoesNotDisableAHealthyUnit(t *testing.T) {
 		}
 	}
 }
+
+// TestRollback_AC07_EnabledButInactiveIsNotStarted is the case that requires
+// the enable and active layers to be restored independently.
+//
+// A unit recorded as enabled but NOT running must come back enabled and still
+// stopped. Collapsing both layers onto `systemctl enable --now` — which the
+// handler did, and which AC-04 asserted unqualified — starts a service the host
+// had stopped, and reports it as restored.
+//
+// @spec handler-service-disabled
+// @ac AC-07
+func TestRollback_AC07_EnabledButInactiveIsNotStarted(t *testing.T) {
+	t.Log("// @spec handler-service-disabled")
+	t.Log("// @ac AC-07")
+	tp := engine.NewFakeTransport()
+	h := servicedisabled.New()
+	res, err := h.Rollback(context.Background(), tp, &api.PreState{
+		Data: map[string]interface{}{
+			"name":          "cups",
+			"prior_enabled": "enabled",
+			"prior_active":  "inactive",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("Success=false: %s", res.Detail)
+	}
+	joined := strings.Join(tp.Runs, " ; ")
+	if !strings.Contains(joined, "enable") {
+		t.Errorf("the enable layer was not restored: %q", joined)
+	}
+	if strings.Contains(joined, "--now") || strings.Contains(joined, "start") {
+		t.Errorf("started a unit that was captured as stopped: %q", joined)
+	}
+}

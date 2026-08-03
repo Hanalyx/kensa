@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/handlers/servicedbus"
 )
 
 // serviceHandlerPackages are the handler packages whose shell capture must go
@@ -122,5 +125,29 @@ func TestUnitStateFixturesUseRealSystemdForm(t *testing.T) {
 					"key=value form; reproduce real output (ActiveState= first, UnitFileState= second)", path)
 			}
 		}
+	}
+}
+
+// TestDescribeRefusesATransposedRecord: the orientation guard was swept to the
+// three Rollback consumers of prior_enabled/prior_active and initially missed
+// this one, the fourth consumer of the same keys in the same package.
+//
+// Without it the two surfaces disagree about the same record: Rollback declines
+// to act on a transposed capture while the display renders a confident,
+// plausible line for it. The display is the surface the projection exists to
+// provide, which makes it the worse place to be wrong.
+func TestDescribeRefusesATransposedRecord(t *testing.T) {
+	correct := servicedbus.Describe(&api.PreState{Mechanism: "service_disabled", Data: map[string]interface{}{
+		"name": "sshd", "prior_enabled": "enabled", "prior_active": "active",
+	}})
+	if !strings.Contains(correct, "enabled") || !strings.Contains(correct, "active") {
+		t.Errorf("a correctly oriented record should render its state: %q", correct)
+	}
+
+	transposed := servicedbus.Describe(&api.PreState{Mechanism: "service_disabled", Data: map[string]interface{}{
+		"name": "sshd", "prior_enabled": "active", "prior_active": "enabled",
+	}})
+	if strings.Contains(transposed, "inactive") || !strings.Contains(transposed, "transposed") {
+		t.Errorf("a transposed record must not be rendered as fact, got %q", transposed)
 	}
 }
