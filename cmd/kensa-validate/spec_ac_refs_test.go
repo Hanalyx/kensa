@@ -106,14 +106,26 @@ func TestSpecACReferencesResolve(t *testing.T) {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, "_test.go") {
 			return nil //nolint:nilerr // same
 		}
-		if strings.Contains(path, "/vendor/") || strings.Contains(path, "/scratchpad/") {
+		// Exclusions are matched against the path RELATIVE to the repo root,
+		// never the absolute one. An absolute-substring test excludes the whole
+		// tree whenever the CHECKOUT itself lives under a matching directory --
+		// a worktree under .../scratchpad/ made this walk find nothing and fail
+		// with "found no @spec/@ac claims". It failed loudly rather than passing
+		// vacuously, which is the safe direction, but it is still a gate that
+		// cannot run where the reviewer put the checkout.
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if strings.HasPrefix(rel, "vendor/") || strings.Contains(rel, "/vendor/") ||
+			strings.HasPrefix(rel, "scratchpad/") || strings.Contains(rel, "/scratchpad/") {
 			return nil
 		}
 		b, rerr := os.ReadFile(path) //nolint:gosec // walking a fixed repo subtree
 		if rerr != nil {
 			return nil
 		}
-		rel, _ := filepath.Rel(root, path)
 		src := string(b)
 
 		// Convention A carries both IDs in one string.
