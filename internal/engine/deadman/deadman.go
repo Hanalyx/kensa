@@ -62,7 +62,7 @@
 // committed. The signal is a marker the script writes before touching
 // anything — systemd cannot answer it, as a transient timer is garbage
 // collected within a second of elapsing and then reads byte-identically to one
-// that was cancelled.
+// that was canceled.
 //
 // Otherwise Cancel removes EVERY armed job, attempts them all even after one
 // fails, and fails on any survivor. It stops only the .timer unit, never the
