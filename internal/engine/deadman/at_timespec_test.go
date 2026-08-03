@@ -634,9 +634,24 @@ func TestRollbackScriptTakesAnAtomicLock(t *testing.T) {
 	if !strings.Contains(script, "exit 0") {
 		t.Error("the losing copy does not exit cleanly")
 	}
-	// The lock has to outlive /tmp being cleared at boot, like the script.
-	if !strings.Contains(script, "/var/lib/kensa/deadman") {
-		t.Errorf("script or lock staged outside the durable directory: %q", script)
+	// The SCRIPT must be durable across a boot; the LOCK must not be.
+	//
+	// The lock guards against the two legs running at once, which is a
+	// within-one-boot concern: after a reboot only the at(1) job survives and
+	// it SHOULD run. A boot-persistent lock inverts that -- a rollback killed
+	// mid-flight leaves it behind and the backstop reverts nothing. Reproduced
+	// on RHEL 9.6. /run is tmpfs and empty after a reboot.
+	if !strings.Contains(script, "/var/lib/kensa/deadman/kensa-rollback-") {
+		t.Errorf("script staged outside the durable directory: %q", script)
+	}
+	if !strings.Contains(script, "LOCK=/run/kensa/deadman/") {
+		t.Error("the lock is not boot-scoped; a rollback killed mid-flight would " +
+			"leave it behind and the at(1) backstop would revert nothing after the reboot")
+	}
+	// A held lock only justifies standing down while its holder is alive.
+	if !strings.Contains(script, "kill -0") {
+		t.Error("the lock has no liveness check, so a lock left by a killed rollback " +
+			"silently disables the backstop leg")
 	}
 
 	// The script must record that it ran, and the marker must survive its own

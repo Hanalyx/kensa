@@ -62,6 +62,24 @@ const defaultWindow = 120 * time.Second
 // directory costs nothing the deadman did not already require.
 const scriptDir = "/var/lib/kensa/deadman"
 
+// lockDir is where the rollback script's mutual-exclusion lock lives, and it is
+// deliberately NOT scriptDir.
+//
+// The lock exists to stop the two armed legs running the rollback at the same
+// moment. That is a within-one-boot concern: across a reboot the systemd-run
+// leg no longer exists at all, so only the at(1) job remains and it SHOULD run
+// -- that is the entire reason the at leg is armed. A lock in a boot-persistent
+// directory inverts this. A rollback killed mid-flight (kill -9, or the power
+// cut that prompted the operator to reboot) leaves the lock behind, and the
+// at leg then finds it, exits 0, and reverts nothing. Reproduced on RHEL 9.6:
+// after killing the first leg the lock survived, and the second leg ran zero
+// rollback commands.
+//
+// /run is tmpfs on every systemd host (verified on RHEL 8.10, 9.6 and 10.1) and
+// is empty after a reboot, so a boot-scoped lock cannot outlive the condition
+// it guards.
+const lockDir = "/run/kensa/deadman"
+
 // schedulerKind identifies which scheduler was detected on the host.
 type schedulerKind string
 
@@ -526,11 +544,22 @@ func buildScript(txnID uuid.UUID, cmds []string) string {
 	// A losing copy exits 0 -- "the rollback is already running" is success
 	// from where it stands, and a non-zero exit would only produce noise in the
 	// scheduler's mail.
-	fmt.Fprintf(&b, "LOCK=%s/kensa-rollback-%s.lock\n", scriptDir, txnID)
+	fmt.Fprintf(&b, "LOCK=%s/kensa-rollback-%s.lock\n", lockDir, txnID)
 	fmt.Fprintf(&b, "FIRED=%s\n", firedMarkerPath(txnID))
+	fmt.Fprintf(&b, "mkdir -p %s 2>/dev/null || true\n", lockDir)
 	b.WriteString("if ! mkdir \"$LOCK\" 2>/dev/null; then\n")
-	b.WriteString("    exit 0   # the other scheduler's copy already holds it\n")
+	// A held lock is only a reason to stand down if its holder is still alive.
+	// kill -9 skips the EXIT trap, so a rollback killed mid-flight leaves the
+	// lock behind; the backstop leg would then find it and revert nothing --
+	// exactly when reverting matters most. `kill -0` tests for the process
+	// without signalling it.
+	b.WriteString("    if [ -r \"$LOCK/pid\" ] && kill -0 \"$(cat \"$LOCK/pid\")\" 2>/dev/null; then\n")
+	b.WriteString("        exit 0   # the other scheduler's copy is running it now\n")
+	b.WriteString("    fi\n")
+	b.WriteString("    rm -rf \"$LOCK\"\n")
+	b.WriteString("    mkdir \"$LOCK\" 2>/dev/null || exit 0\n")
 	b.WriteString("fi\n")
+	b.WriteString("echo $$ > \"$LOCK/pid\" 2>/dev/null || true\n")
 	// The marker is written BEFORE any rollback command and is NOT removed on
 	// exit. Cancel reads it to tell "the timer was canceled" from "the timer
 	// fired and this host has been reverted" -- opposite outcomes that the

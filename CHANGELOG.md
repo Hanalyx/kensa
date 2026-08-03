@@ -29,6 +29,13 @@ any pair).
   out-of-band timer firing: a unit that was enabled and active before the
   change came back enabled and INACTIVE. Properties are now read by name.
 
+- **Rolling back a service disable could start a service that had been
+  stopped.** When a unit was enabled but not running at capture time, the
+  rollback issued `systemctl enable --now`, which restores the boot
+  configuration and also starts it. The enable and active layers are now
+  restored separately, so a unit that was enabled-but-stopped comes back
+  enabled and stopped.
+
 - **`remediate` aborted before applying anything on hosts with `at` installed,
   in direct-SSH mode.** Arming the deadman timer emitted `at now + <N>
   seconds`, and `at` accepts no unit smaller than a minute on any
