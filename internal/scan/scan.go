@@ -284,11 +284,30 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
 		passed := checkRes.Passed
 		if checkErr == nil && passed {
+			// The host was already in the desired state; nothing was
+			// applied. Three fields have to agree about that, and this
+			// record previously contradicted itself on two of them:
+			//
+			//   AlreadyCompliant  nothing was applied
+			//   HostUnchanged     "true if and only if the host is provably
+			//                     in its pre-transaction state" — it is, so
+			//                     leaving this false published a mutation
+			//                     that never happened. internal/engine sets
+			//                     it true on its own no-apply path.
+			//   CommittedAt       "non-nil if and only if Status is
+			//                     StatusCommitted" — which it is.
+			//
+			// A change whose whole purpose is to remove an ambiguity from the
+			// contract must not leave the same record contradicting it.
+			now := time.Now().UTC()
 			result.Transactions = append(result.Transactions, api.TransactionResult{
-				TransactionID: uuid.New(),
-				Status:        api.StatusCommitted,
-				StartedAt:     time.Now().UTC(),
-				FinishedAt:    time.Now().UTC(),
+				TransactionID:    uuid.New(),
+				Status:           api.StatusCommitted,
+				AlreadyCompliant: true,
+				HostUnchanged:    true,
+				StartedAt:        now,
+				FinishedAt:       now,
+				CommittedAt:      &now,
 				Steps: []api.StepResult{{
 					StepIndex: 0, Mechanism: "check", Success: true,
 					Detail: "already in desired state — skipped",

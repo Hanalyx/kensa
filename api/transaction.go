@@ -201,6 +201,31 @@ type TransactionResult struct {
 	// RolledBackAt is non-nil if and only if Status is
 	// [StatusRolledBack].
 	RolledBackAt *time.Time
+	// AlreadyCompliant reports that the rule's check passed BEFORE any
+	// apply, so nothing on the host was changed. Status is
+	// [StatusCommitted] in that case, which on its own cannot be told
+	// apart from a real remediation that succeeded.
+	//
+	// This exists because the distinction is not cosmetic for a consumer
+	// that builds its own affordances from Status. Such a consumer marks
+	// the request executed, reports the rule fixed, and may offer a
+	// rollback control for a transaction that mutated nothing and captured
+	// no state to restore.
+	//
+	// Kensa itself does not: the record is never persisted, so it does not
+	// appear in `kensa history` or `kensa rollback --list`. The hazard is
+	// real but lives in the consumer, which is why publishing the fact is
+	// the fix rather than changing anything Kensa does with it.
+	//
+	// It answers "what did Kensa do", which is orthogonal to the
+	// compliance verdict "is the host correct". Already-compliant and
+	// successfully-remediated are both compliant afterwards; only this
+	// field separates them.
+	//
+	// When true, Steps holds a single synthetic step with Mechanism
+	// "check" and no apply ran, so Envelope and RollbackResults are empty
+	// and the record is not persisted to the transaction log.
+	AlreadyCompliant bool
 	// Envelope is the signed evidence record for this transaction.
 	Envelope *EvidenceEnvelope
 	// RollbackResults records the per-step outcome of reversing applied

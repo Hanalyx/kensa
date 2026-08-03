@@ -1,6 +1,6 @@
 spec:
     id: scan-compliance-outcome
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -166,6 +166,28 @@ spec:
           references_constraints: [C-07]
           priority: critical
 
+        - id: AC-09
+          description: |
+              A rule skipped because its check already passed reports
+              AlreadyCompliant, and the record it produces is self-consistent:
+              HostUnchanged is true and CommittedAt is set, matching those
+              fields' own "if and only if" contracts.
+
+              Both an already-compliant skip and a real remediation carry
+              StatusCommitted, which is the ambiguity this closes. A consumer
+              reading Status alone may report a rule fixed and offer to reverse
+              a transaction that mutated nothing.
+
+              Homed here rather than in engine-transaction because Runner
+              fabricates this record on the path where engine.Run is provably
+              NOT called; an AC in the engine's tier-1 spec would stay green no
+              matter what the engine did.
+
+              Locked by TestRemediate_AlreadyCompliantIsPublishedNotInferred,
+              which drives the real Runner through a passing and a failing rule
+              rather than asserting on struct literals.
+          references_constraints: [C-01]
+          priority: high
     depends_on: []
 
     tags: [scan, compliance, outcome, api, tier-2]
