@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/prestate"
 )
 
 // mechanism is the canonical handler name.
@@ -105,6 +106,25 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"prior_output": res.Stdout,
 		},
 	}, nil
+}
+
+// DescribePreState renders the feature and whether an authselect profile
+// was in force. "prior_output" is the whole `authselect current --raw`
+// listing — profile plus every enabled feature — so it is reported as a
+// size rather than rendered.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	feature := prestate.Field(pre.Data, "feature", "feature")
+	output, ok := prestate.String(pre.Data, "prior_output")
+	switch {
+	case !ok:
+		return "feature " + feature + ", prior profile not captured"
+	case strings.TrimSpace(output) == "":
+		return "feature " + feature + ", no authselect profile selected"
+	}
+	return prestate.Join(
+		"feature "+feature,
+		"authselect profile captured ("+prestate.Size(pre.Data, "prior_output")+")",
+	)
 }
 
 // Rollback disables the feature if it was not present in the

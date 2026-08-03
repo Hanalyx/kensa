@@ -127,6 +127,16 @@ func (s *Service) RecordRemediateSession(ctx context.Context, host string, resul
 		if txnID == uuid.Nil {
 			continue
 		}
+		// An already-compliant record is synthetic: no apply ran, so the
+		// engine never persisted a transaction under this ID and there is
+		// nothing to attach or ever roll back. Without this guard every
+		// already-compliant rule produced a spurious
+		// "attach <uuid> to session: no transaction with id" on stderr and
+		// counted toward the "could not be attached" total, which reports a
+		// storage failure for a transaction that was never meant to exist.
+		if result.Transactions[i].AlreadyCompliant {
+			continue
+		}
 		if err := s.store.AttachTransaction(ctx, txnID, sess.ID); err != nil {
 			failed++
 			fmt.Fprintf(os.Stderr, "warn: attach %s to session: %v\n", txnID, err)

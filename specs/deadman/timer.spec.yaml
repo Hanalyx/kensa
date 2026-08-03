@@ -1,6 +1,6 @@
 spec:
     id: deadman-timer
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -31,7 +31,7 @@ spec:
             includes:
                 - Pre-flight detection of scheduler availability (at or systemd-run)
                 - Rollback script generation from captured PreStates (POSIX sh)
-                - Script upload to /tmp/kensa-rollback-<txn-id>.sh
+                - Script upload to /var/lib/kensa/deadman/kensa-rollback-<txn-id>.sh
                 - Schedule via at or systemd-run with configurable window
                 - Cancel path via atrm / systemctl stop transient unit
                 - Post-cancel verification of script removal
@@ -78,14 +78,199 @@ spec:
           description: |
               The rollback script MUST self-delete after execution (rm -f
               "$0") OR after successful cancel (engine removes the script
-              file). Residual /tmp/kensa-rollback-*.sh files are a
+              file). Residual kensa-rollback-*.sh files are a
               hygiene failure, not atomicity failure, but are still
               reported to the operator.
           type: technical
           enforcement: error
+        - id: C-07
+          description: |
+              The at(1) time spec MUST be one at(1) can parse, and MUST NOT
+              deliver a window shorter than the one requested.
+
+              at(1) has no sub-minute unit: `at now + 120 seconds` is a parse
+              error ("Garbled time", exit 1) on every implementation. Kensa
+              emitted exactly that from its first release, so on any host
+              carrying at(1) the deadman could not be armed, and because
+              arming precedes apply the engine refused to proceed. The failure
+              is fail-safe (the host is untouched) but it makes
+              control-channel-sensitive remediations unusable on those hosts
+              in direct-SSH mode. It went unnoticed because agent mode arms
+              through an RPC that never reaches this code, and because at(1)
+              is absent from a default minimal install.
+
+              at(1) also truncates its base time to the whole minute before
+              adding the offset, so `now + N minutes` delivers ((N-1)*60,
+              N*60], always shorter than N minutes. Measured on RHEL 9: a
+              2-minute spec submitted at :03, :10 and :17 past the minute
+              scheduled 117, 110 and 103 seconds out.
+
+              A naive ceil(window/60) therefore reads as rounding up and
+              behaves as rounding down: the 120-second default would deliver
+              61 to 120 seconds, and a deadman that fires mid-apply reverts a
+              transaction still legitimately in flight. The spec MUST require
+              ceil((window+60)/60), the smallest count whose lower bound
+              (N-1)*60 is at least the requested window. This does not relax
+              C-03: the delivered window is always at least the requested one.
+
+              Fixtures for this path MUST model at(1)'s time-spec parsing. The
+              fake that guarded it returned a job line for ANY spec, so it
+              agreed with the code and the spec while all three disagreed with
+              every real host.
+          type: security
+          enforcement: error
+
         # Constraint C-06 (keep-alive Extend()) deferred alongside
         # AC-07 — see "Deferred ACs" block below. Will be
         # re-introduced when the keep-alive feature lands.
+
+        - id: C-08
+          description: |
+              An arm MUST NOT be reported as successful when the scheduler
+              accepted the job but cannot run it.
+
+              at(1) writes to a spool; atd(8) executes what is in it. They are
+              separate and either can be present without the other. With atd
+              stopped, at exits ZERO, prints a normal "job N at <time>" line,
+              and queues the job; atq then lists it, because atq reads the
+              spool as well. Every signal a caller checks says armed while
+              nothing will fire. Verified on RHEL 9.7.
+
+              The arm is what the engine treats as permission to apply, so
+              reporting success here mutates a host behind a timer that cannot
+              fire. That is worse than the parse failure it replaced, which at
+              least aborted loudly with the host untouched. It is reachable on
+              an ordinary machine: the RHEL `at` package enables atd without
+              starting it, so a freshly installed host is in this state until
+              it reboots.
+
+              The at path MUST therefore check at(1)'s exit status AND its own
+              diagnostic, and MUST remove the queued job when it refuses, so
+              starting atd later cannot fire a rollback for a transaction that
+              was never armed.
+
+              Detection reads at(1)'s diagnostic rather than probing
+              `systemctl is-active atd`, because the at path exists to serve
+              hosts where systemd-run is unavailable, which includes hosts
+              with no systemd at all. It also does not depend on the unit
+              being named atd rather than at. The limitation is that an
+              implementation which queued silently without warning would still
+              pass; this narrows the window rather than closing it.
+          type: security
+          enforcement: error
+
+        - id: C-09
+          description: |
+              An arm with NO rollback commands MUST schedule nothing: no timer,
+              no script on disk, and Cancel still resolves cleanly. There is
+              nothing for a timer to run, and arming one would report a safety
+              net over an empty script.
+
+              An empty command list MUST NOT be treated as a broken capture.
+              Roughly ten shipped handlers return Success with no command by
+              design when the system already matched the captured state
+              (package_absent "was absent at capture", service_enabled on a
+              unit already enabled and running, file_absent, config_append and
+              others), and an empty rollback follows whenever Apply itself is a
+              no-op. Failing the arm there misdiagnoses correct behavior.
+
+              The case that DOES need refusing -- a capture whose values are
+              wrong, so the rollback builders silently match nothing, or worse
+              emit the inverse of the correct restore -- is caught where it can
+              be proven: at capture time, by the handler, via
+              servicedbus.CheckPreStateOrientation. A command count cannot
+              distinguish it from a legitimate no-op.
+
+        - id: C-10
+          description: |
+              The shell path MUST arm EVERY usable scheduler, and MUST schedule
+              against an ABSOLUTE deadline rather than a relative window.
+
+              systemd-run is the timer that fires: its executor is PID 1, so
+              there is no state where the job is accepted and nothing runs it,
+              which at(1) has whenever atd is down. at(1) is the backstop
+              across a reboot: a transient unit lives in tmpfs and a power
+              cycle erases it, while at's spool is on disk and atd runs overdue
+              jobs at start. A refusal advances to the next candidate; the arm
+              fails only when every scheduler refuses, wrapping
+              api.ErrSchedulerUnavailable.
+
+              The deadline must be absolute because a relative
+              `--on-active` window is RESET TO A FULL FRESH WINDOW by any
+              `systemctl daemon-reload`, and enable/disable/mask each perform
+              one -- so the timer was pushed back by the very apply it guards,
+              without bound. Measured: a 120-second window fired at 225s on
+              Ubuntu 22.04 and never fired at all on RHEL 9.6. The timestamp
+              MUST be computed on the TARGET, since the calendar spec is read
+              against the target's clock and timezone.
+
+              systemd-run's AccuracySec MUST be pinned: the default is one
+              minute, not one second.
+
+              The rollback script MUST be staged outside /tmp. Debian-family
+              hosts clear /tmp at boot -- not via tmpfs but via
+              `systemd-tmpfiles --boot` acting on `D /tmp`, which runs before
+              atd -- so an at(1) job would survive the reboot and find its
+              script deleted, voiding the one case that leg exists for.
+
+              Because both legs run the same script, the script MUST take an
+              ATOMIC lock before doing anything. Self-deletion is not
+              exclusion: it removes the file when the first copy finishes, and
+              two copies launched 50ms apart both ran to completion.
+
+        - id: C-11
+          description: |
+              Cancel MUST remove every armed timer, attempt all of them even
+              after one fails, and MUST distinguish "cancelled" from "already
+              fired" and from "could not verify".
+
+              A partial cancel is the most dangerous state this package can
+              produce: Cancel runs on the COMMIT path, so a survivor fires a
+              full rollback against a transaction that already succeeded.
+              Returning early on the first failure would guarantee the
+              untracked survivor.
+
+              An elapsed one-shot timer is not `active`, so an ActiveState
+              check alone cannot tell a cancelled timer from a fired one --
+              opposite outcomes, since the second means the host has already
+              been reverted while the engine is about to record it committed.
+              LastTriggerUSecMonotonic is zero until the timer fires and MUST
+              be consulted. Properties MUST be read BY NAME: `systemctl show
+              --value` prints in systemd's order, not the requested order, and
+              reading it positionally is the live defect in the service
+              handlers.
+
+              An unverifiable cancel is NOT a successful cancel. The engine
+              answers a cancel error with an in-band rollback, so a false
+              failure costs a redundant restore while a false success leaves a
+              live timer reported as gone.
+
+              Cancel MUST stop only the .timer unit, never the bare unit name,
+              which resolves to the .service -- and once the timer has elapsed
+              that service IS the rollback. Stopping it mid-flight leaves the
+              host partially reverted.
+
+        - id: C-12
+          description: |
+              GATE. The reboot-scoped guarantee in C-10 rests on at(1) being
+              present. A host carrying only systemd-run has an IN-SESSION net
+              only: it covers Apply through Commit, and a reboot erases it.
+
+              That is acceptable only while no mechanism whose effect requires
+              a reboot is treated as control-channel-sensitive. The deadman is
+              a time-window instrument and does not fit reboot-deferred change:
+              the window expires long before the operator reboots, and the
+              engine already cancels it for staged applies for that reason.
+              Reboot-scoped safety belongs to internal/bootguard, keyed to the
+              boot rather than to a clock.
+
+              So if any mechanism requiring a reboot to take effect is ever set
+              true in controlChannelMechanisms
+              (internal/engine/preflight.go), this scheduler choice MUST be
+              revisited before that lands, and the at(1)-absent case MUST be
+              closed rather than documented.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -104,17 +289,23 @@ spec:
           priority: critical
         - id: AC-03
           description: |
-              Script is uploaded to /tmp/kensa-rollback-<txn-id>.sh with
+              Script is uploaded to /var/lib/kensa/deadman/kensa-rollback-<txn-id>.sh with
               mode 0700. Upload failure (disk full, permissions) aborts
               the transaction before apply.
           references_constraints: [C-02]
           priority: critical
         - id: AC-04
           description: |
-              Scheduled via `at now + 120 seconds` or `systemd-run
-              --on-active=120`. Post-schedule verification confirms the
-              job appears in atq or systemctl list-timers.
-          references_constraints: [C-03]
+              Scheduled via `at now + <ceil((window+60)/60)> minutes` or
+              `systemd-run --on-calendar=<absolute-deadline>`. Post-schedule
+              verification confirms the job appears in atq or systemctl
+              list-timers.
+
+              This AC previously read `at now + 120 seconds`, a syntax at(1)
+              cannot parse. The spec, the implementation and the test fixture
+              all agreed on it, and none had been run against a real at(1).
+              See C-07 for why the +60 is load-bearing.
+          references_constraints: [C-03, C-07]
           priority: critical
         - id: AC-05
           description: |
@@ -126,7 +317,7 @@ spec:
           priority: critical
         - id: AC-08
           description: |
-              Script cleanup removes /tmp/kensa-rollback-<txn-id>.sh on
+              Script cleanup removes /var/lib/kensa/deadman/kensa-rollback-<txn-id>.sh on
               successful cancel. Residual files are detected by a
               post-cancel scan and reported to the operator without
               failing the transaction.
@@ -139,6 +330,101 @@ spec:
               script. Returns ErrNoActiveDeadman if no timer is armed.
           references_constraints: [C-04]
           priority: high
+
+        - id: AC-12
+          description: |
+              The at(1) path emits whole minutes and never a spec that could
+              fire before the requested window: for every window the emitted
+              count N satisfies (N-1)*60 >= window, so the 120-second default
+              emits 3 minutes, not 2. The command contains no "seconds" unit.
+
+              The assertion is on the delivered lower bound rather than a
+              literal command string, because the lower bound is the safety
+              property. Locked by TestAtSchedulingNeverFiresEarly, with
+              TestAtSchedulingUsesWholeMinutes anchoring the encoding, both
+              against a fake that rejects the specs at(1) rejects.
+          references_constraints: [C-07]
+          priority: critical
+
+        - id: AC-13
+          description: |
+              Arm refuses, and removes the queued job, when at(1) reports that
+              it could not signal atd, and when at(1) exits non-zero, in both
+              cases despite a parseable job ID being present in the output.
+              Locked by TestAtArmRefusedWhenAtdIsNotRunning and
+              TestAtArmRefusedWhenAtExitsNonZero, against a fake that
+              reproduces at(1)'s real behaviour on an atd-stopped host: exit
+              zero, a normal job line, and the warning, all at once.
+          references_constraints: [C-08]
+          priority: critical
+
+        - id: AC-17
+          description: |
+              A capturable step whose rollback has nothing to do schedules no
+              timer, uploads no script, and cancels cleanly, rather than
+              failing the arm.
+
+              Locked by TestNoRollbackCommandsArmsNothing and
+              TestNothingCapturableArmsNothing. The first uses a handler whose
+              Rollback SUCCEEDS while emitting nothing, which is what a
+              legitimate no-op looks like.
+          references_constraints: [C-09]
+          priority: critical
+
+        - id: AC-15
+          description: |
+              Both schedulers are armed when both are usable, systemd-run
+              against an absolute deadline with AccuracySec pinned. The arm
+              advances when one refuses and fails naming every attempt when all
+              refuse. A systemd-run attempt that fails after the command
+              reached the host stops the unit it may have created.
+
+              Locked by TestBothSchedulersAreArmedWhenBothPresent,
+              TestFallsThroughToAtWhenSystemdRunRefuses,
+              TestFallsThroughToSystemdRunWhenAtdIsDead,
+              TestFailedSystemdRunScheduleLeavesNoTimer and
+              TestSystemdRunTransportErrorLeavesNoTimer.
+          references_constraints: [C-10]
+          priority: critical
+
+        - id: AC-18
+          description: |
+              The rollback script takes an atomic lock before running any
+              command, a losing copy exits zero, and both script and lock live
+              in the durable directory rather than /tmp.
+
+              Locked by TestRollbackScriptTakesAnAtomicLock.
+          references_constraints: [C-10]
+          priority: critical
+
+        - id: AC-19
+          description: |
+              Cancel removes every armed timer and attempts all of them even
+              after one fails; a timer that had already fired is reported as
+              fired rather than cancelled; an unverifiable cancel fails; and no
+              cancel command stops a bare unit name.
+
+              Locked by TestCancelRemovesEveryArmedTimer,
+              TestPartialCancelFailsTheCancel (which fails the FIRST scheduler,
+              so "was the other still attempted" is actually discriminating),
+              TestCancelReportsATimerThatAlreadyFired,
+              TestUnverifiableCancelIsNotSuccess and
+              TestCancelNeverStopsTheBareUnit.
+          references_constraints: [C-11]
+          priority: critical
+
+        - id: AC-20
+          description: |
+              No mechanism whose effect requires a reboot is marked
+              control-channel-sensitive, so the deadman is never armed for a
+              change it cannot guard.
+
+              Enforced rather than documented: the gate is a review condition
+              with no runtime behavior to exercise, so it is checked directly
+              against controlChannelMechanisms by
+              TestDeadmanIsNotUsedForRebootRequiredChanges.
+          references_constraints: [C-12]
+          priority: critical
 
     # Deferred ACs — moved out of strict-coverage scope; track in
     # backlog for future deliverables. The spec keeps the AC IDs

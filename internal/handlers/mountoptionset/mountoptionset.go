@@ -24,6 +24,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
 
@@ -321,6 +322,24 @@ func (h *Handler) preState(p *Params, priorLine string) *api.PreState {
 			"prior_line":  priorLine,
 		},
 	}
+}
+
+// DescribePreState renders the captured fstab entry. The prior line is a
+// single fstab record and is the thing an operator wants to read before
+// approving a mount-option change, so it is rendered through
+// [prestate.Text] rather than reported as a size.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	mount := prestate.Field(pre.Data, "mount_point", "mount point")
+	line, ok := prestate.String(pre.Data, "prior_line")
+	switch {
+	case !ok:
+		return mount + ", fstab entry not captured"
+	case strings.TrimSpace(line) == "":
+		return mount + ", no fstab entry"
+	}
+	// Line, not Text: an fstab entry carries mount options, and cifs entries
+	// put `password=` and `credentials=` among them.
+	return prestate.Join(mount, prestate.Line(line))
 }
 
 // Rollback restores the prior fstab line and remounts.

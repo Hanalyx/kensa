@@ -52,3 +52,4 @@ implementations:
       key: "$ActionSendStreamDriverAuthMode"
       value: "x509/name"
       restart: "rsyslog"
+      separator: " "

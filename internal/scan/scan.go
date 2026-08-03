@@ -120,7 +120,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 		// hosts are never gated (AppliesTo returns true).
 		if !detect.AppliesTo(rl.Platforms, osInfo) {
 			detail := platformSkipDetail(rl, osInfo)
-			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail)))
+			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail), true))
 			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
 				RuleID:        rl.ID,
 				Status:        api.ComplianceSkipped,
@@ -137,7 +137,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
-			result.Transactions = append(result.Transactions, erroredResult(rl, err))
+			result.Transactions = append(result.Transactions, erroredResult(rl, err, true))
 			// A rule with no applicable implementation (no gate matched AND no
 			// default) is not-applicable to this host (skipped), not an error;
 			// a structurally invalid `when` IS a genuine error. The Transactions
@@ -167,7 +167,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
 		passed, detail := checkRes.Passed, checkRes.Detail
 		if checkErr != nil {
-			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr))
+			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr, true))
 			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
 				RuleID:        rl.ID,
 				Status:        api.ComplianceError,
@@ -262,7 +262,7 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		// same as Scan); progress reports SKIP.
 		if !detect.AppliesTo(rl.Platforms, osInfo) {
 			detail := platformSkipDetail(rl, osInfo)
-			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail)))
+			result.Transactions = append(result.Transactions, erroredResult(rl, errors.New(detail), true))
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
 				Index: i + 1, Total: total, OK: false, Skipped: true, Detail: detail,
@@ -272,7 +272,7 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 
 		impl, err := rule.Select(rl, caps)
 		if err != nil {
-			result.Transactions = append(result.Transactions, erroredResult(rl, err))
+			result.Transactions = append(result.Transactions, erroredResult(rl, err, true))
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
 				Index: i + 1, Total: total, OK: false, Errored: true, Detail: err.Error(),
@@ -284,11 +284,36 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
 		passed := checkRes.Passed
 		if checkErr == nil && passed {
+			// The host was already in the desired state; nothing was
+			// applied. Three fields have to agree about that, and this
+			// record previously contradicted itself on two of them:
+			//
+			//   AlreadyCompliant  nothing was applied
+			//   HostUnchanged     "true if and only if the host is provably
+			//                     in its pre-transaction state" — it is, so
+			//                     leaving this false published a mutation
+			//                     that never happened. This case is NEW to
+			//                     the enumeration in api/: engine.finalize
+			//                     computes RolledBack || Recovered, and the
+			//                     only pre-existing no-apply true is
+			//                     errored(), which is StatusErrored. The
+			//                     api/ doc was amended to admit it rather
+			//                     than the field being set against its
+			//                     stated contract.
+			//   CommittedAt       "non-nil if and only if Status is
+			//                     StatusCommitted" — which it is.
+			//
+			// A change whose whole purpose is to remove an ambiguity from the
+			// contract must not leave the same record contradicting it.
+			now := time.Now().UTC()
 			result.Transactions = append(result.Transactions, api.TransactionResult{
-				TransactionID: uuid.New(),
-				Status:        api.StatusCommitted,
-				StartedAt:     time.Now().UTC(),
-				FinishedAt:    time.Now().UTC(),
+				TransactionID:    uuid.New(),
+				Status:           api.StatusCommitted,
+				AlreadyCompliant: true,
+				HostUnchanged:    true,
+				StartedAt:        now,
+				FinishedAt:       now,
+				CommittedAt:      &now,
 				Steps: []api.StepResult{{
 					StepIndex: 0, Mechanism: "check", Success: true,
 					Detail: "already in desired state — skipped",
@@ -313,7 +338,7 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 			if errors.Is(runErr, api.ErrRecoverActive) {
 				return result, runErr
 			}
-			result.Transactions = append(result.Transactions, erroredResult(rl, runErr))
+			result.Transactions = append(result.Transactions, erroredResult(rl, runErr, false))
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
 				Index: i + 1, Total: total, OK: false, Errored: true, Detail: runErr.Error(),
@@ -438,10 +463,21 @@ func platformsSummary(platforms []api.Platform) string {
 
 // erroredResult builds a synthetic errored [api.TransactionResult] for
 // a rule that could not be checked or remediated.
-func erroredResult(rl *api.Rule, err error) api.TransactionResult {
+// erroredResult builds the synthetic errored record for a rule the runner
+// could not carry through.
+//
+// hostUnchanged is an explicit parameter rather than a default because the
+// answer differs per call site and getting it wrong is not symmetric. Every
+// pre-execution failure — platform gate, implementation selection, a read-only
+// check error — leaves the host provably untouched, and reporting false there
+// tells a consumer a mutation happened when none did. A failure returned by
+// engine.Run is the opposite: it can follow a partial apply, so only the
+// engine knows, and this record must not claim otherwise.
+func erroredResult(rl *api.Rule, err error, hostUnchanged bool) api.TransactionResult {
 	return api.TransactionResult{
 		TransactionID: uuid.New(),
 		Status:        api.StatusErrored,
+		HostUnchanged: hostUnchanged,
 		StartedAt:     time.Now().UTC(),
 		FinishedAt:    time.Now().UTC(),
 		Error:         fmt.Errorf("%s: %w", rl.ID, err),

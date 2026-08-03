@@ -137,8 +137,7 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 
 // captureShell reads UnitFileState + ActiveState via `systemctl show`.
 func (h *Handler) captureShell(ctx context.Context, transport api.Transport, name string) (*api.PreState, error) {
-	cmd := fmt.Sprintf("systemctl show -p UnitFileState -p ActiveState --value %s", shellEscape(name))
-	res, err := transport.Run(ctx, cmd)
+	res, err := transport.Run(ctx, servicedbus.ShowUnitStateCmd(name))
 	if err != nil {
 		return nil, fmt.Errorf("service_masked: capture transport error: %w", err)
 	}
@@ -146,21 +145,14 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, nam
 		return nil, fmt.Errorf("service_masked: capture failed for %s: %w (stderr: %s)",
 			name, api.ErrCaptureIncomplete, strings.TrimSpace(res.Stderr))
 	}
-	enabled, active := parseShowOutput(res.Stdout)
+	enabled, active := servicedbus.ParseUnitState(res.Stdout)
 	return servicedbus.PreState(mechanism, name, enabled, active), nil
 }
 
-// parseShowOutput extracts enabled and active from the two-line output
-// of `systemctl show -p UnitFileState -p ActiveState --value`.
-func parseShowOutput(stdout string) (enabled, active string) {
-	lines := strings.Split(strings.TrimSpace(stdout), "\n")
-	if len(lines) >= 1 {
-		enabled = strings.TrimSpace(lines[0])
-	}
-	if len(lines) >= 2 {
-		active = strings.TrimSpace(lines[1])
-	}
-	return enabled, active
+// DescribePreState renders the captured unit state. The three service
+// handlers share one PreState shape, so they share one rendering.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	return servicedbus.Describe(pre)
 }
 
 // Rollback unmasks the unit and restores prior enabled and active
@@ -176,6 +168,18 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	name, _ := pre.Data["name"].(string)
 	priorEnabled, _ := pre.Data["prior_enabled"].(string)
 	priorActive, _ := pre.Data["prior_active"].(string)
+
+	// A pre-state written by a release that read the two systemd properties
+	// positionally has them transposed. Acting on it would drive the unit
+	// toward a state the host was never in, so fail closed and tell the
+	// operator how to establish the real state.
+	if err := servicedbus.CheckPreStateOrientation(priorEnabled, priorActive); err != nil {
+		return &api.RollbackResult{
+			Success:    false,
+			Detail:     fmt.Sprintf("service_masked: %v", err),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
+	}
 	if name == "" {
 		return nil, errors.New("service_masked: pre-state missing 'name'")
 	}
@@ -190,12 +194,28 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	return h.rollbackShell(ctx, transport, name, priorEnabled, priorActive)
 }
 
+// priorMasked reports whether the captured UnitFileState was already a masked
+// state, in which case Apply's `mask --now` changed nothing about the mask
+// layer and rollback must not undo it.
+func priorMasked(priorEnabled string) bool {
+	return priorEnabled == "masked" || priorEnabled == "masked-runtime"
+}
+
 // rollbackDBus unmasks then restores the enable + active layers via the
 // D-Bus helper. Unmask is always step one (it needs the helper's unmask
 // op); enable/start mirror the shell path's restoration.
 func (h *Handler) rollbackDBus(ctx context.Context, sd systemd.Transport, name, priorEnabled, priorActive string) (*api.RollbackResult, error) {
-	if step, err := servicedbus.Step(mechanism, name, "unmask", func() (*systemd.Response, error) { return sd.Unmask(ctx, name) }); err != nil || step != nil {
-		return servicedbus.RollbackFrom(step, err)
+	// Unmask ONLY if the unit was not already masked when we captured it.
+	// Apply is `mask --now`, so a unit that was already masked was not changed
+	// by us, and unmasking it on rollback would leave the host in a state it
+	// was never in -- a restore that mutates. "masked" and "masked-runtime"
+	// are capturable UnitFileState values (see servicedbus.orientation), so
+	// this is reachable, not theoretical: 28 shipped rules use this mechanism
+	// and a re-run over an already-hardened host lands here.
+	if !priorMasked(priorEnabled) {
+		if step, err := servicedbus.Step(mechanism, name, "unmask", func() (*systemd.Response, error) { return sd.Unmask(ctx, name) }); err != nil || step != nil {
+			return servicedbus.RollbackFrom(step, err)
+		}
 	}
 	if priorEnabled == "enabled" || priorEnabled == "enabled-runtime" {
 		if step, err := servicedbus.Step(mechanism, name, "enable", func() (*systemd.Response, error) { return sd.Enable(ctx, name) }); err != nil || step != nil {
@@ -216,8 +236,13 @@ func (h *Handler) rollbackDBus(ctx context.Context, sd systemd.Transport, name, 
 
 // rollbackShell restores via systemctl shell-out.
 func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, name, priorEnabled, priorActive string) (*api.RollbackResult, error) {
-	// Unmask is always step one.
-	cmds := []string{fmt.Sprintf("systemctl unmask %s", shellEscape(name))}
+	// Unmask ONLY if the unit was not already masked at capture; see
+	// rollbackDBus for why. A unit that was already masked was not changed by
+	// Apply, and unmasking it here would be a restore that mutates.
+	var cmds []string
+	if !priorMasked(priorEnabled) {
+		cmds = append(cmds, fmt.Sprintf("systemctl unmask %s", shellEscape(name)))
+	}
 
 	needsEnable := priorEnabled == "enabled" || priorEnabled == "enabled-runtime"
 	needsStart := priorActive == "active"
@@ -230,6 +255,16 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, na
 		cmds = append(cmds, fmt.Sprintf("systemctl enable %s", shellEscape(name)))
 	case needsStart:
 		cmds = append(cmds, fmt.Sprintf("systemctl start %s", shellEscape(name)))
+	}
+
+	if len(cmds) == 0 {
+		// Already masked, nothing enabled or active to restore: the unit is
+		// exactly where it started.
+		return &api.RollbackResult{
+			Success:    true,
+			Detail:     fmt.Sprintf("service_masked: %s was already masked at capture; nothing to restore", name),
+			ExecutedAt: time.Now().UTC(),
+		}, nil
 	}
 
 	pipeline := strings.Join(cmds, " && ")

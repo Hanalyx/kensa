@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/prestate"
 )
 
 // mechanism is the canonical handler name.
@@ -126,6 +127,16 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"prior_value": value,
 		},
 	}, nil
+}
+
+// DescribePreState renders the boolean and its prior value.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	name := prestate.Field(pre.Data, "boolean", "SELinux boolean")
+	value := prestate.Field(pre.Data, "prior_value", "")
+	if value == "" {
+		return name + ", prior value not captured"
+	}
+	return name + " " + value
 }
 
 // parseGetsebool parses `getsebool <name>` output: "name --> on/off".

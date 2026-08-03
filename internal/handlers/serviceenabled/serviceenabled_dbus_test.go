@@ -110,8 +110,11 @@ func TestCapture_DBus_FallsBackWhenHelperMissing(t *testing.T) {
 	t.Run("service-dbus-consumption/AC-06", func(t *testing.T) {})
 	f := servicedbus.NewFake()
 	f.Err["unit-state"] = fmt.Errorf("%w at /x", systemd.ErrHelperUnavailable)
-	f.RunResults["systemctl show -p UnitFileState -p ActiveState --value 'auditd'"] =
-		&api.CommandResult{Stdout: "enabled\nactive\n"}
+	f.RunResults["systemctl show -p UnitFileState -p ActiveState 'auditd'"] =
+		// REAL systemd output: ActiveState prints first, in key=value form.
+		// A fixture in the requested order hid an inverted capture for three
+		// releases — see servicedbus.ParseUnitState.
+		&api.CommandResult{Stdout: "ActiveState=active\nUnitFileState=enabled\n"}
 	pre, err := serviceenabled.New().Capture(context.Background(), f, api.Params{"name": "auditd"})
 	if err != nil {
 		t.Fatalf("fallback Capture: %v", err)

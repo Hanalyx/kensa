@@ -301,37 +301,19 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	for _, ref := range txnRefs {
 		result.Attempted++
 		res, err := svc.Rollback(ctx, hostCfg, ref.TxnID)
-		if err != nil {
+		outcome, entry := classifyRollbackOutcome(ref.RuleID, res, err)
+		switch outcome {
+		case rollbackFailed:
 			result.Failed++
-			result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
-				RuleID: ref.RuleID, Success: false, Error: err.Error(),
-			})
-			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s rollback failed: %v\n", ref.RuleID, err)
-			continue
-		}
-		// A PartialRestore (no error, but Success=false) means the host was NOT
-		// fully reverted — e.g. a staged audit rule the host loaded after a
-		// reboot cannot be unloaded until the next reboot. Count and surface it
-		// distinctly; folding it into "succeeded" would misreport an incomplete
-		// revert as clean.
-		if res != nil && res.PartialRestore {
+		case rollbackPartial:
 			result.Partial++
-			result.PerTxn = append(result.PerTxn, rollbackStartTxnEntry{
-				RuleID: ref.RuleID, Success: false, Partial: true, Warning: res.Detail,
-			})
-			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s partial restore: %s\n", ref.RuleID, res.Detail)
-			continue
+		case rollbackSucceeded:
+			result.Succeeded++
 		}
-		result.Succeeded++
-		entry := rollbackStartTxnEntry{RuleID: ref.RuleID, Success: true}
-		// Recording the rollback is best-effort: the host was reverted, but
-		// if the engine could not write the outcome to the transaction log it
-		// flags a WARNING in the result detail. Surface it so the operator
-		// knows the log may still show this transaction committed (rather than
-		// letting a silent "succeeded" hide the inconsistency).
-		if res != nil && strings.Contains(res.Detail, "WARNING") {
-			entry.Warning = res.Detail
-			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s: %s\n", ref.RuleID, res.Detail)
+		if entry.Error != "" {
+			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s rollback failed: %s\n", ref.RuleID, entry.Error)
+		} else if entry.Warning != "" {
+			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s: %s\n", ref.RuleID, entry.Warning)
 		}
 		result.PerTxn = append(result.PerTxn, entry)
 	}
@@ -373,4 +355,62 @@ func writeRollbackStartText(w io.Writer, r *rollbackStartResult) {
 			}
 		}
 	}
+}
+
+// rollbackOutcome is how one transaction's rollback is counted.
+type rollbackOutcome int
+
+const (
+	rollbackFailed rollbackOutcome = iota
+	rollbackPartial
+	rollbackSucceeded
+)
+
+// classifyRollbackOutcome decides how one transaction's rollback is counted and
+// what the operator is told.
+//
+// There are THREE ways a rollback can fail to revert the host and only two were
+// handled. A transport or engine error, and a PartialRestore, were both
+// counted. A handler that declines WITHOUT an error and without a partial —
+// returning Success=false having issued nothing — fell through to "succeeded".
+// The transposed-pre-state refusal has exactly that shape, and so does a
+// restoration command that exits non-zero.
+//
+// The cost of the gap is not just a wrong number: the session stays
+// rollback-able and nothing is recorded as refused, so an operator told
+// "succeeded: 1" for a host that was never reverted will re-run --start
+// indefinitely.
+//
+// It is a pure function so the classification can be tested without a live
+// store, a host, or a constructed Service.
+func classifyRollbackOutcome(ruleID string, res *api.RollbackResult, err error) (rollbackOutcome, rollbackStartTxnEntry) {
+	if err != nil {
+		return rollbackFailed, rollbackStartTxnEntry{RuleID: ruleID, Success: false, Error: err.Error()}
+	}
+	if res == nil {
+		return rollbackFailed, rollbackStartTxnEntry{
+			RuleID: ruleID, Success: false, Error: "rollback returned no result",
+		}
+	}
+	// A PartialRestore (no error, but Success=false) means the host was NOT
+	// fully reverted — e.g. a staged audit rule the host loaded after a reboot
+	// cannot be unloaded until the next reboot. Counted distinctly; folding it
+	// into "succeeded" would misreport an incomplete revert as clean.
+	if res.PartialRestore {
+		return rollbackPartial, rollbackStartTxnEntry{
+			RuleID: ruleID, Success: false, Partial: true, Warning: res.Detail,
+		}
+	}
+	if !res.Success {
+		return rollbackFailed, rollbackStartTxnEntry{RuleID: ruleID, Success: false, Error: res.Detail}
+	}
+	entry := rollbackStartTxnEntry{RuleID: ruleID, Success: true}
+	// Recording the rollback is best-effort: the host was reverted, but if the
+	// engine could not write the outcome to the transaction log it flags a
+	// WARNING in the detail. Surface it so the operator knows the log may still
+	// show this transaction committed.
+	if strings.Contains(res.Detail, "WARNING") {
+		entry.Warning = res.Detail
+	}
+	return rollbackSucceeded, entry
 }

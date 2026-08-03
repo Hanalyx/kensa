@@ -198,3 +198,37 @@ func TestHandler_SatisfiesCombinedHandler(t *testing.T) {
 	t.Log("// @ac AC-04")
 	var _ api.CombinedHandler = pammodulearg.New()
 }
+
+// TestDescribePreStateReadsBothCaptureLayouts: Rollback restores from either
+// the current whole-file layout (files_content) or the legacy one
+// (files_snapshot), so a describer that knew only the current one reported
+// "captured files not recorded" for a pre-state that is fully restorable.
+// That points an operator the worst possible direction at the moment they are
+// deciding whether to roll back.
+//
+// The legacy layout carries no existence map, so the summary must not claim a
+// present-count it does not have: "0 present" would assert that none of the
+// files were there.
+//
+// @spec handler-pam-module-arg
+// @ac AC-09
+func TestDescribePreStateReadsBothCaptureLayouts(t *testing.T) {
+	t.Log("// @spec handler-pam-module-arg")
+	t.Log("// @ac AC-09")
+
+	h := pammodulearg.New()
+	files := map[string]interface{}{"/etc/pam.d/system-auth": "x", "/etc/pam.d/password-auth": "y"}
+
+	legacy := h.DescribePreState(&api.PreState{Mechanism: "pam_module_arg", Data: map[string]interface{}{
+		"module": "pam_faillock.so", "files_snapshot": files,
+	}})
+	if strings.Contains(legacy, "not recorded") {
+		t.Errorf("legacy files_snapshot reported as unrecorded, but Rollback restores from it: %q", legacy)
+	}
+	if !strings.Contains(legacy, "2 PAM file(s)") {
+		t.Errorf("legacy layout did not count its files: %q", legacy)
+	}
+	if strings.Contains(legacy, "present") {
+		t.Errorf("claimed a present-count the legacy layout does not carry: %q", legacy)
+	}
+}

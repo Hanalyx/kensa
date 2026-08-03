@@ -15,6 +15,7 @@ import (
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 )
 
@@ -326,6 +327,35 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"selinux":      selinux,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured file as one line. The capture holds
+// the file's whole prior content under "content"; it is reported as a size
+// and never rendered, since this summary is shown inline where the raw
+// capture is not.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "file")
+	existed, known := prestate.Bool(pre.Data, "file_existed")
+	switch {
+	case !known:
+		return path + ", existence not captured"
+	case !existed:
+		return path + " absent"
+	}
+	return prestate.Join(path+" present", ownership(pre), prestate.Size(pre.Data, "content"))
+}
+
+// ownership renders the captured mode and owner:group, omitting whichever
+// the capture did not record.
+func ownership(pre *api.PreState) string {
+	mode := prestate.Field(pre.Data, "mode", "")
+	owner := prestate.Field(pre.Data, "owner", "")
+	group := prestate.Field(pre.Data, "group", "")
+	who := owner
+	if group != "" {
+		who = owner + ":" + group
+	}
+	return strings.TrimSpace(mode + " " + who)
 }
 
 // parseCaptureOutput parses the EXISTS block: stat line, SELinux line,

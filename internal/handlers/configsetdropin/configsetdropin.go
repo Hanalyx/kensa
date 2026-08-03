@@ -16,6 +16,7 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/prestate"
 	"github.com/Hanalyx/kensa/internal/shellcapture"
 	"github.com/Hanalyx/kensa/internal/valueguard"
 )
@@ -259,6 +260,36 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 			"created_dirs":  createdDirs,
 		},
 	}, nil
+}
+
+// DescribePreState renders the captured drop-in as one line. The drop-in's
+// prior content is reported as a size; "created_dirs" is a newline-separated
+// list of parent directories that do not yet exist, reported as a count so
+// rollback's cleanup scope is visible.
+func (h *Handler) DescribePreState(pre *api.PreState) string {
+	path := prestate.Field(pre.Data, "path", "drop-in")
+	var state string
+	switch existed, known := prestate.Bool(pre.Data, "file_existed"); {
+	case !known:
+		state = "existence not captured"
+	case existed:
+		state = prestate.Join("present", prestate.Size(pre.Data, "prior_content"))
+	default:
+		state = "absent"
+	}
+	return prestate.Join(path+" "+state, dirsToCreate(pre))
+}
+
+// dirsToCreate counts the parent directories the capture recorded as
+// missing. They are stored as one newline-separated string, not a list.
+func dirsToCreate(pre *api.PreState) string {
+	raw, _ := prestate.String(pre.Data, "created_dirs")
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	n := len(strings.Split(raw, "\n"))
+	return fmt.Sprintf("%d parent dir(s) to create", n)
 }
 
 // Rollback restores the prior drop-in file state per spec C-03.

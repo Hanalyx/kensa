@@ -60,6 +60,7 @@ implementations:
       key: "auth,authpriv.*"
       value: "/var/log/auth.log"
       restart: "rsyslog"
+      separator: " "
   - default: true
     check:
       method: command
@@ -77,3 +78,4 @@ implementations:
       key: "auth.*;authpriv.*;daemon.*"
       value: "/var/log/secure"
       restart: "rsyslog"
+      separator: " "

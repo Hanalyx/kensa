@@ -44,3 +44,4 @@ implementations:
       file: "00-kensa-umask.sh"
       key: "umask"
       value: "077"
+      separator: " "

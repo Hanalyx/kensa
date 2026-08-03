@@ -53,3 +53,4 @@ implementations:
       file: "00-kensa-maxlogins.conf"
       key: "* hard maxlogins"
       value: "10"
+      separator: " "

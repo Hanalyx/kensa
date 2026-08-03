@@ -16,7 +16,163 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **Eight rules wrote drop-in files their target format cannot parse.** A rule using
+  `config_set_dropin` joins its key and value with `=` unless it says otherwise, which is right
+  for systemd and pwquality drop-ins but wrong for sudoers, `limits.d`, `profile.d`, `rsyslog.d`
+  and `chrony.d`, which separate fields with a space. `sudo-use-pty` therefore wrote
+  `Defaults=use_pty` into `/etc/sudoers.d/`, which `visudo -c` rejects; a malformed file there
+  can stop `sudo` working for every user on the host.
+
+  None of the eight could ever have succeeded: each rule's own check looks for the
+  space-separated form, so every run applied the change, failed its post-apply check, and rolled
+  back. No host was left broken, because that is what the validate-then-rollback cycle is for,
+  but the rules never took effect either. `shell-profile-umask` is the clearest case: `umask=077`
+  in a shell profile sets a variable named `umask` and leaves the umask at its previous value,
+  measured on RHEL 9.6 as `0022` unchanged.
+
+  All eight now specify a space separator. Verified on a live host: the sudoers rules write
+  `Defaults use_pty` and `Defaults logfile="/var/log/sudo.log"`, and `visudo -c` parses the whole
+  tree.
+### Fixed
+- **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
+  transaction now restores the state the host was actually in.** Earlier
+  releases recorded a unit's enable state and running state under each other's
+  keys whenever capture ran over the shell path, because `systemctl show`
+  returns those two properties in its own order rather than the requested one.
+  A rollback built from such a record could act on the wrong layer or issue
+  nothing at all while reporting success.
+
+  In the shipped rule corpus this reaches 25 `service_masked` rules and 14
+  `service_enabled` rules, covering units such as `avahi-daemon`, `cups`,
+  `dnsmasq` and `dovecot`. There are no `service_disabled` rules today, so that
+  mechanism is affected only for callers driving it directly. The observed
+  outcome was under-restoration: a unit left stopped and disabled that the
+  rollback reported as restored, rather than a service being started.
+
+- **`service_disabled` rollback no longer starts a unit that was stopped.** A
+  unit recorded as enabled but not running came back running after a rollback,
+  because both layers were collapsed onto a single `enable --now`. The enable
+  and active layers are now restored independently. No shipped rule uses this
+  mechanism; it affects callers using it directly.
+
+  **What you need to do.** Many transactions recorded before this release hold
+  the two values transposed and cannot be rolled back safely. Kensa refuses a
+  record it can PROVE is transposed, meaning each value is unmistakably the
+  other field's, with a failed rollback result, and issues no command to the
+  host. That proof is not always available: when one of the two values is
+  empty, which systemd reports for a unit it does not know, the record cannot
+  be distinguished from a valid one and is acted on. Re-run `kensa check`
+  against the host to establish its current state rather than relying on the
+  refusal. This affects transactions whose capture used the SSH transport, and
+  agent-mode transactions on hosts where the privileged helper could not be
+  invoked. The other 21 capturable mechanisms are unaffected.
+
+- **`remediate` aborted before applying anything on hosts with `at` installed,
+  in direct-SSH mode.** Arming the deadman timer emitted `at now + <N>
+  seconds`, and `at` accepts no unit smaller than a minute on any
+  implementation, so the arm failed and the engine refused to apply. The
+  failure was safe, the host was never touched, but the affected remediations
+  could not run. Agent mode arms through a different path and was unaffected.
+
+  Kensa also no longer counts an `at` job that cannot run. `at` writes to a
+  spool and the `atd` daemon executes it; with `atd` stopped, `at` still exits
+  zero, still prints a job number, and `atq` still lists the job, so every
+  signal said the safety net was armed while nothing would ever fire. This is
+  reachable on an ordinary host: installing the `at` package enables `atd`
+  without starting it, so a freshly installed machine is in that state until it
+  reboots. The queued job is now removed and that scheduler is treated as
+  having refused. Where another scheduler is available Kensa uses it and the
+  change proceeds; only when every scheduler on the host refuses does Kensa
+  decline to apply.
+
+- **The deadman could arm a timer over a rollback script that did nothing.**
+  When a transaction produced no rollback commands, Kensa built an empty
+  script, scheduled it, and reported a safety net over it. Kensa now schedules
+  nothing in that case: no timer, no script on disk. The change still applies,
+  because an empty rollback means there is nothing to undo -- several
+  mechanisms report success with no work when the system already matches the
+  captured state. A capture whose values are wrong is a different problem and
+  is refused at capture time, above.
+
+- **The deadman timer did not hold the window it promised.** Four measured
+  faults, all on the direct-SSH path:
+
+  - A relative `systemd-run --on-active` countdown is reset to a full fresh
+    window by any `systemctl daemon-reload`, and `systemctl enable`, `disable`
+    and `mask` each perform one. The timer was pushed back by the very change
+    it was guarding, without bound: a 120-second window was measured firing at
+    225 seconds, and on another host not firing at all. Kensa now schedules an
+    absolute deadline computed on the target host.
+  - systemd's default timer accuracy is one minute, so the window could
+    overrun by that much. Kensa now pins it to one second.
+  - The rollback script was staged in `/tmp`, which Debian-family hosts clear
+    at boot before `atd` starts, so an `at` job could survive a reboot and find
+    its script deleted. It is staged under `/var/lib/kensa` now.
+  - Where both schedulers are armed, both could run the rollback concurrently.
+    The script now takes an atomic lock and the losing copy exits without
+    acting.
+
+  Cancelling the timer now removes every job that was armed and reports a
+  failure if any survives, distinguishes a timer that had already fired from
+  one that was cancelled, and never stops the unit that would be running the
+  rollback.
+
+  **Timing, for Go callers embedding the engine:** the deadman window is not
+  operator-configurable, and the default is unchanged at 120 seconds. On the
+  `at` path that default fires between 121 and 180 seconds, because `at`
+  accepts no unit below a minute and truncates to the minute boundary before
+  adding the offset. A caller passing a non-whole-minute window can see up to
+  119 seconds more than requested. Firing late is the safe direction: a
+  deadline that fired early would revert a change still being applied.
+
+
+- **`api.Plan` documented three fields it never fills.** `HostID`,
+  `Capabilities` and `Validators` carry their zero value for every rule on
+  every host, while their doc comments promised the target host, the detected
+  capability set, and the post-apply validators. A consumer could not tell "no
+  validators for this rule" from "not implemented", and at least one plan
+  preview rendered the empty field as a statement that nothing verifies the
+  fix.
+
+  The three comments now say the fields are reserved, and `EstimatedDuration`
+  now says what it is: two seconds per apply step, not a measurement. No field
+  was added or removed and no value changed, so nothing recompiles differently.
+
+  **If you render `Plan`:** treat these three as unavailable rather than empty,
+  and read capabilities from `ScanResult`. An empty `Validators` does not mean
+  the change goes unverified; the validate phase re-runs the rule's own check
+  either way.
+
 ### Added
+- **`kensa.DescribePreState(pre)` renders a captured pre-state as one
+  operator-readable line** (`pkg/kensa`), so a consumer can show what a
+  transaction found on the host before it changed anything:
+  `PASS_MAX_DAYS 99999 in /etc/login.defs`, `auditd, enabled, active`,
+  `/etc/shadow, 0000 root:root`. `api.PreState.Data` is mechanism-specific
+  with no schema, so this was previously undisplayable without a decoder per
+  capturable mechanism, which would break silently as layouts change and as
+  values widen across the agent wire. The line now comes from the handler
+  that captured the state: every one of the 24 capturable mechanisms
+  implements it, guarded by a test that fails if a new capturable mechanism
+  ships without one. Works on a pre-state from a `TransactionResult`, a
+  `TransactionRecord` read back out of the log, or a `Plan` preview, and is
+  derived on read, so it applies to state captured by earlier versions of
+  Kensa. `api/` is unchanged: no new field, no wire change, and no effect on
+  evidence signatures. The rendered text is a projection, not a contract:
+  it carries no stability guarantee, and `PreState.Data` remains the
+  authoritative capture. A summary never contains a captured file body:
+  credential-named fields redact and multi-line or long values render as a
+  size marker.
+
+- **`TransactionResult.AlreadyCompliant`** distinguishes a rule that was
+  already in the desired state from one Kensa actually changed. Both report a
+  committed transaction, so a consumer reading the status alone could not tell
+  them apart: it would report the rule fixed and offer to roll back a change
+  that never happened, against captured state describing no change. Kensa's own
+  text output had been deriving the same fact by matching a human-readable
+  detail string, which is the workaround this field removes the need for.
+
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the
   CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the
