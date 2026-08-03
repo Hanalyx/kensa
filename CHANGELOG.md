@@ -50,6 +50,65 @@ any pair).
   agent-mode transactions on hosts where the privileged helper could not be
   invoked. The other 21 capturable mechanisms are unaffected.
 
+- **`remediate` aborted before applying anything on hosts with `at` installed,
+  in direct-SSH mode.** Arming the deadman timer emitted `at now + <N>
+  seconds`, and `at` accepts no unit smaller than a minute on any
+  implementation, so the arm failed and the engine refused to apply. The
+  failure was safe, the host was never touched, but the affected remediations
+  could not run. Agent mode arms through a different path and was unaffected.
+
+  Kensa also no longer counts an `at` job that cannot run. `at` writes to a
+  spool and the `atd` daemon executes it; with `atd` stopped, `at` still exits
+  zero, still prints a job number, and `atq` still lists the job, so every
+  signal said the safety net was armed while nothing would ever fire. This is
+  reachable on an ordinary host: installing the `at` package enables `atd`
+  without starting it, so a freshly installed machine is in that state until it
+  reboots. The queued job is now removed and that scheduler is treated as
+  having refused. Where another scheduler is available Kensa uses it and the
+  change proceeds; only when every scheduler on the host refuses does Kensa
+  decline to apply.
+
+- **The deadman could arm a timer over a rollback script that did nothing.**
+  When a transaction produced no rollback commands, Kensa built an empty
+  script, scheduled it, and reported a safety net over it. Kensa now schedules
+  nothing in that case: no timer, no script on disk. The change still applies,
+  because an empty rollback means there is nothing to undo -- several
+  mechanisms report success with no work when the system already matches the
+  captured state. A capture whose values are wrong is a different problem and
+  is refused at capture time, above.
+
+- **The deadman timer did not hold the window it promised.** Four measured
+  faults, all on the direct-SSH path:
+
+  - A relative `systemd-run --on-active` countdown is reset to a full fresh
+    window by any `systemctl daemon-reload`, and `systemctl enable`, `disable`
+    and `mask` each perform one. The timer was pushed back by the very change
+    it was guarding, without bound: a 120-second window was measured firing at
+    225 seconds, and on another host not firing at all. Kensa now schedules an
+    absolute deadline computed on the target host.
+  - systemd's default timer accuracy is one minute, so the window could
+    overrun by that much. Kensa now pins it to one second.
+  - The rollback script was staged in `/tmp`, which Debian-family hosts clear
+    at boot before `atd` starts, so an `at` job could survive a reboot and find
+    its script deleted. It is staged under `/var/lib/kensa` now.
+  - Where both schedulers are armed, both could run the rollback concurrently.
+    The script now takes an atomic lock and the losing copy exits without
+    acting.
+
+  Cancelling the timer now removes every job that was armed and reports a
+  failure if any survives, distinguishes a timer that had already fired from
+  one that was cancelled, and never stops the unit that would be running the
+  rollback.
+
+  **Timing, for Go callers embedding the engine:** the deadman window is not
+  operator-configurable, and the default is unchanged at 120 seconds. On the
+  `at` path that default fires between 121 and 180 seconds, because `at`
+  accepts no unit below a minute and truncates to the minute boundary before
+  adding the offset. A caller passing a non-whole-minute window can see up to
+  119 seconds more than requested. Firing late is the safe direction: a
+  deadline that fired early would revert a change still being applied.
+
+
 - **`api.Plan` documented three fields it never fills.** `HostID`,
   `Capabilities` and `Validators` carry their zero value for every rule on
   every host, while their doc comments promised the target host, the detected
