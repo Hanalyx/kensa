@@ -41,3 +41,4 @@ implementations:
       file: "00-kensa-logfile"
       key: "Defaults"
       value: "logfile=\"/var/log/sudo.log\""
+      separator: " "

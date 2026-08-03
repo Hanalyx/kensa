@@ -41,3 +41,4 @@ implementations:
       file: "00-kensa-use-pty"
       key: "Defaults"
       value: "use_pty"
+      separator: " "

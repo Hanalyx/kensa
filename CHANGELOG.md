@@ -17,6 +17,24 @@ any pair).
 ## Unreleased
 
 ### Fixed
+- **Eight rules wrote drop-in files their target format cannot parse.** A rule using
+  `config_set_dropin` joins its key and value with `=` unless it says otherwise, which is right
+  for systemd and pwquality drop-ins but wrong for sudoers, `limits.d`, `profile.d`, `rsyslog.d`
+  and `chrony.d`, which separate fields with a space. `sudo-use-pty` therefore wrote
+  `Defaults=use_pty` into `/etc/sudoers.d/`, which `visudo -c` rejects; a malformed file there
+  can stop `sudo` working for every user on the host.
+
+  None of the eight could ever have succeeded: each rule's own check looks for the
+  space-separated form, so every run applied the change, failed its post-apply check, and rolled
+  back. No host was left broken, because that is what the validate-then-rollback cycle is for,
+  but the rules never took effect either. `shell-profile-umask` is the clearest case: `umask=077`
+  in a shell profile sets a variable named `umask` and leaves the umask at its previous value,
+  measured on RHEL 9.6 as `0022` unchanged.
+
+  All eight now specify a space separator. Verified on a live host: the sudoers rules write
+  `Defaults use_pty` and `Defaults logfile="/var/log/sudo.log"`, and `visudo -c` parses the whole
+  tree.
+### Fixed
 - **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
   transaction now restores the state the host was actually in.** Earlier
   releases recorded a unit's enable state and running state under each other's

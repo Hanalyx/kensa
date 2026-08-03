@@ -41,3 +41,4 @@ implementations:
       key: "*.*"
       value: "@@{{ rsyslog_remote_server }}"
       restart: "rsyslog"
+      separator: " "

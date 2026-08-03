@@ -35,3 +35,4 @@ implementations:
       key: "pool"
       value: "{{ chrony_ntp_pool }}"
       restart: chronyd
+      separator: " "
