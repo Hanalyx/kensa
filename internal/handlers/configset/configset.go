@@ -362,9 +362,11 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 // DescribePreState renders the captured setting as one line: the prior
 // config line when the key was set, and which file was searched when it was
 // not. The prior line is the value an operator is actually asking for
-// ("PASS_MAX_DAYS 99999"), so it is rendered — through [prestate.Text],
-// which elides it if a rule ever points this mechanism at something
-// file-shaped.
+// ("PASS_MAX_DAYS 99999"), so it is rendered — through [prestate.Line], which
+// elides anything file-shaped AND redacts a value whose adjacent key names a
+// credential. The latter is not optional here: this mechanism renders an
+// arbitrary line from a host config file, and a review of this code on a fleet
+// host produced "BindPassword secret-hunter2-abc" from exactly this path.
 func (h *Handler) DescribePreState(pre *api.PreState) string {
 	file := prestate.Field(pre.Data, "file", "")
 	key := prestate.Field(pre.Data, "key", "key")
@@ -375,7 +377,7 @@ func (h *Handler) DescribePreState(pre *api.PreState) string {
 	if !existed {
 		return prestate.Join(key+" not set", inFile(file))
 	}
-	line := prestate.Field(pre.Data, "prior_line", "")
+	line := prestate.LineField(pre.Data, "prior_line", "")
 	if line == "" {
 		return prestate.Join(key+" set (prior line not captured)", inFile(file))
 	}

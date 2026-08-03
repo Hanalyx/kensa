@@ -212,7 +212,7 @@ var captures = map[string][]capture{
 // summary on read instead of storing one on api.PreState.
 //
 // PreState sits inside EvidenceEnvelope.PreStateBundle, and the evidence
-// signer canonicalizes by marshaling the struct to JSON. api.PreState
+// signer canonicalizes by marshaling the struct to JSON. The api.PreState type
 // carries no json tags, so a new exported field appears in the canonical
 // bytes under its Go name — changing the bytes for every envelope
 // re-canonicalized at verification time, including envelopes signed before

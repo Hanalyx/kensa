@@ -337,7 +337,9 @@ func (h *Handler) DescribePreState(pre *api.PreState) string {
 	case strings.TrimSpace(line) == "":
 		return mount + ", no fstab entry"
 	}
-	return prestate.Join(mount, prestate.Text(strings.TrimSpace(line)))
+	// Line, not Text: an fstab entry carries mount options, and cifs entries
+	// put `password=` and `credentials=` among them.
+	return prestate.Join(mount, prestate.Line(line))
 }
 
 // Rollback restores the prior fstab line and remounts.

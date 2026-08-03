@@ -75,8 +75,31 @@ spec:
           description: |
               No describer and no fallback may emit a captured file body, at
               any length. Multi-line or long string values MUST render as a
-              size marker, and field names denoting credentials MUST redact
-              by name.
+              size marker.
+
+              Credential elision has two mechanisms, because one is not enough
+              and stating only the first overstated the guarantee once already.
+
+              By DATA FIELD NAME, in the generic fallback and the shared value
+              renderer: a value under a credential-denoting key redacts. This
+              is the evidence sanitizer's rule, matching a name exactly or on a
+              `_<name>` suffix.
+
+              By KEY INSIDE A CAPTURED LINE, for the describers that render one
+              (config_set, mount_option_set). The field-name rule cannot help
+              there: the line arrives under `prior_line`, which is not
+              sensitive, while the credential is inside the value and named by
+              the host's own config key. A live review produced
+              `BindPassword secret-hunter2-abc` from that path. Matching is on
+              the FINAL component of the key, so `BindPassword` and
+              `user_password` redact while `PASS_MAX_DAYS` and
+              `password_policy_required` survive — a bare substring test
+              destroys the one line this feature exists to render.
+
+              This is elision by construction, NOT a secret scanner. A
+              credential in an unexpected shape can still reach a summary, and
+              the public documentation MUST say so rather than promise
+              otherwise.
           type: security
           enforcement: error
         - id: C-02
@@ -133,6 +156,14 @@ spec:
               the redaction placeholder, in the generic fallback and in the
               shared value renderer. Locked by TestValueRedactsByFieldName
               and TestGenericRedactsSensitiveFields.
+
+              A credential named INSIDE a captured configuration line also
+              redacts, and a setting whose key merely contains a credential
+              word does not. Both directions are locked by
+              TestLineRedactsCredentialsInsideCapturedLines, which asserts the
+              live-leaked `BindPassword` case and the `PASS_MAX_DAYS` case in
+              the same table, because a fix for one that breaks the other is
+              the failure mode.
           references_constraints: [C-01]
           priority: high
         - id: AC-05

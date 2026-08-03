@@ -36,10 +36,23 @@ import (
 // # Disclosure
 //
 // Captured pre-state is kept verbatim so rollback can restore it, and it is
-// not scrubbed. A summary is shown inline where raw Data usually is not, so
-// it is elided by construction: field names denoting credentials are
-// redacted, and multi-line or long values are replaced by a size marker. No
-// describer and no fallback emits a captured file body, at any length.
+// not scrubbed. A summary is shown inline where raw Data usually is not, so it
+// is elided by construction. What that does and does not guarantee, stated
+// precisely because an earlier version of this comment overstated it:
+//
+//   - No describer and no fallback emits a captured FILE BODY, at any length.
+//     Values are rendered through helpers that replace anything multi-line or
+//     over the inline limit with a size marker.
+//   - Data field names denoting credentials are redacted in the generic
+//     fallback, by the same name-based rule the evidence sanitizer uses.
+//   - Configuration LINES rendered by config_set and mount_option_set are
+//     additionally scanned for a credential-bearing key inside the line, since
+//     the sensitive name there belongs to the host's config file rather than
+//     to the Data key holding it.
+//
+// It is not a secret scanner. A credential in an unexpected shape, or under a
+// key that names nothing, can still reach a summary. Treat the output as
+// operator-visible text.
 //
 // A non-capturable step returns a fixed marker rather than an empty string,
 // so a caller can render the distinction between "nothing was captured

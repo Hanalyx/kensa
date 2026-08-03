@@ -250,3 +250,89 @@ func TestByteSizeUnits(t *testing.T) {
 		}
 	}
 }
+
+// TestLineRedactsCredentialsInsideCapturedLines is the regression for a live
+// credential leak: an adversarial review of this package running against a
+// fleet host rendered
+//
+//	BindPassword secret-hunter2-abc, in /tmp/kensa-verify/scratch.conf
+//
+// The Data key was `prior_line`, which is not sensitive, so neither the
+// evidence sanitizer nor length elision touched it — the credential was inside
+// the value, named by the config file's own key.
+//
+// The two cases that must BOTH hold are the point. Redacting the credential is
+// easy on its own; a bare substring match on "pass" does it, and also destroys
+// PASS_MAX_DAYS, which is the single line this feature was requested to render.
+//
+// @spec pkg-prestate-describe
+// @ac AC-01
+func TestLineRedactsCredentialsInsideCapturedLines(t *testing.T) {
+	t.Log("// @spec pkg-prestate-describe")
+	t.Log("// @ac AC-01")
+
+	// Every credential below is fabricated for this table. They are the point
+	// of the test: it asserts they do NOT survive rendering.
+	for _, tc := range []struct {
+		name, in, want string
+	}{
+		{"the live leak", "BindPassword secret-hunter2-abc", "BindPassword <redacted>"}, // pragma: allowlist secret
+		{"the headline example survives", "PASS_MAX_DAYS 99999", "PASS_MAX_DAYS 99999"},
+		{"tab-separated headline example", "PASS_MAX_DAYS\t99999", "PASS_MAX_DAYS 99999"},
+		{"credential word not final: a policy flag", "password_policy_required yes", "password_policy_required yes"},
+		{"suffix form", "user_password hunter2", "user_password <redacted>"},
+		{"camelCase", "apiKey abc123", "apiKey <redacted>"},
+		{"short form", "rootpw hunter2", "rootpw <redacted>"},
+		{"k=v", "auth_token=abc123", "auth_token=<redacted>"},
+		{"fstab cifs: only the secret option",
+			"//srv/share /mnt cifs username=u,password=SECRET,vers=3.0 0 0", // pragma: allowlist secret
+			"//srv/share /mnt cifs username=u,password=<redacted>,vers=3.0 0 0"},
+		{"ordinary fstab untouched", "/dev/sda1 / ext4 defaults,nosuid 0 0", "/dev/sda1 / ext4 defaults,nosuid 0 0"},
+		{"sysctl tuple untouched", "net.ipv4.tcp_rmem 4096 131072 33554432", "net.ipv4.tcp_rmem 4096 131072 33554432"},
+	} {
+		if got := Line(tc.in); got != tc.want {
+			t.Errorf("%s:\n  Line(%q)\n   = %q\n  want %q", tc.name, tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestSanitizeKeepsFieldSeparators: TAB is a field separator, not a corrupted
+// byte. Mapping it to '.' rendered /etc/login.defs as "PASS_MAX_DAYS.99999",
+// an fstab swap line as "/swap.img.none.swap.sw.0.0", and net.ipv4.tcp_rmem as
+// "4096.131072.33554432", which reads as a dotted quad.
+//
+// @spec pkg-prestate-describe
+// @ac AC-08
+func TestSanitizeKeepsFieldSeparators(t *testing.T) {
+	t.Log("// @spec pkg-prestate-describe")
+	t.Log("// @ac AC-08")
+
+	if got := Text("PASS_MAX_DAYS\t99999"); got != "PASS_MAX_DAYS 99999" {
+		t.Errorf("tab should render as a space, got %q", got)
+	}
+	if got := Text("has\x00a\x1bcontrol"); got != "has.a.control" {
+		t.Errorf("genuine control bytes should still render as '.', got %q", got)
+	}
+}
+
+// TestGenericSanitizesKeysAndMechanism: the sweep for "everything reaching the
+// rendered line is sanitized" originally covered values only. Data keys and the
+// mechanism string are concatenated in raw, and both come from a stored
+// pre-state that the package doc promises to tolerate when foreign, corrupted
+// or written by an older Kensa. An escape sequence there lands in a UI row, and
+// a newline breaks the one-line invariant the consumer's phase list assumes.
+//
+// @spec pkg-prestate-describe
+// @ac AC-08
+func TestGenericSanitizesKeysAndMechanism(t *testing.T) {
+	t.Log("// @spec pkg-prestate-describe")
+	t.Log("// @ac AC-08")
+
+	got := Generic(&api.PreState{
+		Mechanism: "evil\x1b[31mmech\n",
+		Data:      map[string]interface{}{"bad\nkey\x1b[0m": "v"},
+	})
+	if strings.ContainsAny(got, "\n\r\x1b") {
+		t.Errorf("control characters or newlines survived into the rendered line: %q", got)
+	}
+}

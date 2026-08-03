@@ -395,18 +395,36 @@ func (h *Handler) Capture(ctx context.Context, transport api.Transport, params a
 // DescribePreState renders the module and how many PAM files were captured.
 // The captured contents are whole authentication stacks, keyed by path, and
 // are never rendered — only counted.
+//
+// Both capture layouts are read. Rollback restores from either (see
+// buildRestore: whole-file `files_content`, or the legacy `files_snapshot`),
+// so a describer that knew only the current one reported "captured files not
+// recorded" for a pre-state that is in fact fully restorable. That error points
+// the worst possible direction — it tells an operator nothing can be recovered
+// at the moment they are deciding whether to roll back — and it contradicts
+// this package's own claim to render state captured by earlier versions.
 func (h *Handler) DescribePreState(pre *api.PreState) string {
 	module := prestate.Field(pre.Data, "module", "PAM module")
 	total, ok := prestate.Count(pre.Data, "files_content")
 	if !ok {
+		// Legacy layout: same fact, different key.
+		total, ok = prestate.Count(pre.Data, "files_snapshot")
+	}
+	if !ok {
 		return module + ", captured files not recorded"
 	}
+	existed, haveExisted := pre.Data["files_existed"].(map[string]interface{})
+	if !haveExisted {
+		// The legacy layout records no existence map. Saying "0 present" here
+		// would assert that none of the files were there, which is a fact this
+		// pre-state does not carry — the same overstatement as reporting the
+		// capture unrecorded. Report only what was captured.
+		return module + fmt.Sprintf(" across %d PAM file(s)", total)
+	}
 	present := 0
-	if existed, isMap := pre.Data["files_existed"].(map[string]interface{}); isMap {
-		for _, v := range existed {
-			if b, isBool := v.(bool); isBool && b {
-				present++
-			}
+	for _, v := range existed {
+		if b, isBool := v.(bool); isBool && b {
+			present++
 		}
 	}
 	return module + fmt.Sprintf(" across %d PAM file(s), %d present", total, present)

@@ -40,7 +40,7 @@ any pair).
 ### Added
 - **`kensa.DescribePreState(pre)` renders a captured pre-state as one
   operator-readable line** (`pkg/kensa`), so a consumer can show what a
-  transaction found on the host before it changed anything —
+  transaction found on the host before it changed anything:
   `PASS_MAX_DAYS 99999 in /etc/login.defs`, `auditd, enabled, active`,
   `/etc/shadow, 0000 root:root`. `api.PreState.Data` is mechanism-specific
   with no schema, so this was previously undisplayable without a decoder per
@@ -52,7 +52,7 @@ any pair).
   `TransactionRecord` read back out of the log, or a `Plan` preview, and is
   derived on read, so it applies to state captured by earlier versions of
   Kensa. `api/` is unchanged: no new field, no wire change, and no effect on
-  evidence signatures. The rendered text is a projection, not a contract —
+  evidence signatures. The rendered text is a projection, not a contract:
   it carries no stability guarantee, and `PreState.Data` remains the
   authoritative capture. A summary never contains a captured file body:
   credential-named fields redact and multi-line or long values render as a

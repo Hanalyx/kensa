@@ -113,10 +113,14 @@ Two properties to build on:
   Kensa version alongside, so a corrected description can be re-run over the
   rows it affects.
 - **A summary never contains a captured file body.** Captured state is kept
-  verbatim so rollback can restore it, and is not scrubbed — but a summary
-  is shown inline where the raw capture usually is not. Values under field
-  names denoting credentials are redacted, and multi-line or long values are
-  replaced by a size marker (`/etc/pam.d/sshd, 1.4 KiB`). Render
+  verbatim so rollback can restore it, and is not scrubbed, but a summary
+  is shown inline where the raw capture usually is not. Multi-line or long
+  values are replaced by a size marker (`/etc/pam.d/sshd, 1.4 KiB`). Values
+  under field names denoting credentials are redacted, and configuration
+  lines are additionally scanned for a credential-bearing key inside the
+  line. This is elision by construction, not a secret scanner: a credential
+  in an unexpected shape can still reach a summary, so treat the output as
+  operator-visible text. Render
   `PreState.Data` itself only where you would show the full capture.
 
 End-to-end, the whole consumer chain is public:

@@ -199,6 +199,142 @@ func ByteSize(n int) string {
 	}
 }
 
+// LineField is [Field] for a value that is a configuration line: it returns
+// fallback when the key is absent or blank, and otherwise renders through
+// [Line] rather than [Text], so credential-bearing values are redacted.
+func LineField(d map[string]interface{}, key, fallback string) string {
+	s, ok := String(d, key)
+	if !ok || strings.TrimSpace(s) == "" {
+		return fallback
+	}
+	return Line(s)
+}
+
+// Line renders a captured configuration line for display, redacting any value
+// whose adjacent key names a credential.
+//
+// This exists because [Value] cannot help here and neither can the evidence
+// sanitizer it delegates to. A captured line arrives under a Data key like
+// `prior_line`, which is not itself sensitive; the credential is INSIDE the
+// value, named by the config file's own key. Live example from a fleet host:
+//
+//	prior_line = "BindPassword secret-hunter2-abc"
+//
+// [redact.IsSensitive] does not catch that, and it is not meant to. Its doc is
+// explicit: it matches a field name exactly or on a `_<name>` suffix but never
+// on a prefix, so that a flag like `password_policy_required` survives, and it
+// "deliberately does NOT touch ... free-text fields, where a name gives no
+// signal". `BindPassword` matches none of its rules.
+//
+// So the matching here is deliberately WIDER than the evidence sanitizer's,
+// because the trade-off is inverted. redact protects data that must survive
+// verbatim for rollback to work, where a false positive destroys a restore. A
+// display summary is thrown away after it is read, so a false positive costs
+// one operator one glance at the raw capture, while a false negative puts a
+// credential in a UI row and a persisted database column. Over-redacting is
+// the cheap error; this errs that way on purpose.
+//
+// Both line shapes are handled: `Key Value` (config files) and `k=v` inside a
+// comma-separated field (fstab mount options, where cifs carries
+// `password=` and `credentials=`).
+func Line(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return Empty
+	}
+	fields := strings.Fields(s)
+
+	// `Key Value` — a config-file line whose first token names the setting.
+	if len(fields) >= 2 && sensitiveToken(fields[0]) {
+		return Text(fields[0] + " " + redact.Placeholder)
+	}
+
+	for i, f := range fields {
+		if !strings.Contains(f, "=") {
+			continue
+		}
+		// A field may hold several comma-separated k=v options (fstab).
+		opts := strings.Split(f, ",")
+		for j, opt := range opts {
+			k, _, found := strings.Cut(opt, "=")
+			if found && sensitiveToken(k) {
+				opts[j] = k + "=" + redact.Placeholder
+			}
+		}
+		fields[i] = strings.Join(opts, ",")
+	}
+	return Text(strings.Join(fields, " "))
+}
+
+// credentialWords name a credential when they appear as the FINAL component of
+// a config key. Final-component matching extends [redact.IsSensitive]'s
+// `_<name>` suffix rule to camelCase and to a few more words, and it is what
+// keeps the widening safe:
+//
+//	BindPassword             -> Bind|Password        -> redacted
+//	user_password            -> user|password        -> redacted
+//	PASS_MAX_DAYS            -> PASS|MAX|DAYS        -> kept  (the headline case)
+//	password_policy_required -> password|…|required  -> kept  (a policy flag)
+//
+// A bare substring test fails both of the last two: "pass" is inside
+// PASS_MAX_DAYS, so the one line this whole feature exists to render would come
+// back "<redacted>".
+var credentialWords = map[string]struct{}{
+	"password": {}, "passwd": {}, "secret": {}, "token": {},
+	"credential": {}, "credentials": {}, "apikey": {}, "privkey": {},
+	"jwt": {}, "passphrase": {},
+}
+
+// sensitiveToken reports whether a key from inside a captured line names a
+// credential. See [Line] for why this is wider than the evidence sanitizer.
+func sensitiveToken(k string) bool {
+	k = strings.Trim(strings.TrimSpace(k), "\"'#")
+	if k == "" {
+		return false
+	}
+	if redact.IsSensitive(k) {
+		return true
+	}
+	lower := strings.ToLower(k)
+	// Short forms that are whole tokens rather than components: rootpw, bindpw.
+	if strings.HasSuffix(lower, "pw") && len(lower) > 2 {
+		return true
+	}
+	parts := splitComponents(k)
+	if len(parts) == 0 {
+		return false
+	}
+	_, ok := credentialWords[strings.ToLower(parts[len(parts)-1])]
+	return ok
+}
+
+// splitComponents breaks a key into its words on delimiters and camelCase
+// boundaries: "BindPassword" -> [Bind Password], "auth_token" -> [auth token].
+func splitComponents(k string) []string {
+	var out []string
+	cur := strings.Builder{}
+	runes := []rune(k)
+	for i, r := range runes {
+		if r == '_' || r == '-' || r == '.' || r == ' ' {
+			if cur.Len() > 0 {
+				out = append(out, cur.String())
+				cur.Reset()
+			}
+			continue
+		}
+		// camelCase boundary: lower/digit followed by upper.
+		if i > 0 && unicode.IsUpper(r) && !unicode.IsUpper(runes[i-1]) && cur.Len() > 0 {
+			out = append(out, cur.String())
+			cur.Reset()
+		}
+		cur.WriteRune(r)
+	}
+	if cur.Len() > 0 {
+		out = append(out, cur.String())
+	}
+	return out
+}
+
 // Value renders one captured value for display, redacting by field name and
 // eliding by shape. It is the only rendering path a describer or the
 // fallback should use for a value it did not itself constrain.
@@ -267,15 +403,39 @@ func Text(s string) string {
 // a remote host and lands in a UI row and a log line; escape sequences in
 // that path are somebody else's vulnerability.
 func sanitize(s string) string {
-	if !strings.ContainsFunc(s, isControl) {
+	if !strings.ContainsFunc(s, needsSanitizing) {
 		return s
 	}
 	return strings.Map(func(r rune) rune {
+		if isHorizontalSpace(r) {
+			// Horizontal whitespace becomes a SPACE, not the '.' used for
+			// genuine control bytes. Mapping TAB to '.' corrupted the very
+			// lines this package exists to render: /etc/login.defs is
+			// tab-separated, so the feature's own headline example came out as
+			// "PASS_MAX_DAYS.99999"; an fstab line as
+			// "/swap.img.none.swap.sw.0.0"; and net.ipv4.tcp_rmem as
+			// "4096.131072.33554432", which reads as a dotted quad. A tab is
+			// not a corrupted byte, it is a field separator, and the operator
+			// needs to see it as one.
+			return ' '
+		}
 		if isControl(r) {
 			return '.'
 		}
 		return r
 	}, s)
+}
+
+// isHorizontalSpace reports whether r is whitespace that separates fields on a
+// single line. Vertical whitespace is deliberately excluded: a value
+// containing it is multi-line and [Text] elides it before sanitizing ever runs.
+func isHorizontalSpace(r rune) bool {
+	return r == '\t' || r == '\v' || r == '\f'
+}
+
+// needsSanitizing reports whether s contains anything sanitize would rewrite.
+func needsSanitizing(r rune) bool {
+	return isHorizontalSpace(r) || isControl(r)
 }
 
 func isControl(r rune) bool {
@@ -331,7 +491,12 @@ func Generic(pre *api.PreState) string {
 	}
 	parts := make([]string, 0, len(shown)+1)
 	for _, k := range shown {
-		parts = append(parts, k+"="+Value(k, pre.Data[k]))
+		// The KEY is sanitized too, not only the value. Data keys come off a
+		// foreign, corrupted or older-Kensa pre-state -- exactly the input the
+		// package doc promises to tolerate -- so a key carrying an escape
+		// sequence or a newline would break the one-line invariant that the
+		// consumer's phase list depends on, and land an ESC in a UI row.
+		parts = append(parts, sanitize(k)+"="+Value(k, pre.Data[k]))
 	}
 	if omitted > 0 {
 		parts = append(parts, fmt.Sprintf("+%d more", omitted))
@@ -343,5 +508,8 @@ func prefix(mechanism, body string) string {
 	if mechanism == "" {
 		return Truncate(body)
 	}
-	return Truncate(mechanism + ": " + body)
+	// Mechanism is sanitized for the same reason as the Data keys: it arrives
+	// from the stored pre-state rather than from the registry, so a corrupted
+	// or hostile record can put control bytes in it.
+	return Truncate(sanitize(mechanism) + ": " + body)
 }
