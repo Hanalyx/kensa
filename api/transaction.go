@@ -225,6 +225,16 @@ type TransactionResult struct {
 	// When true, Steps holds a single synthetic step with Mechanism
 	// "check" and no apply ran, so Envelope and RollbackResults are empty
 	// and the record is not persisted to the transaction log.
+	//
+	// SCOPE: this field is meaningful on the REMEDIATION path only. The
+	// check-only entries in [ScanResult.Transactions] are a legacy
+	// encoding in which committed and rolled-back double as compliant and
+	// non-compliant; nothing was ever applied on that path, and this field
+	// is left false there rather than extending that overload. A consumer
+	// must not read "committed and not AlreadyCompliant" as "Kensa changed
+	// the host" against a ScanResult — every passing rule of a read-only
+	// check would satisfy it. [ScanResult.Outcomes] is the canonical
+	// compliance verdict for scans.
 	AlreadyCompliant bool
 	// Envelope is the signed evidence record for this transaction.
 	Envelope *EvidenceEnvelope
@@ -237,8 +247,10 @@ type TransactionResult struct {
 	// HostUnchanged is true if and only if the host is provably in its
 	// pre-transaction state at terminal time: a failure that reached no
 	// later than pre-apply (preflight, capture, or pre-state
-	// persistence), or a verified RolledBack outcome. It is false
-	// whenever a mutation was applied and not verified-reversed —
+	// persistence), a verified RolledBack outcome, or a committed
+	// transaction in which nothing was applied because the rule was
+	// already satisfied (see [TransactionResult.AlreadyCompliant]). It is
+	// false whenever a mutation was applied and not verified-reversed —
 	// including a signer or persistence failure AFTER a successful apply,
 	// and any [StatusPartiallyApplied] outcome. Consumers use it to tell
 	// a clean abort apart from a mutated-but-errored host.

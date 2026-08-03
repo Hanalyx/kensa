@@ -25,7 +25,6 @@ any pair).
   text output had been deriving the same fact by matching a human-readable
   detail string, which is the workaround this field removes the need for.
 
-### Added
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the
   CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the

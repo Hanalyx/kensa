@@ -109,3 +109,81 @@ func TestRecordRemediateSession_NoTransactions(t *testing.T) {
 		t.Errorf("expected uuid.Nil for empty result, got %s", sessID)
 	}
 }
+
+// TestRecordRemediateSession_SkipsAlreadyCompliant: a rule that was already in
+// the desired state produces a synthetic TransactionResult with a fresh UUID
+// that the engine never persisted, because no apply ran. Attaching it to a
+// rollback session therefore always fails, and before the guard every such rule
+// emitted
+//
+//	warn: attach <uuid> to session: store: AttachTransaction: no transaction with id <uuid>
+//	warn: record rollback session: N transaction(s) could not be attached
+//
+// on stderr — reporting a storage failure for a transaction that was never
+// meant to exist, on a routine already-compliant run.
+//
+// It also makes the api/ godoc true. That doc tells consumers Kensa does
+// nothing with these records; the attach attempt was Kensa doing something with
+// them, and a false claim in the frozen contract is worse than a stray warning.
+func TestRecordRemediateSession_SkipsAlreadyCompliant(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "already.db")
+	seed, err := store.OpenSQLite(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = seed.Close()
+
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	real := uuid.New()
+	if _, err := db.ExecContext(context.Background(), `
+        INSERT INTO transactions (
+            id, rule_id, host_id, fleet_id, status, transactional, severity,
+            started_at, finished_at, envelope_json, envelope_sig, session_id)
+        VALUES (?, 'rule-real', 'host-a', '', 'committed', 1, 'low', ?, ?, '{}', X'', NULL)`,
+		real.String(), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatalf("seed txn: %v", err)
+	}
+	_ = db.Close()
+
+	svc, err := DefaultWithTransportFactory(context.Background(), path, &fakeFactory{})
+	if err != nil {
+		t.Fatalf("DefaultWithTransportFactory: %v", err)
+	}
+	defer func() { _ = svc.Close() }()
+
+	// One real committed transaction, and one already-compliant skip whose ID
+	// was never persisted.
+	result := &api.RemediationResult{
+		HostID: "host-a",
+		Transactions: []api.TransactionResult{
+			{TransactionID: real, Status: api.StatusCommitted},
+			{
+				TransactionID:    uuid.New(),
+				Status:           api.StatusCommitted,
+				AlreadyCompliant: true,
+				HostUnchanged:    true,
+			},
+		},
+	}
+
+	sessID, err := svc.RecordRemediateSession(context.Background(), "host-a", result)
+	if err != nil {
+		t.Fatalf("RecordRemediateSession must not fail because of a synthetic "+
+			"already-compliant record: %v", err)
+	}
+
+	refs, err := svc.CommittedTxnIDs(context.Background(), sessID)
+	if err != nil {
+		t.Fatalf("CommittedTxnIDs: %v", err)
+	}
+	if len(refs) != 1 {
+		t.Fatalf("session should hold only the real transaction, got %d", len(refs))
+	}
+	if refs[0].TxnID != real {
+		t.Errorf("attached the wrong transaction: got %s, want %s", refs[0].TxnID, real)
+	}
+}

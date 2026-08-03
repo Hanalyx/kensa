@@ -76,4 +76,22 @@ func TestRemediate_AlreadyCompliantIsPublishedNotInferred(t *testing.T) {
 	if fix.AlreadyCompliant {
 		t.Error("a rule the engine actually remediated reported AlreadyCompliant")
 	}
+
+	// The record must also agree with itself. Publishing AlreadyCompliant
+	// while leaving these two contradicting their own "if and only if"
+	// contracts would replace one ambiguity with two, and the spec claims
+	// this test locks them — so it has to.
+	if !skip.HostUnchanged {
+		t.Error("an already-compliant skip reported HostUnchanged=false, publishing " +
+			"a mutation that never happened on a field consumers persist")
+	}
+	if skip.CommittedAt == nil {
+		t.Error("StatusCommitted with a nil CommittedAt contradicts that field's " +
+			"documented if-and-only-if")
+	}
+	// The negative direction: a real remediation must not borrow the no-op's
+	// claim of an untouched host.
+	if fix.HostUnchanged {
+		t.Error("a real remediation reported HostUnchanged=true")
+	}
 }
