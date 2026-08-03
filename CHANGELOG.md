@@ -35,6 +35,14 @@ any pair).
   either way.
 
 ### Added
+- **`TransactionResult.AlreadyCompliant`** distinguishes a rule that was
+  already in the desired state from one Kensa actually changed. Both report a
+  committed transaction, so a consumer reading the status alone could not tell
+  them apart: it would report the rule fixed and offer to roll back a change
+  that never happened, against captured state describing no change. Kensa's own
+  text output had been deriving the same fact by matching a human-readable
+  detail string, which is the workaround this field removes the need for.
+
 - **Docs-consistency gate, `make docs-check` (CI job "Docs consistency").**
   Keeps the front-door docs present and in sync: required files exist, the
   CHANGELOG keeps an ISO-dated `## Unreleased` structure, `VERSION` matches the

@@ -111,17 +111,32 @@ func (textRemediationWriter) WriteRemediationResult(w io.Writer, hostID string, 
 	return err
 }
 
-// isAlreadyCompliantSkip reports whether the given
-// TransactionResult is the scanner's "rule already passed
-// pre-check; nothing to apply" synthetic record. Pattern:
-// exactly one StepResult with Mechanism="check" and Detail
-// containing "already in desired state". These records are
-// in-memory only — they are NOT persisted by the engine
-// (no apply ran), so an operator inspecting kensa history
-// won't see them. The summary count splits them out so the
-// operator can distinguish "kensa did work" from "kensa
-// verified state."
+// isAlreadyCompliantSkip reports whether the given TransactionResult is the
+// scanner's "rule already passed pre-check; nothing to apply" record. These
+// records are in-memory only — they are NOT persisted by the engine (no apply
+// ran), so an operator inspecting kensa history won't see them. The summary
+// count splits them out so the operator can distinguish "kensa did work" from
+// "kensa verified state."
+//
+// This used to derive the fact by pattern-matching the record's shape: exactly
+// one StepResult with Mechanism="check" and Detail containing the substring
+// "already in desired state". That is the same workaround an external consumer
+// would have to write, living inside Kensa, and it breaks the moment anyone
+// rewords a human-readable Detail string. [api.TransactionResult.AlreadyCompliant]
+// publishes the fact instead, so nobody has to guess at it.
+//
+// The shape check is retained as belt-and-braces for a result built by a code
+// path that has not been updated to set the field. It is NOT, as an earlier
+// version of this comment claimed, a decode path for older Kensa results:
+// internal/output is unreachable by external consumers, WriteRemediationResult
+// is called only from cmd/kensa with an in-process value, and nothing in the
+// tree unmarshals JSON into a RemediationResult. Giving dead code a false
+// reason to exist tells the next maintainer that the fragile string coupling
+// this change removed is load-bearing.
 func isAlreadyCompliantSkip(txr *api.TransactionResult) bool {
+	if txr.AlreadyCompliant {
+		return true
+	}
 	if len(txr.Steps) != 1 {
 		return false
 	}
