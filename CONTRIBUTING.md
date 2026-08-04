@@ -1,4 +1,4 @@
-# Contributing to Kensa Go
+# Contributing to Kensa
 
 Kensa modifies production Linux systems. A bug here can break customer
 infrastructure at 3 AM. The discipline below is not optional.
