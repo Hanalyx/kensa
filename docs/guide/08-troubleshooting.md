@@ -1,6 +1,6 @@
 # Troubleshooting
 
-_Applies to: Kensa v0.8.0. Last updated 2026-07-24._
+_Applies to: Kensa v0.9.0. Last updated 2026-08-03._
 
 Common failure modes, what they look like, and how to clear them. Each section
 names the condition first so you can match it to what you are seeing, then the

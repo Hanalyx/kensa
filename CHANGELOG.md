@@ -11,10 +11,12 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.7.6...v0.8.0> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.8.0...v0.9.0> (swap the tags for
 any pair).
 
 ## Unreleased
+
+## v0.9.0 (2026-08-03)
 
 ### Fixed
 - **Eight rules wrote drop-in files their target format cannot parse.** A rule using
@@ -34,7 +36,7 @@ any pair).
   All eight now specify a space separator. Verified on a live host: the sudoers rules write
   `Defaults use_pty` and `Defaults logfile="/var/log/sudo.log"`, and `visudo -c` parses the whole
   tree.
-### Fixed
+
 - **Rollback of a `service_enabled`, `service_disabled` or `service_masked`
   transaction now restores the state the host was actually in.** Earlier
   releases recorded a unit's enable state and running state under each other's
