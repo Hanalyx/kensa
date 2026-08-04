@@ -147,7 +147,7 @@ A divergence between spec and code in Tier 1 is an atomicity violation. Run
 ## Security
 
 Kensa makes privileged changes to production hosts, so we want your reports.
-Do **not** open a public issue for a vulnerability — see [`SECURITY.md`](SECURITY.md)
+Do **not** open a public issue for a vulnerability. See [`SECURITY.md`](SECURITY.md)
 for private disclosure (email `security@hanalyx.com` or GitHub private
 vulnerability reporting), our response process, and the safe-harbor terms.
 
