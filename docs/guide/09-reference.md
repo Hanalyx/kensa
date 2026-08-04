@@ -93,7 +93,7 @@ For commands that connect to a host over SSH.
 | | `--no-strict-host-keys` | | default today | Trust on first use (explicit form for a future config-file override) |
 | `-C` | `--capability` | `stringArray` | | Override a detected capability `KEY=VALUE`; repeatable (for example `-C apparmor=true -C selinux=false`). On duplicate keys, last value wins. |
 
-Sudo behaviour (passwordless vs. password, the stdin mechanism, and the
+Sudo behavior (passwordless vs. password, the stdin mechanism, and the
 fail-fast probe) is covered in [04-scan-and-remediate](04-scan-and-remediate.md).
 Not every command exposes every row: `rollback` and `recover` omit
 `-p/--password`, and `recover` omits `-C/--capability`. Each command's
@@ -126,7 +126,7 @@ Most commands take a subset of these.
 
 | Short | Long | Argument | Default | Meaning |
 |---|---|---|---|---|
-| | `--format` | `string` | `table` / `text` | Output format; the exact choices vary per command (see each section). Deprecated on the host commands in favour of `--output`. |
+| | `--format` | `string` | `table` / `text` | Output format; the exact choices vary per command (see each section). Deprecated on the host commands in favor of `--output`. |
 | `-o` | `--output` | `strings` | | Output destination `FORMAT[:PATH]`, repeatable (for example `-o json -o csv:results.csv`) |
 | `-q` | `--quiet` | | | Suppress default output (errors still go to stderr) |
 | `-v` | `--verbose` | | | (`check` only) Expand the compacted PASSED list; text format only |

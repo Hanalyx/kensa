@@ -6,7 +6,7 @@ infrastructure at 3 AM. The discipline below is not optional.
 ## Reporting a bug or requesting a change
 
 Open a GitHub issue. For a bug, include: the `kensa` version (`kensa --version`),
-the target OS and version, the exact command, the observed behaviour, and what
+the target OS and version, the exact command, the observed behavior, and what
 you expected, plus the relevant output (`--format json` where it helps). A
 minimal reproduction on a disposable host is worth more than a description.
 

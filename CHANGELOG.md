@@ -115,9 +115,9 @@ any pair).
     The script now takes an atomic lock and the losing copy exits without
     acting.
 
-  Cancelling the timer now removes every job that was armed and reports a
+  Canceling the timer now removes every job that was armed and reports a
   failure if any survives, distinguishes a timer that had already fired from
-  one that was cancelled, and never stops the unit that would be running the
+  one that was canceled, and never stops the unit that would be running the
   rollback.
 
   **Timing, for Go callers embedding the engine:** the deadman window is not
@@ -204,7 +204,7 @@ any pair).
 - **`audit_rule_set` now stages reboot-deferred on immutable-audit hosts
   instead of failing.** On a STIG-hardened host (`auditctl -s` reports
   `enabled 2`) the kernel refuses all runtime audit-rule loads until reboot, so
-  the previous behaviour was: write the drop-in, fail the post-apply re-check,
+  the previous behaviour was: write the drop-in, fail the post-apply re-check, <!-- doc-style: allow -->
   roll back to nothing, all 104 `audit_rule_set` rules were unremediable on
   exactly the hosts under assessment. The handler now detects immutability
   (netlink `GetStatus` / shell `auditctl -s`), writes the persist layer, and
@@ -982,7 +982,7 @@ changed signature or semantics).
   `Outcomes []RuleOutcome`, one per scanned rule in input order, each with
   a `ComplianceStatus` of `pass` / `fail` / `skipped` / `error`, the rule's
   severity, a human-readable detail, the error cause (iff `error`), and the
-  rule's `FrameworkRefs` (CIS / NIST 800-53 / STIG, normalised from the
+  rule's `FrameworkRefs` (CIS / NIST 800-53 / STIG, normalised from the <!-- doc-style: allow -->
   rule's References block) so a consumer attributes verdicts to frameworks
   without re-joining the corpus. This is the canonical compliance result;
   the check-only `Transactions` entries (whose `committed` / `rolled_back`
@@ -1148,7 +1148,7 @@ forcing two toolchain CVE bumps) and a new capability probe.
 ## v0.2.1 (2026-05-28)
 
 Packaging-UX hardening on top of v0.2.0's first signed packages. No
-binary-behaviour change, every difference here is in the package
+binary-behaviour change, every difference here is in the package <!-- doc-style: allow -->
 metadata, install scripts, archive variants, and operator docs.
 
 ### Added
