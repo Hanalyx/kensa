@@ -58,3 +58,10 @@ catalog.db
 # notes. Untracked and at the repo root, so without this a `git add -A`
 # sweeps it into a commit.
 scratchpad/
+
+# Python bytecode cache. Repo-wide rather than scripts/-only, because the
+# directory is created next to whatever module was imported, and importing a
+# script in scripts/ is normal: check-doc-style.py is imported to measure the
+# corpus before setting its readability gate.
+__pycache__/
+*.pyc
