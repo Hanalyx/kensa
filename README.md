@@ -95,7 +95,7 @@ Requires Go 1.26+ and make.
 git clone git@github.com:Hanalyx/kensa.git
 cd kensa
 make build                # builds all five binaries into bin/
-./bin/kensa --version     # → kensa 0.8.0 (kensa)
+./bin/kensa --version     # → kensa 0.9.0 (kensa)
 ```
 
 The five binaries:
@@ -117,7 +117,7 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.8.0`, released and signed. The 0.x line is the pre-1.0 development phase. The
+`v0.9.0`, released and signed. The 0.x line is the pre-1.0 development phase. The
 `api/` Go package is frozen under v1 semver for OpenWatch's consumption; the rest
 of the surface (CLI flags, rule schema additions, output formats) may change
 between MINOR versions with one release of deprecation warning. All 29 handlers
