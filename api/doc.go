@@ -1,4 +1,4 @@
-// Package api is the public contract for Kensa Go.
+// Package api is the public contract for Kensa.
 //
 // Kensa is transactional configuration management for Linux. Every change
 // it applies to a host runs through a four-phase transaction
