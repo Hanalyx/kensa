@@ -4,7 +4,7 @@ description: >
   Run an end-to-end Kensa exercise against one live host: scan, report every rule that can only
   be remediated by hand, remediate a random sample of ten machine-remediable failing rules, roll
   back two of them, and produce a findings report. Use when asked to exercise scan/remediate/
-  rollback on a real host, to sample corpus behaviour, or to produce a manual-remediation
+  rollback on a real host, to sample corpus behavior, or to produce a manual-remediation
   inventory. This MUTATES a live host. Read the safety section before running anything.
 ---
 

@@ -14,7 +14,7 @@ Programs importing the `api` Go package
 (`github.com/Hanalyx/kensa/api`) should read a scan's compliance verdicts
 from `ScanResult.Outcomes` (since v0.3.0): one `RuleOutcome` per rule
 with a `ComplianceStatus` of `pass` / `fail` / `skipped` / `error`, the
-rule's severity, a human-readable detail, and the rule's normalised
+rule's severity, a human-readable detail, and the rule's normalized
 compliance-framework references (`FrameworkRefs`). Since v0.4.0 each
 `RuleOutcome` also carries `Evidence []CheckEvidence`, one entry per
 command the check ran, with the exact `Command`, captured
@@ -42,7 +42,7 @@ Loading the rule corpus from a consuming program is public surface too
 - `kensa.BuiltInVars()`: the embedded variable defaults (name → value),
   for rendering an operator configuration UI. Review
   `rsyslog_remote_server`, `chrony_ntp_pool`, and `banner_text`: their
-  defaults are organisation-specific placeholders.
+  defaults are organization-specific placeholders.
 - `kensa.RuleVariables(dir)`: template variable → rule IDs using it,
   for showing operators what an override affects.
 
