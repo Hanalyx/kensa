@@ -10,7 +10,7 @@
 
 version: 2
 updates:
-  # Go modules — direct deps in kensa-go/go.mod. Grouped minor + patch
+  # Go modules — direct deps in go.mod. Grouped minor + patch
   # so a single PR carries each weekly batch instead of 10 PRs landing
   # at 09:00 Monday. Major-version bumps still get their own PR (those
   # need a human deciding whether the API change is acceptable + a
