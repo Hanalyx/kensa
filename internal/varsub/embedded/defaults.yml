@@ -49,6 +49,17 @@ variables:
   pam_pwquality_lcredit: -1
   pam_pwquality_ocredit: -1
 
+  # Session inactivity, in seconds. An 800-171 objective asks whether a lock or
+  # timeout happens after THE PERIOD THE ORGANIZATION DEFINED, so the value has to
+  # be declarable rather than baked into the check. Defaults are the benchmark
+  # values the rules previously hardcoded, so nothing changes for an operator who
+  # declares nothing. Each check compares "at least as strict as", so a shorter
+  # declared period still passes.
+  gdm_idle_delay_seconds: 900            # graphical idle before the screensaver
+  gdm_lock_delay_seconds: 5              # screensaver to lock; a different knob
+  logind_idle_timeout_seconds: 600       # logind StopIdleSessionSec
+  shell_idle_timeout_seconds: 900        # TMOUT, or logind where that is the path
+
   # Password aging - login.defs
   pam_faillock_deny: 3
   pam_faillock_fail_interval: 900

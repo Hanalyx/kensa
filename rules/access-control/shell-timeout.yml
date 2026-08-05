@@ -39,12 +39,12 @@ implementations:
         idle_sec=$(systemd-analyze cat-config systemd/logind.conf 2>/dev/null |
           grep -E '^\s*StopIdleSessionSec\s*=' | tail -1 |
           sed 's/^[^=]*=\s*//')
-        if [ -n "$idle_sec" ] && [ "$idle_sec" != "infinity" ] && [ "$idle_sec" -gt 0 ] 2>/dev/null && [ "$idle_sec" -le 900 ] 2>/dev/null; then
+        if [ -n "$idle_sec" ] && [ "$idle_sec" != "infinity" ] && [ "$idle_sec" -gt 0 ] 2>/dev/null && [ "$idle_sec" -le {{ shell_idle_timeout_seconds }} ] 2>/dev/null; then
           pass=1
         fi
         # Check TMOUT shell variable (CIS approach)
         tmout_val=$(grep -rhE '^(export\s+)?TMOUT=' /etc/profile /etc/profile.d/*.sh /etc/bashrc 2>/dev/null | tail -1 | grep -oE '[0-9]+')
-        if [ -n "$tmout_val" ] && [ "$tmout_val" -gt 0 ] 2>/dev/null && [ "$tmout_val" -le 900 ] 2>/dev/null; then
+        if [ -n "$tmout_val" ] && [ "$tmout_val" -gt 0 ] 2>/dev/null && [ "$tmout_val" -le {{ shell_idle_timeout_seconds }} ] 2>/dev/null; then
           pass=1
         fi
         if [ "$pass" -eq 1 ]; then
@@ -57,5 +57,5 @@ implementations:
     remediation:
       mechanism: file_content
       path: "/etc/profile.d/kensa-tmout.sh"
-      content: "TMOUT=900\nreadonly TMOUT\nexport TMOUT\n"
+      content: "TMOUT={{ shell_idle_timeout_seconds }}\nreadonly TMOUT\nexport TMOUT\n"
       mode: "0644"

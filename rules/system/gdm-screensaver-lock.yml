@@ -44,8 +44,8 @@ implementations:
           echo "FAIL: lock-delay not configured"
           exit 1
         fi
-        if [ "$delay" -gt 5 ] 2>/dev/null; then
-          echo "FAIL: lock-delay=$delay (must be <= 5)"
+        if [ "$delay" -gt {{ gdm_lock_delay_seconds }} ] 2>/dev/null; then
+          echo "FAIL: lock-delay=$delay (must be <= {{ gdm_lock_delay_seconds }})"
           exit 1
         fi
         echo "OK: lock-delay=$delay"
@@ -54,6 +54,6 @@ implementations:
       mechanism: dconf_set
       schema: org/gnome/desktop/screensaver
       key: lock-delay
-      value: "5"
+      value: "{{ gdm_lock_delay_seconds }}"
       value_type: uint32
       file: 00-screensaver
