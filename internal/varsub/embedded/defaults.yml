@@ -25,6 +25,17 @@
 # scope for this tier.
 
 variables:
+  # Antimalware, for NIST SP 800-171 3.14.2, 3.14.4 and 3.14.5 (NIST 800-53 SI-3).
+  # Space-separated candidate systemd units. No CIS or DISA STIG benchmark in the
+  # corpus names an antimalware product, and sites frequently run a vendor
+  # endpoint agent rather than ClamAV, so the checks accept any of these and an
+  # operator names their own with --var rather than the rule hardcoding one.
+  antimalware_services: "clamav-daemon clamd@scan clamd mcafeed ds_agent falcon-sensor sophos-spl"
+  antimalware_updater_services: "clamav-freshclam freshclam clamav-update"
+  antimalware_onaccess_services: "clamav-clamonacc clamonacc"
+  antimalware_scan_units: "clamav-clamdscan.timer clamdscan.timer clamav-daily-scan.timer"
+  antimalware_scan_cron_match: "clamscan"
+
   # Password quality - pwquality.conf
   # Default to STIG values (most restrictive)
   pam_pwquality_minlen: 15
