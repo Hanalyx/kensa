@@ -16,6 +16,29 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **Two GDM rules reported a pass on servers with no graphical stack.**
+  `gdm-graphical-banner` and `gdm-no-autologin` guarded their check with
+  `if ! rpm -q gdm; then exit 0; fi` on an implementation with no `when` gate, so
+  a host without GDM ran the check, took the guard, and returned success. Nine
+  sibling GDM rules already declare `when: gdm`, which makes the engine report
+  the rule as skipped instead.
+
+  `gdm-graphical-banner` is the one that mattered: it asserts a login banner is
+  configured, cites NIST 800-53 AC-8 and a DISA STIG control, and recorded
+  evidence for a command that ran on a host where no graphical login exists. A
+  framework claim therefore counted a banner that was never there. A skipped rule
+  states that it does not apply; a passing rule claims evidence nobody collected.
+
+  Measured on RHEL 9.6 without GDM: 10 of 12 staged rules skipped before, 12 of 12
+  after. `internal/rule/gate_verify_test.go` pins both directions, because a gate
+  that skipped everywhere would be worse than the pass it replaced.
+
+  Three rules were deliberately left alone. `postfix-local-only`,
+  `postfix-relay-restrictions` and `tftp-secure-mode` use the same guard, but each
+  states a prohibition, so an absent package means the risk is absent and the pass
+  is correct.
+
 ## v0.9.0 (2026-08-03)
 
 ### Fixed
