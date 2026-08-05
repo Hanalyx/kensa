@@ -28,7 +28,10 @@ platforms:
     min_version: 8
 
 implementations:
-  - default: true
+  # Gated, with no default fallback, so a host without GDM reports skipped rather
+  # than passing. Ungated, the package guard below returned success and the rule
+  # claimed an AC-8 banner on a server that has no graphical login at all.
+  - when: gdm
     check:
       method: command
       run: |

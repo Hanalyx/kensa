@@ -25,7 +25,11 @@ platforms:
     min_version: 8
 
 implementations:
-  - default: true
+  # Gated, with no default fallback, so a host without GDM reports skipped rather
+  # than passing. The verdict was defensible either way here, since no GDM means
+  # no graphical autologin, but a skip says "not applicable" where a pass said
+  # "checked and compliant" about a control that was never evaluated.
+  - when: gdm
     check:
       method: command
       run: |
