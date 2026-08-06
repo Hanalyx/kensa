@@ -41,13 +41,13 @@ implementations:
         line=$(grep -E '^[[:space:]]*auth[[:space:]].*pam_faildelay\.so' /etc/pam.d/common-auth 2>/dev/null)
         [ -n "$line" ] || { echo "FAIL: pam_faildelay not enabled in common-auth"; exit 1; }
         delay=$(printf '%s\n' "$line" | grep -oE 'delay=[0-9]+' | grep -oE '[0-9]+' | head -1)
-        [ -n "$delay" ] && [ "$delay" -ge 4000000 ] 2>/dev/null || {
-          echo "FAIL: pam_faildelay delay is below 4000000 microseconds"; exit 1; }
+        [ -n "$delay" ] && [ "$delay" -ge {{ pam_faildelay_microseconds }} ] 2>/dev/null || {
+          echo "FAIL: pam_faildelay delay is below {{ pam_faildelay_microseconds }} microseconds"; exit 1; }
         echo "OK: pam_faildelay delay=$delay"; exit 0
       expected_exit: 0
     remediation:
       mechanism: manual
       note: >
         Add or correct the pam_faildelay line in /etc/pam.d/common-auth so the
-        delay is at least 4000000 microseconds (4 seconds), e.g.
-        'auth required pam_faildelay.so delay=4000000'.
+        delay is at least {{ pam_faildelay_microseconds }} microseconds, e.g.
+        'auth required pam_faildelay.so delay={{ pam_faildelay_microseconds }}'.

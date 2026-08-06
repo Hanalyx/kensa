@@ -34,12 +34,17 @@ implementations:
         fi
         # Pad to 3 digits if needed
         while [ ${#umask_val} -lt 3 ]; do umask_val="0${umask_val}"; done
-        # Per-digit comparison: each digit must be >= the corresponding digit in 027
+        # Per-digit comparison: each digit must be at least as restrictive as the
+        # corresponding digit of the declared umask. The required value is padded
+        # the same way, so a two-digit declaration still compares correctly.
+        req="{{ root_umask }}"
+        while [ ${#req} -lt 3 ]; do req="0${req}"; done
         u_digit=$(echo "$umask_val" | cut -c1)
         g_digit=$(echo "$umask_val" | cut -c2)
         o_digit=$(echo "$umask_val" | cut -c3)
-        if [ "$u_digit" -lt 0 ] || [ "$g_digit" -lt 2 ] || [ "$o_digit" -lt 7 ]; then
-          echo "FAIL: Root umask ($umask_val) is less restrictive than 027"
+        r_u=$(echo "$req" | cut -c1); r_g=$(echo "$req" | cut -c2); r_o=$(echo "$req" | cut -c3)
+        if [ "$u_digit" -lt "$r_u" ] || [ "$g_digit" -lt "$r_g" ] || [ "$o_digit" -lt "$r_o" ]; then
+          echo "FAIL: Root umask ($umask_val) is less restrictive than $req"
           exit 1
         fi
         echo "OK: Root umask is $umask_val"
@@ -49,5 +54,5 @@ implementations:
       mechanism: config_set
       path: "/root/.bashrc"
       key: "umask"
-      value: "027"
+      value: "{{ root_umask }}"
       separator: " "
