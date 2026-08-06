@@ -61,6 +61,16 @@ variables:
   shell_idle_timeout_seconds: 600        # TMOUT or logind. 600 is the strictest
                                          # mapped bound (DISA); it also satisfies CIS 900
 
+  # Policy values an assessor asks "who chose that number?" about. Each default is
+  # the value the rule previously hardcoded, so nothing changes for an operator
+  # who declares nothing, and every check compares "at least as strict as".
+  pam_faildelay_microseconds: 4000000    # DISA: 4 seconds after a failed logon
+  root_umask: "027"                      # per-digit floor, not an exact match
+  audit_log_partition_min_kb: 10485760   # 10 GB. The STIG calls this a TYPICAL
+                                         # sufficiency for a week of records, not
+                                         # a floor, so a site with different audit
+                                         # volume should set its own.
+
   # Password aging - login.defs
   pam_faillock_deny: 3
   pam_faillock_fail_interval: 900

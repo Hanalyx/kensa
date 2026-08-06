@@ -63,12 +63,12 @@ implementations:
           echo "FAIL: could not determine the audit log partition capacity for $logdir"
           exit 1
         fi
-        # 10 GB = 10485760 KB is the STIG's stated TYPICAL sufficiency, not a
+        # 10 GB = {{ audit_log_partition_min_kb }} KB is the STIG's stated TYPICAL sufficiency, not a
         # mandatory minimum — required capacity is activity-dependent. So a
         # partition >= 10 GB passes; a smaller one is flagged for manual review
         # rather than failed (failing it would false-FAIL a compliant low-activity
         # host with a documented smaller partition).
-        if [ "$kb" -ge 10485760 ]; then
+        if [ "$kb" -ge {{ audit_log_partition_min_kb }} ]; then
           echo "OK: audit log partition ($logdir) is $((kb / 1024 / 1024)) GB (>= 10 GB)"
           exit 0
         fi

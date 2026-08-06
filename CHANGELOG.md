@@ -17,6 +17,36 @@ any pair).
 ## Unreleased
 
 ### Changed
+- **Seven more policy thresholds are operator-declarable.** Password maximum and
+  minimum age on existing accounts, the PAM SHA-512 rounds floor, the legacy
+  pam_faillock lockout count, the pam_faildelay interval, root's umask, and the
+  audit log partition capacity all compared against a constant chosen by a
+  benchmark rather than by the site.
+
+  Four reuse a variable a sibling rule already owned, rather than inventing a
+  second name for the same setting: `login_defs_pass_max_days`,
+  `login_defs_pass_min_days`, `shadow_crypt_min_rounds` and `pam_faillock_deny`.
+  The `/etc/shadow` rules and their `/etc/login.defs` counterparts are not
+  duplicates: one governs existing accounts and the other the default for new
+  ones, so the same policy value has to hold in two places. Three settings are new:
+  `pam_faildelay_microseconds`, `root_umask` and `audit_log_partition_min_kb`.
+
+  Every default is the value the rule previously hardcoded, and each check still
+  compares "at least as strict as". Verified on RHEL 9.6: all seven verdicts
+  identical to the previous build, and each variable demonstrably changes its own
+  verdict when declared.
+
+- **`faillock-pam-deny-legacy` compares the lockout count instead of matching a
+  character class.** It tested `deny=[1-3]`, which cannot express an
+  operator-declared bound and silently stops being correct as soon as the bound
+  changes. It now extracts the value and compares it. Verified in a container:
+  `deny=3` passes, `deny=5` and `deny=10` fail against a bound of 3.
+
+  `root-umask` gained the same treatment for its per-digit comparison, so a
+  declared umask is padded and compared digit by digit rather than against a
+  literal 027.
+
+### Changed
 - **Session-inactivity rules now compare against a period the operator can declare,
   instead of a benchmark constant.** `gdm-idle-delay`, `gdm-screensaver-lock`,
   `logind-idle-session-timeout` and `shell-timeout` took their thresholds from CIS

@@ -39,11 +39,19 @@ implementations:
           if ! grep -qE '^\s*auth\s+.*pam_faillock\.so.*preauth' "$f" 2>/dev/null; then
             echo "FAIL: $f missing pam_faillock preauth line"; exit 1
           fi
-          if ! grep -qE '^\s*auth\s+.*pam_faillock\.so.*(deny=[1-3])(\s|$)' "$f" 2>/dev/null; then
-            echo "FAIL: $f pam_faillock deny not set to 3 or less"; exit 1
+          # Extract the value and compare it, rather than matching a [1-3]
+          # character class: a class cannot express an operator-declared bound,
+          # and it silently stops being correct the moment the bound changes.
+          deny=$(grep -oE '^\s*auth\s+.*pam_faillock\.so.*deny=[0-9]+' "$f" 2>/dev/null |
+                 grep -oE 'deny=[0-9]+' | head -1 | cut -d= -f2)
+          if [ -z "$deny" ]; then
+            echo "FAIL: $f pam_faillock has no deny= setting"; exit 1
+          fi
+          if [ "$deny" -lt 1 ] 2>/dev/null || [ "$deny" -gt {{ pam_faillock_deny }} ] 2>/dev/null; then
+            echo "FAIL: $f pam_faillock deny=$deny (must be 1-{{ pam_faillock_deny }})"; exit 1
           fi
         done
-        echo "OK: pam_faillock deny<=3 configured in pam.d"
+        echo "OK: pam_faillock deny<={{ pam_faillock_deny }} configured in pam.d"
         exit 0
       expected_exit: 0
     remediation:
