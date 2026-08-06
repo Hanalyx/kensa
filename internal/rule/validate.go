@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/detect"
 )
 
 // ValidationError is one schema-constraint violation found by [Validate].
@@ -262,36 +263,19 @@ func collectCapabilityRefs(when interface{}) []string {
 // V1 schema (from docs/CANONICAL_RULE_SCHEMA_V0.md §4, carried forward to V1).
 // Callers may pass this to [ValidateOptions.KnownCapabilities] to enable
 // capability-reference checking.
-var KnownCapabilities = map[string]struct{}{
-	"sshd_config_d":        {},
-	"authselect":           {},
-	"crypto_policies":      {},
-	"fips_mode":            {},
-	"firewalld_nftables":   {},
-	"pam_faillock":         {},
-	"pam_tally2":           {},
-	"pam_pwquality":        {},
-	"grub_bls":             {},
-	"selinux":              {},
-	"aide":                 {},
-	"fapolicyd":            {},
-	"usbguard":             {},
-	"systemd_resolved":     {},
-	"nftables":             {},
-	"firewalld":            {},
-	"rsyslog":              {},
-	"journald":             {},
-	"auditd":               {},
-	"cron":                 {},
-	"at":                   {},
-	"coredump_systemd":     {},
-	"sssd":                 {},
-	"chronyd":              {},
-	"dnf_automatic":        {},
-	"subscription_manager": {},
-	"dconf":                {},
-	"gdm":                  {},
-}
+// KnownCapabilities is the set of capability names a rule may gate on. It is
+// DERIVED from the probe list in internal/detect rather than maintained by hand.
+// The two had drifted: ufw, apt, apparmor, dpkg and three others were probed
+// while absent here, so a rule gating on any of them would fail validation for a
+// capability the engine does in fact detect. Deriving it makes that impossible.
+var KnownCapabilities = func() map[string]struct{} {
+	names := detect.KnownCapabilities()
+	m := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		m[n] = struct{}{}
+	}
+	return m
+}()
 
 // isEmptyRef reports whether a references block entry carries nothing. nil
 // covers the bare "cis:" form; the len checks cover an explicit empty list, map

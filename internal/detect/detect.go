@@ -132,8 +132,38 @@ var probes = []probe{
 		`systemctl list-unit-files systemd-coredump.socket 2>/dev/null | grep -q coredump`,
 	},
 	{
+		// Installed, NOT joined. A base image ships the unit file, so this says
+		// only that SSSD could be configured. Use directory_joined to ask whether
+		// identity actually lives off-box.
 		"sssd",
 		`systemctl list-unit-files sssd.service 2>/dev/null | grep -q sssd`,
+	},
+	{
+		// The host resolves user identity from a directory rather than from local
+		// files, so /etc/passwd is not the authority for who may log in.
+		//
+		// Deliberately biased toward reporting JOINED. The two errors are not
+		// symmetric: calling a joined host local makes a rule compare /etc/passwd
+		// against an operator's declared user list, which on a joined host is
+		// meaningless and yields a confident wrong verdict. Calling a local host
+		// joined only makes identity rules skip, and a skip states its reason.
+		//
+		// PROBES RUN UNPRIVILEGED, which rules out the two signals that look most
+		// direct. /etc/sssd/sssd.conf is mode 0600 root, so grepping it for
+		// id_provider always fails regardless of what the host is; the same goes for
+		// /etc/krb5.keytab. Both were tried and removed rather than left as code
+		// that can never fire.
+		//
+		// "sss" in nsswitch is NOT sufficient on its own: RHEL 9 ships it through
+		// the authselect default profile on a host that has never been joined, so it
+		// only counts when sssd is actually running. "ldap" and "winbind" are not
+		// defaults anywhere, so they stand alone.
+		"directory_joined",
+		`realm list 2>/dev/null | grep -q 'domain-name:' || ` +
+			`grep -qE '^[[:space:]]*passwd:.*(ldap|winbind)' /etc/nsswitch.conf 2>/dev/null || ` +
+			`{ grep -qE '^[[:space:]]*passwd:.*sss' /etc/nsswitch.conf 2>/dev/null && ` +
+			`systemctl is-active sssd >/dev/null 2>&1; } || ` +
+			`systemctl is-active nslcd >/dev/null 2>&1`,
 	},
 	{
 		"chronyd",

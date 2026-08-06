@@ -16,6 +16,33 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **A `directory_joined` capability, so a rule can tell a host whose users are
+  local from one whose identity lives in a directory.** The existing `sssd`
+  capability only reports that the unit file is installed, which a base image
+  satisfies without any domain being joined, so it cannot answer the question.
+
+  The probe is deliberately biased toward reporting joined. The two errors are
+  not symmetric: calling a joined host local makes a rule compare `/etc/passwd`
+  against an operator's declared user list, which on a joined host is meaningless
+  and produces a confident wrong verdict. Calling a local host joined only makes
+  identity rules skip, and a skip states its reason.
+
+  Two signals that look obvious were tried and removed because **probes run
+  unprivileged**: `/etc/sssd/sssd.conf` and `/etc/krb5.keytab` are both mode 0600
+  root, so grepping them always fails regardless of what the host is. And `sss`
+  in `nsswitch.conf` is not sufficient alone, because RHEL 9 ships it through the
+  authselect default on a host that has never been joined; it counts only when
+  sssd is actually running. That false positive was caught on a real host after
+  the container tests passed.
+
+### Fixed
+- **`rule.KnownCapabilities` is now derived from the probe list instead of being
+  maintained by hand.** The two had drifted: `ufw`, `apt`, `apparmor`, `dpkg` and
+  three others were probed while absent from the known set, so a rule gating on
+  any of them would fail `--cap-check` for a capability the engine does detect.
+  A new test asserts every probed capability is known, which is what found it.
+
 ### Fixed
 - **A declared framework key with no value is now a validation error.** Twelve
   rules carried one: eight with a bare `nist_800_53:` and four with a bare
