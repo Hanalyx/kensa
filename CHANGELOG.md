@@ -56,6 +56,27 @@ any pair).
   the declared value, and rollback restored the directory to a byte-identical
   sha256 with no residue.
 
+### Removed
+- **`shell-timeout-600` and `shell-idle-timeout-tmout` are merged into
+  `shell-timeout`.** They were the same control split by framework (DISA's 600
+  seconds versus CIS's 900) and by operating system (the Ubuntu STIG). Both splits
+  are things the rule model exists to avoid: a rule states a desired state, and a
+  framework identifier is metadata attached to it, not a reason to write another
+  rule. The threshold that separated them is now a variable, so one rule carries
+  every citation.
+
+  A duplicate-citation test enforces this, and it is what surfaced the merge:
+  taking the union of framework references onto `shell-timeout` failed CI until
+  the two old rules were removed, because no framework control may be cited by
+  more than one rule.
+
+  `shell-timeout` declares `supersedes: [shell-timeout-600,
+  shell-idle-timeout-tmout]`, the first use of that field in the corpus, so an
+  operator running a rule set that still carries them gets them skipped rather
+  than double-reported. Verified: with all three staged, the engine reports
+  `skipping shell-timeout-600 (superseded by shell-timeout)` and evaluates one
+  rule.
+
 ## v0.9.0 (2026-08-03)
 
 ### Fixed

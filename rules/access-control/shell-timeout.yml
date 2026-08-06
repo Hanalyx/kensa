@@ -48,6 +48,13 @@ references:
       cci: ["CCI-002361"]
   nist_800_53: ["AC-11", "AC-12", "SC-10"]
 
+# Replaces two rules that split this control by OS and by framework, which the
+# corpus forbids: a duplicate-citation test fails when two rules cite the same
+# framework control. shell-timeout-600 was the DISA 600s bound on RHEL and
+# shell-idle-timeout-tmout was the Ubuntu STIG. Declared so an operator running a
+# corpus that still carries them gets them skipped rather than double-reported.
+supersedes: [shell-timeout-600, shell-idle-timeout-tmout]
+
 platforms:
   - family: rhel
     min_version: 8
