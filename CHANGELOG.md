@@ -17,52 +17,44 @@ any pair).
 ## Unreleased
 
 ### Changed
-- **Four session-inactivity rules now compare against a period the operator can
-  declare, instead of a benchmark constant.** `gdm-idle-delay`,
-  `gdm-screensaver-lock`, `logind-idle-session-timeout` and `shell-timeout` took
-  their thresholds from CIS and DISA STIG defaults baked into the check: 900
-  seconds, 5 seconds, 600 seconds. A site whose own policy said five minutes had
-  no way to say so, and a host set to fifteen minutes passed anyway.
+- **Session-inactivity rules now compare against a period the operator can declare,
+  instead of a benchmark constant.** `gdm-idle-delay`, `gdm-screensaver-lock`,
+  `logind-idle-session-timeout` and `shell-timeout` took their thresholds from CIS
+  and DISA defaults baked into the check. A site whose own policy said five minutes
+  had no way to say so. The variables are `gdm_idle_delay_seconds`,
+  `gdm_lock_delay_seconds`, `logind_idle_timeout_seconds` and
+  `shell_idle_timeout_seconds`, resolved through the existing five tiers.
 
-  The four new variables are `gdm_idle_delay_seconds`, `gdm_lock_delay_seconds`,
-  `logind_idle_timeout_seconds` and `shell_idle_timeout_seconds`, resolved through
-  the existing five tiers (`--var`, `conf.d`, groups, hosts, `defaults.yml`).
-  Each default is the value the rule used to hardcode, so a run that declares
-  nothing behaves exactly as before. Verified on RHEL 9.6: all four verdicts
-  identical to the previous build. Each check still compares "at least as strict
-  as", so declaring a shorter period than the benchmark passes.
+- **`shell-timeout` now covers Ubuntu as well as RHEL, and reads TMOUT the way a
+  shell actually resolves it.** It previously read the RHEL layout only and matched
+  just the `export TMOUT=` form. Two defects came out of testing it:
 
-  Two related rules are deliberately unchanged. `shell-timeout-600` carries its
-  threshold in its own rule id, so making the value declarable would leave the
-  name asserting something the rule no longer checks. `shell-idle-timeout-tmout`
-  tests only that TMOUT is set to a positive integer and has no threshold to
-  parameterize; adding one would change what the rule means and could fail hosts
-  that pass today. Both check the same setting as `shell-timeout` at three
-  different bars, which is worth resolving on its own rather than inside this
-  change.
+  Reading with `grep -r … | tail -1` takes files in readdir order, which is
+  filesystem-dependent and is not the order `/etc/profile` sources its drop-ins. And
+  a `readonly` assignment locks the value, so every later assignment fails; the
+  first readonly wins, while an unlocked value is overridden by the last one.
 
-### Fixed
-- **Two GDM rules reported a pass on servers with no graphical stack.**
-  `gdm-graphical-banner` and `gdm-no-autologin` guarded their check with
-  `if ! rpm -q gdm; then exit 0; fi` on an implementation with no `when` gate, so
-  a host without GDM ran the check, took the guard, and returned success. Nine
-  sibling GDM rules already declare `when: gdm`, which makes the engine report
-  the rule as skipped instead.
+  On a host with `readonly TMOUT=1200` sourced before `typeset -xr TMOUT=600`, the
+  effective timeout is 1200. The old `shell-timeout` reported nothing, because its
+  regex matched neither the `readonly` nor the `typeset` form, and failed the host
+  for the wrong reason. The old `shell-timeout-600` took the smallest value across
+  files, reported 600, and passed a host whose real timeout was double its limit.
 
-  `gdm-graphical-banner` is the one that mattered: it asserts a login banner is
-  configured, cites NIST 800-53 AC-8 and a DISA STIG control, and recorded
-  evidence for a command that ran on a host where no graphical login exists. A
-  framework claim therefore counted a banner that was never there. A skipped rule
-  states that it does not apply; a passing rule claims evidence nobody collected.
+  The check now walks `/etc/profile`, `/etc/profile.d/*.sh` in sorted order,
+  `/etc/bashrc` and `/etc/bash.bashrc`, stopping at the first readonly. Verified in
+  containers against what a real login shell reports: AlmaLinux 8, 9 and 10, Rocky
+  9, Ubuntu 22.04 and 24.04, across four TMOUT arrangements, 24 of 24 matching,
+  plus both `bashrc` layouts.
 
-  Measured on RHEL 9.6 without GDM: 10 of 12 staged rules skipped before, 12 of 12
-  after. `internal/rule/gate_verify_test.go` pins both directions, because a gate
-  that skipped everywhere would be worse than the pass it replaced.
+  Default is 600 seconds, the strictest bound any mapped benchmark requires, which
+  satisfies all of them at once. RHEL hosts configured between 601 and 900 seconds
+  change from pass to fail; that is the DISA requirement they were already failing
+  under `shell-timeout-600`.
 
-  Three rules were deliberately left alone. `postfix-local-only`,
-  `postfix-relay-restrictions` and `tftp-secure-mode` use the same guard, but each
-  states a prohibition, so an absent package means the risk is absent and the pass
-  is correct.
+  Remediation is `file_content`, which captures prior state and rolls back. Scan,
+  remediate and rollback were exercised on RHEL 9.6: the drop-in was written with
+  the declared value, and rollback restored the directory to a byte-identical
+  sha256 with no residue.
 
 ## v0.9.0 (2026-08-03)
 

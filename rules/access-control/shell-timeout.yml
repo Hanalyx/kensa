@@ -1,59 +1,124 @@
 id: shell-timeout
-title: Set default shell timeout
+title: Terminate idle interactive sessions after the configured period
 description: >
-  Idle sessions must be terminated after a period of inactivity. The TMOUT
-  shell variable (CIS approach) or StopIdleSessionSec in logind.conf (STIG
-  approach) must be configured to 900 seconds or less.
+  An idle interactive session must terminate after a period of inactivity. Either
+  mechanism satisfies this: a positive TMOUT in the shell startup files, or
+  StopIdleSessionSec in logind.conf. The accepted period is the
+  shell_idle_timeout_seconds variable, so a site can declare its own policy
+  instead of inheriting a benchmark constant.
 rationale: >
-  Automatic session timeout prevents unauthorized access to unattended
-  terminals. A timeout of 900 seconds (15 minutes) provides a balance
-  between security and usability.
+  An unattended terminal left logged in is a standing grant of that user's
+  privileges to anyone who walks up to it. Terminating the session closes that
+  window without depending on the user to remember. The default of 600 seconds is
+  the strictest value any mapped benchmark requires, so it satisfies all of them
+  at once; a site with a shorter policy declares it and the check follows.
 severity: medium
 category: access-control
 tags: [shell, session, timeout, security]
 
+# One control, one rule. These are labels for the same desired state, not
+# separate controls: CIS and DISA disagree only on the number, and that number is
+# now the variable. Replaces the former shell-timeout-600 (RHEL, STIG 600) and
+# shell-idle-timeout-tmout (Ubuntu, UBTU STIG), which existed because a framework
+# reference has nowhere to record the bound it requires.
 references:
   cis:
     rhel8:  { section: "5.4.3.2", level: "L1", type: "Automated" }
     rhel9:  { section: "5.4.3.2", level: "L1", type: "Automated" }
     rhel10: { section: "5.4.3.2", level: "L1", type: "Automated" }
   stig:
-    rhel9:
-      - { vuln_id: "V-258068", stig_id: "RHEL-09-412035", severity: "CAT II" }
     rhel8:
       vuln_id: "V-257258"
       severity: "CAT II"
-  nist_800_53: ["AC-11", "AC-12"]
+    rhel9:
+      - { vuln_id: "V-258068", stig_id: "RHEL-09-412035", severity: "CAT II" }
+    rhel10:
+      vuln_id: "V-281295"
+      stig_id: "RHEL-10-700920"
+      severity: "CAT II"
+    ubuntu22:
+      vuln_id: "V-260554"
+      stig_id: "UBTU-22-412030"
+      severity: "CAT II"
+      cci: ["CCI-000366", "CCI-002361"]
+    ubuntu24:
+      vuln_id: "V-270680"
+      stig_id: "UBTU-24-200060"
+      severity: "CAT II"
+      cci: ["CCI-002361"]
+  nist_800_53: ["AC-11", "AC-12", "SC-10"]
 
 platforms:
   - family: rhel
     min_version: 8
+  - family: ubuntu
+    min_version: 22
 
 implementations:
+  # One implementation, no capability gate. The mechanism does not differ by
+  # distribution: both set TMOUT in shell startup files and both run
+  # systemd-logind. Only the file layout differs, so the check reads the union of
+  # both layouts rather than forking the rule.
+  #
+  # This check is shell rather than a declarative method because the rule is a
+  # DISJUNCTION -- logind OR TMOUT satisfies it -- and `checks:` composes with
+  # AND. There is no any_of. A declarative form would also need config_value to
+  # read several paths and understand export/readonly/typeset prefixes. Worth
+  # revisiting if those land.
   - default: true
     check:
       method: command
       run: |
+        limit={{ shell_idle_timeout_seconds }}
         pass=0
-        # Check systemd-logind idle session timeout (STIG approach)
+        # logind StopIdleSessionSec. systemd-analyze resolves drop-ins, so this
+        # sees the effective value rather than only /etc/systemd/logind.conf.
         idle_sec=$(systemd-analyze cat-config systemd/logind.conf 2>/dev/null |
-          grep -E '^\s*StopIdleSessionSec\s*=' | tail -1 |
-          sed 's/^[^=]*=\s*//')
-        if [ -n "$idle_sec" ] && [ "$idle_sec" != "infinity" ] && [ "$idle_sec" -gt 0 ] 2>/dev/null && [ "$idle_sec" -le {{ shell_idle_timeout_seconds }} ] 2>/dev/null; then
+          grep -E '^[[:space:]]*StopIdleSessionSec[[:space:]]*=' | tail -1 |
+          sed 's/^[^=]*=[[:space:]]*//')
+        if [ -n "$idle_sec" ] && [ "$idle_sec" != "infinity" ] &&
+           [ "$idle_sec" -gt 0 ] 2>/dev/null && [ "$idle_sec" -le "$limit" ] 2>/dev/null; then
           pass=1
         fi
-        # Check TMOUT shell variable (CIS approach)
-        tmout_val=$(grep -rhE '^(export\s+)?TMOUT=' /etc/profile /etc/profile.d/*.sh /etc/bashrc 2>/dev/null | tail -1 | grep -oE '[0-9]+')
-        if [ -n "$tmout_val" ] && [ "$tmout_val" -gt 0 ] 2>/dev/null && [ "$tmout_val" -le {{ shell_idle_timeout_seconds }} ] 2>/dev/null; then
+        # TMOUT, read the way a shell actually resolves it. Two things a naive
+        # grep gets wrong. Files are walked in SOURCING order, because `grep -r`
+        # returns readdir order, which is filesystem-dependent and not the order
+        # /etc/profile sources its drop-ins. And a `readonly` assignment LOCKS the
+        # value: every later assignment fails with an error, so the first readonly
+        # wins while an unlocked value is overridden by the last one. Reading
+        # either "first" or "last" unconditionally credits a timeout the session
+        # never adopts. Covers the RHEL layout (/etc/bashrc) and the Debian one
+        # (/etc/bash.bashrc).
+        tmout_val=""; locked=0
+        for f in /etc/profile $(ls -1 /etc/profile.d/*.sh 2>/dev/null | sort) \
+                 /etc/bashrc /etc/bash.bashrc; do
+          [ -r "$f" ] || continue
+          while IFS= read -r line; do
+            case "$line" in \#*|'') continue ;; esac
+            case "$line" in *TMOUT=*) ;; *) continue ;; esac
+            v=$(printf '%s\n' "$line" | grep -oE 'TMOUT=[0-9]+' | head -1 | cut -d= -f2)
+            [ -n "$v" ] || continue
+            [ "$locked" -eq 1 ] && continue
+            tmout_val="$v"
+            printf '%s\n' "$line" |
+              grep -qE '(readonly|typeset[[:space:]]+-[a-zA-Z]*r|declare[[:space:]]+-[a-zA-Z]*r)' &&
+              locked=1
+          done < "$f"
+        done
+        if [ -n "$tmout_val" ] && [ "$tmout_val" -gt 0 ] 2>/dev/null &&
+           [ "$tmout_val" -le "$limit" ] 2>/dev/null; then
           pass=1
         fi
         if [ "$pass" -eq 1 ]; then
-          echo "OK: idle timeout configured (logind=${idle_sec:-unset}, TMOUT=${tmout_val:-unset})"
+          echo "OK: idle timeout within ${limit}s (logind=${idle_sec:-unset}, TMOUT=${tmout_val:-unset})"
           exit 0
         fi
-        echo "FAIL: no idle session timeout configured"
+        echo "FAIL: no idle timeout within ${limit}s (logind=${idle_sec:-unset}, TMOUT=${tmout_val:-unset})"
         exit 1
       expected_exit: 0
+    # file_content, not manual: it captures the prior file state and can roll
+    # back. A managed drop-in also survives package updates that rewrite
+    # /etc/profile, which editing that file in place does not.
     remediation:
       mechanism: file_content
       path: "/etc/profile.d/kensa-tmout.sh"

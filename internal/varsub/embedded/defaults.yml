@@ -58,7 +58,8 @@ variables:
   gdm_idle_delay_seconds: 900            # graphical idle before the screensaver
   gdm_lock_delay_seconds: 5              # screensaver to lock; a different knob
   logind_idle_timeout_seconds: 600       # logind StopIdleSessionSec
-  shell_idle_timeout_seconds: 900        # TMOUT, or logind where that is the path
+  shell_idle_timeout_seconds: 600        # TMOUT or logind. 600 is the strictest
+                                         # mapped bound (DISA); it also satisfies CIS 900
 
   # Password aging - login.defs
   pam_faillock_deny: 3
