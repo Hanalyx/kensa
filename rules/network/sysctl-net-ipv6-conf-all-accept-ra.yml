@@ -35,7 +35,6 @@ references:
     rhel10: { section: "3.3.2.7", level: "L1", type: "Automated" }
     ubuntu22: { section: "3.3.2.7", level: "L1", type: "Automated" }
     ubuntu24: { section: "3.3.2.7", level: "L1", type: "Automated" }
-  nist_800_53:
   nist_800_171: ["3.4.2[b]"]
 
 platforms:

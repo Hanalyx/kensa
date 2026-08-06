@@ -16,6 +16,21 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **A declared framework key with no value is now a validation error.** Twelve
+  rules carried one: eight with a bare `nist_800_53:` and four with a bare
+  `cis:`. An empty key is the worst of both readings. A human scanning the YAML
+  sees the rule mapped to that framework; the engine produces no FrameworkRef, so
+  a coverage query sees it unmapped. Neither reader is warned.
+
+  The twelve keys were removed rather than populated. Filling them in would have
+  meant inventing citations: the eight sysctl rules have siblings citing `CM-6`,
+  which is a plausible fit and not evidence, and a framework citation nobody
+  checks until an assessor does is worse missing than absent. Populating them
+  properly needs the benchmark text and is separate work.
+
+  `kensa-validate` now rejects the pattern, so it cannot come back.
+
 ### Added
 - **NIST SP 800-171 is now a framework the corpus carries.** `nist_800_171` and
   `nist_800_171_r3` are registered in `pkg/kensa/catalog.go`, and 313 rules carry
