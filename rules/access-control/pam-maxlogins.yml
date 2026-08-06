@@ -32,6 +32,7 @@ references:
       severity: "CAT III"
       cci: ["CCI-000054"]
   nist_800_53: ["AC-10"]
+  nist_800_171: ["3.1.12[c]"]
 
 platforms:
   - family: rhel

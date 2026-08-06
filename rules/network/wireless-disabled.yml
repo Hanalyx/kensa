@@ -33,6 +33,7 @@ references:
       severity: "CAT II"
       cci: ["CCI-002418"]
   nist_800_53: ["CM-7", "SC-8"]
+  nist_800_171: ["3.1.16[b]", "3.1.17[a]", "3.1.17[b]"]
 
 platforms:
   - family: rhel

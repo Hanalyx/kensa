@@ -32,6 +32,7 @@ references:
       stig_id: "UBTU-22-255055"
       severity: "CAT II"
   nist_800_53: ["SC-8", "SC-12", "SC-13"]
+  nist_800_171: ["3.1.13[b]", "3.13.1[g]", "3.13.1[h]", "3.13.8[c]"]
 
 platforms:
   - family: rhel

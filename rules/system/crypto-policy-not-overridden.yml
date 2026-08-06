@@ -19,6 +19,7 @@ references:
       vuln_id: "V-279932"
       severity: "CAT I"
   nist_800_53: ["SC-13", "AC-17"]
+  nist_800_171: ["3.13.11"]
 
 platforms:
   - family: rhel

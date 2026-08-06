@@ -27,6 +27,7 @@ references:
       vuln_id: "V-230455"
       severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]
+  nist_800_171: ["3.4.3[a]", "3.4.3[d]"]
 
 platforms:
   - family: rhel

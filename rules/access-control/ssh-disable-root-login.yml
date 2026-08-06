@@ -40,6 +40,7 @@ references:
   nist_800_53: ["AC-6(2)", "AC-17(2)", "IA-2(5)"]
   pci_dss_4: ["2.2.6", "8.6.1"]
   srg: ["SRG-OS-000109-GPOS-00056"]
+  nist_800_171: ["3.1.6[b]", "3.1.12[c]"]
 
 platforms:
   - family: rhel

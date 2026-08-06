@@ -15,6 +15,7 @@ references:
   cis:
     rhel9: { section: "4.3.4", level: "L1", type: "Automated" }
   nist_800_53: ["SC-7"]
+  nist_800_171: ["3.13.6[b]"]
 
 platforms:
   - family: rhel

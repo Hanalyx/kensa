@@ -18,6 +18,7 @@ references:
     rhel9:
       - { vuln_id: "V-258077", stig_id: "RHEL-09-412080", severity: "CAT II" }
   nist_800_53: ["AC-11", "AC-12"]
+  nist_800_171: ["3.1.11[b]", "3.13.9[c]"]
 
 platforms:
   - family: rhel

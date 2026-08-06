@@ -13,6 +13,7 @@ references:
     ubuntu22: { section: "1.1.1.11", level: "L1", type: "Automated" }
     ubuntu24: { section: "1.1.1.9", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
+  nist_800_171: ["3.4.7[l]"]
 
 platforms:
   - family: ubuntu

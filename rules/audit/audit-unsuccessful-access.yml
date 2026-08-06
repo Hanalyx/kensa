@@ -33,6 +33,7 @@ references:
   nist_800_53:
   - AU-2
   - AU-12
+  nist_800_171: ["3.14.6[a]"]
 platforms:
 - family: rhel
   min_version: 8

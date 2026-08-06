@@ -16,6 +16,34 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **NIST SP 800-171 is now a framework the corpus carries.** `nist_800_171` and
+  `nist_800_171_r3` are registered in `pkg/kensa/catalog.go`, and 313 rules carry
+  reviewed references at OBJECTIVE granularity, `3.1.11[b]` rather than `3.1.11`, with 463
+  refs in all. A scan result now reports them like any other framework:
+
+  ```
+  shell-timeout   nist_800_171  3.1.11[b]
+                  nist_800_171  3.13.9[c]
+  ```
+
+  The references come from a review of all 87 technically evidenceable
+  assessment objectives against the 800-171A text, not from a mechanical
+  crosswalk. A rule appears against an objective when it was judged to satisfy or
+  partly evidence it; a rule judged merely `related`, meaning it fires on a
+  neighbouring idea, is deliberately absent. That distinction is the whole reason
+  the review existed, and a crosswalk cannot draw it.
+
+  As with `nist_800_53`, the ref carries no verdict and several rules may cite one
+  objective. **A coverage count must not be computed by counting refs.** Whether
+  an objective is met is a per-objective judgment, and 30 of the 87 are met in
+  full today.
+
+  `nist_800_171_r3` is registered but no rule carries it yet. Revision 3 renumbers
+  every requirement and withdraws or consolidates several, so a dual tag needs a
+  verified crosswalk rather than a mechanical reformat. The published claim stays
+  pinned to Revision 2, which is what 32 CFR 170.2 keys CMMC to.
+
 ### Changed
 - **Seven more policy thresholds are operator-declarable.** Password maximum and
   minimum age on existing accounts, the PAM SHA-512 rounds floor, the legacy

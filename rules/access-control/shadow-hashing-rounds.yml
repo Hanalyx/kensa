@@ -18,6 +18,7 @@ references:
       vuln_id: "V-230233"
       severity: "CAT II"
   nist_800_53: ["IA-5(1)"]
+  nist_800_171: ["3.5.10[a]"]
 
 platforms:
   - family: rhel

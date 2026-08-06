@@ -33,6 +33,7 @@ references:
       stig_id: "UBTU-22-232035"
       severity: "CAT II"
   nist_800_53: ["AU-9", "AC-6"]
+  nist_800_171: ["3.3.8[d]", "3.3.8[e]", "3.3.8[f]", "3.3.9[b]"]
 
 platforms:
   - family: rhel

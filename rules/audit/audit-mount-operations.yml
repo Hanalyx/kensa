@@ -36,6 +36,7 @@ references:
       type: Automated
     rhel10: { section: "6.3.3.21", level: "L2", type: "Automated" }
     rhel8: { section: "6.3.3.10", level: "L2", type: "Automated" }
+  nist_800_171: ["3.4.3[a]", "3.4.3[d]"]
 platforms:
 - family: rhel
   min_version: 8

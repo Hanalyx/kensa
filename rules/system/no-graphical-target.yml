@@ -21,6 +21,7 @@ references:
       vuln_id: "V-251718"
       severity: "CAT II"
   nist_800_53: ["CM-7"]
+  nist_800_171: ["3.13.3[c]"]
 
 platforms:
   - family: rhel

@@ -39,6 +39,7 @@ references:
   nist_800_53:
   - AU-9
   - SI-7
+  nist_800_171: ["3.3.8[e]", "3.3.8[f]"]
 platforms:
 - family: rhel
   min_version: 8

@@ -36,6 +36,7 @@ references:
   - SC-7
   - CM-7
   - SC-5
+  nist_800_171: ["3.4.2[b]"]
 platforms:
 - family: rhel
   min_version: 8

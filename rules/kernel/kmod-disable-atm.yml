@@ -23,6 +23,7 @@ references:
       vuln_id: "V-230494"
       severity: "CAT III"
   nist_800_53: ["CM-7"]
+  nist_800_171: ["3.4.7[l]"]
 
 platforms:
   - family: rhel

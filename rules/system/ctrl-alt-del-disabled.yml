@@ -34,6 +34,7 @@ references:
       stig_id: "RHEL-08-040170"
       severity: "CAT I"
   nist_800_53: ["AC-6"]
+  nist_800_171: ["3.4.7[f]"]
 
 platforms:
   - family: ubuntu

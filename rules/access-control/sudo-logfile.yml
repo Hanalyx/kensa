@@ -22,6 +22,7 @@ references:
     ubuntu22: { section: "5.2.3", level: "L1", type: "Automated" }
     ubuntu24: { section: "5.2.3", level: "L1", type: "Automated" }
   nist_800_53: ["AU-2", "AU-12"]
+  nist_800_171: ["3.4.3[d]"]
 
 platforms:
   - family: rhel
