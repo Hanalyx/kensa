@@ -17,6 +17,41 @@ any pair).
 ## Unreleased
 
 ### Fixed
+- **Two rules reported compliance when the tool they inspect was absent.**
+  `selinux-user-mapping` guarded on `command -v semanage` and
+  `firewalld-loopback-source` on `command -v firewall-cmd`, each returning
+  success when the tool was missing. Both assert a requirement, so absence means
+  the control is not in place, not that the host is compliant. They are now gated
+  on the `selinux` and `firewalld` capabilities, which already existed, so such a
+  host is skipped with a reason.
+
+  Fixing the first one exposed a second false pass underneath it. With the guard
+  removed, a host where SELinux is enforcing but `semanage` is absent read an
+  empty login mapping and fell through to the OK path, printing
+  `OK: __default__ SELinux login is` with no value. An unreadable mapping is an
+  inability to verify, not evidence of confinement, and it now fails with that
+  reason.
+
+### Added
+- **Two corpus tests for checks that can report compliance without verifying
+  it.** This class has shipped four times: a banner rule passing on a host with
+  no graphical stack, a timeout rule passing a host at double its limit, a
+  deny-by-default rule passing because a different firewall was running, and a
+  forwarding rule passing unconditionally. Each was found by hand, months apart.
+
+  `TestNoNewAlwaysPassingChecks` fails on any command check that can only exit 0,
+  against a documented allowlist of the seven that deliberately surface data for
+  a human. `TestNoDivergentDefault` fails when a default implementation inspects
+  something unrelated to the capability-gated one it stands in for. Both were
+  verified by restoring the pre-fix rules and confirming each test catches its
+  own case.
+- `scripts/false_pass_sweep.py`, the sweep that found the two rules above. It
+  looks for four shapes of this defect. The two mechanical ones are the tests
+  described above. The other two stay a script a person reads: one has to judge
+  whether a rule's title states a requirement or a prohibition, and the other
+  needs scan output from real hosts, so neither can be a gate.
+
+### Fixed
 - **Four rules gated on a capability that was never probed, so their real check
   could never run.** `nftables-default-deny`, `nftables-base-chains`,
   `nftables-loopback` and `journald-to-rsyslog` gate on `nftables_active` or

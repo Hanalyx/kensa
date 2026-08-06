@@ -23,14 +23,24 @@ platforms:
   - family: rhel
     min_version: 8
 implementations:
-  - default: true
+  # SELinux user mapping cannot exist on a host without SELinux, and a rule that
+  # asserts users ARE confined must not report that by passing. Gated on the
+  # selinux capability so such a host is skipped with a reason instead.
+  - when: selinux
     check:
       method: command
       run: |
-        command -v semanage >/dev/null 2>&1 || { echo "NOT APPLICABLE: semanage not available"; exit 0; }
         # The default __default__ login must not map ordinary users to unconfined_u.
         def=$(semanage login -l 2>/dev/null | awk '$1=="__default__"{print $2}')
-        if [ -n "$def" ] && [ "$def" = "unconfined_u" ]; then
+        # SELinux is enforcing, since the gate said so, but the mapping could not
+        # be read: semanage is absent or failed. That is an inability to verify,
+        # not evidence of confinement, so it must not fall through to the OK path
+        # with an empty value.
+        if [ -z "$def" ]; then
+          echo "FAIL: cannot read the SELinux login mapping (is policycoreutils-python-utils installed?); confinement is unverified on an enforcing host"
+          exit 1
+        fi
+        if [ "$def" = "unconfined_u" ]; then
           echo "FAIL: __default__ login maps to unconfined_u (non-privileged users unconfined)"
           exit 1
         fi

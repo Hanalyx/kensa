@@ -20,11 +20,13 @@ platforms:
   - family: rhel
     min_version: 8
 implementations:
-  - default: true
+  # A host without firewalld has no firewalld rule dropping spoofed loopback
+  # traffic, so passing there claims a control that is absent. Gated on the
+  # firewalld capability, which makes it a skip.
+  - when: firewalld
     check:
       method: command
       run: |
-        command -v firewall-cmd >/dev/null 2>&1 || { echo "NOT APPLICABLE: firewalld not present"; exit 0; }
         # A rich/direct rule must drop 127.0.0.0/8 (and ::1) arriving off-lo.
         v4=$(firewall-cmd --permanent --zone=trusted --list-rich-rules 2>/dev/null; firewall-cmd --direct --get-all-rules 2>/dev/null)
         if printf '%s' "$v4" | grep -qE '127\.0\.0\.0/8' && printf '%s' "$v4" | grep -qiE 'drop|reject'; then
