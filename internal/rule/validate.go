@@ -163,6 +163,19 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 		}
 	}
 
+	// (10) A declared framework key must carry a value. An empty key reads as
+	// "this rule is mapped to that framework" everywhere it is consumed, while
+	// contributing nothing: it produces no FrameworkRef, so a coverage query
+	// counts the rule as unmapped while a human reading the YAML counts it as
+	// mapped. Twelve rules carried one before this check existed.
+	for family, v := range rule.References {
+		if isEmptyRef(v) {
+			add("references."+family,
+				fmt.Sprintf("framework key %q is declared but carries no value; "+
+					"populate it or remove the key", family))
+		}
+	}
+
 	// (9) Remediation params satisfy the mechanism contract (internal/mechanism).
 	validateRemediationParams(rule, add)
 
@@ -278,4 +291,21 @@ var KnownCapabilities = map[string]struct{}{
 	"subscription_manager": {},
 	"dconf":                {},
 	"gdm":                  {},
+}
+
+// isEmptyRef reports whether a references block entry carries nothing. nil
+// covers the bare "cis:" form; the len checks cover an explicit empty list, map
+// or string, which parse to a value that is present but says nothing.
+func isEmptyRef(v interface{}) bool {
+	switch t := v.(type) {
+	case nil:
+		return true
+	case []interface{}:
+		return len(t) == 0
+	case map[string]interface{}:
+		return len(t) == 0
+	case string:
+		return strings.TrimSpace(t) == ""
+	}
+	return false
 }

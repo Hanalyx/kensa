@@ -22,7 +22,6 @@ references:
     rhel10:
       vuln_id: "V-280933"
       severity: "CAT I"
-  cis:
   nist_800_53: ["CM-11(a)", "SI-7"]
   nist_800_171: ["3.4.9[b]"]
 
