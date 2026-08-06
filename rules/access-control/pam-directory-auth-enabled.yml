@@ -1,0 +1,86 @@
+id: pam-directory-auth-enabled
+title: Ensure PAM authenticates users against the directory
+description: >
+  On a host that resolves identity through a directory, the PAM authentication
+  stack must include the SSSD module. Name lookup and authentication are separate
+  paths: nsswitch decides who the host can see, and PAM decides who the host
+  will let in. A host can list directory users correctly and still authenticate
+  from its local password file alone.
+rationale: >
+  Removing the directory module from the PAM stack leaves a host that looks
+  joined and behaves local. Directory users appear in id and getent output, so
+  the host passes a casual inspection, but the only credentials it actually
+  accepts are the local ones. Password policy, account expiry and lockout all
+  come from the directory, so none of them apply, and a local account with a
+  weak password becomes the whole of the authentication boundary. The directory
+  cannot see this, because a host that stopped asking looks the same as a host
+  with nobody logging in.
+severity: medium
+transactional: false
+category: access-control
+tags: [pam, sssd, authentication, identity, directory]
+
+references:
+  nist_800_53: ["IA-2", "IA-5", "AC-3"]
+  nist_800_171: ["3.1.1[d]", "3.5.6[b]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  # No default. On a host whose identity is local this rule has no subject: there
+  # is no directory to defer to, and demanding pam_sss there would be wrong.
+  - when: directory_joined
+    check:
+      method: command
+      run: |
+        # Both layouts, because the stack lives in a different file per family
+        # and the rule is one control rather than one per distribution. RHEL
+        # splits local and remote logins across system-auth and password-auth;
+        # Debian and Ubuntu use a single common-auth included by both.
+        found=0
+        checked=""
+        for f in /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-auth; do
+          [ -r "$f" ] || continue
+          checked="$checked $f"
+          # An auth line that is commented out does not count, and neither does
+          # pam_sss appearing only in the account or session stacks: those decide
+          # what an already-authenticated user may do, not whether a credential
+          # is accepted.
+          if grep -E '^[[:space:]]*auth[[:space:]]' "$f" 2>/dev/null |
+             grep -qE '^[^#]*pam_sss\.so'; then
+            found=1
+          fi
+        done
+        if [ -z "$checked" ]; then
+          echo "FAIL: no readable PAM authentication stack found, so directory authentication cannot be verified."
+          echo "      Looked for /etc/pam.d/system-auth, password-auth and common-auth."
+          exit 1
+        fi
+        if [ "$found" -eq 0 ]; then
+          echo "FAIL: identity resolves through a directory but no auth line loads pam_sss.so."
+          echo "      Stacks checked:$checked"
+          echo "      This host can list directory users while accepting only local passwords."
+          exit 1
+        fi
+        echo "OK: the PAM auth stack loads pam_sss.so, so credentials are checked against the directory"
+        exit 0
+      expected_exit: 0
+    # Manual, and deliberately so. A wrong edit to the authentication stack locks
+    # every user out of the host including the operator fixing it, and the
+    # correct control value depends on whether the site wants the directory tried
+    # before or after local accounts. That is a site decision, not a default this
+    # rule can pick. The pam_module_configure handler can express the edit, but
+    # not the judgment about ordering, and applying it blind is the more
+    # dangerous of the two failure modes.
+    remediation:
+      mechanism: manual
+      note: >
+        Add pam_sss.so to the auth stack. On RHEL, select an authselect profile
+        that includes SSSD, for example: authselect select sssd with-mkhomedir.
+        On Ubuntu, run pam-auth-update and enable the SSSD profile. Confirm the
+        ordering against the site's policy for local fallback, then verify with a
+        test login over a second session before closing the first one.

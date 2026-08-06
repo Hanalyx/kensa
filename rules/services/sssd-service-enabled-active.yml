@@ -2,16 +2,22 @@ id: sssd-service-enabled-active
 title: Ensure the SSSD service is enabled and active
 description: >
   The System Security Services Daemon (sssd) must be both enabled (starts on
-  boot) and active (currently running) so it can broker multifactor and
-  smart-card authentication.
+  boot) and active (currently running) on a host that resolves identity through
+  a directory. SSSD is the process that answers "may this user log in" on such a
+  host, so if it is stopped the host falls back to its local files and the
+  directory stops being the authority.
 rationale: >
-  SSSD integrates smart-card / PKI credentials and centralized identity into
-  the authentication stack. If the sssd service is not enabled and running,
-  multifactor authentication cannot be enforced.
+  On a directory-joined host the account policy an assessor cares about lives in
+  the directory: who exists, which accounts are disabled, how long a password
+  lasts. None of that reaches the host unless SSSD is running. A host with SSSD
+  stopped still boots, still accepts logins from whatever local accounts it
+  carries, and reports nothing unusual, so the bypass is silent. It is also
+  invisible from the directory side, because the directory cannot tell that a
+  member stopped asking. Only a check on the host itself finds it.
 severity: medium
 transactional: false
 category: services
-tags: [sssd, service, mfa, authentication, stig]
+tags: [sssd, service, mfa, authentication, identity, stig]
 
 references:
   stig:
@@ -26,24 +32,54 @@ references:
       severity: "CAT II"
       cci: ["CCI-000765", "CCI-000766", "CCI-004046", "CCI-004047"]
   nist_800_53: ["IA-2(1)", "IA-2(2)"]
+  nist_800_171: ["3.5.6[b]"]
 
 platforms:
   - family: ubuntu
     min_version: 22
+  - family: rhel
+    min_version: 8
 
 implementations:
-  - default: true
+  # Gated, with no default, so a host that resolves identity from its own files
+  # skips this with a stated reason instead of failing it.
+  #
+  # Before the gate this rule ran everywhere and demanded SSSD of every host. A
+  # measured Ubuntu 22.04 server with local accounts and no SSSD installed
+  # reported FAIL, which reads as "this host is misconfigured" when the truth is
+  # that the rule does not apply to it. That is the same defect as a check that
+  # passes because the tool it needs is missing, pointed the other way: a verdict
+  # asserted about something the host was never doing.
+  #
+  # Note what the gate does NOT exclude. It fires when SSSD is running OR when an
+  # sssd.conf exists, so a host configured for smart-card or PKI authentication
+  # is still checked even if the daemon has stopped, which is the case the STIG
+  # citations above are about. Only a host with no SSSD configuration at all is
+  # skipped.
+  - when: directory_joined
     check:
       method: command
       run: |
-        systemctl is-enabled sssd 2>/dev/null | grep -qx enabled || {
-          echo "FAIL: sssd service is not enabled"; exit 1; }
-        systemctl is-active sssd 2>/dev/null | grep -qx active || {
-          echo "FAIL: sssd service is not active"; exit 1; }
-        echo "OK: sssd service is enabled and active"; exit 0
+        enabled=$(systemctl is-enabled sssd 2>/dev/null)
+        active=$(systemctl is-active sssd 2>/dev/null)
+        if [ "$enabled" != "enabled" ]; then
+          echo "FAIL: identity resolves through a directory but sssd is not enabled (is-enabled=${enabled:-unknown})."
+          echo "      After a reboot this host would answer logins from its local files alone."
+          exit 1
+        fi
+        if [ "$active" != "active" ]; then
+          echo "FAIL: identity resolves through a directory but sssd is not running (is-active=${active:-unknown})."
+          echo "      Directory accounts, disabled accounts and password policy are not being consulted."
+          exit 1
+        fi
+        echo "OK: sssd is enabled and active, so directory identity is being consulted"
+        exit 0
       expected_exit: 0
+    # A handler rather than a manual note: enabling and starting a unit is
+    # captured and reversible, so the operator gets a rollback path. SSSD must
+    # already be configured for the site's provider, which the gate implies,
+    # because an sssd.conf is one of the two things that opens it.
     remediation:
-      mechanism: manual
-      note: >
-        Enable and start SSSD: systemctl enable --now sssd.service (SSSD must
-        first be configured for the site's identity/MFA provider).
+      mechanism: service_enabled
+      name: sssd
+      start: true

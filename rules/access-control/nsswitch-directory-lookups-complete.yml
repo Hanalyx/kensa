@@ -1,0 +1,87 @@
+id: nsswitch-directory-lookups-complete
+title: Ensure directory lookups cover both users and groups
+description: >
+  On a host that resolves identity through a directory, the name service
+  configuration must route group lookups to the directory as well as user
+  lookups. A host that consults the directory for users but not for groups sees
+  every directory account, and none of the memberships those accounts were
+  granted.
+rationale: >
+  Group membership is what most access decisions actually read. Sudo rules,
+  file ownership and application roles are written against groups, so a host that
+  resolves users from the directory and groups from its local files applies the
+  directory's identities against its own idea of who is privileged. The two
+  disagree silently. A user removed from an administrator group in the directory
+  keeps that privilege on the host for as long as the local group file still
+  lists them, and nothing on either side reports a conflict.
+severity: medium
+transactional: false
+category: access-control
+tags: [nsswitch, sssd, identity, directory, groups]
+
+references:
+  nist_800_53: ["AC-2", "AC-3", "IA-2"]
+  nist_800_171: ["3.1.1[d]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - when: directory_joined
+    check:
+      method: command
+      run: |
+        f=/etc/nsswitch.conf
+        if [ ! -r "$f" ]; then
+          echo "FAIL: $f is not readable, so name service routing cannot be verified."
+          exit 1
+        fi
+        # The same three backends the capability gate recognises. Reading the
+        # value rather than testing one of them keeps this honest on a host that
+        # uses nslcd or winbind instead of SSSD.
+        dbline() {
+          grep -E "^[[:space:]]*$1:" "$f" | head -1 | sed "s/^[^:]*:[[:space:]]*//"
+        }
+        has_dir() {
+          printf '%s\n' "$1" | grep -qE '(sss|ldap|winbind)'
+        }
+        pw=$(dbline passwd)
+        gr=$(dbline group)
+        if [ -z "$pw" ] || [ -z "$gr" ]; then
+          echo "FAIL: nsswitch.conf does not declare both passwd and group (passwd='${pw:-missing}', group='${gr:-missing}')."
+          exit 1
+        fi
+        if ! has_dir "$pw"; then
+          echo "FAIL: identity resolves through a directory but passwd does not consult it (passwd: $pw)."
+          exit 1
+        fi
+        if ! has_dir "$gr"; then
+          echo "FAIL: users come from the directory but groups do not (passwd: $pw / group: $gr)."
+          echo "      Directory memberships are invisible to this host, so sudo and group-based"
+          echo "      access are decided by the local /etc/group alone."
+          exit 1
+        fi
+        echo "OK: passwd and group both consult the directory (passwd: $pw / group: $gr)"
+        exit 0
+      expected_exit: 0
+    # Manual, because no handler can write this file safely. config_set is the
+    # natural fit and it accepts only "=" and space as separators, so it cannot
+    # produce nsswitch.conf's "group: files sss" form; pointing it at this path
+    # would corrupt the line rather than fix it. file_content would rewrite every
+    # other database in the file to change one of them. Name service resolution
+    # is also the one thing that must keep working for an operator to log back in
+    # and undo a mistake, so an approximate automatic edit is the wrong trade
+    # here.
+    remediation:
+      mechanism: manual
+      note: >
+        Add the directory backend to the group line in /etc/nsswitch.conf, next
+        to the one already on the passwd line. For SSSD the line reads
+        "group: files sss". Keep files first so that root and the service
+        accounts still resolve when the directory is unreachable at boot. On
+        RHEL, prefer authselect so the change survives a profile update:
+        authselect select sssd. Then confirm with "getent group" against a group
+        that exists only in the directory.

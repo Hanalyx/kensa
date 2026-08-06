@@ -160,21 +160,48 @@ var probes = []probe{
 		// meaningless and yields a confident wrong verdict. Calling a local host
 		// joined only makes identity rules skip, and a skip states its reason.
 		//
-		// PROBES RUN UNPRIVILEGED, which rules out the two signals that look most
-		// direct. /etc/sssd/sssd.conf is mode 0600 root, so grepping it for
-		// id_provider always fails regardless of what the host is; the same goes for
-		// /etc/krb5.keytab. Both were tried and removed rather than left as code
-		// that can never fire.
+		// "sss" in nsswitch is NOT sufficient on its own: RHEL 9 ships it through the
+		// authselect default profile on a host that has never been joined. It counts
+		// only alongside evidence that a domain was actually configured.
 		//
-		// "sss" in nsswitch is NOT sufficient on its own: RHEL 9 ships it through
-		// the authselect default profile on a host that has never been joined, so it
-		// only counts when sssd is actually running. "ldap" and "winbind" are not
-		// defaults anywhere, so they stand alone.
+		// That evidence is a [domain/...] SECTION in the SSSD config, not the presence
+		// of the config file. Two earlier attempts at this were wrong, and both are
+		// worth recording because the second looked convincing:
+		//
+		//   Grepping sssd.conf for id_provider was dropped on the belief that probes
+		//   run unprivileged and the file is 0600 root. Measured since: with --sudo
+		//   the probe runs as root and reads it fine.
+		//
+		//   Testing that sssd.conf EXISTS looked like a permission-free substitute and
+		//   is wrong twice over. /etc/sssd is mode 0700, so the test answers "no" for
+		//   an unprivileged caller whatever the truth is; and RHEL 9's sssd package
+		//   ships a default sssd.conf, so on a never-joined host the answer is "yes"
+		//   for root. It reported a measured local host as joined.
+		//
+		// A configured domain is the thing that actually differs. A never-joined RHEL
+		// host has an sssd.conf holding only "[pam] pam_cert_auth=True"; a joined host
+		// declares "[domain/<name>]" with an id_provider. conf.d is included because
+		// a domain may be dropped in there instead.
+		//
+		// The is-active clause stays as a second path, for a scan without sudo where
+		// the config cannot be read at all. It is also why a crashed sssd no longer
+		// hides a join: the config section survives the daemon. That mattered, because
+		// reporting "local" for a joined host whose sssd died would skip the identity
+		// rules on the host most likely to be broken, and a skip reads like a clean
+		// answer.
+		//
+		// `systemctl is-enabled sssd` is deliberately NOT in this list. It reads
+		// "enabled" on both fleet hosts and on an unjoined container, so it separates
+		// nothing. Measured, not assumed.
+		//
+		// "ldap" and "winbind" in nsswitch are not defaults anywhere, so they stand
+		// alone.
 		"directory_joined",
 		`realm list 2>/dev/null | grep -q 'domain-name:' || ` +
 			`grep -qE '^[[:space:]]*passwd:.*(ldap|winbind)' /etc/nsswitch.conf 2>/dev/null || ` +
 			`{ grep -qE '^[[:space:]]*passwd:.*sss' /etc/nsswitch.conf 2>/dev/null && ` +
-			`systemctl is-active sssd >/dev/null 2>&1; } || ` +
+			`{ grep -qhE '^[[:space:]]*\[domain/' /etc/sssd/sssd.conf /etc/sssd/conf.d/*.conf 2>/dev/null || ` +
+			`systemctl is-active sssd >/dev/null 2>&1; }; } || ` +
 			`systemctl is-active nslcd >/dev/null 2>&1`,
 	},
 	{
