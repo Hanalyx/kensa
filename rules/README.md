@@ -1,12 +1,12 @@
-# rules/ — the Kensa rules corpus
+# rules/: the Kensa rules corpus
 
-The 539 YAML rules in this tree are the inputs to `kensa check` and
+The YAML rules in this tree are the inputs to `kensa check` and
 `kensa remediate`. The binary carries **no embedded corpus**; this
 directory is the source of truth.
 
 ## Layout
 
-Rules are grouped into 8 topic directories — purely organizational, the
+Rules are grouped into 8 topic directories. The grouping is organizational only, and the
 loader walks recursively so the layout is for humans, not the engine:
 
 | Topic            | Scope                                                   |
@@ -22,8 +22,8 @@ loader walks recursively so the layout is for humans, not the engine:
 
 ## Consumed by
 
-- `kensa check --rules-dir <here>` — read-only compliance scan.
-- `kensa remediate --rules-dir <here>` — transactional apply.
+- `kensa check --rules-dir <here>`: read-only compliance scan.
+- `kensa remediate --rules-dir <here>`: transactional apply.
 - The `kensa-rules` package (rpm/deb, noarch) installs this directory to
   `/usr/share/kensa/rules`. With the `kensa-rules` package present the
   `--rules-dir` flag is optional; `cmd/kensa.loadRulesFromDirOrFiles` falls
@@ -40,8 +40,8 @@ make build
 ./bin/kensa-validate --rules-dir rules
 ```
 
-A green run reports `539 file(s): 0 error(s)`. Stylistic warnings
-(`W005` and friends) are advisory — not gates.
+A green run reports `0 error(s)` for every file. Stylistic warnings
+(`W005` and friends) are advisory, not gates.
 
 ## Provenance
 
