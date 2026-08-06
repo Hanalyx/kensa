@@ -100,6 +100,18 @@ var probes = []probe{
 		`systemctl is-active systemd-resolved >/dev/null 2>&1`,
 	},
 	{
+		// ACTIVE, not merely installed. Four rules gated on "nftables_active" and
+		// "rsyslog_active" before these probes existed, so the gate could never
+		// match and every host fell through to a default that answered a
+		// different question. See the rules' own comments.
+		"nftables_active",
+		`systemctl is-active nftables >/dev/null 2>&1`,
+	},
+	{
+		"rsyslog_active",
+		`systemctl is-active rsyslog >/dev/null 2>&1`,
+	},
+	{
 		"nftables",
 		`command -v nft >/dev/null 2>&1`,
 	},

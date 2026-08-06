@@ -16,6 +16,27 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **Four rules gated on a capability that was never probed, so their real check
+  could never run.** `nftables-default-deny`, `nftables-base-chains`,
+  `nftables-loopback` and `journald-to-rsyslog` gate on `nftables_active` or
+  `rsyslog_active`. Neither existed as a probe, so the gate never matched and
+  every host fell through to a default implementation that answered a different
+  question than the rule asks.
+
+  `nftables-default-deny` is the clearest case. Its default only checked whether
+  firewalld was running. On a fleet host it reported **pass** while
+  `nft list ruleset` showed `policy accept`, a pass for deny-by-default on a host
+  that does not have it. `journald-to-rsyslog` was worse: its default was an
+  unconditional `exit 0`, so the rule passed everywhere. With the gate working it
+  now fails on a host where rsyslog is active and journald forwarding is off,
+  which is a real finding it had been masking.
+
+  Both capabilities are now probed, and the permissive defaults are removed. With
+  every implementation capability-gated the engine reports `skipped` where the
+  rule does not apply, which is the honest verdict, instead of a pass that
+  answers a different question.
+
 ### Added
 - **A `directory_joined` capability, so a rule can tell a host whose users are
   local from one whose identity lives in a directory.** The existing `sssd`

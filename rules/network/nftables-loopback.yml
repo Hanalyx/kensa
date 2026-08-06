@@ -42,11 +42,7 @@ implementations:
         nft add rule inet filter input iif lo accept
         nft add rule inet filter input ip saddr 127.0.0.0/8 counter drop
 
-  - default: true
-    check:
-      method: command
-      run: "systemctl is-active firewalld >/dev/null 2>&1 && echo 'OK: using firewalld' || { echo 'FAIL: no firewall active'; exit 1; }"
-      expected_exit: 0
-    remediation:
-      mechanism: manual
-      note: "Enable either firewalld or nftables to enforce firewall policies."
+  # The permissive default implementation was removed here. It answered a
+  # DIFFERENT question than the rule asks: nftables is not the active firewall engine on this host.
+  # With every implementation capability-gated the engine now reports
+  # skipped, which is the honest verdict, rather than a pass.

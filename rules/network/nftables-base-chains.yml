@@ -43,11 +43,7 @@ implementations:
         nft add chain inet filter forward { type filter hook forward priority 0 \; }
         nft add chain inet filter output { type filter hook output priority 0 \; }
 
-  - default: true
-    check:
-      method: command
-      run: "systemctl is-active firewalld >/dev/null 2>&1 && echo 'OK: using firewalld' || { echo 'FAIL: no firewall active'; exit 1; }"
-      expected_exit: 0
-    remediation:
-      mechanism: manual
-      note: "Enable either firewalld or nftables to enforce firewall policies."
+  # The permissive default implementation was removed here. It answered a
+  # DIFFERENT question than the rule asks: nftables is not the active firewall engine on this host.
+  # With every implementation capability-gated the engine now reports
+  # skipped, which is the honest verdict, rather than a pass.
