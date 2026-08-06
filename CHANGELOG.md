@@ -51,6 +51,24 @@ any pair).
   change from pass to fail; that is the DISA requirement they were already failing
   under `shell-timeout-600`.
 
+- **`shell-timeout` now verifies that TMOUT is readonly, on RHEL only.** A plain
+  assignment is one command from being switched off: `TMOUT=0` and `unset TMOUT`
+  both succeed against it and both fail against a readonly one. DISA requires the
+  locked form on RHEL, whose STIG fix text for RHEL 8, 9 and 10 is
+  `declare -xr TMOUT=600`, and does not ask for it on Ubuntu, whose fix text is a
+  plain `TMOUT=`. Requiring it everywhere would fail Ubuntu hosts that their own
+  benchmark passes, so the requirement follows the platform.
+
+  The remediation now writes that same `declare -xr` line. It previously wrote the
+  value and locked it on a separate line, which is valid shell but meant the rule
+  could not recognize its own output as readonly and failed the host it had just
+  fixed. The check also accepts the two-line spelling, since sites and other tools
+  write it that way.
+
+  Verified in containers: remediated output passes on all five images, the
+  two-line form passes on all five, and a plain assignment fails on AlmaLinux 8
+  and 9 and Rocky 9 while passing on Ubuntu 22.04 and 24.04.
+
   Remediation is `file_content`, which captures prior state and rolls back. Scan,
   remediate and rollback were exercised on RHEL 9.6: the drop-in was written with
   the declared value, and rollback restored the directory to a byte-identical

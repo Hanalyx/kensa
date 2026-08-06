@@ -116,8 +116,37 @@ implementations:
            [ "$tmout_val" -le "$limit" ] 2>/dev/null; then
           pass=1
         fi
+        # A writable TMOUT is one command from being switched off: `TMOUT=0` and
+        # `unset TMOUT` both succeed against a plain assignment and both fail
+        # against a readonly one. DISA requires the locked form on RHEL
+        # (`declare -xr TMOUT=600` in the RHEL 8, 9 and 10 STIG fix text) and does
+        # NOT ask for it on Ubuntu, whose STIG fix text is a plain `TMOUT=`. So
+        # the requirement is read from the platform rather than applied
+        # everywhere, which would fail Ubuntu hosts their own benchmark passes.
+        # This is not mechanism selection, which capabilities are for; the
+        # mechanism is identical and only the required strictness differs.
+        rhel_like=0
+        if [ -r /etc/os-release ]; then
+          . /etc/os-release 2>/dev/null
+          case " ${ID:-} ${ID_LIKE:-} " in *" rhel "*|*" fedora "*|*" centos "*) rhel_like=1 ;; esac
+        fi
+        # readonly is also legitimately written on its own line, as
+        # "TMOUT=600" followed by "readonly TMOUT". The walk above only sees the
+        # assignment line, so check for the bare declaration too before calling a
+        # host non-compliant.
+        if [ "$locked" -eq 0 ] && [ -n "$tmout_val" ]; then
+          if grep -rhqE '^[[:space:]]*(readonly|declare[[:space:]]+-[a-zA-Z]*r|typeset[[:space:]]+-[a-zA-Z]*r)[[:space:]]+TMOUT([[:space:]]|$)' \
+             /etc/profile /etc/profile.d/ /etc/bashrc /etc/bash.bashrc 2>/dev/null; then
+            locked=1
+          fi
+        fi
+        if [ "$pass" -eq 1 ] && [ -n "$tmout_val" ] && [ "$rhel_like" -eq 1 ] && [ "$locked" -eq 0 ]; then
+          echo "FAIL: TMOUT=$tmout_val is within ${limit}s but is not readonly, so any user can run"
+          echo "      'TMOUT=0' or 'unset TMOUT' and remove it. Set it with 'declare -xr' or 'readonly'."
+          exit 1
+        fi
         if [ "$pass" -eq 1 ]; then
-          echo "OK: idle timeout within ${limit}s (logind=${idle_sec:-unset}, TMOUT=${tmout_val:-unset})"
+          echo "OK: idle timeout within ${limit}s (logind=${idle_sec:-unset}, TMOUT=${tmout_val:-unset}, readonly=${locked})"
           exit 0
         fi
         echo "FAIL: no idle timeout within ${limit}s (logind=${idle_sec:-unset}, TMOUT=${tmout_val:-unset})"
@@ -129,5 +158,9 @@ implementations:
     remediation:
       mechanism: file_content
       path: "/etc/profile.d/kensa-tmout.sh"
-      content: "TMOUT={{ shell_idle_timeout_seconds }}\nreadonly TMOUT\nexport TMOUT\n"
+      # `declare -xr` verbatim from the RHEL STIG fix text: exported and readonly
+      # in one statement. The earlier three-line form set TMOUT and then locked it
+      # on a separate line, which is valid shell but meant the rule could not see
+      # its own remediation as readonly and failed the host it had just fixed.
+      content: "declare -xr TMOUT={{ shell_idle_timeout_seconds }}\n"
       mode: "0644"
