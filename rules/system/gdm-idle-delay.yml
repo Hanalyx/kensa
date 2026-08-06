@@ -31,12 +31,12 @@ implementations:
       run: |
         if ! rpm -q gdm >/dev/null 2>&1; then exit 0; fi
         val=$(gsettings get org.gnome.desktop.session idle-delay 2>/dev/null | grep -o '[0-9]*')
-        [ -n "$val" ] && [ "$val" -le 900 ]
+        [ -n "$val" ] && [ "$val" -le {{ gdm_idle_delay_seconds }} ]
       expected_exit: 0
     remediation:
       mechanism: dconf_set
       schema: org/gnome/desktop/session
       key: idle-delay
-      value: "900"
+      value: "{{ gdm_idle_delay_seconds }}"
       value_type: uint32
       file: 00-screensaver

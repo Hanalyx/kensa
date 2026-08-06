@@ -16,28 +16,84 @@ any pair).
 
 ## Unreleased
 
-### Fixed
-- **Two GDM rules reported a pass on servers with no graphical stack.**
-  `gdm-graphical-banner` and `gdm-no-autologin` guarded their check with
-  `if ! rpm -q gdm; then exit 0; fi` on an implementation with no `when` gate, so
-  a host without GDM ran the check, took the guard, and returned success. Nine
-  sibling GDM rules already declare `when: gdm`, which makes the engine report
-  the rule as skipped instead.
+### Changed
+- **Session-inactivity rules now compare against a period the operator can declare,
+  instead of a benchmark constant.** `gdm-idle-delay`, `gdm-screensaver-lock`,
+  `logind-idle-session-timeout` and `shell-timeout` took their thresholds from CIS
+  and DISA defaults baked into the check. A site whose own policy said five minutes
+  had no way to say so. The variables are `gdm_idle_delay_seconds`,
+  `gdm_lock_delay_seconds`, `logind_idle_timeout_seconds` and
+  `shell_idle_timeout_seconds`, resolved through the existing five tiers.
 
-  `gdm-graphical-banner` is the one that mattered: it asserts a login banner is
-  configured, cites NIST 800-53 AC-8 and a DISA STIG control, and recorded
-  evidence for a command that ran on a host where no graphical login exists. A
-  framework claim therefore counted a banner that was never there. A skipped rule
-  states that it does not apply; a passing rule claims evidence nobody collected.
+- **`shell-timeout` now covers Ubuntu as well as RHEL, and reads TMOUT the way a
+  shell actually resolves it.** It previously read the RHEL layout only and matched
+  just the `export TMOUT=` form. Two defects came out of testing it:
 
-  Measured on RHEL 9.6 without GDM: 10 of 12 staged rules skipped before, 12 of 12
-  after. `internal/rule/gate_verify_test.go` pins both directions, because a gate
-  that skipped everywhere would be worse than the pass it replaced.
+  Reading with `grep -r … | tail -1` takes files in readdir order, which is
+  filesystem-dependent and is not the order `/etc/profile` sources its drop-ins. And
+  a `readonly` assignment locks the value, so every later assignment fails; the
+  first readonly wins, while an unlocked value is overridden by the last one.
 
-  Three rules were deliberately left alone. `postfix-local-only`,
-  `postfix-relay-restrictions` and `tftp-secure-mode` use the same guard, but each
-  states a prohibition, so an absent package means the risk is absent and the pass
-  is correct.
+  On a host with `readonly TMOUT=1200` sourced before `typeset -xr TMOUT=600`, the
+  effective timeout is 1200. The old `shell-timeout` reported nothing, because its
+  regex matched neither the `readonly` nor the `typeset` form, and failed the host
+  for the wrong reason. The old `shell-timeout-600` took the smallest value across
+  files, reported 600, and passed a host whose real timeout was double its limit.
+
+  The check now walks `/etc/profile`, `/etc/profile.d/*.sh` in sorted order,
+  `/etc/bashrc` and `/etc/bash.bashrc`, stopping at the first readonly. Verified in
+  containers against what a real login shell reports: AlmaLinux 8, 9 and 10, Rocky
+  9, Ubuntu 22.04 and 24.04, across four TMOUT arrangements, 24 of 24 matching,
+  plus both `bashrc` layouts.
+
+  Default is 600 seconds, the strictest bound any mapped benchmark requires, which
+  satisfies all of them at once. RHEL hosts configured between 601 and 900 seconds
+  change from pass to fail; that is the DISA requirement they were already failing
+  under `shell-timeout-600`.
+
+- **`shell-timeout` now verifies that TMOUT is readonly, on RHEL only.** A plain
+  assignment is one command from being switched off: `TMOUT=0` and `unset TMOUT`
+  both succeed against it and both fail against a readonly one. DISA requires the
+  locked form on RHEL, whose STIG fix text for RHEL 8, 9 and 10 is
+  `declare -xr TMOUT=600`, and does not ask for it on Ubuntu, whose fix text is a
+  plain `TMOUT=`. Requiring it everywhere would fail Ubuntu hosts that their own
+  benchmark passes, so the requirement follows the platform.
+
+  The remediation now writes that same `declare -xr` line. It previously wrote the
+  value and locked it on a separate line, which is valid shell but meant the rule
+  could not recognize its own output as readonly and failed the host it had just
+  fixed. The check also accepts the two-line spelling, since sites and other tools
+  write it that way.
+
+  Verified in containers: remediated output passes on all five images, the
+  two-line form passes on all five, and a plain assignment fails on AlmaLinux 8
+  and 9 and Rocky 9 while passing on Ubuntu 22.04 and 24.04.
+
+  Remediation is `file_content`, which captures prior state and rolls back. Scan,
+  remediate and rollback were exercised on RHEL 9.6: the drop-in was written with
+  the declared value, and rollback restored the directory to a byte-identical
+  sha256 with no residue.
+
+### Removed
+- **`shell-timeout-600` and `shell-idle-timeout-tmout` are merged into
+  `shell-timeout`.** They were the same control split by framework (DISA's 600
+  seconds versus CIS's 900) and by operating system (the Ubuntu STIG). Both splits
+  are things the rule model exists to avoid: a rule states a desired state, and a
+  framework identifier is metadata attached to it, not a reason to write another
+  rule. The threshold that separated them is now a variable, so one rule carries
+  every citation.
+
+  A duplicate-citation test enforces this, and it is what surfaced the merge:
+  taking the union of framework references onto `shell-timeout` failed CI until
+  the two old rules were removed, because no framework control may be cited by
+  more than one rule.
+
+  `shell-timeout` declares `supersedes: [shell-timeout-600,
+  shell-idle-timeout-tmout]`, the first use of that field in the corpus, so an
+  operator running a rule set that still carries them gets them skipped rather
+  than double-reported. Verified: with all three staged, the engine reports
+  `skipping shell-timeout-600 (superseded by shell-timeout)` and evaluates one
+  rule.
 
 ## v0.9.0 (2026-08-03)
 

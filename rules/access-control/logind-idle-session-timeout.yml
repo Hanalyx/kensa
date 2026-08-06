@@ -35,13 +35,13 @@ implementations:
           echo "FAIL: StopIdleSessionSec not configured"
           exit 1
         fi
-        if [ "$val" -gt 0 ] 2>/dev/null && [ "$val" -le 600 ] 2>/dev/null; then
+        if [ "$val" -gt 0 ] 2>/dev/null && [ "$val" -le {{ logind_idle_timeout_seconds }} ] 2>/dev/null; then
           echo "OK: StopIdleSessionSec=$val"
           exit 0
         fi
-        echo "FAIL: StopIdleSessionSec=$val (must be 1..600)"
+        echo "FAIL: StopIdleSessionSec=$val (must be 1..{{ logind_idle_timeout_seconds }})"
         exit 1
       expected_exit: 0
     remediation:
       mechanism: manual
-      note: "Set StopIdleSessionSec=600 under [Login] in /etc/systemd/logind.conf (or a drop-in), then: systemctl restart systemd-logind."
+      note: "Set StopIdleSessionSec={{ logind_idle_timeout_seconds }} under [Login] in /etc/systemd/logind.conf (or a drop-in), then: systemctl restart systemd-logind."
