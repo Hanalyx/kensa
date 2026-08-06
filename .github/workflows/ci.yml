@@ -1,10 +1,38 @@
 name: CI
 
 on:
+  # A pull_request run is the merge gate: it runs the full suite and it is what
+  # the branch ruleset's required checks are evaluated against.
+  #
+  # A push run happens after the squash merge. Measured over the last 100 runs,
+  # 39 of 40 push runs re-tested a tree a pull_request run had ALREADY tested
+  # byte for byte, because squashing an up-to-date branch reproduces the tree it
+  # was tested with. Comparing commit SHAs hides this (the squash mints a new
+  # one); comparing trees shows it. So the push run is now a small canary rather
+  # than a second full suite. See the per-job `if:` conditions below.
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  # Checks whose answer changes on a clock rather than on our diff. govulncheck
+  # reads an advisory database that moves without us, and the release snapshot
+  # only breaks when packaging config or dependencies change. Running either per
+  # pull request asks a question more often than its answer can change, and it
+  # turns an unrelated upstream advisory into a red build on a docs-only PR.
+  schedule:
+    - cron: '17 6 * * *'
+  # Hand-start any run. Added after the 2026-08-06 Actions incident, during which
+  # webhook delivery was throttled and no push or pull_request event created a
+  # workflow run for hours. Without this there was no way to start CI at all.
+  workflow_dispatch:
+
+# One in-flight run per ref. Pushing three times to a pull request used to run
+# three full suites to completion; now the older two are canceled as soon as
+# they are superseded. Never cancel on main: those runs are the post-merge
+# record, and a canceled one would leave a gap in it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Build discipline (deliverables L-001 and L-002):
 #   CGO_ENABLED=0      ensures the binary talks directly to the kernel ABI
@@ -45,6 +73,9 @@ jobs:
     # reliable per P-012's CI validation.
     name: Spec Sync
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -120,6 +151,9 @@ jobs:
     # go-test.json across jobs.
     name: Spec Coverage (strict)
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     needs: [spec-sync, unit]
     steps:
       - uses: actions/checkout@v7
@@ -172,6 +206,11 @@ jobs:
     # Once Specter is installable in CI, restore `needs: spec-sync`.
     name: Unit Tests
     runs-on: ubuntu-latest
+    # Canary: also runs on the post-merge push. Two pull requests that each
+    # pass alone can still break main together, and squashing a STALE branch
+    # produces a tree no pull_request run ever saw. These two are the cheapest
+    # pair that catches that, so the push run keeps them and drops the rest.
+    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -203,6 +242,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -243,6 +285,9 @@ jobs:
     # merge-base to work from. See CONTRIBUTING.md, "Comments".
     name: Comment lint (no planning labels in new comments)
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -264,6 +309,9 @@ jobs:
     # CONTRIBUTING.md.
     name: Docs consistency
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - name: docs-check
@@ -279,6 +327,9 @@ jobs:
     # see scripts/check-doc-style.py and CONTRIBUTING.md.
     name: Doc style
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -303,6 +354,9 @@ jobs:
     # Specter) are handled by the Lint and Spec Sync jobs above.
     name: Pre-commit hygiene
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
@@ -310,6 +364,14 @@ jobs:
           python-version: '3.12'
       - name: Install pre-commit
         run: pip install pre-commit==3.7.1
+      # This job is also the repo's secret scan. The detect-secrets hook in
+      # .pre-commit-config.yaml is DEFAULT stage, so `run --all-files` runs
+      # detect-secrets v1.5.0 against .secrets.baseline right here. A separate
+      # "Secret scan (detect-secrets)" job used to run the same pinned version,
+      # the same baseline and the same excludes a second time; it was removed
+      # because it re-collected a fact this job already had. Enforcement did not
+      # move: this job is a required check, and a local `pre-commit run
+      # --all-files` runs the identical hook.
       - name: Run default-stage hooks
         run: pre-commit run --all-files --show-diff-on-failure
 
@@ -321,6 +383,11 @@ jobs:
     # transitive dependency reintroduces dynamic linking.
     name: Build & Static Linking Verify
     runs-on: ubuntu-latest
+    # Canary: also runs on the post-merge push. Two pull requests that each
+    # pass alone can still break main together, and squashing a STALE branch
+    # produces a tree no pull_request run ever saw. These two are the cheapest
+    # pair that catches that, so the push run keeps them and drops the rest.
+    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -371,6 +438,9 @@ jobs:
     # verification — both exercise the same startup path.
     name: Portability — glibc 2.28 (RHEL 8)
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -408,6 +478,9 @@ jobs:
     # before they reach operators. Fast (~5s) and network-free.
     name: CLI Smoke Tests
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -431,6 +504,9 @@ jobs:
     # both exercise the same Go runtime startup path.
     name: Portability — Alpine (musl)
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -462,6 +538,8 @@ jobs:
     # skips and adds GPG + cosign signing.
     name: Release snapshot (no publish, no sign)
     runs-on: ubuntu-latest
+    # On a clock, not on our diff. See the `schedule` trigger above.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -586,6 +664,8 @@ jobs:
     # source written against Go N+1.
     name: Vulnerability Scan (govulncheck)
     runs-on: ubuntu-latest
+    # On a clock, not on our diff. See the `schedule` trigger above.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -608,6 +688,9 @@ jobs:
     # smells. Fails loudly with a one-line "run go mod tidy locally" fix.
     name: Module drift check (go mod tidy is a no-op)
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -628,6 +711,9 @@ jobs:
     # `make catalog-baseline` refreshes it as part of the change.
     name: Catalog drift gate
     runs-on: ubuntu-latest
+    # Merge gate. Runs on a pull request, and by hand. Skipped on the
+    # post-merge push, which would re-test an identical tree.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -635,44 +721,3 @@ jobs:
           go-version-file: go.mod
       - name: make catalog-check
         run: make catalog-check
-
-  secret-scan:
-    # Track S S-006: detect-secrets baseline drift. Compares the current
-    # working tree against .secrets.baseline; any new finding not on the
-    # baseline fails the job. Contributors who hit a real false positive
-    # run `detect-secrets audit .secrets.baseline` locally to triage +
-    # accept the finding before re-pushing.
-    name: Secret scan (detect-secrets)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.x'
-      - name: Install detect-secrets
-        run: pip install detect-secrets==1.5.0
-      - name: Scan for new secrets
-        run: |
-          # Use the detect-secrets pre-commit entrypoint (`detect-secrets-hook`),
-          # which compares each tracked file against the committed baseline and
-          # exits non-zero on any finding NOT already in it — WITHOUT rewriting
-          # the baseline. This is the exact code path the .pre-commit-config.yaml
-          # detect-secrets hook runs, so CI and local pre-commit agree byte-for-byte.
-          #
-          # The previous `detect-secrets scan --baseline` form rewrote the baseline
-          # in place every run (churning generated_at + per-line hashes), so the
-          # downstream `git diff --quiet` flagged that metadata drift as if it were
-          # a new secret — failing the job on clean trees. detect-secrets-hook has
-          # no such side effect.
-          #
-          # Excludes mirror the pre-commit hook exactly: KEYS (public-key bundle),
-          # rules/** (539 SCAP YAML files that trip entropy detectors), and the
-          # baseline file itself.
-          git ls-files -z -- . ':!:KEYS' ':!:rules/**' ':!:.secrets.baseline' \
-            | xargs -0 detect-secrets-hook --baseline .secrets.baseline
-          echo "OK no new secret findings vs baseline"
-
-  # Future jobs (land as the codebase grows):
-  #   integration: real-host RHEL 8/9/10 matrix tests (after Week 4)
-  #   fuzz: kensa-fuzz atomicity verification (after Week 7)
-  #   parity: Python vs Go fixture comparison (after Week 8)

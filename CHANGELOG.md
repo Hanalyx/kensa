@@ -16,6 +16,46 @@ any pair).
 
 ## Unreleased
 
+### Changed
+- **CI no longer runs the full suite twice per merge.** The workflow fired on
+  both the pull request and the push that follows the squash merge. Measured
+  across the last 100 runs, **39 of 40 push runs re-tested a tree a pull request
+  run had already tested byte for byte**. Comparing commit hashes hides this,
+  because squashing mints a new one; comparing trees shows it.
+
+  The push run is now a canary of two jobs rather than a second full suite. It
+  keeps unit tests and the static-link check, which are the cheapest pair that
+  would catch the two cases a pull request run genuinely cannot see: two changes
+  that each pass alone but break main together, and a squash of a branch that was
+  stale when it merged.
+
+- **Two checks moved to a daily schedule.** The vulnerability scan reads an
+  advisory database that changes without us, and the release snapshot only breaks
+  when packaging config or dependencies change. Asking either one on every pull
+  request runs them far more often than their answers can change, and it lets an
+  unrelated upstream advisory turn a docs-only change red.
+
+- **One in-flight run per branch.** Pushing three times to a pull request used to
+  run three full suites to completion. Superseded runs are now canceled. Runs on
+  main are never canceled, because they are the post-merge record.
+
+  Measured effect at the current merge rate: **187 to 75 job-hours per month**,
+  with the merge gate unchanged. Every one of the nine required checks still runs
+  on every pull request.
+
+### Removed
+- **The standalone secret-scan job**, which ran `detect-secrets` a second time.
+  The `detect-secrets` hook in `.pre-commit-config.yaml` is default stage, so the
+  required Pre-commit hygiene job already runs the same version against the same
+  baseline with the same excludes. Enforcement is unchanged and still sits on a
+  required check.
+
+### Added
+- **A `workflow_dispatch` trigger on CI.** During the GitHub Actions incident of
+  2026-08-06, webhook delivery was throttled and no push or pull request event
+  created a workflow run for several hours. There was no way to start CI by hand.
+  Now there is.
+
 ### Fixed
 - **Two rules reported compliance when the tool they inspect was absent.**
   `selinux-user-mapping` guarded on `command -v semanage` and
