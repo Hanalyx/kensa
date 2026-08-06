@@ -54,14 +54,19 @@ type Framework struct {
 // adding a framework to the corpus means adding its label here. Unknown
 // families degrade gracefully (see FrameworkFromID).
 var frameworkFamilies = map[string]string{
-	"cis":           "CIS",
-	"stig":          "STIG",
-	"nist_800_53":   "NIST 800-53",
-	"pci_dss_4":     "PCI DSS 4.0",
-	"srg":           "SRG",
-	"iso27001_2022": "ISO 27001:2022",
-	"cmmc_l2":       "CMMC Level 2",
-	"hipaa":         "HIPAA",
+	"cis":         "CIS",
+	"stig":        "STIG",
+	"nist_800_53": "NIST 800-53",
+	// Both revisions are registered because rules carry both identifiers: a
+	// Rev 3 migration should be a relabelling, not a re-authoring. The published
+	// claim stays pinned to Revision 2, which is what 32 CFR 170.2 keys CMMC to.
+	"nist_800_171":    "NIST SP 800-171 Rev 2",
+	"nist_800_171_r3": "NIST SP 800-171 Rev 3",
+	"pci_dss_4":       "PCI DSS 4.0",
+	"srg":             "SRG",
+	"iso27001_2022":   "ISO 27001:2022",
+	"cmmc_l2":         "CMMC Level 2",
+	"hipaa":           "HIPAA",
 }
 
 // FrameworkFromID parses a framework id (as found on

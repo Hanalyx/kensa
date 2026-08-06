@@ -47,6 +47,7 @@ references:
       severity: "CAT II"
   nist_800_53: ["AC-7(a)"]
   pci_dss_4: ["8.3.4"]
+  nist_800_171: ["3.1.8[b]"]
 
 platforms:
   - family: rhel

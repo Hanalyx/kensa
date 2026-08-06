@@ -23,6 +23,7 @@ references:
       stig_id: "UBTU-22-654205"
       severity: "CAT II"
   nist_800_53: ["AU-2", "AU-12"]
+  nist_800_171: ["3.1.12[d]"]
 
 platforms:
   - family: ubuntu

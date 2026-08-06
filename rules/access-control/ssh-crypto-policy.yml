@@ -28,6 +28,7 @@ references:
     rhel8:  { section: "5.1.1", level: "L1", type: "Automated" }
     rhel9:  { section: "1.6.2", level: "L1", type: "Automated" }
   nist_800_53: ["SC-13", "AC-17(2)"]
+  nist_800_171: ["3.5.10[b]", "3.13.1[g]", "3.13.1[h]", "3.13.8[c]"]
 
 platforms:
   - family: rhel

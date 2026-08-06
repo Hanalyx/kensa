@@ -24,6 +24,7 @@ references:
       - { vuln_id: "V-281086", stig_id: "RHEL-10-400345", severity: "CAT II" }  # group root
       - { vuln_id: "V-281087", severity: "CAT II" }                          # owner root
   nist_800_53: ["AC-3", "AC-6"]
+  nist_800_171: ["3.4.2[b]"]
 
 platforms:
   - family: rhel

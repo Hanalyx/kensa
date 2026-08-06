@@ -47,6 +47,7 @@ references:
       vuln_id: "V-281340"
       stig_id: "RHEL-10-800080"
       severity: "CAT II"
+  nist_800_171: ["3.4.2[b]"]
 platforms:
 - family: ubuntu
   min_version: 22

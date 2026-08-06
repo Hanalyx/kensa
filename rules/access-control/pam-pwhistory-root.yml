@@ -18,6 +18,7 @@ references:
     rhel10: { section: "5.3.2.3.2", level: "L1", type: "Automated" }
     rhel8: { section: "5.3.3.3.2", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
+  nist_800_171: ["3.4.2[b]", "3.5.8[b]"]
 
 platforms:
   - family: rhel

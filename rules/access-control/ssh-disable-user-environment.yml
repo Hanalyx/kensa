@@ -64,6 +64,7 @@ references:
       severity: CAT I
       cci:
       - CCI-000366
+  nist_800_171: ["3.1.12[c]"]
 platforms:
 - family: rhel
   min_version: 8

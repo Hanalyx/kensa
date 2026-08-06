@@ -33,6 +33,7 @@ references:
     # which belongs on the crypto-policy-fips rule, not this /proc-flag rule.
     # (The prior V-230224 cite was RHEL-08-010030 = disk encryption — wrong.)
   nist_800_53: ["SC-12", "SC-13"]
+  nist_800_171: ["3.13.11"]
 
 platforms:
   - family: rhel

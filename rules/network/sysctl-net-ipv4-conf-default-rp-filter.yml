@@ -24,6 +24,7 @@ references:
       vuln_id: "V-257965"
       stig_id: "RHEL-09-253050"
       severity: "CAT II"
+  nist_800_171: ["3.4.2[b]"]
 
 platforms:
   - family: rhel

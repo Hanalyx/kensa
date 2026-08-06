@@ -16,6 +16,7 @@ references:
     rhel9: { section: "6.3.3.14", level: "L1", type: "Automated" }
     rhel10: { section: "6.3.3.26", level: "L2", type: "Automated" }
   nist_800_53: ["AU-2", "AU-12"]
+  nist_800_171: ["3.4.3[a]", "3.4.3[d]"]
 
 platforms:
   - family: rhel

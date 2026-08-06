@@ -18,6 +18,7 @@ references:
     ubuntu22: { section: "2.1.11", level: "L1", type: "Automated" }
     ubuntu24: { section: "2.1.11", level: "L1", type: "Automated" }
   nist_800_53: ["CM-7"]
+  nist_800_171: ["3.4.7[i]", "3.4.7[o]"]
 
 platforms:
   - family: rhel

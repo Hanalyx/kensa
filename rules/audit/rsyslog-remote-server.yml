@@ -21,6 +21,7 @@ references:
       vuln_id: "V-230479"
       severity: "CAT II"
   nist_800_53: ["AU-4", "AU-9"]
+  nist_800_171: ["3.3.1[f]"]
 
 platforms:
   - family: rhel

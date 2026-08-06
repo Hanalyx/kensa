@@ -28,6 +28,7 @@ references:
       severity: "CAT II"
       cci: ["CCI-000770", "CCI-004045"]
   nist_800_53: ["AC-6", "IA-2"]
+  nist_800_171: ["3.1.5[b]"]
 
 platforms:
   - family: ubuntu

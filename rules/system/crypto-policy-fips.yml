@@ -24,6 +24,7 @@ references:
       stig_id: "RHEL-08-010020"
       severity: "CAT I"
   nist_800_53: ["SC-12", "SC-13"]
+  nist_800_171: ["3.13.1[g]", "3.13.1[h]", "3.13.8[c]", "3.13.11"]
 
 platforms:
   - family: rhel
