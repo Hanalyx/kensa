@@ -48,7 +48,6 @@ func TestGdmGateSelectsBothWays(t *testing.T) {
 // host that stopped asking looks the same as a host nobody is logging into.
 func TestDirectoryJoinedGateSelectsBothWays(t *testing.T) {
 	for _, f := range []string{
-		"../../rules/services/sssd-service-enabled-active.yml",
 		"../../rules/access-control/pam-directory-auth-enabled.yml",
 		"../../rules/access-control/nsswitch-directory-lookups-complete.yml",
 	} {
@@ -66,6 +65,40 @@ func TestDirectoryJoinedGateSelectsBothWays(t *testing.T) {
 			t.Errorf("%s: on a local-accounts host, expected ErrNoImplementation, got %v", r.ID, err)
 		} else {
 			t.Logf("%-36s local  -> SKIPPED", r.ID)
+		}
+	}
+}
+
+// sssd-service-enabled-active is gated on sssd_configured, NOT directory_joined,
+// and the difference is the point. It asks whether SSSD is running where SSSD is
+// in use, and certificate or smart-card authentication uses SSSD with no
+// directory. Under the directory gate a cert-auth host with a stopped daemon
+// reported SKIP, which asserts the control does not apply when in fact it did
+// and the daemon was dead.
+//
+// The second case below is the regression that matters: a host with SSSD
+// configured but no domain must still RUN this rule.
+func TestSSSDServiceGateIsConfiguredNotJoined(t *testing.T) {
+	r, err := ParseFile("../../rules/services/sssd-service-enabled-active.yml")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		caps api.CapabilitySet
+		run  bool
+	}{
+		{"SSSD configured, joined", api.CapabilitySet{"sssd_configured": true, "directory_joined": true}, true},
+		{"SSSD configured, no domain (cert auth)", api.CapabilitySet{"sssd_configured": true}, true},
+		{"no SSSD configuration at all", api.CapabilitySet{}, false},
+		{"joined via nslcd, SSSD absent", api.CapabilitySet{"directory_joined": true}, false},
+	} {
+		_, err := Select(r, tc.caps)
+		got := err == nil
+		if got != tc.run {
+			t.Errorf("%s: want run=%v, got run=%v (err=%v)", tc.name, tc.run, got, err)
+		} else {
+			t.Logf("%-40s -> %s", tc.name, map[bool]string{true: "RUNS", false: "SKIPPED"}[got])
 		}
 	}
 }

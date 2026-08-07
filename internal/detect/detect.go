@@ -151,6 +151,38 @@ var probes = []probe{
 		`systemctl list-unit-files sssd.service 2>/dev/null | grep -q sssd`,
 	},
 	{
+		// SSSD is CONFIGURED on this host, for anything. Distinct from
+		// directory_joined, which asks where identity comes from. Certificate and
+		// smart-card authentication use SSSD with no directory at all, so a rule
+		// that says "SSSD must be running" belongs on this capability and a rule
+		// about deferring to a directory belongs on the other one. Gating the
+		// first question on the second answer is what this split fixes.
+		//
+		// "Configured" means a human or a hardening process put a file here.
+		// Measured on a fresh almalinux:9 with sssd and sssd-ldap installed: the
+		// package ships /etc/sssd/ holding only an EMPTY conf.d and pki, and NO
+		// sssd.conf. Ubuntu's package ships no sssd.conf either. So the presence
+		// of a non-empty sssd.conf, or of any drop-in, is a deliberate act rather
+		// than packaging noise.
+		//
+		// That was checked because the opposite was assumed first and was wrong. A
+		// hardened RHEL 9 host in the fleet carries an sssd.conf holding only
+		// "[pam] pam_cert_auth=True" plus a conf.d/certificate_verification.conf,
+		// and it was read as a harmless package default. It is not: rpm -V flags
+		// the file as modified, its mtime is long after install, and the host runs
+		// a custom authselect hardening profile. It is evidence that certificate
+		// authentication was deliberately configured, which makes a stopped sssd
+		// there a real finding rather than noise to gate away.
+		//
+		// Like directory_joined, the file tests need root, which a probe has under
+		// --sudo but not without it. is-active is the fallback that still answers
+		// in an unprivileged scan.
+		"sssd_configured",
+		`[ -s /etc/sssd/sssd.conf ] || ` +
+			`ls /etc/sssd/conf.d/*.conf >/dev/null 2>&1 || ` +
+			`systemctl is-active sssd >/dev/null 2>&1`,
+	},
+	{
 		// The host resolves user identity from a directory rather than from local
 		// files, so /etc/passwd is not the authority for who may log in.
 		//

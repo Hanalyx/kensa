@@ -16,6 +16,39 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **Identity findings now match how the host actually resolves users.** Two
+  checks run only where identity comes from a directory: the PAM auth stack
+  loading `pam_sss`, and nsswitch routing group lookups to the directory as well
+  as user lookups. Together with the SSSD service check they find a host that is
+  **joined but bypassable**, which is invisible from the directory side, because
+  a host that stopped asking looks the same as a host nobody logs into.
+- **A `sssd_configured` capability**, separate from `directory_joined`. They
+  answer different questions. "Is SSSD running where SSSD is in use" is not the
+  same as "does identity come from a directory", because certificate and smart
+  card authentication use SSSD with no directory at all.
+
+### Fixed
+- **A local-accounts host no longer fails for not running SSSD.**
+  `sssd-service-enabled-active` had no gate, so it demanded SSSD of every Ubuntu
+  host. A measured server with local accounts and no SSSD installed reported
+  FAIL, which reads as a broken host rather than a rule that does not apply. It
+  now skips there, and it covers RHEL as well.
+- **A host configured for certificate login no longer goes silent when its
+  daemon is dead.** An earlier version of this change gated the service check on
+  `directory_joined`, which made a certificate-auth host with a stopped SSSD
+  report `skipped`. That claims the control does not apply, when the truth was
+  that it did and the daemon was down. A skip removes an objective from the
+  coverage denominator, so it has to be true, not merely quieter than a wrong
+  failure. Gating on `sssd_configured` restores the finding: a hardened fleet
+  host carrying an SSSD certificate configuration with a failed daemon now
+  reports FAIL, where before this work it was never checked at all.
+- **The directory probe no longer reports a never-joined host as joined.**
+  Testing that `sssd.conf` exists fails in both directions: `/etc/sssd` is mode
+  0700, so an unprivileged caller always reads "no". The probe now looks for a
+  configured `[domain/...]` section, which survives a stopped daemon and is
+  absent on a host that never joined.
+
 ### Changed
 - **CI no longer runs the full suite twice per merge.** The workflow fired on
   both the pull request and the push that follows the squash merge. Measured

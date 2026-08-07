@@ -2,18 +2,19 @@ id: sssd-service-enabled-active
 title: Ensure the SSSD service is enabled and active
 description: >
   The System Security Services Daemon (sssd) must be both enabled (starts on
-  boot) and active (currently running) on a host that resolves identity through
-  a directory. SSSD is the process that answers "may this user log in" on such a
-  host, so if it is stopped the host falls back to its local files and the
-  directory stops being the authority.
+  boot) and active (currently running) on any host that has SSSD configured.
+  SSSD is the process that answers "may this user log in" wherever it is in use,
+  whether the answer comes from a directory or from a certificate on a smart
+  card. If it is stopped, the host silently falls back to its local files.
 rationale: >
-  On a directory-joined host the account policy an assessor cares about lives in
-  the directory: who exists, which accounts are disabled, how long a password
-  lasts. None of that reaches the host unless SSSD is running. A host with SSSD
-  stopped still boots, still accepts logins from whatever local accounts it
-  carries, and reports nothing unusual, so the bypass is silent. It is also
-  invisible from the directory side, because the directory cannot tell that a
-  member stopped asking. Only a check on the host itself finds it.
+  Whatever SSSD was configured to enforce stops being enforced when the daemon is
+  not running, and the host gives no sign of it. On a directory-joined host that
+  means account policy, disabled accounts and password lifetime stop being
+  consulted. On a host set up for certificate or smart-card login it means the
+  broker for that login is dead. Either way the host still boots and still
+  accepts whatever local accounts it carries, so the gap is invisible from the
+  outside: a directory cannot tell that a member stopped asking, and a smart card
+  cannot tell that nothing is reading it. Only a check on the host finds it.
 severity: medium
 transactional: false
 category: services
@@ -41,38 +42,39 @@ platforms:
     min_version: 8
 
 implementations:
-  # Gated, with no default, so a host that resolves identity from its own files
-  # skips this with a stated reason instead of failing it.
+  # Gated on sssd_configured, with no default, so a host that never configured
+  # SSSD skips this with a stated reason instead of failing it.
   #
   # Before the gate this rule ran everywhere and demanded SSSD of every host. A
   # measured Ubuntu 22.04 server with local accounts and no SSSD installed
   # reported FAIL, which reads as "this host is misconfigured" when the truth is
-  # that the rule does not apply to it. That is the same defect as a check that
-  # passes because the tool it needs is missing, pointed the other way: a verdict
-  # asserted about something the host was never doing.
+  # that the rule does not apply to it.
   #
-  # Note what the gate does NOT exclude. It fires when SSSD is running OR when an
-  # sssd.conf exists, so a host configured for smart-card or PKI authentication
-  # is still checked even if the daemon has stopped, which is the case the STIG
-  # citations above are about. Only a host with no SSSD configuration at all is
-  # skipped.
-  - when: directory_joined
+  # The gate is sssd_configured and NOT directory_joined, which is what an
+  # earlier version of this change used. The two ask different questions. This
+  # rule asks whether SSSD is running where SSSD is in use; certificate and
+  # smart-card authentication use SSSD with no directory at all. Gating it on
+  # directory_joined made a cert-auth host with a stopped daemon report SKIP,
+  # which claims the control does not apply when the truth was that it did and
+  # the daemon was dead. A skip is a statement that the control is not in play,
+  # so it has to be true, not merely quieter than a wrong failure.
+  - when: sssd_configured
     check:
       method: command
       run: |
         enabled=$(systemctl is-enabled sssd 2>/dev/null)
         active=$(systemctl is-active sssd 2>/dev/null)
         if [ "$enabled" != "enabled" ]; then
-          echo "FAIL: identity resolves through a directory but sssd is not enabled (is-enabled=${enabled:-unknown})."
-          echo "      After a reboot this host would answer logins from its local files alone."
+          echo "FAIL: SSSD is configured on this host but is not enabled (is-enabled=${enabled:-unknown})."
+          echo "      After a reboot nothing would broker directory or certificate logins."
           exit 1
         fi
         if [ "$active" != "active" ]; then
-          echo "FAIL: identity resolves through a directory but sssd is not running (is-active=${active:-unknown})."
-          echo "      Directory accounts, disabled accounts and password policy are not being consulted."
+          echo "FAIL: SSSD is configured on this host but is not running (is-active=${active:-unknown})."
+          echo "      Whatever it was configured to enforce is not being enforced right now."
           exit 1
         fi
-        echo "OK: sssd is enabled and active, so directory identity is being consulted"
+        echo "OK: sssd is enabled and active, so its configuration is in force"
         exit 0
       expected_exit: 0
     # A handler rather than a manual note: enabling and starting a unit is
