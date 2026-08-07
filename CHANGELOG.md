@@ -17,6 +17,35 @@ any pair).
 ## Unreleased
 
 ### Fixed
+- **Six remediation mechanisms could cut the SSH control channel without arming
+  the dead man timer.** The timer is what lets a host reverse a change on its own
+  when the controller never confirms, and the decision came from a static list
+  that six mechanisms, used by 124 rules, were missing from entirely. A missing
+  entry read as "cannot cut the channel", so each was silently unprotected.
+
+  `crypto_policy_set` is the measured case. Setting a host to FIPS regenerates
+  the SSH daemon's accepted key algorithms **without ed25519**, so an operator
+  using a modern default key is locked out the moment the change commits, by the
+  change Kensa just made, over the connection Kensa was using. Both crypto
+  mechanisms are also non-capturable, so there was no pre-state to return to
+  either.
+
+  `apt_absent` had the same gap as its already-classified counterpart
+  `package_absent`: removing the SSH server ends the session. `authselect_feature_enable`
+  and `pam_module_arg` both rewrite authentication stacks, like the
+  `pam_module_configure` that was already covered.
+
+  Verified as a before and after on a live container: a plan for a crypto policy
+  rule reported `ControlChannelSensitive: false` and now reports `true`, and the
+  same for a rule whose only mechanism is `apt_absent`.
+
+### Added
+- **A test that fails when a mechanism the corpus uses is not classified.** The
+  defect was not a wrong judgment about any one mechanism, it was a list that
+  had to be remembered and quietly fell behind six times. Forgetting it is now a
+  build failure that names the mechanism and an example rule.
+
+### Fixed
 - **A rule skipped for an undeclared variable now appears in the results.**
   `kensa check` warned on stderr and then dropped the rule, leaving no trace in
   machine output. Anything counting coverage saw the objective quietly leave the
