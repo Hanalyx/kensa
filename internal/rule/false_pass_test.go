@@ -31,12 +31,17 @@ import (
 // does not see it, yet a partition under the guideline prints MANUAL REVIEW and
 // exits 0. That variant needs observed fleet data to spot and is caught by the
 // class D sweep instead, not by any unit test.
+//
+// no-unauthorized-accounts LEFT this list when it was converted to a
+// set_compare check. It no longer surfaces accounts for a human to read; it
+// compares them against a declared set and reaches a real verdict, or reports
+// that it cannot and is skipped. That is one fewer rule reporting compliance
+// for something nobody verified.
 var alwaysPassAllowed = map[string]string{
 	"firewall-ppsm-cal":                 "surfaces firewall config for PPSM review",
 	"firewall-remote-access-ppsm":       "same, remote-access rules",
 	"firewalld-services-ports-reviewed": "prints allowed services and ports for review",
 	"ipsec-tunnels-authorized":          "surfaces configured tunnels",
-	"no-unauthorized-accounts":          "lists local accounts for an ISSO to compare",
 	"pki-certificate-validation":        "reports whether an SSSD PKI CA database exists",
 	"temporary-account-expiry":          "lists accounts with no expiry",
 }

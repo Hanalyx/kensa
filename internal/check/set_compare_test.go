@@ -2,6 +2,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -95,5 +96,55 @@ func TestSetCompareRequiresBothParams(t *testing.T) {
 		if _, _, err := checkSetCompare(context.Background(), &setStub{}, p); err == nil {
 			t.Errorf("params %v: want a usage error, got nil", p)
 		}
+	}
+}
+
+// An empty declared set must be reported as NOT ASSESSABLE, which the scan maps
+// to skipped. It must never be a pass, and it must not be an error either: a
+// fleet that has not written its policy yet is a normal state, not a fault.
+func TestSetCompareEmptyIsNotAssessableNotError(t *testing.T) {
+	_, _, err := checkSetCompare(context.Background(), &setStub{stdout: "alice\n"},
+		api.Params{"observed_command": "x", "authorized": ""})
+	if err == nil {
+		t.Fatal("want an error value carrying the sentinel")
+	}
+	if !errors.Is(err, ErrNotAssessable) {
+		t.Errorf("want ErrNotAssessable so the scan records a skip, got %v", err)
+	}
+}
+
+// A site may authorize an account by user name or by numeric UID. Both name the
+// SAME account, so neither may be reported as an unauthorized extra.
+func TestSetCompareMatchesAnAlias(t *testing.T) {
+	const observed = "owadmin:1000\ndeploybot:1001\n"
+	for _, tc := range []struct {
+		name       string
+		authorized string
+		pass       bool
+		want       string
+	}{
+		{name: "both declared by name", authorized: "owadmin,deploybot", pass: true},
+		{name: "declared by UID", authorized: "1000,1001", pass: true},
+		{name: "mixed name and UID", authorized: "owadmin,1001", pass: true},
+		{name: "one account undeclared", authorized: "owadmin", pass: false, want: "deploybot"},
+		{name: "undeclared, reported by name not UID", authorized: "1000", pass: false, want: "deploybot"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pass, detail, err := checkSetCompare(context.Background(), &setStub{stdout: observed},
+				api.Params{"observed_command": "x", "authorized": tc.authorized, "alias_separator": ":"})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if pass != tc.pass {
+				t.Errorf("pass = %v, want %v (%s)", pass, tc.pass, detail)
+			}
+			if tc.want != "" && !strings.Contains(detail, tc.want) {
+				t.Errorf("detail %q should name %q", detail, tc.want)
+			}
+			// The UID must never be reported as an extra member.
+			if pass && strings.Contains(detail, "not authorized") {
+				t.Errorf("a matched alias was reported as unauthorized: %s", detail)
+			}
+		})
 	}
 }
