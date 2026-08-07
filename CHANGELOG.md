@@ -16,6 +16,21 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **A rule that compares registered network protocols against the set a site
+  declared.** `authorized-network-protocols` reads what the kernel has registered
+  in `/proc/net/protocols` and reports anything not in
+  `authorized_network_protocols`.
+
+  Registered rather than in use is the point: a protocol with no open socket is
+  still reachable code, and a check based on listening sockets would call it
+  absent. The set is small and stable, 18 entries on RHEL 9 and 17 on Ubuntu 22,
+  identical across reads, which is what makes a declared baseline hold.
+
+  The existing rules each blacklist one protocol a benchmark named. Those are
+  real evidence and they structurally cannot speak to a protocol nobody thought
+  to blacklist, which is the one worth finding.
+
 ### Changed
 - **`suid-sgid-files-reviewed` now compares the full inventory against a declared
   baseline**, which is what its own output had been asking for. It printed

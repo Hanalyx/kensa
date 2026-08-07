@@ -1,0 +1,58 @@
+id: authorized-network-protocols
+title: Ensure only authorized network protocols are registered
+description: >
+  The kernel registers a protocol handler for every network protocol it can
+  speak. A host should register only the ones the site declared essential. The
+  essential set is a statement about what this system talks to, so it cannot be
+  derived from the host: an operator declares it in the
+  authorized_network_protocols variable, using the names the kernel reports in
+  /proc/net/protocols. Until it is declared the check reports that it cannot
+  assess the host and names what to set.
+rationale: >
+  A registered protocol is reachable code, whether or not anything is using it.
+  The corpus already blacklists the protocols benchmarks name as dangerous, one
+  rule each, and every one of those is real evidence. None of them can say
+  anything about a protocol nobody thought to blacklist, which is the one worth
+  finding: an exotic handler registered by a driver or a module somebody loaded
+  once. Reading what the kernel actually registered and comparing it against a
+  declared list is the only form of this check that answers the objective as
+  written.
+
+  /proc/net/protocols is the right source because it reports what the kernel has
+  REGISTERED, not what is currently carrying traffic. A protocol with no open
+  socket is still attack surface, and a check based on listening sockets would
+  call it absent.
+severity: medium
+transactional: false
+category: network
+tags: [network, protocols, least-functionality, attack-surface, kernel]
+
+references:
+  nist_800_53: ["CM-7", "CM-7(1)"]
+  nist_800_171: ["3.4.7[l]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: set_compare
+      # Field 1 of every line after the header is the protocol name. Sorted and
+      # de-duplicated because the file lists one row per address family and the
+      # same name can appear more than once.
+      observed_command: "awk 'NR>1 {print $1}' /proc/net/protocols 2>/dev/null | sort -u"
+      authorized: "{{ authorized_network_protocols }}"
+    remediation:
+      mechanism: manual
+      note: >
+        For each protocol reported as not authorized, find what registered it
+        (lsmod, and modinfo on the likely module) and decide which side is wrong.
+        If nothing needs it, blacklist the module and prevent it loading. If it is
+        needed, add it to authorized_network_protocols. Kensa does not unload
+        modules here: a protocol handler can be in use by a running connection,
+        and removing TCP or NETLINK would take the host off the network and end
+        the session applying the change.
