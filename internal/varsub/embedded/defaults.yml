@@ -56,6 +56,16 @@ variables:
   # the site saying so on purpose.
   authorized_service_accounts: []
 
+  # Systemd services this site declares essential, for NIST SP 800-171 3.4.7
+  # (NIST 800-53 CM-7). Members are unit names without the .service suffix.
+  #
+  # Ships EMPTY like the other declared sets. Expect this one to be the LONGEST:
+  # a base install enables roughly 30 services on RHEL and 50 on Ubuntu, most of
+  # them distribution defaults nobody chose. That is the point rather than a
+  # drawback -- the services worth finding are the ones nobody chose either, and
+  # they are invisible until the intended set is written down once.
+  authorized_services: []
+
   # Antimalware, for NIST SP 800-171 3.14.2, 3.14.4 and 3.14.5 (NIST 800-53 SI-3).
   # Space-separated candidate systemd units. No CIS or DISA STIG benchmark in the
   # corpus names an antimalware product, and sites frequently run a vendor
