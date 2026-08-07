@@ -16,6 +16,25 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **A rule that measures how long a known security flaw has gone uncorrected.**
+  `flaw-remediation-window` takes the oldest pending security advisory and
+  compares its age against `flaw_remediation_max_days`, which ships at 30.
+
+  Whether updates are pending is a different question from whether they were
+  applied in time, and only the second is what the control asks. A host patched
+  yesterday can have advisories published this morning and be entirely compliant.
+  A host carrying one advisory from three years ago is not, however few are
+  outstanding.
+
+  The oldest advisory is used rather than the count on purpose: the count says
+  how much work is queued, the age says how long a known way in has been left
+  open, and the age is what a deadline is written against.
+
+  Failing to read the advisory metadata is a failure, not a pass. A host whose
+  repositories are unreachable cannot be assessed, and reporting OK there is how
+  an unreachable mirror comes to look like a patched machine.
+
 ### Fixed
 - **`security-updates-installed` reported compliant on a host with 384 pending
   updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`
