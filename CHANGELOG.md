@@ -17,6 +17,22 @@ any pair).
 ## Unreleased
 
 ### Added
+- **A rule that compares who holds privileged access against the set a site
+  declared.** `authorized-privileged-users` reports any account able to act as
+  root that is not in `authorized_privileged_users`.
+
+  The observation is the **union of three routes**: membership of the wheel or
+  sudo group, a direct entry in sudoers, and any account with UID 0. Checking one
+  alone is a false negative waiting to happen. An account removed from wheel but
+  left in sudoers keeps its access, and a second UID 0 account bypasses both.
+
+  The corpus already evidenced how privilege is exercised: su closed to all but
+  root, no wildcard sudo grant, root unable to authenticate directly, nothing at
+  GID 0. None of that says who holds it, and those are separate questions. A
+  correctly configured sudo policy granting root to someone who left last year is
+  both least-privilege and wrong.
+
+### Added
 - **A rule that compares registered network protocols against the set a site
   declared.** `authorized-network-protocols` reads what the kernel has registered
   in `/proc/net/protocols` and reports anything not in

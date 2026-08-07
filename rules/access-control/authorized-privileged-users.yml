@@ -1,0 +1,56 @@
+id: authorized-privileged-users
+title: Ensure only authorized users hold privileged access
+description: >
+  Every account that can act as root must be one the site authorized. That set is
+  the union of three routes to privilege: membership of the wheel or sudo group,
+  a direct entry in sudoers, and any account with UID 0. The authorized list is a
+  statement about people, so it cannot be derived from the host: an operator
+  declares it in authorized_privileged_users. Until it is declared the check
+  reports that it cannot assess the host and names what to set.
+rationale: >
+  The corpus already evidences the least-privilege half of this control well: su
+  is closed to everyone but root, no wildcard sudo grant exists, root cannot
+  authenticate directly, and nothing sneaks in at GID 0. All of that constrains
+  HOW privilege is exercised. None of it says WHO holds it, and those are
+  separate questions: a correctly configured sudo policy granting root to someone
+  who left the company last year is both least-privilege and wrong.
+
+  The three routes are unioned because checking one alone is a false negative
+  waiting to happen. An account removed from wheel but left in sudoers keeps its
+  access, and a second UID 0 account bypasses both.
+severity: high
+transactional: false
+category: access-control
+tags: [access-control, least-privilege, sudo, privileged-accounts]
+
+references:
+  nist_800_53: ["AC-2", "AC-6", "AC-6(5)"]
+  nist_800_171: ["3.1.5[b]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: set_compare
+      # The union of every route to root. wheel and sudo cover both distribution
+      # conventions; the sudoers scan drops comments, blank lines, Defaults
+      # lines, %group grants (the group members are already collected above) and
+      # the alias/include keywords, leaving user names; UID 0 catches an account
+      # that needs neither group nor sudoers.
+      observed_command: '{ getent group wheel sudo 2>/dev/null | cut -d: -f4 | tr "," "\n"; cat /etc/sudoers /etc/sudoers.d/* 2>/dev/null | grep -vE "^[[:space:]]*(#|$|Defaults|%)" | awk "{print \$1}" | grep -vE "^(Host_Alias|User_Alias|Cmnd_Alias|Runas_Alias|@includedir|#includedir)$"; awk -F: "\$3==0{print \$1}" /etc/passwd; } | grep -v "^$" | sort -u'
+      authorized: "{{ authorized_privileged_users }}"
+    remediation:
+      mechanism: manual
+      note: >
+        For each user reported as not authorized, remove the access they should
+        not have: gpasswd -d <user> wheel (or sudo), delete their entry from
+        /etc/sudoers.d, or correct a UID 0 account. Check all three routes, since
+        removing one leaves the others. If the access is legitimate, add the user
+        to authorized_privileged_users instead. Kensa does not revoke privilege
+        automatically: the account it would remove may be the only one an
+        administrator can use to get back in.
