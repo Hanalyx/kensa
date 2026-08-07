@@ -195,10 +195,20 @@ func loadVariablesFile(path string) (Variables, error) {
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	types, err := BuiltInTypes()
+	if err != nil {
+		return nil, err
+	}
 	out := make(Variables, len(doc.Variables))
 	for k, v := range doc.Variables {
 		if !validVarName(k) {
 			return nil, fmt.Errorf("%s: variables.%s: KEY must match [A-Za-z][A-Za-z0-9_]* (rule templates use this vocabulary); the entry is unreachable as written", path, k)
+		}
+		// Type before value. A wrong type is an authoring mistake with a
+		// specific fix, and saying "expects a string, quote it" is more use
+		// than whatever stringify would say about the same value.
+		if err := CheckFileValue(k, v, types); err != nil {
+			return nil, fmt.Errorf("%s: variables.%s", path, err)
 		}
 		s, err := stringify(v)
 		if err != nil {
