@@ -1,0 +1,54 @@
+id: authorized-enabled-services
+title: Ensure only authorized services are enabled
+description: >
+  A host must run only the services the site declared essential. The essential
+  set is a statement about what this system is for, so it cannot be derived from
+  the host: an operator declares it in the authorized_services variable, as
+  systemd unit names without the .service suffix. Until it is declared the check
+  reports that it cannot assess the host and names what to set.
+rationale: >
+  Rules that disable one named service at a time reduce the count but never
+  establish that what remains is what the site intended, because each can only
+  forbid something somebody already thought of. The services that matter are the
+  ones nobody chose: a package enabled its unit on install, a test left one
+  behind, an engineer turned something on to debug and never turned it off. None
+  of those has a rule written against it, and each is a running process with an
+  attack surface. Comparing what is enabled against what was declared is the only
+  form of this check that answers the objective as written.
+severity: medium
+transactional: false
+category: services
+tags: [services, least-functionality, attack-surface, systemd]
+
+references:
+  nist_800_53: ["CM-7", "CM-7(1)"]
+  nist_800_171: ["3.4.7[o]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: set_compare
+      # Enabled units only, not running ones: "enabled" is the persistent
+      # decision that survives a reboot, which is what a site declares. The
+      # .service suffix is stripped so an operator writes sshd rather than
+      # sshd.service, matching how these are spoken about and how systemctl
+      # accepts them.
+      observed_command: "systemctl list-unit-files --state=enabled --type=service --no-legend 2>/dev/null | awk '{print $1}' | sed 's/\\.service$//' | sort -u"
+      authorized: "{{ authorized_services }}"
+    remediation:
+      mechanism: manual
+      note: >
+        For each service reported as not authorized, decide which side is wrong.
+        If it is not needed, disable it (systemctl disable --now <unit>) and mask
+        it if something might re-enable it. If it is needed, add it to
+        authorized_services so the declared set matches what this system is for.
+        Kensa does not disable services automatically here: the same finding can
+        mean an unwanted service or an out-of-date list, and disabling the wrong
+        unit can take the host off the network or end the session applying the
+        change.

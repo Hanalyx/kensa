@@ -17,6 +17,27 @@ any pair).
 ## Unreleased
 
 ### Added
+- **A rule that compares enabled services against the set a site declared.**
+  `authorized-enabled-services` reports every enabled systemd service that is not
+  in `authorized_services`, and skips with a stated reason until that set is
+  declared.
+
+  Rules that disable one named service at a time reduce the count but cannot
+  establish that what remains is intended, because each can only forbid something
+  somebody already thought of. The services that matter are the ones nobody
+  chose: a package enabled its unit on install, a test left one behind, an
+  engineer turned something on to debug and never turned it off.
+
+  Run against a live fleet host with its own service list as the declared set,
+  it immediately named two forgotten Kensa test units still enabled there. That
+  is the class the existing rules structurally cannot see.
+
+  Expect this declared set to be the longest of the three: a base install enables
+  roughly 30 services on RHEL and 50 on Ubuntu. That is the point rather than a
+  drawback, since the unintended ones are invisible until the intended set is
+  written down once.
+
+### Added
 - **A rule that checks which system accounts can obtain access.**
   `authorized-service-accounts` reports every account below UID 1000 that holds a
   real login shell and is not in `authorized_service_accounts`, and skips with a
