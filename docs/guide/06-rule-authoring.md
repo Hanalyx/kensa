@@ -226,6 +226,34 @@ variable to declare. It is not treated as empty and it is not guessed. This
 matters most for a declared set: there is no honest built-in value for "the
 accounts this site authorized", so the rule waits for the operator to say.
 
+## When a check cannot reach a verdict
+
+Some checks depend on a value only the operator can supply: a deadline, an
+approved list, a site policy. Without it the check has nothing to judge, and pass,
+fail and error are all wrong answers.
+
+A command check can say so by nominating an exit code:
+
+```yaml
+check:
+  method: command
+  not_assessable_exit: 3
+  run: |
+    max="{{ flaw_remediation_max_days }}"
+    if [ -z "$max" ]; then
+      echo "no patch deadline is declared."
+      exit 3
+    fi
+    ...
+```
+
+The rule is then reported as **skipped**, carrying whatever the check printed as
+the reason. It is opt-in: without `not_assessable_exit` every exit code keeps its
+usual meaning.
+
+Use it for a missing declaration, not for a broken check. A command that failed
+to run is an error and should stay one.
+
 ## Comparing a host against a declared set
 
 Some controls are not a threshold or a boolean. They ask whether only the

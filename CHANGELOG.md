@@ -16,6 +16,39 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **A rule that measures how long a known security flaw has gone uncorrected.**
+  `flaw-remediation-window` takes the oldest pending security advisory and
+  compares its age against `flaw_remediation_max_days`, which the operator declares.
+
+  Whether updates are pending is a different question from whether they were
+  applied in time, and only the second is what the control asks. A host patched
+  yesterday can have advisories published this morning and be entirely compliant.
+  A host carrying one advisory from three years ago is not, however few are
+  outstanding.
+
+  The oldest advisory is used rather than the count on purpose: the count says
+  how much work is queued, the age says how long a known way in has been left
+  open, and the age is what a deadline is written against.
+
+  Failing to read the advisory metadata is a failure, not a pass. A host whose
+  repositories are unreachable cannot be assessed, and reporting OK there is how
+  an unreachable mirror comes to look like a patched machine.
+
+  **Kensa ships no deadline.** The host supplies the age; the operator supplies
+  the window. Thirty days is ordinary for a workstation fleet and far too slow
+  for an internet-facing service, so the number depends on the environment rather
+  than on the measurement. Until it is declared the rule is skipped and names the
+  variable to set.
+
+- **`not_assessable_exit` on a command check**, so any rule can report that it
+  cannot reach a verdict. The rule nominates one exit code, and the engine
+  records that run as skipped with whatever the check printed as the reason.
+
+  Before this only one built-in check method could say it, so a rule needing an
+  operator-declared value had to pick between pass, fail and error, all of which
+  are wrong. It is opt-in: without the param every exit code keeps its meaning.
+
 ### Fixed
 - **`security-updates-installed` reported compliant on a host with 384 pending
   updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`

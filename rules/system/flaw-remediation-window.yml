@@ -1,0 +1,92 @@
+id: flaw-remediation-window
+title: Ensure known security flaws are corrected within the defined time frame
+description: >
+  A published security advisory that still applies to this host is a flaw the
+  site has not corrected. This measures the age of the OLDEST such advisory
+  against flaw_remediation_max_days, the window the site allows itself to patch
+  in. That window is a policy choice, so Kensa ships no value for it: the host
+  supplies the age, the operator supplies the deadline. Until the deadline is
+  declared the rule is skipped and says which variable to set.
+rationale: >
+  Whether updates are pending is a different question from whether they were
+  applied in time, and only the second is what the control asks. A host patched
+  yesterday can have pending updates published this morning and be entirely
+  compliant. A host with one advisory from three years ago is not, however few
+  are outstanding.
+
+  Answering it needs a timestamp, and the advisory metadata carries one. Taking
+  the OLDEST pending advisory rather than the count is deliberate: the count says
+  how much work is queued, while the age says how long a known way in has been
+  left open, and that is the number a deadline is written against.
+
+  Kensa measures the age and nothing else. What counts as too long depends on the
+  system: thirty days is ordinary for a workstation fleet and far too slow for an
+  internet-facing service. That judgment belongs to whoever knows the environment,
+  which is why the number is declared rather than assumed.
+severity: high
+transactional: false
+category: system
+tags: [patching, flaw-remediation, vulnerability, sla]
+
+references:
+  nist_800_53: ["SI-2", "SI-2(3)"]
+  nist_800_171: ["3.14.1[f]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+
+implementations:
+  - default: true
+    check:
+      method: command
+      # Exit 3 means the host could not be assessed, which the engine records as
+      # skipped rather than as a pass or a failure.
+      not_assessable_exit: 3
+      run: |
+        max="{{ flaw_remediation_max_days }}"
+        if [ -z "$max" ]; then
+          echo "no patch deadline is declared, so the age of an uncorrected flaw cannot be judged."
+          echo "Set flaw_remediation_max_days to the window this site commits to."
+          exit 3
+        fi
+        # `updateinfo info --security` prints one "Updated:" line per advisory.
+        # The oldest is the longest a known flaw has gone uncorrected here.
+        oldest=$(dnf -q updateinfo info --security 2>/dev/null |
+                 awk '/^[[:space:]]*Updated:/{print $2}' | sort | head -1)
+        if [ -z "$oldest" ]; then
+          # Two very different situations produce no date, so separate them
+          # rather than calling both compliant. dnf answering with an empty
+          # security list means nothing is outstanding; dnf failing means the
+          # host could not be assessed, and reporting OK for that is how an
+          # unreachable repository comes to look like a patched machine.
+          if dnf -q updateinfo list --security >/dev/null 2>&1; then
+            echo "OK: no pending security advisories"
+            exit 0
+          fi
+          echo "could not read security advisory metadata, so the age of any uncorrected"
+          echo "flaw is unknown. Check repository access on this host."
+          exit 3
+        fi
+        oldest_s=$(date -d "$oldest" +%s 2>/dev/null)
+        if [ -z "$oldest_s" ]; then
+          echo "FAIL: could not parse the advisory date '$oldest'"
+          exit 1
+        fi
+        days=$(( ( $(date +%s) - oldest_s ) / 86400 ))
+        if [ "$days" -gt "$max" ]; then
+          echo "FAIL: the oldest uncorrected security advisory is $days days old (issued $oldest),"
+          echo "      past the ${max}-day window this site allows."
+          exit 1
+        fi
+        echo "OK: the oldest uncorrected security advisory is $days days old, within ${max} days"
+        exit 0
+      expected_exit: 0
+    remediation:
+      mechanism: manual
+      note: >
+        Apply the outstanding security updates (dnf update --security), then
+        re-run. If the window itself is wrong for this system, change
+        flaw_remediation_max_days rather than leaving a failing check in place;
+        the value should be the deadline the site actually commits to, not the
+        one that makes the check pass.
