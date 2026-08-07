@@ -361,6 +361,21 @@ fully supports the atomic remediation, auditability, and evidence claims.
   networking, PAM, or firewall state depending on params/path. Add per-rule
   or per-handler risk metadata so risky parameterized changes arm the
   deadman reliably.
+
+  Measured 2026-08-07: **105 rules** have a mechanism classified as unable to
+  cut the channel while their own parameters point at SSH, PAM, firewall or
+  network state. `sysctl_set` 39, `config_set_dropin` 33 (for example
+  `ssh-max-startups`, which edits the SSH daemon's own config),
+  `config_set` 30 (for example `firewalld-nftables-backend`),
+  `file_permissions` 3 (for example `ssh-public-key-permissions`).
+
+  This is the SECOND half of the problem. The first half, mechanisms missing
+  from the map entirely, was closed separately along with a test that fails
+  when a corpus mechanism is unclassified. That test cannot see this half: every
+  one of these 105 rules uses a mechanism that IS classified, just classified by
+  mechanism rather than by what the rule actually touches. A per-handler or
+  per-rule risk query is what closes it, and until then the deadman's coverage
+  is bounded by mechanism granularity rather than by risk.
 - **Post-state evidence is not captured**, committed evidence envelopes set
   `PostStateBundle` to nil. Add post-apply/post-rollback recapture where
   feasible so evidence can prove both pre-state and resulting state, not only
