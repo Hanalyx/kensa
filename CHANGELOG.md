@@ -16,6 +16,45 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **A rule variable can hold a list.** Declare one as a YAML list, or pass it as
+  comma-separated members on the command line:
+
+  ```yaml
+  variables:
+    authorized_local_accounts: [owadmin, deploybot]
+  ```
+
+  Members cannot contain a comma or whitespace, and Kensa rejects the file
+  rather than accepting one that does. A member holding the separator would
+  split into members nobody declared, and a check comparing against that set
+  would answer a question the operator never asked. Rejecting is loud; escaping
+  would be silent and would have to be undone identically by every reader.
+
+  Scalar variables are unchanged, byte for byte.
+
+- **A `set_compare` check method**, for controls that ask whether only approved
+  members are present: local accounts, sudoers, open ports, allowed firewall
+  services. It runs one observing command on the host and compares its output
+  against a declared set.
+
+  The comparison runs inside Kensa rather than in generated shell, so neither
+  set is ever re-interpreted by a shell and a member cannot be word-split into
+  members it was never meant to be.
+
+  Three of its verdicts are deliberate. A member that is authorized but absent
+  is **reported and does not fail**, because an account that does not exist
+  cannot grant access. An empty declared set is an **error**, because read one
+  way it makes every member unauthorized and read the other it makes every
+  member acceptable, and neither is true. A variable no tier declares leaves the
+  rule **skipped** with the name to declare, rather than guessed at.
+
+### Fixed
+- **The `--config-dir` help text described a state the code left long ago.** It
+  said only `defaults.yml` was read. Measured against a live host,
+  `hosts/<hostname>.yml` and `conf.d/*.yml` are read as well, and `groups/`
+  applies in inventory mode, where a host belongs to a group.
+
 ### Fixed
 - **Agent mode ignored `--port` and `--key`, and could reach a different host
   than the one named.** The agent session built its own SSH invocation carrying

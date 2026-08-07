@@ -148,3 +148,51 @@ func TestLoadDefaults_NoVariablesBlock(t *testing.T) {
 		t.Errorf("expected empty variables; got %v", got)
 	}
 }
+
+// A list-valued variable renders as a single-line delimited scalar, because
+// substitution is textual and the result has to stay valid YAML wherever the
+// author wrote the template.
+func TestStringifyList(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   any
+		want string
+		err  string
+	}{
+		{name: "strings", in: []any{"alice", "bob"}, want: "alice,bob"},
+		{name: "single member", in: []any{"root"}, want: "root"},
+		{name: "numbers", in: []any{22, 443}, want: "22,443"},
+		{name: "empty list", in: []any{}, err: "empty list not allowed"},
+		{name: "member with separator", in: []any{"a,b"}, err: "contains \",\""},
+		{name: "member with space", in: []any{"two words"}, err: "whitespace"},
+		{name: "empty member", in: []any{"alice", ""}, err: "empty string"},
+		{name: "nil member", in: []any{"alice", nil}, err: "is empty"},
+		{name: "nested list", in: []any{[]any{"a"}}, err: "not a scalar"},
+	} {
+		got, err := stringify(tc.in)
+		switch {
+		case tc.err != "":
+			if err == nil {
+				t.Errorf("%s: want error containing %q, got value %q", tc.name, tc.err, got)
+			} else if !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("%s: want error containing %q, got %v", tc.name, tc.err, err)
+			}
+		case err != nil:
+			t.Errorf("%s: unexpected error: %v", tc.name, err)
+		case got != tc.want:
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// Scalars must be byte-identical to what they were before lists existed.
+func TestStringifyScalarsUnchanged(t *testing.T) {
+	for in, want := range map[any]string{
+		"600": "600", "027": "027", 42: "42", true: "true",
+	} {
+		got, err := stringify(in)
+		if err != nil || got != want {
+			t.Errorf("stringify(%v) = %q, %v; want %q, nil", in, got, err, want)
+		}
+	}
+}

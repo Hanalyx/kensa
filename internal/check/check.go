@@ -127,6 +127,8 @@ func dispatch(ctx context.Context, transport api.Transport, chk api.Check) (bool
 		return checkSelinuxState(ctx, transport, chk.Params)
 	case "systemd_target":
 		return checkSystemdTarget(ctx, transport, chk.Params)
+	case "set_compare":
+		return checkSetCompare(ctx, transport, chk.Params)
 	case "command":
 		return checkCommand(ctx, transport, chk.Params)
 	default:
