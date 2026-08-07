@@ -251,7 +251,7 @@ What the verdicts mean:
 | a member is present that is not authorized | fail, naming the member |
 | a member is authorized but absent | reported, does not fail |
 | nothing observed at all | pass |
-| `authorized` is empty | **error** |
+| `authorized` is empty | rule skipped, with the reason |
 | the variable is not declared anywhere | rule skipped, with the name to declare |
 
 Two of those are deliberate and worth stating plainly.
@@ -260,10 +260,32 @@ Two of those are deliberate and worth stating plainly.
 access, so it is reported for an operator whose list has drifted, not treated as
 a finding.
 
-**An empty declared set is an error, not a pass.** Read one way it makes every
+**An empty declared set is a skip, not a pass.** Read one way it makes every
 member unauthorized, read the other it makes every member acceptable. Neither is
 true. What is true is that nobody has said what is allowed, and a compliance
-result must not be invented from that.
+result must not be invented from that. It is a skip rather than an error because
+nothing is broken: a site that has not written its policy yet is a normal state,
+not a fault, and the skip carries the name of the variable to declare.
+
+### Matching a member by more than one name
+
+Set `alias_separator` when one thing on the host answers to several names. A
+local account is the case: a site may authorize it by user name or by numeric
+UID, and both mean the same account.
+
+```yaml
+check:
+  method: set_compare
+  observed_command: "awk -F: '$3 >= 1000 && $3 < 65534 {print $1 \":\" $3}' /etc/passwd"
+  authorized: "{{ authorized_local_accounts }}"
+  alias_separator: ":"
+```
+
+Each observed line becomes one entity with several names, and it is authorized
+if **any** of them was declared. Without this, a host emitting both the name and
+the UID would report the UID as an unauthorized extra whenever the site had
+declared only the name, which is a finding about nothing. The first name on the
+line is the one reported, because it is the one an operator recognizes.
 
 ## `depends_on` and relationships
 

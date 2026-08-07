@@ -1,18 +1,22 @@
 id: no-unauthorized-accounts
 title: Ensure there are no unauthorized local accounts
 description: >
-  RHEL 10 must not have unauthorized local interactive user accounts. Because the
-  set of authorized accounts is defined by the ISSO and not derivable from the
-  system, this control requires manual verification: the check lists the local
-  interactive accounts (UID >= 1000) for comparison against the authorized list.
+  Local interactive accounts (UID 1000 and above) must match the set the site
+  authorized. The authorized set is a statement about this site's staff, so it
+  cannot be derived from the host: an operator declares it in the
+  authorized_local_accounts variable, as user names, numeric UIDs, or a mix of
+  both. Until it is declared the check reports that it cannot assess the host and
+  names what to set.
 rationale: >
-  Unauthorized accounts may be attacker-created backdoors or orphaned accounts
-  that expand the attack surface. Every interactive account must be traceable to
-  an authorized user.
+  An account nobody authorized is the account an assessor looks for. It may be an
+  attacker's way back in, or an orphan left behind by someone who has gone. The
+  host can list who exists; only the site can say who should. Comparing the two
+  is the whole control, and it is why an undeclared list produces no verdict
+  rather than a pass.
 severity: medium
 transactional: false
 category: access-control
-tags: [accounts, users, authorization, stig, manual]
+tags: [accounts, users, authorization, stig]
 
 references:
   stig:
@@ -21,6 +25,7 @@ references:
       stig_id: "RHEL-10-600450"
       severity: "CAT II"
   nist_800_53: ["AC-2"]
+  nist_800_171: ["3.1.1[d]"]
 
 platforms:
   - family: rhel
@@ -29,15 +34,18 @@ platforms:
 implementations:
   - default: true
     check:
-      method: command
-      run: |
-        echo "MANUAL REVIEW REQUIRED: compare the local interactive user accounts below (UID >= 1000) against the list of accounts authorized by the ISSO. Any account not on the authorized list is a finding."
-        awk -F: '$3 >= 1000 && $3 < 65534 {print "  " $1 " (UID " $3 ", shell " $7 ")"}' /etc/passwd 2>/dev/null
-        exit 0
-      expected_exit: 0
+      method: set_compare
+      # Emits name:uid so a site can authorize an account either way. UID 1000
+      # and above is the interactive range, and 65534 is nobody, which exists on
+      # every host and belongs to no one.
+      observed_command: "awk -F: '$3 >= 1000 && $3 < 65534 {print $1 \":\" $3}' /etc/passwd 2>/dev/null"
+      authorized: "{{ authorized_local_accounts }}"
+      alias_separator: ":"
     remediation:
       mechanism: manual
       note: >
-        Remove or disable any local interactive account that is not on the
-        ISSO-authorized list (userdel -r <user> for a removable account, or lock
-        it if retention is required).
+        Remove or disable any local interactive account that is not in
+        authorized_local_accounts (userdel -r <user> for a removable account, or
+        lock it if it must be retained). If the account is legitimate, add it to
+        the variable instead: the finding is a disagreement between the host and
+        the declared list, and either side may be the one that is wrong.

@@ -2,6 +2,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,6 +10,18 @@ import (
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/varsub"
 )
+
+// ErrNotAssessable means the check ran far enough to establish that it cannot
+// reach a verdict on this host, and that no verdict is the honest answer.
+//
+// The scan maps it to skipped rather than error. Error says something went
+// wrong; nothing has. What it reports is that the operator has not yet supplied
+// something only they can supply, which is a state a compliance run should show
+// plainly and not dress up as a result.
+//
+// It exists because a check method had no way to say this. Result carries only
+// Passed, so every path out of a check was pass, fail, or something broke.
+var ErrNotAssessable = errors.New("check: not assessable on this host")
 
 // checkSetCompare answers "only authorized X are present" by comparing a set
 // observed on the host against a set the operator declared.
@@ -37,14 +50,20 @@ func checkSetCompare(ctx context.Context, transport api.Transport, params api.Pa
 
 	authorized := splitSet(rawAuthorized, varsub.ListSeparator)
 	if len(authorized) == 0 {
-		// Deliberately an error, not a pass and not a skip. An empty declared
-		// set would make every member unauthorized (a false fail) or every
-		// member acceptable (a false pass) depending on which way it is read.
-		// Neither is true; the truth is that nobody has said what is allowed.
+		// Not a pass and not a fail. An empty declared set read one way makes
+		// every member unauthorized, and read the other makes every member
+		// acceptable; neither is true. What is true is that nobody has said
+		// what is allowed, so there is no verdict to give.
+		//
+		// This is a SKIP rather than an error, because nothing is broken. An
+		// empty set is how an operator who has not yet written their policy
+		// looks, and that is a normal state on a fleet that has just installed
+		// Kensa, not a malfunction. The reason travels with it so the run says
+		// what to declare.
 		return false, "", fmt.Errorf(
-			"check: \"authorized\" is empty, so there is nothing to compare against. " +
-				"Declare the permitted members as a list variable, for example in " +
-				"<config-dir>/defaults.yml, or pass --var NAME=a,b")
+			"%w: no authorized members are declared, so there is nothing to compare against. "+
+				"Declare them as a list variable, for example in <config-dir>/defaults.yml, "+
+				"or pass --var NAME=a,b", ErrNotAssessable)
 	}
 
 	res, err := transport.Run(ctx, observedCmd)
@@ -56,10 +75,42 @@ func checkSetCompare(ctx context.Context, transport api.Transport, params api.Pa
 			"check set_compare: the observing command exited %d, so what is on the host is unknown: %s",
 			res.ExitCode, strings.TrimSpace(res.Stderr))
 	}
-	observed := splitSet(res.Stdout, "\n")
+	// An observed line may carry more than one name for the SAME thing, joined
+	// by alias_separator. A local account is the case: a site may authorize it
+	// by user name or by numeric UID, and both refer to one account. Splitting
+	// those into two members would report the UID as an unauthorized extra on a
+	// host where only the name was declared, which is a finding about nothing.
+	aliasSep := optionalStringParam(params, "alias_separator", "")
+	entities := parseEntities(res.Stdout, aliasSep)
 
-	unauthorized := difference(observed, authorized)
-	missing := difference(authorized, observed)
+	authSet := make(map[string]struct{}, len(authorized))
+	for _, a := range authorized {
+		authSet[a] = struct{}{}
+	}
+	var unauthorized []string
+	matched := make(map[string]struct{})
+	for _, e := range entities {
+		ok := false
+		for _, id := range e.ids {
+			if _, found := authSet[id]; found {
+				ok = true
+				matched[id] = struct{}{}
+			}
+		}
+		if !ok {
+			unauthorized = append(unauthorized, e.primary)
+		}
+	}
+	var missing []string
+	for _, a := range authorized {
+		if _, ok := matched[a]; !ok {
+			missing = append(missing, a)
+		}
+	}
+	observed := make([]string, 0, len(entities))
+	for _, e := range entities {
+		observed = append(observed, e.primary)
+	}
 
 	// Only the unauthorized half decides the verdict. A declared member that is
 	// absent is reported because an operator wants to know their list has drifted,
@@ -95,17 +146,43 @@ func splitSet(raw, sep string) []string {
 	return out
 }
 
-// difference returns the members of a that are not in b.
-func difference(a, b []string) []string {
-	inB := make(map[string]struct{}, len(b))
-	for _, s := range b {
-		inB[s] = struct{}{}
-	}
-	var out []string
-	for _, s := range a {
-		if _, ok := inB[s]; !ok {
-			out = append(out, s)
+// entity is one thing on the host, which may answer to several names. The first
+// is what gets reported, because it is the one an operator recognizes.
+type entity struct {
+	primary string
+	ids     []string
+}
+
+// parseEntities turns the observing command's output into one entity per
+// non-empty line. With no separator each line is a single name, which is the
+// original behavior and what most checks want.
+func parseEntities(raw, sep string) []entity {
+	var out []entity
+	seen := make(map[string]struct{})
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
 		}
+		if _, dup := seen[line]; dup {
+			continue
+		}
+		seen[line] = struct{}{}
+		if sep == "" {
+			out = append(out, entity{primary: line, ids: []string{line}})
+			continue
+		}
+		var ids []string
+		for _, part := range strings.Split(line, sep) {
+			if part = strings.TrimSpace(part); part != "" {
+				ids = append(ids, part)
+			}
+		}
+		if len(ids) == 0 {
+			continue
+		}
+		out = append(out, entity{primary: ids[0], ids: ids})
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].primary < out[j].primary })
 	return out
 }

@@ -167,19 +167,36 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
 		passed, detail := checkRes.Passed, checkRes.Detail
 		if checkErr != nil {
+			// A check that reports itself not assessable has not failed and has
+			// not broken; it has established that no verdict is the honest
+			// answer, normally because only the operator can supply what is
+			// missing. That is a skip with a reason, not an error, and calling
+			// it an error would put a permanent red row on every host in a
+			// fleet that has simply not been configured yet.
+			notAssessable := errors.Is(checkErr, check.ErrNotAssessable)
+			status := api.ComplianceError
+			if notAssessable {
+				status = api.ComplianceSkipped
+			}
 			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr, true))
-			result.Outcomes = append(result.Outcomes, api.RuleOutcome{
+			outcome := api.RuleOutcome{
 				RuleID:        rl.ID,
-				Status:        api.ComplianceError,
+				Status:        status,
 				Severity:      rl.Severity,
 				Detail:        checkErr.Error(),
-				Err:           checkErr,
 				FrameworkRefs: frameworkRefs,
 				Evidence:      checkRes.Evidence,
-			})
+			}
+			// Err is left nil on a skip. A consumer treats a non-nil Err as
+			// something that went wrong, and nothing did.
+			if !notAssessable {
+				outcome.Err = checkErr
+			}
+			result.Outcomes = append(result.Outcomes, outcome)
 			r.emit(progress.Update{
 				Kind: progress.RuleChecked, RuleID: rl.ID,
-				Index: i + 1, Total: total, OK: false, Errored: true, Detail: checkErr.Error(),
+				Index: i + 1, Total: total, OK: false, Skipped: notAssessable, Errored: !notAssessable,
+				Detail: checkErr.Error(),
 			})
 			continue
 		}

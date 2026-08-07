@@ -162,7 +162,7 @@ func TestStringifyList(t *testing.T) {
 		{name: "strings", in: []any{"alice", "bob"}, want: "alice,bob"},
 		{name: "single member", in: []any{"root"}, want: "root"},
 		{name: "numbers", in: []any{22, 443}, want: "22,443"},
-		{name: "empty list", in: []any{}, err: "empty list not allowed"},
+		{name: "empty list is legal and renders empty; it declares a type without a value", in: []any{}, want: ""},
 		{name: "member with separator", in: []any{"a,b"}, err: "contains \",\""},
 		{name: "member with space", in: []any{"two words"}, err: "whitespace"},
 		{name: "empty member", in: []any{"alice", ""}, err: "empty string"},

@@ -16,6 +16,38 @@ any pair).
 
 ## Unreleased
 
+### Changed
+- **A check can now report that it cannot reach a verdict, and the scan records
+  that as skipped.** Previously every path out of a check was pass, fail, or
+  something broke, because the result carried only a boolean. A check that
+  establishes it has nothing to judge had to pick one of those, and all three
+  were wrong.
+
+- **An empty declared set is now a skip rather than an error.** It still cannot
+  become a pass. The change is that a site which has not written its policy yet
+  is a normal state, not a fault, so it no longer puts a red row on every host in
+  a fleet that has simply not been configured. The skip carries the name of the
+  variable to declare.
+
+- **`no-unauthorized-accounts` reaches a real verdict.** It used to list local
+  accounts, print `MANUAL REVIEW REQUIRED` and exit 0, so it reported **pass on
+  every host** for something nobody had verified. It now compares the accounts
+  against `authorized_local_accounts` and fails naming any account not in it.
+
+  Members may be user names, numeric UIDs, or a mix, because a site may
+  authorize an account either way and both name the same account.
+
+  **On a fleet that has not declared the set, this rule moves from pass to
+  skipped.** That is a verdict change on shipped STIG and 800-53 surface, in the
+  honest direction: it stops counting as covered something that was never
+  checked.
+
+### Added
+- **`alias_separator` on `set_compare`**, for when one thing on the host answers
+  to several names. Each observed line becomes one entity, authorized if any of
+  its names was declared. Without it, a host emitting both a name and a UID would
+  report the UID as an unauthorized extra whenever only the name was declared.
+
 ### Added
 - **Variable values are checked against a declared type before a host is
   contacted.** The type comes from the built-in defaults, so the file that

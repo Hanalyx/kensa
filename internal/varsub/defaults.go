@@ -100,7 +100,21 @@ const ListSeparator = ","
 // consumer.
 func stringifyList(items []any) (string, error) {
 	if len(items) == 0 {
-		return "", fmt.Errorf("empty list not allowed; remove the entry, or declare the members this host is allowed to have")
+		// An empty list is legal and renders as the empty string.
+		//
+		// An earlier version of this rejected it, on the reasoning that an
+		// empty set must never quietly become a pass. That reasoning was right
+		// and the place for it was wrong: refusing here also refuses the only
+		// honest way to ship a variable whose value only the operator can know.
+		// `authorized_local_accounts: []` is exactly that, and it is how the
+		// built-in defaults declare "this is a list, and nobody has said what
+		// belongs in it yet".
+		//
+		// The guarantee moved to the consumer, where it belongs. set_compare
+		// reports itself not assessable on an empty set, so an empty set still
+		// cannot become a pass, and now it also cannot become a load failure on
+		// a fleet that has simply not been configured.
+		return "", nil
 	}
 	out := make([]string, 0, len(items))
 	for i, it := range items {
