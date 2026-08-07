@@ -33,15 +33,31 @@ implementations:
     check:
       method: command
       run: |
-        # dnf check-update exits 100 when updates are available, 0 when none.
-        if dnf -q check-update >/dev/null 2>&1; then
-          echo "OK: no pending updates"
-          exit 0
-        fi
+        # Capture the exit code DIRECTLY. The previous version wrapped this in
+        # `if dnf check-update; then ... fi` and then read $? afterwards, which
+        # is always 0: a shell `if` whose condition fails and which has no else
+        # returns success. So rc was never 100, the pending-updates branch was
+        # unreachable, and a host with 384 pending packages reported OK.
+        dnf -q check-update >/dev/null 2>&1
         rc=$?
-        if [ "$rc" -eq 100 ]; then echo "FAIL: package updates are pending"; exit 1; fi
-        echo "OK: update check completed (rc=$rc)"
-        exit 0
+        case "$rc" in
+          0)
+            echo "OK: no pending package updates"
+            exit 0
+            ;;
+          100)
+            n=$(dnf -q check-update 2>/dev/null | grep -cE '^[a-zA-Z0-9]')
+            echo "FAIL: ${n:-some} package update(s) pending; system flaws are not corrected"
+            exit 1
+            ;;
+          *)
+            # dnf could not answer: no network, a broken repo, no metadata. That
+            # is not evidence the host is patched, and reporting OK here is how
+            # the old version hid a real finding. Fail loudly with the code.
+            echo "FAIL: dnf check-update could not complete (exit $rc), so pending updates are unknown"
+            exit 1
+            ;;
+        esac
       expected_exit: 0
     remediation:
       mechanism: manual

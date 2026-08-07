@@ -55,6 +55,25 @@ type fpDoc struct {
 	} `yaml:"implementations"`
 }
 
+// fpChecks flattens a check that may be a single method or a `checks:` list, so
+// a detector sees every sub-check rather than only the outer wrapper.
+func fpChecks(check map[string]interface{}) []map[string]interface{} {
+	if check == nil {
+		return nil
+	}
+	subs, ok := check["checks"].([]interface{})
+	if !ok {
+		return []map[string]interface{}{check}
+	}
+	var out []map[string]interface{}
+	for _, s := range subs {
+		if m, ok := s.(map[string]interface{}); ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 func walkRules(t *testing.T, fn func(fpDoc)) {
 	t.Helper()
 	root := filepath.Join("..", "..", "rules")
@@ -219,4 +238,39 @@ func fpKeys(m map[string]bool) []string {
 		out = out[:3]
 	}
 	return out
+}
+
+// A shell `if CMD; then ...; fi` followed by reading $? is a check whose failure
+// branch cannot run.
+//
+// After an `if` whose condition FAILS and which has no else, the compound
+// statement itself returns 0. So $? on the next line is 0, never the condition's
+// exit code. security-updates-installed was written this way: it read $?
+// expecting dnf's 100 (updates pending), got 0, and fell through to its OK path.
+// A fleet host with 384 pending packages reported PASS.
+//
+// TestNoNewAlwaysPassingChecks cannot see this. That test looks for a check
+// where EVERY exit is 0, and this one contains a real `exit 1`. The exit is
+// simply unreachable, which is a different defect and needs its own detector.
+func TestNoUnreachableFailureBranchAfterFi(t *testing.T) {
+	// `fi` on its own line, then an assignment from $? before anything else runs.
+	idiom := regexp.MustCompile(`(?s)if\s+[^\n]+;\s*then.*?\bfi\b\s*\n\s*[A-Za-z_]\w*=\$\?`)
+	var bad []string
+	walkRules(t, func(d fpDoc) {
+		for _, impl := range d.Implementations {
+			for _, c := range fpChecks(impl.Check) {
+				run, _ := c["run"].(string)
+				if run != "" && idiom.MatchString(run) {
+					bad = append(bad, d.ID)
+				}
+			}
+		}
+	})
+	if len(bad) > 0 {
+		t.Errorf("%d rule(s) read $? immediately after a `fi`, so the branch that "+
+			"reads it can never see the condition's exit code and any failure path "+
+			"below it is unreachable: %v\n"+
+			"Capture the exit code directly instead:\n"+
+			"  cmd >/dev/null 2>&1\n  rc=$?\n  case \"$rc\" in ... esac", len(bad), bad)
+	}
 }

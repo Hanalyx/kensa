@@ -16,6 +16,28 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **`security-updates-installed` reported compliant on a host with 384 pending
+  updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`
+  on the next line, expecting dnf's exit 100. After an `if` whose condition fails
+  and which has no `else`, the compound statement itself returns 0, so `$?` was
+  always 0, the pending-updates branch was unreachable, and the check fell
+  through to its OK path.
+
+  Measured on a live fleet host: `dnf check-update` exited 100 with 384 packages
+  pending, and the rule reported PASS. It now reports FAIL and names the count.
+
+  A dnf failure is also a failure now. The old version printed OK when the check
+  could not run at all, which meant no network or a broken repository read as
+  patched.
+
+### Added
+- **A corpus test for unreachable failure branches.** The existing always-passing
+  test could not see this one: it looks for a check where every exit is 0, and
+  this rule contained a real `exit 1` that simply could not be reached. Reading
+  `$?` immediately after a `fi` is now a build failure, with the fix in the
+  message.
+
 ### Added
 - **A rule that compares who holds privileged access against the set a site
   declared.** `authorized-privileged-users` reports any account able to act as
