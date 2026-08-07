@@ -68,7 +68,7 @@ var CheckContracts = map[string]CheckContract{
 	"grub_parameter":        {Required: []string{"key", "expected"}},
 	"selinux_state":         {Required: []string{"state"}},
 	"systemd_target":        {OneOf: [][]string{{"expected", "not_expected"}}},
-	"command":               {OneOf: [][]string{{"cmd", "run"}}, Optional: []string{"expected_output", "expected_stdout", "expected_exit"}},
+	"command":               {OneOf: [][]string{{"cmd", "run"}}, Optional: []string{"expected_output", "expected_stdout", "expected_exit", "not_assessable_exit"}},
 	"set_compare":           {Required: []string{"observed_command", "authorized"}, Optional: []string{"alias_separator"}},
 }
 

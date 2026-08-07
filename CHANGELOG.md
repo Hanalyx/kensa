@@ -41,6 +41,14 @@ any pair).
   than on the measurement. Until it is declared the rule is skipped and names the
   variable to set.
 
+- **`not_assessable_exit` on a command check**, so any rule can report that it
+  cannot reach a verdict. The rule nominates one exit code, and the engine
+  records that run as skipped with whatever the check printed as the reason.
+
+  Before this only one built-in check method could say it, so a rule needing an
+  operator-declared value had to pick between pass, fail and error, all of which
+  are wrong. It is opt-in: without the param every exit code keeps its meaning.
+
 ### Fixed
 - **`security-updates-installed` reported compliant on a host with 384 pending
   updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`

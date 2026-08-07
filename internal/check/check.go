@@ -733,9 +733,30 @@ func checkCommand(ctx context.Context, transport api.Transport, params api.Param
 		}
 	}
 
+	// A rule may nominate one exit code meaning "I cannot reach a verdict",
+	// normally because the operator has not supplied something only they can.
+	// Opt-in: without the param, every exit code keeps its current meaning.
+	//
+	// This exists so a command check can say what set_compare already could.
+	// Before it, the only ways out of a command check were pass, fail and
+	// broken, so a rule needing an operator-declared value had to pick one of
+	// three wrong answers. A policy threshold Kensa has no basis to choose is
+	// the case: shipping a default would decide it for the site, and failing
+	// would call an unconfigured host non-compliant.
+	notAssessableExit, hasNA := intParam(params, "not_assessable_exit")
+
 	res, err := transport.Run(ctx, rawCmd)
 	if err != nil {
 		return false, "", fmt.Errorf("check command: transport error: %w", err)
+	}
+	// Checked before the pass/fail comparison, because "I cannot tell" is not a
+	// verdict this code should then go on to interpret.
+	if hasNA && res.ExitCode == notAssessableExit {
+		detail := strings.TrimSpace(res.Stdout)
+		if detail == "" {
+			detail = "the check reported it cannot assess this host"
+		}
+		return false, "", fmt.Errorf("%w: %s", ErrNotAssessable, detail)
 	}
 	if res.ExitCode != expectedExit {
 		return false, fmt.Sprintf("command: %q exited with code %d (expected %d)", rawCmd, res.ExitCode, expectedExit), nil
@@ -1405,4 +1426,23 @@ func stringSliceParam(params api.Params, key string) ([]string, error) {
 // command string, escaping any embedded single quotes.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// intParam reads an optional integer param and reports whether it was present.
+// YAML numbers decode as int or float64 depending on the decoder, so both are
+// accepted rather than assuming one.
+func intParam(params api.Params, key string) (int, bool) {
+	v, ok := params[key]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	}
+	return 0, false
 }

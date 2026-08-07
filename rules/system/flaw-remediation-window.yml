@@ -40,8 +40,16 @@ implementations:
   - default: true
     check:
       method: command
+      # Exit 3 means the host could not be assessed, which the engine records as
+      # skipped rather than as a pass or a failure.
+      not_assessable_exit: 3
       run: |
-        max={{ flaw_remediation_max_days }}
+        max="{{ flaw_remediation_max_days }}"
+        if [ -z "$max" ]; then
+          echo "no patch deadline is declared, so the age of an uncorrected flaw cannot be judged."
+          echo "Set flaw_remediation_max_days to the window this site commits to."
+          exit 3
+        fi
         # `updateinfo info --security` prints one "Updated:" line per advisory.
         # The oldest is the longest a known flaw has gone uncorrected here.
         oldest=$(dnf -q updateinfo info --security 2>/dev/null |
@@ -56,9 +64,9 @@ implementations:
             echo "OK: no pending security advisories"
             exit 0
           fi
-          echo "FAIL: could not read security advisory metadata, so the age of any"
-          echo "      uncorrected flaw is unknown. Check repository access on this host."
-          exit 1
+          echo "could not read security advisory metadata, so the age of any uncorrected"
+          echo "flaw is unknown. Check repository access on this host."
+          exit 3
         fi
         oldest_s=$(date -d "$oldest" +%s 2>/dev/null)
         if [ -z "$oldest_s" ]; then
